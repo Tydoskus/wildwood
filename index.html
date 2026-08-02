@@ -284,6 +284,7 @@
   #chatMessages {
     display: grid;
     gap: 4px;
+    height: 64px;
     max-height: 64px;
     margin: 5px 0;
     overflow-y: auto;
@@ -291,7 +292,10 @@
     line-height: 1.3;
   }
 
-  #chatPanel.is-large #chatMessages { max-height: 150px; }
+  #chatPanel.is-large #chatMessages {
+    height: 150px;
+    max-height: 150px;
+  }
   .chat-line { overflow-wrap: anywhere; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
   .chat-name { color: var(--gold); font-weight: 900; }
@@ -557,7 +561,7 @@
     </div>
     <div id="topMeta">
       <div id="coopStatus">PLAYERS: 1</div>
-      <div id="version">v0.110</div>
+      <div id="version">v0.111</div>
     </div>
   </div>
   <div id="message"></div>
@@ -602,12 +606,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.110"></script>
+<script src="assets/wildwood/coop-client.js?v=0.111"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.110";
+  const GAME_VERSION = "0.111";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1921,6 +1925,7 @@
   function drawPlayer() {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
+    let visualX = x;
     const blink = player.hurtClock > 0 && Math.floor(player.hurtClock * 18) % 2 === 0;
     if (blink) return;
 
@@ -1935,6 +1940,7 @@
       const frame = player.moving ? Math.floor(gameTime * 10) % 4 : 0;
       const drawSize = 96;
       const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+      visualX += offsetX;
 
       ctx.drawImage(
         playerSprite,
@@ -1945,7 +1951,7 @@
 
     const barW = 46;
     const barH = 7;
-    const barX = Math.round(x - barW / 2);
+    const barX = Math.round(visualX - barW / 2);
     const barY = y - 50;
     const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
 
@@ -1957,7 +1963,7 @@
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
     ctx.fillStyle = "rgba(255,255,255,.24)";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 4, "#ffffff");
+    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", visualX, barY - 4, "#ffffff");
   }
 
   function drawPlayerName(name, x, y, color) {
@@ -1980,6 +1986,7 @@
     for (const other of remotePlayers) {
       const x = Math.floor(other.x - camera.x);
       const y = Math.floor(other.y - camera.y);
+      let visualX = x;
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
       if (x < -65 || y < -70 || x > visibleW + 65 || y > visibleH + 70) continue;
@@ -1995,6 +2002,7 @@
         const frame = other.moving ? Math.floor(gameTime * 10) % 4 : 0;
         const drawSize = 96;
         const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+        visualX += offsetX;
 
         ctx.save();
         ctx.globalAlpha = .82;
@@ -2014,14 +2022,14 @@
 
       const barW = 46;
       const barH = 5;
-      const barX = Math.round(x - barW / 2);
+      const barX = Math.round(visualX - barW / 2);
       const barY = y - 50;
       const hpRatio = clamp(other.hp / other.maxHp, 0, 1);
       ctx.fillStyle = "rgba(0,0,0,.82)";
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
       ctx.fillStyle = "#3d7d92";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-      drawPlayerName(other.name, x, barY - 4, "#9eeeff");
+      drawPlayerName(other.name, visualX, barY - 4, "#9eeeff");
     }
   }
 
@@ -2489,8 +2497,8 @@
     updateChatSetting();
   });
 
-  chatPanel.addEventListener("click", (event) => {
-    if (event.target.closest("textarea, input, button, label")) return;
+  chatPanel.addEventListener("pointerup", (event) => {
+    if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label")) return;
     chatLarge = !chatLarge;
     updateChatLayout();
   });
