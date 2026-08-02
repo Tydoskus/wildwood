@@ -248,13 +248,13 @@
     border-bottom: 0;
     border-left: 0;
     border-radius: 0 10px 0 0;
+    cursor: pointer;
     pointer-events: auto;
     z-index: 6;
   }
 
   #chatPanel[hidden] { display: none; }
   .chat-header,
-  .chat-actions,
   #chatForm,
   .name-edit {
     display: flex;
@@ -270,9 +270,6 @@
     letter-spacing: .08em;
   }
 
-  .chat-actions { gap: 4px; }
-
-  .chat-control,
   #saveNameBtn,
   #chatForm button {
     min-width: 0;
@@ -295,8 +292,6 @@
   }
 
   #chatPanel.is-large #chatMessages { max-height: 150px; }
-  #chatPanel.is-minimized #chatMessages,
-  #chatPanel.is-minimized #chatForm { display: none; }
   .chat-line { overflow-wrap: anywhere; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
   .chat-name { color: var(--gold); font-weight: 900; }
@@ -322,7 +317,10 @@
     resize: none;
     line-height: 1.25;
     padding: 4px 6px;
+    cursor: text;
   }
+
+  #chatForm button { cursor: pointer; }
   .name-row { display: grid; gap: 5px; margin-top: 9px; font-size: 11px; }
   .name-edit { gap: 5px; }
   #displayNameInput { flex: 1; width: 0; }
@@ -559,7 +557,7 @@
     </div>
     <div id="topMeta">
       <div id="coopStatus">PLAYERS: 1</div>
-    <div id="version">v0.109</div>
+      <div id="version">v0.110</div>
     </div>
   </div>
   <div id="message"></div>
@@ -567,10 +565,6 @@
   <div id="chatPanel" class="card">
     <div class="chat-header">
       <span>CHAT</span>
-      <div class="chat-actions">
-        <button id="chatSizeBtn" class="chat-control" type="button" aria-label="Enlarge chat vertically">↕</button>
-        <button id="chatMinimizeBtn" class="chat-control" type="button" aria-label="Minimize chat">—</button>
-      </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
     <form id="chatForm">
@@ -581,7 +575,6 @@
 </div>
 
 <div id="joystick"><div id="stick"></div></div>
-<div id="version">v0.106</div>
 
 <div id="bootUpgrade" hidden>
   <div class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="bootUpgradeTitle">
@@ -609,12 +602,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.109"></script>
+<script src="assets/wildwood/coop-client.js?v=0.110"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.109";
+  const GAME_VERSION = "0.110";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -632,8 +625,6 @@
   const fullscreenToggle = document.getElementById("fullscreenToggle");
   const connectionStatusEl = document.getElementById("connectionStatus");
   const chatPanel = document.getElementById("chatPanel");
-  const chatSizeBtn = document.getElementById("chatSizeBtn");
-  const chatMinimizeBtn = document.getElementById("chatMinimizeBtn");
   const chatMessagesEl = document.getElementById("chatMessages");
   const chatForm = document.getElementById("chatForm");
   const chatInput = document.getElementById("chatInput");
@@ -681,7 +672,7 @@
   const projectiles = [];
   const SAVE_KEY = "wildwood-player-progress-v1";
   const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
-  const CHAT_DISPLAY_TTL_MS = 30_000;
+  const CHAT_DISPLAY_TTL_MS = 10_800_000;
   const CHAT_NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
   const enemyShots = [];
   const enemies = [];
@@ -706,7 +697,6 @@
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
   let chatEnabled = true;
-  let chatMinimized = false;
   let chatLarge = false;
 
   try { chatEnabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false"; } catch {}
@@ -2419,12 +2409,7 @@
   }
 
   function updateChatLayout() {
-    chatPanel.classList.toggle("is-minimized", chatMinimized);
     chatPanel.classList.toggle("is-large", chatLarge);
-    chatMinimizeBtn.textContent = chatMinimized ? "+" : "—";
-    chatMinimizeBtn.setAttribute("aria-label", chatMinimized ? "Restore chat" : "Minimize chat");
-    chatSizeBtn.textContent = "↕";
-    chatSizeBtn.setAttribute("aria-label", chatLarge ? "Reduce chat height" : "Enlarge chat height");
   }
 
   function updateConnectionStatus() {
@@ -2504,12 +2489,8 @@
     updateChatSetting();
   });
 
-  chatMinimizeBtn.addEventListener("click", () => {
-    chatMinimized = !chatMinimized;
-    updateChatLayout();
-  });
-
-  chatSizeBtn.addEventListener("click", () => {
+  chatPanel.addEventListener("click", (event) => {
+    if (event.target.closest("textarea, input, button, label")) return;
     chatLarge = !chatLarge;
     updateChatLayout();
   });

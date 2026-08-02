@@ -8,7 +8,7 @@ const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 400_000n;
-const CHAT_HISTORY_RETENTION_MICROS = 300_000_000n;
+const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
 
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
