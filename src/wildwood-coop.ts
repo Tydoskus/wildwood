@@ -73,6 +73,7 @@ let heartbeatTimer: number | null = null;
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let lastSpeedSent: number | null = null;
+let positionSyncPendingSequence: number | null = null;
 let onChange: (() => void) | null = null;
 
 function upsertPlayer(row: {
@@ -95,6 +96,12 @@ function upsertPlayer(row: {
       moving: row.moving,
       lastInputSequence: row.lastInputSequence,
     };
+    if (
+      positionSyncPendingSequence !== null &&
+      row.lastInputSequence >= positionSyncPendingSequence
+    ) {
+      positionSyncPendingSequence = null;
+    }
     onChange?.();
     return;
   }
@@ -175,6 +182,7 @@ function connect() {
       pendingInputs.length = 0;
       localDisplayName = "";
       lastSpeedSent = null;
+      positionSyncPendingSequence = null;
       localStorage.setItem(tokenKey, token);
 
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -215,6 +223,7 @@ function connect() {
       localState = null;
       localDisplayName = "";
       lastSpeedSent = null;
+      positionSyncPendingSequence = null;
       players.clear();
       profiles.clear();
       chatMessages.length = 0;
@@ -232,6 +241,7 @@ function connect() {
       localState = null;
       localDisplayName = "";
       lastSpeedSent = null;
+      positionSyncPendingSequence = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange?.();
     })
@@ -279,7 +289,9 @@ export const wildwoodCoop = {
     lastInputX = 0;
     lastInputY = 0;
     lastMovementSentAt = 0;
-    connection.reducers.syncPosition({ x, y, facing });
+    const sequence = ++nextInputSequence;
+    positionSyncPendingSequence = sequence;
+    connection.reducers.syncPosition({ x, y, facing, sequence });
   },
   sendMovement(inputX: number, inputY: number) {
     if (!connection) return;
@@ -298,7 +310,7 @@ export const wildwoodCoop = {
     connection.reducers.moveV2({ inputX, inputY, sequence });
   },
   reconcileLocal(x: number, y: number, dt = 1 / 60) {
-    if (!connection || !localState) return { x, y };
+    if (!connection || !localState || positionSyncPendingSequence !== null) return { x, y };
 
     const firstPendingInput = pendingInputs[0];
     if (

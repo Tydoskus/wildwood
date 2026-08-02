@@ -276,8 +276,8 @@ export const moveV2 = spacetimedb.reducer(
 );
 
 export const syncPosition = spacetimedb.reducer(
-  { x: t.f64(), y: t.f64(), facing: t.f64() },
-  (ctx, { x, y, facing }) => {
+  { x: t.f64(), y: t.f64(), facing: t.f64(), sequence: t.u32() },
+  (ctx, { x, y, facing, sequence }) => {
     clearStalePlayers(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
     if (!current) return;
@@ -293,7 +293,7 @@ export const syncPosition = spacetimedb.reducer(
       facing,
       moving: false,
       lastInputAt: ctx.timestamp,
-      lastInputSequence: 0,
+      lastInputSequence: sequence,
     });
   },
 );

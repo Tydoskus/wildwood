@@ -8214,7 +8214,8 @@ ${ty.variants.map(
   const SyncPositionReducer = {
     x: t.f64(),
     y: t.f64(),
-    facing: t.f64()
+    facing: t.f64(),
+    sequence: t.u32()
   };
   const ChatMessageRow = t.row({
     id: t.u64().primaryKey(),
@@ -8335,6 +8336,7 @@ ${ty.variants.map(
   let localState = null;
   let localDisplayName = "";
   let lastSpeedSent = null;
+  let positionSyncPendingSequence = null;
   let onChange = null;
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
@@ -8346,6 +8348,9 @@ ${ty.variants.map(
         moving: row.moving,
         lastInputSequence: row.lastInputSequence
       };
+      if (positionSyncPendingSequence !== null && row.lastInputSequence >= positionSyncPendingSequence) {
+        positionSyncPendingSequence = null;
+      }
       onChange == null ? void 0 : onChange();
       return;
     }
@@ -8411,6 +8416,7 @@ ${ty.variants.map(
       pendingInputs.length = 0;
       localDisplayName = "";
       lastSpeedSent = null;
+      positionSyncPendingSequence = null;
       localStorage.setItem(tokenKey, token);
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = window.setInterval(() => {
@@ -8443,6 +8449,7 @@ ${ty.variants.map(
       localState = null;
       localDisplayName = "";
       lastSpeedSent = null;
+      positionSyncPendingSequence = null;
       players.clear();
       profiles.clear();
       chatMessages.length = 0;
@@ -8459,6 +8466,7 @@ ${ty.variants.map(
       localState = null;
       localDisplayName = "";
       lastSpeedSent = null;
+      positionSyncPendingSequence = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
     }).build();
@@ -8504,7 +8512,9 @@ ${ty.variants.map(
       lastInputX = 0;
       lastInputY = 0;
       lastMovementSentAt = 0;
-      connection.reducers.syncPosition({ x, y, facing });
+      const sequence = ++nextInputSequence;
+      positionSyncPendingSequence = sequence;
+      connection.reducers.syncPosition({ x, y, facing, sequence });
     },
     sendMovement(inputX, inputY) {
       if (!connection) return;
@@ -8521,7 +8531,7 @@ ${ty.variants.map(
       connection.reducers.moveV2({ inputX, inputY, sequence });
     },
     reconcileLocal(x, y, dt = 1 / 60) {
-      if (!connection || !localState) return { x, y };
+      if (!connection || !localState || positionSyncPendingSequence !== null) return { x, y };
       const firstPendingInput = pendingInputs[0];
       if (!localState.moving && firstPendingInput && Math.hypot(firstPendingInput.inputX, firstPendingInput.inputY) >= 0.01) {
         return { x, y };
