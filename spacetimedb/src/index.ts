@@ -3,6 +3,7 @@ import { schema, table, t } from "spacetimedb/server";
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
+const BOOTS_SPEED_MULTIPLIER = 1.5;
 const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
 
@@ -123,6 +124,24 @@ export const heartbeat = spacetimedb.reducer(
 
     ctx.db.player.identity.update({
       ...current,
+      lastInputAt: ctx.timestamp,
+    });
+  },
+);
+
+export const setSpeed = spacetimedb.reducer(
+  { speed: t.f32() },
+  (ctx, { speed }) => {
+    const current = ctx.db.player.identity.find(ctx.sender);
+    if (!current) return;
+
+    const validSpeed = [PLAYER_SPEED, PLAYER_SPEED * BOOTS_SPEED_MULTIPLIER]
+      .some((allowed) => Math.abs(speed - allowed) < 0.01);
+    if (!validSpeed) throw new Error("Unsupported player speed");
+
+    ctx.db.player.identity.update({
+      ...current,
+      speed,
       lastInputAt: ctx.timestamp,
     });
   },

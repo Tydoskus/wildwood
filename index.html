@@ -1322,6 +1322,8 @@
   }
 
   function updatePlayer(dt) {
+    if (coop && coop.isConnected()) coop.syncSpeed(player.speed);
+
     let mx = 0, my = 0;
     if (keys.has("KeyW") || keys.has("ArrowUp")) my -= 1;
     if (keys.has("KeyS") || keys.has("ArrowDown")) my += 1;
@@ -1347,6 +1349,13 @@
 
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
+
+    const authoritative = coop && coop.isConnected() ? coop.localState() : null;
+    if (authoritative) {
+      const correction = 1 - Math.pow(.0001, Math.min(.1, Math.max(0, dt)));
+      player.x += (authoritative.x - player.x) * correction;
+      player.y += (authoritative.y - player.y) * correction;
+    }
 
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) {

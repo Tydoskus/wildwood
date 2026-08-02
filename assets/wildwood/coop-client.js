@@ -8197,6 +8197,9 @@ ${ty.variants.map(
     inputX: t.f32(),
     inputY: t.f32()
   };
+  const SetSpeedReducer = {
+    speed: t.f32()
+  };
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),
     x: t.f64(),
@@ -8223,7 +8226,8 @@ ${ty.variants.map(
   });
   const reducersSchema = reducers(
     reducerSchema("heartbeat", HeartbeatReducer),
-    reducerSchema("move", MoveReducer)
+    reducerSchema("move", MoveReducer),
+    reducerSchema("set_speed", SetSpeedReducer)
   );
   const proceduresSchema = procedures();
   const REMOTE_MODULE = {
@@ -8266,9 +8270,16 @@ ${ty.variants.map(
   let lastInputX = 0;
   let lastInputY = 0;
   let heartbeatTimer = null;
+  let localState = null;
+  let lastSpeedSent = null;
   let onChange = null;
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
+    if (id === localIdentity) {
+      localState = { x: row.x, y: row.y, speed: row.speed };
+      onChange == null ? void 0 : onChange();
+      return;
+    }
     const existing = players.get(id);
     if (existing) {
       existing.targetX = row.x;
@@ -8301,6 +8312,7 @@ ${ty.variants.map(
     connection = DbConnection.builder().withUri(host).withDatabaseName(databaseName).withToken(localStorage.getItem(tokenKey) || void 0).onConnect((conn, identity, token) => {
       connection = conn;
       localIdentity = identity.toHexString();
+      lastSpeedSent = null;
       localStorage.setItem(tokenKey, token);
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = window.setInterval(() => {
@@ -8321,6 +8333,8 @@ ${ty.variants.map(
       heartbeatTimer = null;
       connection = null;
       localIdentity = "";
+      localState = null;
+      lastSpeedSent = null;
       players.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
@@ -8328,6 +8342,8 @@ ${ty.variants.map(
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
+      localState = null;
+      lastSpeedSent = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
     }).build();
@@ -8345,12 +8361,21 @@ ${ty.variants.map(
     localIdentity() {
       return localIdentity;
     },
+    localState() {
+      return localState;
+    },
+    syncSpeed(speed) {
+      if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
+      lastSpeedSent = speed;
+      connection.reducers.setSpeed({ speed });
+    },
     sendMovement(inputX, inputY) {
       if (!connection) return;
       const now = performance.now();
       const changed = Math.abs(inputX - lastInputX) > 0.01 || Math.abs(inputY - lastInputY) > 0.01;
-      if (!changed && now - lastMovementSentAt < 50) return;
-      if (now - lastMovementSentAt < 45) return;
+      const hasInput = Math.abs(inputX) + Math.abs(inputY) > 0.01;
+      if (!changed && !hasInput) return;
+      if (!changed && now - lastMovementSentAt < 100) return;
       lastMovementSentAt = now;
       lastInputX = inputX;
       lastInputY = inputY;

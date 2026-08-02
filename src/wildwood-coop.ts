@@ -17,6 +17,12 @@ export type RemotePlayer = {
   maxHp: number;
 };
 
+export type LocalPlayerState = {
+  x: number;
+  y: number;
+  speed: number;
+};
+
 type RemotePlayerTarget = RemotePlayer & {
   targetX: number;
   targetY: number;
@@ -37,6 +43,8 @@ let lastMovementSentAt = 0;
 let lastInputX = 0;
 let lastInputY = 0;
 let heartbeatTimer: number | null = null;
+let localState: LocalPlayerState | null = null;
+let lastSpeedSent: number | null = null;
 let onChange: (() => void) | null = null;
 
 function upsertPlayer(row: {
@@ -47,8 +55,15 @@ function upsertPlayer(row: {
   moving: boolean;
   hp: number;
   maxHp: number;
+  speed: number;
 }) {
   const id = row.identity.toHexString();
+  if (id === localIdentity) {
+    localState = { x: row.x, y: row.y, speed: row.speed };
+    onChange?.();
+    return;
+  }
+
   const existing = players.get(id);
   if (existing) {
     existing.targetX = row.x;
@@ -87,6 +102,7 @@ function connect() {
     .onConnect((conn: DbConnection, identity: Identity, token: string) => {
       connection = conn;
       localIdentity = identity.toHexString();
+      lastSpeedSent = null;
       localStorage.setItem(tokenKey, token);
 
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -115,6 +131,8 @@ function connect() {
       heartbeatTimer = null;
       connection = null;
       localIdentity = "";
+      localState = null;
+      lastSpeedSent = null;
       players.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
@@ -123,6 +141,8 @@ function connect() {
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
+      localState = null;
+      lastSpeedSent = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange?.();
     })
@@ -142,13 +162,22 @@ export const wildwoodCoop = {
   localIdentity() {
     return localIdentity;
   },
+  localState() {
+    return localState;
+  },
+  syncSpeed(speed: number) {
+    if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
+    lastSpeedSent = speed;
+    connection.reducers.setSpeed({ speed });
+  },
   sendMovement(inputX: number, inputY: number) {
     if (!connection) return;
 
     const now = performance.now();
     const changed = Math.abs(inputX - lastInputX) > 0.01 || Math.abs(inputY - lastInputY) > 0.01;
-    if (!changed && now - lastMovementSentAt < 50) return;
-    if (now - lastMovementSentAt < 45) return;
+    const hasInput = Math.abs(inputX) + Math.abs(inputY) > 0.01;
+    if (!changed && !hasInput) return;
+    if (!changed && now - lastMovementSentAt < 100) return;
 
     lastMovementSentAt = now;
     lastInputX = inputX;
