@@ -22,6 +22,7 @@ export type LocalPlayerState = {
   x: number;
   y: number;
   speed: number;
+  moving: boolean;
   lastInputSequence: number;
 };
 
@@ -79,6 +80,7 @@ function upsertPlayer(row: {
       x: row.x,
       y: row.y,
       speed: row.speed,
+      moving: row.moving,
       lastInputSequence: row.lastInputSequence,
     };
     onChange?.();
@@ -223,6 +225,15 @@ export const wildwoodCoop = {
   },
   reconcileLocal(x: number, y: number, dt = 1 / 60) {
     if (!connection || !localState) return { x, y };
+
+    const firstPendingInput = pendingInputs[0];
+    if (
+      !localState.moving &&
+      firstPendingInput &&
+      Math.hypot(firstPendingInput.inputX, firstPendingInput.inputY) >= 0.01
+    ) {
+      return { x, y };
+    }
 
     while (
       pendingInputs.length > 0 &&

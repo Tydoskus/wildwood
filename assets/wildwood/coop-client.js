@@ -8293,6 +8293,7 @@ ${ty.variants.map(
         x: row.x,
         y: row.y,
         speed: row.speed,
+        moving: row.moving,
         lastInputSequence: row.lastInputSequence
       };
       onChange == null ? void 0 : onChange();
@@ -8417,6 +8418,10 @@ ${ty.variants.map(
     },
     reconcileLocal(x, y, dt = 1 / 60) {
       if (!connection || !localState) return { x, y };
+      const firstPendingInput = pendingInputs[0];
+      if (!localState.moving && firstPendingInput && Math.hypot(firstPendingInput.inputX, firstPendingInput.inputY) >= 0.01) {
+        return { x, y };
+      }
       while (pendingInputs.length > 0 && pendingInputs[0].sequence <= localState.lastInputSequence) {
         pendingInputs.shift();
       }

@@ -131,6 +131,16 @@ export const moveV2 = spacetimedb.reducer(
     }
 
     const inputLength = Math.hypot(inputX, inputY);
+    if (!current.moving && inputLength >= 0.01) {
+      ctx.db.player.identity.update({
+        ...current,
+        moving: true,
+        lastInputAt: ctx.timestamp,
+        lastInputSequence: sequence,
+      });
+      return;
+    }
+
     const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
     const elapsedSeconds = Number(nowMicros - current.lastInputAt.microsSinceUnixEpoch) / 1_000_000;
     const stepSeconds = Math.min(MAX_INPUT_STEP_SECONDS, Math.max(0, elapsedSeconds));
