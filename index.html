@@ -507,6 +507,10 @@
           <span>CHAT</span>
           <button id="chatToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
         </div>
+        <div class="setting-row">
+          <span>FULLSCREEN</span>
+          <button id="fullscreenToggle" class="setting-toggle" type="button">ENTER</button>
+        </div>
         <div class="name-row">
           <label for="displayNameInput">PLAYER NAME</label>
           <div class="name-edit">
@@ -586,6 +590,7 @@
   const settingsPanel = document.getElementById("settingsPanel");
   const screenShakeToggle = document.getElementById("screenShakeToggle");
   const chatToggle = document.getElementById("chatToggle");
+  const fullscreenToggle = document.getElementById("fullscreenToggle");
   const chatPanel = document.getElementById("chatPanel");
   const chatSizeBtn = document.getElementById("chatSizeBtn");
   const chatMinimizeBtn = document.getElementById("chatMinimizeBtn");
@@ -1883,8 +1888,8 @@
 
     const barW = 46;
     const barH = 7;
-    const barX = x - Math.floor(barW / 2);
-    const barY = y - 52;
+    const barX = Math.round(x - barW / 2);
+    const barY = y - 50;
     const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
 
     ctx.fillStyle = "rgba(0,0,0,.82)";
@@ -1952,8 +1957,8 @@
 
       const barW = 46;
       const barH = 5;
-      const barX = x - Math.floor(barW / 2);
-      const barY = y - 52;
+      const barX = Math.round(x - barW / 2);
+      const barY = y - 50;
       const hpRatio = clamp(other.hp / other.maxHp, 0, 1);
       ctx.fillStyle = "rgba(0,0,0,.82)";
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
@@ -2298,6 +2303,14 @@
     screenShakeToggle.classList.toggle("is-off", !screenShakeEnabled);
   }
 
+  function updateFullscreenSetting() {
+    const supported = document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === "function";
+    fullscreenToggle.disabled = !supported;
+    fullscreenToggle.textContent = supported
+      ? (document.fullscreenElement ? "EXIT" : "ENTER")
+      : "N/A";
+  }
+
   function updateAutoAttackSetting() {
     autoAttackBtn.setAttribute("aria-pressed", String(autoAttackEnabled));
     autoAttackBtn.classList.toggle("is-off", !autoAttackEnabled);
@@ -2384,6 +2397,21 @@
     updateChatLayout();
   });
 
+  fullscreenToggle.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      showMessage("FULLSCREEN UNAVAILABLE", "#ff9b91");
+    }
+    updateFullscreenSetting();
+  });
+
+  document.addEventListener("fullscreenchange", updateFullscreenSetting);
+
   chatForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const message = chatInput.value.trim();
@@ -2397,6 +2425,7 @@
   if (coop && typeof coop.setOnChange === "function") coop.setOnChange(refreshChat);
   updateChatSetting();
   updateChatLayout();
+  updateFullscreenSetting();
   refreshChat();
 
   bootUpgradeClose.addEventListener("click", () => {
