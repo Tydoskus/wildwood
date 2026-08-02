@@ -8,6 +8,7 @@ const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
 const CHAT_MESSAGE_MAX_LENGTH = 120;
 const CHAT_COOLDOWN_MICROS = 400_000n;
+const CHAT_HISTORY_RETENTION_MICROS = 300_000_000n;
 
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
@@ -145,10 +146,18 @@ export const sendChatMessage = spacetimedb.reducer(
       throw new Error("Chat message is too long");
     }
 
-    const cutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_COOLDOWN_MICROS;
-    for (const previous of ctx.db.chatMessage.iter() as Iterable<{ sender: never; sentAt: { microsSinceUnixEpoch: bigint } }>) {
-      if (previous.sender === ctx.sender && previous.sentAt.microsSinceUnixEpoch > cutoff) return;
+    const cooldownCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_COOLDOWN_MICROS;
+    const historyCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_HISTORY_RETENTION_MICROS;
+    const staleMessageIds: bigint[] = [];
+    let isCoolingDown = false;
+    for (const previous of ctx.db.chatMessage.iter() as Iterable<{ id: bigint; sender: never; sentAt: { microsSinceUnixEpoch: bigint } }>) {
+      if (previous.sentAt.microsSinceUnixEpoch < historyCutoff) staleMessageIds.push(previous.id);
+      if (previous.sender === ctx.sender && previous.sentAt.microsSinceUnixEpoch > cooldownCutoff) {
+        isCoolingDown = true;
+      }
     }
+    for (const id of staleMessageIds) ctx.db.chatMessage.id.delete(id);
+    if (isCoolingDown) return;
 
     ctx.db.chatMessage.insert({
       id: 0n,

@@ -32,6 +32,7 @@ export type ChatMessage = {
   sender: string;
   senderName: string;
   message: string;
+  sentAtMs: number;
 };
 
 type PendingInput = {
@@ -140,6 +141,7 @@ function upsertChatMessage(row: {
   sender: Identity;
   senderName: string;
   message: string;
+  sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
   chatMessages.push({
@@ -147,6 +149,7 @@ function upsertChatMessage(row: {
     sender: row.sender.toHexString(),
     senderName: row.senderName,
     message: row.message,
+    sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n),
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
   while (chatMessages.length > 100) chatMessages.shift();

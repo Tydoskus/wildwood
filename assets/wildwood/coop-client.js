@@ -8384,7 +8384,8 @@ ${ty.variants.map(
       id: row.id,
       sender: row.sender.toHexString(),
       senderName: row.senderName,
-      message: row.message
+      message: row.message,
+      sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n)
     });
     chatMessages.sort((a, b) => a.id < b.id ? -1 : 1);
     while (chatMessages.length > 100) chatMessages.shift();
