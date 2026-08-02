@@ -1345,9 +1345,7 @@
       if (Math.abs(mx) + Math.abs(my) > .1) player.facing = Math.atan2(my, mx);
     }
 
-    if (coop) {
-      coop.sendMovement(mx, my, player.moving);
-    }
+    if (coop) coop.sendMovement(player.moving ? mx : 0, player.moving ? my : 0);
 
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);

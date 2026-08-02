@@ -13,5 +13,4 @@ import {
 export default {
   inputX: __t.f32(),
   inputY: __t.f32(),
-  moving: __t.bool(),
 };

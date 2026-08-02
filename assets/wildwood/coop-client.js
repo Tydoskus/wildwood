@@ -8195,8 +8195,7 @@ ${ty.variants.map(
   const HeartbeatReducer = {};
   const MoveReducer = {
     inputX: t.f32(),
-    inputY: t.f32(),
-    moving: t.bool()
+    inputY: t.f32()
   };
   const SetSpeedReducer = {
     speed: t.f32()
@@ -8271,7 +8270,6 @@ ${ty.variants.map(
   let lastMovementSentAt = 0;
   let lastInputX = 0;
   let lastInputY = 0;
-  let lastSentMoving = false;
   let heartbeatTimer = null;
   let localState = null;
   let lastSpeedSent = null;
@@ -8319,7 +8317,6 @@ ${ty.variants.map(
       localIdentity = identity.toHexString();
       lastInputX = 0;
       lastInputY = 0;
-      lastSentMoving = false;
       lastSpeedSent = null;
       localStorage.setItem(tokenKey, token);
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8343,7 +8340,6 @@ ${ty.variants.map(
       localIdentity = "";
       lastInputX = 0;
       lastInputY = 0;
-      lastSentMoving = false;
       localState = null;
       lastSpeedSent = null;
       players.clear();
@@ -8355,7 +8351,6 @@ ${ty.variants.map(
       connection = null;
       lastInputX = 0;
       lastInputY = 0;
-      lastSentMoving = false;
       localState = null;
       lastSpeedSent = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
@@ -8383,19 +8378,17 @@ ${ty.variants.map(
       lastSpeedSent = speed;
       connection.reducers.setSpeed({ speed });
     },
-    sendMovement(inputX, inputY, moving) {
+    sendMovement(inputX, inputY) {
       if (!connection) return;
-      const sentInputX = moving ? inputX : lastInputX;
-      const sentInputY = moving ? inputY : lastInputY;
       const now = performance.now();
-      const changed = Math.abs(sentInputX - lastInputX) > 0.01 || Math.abs(sentInputY - lastInputY) > 0.01;
-      if (!moving && !lastSentMoving) return;
-      if (moving && !changed && now - lastMovementSentAt < 100) return;
+      const changed = Math.abs(inputX - lastInputX) > 0.01 || Math.abs(inputY - lastInputY) > 0.01;
+      const hasInput = Math.abs(inputX) + Math.abs(inputY) > 0.01;
+      if (!changed && !hasInput) return;
+      if (!changed && now - lastMovementSentAt < 100) return;
       lastMovementSentAt = now;
-      lastInputX = sentInputX;
-      lastInputY = sentInputY;
-      lastSentMoving = moving;
-      connection.reducers.move({ inputX: sentInputX, inputY: sentInputY, moving });
+      lastInputX = inputX;
+      lastInputY = inputY;
+      connection.reducers.move({ inputX, inputY });
     },
     remotePlayers(dt = 1 / 60) {
       const smoothing = 1 - Math.pow(1e-6, Math.min(0.1, Math.max(0, dt)));
