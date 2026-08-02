@@ -67,7 +67,6 @@
     background: var(--panel);
     border: 2px solid var(--border);
     border-radius: 10px;
-    box-shadow: 0 5px 0 rgba(0,0,0,.28);
     padding: 8px 10px;
     backdrop-filter: blur(4px);
   }
@@ -93,7 +92,6 @@
     border: 2px solid rgba(255,255,255,.24);
     border-radius: 10px;
     background: var(--panel);
-    box-shadow: 0 4px 0 rgba(0,0,0,.30);
     color: var(--text);
     font: 900 24px/1 ui-monospace, monospace;
     text-shadow: 0 2px 0 #000;
@@ -107,7 +105,6 @@
 
   .settings-button.is-off {
     background: linear-gradient(#8c5555, #683334);
-    box-shadow: 0 4px 0 #3d1515;
     color: #f5c7c4;
   }
 
@@ -144,7 +141,6 @@
     padding: 6px 8px;
     border-width: 2px;
     border-radius: 6px;
-    box-shadow: 0 3px 0 #123e18;
     font-size: 12px;
   }
 
@@ -154,12 +150,10 @@
 
   .setting-toggle.danger {
     background: linear-gradient(#b95c54, #803c38);
-    box-shadow: 0 3px 0 #4b201e;
   }
 
   .setting-toggle.is-off {
     background: linear-gradient(#8c5555, #683334);
-    box-shadow: 0 3px 0 #3d1515;
   }
 
   .bar {
@@ -172,7 +166,6 @@
     border-radius: 3px;
     overflow: hidden;
     background: #372929;
-    box-shadow: 0 2px 0 rgba(255,255,255,.14) inset;
   }
 
   #hpFill {
@@ -282,7 +275,6 @@
     border: 4px solid #32190d;
     border-radius: 8px 8px 12px 12px;
     background: linear-gradient(90deg, #8a481d 0 24%, #da8e32 24% 76%, #6a3518 76%);
-    box-shadow: inset 0 4px 0 rgba(255,228,132,.50), 0 5px 0 #271307;
   }
 
   .boots-icon span::after {
@@ -295,7 +287,6 @@
     border: 4px solid #32190d;
     border-radius: 6px 6px 11px 11px;
     background: #f0c158;
-    box-shadow: 0 4px 0 #271307;
   }
 
   .upgrade-modal h2 {
@@ -321,7 +312,6 @@
     border-radius: 14px;
     padding: 20px;
     text-align: center;
-    box-shadow: 0 12px 0 rgba(0,0,0,.30);
   }
 
   h1 {
@@ -349,13 +339,23 @@
     padding: 12px 24px;
     margin-top: 12px;
     cursor: pointer;
-    box-shadow: 0 5px 0 #123e18;
     text-shadow: 0 3px 0 #000;
   }
 
   button:active {
     transform: translateY(3px);
-    box-shadow: 0 2px 0 #123e18;
+  }
+
+  #version {
+    position: fixed;
+    left: 50%;
+    bottom: 4px;
+    transform: translateX(-50%);
+    color: rgba(245,245,233,.52);
+    font-size: 9px;
+    letter-spacing: .04em;
+    pointer-events: none;
+    z-index: 7;
   }
 
 
@@ -439,6 +439,7 @@
 </div>
 
 <div id="joystick"><div id="stick"></div></div>
+<div id="version">v0.101</div>
 
 <div id="bootUpgrade" hidden>
   <div class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="bootUpgradeTitle">
