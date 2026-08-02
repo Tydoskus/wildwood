@@ -6,6 +6,11 @@ const PLAYER_SPEED = 175;
 const BOOTS_SPEED_MULTIPLIER = 1.5;
 const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
+const CHAT_MESSAGE_MAX_LENGTH = 120;
+const CHAT_COOLDOWN_MICROS = 400_000n;
+
+const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
+const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
 const player = table(
   { public: true },
@@ -23,8 +28,39 @@ const player = table(
   },
 );
 
-const spacetimedb = schema({ player });
+const playerProfile = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    displayName: t.string(),
+  },
+);
+
+const chatMessage = table(
+  { public: true },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    sender: t.identity(),
+    senderName: t.string(),
+    message: t.string(),
+    sentAt: t.timestamp(),
+  },
+);
+
+const spacetimedb = schema({ player, playerProfile, chatMessage });
 export default spacetimedb;
+
+function generatedDisplayName(identity: { toHexString: () => string }) {
+  let hash = 2166136261;
+  for (const character of identity.toHexString()) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const adjective = NAME_ADJECTIVES[(hash >>> 0) % NAME_ADJECTIVES.length];
+  const creature = NAME_CREATURES[((hash >>> 8) >>> 0) % NAME_CREATURES.length];
+  const number = String((hash >>> 16) % 1000).padStart(3, "0");
+  return `${adjective} ${creature} ${number}`;
+}
 
 function clearStalePlayers(ctx: { db: { player: { iter: () => Iterable<unknown>; identity: { delete: (identity: never) => void } } }; timestamp: { microsSinceUnixEpoch: bigint } }) {
   const cutoff = ctx.timestamp.microsSinceUnixEpoch - BigInt(STALE_PLAYER_SECONDS * 1_000_000);
@@ -39,6 +75,14 @@ function clearStalePlayers(ctx: { db: { player: { iter: () => Iterable<unknown>;
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   clearStalePlayers(ctx);
+
+  const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
+  if (!existingProfile) {
+    ctx.db.playerProfile.insert({
+      identity: ctx.sender,
+      displayName: generatedDisplayName(ctx.sender),
+    });
+  }
 
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
@@ -71,6 +115,50 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
 export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   ctx.db.player.identity.delete(ctx.sender);
 });
+
+export const setDisplayName = spacetimedb.reducer(
+  { displayName: t.string() },
+  (ctx, { displayName }) => {
+    const normalized = displayName.trim().replace(/\s+/g, " ");
+    if (!/^[A-Za-z0-9 _-]{2,20}$/.test(normalized)) {
+      throw new Error("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
+    }
+
+    const existing = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (existing) {
+      ctx.db.playerProfile.identity.update({ ...existing, displayName: normalized });
+    } else {
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized });
+    }
+  },
+);
+
+export const sendChatMessage = spacetimedb.reducer(
+  { message: t.string() },
+  (ctx, { message }) => {
+    const profile = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (!profile) return;
+
+    const normalized = message.trim();
+    if (!normalized) return;
+    if (normalized.length > CHAT_MESSAGE_MAX_LENGTH) {
+      throw new Error("Chat message is too long");
+    }
+
+    const cutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_COOLDOWN_MICROS;
+    for (const previous of ctx.db.chatMessage.iter() as Iterable<{ sender: never; sentAt: { microsSinceUnixEpoch: bigint } }>) {
+      if (previous.sender === ctx.sender && previous.sentAt.microsSinceUnixEpoch > cutoff) return;
+    }
+
+    ctx.db.chatMessage.insert({
+      id: 0n,
+      sender: ctx.sender,
+      senderName: profile.displayName,
+      message: normalized,
+      sentAt: ctx.timestamp,
+    });
+  },
+);
 
 export const move = spacetimedb.reducer(
   { inputX: t.f32(), inputY: t.f32() },

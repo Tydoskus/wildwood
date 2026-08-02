@@ -10,6 +10,15 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const ChatMessage = __t.object("ChatMessage", {
+  id: __t.u64(),
+  sender: __t.identity(),
+  senderName: __t.string(),
+  message: __t.string(),
+  sentAt: __t.timestamp(),
+});
+export type ChatMessage = __Infer<typeof ChatMessage>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   x: __t.f64(),
@@ -23,4 +32,10 @@ export const Player = __t.object("Player", {
   lastInputSequence: __t.u32(),
 });
 export type Player = __Infer<typeof Player>;
+
+export const PlayerProfile = __t.object("PlayerProfile", {
+  identity: __t.identity(),
+  displayName: __t.string(),
+});
+export type PlayerProfile = __Infer<typeof PlayerProfile>;
 

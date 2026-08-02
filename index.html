@@ -112,7 +112,7 @@
     position: absolute;
     top: 50px;
     right: 0;
-    width: 220px;
+    width: 250px;
     padding: 10px;
     pointer-events: auto;
   }
@@ -201,7 +201,7 @@
   #pickupLog {
     position: absolute;
     left: 12px;
-    bottom: 12px;
+    bottom: 180px;
     display: grid;
     gap: 5px;
     width: min(360px, 74vw);
@@ -215,6 +215,83 @@
     font-size: 10px;
     letter-spacing: .06em;
   }
+
+  #chatPanel {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    width: min(360px, calc(100vw - 24px));
+    pointer-events: auto;
+    z-index: 6;
+  }
+
+  #chatPanel[hidden] { display: none; }
+  #chatPanel.is-large { width: min(520px, calc(100vw - 24px)); }
+
+  .chat-header,
+  .chat-actions,
+  #chatForm,
+  .name-edit {
+    display: flex;
+    align-items: center;
+  }
+
+  .chat-header {
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .08em;
+  }
+
+  .chat-actions { gap: 4px; }
+
+  .chat-control,
+  #saveNameBtn,
+  #chatForm button {
+    min-width: 0;
+    margin: 0;
+    padding: 4px 7px;
+    border-width: 1px;
+    border-radius: 5px;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  #chatMessages {
+    display: grid;
+    gap: 4px;
+    max-height: 140px;
+    margin: 8px 0;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  #chatPanel.is-large #chatMessages { max-height: 270px; }
+  #chatPanel.is-minimized #chatMessages,
+  #chatPanel.is-minimized #chatForm { display: none; }
+  .chat-line { overflow-wrap: anywhere; }
+  .chat-name { color: var(--gold); font-weight: 900; }
+  .chat-text { color: var(--text); }
+  #chatForm { gap: 5px; }
+
+  #chatInput,
+  #displayNameInput {
+    min-width: 0;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 5px;
+    background: rgba(0,0,0,.28);
+    color: var(--text);
+    font: 12px ui-monospace, monospace;
+    padding: 6px 7px;
+  }
+
+  #chatInput { flex: 1; }
+  .name-row { display: grid; gap: 5px; margin-top: 9px; font-size: 11px; }
+  .name-edit { gap: 5px; }
+  #displayNameInput { flex: 1; width: 0; }
 
   .pickup {
     justify-self: start;
@@ -401,7 +478,7 @@
     #stats { min-width: 0; font-size: 10px; }
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
-    #pickupLog { bottom: 160px; }
+    #pickupLog { bottom: 180px; }
   }
 </style>
 </head>
@@ -426,6 +503,17 @@
           <span>SCREEN SHAKE</span>
           <button id="screenShakeToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
         </div>
+        <div class="setting-row">
+          <span>CHAT</span>
+          <button id="chatToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
+        </div>
+        <div class="name-row">
+          <label for="displayNameInput">PLAYER NAME</label>
+          <div class="name-edit">
+            <input id="displayNameInput" maxlength="20" autocomplete="off" spellcheck="false" />
+            <button id="saveNameBtn" class="setting-toggle" type="button">SAVE</button>
+          </div>
+        </div>
         <div class="setting-row setting-reset">
           <span>RESET SAVE</span>
           <button id="resetProgressBtn" class="setting-toggle danger" type="button">RESET</button>
@@ -436,6 +524,20 @@
   <div id="message"></div>
   <div id="pickupLog"></div>
   <div id="coopStatus" class="card">CO-OP: CONNECTING…</div>
+  <div id="chatPanel" class="card">
+    <div class="chat-header">
+      <span>CHAT</span>
+      <div class="chat-actions">
+        <button id="chatSizeBtn" class="chat-control" type="button" aria-label="Enlarge chat">↗</button>
+        <button id="chatMinimizeBtn" class="chat-control" type="button" aria-label="Minimize chat">—</button>
+      </div>
+    </div>
+    <div id="chatMessages" aria-live="polite"></div>
+    <form id="chatForm">
+      <input id="chatInput" maxlength="120" autocomplete="off" placeholder="Say something…" />
+      <button type="submit">SEND</button>
+    </form>
+  </div>
 </div>
 
 <div id="joystick"><div id="stick"></div></div>
@@ -483,6 +585,15 @@
   const autoAttackBtn = document.getElementById("autoAttackBtn");
   const settingsPanel = document.getElementById("settingsPanel");
   const screenShakeToggle = document.getElementById("screenShakeToggle");
+  const chatToggle = document.getElementById("chatToggle");
+  const chatPanel = document.getElementById("chatPanel");
+  const chatSizeBtn = document.getElementById("chatSizeBtn");
+  const chatMinimizeBtn = document.getElementById("chatMinimizeBtn");
+  const chatMessagesEl = document.getElementById("chatMessages");
+  const chatForm = document.getElementById("chatForm");
+  const chatInput = document.getElementById("chatInput");
+  const displayNameInput = document.getElementById("displayNameInput");
+  const saveNameBtn = document.getElementById("saveNameBtn");
   const resetProgressBtn = document.getElementById("resetProgressBtn");
   const messageEl = document.getElementById("message");
   const pickupLog = document.getElementById("pickupLog");
@@ -508,6 +619,7 @@
   const particles = [];
   const projectiles = [];
   const SAVE_KEY = "wildwood-player-progress-v1";
+  const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
   const enemyShots = [];
   const enemies = [];
   const spawnSites = [];
@@ -530,6 +642,11 @@
   let messageClock = 0;
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
+  let chatEnabled = true;
+  let chatMinimized = false;
+  let chatLarge = false;
+
+  try { chatEnabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false"; } catch {}
 
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
 
@@ -1778,6 +1895,21 @@
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
     ctx.fillStyle = "rgba(255,255,255,.24)";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
+    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 4, "#ffffff");
+  }
+
+  function drawPlayerName(name, x, y, color) {
+    if (!name) return;
+    ctx.save();
+    ctx.font = "900 11px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,.8)";
+    ctx.strokeText(name, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(name, x, y);
+    ctx.restore();
   }
 
   function drawRemotePlayers(remotePlayers) {
@@ -1827,6 +1959,7 @@
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
       ctx.fillStyle = "#3d7d92";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+      drawPlayerName(other.name, x, barY - 4, "#9eeeff");
     }
   }
 
@@ -2170,6 +2303,55 @@
     autoAttackBtn.classList.toggle("is-off", !autoAttackEnabled);
   }
 
+  function updateChatSetting() {
+    chatToggle.textContent = chatEnabled ? "ON" : "OFF";
+    chatToggle.setAttribute("aria-pressed", String(chatEnabled));
+    chatToggle.classList.toggle("is-off", !chatEnabled);
+    chatPanel.hidden = !chatEnabled;
+    try { localStorage.setItem(CHAT_ENABLED_KEY, String(chatEnabled)); } catch {}
+  }
+
+  function updateChatLayout() {
+    chatPanel.classList.toggle("is-minimized", chatMinimized);
+    chatPanel.classList.toggle("is-large", chatLarge);
+    chatMinimizeBtn.textContent = chatMinimized ? "+" : "—";
+    chatMinimizeBtn.setAttribute("aria-label", chatMinimized ? "Restore chat" : "Minimize chat");
+    chatSizeBtn.textContent = chatLarge ? "↙" : "↗";
+    chatSizeBtn.setAttribute("aria-label", chatLarge ? "Reduce chat" : "Enlarge chat");
+  }
+
+  function refreshChat() {
+    if (coop && typeof coop.localDisplayName === "function") {
+      const name = coop.localDisplayName();
+      if (name && document.activeElement !== displayNameInput) displayNameInput.value = name;
+    }
+
+    chatMessagesEl.replaceChildren();
+    const messages = coop && typeof coop.chatMessages === "function" ? coop.chatMessages() : [];
+    for (const message of messages) {
+      const line = document.createElement("div");
+      line.className = "chat-line";
+      const name = document.createElement("span");
+      name.className = "chat-name";
+      name.textContent = `${message.senderName}: `;
+      const text = document.createElement("span");
+      text.className = "chat-text";
+      text.textContent = message.message;
+      line.append(name, text);
+      chatMessagesEl.appendChild(line);
+    }
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  function saveDisplayName() {
+    const name = displayNameInput.value.trim().replace(/\s+/g, " ");
+    if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
+      showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
+      return;
+    }
+    if (coop && typeof coop.setDisplayName === "function") coop.setDisplayName(name);
+  }
+
   settingsBtn.addEventListener("click", () => {
     const opening = settingsPanel.hidden;
     settingsPanel.hidden = !opening;
@@ -2186,6 +2368,36 @@
     autoAttackEnabled = !autoAttackEnabled;
     updateAutoAttackSetting();
   });
+
+  chatToggle.addEventListener("click", () => {
+    chatEnabled = !chatEnabled;
+    updateChatSetting();
+  });
+
+  chatMinimizeBtn.addEventListener("click", () => {
+    chatMinimized = !chatMinimized;
+    updateChatLayout();
+  });
+
+  chatSizeBtn.addEventListener("click", () => {
+    chatLarge = !chatLarge;
+    updateChatLayout();
+  });
+
+  chatForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const message = chatInput.value.trim();
+    if (!message) return;
+    if (coop && typeof coop.sendChatMessage === "function") coop.sendChatMessage(message);
+    chatInput.value = "";
+  });
+
+  saveNameBtn.addEventListener("click", saveDisplayName);
+
+  if (coop && typeof coop.setOnChange === "function") coop.setOnChange(refreshChat);
+  updateChatSetting();
+  updateChatLayout();
+  refreshChat();
 
   bootUpgradeClose.addEventListener("click", () => {
     pausedForUpgrade = false;
@@ -2216,6 +2428,7 @@
   document.getElementById("restartBtn").addEventListener("click", startGame);
 
   addEventListener("keydown", e => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
     keys.add(e.code);
   });

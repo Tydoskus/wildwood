@@ -9,6 +9,7 @@ type WildwoodRuntime = Window & {
 
 export type RemotePlayer = {
   id: string;
+  name: string;
   x: number;
   y: number;
   speed: number;
@@ -24,6 +25,13 @@ export type LocalPlayerState = {
   speed: number;
   moving: boolean;
   lastInputSequence: number;
+};
+
+export type ChatMessage = {
+  id: bigint;
+  sender: string;
+  senderName: string;
+  message: string;
 };
 
 type PendingInput = {
@@ -50,6 +58,8 @@ const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
 const tokenKey = `${host}/${databaseName}/auth_token`;
 const players = new Map<string, RemotePlayerTarget>();
+const profiles = new Map<string, string>();
+const chatMessages: ChatMessage[] = [];
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -60,6 +70,7 @@ let nextInputSequence = 0;
 const pendingInputs: PendingInput[] = [];
 let heartbeatTimer: number | null = null;
 let localState: LocalPlayerState | null = null;
+let localDisplayName = "";
 let lastSpeedSent: number | null = null;
 let onChange: (() => void) | null = null;
 
@@ -99,6 +110,7 @@ function upsertPlayer(row: {
   } else {
     players.set(id, {
       id,
+      name: profiles.get(id) ?? "PLAYER",
       x: row.x,
       y: row.y,
       speed: row.speed,
@@ -111,6 +123,33 @@ function upsertPlayer(row: {
       targetFacing: row.facing,
     });
   }
+  onChange?.();
+}
+
+function upsertProfile(row: { identity: Identity; displayName: string }) {
+  const id = row.identity.toHexString();
+  profiles.set(id, row.displayName);
+  if (id === localIdentity) localDisplayName = row.displayName;
+  const player = players.get(id);
+  if (player) player.name = row.displayName;
+  onChange?.();
+}
+
+function upsertChatMessage(row: {
+  id: bigint;
+  sender: Identity;
+  senderName: string;
+  message: string;
+}) {
+  if (chatMessages.some((message) => message.id === row.id)) return;
+  chatMessages.push({
+    id: row.id,
+    sender: row.sender.toHexString(),
+    senderName: row.senderName,
+    message: row.message,
+  });
+  chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
+  while (chatMessages.length > 100) chatMessages.shift();
   onChange?.();
 }
 
@@ -131,6 +170,7 @@ function connect() {
       lastInputY = 0;
       nextInputSequence = 0;
       pendingInputs.length = 0;
+      localDisplayName = "";
       lastSpeedSent = null;
       localStorage.setItem(tokenKey, token);
 
@@ -142,17 +182,22 @@ function connect() {
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
+      conn.db.playerProfile.onInsert((_ctx, row) => upsertProfile(row));
+      conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
+      conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
 
       conn
         .subscriptionBuilder()
         .onApplied(() => {
+          for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
+          for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           onChange?.();
         })
         .onError((ctx) => {
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
-        .subscribe(tables.player);
+        .subscribe([tables.player, tables.playerProfile, tables.chatMessage]);
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
@@ -165,8 +210,11 @@ function connect() {
       nextInputSequence = 0;
       pendingInputs.length = 0;
       localState = null;
+      localDisplayName = "";
       lastSpeedSent = null;
       players.clear();
+      profiles.clear();
+      chatMessages.length = 0;
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
     })
@@ -179,6 +227,7 @@ function connect() {
       nextInputSequence = 0;
       pendingInputs.length = 0;
       localState = null;
+      localDisplayName = "";
       lastSpeedSent = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange?.();
@@ -201,6 +250,20 @@ export const wildwoodCoop = {
   },
   localState() {
     return localState;
+  },
+  localDisplayName() {
+    return localDisplayName;
+  },
+  setDisplayName(displayName: string) {
+    if (!connection) return;
+    connection.reducers.setDisplayName({ displayName });
+  },
+  chatMessages() {
+    return chatMessages.slice();
+  },
+  sendChatMessage(message: string) {
+    if (!connection) return;
+    connection.reducers.sendChatMessage({ message });
   },
   syncSpeed(speed: number) {
     if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;

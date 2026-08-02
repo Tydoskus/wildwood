@@ -8202,9 +8202,22 @@ ${ty.variants.map(
     inputY: t.f32(),
     sequence: t.u32()
   };
+  const SendChatMessageReducer = {
+    message: t.string()
+  };
+  const SetDisplayNameReducer = {
+    displayName: t.string()
+  };
   const SetSpeedReducer = {
     speed: t.f32()
   };
+  const ChatMessageRow = t.row({
+    id: t.u64().primaryKey(),
+    sender: t.identity(),
+    senderName: t.string().name("sender_name"),
+    message: t.string(),
+    sentAt: t.timestamp().name("sent_at")
+  });
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),
     x: t.f64(),
@@ -8217,7 +8230,22 @@ ${ty.variants.map(
     lastInputAt: t.timestamp().name("last_input_at"),
     lastInputSequence: t.u32().name("last_input_sequence")
   });
+  const PlayerProfileRow = t.row({
+    identity: t.identity().primaryKey(),
+    displayName: t.string().name("display_name")
+  });
   const tablesSchema = schema({
+    chatMessage: table({
+      name: "chat_message",
+      indexes: [
+        { accessor: "id", name: "chat_message_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "chat_message_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, ChatMessageRow),
     player: table({
       name: "player",
       indexes: [
@@ -8228,12 +8256,25 @@ ${ty.variants.map(
       constraints: [
         { name: "player_identity_key", constraint: "unique", columns: ["identity"] }
       ]
-    }, PlayerRow)
+    }, PlayerRow),
+    playerProfile: table({
+      name: "player_profile",
+      indexes: [
+        { accessor: "identity", name: "player_profile_identity_idx_btree", algorithm: "btree", columns: [
+          "identity"
+        ] }
+      ],
+      constraints: [
+        { name: "player_profile_identity_key", constraint: "unique", columns: ["identity"] }
+      ]
+    }, PlayerProfileRow)
   });
   const reducersSchema = reducers(
     reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("move", MoveReducer),
     reducerSchema("move_v_2", MoveV2Reducer),
+    reducerSchema("send_chat_message", SendChatMessageReducer),
+    reducerSchema("set_display_name", SetDisplayNameReducer),
     reducerSchema("set_speed", SetSpeedReducer)
   );
   const proceduresSchema = procedures();
@@ -8275,6 +8316,8 @@ ${ty.variants.map(
   const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
   const tokenKey = `${host}/${databaseName}/auth_token`;
   const players = /* @__PURE__ */ new Map();
+  const profiles = /* @__PURE__ */ new Map();
+  const chatMessages = [];
   let connection = null;
   let localIdentity = "";
   let lastMovementSentAt = 0;
@@ -8284,6 +8327,7 @@ ${ty.variants.map(
   const pendingInputs = [];
   let heartbeatTimer = null;
   let localState = null;
+  let localDisplayName = "";
   let lastSpeedSent = null;
   let onChange = null;
   function upsertPlayer(row) {
@@ -8311,6 +8355,7 @@ ${ty.variants.map(
     } else {
       players.set(id, {
         id,
+        name: profiles.get(id) ?? "PLAYER",
         x: row.x,
         y: row.y,
         speed: row.speed,
@@ -8325,6 +8370,26 @@ ${ty.variants.map(
     }
     onChange == null ? void 0 : onChange();
   }
+  function upsertProfile(row) {
+    const id = row.identity.toHexString();
+    profiles.set(id, row.displayName);
+    if (id === localIdentity) localDisplayName = row.displayName;
+    const player = players.get(id);
+    if (player) player.name = row.displayName;
+    onChange == null ? void 0 : onChange();
+  }
+  function upsertChatMessage(row) {
+    if (chatMessages.some((message) => message.id === row.id)) return;
+    chatMessages.push({
+      id: row.id,
+      sender: row.sender.toHexString(),
+      senderName: row.senderName,
+      message: row.message
+    });
+    chatMessages.sort((a, b) => a.id < b.id ? -1 : 1);
+    while (chatMessages.length > 100) chatMessages.shift();
+    onChange == null ? void 0 : onChange();
+  }
   function removePlayer(row) {
     players.delete(row.identity.toHexString());
     onChange == null ? void 0 : onChange();
@@ -8337,6 +8402,7 @@ ${ty.variants.map(
       lastInputY = 0;
       nextInputSequence = 0;
       pendingInputs.length = 0;
+      localDisplayName = "";
       lastSpeedSent = null;
       localStorage.setItem(tokenKey, token);
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8346,12 +8412,17 @@ ${ty.variants.map(
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
+      conn.db.playerProfile.onInsert((_ctx, row) => upsertProfile(row));
+      conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
+      conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
       conn.subscriptionBuilder().onApplied(() => {
+        for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
         for (const row of conn.db.player.iter()) upsertPlayer(row);
+        for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
-      }).subscribe(tables.player);
+      }).subscribe([tables.player, tables.playerProfile, tables.chatMessage]);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8363,8 +8434,11 @@ ${ty.variants.map(
       nextInputSequence = 0;
       pendingInputs.length = 0;
       localState = null;
+      localDisplayName = "";
       lastSpeedSent = null;
       players.clear();
+      profiles.clear();
+      chatMessages.length = 0;
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
     }).onConnectError((_ctx, error) => {
@@ -8376,6 +8450,7 @@ ${ty.variants.map(
       nextInputSequence = 0;
       pendingInputs.length = 0;
       localState = null;
+      localDisplayName = "";
       lastSpeedSent = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
@@ -8396,6 +8471,20 @@ ${ty.variants.map(
     },
     localState() {
       return localState;
+    },
+    localDisplayName() {
+      return localDisplayName;
+    },
+    setDisplayName(displayName) {
+      if (!connection) return;
+      connection.reducers.setDisplayName({ displayName });
+    },
+    chatMessages() {
+      return chatMessages.slice();
+    },
+    sendChatMessage(message) {
+      if (!connection) return;
+      connection.reducers.sendChatMessage({ message });
     },
     syncSpeed(speed) {
       if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
