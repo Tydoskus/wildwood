@@ -36,6 +36,7 @@ let localIdentity = "";
 let lastMovementSentAt = 0;
 let lastInputX = 0;
 let lastInputY = 0;
+let heartbeatTimer: number | null = null;
 let onChange: (() => void) | null = null;
 
 function upsertPlayer(row: {
@@ -88,6 +89,11 @@ function connect() {
       localIdentity = identity.toHexString();
       localStorage.setItem(tokenKey, token);
 
+      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = window.setInterval(() => {
+        connection?.reducers.heartbeat({});
+      }, 5_000);
+
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
@@ -105,6 +111,8 @@ function connect() {
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
+      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
       connection = null;
       localIdentity = "";
       players.clear();
@@ -112,6 +120,8 @@ function connect() {
       onChange?.();
     })
     .onConnectError((_ctx: ErrorContext, error: Error) => {
+      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
       connection = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange?.();

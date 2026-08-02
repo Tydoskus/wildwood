@@ -114,3 +114,16 @@ export const move = spacetimedb.reducer(
     });
   },
 );
+
+export const heartbeat = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const current = ctx.db.player.identity.find(ctx.sender);
+    if (!current) return;
+
+    ctx.db.player.identity.update({
+      ...current,
+      lastInputAt: ctx.timestamp,
+    });
+  },
+);

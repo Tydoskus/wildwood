@@ -8192,6 +8192,7 @@ ${ty.variants.map(
     const procedures2 = args.length === 1 && Array.isArray(args[0]) ? args[0] : args;
     return { procedures: procedures2 };
   }
+  const HeartbeatReducer = {};
   const MoveReducer = {
     inputX: t.f32(),
     inputY: t.f32()
@@ -8221,6 +8222,7 @@ ${ty.variants.map(
     }, PlayerRow)
   });
   const reducersSchema = reducers(
+    reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("move", MoveReducer)
   );
   const proceduresSchema = procedures();
@@ -8263,6 +8265,7 @@ ${ty.variants.map(
   let lastMovementSentAt = 0;
   let lastInputX = 0;
   let lastInputY = 0;
+  let heartbeatTimer = null;
   let onChange = null;
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
@@ -8299,6 +8302,10 @@ ${ty.variants.map(
       connection = conn;
       localIdentity = identity.toHexString();
       localStorage.setItem(tokenKey, token);
+      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = window.setInterval(() => {
+        connection == null ? void 0 : connection.reducers.heartbeat({});
+      }, 5e3);
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
@@ -8310,12 +8317,16 @@ ${ty.variants.map(
       }).subscribe(tables.player);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
+      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
       connection = null;
       localIdentity = "";
       players.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
     }).onConnectError((_ctx, error) => {
+      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
       connection = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
