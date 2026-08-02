@@ -1,0 +1,21 @@
+{
+  "name": "wildwood-ascendant",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "spacetime:generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb",
+    "spacetime:build": "spacetime build --module-path spacetimedb",
+    "spacetime:publish:local": "spacetime publish --module-path spacetimedb --server local",
+    "spacetime:publish:cloud": "spacetime publish wildwood-coop --module-path spacetimedb --server maincloud",
+    "build:coop": "vite build --config vite.coop.config.ts",
+    "typecheck:coop": "tsc --noEmit -p tsconfig.coop.json"
+  },
+  "dependencies": {
+    "spacetimedb": "2.7.*"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2",
+    "vite": "^6.3.5"
+  }
+}
