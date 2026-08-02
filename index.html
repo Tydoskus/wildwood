@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Wildwood Ascendant</title>
+<title>Wildwood</title>
 <style>
   :root {
     color-scheme: dark;
@@ -451,7 +451,7 @@
 
 <div id="start">
   <div class="modal">
-    <h1>WILDWOOD<br>ASCENDANT</h1>
+    <h1>WILDWOOD</h1>
     <p>Explore the map and fight enemies scattered through different areas. Defeated enemies grant the stat shown beneath them and return about 30 seconds later.</p>
     <p><span class="key">WASD</span> or <span class="key">ARROWS</span> to move. Touch and drag on mobile.</p>
     <button id="playBtn">PLAY</button>
@@ -2114,8 +2114,13 @@
       `REGEN ${player.regen.toFixed(1)}/s`;
 
     if (coopStatusEl) {
+      const allyCount = coop && typeof coop.remotePlayerCount === "function"
+        ? coop.remotePlayerCount()
+        : coop
+          ? coop.remotePlayers().length
+          : 0;
       coopStatusEl.textContent = coop && coop.isConnected()
-        ? `CO-OP: ONLINE · ${coop.remotePlayerCount()} ALLY`
+        ? `CO-OP: ONLINE · ${allyCount} ALLY`
         : "CO-OP: OFFLINE · LOCAL MODE";
     }
   }
@@ -2131,14 +2136,14 @@
   }
 
   function startGame() {
+    startEl.style.display = "none";
+    overEl.style.display = "none";
     pausedForUpgrade = false;
     bootUpgradeEl.hidden = true;
     reset(hasStarted);
     hasStarted = true;
     running = true;
     last = performance.now();
-    startEl.style.display = "none";
-    overEl.style.display = "none";
   }
 
   function endGame() {
