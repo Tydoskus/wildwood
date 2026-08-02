@@ -79,8 +79,10 @@
 
   .settings-wrap {
     position: absolute;
-    top: clamp(124px, calc(17vw + 14px), 194px);
-    right: 0;
+    top: calc(100% + 8px);
+    left: 0;
+    display: flex;
+    gap: 10px;
     pointer-events: auto;
   }
 
@@ -98,9 +100,7 @@
   }
 
   .auto-attack-button {
-    position: absolute;
-    top: 0;
-    right: 52px;
+    position: static;
   }
 
   .settings-button.is-off {
@@ -111,7 +111,7 @@
   .settings-panel {
     position: absolute;
     top: 50px;
-    right: 0;
+    left: 0;
     width: 250px;
     padding: 10px;
     pointer-events: auto;
@@ -207,13 +207,16 @@
     width: min(360px, 74vw);
   }
 
-  #coopStatus {
+  #topMeta {
     position: absolute;
+    top: 12px;
     right: 12px;
-    bottom: 12px;
-    color: var(--muted);
-    font-size: 10px;
-    letter-spacing: .06em;
+    display: flex;
+    gap: 8px;
+    color: rgba(245,245,233,.58);
+    font-size: 9px;
+    letter-spacing: .05em;
+    pointer-events: none;
   }
 
   #chatPanel {
@@ -436,18 +439,6 @@
     transform: translateY(3px);
   }
 
-  #version {
-    position: fixed;
-    left: 50%;
-    bottom: 4px;
-    transform: translateX(-50%);
-    color: rgba(245,245,233,.52);
-    font-size: 9px;
-    letter-spacing: .04em;
-    pointer-events: none;
-    z-index: 7;
-  }
-
   :fullscreen,
   :-webkit-full-screen {
     width: 100%;
@@ -497,6 +488,7 @@
     #stats { min-width: 0; font-size: 10px; }
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
+    #topMeta { top: 96px; }
     #pickupLog { bottom: 180px; }
   }
 </style>
@@ -544,9 +536,12 @@
       </div>
     </div>
   </div>
+  <div id="topMeta">
+    <div id="coopStatus">PLAYERS: 1</div>
+    <div id="version">v0.107</div>
+  </div>
   <div id="message"></div>
   <div id="pickupLog"></div>
-  <div id="coopStatus" class="card">CO-OP: CONNECTING…</div>
   <div id="chatPanel" class="card">
     <div class="chat-header">
       <span>CHAT</span>
@@ -592,12 +587,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.106"></script>
+<script src="assets/wildwood/coop-client.js?v=0.107"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.106";
+  const GAME_VERSION = "0.107";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -2298,14 +2293,13 @@
       `REGEN ${player.regen.toFixed(1)}/s`;
 
     if (coopStatusEl) {
-      const allyCount = coop && typeof coop.remotePlayerCount === "function"
+      const remoteCount = coop && typeof coop.remotePlayerCount === "function"
         ? coop.remotePlayerCount()
         : coop
           ? coop.remotePlayers().length
           : 0;
-      coopStatusEl.textContent = coop && coop.isConnected()
-        ? `CO-OP: ONLINE · ${allyCount} ALLY`
-        : "CO-OP: OFFLINE · LOCAL MODE";
+      const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
+      coopStatusEl.textContent = `PLAYERS: ${playerCount}`;
     }
   }
 
