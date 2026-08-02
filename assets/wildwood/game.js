@@ -153,7 +153,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.114";
+    const GAME_VERSION = "0.115";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1424,11 +1424,6 @@
           );
           ctx.restore();
         }
-        ctx.strokeStyle = "rgba(89,220,255,.9)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x, y, 28, 0, TAU);
-        ctx.stroke();
         const barW = 46;
         const barH = 5;
         const barX = Math.round(x - barW / 2);
