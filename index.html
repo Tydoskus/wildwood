@@ -435,6 +435,13 @@
     z-index: 7;
   }
 
+  :fullscreen,
+  :-webkit-full-screen {
+    width: 100%;
+    height: 100%;
+    background: #07100b;
+  }
+
 
   .key {
     display: inline-block;
@@ -474,7 +481,6 @@
   }
 
   @media (pointer: coarse), (max-width: 800px) {
-    #joystick { display: block; }
     #stats { min-width: 0; font-size: 10px; }
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
@@ -545,7 +551,7 @@
 </div>
 
 <div id="joystick"><div id="stick"></div></div>
-<div id="version">v0.101</div>
+<div id="version">v0.102</div>
 
 <div id="bootUpgrade" hidden>
   <div class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="bootUpgradeTitle">
@@ -573,10 +579,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js"></script>
+<script src="assets/wildwood/coop-client.js?v=0.102"></script>
 <script>
 (() => {
   "use strict";
+
+  const GAME_VERSION = "0.102";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -611,6 +619,22 @@
   const bootUpgradeClose = document.getElementById("bootUpgradeClose");
   const coopStatusEl = document.getElementById("coopStatus");
   const coop = window.wildwoodCoop || null;
+
+  function enforceLatestVersion() {
+    fetch(`version.json?cache=${Date.now()}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((release) => {
+        if (!release?.version || release.version === GAME_VERSION) return;
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("v") === release.version) return;
+        url.searchParams.set("v", release.version);
+        window.location.replace(url.toString());
+      })
+      .catch(() => {});
+  }
+
+  enforceLatestVersion();
+  window.setInterval(enforceLatestVersion, 30_000);
 
   const TAU = Math.PI * 2;
   const WORLD = { w: 4800, h: 4800 };
@@ -2304,11 +2328,35 @@
   }
 
   function updateFullscreenSetting() {
-    const supported = document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === "function";
+    const root = document.documentElement;
+    const supported = typeof root.requestFullscreen === "function" || typeof root.webkitRequestFullscreen === "function";
+    const active = document.fullscreenElement || document.webkitFullscreenElement;
     fullscreenToggle.disabled = !supported;
     fullscreenToggle.textContent = supported
-      ? (document.fullscreenElement ? "EXIT" : "ENTER")
+      ? (active ? "EXIT" : "ENTER")
       : "N/A";
+  }
+
+  async function enterFullscreen() {
+    const root = document.documentElement;
+    if (typeof root.requestFullscreen === "function") {
+      try {
+        await root.requestFullscreen({ navigationUI: "hide" });
+      } catch (error) {
+        if (error?.name !== "TypeError") throw error;
+        await root.requestFullscreen();
+      }
+      return;
+    }
+    if (typeof root.webkitRequestFullscreen === "function") root.webkitRequestFullscreen();
+  }
+
+  async function exitFullscreen() {
+    if (typeof document.exitFullscreen === "function") {
+      await document.exitFullscreen();
+      return;
+    }
+    if (typeof document.webkitExitFullscreen === "function") document.webkitExitFullscreen();
   }
 
   function updateAutoAttackSetting() {
@@ -2399,10 +2447,10 @@
 
   fullscreenToggle.addEventListener("click", async () => {
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        await exitFullscreen();
       } else {
-        await document.documentElement.requestFullscreen();
+        await enterFullscreen();
       }
     } catch {
       showMessage("FULLSCREEN UNAVAILABLE", "#ff9b91");
@@ -2411,6 +2459,7 @@
   });
 
   document.addEventListener("fullscreenchange", updateFullscreenSetting);
+  document.addEventListener("webkitfullscreenchange", updateFullscreenSetting);
 
   chatForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -2504,7 +2553,7 @@
       touchMove.id = null;
       touchMove.x = touchMove.y = 0;
       stickEl.style.transform = "translate(0,0)";
-      joystickEl.style.display = "";
+      joystickEl.style.display = "none";
       break;
     }
   }
