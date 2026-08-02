@@ -1350,6 +1350,12 @@
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
 
+    if (coop && coop.isConnected()) {
+      const reconciled = coop.reconcileLocal(player.x, player.y, dt);
+      player.x = clamp(reconciled.x, player.r, WORLD.w - player.r);
+      player.y = clamp(reconciled.y, player.r, WORLD.h - player.r);
+    }
+
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) {
       player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);

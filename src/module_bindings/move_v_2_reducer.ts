@@ -10,17 +10,8 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export const Player = __t.object("Player", {
-  identity: __t.identity(),
-  x: __t.f64(),
-  y: __t.f64(),
-  facing: __t.f64(),
-  hp: __t.f32(),
-  maxHp: __t.f32(),
-  speed: __t.f32(),
-  moving: __t.bool(),
-  lastInputAt: __t.timestamp(),
-  lastInputSequence: __t.u32(),
-});
-export type Player = __Infer<typeof Player>;
-
+export default {
+  inputX: __t.f32(),
+  inputY: __t.f32(),
+  sequence: __t.u32(),
+};

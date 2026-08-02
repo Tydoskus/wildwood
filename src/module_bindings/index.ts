@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import HeartbeatReducer from "./heartbeat_reducer";
 import MoveReducer from "./move_reducer";
+import MoveV2Reducer from "./move_v_2_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 
 // Import all procedure arg schemas
@@ -64,6 +65,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("move", MoveReducer),
+  __reducerSchema("move_v_2", MoveV2Reducer),
   __reducerSchema("set_speed", SetSpeedReducer),
 );
 

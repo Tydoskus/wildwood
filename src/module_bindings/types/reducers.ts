@@ -8,9 +8,11 @@ import { type Infer as __Infer } from "spacetimedb";
 // Import all reducer arg schemas
 import HeartbeatReducer from "../heartbeat_reducer";
 import MoveReducer from "../move_reducer";
+import MoveV2Reducer from "../move_v_2_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
 
 export type HeartbeatParams = __Infer<typeof HeartbeatReducer>;
 export type MoveParams = __Infer<typeof MoveReducer>;
+export type MoveV2Params = __Infer<typeof MoveV2Reducer>;
 export type SetSpeedParams = __Infer<typeof SetSpeedReducer>;
 

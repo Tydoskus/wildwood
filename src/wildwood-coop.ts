@@ -22,6 +22,13 @@ export type LocalPlayerState = {
   x: number;
   y: number;
   speed: number;
+  lastInputSequence: number;
+};
+
+type PendingInput = {
+  sequence: number;
+  inputX: number;
+  inputY: number;
 };
 
 type RemotePlayerTarget = RemotePlayer & {
@@ -30,7 +37,10 @@ type RemotePlayerTarget = RemotePlayer & {
   targetFacing: number;
 };
 
-const REMOTE_PREDICTION_SECONDS = 0.1;
+const MOVEMENT_HZ = 24;
+const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
+const MOVEMENT_STEP_SECONDS = 1 / MOVEMENT_HZ;
+const REMOTE_PREDICTION_SECONDS = MOVEMENT_STEP_SECONDS;
 
 const runtime = window as WildwoodRuntime;
 const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -45,6 +55,8 @@ let localIdentity = "";
 let lastMovementSentAt = 0;
 let lastInputX = 0;
 let lastInputY = 0;
+let nextInputSequence = 0;
+const pendingInputs: PendingInput[] = [];
 let heartbeatTimer: number | null = null;
 let localState: LocalPlayerState | null = null;
 let lastSpeedSent: number | null = null;
@@ -59,10 +71,16 @@ function upsertPlayer(row: {
   hp: number;
   maxHp: number;
   speed: number;
+  lastInputSequence: number;
 }) {
   const id = row.identity.toHexString();
   if (id === localIdentity) {
-    localState = { x: row.x, y: row.y, speed: row.speed };
+    localState = {
+      x: row.x,
+      y: row.y,
+      speed: row.speed,
+      lastInputSequence: row.lastInputSequence,
+    };
     onChange?.();
     return;
   }
@@ -109,6 +127,8 @@ function connect() {
       localIdentity = identity.toHexString();
       lastInputX = 0;
       lastInputY = 0;
+      nextInputSequence = 0;
+      pendingInputs.length = 0;
       lastSpeedSent = null;
       localStorage.setItem(tokenKey, token);
 
@@ -140,6 +160,8 @@ function connect() {
       localIdentity = "";
       lastInputX = 0;
       lastInputY = 0;
+      nextInputSequence = 0;
+      pendingInputs.length = 0;
       localState = null;
       lastSpeedSent = null;
       players.clear();
@@ -152,6 +174,8 @@ function connect() {
       connection = null;
       lastInputX = 0;
       lastInputY = 0;
+      nextInputSequence = 0;
+      pendingInputs.length = 0;
       localState = null;
       lastSpeedSent = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
@@ -188,12 +212,43 @@ export const wildwoodCoop = {
     const changed = Math.abs(inputX - lastInputX) > 0.01 || Math.abs(inputY - lastInputY) > 0.01;
     const hasInput = Math.abs(inputX) + Math.abs(inputY) > 0.01;
     if (!changed && !hasInput) return;
-    if (!changed && now - lastMovementSentAt < 100) return;
+    if (!changed && now - lastMovementSentAt < MOVEMENT_INTERVAL_MS) return;
 
     lastMovementSentAt = now;
     lastInputX = inputX;
     lastInputY = inputY;
-    connection.reducers.move({ inputX, inputY });
+    const sequence = ++nextInputSequence;
+    pendingInputs.push({ sequence, inputX, inputY });
+    connection.reducers.moveV2({ inputX, inputY, sequence });
+  },
+  reconcileLocal(x: number, y: number, dt = 1 / 60) {
+    if (!connection || !localState) return { x, y };
+
+    while (
+      pendingInputs.length > 0 &&
+      pendingInputs[0].sequence <= localState.lastInputSequence
+    ) {
+      pendingInputs.shift();
+    }
+
+    let targetX = localState.x;
+    let targetY = localState.y;
+    for (const input of pendingInputs) {
+      const inputLength = Math.hypot(input.inputX, input.inputY);
+      if (inputLength < 0.01) continue;
+      targetX += input.inputX / inputLength * localState.speed * MOVEMENT_STEP_SECONDS;
+      targetY += input.inputY / inputLength * localState.speed * MOVEMENT_STEP_SECONDS;
+    }
+
+    const errorX = targetX - x;
+    const errorY = targetY - y;
+    if (Math.hypot(errorX, errorY) > 100) return { x: targetX, y: targetY };
+
+    const correction = 1 - Math.pow(0.000001, Math.min(0.1, Math.max(0, dt)));
+    return {
+      x: x + errorX * correction,
+      y: y + errorY * correction,
+    };
   },
   remotePlayers(dt = 1 / 60) {
     const smoothing = 1 - Math.pow(0.000001, Math.min(0.1, Math.max(0, dt)));

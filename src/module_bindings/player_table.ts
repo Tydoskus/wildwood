@@ -20,4 +20,5 @@ export default __t.row({
   speed: __t.f32(),
   moving: __t.bool(),
   lastInputAt: __t.timestamp().name("last_input_at"),
+  lastInputSequence: __t.u32().name("last_input_sequence"),
 });
