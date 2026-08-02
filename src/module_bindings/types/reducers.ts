@@ -12,6 +12,7 @@ import MoveV2Reducer from "../move_v_2_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
+import SyncPositionReducer from "../sync_position_reducer";
 
 export type HeartbeatParams = __Infer<typeof HeartbeatReducer>;
 export type MoveParams = __Infer<typeof MoveReducer>;
@@ -19,4 +20,5 @@ export type MoveV2Params = __Infer<typeof MoveV2Reducer>;
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
 export type SetSpeedParams = __Infer<typeof SetSpeedReducer>;
+export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 

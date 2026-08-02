@@ -8211,6 +8211,11 @@ ${ty.variants.map(
   const SetSpeedReducer = {
     speed: t.f32()
   };
+  const SyncPositionReducer = {
+    x: t.f64(),
+    y: t.f64(),
+    facing: t.f64()
+  };
   const ChatMessageRow = t.row({
     id: t.u64().primaryKey(),
     sender: t.identity(),
@@ -8275,7 +8280,8 @@ ${ty.variants.map(
     reducerSchema("move_v_2", MoveV2Reducer),
     reducerSchema("send_chat_message", SendChatMessageReducer),
     reducerSchema("set_display_name", SetDisplayNameReducer),
-    reducerSchema("set_speed", SetSpeedReducer)
+    reducerSchema("set_speed", SetSpeedReducer),
+    reducerSchema("sync_position", SyncPositionReducer)
   );
   const proceduresSchema = procedures();
   const REMOTE_MODULE = {
@@ -8491,6 +8497,14 @@ ${ty.variants.map(
       if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
       lastSpeedSent = speed;
       connection.reducers.setSpeed({ speed });
+    },
+    syncPosition(x, y, facing) {
+      if (!connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
+      pendingInputs.length = 0;
+      lastInputX = 0;
+      lastInputY = 0;
+      lastMovementSentAt = 0;
+      connection.reducers.syncPosition({ x, y, facing });
     },
     sendMovement(inputX, inputY) {
       if (!connection) return;

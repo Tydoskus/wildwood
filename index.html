@@ -156,6 +156,15 @@
     background: linear-gradient(#8c5555, #683334);
   }
 
+  .connection-status {
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .06em;
+  }
+
+  .connection-status.is-offline { color: #ff9b91; }
+
   .bar {
     position: relative;
     display: grid;
@@ -244,8 +253,6 @@
   }
 
   #chatPanel[hidden] { display: none; }
-  #chatPanel.is-large { width: min(340px, calc(100vw - 12px)); }
-
   .chat-header,
   .chat-actions,
   #chatForm,
@@ -522,6 +529,10 @@
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-title">SETTINGS</div>
         <div class="setting-row">
+          <span>SERVER</span>
+          <span id="connectionStatus" class="connection-status">CONNECTING</span>
+        </div>
+        <div class="setting-row">
           <span>SCREEN SHAKE</span>
           <button id="screenShakeToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
         </div>
@@ -548,7 +559,7 @@
     </div>
     <div id="topMeta">
       <div id="coopStatus">PLAYERS: 1</div>
-      <div id="version">v0.108</div>
+    <div id="version">v0.109</div>
     </div>
   </div>
   <div id="message"></div>
@@ -557,7 +568,7 @@
     <div class="chat-header">
       <span>CHAT</span>
       <div class="chat-actions">
-        <button id="chatSizeBtn" class="chat-control" type="button" aria-label="Enlarge chat">↗</button>
+        <button id="chatSizeBtn" class="chat-control" type="button" aria-label="Enlarge chat vertically">↕</button>
         <button id="chatMinimizeBtn" class="chat-control" type="button" aria-label="Minimize chat">—</button>
       </div>
     </div>
@@ -598,12 +609,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.108"></script>
+<script src="assets/wildwood/coop-client.js?v=0.109"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.108";
+  const GAME_VERSION = "0.109";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -619,6 +630,7 @@
   const screenShakeToggle = document.getElementById("screenShakeToggle");
   const chatToggle = document.getElementById("chatToggle");
   const fullscreenToggle = document.getElementById("fullscreenToggle");
+  const connectionStatusEl = document.getElementById("connectionStatus");
   const chatPanel = document.getElementById("chatPanel");
   const chatSizeBtn = document.getElementById("chatSizeBtn");
   const chatMinimizeBtn = document.getElementById("chatMinimizeBtn");
@@ -1490,8 +1502,17 @@
     }
   }
 
+  let movementSyncActive = false;
+
   function updatePlayer(dt) {
-    if (coop && coop.isConnected()) coop.syncSpeed(player.speed);
+    const multiplayerActive = Boolean(
+      coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0,
+    );
+    if (multiplayerActive && !movementSyncActive) {
+      coop.syncPosition(player.x, player.y, player.facing);
+    }
+    movementSyncActive = multiplayerActive;
+    if (multiplayerActive) coop.syncSpeed(player.speed);
 
     let mx = 0, my = 0;
     if (keys.has("KeyW") || keys.has("ArrowUp")) my -= 1;
@@ -1514,12 +1535,12 @@
       if (Math.abs(mx) + Math.abs(my) > .1) player.facing = Math.atan2(my, mx);
     }
 
-    if (coop) coop.sendMovement(player.moving ? mx : 0, player.moving ? my : 0);
+    if (multiplayerActive) coop.sendMovement(player.moving ? mx : 0, player.moving ? my : 0);
 
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
 
-    if (coop && coop.isConnected()) {
+    if (multiplayerActive) {
       const reconciled = coop.reconcileLocal(player.x, player.y, dt);
       player.x = clamp(reconciled.x, player.r, WORLD.w - player.r);
       player.y = clamp(reconciled.y, player.r, WORLD.h - player.r);
@@ -2316,6 +2337,7 @@
       const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
       coopStatusEl.textContent = `PLAYERS: ${playerCount}`;
     }
+    updateConnectionStatus();
   }
 
   function loop(now) {
@@ -2401,8 +2423,15 @@
     chatPanel.classList.toggle("is-large", chatLarge);
     chatMinimizeBtn.textContent = chatMinimized ? "+" : "—";
     chatMinimizeBtn.setAttribute("aria-label", chatMinimized ? "Restore chat" : "Minimize chat");
-    chatSizeBtn.textContent = chatLarge ? "↙" : "↗";
-    chatSizeBtn.setAttribute("aria-label", chatLarge ? "Reduce chat" : "Enlarge chat");
+    chatSizeBtn.textContent = "↕";
+    chatSizeBtn.setAttribute("aria-label", chatLarge ? "Reduce chat height" : "Enlarge chat height");
+  }
+
+  function updateConnectionStatus() {
+    if (!connectionStatusEl) return;
+    const connected = Boolean(coop && coop.isConnected());
+    connectionStatusEl.textContent = connected ? "ONLINE" : "OFFLINE";
+    connectionStatusEl.classList.toggle("is-offline", !connected);
   }
 
   function refreshChat() {
@@ -2523,10 +2552,16 @@
 
   saveNameBtn.addEventListener("click", saveDisplayName);
 
-  if (coop && typeof coop.setOnChange === "function") coop.setOnChange(refreshChat);
+  if (coop && typeof coop.setOnChange === "function") {
+    coop.setOnChange(() => {
+      refreshChat();
+      updateConnectionStatus();
+    });
+  }
   updateChatSetting();
   updateChatLayout();
   updateFullscreenSetting();
+  updateConnectionStatus();
   refreshChat();
   window.setInterval(refreshChat, 1_000);
 

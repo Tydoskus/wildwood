@@ -275,6 +275,29 @@ export const moveV2 = spacetimedb.reducer(
   },
 );
 
+export const syncPosition = spacetimedb.reducer(
+  { x: t.f64(), y: t.f64(), facing: t.f64() },
+  (ctx, { x, y, facing }) => {
+    clearStalePlayers(ctx);
+    const current = ctx.db.player.identity.find(ctx.sender);
+    if (!current) return;
+
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
+      throw new Error("Position sync values must be finite");
+    }
+
+    ctx.db.player.identity.update({
+      ...current,
+      x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x)),
+      y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y)),
+      facing,
+      moving: false,
+      lastInputAt: ctx.timestamp,
+      lastInputSequence: 0,
+    });
+  },
+);
+
 export const heartbeat = spacetimedb.reducer(
   {},
   (ctx) => {

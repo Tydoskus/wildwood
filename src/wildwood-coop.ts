@@ -273,6 +273,14 @@ export const wildwoodCoop = {
     lastSpeedSent = speed;
     connection.reducers.setSpeed({ speed });
   },
+  syncPosition(x: number, y: number, facing: number) {
+    if (!connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
+    pendingInputs.length = 0;
+    lastInputX = 0;
+    lastInputY = 0;
+    lastMovementSentAt = 0;
+    connection.reducers.syncPosition({ x, y, facing });
+  },
   sendMovement(inputX: number, inputY: number) {
     if (!connection) return;
 

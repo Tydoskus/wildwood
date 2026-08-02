@@ -40,6 +40,7 @@ import MoveV2Reducer from "./move_v_2_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
+import SyncPositionReducer from "./sync_position_reducer";
 
 // Import all procedure arg schemas
 
@@ -95,6 +96,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
+  __reducerSchema("sync_position", SyncPositionReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
