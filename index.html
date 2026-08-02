@@ -552,7 +552,7 @@
 </div>
 
 <div id="joystick"><div id="stick"></div></div>
-<div id="version">v0.103</div>
+<div id="version">v0.104</div>
 
 <div id="bootUpgrade" hidden>
   <div class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="bootUpgradeTitle">
@@ -580,12 +580,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.103"></script>
+<script src="assets/wildwood/coop-client.js?v=0.104"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.103";
+  const GAME_VERSION = "0.104";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -651,6 +651,7 @@
   const SAVE_KEY = "wildwood-player-progress-v1";
   const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
   const CHAT_DISPLAY_TTL_MS = 30_000;
+  const CHAT_NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
   const enemyShots = [];
   const enemies = [];
   const spawnSites = [];
@@ -2402,6 +2403,7 @@
       time.textContent = new Date(message.sentAtMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const name = document.createElement("span");
       name.className = "chat-name";
+      name.style.color = chatNameColor(message.sender);
       name.textContent = `${message.senderName}: `;
       const text = document.createElement("span");
       text.className = "chat-text";
@@ -2410,6 +2412,15 @@
       chatMessagesEl.appendChild(line);
     }
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  function chatNameColor(identity) {
+    let hash = 2166136261;
+    for (let i = 0; i < identity.length; i++) {
+      hash ^= identity.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return CHAT_NAME_COLORS[(hash >>> 0) % CHAT_NAME_COLORS.length];
   }
 
   function saveDisplayName() {
