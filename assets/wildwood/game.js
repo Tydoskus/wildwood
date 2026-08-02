@@ -30,6 +30,7 @@
     [0, 10, 17, 31],
     [0, 11, 25, 33]
   ];
+  const PLAYER_SPRITE_CENTER_X_SHIFT = -6;
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
@@ -152,7 +153,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.113";
+    const GAME_VERSION = "0.114";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1357,7 +1358,7 @@
           row * cellH,
           cellW,
           cellH,
-          Math.floor(x - drawSize / 2 + offsetX),
+          Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
           Math.floor(y - drawSize / 2),
           drawSize,
           drawSize
@@ -1416,7 +1417,7 @@
             row * cellH,
             cellW,
             cellH,
-            Math.floor(x - drawSize / 2 + offsetX),
+            Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
             Math.floor(y - drawSize / 2),
             drawSize,
             drawSize

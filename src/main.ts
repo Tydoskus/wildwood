@@ -14,6 +14,7 @@ import {
   MAX_PROJECTILE_SPEED,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
+  PLAYER_SPRITE_CENTER_X_SHIFT,
   PLAYER_SPRITE_X_OFFSETS,
   RANGED_PROJECTILE_SPEED,
   TAU,
@@ -25,7 +26,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.113";
+  const GAME_VERSION = "0.114";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1295,7 +1296,7 @@ import { createChatController } from "./ui/chat";
       ctx.drawImage(
         playerSprite,
         frame * cellW, row * cellH, cellW, cellH,
-        Math.floor(x - drawSize / 2 + offsetX), Math.floor(y - drawSize / 2), drawSize, drawSize
+        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2), drawSize, drawSize
       );
     }
 
@@ -1356,7 +1357,7 @@ import { createChatController } from "./ui/chat";
         ctx.drawImage(
           playerSprite,
           frame * cellW, row * cellH, cellW, cellH,
-          Math.floor(x - drawSize / 2 + offsetX), Math.floor(y - drawSize / 2), drawSize, drawSize
+          Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2), drawSize, drawSize
         );
         ctx.restore();
       }

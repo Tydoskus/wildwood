@@ -18,3 +18,4 @@ export const PLAYER_SPRITE_X_OFFSETS = [
   [0, 10, 17, 31],
   [0, 11, 25, 33],
 ];
+export const PLAYER_SPRITE_CENTER_X_SHIFT = -6;
