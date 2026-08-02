@@ -25,7 +25,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.112";
+  const GAME_VERSION = "0.113";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1278,7 +1278,6 @@ import { createChatController } from "./ui/chat";
   function drawPlayer() {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
-    let visualX = x;
     const blink = player.hurtClock > 0 && Math.floor(player.hurtClock * 18) % 2 === 0;
     if (blink) return;
 
@@ -1293,8 +1292,6 @@ import { createChatController } from "./ui/chat";
       const frame = player.moving ? Math.floor(gameTime * 10) % 4 : 0;
       const drawSize = 96;
       const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
-      visualX += offsetX;
-
       ctx.drawImage(
         playerSprite,
         frame * cellW, row * cellH, cellW, cellH,
@@ -1304,7 +1301,7 @@ import { createChatController } from "./ui/chat";
 
     const barW = 46;
     const barH = 7;
-    const barX = Math.round(visualX - barW / 2);
+    const barX = Math.round(x - barW / 2);
     const barY = y - 50;
     const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
 
@@ -1316,7 +1313,7 @@ import { createChatController } from "./ui/chat";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
     ctx.fillStyle = "rgba(255,255,255,.24)";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", visualX, barY - 4, "#ffffff");
+    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 4, "#ffffff");
   }
 
   function drawPlayerName(name, x, y, color) {
@@ -1339,7 +1336,6 @@ import { createChatController } from "./ui/chat";
     for (const other of remotePlayers) {
       const x = Math.floor(other.x - camera.x);
       const y = Math.floor(other.y - camera.y);
-      let visualX = x;
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
       if (x < -65 || y < -70 || x > visibleW + 65 || y > visibleH + 70) continue;
@@ -1355,8 +1351,6 @@ import { createChatController } from "./ui/chat";
         const frame = other.moving ? Math.floor(gameTime * 10) % 4 : 0;
         const drawSize = 96;
         const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
-        visualX += offsetX;
-
         ctx.save();
         ctx.globalAlpha = .82;
         ctx.drawImage(
@@ -1375,14 +1369,14 @@ import { createChatController } from "./ui/chat";
 
       const barW = 46;
       const barH = 5;
-      const barX = Math.round(visualX - barW / 2);
+      const barX = Math.round(x - barW / 2);
       const barY = y - 50;
       const hpRatio = clamp(other.hp / other.maxHp, 0, 1);
       ctx.fillStyle = "rgba(0,0,0,.82)";
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
       ctx.fillStyle = "#3d7d92";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-      drawPlayerName(other.name, visualX, barY - 4, "#9eeeff");
+      drawPlayerName(other.name, x, barY - 4, "#9eeeff");
     }
   }
 
