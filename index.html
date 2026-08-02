@@ -218,15 +218,19 @@
 
   #chatPanel {
     position: fixed;
-    left: 12px;
-    bottom: 12px;
-    width: min(360px, calc(100vw - 24px));
+    left: 0;
+    bottom: 0;
+    width: min(300px, calc(100vw - 16px));
+    padding: 7px 8px;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0 10px 0 0;
     pointer-events: auto;
     z-index: 6;
   }
 
   #chatPanel[hidden] { display: none; }
-  #chatPanel.is-large { width: min(520px, calc(100vw - 24px)); }
+  #chatPanel.is-large { width: min(390px, calc(100vw - 16px)); }
 
   .chat-header,
   .chat-actions,
@@ -262,20 +266,20 @@
   #chatMessages {
     display: grid;
     gap: 4px;
-    max-height: 140px;
+    max-height: 104px;
     margin: 8px 0;
     overflow-y: auto;
     font-size: 11px;
     line-height: 1.3;
   }
 
-  #chatPanel.is-large #chatMessages { max-height: 270px; }
+  #chatPanel.is-large #chatMessages { max-height: 210px; }
   #chatPanel.is-minimized #chatMessages,
   #chatPanel.is-minimized #chatForm { display: none; }
   .chat-line { overflow-wrap: anywhere; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
   .chat-name { color: var(--gold); font-weight: 900; }
-  .chat-text { color: var(--text); }
+  .chat-text { color: var(--text); white-space: pre-wrap; }
   #chatForm { gap: 5px; }
 
   #chatInput,
@@ -289,7 +293,12 @@
     padding: 6px 7px;
   }
 
-  #chatInput { flex: 1; }
+  #chatInput {
+    flex: 1;
+    height: 42px;
+    resize: none;
+    line-height: 1.25;
+  }
   .name-row { display: grid; gap: 5px; margin-top: 9px; font-size: 11px; }
   .name-edit { gap: 5px; }
   #displayNameInput { flex: 1; width: 0; }
@@ -545,14 +554,14 @@
     </div>
     <div id="chatMessages" aria-live="polite"></div>
     <form id="chatForm">
-      <input id="chatInput" maxlength="120" autocomplete="off" placeholder="Say something…" />
+      <textarea id="chatInput" maxlength="250" rows="2" autocomplete="off" placeholder="Say something…"></textarea>
       <button type="submit">SEND</button>
     </form>
   </div>
 </div>
 
 <div id="joystick"><div id="stick"></div></div>
-<div id="version">v0.104</div>
+<div id="version">v0.105</div>
 
 <div id="bootUpgrade" hidden>
   <div class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="bootUpgradeTitle">
@@ -580,12 +589,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.104"></script>
+<script src="assets/wildwood/coop-client.js?v=0.105"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.104";
+  const GAME_VERSION = "0.105";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -2486,6 +2495,12 @@
     if (!message) return;
     if (coop && typeof coop.sendChatMessage === "function") coop.sendChatMessage(message);
     chatInput.value = "";
+  });
+
+  chatInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    chatForm.requestSubmit();
   });
 
   saveNameBtn.addEventListener("click", saveDisplayName);
