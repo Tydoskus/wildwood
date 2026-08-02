@@ -209,14 +209,25 @@
 
   #topMeta {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: calc(100% + 20px);
+    left: 104px;
     display: flex;
     gap: 8px;
     color: rgba(245,245,233,.58);
     font-size: 9px;
     letter-spacing: .05em;
     pointer-events: none;
+  }
+
+  #playerName {
+    max-width: 255px;
+    min-height: 12px;
+    overflow: hidden;
+    color: var(--gold);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   #chatPanel {
@@ -488,7 +499,6 @@
     #stats { min-width: 0; font-size: 10px; }
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
-    #topMeta { top: 96px; }
     #pickupLog { bottom: 180px; }
   }
 </style>
@@ -499,6 +509,7 @@
 <div id="hud">
   <div class="topbar">
     <div class="card">
+      <div id="playerName">WANDERER</div>
       <div class="bar">
         <div id="hpFill"></div>
         <div id="hpText">30 / 30 HP</div>
@@ -535,10 +546,10 @@
         </div>
       </div>
     </div>
-  </div>
-  <div id="topMeta">
-    <div id="coopStatus">PLAYERS: 1</div>
-    <div id="version">v0.107</div>
+    <div id="topMeta">
+      <div id="coopStatus">PLAYERS: 1</div>
+      <div id="version">v0.108</div>
+    </div>
   </div>
   <div id="message"></div>
   <div id="pickupLog"></div>
@@ -587,12 +598,12 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.107"></script>
+<script src="assets/wildwood/coop-client.js?v=0.108"></script>
 <script>
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.107";
+  const GAME_VERSION = "0.108";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -600,6 +611,7 @@
 
   const hpFill = document.getElementById("hpFill");
   const hpText = document.getElementById("hpText");
+  const playerNameEl = document.getElementById("playerName");
   const statsEl = document.getElementById("stats");
   const settingsBtn = document.getElementById("settingsBtn");
   const autoAttackBtn = document.getElementById("autoAttackBtn");
@@ -2286,6 +2298,9 @@
     const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
     hpFill.style.width = (hpRatio * 100).toFixed(1) + "%";
     hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp} HP`;
+    if (playerNameEl) {
+      playerNameEl.textContent = coop?.localDisplayName?.() || "WANDERER";
+    }
 
     statsEl.innerHTML =
       `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>` +
