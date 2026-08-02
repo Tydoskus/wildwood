@@ -201,6 +201,13 @@ export const wildwoodCoop = {
 
     return result;
   },
+  remotePlayerCount() {
+    let count = 0;
+    for (const player of players.values()) {
+      if (player.id !== localIdentity) count += 1;
+    }
+    return count;
+  },
 };
 
 runtime.wildwoodCoop = wildwoodCoop;

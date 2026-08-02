@@ -1773,10 +1773,10 @@
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
   }
 
-  function drawRemotePlayers() {
+  function drawRemotePlayers(remotePlayers) {
     if (!coop) return;
 
-    for (const other of coop.remotePlayers()) {
+    for (const other of remotePlayers) {
       const x = Math.floor(other.x - camera.x);
       const y = Math.floor(other.y - camera.y);
       const visibleW = viewW / camera.zoom;
@@ -2003,7 +2003,7 @@
     ctx.globalAlpha = 1;
   }
 
-  function drawMinimap() {
+  function drawMinimap(remotePlayers) {
     const size = Math.min(180, Math.max(110, viewW * .17));
     const pad = 12;
     const x = viewW - size - pad;
@@ -2037,6 +2037,11 @@
       ctx.fillRect(x + e.x*sx - 1, y + e.y*sy - 1, e.type === "elite" ? 5 : 3, e.type === "elite" ? 5 : 3);
     }
 
+    ctx.fillStyle = "#58e878";
+    for (const other of remotePlayers) {
+      ctx.fillRect(x + other.x*sx - 2, y + other.y*sy - 2, 5, 5);
+    }
+
     ctx.fillStyle = "#fff";
     ctx.fillRect(x + player.x*sx - 2, y + player.y*sy - 2, 5, 5);
 
@@ -2059,6 +2064,7 @@
   }
 
   function render() {
+    const remotePlayers = coop ? coop.remotePlayers() : [];
     ctx.save();
 
     const sx = screenShakeEnabled && screenShake > .2 ? rand(-screenShake, screenShake) : 0;
@@ -2076,13 +2082,13 @@
     for (const e of enemies) drawEnemy(e);
     drawBoss();
     drawBootPickup();
-    drawRemotePlayers();
+    drawRemotePlayers(remotePlayers);
     drawPlayer();
     drawParticles();
 
     ctx.restore();
 
-    drawMinimap();
+    drawMinimap(remotePlayers);
 
     if (flash > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash * .75})`;
@@ -2109,7 +2115,7 @@
 
     if (coopStatusEl) {
       coopStatusEl.textContent = coop && coop.isConnected()
-        ? `CO-OP: ONLINE · ${Math.max(0, coop.remotePlayers().length)} ALLY`
+        ? `CO-OP: ONLINE · ${coop.remotePlayerCount()} ALLY`
         : "CO-OP: OFFLINE · LOCAL MODE";
     }
   }
