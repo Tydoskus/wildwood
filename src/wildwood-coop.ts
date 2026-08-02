@@ -212,7 +212,7 @@ export const wildwoodCoop = {
     const changed = Math.abs(inputX - lastInputX) > 0.01 || Math.abs(inputY - lastInputY) > 0.01;
     const hasInput = Math.abs(inputX) + Math.abs(inputY) > 0.01;
     if (!changed && !hasInput) return;
-    if (!changed && now - lastMovementSentAt < MOVEMENT_INTERVAL_MS) return;
+    if (now - lastMovementSentAt < MOVEMENT_INTERVAL_MS) return;
 
     lastMovementSentAt = now;
     lastInputX = inputX;
