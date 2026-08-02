@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src/wildwood-coop.ts", "src/module_bindings/**/*.ts", "vite.coop.config.ts"]
+  "include": ["src/**/*.ts", "vite.*.config.ts"]
 }

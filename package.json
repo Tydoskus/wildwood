@@ -9,6 +9,8 @@
     "spacetime:publish:local": "spacetime publish --module-path spacetimedb --server local",
     "spacetime:publish:cloud": "spacetime publish wildwood-coop --module-path spacetimedb --server maincloud",
     "build:coop": "vite build --config vite.coop.config.ts",
+    "build:game": "vite build --config vite.game.config.ts",
+    "build:client": "npm run build:coop && npm run build:game",
     "typecheck:coop": "tsc --noEmit -p tsconfig.coop.json"
   },
   "dependencies": {
