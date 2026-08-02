@@ -70,8 +70,8 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
 });
 
 export const move = spacetimedb.reducer(
-  { inputX: t.f32(), inputY: t.f32() },
-  (ctx, { inputX, inputY }) => {
+  { inputX: t.f32(), inputY: t.f32(), moving: t.bool() },
+  (ctx, { inputX, inputY, moving }) => {
     clearStalePlayers(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
     if (!current) return;
@@ -110,7 +110,7 @@ export const move = spacetimedb.reducer(
       x,
       y,
       facing: Math.atan2(directionY, directionX),
-      moving: true,
+      moving,
       lastInputAt: ctx.timestamp,
     });
   },
