@@ -8195,6 +8195,7 @@ ${ty.variants.map(
   const AcceptDuelReducer = {
     id: t.u64()
   };
+  const BeginAdventureReducer = {};
   const HeartbeatReducer = {};
   const MoveReducer = {
     inputX: t.f32(),
@@ -8333,7 +8334,8 @@ ${ty.variants.map(
     armor: t.f32(),
     regen: t.f32(),
     speed: t.f32(),
-    bootsCollected: t.bool().name("boots_collected")
+    bootsCollected: t.bool().name("boots_collected"),
+    introComplete: t.bool().name("intro_complete")
   });
   const tablesSchema = schema({
     chatMessage: table({
@@ -8405,6 +8407,7 @@ ${ty.variants.map(
   });
   const reducersSchema = reducers(
     reducerSchema("accept_duel", AcceptDuelReducer),
+    reducerSchema("begin_adventure", BeginAdventureReducer),
     reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("move", MoveReducer),
     reducerSchema("move_v_2", MoveV2Reducer),
@@ -8449,6 +8452,8 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const MOVEMENT_STEP_SECONDS = 1 / MOVEMENT_HZ;
   const REMOTE_PREDICTION_SECONDS = MOVEMENT_STEP_SECONDS;
+  const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
+  const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
   const runtime = window;
   const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
   const defaultHost = isLocalHost ? "ws://localhost:3000" : "wss://maincloud.spacetimedb.com";
@@ -8475,6 +8480,17 @@ ${ty.variants.map(
   let positionSyncPendingSequence = null;
   let lastDuelPulseAt = 0;
   let onChange = null;
+  function generatedDisplayName(identity) {
+    let hash = 2166136261;
+    for (const character of identity) {
+      hash ^= character.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    const adjective = NAME_ADJECTIVES[(hash >>> 0) % NAME_ADJECTIVES.length];
+    const creature = NAME_CREATURES[(hash >>> 8 >>> 0) % NAME_CREATURES.length];
+    const number = String((hash >>> 16) % 1e3).padStart(3, "0");
+    return `${adjective} ${creature} ${number}`;
+  }
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
     if (id === localIdentity) {
@@ -8503,7 +8519,7 @@ ${ty.variants.map(
     } else {
       players.set(id, {
         id,
-        name: profiles.get(id) ?? "PLAYER",
+        name: profiles.get(id) ?? generatedDisplayName(id),
         x: row.x,
         y: row.y,
         speed: row.speed,
@@ -8538,7 +8554,8 @@ ${ty.variants.map(
       armor: row.armor,
       regen: row.regen,
       speed: row.speed,
-      bootsCollected: row.bootsCollected
+      bootsCollected: row.bootsCollected,
+      introComplete: row.introComplete
     };
     onChange == null ? void 0 : onChange();
   }
@@ -8712,7 +8729,7 @@ ${ty.variants.map(
       return localState;
     },
     localDisplayName() {
-      return localDisplayName;
+      return localDisplayName || (localIdentity ? generatedDisplayName(localIdentity) : "");
     },
     setDisplayName(displayName) {
       if (!connection) return;
@@ -8728,6 +8745,10 @@ ${ty.variants.map(
     resetProgress() {
       if (!connection) return;
       connection.reducers.resetPlayerProgress({});
+    },
+    beginAdventure() {
+      if (!connection) return;
+      connection.reducers.beginAdventure({});
     },
     chatMessages() {
       return chatMessages.slice();

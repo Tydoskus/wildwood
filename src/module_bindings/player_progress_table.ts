@@ -22,4 +22,5 @@ export default __t.row({
   regen: __t.f32(),
   speed: __t.f32(),
   bootsCollected: __t.bool().name("boots_collected"),
+  introComplete: __t.bool().name("intro_complete"),
 });

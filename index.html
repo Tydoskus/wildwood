@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.139" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.142" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -53,14 +53,10 @@
         </div>
       </div>
     </div>
-    <div id="topMeta">
-      <div id="coopStatus">PLAYERS: 1</div>
-      <div id="version">v0.139</div>
-    </div>
   </div>
   <div id="duelControls" hidden>
     <div id="duelStatus">DUEL READY</div>
-    <button id="duelRequestBtn" type="button">REQUEST DUEL</button>
+    <button id="duelRequestBtn" type="button">Challenge to Duel</button>
     <button id="duelAcceptBtn" type="button" hidden>ACCEPT DUEL</button>
   </div>
   <div id="duelCountdown" hidden>3</div>
@@ -69,6 +65,10 @@
   <div id="chatPanel" class="card">
     <div class="chat-header">
       <span>CHAT</span>
+      <div id="topMeta">
+        <div id="coopStatus">PLAYERS: 1</div>
+        <div id="version">v0.142</div>
+      </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
     <form id="chatForm">
@@ -122,7 +122,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.139"></script>
-<script src="assets/wildwood/game.js?v=0.139"></script>
+<script src="assets/wildwood/coop-client.js?v=0.142"></script>
+<script src="assets/wildwood/game.js?v=0.142"></script>
 </body>
 </html>

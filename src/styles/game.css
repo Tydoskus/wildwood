@@ -200,13 +200,12 @@
 
   #duelControls {
     position: fixed;
-    top: 12px;
-    left: 50%;
+    top: 204px;
+    left: 210px;
     z-index: 7;
     display: grid;
-    justify-items: center;
+    justify-items: start;
     gap: 5px;
-    transform: translateX(-50%);
     pointer-events: auto;
   }
 
@@ -254,11 +253,9 @@
   }
 
   #topMeta {
-    position: absolute;
-    top: calc(100% + 20px);
-    left: 104px;
     display: flex;
     gap: 8px;
+    margin-left: auto;
     color: rgba(245,245,233,.58);
     font-size: 9px;
     letter-spacing: .05em;
@@ -299,7 +296,7 @@
   }
 
   .chat-header {
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 8px;
     color: var(--gold);
     font-size: 10px;
@@ -577,4 +574,11 @@
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
     #pickupLog { bottom: 180px; }
+  }
+
+  @media (max-width: 520px) {
+    #duelControls {
+      top: 286px;
+      left: 12px;
+    }
   }

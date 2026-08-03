@@ -47,6 +47,7 @@ export type PlayerProgress = {
   regen: number;
   speed: number;
   bootsCollected: boolean;
+  introComplete: boolean;
 };
 
 export type DuelState = {
@@ -110,6 +111,8 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const MOVEMENT_STEP_SECONDS = 1 / MOVEMENT_HZ;
 const REMOTE_PREDICTION_SECONDS = MOVEMENT_STEP_SECONDS;
+const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
+const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
 const runtime = window as WildwoodRuntime;
 const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -138,6 +141,18 @@ let lastSpeedSent: number | null = null;
 let positionSyncPendingSequence: number | null = null;
 let lastDuelPulseAt = 0;
 let onChange: (() => void) | null = null;
+
+function generatedDisplayName(identity: string) {
+  let hash = 2166136261;
+  for (const character of identity) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const adjective = NAME_ADJECTIVES[(hash >>> 0) % NAME_ADJECTIVES.length];
+  const creature = NAME_CREATURES[((hash >>> 8) >>> 0) % NAME_CREATURES.length];
+  const number = String((hash >>> 16) % 1000).padStart(3, "0");
+  return `${adjective} ${creature} ${number}`;
+}
 
 function upsertPlayer(row: {
   identity: Identity;
@@ -181,7 +196,7 @@ function upsertPlayer(row: {
   } else {
     players.set(id, {
       id,
-      name: profiles.get(id) ?? "PLAYER",
+      name: profiles.get(id) ?? generatedDisplayName(id),
       x: row.x,
       y: row.y,
       speed: row.speed,
@@ -219,6 +234,7 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     regen: row.regen,
     speed: row.speed,
     bootsCollected: row.bootsCollected,
+    introComplete: row.introComplete,
   };
   onChange?.();
 }
@@ -435,7 +451,7 @@ export const wildwoodCoop = {
     return localState;
   },
   localDisplayName() {
-    return localDisplayName;
+    return localDisplayName || (localIdentity ? generatedDisplayName(localIdentity) : "");
   },
   setDisplayName(displayName: string) {
     if (!connection) return;
@@ -451,6 +467,10 @@ export const wildwoodCoop = {
   resetProgress() {
     if (!connection) return;
     connection.reducers.resetPlayerProgress({});
+  },
+  beginAdventure() {
+    if (!connection) return;
+    connection.reducers.beginAdventure({});
   },
   chatMessages() {
     return chatMessages.slice();

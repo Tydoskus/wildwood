@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.139";
+  const GAME_VERSION = "0.142";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -88,6 +88,7 @@ import { createChatController } from "./ui/chat";
   const bossRain = [];
   const DUEL_REQUEST_RANGE = 250;
   const DUEL_ARENA = { x: 6000, y: 6000, r: 430 };
+  const START_SPAWN = { x: 360, y: 360 };
   const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
   const DUEL_SHOT_LIFETIME = .38;
   const DUEL_SHOT_SPEED = 620;
@@ -124,6 +125,7 @@ import { createChatController } from "./ui/chat";
 
   let hasSavedProgress = false;
   let progressLoaded = false;
+  let waitingForFreshStart = false;
 
   const player = {
     x: 360,
@@ -447,8 +449,8 @@ import { createChatController } from "./ui/chat";
   }
 
   function reset(preserveStats = false) {
-    player.x = 360;
-    player.y = 360;
+    player.x = START_SPAWN.x;
+    player.y = START_SPAWN.y;
 
     if (!preserveStats && !hasSavedProgress) {
       player.maxHp = 30;
@@ -516,14 +518,17 @@ import { createChatController } from "./ui/chat";
       const candidate = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY));
       if (candidate?.stats && typeof candidate.stats === "object") legacy = candidate;
     } catch {}
-    const serverIsDefault =
-      saved.maxHp === 30 && saved.damage === 4 && saved.attackRate === 0.78 &&
-      saved.projectileSpeed === BASE_PROJECTILE_SPEED && saved.projectileCount === 1 &&
-      saved.attackRange === BASE_ATTACK_RANGE && saved.armor === 0 && saved.regen === 0 &&
-      saved.speed === 175 && saved.bootsCollected === false;
+    const isDefaultProgress = (progress) =>
+      progress.maxHp === 30 && progress.damage === 4 && progress.attackRate === 0.78 &&
+      progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 &&
+      progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 &&
+      progress.speed === 175 && progress.bootsCollected === false;
+    const serverIsDefault = isDefaultProgress(saved);
     const source = legacy && serverIsDefault
       ? { ...legacy.stats, bootsCollected: legacy.bootsCollected === true }
       : saved;
+
+    if (waitingForFreshStart && saved.introComplete) return;
 
     const number = (value, fallback, min, max) =>
       Number.isFinite(value) ? clamp(value, min, max) : fallback;
@@ -541,9 +546,14 @@ import { createChatController } from "./ui/chat";
     bootsPickup.collected = source.bootsCollected === true;
     hasSavedProgress = true;
     progressLoaded = true;
+    if (waitingForFreshStart) waitingForFreshStart = false;
     if (legacy && serverIsDefault) {
       saveProgress();
       try { localStorage.removeItem(LEGACY_SAVE_KEY); } catch {}
+    }
+    if (!hasStarted && !running && (saved.introComplete || !isDefaultProgress(source))) {
+      if (!saved.introComplete) coop?.beginAdventure?.();
+      startGame(false);
     }
   }
 
@@ -911,7 +921,13 @@ import { createChatController } from "./ui/chat";
   }
 
   function isDueling() {
-    return ["countdown", "active"].includes(activeDuel()?.status);
+    const duel = activeDuel();
+    if (!duel || !["countdown", "active"].includes(duel.status)) return false;
+    if (duel.status === "active" && Date.now() >= duel.endsAtMs) {
+      coop?.pulseDuel?.();
+      return false;
+    }
+    return true;
   }
 
   function isArenaScene() {
@@ -2119,6 +2135,13 @@ import { createChatController } from "./ui/chat";
     duelRequestBtn.hidden = true;
     duelAcceptBtn.hidden = true;
 
+    if (duel?.status === "active" && Date.now() >= duel.endsAtMs) {
+      coop?.pulseDuel?.();
+      duelCountdownEl.hidden = true;
+      duelControls.hidden = true;
+      return;
+    }
+
     if (duel?.status === "countdown") {
       const remaining = Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1000));
       duelStatusEl.textContent = "DUEL STARTING";
@@ -2150,7 +2173,7 @@ import { createChatController } from "./ui/chat";
     }
     if (nearby) {
       duelStatusEl.hidden = true;
-      duelRequestBtn.textContent = `REQUEST ${nearby.name}`;
+      duelRequestBtn.textContent = `Challenge ${nearby.name} to Duel`;
       duelRequestBtn.hidden = false;
       duelControls.hidden = false;
       return;
@@ -2168,7 +2191,7 @@ import { createChatController } from "./ui/chat";
     requestAnimationFrame(loop);
   }
 
-  function startGame() {
+  function startGame(markIntro = true) {
     startEl.style.display = "none";
     overEl.style.display = "none";
     pausedForUpgrade = false;
@@ -2176,6 +2199,8 @@ import { createChatController } from "./ui/chat";
     reset(hasStarted);
     hasStarted = true;
     running = true;
+    if (markIntro) coop?.beginAdventure?.();
+    if (coop?.isConnected?.()) coop.syncPosition(player.x, player.y, player.facing);
     last = performance.now();
   }
 
@@ -2334,6 +2359,7 @@ import { createChatController } from "./ui/chat";
 
     hasSavedProgress = false;
     progressLoaded = false;
+    waitingForFreshStart = true;
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     bootsPickup.collected = false;
     pausedForUpgrade = false;
@@ -2341,9 +2367,9 @@ import { createChatController } from "./ui/chat";
     keys.clear();
     touchMove.active = false;
     reset(false);
-    running = true;
+    running = false;
     last = performance.now();
-    startEl.style.display = "none";
+    startEl.style.display = "grid";
     overEl.style.display = "none";
     settingsPanel.hidden = true;
     settingsBtn.setAttribute("aria-expanded", "false");

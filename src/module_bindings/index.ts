@@ -35,6 +35,7 @@ import {
 
 // Import all reducer arg schemas
 import AcceptDuelReducer from "./accept_duel_reducer";
+import BeginAdventureReducer from "./begin_adventure_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
 import MoveReducer from "./move_reducer";
 import MoveV2Reducer from "./move_v_2_reducer";
@@ -132,6 +133,7 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
+  __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("move", MoveReducer),
   __reducerSchema("move_v_2", MoveV2Reducer),

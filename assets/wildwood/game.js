@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.139";
+    const GAME_VERSION = "0.142";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -225,6 +225,7 @@
     const bossRain = [];
     const DUEL_REQUEST_RANGE = 250;
     const DUEL_ARENA = { x: 6e3, y: 6e3, r: 430 };
+    const START_SPAWN = { x: 360, y: 360 };
     const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
     const DUEL_SHOT_LIFETIME = 0.38;
     const DUEL_SHOT_SPEED = 620;
@@ -256,6 +257,7 @@
     };
     let hasSavedProgress = false;
     let progressLoaded = false;
+    let waitingForFreshStart = false;
     const player = {
       x: 360,
       y: 360,
@@ -631,8 +633,8 @@
       }
     }
     function reset(preserveStats = false) {
-      player.x = 360;
-      player.y = 360;
+      player.x = START_SPAWN.x;
+      player.y = START_SPAWN.y;
       if (!preserveStats && !hasSavedProgress) {
         player.maxHp = 30;
         player.damage = 4;
@@ -683,6 +685,7 @@
       });
     }
     function loadProgress() {
+      var _a;
       if (progressLoaded || !coop || typeof coop.savedProgress !== "function") return;
       const saved = coop.savedProgress();
       if (!saved) return;
@@ -692,8 +695,10 @@
         if ((candidate == null ? void 0 : candidate.stats) && typeof candidate.stats === "object") legacy = candidate;
       } catch {
       }
-      const serverIsDefault = saved.maxHp === 30 && saved.damage === 4 && saved.attackRate === 0.78 && saved.projectileSpeed === BASE_PROJECTILE_SPEED && saved.projectileCount === 1 && saved.attackRange === BASE_ATTACK_RANGE && saved.armor === 0 && saved.regen === 0 && saved.speed === 175 && saved.bootsCollected === false;
+      const isDefaultProgress = (progress) => progress.maxHp === 30 && progress.damage === 4 && progress.attackRate === 0.78 && progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 && progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 && progress.speed === 175 && progress.bootsCollected === false;
+      const serverIsDefault = isDefaultProgress(saved);
       const source = legacy && serverIsDefault ? { ...legacy.stats, bootsCollected: legacy.bootsCollected === true } : saved;
+      if (waitingForFreshStart && saved.introComplete) return;
       const number = (value, fallback, min, max) => Number.isFinite(value) ? clamp(value, min, max) : fallback;
       player.maxHp = number(source.maxHp, player.maxHp, 1, 1e6);
       player.damage = number(source.damage, player.damage, 1, 1e6);
@@ -708,12 +713,17 @@
       bootsPickup.collected = source.bootsCollected === true;
       hasSavedProgress = true;
       progressLoaded = true;
+      if (waitingForFreshStart) waitingForFreshStart = false;
       if (legacy && serverIsDefault) {
         saveProgress();
         try {
           localStorage.removeItem(LEGACY_SAVE_KEY);
         } catch {
         }
+      }
+      if (!hasStarted && !running && (saved.introComplete || !isDefaultProgress(source))) {
+        if (!saved.introComplete) (_a = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a.call(coop);
+        startGame(false);
       }
     }
     function updateBootPickup() {
@@ -1028,7 +1038,13 @@
     }
     function isDueling() {
       var _a;
-      return ["countdown", "active"].includes((_a = activeDuel()) == null ? void 0 : _a.status);
+      const duel = activeDuel();
+      if (!duel || !["countdown", "active"].includes(duel.status)) return false;
+      if (duel.status === "active" && Date.now() >= duel.endsAtMs) {
+        (_a = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a.call(coop);
+        return false;
+      }
+      return true;
     }
     function isArenaScene() {
       return isDueling() || replayMode !== null;
@@ -2104,7 +2120,7 @@
       return ((_c = (_b = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c.name) ?? "OPPONENT";
     }
     function updateDuelControls() {
-      var _a;
+      var _a, _b;
       if (!duelControls) return;
       const duel = activeDuel();
       const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
@@ -2112,6 +2128,12 @@
       duelStatusEl.hidden = false;
       duelRequestBtn.hidden = true;
       duelAcceptBtn.hidden = true;
+      if ((duel == null ? void 0 : duel.status) === "active" && Date.now() >= duel.endsAtMs) {
+        (_b = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _b.call(coop);
+        duelCountdownEl.hidden = true;
+        duelControls.hidden = true;
+        return;
+      }
       if ((duel == null ? void 0 : duel.status) === "countdown") {
         const remaining = Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1e3));
         duelStatusEl.textContent = "DUEL STARTING";
@@ -2143,7 +2165,7 @@
       }
       if (nearby) {
         duelStatusEl.hidden = true;
-        duelRequestBtn.textContent = `REQUEST ${nearby.name}`;
+        duelRequestBtn.textContent = `Challenge ${nearby.name} to Duel`;
         duelRequestBtn.hidden = false;
         duelControls.hidden = false;
         return;
@@ -2158,7 +2180,8 @@
       render();
       requestAnimationFrame(loop);
     }
-    function startGame() {
+    function startGame(markIntro = true) {
+      var _a, _b;
       startEl.style.display = "none";
       overEl.style.display = "none";
       pausedForUpgrade = false;
@@ -2166,6 +2189,8 @@
       reset(hasStarted);
       hasStarted = true;
       running = true;
+      if (markIntro) (_a = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a.call(coop);
+      if ((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) coop.syncPosition(player.x, player.y, player.facing);
       last = performance.now();
     }
     function endGame() {
@@ -2301,6 +2326,7 @@
       if (!confirm("Erase all saved Wildwood progress and start over?")) return;
       hasSavedProgress = false;
       progressLoaded = false;
+      waitingForFreshStart = true;
       if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
       bootsPickup.collected = false;
       pausedForUpgrade = false;
@@ -2308,9 +2334,9 @@
       keys.clear();
       touchMove.active = false;
       reset(false);
-      running = true;
+      running = false;
       last = performance.now();
-      startEl.style.display = "none";
+      startEl.style.display = "grid";
       overEl.style.display = "none";
       settingsPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", "false");

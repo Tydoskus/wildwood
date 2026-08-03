@@ -119,6 +119,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   regen: __t.f32(),
   speed: __t.f32(),
   bootsCollected: __t.bool(),
+  introComplete: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

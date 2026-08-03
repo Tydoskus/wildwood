@@ -61,6 +61,7 @@ const playerProgress = table(
     regen: t.f32(),
     speed: t.f32(),
     bootsCollected: t.bool(),
+    introComplete: t.bool().default(false),
   },
 );
 
@@ -175,6 +176,7 @@ function defaultPlayerProgress(identity: any) {
     regen: 0,
     speed: PLAYER_SPEED,
     bootsCollected: false,
+    introComplete: false,
   };
 }
 
@@ -539,9 +541,19 @@ export const savePlayerProgress = spacetimedb.reducer(
     }
 
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
-    const next = { identity: ctx.sender, ...progress };
+    const next = { identity: ctx.sender, ...progress, introComplete: current?.introComplete ?? false };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+  },
+);
+
+export const beginAdventure = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const current = ctx.db.playerProgress.identity.find(ctx.sender);
+    if (current?.introComplete) return;
+    if (current) ctx.db.playerProgress.identity.update({ ...current, introComplete: true });
+    else ctx.db.playerProgress.insert({ ...defaultPlayerProgress(ctx.sender), introComplete: true });
   },
 );
 
@@ -594,6 +606,7 @@ export const sendChatMessage = spacetimedb.reducer(
 export const requestDuel = spacetimedb.reducer(
   {},
   (ctx) => {
+    clearStalePlayers(ctx);
     clearExpiredDuelRequests(ctx);
     const challenger = ctx.db.player.identity.find(ctx.sender);
     if (!challenger || activeDuelFor(ctx, ctx.sender)) return;
@@ -654,6 +667,7 @@ export const requestDuel = spacetimedb.reducer(
 export const acceptDuel = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
+    clearStalePlayers(ctx);
     clearExpiredDuelRequests(ctx);
     const current = ctx.db.duel.id.find(id);
     if (!current || current.status !== "requested" || !sameIdentity(current.opponent, ctx.sender)) return;
@@ -667,6 +681,10 @@ export const acceptDuel = spacetimedb.reducer(
     const challengerProgress = ctx.db.playerProgress.identity.find(current.challenger);
     const opponentProgress = ctx.db.playerProgress.identity.find(current.opponent);
     if (!challenger || !opponent || !challengerProgress || !opponentProgress) {
+      ctx.db.duel.id.delete(current.id);
+      return;
+    }
+    if (Math.hypot(challenger.x - opponent.x, challenger.y - opponent.y) > DUEL_REQUEST_RANGE) {
       ctx.db.duel.id.delete(current.id);
       return;
     }

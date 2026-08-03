@@ -7,6 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import AcceptDuelReducer from "../accept_duel_reducer";
+import BeginAdventureReducer from "../begin_adventure_reducer";
 import HeartbeatReducer from "../heartbeat_reducer";
 import MoveReducer from "../move_reducer";
 import MoveV2Reducer from "../move_v_2_reducer";
@@ -20,6 +21,7 @@ import SetSpeedReducer from "../set_speed_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
+export type BeginAdventureParams = __Infer<typeof BeginAdventureReducer>;
 export type HeartbeatParams = __Infer<typeof HeartbeatReducer>;
 export type MoveParams = __Infer<typeof MoveReducer>;
 export type MoveV2Params = __Infer<typeof MoveV2Reducer>;
