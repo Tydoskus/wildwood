@@ -14,6 +14,7 @@ import {
   ENEMY_SPEED_MULTIPLIER,
   ELITE_SPEED_MULTIPLIER,
   MAX_PROJECTILE_SPEED,
+  MELEE_ENEMY_SPEED_MULTIPLIER,
   MIN_ENEMY_AGGRO_RADIUS,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
@@ -29,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.121";
+  const GAME_VERSION = "0.122";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -574,7 +575,11 @@ import { createChatController } from "./ui/chat";
       r: base.r,
       hp: maxHp,
       maxHp,
-      speed: base.speed * ENEMY_SPEED_MULTIPLIER * (base.elite ? ELITE_SPEED_MULTIPLIER : 1),
+      speed:
+        base.speed *
+        ENEMY_SPEED_MULTIPLIER *
+        (base.elite ? ELITE_SPEED_MULTIPLIER : 1) *
+        (base.ranged ? 1 : MELEE_ENEMY_SPEED_MULTIPLIER),
       damage: base.damage,
       reward: base.reward,
       rewardDamage: base.damageReward,

@@ -25,8 +25,9 @@
   const MIN_CAMERA_ZOOM = 0.5;
   const ENEMY_SPEED_MULTIPLIER = 3;
   const ELITE_SPEED_MULTIPLIER = 2;
+  const MELEE_ENEMY_SPEED_MULTIPLIER = 2;
   const MIN_ENEMY_AGGRO_RADIUS = 285;
-  const RANGED_PROJECTILE_SPEED = 165 * 1.5;
+  const RANGED_PROJECTILE_SPEED = 165 * 3;
   const PLAYER_SPRITE_X_OFFSETS = [
     [0, 14, 27, 39],
     [0, 14, 22, 32],
@@ -156,7 +157,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.121";
+    const GAME_VERSION = "0.122";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -724,7 +725,7 @@
         r: base.r,
         hp: maxHp,
         maxHp,
-        speed: base.speed * ENEMY_SPEED_MULTIPLIER * (base.elite ? ELITE_SPEED_MULTIPLIER : 1),
+        speed: base.speed * ENEMY_SPEED_MULTIPLIER * (base.elite ? ELITE_SPEED_MULTIPLIER : 1) * (base.ranged ? 1 : MELEE_ENEMY_SPEED_MULTIPLIER),
         damage: base.damage,
         reward: base.reward,
         rewardDamage: base.damageReward,
