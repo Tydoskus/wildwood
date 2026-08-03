@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.134";
+    const GAME_VERSION = "0.135";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1060,7 +1060,7 @@
       lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
     }
     function duelStatLine(subject, attacks, damage, regen, blocked) {
-      return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>${subject} ATTACKED ${attacks} TIMES · ${subject} DID ${Math.round(damage)} DMG<br>${subject} REGENERATED ${Math.round(regen)} HP · ${subject} BLOCKED ${Math.round(blocked)} DMG</div>`;
+      return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>ATTACKED ${attacks} TIMES<br>DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP<br>BLOCKED ${Math.round(blocked)} DMG</div>`;
     }
     function showDuelResult(replay) {
       var _a;
