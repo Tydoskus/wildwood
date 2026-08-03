@@ -25,6 +25,7 @@
   const MIN_CAMERA_ZOOM = 0.5;
   const ENEMY_SPEED_MULTIPLIER = 3;
   const ELITE_SPEED_MULTIPLIER = 2;
+  const MIN_ENEMY_AGGRO_RADIUS = 285;
   const RANGED_PROJECTILE_SPEED = 165 * 1.5;
   const PLAYER_SPRITE_X_OFFSETS = [
     [0, 14, 27, 39],
@@ -155,7 +156,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.119";
+    const GAME_VERSION = "0.120";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -727,7 +728,7 @@
         damage: base.damage,
         reward: base.reward,
         rewardDamage: base.damageReward,
-        aggroRadius: base.aggro,
+        aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
         leashRange: site.leashRange,
         engaged: false,
         leashing: false,

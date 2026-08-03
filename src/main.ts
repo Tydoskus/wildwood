@@ -14,6 +14,7 @@ import {
   ENEMY_SPEED_MULTIPLIER,
   ELITE_SPEED_MULTIPLIER,
   MAX_PROJECTILE_SPEED,
+  MIN_ENEMY_AGGRO_RADIUS,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
   PLAYER_SPRITE_CENTER_X_SHIFT,
@@ -28,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.119";
+  const GAME_VERSION = "0.120";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -577,7 +578,7 @@ import { createChatController } from "./ui/chat";
       damage: base.damage,
       reward: base.reward,
       rewardDamage: base.damageReward,
-      aggroRadius: base.aggro,
+      aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
       leashRange: site.leashRange,
       engaged: false,
       leashing: false,

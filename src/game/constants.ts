@@ -13,6 +13,7 @@ export const ATTACK_RANGE_ZOOM_REFERENCE = 155;
 export const MIN_CAMERA_ZOOM = 0.5;
 export const ENEMY_SPEED_MULTIPLIER = 3;
 export const ELITE_SPEED_MULTIPLIER = 2;
+export const MIN_ENEMY_AGGRO_RADIUS = 285;
 export const RANGED_PROJECTILE_SPEED = 165 * 1.5;
 export const PLAYER_SPRITE_X_OFFSETS = [
   [0, 14, 27, 39],
