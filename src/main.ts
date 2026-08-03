@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.147";
+  const GAME_VERSION = "0.148";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -74,6 +74,7 @@ import { createChatController } from "./ui/chat";
   const keys = new Set();
   const camera = { x: 0, y: 0, zoom: 1 };
   const particles = [];
+  const damageNumbers = [];
   const projectiles = [];
   const duelShots = [];
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
@@ -107,6 +108,7 @@ import { createChatController } from "./ui/chat";
   let autoAttackEnabled = true;
   let duelWasActive = false;
   let lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
+  let lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
   let lastLocalDuelId = null;
   let visibleReplay = null;
   let replayMode = null;
@@ -471,6 +473,7 @@ import { createChatController } from "./ui/chat";
     projectiles.length = 0;
     enemyShots.length = 0;
     particles.length = 0;
+    damageNumbers.length = 0;
 
     gameTime = 0;
     kills = 0;
@@ -656,6 +659,28 @@ import { createChatController } from "./ui/chat";
         color
       });
     }
+  }
+
+  function formatDamage(amount) {
+    const units = [[1e9, "b"], [1e6, "m"], [1e3, "k"]];
+    for (const [value, suffix] of units) {
+      if (amount < value) continue;
+      const scaled = amount / value;
+      const digits = scaled >= 100 ? 0 : 1;
+      return `${Number(scaled.toFixed(digits))}${suffix}`;
+    }
+    return String(Math.round(amount));
+  }
+
+  function spawnDamageNumber(x, y, amount) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    damageNumbers.push({
+      x: x + rand(-10, 10),
+      y: y - 18,
+      life: .72,
+      maxLife: .72,
+      text: `-${formatDamage(amount)}`,
+    });
   }
 
   function fireAt(target) {
@@ -886,6 +911,7 @@ import { createChatController } from "./ui/chat";
     if (player.hurtClock > 0) return;
     const dealt = Math.max(1, Math.round(amount - player.armor));
     player.hp -= dealt;
+    spawnDamageNumber(player.x, player.y, dealt);
     player.hurtClock = .1;
     flash = .22;
     screenShake = Math.max(screenShake, 7);
@@ -953,6 +979,18 @@ import { createChatController } from "./ui/chat";
       spawnDuelShot(opponentX, DUEL_ARENA.y, challengerX, DUEL_ARENA.y, "#ff8aa8");
     }
     lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
+  }
+
+  function syncDuelDamageNumbers(duel) {
+    if (lastDuelHealth.id !== duel.id) {
+      lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
+      return;
+    }
+    const challengerDamage = lastDuelHealth.challenger - duel.challengerHp;
+    const opponentDamage = lastDuelHealth.opponent - duel.opponentHp;
+    if (challengerDamage > .01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_ARENA.y, challengerDamage);
+    if (opponentDamage > .01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_ARENA.y, opponentDamage);
+    lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
   }
 
   function duelStatLine(subject, attacks, damage, regen, blocked) {
@@ -1048,6 +1086,7 @@ import { createChatController } from "./ui/chat";
     duelWasActive = true;
     lastLocalDuelId = duel.id;
     syncDuelAttacks(duel);
+    syncDuelDamageNumbers(duel);
     coop.pulseDuel?.();
     return true;
   }
@@ -1060,6 +1099,7 @@ import { createChatController } from "./ui/chat";
       duelWasActive = false;
       duelShots.length = 0;
       lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
+      lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
       const replay = coop?.duelReplay?.(lastLocalDuelId);
       if (replay) showDuelResult(replay);
     }
@@ -1247,6 +1287,7 @@ import { createChatController } from "./ui/chat";
         p.y = startY + (endY - startY) * hit.t;
         const target = hit.enemy;
         target.hp -= p.damage;
+        spawnDamageNumber(target.x, target.y, p.damage);
         target.hurt = .12;
         p.life = 0;
 
@@ -1308,6 +1349,16 @@ import { createChatController } from "./ui/chat";
     }
   }
 
+  function updateDamageNumbers(dt) {
+    for (const number of damageNumbers) {
+      number.life -= dt;
+      number.y -= 34 * dt;
+    }
+    for (let i = damageNumbers.length - 1; i >= 0; i--) {
+      if (damageNumbers[i].life <= 0) damageNumbers.splice(i, 1);
+    }
+  }
+
   function updateCamera(dt) {
     const rangeIncrease = player.attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
     const targetZoom = clamp(1 - rangeIncrease * .5, MIN_CAMERA_ZOOM, 1);
@@ -1357,6 +1408,7 @@ import { createChatController } from "./ui/chat";
       if (duelShots[i].life <= 0) duelShots.splice(i, 1);
     }
     updateParticles(dt);
+    updateDamageNumbers(dt);
     updateCamera(dt);
     updateHud();
   }
@@ -1547,6 +1599,25 @@ import { createChatController } from "./ui/chat";
     ctx.fillStyle = "rgba(255,255,255,.24)";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
     drawPlayerName(actor.name, x, barY - 4, actor.isLocal ? "#ffffff" : "#9eeeff");
+  }
+
+  function drawDamageNumbers() {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.font = "900 14px ui-monospace, monospace";
+    ctx.lineWidth = 3;
+    for (const number of damageNumbers) {
+      const alpha = clamp(number.life / number.maxLife, 0, 1);
+      const x = Math.floor(number.x - camera.x);
+      const y = Math.floor(number.y - camera.y);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = "rgba(35,0,0,.92)";
+      ctx.strokeText(number.text, x, y);
+      ctx.fillStyle = "#ff5a5a";
+      ctx.fillText(number.text, x, y);
+    }
+    ctx.restore();
   }
 
   function drawAttackRange() {
@@ -2020,6 +2091,7 @@ import { createChatController } from "./ui/chat";
     drawDuelShots(scene.shots);
     drawDuelCombatant(scene.challenger);
     drawDuelCombatant(scene.opponent);
+    drawDamageNumbers();
     ctx.restore();
     duelCountdownEl.textContent = String(scene.countdown || "");
     duelCountdownEl.hidden = !scene.countdown;
@@ -2059,6 +2131,7 @@ import { createChatController } from "./ui/chat";
     drawRemotePlayers(remotePlayers);
     drawPlayer();
     drawParticles();
+    drawDamageNumbers();
 
     ctx.restore();
 
