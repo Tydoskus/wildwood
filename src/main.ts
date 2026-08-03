@@ -11,10 +11,7 @@ import {
   BOSS_CONE_RANGE,
   BOSS_ENEMY_SAFE_DISTANCE,
   ENEMY_RESPAWN_SAFE_DISTANCE,
-  ENEMY_SPEED_MULTIPLIER,
-  ELITE_SPEED_MULTIPLIER,
   MAX_PROJECTILE_SPEED,
-  MELEE_ENEMY_SPEED_MULTIPLIER,
   MIN_ENEMY_AGGRO_RADIUS,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
@@ -30,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.144";
+  const GAME_VERSION = "0.145";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -190,43 +187,43 @@ import { createChatController } from "./ui/chat";
   const ENEMY_TYPES = {
     grunt: {
       name: "Bramble",
-      hp: 12, speed: 58, damage: 4, r: 14,
+      hp: 12, speed: 300, damage: 4, r: 14,
       color: "#d95738", outline: "#5c1b13", reward: 4,
       aggro: 245
     },
     runner: {
       name: "Needle",
-      hp: 9, speed: 102, damage: 4, r: 10,
+      hp: 9, speed: 300, damage: 4, r: 10,
       color: "#ffd34d", outline: "#6f4a12", reward: 5,
       aggro: 275
     },
     tank: {
       name: "Mossback",
-      hp: 38, speed: 34, damage: 9, r: 22,
+      hp: 38, speed: 200, damage: 9, r: 22,
       color: "#768d51", outline: "#2c3b20", reward: 10,
       aggro: 220
     },
     shooter: {
       name: "Spitter",
-      hp: 18, speed: 43, damage: 8, r: 15,
+      hp: 18, speed: 200, damage: 8, r: 15,
       color: "#b16ac8", outline: "#4b235d", reward: 8,
       ranged: true, aggro: 330
     },
     splitter: {
       name: "Brood",
-      hp: 22, speed: 52, damage: 6, r: 16,
+      hp: 22, speed: 300, damage: 6, r: 16,
       color: "#45b6c2", outline: "#174a54", reward: 8,
       aggro: 255
     },
     elite: {
       name: "Ironhorn",
-      hp: 92, speed: 46, damage: 13, r: 27,
+      hp: 92, speed: 300, damage: 13, r: 27,
       color: "#d47a2b", outline: "#5c2b12", reward: 30,
       elite: true, aggro: 300
     },
     warden: {
       name: "Dread Warden",
-      hp: 1000, speed: 27, damage: 75, r: 36,
+      hp: 1000, speed: 300, damage: 75, r: 36,
       color: "#a52e3a", outline: "#47101a", reward: 180,
       elite: true, aggro: 350, damageReward: 83
     }
@@ -609,11 +606,7 @@ import { createChatController } from "./ui/chat";
       r: base.r,
       hp: maxHp,
       maxHp,
-      speed:
-        base.speed *
-        ENEMY_SPEED_MULTIPLIER *
-        (base.elite ? ELITE_SPEED_MULTIPLIER : 1) *
-        (base.ranged ? 1 : MELEE_ENEMY_SPEED_MULTIPLIER),
+      speed: base.speed,
       damage: base.damage,
       reward: base.reward,
       rewardDamage: base.damageReward,

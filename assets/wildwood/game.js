@@ -23,9 +23,6 @@
   const BASE_ATTACK_RANGE = 250;
   const ATTACK_RANGE_ZOOM_REFERENCE = 155;
   const MIN_CAMERA_ZOOM = 0.5;
-  const ENEMY_SPEED_MULTIPLIER = 3;
-  const ELITE_SPEED_MULTIPLIER = 2;
-  const MELEE_ENEMY_SPEED_MULTIPLIER = 2;
   const MIN_ENEMY_AGGRO_RADIUS = 285;
   const RANGED_PROJECTILE_SPEED = 165 * 3;
   const PLAYER_SPRITE_X_OFFSETS = [
@@ -170,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.144";
+    const GAME_VERSION = "0.145";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -317,7 +314,7 @@
       grunt: {
         name: "Bramble",
         hp: 12,
-        speed: 58,
+        speed: 300,
         damage: 4,
         r: 14,
         color: "#d95738",
@@ -328,7 +325,7 @@
       runner: {
         name: "Needle",
         hp: 9,
-        speed: 102,
+        speed: 300,
         damage: 4,
         r: 10,
         color: "#ffd34d",
@@ -339,7 +336,7 @@
       tank: {
         name: "Mossback",
         hp: 38,
-        speed: 34,
+        speed: 200,
         damage: 9,
         r: 22,
         color: "#768d51",
@@ -350,7 +347,7 @@
       shooter: {
         name: "Spitter",
         hp: 18,
-        speed: 43,
+        speed: 200,
         damage: 8,
         r: 15,
         color: "#b16ac8",
@@ -362,7 +359,7 @@
       splitter: {
         name: "Brood",
         hp: 22,
-        speed: 52,
+        speed: 300,
         damage: 6,
         r: 16,
         color: "#45b6c2",
@@ -373,7 +370,7 @@
       elite: {
         name: "Ironhorn",
         hp: 92,
-        speed: 46,
+        speed: 300,
         damage: 13,
         r: 27,
         color: "#d47a2b",
@@ -385,7 +382,7 @@
       warden: {
         name: "Dread Warden",
         hp: 1e3,
-        speed: 27,
+        speed: 300,
         damage: 75,
         r: 36,
         color: "#a52e3a",
@@ -771,7 +768,7 @@
         r: base.r,
         hp: maxHp,
         maxHp,
-        speed: base.speed * ENEMY_SPEED_MULTIPLIER * (base.elite ? ELITE_SPEED_MULTIPLIER : 1) * (base.ranged ? 1 : MELEE_ENEMY_SPEED_MULTIPLIER),
+        speed: base.speed,
         damage: base.damage,
         reward: base.reward,
         rewardDamage: base.damageReward,
