@@ -20,7 +20,7 @@
   const BASE_PROJECTILE_SPEED = 390;
   const MAX_PROJECTILE_SPEED = BASE_PROJECTILE_SPEED * 7;
   const PLAYER_KNOCKBACK_FORCE = 90;
-  const BASE_ATTACK_RANGE = 250;
+  const BASE_ATTACK_RANGE = 200;
   const ATTACK_RANGE_ZOOM_REFERENCE = 155;
   const MIN_CAMERA_ZOOM = 0.5;
   const MIN_ENEMY_AGGRO_RADIUS = 285;
@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.146";
+    const GAME_VERSION = "0.147";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -702,7 +702,7 @@
       player.attackRate = number(source.attackRate, player.attackRate, 0.16, 10);
       player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
       player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
-      player.attackRange = number(source.attackRange, player.attackRange, BASE_ATTACK_RANGE, 5e3);
+      player.attackRange = BASE_ATTACK_RANGE;
       player.armor = number(source.armor, player.armor, 0, 1e6);
       player.regen = number(source.regen, player.regen, 0, 1e6);
       player.speed = number(source.speed, player.speed, 1, 2e3);
@@ -2086,7 +2086,7 @@
       if (playerNameEl) {
         playerNameEl.textContent = ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "WANDERER";
       }
-      statsEl.innerHTML = `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>ATK SPEED ${(1 / player.attackRate).toFixed(2)}/s &nbsp; ATK RANGE ${Math.round(player.attackRange)}<br>REGEN ${player.regen.toFixed(1)}/s`;
+      statsEl.innerHTML = `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>ATK SPEED ${(1 / player.attackRate).toFixed(2)}/s &nbsp; ATK RANGE ${Math.round(player.attackRange)}<br>REGEN ${player.regen.toFixed(1)}/s &nbsp; MOVE ${Math.round(player.speed)}`;
       if (coopStatusEl) {
         const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
         const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;

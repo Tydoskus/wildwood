@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.146";
+  const GAME_VERSION = "0.147";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -535,7 +535,7 @@ import { createChatController } from "./ui/chat";
     player.attackRate = number(source.attackRate, player.attackRate, .16, 10);
     player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
     player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
-    player.attackRange = number(source.attackRange, player.attackRange, BASE_ATTACK_RANGE, 5000);
+    player.attackRange = BASE_ATTACK_RANGE;
     player.armor = number(source.armor, player.armor, 0, 1000000);
     player.regen = number(source.regen, player.regen, 0, 1000000);
     player.speed = number(source.speed, player.speed, 1, 2000);
@@ -2083,7 +2083,7 @@ import { createChatController } from "./ui/chat";
     statsEl.innerHTML =
       `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>` +
       `ATK SPEED ${(1/player.attackRate).toFixed(2)}/s &nbsp; ATK RANGE ${Math.round(player.attackRange)}<br>` +
-      `REGEN ${player.regen.toFixed(1)}/s`;
+      `REGEN ${player.regen.toFixed(1)}/s &nbsp; MOVE ${Math.round(player.speed)}`;
 
     if (coopStatusEl) {
       const remoteCount = coop && typeof coop.remotePlayerCount === "function"

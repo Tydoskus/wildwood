@@ -3,7 +3,7 @@ import { schema, table, t } from "spacetimedb/server";
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
-const DEFAULT_ATTACK_RANGE = 250;
+const DEFAULT_ATTACK_RANGE = 200;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_MULTIPLIER = 1.5;
 const MAX_INPUT_STEP_SECONDS = 0.2;
@@ -418,7 +418,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   const existingProgress = ctx.db.playerProgress.identity.find(ctx.sender);
   if (!existingProgress) {
     ctx.db.playerProgress.insert(defaultPlayerProgress(ctx.sender));
-  } else if (existingProgress.attackRange < DEFAULT_ATTACK_RANGE) {
+  } else if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE) {
     ctx.db.playerProgress.identity.update({
       ...existingProgress,
       attackRange: DEFAULT_ATTACK_RANGE,
@@ -532,7 +532,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       progress.attackRate < 0.16 || progress.attackRate > 10 ||
       progress.projectileSpeed < 390 || progress.projectileSpeed > 2_730 ||
       progress.projectileCount < 1 || progress.projectileCount > 20 ||
-      progress.attackRange < DEFAULT_ATTACK_RANGE || progress.attackRange > 5_000 ||
+      Math.abs(progress.attackRange - DEFAULT_ATTACK_RANGE) > 0.001 ||
       progress.armor < 0 || progress.armor > 1_000_000 ||
       progress.regen < 0 || progress.regen > 1_000_000 ||
       progress.speed < 1 || progress.speed > 2_000
