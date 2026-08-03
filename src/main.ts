@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.150";
+  const GAME_VERSION = "0.151";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1728,7 +1728,7 @@ import { createChatController } from "./ui/chat";
   function drawPlayerPower(stats, x, y) {
     const power = Number.isFinite(stats.power) ? stats.power : playerPower(stats);
     ctx.save();
-    ctx.font = "900 9px ui-monospace, monospace";
+    ctx.font = "900 11px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.lineWidth = 3;
