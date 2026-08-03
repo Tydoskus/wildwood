@@ -157,7 +157,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.123";
+    const GAME_VERSION = "0.124";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -967,7 +967,7 @@
       if (player.hurtClock > 0) return;
       const dealt = Math.max(1, Math.round(amount - player.armor));
       player.hp -= dealt;
-      player.hurtClock = 0.275;
+      player.hurtClock = 0.1;
       flash = 0.22;
       screenShake = Math.max(screenShake, 7);
       spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
