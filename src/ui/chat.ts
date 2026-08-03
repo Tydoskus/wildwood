@@ -70,7 +70,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
 
     elements.messages.replaceChildren();
     const now = Date.now();
-    const messages = coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? [];
+    const messages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? [])
+      .slice(large ? -15 : -2);
     for (const message of messages) {
       const line = document.createElement("div");
       line.className = "chat-line";

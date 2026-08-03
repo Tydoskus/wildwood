@@ -93,7 +93,7 @@
       }
       elements.messages.replaceChildren();
       const now = Date.now();
-      const messages = ((_b = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _b.call(coop).filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS)) ?? [];
+      const messages = (((_b = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _b.call(coop).filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS)) ?? []).slice(large ? -15 : -2);
       for (const message of messages) {
         const line = document.createElement("div");
         line.className = "chat-line";
@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.142";
+    const GAME_VERSION = "0.144";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;

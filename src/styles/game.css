@@ -199,15 +199,14 @@
   }
 
   #duelControls {
-    position: fixed;
-    top: 204px;
-    left: 210px;
-    z-index: 7;
     display: grid;
     justify-items: start;
     gap: 5px;
+    align-self: center;
     pointer-events: auto;
   }
+
+  #duelControls[hidden] { display: none; }
 
   #duelStatus {
     padding: 5px 8px;
@@ -227,6 +226,7 @@
     border-width: 2px;
     border-radius: 7px;
     font-size: 11px;
+    max-width: calc(100vw - 160px);
   }
 
   #duelCountdown {
@@ -318,8 +318,8 @@
   #chatMessages {
     display: grid;
     gap: 4px;
-    height: 64px;
-    max-height: 64px;
+    height: 34px;
+    max-height: 34px;
     margin: 5px 0;
     overflow-y: auto;
     font-size: 10px;
@@ -327,8 +327,8 @@
   }
 
   #chatPanel.is-large #chatMessages {
-    height: 150px;
-    max-height: 150px;
+    height: 255px;
+    max-height: 255px;
   }
   .chat-line { overflow-wrap: anywhere; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
@@ -574,11 +574,4 @@
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
     #pickupLog { bottom: 180px; }
-  }
-
-  @media (max-width: 520px) {
-    #duelControls {
-      top: 286px;
-      left: 12px;
-    }
   }
