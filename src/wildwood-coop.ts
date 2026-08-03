@@ -48,6 +48,19 @@ export type PlayerProgress = {
   bootsCollected: boolean;
 };
 
+export type DuelState = {
+  id: bigint;
+  challenger: string;
+  opponent: string;
+  status: string;
+  startedAtMs: number;
+  endsAtMs: number;
+  challengerHp: number;
+  challengerMaxHp: number;
+  opponentHp: number;
+  opponentMaxHp: number;
+};
+
 type PendingInput = {
   sequence: number;
   inputX: number;
@@ -74,6 +87,7 @@ const tokenKey = `${host}/${databaseName}/auth_token`;
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const chatMessages: ChatMessage[] = [];
+const duels = new Map<bigint, DuelState>();
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -88,6 +102,7 @@ let localDisplayName = "";
 let localProgress: PlayerProgress | null = null;
 let lastSpeedSent: number | null = null;
 let positionSyncPendingSequence: number | null = null;
+let lastDuelPulseAt = 0;
 let onChange: (() => void) | null = null;
 
 function upsertPlayer(row: {
@@ -194,6 +209,38 @@ function upsertChatMessage(row: {
   onChange?.();
 }
 
+function upsertDuel(row: {
+  id: bigint;
+  challenger: Identity;
+  opponent: Identity;
+  status: string;
+  startedAt: { microsSinceUnixEpoch: bigint };
+  endsAtMicros: bigint;
+  challengerHp: number;
+  challengerMaxHp: number;
+  opponentHp: number;
+  opponentMaxHp: number;
+}) {
+  duels.set(row.id, {
+    id: row.id,
+    challenger: row.challenger.toHexString(),
+    opponent: row.opponent.toHexString(),
+    status: row.status,
+    startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1000n),
+    endsAtMs: Number(row.endsAtMicros / 1000n),
+    challengerHp: row.challengerHp,
+    challengerMaxHp: row.challengerMaxHp,
+    opponentHp: row.opponentHp,
+    opponentMaxHp: row.opponentMaxHp,
+  });
+  onChange?.();
+}
+
+function removeDuel(row: { id: bigint }) {
+  duels.delete(row.id);
+  onChange?.();
+}
+
 function removePlayer(row: { identity: Identity }) {
   players.delete(row.identity.toHexString());
   onChange?.();
@@ -215,6 +262,7 @@ function connect() {
       localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
+      lastDuelPulseAt = 0;
       localStorage.setItem(tokenKey, token);
 
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -230,6 +278,9 @@ function connect() {
       conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
       conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
       conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
+      conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
+      conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
+      conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
 
       conn
         .subscriptionBuilder()
@@ -238,12 +289,13 @@ function connect() {
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
+          for (const row of conn.db.duel.iter()) upsertDuel(row);
           onChange?.();
         })
         .onError((ctx) => {
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
-        .subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage]);
+        .subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel]);
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
@@ -260,9 +312,11 @@ function connect() {
       localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
+      lastDuelPulseAt = 0;
       players.clear();
       profiles.clear();
       chatMessages.length = 0;
+      duels.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
     })
@@ -279,6 +333,7 @@ function connect() {
       localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
+      lastDuelPulseAt = 0;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange?.();
     })
@@ -325,6 +380,27 @@ export const wildwoodCoop = {
   sendChatMessage(message: string) {
     if (!connection) return;
     connection.reducers.sendChatMessage({ message });
+  },
+  localDuel() {
+    for (const duel of duels.values()) {
+      if (duel.challenger === localIdentity || duel.opponent === localIdentity) return { ...duel };
+    }
+    return null;
+  },
+  requestDuel() {
+    if (!connection) return;
+    connection.reducers.requestDuel({});
+  },
+  acceptDuel(id: bigint) {
+    if (!connection) return;
+    connection.reducers.acceptDuel({ id });
+  },
+  pulseDuel() {
+    if (!connection) return;
+    const now = performance.now();
+    if (now - lastDuelPulseAt < 500) return;
+    lastDuelPulseAt = now;
+    connection.reducers.pulseDuel({});
   },
   syncSpeed(speed: number) {
     if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;

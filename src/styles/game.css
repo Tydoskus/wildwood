@@ -198,6 +198,40 @@
     transition: opacity .15s;
   }
 
+  #duelControls {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    z-index: 7;
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    transform: translateX(-50%);
+    pointer-events: auto;
+  }
+
+  #duelStatus {
+    padding: 5px 8px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 6px;
+    background: rgba(20,24,24,.86);
+    color: #edf1ef;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .07em;
+    white-space: nowrap;
+  }
+
+  #duelControls button {
+    margin: 0;
+    padding: 7px 11px;
+    border-width: 2px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+
+  #duelAcceptBtn { background: linear-gradient(#83cdf2, #3f83bd); }
+
   #pickupLog {
     position: absolute;
     left: 12px;

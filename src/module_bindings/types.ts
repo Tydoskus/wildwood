@@ -19,6 +19,32 @@ export const ChatMessage = __t.object("ChatMessage", {
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
+export const Duel = __t.object("Duel", {
+  id: __t.u64(),
+  challenger: __t.identity(),
+  opponent: __t.identity(),
+  status: __t.string(),
+  createdAt: __t.timestamp(),
+  startedAt: __t.timestamp(),
+  endsAtMicros: __t.u64(),
+  lastResolvedAt: __t.timestamp(),
+  challengerOriginX: __t.f64(),
+  challengerOriginY: __t.f64(),
+  opponentOriginX: __t.f64(),
+  opponentOriginY: __t.f64(),
+  challengerHp: __t.f32(),
+  challengerMaxHp: __t.f32(),
+  challengerDamage: __t.f32(),
+  challengerArmor: __t.f32(),
+  challengerAttackRate: __t.f32(),
+  opponentHp: __t.f32(),
+  opponentMaxHp: __t.f32(),
+  opponentDamage: __t.f32(),
+  opponentArmor: __t.f32(),
+  opponentAttackRate: __t.f32(),
+});
+export type Duel = __Infer<typeof Duel>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   x: __t.f64(),

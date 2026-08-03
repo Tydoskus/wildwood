@@ -8192,6 +8192,9 @@ ${ty.variants.map(
     const procedures2 = args.length === 1 && Array.isArray(args[0]) ? args[0] : args;
     return { procedures: procedures2 };
   }
+  const AcceptDuelReducer = {
+    id: t.u64()
+  };
   const HeartbeatReducer = {};
   const MoveReducer = {
     inputX: t.f32(),
@@ -8202,6 +8205,8 @@ ${ty.variants.map(
     inputY: t.f32(),
     sequence: t.u32()
   };
+  const PulseDuelReducer = {};
+  const RequestDuelReducer = {};
   const ResetPlayerProgressReducer = {};
   const SavePlayerProgressReducer = {
     maxHp: t.f32(),
@@ -8236,6 +8241,30 @@ ${ty.variants.map(
     senderName: t.string().name("sender_name"),
     message: t.string(),
     sentAt: t.timestamp().name("sent_at")
+  });
+  const DuelRow = t.row({
+    id: t.u64().primaryKey(),
+    challenger: t.identity(),
+    opponent: t.identity(),
+    status: t.string(),
+    createdAt: t.timestamp().name("created_at"),
+    startedAt: t.timestamp().name("started_at"),
+    endsAtMicros: t.u64().name("ends_at_micros"),
+    lastResolvedAt: t.timestamp().name("last_resolved_at"),
+    challengerOriginX: t.f64().name("challenger_origin_x"),
+    challengerOriginY: t.f64().name("challenger_origin_y"),
+    opponentOriginX: t.f64().name("opponent_origin_x"),
+    opponentOriginY: t.f64().name("opponent_origin_y"),
+    challengerHp: t.f32().name("challenger_hp"),
+    challengerMaxHp: t.f32().name("challenger_max_hp"),
+    challengerDamage: t.f32().name("challenger_damage"),
+    challengerArmor: t.f32().name("challenger_armor"),
+    challengerAttackRate: t.f32().name("challenger_attack_rate"),
+    opponentHp: t.f32().name("opponent_hp"),
+    opponentMaxHp: t.f32().name("opponent_max_hp"),
+    opponentDamage: t.f32().name("opponent_damage"),
+    opponentArmor: t.f32().name("opponent_armor"),
+    opponentAttackRate: t.f32().name("opponent_attack_rate")
   });
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8278,6 +8307,17 @@ ${ty.variants.map(
         { name: "chat_message_id_key", constraint: "unique", columns: ["id"] }
       ]
     }, ChatMessageRow),
+    duel: table({
+      name: "duel",
+      indexes: [
+        { accessor: "id", name: "duel_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "duel_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, DuelRow),
     player: table({
       name: "player",
       indexes: [
@@ -8313,9 +8353,12 @@ ${ty.variants.map(
     }, PlayerProgressRow)
   });
   const reducersSchema = reducers(
+    reducerSchema("accept_duel", AcceptDuelReducer),
     reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("move", MoveReducer),
     reducerSchema("move_v_2", MoveV2Reducer),
+    reducerSchema("pulse_duel", PulseDuelReducer),
+    reducerSchema("request_duel", RequestDuelReducer),
     reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
     reducerSchema("save_player_progress", SavePlayerProgressReducer),
     reducerSchema("send_chat_message", SendChatMessageReducer),
@@ -8364,6 +8407,7 @@ ${ty.variants.map(
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
   const chatMessages = [];
+  const duels = /* @__PURE__ */ new Map();
   let connection = null;
   let localIdentity = "";
   let lastMovementSentAt = 0;
@@ -8377,6 +8421,7 @@ ${ty.variants.map(
   let localProgress = null;
   let lastSpeedSent = null;
   let positionSyncPendingSequence = null;
+  let lastDuelPulseAt = 0;
   let onChange = null;
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
@@ -8458,6 +8503,25 @@ ${ty.variants.map(
     while (chatMessages.length > 100) chatMessages.shift();
     onChange == null ? void 0 : onChange();
   }
+  function upsertDuel(row) {
+    duels.set(row.id, {
+      id: row.id,
+      challenger: row.challenger.toHexString(),
+      opponent: row.opponent.toHexString(),
+      status: row.status,
+      startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1000n),
+      endsAtMs: Number(row.endsAtMicros / 1000n),
+      challengerHp: row.challengerHp,
+      challengerMaxHp: row.challengerMaxHp,
+      opponentHp: row.opponentHp,
+      opponentMaxHp: row.opponentMaxHp
+    });
+    onChange == null ? void 0 : onChange();
+  }
+  function removeDuel(row) {
+    duels.delete(row.id);
+    onChange == null ? void 0 : onChange();
+  }
   function removePlayer(row) {
     players.delete(row.identity.toHexString());
     onChange == null ? void 0 : onChange();
@@ -8474,6 +8538,7 @@ ${ty.variants.map(
       localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
+      lastDuelPulseAt = 0;
       localStorage.setItem(tokenKey, token);
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = window.setInterval(() => {
@@ -8487,15 +8552,19 @@ ${ty.variants.map(
       conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
       conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
       conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
+      conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
+      conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
+      conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
       conn.subscriptionBuilder().onApplied(() => {
         for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
         for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
         for (const row of conn.db.player.iter()) upsertPlayer(row);
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
+        for (const row of conn.db.duel.iter()) upsertDuel(row);
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
-      }).subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage]);
+      }).subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel]);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8511,9 +8580,11 @@ ${ty.variants.map(
       localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
+      lastDuelPulseAt = 0;
       players.clear();
       profiles.clear();
       chatMessages.length = 0;
+      duels.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
     }).onConnectError((_ctx, error) => {
@@ -8529,6 +8600,7 @@ ${ty.variants.map(
       localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
+      lastDuelPulseAt = 0;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
     }).build();
@@ -8573,6 +8645,27 @@ ${ty.variants.map(
     sendChatMessage(message) {
       if (!connection) return;
       connection.reducers.sendChatMessage({ message });
+    },
+    localDuel() {
+      for (const duel of duels.values()) {
+        if (duel.challenger === localIdentity || duel.opponent === localIdentity) return { ...duel };
+      }
+      return null;
+    },
+    requestDuel() {
+      if (!connection) return;
+      connection.reducers.requestDuel({});
+    },
+    acceptDuel(id) {
+      if (!connection) return;
+      connection.reducers.acceptDuel({ id });
+    },
+    pulseDuel() {
+      if (!connection) return;
+      const now = performance.now();
+      if (now - lastDuelPulseAt < 500) return;
+      lastDuelPulseAt = now;
+      connection.reducers.pulseDuel({});
     },
     syncSpeed(speed) {
       if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;

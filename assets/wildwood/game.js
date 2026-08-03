@@ -157,7 +157,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.125";
+    const GAME_VERSION = "0.126";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -182,6 +182,10 @@
     const bootUpgradeEl = document.getElementById("bootUpgrade");
     const bootUpgradeClose = document.getElementById("bootUpgradeClose");
     const coopStatusEl = document.getElementById("coopStatus");
+    const duelControls = document.getElementById("duelControls");
+    const duelStatusEl = document.getElementById("duelStatus");
+    const duelRequestBtn = document.getElementById("duelRequestBtn");
+    const duelAcceptBtn = document.getElementById("duelAcceptBtn");
     const coop = window.wildwoodCoop || null;
     enforceLatestVersion(GAME_VERSION);
     window.setInterval(() => enforceLatestVersion(GAME_VERSION), 3e4);
@@ -196,6 +200,8 @@
     const decor = [];
     const paths = [];
     const bossRain = [];
+    const DUEL_REQUEST_RANGE = 250;
+    const DUEL_ARENA = { x: 2400, y: 2400, r: 280 };
     let dpr = 1;
     let viewW = innerWidth;
     let viewH = innerHeight;
@@ -211,6 +217,7 @@
     let messageClock = 0;
     let pausedForUpgrade = false;
     let autoAttackEnabled = true;
+    let duelWasActive = false;
     const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
     const bootsPickup = {
       x: 940,
@@ -986,7 +993,38 @@
       }
     }
     let movementSyncActive = false;
+    function activeDuel() {
+      return coop && typeof coop.localDuel === "function" ? coop.localDuel() : null;
+    }
+    function isDueling() {
+      var _a;
+      return ((_a = activeDuel()) == null ? void 0 : _a.status) === "active";
+    }
+    function applyDuelState() {
+      var _a, _b;
+      const duel = activeDuel();
+      if ((duel == null ? void 0 : duel.status) !== "active") return false;
+      const localIsChallenger = duel.challenger === coop.localIdentity();
+      const localState = (_a = coop.localState) == null ? void 0 : _a.call(coop);
+      if (localState) {
+        player.x = localState.x;
+        player.y = localState.y;
+        player.facing = localState.facing ?? player.facing;
+      }
+      player.maxHp = localIsChallenger ? duel.challengerMaxHp : duel.opponentMaxHp;
+      player.hp = localIsChallenger ? duel.challengerHp : duel.opponentHp;
+      player.moving = false;
+      duelWasActive = true;
+      (_b = coop.pulseDuel) == null ? void 0 : _b.call(coop);
+      return true;
+    }
     function updatePlayer(dt) {
+      if (applyDuelState()) return;
+      if (duelWasActive) {
+        player.hp = player.maxHp;
+        player.hurtClock = 0;
+        duelWasActive = false;
+      }
       const multiplayerActive = Boolean(
         coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0
       );
@@ -1224,12 +1262,17 @@
         if (messageClock <= 0) messageEl.style.opacity = "0";
       }
       updatePlayer(dt);
-      updateBootPickup();
-      updateEnemies(dt);
-      updateBoss(dt);
-      updateProjectiles(dt);
+      if (!isDueling()) {
+        updateBootPickup();
+        updateEnemies(dt);
+        updateBoss(dt);
+        updateProjectiles(dt);
+        updateRespawns();
+      } else {
+        projectiles.length = 0;
+        enemyShots.length = 0;
+      }
       updateParticles(dt);
-      updateRespawns();
       updateCamera(dt);
       updateHud();
     }
@@ -1322,6 +1365,26 @@
     function drawDecor() {
       for (const o of decor) if (o.type === "stone") drawStone(o);
       for (const o of decor) if (o.type === "tree") drawTree(o);
+    }
+    function drawDuelArena() {
+      if (!isDueling()) return;
+      const x = DUEL_ARENA.x - camera.x;
+      const y = DUEL_ARENA.y - camera.y;
+      ctx.save();
+      ctx.fillStyle = "#6f7474";
+      ctx.beginPath();
+      ctx.arc(x, y, DUEL_ARENA.r, 0, TAU);
+      ctx.fill();
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "#3e4545";
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(235,239,238,.34)";
+      ctx.setLineDash([10, 12]);
+      ctx.beginPath();
+      ctx.arc(x, y, DUEL_ARENA.r - 18, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
     }
     function drawAttackRange() {
       const x = player.x - camera.x;
@@ -1676,6 +1739,7 @@
       ctx.translate(sx, sy);
       ctx.scale(camera.zoom, camera.zoom);
       drawGround();
+      drawDuelArena();
       drawDecor();
       drawBossTelegraphs();
       drawAttackRange();
@@ -1713,7 +1777,61 @@
         const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
         coopStatusEl.textContent = `PLAYERS: ${playerCount}`;
       }
+      updateDuelControls();
       updateConnectionStatus();
+    }
+    function nearbyDuelOpponent() {
+      var _a;
+      if (!coop || !((_a = coop.isConnected) == null ? void 0 : _a.call(coop))) return null;
+      let closest = null;
+      let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
+      for (const other of coop.remotePlayers()) {
+        const dx = other.x - player.x;
+        const dy = other.y - player.y;
+        const distanceSq = dx * dx + dy * dy;
+        if (distanceSq <= closestDistanceSq) {
+          closest = other;
+          closestDistanceSq = distanceSq;
+        }
+      }
+      return closest;
+    }
+    function duelOpponentName(duel) {
+      var _a, _b, _c;
+      const opponentId = duel.challenger === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop)) ? duel.opponent : duel.challenger;
+      return ((_c = (_b = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c.name) ?? "OPPONENT";
+    }
+    function updateDuelControls() {
+      var _a;
+      if (!duelControls) return;
+      const duel = activeDuel();
+      const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
+      const nearby = nearbyDuelOpponent();
+      duelRequestBtn.hidden = true;
+      duelAcceptBtn.hidden = true;
+      if ((duel == null ? void 0 : duel.status) === "active") {
+        const remaining = Math.max(0, Math.ceil((duel.endsAtMs - Date.now()) / 1e3));
+        duelStatusEl.textContent = `DUEL · ${duelOpponentName(duel)} · ${remaining}s`;
+        duelControls.hidden = false;
+        return;
+      }
+      if ((duel == null ? void 0 : duel.status) === "requested") {
+        duelControls.hidden = false;
+        if (duel.opponent === localId) {
+          duelStatusEl.textContent = `${duelOpponentName(duel)} CHALLENGES YOU`;
+          duelAcceptBtn.hidden = false;
+        } else {
+          duelStatusEl.textContent = "DUEL REQUEST SENT";
+        }
+        return;
+      }
+      if (nearby) {
+        duelStatusEl.textContent = `${nearby.name} NEARBY`;
+        duelRequestBtn.hidden = false;
+        duelControls.hidden = false;
+        return;
+      }
+      duelControls.hidden = true;
     }
     function loop(now) {
       const rawDt = (now - last) / 1e3;
@@ -1794,6 +1912,15 @@
       autoAttackEnabled = !autoAttackEnabled;
       updateAutoAttackSetting();
     });
+    duelRequestBtn.addEventListener("click", () => {
+      var _a;
+      (_a = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a.call(coop);
+    });
+    duelAcceptBtn.addEventListener("click", () => {
+      var _a;
+      const duel = activeDuel();
+      if ((duel == null ? void 0 : duel.status) === "requested") (_a = coop == null ? void 0 : coop.acceptDuel) == null ? void 0 : _a.call(coop, duel.id);
+    });
     fullscreenToggle.addEventListener("click", async () => {
       try {
         if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -1826,10 +1953,12 @@
       coop.setOnChange(() => {
         loadProgress();
         chat.refresh();
+        updateDuelControls();
         updateConnectionStatus();
       });
     }
     updateFullscreenSetting();
+    updateDuelControls();
     updateConnectionStatus();
     window.setInterval(() => chat.refresh(), 1e3);
     bootUpgradeClose.addEventListener("click", () => {

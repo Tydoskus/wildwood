@@ -34,9 +34,12 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptDuelReducer from "./accept_duel_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
 import MoveReducer from "./move_reducer";
 import MoveV2Reducer from "./move_v_2_reducer";
+import PulseDuelReducer from "./pulse_duel_reducer";
+import RequestDuelReducer from "./request_duel_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
@@ -48,6 +51,7 @@ import SyncPositionReducer from "./sync_position_reducer";
 
 // Import all table schema definitions
 import ChatMessageRow from "./chat_message_table";
+import DuelRow from "./duel_table";
 import PlayerRow from "./player_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
@@ -67,6 +71,17 @@ const tablesSchema = __schema({
       { name: 'chat_message_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ChatMessageRow),
+  duel: __table({
+    name: 'duel',
+    indexes: [
+      { accessor: 'id', name: 'duel_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DuelRow),
   player: __table({
     name: 'player',
     indexes: [
@@ -104,9 +119,12 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("move", MoveReducer),
   __reducerSchema("move_v_2", MoveV2Reducer),
+  __reducerSchema("pulse_duel", PulseDuelReducer),
+  __reducerSchema("request_duel", RequestDuelReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),

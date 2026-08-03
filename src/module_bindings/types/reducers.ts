@@ -6,9 +6,12 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptDuelReducer from "../accept_duel_reducer";
 import HeartbeatReducer from "../heartbeat_reducer";
 import MoveReducer from "../move_reducer";
 import MoveV2Reducer from "../move_v_2_reducer";
+import PulseDuelReducer from "../pulse_duel_reducer";
+import RequestDuelReducer from "../request_duel_reducer";
 import ResetPlayerProgressReducer from "../reset_player_progress_reducer";
 import SavePlayerProgressReducer from "../save_player_progress_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
@@ -16,9 +19,12 @@ import SetDisplayNameReducer from "../set_display_name_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 
+export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
 export type HeartbeatParams = __Infer<typeof HeartbeatReducer>;
 export type MoveParams = __Infer<typeof MoveReducer>;
 export type MoveV2Params = __Infer<typeof MoveV2Reducer>;
+export type PulseDuelParams = __Infer<typeof PulseDuelReducer>;
+export type RequestDuelParams = __Infer<typeof RequestDuelReducer>;
 export type ResetPlayerProgressParams = __Infer<typeof ResetPlayerProgressReducer>;
 export type SavePlayerProgressParams = __Infer<typeof SavePlayerProgressReducer>;
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
