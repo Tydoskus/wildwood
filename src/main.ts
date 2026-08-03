@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.120";
+  const GAME_VERSION = "0.121";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -101,8 +101,8 @@ import { createChatController } from "./ui/chat";
   let progressLoaded = false;
 
   const player = {
-    x: WORLD.w / 2,
-    y: WORLD.h / 2,
+    x: 360,
+    y: 360,
     r: 17,
     speed: 175,
     hp: 30,
@@ -144,8 +144,8 @@ import { createChatController } from "./ui/chat";
 
   const boss = {
     isBoss: true,
-    x: WORLD.w / 2,
-    y: 360,
+    x: WORLD.w - 360,
+    y: WORLD.h - 360,
     r: 140,
     maxHp: 1000000,
     hp: 1000000,
@@ -422,8 +422,8 @@ import { createChatController } from "./ui/chat";
   }
 
   function reset(preserveStats = false) {
-    player.x = WORLD.w / 2;
-    player.y = WORLD.h / 2;
+    player.x = 360;
+    player.y = 360;
 
     if (!preserveStats && !hasSavedProgress) {
       player.maxHp = 30;
@@ -860,7 +860,17 @@ import { createChatController } from "./ui/chat";
 
     if (player.hp <= 0) {
       player.hp = 0;
+      breakEnemyLeashes();
       endGame();
+    }
+  }
+
+  function breakEnemyLeashes() {
+    for (const e of enemies) {
+      if (e.dead) continue;
+      e.engaged = false;
+      e.leashing = true;
+      e.attackClock = Math.max(e.attackClock, .5);
     }
   }
 
@@ -932,7 +942,7 @@ import { createChatController } from "./ui/chat";
       if (e.leashing && homeDistance < 10) e.leashing = false;
       if (!e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
 
-      if (e.engaged && homeDistance > e.leashRange) {
+      if (e.engaged && playerDistance > e.leashRange) {
         e.engaged = false;
         e.leashing = true;
         e.attackClock = Math.max(e.attackClock, .5);

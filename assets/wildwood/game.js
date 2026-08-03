@@ -156,7 +156,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.120";
+    const GAME_VERSION = "0.121";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -220,8 +220,8 @@
     let hasSavedProgress = false;
     let progressLoaded = false;
     const player = {
-      x: WORLD.w / 2,
-      y: WORLD.h / 2,
+      x: 360,
+      y: 360,
       r: 17,
       speed: 175,
       hp: 30,
@@ -260,8 +260,8 @@
     dragonSprite.src = "assets/wildwood/dragon_boss_spritesheet.png";
     const boss = {
       isBoss: true,
-      x: WORLD.w / 2,
-      y: 360,
+      x: WORLD.w - 360,
+      y: WORLD.h - 360,
       r: 140,
       maxHp: 1e6,
       hp: 1e6,
@@ -594,8 +594,8 @@
       }
     }
     function reset(preserveStats = false) {
-      player.x = WORLD.w / 2;
-      player.y = WORLD.h / 2;
+      player.x = 360;
+      player.y = 360;
       if (!preserveStats && !hasSavedProgress) {
         player.maxHp = 30;
         player.damage = 4;
@@ -972,7 +972,16 @@
       spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
       if (player.hp <= 0) {
         player.hp = 0;
+        breakEnemyLeashes();
         endGame();
+      }
+    }
+    function breakEnemyLeashes() {
+      for (const e of enemies) {
+        if (e.dead) continue;
+        e.engaged = false;
+        e.leashing = true;
+        e.attackClock = Math.max(e.attackClock, 0.5);
       }
     }
     let movementSyncActive = false;
@@ -1030,7 +1039,7 @@
         const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
         if (e.leashing && homeDistance < 10) e.leashing = false;
         if (!e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
-        if (e.engaged && homeDistance > e.leashRange) {
+        if (e.engaged && playerDistance > e.leashRange) {
           e.engaged = false;
           e.leashing = true;
           e.attackClock = Math.max(e.attackClock, 0.5);

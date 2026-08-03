@@ -4,6 +4,7 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 250;
+const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_MULTIPLIER = 1.5;
 const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
@@ -145,8 +146,8 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
 
   ctx.db.player.insert({
     identity: ctx.sender,
-    x: WORLD.width / 2,
-    y: WORLD.height / 2,
+    x: PLAYER_SPAWN.x,
+    y: PLAYER_SPAWN.y,
     facing: 0,
     hp: 30,
     maxHp: 30,
