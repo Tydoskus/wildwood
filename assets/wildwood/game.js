@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.138";
+    const GAME_VERSION = "0.139";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -224,7 +224,7 @@
     const paths = [];
     const bossRain = [];
     const DUEL_REQUEST_RANGE = 250;
-    const DUEL_ARENA = { x: 6e3, y: 6e3, r: 760 };
+    const DUEL_ARENA = { x: 6e3, y: 6e3, r: 430 };
     const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
     const DUEL_SHOT_LIFETIME = 0.38;
     const DUEL_SHOT_SPEED = 620;
@@ -1416,13 +1416,16 @@
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
       if (isArenaScene()) {
-        ctx.fillStyle = "#42494b";
+        ctx.fillStyle = "#03050a";
         ctx.fillRect(0, 0, visibleW, visibleH);
-        const tile2 = 48;
-        for (let y = 0; y < visibleH + tile2; y += tile2) {
-          for (let x = 0; x < visibleW + tile2; x += tile2) {
-            ctx.fillStyle = x / tile2 + y / tile2 & 1 ? "#4e5557" : "#484f51";
-            ctx.fillRect(x, y, tile2, tile2);
+        const spacing = 42;
+        for (let y = -spacing; y < visibleH + spacing; y += spacing) {
+          for (let x = -spacing; x < visibleW + spacing; x += spacing) {
+            const seed = Math.floor(x / spacing) * 73 + Math.floor(y / spacing) * 151 >>> 0;
+            if (seed % 5 !== 0) continue;
+            const size = seed % 17 === 0 ? 3 : 2;
+            ctx.fillStyle = seed % 11 === 0 ? "#b7c9ff" : "#eef3ff";
+            ctx.fillRect(x + seed % 29, y + (seed >>> 5) % 31, size, size);
           }
         }
         return;
@@ -1519,15 +1522,15 @@
       const x = DUEL_ARENA.x - camera.x;
       const y = DUEL_ARENA.y - camera.y;
       ctx.save();
-      ctx.fillStyle = "#6f7474";
+      ctx.fillStyle = "#697174";
       ctx.beginPath();
       ctx.arc(x, y, DUEL_ARENA.r, 0, TAU);
       ctx.fill();
       ctx.lineWidth = 10;
-      ctx.strokeStyle = "#3e4545";
+      ctx.strokeStyle = "#aeb8ba";
       ctx.stroke();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(235,239,238,.34)";
+      ctx.strokeStyle = "rgba(235,239,238,.46)";
       ctx.setLineDash([10, 12]);
       ctx.beginPath();
       ctx.arc(x, y, DUEL_ARENA.r - 18, 0, TAU);
