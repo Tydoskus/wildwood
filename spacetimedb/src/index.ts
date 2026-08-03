@@ -233,6 +233,29 @@ function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: 
   });
 }
 
+function syncDuelPlayerHealth(ctx: any, current: any) {
+  const challenger = ctx.db.player.identity.find(current.challenger);
+  const opponent = ctx.db.player.identity.find(current.opponent);
+  if (challenger) {
+    ctx.db.player.identity.update({
+      ...challenger,
+      hp: current.challengerHp,
+      maxHp: current.challengerMaxHp,
+      moving: false,
+      lastInputAt: ctx.timestamp,
+    });
+  }
+  if (opponent) {
+    ctx.db.player.identity.update({
+      ...opponent,
+      hp: current.opponentHp,
+      maxHp: current.opponentMaxHp,
+      moving: false,
+      lastInputAt: ctx.timestamp,
+    });
+  }
+}
+
 function finishDuel(ctx: any, current: any) {
   returnDuelPlayer(
     ctx,
@@ -363,6 +386,7 @@ function resolveDuel(ctx: any, current: any) {
   ) {
     finishDuel(ctx, next);
   } else {
+    syncDuelPlayerHealth(ctx, next);
     ctx.db.duel.id.update(next);
   }
 }
