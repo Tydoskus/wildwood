@@ -16,8 +16,8 @@ const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
 const DUEL_COUNTDOWN_MICROS = 3_000_000n;
 const DUEL_DURATION_MICROS = 30_000_000n;
 const DUEL_ARENA = {
-  challenger: { x: 2280, y: 2400 },
-  opponent: { x: 2520, y: 2400 },
+  challenger: { x: 5880, y: 6000 },
+  opponent: { x: 6120, y: 6000 },
 };
 
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];

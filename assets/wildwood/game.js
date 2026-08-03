@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.129";
+    const GAME_VERSION = "0.130";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -199,6 +199,7 @@
     const duelStatusEl = document.getElementById("duelStatus");
     const duelRequestBtn = document.getElementById("duelRequestBtn");
     const duelAcceptBtn = document.getElementById("duelAcceptBtn");
+    const duelCountdownEl = document.getElementById("duelCountdown");
     const duelResultEl = document.getElementById("duelResult");
     const duelResultTitle = document.getElementById("duelResultTitle");
     const duelResultStats = document.getElementById("duelResultStats");
@@ -225,7 +226,7 @@
     const paths = [];
     const bossRain = [];
     const DUEL_REQUEST_RANGE = 250;
-    const DUEL_ARENA = { x: 2400, y: 2400, r: 280 };
+    const DUEL_ARENA = { x: 6e3, y: 6e3, r: 760 };
     let dpr = 1;
     let viewW = innerWidth;
     let viewH = innerHeight;
@@ -1081,13 +1082,19 @@
     function drawReplayClone(x, y, name, hp, maxHp, color, attacks) {
       const ctx2 = duelReplayCtx;
       const ratio = clamp(hp / maxHp, 0, 1);
-      ctx2.fillStyle = color;
-      ctx2.fillRect(x - 18, y - 6, 36, 42);
-      ctx2.fillStyle = "#f1d6bd";
-      ctx2.fillRect(x - 13, y - 27, 26, 24);
-      ctx2.fillStyle = "#26343c";
-      ctx2.fillRect(x - 16, y + 36, 12, 17);
-      ctx2.fillRect(x + 4, y + 36, 12, 17);
+      if (playerSprite.complete && playerSprite.naturalWidth > 0) {
+        const cellW = playerSprite.naturalWidth / 4;
+        const cellH = playerSprite.naturalHeight / 4;
+        ctx2.save();
+        ctx2.globalAlpha = 0.96;
+        ctx2.drawImage(playerSprite, 0, 0, cellW, cellH, x - 42, y - 34, 84, 84);
+        ctx2.restore();
+      } else {
+        ctx2.fillStyle = color;
+        ctx2.fillRect(x - 18, y - 6, 36, 42);
+        ctx2.fillStyle = "#f1d6bd";
+        ctx2.fillRect(x - 13, y - 27, 26, 24);
+      }
       ctx2.fillStyle = "#222";
       ctx2.fillRect(x - 62, y - 47, 124, 10);
       ctx2.fillStyle = color;
@@ -1389,8 +1396,8 @@
       camera.zoom += (targetZoom - camera.zoom) * zoomFollow;
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
-      const targetX = clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
-      const targetY = clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
+      const targetX = isDueling() ? DUEL_ARENA.x - visibleW / 2 : clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
+      const targetY = isDueling() ? DUEL_ARENA.y - visibleH / 2 : clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
       const follow = 1 - Math.pow(6e-5, dt);
       camera.x += (targetX - camera.x) * follow;
       camera.y += (targetY - camera.y) * follow;
@@ -1429,6 +1436,18 @@
     function drawGround() {
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
+      if (isDueling()) {
+        ctx.fillStyle = "#42494b";
+        ctx.fillRect(0, 0, visibleW, visibleH);
+        const tile2 = 48;
+        for (let y = 0; y < visibleH + tile2; y += tile2) {
+          for (let x = 0; x < visibleW + tile2; x += tile2) {
+            ctx.fillStyle = x / tile2 + y / tile2 & 1 ? "#4e5557" : "#484f51";
+            ctx.fillRect(x, y, tile2, tile2);
+          }
+        }
+        return;
+      }
       ctx.fillStyle = "#102b19";
       ctx.fillRect(0, 0, visibleW, visibleH);
       const tile = 32;
@@ -1543,6 +1562,7 @@
       }
     }
     function drawAttackRange() {
+      if (isDueling()) return;
       const x = player.x - camera.x;
       const y = player.y - camera.y;
       ctx.save();
@@ -1896,8 +1916,8 @@
       ctx.scale(camera.zoom, camera.zoom);
       drawGround();
       drawDuelArena();
-      drawDecor();
-      drawBossTelegraphs();
+      if (!isDueling()) drawDecor();
+      if (!isDueling()) drawBossTelegraphs();
       drawAttackRange();
       for (const p of projectiles) drawProjectile(p, false);
       for (const p of enemyShots) drawProjectile(p, true);
@@ -1909,7 +1929,7 @@
       drawPlayer();
       drawParticles();
       ctx.restore();
-      drawMinimap(remotePlayers);
+      if (!isDueling()) drawMinimap(remotePlayers);
       if (flash > 0) {
         ctx.fillStyle = `rgba(255,55,40,${flash * 0.75})`;
         ctx.fillRect(0, 0, viewW, viewH);
@@ -1968,10 +1988,14 @@
       duelRequestBtn.hidden = true;
       duelAcceptBtn.hidden = true;
       if ((duel == null ? void 0 : duel.status) === "countdown") {
-        duelStatusEl.textContent = `DUEL STARTS · ${Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1e3))}`;
+        const remaining = Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1e3));
+        duelStatusEl.textContent = "DUEL STARTING";
+        duelCountdownEl.textContent = String(remaining);
+        duelCountdownEl.hidden = false;
         duelControls.hidden = false;
         return;
       }
+      duelCountdownEl.hidden = true;
       if ((duel == null ? void 0 : duel.status) === "active") {
         const remaining = Math.max(0, Math.ceil((duel.endsAtMs - Date.now()) / 1e3));
         duelStatusEl.textContent = `DUEL · ${duelOpponentName(duel)} · ${remaining}s`;

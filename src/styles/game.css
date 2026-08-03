@@ -230,6 +230,18 @@
     font-size: 11px;
   }
 
+  #duelCountdown {
+    position: fixed;
+    top: 42%;
+    left: 50%;
+    z-index: 7;
+    transform: translate(-50%, -50%);
+    color: #ff4e4e;
+    font: 900 clamp(90px, 22vw, 190px)/1 ui-monospace, monospace;
+    text-shadow: 0 5px 0 #3a1010, 3px 0 0 #160808, -3px 0 0 #160808;
+    pointer-events: none;
+  }
+
   #duelAcceptBtn { background: linear-gradient(#83cdf2, #3f83bd); }
 
   #pickupLog {

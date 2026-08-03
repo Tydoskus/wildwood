@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.129";
+  const GAME_VERSION = "0.130";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -61,6 +61,7 @@ import { createChatController } from "./ui/chat";
   const duelStatusEl = document.getElementById("duelStatus");
   const duelRequestBtn = document.getElementById("duelRequestBtn");
   const duelAcceptBtn = document.getElementById("duelAcceptBtn");
+  const duelCountdownEl = document.getElementById("duelCountdown");
   const duelResultEl = document.getElementById("duelResult");
   const duelResultTitle = document.getElementById("duelResultTitle");
   const duelResultStats = document.getElementById("duelResultStats");
@@ -88,7 +89,7 @@ import { createChatController } from "./ui/chat";
   const paths = [];
   const bossRain = [];
   const DUEL_REQUEST_RANGE = 250;
-  const DUEL_ARENA = { x: 2400, y: 2400, r: 280 };
+  const DUEL_ARENA = { x: 6000, y: 6000, r: 760 };
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -971,13 +972,19 @@ import { createChatController } from "./ui/chat";
   function drawReplayClone(x, y, name, hp, maxHp, color, attacks) {
     const ctx = duelReplayCtx;
     const ratio = clamp(hp / maxHp, 0, 1);
-    ctx.fillStyle = color;
-    ctx.fillRect(x - 18, y - 6, 36, 42);
-    ctx.fillStyle = "#f1d6bd";
-    ctx.fillRect(x - 13, y - 27, 26, 24);
-    ctx.fillStyle = "#26343c";
-    ctx.fillRect(x - 16, y + 36, 12, 17);
-    ctx.fillRect(x + 4, y + 36, 12, 17);
+    if (playerSprite.complete && playerSprite.naturalWidth > 0) {
+      const cellW = playerSprite.naturalWidth / 4;
+      const cellH = playerSprite.naturalHeight / 4;
+      ctx.save();
+      ctx.globalAlpha = .96;
+      ctx.drawImage(playerSprite, 0, 0, cellW, cellH, x - 42, y - 34, 84, 84);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(x - 18, y - 6, 36, 42);
+      ctx.fillStyle = "#f1d6bd";
+      ctx.fillRect(x - 13, y - 27, 26, 24);
+    }
     ctx.fillStyle = "#222";
     ctx.fillRect(x - 62, y - 47, 124, 10);
     ctx.fillStyle = color;
@@ -1311,8 +1318,12 @@ import { createChatController } from "./ui/chat";
 
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
-    const targetX = clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
-    const targetY = clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
+    const targetX = isDueling()
+      ? DUEL_ARENA.x - visibleW / 2
+      : clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
+    const targetY = isDueling()
+      ? DUEL_ARENA.y - visibleH / 2
+      : clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
     const follow = 1 - Math.pow(.00006, dt);
     camera.x += (targetX - camera.x) * follow;
     camera.y += (targetY - camera.y) * follow;
@@ -1355,6 +1366,18 @@ import { createChatController } from "./ui/chat";
   function drawGround() {
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
+    if (isDueling()) {
+      ctx.fillStyle = "#42494b";
+      ctx.fillRect(0, 0, visibleW, visibleH);
+      const tile = 48;
+      for (let y = 0; y < visibleH + tile; y += tile) {
+        for (let x = 0; x < visibleW + tile; x += tile) {
+          ctx.fillStyle = ((x / tile + y / tile) & 1) ? "#4e5557" : "#484f51";
+          ctx.fillRect(x, y, tile, tile);
+        }
+      }
+      return;
+    }
     ctx.fillStyle = "#102b19";
     ctx.fillRect(0, 0, visibleW, visibleH);
 
@@ -1485,6 +1508,7 @@ import { createChatController } from "./ui/chat";
   }
 
   function drawAttackRange() {
+    if (isDueling()) return;
     const x = player.x - camera.x;
     const y = player.y - camera.y;
     ctx.save();
@@ -1872,8 +1896,8 @@ import { createChatController } from "./ui/chat";
 
     drawGround();
     drawDuelArena();
-    drawDecor();
-    drawBossTelegraphs();
+    if (!isDueling()) drawDecor();
+    if (!isDueling()) drawBossTelegraphs();
     drawAttackRange();
 
     for (const p of projectiles) drawProjectile(p, false);
@@ -1888,7 +1912,7 @@ import { createChatController } from "./ui/chat";
 
     ctx.restore();
 
-    drawMinimap(remotePlayers);
+    if (!isDueling()) drawMinimap(remotePlayers);
 
     if (flash > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash * .75})`;
@@ -1960,10 +1984,14 @@ import { createChatController } from "./ui/chat";
     duelAcceptBtn.hidden = true;
 
     if (duel?.status === "countdown") {
-      duelStatusEl.textContent = `DUEL STARTS · ${Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1000))}`;
+      const remaining = Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1000));
+      duelStatusEl.textContent = "DUEL STARTING";
+      duelCountdownEl.textContent = String(remaining);
+      duelCountdownEl.hidden = false;
       duelControls.hidden = false;
       return;
     }
+    duelCountdownEl.hidden = true;
     if (duel?.status === "active") {
       const remaining = Math.max(0, Math.ceil((duel.endsAtMs - Date.now()) / 1000));
       duelStatusEl.textContent = `DUEL · ${duelOpponentName(duel)} · ${remaining}s`;
