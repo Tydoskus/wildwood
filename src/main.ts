@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.148";
+  const GAME_VERSION = "0.149";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1361,7 +1361,7 @@ import { createChatController } from "./ui/chat";
 
   function updateCamera(dt) {
     const rangeIncrease = player.attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
-    const targetZoom = clamp(1 - rangeIncrease * .5, MIN_CAMERA_ZOOM, 1);
+    const targetZoom = clamp((1 - rangeIncrease * .5) * .85, MIN_CAMERA_ZOOM, 1);
     const zoomFollow = 1 - Math.pow(.0008, dt);
     camera.zoom += (targetZoom - camera.zoom) * zoomFollow;
 
