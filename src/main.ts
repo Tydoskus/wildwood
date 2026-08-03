@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.135";
+  const GAME_VERSION = "0.136";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -973,14 +973,33 @@ import { createChatController } from "./ui/chat";
 
   function replayState(replay, seconds) {
     const elapsed = Math.min(replay.durationSeconds, seconds);
-    const challengerAttacks = Math.min(replay.challengerAttacks, Math.floor(elapsed / replay.challengerAttackRate));
-    const opponentAttacks = Math.min(replay.opponentAttacks, Math.floor(elapsed / replay.opponentAttackRate));
-    const challengerHit = Math.max(1, replay.challengerDamage - replay.opponentArmor);
-    const opponentHit = Math.max(1, replay.opponentDamage - replay.challengerArmor);
-    const challengerHp = Math.max(0, Math.min(replay.challengerMaxHp, replay.challengerMaxHp + replay.challengerRegen * elapsed - opponentHit * opponentAttacks));
-    const opponentHp = Math.max(0, Math.min(replay.opponentMaxHp, replay.opponentMaxHp + replay.opponentRegen * elapsed - challengerHit * challengerAttacks));
+    let time = 0;
+    let challengerHp = replay.challengerMaxHp;
+    let opponentHp = replay.opponentMaxHp;
+    let challengerAttacks = 0;
+    let opponentAttacks = 0;
+    let nextChallengerAttack = replay.challengerAttackRate;
+    let nextOpponentAttack = replay.opponentAttackRate;
+
+    while (time < elapsed && challengerHp > 0 && opponentHp > 0) {
+      const nextEvent = Math.min(elapsed, nextChallengerAttack, nextOpponentAttack);
+      const delta = nextEvent - time;
+      challengerHp = Math.min(replay.challengerMaxHp, challengerHp + replay.challengerRegen * delta);
+      opponentHp = Math.min(replay.opponentMaxHp, opponentHp + replay.opponentRegen * delta);
+      time = nextEvent;
+      const challengerHits = nextChallengerAttack <= time + .00001 && challengerAttacks < replay.challengerAttacks;
+      const opponentHits = nextOpponentAttack <= time + .00001 && opponentAttacks < replay.opponentAttacks;
+      const challengerDamage = challengerHits ? Math.max(1, replay.challengerDamage - replay.opponentArmor) : 0;
+      const opponentDamage = opponentHits ? Math.max(1, replay.opponentDamage - replay.challengerArmor) : 0;
+      opponentHp = Math.max(0, opponentHp - challengerDamage);
+      challengerHp = Math.max(0, challengerHp - opponentDamage);
+      if (challengerHits) { challengerAttacks++; nextChallengerAttack += replay.challengerAttackRate; }
+      if (opponentHits) { opponentAttacks++; nextOpponentAttack += replay.opponentAttackRate; }
+    }
+
     if (elapsed >= replay.durationSeconds) {
-      return { challengerHp: replay.challengerFinalHp, opponentHp: replay.opponentFinalHp, challengerAttacks, opponentAttacks };
+      challengerHp = replay.challengerFinalHp;
+      opponentHp = replay.opponentFinalHp;
     }
     return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
   }
