@@ -8240,7 +8240,8 @@ ${ty.variants.map(
     sender: t.identity(),
     senderName: t.string().name("sender_name"),
     message: t.string(),
-    sentAt: t.timestamp().name("sent_at")
+    sentAt: t.timestamp().name("sent_at"),
+    replayId: t.u64().name("replay_id")
   });
   const DuelRow = t.row({
     id: t.u64().primaryKey(),
@@ -8264,7 +8265,46 @@ ${ty.variants.map(
     opponentMaxHp: t.f32().name("opponent_max_hp"),
     opponentDamage: t.f32().name("opponent_damage"),
     opponentArmor: t.f32().name("opponent_armor"),
-    opponentAttackRate: t.f32().name("opponent_attack_rate")
+    opponentAttackRate: t.f32().name("opponent_attack_rate"),
+    startsAtMicros: t.u64().name("starts_at_micros"),
+    challengerRegen: t.f32().name("challenger_regen"),
+    challengerAttacks: t.u32().name("challenger_attacks"),
+    challengerDamageDealt: t.f32().name("challenger_damage_dealt"),
+    challengerRegened: t.f32().name("challenger_regened"),
+    challengerBlocked: t.f32().name("challenger_blocked"),
+    opponentRegen: t.f32().name("opponent_regen"),
+    opponentAttacks: t.u32().name("opponent_attacks"),
+    opponentDamageDealt: t.f32().name("opponent_damage_dealt"),
+    opponentRegened: t.f32().name("opponent_regened"),
+    opponentBlocked: t.f32().name("opponent_blocked")
+  });
+  const DuelReplayRow = t.row({
+    id: t.u64().primaryKey(),
+    challengerName: t.string().name("challenger_name"),
+    opponentName: t.string().name("opponent_name"),
+    winnerName: t.string().name("winner_name"),
+    durationSeconds: t.f32().name("duration_seconds"),
+    challengerMaxHp: t.f32().name("challenger_max_hp"),
+    challengerDamage: t.f32().name("challenger_damage"),
+    challengerArmor: t.f32().name("challenger_armor"),
+    challengerAttackRate: t.f32().name("challenger_attack_rate"),
+    challengerRegen: t.f32().name("challenger_regen"),
+    challengerFinalHp: t.f32().name("challenger_final_hp"),
+    challengerAttacks: t.u32().name("challenger_attacks"),
+    challengerDamageDealt: t.f32().name("challenger_damage_dealt"),
+    challengerRegened: t.f32().name("challenger_regened"),
+    challengerBlocked: t.f32().name("challenger_blocked"),
+    opponentMaxHp: t.f32().name("opponent_max_hp"),
+    opponentDamage: t.f32().name("opponent_damage"),
+    opponentArmor: t.f32().name("opponent_armor"),
+    opponentAttackRate: t.f32().name("opponent_attack_rate"),
+    opponentRegen: t.f32().name("opponent_regen"),
+    opponentFinalHp: t.f32().name("opponent_final_hp"),
+    opponentAttacks: t.u32().name("opponent_attacks"),
+    opponentDamageDealt: t.f32().name("opponent_damage_dealt"),
+    opponentRegened: t.f32().name("opponent_regened"),
+    opponentBlocked: t.f32().name("opponent_blocked"),
+    createdAt: t.timestamp().name("created_at")
   });
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8318,6 +8358,17 @@ ${ty.variants.map(
         { name: "duel_id_key", constraint: "unique", columns: ["id"] }
       ]
     }, DuelRow),
+    duelReplay: table({
+      name: "duel_replay",
+      indexes: [
+        { accessor: "id", name: "duel_replay_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "duel_replay_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, DuelReplayRow),
     player: table({
       name: "player",
       indexes: [
@@ -8408,6 +8459,7 @@ ${ty.variants.map(
   const profiles = /* @__PURE__ */ new Map();
   const chatMessages = [];
   const duels = /* @__PURE__ */ new Map();
+  const duelReplays = /* @__PURE__ */ new Map();
   let connection = null;
   let localIdentity = "";
   let lastMovementSentAt = 0;
@@ -8497,6 +8549,7 @@ ${ty.variants.map(
       sender: row.sender.toHexString(),
       senderName: row.senderName,
       message: row.message,
+      replayId: row.replayId,
       sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n)
     });
     chatMessages.sort((a, b) => a.id < b.id ? -1 : 1);
@@ -8510,12 +8563,45 @@ ${ty.variants.map(
       opponent: row.opponent.toHexString(),
       status: row.status,
       createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n),
+      startsAtMs: Number(row.startsAtMicros / 1000n),
       startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1000n),
       endsAtMs: Number(row.endsAtMicros / 1000n),
       challengerHp: row.challengerHp,
       challengerMaxHp: row.challengerMaxHp,
+      challengerAttacks: row.challengerAttacks,
       opponentHp: row.opponentHp,
-      opponentMaxHp: row.opponentMaxHp
+      opponentMaxHp: row.opponentMaxHp,
+      opponentAttacks: row.opponentAttacks
+    });
+    onChange == null ? void 0 : onChange();
+  }
+  function upsertDuelReplay(row) {
+    duelReplays.set(row.id, {
+      id: row.id,
+      challengerName: row.challengerName,
+      opponentName: row.opponentName,
+      winnerName: row.winnerName,
+      durationSeconds: row.durationSeconds,
+      challengerMaxHp: row.challengerMaxHp,
+      challengerDamage: row.challengerDamage,
+      challengerArmor: row.challengerArmor,
+      challengerAttackRate: row.challengerAttackRate,
+      challengerRegen: row.challengerRegen,
+      challengerFinalHp: row.challengerFinalHp,
+      challengerAttacks: row.challengerAttacks,
+      challengerDamageDealt: row.challengerDamageDealt,
+      challengerRegened: row.challengerRegened,
+      challengerBlocked: row.challengerBlocked,
+      opponentMaxHp: row.opponentMaxHp,
+      opponentDamage: row.opponentDamage,
+      opponentArmor: row.opponentArmor,
+      opponentAttackRate: row.opponentAttackRate,
+      opponentRegen: row.opponentRegen,
+      opponentFinalHp: row.opponentFinalHp,
+      opponentAttacks: row.opponentAttacks,
+      opponentDamageDealt: row.opponentDamageDealt,
+      opponentRegened: row.opponentRegened,
+      opponentBlocked: row.opponentBlocked
     });
     onChange == null ? void 0 : onChange();
   }
@@ -8556,16 +8642,18 @@ ${ty.variants.map(
       conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
       conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
       conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
+      conn.db.duelReplay.onInsert((_ctx, row) => upsertDuelReplay(row));
       conn.subscriptionBuilder().onApplied(() => {
         for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
         for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
         for (const row of conn.db.player.iter()) upsertPlayer(row);
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         for (const row of conn.db.duel.iter()) upsertDuel(row);
+        for (const row of conn.db.duelReplay.iter()) upsertDuelReplay(row);
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
-      }).subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel]);
+      }).subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel, tables.duelReplay]);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8586,6 +8674,7 @@ ${ty.variants.map(
       profiles.clear();
       chatMessages.length = 0;
       duels.clear();
+      duelReplays.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
     }).onConnectError((_ctx, error) => {
@@ -8652,6 +8741,10 @@ ${ty.variants.map(
         if (duel.challenger === localIdentity || duel.opponent === localIdentity) return { ...duel };
       }
       return null;
+    },
+    duelReplay(id) {
+      const replay = duelReplays.get(id);
+      return replay ? { ...replay } : null;
     },
     requestDuel() {
       if (!connection) return;

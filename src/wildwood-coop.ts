@@ -32,6 +32,7 @@ export type ChatMessage = {
   sender: string;
   senderName: string;
   message: string;
+  replayId: bigint;
   sentAtMs: number;
 };
 
@@ -54,12 +55,43 @@ export type DuelState = {
   opponent: string;
   status: string;
   createdAtMs: number;
+  startsAtMs: number;
   startedAtMs: number;
   endsAtMs: number;
   challengerHp: number;
   challengerMaxHp: number;
+  challengerAttacks: number;
   opponentHp: number;
   opponentMaxHp: number;
+  opponentAttacks: number;
+};
+
+export type DuelReplay = {
+  id: bigint;
+  challengerName: string;
+  opponentName: string;
+  winnerName: string;
+  durationSeconds: number;
+  challengerMaxHp: number;
+  challengerDamage: number;
+  challengerArmor: number;
+  challengerAttackRate: number;
+  challengerRegen: number;
+  challengerFinalHp: number;
+  challengerAttacks: number;
+  challengerDamageDealt: number;
+  challengerRegened: number;
+  challengerBlocked: number;
+  opponentMaxHp: number;
+  opponentDamage: number;
+  opponentArmor: number;
+  opponentAttackRate: number;
+  opponentRegen: number;
+  opponentFinalHp: number;
+  opponentAttacks: number;
+  opponentDamageDealt: number;
+  opponentRegened: number;
+  opponentBlocked: number;
 };
 
 type PendingInput = {
@@ -89,6 +121,7 @@ const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
+const duelReplays = new Map<bigint, DuelReplay>();
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -195,6 +228,7 @@ function upsertChatMessage(row: {
   sender: Identity;
   senderName: string;
   message: string;
+  replayId: bigint;
   sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
@@ -203,6 +237,7 @@ function upsertChatMessage(row: {
     sender: row.sender.toHexString(),
     senderName: row.senderName,
     message: row.message,
+    replayId: row.replayId,
     sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n),
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -217,11 +252,14 @@ function upsertDuel(row: {
   status: string;
   createdAt: { microsSinceUnixEpoch: bigint };
   startedAt: { microsSinceUnixEpoch: bigint };
+  startsAtMicros: bigint;
   endsAtMicros: bigint;
   challengerHp: number;
   challengerMaxHp: number;
+  challengerAttacks: number;
   opponentHp: number;
   opponentMaxHp: number;
+  opponentAttacks: number;
 }) {
   duels.set(row.id, {
     id: row.id,
@@ -229,12 +267,46 @@ function upsertDuel(row: {
     opponent: row.opponent.toHexString(),
     status: row.status,
     createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n),
+    startsAtMs: Number(row.startsAtMicros / 1000n),
     startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1000n),
     endsAtMs: Number(row.endsAtMicros / 1000n),
     challengerHp: row.challengerHp,
     challengerMaxHp: row.challengerMaxHp,
+    challengerAttacks: row.challengerAttacks,
     opponentHp: row.opponentHp,
     opponentMaxHp: row.opponentMaxHp,
+    opponentAttacks: row.opponentAttacks,
+  });
+  onChange?.();
+}
+
+function upsertDuelReplay(row: any) {
+  duelReplays.set(row.id, {
+    id: row.id,
+    challengerName: row.challengerName,
+    opponentName: row.opponentName,
+    winnerName: row.winnerName,
+    durationSeconds: row.durationSeconds,
+    challengerMaxHp: row.challengerMaxHp,
+    challengerDamage: row.challengerDamage,
+    challengerArmor: row.challengerArmor,
+    challengerAttackRate: row.challengerAttackRate,
+    challengerRegen: row.challengerRegen,
+    challengerFinalHp: row.challengerFinalHp,
+    challengerAttacks: row.challengerAttacks,
+    challengerDamageDealt: row.challengerDamageDealt,
+    challengerRegened: row.challengerRegened,
+    challengerBlocked: row.challengerBlocked,
+    opponentMaxHp: row.opponentMaxHp,
+    opponentDamage: row.opponentDamage,
+    opponentArmor: row.opponentArmor,
+    opponentAttackRate: row.opponentAttackRate,
+    opponentRegen: row.opponentRegen,
+    opponentFinalHp: row.opponentFinalHp,
+    opponentAttacks: row.opponentAttacks,
+    opponentDamageDealt: row.opponentDamageDealt,
+    opponentRegened: row.opponentRegened,
+    opponentBlocked: row.opponentBlocked,
   });
   onChange?.();
 }
@@ -284,6 +356,7 @@ function connect() {
       conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
       conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
       conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
+      conn.db.duelReplay.onInsert((_ctx, row) => upsertDuelReplay(row));
 
       conn
         .subscriptionBuilder()
@@ -293,12 +366,13 @@ function connect() {
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
+          for (const row of conn.db.duelReplay.iter()) upsertDuelReplay(row);
           onChange?.();
         })
         .onError((ctx) => {
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
-        .subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel]);
+        .subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel, tables.duelReplay]);
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
@@ -320,6 +394,7 @@ function connect() {
       profiles.clear();
       chatMessages.length = 0;
       duels.clear();
+      duelReplays.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
     })
@@ -389,6 +464,10 @@ export const wildwoodCoop = {
       if (duel.challenger === localIdentity || duel.opponent === localIdentity) return { ...duel };
     }
     return null;
+  },
+  duelReplay(id: bigint) {
+    const replay = duelReplays.get(id);
+    return replay ? { ...replay } : null;
   },
   requestDuel() {
     if (!connection) return;

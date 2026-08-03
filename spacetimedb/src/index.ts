@@ -13,6 +13,7 @@ const CHAT_COOLDOWN_MICROS = 400_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
+const DUEL_COUNTDOWN_MICROS = 3_000_000n;
 const DUEL_DURATION_MICROS = 30_000_000n;
 const DUEL_ARENA = {
   challenger: { x: 2280, y: 2400 },
@@ -71,6 +72,7 @@ const chatMessage = table(
     senderName: t.string(),
     message: t.string(),
     sentAt: t.timestamp(),
+    replayId: t.u64().default(0n),
   },
 );
 
@@ -99,10 +101,53 @@ const duel = table(
     opponentDamage: t.f32(),
     opponentArmor: t.f32(),
     opponentAttackRate: t.f32(),
+    startsAtMicros: t.u64().default(0n),
+    challengerRegen: t.f32().default(0),
+    challengerAttacks: t.u32().default(0),
+    challengerDamageDealt: t.f32().default(0),
+    challengerRegened: t.f32().default(0),
+    challengerBlocked: t.f32().default(0),
+    opponentRegen: t.f32().default(0),
+    opponentAttacks: t.u32().default(0),
+    opponentDamageDealt: t.f32().default(0),
+    opponentRegened: t.f32().default(0),
+    opponentBlocked: t.f32().default(0),
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, playerProgress, chatMessage, duel });
+const duelReplay = table(
+  { public: true },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    challengerName: t.string(),
+    opponentName: t.string(),
+    winnerName: t.string(),
+    durationSeconds: t.f32(),
+    challengerMaxHp: t.f32(),
+    challengerDamage: t.f32(),
+    challengerArmor: t.f32(),
+    challengerAttackRate: t.f32(),
+    challengerRegen: t.f32(),
+    challengerFinalHp: t.f32(),
+    challengerAttacks: t.u32(),
+    challengerDamageDealt: t.f32(),
+    challengerRegened: t.f32(),
+    challengerBlocked: t.f32(),
+    opponentMaxHp: t.f32(),
+    opponentDamage: t.f32(),
+    opponentArmor: t.f32(),
+    opponentAttackRate: t.f32(),
+    opponentRegen: t.f32(),
+    opponentFinalHp: t.f32(),
+    opponentAttacks: t.u32(),
+    opponentDamageDealt: t.f32(),
+    opponentRegened: t.f32(),
+    opponentBlocked: t.f32(),
+    createdAt: t.timestamp(),
+  },
+);
+
+const spacetimedb = schema({ player, playerProfile, playerProgress, chatMessage, duel, duelReplay });
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -140,7 +185,7 @@ function sameIdentity(a: any, b: any) {
 function activeDuelFor(ctx: any, identity: any) {
   for (const current of ctx.db.duel.iter() as Iterable<any>) {
     if (
-      (current.status === "requested" || current.status === "active") &&
+      (current.status === "requested" || current.status === "countdown" || current.status === "active") &&
       (sameIdentity(current.challenger, identity) || sameIdentity(current.opponent, identity))
     ) {
       return current;
@@ -163,14 +208,13 @@ function clearExpiredDuelRequests(ctx: any) {
   for (const id of expiredIds) ctx.db.duel.id.delete(id);
 }
 
-function insertDuelAnnouncement(ctx: any, winner: any, loser: any) {
-  const winnerName = ctx.db.playerProfile.identity.find(winner)?.displayName ?? "PLAYER";
-  const loserName = ctx.db.playerProfile.identity.find(loser)?.displayName ?? "PLAYER";
+function insertDuelAnnouncement(ctx: any, winnerName: string, loserName: string, replayId: bigint) {
   ctx.db.chatMessage.insert({
     id: 0n,
-    sender: winner,
+    sender: ctx.sender,
     senderName: "DUEL",
     message: `${winnerName} beat ${loserName} in a duel.`,
+    replayId,
     sentAt: ctx.timestamp,
   });
 }
@@ -205,18 +249,53 @@ function finishDuel(ctx: any, current: any) {
     current.opponentMaxHp,
   );
 
-  if (current.challengerHp > current.opponentHp) {
-    insertDuelAnnouncement(ctx, current.challenger, current.opponent);
-  } else if (current.opponentHp > current.challengerHp) {
-    insertDuelAnnouncement(ctx, current.opponent, current.challenger);
+  const challengerName = ctx.db.playerProfile.identity.find(current.challenger)?.displayName ?? "PLAYER";
+  const opponentName = ctx.db.playerProfile.identity.find(current.opponent)?.displayName ?? "PLAYER";
+  const challengerWon = current.challengerHp > current.opponentHp;
+  const opponentWon = current.opponentHp > current.challengerHp;
+  const winnerName = challengerWon ? challengerName : opponentWon ? opponentName : "DRAW";
+  const durationSeconds = Math.max(0, Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros) / 1_000_000);
+
+  ctx.db.duelReplay.insert({
+    id: current.id,
+    challengerName,
+    opponentName,
+    winnerName,
+    durationSeconds,
+    challengerMaxHp: current.challengerMaxHp,
+    challengerDamage: current.challengerDamage,
+    challengerArmor: current.challengerArmor,
+    challengerAttackRate: current.challengerAttackRate,
+    challengerRegen: current.challengerRegen,
+    challengerFinalHp: current.challengerHp,
+    challengerAttacks: current.challengerAttacks,
+    challengerDamageDealt: current.challengerDamageDealt,
+    challengerRegened: current.challengerRegened,
+    challengerBlocked: current.challengerBlocked,
+    opponentMaxHp: current.opponentMaxHp,
+    opponentDamage: current.opponentDamage,
+    opponentArmor: current.opponentArmor,
+    opponentAttackRate: current.opponentAttackRate,
+    opponentRegen: current.opponentRegen,
+    opponentFinalHp: current.opponentHp,
+    opponentAttacks: current.opponentAttacks,
+    opponentDamageDealt: current.opponentDamageDealt,
+    opponentRegened: current.opponentRegened,
+    opponentBlocked: current.opponentBlocked,
+    createdAt: ctx.timestamp,
+  });
+
+  if (challengerWon) {
+    insertDuelAnnouncement(ctx, challengerName, opponentName, current.id);
+  } else if (opponentWon) {
+    insertDuelAnnouncement(ctx, opponentName, challengerName, current.id);
   } else {
-    const challengerName = ctx.db.playerProfile.identity.find(current.challenger)?.displayName ?? "PLAYER";
-    const opponentName = ctx.db.playerProfile.identity.find(current.opponent)?.displayName ?? "PLAYER";
     ctx.db.chatMessage.insert({
       id: 0n,
-      sender: current.challenger,
+      sender: ctx.sender,
       senderName: "DUEL",
       message: `${challengerName} and ${opponentName} drew a duel.`,
+      replayId: current.id,
       sentAt: ctx.timestamp,
     });
   }
@@ -224,6 +303,16 @@ function finishDuel(ctx: any, current: any) {
 }
 
 function resolveDuel(ctx: any, current: any) {
+  if (current.status === "countdown") {
+    if (ctx.timestamp.microsSinceUnixEpoch < current.startsAtMicros) return;
+    ctx.db.duel.id.update({
+      ...current,
+      status: "active",
+      startedAt: ctx.timestamp,
+      lastResolvedAt: ctx.timestamp,
+    });
+    return;
+  }
   const resolutionMicros = current.endsAtMicros < ctx.timestamp.microsSinceUnixEpoch
     ? current.endsAtMicros
     : ctx.timestamp.microsSinceUnixEpoch;
@@ -233,15 +322,38 @@ function resolveDuel(ctx: any, current: any) {
     return;
   }
 
-  const challengerTaken = Math.max(1, current.opponentDamage - current.challengerArmor)
-    * elapsedSeconds / current.opponentAttackRate;
-  const opponentTaken = Math.max(1, current.challengerDamage - current.opponentArmor)
-    * elapsedSeconds / current.challengerAttackRate;
+  const duelSeconds = Math.max(0, Number(resolutionMicros - current.startsAtMicros) / 1_000_000);
+  const challengerAttacks = Math.floor(duelSeconds / current.challengerAttackRate);
+  const opponentAttacks = Math.floor(duelSeconds / current.opponentAttackRate);
+  const newChallengerAttacks = Math.max(0, challengerAttacks - current.challengerAttacks);
+  const newOpponentAttacks = Math.max(0, opponentAttacks - current.opponentAttacks);
+  const challengerHit = Math.max(1, current.challengerDamage - current.opponentArmor);
+  const opponentHit = Math.max(1, current.opponentDamage - current.challengerArmor);
+  const challengerRegen = Math.min(
+    current.challengerMaxHp - current.challengerHp,
+    current.challengerRegen * elapsedSeconds,
+  );
+  const opponentRegen = Math.min(
+    current.opponentMaxHp - current.opponentHp,
+    current.opponentRegen * elapsedSeconds,
+  );
+  const challengerHpAfterRegen = current.challengerHp + challengerRegen;
+  const opponentHpAfterRegen = current.opponentHp + opponentRegen;
+  const challengerTaken = Math.min(challengerHpAfterRegen, opponentHit * newOpponentAttacks);
+  const opponentTaken = Math.min(opponentHpAfterRegen, challengerHit * newChallengerAttacks);
   const next = {
     ...current,
-    challengerHp: Math.max(0, current.challengerHp - challengerTaken),
-    opponentHp: Math.max(0, current.opponentHp - opponentTaken),
-    lastResolvedAt: { microsSinceUnixEpoch: resolutionMicros },
+    challengerHp: Math.max(0, challengerHpAfterRegen - challengerTaken),
+    opponentHp: Math.max(0, opponentHpAfterRegen - opponentTaken),
+    challengerAttacks,
+    opponentAttacks,
+    challengerDamageDealt: current.challengerDamageDealt + opponentTaken,
+    opponentDamageDealt: current.opponentDamageDealt + challengerTaken,
+    challengerRegened: current.challengerRegened + challengerRegen,
+    opponentRegened: current.opponentRegened + opponentRegen,
+    challengerBlocked: current.challengerBlocked + Math.min(current.opponentArmor, Math.max(0, current.challengerDamage - 1)) * newChallengerAttacks,
+    opponentBlocked: current.opponentBlocked + Math.min(current.challengerArmor, Math.max(0, current.opponentDamage - 1)) * newOpponentAttacks,
+    lastResolvedAt: ctx.timestamp,
   };
 
   if (
@@ -289,7 +401,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
 
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
-    if (activeDuelFor(ctx, ctx.sender)?.status === "active") {
+    if (["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
         moving: false,
@@ -449,6 +561,7 @@ export const sendChatMessage = spacetimedb.reducer(
       sender: ctx.sender,
       senderName: profile.displayName,
       message: normalized,
+      replayId: 0n,
       sentAt: ctx.timestamp,
     });
   },
@@ -483,6 +596,7 @@ export const requestDuel = spacetimedb.reducer(
       status: "requested",
       createdAt: ctx.timestamp,
       startedAt: ctx.timestamp,
+      startsAtMicros: ctx.timestamp.microsSinceUnixEpoch,
       endsAtMicros: ctx.timestamp.microsSinceUnixEpoch,
       lastResolvedAt: ctx.timestamp,
       challengerOriginX: challenger.x,
@@ -494,11 +608,21 @@ export const requestDuel = spacetimedb.reducer(
       challengerDamage: 0,
       challengerArmor: 0,
       challengerAttackRate: 1,
+      challengerRegen: 0,
+      challengerAttacks: 0,
+      challengerDamageDealt: 0,
+      challengerRegened: 0,
+      challengerBlocked: 0,
       opponentHp: 0,
       opponentMaxHp: 0,
       opponentDamage: 0,
       opponentArmor: 0,
       opponentAttackRate: 1,
+      opponentRegen: 0,
+      opponentAttacks: 0,
+      opponentDamageDealt: 0,
+      opponentRegened: 0,
+      opponentBlocked: 0,
     });
   },
 );
@@ -523,11 +647,13 @@ export const acceptDuel = spacetimedb.reducer(
       return;
     }
 
-    const endsAtMicros = ctx.timestamp.microsSinceUnixEpoch + DUEL_DURATION_MICROS;
+    const startsAtMicros = ctx.timestamp.microsSinceUnixEpoch + DUEL_COUNTDOWN_MICROS;
+    const endsAtMicros = startsAtMicros + DUEL_DURATION_MICROS;
     ctx.db.duel.id.update({
       ...current,
-      status: "active",
+      status: "countdown",
       startedAt: ctx.timestamp,
+      startsAtMicros,
       endsAtMicros,
       lastResolvedAt: ctx.timestamp,
       challengerHp: challengerProgress.maxHp,
@@ -535,11 +661,21 @@ export const acceptDuel = spacetimedb.reducer(
       challengerDamage: challengerProgress.damage,
       challengerArmor: challengerProgress.armor,
       challengerAttackRate: challengerProgress.attackRate,
+      challengerRegen: challengerProgress.regen,
+      challengerAttacks: 0,
+      challengerDamageDealt: 0,
+      challengerRegened: 0,
+      challengerBlocked: 0,
       opponentHp: opponentProgress.maxHp,
       opponentMaxHp: opponentProgress.maxHp,
       opponentDamage: opponentProgress.damage,
       opponentArmor: opponentProgress.armor,
       opponentAttackRate: opponentProgress.attackRate,
+      opponentRegen: opponentProgress.regen,
+      opponentAttacks: 0,
+      opponentDamageDealt: 0,
+      opponentRegened: 0,
+      opponentBlocked: 0,
     });
     ctx.db.player.identity.update({
       ...challenger,
@@ -566,7 +702,7 @@ export const pulseDuel = spacetimedb.reducer(
   {},
   (ctx) => {
     const current = activeDuelFor(ctx, ctx.sender);
-    if (current?.status === "active") resolveDuel(ctx, current);
+    if (current?.status === "countdown" || current?.status === "active") resolveDuel(ctx, current);
   },
 );
 
@@ -575,7 +711,7 @@ export const move = spacetimedb.reducer(
   (ctx, { inputX, inputY }) => {
     clearStalePlayers(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current || activeDuelFor(ctx, ctx.sender)?.status === "active") return;
+    if (!current || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(inputX) || !Number.isFinite(inputY)) {
       throw new Error("Movement input must be finite");
@@ -622,7 +758,7 @@ export const moveV2 = spacetimedb.reducer(
   (ctx, { inputX, inputY, sequence }) => {
     clearStalePlayers(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current || sequence <= current.lastInputSequence || activeDuelFor(ctx, ctx.sender)?.status === "active") return;
+    if (!current || sequence <= current.lastInputSequence || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(inputX) || !Number.isFinite(inputY)) {
       throw new Error("Movement input must be finite");
@@ -681,7 +817,7 @@ export const syncPosition = spacetimedb.reducer(
   (ctx, { x, y, facing, sequence }) => {
     clearStalePlayers(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current || activeDuelFor(ctx, ctx.sender)?.status === "active") return;
+    if (!current || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
       throw new Error("Position sync values must be finite");
@@ -707,7 +843,7 @@ export const heartbeat = spacetimedb.reducer(
     if (!current) return;
 
     const activeDuel = activeDuelFor(ctx, ctx.sender);
-    if (activeDuel?.status === "active") resolveDuel(ctx, activeDuel);
+    if (activeDuel?.status === "countdown" || activeDuel?.status === "active") resolveDuel(ctx, activeDuel);
 
     ctx.db.player.identity.update({
       ...current,

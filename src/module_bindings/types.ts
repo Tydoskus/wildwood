@@ -16,6 +16,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   senderName: __t.string(),
   message: __t.string(),
   sentAt: __t.timestamp(),
+  replayId: __t.u64(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
@@ -42,8 +43,49 @@ export const Duel = __t.object("Duel", {
   opponentDamage: __t.f32(),
   opponentArmor: __t.f32(),
   opponentAttackRate: __t.f32(),
+  startsAtMicros: __t.u64(),
+  challengerRegen: __t.f32(),
+  challengerAttacks: __t.u32(),
+  challengerDamageDealt: __t.f32(),
+  challengerRegened: __t.f32(),
+  challengerBlocked: __t.f32(),
+  opponentRegen: __t.f32(),
+  opponentAttacks: __t.u32(),
+  opponentDamageDealt: __t.f32(),
+  opponentRegened: __t.f32(),
+  opponentBlocked: __t.f32(),
 });
 export type Duel = __Infer<typeof Duel>;
+
+export const DuelReplay = __t.object("DuelReplay", {
+  id: __t.u64(),
+  challengerName: __t.string(),
+  opponentName: __t.string(),
+  winnerName: __t.string(),
+  durationSeconds: __t.f32(),
+  challengerMaxHp: __t.f32(),
+  challengerDamage: __t.f32(),
+  challengerArmor: __t.f32(),
+  challengerAttackRate: __t.f32(),
+  challengerRegen: __t.f32(),
+  challengerFinalHp: __t.f32(),
+  challengerAttacks: __t.u32(),
+  challengerDamageDealt: __t.f32(),
+  challengerRegened: __t.f32(),
+  challengerBlocked: __t.f32(),
+  opponentMaxHp: __t.f32(),
+  opponentDamage: __t.f32(),
+  opponentArmor: __t.f32(),
+  opponentAttackRate: __t.f32(),
+  opponentRegen: __t.f32(),
+  opponentFinalHp: __t.f32(),
+  opponentAttacks: __t.u32(),
+  opponentDamageDealt: __t.f32(),
+  opponentRegened: __t.f32(),
+  opponentBlocked: __t.f32(),
+  createdAt: __t.timestamp(),
+});
+export type DuelReplay = __Infer<typeof DuelReplay>;
 
 export const Player = __t.object("Player", {
   identity: __t.identity(),

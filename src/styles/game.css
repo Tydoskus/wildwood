@@ -393,6 +393,30 @@
 
   #bootUpgrade[hidden] { display: none; }
 
+  #duelResult,
+  #duelReplay {
+    position: fixed;
+    inset: 0;
+    z-index: 8;
+    display: grid;
+    place-items: center;
+    padding: 13px;
+    background: rgba(1, 5, 3, .78);
+  }
+
+  #duelResult[hidden],
+  #duelReplay[hidden] { display: none; }
+
+  .duel-modal { max-width: 560px; border-color: rgba(198,208,210,.56); }
+  .duel-modal h2 { margin: 0; color: #eef1ee; font-size: clamp(22px, 6vw, 34px); }
+  .duel-stats { display: grid; gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
+  .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
+  .duel-stat-name { color: var(--gold); font-weight: 900; }
+  #duelReplayCanvas { display: block; width: 100%; margin: 14px 0 0; border: 3px solid #3f4849; border-radius: 8px; background: #6f7474; image-rendering: pixelated; }
+  #duelReplayCaption { margin: 8px 0; font-size: 10px; }
+  .secondary-button { margin-left: 6px; background: linear-gradient(#6e797a, #41494a); }
+  .chat-replay { min-width: 0; margin: 0 0 0 5px; padding: 1px 4px; border-width: 1px; border-radius: 4px; background: #6f99aa; font-size: 9px; line-height: 1.1; vertical-align: middle; }
+
   .upgrade-modal {
     max-width: 360px;
     border-color: rgba(255,218,94,.52);

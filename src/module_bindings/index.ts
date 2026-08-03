@@ -52,6 +52,7 @@ import SyncPositionReducer from "./sync_position_reducer";
 // Import all table schema definitions
 import ChatMessageRow from "./chat_message_table";
 import DuelRow from "./duel_table";
+import DuelReplayRow from "./duel_replay_table";
 import PlayerRow from "./player_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
@@ -82,6 +83,17 @@ const tablesSchema = __schema({
       { name: 'duel_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DuelRow),
+  duelReplay: __table({
+    name: 'duel_replay',
+    indexes: [
+      { accessor: 'id', name: 'duel_replay_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_replay_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DuelReplayRow),
   player: __table({
     name: 'player',
     indexes: [

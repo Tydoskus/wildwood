@@ -6,6 +6,7 @@ type ChatMessage = {
   sender: string;
   senderName: string;
   message: string;
+  replayId: bigint;
   sentAtMs: number;
 };
 
@@ -30,9 +31,10 @@ type ChatOptions = {
   elements: ChatElements;
   getCoop: () => CoopClient | null;
   showMessage: (text: string, color?: string) => void;
+  onOpenReplay?: (replayId: bigint) => void;
 };
 
-export function createChatController({ elements, getCoop, showMessage }: ChatOptions) {
+export function createChatController({ elements, getCoop, showMessage, onOpenReplay }: ChatOptions) {
   let enabled = true;
   let large = false;
 
@@ -83,6 +85,19 @@ export function createChatController({ elements, getCoop, showMessage }: ChatOpt
       text.className = "chat-text";
       text.textContent = message.message;
       line.append(time, name, text);
+      if (message.replayId > 0n) {
+        const replay = document.createElement("button");
+        replay.className = "chat-replay";
+        replay.type = "button";
+        replay.title = "Watch duel replay";
+        replay.setAttribute("aria-label", "Watch duel replay");
+        replay.textContent = "▶";
+        replay.addEventListener("click", (event) => {
+          event.stopPropagation();
+          onOpenReplay?.(message.replayId);
+        });
+        line.appendChild(replay);
+      }
       elements.messages.appendChild(line);
     }
     elements.messages.scrollTop = elements.messages.scrollHeight;

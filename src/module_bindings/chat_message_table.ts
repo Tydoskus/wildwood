@@ -16,4 +16,5 @@ export default __t.row({
   senderName: __t.string().name("sender_name"),
   message: __t.string(),
   sentAt: __t.timestamp().name("sent_at"),
+  replayId: __t.u64().name("replay_id"),
 });
