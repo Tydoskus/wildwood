@@ -8509,6 +8509,7 @@ ${ty.variants.map(
       challenger: row.challenger.toHexString(),
       opponent: row.opponent.toHexString(),
       status: row.status,
+      createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n),
       startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1000n),
       endsAtMs: Number(row.endsAtMicros / 1000n),
       challengerHp: row.challengerHp,

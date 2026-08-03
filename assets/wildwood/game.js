@@ -157,7 +157,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.126";
+    const GAME_VERSION = "0.127";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1807,6 +1807,7 @@
       const duel = activeDuel();
       const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       const nearby = nearbyDuelOpponent();
+      duelStatusEl.hidden = false;
       duelRequestBtn.hidden = true;
       duelAcceptBtn.hidden = true;
       if ((duel == null ? void 0 : duel.status) === "active") {
@@ -1816,6 +1817,10 @@
         return;
       }
       if ((duel == null ? void 0 : duel.status) === "requested") {
+        if (Date.now() - duel.createdAtMs >= 3e4) {
+          duelControls.hidden = true;
+          return;
+        }
         duelControls.hidden = false;
         if (duel.opponent === localId) {
           duelStatusEl.textContent = `${duelOpponentName(duel)} CHALLENGES YOU`;
@@ -1826,7 +1831,7 @@
         return;
       }
       if (nearby) {
-        duelStatusEl.textContent = `${nearby.name} NEARBY`;
+        duelStatusEl.hidden = true;
         duelRequestBtn.hidden = false;
         duelControls.hidden = false;
         return;

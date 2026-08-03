@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.126";
+  const GAME_VERSION = "0.127";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1802,6 +1802,7 @@ import { createChatController } from "./ui/chat";
     const duel = activeDuel();
     const localId = coop?.localIdentity?.();
     const nearby = nearbyDuelOpponent();
+    duelStatusEl.hidden = false;
     duelRequestBtn.hidden = true;
     duelAcceptBtn.hidden = true;
 
@@ -1812,6 +1813,10 @@ import { createChatController } from "./ui/chat";
       return;
     }
     if (duel?.status === "requested") {
+      if (Date.now() - duel.createdAtMs >= 30_000) {
+        duelControls.hidden = true;
+        return;
+      }
       duelControls.hidden = false;
       if (duel.opponent === localId) {
         duelStatusEl.textContent = `${duelOpponentName(duel)} CHALLENGES YOU`;
@@ -1822,7 +1827,7 @@ import { createChatController } from "./ui/chat";
       return;
     }
     if (nearby) {
-      duelStatusEl.textContent = `${nearby.name} NEARBY`;
+      duelStatusEl.hidden = true;
       duelRequestBtn.hidden = false;
       duelControls.hidden = false;
       return;

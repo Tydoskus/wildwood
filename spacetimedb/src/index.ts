@@ -12,7 +12,7 @@ const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 400_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
 const DUEL_REQUEST_RANGE = 250;
-const DUEL_REQUEST_TIMEOUT_MICROS = 20_000_000n;
+const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
 const DUEL_DURATION_MICROS = 30_000_000n;
 const DUEL_ARENA = {
   challenger: { x: 2280, y: 2400 },
@@ -143,6 +143,20 @@ function activeDuelFor(ctx: any, identity: any) {
     }
   }
   return null;
+}
+
+function clearExpiredDuelRequests(ctx: any) {
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const expiredIds: bigint[] = [];
+  for (const current of ctx.db.duel.iter() as Iterable<any>) {
+    if (
+      current.status === "requested" &&
+      now - current.createdAt.microsSinceUnixEpoch >= DUEL_REQUEST_TIMEOUT_MICROS
+    ) {
+      expiredIds.push(current.id);
+    }
+  }
+  for (const id of expiredIds) ctx.db.duel.id.delete(id);
 }
 
 function insertDuelAnnouncement(ctx: any, winner: any, loser: any) {
@@ -438,6 +452,7 @@ export const sendChatMessage = spacetimedb.reducer(
 export const requestDuel = spacetimedb.reducer(
   {},
   (ctx) => {
+    clearExpiredDuelRequests(ctx);
     const challenger = ctx.db.player.identity.find(ctx.sender);
     if (!challenger || activeDuelFor(ctx, ctx.sender)) return;
 
@@ -486,6 +501,7 @@ export const requestDuel = spacetimedb.reducer(
 export const acceptDuel = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
+    clearExpiredDuelRequests(ctx);
     const current = ctx.db.duel.id.find(id);
     if (!current || current.status !== "requested" || current.opponent !== ctx.sender) return;
     if (ctx.timestamp.microsSinceUnixEpoch - current.createdAt.microsSinceUnixEpoch > DUEL_REQUEST_TIMEOUT_MICROS) {
@@ -681,6 +697,7 @@ export const syncPosition = spacetimedb.reducer(
 export const heartbeat = spacetimedb.reducer(
   {},
   (ctx) => {
+    clearExpiredDuelRequests(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
     if (!current) return;
 
