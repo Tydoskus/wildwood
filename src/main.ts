@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.131";
+  const GAME_VERSION = "0.132";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -941,16 +941,25 @@ import { createChatController } from "./ui/chat";
     lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
   }
 
-  function duelStatLine(name, attacks, damage, regen, blocked) {
-    return `<div class="duel-stat-row"><span class="duel-stat-name">${name}</span><br>ATTACKED ${attacks} TIMES · DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP · BLOCKED ${Math.round(blocked)} DMG</div>`;
+  function duelStatLine(subject, attacks, damage, regen, blocked) {
+    return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>${subject} ATTACKED ${attacks} TIMES · ${subject} DID ${Math.round(damage)} DMG<br>${subject} REGENERATED ${Math.round(regen)} HP · ${subject} BLOCKED ${Math.round(blocked)} DMG</div>`;
   }
 
   function showDuelResult(replay) {
     if (!replay || !duelResultEl) return;
-    duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : `${replay.winnerName} WINS`;
+    const localName = coop?.localDisplayName?.() || "PLAYER";
+    const selfIsChallenger = replay.challengerName === localName;
+    const self = selfIsChallenger
+      ? { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked }
+      : { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked };
+    const other = selfIsChallenger
+      ? { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked }
+      : { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
+    const won = replay.winnerName === localName;
+    duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : won ? "YOU WON" : "YOU LOST";
     duelResultStats.innerHTML =
-      duelStatLine(replay.challengerName, replay.challengerAttacks, replay.challengerDamageDealt, replay.challengerRegened, replay.challengerBlocked) +
-      duelStatLine(replay.opponentName, replay.opponentAttacks, replay.opponentDamageDealt, replay.opponentRegened, replay.opponentBlocked);
+      duelStatLine("YOU", self.attacks, self.damage, self.regen, self.blocked) +
+      duelStatLine(other.name, other.attacks, other.damage, other.regen, other.blocked);
     duelResultEl.hidden = false;
     duelResultEl.dataset.replayId = String(replay.id);
   }
@@ -969,7 +978,7 @@ import { createChatController } from "./ui/chat";
     return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
   }
 
-  function drawReplayClone(x, y, name, hp, maxHp, color, attacks) {
+  function drawReplayClone(x, y, name, hp, maxHp, color, attacks, facing) {
     const ctx = duelReplayCtx;
     const ratio = clamp(hp / maxHp, 0, 1);
     if (playerSprite.complete && playerSprite.naturalWidth > 0) {
@@ -977,7 +986,8 @@ import { createChatController } from "./ui/chat";
       const cellH = playerSprite.naturalHeight / 4;
       ctx.save();
       ctx.globalAlpha = .96;
-      ctx.drawImage(playerSprite, 0, 0, cellW, cellH, x - 42, y - 34, 84, 84);
+      const row = facing < 0 ? 1 : 2;
+      ctx.drawImage(playerSprite, 0, row * cellH, cellW, cellH, x - 48, y - 48, 96, 96);
       ctx.restore();
     } else {
       ctx.fillStyle = color;
@@ -985,16 +995,16 @@ import { createChatController } from "./ui/chat";
       ctx.fillStyle = "#f1d6bd";
       ctx.fillRect(x - 13, y - 27, 26, 24);
     }
-    ctx.fillStyle = "#222";
-    ctx.fillRect(x - 62, y - 47, 124, 10);
+    ctx.fillStyle = "rgba(0,0,0,.82)";
+    ctx.fillRect(x - 52, y - 64, 104, 12);
     ctx.fillStyle = color;
-    ctx.fillRect(x - 60, y - 45, 120 * ratio, 6);
+    ctx.fillRect(x - 50, y - 62, 100 * ratio, 8);
     ctx.fillStyle = "#fff";
     ctx.textAlign = "center";
-    ctx.font = "bold 13px monospace";
-    ctx.fillText(name, x, y - 56);
-    ctx.font = "11px monospace";
-    ctx.fillText(`${Math.ceil(hp)} / ${Math.ceil(maxHp)} HP · ${attacks} ATTACKS`, x, y + 72);
+    ctx.font = "bold 12px monospace";
+    ctx.fillText(name, x, y - 70);
+    ctx.font = "10px monospace";
+    ctx.fillText(`${Math.ceil(hp)} / ${Math.ceil(maxHp)} HP`, x, y + 66);
   }
 
   function renderDuelReplay() {
@@ -1003,20 +1013,39 @@ import { createChatController } from "./ui/chat";
     const elapsed = (performance.now() - replayStartedAt) / 1000 * 2;
     const state = replayState(replay, elapsed);
     const ctx = duelReplayCtx;
-    ctx.clearRect(0, 0, duelReplayCanvas.width, duelReplayCanvas.height);
+    const width = innerWidth;
+    const height = innerHeight;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#42494b";
+    ctx.fillRect(0, 0, width, height);
+    const tile = 48;
+    for (let y = 0; y < height + tile; y += tile) for (let x = 0; x < width + tile; x += tile) {
+      ctx.fillStyle = ((x / tile + y / tile) & 1) ? "#4e5557" : "#484f51";
+      ctx.fillRect(x, y, tile, tile);
+    }
+    const cx = width / 2, cy = height / 2, radius = Math.min(width, height) * .42;
     ctx.fillStyle = "#6f7474";
     ctx.beginPath();
-    ctx.arc(260, 148, 124, 0, TAU);
+    ctx.arc(cx, cy, radius, 0, TAU);
     ctx.fill();
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 10;
     ctx.strokeStyle = "#3f4849";
     ctx.stroke();
-    drawReplayClone(160, 130, replay.challengerName, state.challengerHp, replay.challengerMaxHp, "#e6ad57", state.challengerAttacks);
-    drawReplayClone(360, 130, replay.opponentName, state.opponentHp, replay.opponentMaxHp, "#cc7894", state.opponentAttacks);
+    const left = cx - 120, right = cx + 120;
+    drawReplayClone(left, cy, replay.challengerName, state.challengerHp, replay.challengerMaxHp, "#46cf5a", state.challengerAttacks, 1);
+    drawReplayClone(right, cy, replay.opponentName, state.opponentHp, replay.opponentMaxHp, "#46cf5a", state.opponentAttacks, -1);
+    const phase = elapsed % .8;
+    if (phase < .16) {
+      const fromLeft = Math.floor(elapsed / .8) % 2 === 0;
+      const t = phase / .16;
+      ctx.fillStyle = fromLeft ? "#ffe36b" : "#ff8aa8";
+      pixelCircle(cx + (fromLeft ? -100 + t * 200 : 100 - t * 200), cy, 6);
+    }
     ctx.fillStyle = "#eff3f0";
     ctx.textAlign = "center";
     ctx.font = "bold 14px monospace";
-    ctx.fillText(`${Math.min(replay.durationSeconds, elapsed).toFixed(1)}s / ${replay.durationSeconds.toFixed(1)}s`, 260, 270);
+    ctx.fillText(`${Math.min(replay.durationSeconds, elapsed).toFixed(1)}s / ${replay.durationSeconds.toFixed(1)}s`, cx, cy + radius + 32);
     if (elapsed < replay.durationSeconds) replayFrame = requestAnimationFrame(renderDuelReplay);
   }
 
@@ -1029,6 +1058,8 @@ import { createChatController } from "./ui/chat";
     visibleReplay = replay;
     replayStartedAt = performance.now();
     duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
+    duelReplayCanvas.width = Math.ceil(innerWidth * dpr);
+    duelReplayCanvas.height = Math.ceil(innerHeight * dpr);
     duelReplayEl.hidden = false;
     cancelAnimationFrame(replayFrame);
     renderDuelReplay();

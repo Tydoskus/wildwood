@@ -55,7 +55,7 @@
     </div>
     <div id="topMeta">
       <div id="coopStatus">PLAYERS: 1</div>
-      <div id="version">v0.131</div>
+      <div id="version">v0.132</div>
     </div>
   </div>
   <div id="duelControls" hidden>
@@ -116,15 +116,14 @@
 </div>
 
 <div id="duelReplay" hidden>
-  <div class="modal duel-modal" role="dialog" aria-modal="true">
-    <h2 id="duelReplayTitle">DUEL REPLAY</h2>
-    <canvas id="duelReplayCanvas" width="520" height="300"></canvas>
-    <p id="duelReplayCaption">CLONE RESIMULATION · 2×</p>
-    <button id="closeDuelReplayBtn" class="secondary-button" type="button">CLOSE</button>
+  <canvas id="duelReplayCanvas"></canvas>
+  <div id="duelReplayHud">
+    <span id="duelReplayTitle">DUEL REPLAY · OBSERVER</span>
+    <button id="closeDuelReplayBtn" class="secondary-button" type="button">EXIT REPLAY</button>
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.131"></script>
-<script src="assets/wildwood/game.js?v=0.131"></script>
+<script src="assets/wildwood/coop-client.js?v=0.132"></script>
+<script src="assets/wildwood/game.js?v=0.132"></script>
 </body>
 </html>

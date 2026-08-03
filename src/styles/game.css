@@ -405,8 +405,7 @@
 
   #bootUpgrade[hidden] { display: none; }
 
-  #duelResult,
-  #duelReplay {
+  #duelResult {
     position: fixed;
     inset: 0;
     z-index: 8;
@@ -416,18 +415,24 @@
     background: rgba(1, 5, 3, .78);
   }
 
-  #duelResult[hidden],
-  #duelReplay[hidden] { display: none; }
+  #duelResult[hidden] { display: none; }
 
   .duel-modal { max-width: 560px; border-color: rgba(198,208,210,.56); }
   .duel-modal h2 { margin: 0; color: #eef1ee; font-size: clamp(22px, 6vw, 34px); }
-  .duel-stats { display: grid; gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
+  .duel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
   .duel-stat-name { color: var(--gold); font-weight: 900; }
-  #duelReplayCanvas { display: block; width: 100%; margin: 14px 0 0; border: 3px solid #3f4849; border-radius: 8px; background: #6f7474; image-rendering: pixelated; }
-  #duelReplayCaption { margin: 8px 0; font-size: 10px; }
+  #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }
+  #duelReplay[hidden] { display: none; }
+  #duelReplayCanvas { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+  #duelReplayHud { position: fixed; top: 12px; left: 50%; display: flex; align-items: center; gap: 10px; transform: translateX(-50%); color: #eef1ee; font: 900 11px ui-monospace, monospace; letter-spacing: .08em; white-space: nowrap; }
+  #duelReplayHud button { margin: 0; padding: 7px 10px; border-width: 2px; border-radius: 7px; font-size: 11px; }
   .secondary-button { margin-left: 6px; background: linear-gradient(#6e797a, #41494a); }
   .chat-replay { min-width: 0; margin: 0 0 0 5px; padding: 1px 4px; border-width: 1px; border-radius: 4px; background: #6f99aa; font-size: 9px; line-height: 1.1; vertical-align: middle; }
+
+  @media (max-width: 520px) {
+    .duel-stats { grid-template-columns: 1fr; }
+  }
 
   .upgrade-modal {
     max-width: 360px;

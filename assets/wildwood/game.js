@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.131";
+    const GAME_VERSION = "0.132";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1056,13 +1056,19 @@
       }
       lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
     }
-    function duelStatLine(name, attacks, damage, regen, blocked) {
-      return `<div class="duel-stat-row"><span class="duel-stat-name">${name}</span><br>ATTACKED ${attacks} TIMES · DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP · BLOCKED ${Math.round(blocked)} DMG</div>`;
+    function duelStatLine(subject, attacks, damage, regen, blocked) {
+      return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>${subject} ATTACKED ${attacks} TIMES · ${subject} DID ${Math.round(damage)} DMG<br>${subject} REGENERATED ${Math.round(regen)} HP · ${subject} BLOCKED ${Math.round(blocked)} DMG</div>`;
     }
     function showDuelResult(replay) {
+      var _a;
       if (!replay || !duelResultEl) return;
-      duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : `${replay.winnerName} WINS`;
-      duelResultStats.innerHTML = duelStatLine(replay.challengerName, replay.challengerAttacks, replay.challengerDamageDealt, replay.challengerRegened, replay.challengerBlocked) + duelStatLine(replay.opponentName, replay.opponentAttacks, replay.opponentDamageDealt, replay.opponentRegened, replay.opponentBlocked);
+      const localName = ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "PLAYER";
+      const selfIsChallenger = replay.challengerName === localName;
+      const self = selfIsChallenger ? { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked } : { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked };
+      const other = selfIsChallenger ? { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked } : { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
+      const won = replay.winnerName === localName;
+      duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : won ? "YOU WON" : "YOU LOST";
+      duelResultStats.innerHTML = duelStatLine("YOU", self.attacks, self.damage, self.regen, self.blocked) + duelStatLine(other.name, other.attacks, other.damage, other.regen, other.blocked);
       duelResultEl.hidden = false;
       duelResultEl.dataset.replayId = String(replay.id);
     }
@@ -1079,7 +1085,7 @@
       }
       return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
     }
-    function drawReplayClone(x, y, name, hp, maxHp, color, attacks) {
+    function drawReplayClone(x, y, name, hp, maxHp, color, attacks, facing) {
       const ctx2 = duelReplayCtx;
       const ratio = clamp(hp / maxHp, 0, 1);
       if (playerSprite.complete && playerSprite.naturalWidth > 0) {
@@ -1087,7 +1093,8 @@
         const cellH = playerSprite.naturalHeight / 4;
         ctx2.save();
         ctx2.globalAlpha = 0.96;
-        ctx2.drawImage(playerSprite, 0, 0, cellW, cellH, x - 42, y - 34, 84, 84);
+        const row = facing < 0 ? 1 : 2;
+        ctx2.drawImage(playerSprite, 0, row * cellH, cellW, cellH, x - 48, y - 48, 96, 96);
         ctx2.restore();
       } else {
         ctx2.fillStyle = color;
@@ -1095,16 +1102,16 @@
         ctx2.fillStyle = "#f1d6bd";
         ctx2.fillRect(x - 13, y - 27, 26, 24);
       }
-      ctx2.fillStyle = "#222";
-      ctx2.fillRect(x - 62, y - 47, 124, 10);
+      ctx2.fillStyle = "rgba(0,0,0,.82)";
+      ctx2.fillRect(x - 52, y - 64, 104, 12);
       ctx2.fillStyle = color;
-      ctx2.fillRect(x - 60, y - 45, 120 * ratio, 6);
+      ctx2.fillRect(x - 50, y - 62, 100 * ratio, 8);
       ctx2.fillStyle = "#fff";
       ctx2.textAlign = "center";
-      ctx2.font = "bold 13px monospace";
-      ctx2.fillText(name, x, y - 56);
-      ctx2.font = "11px monospace";
-      ctx2.fillText(`${Math.ceil(hp)} / ${Math.ceil(maxHp)} HP · ${attacks} ATTACKS`, x, y + 72);
+      ctx2.font = "bold 12px monospace";
+      ctx2.fillText(name, x, y - 70);
+      ctx2.font = "10px monospace";
+      ctx2.fillText(`${Math.ceil(hp)} / ${Math.ceil(maxHp)} HP`, x, y + 66);
     }
     function renderDuelReplay() {
       if (!visibleReplay || duelReplayEl.hidden) return;
@@ -1112,20 +1119,39 @@
       const elapsed = (performance.now() - replayStartedAt) / 1e3 * 2;
       const state = replayState(replay, elapsed);
       const ctx2 = duelReplayCtx;
-      ctx2.clearRect(0, 0, duelReplayCanvas.width, duelReplayCanvas.height);
+      const width = innerWidth;
+      const height = innerHeight;
+      ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx2.clearRect(0, 0, width, height);
+      ctx2.fillStyle = "#42494b";
+      ctx2.fillRect(0, 0, width, height);
+      const tile = 48;
+      for (let y = 0; y < height + tile; y += tile) for (let x = 0; x < width + tile; x += tile) {
+        ctx2.fillStyle = x / tile + y / tile & 1 ? "#4e5557" : "#484f51";
+        ctx2.fillRect(x, y, tile, tile);
+      }
+      const cx = width / 2, cy = height / 2, radius = Math.min(width, height) * 0.42;
       ctx2.fillStyle = "#6f7474";
       ctx2.beginPath();
-      ctx2.arc(260, 148, 124, 0, TAU);
+      ctx2.arc(cx, cy, radius, 0, TAU);
       ctx2.fill();
-      ctx2.lineWidth = 7;
+      ctx2.lineWidth = 10;
       ctx2.strokeStyle = "#3f4849";
       ctx2.stroke();
-      drawReplayClone(160, 130, replay.challengerName, state.challengerHp, replay.challengerMaxHp, "#e6ad57", state.challengerAttacks);
-      drawReplayClone(360, 130, replay.opponentName, state.opponentHp, replay.opponentMaxHp, "#cc7894", state.opponentAttacks);
+      const left = cx - 120, right = cx + 120;
+      drawReplayClone(left, cy, replay.challengerName, state.challengerHp, replay.challengerMaxHp, "#46cf5a", state.challengerAttacks, 1);
+      drawReplayClone(right, cy, replay.opponentName, state.opponentHp, replay.opponentMaxHp, "#46cf5a", state.opponentAttacks, -1);
+      const phase = elapsed % 0.8;
+      if (phase < 0.16) {
+        const fromLeft = Math.floor(elapsed / 0.8) % 2 === 0;
+        const t = phase / 0.16;
+        ctx2.fillStyle = fromLeft ? "#ffe36b" : "#ff8aa8";
+        pixelCircle(cx + (fromLeft ? -100 + t * 200 : 100 - t * 200), cy, 6);
+      }
       ctx2.fillStyle = "#eff3f0";
       ctx2.textAlign = "center";
       ctx2.font = "bold 14px monospace";
-      ctx2.fillText(`${Math.min(replay.durationSeconds, elapsed).toFixed(1)}s / ${replay.durationSeconds.toFixed(1)}s`, 260, 270);
+      ctx2.fillText(`${Math.min(replay.durationSeconds, elapsed).toFixed(1)}s / ${replay.durationSeconds.toFixed(1)}s`, cx, cy + radius + 32);
       if (elapsed < replay.durationSeconds) replayFrame = requestAnimationFrame(renderDuelReplay);
     }
     function openDuelReplay(replayId) {
@@ -1138,6 +1164,8 @@
       visibleReplay = replay;
       replayStartedAt = performance.now();
       duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
+      duelReplayCanvas.width = Math.ceil(innerWidth * dpr);
+      duelReplayCanvas.height = Math.ceil(innerHeight * dpr);
       duelReplayEl.hidden = false;
       cancelAnimationFrame(replayFrame);
       renderDuelReplay();
