@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.132";
+  const GAME_VERSION = "0.133";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -879,6 +879,7 @@ import { createChatController } from "./ui/chat";
   }
 
   function damagePlayer(amount) {
+    if (isDueling()) return;
     if (player.hurtClock > 0) return;
     const dealt = Math.max(1, Math.round(amount - player.armor));
     player.hp -= dealt;

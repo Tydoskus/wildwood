@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.132";
+    const GAME_VERSION = "0.133";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1001,6 +1001,7 @@
       spawnBurst(e.x, e.y, base.color, base.elite ? 28 : 12, base.elite ? 150 : 90);
     }
     function damagePlayer(amount) {
+      if (isDueling()) return;
       if (player.hurtClock > 0) return;
       const dealt = Math.max(1, Math.round(amount - player.armor));
       player.hp -= dealt;
