@@ -3,6 +3,7 @@
 
 import { enforceLatestVersion } from "./app/version";
 import {
+  ATTACK_RANGE_ZOOM_REFERENCE,
   BASE_ATTACK_RANGE,
   BASE_PROJECTILE_SPEED,
   BOSS_AGGRO_RANGE,
@@ -11,6 +12,7 @@ import {
   BOSS_ENEMY_SAFE_DISTANCE,
   ENEMY_RESPAWN_SAFE_DISTANCE,
   ENEMY_SPEED_MULTIPLIER,
+  ELITE_SPEED_MULTIPLIER,
   MAX_PROJECTILE_SPEED,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
@@ -26,7 +28,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.117";
+  const GAME_VERSION = "0.118";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -206,7 +208,6 @@ import { createChatController } from "./ui/chat";
     damage: { color: "#ff655a" },
     health: { color: "#66ed79", label: "+6 MAX HEALTH" },
     speed:  { color: "#ffe05d", label: "+8% ATT SPEED" },
-    range:  { color: "#67adff", label: "+14 ATT RANGE" },
     armor:  { color: "#d3dbe0", label: "+1 ARMOR" },
     regen:  { color: "#ff7ccb", label: "+0.3 HP/SEC" }
   };
@@ -243,7 +244,7 @@ import { createChatController } from "./ui/chat";
       x: 3970, y: 1120, minRadius: 280, radius: 600,
       count: 5,
       types: ["runner", "runner", "splitter"],
-      rewards: ["speed", "range", "damage"],
+      rewards: ["speed", "health", "damage"],
       ground: "#244f53", ring: "#64bdc5"
     },
     {
@@ -251,7 +252,7 @@ import { createChatController } from "./ui/chat";
       x: 850, y: 2860, minRadius: 270, radius: 620,
       count: 6,
       types: ["shooter", "splitter", "shooter"],
-      rewards: ["regen", "range", "health"],
+      rewards: ["regen", "health", "health"],
       ground: "#243e4d", ring: "#5f9eb5"
     },
     {
@@ -275,7 +276,7 @@ import { createChatController } from "./ui/chat";
       x: 3590, y: 4100, minRadius: 240, radius: 560,
       count: 5,
       types: ["runner", "shooter", "elite"],
-      rewards: ["speed", "range", "regen", "damage"],
+      rewards: ["speed", "health", "regen", "damage"],
       ground: "#553334", ring: "#d37362"
     }
   ];
@@ -572,7 +573,7 @@ import { createChatController } from "./ui/chat";
       r: base.r,
       hp: maxHp,
       maxHp,
-      speed: base.speed * ENEMY_SPEED_MULTIPLIER,
+      speed: base.speed * ENEMY_SPEED_MULTIPLIER * (base.elite ? ELITE_SPEED_MULTIPLIER : 1),
       damage: base.damage,
       reward: base.reward,
       rewardDamage: base.damageReward,
@@ -695,9 +696,6 @@ import { createChatController } from "./ui/chat";
       case "speed":
         player.attackRate = Math.max(.16, player.attackRate * .92);
         player.projectileSpeed = Math.min(MAX_PROJECTILE_SPEED, player.projectileSpeed * 1.04);
-        break;
-      case "range":
-        player.attackRange += 14;
         break;
       case "armor":
         player.armor += 1;
@@ -1114,7 +1112,7 @@ import { createChatController } from "./ui/chat";
   }
 
   function updateCamera(dt) {
-    const rangeIncrease = player.attackRange / BASE_ATTACK_RANGE - 1;
+    const rangeIncrease = player.attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
     const targetZoom = clamp(1 - rangeIncrease * .5, MIN_CAMERA_ZOOM, 1);
     const zoomFollow = 1 - Math.pow(.0008, dt);
     camera.zoom += (targetZoom - camera.zoom) * zoomFollow;

@@ -8,9 +8,11 @@ export const BOSS_CONE_HALF_ANGLE = 0.42;
 export const BASE_PROJECTILE_SPEED = 390;
 export const MAX_PROJECTILE_SPEED = BASE_PROJECTILE_SPEED * 7;
 export const PLAYER_KNOCKBACK_FORCE = 90;
-export const BASE_ATTACK_RANGE = 155;
+export const BASE_ATTACK_RANGE = 250;
+export const ATTACK_RANGE_ZOOM_REFERENCE = 155;
 export const MIN_CAMERA_ZOOM = 0.5;
-export const ENEMY_SPEED_MULTIPLIER = 2;
+export const ENEMY_SPEED_MULTIPLIER = 3;
+export const ELITE_SPEED_MULTIPLIER = 2;
 export const RANGED_PROJECTILE_SPEED = 165 * 1.5;
 export const PLAYER_SPRITE_X_OFFSETS = [
   [0, 14, 27, 39],
