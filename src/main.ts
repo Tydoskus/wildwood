@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.133";
+  const GAME_VERSION = "0.134";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -112,6 +112,8 @@ import { createChatController } from "./ui/chat";
   let visibleReplay = null;
   let replayStartedAt = 0;
   let replayFrame = 0;
+  let replayMode = null;
+  const replayShots = [];
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
 
 
@@ -914,6 +916,10 @@ import { createChatController } from "./ui/chat";
     return ["countdown", "active"].includes(activeDuel()?.status);
   }
 
+  function isArenaScene() {
+    return isDueling() || replayMode !== null;
+  }
+
   function spawnDuelShot(fromX, fromY, toX, toY, color) {
     const distance = Math.hypot(toX - fromX, toY - fromY) || 1;
     duelShots.push({
@@ -1057,13 +1063,54 @@ import { createChatController } from "./ui/chat";
       return;
     }
     visibleReplay = replay;
+    replayMode = { replay, start: performance.now() };
+    replayShots.length = 0;
     replayStartedAt = performance.now();
     duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
-    duelReplayCanvas.width = Math.ceil(innerWidth * dpr);
-    duelReplayCanvas.height = Math.ceil(innerHeight * dpr);
     duelReplayEl.hidden = false;
-    cancelAnimationFrame(replayFrame);
-    renderDuelReplay();
+    document.body.classList.add("is-replaying");
+  }
+
+  function drawReplayWorldPlayer(x, y, name, hp, maxHp, facing) {
+    const screenX = Math.floor(x - camera.x);
+    const screenY = Math.floor(y - camera.y);
+    if (playerSprite.complete && playerSprite.naturalWidth > 0) {
+      const cellW = playerSprite.naturalWidth / 4;
+      const cellH = playerSprite.naturalHeight / 4;
+      const row = facing < 0 ? 1 : 2;
+      ctx.drawImage(playerSprite, 0, row * cellH, cellW, cellH, screenX - 48, screenY - 48, 96, 96);
+    }
+    const ratio = clamp(hp / maxHp, 0, 1);
+    ctx.fillStyle = "rgba(0,0,0,.82)";
+    ctx.fillRect(screenX - 24, screenY - 53, 48, 9);
+    ctx.fillStyle = "#46cf5a";
+    ctx.fillRect(screenX - 23, screenY - 52, 46 * ratio, 7);
+    drawPlayerName(name, screenX, screenY - 58, "#ffffff");
+  }
+
+  function renderReplayWorld() {
+    const replay = replayMode.replay;
+    const elapsed = Math.min(replay.durationSeconds, (performance.now() - replayMode.start) / 1000 * 2);
+    const state = replayState(replay, elapsed);
+    const zoom = Math.min(1, Math.max(.65, Math.min(viewW, viewH) / 820));
+    camera.zoom = zoom;
+    camera.x = DUEL_ARENA.x - viewW / zoom / 2;
+    camera.y = DUEL_ARENA.y - viewH / zoom / 2;
+    ctx.save();
+    ctx.scale(zoom, zoom);
+    drawGround();
+    drawDuelArena();
+    const left = DUEL_ARENA.x - 120, right = DUEL_ARENA.x + 120;
+    drawReplayWorldPlayer(left, DUEL_ARENA.y, replay.challengerName, state.challengerHp, replay.challengerMaxHp, 1);
+    drawReplayWorldPlayer(right, DUEL_ARENA.y, replay.opponentName, state.opponentHp, replay.opponentMaxHp, -1);
+    const phase = elapsed % .8;
+    if (phase < .16) {
+      const fromLeft = Math.floor(elapsed / .8) % 2 === 0;
+      ctx.fillStyle = fromLeft ? "#ffe36b" : "#ff8aa8";
+      pixelCircle((fromLeft ? left + 20 + phase / .16 * 200 : right - 20 - phase / .16 * 200) - camera.x, DUEL_ARENA.y - camera.y, 6);
+    }
+    ctx.restore();
+    if (elapsed >= replay.durationSeconds) replayMode.start = performance.now() - replay.durationSeconds * 500;
   }
 
   function applyDuelState() {
@@ -1398,7 +1445,7 @@ import { createChatController } from "./ui/chat";
   function drawGround() {
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
-    if (isDueling()) {
+    if (isArenaScene()) {
       ctx.fillStyle = "#42494b";
       ctx.fillRect(0, 0, visibleW, visibleH);
       const tile = 48;
@@ -1512,7 +1559,7 @@ import { createChatController } from "./ui/chat";
   }
 
   function drawDuelArena() {
-    if (!isDueling()) return;
+    if (!isArenaScene()) return;
     const x = DUEL_ARENA.x - camera.x;
     const y = DUEL_ARENA.y - camera.y;
     ctx.save();
@@ -1918,6 +1965,10 @@ import { createChatController } from "./ui/chat";
   }
 
   function render() {
+    if (replayMode) {
+      renderReplayWorld();
+      return;
+    }
     const remotePlayers = coop ? coop.remotePlayers() : [];
     ctx.save();
 
@@ -2169,6 +2220,8 @@ import { createChatController } from "./ui/chat";
   closeDuelReplayBtn.addEventListener("click", () => {
     duelReplayEl.hidden = true;
     visibleReplay = null;
+    replayMode = null;
+    document.body.classList.remove("is-replaying");
     cancelAnimationFrame(replayFrame);
   });
 
