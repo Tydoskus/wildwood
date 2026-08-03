@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.149";
+    const GAME_VERSION = "0.150";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1738,7 +1738,8 @@
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
       ctx.fillStyle = "rgba(255,255,255,.24)";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-      drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 4, "#ffffff");
+      drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 16, "#ffffff");
+      drawPlayerPower(player, x, barY - 4);
     }
     function drawPlayerName(name, x, y, color) {
       if (!name) return;
@@ -1751,6 +1752,24 @@
       ctx.strokeText(name, x, y);
       ctx.fillStyle = color;
       ctx.fillText(name, x, y);
+      ctx.restore();
+    }
+    function playerPower(stats) {
+      return Math.round(
+        stats.damage * 0.15 + stats.maxHp + stats.armor * 3 + stats.regen * 10 + 50 / stats.attackRate
+      );
+    }
+    function drawPlayerPower(stats, x, y) {
+      const power = Number.isFinite(stats.power) ? stats.power : playerPower(stats);
+      ctx.save();
+      ctx.font = "900 9px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(0,0,0,.8)";
+      ctx.strokeText(`Power: ${power}`, x, y);
+      ctx.fillStyle = "#ffe05d";
+      ctx.fillText(`Power: ${power}`, x, y);
       ctx.restore();
     }
     function drawRemotePlayers(remotePlayers) {
@@ -1794,7 +1813,8 @@
         ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
         ctx.fillStyle = "#3d7d92";
         ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-        drawPlayerName(other.name, x, barY - 4, "#9eeeff");
+        drawPlayerName(other.name, x, barY - 16, "#9eeeff");
+        drawPlayerPower(other, x, barY - 4);
       }
     }
     function drawBossTelegraphs() {

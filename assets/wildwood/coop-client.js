@@ -8462,6 +8462,7 @@ ${ty.variants.map(
   const tokenKey = `${host}/${databaseName}/auth_token`;
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
+  const playerPowers = /* @__PURE__ */ new Map();
   const chatMessages = [];
   const duels = /* @__PURE__ */ new Map();
   const duelReplays = /* @__PURE__ */ new Map();
@@ -8480,6 +8481,11 @@ ${ty.variants.map(
   let positionSyncPendingSequence = null;
   let lastDuelPulseAt = 0;
   let onChange = null;
+  function powerFor(progress) {
+    return Math.round(
+      progress.damage * 0.15 + progress.maxHp + progress.armor * 3 + progress.regen * 10 + 50 / progress.attackRate
+    );
+  }
   function generatedDisplayName(identity) {
     let hash = 2166136261;
     for (const character of identity) {
@@ -8516,10 +8522,12 @@ ${ty.variants.map(
       existing.moving = row.moving;
       existing.hp = row.hp;
       existing.maxHp = row.maxHp;
+      existing.power = playerPowers.get(id) ?? existing.power;
     } else {
       players.set(id, {
         id,
         name: profiles.get(id) ?? generatedDisplayName(id),
+        power: playerPowers.get(id) ?? 95,
         x: row.x,
         y: row.y,
         speed: row.speed,
@@ -8543,7 +8551,15 @@ ${ty.variants.map(
     onChange == null ? void 0 : onChange();
   }
   function upsertProgress(row) {
-    if (row.identity.toHexString() !== localIdentity) return;
+    const id = row.identity.toHexString();
+    const power = powerFor(row);
+    playerPowers.set(id, power);
+    const remotePlayer = players.get(id);
+    if (remotePlayer) remotePlayer.power = power;
+    if (id !== localIdentity) {
+      onChange == null ? void 0 : onChange();
+      return;
+    }
     localProgress = {
       maxHp: row.maxHp,
       damage: row.damage,

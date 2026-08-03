@@ -10,6 +10,7 @@ type WildwoodRuntime = Window & {
 export type RemotePlayer = {
   id: string;
   name: string;
+  power: number;
   x: number;
   y: number;
   speed: number;
@@ -122,6 +123,7 @@ const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
 const tokenKey = `${host}/${databaseName}/auth_token`;
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
+const playerPowers = new Map<string, number>();
 const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
@@ -141,6 +143,16 @@ let lastSpeedSent: number | null = null;
 let positionSyncPendingSequence: number | null = null;
 let lastDuelPulseAt = 0;
 let onChange: (() => void) | null = null;
+
+function powerFor(progress: Pick<PlayerProgress, "maxHp" | "damage" | "attackRate" | "armor" | "regen">) {
+  return Math.round(
+    progress.damage * .15 +
+    progress.maxHp +
+    progress.armor * 3 +
+    progress.regen * 10 +
+    50 / progress.attackRate,
+  );
+}
 
 function generatedDisplayName(identity: string) {
   let hash = 2166136261;
@@ -193,10 +205,12 @@ function upsertPlayer(row: {
     existing.moving = row.moving;
     existing.hp = row.hp;
     existing.maxHp = row.maxHp;
+    existing.power = playerPowers.get(id) ?? existing.power;
   } else {
     players.set(id, {
       id,
       name: profiles.get(id) ?? generatedDisplayName(id),
+      power: playerPowers.get(id) ?? 95,
       x: row.x,
       y: row.y,
       speed: row.speed,
@@ -222,7 +236,15 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
 }
 
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
-  if (row.identity.toHexString() !== localIdentity) return;
+  const id = row.identity.toHexString();
+  const power = powerFor(row);
+  playerPowers.set(id, power);
+  const remotePlayer = players.get(id);
+  if (remotePlayer) remotePlayer.power = power;
+  if (id !== localIdentity) {
+    onChange?.();
+    return;
+  }
   localProgress = {
     maxHp: row.maxHp,
     damage: row.damage,
