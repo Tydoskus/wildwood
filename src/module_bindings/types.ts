@@ -39,3 +39,18 @@ export const PlayerProfile = __t.object("PlayerProfile", {
 });
 export type PlayerProfile = __Infer<typeof PlayerProfile>;
 
+export const PlayerProgress = __t.object("PlayerProgress", {
+  identity: __t.identity(),
+  maxHp: __t.f32(),
+  damage: __t.f32(),
+  attackRate: __t.f32(),
+  projectileSpeed: __t.f32(),
+  projectileCount: __t.u32(),
+  attackRange: __t.f32(),
+  armor: __t.f32(),
+  regen: __t.f32(),
+  speed: __t.f32(),
+  bootsCollected: __t.bool(),
+});
+export type PlayerProgress = __Infer<typeof PlayerProgress>;
+

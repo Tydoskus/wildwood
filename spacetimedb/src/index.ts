@@ -37,6 +37,23 @@ const playerProfile = table(
   },
 );
 
+const playerProgress = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    maxHp: t.f32(),
+    damage: t.f32(),
+    attackRate: t.f32(),
+    projectileSpeed: t.f32(),
+    projectileCount: t.u32(),
+    attackRange: t.f32(),
+    armor: t.f32(),
+    regen: t.f32(),
+    speed: t.f32(),
+    bootsCollected: t.bool(),
+  },
+);
+
 const chatMessage = table(
   { public: true },
   {
@@ -48,7 +65,7 @@ const chatMessage = table(
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, chatMessage });
+const spacetimedb = schema({ player, playerProfile, playerProgress, chatMessage });
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -61,6 +78,22 @@ function generatedDisplayName(identity: { toHexString: () => string }) {
   const creature = NAME_CREATURES[((hash >>> 8) >>> 0) % NAME_CREATURES.length];
   const number = String((hash >>> 16) % 1000).padStart(3, "0");
   return `${adjective} ${creature} ${number}`;
+}
+
+function defaultPlayerProgress(identity: any) {
+  return {
+    identity,
+    maxHp: 30,
+    damage: 4,
+    attackRate: 0.78,
+    projectileSpeed: 390,
+    projectileCount: 1,
+    attackRange: 155,
+    armor: 0,
+    regen: 0,
+    speed: PLAYER_SPEED,
+    bootsCollected: false,
+  };
 }
 
 function clearStalePlayers(ctx: { db: { player: { iter: () => Iterable<unknown>; identity: { delete: (identity: never) => void } } }; timestamp: { microsSinceUnixEpoch: bigint } }) {
@@ -83,6 +116,10 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
       identity: ctx.sender,
       displayName: generatedDisplayName(ctx.sender),
     });
+  }
+
+  if (!ctx.db.playerProgress.identity.find(ctx.sender)) {
+    ctx.db.playerProgress.insert(defaultPlayerProgress(ctx.sender));
   }
 
   const existing = ctx.db.player.identity.find(ctx.sender);
@@ -131,6 +168,63 @@ export const setDisplayName = spacetimedb.reducer(
     } else {
       ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized });
     }
+  },
+);
+
+export const savePlayerProgress = spacetimedb.reducer(
+  {
+    maxHp: t.f32(),
+    damage: t.f32(),
+    attackRate: t.f32(),
+    projectileSpeed: t.f32(),
+    projectileCount: t.u32(),
+    attackRange: t.f32(),
+    armor: t.f32(),
+    regen: t.f32(),
+    speed: t.f32(),
+    bootsCollected: t.bool(),
+  },
+  (ctx, progress) => {
+    const values = [
+      progress.maxHp,
+      progress.damage,
+      progress.attackRate,
+      progress.projectileSpeed,
+      progress.attackRange,
+      progress.armor,
+      progress.regen,
+      progress.speed,
+    ];
+    if (
+      values.some((value) => !Number.isFinite(value)) ||
+      !Number.isInteger(progress.projectileCount) ||
+      progress.maxHp < 1 || progress.maxHp > 1_000_000 ||
+      progress.damage < 1 || progress.damage > 1_000_000 ||
+      progress.attackRate < 0.16 || progress.attackRate > 10 ||
+      progress.projectileSpeed < 390 || progress.projectileSpeed > 2_730 ||
+      progress.projectileCount < 1 || progress.projectileCount > 20 ||
+      progress.attackRange < 155 || progress.attackRange > 5_000 ||
+      progress.armor < 0 || progress.armor > 1_000_000 ||
+      progress.regen < 0 || progress.regen > 1_000_000 ||
+      progress.speed < 1 || progress.speed > 2_000
+    ) {
+      throw new Error("Invalid player progress");
+    }
+
+    const current = ctx.db.playerProgress.identity.find(ctx.sender);
+    const next = { identity: ctx.sender, ...progress };
+    if (current) ctx.db.playerProgress.identity.update(next);
+    else ctx.db.playerProgress.insert(next);
+  },
+);
+
+export const resetPlayerProgress = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const current = ctx.db.playerProgress.identity.find(ctx.sender);
+    const next = defaultPlayerProgress(ctx.sender);
+    if (current) ctx.db.playerProgress.identity.update(next);
+    else ctx.db.playerProgress.insert(next);
   },
 );
 

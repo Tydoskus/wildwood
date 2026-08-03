@@ -35,6 +35,19 @@ export type ChatMessage = {
   sentAtMs: number;
 };
 
+export type PlayerProgress = {
+  maxHp: number;
+  damage: number;
+  attackRate: number;
+  projectileSpeed: number;
+  projectileCount: number;
+  attackRange: number;
+  armor: number;
+  regen: number;
+  speed: number;
+  bootsCollected: boolean;
+};
+
 type PendingInput = {
   sequence: number;
   inputX: number;
@@ -72,6 +85,7 @@ const pendingInputs: PendingInput[] = [];
 let heartbeatTimer: number | null = null;
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
+let localProgress: PlayerProgress | null = null;
 let lastSpeedSent: number | null = null;
 let positionSyncPendingSequence: number | null = null;
 let onChange: (() => void) | null = null;
@@ -143,6 +157,23 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
   onChange?.();
 }
 
+function upsertProgress(row: { identity: Identity } & PlayerProgress) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localProgress = {
+    maxHp: row.maxHp,
+    damage: row.damage,
+    attackRate: row.attackRate,
+    projectileSpeed: row.projectileSpeed,
+    projectileCount: row.projectileCount,
+    attackRange: row.attackRange,
+    armor: row.armor,
+    regen: row.regen,
+    speed: row.speed,
+    bootsCollected: row.bootsCollected,
+  };
+  onChange?.();
+}
+
 function upsertChatMessage(row: {
   id: bigint;
   sender: Identity;
@@ -181,6 +212,7 @@ function connect() {
       nextInputSequence = 0;
       pendingInputs.length = 0;
       localDisplayName = "";
+      localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
       localStorage.setItem(tokenKey, token);
@@ -195,12 +227,15 @@ function connect() {
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
       conn.db.playerProfile.onInsert((_ctx, row) => upsertProfile(row));
       conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
+      conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
+      conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
       conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
 
       conn
         .subscriptionBuilder()
         .onApplied(() => {
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
+          for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           onChange?.();
@@ -208,7 +243,7 @@ function connect() {
         .onError((ctx) => {
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
-        .subscribe([tables.player, tables.playerProfile, tables.chatMessage]);
+        .subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage]);
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
@@ -222,6 +257,7 @@ function connect() {
       pendingInputs.length = 0;
       localState = null;
       localDisplayName = "";
+      localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
       players.clear();
@@ -240,6 +276,7 @@ function connect() {
       pendingInputs.length = 0;
       localState = null;
       localDisplayName = "";
+      localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
@@ -270,6 +307,17 @@ export const wildwoodCoop = {
   setDisplayName(displayName: string) {
     if (!connection) return;
     connection.reducers.setDisplayName({ displayName });
+  },
+  savedProgress() {
+    return localProgress ? { ...localProgress } : null;
+  },
+  saveProgress(progress: PlayerProgress) {
+    if (!connection) return;
+    connection.reducers.savePlayerProgress(progress);
+  },
+  resetProgress() {
+    if (!connection) return;
+    connection.reducers.resetPlayerProgress({});
   },
   chatMessages() {
     return chatMessages.slice();

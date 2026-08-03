@@ -8202,6 +8202,19 @@ ${ty.variants.map(
     inputY: t.f32(),
     sequence: t.u32()
   };
+  const ResetPlayerProgressReducer = {};
+  const SavePlayerProgressReducer = {
+    maxHp: t.f32(),
+    damage: t.f32(),
+    attackRate: t.f32(),
+    projectileSpeed: t.f32(),
+    projectileCount: t.u32(),
+    attackRange: t.f32(),
+    armor: t.f32(),
+    regen: t.f32(),
+    speed: t.f32(),
+    bootsCollected: t.bool()
+  };
   const SendChatMessageReducer = {
     message: t.string()
   };
@@ -8240,6 +8253,19 @@ ${ty.variants.map(
     identity: t.identity().primaryKey(),
     displayName: t.string().name("display_name")
   });
+  const PlayerProgressRow = t.row({
+    identity: t.identity().primaryKey(),
+    maxHp: t.f32().name("max_hp"),
+    damage: t.f32(),
+    attackRate: t.f32().name("attack_rate"),
+    projectileSpeed: t.f32().name("projectile_speed"),
+    projectileCount: t.u32().name("projectile_count"),
+    attackRange: t.f32().name("attack_range"),
+    armor: t.f32(),
+    regen: t.f32(),
+    speed: t.f32(),
+    bootsCollected: t.bool().name("boots_collected")
+  });
   const tablesSchema = schema({
     chatMessage: table({
       name: "chat_message",
@@ -8273,12 +8299,25 @@ ${ty.variants.map(
       constraints: [
         { name: "player_profile_identity_key", constraint: "unique", columns: ["identity"] }
       ]
-    }, PlayerProfileRow)
+    }, PlayerProfileRow),
+    playerProgress: table({
+      name: "player_progress",
+      indexes: [
+        { accessor: "identity", name: "player_progress_identity_idx_btree", algorithm: "btree", columns: [
+          "identity"
+        ] }
+      ],
+      constraints: [
+        { name: "player_progress_identity_key", constraint: "unique", columns: ["identity"] }
+      ]
+    }, PlayerProgressRow)
   });
   const reducersSchema = reducers(
     reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("move", MoveReducer),
     reducerSchema("move_v_2", MoveV2Reducer),
+    reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
+    reducerSchema("save_player_progress", SavePlayerProgressReducer),
     reducerSchema("send_chat_message", SendChatMessageReducer),
     reducerSchema("set_display_name", SetDisplayNameReducer),
     reducerSchema("set_speed", SetSpeedReducer),
@@ -8335,6 +8374,7 @@ ${ty.variants.map(
   let heartbeatTimer = null;
   let localState = null;
   let localDisplayName = "";
+  let localProgress = null;
   let lastSpeedSent = null;
   let positionSyncPendingSequence = null;
   let onChange = null;
@@ -8389,6 +8429,22 @@ ${ty.variants.map(
     if (player) player.name = row.displayName;
     onChange == null ? void 0 : onChange();
   }
+  function upsertProgress(row) {
+    if (row.identity.toHexString() !== localIdentity) return;
+    localProgress = {
+      maxHp: row.maxHp,
+      damage: row.damage,
+      attackRate: row.attackRate,
+      projectileSpeed: row.projectileSpeed,
+      projectileCount: row.projectileCount,
+      attackRange: row.attackRange,
+      armor: row.armor,
+      regen: row.regen,
+      speed: row.speed,
+      bootsCollected: row.bootsCollected
+    };
+    onChange == null ? void 0 : onChange();
+  }
   function upsertChatMessage(row) {
     if (chatMessages.some((message) => message.id === row.id)) return;
     chatMessages.push({
@@ -8415,6 +8471,7 @@ ${ty.variants.map(
       nextInputSequence = 0;
       pendingInputs.length = 0;
       localDisplayName = "";
+      localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
       localStorage.setItem(tokenKey, token);
@@ -8427,15 +8484,18 @@ ${ty.variants.map(
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
       conn.db.playerProfile.onInsert((_ctx, row) => upsertProfile(row));
       conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
+      conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
+      conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
       conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
       conn.subscriptionBuilder().onApplied(() => {
         for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
+        for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
         for (const row of conn.db.player.iter()) upsertPlayer(row);
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
-      }).subscribe([tables.player, tables.playerProfile, tables.chatMessage]);
+      }).subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage]);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8448,6 +8508,7 @@ ${ty.variants.map(
       pendingInputs.length = 0;
       localState = null;
       localDisplayName = "";
+      localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
       players.clear();
@@ -8465,6 +8526,7 @@ ${ty.variants.map(
       pendingInputs.length = 0;
       localState = null;
       localDisplayName = "";
+      localProgress = null;
       lastSpeedSent = null;
       positionSyncPendingSequence = null;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
@@ -8493,6 +8555,17 @@ ${ty.variants.map(
     setDisplayName(displayName) {
       if (!connection) return;
       connection.reducers.setDisplayName({ displayName });
+    },
+    savedProgress() {
+      return localProgress ? { ...localProgress } : null;
+    },
+    saveProgress(progress) {
+      if (!connection) return;
+      connection.reducers.savePlayerProgress(progress);
+    },
+    resetProgress() {
+      if (!connection) return;
+      connection.reducers.resetPlayerProgress({});
     },
     chatMessages() {
       return chatMessages.slice();

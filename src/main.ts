@@ -26,7 +26,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.116";
+  const GAME_VERSION = "0.117";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -61,7 +61,7 @@ import { createChatController } from "./ui/chat";
   const camera = { x: 0, y: 0, zoom: 1 };
   const particles = [];
   const projectiles = [];
-  const SAVE_KEY = "wildwood-player-progress-v1";
+  const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
   const enemyShots = [];
   const enemies = [];
   const spawnSites = [];
@@ -95,6 +95,7 @@ import { createChatController } from "./ui/chat";
   };
 
   let hasSavedProgress = false;
+  let progressLoaded = false;
 
   const player = {
     x: WORLD.w / 2,
@@ -463,46 +464,60 @@ import { createChatController } from "./ui/chat";
   }
 
   function saveProgress() {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
-        stats: {
-          maxHp: player.maxHp,
-          damage: player.damage,
-          attackRate: player.attackRate,
-          projectileSpeed: player.projectileSpeed,
-          projectileCount: player.projectileCount,
-          attackRange: player.attackRange,
-          armor: player.armor,
-          regen: player.regen,
-          speed: player.speed
-        },
-        bootsCollected: bootsPickup.collected
-      }));
-    } catch {}
+    if (!coop || typeof coop.saveProgress !== "function") return;
+    coop.saveProgress({
+      maxHp: player.maxHp,
+      damage: player.damage,
+      attackRate: player.attackRate,
+      projectileSpeed: player.projectileSpeed,
+      projectileCount: player.projectileCount,
+      attackRange: player.attackRange,
+      armor: player.armor,
+      regen: player.regen,
+      speed: player.speed,
+      bootsCollected: bootsPickup.collected,
+    });
   }
 
   function loadProgress() {
+    if (progressLoaded || !coop || typeof coop.savedProgress !== "function") return;
+    const saved = coop.savedProgress();
+    if (!saved) return;
+
+    let legacy = null;
     try {
-      const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
-      if (!saved || typeof saved !== "object" || !saved.stats || typeof saved.stats !== "object") return;
-
-      const stats = saved.stats;
-      const number = (value, fallback, min, max) =>
-        Number.isFinite(value) ? clamp(value, min, max) : fallback;
-
-      player.maxHp = number(stats.maxHp, player.maxHp, 1, 1000000);
-      player.damage = number(stats.damage, player.damage, 1, 1000000);
-      player.attackRate = number(stats.attackRate, player.attackRate, .16, 10);
-      player.projectileSpeed = number(stats.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
-      player.projectileCount = Math.floor(number(stats.projectileCount, player.projectileCount, 1, 20));
-      player.attackRange = number(stats.attackRange, player.attackRange, BASE_ATTACK_RANGE, 5000);
-      player.armor = number(stats.armor, player.armor, 0, 1000000);
-      player.regen = number(stats.regen, player.regen, 0, 1000000);
-      player.speed = number(stats.speed, player.speed, 1, 2000);
-      player.hp = player.maxHp;
-      bootsPickup.collected = saved.bootsCollected === true;
-      hasSavedProgress = true;
+      const candidate = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY));
+      if (candidate?.stats && typeof candidate.stats === "object") legacy = candidate;
     } catch {}
+    const serverIsDefault =
+      saved.maxHp === 30 && saved.damage === 4 && saved.attackRate === 0.78 &&
+      saved.projectileSpeed === BASE_PROJECTILE_SPEED && saved.projectileCount === 1 &&
+      saved.attackRange === BASE_ATTACK_RANGE && saved.armor === 0 && saved.regen === 0 &&
+      saved.speed === 175 && saved.bootsCollected === false;
+    const source = legacy && serverIsDefault
+      ? { ...legacy.stats, bootsCollected: legacy.bootsCollected === true }
+      : saved;
+
+    const number = (value, fallback, min, max) =>
+      Number.isFinite(value) ? clamp(value, min, max) : fallback;
+
+    player.maxHp = number(source.maxHp, player.maxHp, 1, 1000000);
+    player.damage = number(source.damage, player.damage, 1, 1000000);
+    player.attackRate = number(source.attackRate, player.attackRate, .16, 10);
+    player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
+    player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
+    player.attackRange = number(source.attackRange, player.attackRange, BASE_ATTACK_RANGE, 5000);
+    player.armor = number(source.armor, player.armor, 0, 1000000);
+    player.regen = number(source.regen, player.regen, 0, 1000000);
+    player.speed = number(source.speed, player.speed, 1, 2000);
+    player.hp = player.maxHp;
+    bootsPickup.collected = source.bootsCollected === true;
+    hasSavedProgress = true;
+    progressLoaded = true;
+    if (legacy && serverIsDefault) {
+      saveProgress();
+      try { localStorage.removeItem(LEGACY_SAVE_KEY); } catch {}
+    }
   }
 
   function updateBootPickup() {
@@ -1807,6 +1822,7 @@ import { createChatController } from "./ui/chat";
 
   if (coop && typeof coop.setOnChange === "function") {
     coop.setOnChange(() => {
+      loadProgress();
       chat.refresh();
       updateConnectionStatus();
     });
@@ -1824,8 +1840,9 @@ import { createChatController } from "./ui/chat";
   resetProgressBtn.addEventListener("click", () => {
     if (!confirm("Erase all saved Wildwood progress and start over?")) return;
 
-    try { localStorage.removeItem(SAVE_KEY); } catch {}
     hasSavedProgress = false;
+    progressLoaded = false;
+    if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     bootsPickup.collected = false;
     pausedForUpgrade = false;
     bootUpgradeEl.hidden = true;

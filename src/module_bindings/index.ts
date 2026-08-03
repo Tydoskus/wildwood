@@ -37,6 +37,8 @@ import {
 import HeartbeatReducer from "./heartbeat_reducer";
 import MoveReducer from "./move_reducer";
 import MoveV2Reducer from "./move_v_2_reducer";
+import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
+import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
@@ -48,6 +50,7 @@ import SyncPositionReducer from "./sync_position_reducer";
 import ChatMessageRow from "./chat_message_table";
 import PlayerRow from "./player_table";
 import PlayerProfileRow from "./player_profile_table";
+import PlayerProgressRow from "./player_progress_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -86,6 +89,17 @@ const tablesSchema = __schema({
       { name: 'player_profile_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerProfileRow),
+  playerProgress: __table({
+    name: 'player_progress',
+    indexes: [
+      { accessor: 'identity', name: 'player_progress_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_progress_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerProgressRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -93,6 +107,8 @@ const reducersSchema = __reducers(
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("move", MoveReducer),
   __reducerSchema("move_v_2", MoveV2Reducer),
+  __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
+  __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
