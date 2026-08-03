@@ -157,7 +157,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.127";
+    const GAME_VERSION = "0.128";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1832,6 +1832,7 @@
       }
       if (nearby) {
         duelStatusEl.hidden = true;
+        duelRequestBtn.textContent = `REQUEST ${nearby.name}`;
         duelRequestBtn.hidden = false;
         duelControls.hidden = false;
         return;

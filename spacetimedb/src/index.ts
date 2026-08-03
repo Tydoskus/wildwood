@@ -133,11 +133,15 @@ function defaultPlayerProgress(identity: any) {
   };
 }
 
+function sameIdentity(a: any, b: any) {
+  return a?.toHexString?.() === b?.toHexString?.();
+}
+
 function activeDuelFor(ctx: any, identity: any) {
   for (const current of ctx.db.duel.iter() as Iterable<any>) {
     if (
       (current.status === "requested" || current.status === "active") &&
-      (current.challenger === identity || current.opponent === identity)
+      (sameIdentity(current.challenger, identity) || sameIdentity(current.opponent, identity))
     ) {
       return current;
     }
@@ -322,16 +326,17 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
 export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   const currentDuel = activeDuelFor(ctx, ctx.sender);
   if (currentDuel) {
-    const remainingIdentity = currentDuel.challenger === ctx.sender
+    const challengerDisconnected = sameIdentity(currentDuel.challenger, ctx.sender);
+    const remainingIdentity = challengerDisconnected
       ? currentDuel.opponent
       : currentDuel.challenger;
-    const remainingX = currentDuel.challenger === ctx.sender
+    const remainingX = challengerDisconnected
       ? currentDuel.opponentOriginX
       : currentDuel.challengerOriginX;
-    const remainingY = currentDuel.challenger === ctx.sender
+    const remainingY = challengerDisconnected
       ? currentDuel.opponentOriginY
       : currentDuel.challengerOriginY;
-    const remainingMaxHp = currentDuel.challenger === ctx.sender
+    const remainingMaxHp = challengerDisconnected
       ? currentDuel.opponentMaxHp
       : currentDuel.challengerMaxHp;
     returnDuelPlayer(ctx, remainingIdentity, remainingX, remainingY, remainingMaxHp);
@@ -459,7 +464,7 @@ export const requestDuel = spacetimedb.reducer(
     let opponent: any = null;
     let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
     for (const candidate of ctx.db.player.iter() as Iterable<any>) {
-      if (candidate.identity === ctx.sender) continue;
+      if (sameIdentity(candidate.identity, ctx.sender)) continue;
       if (activeDuelFor(ctx, candidate.identity)) continue;
       const dx = candidate.x - challenger.x;
       const dy = candidate.y - challenger.y;
@@ -503,7 +508,7 @@ export const acceptDuel = spacetimedb.reducer(
   (ctx, { id }) => {
     clearExpiredDuelRequests(ctx);
     const current = ctx.db.duel.id.find(id);
-    if (!current || current.status !== "requested" || current.opponent !== ctx.sender) return;
+    if (!current || current.status !== "requested" || !sameIdentity(current.opponent, ctx.sender)) return;
     if (ctx.timestamp.microsSinceUnixEpoch - current.createdAt.microsSinceUnixEpoch > DUEL_REQUEST_TIMEOUT_MICROS) {
       ctx.db.duel.id.delete(current.id);
       return;
