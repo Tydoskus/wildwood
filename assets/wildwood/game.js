@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.137";
+    const GAME_VERSION = "0.138";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1116,6 +1116,7 @@
         return;
       }
       replayMode = { replay, start: performance.now() };
+      duelResultEl.hidden = true;
       duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
       duelReplayEl.hidden = false;
       document.body.classList.add("is-replaying");
