@@ -30,7 +30,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.122";
+  const GAME_VERSION = "0.123";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -858,7 +858,7 @@ import { createChatController } from "./ui/chat";
     if (player.hurtClock > 0) return;
     const dealt = Math.max(1, Math.round(amount - player.armor));
     player.hp -= dealt;
-    player.hurtClock = .55;
+    player.hurtClock = .275;
     flash = .22;
     screenShake = Math.max(screenShake, 7);
     spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
