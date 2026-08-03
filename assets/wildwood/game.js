@@ -157,7 +157,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.124";
+    const GAME_VERSION = "0.125";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -313,7 +313,7 @@
         name: "Spitter",
         hp: 18,
         speed: 43,
-        damage: 4,
+        damage: 8,
         r: 15,
         color: "#b16ac8",
         outline: "#4b235d",
