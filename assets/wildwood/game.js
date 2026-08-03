@@ -170,7 +170,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.136";
+    const GAME_VERSION = "0.137";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -207,8 +207,6 @@
     const closeDuelResultBtn = document.getElementById("closeDuelResultBtn");
     const duelReplayEl = document.getElementById("duelReplay");
     const duelReplayTitle = document.getElementById("duelReplayTitle");
-    const duelReplayCanvas = document.getElementById("duelReplayCanvas");
-    duelReplayCanvas.getContext("2d");
     const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
     const coop = window.wildwoodCoop || null;
     enforceLatestVersion(GAME_VERSION);
@@ -227,6 +225,9 @@
     const bossRain = [];
     const DUEL_REQUEST_RANGE = 250;
     const DUEL_ARENA = { x: 6e3, y: 6e3, r: 760 };
+    const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
+    const DUEL_SHOT_LIFETIME = 0.38;
+    const DUEL_SHOT_SPEED = 620;
     let dpr = 1;
     let viewW = innerWidth;
     let viewH = innerHeight;
@@ -245,7 +246,6 @@
     let duelWasActive = false;
     let lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
     let lastLocalDuelId = null;
-    let replayFrame = 0;
     let replayMode = null;
     const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
     const bootsPickup = {
@@ -1038,10 +1038,10 @@
       duelShots.push({
         x: fromX,
         y: fromY,
-        vx: (toX - fromX) / distance * 620,
-        vy: (toY - fromY) / distance * 620,
+        vx: (toX - fromX) / distance * DUEL_SHOT_SPEED,
+        vy: (toY - fromY) / distance * DUEL_SHOT_SPEED,
         color,
-        life: 0.38
+        life: DUEL_SHOT_LIFETIME
       });
     }
     function syncDuelAttacks(duel) {
@@ -1082,9 +1082,11 @@
       let opponentHp = replay.opponentMaxHp;
       let challengerAttacks = 0;
       let opponentAttacks = 0;
-      let nextChallengerAttack = replay.challengerAttackRate;
-      let nextOpponentAttack = replay.opponentAttackRate;
+      const challengerRate = Math.max(1e-3, replay.challengerAttackRate);
+      const opponentRate = Math.max(1e-3, replay.opponentAttackRate);
       while (time < elapsed && challengerHp > 0 && opponentHp > 0) {
+        const nextChallengerAttack = challengerAttacks < replay.challengerAttacks ? (challengerAttacks + 1) * challengerRate : Infinity;
+        const nextOpponentAttack = opponentAttacks < replay.opponentAttacks ? (opponentAttacks + 1) * opponentRate : Infinity;
         const nextEvent = Math.min(elapsed, nextChallengerAttack, nextOpponentAttack);
         const delta = nextEvent - time;
         challengerHp = Math.min(replay.challengerMaxHp, challengerHp + replay.challengerRegen * delta);
@@ -1096,14 +1098,9 @@
         const opponentDamage = opponentHits ? Math.max(1, replay.opponentDamage - replay.challengerArmor) : 0;
         opponentHp = Math.max(0, opponentHp - challengerDamage);
         challengerHp = Math.max(0, challengerHp - opponentDamage);
-        if (challengerHits) {
-          challengerAttacks++;
-          nextChallengerAttack += replay.challengerAttackRate;
-        }
-        if (opponentHits) {
-          opponentAttacks++;
-          nextOpponentAttack += replay.opponentAttackRate;
-        }
+        if (challengerHits) challengerAttacks++;
+        if (opponentHits) opponentAttacks++;
+        if (!challengerHits && !opponentHits) break;
       }
       if (elapsed >= replay.durationSeconds) {
         challengerHp = replay.challengerFinalHp;
@@ -1119,50 +1116,9 @@
         return;
       }
       replayMode = { replay, start: performance.now() };
-      performance.now();
       duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
       duelReplayEl.hidden = false;
       document.body.classList.add("is-replaying");
-    }
-    function drawReplayWorldPlayer(x, y, name, hp, maxHp, facing) {
-      const screenX = Math.floor(x - camera.x);
-      const screenY = Math.floor(y - camera.y);
-      if (playerSprite.complete && playerSprite.naturalWidth > 0) {
-        const cellW = playerSprite.naturalWidth / 4;
-        const cellH = playerSprite.naturalHeight / 4;
-        const row = facing < 0 ? 1 : 2;
-        ctx.drawImage(playerSprite, 0, row * cellH, cellW, cellH, screenX - 48, screenY - 48, 96, 96);
-      }
-      const ratio = clamp(hp / maxHp, 0, 1);
-      ctx.fillStyle = "rgba(0,0,0,.82)";
-      ctx.fillRect(screenX - 24, screenY - 53, 48, 9);
-      ctx.fillStyle = "#46cf5a";
-      ctx.fillRect(screenX - 23, screenY - 52, 46 * ratio, 7);
-      drawPlayerName(name, screenX, screenY - 58, "#ffffff");
-    }
-    function renderReplayWorld() {
-      const replay = replayMode.replay;
-      const elapsed = Math.min(replay.durationSeconds, (performance.now() - replayMode.start) / 1e3 * 2);
-      const state = replayState(replay, elapsed);
-      const zoom = Math.min(1, Math.max(0.65, Math.min(viewW, viewH) / 820));
-      camera.zoom = zoom;
-      camera.x = DUEL_ARENA.x - viewW / zoom / 2;
-      camera.y = DUEL_ARENA.y - viewH / zoom / 2;
-      ctx.save();
-      ctx.scale(zoom, zoom);
-      drawGround();
-      drawDuelArena();
-      const left = DUEL_ARENA.x - 120, right = DUEL_ARENA.x + 120;
-      drawReplayWorldPlayer(left, DUEL_ARENA.y, replay.challengerName, state.challengerHp, replay.challengerMaxHp, 1);
-      drawReplayWorldPlayer(right, DUEL_ARENA.y, replay.opponentName, state.opponentHp, replay.opponentMaxHp, -1);
-      const phase = elapsed % 0.8;
-      if (phase < 0.16) {
-        const fromLeft = Math.floor(elapsed / 0.8) % 2 === 0;
-        ctx.fillStyle = fromLeft ? "#ffe36b" : "#ff8aa8";
-        pixelCircle((fromLeft ? left + 20 + phase / 0.16 * 200 : right - 20 - phase / 0.16 * 200) - camera.x, DUEL_ARENA.y - camera.y, 6);
-      }
-      ctx.restore();
-      if (elapsed >= replay.durationSeconds) replayMode.start = performance.now() - replay.durationSeconds * 500;
     }
     function applyDuelState() {
       var _a, _b;
@@ -1577,11 +1533,53 @@
       ctx.stroke();
       ctx.restore();
     }
-    function drawDuelShots() {
-      for (const shot of duelShots) {
+    function drawDuelShots(shots = duelShots) {
+      for (const shot of shots) {
         ctx.fillStyle = shot.color;
         pixelCircle(shot.x - camera.x, shot.y - camera.y, 6);
       }
+    }
+    function drawDuelCombatant(actor) {
+      const x = Math.floor(actor.x - camera.x);
+      const y = Math.floor(actor.y - camera.y);
+      if (playerSprite.complete && playerSprite.naturalWidth > 0) {
+        const cellW = playerSprite.naturalWidth / 4;
+        const cellH = playerSprite.naturalHeight / 4;
+        const fx = Math.cos(actor.facing);
+        const fy = Math.sin(actor.facing);
+        const row = Math.abs(fx) > Math.abs(fy) ? fx < 0 ? 1 : 2 : fy < 0 ? 3 : 0;
+        const frame = 0;
+        const drawSize = 96;
+        const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+        ctx.save();
+        ctx.globalAlpha = actor.isLocal ? 1 : 0.88;
+        ctx.drawImage(
+          playerSprite,
+          frame * cellW,
+          row * cellH,
+          cellW,
+          cellH,
+          Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
+          Math.floor(y - drawSize / 2),
+          drawSize,
+          drawSize
+        );
+        ctx.restore();
+      }
+      const barW = 46;
+      const barH = 7;
+      const barX = Math.round(x - barW / 2);
+      const barY = y - 50;
+      const hpRatio = clamp(actor.hp / actor.maxHp, 0, 1);
+      ctx.fillStyle = "rgba(0,0,0,.82)";
+      ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+      ctx.fillStyle = "#402326";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = "#46cf5a";
+      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+      ctx.fillStyle = "rgba(255,255,255,.24)";
+      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
+      drawPlayerName(actor.name, x, barY - 4, actor.isLocal ? "#ffffff" : "#9eeeff");
     }
     function drawAttackRange() {
       if (isDueling()) return;
@@ -1929,12 +1927,113 @@
       ctx.arcTo(x, y, x + w, y, rr);
       ctx.closePath();
     }
+    function duelCameraPosition() {
+      const zoom = Math.min(1, Math.max(0.65, Math.min(viewW, viewH) / 820));
+      camera.zoom = zoom;
+      camera.x = DUEL_ARENA.x - viewW / zoom / 2;
+      camera.y = DUEL_ARENA.y - viewH / zoom / 2;
+    }
+    function liveDuelScene(remotePlayers) {
+      var _a;
+      const duel = activeDuel();
+      if (!duel) return null;
+      const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
+      const remoteName = (identity) => {
+        var _a2;
+        return ((_a2 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a2.name) ?? "OPPONENT";
+      };
+      const actor = (identity, isChallenger) => {
+        var _a2;
+        return {
+          x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
+          y: DUEL_ARENA.y,
+          name: identity === localId ? ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER" : remoteName(identity),
+          hp: isChallenger ? duel.challengerHp : duel.opponentHp,
+          maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
+          facing: isChallenger ? 0 : Math.PI,
+          isLocal: identity === localId
+        };
+      };
+      return {
+        challenger: actor(duel.challenger, true),
+        opponent: actor(duel.opponent, false),
+        shots: duelShots,
+        countdown: duel.status === "countdown" ? Math.max(1, Math.ceil((duel.startsAtMs - Date.now()) / 1e3)) : 0
+      };
+    }
+    function replayDuelShots(replay, elapsed) {
+      const shots = [];
+      const addShots = (attackRate, attackCount, fromX, toX, color) => {
+        for (let attack = 1; attack <= attackCount; attack++) {
+          const age = elapsed - attack * attackRate;
+          if (age < 0 || age >= DUEL_SHOT_LIFETIME) continue;
+          const direction = Math.sign(toX - fromX);
+          shots.push({
+            x: fromX + direction * DUEL_SHOT_SPEED * age,
+            y: DUEL_ARENA.y,
+            color
+          });
+        }
+      };
+      addShots(replay.challengerAttackRate, replay.challengerAttacks, DUEL_ARENA.x - 120, DUEL_ARENA.x + 120, "#ffe36b");
+      addShots(replay.opponentAttackRate, replay.opponentAttacks, DUEL_ARENA.x + 120, DUEL_ARENA.x - 120, "#ff8aa8");
+      return shots;
+    }
+    function replayDuelScene() {
+      const replay = replayMode.replay;
+      const totalElapsed = Math.max(0, (performance.now() - replayMode.start) / 1e3);
+      const countdown = Math.max(0, Math.ceil(DUEL_REPLAY_COUNTDOWN_SECONDS - totalElapsed));
+      const elapsed = Math.min(replay.durationSeconds, Math.max(0, totalElapsed - DUEL_REPLAY_COUNTDOWN_SECONDS));
+      const state = replayState(replay, elapsed);
+      const actor = (isChallenger) => ({
+        x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
+        y: DUEL_ARENA.y,
+        name: isChallenger ? replay.challengerName : replay.opponentName,
+        hp: isChallenger ? state.challengerHp : state.opponentHp,
+        maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
+        facing: isChallenger ? 0 : Math.PI,
+        isLocal: false
+      });
+      duelReplayTitle.textContent = countdown > 0 ? `${replay.challengerName} VS ${replay.opponentName}` : `${replay.challengerName} VS ${replay.opponentName} · ${elapsed.toFixed(1)} / ${replay.durationSeconds.toFixed(1)}s`;
+      return {
+        challenger: actor(true),
+        opponent: actor(false),
+        shots: countdown > 0 ? [] : replayDuelShots(replay, elapsed),
+        countdown
+      };
+    }
+    function drawVignette() {
+      const g = ctx.createRadialGradient(viewW / 2, viewH / 2, Math.min(viewW, viewH) * 0.25, viewW / 2, viewH / 2, Math.max(viewW, viewH) * 0.72);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,.33)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+    function renderDuelScene(scene) {
+      duelCameraPosition();
+      ctx.save();
+      ctx.scale(camera.zoom, camera.zoom);
+      drawGround();
+      drawDuelArena();
+      drawDuelShots(scene.shots);
+      drawDuelCombatant(scene.challenger);
+      drawDuelCombatant(scene.opponent);
+      ctx.restore();
+      duelCountdownEl.textContent = String(scene.countdown || "");
+      duelCountdownEl.hidden = !scene.countdown;
+      drawVignette();
+    }
     function render() {
+      const remotePlayers = coop ? coop.remotePlayers() : [];
       if (replayMode) {
-        renderReplayWorld();
+        renderDuelScene(replayDuelScene());
         return;
       }
-      const remotePlayers = coop ? coop.remotePlayers() : [];
+      if (isDueling()) {
+        const scene = liveDuelScene(remotePlayers);
+        if (scene) renderDuelScene(scene);
+        return;
+      }
       ctx.save();
       const sx = screenShakeEnabled && screenShake > 0.2 ? rand(-screenShake, screenShake) : 0;
       const sy = screenShakeEnabled && screenShake > 0.2 ? rand(-screenShake, screenShake) : 0;
@@ -1960,11 +2059,7 @@
         ctx.fillStyle = `rgba(255,55,40,${flash * 0.75})`;
         ctx.fillRect(0, 0, viewW, viewH);
       }
-      const g = ctx.createRadialGradient(viewW / 2, viewH / 2, Math.min(viewW, viewH) * 0.25, viewW / 2, viewH / 2, Math.max(viewW, viewH) * 0.72);
-      g.addColorStop(0, "rgba(0,0,0,0)");
-      g.addColorStop(1, "rgba(0,0,0,.33)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, viewW, viewH);
+      drawVignette();
     }
     function updateHud() {
       var _a;
@@ -2149,8 +2244,8 @@
     closeDuelReplayBtn.addEventListener("click", () => {
       duelReplayEl.hidden = true;
       replayMode = null;
+      duelCountdownEl.hidden = true;
       document.body.classList.remove("is-replaying");
-      cancelAnimationFrame(replayFrame);
     });
     fullscreenToggle.addEventListener("click", async () => {
       try {
