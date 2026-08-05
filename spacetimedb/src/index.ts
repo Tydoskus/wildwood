@@ -195,7 +195,7 @@ const duelReplay = table(
 );
 
 const maintenanceSchedule = table(
-  {},
+  { scheduled: (): any => runMaintenance },
   {
     scheduledId: t.u64().primaryKey().autoInc(),
     scheduledAt: t.scheduleAt(),
@@ -619,7 +619,6 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
 });
 
 export const runMaintenance = spacetimedb.reducer(
-  { onSchedule: maintenanceSchedule },
   { maintenance: maintenanceSchedule.rowType },
   (ctx, { maintenance }) => {
     void maintenance;
