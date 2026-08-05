@@ -17,6 +17,12 @@ export const AccountLink = __t.object("AccountLink", {
 });
 export type AccountLink = __Infer<typeof AccountLink>;
 
+export const ChatCooldown = __t.object("ChatCooldown", {
+  identity: __t.identity(),
+  lastSentAt: __t.timestamp(),
+});
+export type ChatCooldown = __Infer<typeof ChatCooldown>;
+
 export const ChatMessage = __t.object("ChatMessage", {
   id: __t.u64(),
   sender: __t.identity(),
@@ -99,6 +105,12 @@ export const DuelRequestCooldown = __t.object("DuelRequestCooldown", {
   requestedAt: __t.timestamp(),
 });
 export type DuelRequestCooldown = __Infer<typeof DuelRequestCooldown>;
+
+export const MaintenanceSchedule = __t.object("MaintenanceSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type MaintenanceSchedule = __Infer<typeof MaintenanceSchedule>;
 
 export const Player = __t.object("Player", {
   identity: __t.identity(),

@@ -38,7 +38,6 @@ import AcceptDuelReducer from "./accept_duel_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
-import HeartbeatReducer from "./heartbeat_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -137,7 +136,6 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
-  __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

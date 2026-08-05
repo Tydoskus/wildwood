@@ -1,20 +1,22 @@
 import { schema, table, t } from "spacetimedb/server";
+import { ScheduleAt } from "spacetimedb";
 
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 3;
+const PROTOCOL_VERSION = 4;
 const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_MULTIPLIER = 1.5;
-const STALE_PLAYER_SECONDS = 15;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
+const CHAT_HISTORY_MAX_ROWS = 200;
 const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
+const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
@@ -78,6 +80,14 @@ const playerNameCooldown = table(
   {
     identity: t.identity().primaryKey(),
     changedAt: t.timestamp(),
+  },
+);
+
+const chatCooldown = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    lastSentAt: t.timestamp(),
   },
 );
 
@@ -184,7 +194,15 @@ const duelReplay = table(
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, duelRequestCooldown, accountLink, chatMessage, duel, duelReplay });
+const maintenanceSchedule = table(
+  {},
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+  },
+);
+
+const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, chatCooldown, duelRequestCooldown, accountLink, chatMessage, duel, duelReplay, maintenanceSchedule });
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -300,15 +318,37 @@ function clearExpiredDuelRequests(ctx: any) {
   for (const id of expiredIds) ctx.db.duel.id.delete(id);
 }
 
-function insertDuelAnnouncement(ctx: any, winnerName: string, loserName: string, replayId: bigint) {
+function ensureMaintenanceSchedule(ctx: any) {
+  for (const _task of ctx.db.maintenanceSchedule.iter()) return;
+  ctx.db.maintenanceSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.interval(MAINTENANCE_INTERVAL_MICROS),
+  });
+}
+
+function trimChatHistory(ctx: any) {
+  const messages = [...ctx.db.chatMessage.iter()] as Array<{ id: bigint }>;
+  if (messages.length <= CHAT_HISTORY_MAX_ROWS) return;
+  messages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  for (const message of messages.slice(0, messages.length - CHAT_HISTORY_MAX_ROWS)) {
+    ctx.db.chatMessage.id.delete(message.id);
+  }
+}
+
+function insertChatMessage(ctx: any, sender: any, senderName: string, message: string, replayId = 0n) {
   ctx.db.chatMessage.insert({
     id: 0n,
-    sender: ctx.sender,
-    senderName: "DUEL",
-    message: `${winnerName} beat ${loserName} in a duel.`,
+    sender,
+    senderName,
+    message,
     replayId,
     sentAt: ctx.timestamp,
   });
+  trimChatHistory(ctx);
+}
+
+function insertDuelAnnouncement(ctx: any, winnerName: string, loserName: string, replayId: bigint) {
+  insertChatMessage(ctx, ctx.sender, "DUEL", `${winnerName} beat ${loserName} in a duel.`, replayId);
 }
 
 function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: number) {
@@ -405,14 +445,7 @@ function finishDuel(ctx: any, current: any) {
   } else if (opponentWon) {
     insertDuelAnnouncement(ctx, opponentName, challengerName, current.id);
   } else {
-    ctx.db.chatMessage.insert({
-      id: 0n,
-      sender: ctx.sender,
-      senderName: "DUEL",
-      message: `${challengerName} and ${opponentName} drew a duel.`,
-      replayId: current.id,
-      sentAt: ctx.timestamp,
-    });
+    insertChatMessage(ctx, ctx.sender, "DUEL", `${challengerName} and ${opponentName} drew a duel.`, current.id);
   }
   ctx.db.duel.id.delete(current.id);
 }
@@ -483,17 +516,6 @@ function resolveDuel(ctx: any, current: any) {
   }
 }
 
-function clearStalePlayers(ctx: { db: { player: { iter: () => Iterable<unknown>; identity: { delete: (identity: never) => void } } }; timestamp: { microsSinceUnixEpoch: bigint } }) {
-  const cutoff = ctx.timestamp.microsSinceUnixEpoch - BigInt(STALE_PLAYER_SECONDS * 1_000_000);
-  const staleIdentities: never[] = [];
-
-  for (const candidate of ctx.db.player.iter() as Iterable<{ identity: never; lastInputAt: { microsSinceUnixEpoch: bigint } }>) {
-    if (candidate.lastInputAt.microsSinceUnixEpoch < cutoff) staleIdentities.push(candidate.identity);
-  }
-
-  for (const identity of staleIdentities) ctx.db.player.identity.delete(identity);
-}
-
 function clearExpiredHistory(ctx: any) {
   const chatCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_HISTORY_RETENTION_MICROS;
   const replayCutoff = ctx.timestamp.microsSinceUnixEpoch - DUEL_REPLAY_RETENTION_MICROS;
@@ -509,12 +531,11 @@ function clearExpiredHistory(ctx: any) {
 
   for (const id of staleMessageIds) ctx.db.chatMessage.id.delete(id);
   for (const id of staleReplayIds) ctx.db.duelReplay.id.delete(id);
+  trimChatHistory(ctx);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
-  clearStalePlayers(ctx);
-  clearExpiredHistory(ctx);
-  clearExpiredAccountLinks(ctx);
+  ensureMaintenanceSchedule(ctx);
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
@@ -596,6 +617,17 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   }
   ctx.db.player.identity.delete(ctx.sender);
 });
+
+export const runMaintenance = spacetimedb.reducer(
+  { onSchedule: maintenanceSchedule },
+  { maintenance: maintenanceSchedule.rowType },
+  (ctx, { maintenance }) => {
+    void maintenance;
+    clearExpiredDuelRequests(ctx);
+    clearExpiredHistory(ctx);
+    clearExpiredAccountLinks(ctx);
+  },
+);
 
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
@@ -790,7 +822,6 @@ export const sendChatMessage = spacetimedb.reducer(
   { message: t.string() },
   (ctx, { message }) => {
     requireCurrentProtocol(ctx);
-    clearExpiredHistory(ctx);
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) return;
 
@@ -800,23 +831,11 @@ export const sendChatMessage = spacetimedb.reducer(
       throw new Error("Chat message is too long");
     }
 
-    const cooldownCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_COOLDOWN_MICROS;
-    let isCoolingDown = false;
-    for (const previous of ctx.db.chatMessage.iter() as Iterable<{ id: bigint; sender: never; sentAt: { microsSinceUnixEpoch: bigint } }>) {
-      if (previous.sender === ctx.sender && previous.sentAt.microsSinceUnixEpoch > cooldownCutoff) {
-        isCoolingDown = true;
-      }
-    }
-    if (isCoolingDown) return;
-
-    ctx.db.chatMessage.insert({
-      id: 0n,
-      sender: ctx.sender,
-      senderName: profile.displayName,
-      message: normalized,
-      replayId: 0n,
-      sentAt: ctx.timestamp,
-    });
+    const cooldown = ctx.db.chatCooldown.identity.find(ctx.sender);
+    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) return;
+    if (cooldown) ctx.db.chatCooldown.identity.update({ ...cooldown, lastSentAt: ctx.timestamp });
+    else ctx.db.chatCooldown.insert({ identity: ctx.sender, lastSentAt: ctx.timestamp });
+    insertChatMessage(ctx, ctx.sender, profile.displayName, normalized);
   },
 );
 
@@ -824,8 +843,6 @@ export const requestDuel = spacetimedb.reducer(
   {},
   (ctx) => {
     const challenger = requireCurrentProtocol(ctx);
-    clearStalePlayers(ctx);
-    clearExpiredDuelRequests(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
 
     const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);
@@ -890,8 +907,6 @@ export const acceptDuel = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
     requireCurrentProtocol(ctx);
-    clearStalePlayers(ctx);
-    clearExpiredDuelRequests(ctx);
     const current = ctx.db.duel.id.find(id);
     if (!current || current.status !== "requested" || !sameIdentity(current.opponent, ctx.sender)) return;
     if (ctx.timestamp.microsSinceUnixEpoch - current.createdAt.microsSinceUnixEpoch > DUEL_REQUEST_TIMEOUT_MICROS) {
@@ -976,7 +991,6 @@ export const syncPosition = spacetimedb.reducer(
   { x: t.f64(), y: t.f64(), facing: t.f64(), moving: t.bool(), sequence: t.u32() },
   (ctx, { x, y, facing, moving, sequence }) => {
     const current = requireCurrentProtocol(ctx);
-    clearStalePlayers(ctx);
     if (sequence <= current.lastInputSequence || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
@@ -991,23 +1005,6 @@ export const syncPosition = spacetimedb.reducer(
       moving,
       lastInputAt: ctx.timestamp,
       lastInputSequence: sequence,
-    });
-  },
-);
-
-export const heartbeat = spacetimedb.reducer(
-  {},
-  (ctx) => {
-    const current = requireCurrentProtocol(ctx);
-    clearStalePlayers(ctx);
-    clearExpiredDuelRequests(ctx);
-    clearExpiredHistory(ctx);
-    const activeDuel = activeDuelFor(ctx, ctx.sender);
-    if (activeDuel?.status === "countdown" || activeDuel?.status === "active") resolveDuel(ctx, activeDuel);
-
-    ctx.db.player.identity.update({
-      ...current,
-      lastInputAt: ctx.timestamp,
     });
   },
 );

@@ -8202,7 +8202,6 @@ ${ty.variants.map(
   const ClaimGuestAccountReducer = {
     code: t.string()
   };
-  const HeartbeatReducer = {};
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
@@ -8413,7 +8412,6 @@ ${ty.variants.map(
     reducerSchema("begin_account_link", BeginAccountLinkReducer),
     reducerSchema("begin_adventure", BeginAdventureReducer),
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
-    reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
@@ -8456,7 +8454,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 3;
+  const PROTOCOL_VERSION = 4;
   const DEFAULT_ATTACK_RANGE = 200;
   const MIN_PROJECTILE_SPEED = 390;
   const MAX_PROJECTILE_SPEED = 2730;
@@ -8490,7 +8488,6 @@ ${ty.variants.map(
   let lastPositionSentAt = 0;
   let lastPositionMoving = false;
   let nextPositionSequence = 0;
-  let heartbeatTimer = null;
   let reconnectTimer = null;
   let connecting = false;
   let pageWasHidden = false;
@@ -8899,10 +8896,6 @@ ${ty.variants.map(
         }
       }
       conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
-      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
-      heartbeatTimer = window.setInterval(() => {
-        connection == null ? void 0 : connection.reducers.heartbeat({});
-      }, 5e3);
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
@@ -8946,8 +8939,6 @@ ${ty.variants.map(
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
       connecting = false;
-      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
       connection = null;
       localIdentity = "";
       lastPositionSentAt = 0;
@@ -8969,8 +8960,6 @@ ${ty.variants.map(
       scheduleReconnect();
     }).onConnectError((_ctx, error) => {
       connecting = false;
-      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
       connection = null;
       lastPositionSentAt = 0;
       lastPositionMoving = false;

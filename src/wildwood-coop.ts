@@ -115,7 +115,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 3;
+const PROTOCOL_VERSION = 4;
 const DEFAULT_ATTACK_RANGE = 200;
 const MIN_PROJECTILE_SPEED = 390;
 const MAX_PROJECTILE_SPEED = 2730;
@@ -151,7 +151,6 @@ let localIdentity = "";
 let lastPositionSentAt = 0;
 let lastPositionMoving = false;
 let nextPositionSequence = 0;
-let heartbeatTimer: number | null = null;
 let reconnectTimer: number | null = null;
 let connecting = false;
 let pageWasHidden = false;
@@ -644,11 +643,6 @@ function connect() {
       }
       conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
 
-      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
-      heartbeatTimer = window.setInterval(() => {
-        connection?.reducers.heartbeat({});
-      }, 5_000);
-
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
@@ -697,8 +691,6 @@ function connect() {
     })
     .onDisconnect((_ctx, error) => {
       connecting = false;
-      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
       connection = null;
       localIdentity = "";
       lastPositionSentAt = 0;
@@ -721,8 +713,6 @@ function connect() {
     })
     .onConnectError((_ctx: ErrorContext, error: Error) => {
       connecting = false;
-      if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
       connection = null;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
