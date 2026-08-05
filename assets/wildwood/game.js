@@ -200,7 +200,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.173";
+    const GAME_VERSION = "0.174";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -215,6 +215,8 @@
     const inventoryPanel = document.getElementById("inventoryPanel");
     const inventoryItemsEl = document.getElementById("inventoryItems");
     const inventoryDetailEl = document.getElementById("inventoryDetail");
+    const inventoryCountEl = document.getElementById("inventoryCount");
+    const equippedFeetSlot = document.getElementById("equippedFeetSlot");
     const screenShakeToggle = document.getElementById("screenShakeToggle");
     const fullscreenToggle = document.getElementById("fullscreenToggle");
     const connectionStatusEl = document.getElementById("connectionStatus");
@@ -1882,19 +1884,6 @@
       ctx.fillRect(3, 5, 14, 6);
       ctx.restore();
     }
-    function drawTrailblazerBoots(x, y, alpha = 1) {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      for (const offsetX of [-15, 5]) {
-        ctx.fillStyle = "#32190d";
-        ctx.fillRect(x + offsetX - 1, y + 21, 13, 14);
-        ctx.fillStyle = "#d58b32";
-        ctx.fillRect(x + offsetX, y + 19, 10, 11);
-        ctx.fillStyle = "#ffe47b";
-        ctx.fillRect(x + offsetX - 2, y + 29, 15, 5);
-      }
-      ctx.restore();
-    }
     function drawPlayer() {
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
@@ -1921,7 +1910,6 @@
           drawSize
         );
       }
-      if (inventory.equippedFeet === TRAILBLAZER_BOOTS) drawTrailblazerBoots(x, y);
       const barW = 46;
       const barH = 7;
       const barX = Math.round(x - barW / 2);
@@ -2001,7 +1989,6 @@
           );
           ctx.restore();
         }
-        if (other.feetItem === TRAILBLAZER_BOOTS) drawTrailblazerBoots(x, y, 0.82);
         const barW = 46;
         const barH = 5;
         const barX = Math.round(x - barW / 2);
@@ -2398,28 +2385,38 @@
       updateAccountStatus();
     }
     function renderInventory() {
-      if (!inventoryItemsEl || !inventoryDetailEl) return;
+      if (!inventoryItemsEl || !inventoryDetailEl || !equippedFeetSlot) return;
       inventoryItemsEl.replaceChildren();
-      if (!inventory.itemIds.length) {
-        inventoryDetailEl.textContent = "NO ITEMS YET · EXPLORE WILDWOOD";
-        return;
-      }
-      for (const itemId of inventory.itemIds) {
-        const item = ITEM_DEFINITIONS[itemId];
-        if (!item) continue;
+      const itemIds = inventory.itemIds.filter((itemId) => ITEM_DEFINITIONS[itemId]);
+      if (!inventory.selectedItemId && itemIds.length) inventory.selectedItemId = itemIds[0];
+      inventoryCountEl.textContent = `${itemIds.length} / 16`;
+      equippedFeetSlot.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
+      equippedFeetSlot.innerHTML = inventory.equippedFeet === TRAILBLAZER_BOOTS ? `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span><span>FEET</span>` : "<span>FEET</span>";
+      for (let index = 0; index < 16; index += 1) {
+        const itemId = itemIds[index];
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "inventory-item" + (inventory.selectedItemId === itemId ? " is-selected" : "");
-        button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
-        button.innerHTML = `<span class="inventory-item-icon">👢</span><span>${item.name}</span>`;
-        button.addEventListener("click", () => {
-          inventory.selectedItemId = itemId;
-          renderInventory();
-        });
+        button.className = "inventory-item" + (itemId ? " is-filled" : "") + (inventory.selectedItemId === itemId ? " is-selected" : "");
+        if (itemId) {
+          const item = ITEM_DEFINITIONS[itemId];
+          button.setAttribute("aria-label", item.name);
+          button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
+          button.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
+          button.addEventListener("click", () => {
+            inventory.selectedItemId = itemId;
+            renderInventory();
+          });
+        } else {
+          button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
+          button.disabled = true;
+        }
         inventoryItemsEl.appendChild(button);
       }
-      const selected = ITEM_DEFINITIONS[inventory.selectedItemId] ?? ITEM_DEFINITIONS[inventory.itemIds[0]];
-      if (!selected) return;
+      const selected = ITEM_DEFINITIONS[inventory.selectedItemId] ?? ITEM_DEFINITIONS[itemIds[0]];
+      if (!selected) {
+        inventoryDetailEl.textContent = "SELECT AN ITEM TO VIEW ITS STATS";
+        return;
+      }
       inventoryDetailEl.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
     }
     function nearbyDuelOpponent() {
@@ -2588,6 +2585,12 @@
       inventoryBtn.setAttribute("aria-expanded", String(opening));
       settingsBtn.setAttribute("aria-expanded", "false");
       if (opening) renderInventory();
+    });
+    equippedFeetSlot == null ? void 0 : equippedFeetSlot.addEventListener("click", () => {
+      if (inventory.equippedFeet) {
+        inventory.selectedItemId = inventory.equippedFeet;
+        renderInventory();
+      }
     });
     accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
       var _a, _b, _c;
