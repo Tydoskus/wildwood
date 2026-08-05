@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.155" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.156" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -66,7 +66,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.155</div>
+        <div id="version">v0.156</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -90,11 +90,19 @@
 </div>
 
 <div id="start">
-  <div class="modal">
+  <div id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite">
     <h1>WILDWOOD</h1>
+    <p>CONNECTING TO WILDWOOD</p>
+    <div class="loading-track" aria-hidden="true"><div class="loading-fill"></div></div>
+    <p class="loading-detail">LOADING PLAYER DATA</p>
+  </div>
+  <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
+    <h1>WELCOME TO WILDWOOD</h1>
+    <label class="onboarding-name-label" for="newPlayerNameInput">PLAYER NAME</label>
+    <input id="newPlayerNameInput" maxlength="20" autocomplete="off" spellcheck="false" />
     <p>Explore the map and fight enemies scattered through different areas. Defeated enemies grant the stat shown beneath them and return about 30 seconds later.</p>
     <p><span class="key">WASD</span> or <span class="key">ARROWS</span> to move. Touch and drag on mobile.</p>
-    <button id="playBtn">PLAY</button>
+    <button id="beginAdventureBtn" type="button">BEGIN ADVENTURE</button>
   </div>
 </div>
 
@@ -122,7 +130,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.155"></script>
-<script src="assets/wildwood/game.js?v=0.155"></script>
+<script src="assets/wildwood/coop-client.js?v=0.156"></script>
+<script src="assets/wildwood/game.js?v=0.156"></script>
 </body>
 </html>

@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.155";
+  const GAME_VERSION = "0.156";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -47,6 +47,10 @@ import { createChatController } from "./ui/chat";
   const messageEl = document.getElementById("message");
   const pickupLog = document.getElementById("pickupLog");
   const startEl = document.getElementById("start");
+  const connectionPanel = document.getElementById("connectionPanel");
+  const newPlayerPanel = document.getElementById("newPlayerPanel");
+  const newPlayerNameInput = document.getElementById("newPlayerNameInput");
+  const beginAdventureBtn = document.getElementById("beginAdventureBtn");
   const overEl = document.getElementById("gameOver");
   const finalScore = document.getElementById("finalScore");
   const joystickEl = document.getElementById("joystick");
@@ -551,10 +555,40 @@ import { createChatController } from "./ui/chat";
       saveProgress();
       try { localStorage.removeItem(LEGACY_SAVE_KEY); } catch {}
     }
-    if (!hasStarted && !running && (saved.introComplete || !isDefaultProgress(source))) {
+    if (!hasStarted && !running && !saved.introComplete && isDefaultProgress(source)) {
+      showNewPlayerIntro();
+      return;
+    }
+    if (!hasStarted && !running) {
       if (!saved.introComplete) coop?.beginAdventure?.();
       startGame(false);
     }
+  }
+
+  function showConnecting() {
+    startEl.style.display = "grid";
+    connectionPanel.hidden = false;
+    newPlayerPanel.hidden = true;
+  }
+
+  function showNewPlayerIntro() {
+    if (!newPlayerNameInput.value) {
+      newPlayerNameInput.value = coop?.localDisplayName?.() || "WANDERER";
+    }
+    startEl.style.display = "grid";
+    connectionPanel.hidden = true;
+    newPlayerPanel.hidden = false;
+    requestAnimationFrame(() => newPlayerNameInput.focus());
+  }
+
+  function beginAdventure() {
+    const name = newPlayerNameInput.value.trim().replace(/\s+/g, " ");
+    if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
+      showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
+      return;
+    }
+    if (name !== (coop?.localDisplayName?.() || "")) coop?.setDisplayName?.(name);
+    startGame(true);
   }
 
   function updateBootPickup() {
@@ -2464,15 +2498,19 @@ import { createChatController } from "./ui/chat";
     keys.clear();
     touchMove.active = false;
     reset(false);
+    hasStarted = false;
     running = false;
     last = performance.now();
-    startEl.style.display = "grid";
+    showConnecting();
     overEl.style.display = "none";
     settingsPanel.hidden = true;
     settingsBtn.setAttribute("aria-expanded", "false");
   });
 
-  document.getElementById("playBtn").addEventListener("click", startGame);
+  beginAdventureBtn.addEventListener("click", beginAdventure);
+  newPlayerNameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") beginAdventure();
+  });
   document.getElementById("restartBtn").addEventListener("click", startGame);
 
   addEventListener("keydown", e => {
@@ -2533,6 +2571,7 @@ import { createChatController } from "./ui/chat";
   canvas.addEventListener("touchend", endTouch, {passive:false});
   canvas.addEventListener("touchcancel", endTouch, {passive:false});
 
+  showConnecting();
   loadProgress();
   makeWorld();
   updateCamera(1);
