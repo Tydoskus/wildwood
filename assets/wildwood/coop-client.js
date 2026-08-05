@@ -8454,7 +8454,8 @@ ${ty.variants.map(
   let DbConnection = _DbConnection;
   const MOVEMENT_HZ = 24;
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
-  const REMOTE_PREDICTION_SECONDS = 1 / MOVEMENT_HZ;
+  const REMOTE_INTERPOLATION_DELAY_MS = 100;
+  const REMOTE_SAMPLE_LIMIT = 8;
   const PROTOCOL_VERSION = 3;
   const DEFAULT_ATTACK_RANGE = 200;
   const MIN_PROJECTILE_SPEED = 390;
@@ -8702,9 +8703,14 @@ ${ty.variants.map(
     }
     const existing = players.get(id);
     if (existing) {
-      existing.targetX = row.x;
-      existing.targetY = row.y;
-      existing.targetFacing = row.facing;
+      existing.samples.push({
+        receivedAt: performance.now(),
+        x: row.x,
+        y: row.y,
+        facing: row.facing,
+        moving: row.moving
+      });
+      while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
       existing.speed = row.speed;
       existing.moving = row.moving;
       existing.hp = row.hp;
@@ -8722,9 +8728,7 @@ ${ty.variants.map(
         moving: row.moving,
         hp: row.hp,
         maxHp: row.maxHp,
-        targetX: row.x,
-        targetY: row.y,
-        targetFacing: row.facing
+        samples: [{ receivedAt: performance.now(), x: row.x, y: row.y, facing: row.facing, moving: row.moving }]
       });
     }
     onChange == null ? void 0 : onChange();
@@ -9074,19 +9078,29 @@ ${ty.variants.map(
       connection.reducers.syncPosition({ x, y, facing, moving, sequence });
     },
     remotePlayers(dt = 1 / 60) {
-      const smoothing = 1 - Math.pow(1e-6, Math.min(0.1, Math.max(0, dt)));
       const result = [];
+      const renderAt = performance.now() - REMOTE_INTERPOLATION_DELAY_MS;
       for (const player of players.values()) {
         if (player.id === localIdentity) continue;
-        const prediction = player.moving ? player.speed * REMOTE_PREDICTION_SECONDS : 0;
-        const desiredX = player.targetX + Math.cos(player.targetFacing) * prediction;
-        const desiredY = player.targetY + Math.sin(player.targetFacing) * prediction;
-        player.x += (desiredX - player.x) * smoothing;
-        player.y += (desiredY - player.y) * smoothing;
-        player.facing += Math.atan2(
-          Math.sin(player.targetFacing - player.facing),
-          Math.cos(player.targetFacing - player.facing)
-        ) * smoothing;
+        const samples = player.samples;
+        let before = samples[0];
+        let after = samples[samples.length - 1];
+        for (let index = 1; index < samples.length; index += 1) {
+          if (samples[index].receivedAt >= renderAt) {
+            before = samples[index - 1];
+            after = samples[index];
+            break;
+          }
+        }
+        const span = Math.max(1, after.receivedAt - before.receivedAt);
+        const alpha = Math.max(0, Math.min(1, (renderAt - before.receivedAt) / span));
+        player.x = before.x + (after.x - before.x) * alpha;
+        player.y = before.y + (after.y - before.y) * alpha;
+        player.facing = before.facing + Math.atan2(
+          Math.sin(after.facing - before.facing),
+          Math.cos(after.facing - before.facing)
+        ) * alpha;
+        player.moving = alpha < 1 ? before.moving : after.moving;
         result.push(player);
       }
       return result;
