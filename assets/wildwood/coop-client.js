@@ -8510,6 +8510,12 @@ ${ty.variants.map(
       return null;
     }
   }
+  function clearStoredToken(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+    }
+  }
   function guestToken() {
     try {
       const saved = localStorage.getItem(guestTokenKey);
@@ -8974,6 +8980,15 @@ ${ty.variants.map(
       localProgress = null;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      const rejectedToken = /401|unauthorized|verify token/i.test(String((error == null ? void 0 : error.message) || error));
+      if (rejectedToken) {
+        clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
+        if (signedIn) authNotice = "SIGN-IN EXPIRED";
+        console.warn("Wildwood token rejected; reconnecting with a fresh guest session.");
+        onChange == null ? void 0 : onChange();
+        scheduleReconnect(100);
+        return;
+      }
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
       scheduleReconnect(1e3);
