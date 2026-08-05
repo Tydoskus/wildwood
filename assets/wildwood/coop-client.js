@@ -8197,10 +8197,6 @@ ${ty.variants.map(
   };
   const BeginAdventureReducer = {};
   const HeartbeatReducer = {};
-  const MoveReducer = {
-    inputX: t.f32(),
-    inputY: t.f32()
-  };
   const MoveV2Reducer = {
     inputX: t.f32(),
     inputY: t.f32(),
@@ -8409,7 +8405,6 @@ ${ty.variants.map(
     reducerSchema("accept_duel", AcceptDuelReducer),
     reducerSchema("begin_adventure", BeginAdventureReducer),
     reducerSchema("heartbeat", HeartbeatReducer),
-    reducerSchema("move", MoveReducer),
     reducerSchema("move_v_2", MoveV2Reducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("request_duel", RequestDuelReducer),

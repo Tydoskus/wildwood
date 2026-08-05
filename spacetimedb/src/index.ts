@@ -778,53 +778,6 @@ export const pulseDuel = spacetimedb.reducer(
   },
 );
 
-export const move = spacetimedb.reducer(
-  { inputX: t.f32(), inputY: t.f32() },
-  (ctx, { inputX, inputY }) => {
-    clearStalePlayers(ctx);
-    const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
-
-    if (!Number.isFinite(inputX) || !Number.isFinite(inputY)) {
-      throw new Error("Movement input must be finite");
-    }
-
-    const inputLength = Math.hypot(inputX, inputY);
-    const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
-    const elapsedSeconds = Number(nowMicros - current.lastInputAt.microsSinceUnixEpoch) / 1_000_000;
-    const stepSeconds = Math.min(MAX_INPUT_STEP_SECONDS, Math.max(0, elapsedSeconds));
-
-    if (inputLength < 0.01 || stepSeconds === 0) {
-      ctx.db.player.identity.update({
-        ...current,
-        moving: false,
-        lastInputAt: ctx.timestamp,
-      });
-      return;
-    }
-
-    const directionX = inputX / inputLength;
-    const directionY = inputY / inputLength;
-    const x = Math.max(
-      PLAYER_RADIUS,
-      Math.min(WORLD.width - PLAYER_RADIUS, current.x + directionX * current.speed * stepSeconds),
-    );
-    const y = Math.max(
-      PLAYER_RADIUS,
-      Math.min(WORLD.height - PLAYER_RADIUS, current.y + directionY * current.speed * stepSeconds),
-    );
-
-    ctx.db.player.identity.update({
-      ...current,
-      x,
-      y,
-      facing: Math.atan2(directionY, directionX),
-      moving: true,
-      lastInputAt: ctx.timestamp,
-    });
-  },
-);
-
 export const moveV2 = spacetimedb.reducer(
   { inputX: t.f32(), inputY: t.f32(), sequence: t.u32() },
   (ctx, { inputX, inputY, sequence }) => {

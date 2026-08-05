@@ -37,7 +37,6 @@ import {
 import AcceptDuelReducer from "./accept_duel_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
-import MoveReducer from "./move_reducer";
 import MoveV2Reducer from "./move_v_2_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -135,7 +134,6 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("heartbeat", HeartbeatReducer),
-  __reducerSchema("move", MoveReducer),
   __reducerSchema("move_v_2", MoveV2Reducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
