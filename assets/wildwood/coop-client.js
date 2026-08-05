@@ -8575,6 +8575,7 @@ ${ty.variants.map(
       localState = {
         x: row.x,
         y: row.y,
+        facing: row.facing,
         speed: row.speed,
         moving: row.moving,
         lastInputSequence: row.lastInputSequence

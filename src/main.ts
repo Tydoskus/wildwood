@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.158";
+  const GAME_VERSION = "0.159";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1149,6 +1149,14 @@ import { createChatController } from "./ui/chat";
   function updatePlayer(dt) {
     if (applyDuelState()) return;
     if (duelWasActive) {
+      const returnedState = coop?.localState?.();
+      if (!returnedState || returnedState.x < player.r || returnedState.y < player.r ||
+        returnedState.x > WORLD.w - player.r || returnedState.y > WORLD.h - player.r) {
+        return;
+      }
+      player.x = returnedState.x;
+      player.y = returnedState.y;
+      player.facing = returnedState.facing ?? player.facing;
       player.hp = player.maxHp;
       player.hurtClock = 0;
       duelWasActive = false;

@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.158";
+    const GAME_VERSION = "0.159";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1241,9 +1241,16 @@
       return true;
     }
     function updatePlayer(dt) {
-      var _a;
+      var _a, _b;
       if (applyDuelState()) return;
       if (duelWasActive) {
+        const returnedState = (_a = coop == null ? void 0 : coop.localState) == null ? void 0 : _a.call(coop);
+        if (!returnedState || returnedState.x < player.r || returnedState.y < player.r || returnedState.x > WORLD.w - player.r || returnedState.y > WORLD.h - player.r) {
+          return;
+        }
+        player.x = returnedState.x;
+        player.y = returnedState.y;
+        player.facing = returnedState.facing ?? player.facing;
         player.hp = player.maxHp;
         player.hurtClock = 0;
         duelWasActive = false;
@@ -1251,7 +1258,7 @@
         lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
         lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
         if (lastLocalDuelId) {
-          void ((_a = coop == null ? void 0 : coop.loadDuelReplay) == null ? void 0 : _a.call(coop, lastLocalDuelId).then((replay) => {
+          void ((_b = coop == null ? void 0 : coop.loadDuelReplay) == null ? void 0 : _b.call(coop, lastLocalDuelId).then((replay) => {
             if (replay) showDuelResult(replay);
           }));
         }
