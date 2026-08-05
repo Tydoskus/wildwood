@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.156";
+  const GAME_VERSION = "0.157";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -129,6 +129,8 @@ import { createChatController } from "./ui/chat";
   let hasSavedProgress = false;
   let progressLoaded = false;
   let waitingForFreshStart = false;
+  let startupKind = null;
+  let newPlayerIntroShown = false;
 
   const player = {
     x: 360,
@@ -188,6 +190,13 @@ import { createChatController } from "./ui/chat";
   };
 
   const playerSprite = new Image();
+  let playerSpriteReady = false;
+  const markPlayerSpriteReady = () => {
+    playerSpriteReady = true;
+    finishStartup();
+  };
+  playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
+  playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
   playerSprite.src = "assets/wildwood/wildwood-player-spritesheet.png";
 
   const ENEMY_TYPES = {
@@ -555,12 +564,22 @@ import { createChatController } from "./ui/chat";
       saveProgress();
       try { localStorage.removeItem(LEGACY_SAVE_KEY); } catch {}
     }
-    if (!hasStarted && !running && !saved.introComplete && isDefaultProgress(source)) {
-      showNewPlayerIntro();
+    startupKind = !saved.introComplete && isDefaultProgress(source) ? "new" : "returning";
+    finishStartup();
+  }
+
+  function finishStartup() {
+    if (hasStarted || running || !progressLoaded || !playerSpriteReady ||
+      !coop?.isConnected?.() || !coop?.localState?.()) return;
+    if (startupKind === "new") {
+      if (!newPlayerIntroShown) {
+        newPlayerIntroShown = true;
+        showNewPlayerIntro();
+      }
       return;
     }
-    if (!hasStarted && !running) {
-      if (!saved.introComplete) coop?.beginAdventure?.();
+    if (startupKind === "returning") {
+      coop?.beginAdventure?.();
       startGame(false);
     }
   }
@@ -2469,6 +2488,7 @@ import { createChatController } from "./ui/chat";
   if (coop && typeof coop.setOnChange === "function") {
     coop.setOnChange(() => {
       loadProgress();
+      finishStartup();
       chat.refresh();
       updateDuelControls();
       updateConnectionStatus();
@@ -2491,6 +2511,8 @@ import { createChatController } from "./ui/chat";
     hasSavedProgress = false;
     progressLoaded = false;
     waitingForFreshStart = true;
+    startupKind = null;
+    newPlayerIntroShown = false;
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     bootsPickup.collected = false;
     pausedForUpgrade = false;

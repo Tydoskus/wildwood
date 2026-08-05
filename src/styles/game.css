@@ -388,6 +388,8 @@
     z-index: 5;
   }
 
+  #start { background: #000; }
+
   #gameOver { display: none; }
 
   #connectionPanel[hidden], #newPlayerPanel[hidden] { display: none; }
