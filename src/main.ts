@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.161";
+  const GAME_VERSION = "0.162";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -133,6 +133,10 @@ import { createChatController } from "./ui/chat";
   let waitingForFreshStart = false;
   let startupKind = null;
   let newPlayerIntroShown = false;
+  let loadingStage = 0;
+  let loadingStageStartedAt = performance.now();
+  let loadingStageTimer = null;
+  let loadingSequenceComplete = false;
 
   const player = {
     x: 360,
@@ -573,7 +577,7 @@ import { createChatController } from "./ui/chat";
 
   function finishStartup() {
     updateLoadingDetail();
-    if (hasStarted || running || !progressLoaded || !playerSpriteReady ||
+    if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady ||
       !coop?.isConnected?.() || !coop?.localState?.()) return;
     if (startupKind === "new") {
       if (!newPlayerIntroShown) {
@@ -589,6 +593,11 @@ import { createChatController } from "./ui/chat";
   }
 
   function showConnecting() {
+    if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
+    loadingStage = 0;
+    loadingStageStartedAt = performance.now();
+    loadingStageTimer = null;
+    loadingSequenceComplete = false;
     startEl.style.display = "grid";
     connectionPanel.hidden = false;
     newPlayerPanel.hidden = true;
@@ -597,26 +606,30 @@ import { createChatController } from "./ui/chat";
 
   function updateLoadingDetail() {
     if (!loadingDetail || !loadingFill) return;
-    let text = "LOADING CONNECTION";
-    let percent = 12;
-    if (coop?.isConnected?.()) {
-      text = "LOADING PLAYER PROFILE";
-      percent = 35;
-    }
-    if (coop?.localState?.()) {
-      text = "LOADING SAVED PROGRESS";
-      percent = 60;
-    }
-    if (progressLoaded) {
-      text = "LOADING PLAYER SPRITE";
-      percent = 82;
-    }
-    if (playerSpriteReady) {
-      text = "STARTING WILDWOOD";
-      percent = 100;
-    }
+    const stages = [
+      ["LOADING CONNECTION", Boolean(coop?.isConnected?.()), 12],
+      ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
+      ["LOADING SAVED PROGRESS", progressLoaded, 60],
+      ["LOADING PLAYER SPRITE", playerSpriteReady, 82],
+      ["STARTING WILDWOOD", true, 100],
+    ];
+    const [text, ready, percent] = stages[loadingStage];
     loadingDetail.textContent = text;
     loadingFill.style.width = `${percent}%`;
+
+    if (loadingStageTimer !== null || !ready) return;
+    const delay = Math.max(0, 200 - (performance.now() - loadingStageStartedAt));
+    loadingStageTimer = window.setTimeout(() => {
+      loadingStageTimer = null;
+      if (loadingStage < stages.length - 1) {
+        loadingStage += 1;
+        loadingStageStartedAt = performance.now();
+        updateLoadingDetail();
+      } else {
+        loadingSequenceComplete = true;
+        finishStartup();
+      }
+    }, delay);
   }
 
   function showNewPlayerIntro() {

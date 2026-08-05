@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.161";
+    const GAME_VERSION = "0.162";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -265,6 +265,10 @@
     let waitingForFreshStart = false;
     let startupKind = null;
     let newPlayerIntroShown = false;
+    let loadingStage = 0;
+    let loadingStageStartedAt = performance.now();
+    let loadingStageTimer = null;
+    let loadingSequenceComplete = false;
     const player = {
       x: 360,
       y: 360,
@@ -742,7 +746,7 @@
     function finishStartup() {
       var _a, _b, _c;
       updateLoadingDetail();
-      if (hasStarted || running || !progressLoaded || !playerSpriteReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
       if (startupKind === "new") {
         if (!newPlayerIntroShown) {
           newPlayerIntroShown = true;
@@ -756,6 +760,11 @@
       }
     }
     function showConnecting() {
+      if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
+      loadingStage = 0;
+      loadingStageStartedAt = performance.now();
+      loadingStageTimer = null;
+      loadingSequenceComplete = false;
       startEl.style.display = "grid";
       connectionPanel.hidden = false;
       newPlayerPanel.hidden = true;
@@ -764,26 +773,29 @@
     function updateLoadingDetail() {
       var _a, _b;
       if (!loadingDetail || !loadingFill) return;
-      let text = "LOADING CONNECTION";
-      let percent = 12;
-      if ((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) {
-        text = "LOADING PLAYER PROFILE";
-        percent = 35;
-      }
-      if ((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)) {
-        text = "LOADING SAVED PROGRESS";
-        percent = 60;
-      }
-      if (progressLoaded) {
-        text = "LOADING PLAYER SPRITE";
-        percent = 82;
-      }
-      if (playerSpriteReady) {
-        text = "STARTING WILDWOOD";
-        percent = 100;
-      }
+      const stages = [
+        ["LOADING CONNECTION", Boolean((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)), 12],
+        ["LOADING PLAYER PROFILE", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)), 35],
+        ["LOADING SAVED PROGRESS", progressLoaded, 60],
+        ["LOADING PLAYER SPRITE", playerSpriteReady, 82],
+        ["STARTING WILDWOOD", true, 100]
+      ];
+      const [text, ready, percent] = stages[loadingStage];
       loadingDetail.textContent = text;
       loadingFill.style.width = `${percent}%`;
+      if (loadingStageTimer !== null || !ready) return;
+      const delay = Math.max(0, 200 - (performance.now() - loadingStageStartedAt));
+      loadingStageTimer = window.setTimeout(() => {
+        loadingStageTimer = null;
+        if (loadingStage < stages.length - 1) {
+          loadingStage += 1;
+          loadingStageStartedAt = performance.now();
+          updateLoadingDetail();
+        } else {
+          loadingSequenceComplete = true;
+          finishStartup();
+        }
+      }, delay);
     }
     function showNewPlayerIntro() {
       var _a;
