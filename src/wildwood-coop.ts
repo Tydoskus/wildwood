@@ -227,6 +227,21 @@ function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     (!pending.bootsCollected || saved.bootsCollected);
 }
 
+function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
+  return {
+    ...saved,
+    maxHp: Math.max(saved.maxHp, pending.maxHp),
+    damage: Math.max(saved.damage, pending.damage),
+    attackRate: Math.min(saved.attackRate, pending.attackRate),
+    projectileSpeed: Math.max(saved.projectileSpeed, pending.projectileSpeed),
+    projectileCount: Math.max(saved.projectileCount, pending.projectileCount),
+    armor: Math.max(saved.armor, pending.armor),
+    regen: Math.max(saved.regen, pending.regen),
+    speed: Math.max(saved.speed, pending.speed),
+    bootsCollected: saved.bootsCollected || pending.bootsCollected,
+  };
+}
+
 function flushPendingProgress(force = false) {
   if (!connection || !pendingProgress) return;
   if (!force && Date.now() < progressSaveInFlightUntil) return;
@@ -570,7 +585,9 @@ export const wildwoodCoop = {
     connection.reducers.setDisplayName({ displayName });
   },
   savedProgress() {
-    return localProgress ? { ...localProgress } : null;
+    if (!localProgress) return null;
+    const progress = pendingProgress ? mergeProgress(localProgress, pendingProgress) : localProgress;
+    return { ...progress };
   },
   saveProgress(progress: ProgressSave) {
     persistPendingProgress(progress);
