@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.159";
+  const GAME_VERSION = "0.160";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -48,6 +48,7 @@ import { createChatController } from "./ui/chat";
   const pickupLog = document.getElementById("pickupLog");
   const startEl = document.getElementById("start");
   const connectionPanel = document.getElementById("connectionPanel");
+  const loadingDetail = document.getElementById("loadingDetail");
   const newPlayerPanel = document.getElementById("newPlayerPanel");
   const newPlayerNameInput = document.getElementById("newPlayerNameInput");
   const beginAdventureBtn = document.getElementById("beginAdventureBtn");
@@ -193,6 +194,7 @@ import { createChatController } from "./ui/chat";
   let playerSpriteReady = false;
   const markPlayerSpriteReady = () => {
     playerSpriteReady = true;
+    updateLoadingDetail();
     finishStartup();
   };
   playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
@@ -569,6 +571,7 @@ import { createChatController } from "./ui/chat";
   }
 
   function finishStartup() {
+    updateLoadingDetail();
     if (hasStarted || running || !progressLoaded || !playerSpriteReady ||
       !coop?.isConnected?.() || !coop?.localState?.()) return;
     if (startupKind === "new") {
@@ -588,6 +591,18 @@ import { createChatController } from "./ui/chat";
     startEl.style.display = "grid";
     connectionPanel.hidden = false;
     newPlayerPanel.hidden = true;
+    updateLoadingDetail();
+  }
+
+  function updateLoadingDetail() {
+    if (!loadingDetail) return;
+    const step = (label, ready) => `${label} ${ready ? "✓" : "…"}`;
+    loadingDetail.textContent = [
+      step("SERVER", Boolean(coop?.isConnected?.())),
+      step("PLAYER", Boolean(coop?.localState?.())),
+      step("SAVE", progressLoaded),
+      step("SPRITE", playerSpriteReady),
+    ].join(" · ");
   }
 
   function showNewPlayerIntro() {

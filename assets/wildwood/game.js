@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.159";
+    const GAME_VERSION = "0.160";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -186,6 +186,7 @@
     const pickupLog = document.getElementById("pickupLog");
     const startEl = document.getElementById("start");
     const connectionPanel = document.getElementById("connectionPanel");
+    const loadingDetail = document.getElementById("loadingDetail");
     const newPlayerPanel = document.getElementById("newPlayerPanel");
     const newPlayerNameInput = document.getElementById("newPlayerNameInput");
     const beginAdventureBtn = document.getElementById("beginAdventureBtn");
@@ -320,6 +321,7 @@
     let playerSpriteReady = false;
     const markPlayerSpriteReady = () => {
       playerSpriteReady = true;
+      updateLoadingDetail();
       finishStartup();
     };
     playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
@@ -738,6 +740,7 @@
     }
     function finishStartup() {
       var _a, _b, _c;
+      updateLoadingDetail();
       if (hasStarted || running || !progressLoaded || !playerSpriteReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
       if (startupKind === "new") {
         if (!newPlayerIntroShown) {
@@ -755,6 +758,18 @@
       startEl.style.display = "grid";
       connectionPanel.hidden = false;
       newPlayerPanel.hidden = true;
+      updateLoadingDetail();
+    }
+    function updateLoadingDetail() {
+      var _a, _b;
+      if (!loadingDetail) return;
+      const step = (label, ready) => `${label} ${ready ? "✓" : "…"}`;
+      loadingDetail.textContent = [
+        step("SERVER", Boolean((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop))),
+        step("PLAYER", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))),
+        step("SAVE", progressLoaded),
+        step("SPRITE", playerSpriteReady)
+      ].join(" · ");
     }
     function showNewPlayerIntro() {
       var _a;

@@ -423,7 +423,8 @@
 
   .loading-detail {
     color: var(--muted) !important;
-    font-size: 10px !important;
+    font-size: 9px !important;
+    line-height: 1.5;
   }
 
   @keyframes wildwood-loading {
