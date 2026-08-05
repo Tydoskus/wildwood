@@ -8491,6 +8491,9 @@ ${ty.variants.map(
   let lastPositionMoving = false;
   let nextPositionSequence = 0;
   let heartbeatTimer = null;
+  let reconnectTimer = null;
+  let connecting = false;
+  let pageWasHidden = false;
   let localState = null;
   let localDisplayName = "";
   let localProgress = null;
@@ -8854,10 +8857,27 @@ ${ty.variants.map(
     players.delete(row.identity.toHexString());
     onChange == null ? void 0 : onChange();
   }
+  function scheduleReconnect(delay = 500) {
+    if (document.hidden || reconnectTimer !== null || (connection == null ? void 0 : connection.isActive) || connecting) return;
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, delay);
+  }
+  function reconnectAfterWake() {
+    if (document.hidden || connecting) return;
+    if (connection == null ? void 0 : connection.isActive) connection.disconnect();
+    scheduleReconnect(200);
+  }
   function connect() {
+    if ((connection == null ? void 0 : connection.isActive) || connecting) return;
+    connecting = true;
     const signedIn = Boolean(accountToken());
     connection = DbConnection.builder().withUri(host).withDatabaseName(databaseName).withToken(accountToken() || guestToken() || void 0).onConnect((conn, identity, token) => {
       connection = conn;
+      connecting = false;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
       localIdentity = identity.toHexString();
       lastPositionSentAt = 0;
       lastPositionMoving = false;
@@ -8919,6 +8939,7 @@ ${ty.variants.map(
       ]);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
+      connecting = false;
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
@@ -8939,7 +8960,9 @@ ${ty.variants.map(
       replayLoads.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
+      scheduleReconnect();
     }).onConnectError((_ctx, error) => {
+      connecting = false;
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
@@ -8953,6 +8976,7 @@ ${ty.variants.map(
       lastDuelPulseAt = 0;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
+      scheduleReconnect(1e3);
     }).build();
   }
   const wildwoodCoop = {
@@ -8963,7 +8987,7 @@ ${ty.variants.map(
       onChange = callback;
     },
     isConnected() {
-      return connection !== null;
+      return Boolean(connection == null ? void 0 : connection.isActive);
     },
     accountState() {
       return {
@@ -9114,6 +9138,18 @@ ${ty.variants.map(
     }
   };
   runtime.wildwoodCoop = wildwoodCoop;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      pageWasHidden = true;
+      return;
+    }
+    if (pageWasHidden) {
+      pageWasHidden = false;
+      reconnectAfterWake();
+    }
+  });
+  window.addEventListener("pageshow", () => reconnectAfterWake());
+  window.addEventListener("online", () => scheduleReconnect(100));
   void completeAccountCallback().finally(() => wildwoodCoop.connect());
   exports.default = wildwoodCoop;
   exports.wildwoodCoop = wildwoodCoop;

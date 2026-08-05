@@ -152,6 +152,9 @@ let lastPositionSentAt = 0;
 let lastPositionMoving = false;
 let nextPositionSequence = 0;
 let heartbeatTimer: number | null = null;
+let reconnectTimer: number | null = null;
+let connecting = false;
+let pageWasHidden = false;
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProgress: PlayerProgress | null = null;
@@ -591,7 +594,25 @@ function removePlayer(row: { identity: Identity }) {
   onChange?.();
 }
 
+function scheduleReconnect(delay = 500) {
+  if (document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = null;
+    connect();
+  }, delay);
+}
+
+function reconnectAfterWake() {
+  if (document.hidden || connecting) return;
+  // Mobile browsers can leave a dead WebSocket marked active after sleep.
+  // Reopen it when the game becomes visible again instead of waiting forever.
+  if (connection?.isActive) connection.disconnect();
+  scheduleReconnect(200);
+}
+
 function connect() {
+  if (connection?.isActive || connecting) return;
+  connecting = true;
   const signedIn = Boolean(accountToken());
   connection = DbConnection.builder()
     .withUri(host)
@@ -599,6 +620,9 @@ function connect() {
     .withToken(accountToken() || guestToken() || undefined)
     .onConnect((conn: DbConnection, identity: Identity, token: string) => {
       connection = conn;
+      connecting = false;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
       localIdentity = identity.toHexString();
       lastPositionSentAt = 0;
       lastPositionMoving = false;
@@ -666,6 +690,7 @@ function connect() {
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
+      connecting = false;
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
@@ -686,8 +711,10 @@ function connect() {
       replayLoads.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
+      scheduleReconnect();
     })
     .onConnectError((_ctx: ErrorContext, error: Error) => {
+      connecting = false;
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
@@ -701,6 +728,7 @@ function connect() {
       lastDuelPulseAt = 0;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange?.();
+      scheduleReconnect(1_000);
     })
     .build();
 }
@@ -713,7 +741,7 @@ export const wildwoodCoop = {
     onChange = callback;
   },
   isConnected() {
-    return connection !== null;
+    return Boolean(connection?.isActive);
   },
   accountState() {
     return {
@@ -867,6 +895,18 @@ export const wildwoodCoop = {
 };
 
 runtime.wildwoodCoop = wildwoodCoop;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    pageWasHidden = true;
+    return;
+  }
+  if (pageWasHidden) {
+    pageWasHidden = false;
+    reconnectAfterWake();
+  }
+});
+window.addEventListener("pageshow", () => reconnectAfterWake());
+window.addEventListener("online", () => scheduleReconnect(100));
 void completeAccountCallback().finally(() => wildwoodCoop.connect());
 
 export default wildwoodCoop;
