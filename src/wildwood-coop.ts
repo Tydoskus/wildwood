@@ -109,6 +109,9 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_PREDICTION_SECONDS = 1 / MOVEMENT_HZ;
 const PROTOCOL_VERSION = 3;
+const DEFAULT_ATTACK_RANGE = 200;
+const MIN_PROJECTILE_SPEED = 390;
+const MAX_PROJECTILE_SPEED = 2730;
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
@@ -141,17 +144,23 @@ let onChange: (() => void) | null = null;
 let pendingProgress = readPendingProgress();
 let progressSaveInFlightUntil = 0;
 
+function bounded(value: number, min: number, max: number, fallback: number) {
+  return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+}
+
 function copyProgress(progress: ProgressSave): ProgressSave {
   return {
-    maxHp: progress.maxHp,
-    damage: progress.damage,
-    attackRate: progress.attackRate,
-    projectileSpeed: progress.projectileSpeed,
-    projectileCount: progress.projectileCount,
-    attackRange: progress.attackRange,
-    armor: progress.armor,
-    regen: progress.regen,
-    speed: progress.speed,
+    maxHp: bounded(progress.maxHp, 1, 1_000_000, 30),
+    damage: bounded(progress.damage, 1, 1_000_000, 4),
+    attackRate: bounded(progress.attackRate, .16, 10, .78),
+    projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
+    projectileCount: Number.isInteger(progress.projectileCount)
+      ? Math.max(1, Math.min(20, progress.projectileCount))
+      : 1,
+    attackRange: DEFAULT_ATTACK_RANGE,
+    armor: bounded(progress.armor, 0, 1_000_000, 0),
+    regen: bounded(progress.regen, 0, 1_000_000, 0),
+    speed: bounded(progress.speed, 1, 2_000, 175),
     bootsCollected: progress.bootsCollected,
   };
 }

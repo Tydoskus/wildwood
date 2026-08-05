@@ -597,46 +597,35 @@ export const savePlayerProgress = spacetimedb.reducer(
   },
   (ctx, progress) => {
     const activePlayer = requireCurrentProtocol(ctx);
-    const values = [
-      progress.maxHp,
-      progress.damage,
-      progress.attackRate,
-      progress.projectileSpeed,
-      progress.attackRange,
-      progress.armor,
-      progress.regen,
-      progress.speed,
-    ];
-    if (
-      values.some((value) => !Number.isFinite(value)) ||
-      !Number.isInteger(progress.projectileCount) ||
-      progress.maxHp < 1 || progress.maxHp > 1_000_000 ||
-      progress.damage < 1 || progress.damage > 1_000_000 ||
-      progress.attackRate < 0.16 || progress.attackRate > 10 ||
-      progress.projectileSpeed < 390 || progress.projectileSpeed > 2_730 ||
-      progress.projectileCount < 1 || progress.projectileCount > 20 ||
-      Math.abs(progress.attackRange - DEFAULT_ATTACK_RANGE) > 0.001 ||
-      progress.armor < 0 || progress.armor > 1_000_000 ||
-      progress.regen < 0 || progress.regen > 1_000_000 ||
-      progress.speed < 1 || progress.speed > 2_000
-    ) {
-      throw new Error("Invalid player progress");
-    }
-
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const base = current ?? defaultPlayerProgress(ctx.sender);
+    const bounded = (value: number, min: number, max: number, fallback: number) =>
+      Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+    const normalized = {
+      maxHp: bounded(progress.maxHp, 1, 1_000_000, base.maxHp),
+      damage: bounded(progress.damage, 1, 1_000_000, base.damage),
+      attackRate: bounded(progress.attackRate, .16, 10, base.attackRate),
+      projectileSpeed: bounded(progress.projectileSpeed, 390, 2_730, base.projectileSpeed),
+      projectileCount: Number.isInteger(progress.projectileCount)
+        ? Math.max(1, Math.min(20, progress.projectileCount))
+        : base.projectileCount,
+      armor: bounded(progress.armor, 0, 1_000_000, base.armor),
+      regen: bounded(progress.regen, 0, 1_000_000, base.regen),
+      speed: bounded(progress.speed, 1, 2_000, base.speed),
+      bootsCollected: progress.bootsCollected === true,
+    };
     const next = {
       identity: ctx.sender,
-      maxHp: Math.max(base.maxHp, progress.maxHp),
-      damage: Math.max(base.damage, progress.damage),
-      attackRate: Math.min(base.attackRate, progress.attackRate),
-      projectileSpeed: Math.max(base.projectileSpeed, progress.projectileSpeed),
-      projectileCount: Math.max(base.projectileCount, progress.projectileCount),
+      maxHp: Math.max(base.maxHp, normalized.maxHp),
+      damage: Math.max(base.damage, normalized.damage),
+      attackRate: Math.min(base.attackRate, normalized.attackRate),
+      projectileSpeed: Math.max(base.projectileSpeed, normalized.projectileSpeed),
+      projectileCount: Math.max(base.projectileCount, normalized.projectileCount),
       attackRange: DEFAULT_ATTACK_RANGE,
-      armor: Math.max(base.armor, progress.armor),
-      regen: Math.max(base.regen, progress.regen),
-      speed: Math.max(base.speed, progress.speed),
-      bootsCollected: base.bootsCollected || progress.bootsCollected,
+      armor: Math.max(base.armor, normalized.armor),
+      regen: Math.max(base.regen, normalized.regen),
+      speed: Math.max(base.speed, normalized.speed),
+      bootsCollected: base.bootsCollected || normalized.bootsCollected,
       introComplete: base.introComplete,
     };
     if (current) ctx.db.playerProgress.identity.update(next);
