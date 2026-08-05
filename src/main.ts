@@ -28,7 +28,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.171";
+  const GAME_VERSION = "0.172";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -921,7 +921,8 @@ import { createChatController } from "./ui/chat";
       angle: Math.atan2(player.y - boss.y, player.x - boss.x),
       timer: 1.2,
       duration: 1.2,
-      hitPlayer: false
+      hitPlayer: false,
+      pushAngle: null
     };
     boss.nextAttack = "rain";
   }
@@ -944,9 +945,7 @@ import { createChatController } from "./ui/chat";
     ) {
       cone.hitPlayer = true;
       damagePlayer(500);
-      const pushDistance = 210;
-      player.x = clamp(player.x + dx / distance * pushDistance, player.r, WORLD.w - player.r);
-      player.y = clamp(player.y + dy / distance * pushDistance, player.r, WORLD.h - player.r);
+      cone.pushAngle = Math.atan2(dy, dx);
       spawnBurst(player.x, player.y, "#ffb14a", 18, 165);
     }
   }
@@ -1281,6 +1280,12 @@ import { createChatController } from "./ui/chat";
       player.x += mx * player.speed * dt;
       player.y += my * player.speed * dt;
       if (Math.abs(mx) + Math.abs(my) > .1) player.facing = Math.atan2(my, mx);
+    }
+
+    if (typeof boss.cone?.pushAngle === "number") {
+      const waveSpeed = (BOSS_CONE_RANGE - boss.r) / boss.cone.duration;
+      player.x += Math.cos(boss.cone.pushAngle) * waveSpeed * dt;
+      player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
     }
 
     player.x = clamp(player.x, player.r, WORLD.w - player.r);

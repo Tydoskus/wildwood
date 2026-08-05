@@ -168,7 +168,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.171";
+    const GAME_VERSION = "0.172";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1056,7 +1056,8 @@
         angle: Math.atan2(player.y - boss.y, player.x - boss.x),
         timer: 1.2,
         duration: 1.2,
-        hitPlayer: false
+        hitPlayer: false,
+        pushAngle: null
       };
       boss.nextAttack = "rain";
     }
@@ -1072,9 +1073,7 @@
       if (distance >= minRadius - 34 && distance <= maxRadius + 34 && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
         cone.hitPlayer = true;
         damagePlayer(500);
-        const pushDistance = 210;
-        player.x = clamp(player.x + dx / distance * pushDistance, player.r, WORLD.w - player.r);
-        player.y = clamp(player.y + dy / distance * pushDistance, player.r, WORLD.h - player.r);
+        cone.pushAngle = Math.atan2(dy, dx);
         spawnBurst(player.x, player.y, "#ffb14a", 18, 165);
       }
     }
@@ -1319,7 +1318,7 @@
       return true;
     }
     function updatePlayer(dt) {
-      var _a, _b;
+      var _a, _b, _c;
       if (applyDuelState()) return;
       if (duelWasActive) {
         const returnedState = (_a = coop == null ? void 0 : coop.localState) == null ? void 0 : _a.call(coop);
@@ -1364,6 +1363,11 @@
         player.x += mx * player.speed * dt;
         player.y += my * player.speed * dt;
         if (Math.abs(mx) + Math.abs(my) > 0.1) player.facing = Math.atan2(my, mx);
+      }
+      if (typeof ((_c = boss.cone) == null ? void 0 : _c.pushAngle) === "number") {
+        const waveSpeed = (BOSS_CONE_RANGE - boss.r) / boss.cone.duration;
+        player.x += Math.cos(boss.cone.pushAngle) * waveSpeed * dt;
+        player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
       }
       player.x = clamp(player.x, player.r, WORLD.w - player.r);
       player.y = clamp(player.y, player.r, WORLD.h - player.r);
