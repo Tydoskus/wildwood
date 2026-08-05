@@ -411,10 +411,26 @@
 
   #gameOver { display: none; }
 
-  #connectionPanel[hidden], #newPlayerPanel[hidden] { display: none; }
+  #connectionPanel[hidden], #accountChoicePanel[hidden], #newPlayerPanel[hidden] { display: none; }
 
   .connection-modal {
     width: min(340px, calc(100vw - 36px));
+  }
+
+  .account-choice-modal {
+    width: min(430px, calc(100vw - 36px));
+    text-align: center;
+  }
+
+  .account-choice-modal p:not(.loading-detail) {
+    color: #d8e3d8;
+    line-height: 1.55;
+  }
+
+  .account-choice-modal button {
+    display: block;
+    width: min(290px, 100%);
+    margin: 12px auto 0;
   }
 
   .connection-modal p {

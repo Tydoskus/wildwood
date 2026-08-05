@@ -10,6 +10,7 @@ import {
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
   BOSS_ENEMY_SAFE_DISTANCE,
+  BOSS_RAIN_RANGE,
   ENEMY_RESPAWN_SAFE_DISTANCE,
   MAX_PROJECTILE_SPEED,
   MIN_ENEMY_AGGRO_RADIUS,
@@ -27,7 +28,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.166";
+  const GAME_VERSION = "0.168";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -52,6 +53,10 @@ import { createChatController } from "./ui/chat";
   const connectionPanel = document.getElementById("connectionPanel");
   const loadingDetail = document.getElementById("loadingDetail");
   const loadingFill = document.getElementById("loadingFill");
+  const accountChoicePanel = document.getElementById("accountChoicePanel");
+  const accountChoiceDetail = document.getElementById("accountChoiceDetail");
+  const signInFromStartBtn = document.getElementById("signInFromStartBtn");
+  const continueGuestBtn = document.getElementById("continueGuestBtn");
   const newPlayerPanel = document.getElementById("newPlayerPanel");
   const newPlayerNameInput = document.getElementById("newPlayerNameInput");
   const beginAdventureBtn = document.getElementById("beginAdventureBtn");
@@ -139,6 +144,7 @@ import { createChatController } from "./ui/chat";
   let loadingStageStartedAt = performance.now();
   let loadingStageTimer = null;
   let loadingSequenceComplete = false;
+  let guestContinuationChosen = false;
 
   const player = {
     x: 360,
@@ -581,6 +587,10 @@ import { createChatController } from "./ui/chat";
     updateLoadingDetail();
     if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady ||
       !coop?.isConnected?.() || !coop?.localState?.()) return;
+    if (!coop?.accountState?.().signedIn && !guestContinuationChosen) {
+      showAccountChoice();
+      return;
+    }
     if (startupKind === "new") {
       if (!newPlayerIntroShown) {
         newPlayerIntroShown = true;
@@ -602,8 +612,16 @@ import { createChatController } from "./ui/chat";
     loadingSequenceComplete = false;
     startEl.style.display = "grid";
     connectionPanel.hidden = false;
+    accountChoicePanel.hidden = true;
     newPlayerPanel.hidden = true;
     updateLoadingDetail();
+  }
+
+  function showAccountChoice() {
+    startEl.style.display = "grid";
+    connectionPanel.hidden = true;
+    accountChoicePanel.hidden = false;
+    newPlayerPanel.hidden = true;
   }
 
   function updateLoadingDetail() {
@@ -640,6 +658,7 @@ import { createChatController } from "./ui/chat";
     }
     startEl.style.display = "grid";
     connectionPanel.hidden = true;
+    accountChoicePanel.hidden = true;
     newPlayerPanel.hidden = false;
     requestAnimationFrame(() => newPlayerNameInput.focus());
   }
@@ -824,9 +843,10 @@ import { createChatController } from "./ui/chat";
     }
 
     if (!boss.dead) {
-      const d = distanceSquared(player, boss);
-      if (d < best) {
-        best = d;
+      const centerDistance = Math.hypot(player.x - boss.x, player.y - boss.y);
+      const edgeDistance = Math.max(0, centerDistance - boss.r);
+      if (edgeDistance * edgeDistance < best) {
+        best = edgeDistance * edgeDistance;
         target = boss;
       }
     }
@@ -889,9 +909,9 @@ import { createChatController } from "./ui/chat";
 
     if (!boss.rewardGranted) {
       boss.rewardGranted = true;
-      player.projectileCount = 2;
-      logPickup("DOUBLE SHOT", "#ffe36b");
-      showMessage("DOUBLE SHOT", "#ffe36b");
+      player.damage += 650;
+      logPickup("+650 DAMAGE", "#ff655a");
+      showMessage("+650 DAMAGE", "#ff655a");
       saveProgress();
     }
   }
@@ -899,12 +919,16 @@ import { createChatController } from "./ui/chat";
   function startBossCone() {
     boss.cone = {
       angle: Math.atan2(player.y - boss.y, player.x - boss.x),
-      timer: 1.2
+      timer: 1.2,
+      duration: 1.2,
+      hitPlayer: false
     };
     boss.nextAttack = "rain";
   }
 
-  function resolveBossCone(cone) {
+  function hitBossConeWave(cone, minRadius, maxRadius) {
+    if (cone.hitPlayer) return;
+
     const dx = player.x - boss.x;
     const dy = player.y - boss.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -913,13 +937,25 @@ import { createChatController } from "./ui/chat";
       Math.cos(Math.atan2(dy, dx) - cone.angle)
     );
 
-    if (distance <= BOSS_CONE_RANGE && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
+    if (
+      distance >= minRadius - 34 &&
+      distance <= maxRadius + 34 &&
+      Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE
+    ) {
+      cone.hitPlayer = true;
       damagePlayer(500);
+      const pushDistance = 210;
+      player.x = clamp(player.x + dx / distance * pushDistance, player.r, WORLD.w - player.r);
+      player.y = clamp(player.y + dy / distance * pushDistance, player.r, WORLD.h - player.r);
+      spawnBurst(player.x, player.y, "#ffb14a", 18, 165);
     }
+  }
+
+  function resolveBossCone(cone) {
     spawnBurst(
-      boss.x + Math.cos(cone.angle) * 90,
-      boss.y + Math.sin(cone.angle) * 90,
-      "#ff7444",
+      boss.x + Math.cos(cone.angle) * BOSS_CONE_RANGE,
+      boss.y + Math.sin(cone.angle) * BOSS_CONE_RANGE,
+      "#ff9b3d",
       28,
       210
     );
@@ -929,7 +965,7 @@ import { createChatController } from "./ui/chat";
     const count = 8;
     for (let i = 0; i < count; i++) {
       const angle = i * TAU / count + rand(-.25, .25);
-      const radius = rand(45, 270);
+      const radius = rand(24, BOSS_RAIN_RANGE);
       const timer = .8 + i * .14;
       bossRain.push({
         x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60),
@@ -963,7 +999,13 @@ import { createChatController } from "./ui/chat";
     }
 
     if (boss.cone) {
+      const cone = boss.cone;
+      const previousProgress = clamp(1 - cone.timer / cone.duration, 0, 1);
       boss.cone.timer -= dt;
+      const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
+      const minRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * previousProgress;
+      const maxRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * progress;
+      hitBossConeWave(cone, minRadius, maxRadius);
       if (boss.cone.timer <= 0) {
         resolveBossCone(boss.cone);
         boss.cone = null;
@@ -1903,6 +1945,22 @@ import { createChatController } from "./ui/chat";
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+
+      const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
+      const waveRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * progress;
+      const fireballCount = 9;
+      for (let i = 0; i < fireballCount; i++) {
+        const fraction = i / (fireballCount - 1);
+        const angle = cone.angle - BOSS_CONE_HALF_ANGLE + fraction * BOSS_CONE_HALF_ANGLE * 2;
+        const fireX = x + Math.cos(angle) * waveRadius;
+        const fireY = y + Math.sin(angle) * waveRadius;
+        ctx.fillStyle = "#a83218";
+        pixelCircle(fireX, fireY, 15);
+        ctx.fillStyle = "#ff6a28";
+        pixelCircle(fireX, fireY - 2, 11);
+        ctx.fillStyle = "#ffd05c";
+        pixelCircle(fireX, fireY - 4, 6);
+      }
       ctx.restore();
     }
 
@@ -2475,6 +2533,23 @@ import { createChatController } from "./ui/chat";
     const account = coop?.accountState?.();
     if (account?.signedIn) coop?.signOut?.();
     else void coop?.signIn?.();
+  });
+
+  continueGuestBtn?.addEventListener("click", () => {
+    guestContinuationChosen = true;
+    accountChoicePanel.hidden = true;
+    finishStartup();
+  });
+
+  signInFromStartBtn?.addEventListener("click", () => {
+    signInFromStartBtn.disabled = true;
+    continueGuestBtn.disabled = true;
+    accountChoiceDetail.textContent = "OPENING SIGN-IN…";
+    void coop?.signIn?.().catch(() => {
+      signInFromStartBtn.disabled = false;
+      continueGuestBtn.disabled = false;
+      accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+    });
   });
 
   screenShakeToggle.addEventListener("click", () => {

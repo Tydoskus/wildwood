@@ -17,6 +17,7 @@
   const BOSS_AGGRO_RANGE = 1150;
   const BOSS_CONE_RANGE = 760;
   const BOSS_CONE_HALF_ANGLE = 0.42;
+  const BOSS_RAIN_RANGE = 135;
   const BASE_PROJECTILE_SPEED = 390;
   const MAX_PROJECTILE_SPEED = BASE_PROJECTILE_SPEED * 7;
   const PLAYER_KNOCKBACK_FORCE = 90;
@@ -167,7 +168,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.166";
+    const GAME_VERSION = "0.168";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -190,6 +191,10 @@
     const connectionPanel = document.getElementById("connectionPanel");
     const loadingDetail = document.getElementById("loadingDetail");
     const loadingFill = document.getElementById("loadingFill");
+    const accountChoicePanel = document.getElementById("accountChoicePanel");
+    const accountChoiceDetail = document.getElementById("accountChoiceDetail");
+    const signInFromStartBtn = document.getElementById("signInFromStartBtn");
+    const continueGuestBtn = document.getElementById("continueGuestBtn");
     const newPlayerPanel = document.getElementById("newPlayerPanel");
     const newPlayerNameInput = document.getElementById("newPlayerNameInput");
     const beginAdventureBtn = document.getElementById("beginAdventureBtn");
@@ -271,6 +276,7 @@
     let loadingStageStartedAt = performance.now();
     let loadingStageTimer = null;
     let loadingSequenceComplete = false;
+    let guestContinuationChosen = false;
     const player = {
       x: 360,
       y: 360,
@@ -746,9 +752,13 @@
       finishStartup();
     }
     function finishStartup() {
-      var _a, _b, _c;
+      var _a, _b, _c, _d;
       updateLoadingDetail();
       if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
+      if (!((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop).signedIn) && !guestContinuationChosen) {
+        showAccountChoice();
+        return;
+      }
       if (startupKind === "new") {
         if (!newPlayerIntroShown) {
           newPlayerIntroShown = true;
@@ -757,7 +767,7 @@
         return;
       }
       if (startupKind === "returning") {
-        (_c = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _c.call(coop);
+        (_d = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _d.call(coop);
         startGame(false);
       }
     }
@@ -769,8 +779,15 @@
       loadingSequenceComplete = false;
       startEl.style.display = "grid";
       connectionPanel.hidden = false;
+      accountChoicePanel.hidden = true;
       newPlayerPanel.hidden = true;
       updateLoadingDetail();
+    }
+    function showAccountChoice() {
+      startEl.style.display = "grid";
+      connectionPanel.hidden = true;
+      accountChoicePanel.hidden = false;
+      newPlayerPanel.hidden = true;
     }
     function updateLoadingDetail() {
       var _a, _b;
@@ -806,6 +823,7 @@
       }
       startEl.style.display = "grid";
       connectionPanel.hidden = true;
+      accountChoicePanel.hidden = true;
       newPlayerPanel.hidden = false;
       requestAnimationFrame(() => newPlayerNameInput.focus());
     }
@@ -968,9 +986,10 @@
         }
       }
       if (!boss.dead) {
-        const d = distanceSquared(player, boss);
-        if (d < best) {
-          best = d;
+        const centerDistance = Math.hypot(player.x - boss.x, player.y - boss.y);
+        const edgeDistance = Math.max(0, centerDistance - boss.r);
+        if (edgeDistance * edgeDistance < best) {
+          best = edgeDistance * edgeDistance;
           target = boss;
         }
       }
@@ -1026,20 +1045,23 @@
       spawnBurst(boss.x, boss.y, "#ff7b42", 64, 230);
       if (!boss.rewardGranted) {
         boss.rewardGranted = true;
-        player.projectileCount = 2;
-        logPickup("DOUBLE SHOT", "#ffe36b");
-        showMessage("DOUBLE SHOT", "#ffe36b");
+        player.damage += 650;
+        logPickup("+650 DAMAGE", "#ff655a");
+        showMessage("+650 DAMAGE", "#ff655a");
         saveProgress();
       }
     }
     function startBossCone() {
       boss.cone = {
         angle: Math.atan2(player.y - boss.y, player.x - boss.x),
-        timer: 1.2
+        timer: 1.2,
+        duration: 1.2,
+        hitPlayer: false
       };
       boss.nextAttack = "rain";
     }
-    function resolveBossCone(cone) {
+    function hitBossConeWave(cone, minRadius, maxRadius) {
+      if (cone.hitPlayer) return;
       const dx = player.x - boss.x;
       const dy = player.y - boss.y;
       const distance = Math.hypot(dx, dy) || 1;
@@ -1047,13 +1069,20 @@
         Math.sin(Math.atan2(dy, dx) - cone.angle),
         Math.cos(Math.atan2(dy, dx) - cone.angle)
       );
-      if (distance <= BOSS_CONE_RANGE && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
+      if (distance >= minRadius - 34 && distance <= maxRadius + 34 && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
+        cone.hitPlayer = true;
         damagePlayer(500);
+        const pushDistance = 210;
+        player.x = clamp(player.x + dx / distance * pushDistance, player.r, WORLD.w - player.r);
+        player.y = clamp(player.y + dy / distance * pushDistance, player.r, WORLD.h - player.r);
+        spawnBurst(player.x, player.y, "#ffb14a", 18, 165);
       }
+    }
+    function resolveBossCone(cone) {
       spawnBurst(
-        boss.x + Math.cos(cone.angle) * 90,
-        boss.y + Math.sin(cone.angle) * 90,
-        "#ff7444",
+        boss.x + Math.cos(cone.angle) * BOSS_CONE_RANGE,
+        boss.y + Math.sin(cone.angle) * BOSS_CONE_RANGE,
+        "#ff9b3d",
         28,
         210
       );
@@ -1062,7 +1091,7 @@
       const count = 8;
       for (let i = 0; i < count; i++) {
         const angle = i * TAU / count + rand(-0.25, 0.25);
-        const radius = rand(45, 270);
+        const radius = rand(24, BOSS_RAIN_RANGE);
         const timer = 0.8 + i * 0.14;
         bossRain.push({
           x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60),
@@ -1090,7 +1119,13 @@
         }
       }
       if (boss.cone) {
+        const cone = boss.cone;
+        const previousProgress = clamp(1 - cone.timer / cone.duration, 0, 1);
         boss.cone.timer -= dt;
+        const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
+        const minRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * previousProgress;
+        const maxRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * progress;
+        hitBossConeWave(cone, minRadius, maxRadius);
         if (boss.cone.timer <= 0) {
           resolveBossCone(boss.cone);
           boss.cone = null;
@@ -1929,6 +1964,21 @@
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+        const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
+        const waveRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * progress;
+        const fireballCount = 9;
+        for (let i = 0; i < fireballCount; i++) {
+          const fraction = i / (fireballCount - 1);
+          const angle = cone.angle - BOSS_CONE_HALF_ANGLE + fraction * BOSS_CONE_HALF_ANGLE * 2;
+          const fireX = x + Math.cos(angle) * waveRadius;
+          const fireY = y + Math.sin(angle) * waveRadius;
+          ctx.fillStyle = "#a83218";
+          pixelCircle(fireX, fireY, 15);
+          ctx.fillStyle = "#ff6a28";
+          pixelCircle(fireX, fireY - 2, 11);
+          ctx.fillStyle = "#ffd05c";
+          pixelCircle(fireX, fireY - 4, 6);
+        }
         ctx.restore();
       }
       for (const strike of bossRain) {
@@ -2442,6 +2492,22 @@
       const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
       if (account == null ? void 0 : account.signedIn) (_b = coop == null ? void 0 : coop.signOut) == null ? void 0 : _b.call(coop);
       else void ((_c = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c.call(coop));
+    });
+    continueGuestBtn == null ? void 0 : continueGuestBtn.addEventListener("click", () => {
+      guestContinuationChosen = true;
+      accountChoicePanel.hidden = true;
+      finishStartup();
+    });
+    signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
+      var _a;
+      signInFromStartBtn.disabled = true;
+      continueGuestBtn.disabled = true;
+      accountChoiceDetail.textContent = "OPENING SIGN-IN…";
+      void ((_a = coop == null ? void 0 : coop.signIn) == null ? void 0 : _a.call(coop).catch(() => {
+        signInFromStartBtn.disabled = false;
+        continueGuestBtn.disabled = false;
+        accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+      }));
     });
     screenShakeToggle.addEventListener("click", () => {
       screenShakeEnabled = !screenShakeEnabled;

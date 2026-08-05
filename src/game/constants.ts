@@ -5,6 +5,7 @@ export const BOSS_ENEMY_SAFE_DISTANCE = 900;
 export const BOSS_AGGRO_RANGE = 1150;
 export const BOSS_CONE_RANGE = 760;
 export const BOSS_CONE_HALF_ANGLE = 0.42;
+export const BOSS_RAIN_RANGE = 135;
 export const BASE_PROJECTILE_SPEED = 390;
 export const MAX_PROJECTILE_SPEED = BASE_PROJECTILE_SPEED * 7;
 export const PLAYER_KNOCKBACK_FORCE = 90;
