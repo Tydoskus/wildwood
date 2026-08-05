@@ -23,4 +23,6 @@ export default __t.row({
   speed: __t.f32(),
   bootsCollected: __t.bool().name("boots_collected"),
   introComplete: __t.bool().name("intro_complete"),
+  inventoryJson: __t.string().name("inventory_json"),
+  equippedFeet: __t.string().name("equipped_feet"),
 });

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.172" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.173" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -21,6 +21,7 @@
     </div>
     <div class="settings-wrap">
       <button id="autoAttackBtn" class="settings-button auto-attack-button" type="button" aria-label="Toggle auto attack" aria-pressed="true">⚔</button>
+      <button id="inventoryBtn" class="settings-button inventory-button" type="button" aria-label="Open inventory" aria-expanded="false">🎒</button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false">⚙</button>
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-title">SETTINGS</div>
@@ -57,6 +58,11 @@
           <button id="resetProgressBtn" class="setting-toggle danger" type="button">RESET</button>
         </div>
       </div>
+      <div id="inventoryPanel" class="inventory-panel card" role="dialog" aria-label="Inventory" hidden>
+        <div class="settings-title">INVENTORY</div>
+        <div id="inventoryItems" class="inventory-items"></div>
+        <div id="inventoryDetail" class="inventory-detail">NO ITEMS YET · EXPLORE WILDWOOD</div>
+      </div>
       <div id="duelControls" hidden>
         <div id="duelStatus">DUEL READY</div>
         <button id="duelRequestBtn" type="button">Challenge to Duel</button>
@@ -71,7 +77,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.172</div>
+        <div id="version">v0.173</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -142,7 +148,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.172"></script>
-<script src="assets/wildwood/game.js?v=0.172"></script>
+<script src="assets/wildwood/coop-client.js?v=0.173"></script>
+<script src="assets/wildwood/game.js?v=0.173"></script>
 </body>
 </html>

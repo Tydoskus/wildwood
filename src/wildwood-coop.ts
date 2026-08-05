@@ -18,6 +18,7 @@ export type RemotePlayer = {
   moving: boolean;
   hp: number;
   maxHp: number;
+  feetItem: string;
 };
 
 export type LocalPlayerState = {
@@ -49,6 +50,8 @@ export type PlayerProgress = {
   regen: number;
   speed: number;
   bootsCollected: boolean;
+  inventoryJson: string;
+  equippedFeet: string;
   introComplete: boolean;
 };
 
@@ -342,6 +345,8 @@ function copyProgress(progress: ProgressSave): ProgressSave {
     regen: bounded(progress.regen, 0, 1_000_000, 0),
     speed: bounded(progress.speed, 1, 2_000, 175),
     bootsCollected: progress.bootsCollected,
+    inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
+    equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
   };
 }
 
@@ -357,7 +362,9 @@ function isProgressSave(value: unknown): value is ProgressSave {
     progress.armor,
     progress.regen,
     progress.speed,
-  ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean";
+  ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) &&
+    typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
+    typeof progress.equippedFeet === "string";
 }
 
 function readPendingProgress(): ProgressSave | null {
@@ -395,7 +402,8 @@ function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     saved.armor >= pending.armor &&
     saved.regen >= pending.regen &&
     saved.speed >= pending.speed &&
-    (!pending.bootsCollected || saved.bootsCollected);
+    (!pending.bootsCollected || saved.bootsCollected) &&
+    saved.inventoryJson === pending.inventoryJson && saved.equippedFeet === pending.equippedFeet;
 }
 
 function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
@@ -410,6 +418,8 @@ function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProg
     regen: Math.max(saved.regen, pending.regen),
     speed: Math.max(saved.speed, pending.speed),
     bootsCollected: saved.bootsCollected || pending.bootsCollected,
+    inventoryJson: pending.inventoryJson,
+    equippedFeet: pending.equippedFeet,
   };
 }
 
@@ -449,6 +459,7 @@ function upsertPlayer(row: {
   maxHp: number;
   power: number;
   speed: number;
+  feetItem: string;
   lastInputSequence: number;
 }) {
   const id = row.identity.toHexString();
@@ -480,6 +491,7 @@ function upsertPlayer(row: {
     existing.hp = row.hp;
     existing.maxHp = row.maxHp;
     existing.power = row.power;
+    existing.feetItem = row.feetItem;
   } else {
     players.set(id, {
       id,
@@ -492,6 +504,7 @@ function upsertPlayer(row: {
       moving: row.moving,
       hp: row.hp,
       maxHp: row.maxHp,
+      feetItem: row.feetItem,
       samples: [{ receivedAt: performance.now(), x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
     });
   }
@@ -521,6 +534,8 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     regen: row.regen,
     speed: row.speed,
     bootsCollected: row.bootsCollected,
+    inventoryJson: row.inventoryJson,
+    equippedFeet: row.equippedFeet,
     introComplete: row.introComplete,
   };
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();

@@ -8218,7 +8218,9 @@ ${ty.variants.map(
     armor: t.f32(),
     regen: t.f32(),
     speed: t.f32(),
-    bootsCollected: t.bool()
+    bootsCollected: t.bool(),
+    inventoryJson: t.string(),
+    equippedFeet: t.string()
   };
   const SendChatMessageReducer = {
     message: t.string()
@@ -8319,7 +8321,8 @@ ${ty.variants.map(
     lastInputAt: t.timestamp().name("last_input_at"),
     lastInputSequence: t.u32().name("last_input_sequence"),
     power: t.u32(),
-    protocolVersion: t.u32().name("protocol_version")
+    protocolVersion: t.u32().name("protocol_version"),
+    feetItem: t.string().name("feet_item")
   });
   const PlayerProfileRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8337,7 +8340,9 @@ ${ty.variants.map(
     regen: t.f32(),
     speed: t.f32(),
     bootsCollected: t.bool().name("boots_collected"),
-    introComplete: t.bool().name("intro_complete")
+    introComplete: t.bool().name("intro_complete"),
+    inventoryJson: t.string().name("inventory_json"),
+    equippedFeet: t.string().name("equipped_feet")
   });
   const tablesSchema = schema({
     chatMessage: table({
@@ -8663,7 +8668,9 @@ ${ty.variants.map(
       armor: bounded(progress.armor, 0, 1e6, 0),
       regen: bounded(progress.regen, 0, 1e6, 0),
       speed: bounded(progress.speed, 1, 2e3, 175),
-      bootsCollected: progress.bootsCollected
+      bootsCollected: progress.bootsCollected,
+      inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
+      equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : ""
     };
   }
   function isProgressSave(value) {
@@ -8678,7 +8685,7 @@ ${ty.variants.map(
       progress.armor,
       progress.regen,
       progress.speed
-    ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean";
+    ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" && typeof progress.equippedFeet === "string";
   }
   function readPendingProgress() {
     try {
@@ -8705,7 +8712,7 @@ ${ty.variants.map(
   }
   function progressCovers(saved, pending) {
     const epsilon = 1e-4;
-    return saved.maxHp >= pending.maxHp && saved.damage >= pending.damage && saved.attackRate <= pending.attackRate + epsilon && saved.projectileSpeed >= pending.projectileSpeed && saved.projectileCount >= pending.projectileCount && Math.abs(saved.attackRange - pending.attackRange) <= epsilon && saved.armor >= pending.armor && saved.regen >= pending.regen && saved.speed >= pending.speed && (!pending.bootsCollected || saved.bootsCollected);
+    return saved.maxHp >= pending.maxHp && saved.damage >= pending.damage && saved.attackRate <= pending.attackRate + epsilon && saved.projectileSpeed >= pending.projectileSpeed && saved.projectileCount >= pending.projectileCount && Math.abs(saved.attackRange - pending.attackRange) <= epsilon && saved.armor >= pending.armor && saved.regen >= pending.regen && saved.speed >= pending.speed && (!pending.bootsCollected || saved.bootsCollected) && saved.inventoryJson === pending.inventoryJson && saved.equippedFeet === pending.equippedFeet;
   }
   function mergeProgress(saved, pending) {
     return {
@@ -8718,7 +8725,9 @@ ${ty.variants.map(
       armor: Math.max(saved.armor, pending.armor),
       regen: Math.max(saved.regen, pending.regen),
       speed: Math.max(saved.speed, pending.speed),
-      bootsCollected: saved.bootsCollected || pending.bootsCollected
+      bootsCollected: saved.bootsCollected || pending.bootsCollected,
+      inventoryJson: pending.inventoryJson,
+      equippedFeet: pending.equippedFeet
     };
   }
   function flushPendingProgress(force = false) {
@@ -8773,6 +8782,7 @@ ${ty.variants.map(
       existing.hp = row.hp;
       existing.maxHp = row.maxHp;
       existing.power = row.power;
+      existing.feetItem = row.feetItem;
     } else {
       players.set(id, {
         id,
@@ -8785,6 +8795,7 @@ ${ty.variants.map(
         moving: row.moving,
         hp: row.hp,
         maxHp: row.maxHp,
+        feetItem: row.feetItem,
         samples: [{ receivedAt: performance.now(), x: row.x, y: row.y, facing: row.facing, moving: row.moving }]
       });
     }
@@ -8812,6 +8823,8 @@ ${ty.variants.map(
       regen: row.regen,
       speed: row.speed,
       bootsCollected: row.bootsCollected,
+      inventoryJson: row.inventoryJson,
+      equippedFeet: row.equippedFeet,
       introComplete: row.introComplete
     };
     if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();

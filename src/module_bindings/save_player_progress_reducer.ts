@@ -21,4 +21,6 @@ export default {
   regen: __t.f32(),
   speed: __t.f32(),
   bootsCollected: __t.bool(),
+  inventoryJson: __t.string(),
+  equippedFeet: __t.string(),
 };

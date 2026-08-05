@@ -51,6 +51,38 @@
     const radius = a.r + b.r;
     return distanceSquared(a, b) < radius * radius;
   }
+  const TRAILBLAZER_BOOTS = "trailblazer_boots";
+  const ITEM_DEFINITIONS = {
+    [TRAILBLAZER_BOOTS]: {
+      id: TRAILBLAZER_BOOTS,
+      name: "TRAILBLAZER BOOTS",
+      slot: "FEET",
+      description: "Leather boots built for crossing Wildwood faster.",
+      stats: ["MOVE SPEED +50%"]
+    }
+  };
+  function normaliseInventory(itemIds, equippedFeet, ownsBoots) {
+    const requested = Array.isArray(itemIds) ? itemIds : [];
+    const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
+    const items = hasBoots ? [TRAILBLAZER_BOOTS] : [];
+    return {
+      itemIds: items,
+      equippedFeet: hasBoots && (equippedFeet === TRAILBLAZER_BOOTS || !equippedFeet) ? TRAILBLAZER_BOOTS : ""
+    };
+  }
+  function inventoryFromSave(inventoryJson, equippedFeet, ownsBoots) {
+    let itemIds = [];
+    if (typeof inventoryJson === "string") {
+      try {
+        itemIds = JSON.parse(inventoryJson);
+      } catch {
+      }
+    }
+    return normaliseInventory(itemIds, equippedFeet, ownsBoots);
+  }
+  function serialiseInventory(inventory) {
+    return JSON.stringify(inventory.itemIds);
+  }
   const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
   const CHAT_DISPLAY_TTL_MS = 108e5;
   const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
@@ -168,7 +200,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.172";
+    const GAME_VERSION = "0.173";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -177,8 +209,12 @@
     const playerNameEl = document.getElementById("playerName");
     const statsEl = document.getElementById("stats");
     const settingsBtn = document.getElementById("settingsBtn");
+    const inventoryBtn = document.getElementById("inventoryBtn");
     const autoAttackBtn = document.getElementById("autoAttackBtn");
     const settingsPanel = document.getElementById("settingsPanel");
+    const inventoryPanel = document.getElementById("inventoryPanel");
+    const inventoryItemsEl = document.getElementById("inventoryItems");
+    const inventoryDetailEl = document.getElementById("inventoryDetail");
     const screenShakeToggle = document.getElementById("screenShakeToggle");
     const fullscreenToggle = document.getElementById("fullscreenToggle");
     const connectionStatusEl = document.getElementById("connectionStatus");
@@ -267,6 +303,7 @@
       r: 18,
       collected: false
     };
+    const inventory = { itemIds: [], equippedFeet: "", selectedItemId: "" };
     let hasSavedProgress = false;
     let progressLoaded = false;
     let waitingForFreshStart = false;
@@ -709,7 +746,9 @@
         armor: player.armor,
         regen: player.regen,
         speed: player.speed,
-        bootsCollected: bootsPickup.collected
+        bootsCollected: bootsPickup.collected,
+        inventoryJson: serialiseInventory(inventory),
+        equippedFeet: inventory.equippedFeet
       });
     }
     function loadProgress() {
@@ -738,6 +777,11 @@
       player.speed = number(source.speed, player.speed, 1, 2e3);
       player.hp = player.maxHp;
       bootsPickup.collected = source.bootsCollected === true;
+      const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
+      inventory.itemIds = savedInventory.itemIds;
+      inventory.equippedFeet = savedInventory.equippedFeet;
+      if (!inventory.selectedItemId && inventory.itemIds.length) inventory.selectedItemId = inventory.itemIds[0];
+      renderInventory();
       hasSavedProgress = true;
       progressLoaded = true;
       if (waitingForFreshStart) waitingForFreshStart = false;
@@ -844,8 +888,12 @@
       const reach = player.r + bootsPickup.r;
       if (dx * dx + dy * dy <= reach * reach) {
         bootsPickup.collected = true;
+        inventory.itemIds = [TRAILBLAZER_BOOTS];
+        inventory.equippedFeet = TRAILBLAZER_BOOTS;
+        inventory.selectedItemId = TRAILBLAZER_BOOTS;
         player.speed *= 1.5;
         saveProgress();
+        renderInventory();
         pausedForUpgrade = true;
         bootUpgradeEl.hidden = false;
         bootUpgradeClose.focus();
@@ -1834,6 +1882,19 @@
       ctx.fillRect(3, 5, 14, 6);
       ctx.restore();
     }
+    function drawTrailblazerBoots(x, y, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      for (const offsetX of [-15, 5]) {
+        ctx.fillStyle = "#32190d";
+        ctx.fillRect(x + offsetX - 1, y + 21, 13, 14);
+        ctx.fillStyle = "#d58b32";
+        ctx.fillRect(x + offsetX, y + 19, 10, 11);
+        ctx.fillStyle = "#ffe47b";
+        ctx.fillRect(x + offsetX - 2, y + 29, 15, 5);
+      }
+      ctx.restore();
+    }
     function drawPlayer() {
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
@@ -1860,6 +1921,7 @@
           drawSize
         );
       }
+      if (inventory.equippedFeet === TRAILBLAZER_BOOTS) drawTrailblazerBoots(x, y);
       const barW = 46;
       const barH = 7;
       const barX = Math.round(x - barW / 2);
@@ -1939,6 +2001,7 @@
           );
           ctx.restore();
         }
+        if (other.feetItem === TRAILBLAZER_BOOTS) drawTrailblazerBoots(x, y, 0.82);
         const barW = 46;
         const barH = 5;
         const barX = Math.round(x - barW / 2);
@@ -2334,6 +2397,31 @@
       updateConnectionStatus();
       updateAccountStatus();
     }
+    function renderInventory() {
+      if (!inventoryItemsEl || !inventoryDetailEl) return;
+      inventoryItemsEl.replaceChildren();
+      if (!inventory.itemIds.length) {
+        inventoryDetailEl.textContent = "NO ITEMS YET · EXPLORE WILDWOOD";
+        return;
+      }
+      for (const itemId of inventory.itemIds) {
+        const item = ITEM_DEFINITIONS[itemId];
+        if (!item) continue;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "inventory-item" + (inventory.selectedItemId === itemId ? " is-selected" : "");
+        button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
+        button.innerHTML = `<span class="inventory-item-icon">👢</span><span>${item.name}</span>`;
+        button.addEventListener("click", () => {
+          inventory.selectedItemId = itemId;
+          renderInventory();
+        });
+        inventoryItemsEl.appendChild(button);
+      }
+      const selected = ITEM_DEFINITIONS[inventory.selectedItemId] ?? ITEM_DEFINITIONS[inventory.itemIds[0]];
+      if (!selected) return;
+      inventoryDetailEl.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
+    }
     function nearbyDuelOpponent() {
       var _a;
       if (!coop || !((_a = coop.isConnected) == null ? void 0 : _a.call(coop))) return null;
@@ -2489,7 +2577,17 @@
     settingsBtn.addEventListener("click", () => {
       const opening = settingsPanel.hidden;
       settingsPanel.hidden = !opening;
+      inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", String(opening));
+      inventoryBtn.setAttribute("aria-expanded", "false");
+    });
+    inventoryBtn.addEventListener("click", () => {
+      const opening = inventoryPanel.hidden;
+      inventoryPanel.hidden = !opening;
+      settingsPanel.hidden = true;
+      inventoryBtn.setAttribute("aria-expanded", String(opening));
+      settingsBtn.setAttribute("aria-expanded", "false");
+      if (opening) renderInventory();
     });
     accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
       var _a, _b, _c;
@@ -2602,6 +2700,10 @@
       newPlayerIntroShown = false;
       if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
       bootsPickup.collected = false;
+      inventory.itemIds = [];
+      inventory.equippedFeet = "";
+      inventory.selectedItemId = "";
+      renderInventory();
       pausedForUpgrade = false;
       bootUpgradeEl.hidden = true;
       keys.clear();
@@ -2613,7 +2715,9 @@
       showConnecting();
       overEl.style.display = "none";
       settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
     });
     beginAdventureBtn.addEventListener("click", beginAdventure);
     newPlayerNameInput.addEventListener("keydown", (event) => {

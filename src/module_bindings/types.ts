@@ -125,6 +125,7 @@ export const Player = __t.object("Player", {
   lastInputSequence: __t.u32(),
   power: __t.u32(),
   protocolVersion: __t.u32(),
+  feetItem: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
 
@@ -153,6 +154,8 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   speed: __t.f32(),
   bootsCollected: __t.bool(),
   introComplete: __t.bool(),
+  inventoryJson: __t.string(),
+  equippedFeet: __t.string(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

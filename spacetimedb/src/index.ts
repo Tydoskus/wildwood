@@ -5,7 +5,8 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 4;
+const PROTOCOL_VERSION = 5;
+const TRAILBLAZER_BOOTS = "trailblazer_boots";
 const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
@@ -46,6 +47,7 @@ const player = table(
     lastInputSequence: t.u32().default(0),
     power: t.u32().default(95),
     protocolVersion: t.u32().default(0),
+    feetItem: t.string().default(""),
   },
 );
 
@@ -72,6 +74,8 @@ const playerProgress = table(
     speed: t.f32(),
     bootsCollected: t.bool(),
     introComplete: t.bool().default(false),
+    inventoryJson: t.string().default("[]"),
+    equippedFeet: t.string().default(""),
   },
 );
 
@@ -230,6 +234,8 @@ function defaultPlayerProgress(identity: any) {
     regen: 0,
     speed: PLAYER_SPEED,
     bootsCollected: false,
+    inventoryJson: "[]",
+    equippedFeet: "",
     introComplete: false,
   };
 }
@@ -285,7 +291,18 @@ function hasFreshProgress(progress: any) {
     progress.armor === defaultProgress.armor &&
     progress.regen === defaultProgress.regen &&
     progress.speed === defaultProgress.speed &&
-    progress.bootsCollected === defaultProgress.bootsCollected;
+    progress.bootsCollected === defaultProgress.bootsCollected &&
+    progress.inventoryJson === defaultProgress.inventoryJson &&
+    progress.equippedFeet === defaultProgress.equippedFeet;
+}
+
+function inventoryForProgress(progress: any) {
+  return progress.bootsCollected ? [TRAILBLAZER_BOOTS] : [];
+}
+
+function equippedFeetForProgress(progress: any) {
+  const inventory = inventoryForProgress(progress);
+  return inventory.includes(progress.equippedFeet) ? progress.equippedFeet : inventory[0] ?? "";
 }
 
 function sameIdentity(a: any, b: any) {
@@ -545,24 +562,34 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     });
   }
 
-  const existingProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+  let existingProgress = ctx.db.playerProgress.identity.find(ctx.sender);
   if (!existingProgress) {
     ctx.db.playerProgress.insert(defaultPlayerProgress(ctx.sender));
-  } else if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE) {
-    ctx.db.playerProgress.identity.update({
+  } else {
+    const equippedFeet = equippedFeetForProgress(existingProgress);
+    const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
+    if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
+      const migratedProgress = {
       ...existingProgress,
       attackRange: DEFAULT_ATTACK_RANGE,
-    });
+        inventoryJson,
+        equippedFeet,
+      };
+      ctx.db.playerProgress.identity.update(migratedProgress);
+      existingProgress = migratedProgress;
+    }
   }
 
   const existing = ctx.db.player.identity.find(ctx.sender);
   const progressForPresence = existingProgress ?? defaultPlayerProgress(ctx.sender);
+  const feetItem = equippedFeetForProgress(progressForPresence);
   if (existing) {
     if (["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
         power: powerForProgress(progressForPresence),
         moving: false,
+        feetItem,
         lastInputAt: ctx.timestamp,
       });
       return;
@@ -576,6 +603,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
       power: powerForProgress(progressForPresence),
       lastInputAt: ctx.timestamp,
       lastInputSequence: 0,
+      feetItem,
     });
     return;
   }
@@ -593,6 +621,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
     protocolVersion: 0,
+    feetItem,
   });
 });
 
@@ -742,6 +771,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     regen: t.f32(),
     speed: t.f32(),
     bootsCollected: t.bool(),
+    inventoryJson: t.string(),
+    equippedFeet: t.string(),
   },
   (ctx, progress) => {
     const activePlayer = requireCurrentProtocol(ctx);
@@ -762,6 +793,9 @@ export const savePlayerProgress = spacetimedb.reducer(
       speed: bounded(progress.speed, 1, 2_000, base.speed),
       bootsCollected: progress.bootsCollected === true,
     };
+    const bootsCollected = base.bootsCollected || normalized.bootsCollected;
+    const inventoryJson = JSON.stringify(bootsCollected ? [TRAILBLAZER_BOOTS] : []);
+    const equippedFeet = bootsCollected ? TRAILBLAZER_BOOTS : "";
     const next = {
       identity: ctx.sender,
       maxHp: Math.max(base.maxHp, normalized.maxHp),
@@ -773,7 +807,9 @@ export const savePlayerProgress = spacetimedb.reducer(
       armor: Math.max(base.armor, normalized.armor),
       regen: Math.max(base.regen, normalized.regen),
       speed: Math.max(base.speed, normalized.speed),
-      bootsCollected: base.bootsCollected || normalized.bootsCollected,
+      bootsCollected,
+      inventoryJson,
+      equippedFeet,
       introComplete: base.introComplete,
     };
     if (current) ctx.db.playerProgress.identity.update(next);
@@ -784,6 +820,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       maxHp: next.maxHp,
       power: powerForProgress(next),
       speed: next.speed,
+      feetItem: next.equippedFeet,
     });
   },
 );
@@ -813,6 +850,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
       maxHp: next.maxHp,
       power: powerForProgress(next),
       speed: next.speed,
+      feetItem: next.equippedFeet,
     });
   },
 );
