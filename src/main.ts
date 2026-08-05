@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.160";
+  const GAME_VERSION = "0.161";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -49,6 +49,7 @@ import { createChatController } from "./ui/chat";
   const startEl = document.getElementById("start");
   const connectionPanel = document.getElementById("connectionPanel");
   const loadingDetail = document.getElementById("loadingDetail");
+  const loadingFill = document.getElementById("loadingFill");
   const newPlayerPanel = document.getElementById("newPlayerPanel");
   const newPlayerNameInput = document.getElementById("newPlayerNameInput");
   const beginAdventureBtn = document.getElementById("beginAdventureBtn");
@@ -595,14 +596,27 @@ import { createChatController } from "./ui/chat";
   }
 
   function updateLoadingDetail() {
-    if (!loadingDetail) return;
-    const step = (label, ready) => `${label} ${ready ? "✓" : "…"}`;
-    loadingDetail.textContent = [
-      step("SERVER", Boolean(coop?.isConnected?.())),
-      step("PLAYER", Boolean(coop?.localState?.())),
-      step("SAVE", progressLoaded),
-      step("SPRITE", playerSpriteReady),
-    ].join(" · ");
+    if (!loadingDetail || !loadingFill) return;
+    let text = "LOADING CONNECTION";
+    let percent = 12;
+    if (coop?.isConnected?.()) {
+      text = "LOADING PLAYER PROFILE";
+      percent = 35;
+    }
+    if (coop?.localState?.()) {
+      text = "LOADING SAVED PROGRESS";
+      percent = 60;
+    }
+    if (progressLoaded) {
+      text = "LOADING PLAYER SPRITE";
+      percent = 82;
+    }
+    if (playerSpriteReady) {
+      text = "STARTING WILDWOOD";
+      percent = 100;
+    }
+    loadingDetail.textContent = text;
+    loadingFill.style.width = `${percent}%`;
   }
 
   function showNewPlayerIntro() {

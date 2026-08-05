@@ -414,22 +414,17 @@
   }
 
   .loading-fill {
-    width: 42%;
+    width: 8%;
     height: 100%;
     border-radius: inherit;
     background: linear-gradient(90deg, #34be39, #86f45d, #34be39);
-    animation: wildwood-loading 1.15s ease-in-out infinite;
+    transition: width .28s ease-out;
   }
 
   .loading-detail {
     color: var(--muted) !important;
     font-size: 9px !important;
     line-height: 1.5;
-  }
-
-  @keyframes wildwood-loading {
-    0% { transform: translateX(-105%); }
-    100% { transform: translateX(340%); }
   }
 
   .onboarding-modal {
