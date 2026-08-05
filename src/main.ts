@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.157";
+  const GAME_VERSION = "0.158";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1164,9 +1164,7 @@ import { createChatController } from "./ui/chat";
     const multiplayerActive = Boolean(
       coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0,
     );
-    if (multiplayerActive && !movementSyncActive) {
-      coop.syncPosition(player.x, player.y, player.facing);
-    }
+    const multiplayerJustStarted = multiplayerActive && !movementSyncActive;
     movementSyncActive = multiplayerActive;
     if (multiplayerActive) coop.syncSpeed(player.speed);
 
@@ -1191,16 +1189,10 @@ import { createChatController } from "./ui/chat";
       if (Math.abs(mx) + Math.abs(my) > .1) player.facing = Math.atan2(my, mx);
     }
 
-    if (multiplayerActive) coop.sendMovement(player.moving ? mx : 0, player.moving ? my : 0);
-
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
 
-    if (multiplayerActive) {
-      const reconciled = coop.reconcileLocal(player.x, player.y, dt);
-      player.x = clamp(reconciled.x, player.r, WORLD.w - player.r);
-      player.y = clamp(reconciled.y, player.r, WORLD.h - player.r);
-    }
+    if (multiplayerActive) coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted);
 
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) {
@@ -2350,7 +2342,7 @@ import { createChatController } from "./ui/chat";
     hasStarted = true;
     running = true;
     if (markIntro) coop?.beginAdventure?.();
-    if (coop?.isConnected?.()) coop.syncPosition(player.x, player.y, player.facing);
+    if (coop?.isConnected?.()) coop.syncPosition(player.x, player.y, player.facing, false, true);
     last = performance.now();
   }
 

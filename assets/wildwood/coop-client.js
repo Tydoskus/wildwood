@@ -8197,11 +8197,6 @@ ${ty.variants.map(
   };
   const BeginAdventureReducer = {};
   const HeartbeatReducer = {};
-  const MoveV2Reducer = {
-    inputX: t.f32(),
-    inputY: t.f32(),
-    sequence: t.u32()
-  };
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
@@ -8233,6 +8228,7 @@ ${ty.variants.map(
     x: t.f64(),
     y: t.f64(),
     facing: t.f64(),
+    moving: t.bool(),
     sequence: t.u32()
   };
   const ChatMessageRow = t.row({
@@ -8410,7 +8406,6 @@ ${ty.variants.map(
     reducerSchema("accept_duel", AcceptDuelReducer),
     reducerSchema("begin_adventure", BeginAdventureReducer),
     reducerSchema("heartbeat", HeartbeatReducer),
-    reducerSchema("move_v_2", MoveV2Reducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
@@ -8451,9 +8446,8 @@ ${ty.variants.map(
   let DbConnection = _DbConnection;
   const MOVEMENT_HZ = 24;
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
-  const MOVEMENT_STEP_SECONDS = 1 / MOVEMENT_HZ;
-  const REMOTE_PREDICTION_SECONDS = MOVEMENT_STEP_SECONDS;
-  const PROTOCOL_VERSION = 2;
+  const REMOTE_PREDICTION_SECONDS = 1 / MOVEMENT_HZ;
+  const PROTOCOL_VERSION = 3;
   const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
   const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
   const runtime = window;
@@ -8471,17 +8465,14 @@ ${ty.variants.map(
   const replayLoads = /* @__PURE__ */ new Map();
   let connection = null;
   let localIdentity = "";
-  let lastMovementSentAt = 0;
-  let lastInputX = 0;
-  let lastInputY = 0;
-  let nextInputSequence = 0;
-  const pendingInputs = [];
+  let lastPositionSentAt = 0;
+  let lastPositionMoving = false;
+  let nextPositionSequence = 0;
   let heartbeatTimer = null;
   let localState = null;
   let localDisplayName = "";
   let localProgress = null;
   let lastSpeedSent = null;
-  let positionSyncPendingSequence = null;
   let lastDuelPulseAt = 0;
   let onChange = null;
   let pendingProgress = readPendingProgress();
@@ -8588,9 +8579,6 @@ ${ty.variants.map(
         moving: row.moving,
         lastInputSequence: row.lastInputSequence
       };
-      if (positionSyncPendingSequence !== null && row.lastInputSequence >= positionSyncPendingSequence) {
-        positionSyncPendingSequence = null;
-      }
       onChange == null ? void 0 : onChange();
       return;
     }
@@ -8748,14 +8736,12 @@ ${ty.variants.map(
     connection = DbConnection.builder().withUri(host).withDatabaseName(databaseName).withToken(localStorage.getItem(tokenKey) || void 0).onConnect((conn, identity, token) => {
       connection = conn;
       localIdentity = identity.toHexString();
-      lastInputX = 0;
-      lastInputY = 0;
-      nextInputSequence = 0;
-      pendingInputs.length = 0;
+      lastPositionSentAt = 0;
+      lastPositionMoving = false;
+      nextPositionSequence = 0;
       localDisplayName = "";
       localProgress = null;
       lastSpeedSent = null;
-      positionSyncPendingSequence = null;
       lastDuelPulseAt = 0;
       localStorage.setItem(tokenKey, token);
       conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
@@ -8797,15 +8783,13 @@ ${ty.variants.map(
       heartbeatTimer = null;
       connection = null;
       localIdentity = "";
-      lastInputX = 0;
-      lastInputY = 0;
-      nextInputSequence = 0;
-      pendingInputs.length = 0;
+      lastPositionSentAt = 0;
+      lastPositionMoving = false;
+      nextPositionSequence = 0;
       localState = null;
       localDisplayName = "";
       localProgress = null;
       lastSpeedSent = null;
-      positionSyncPendingSequence = null;
       lastDuelPulseAt = 0;
       players.clear();
       profiles.clear();
@@ -8819,15 +8803,13 @@ ${ty.variants.map(
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = null;
       connection = null;
-      lastInputX = 0;
-      lastInputY = 0;
-      nextInputSequence = 0;
-      pendingInputs.length = 0;
+      lastPositionSentAt = 0;
+      lastPositionMoving = false;
+      nextPositionSequence = 0;
       localState = null;
       localDisplayName = "";
       localProgress = null;
       lastSpeedSent = null;
-      positionSyncPendingSequence = null;
       lastDuelPulseAt = 0;
       console.warn("Wildwood SpacetimeDB unavailable:", error.message);
       onChange == null ? void 0 : onChange();
@@ -8913,55 +8895,16 @@ ${ty.variants.map(
       lastSpeedSent = speed;
       connection.reducers.setSpeed({ speed });
     },
-    syncPosition(x, y, facing) {
+    syncPosition(x, y, facing, moving = false, force = false) {
       if (!connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
-      pendingInputs.length = 0;
-      lastInputX = 0;
-      lastInputY = 0;
-      lastMovementSentAt = 0;
-      const sequence = ++nextInputSequence;
-      positionSyncPendingSequence = sequence;
-      connection.reducers.syncPosition({ x, y, facing, sequence });
-    },
-    sendMovement(inputX, inputY) {
-      if (!connection) return;
       const now = performance.now();
-      const changed = Math.abs(inputX - lastInputX) > 0.01 || Math.abs(inputY - lastInputY) > 0.01;
-      const hasInput = Math.abs(inputX) + Math.abs(inputY) > 0.01;
-      if (!changed && !hasInput) return;
-      if (now - lastMovementSentAt < MOVEMENT_INTERVAL_MS) return;
-      lastMovementSentAt = now;
-      lastInputX = inputX;
-      lastInputY = inputY;
-      const sequence = ++nextInputSequence;
-      pendingInputs.push({ sequence, inputX, inputY });
-      connection.reducers.moveV2({ inputX, inputY, sequence });
-    },
-    reconcileLocal(x, y, dt = 1 / 60) {
-      if (!connection || !localState || positionSyncPendingSequence !== null) return { x, y };
-      const firstPendingInput = pendingInputs[0];
-      if (!localState.moving && firstPendingInput && Math.hypot(firstPendingInput.inputX, firstPendingInput.inputY) >= 0.01) {
-        return { x, y };
-      }
-      while (pendingInputs.length > 0 && pendingInputs[0].sequence <= localState.lastInputSequence) {
-        pendingInputs.shift();
-      }
-      let targetX = localState.x;
-      let targetY = localState.y;
-      for (const input of pendingInputs) {
-        const inputLength = Math.hypot(input.inputX, input.inputY);
-        if (inputLength < 0.01) continue;
-        targetX += input.inputX / inputLength * localState.speed * MOVEMENT_STEP_SECONDS;
-        targetY += input.inputY / inputLength * localState.speed * MOVEMENT_STEP_SECONDS;
-      }
-      const errorX = targetX - x;
-      const errorY = targetY - y;
-      if (Math.hypot(errorX, errorY) > 100) return { x: targetX, y: targetY };
-      const correction = 1 - Math.pow(1e-6, Math.min(0.1, Math.max(0, dt)));
-      return {
-        x: x + errorX * correction,
-        y: y + errorY * correction
-      };
+      const movingChanged = moving !== lastPositionMoving;
+      if (!force && !movingChanged && !moving) return;
+      if (!force && !movingChanged && now - lastPositionSentAt < MOVEMENT_INTERVAL_MS) return;
+      lastPositionSentAt = now;
+      lastPositionMoving = moving;
+      const sequence = ++nextPositionSequence;
+      connection.reducers.syncPosition({ x, y, facing, moving, sequence });
     },
     remotePlayers(dt = 1 / 60) {
       const smoothing = 1 - Math.pow(1e-6, Math.min(0.1, Math.max(0, dt)));

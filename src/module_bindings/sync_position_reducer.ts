@@ -14,5 +14,6 @@ export default {
   x: __t.f64(),
   y: __t.f64(),
   facing: __t.f64(),
+  moving: __t.bool(),
   sequence: __t.u32(),
 };

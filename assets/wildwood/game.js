@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.157";
+    const GAME_VERSION = "0.158";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1259,9 +1259,7 @@
       const multiplayerActive = Boolean(
         coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0
       );
-      if (multiplayerActive && !movementSyncActive) {
-        coop.syncPosition(player.x, player.y, player.facing);
-      }
+      const multiplayerJustStarted = multiplayerActive && !movementSyncActive;
       movementSyncActive = multiplayerActive;
       if (multiplayerActive) coop.syncSpeed(player.speed);
       let mx = 0, my = 0;
@@ -1282,14 +1280,9 @@
         player.y += my * player.speed * dt;
         if (Math.abs(mx) + Math.abs(my) > 0.1) player.facing = Math.atan2(my, mx);
       }
-      if (multiplayerActive) coop.sendMovement(player.moving ? mx : 0, player.moving ? my : 0);
       player.x = clamp(player.x, player.r, WORLD.w - player.r);
       player.y = clamp(player.y, player.r, WORLD.h - player.r);
-      if (multiplayerActive) {
-        const reconciled = coop.reconcileLocal(player.x, player.y, dt);
-        player.x = clamp(reconciled.x, player.r, WORLD.w - player.r);
-        player.y = clamp(reconciled.y, player.r, WORLD.h - player.r);
-      }
+      if (multiplayerActive) coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted);
       player.hurtClock = Math.max(0, player.hurtClock - dt);
       if (player.regen > 0 && player.hp > 0) {
         player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);
@@ -2328,7 +2321,7 @@
       hasStarted = true;
       running = true;
       if (markIntro) (_a = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a.call(coop);
-      if ((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) coop.syncPosition(player.x, player.y, player.facing);
+      if ((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) coop.syncPosition(player.x, player.y, player.facing, false, true);
       last = performance.now();
     }
     function endGame() {

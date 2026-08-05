@@ -4,10 +4,9 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 2;
+const PROTOCOL_VERSION = 3;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_MULTIPLIER = 1.5;
-const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
@@ -867,71 +866,12 @@ export const pulseDuel = spacetimedb.reducer(
   },
 );
 
-export const moveV2 = spacetimedb.reducer(
-  { inputX: t.f32(), inputY: t.f32(), sequence: t.u32() },
-  (ctx, { inputX, inputY, sequence }) => {
+export const syncPosition = spacetimedb.reducer(
+  { x: t.f64(), y: t.f64(), facing: t.f64(), moving: t.bool(), sequence: t.u32() },
+  (ctx, { x, y, facing, moving, sequence }) => {
     const current = requireCurrentProtocol(ctx);
     clearStalePlayers(ctx);
     if (sequence <= current.lastInputSequence || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
-
-    if (!Number.isFinite(inputX) || !Number.isFinite(inputY)) {
-      throw new Error("Movement input must be finite");
-    }
-
-    const inputLength = Math.hypot(inputX, inputY);
-    if (!current.moving && inputLength >= 0.01) {
-      ctx.db.player.identity.update({
-        ...current,
-        moving: true,
-        lastInputAt: ctx.timestamp,
-        lastInputSequence: sequence,
-      });
-      return;
-    }
-
-    const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
-    const elapsedSeconds = Number(nowMicros - current.lastInputAt.microsSinceUnixEpoch) / 1_000_000;
-    const stepSeconds = Math.min(MAX_INPUT_STEP_SECONDS, Math.max(0, elapsedSeconds));
-
-    if (inputLength < 0.01 || stepSeconds === 0) {
-      ctx.db.player.identity.update({
-        ...current,
-        moving: false,
-        lastInputAt: ctx.timestamp,
-        lastInputSequence: sequence,
-      });
-      return;
-    }
-
-    const directionX = inputX / inputLength;
-    const directionY = inputY / inputLength;
-    const x = Math.max(
-      PLAYER_RADIUS,
-      Math.min(WORLD.width - PLAYER_RADIUS, current.x + directionX * current.speed * stepSeconds),
-    );
-    const y = Math.max(
-      PLAYER_RADIUS,
-      Math.min(WORLD.height - PLAYER_RADIUS, current.y + directionY * current.speed * stepSeconds),
-    );
-
-    ctx.db.player.identity.update({
-      ...current,
-      x,
-      y,
-      facing: Math.atan2(directionY, directionX),
-      moving: true,
-      lastInputAt: ctx.timestamp,
-      lastInputSequence: sequence,
-    });
-  },
-);
-
-export const syncPosition = spacetimedb.reducer(
-  { x: t.f64(), y: t.f64(), facing: t.f64(), sequence: t.u32() },
-  (ctx, { x, y, facing, sequence }) => {
-    const current = requireCurrentProtocol(ctx);
-    clearStalePlayers(ctx);
-    if (["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
       throw new Error("Position sync values must be finite");
@@ -942,7 +882,7 @@ export const syncPosition = spacetimedb.reducer(
       x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x)),
       y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y)),
       facing,
-      moving: false,
+      moving,
       lastInputAt: ctx.timestamp,
       lastInputSequence: sequence,
     });
