@@ -8195,7 +8195,13 @@ ${ty.variants.map(
   const AcceptDuelReducer = {
     id: t.u64()
   };
+  const BeginAccountLinkReducer = {
+    code: t.string()
+  };
   const BeginAdventureReducer = {};
+  const ClaimGuestAccountReducer = {
+    code: t.string()
+  };
   const HeartbeatReducer = {};
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
@@ -8404,7 +8410,9 @@ ${ty.variants.map(
   });
   const reducersSchema = reducers(
     reducerSchema("accept_duel", AcceptDuelReducer),
+    reducerSchema("begin_account_link", BeginAccountLinkReducer),
     reducerSchema("begin_adventure", BeginAdventureReducer),
+    reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
     reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
@@ -8459,7 +8467,17 @@ ${ty.variants.map(
   const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
   const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
   const tokenKey = `${host}/${databaseName}/auth_token`;
+  const guestTokenKey = `${tokenKey}/guest_v1`;
+  const accountTokenKey = `${tokenKey}/spacetimeauth_id_token_v1`;
+  const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
+  const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
+  const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
   const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
+  const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
+  const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
+  const SPACETIME_AUTHORIZATION_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/auth`;
+  const SPACETIME_AUTH_TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
+  const SPACETIME_AUTH_SCOPE = "openid profile email";
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
   const chatMessages = [];
@@ -8480,6 +8498,99 @@ ${ty.variants.map(
   let onChange = null;
   let pendingProgress = readPendingProgress();
   let progressSaveInFlightUntil = 0;
+  let authNotice = "";
+  function accountToken() {
+    try {
+      return localStorage.getItem(accountTokenKey);
+    } catch {
+      return null;
+    }
+  }
+  function guestToken() {
+    try {
+      const saved = localStorage.getItem(guestTokenKey);
+      if (saved) return saved;
+      const legacy = localStorage.getItem(tokenKey);
+      if (legacy) {
+        localStorage.setItem(guestTokenKey, legacy);
+        localStorage.removeItem(tokenKey);
+        return legacy;
+      }
+    } catch {
+    }
+    return null;
+  }
+  function randomUrlSafe(bytes = 32) {
+    const values = new Uint8Array(bytes);
+    crypto.getRandomValues(values);
+    return btoa(String.fromCharCode(...values)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  async function sha256UrlSafe(value) {
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+    return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function redirectUri() {
+    return `${window.location.origin}${window.location.pathname}`;
+  }
+  async function completeAccountCallback() {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    if (!code) return;
+    const state = url.searchParams.get("state");
+    const expectedState = localStorage.getItem(authStateKey);
+    const verifier = localStorage.getItem(authVerifierKey);
+    const cleanUrl = `${url.pathname}${url.hash}`;
+    if (!state || state !== expectedState || !verifier) {
+      authNotice = "SIGN-IN CHECK FAILED";
+      history.replaceState({}, "", cleanUrl);
+      return;
+    }
+    try {
+      const response = await fetch(SPACETIME_AUTH_TOKEN_ENDPOINT, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: SPACETIME_AUTH_CLIENT_ID,
+          code,
+          redirect_uri: redirectUri(),
+          code_verifier: verifier
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || typeof result.id_token !== "string") {
+        throw new Error(result.error_description || result.error || "Token exchange failed");
+      }
+      localStorage.setItem(accountTokenKey, result.id_token);
+      authNotice = "SIGNED IN";
+    } catch (error) {
+      authNotice = "SIGN-IN FAILED";
+      console.warn("Wildwood account sign-in failed:", error);
+    } finally {
+      localStorage.removeItem(authStateKey);
+      localStorage.removeItem(authVerifierKey);
+      history.replaceState({}, "", cleanUrl);
+    }
+  }
+  async function startAccountSignIn() {
+    const verifier = randomUrlSafe(48);
+    const state = randomUrlSafe(24);
+    const challenge = await sha256UrlSafe(verifier);
+    localStorage.setItem(authStateKey, state);
+    localStorage.setItem(authVerifierKey, verifier);
+    const url = new URL(SPACETIME_AUTHORIZATION_ENDPOINT);
+    url.search = new URLSearchParams({
+      client_id: SPACETIME_AUTH_CLIENT_ID,
+      redirect_uri: redirectUri(),
+      response_type: "code",
+      scope: SPACETIME_AUTH_SCOPE,
+      state,
+      nonce: randomUrlSafe(24),
+      code_challenge: challenge,
+      code_challenge_method: "S256"
+    }).toString();
+    window.location.assign(url.toString());
+  }
   function bounded(value, min, max, fallback) {
     return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
   }
@@ -8740,7 +8851,8 @@ ${ty.variants.map(
     onChange == null ? void 0 : onChange();
   }
   function connect() {
-    connection = DbConnection.builder().withUri(host).withDatabaseName(databaseName).withToken(localStorage.getItem(tokenKey) || void 0).onConnect((conn, identity, token) => {
+    const signedIn = Boolean(accountToken());
+    connection = DbConnection.builder().withUri(host).withDatabaseName(databaseName).withToken(accountToken() || guestToken() || void 0).onConnect((conn, identity, token) => {
       connection = conn;
       localIdentity = identity.toHexString();
       lastPositionSentAt = 0;
@@ -8750,7 +8862,12 @@ ${ty.variants.map(
       localProgress = null;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
-      localStorage.setItem(tokenKey, token);
+      if (!signedIn) {
+        try {
+          localStorage.setItem(guestTokenKey, token);
+        } catch {
+        }
+      }
       conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = window.setInterval(() => {
@@ -8774,6 +8891,18 @@ ${ty.variants.map(
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         for (const row of conn.db.duel.iter()) upsertDuel(row);
         flushPendingProgress();
+        const accountLink = signedIn ? localStorage.getItem(accountLinkKey) : null;
+        if (accountLink) {
+          conn.reducers.claimGuestAccount({ code: accountLink });
+          window.setTimeout(() => {
+            try {
+              localStorage.removeItem(accountLinkKey);
+            } catch {
+            }
+            authNotice = "ACCOUNT SAVE LINKED";
+            onChange == null ? void 0 : onChange();
+          }, 750);
+        }
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
@@ -8831,6 +8960,37 @@ ${ty.variants.map(
     },
     isConnected() {
       return connection !== null;
+    },
+    accountState() {
+      return {
+        signedIn: Boolean(accountToken()),
+        notice: authNotice
+      };
+    },
+    async signIn() {
+      if (accountToken()) return;
+      if (!connection) {
+        authNotice = "WAIT FOR SERVER";
+        onChange == null ? void 0 : onChange();
+        return;
+      }
+      const code = randomUrlSafe(40);
+      localStorage.setItem(accountLinkKey, code);
+      connection.reducers.beginAccountLink({ code });
+      authNotice = "PREPARING SIGN-IN";
+      onChange == null ? void 0 : onChange();
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      await startAccountSignIn();
+    },
+    signOut() {
+      try {
+        localStorage.removeItem(accountTokenKey);
+        localStorage.removeItem(accountLinkKey);
+        localStorage.removeItem(authStateKey);
+        localStorage.removeItem(authVerifierKey);
+      } catch {
+      }
+      window.location.reload();
     },
     localIdentity() {
       return localIdentity;
@@ -8940,7 +9100,7 @@ ${ty.variants.map(
     }
   };
   runtime.wildwoodCoop = wildwoodCoop;
-  wildwoodCoop.connect();
+  void completeAccountCallback().finally(() => wildwoodCoop.connect());
   exports.default = wildwoodCoop;
   exports.wildwoodCoop = wildwoodCoop;
   Object.defineProperties(exports, { __esModule: { value: true }, [Symbol.toStringTag]: { value: "Module" } });

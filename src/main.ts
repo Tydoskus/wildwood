@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.163";
+  const GAME_VERSION = "0.164";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -43,6 +43,8 @@ import { createChatController } from "./ui/chat";
   const screenShakeToggle = document.getElementById("screenShakeToggle");
   const fullscreenToggle = document.getElementById("fullscreenToggle");
   const connectionStatusEl = document.getElementById("connectionStatus");
+  const accountButton = document.getElementById("accountButton");
+  const accountStatusEl = document.getElementById("accountStatus");
   const resetProgressBtn = document.getElementById("resetProgressBtn");
   const messageEl = document.getElementById("message");
   const pickupLog = document.getElementById("pickupLog");
@@ -2295,6 +2297,7 @@ import { createChatController } from "./ui/chat";
     }
     updateDuelControls();
     updateConnectionStatus();
+    updateAccountStatus();
   }
 
   function nearbyDuelOpponent() {
@@ -2452,10 +2455,26 @@ import { createChatController } from "./ui/chat";
     connectionStatusEl.classList.toggle("is-offline", !connected);
   }
 
+  function updateAccountStatus() {
+    if (!accountButton || !accountStatusEl) return;
+    const account = coop?.accountState?.() || { signedIn: false, notice: "" };
+    accountButton.textContent = account.signedIn ? "SIGN OUT" : "SIGN IN / CREATE";
+    const status = account.notice || (account.signedIn ? "SIGNED IN · ACCOUNT SAVE" : "GUEST · DEVICE SAVE");
+    accountStatusEl.textContent = status;
+    accountStatusEl.classList.toggle("is-signed-in", account.signedIn);
+    accountStatusEl.classList.toggle("is-error", /FAILED|WAIT|CHECK/.test(status));
+  }
+
   settingsBtn.addEventListener("click", () => {
     const opening = settingsPanel.hidden;
     settingsPanel.hidden = !opening;
     settingsBtn.setAttribute("aria-expanded", String(opening));
+  });
+
+  accountButton?.addEventListener("click", () => {
+    const account = coop?.accountState?.();
+    if (account?.signedIn) coop?.signOut?.();
+    else void coop?.signIn?.();
   });
 
   screenShakeToggle.addEventListener("click", () => {
@@ -2534,11 +2553,13 @@ import { createChatController } from "./ui/chat";
       chat.refresh();
       updateDuelControls();
       updateConnectionStatus();
+      updateAccountStatus();
     });
   }
   updateFullscreenSetting();
   updateDuelControls();
   updateConnectionStatus();
+  updateAccountStatus();
   window.setInterval(() => chat.refresh(), 1_000);
 
   bootUpgradeClose.addEventListener("click", () => {

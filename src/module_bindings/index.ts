@@ -35,7 +35,9 @@ import {
 
 // Import all reducer arg schemas
 import AcceptDuelReducer from "./accept_duel_reducer";
+import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
+import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
@@ -132,7 +134,9 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
+  __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
+  __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),

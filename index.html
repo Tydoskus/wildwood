@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.163" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.164" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -40,6 +40,11 @@
           <span>FULLSCREEN</span>
           <button id="fullscreenToggle" class="setting-toggle" type="button">ENTER</button>
         </div>
+        <div class="setting-row account-row">
+          <span>ACCOUNT</span>
+          <button id="accountButton" class="setting-toggle account-button" type="button">SIGN IN</button>
+        </div>
+        <div id="accountStatus" class="account-status">GUEST · DEVICE SAVE</div>
         <div class="name-row">
           <label for="displayNameInput">PLAYER NAME</label>
           <div class="name-edit">
@@ -66,7 +71,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.163</div>
+        <div id="version">v0.164</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -130,7 +135,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.163"></script>
-<script src="assets/wildwood/game.js?v=0.163"></script>
+<script src="assets/wildwood/coop-client.js?v=0.164"></script>
+<script src="assets/wildwood/game.js?v=0.164"></script>
 </body>
 </html>

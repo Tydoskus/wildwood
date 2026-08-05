@@ -10,6 +10,13 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const AccountLink = __t.object("AccountLink", {
+  code: __t.string(),
+  guest: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type AccountLink = __Infer<typeof AccountLink>;
+
 export const ChatMessage = __t.object("ChatMessage", {
   id: __t.u64(),
   sender: __t.identity(),

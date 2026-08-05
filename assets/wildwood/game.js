@@ -167,7 +167,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.163";
+    const GAME_VERSION = "0.164";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -181,6 +181,8 @@
     const screenShakeToggle = document.getElementById("screenShakeToggle");
     const fullscreenToggle = document.getElementById("fullscreenToggle");
     const connectionStatusEl = document.getElementById("connectionStatus");
+    const accountButton = document.getElementById("accountButton");
+    const accountStatusEl = document.getElementById("accountStatus");
     const resetProgressBtn = document.getElementById("resetProgressBtn");
     const messageEl = document.getElementById("message");
     const pickupLog = document.getElementById("pickupLog");
@@ -2276,6 +2278,7 @@
       }
       updateDuelControls();
       updateConnectionStatus();
+      updateAccountStatus();
     }
     function nearbyDuelOpponent() {
       var _a;
@@ -2419,10 +2422,26 @@
       connectionStatusEl.textContent = connected ? "ONLINE" : "OFFLINE";
       connectionStatusEl.classList.toggle("is-offline", !connected);
     }
+    function updateAccountStatus() {
+      var _a;
+      if (!accountButton || !accountStatusEl) return;
+      const account = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, notice: "" };
+      accountButton.textContent = account.signedIn ? "SIGN OUT" : "SIGN IN / CREATE";
+      const status = account.notice || (account.signedIn ? "SIGNED IN · ACCOUNT SAVE" : "GUEST · DEVICE SAVE");
+      accountStatusEl.textContent = status;
+      accountStatusEl.classList.toggle("is-signed-in", account.signedIn);
+      accountStatusEl.classList.toggle("is-error", /FAILED|WAIT|CHECK/.test(status));
+    }
     settingsBtn.addEventListener("click", () => {
       const opening = settingsPanel.hidden;
       settingsPanel.hidden = !opening;
       settingsBtn.setAttribute("aria-expanded", String(opening));
+    });
+    accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
+      var _a, _b, _c;
+      const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
+      if (account == null ? void 0 : account.signedIn) (_b = coop == null ? void 0 : coop.signOut) == null ? void 0 : _b.call(coop);
+      else void ((_c = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c.call(coop));
     });
     screenShakeToggle.addEventListener("click", () => {
       screenShakeEnabled = !screenShakeEnabled;
@@ -2491,11 +2510,13 @@
         chat.refresh();
         updateDuelControls();
         updateConnectionStatus();
+        updateAccountStatus();
       });
     }
     updateFullscreenSetting();
     updateDuelControls();
     updateConnectionStatus();
+    updateAccountStatus();
     window.setInterval(() => chat.refresh(), 1e3);
     bootUpgradeClose.addEventListener("click", () => {
       pausedForUpgrade = false;

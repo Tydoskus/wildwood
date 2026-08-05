@@ -5,6 +5,9 @@ const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
 const PROTOCOL_VERSION = 3;
+const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
+const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
+const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_MULTIPLIER = 1.5;
 const STALE_PLAYER_SECONDS = 15;
@@ -83,6 +86,18 @@ const duelRequestCooldown = table(
   {
     identity: t.identity().primaryKey(),
     requestedAt: t.timestamp(),
+  },
+);
+
+// A short-lived, private bridge from an anonymous SpacetimeDB identity to its
+// first authenticated SpacetimeAuth identity. The random code never leaves the
+// browser that began sign-in and is consumed once claimed.
+const accountLink = table(
+  { public: false },
+  {
+    code: t.string().primaryKey(),
+    guest: t.identity(),
+    createdAt: t.timestamp(),
   },
 );
 
@@ -169,7 +184,7 @@ const duelReplay = table(
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, duelRequestCooldown, chatMessage, duel, duelReplay });
+const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, duelRequestCooldown, accountLink, chatMessage, duel, duelReplay });
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -217,6 +232,42 @@ function requireCurrentProtocol(ctx: any) {
     throw new Error("Wildwood updated. Refresh to continue.");
   }
   return current;
+}
+
+function hasSpacetimeAuthAccount(ctx: any) {
+  const jwt = ctx.senderAuth?.jwt;
+  return Boolean(
+    jwt &&
+    jwt.issuer === SPACETIME_AUTH_ISSUER &&
+    Array.isArray(jwt.audience) &&
+    jwt.audience.includes(SPACETIME_AUTH_CLIENT_ID),
+  );
+}
+
+function clearExpiredAccountLinks(ctx: any) {
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const expiredCodes: string[] = [];
+  for (const link of ctx.db.accountLink.iter() as Iterable<any>) {
+    if (now - link.createdAt.microsSinceUnixEpoch >= ACCOUNT_LINK_LIFETIME_MICROS) {
+      expiredCodes.push(link.code);
+    }
+  }
+  for (const code of expiredCodes) ctx.db.accountLink.code.delete(code);
+}
+
+function hasFreshProgress(progress: any) {
+  const defaultProgress = defaultPlayerProgress(progress.identity);
+  return !progress.introComplete &&
+    progress.maxHp === defaultProgress.maxHp &&
+    progress.damage === defaultProgress.damage &&
+    progress.attackRate === defaultProgress.attackRate &&
+    progress.projectileSpeed === defaultProgress.projectileSpeed &&
+    progress.projectileCount === defaultProgress.projectileCount &&
+    progress.attackRange === defaultProgress.attackRange &&
+    progress.armor === defaultProgress.armor &&
+    progress.regen === defaultProgress.regen &&
+    progress.speed === defaultProgress.speed &&
+    progress.bootsCollected === defaultProgress.bootsCollected;
 }
 
 function sameIdentity(a: any, b: any) {
@@ -463,6 +514,7 @@ function clearExpiredHistory(ctx: any) {
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   clearStalePlayers(ctx);
   clearExpiredHistory(ctx);
+  clearExpiredAccountLinks(ctx);
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
@@ -554,6 +606,71 @@ export const registerProtocol = spacetimedb.reducer(
     const current = ctx.db.player.identity.find(ctx.sender);
     if (!current) throw new Error("Player connection not ready.");
     ctx.db.player.identity.update({ ...current, protocolVersion });
+  },
+);
+
+export const beginAccountLink = spacetimedb.reducer(
+  { code: t.string() },
+  (ctx, { code }) => {
+    requireCurrentProtocol(ctx);
+    if (hasSpacetimeAuthAccount(ctx)) throw new Error("Already signed in.");
+    if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) throw new Error("Invalid account link.");
+    clearExpiredAccountLinks(ctx);
+    if (ctx.db.accountLink.code.find(code)) throw new Error("Account link already exists.");
+    ctx.db.accountLink.insert({ code, guest: ctx.sender, createdAt: ctx.timestamp });
+  },
+);
+
+export const claimGuestAccount = spacetimedb.reducer(
+  { code: t.string() },
+  (ctx, { code }) => {
+    requireCurrentProtocol(ctx);
+    if (!hasSpacetimeAuthAccount(ctx)) throw new Error("Sign in required.");
+    clearExpiredAccountLinks(ctx);
+
+    const link = ctx.db.accountLink.code.find(code);
+    if (!link) throw new Error("Account link expired. Sign in again.");
+    if (sameIdentity(link.guest, ctx.sender)) throw new Error("Invalid account link.");
+
+    const accountProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+    if (accountProgress && !hasFreshProgress(accountProgress)) {
+      throw new Error("This account already has Wildwood progress.");
+    }
+
+    const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
+    const nextProgress = guestProgress
+      ? { ...guestProgress, identity: ctx.sender }
+      : defaultPlayerProgress(ctx.sender);
+    if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
+    else ctx.db.playerProgress.insert(nextProgress);
+
+    const guestProfile = ctx.db.playerProfile.identity.find(link.guest);
+    const accountProfile = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (guestProfile && accountProfile) {
+      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName });
+    } else if (guestProfile) {
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName });
+    }
+
+    const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
+    const accountNameCooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
+    if (guestNameCooldown && accountNameCooldown) {
+      ctx.db.playerNameCooldown.identity.update({ ...accountNameCooldown, changedAt: guestNameCooldown.changedAt });
+    } else if (guestNameCooldown) {
+      ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: guestNameCooldown.changedAt });
+    }
+
+    const activePlayer = ctx.db.player.identity.find(ctx.sender);
+    if (activePlayer) {
+      ctx.db.player.identity.update({
+        ...activePlayer,
+        hp: nextProgress.maxHp,
+        maxHp: nextProgress.maxHp,
+        speed: nextProgress.speed,
+        power: powerForProgress(nextProgress),
+      });
+    }
+    ctx.db.accountLink.code.delete(code);
   },
 );
 

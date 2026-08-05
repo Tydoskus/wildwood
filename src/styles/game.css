@@ -158,6 +158,25 @@
 
   .connection-status.is-offline { color: #ff9b91; }
 
+  .account-row { margin-top: 9px; }
+
+  .account-button {
+    min-width: 106px;
+    font-size: 10px;
+  }
+
+  .account-status {
+    margin-top: 5px;
+    color: #a9b5ad;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+
+  .account-status.is-signed-in { color: var(--green); }
+
+  .account-status.is-error { color: #ff9b91; }
+
   .bar {
     position: relative;
     display: grid;
