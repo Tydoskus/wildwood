@@ -11,6 +11,7 @@ const STALE_PLAYER_SECONDS = 15;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 400_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
+const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
 const DUEL_COUNTDOWN_MICROS = 3_000_000n;
@@ -404,8 +405,26 @@ function clearStalePlayers(ctx: { db: { player: { iter: () => Iterable<unknown>;
   for (const identity of staleIdentities) ctx.db.player.identity.delete(identity);
 }
 
+function clearExpiredHistory(ctx: any) {
+  const chatCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_HISTORY_RETENTION_MICROS;
+  const replayCutoff = ctx.timestamp.microsSinceUnixEpoch - DUEL_REPLAY_RETENTION_MICROS;
+  const staleMessageIds: bigint[] = [];
+  const staleReplayIds: bigint[] = [];
+
+  for (const message of ctx.db.chatMessage.iter() as Iterable<any>) {
+    if (message.sentAt.microsSinceUnixEpoch < chatCutoff) staleMessageIds.push(message.id);
+  }
+  for (const replay of ctx.db.duelReplay.iter() as Iterable<any>) {
+    if (replay.createdAt.microsSinceUnixEpoch < replayCutoff) staleReplayIds.push(replay.id);
+  }
+
+  for (const id of staleMessageIds) ctx.db.chatMessage.id.delete(id);
+  for (const id of staleReplayIds) ctx.db.duelReplay.id.delete(id);
+}
+
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   clearStalePlayers(ctx);
+  clearExpiredHistory(ctx);
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
@@ -541,7 +560,21 @@ export const savePlayerProgress = spacetimedb.reducer(
     }
 
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
-    const next = { identity: ctx.sender, ...progress, introComplete: current?.introComplete ?? false };
+    const base = current ?? defaultPlayerProgress(ctx.sender);
+    const next = {
+      identity: ctx.sender,
+      maxHp: Math.max(base.maxHp, progress.maxHp),
+      damage: Math.max(base.damage, progress.damage),
+      attackRate: Math.min(base.attackRate, progress.attackRate),
+      projectileSpeed: Math.max(base.projectileSpeed, progress.projectileSpeed),
+      projectileCount: Math.max(base.projectileCount, progress.projectileCount),
+      attackRange: DEFAULT_ATTACK_RANGE,
+      armor: Math.max(base.armor, progress.armor),
+      regen: Math.max(base.regen, progress.regen),
+      speed: Math.max(base.speed, progress.speed),
+      bootsCollected: base.bootsCollected || progress.bootsCollected,
+      introComplete: base.introComplete,
+    };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
   },
@@ -570,6 +603,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
 export const sendChatMessage = spacetimedb.reducer(
   { message: t.string() },
   (ctx, { message }) => {
+    clearExpiredHistory(ctx);
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) return;
 
@@ -580,16 +614,12 @@ export const sendChatMessage = spacetimedb.reducer(
     }
 
     const cooldownCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_COOLDOWN_MICROS;
-    const historyCutoff = ctx.timestamp.microsSinceUnixEpoch - CHAT_HISTORY_RETENTION_MICROS;
-    const staleMessageIds: bigint[] = [];
     let isCoolingDown = false;
     for (const previous of ctx.db.chatMessage.iter() as Iterable<{ id: bigint; sender: never; sentAt: { microsSinceUnixEpoch: bigint } }>) {
-      if (previous.sentAt.microsSinceUnixEpoch < historyCutoff) staleMessageIds.push(previous.id);
       if (previous.sender === ctx.sender && previous.sentAt.microsSinceUnixEpoch > cooldownCutoff) {
         isCoolingDown = true;
       }
     }
-    for (const id of staleMessageIds) ctx.db.chatMessage.id.delete(id);
     if (isCoolingDown) return;
 
     ctx.db.chatMessage.insert({
@@ -880,7 +910,9 @@ export const syncPosition = spacetimedb.reducer(
 export const heartbeat = spacetimedb.reducer(
   {},
   (ctx) => {
+    clearStalePlayers(ctx);
     clearExpiredDuelRequests(ctx);
+    clearExpiredHistory(ctx);
     const current = ctx.db.player.identity.find(ctx.sender);
     if (!current) return;
 

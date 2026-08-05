@@ -8460,6 +8460,7 @@ ${ty.variants.map(
   const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
   const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
   const tokenKey = `${host}/${databaseName}/auth_token`;
+  const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
   const playerPowers = /* @__PURE__ */ new Map();
@@ -8481,11 +8482,80 @@ ${ty.variants.map(
   let positionSyncPendingSequence = null;
   let lastDuelPulseAt = 0;
   let onChange = null;
+  let pendingProgress = readPendingProgress();
+  let progressSaveInFlightUntil = 0;
   function powerFor(progress) {
     return Math.round(
       progress.damage * 0.15 + progress.maxHp + progress.armor * 3 + progress.regen * 10 + 50 / progress.attackRate
     );
   }
+  function copyProgress(progress) {
+    return {
+      maxHp: progress.maxHp,
+      damage: progress.damage,
+      attackRate: progress.attackRate,
+      projectileSpeed: progress.projectileSpeed,
+      projectileCount: progress.projectileCount,
+      attackRange: progress.attackRange,
+      armor: progress.armor,
+      regen: progress.regen,
+      speed: progress.speed,
+      bootsCollected: progress.bootsCollected
+    };
+  }
+  function isProgressSave(value) {
+    if (!value || typeof value !== "object") return false;
+    const progress = value;
+    return [
+      progress.maxHp,
+      progress.damage,
+      progress.attackRate,
+      progress.projectileSpeed,
+      progress.attackRange,
+      progress.armor,
+      progress.regen,
+      progress.speed
+    ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean";
+  }
+  function readPendingProgress() {
+    try {
+      const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
+      return isProgressSave(candidate) ? copyProgress(candidate) : null;
+    } catch {
+      return null;
+    }
+  }
+  function persistPendingProgress(progress) {
+    pendingProgress = copyProgress(progress);
+    try {
+      localStorage.setItem(pendingProgressKey, JSON.stringify(pendingProgress));
+    } catch {
+    }
+  }
+  function clearPendingProgress() {
+    pendingProgress = null;
+    progressSaveInFlightUntil = 0;
+    try {
+      localStorage.removeItem(pendingProgressKey);
+    } catch {
+    }
+  }
+  function progressCovers(saved, pending) {
+    const epsilon = 1e-4;
+    return saved.maxHp >= pending.maxHp && saved.damage >= pending.damage && saved.attackRate <= pending.attackRate + epsilon && saved.projectileSpeed >= pending.projectileSpeed && saved.projectileCount >= pending.projectileCount && Math.abs(saved.attackRange - pending.attackRange) <= epsilon && saved.armor >= pending.armor && saved.regen >= pending.regen && saved.speed >= pending.speed && (!pending.bootsCollected || saved.bootsCollected);
+  }
+  function flushPendingProgress(force = false) {
+    if (!connection || !pendingProgress) return;
+    if (!force && Date.now() < progressSaveInFlightUntil) return;
+    progressSaveInFlightUntil = Date.now() + 4e3;
+    try {
+      connection.reducers.savePlayerProgress(copyProgress(pendingProgress));
+    } catch {
+      progressSaveInFlightUntil = 0;
+    }
+  }
+  window.setInterval(() => flushPendingProgress(), 2500);
+  window.addEventListener("pagehide", () => flushPendingProgress(true));
   function generatedDisplayName(identity) {
     let hash = 2166136261;
     for (const character of identity) {
@@ -8573,6 +8643,8 @@ ${ty.variants.map(
       bootsCollected: row.bootsCollected,
       introComplete: row.introComplete
     };
+    if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
+    else flushPendingProgress();
     onChange == null ? void 0 : onChange();
   }
   function upsertChatMessage(row) {
@@ -8683,6 +8755,7 @@ ${ty.variants.map(
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         for (const row of conn.db.duel.iter()) upsertDuel(row);
         for (const row of conn.db.duelReplay.iter()) upsertDuelReplay(row);
+        flushPendingProgress();
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
@@ -8755,10 +8828,12 @@ ${ty.variants.map(
       return localProgress ? { ...localProgress } : null;
     },
     saveProgress(progress) {
-      if (!connection) return;
-      connection.reducers.savePlayerProgress(progress);
+      persistPendingProgress(progress);
+      progressSaveInFlightUntil = 0;
+      flushPendingProgress();
     },
     resetProgress() {
+      clearPendingProgress();
       if (!connection) return;
       connection.reducers.resetPlayerProgress({});
     },
