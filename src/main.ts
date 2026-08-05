@@ -27,7 +27,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.154";
+  const GAME_VERSION = "0.155";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1056,10 +1056,12 @@ import { createChatController } from "./ui/chat";
     return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
   }
 
-  function openDuelReplay(replayId) {
-    const replay = coop?.duelReplay?.(replayId);
+  async function openDuelReplay(replayId) {
+    const replay = coop?.loadDuelReplay
+      ? await coop.loadDuelReplay(replayId)
+      : coop?.duelReplay?.(replayId);
     if (!replay) {
-      showMessage("REPLAY LOADING", "#bce7ff");
+      showMessage("REPLAY EXPIRED", "#ff9b91");
       return;
     }
     visibleReplay = replay;
@@ -1100,8 +1102,11 @@ import { createChatController } from "./ui/chat";
       duelShots.length = 0;
       lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
       lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
-      const replay = coop?.duelReplay?.(lastLocalDuelId);
-      if (replay) showDuelResult(replay);
+      if (lastLocalDuelId) {
+        void coop?.loadDuelReplay?.(lastLocalDuelId).then((replay) => {
+          if (replay) showDuelResult(replay);
+        });
+      }
     }
     const multiplayerActive = Boolean(
       coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0,

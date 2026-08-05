@@ -8203,6 +8203,9 @@ ${ty.variants.map(
     sequence: t.u32()
   };
   const PulseDuelReducer = {};
+  const RegisterProtocolReducer = {
+    protocolVersion: t.u32()
+  };
   const RequestDuelReducer = {};
   const ResetPlayerProgressReducer = {};
   const SavePlayerProgressReducer = {
@@ -8313,7 +8316,9 @@ ${ty.variants.map(
     speed: t.f32(),
     moving: t.bool(),
     lastInputAt: t.timestamp().name("last_input_at"),
-    lastInputSequence: t.u32().name("last_input_sequence")
+    lastInputSequence: t.u32().name("last_input_sequence"),
+    power: t.u32(),
+    protocolVersion: t.u32().name("protocol_version")
   });
   const PlayerProfileRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8407,6 +8412,7 @@ ${ty.variants.map(
     reducerSchema("heartbeat", HeartbeatReducer),
     reducerSchema("move_v_2", MoveV2Reducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
+    reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
     reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
     reducerSchema("save_player_progress", SavePlayerProgressReducer),
@@ -8447,6 +8453,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const MOVEMENT_STEP_SECONDS = 1 / MOVEMENT_HZ;
   const REMOTE_PREDICTION_SECONDS = MOVEMENT_STEP_SECONDS;
+  const PROTOCOL_VERSION = 2;
   const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
   const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
   const runtime = window;
@@ -8458,10 +8465,10 @@ ${ty.variants.map(
   const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
-  const playerPowers = /* @__PURE__ */ new Map();
   const chatMessages = [];
   const duels = /* @__PURE__ */ new Map();
   const duelReplays = /* @__PURE__ */ new Map();
+  const replayLoads = /* @__PURE__ */ new Map();
   let connection = null;
   let localIdentity = "";
   let lastMovementSentAt = 0;
@@ -8479,11 +8486,6 @@ ${ty.variants.map(
   let onChange = null;
   let pendingProgress = readPendingProgress();
   let progressSaveInFlightUntil = 0;
-  function powerFor(progress) {
-    return Math.round(
-      progress.damage * 0.15 + progress.maxHp + progress.armor * 3 + progress.regen * 10 + 50 / progress.attackRate
-    );
-  }
   function copyProgress(progress) {
     return {
       maxHp: progress.maxHp,
@@ -8601,12 +8603,12 @@ ${ty.variants.map(
       existing.moving = row.moving;
       existing.hp = row.hp;
       existing.maxHp = row.maxHp;
-      existing.power = playerPowers.get(id) ?? existing.power;
+      existing.power = row.power;
     } else {
       players.set(id, {
         id,
         name: profiles.get(id) ?? generatedDisplayName(id),
-        power: playerPowers.get(id) ?? 95,
+        power: row.power,
         x: row.x,
         y: row.y,
         speed: row.speed,
@@ -8631,14 +8633,7 @@ ${ty.variants.map(
   }
   function upsertProgress(row) {
     const id = row.identity.toHexString();
-    const power = powerFor(row);
-    playerPowers.set(id, power);
-    const remotePlayer = players.get(id);
-    if (remotePlayer) remotePlayer.power = power;
-    if (id !== localIdentity) {
-      onChange == null ? void 0 : onChange();
-      return;
-    }
+    if (id !== localIdentity) return;
     localProgress = {
       maxHp: row.maxHp,
       damage: row.damage,
@@ -8719,6 +8714,28 @@ ${ty.variants.map(
     });
     onChange == null ? void 0 : onChange();
   }
+  function loadDuelReplay(id) {
+    const existing = duelReplays.get(id);
+    if (existing) return Promise.resolve({ ...existing });
+    const loading = replayLoads.get(id);
+    if (loading) return loading;
+    const conn = connection;
+    if (!conn) return Promise.resolve(null);
+    const request = new Promise((resolve) => {
+      conn.subscriptionBuilder().onApplied(() => {
+        const row = [...conn.db.duelReplay.iter()].find((replay2) => replay2.id === id);
+        if (row) upsertDuelReplay(row);
+        replayLoads.delete(id);
+        const replay = duelReplays.get(id);
+        resolve(replay ? { ...replay } : null);
+      }).onError(() => {
+        replayLoads.delete(id);
+        resolve(null);
+      }).subscribe([tables.duelReplay.where((replay) => replay.id.eq(id))]);
+    });
+    replayLoads.set(id, request);
+    return request;
+  }
   function removeDuel(row) {
     duels.delete(row.id);
     onChange == null ? void 0 : onChange();
@@ -8741,6 +8758,7 @@ ${ty.variants.map(
       positionSyncPendingSequence = null;
       lastDuelPulseAt = 0;
       localStorage.setItem(tokenKey, token);
+      conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = window.setInterval(() => {
         connection == null ? void 0 : connection.reducers.heartbeat({});
@@ -8756,19 +8774,23 @@ ${ty.variants.map(
       conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
       conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
       conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
-      conn.db.duelReplay.onInsert((_ctx, row) => upsertDuelReplay(row));
       conn.subscriptionBuilder().onApplied(() => {
         for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
         for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
         for (const row of conn.db.player.iter()) upsertPlayer(row);
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         for (const row of conn.db.duel.iter()) upsertDuel(row);
-        for (const row of conn.db.duelReplay.iter()) upsertDuelReplay(row);
         flushPendingProgress();
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
         console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
-      }).subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel, tables.duelReplay]);
+      }).subscribe([
+        tables.player,
+        tables.playerProfile,
+        tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+        tables.chatMessage,
+        tables.duel
+      ]);
       onChange == null ? void 0 : onChange();
     }).onDisconnect((_ctx, error) => {
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
@@ -8790,6 +8812,7 @@ ${ty.variants.map(
       chatMessages.length = 0;
       duels.clear();
       duelReplays.clear();
+      replayLoads.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
     }).onConnectError((_ctx, error) => {
@@ -8869,6 +8892,7 @@ ${ty.variants.map(
       const replay = duelReplays.get(id);
       return replay ? { ...replay } : null;
     },
+    loadDuelReplay,
     requestDuel() {
       if (!connection) return;
       connection.reducers.requestDuel({});

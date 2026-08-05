@@ -21,4 +21,6 @@ export default __t.row({
   moving: __t.bool(),
   lastInputAt: __t.timestamp().name("last_input_at"),
   lastInputSequence: __t.u32().name("last_input_sequence"),
+  power: __t.u32(),
+  protocolVersion: __t.u32().name("protocol_version"),
 });

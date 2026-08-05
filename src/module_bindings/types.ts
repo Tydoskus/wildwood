@@ -87,6 +87,12 @@ export const DuelReplay = __t.object("DuelReplay", {
 });
 export type DuelReplay = __Infer<typeof DuelReplay>;
 
+export const DuelRequestCooldown = __t.object("DuelRequestCooldown", {
+  identity: __t.identity(),
+  requestedAt: __t.timestamp(),
+});
+export type DuelRequestCooldown = __Infer<typeof DuelRequestCooldown>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   x: __t.f64(),
@@ -98,8 +104,16 @@ export const Player = __t.object("Player", {
   moving: __t.bool(),
   lastInputAt: __t.timestamp(),
   lastInputSequence: __t.u32(),
+  power: __t.u32(),
+  protocolVersion: __t.u32(),
 });
 export type Player = __Infer<typeof Player>;
+
+export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
+  identity: __t.identity(),
+  changedAt: __t.timestamp(),
+});
+export type PlayerNameCooldown = __Infer<typeof PlayerNameCooldown>;
 
 export const PlayerProfile = __t.object("PlayerProfile", {
   identity: __t.identity(),

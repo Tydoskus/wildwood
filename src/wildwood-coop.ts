@@ -114,6 +114,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const MOVEMENT_STEP_SECONDS = 1 / MOVEMENT_HZ;
 const REMOTE_PREDICTION_SECONDS = MOVEMENT_STEP_SECONDS;
+const PROTOCOL_VERSION = 2;
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
@@ -126,10 +127,10 @@ const tokenKey = `${host}/${databaseName}/auth_token`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
-const playerPowers = new Map<string, number>();
 const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
+const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -148,16 +149,6 @@ let lastDuelPulseAt = 0;
 let onChange: (() => void) | null = null;
 let pendingProgress = readPendingProgress();
 let progressSaveInFlightUntil = 0;
-
-function powerFor(progress: Pick<PlayerProgress, "maxHp" | "damage" | "attackRate" | "armor" | "regen">) {
-  return Math.round(
-    progress.damage * .15 +
-    progress.maxHp +
-    progress.armor * 3 +
-    progress.regen * 10 +
-    50 / progress.attackRate,
-  );
-}
 
 function copyProgress(progress: ProgressSave): ProgressSave {
   return {
@@ -276,6 +267,7 @@ function upsertPlayer(row: {
   moving: boolean;
   hp: number;
   maxHp: number;
+  power: number;
   speed: number;
   lastInputSequence: number;
 }) {
@@ -307,12 +299,12 @@ function upsertPlayer(row: {
     existing.moving = row.moving;
     existing.hp = row.hp;
     existing.maxHp = row.maxHp;
-    existing.power = playerPowers.get(id) ?? existing.power;
+    existing.power = row.power;
   } else {
     players.set(id, {
       id,
       name: profiles.get(id) ?? generatedDisplayName(id),
-      power: playerPowers.get(id) ?? 95,
+      power: row.power,
       x: row.x,
       y: row.y,
       speed: row.speed,
@@ -339,14 +331,7 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
 
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   const id = row.identity.toHexString();
-  const power = powerFor(row);
-  playerPowers.set(id, power);
-  const remotePlayer = players.get(id);
-  if (remotePlayer) remotePlayer.power = power;
-  if (id !== localIdentity) {
-    onChange?.();
-    return;
-  }
+  if (id !== localIdentity) return;
   localProgress = {
     maxHp: row.maxHp,
     damage: row.damage,
@@ -453,6 +438,34 @@ function upsertDuelReplay(row: any) {
   onChange?.();
 }
 
+function loadDuelReplay(id: bigint): Promise<DuelReplay | null> {
+  const existing = duelReplays.get(id);
+  if (existing) return Promise.resolve({ ...existing });
+  const loading = replayLoads.get(id);
+  if (loading) return loading;
+  const conn = connection;
+  if (!conn) return Promise.resolve(null);
+
+  const request = new Promise<DuelReplay | null>((resolve) => {
+    conn
+      .subscriptionBuilder()
+      .onApplied(() => {
+        const row = [...conn.db.duelReplay.iter()].find((replay) => replay.id === id);
+        if (row) upsertDuelReplay(row);
+        replayLoads.delete(id);
+        const replay = duelReplays.get(id);
+        resolve(replay ? { ...replay } : null);
+      })
+      .onError(() => {
+        replayLoads.delete(id);
+        resolve(null);
+      })
+      .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id))]);
+  });
+  replayLoads.set(id, request);
+  return request;
+}
+
 function removeDuel(row: { id: bigint }) {
   duels.delete(row.id);
   onChange?.();
@@ -481,6 +494,7 @@ function connect() {
       positionSyncPendingSequence = null;
       lastDuelPulseAt = 0;
       localStorage.setItem(tokenKey, token);
+      conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
 
       if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
       heartbeatTimer = window.setInterval(() => {
@@ -498,7 +512,6 @@ function connect() {
       conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
       conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
       conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
-      conn.db.duelReplay.onInsert((_ctx, row) => upsertDuelReplay(row));
 
       conn
         .subscriptionBuilder()
@@ -508,14 +521,19 @@ function connect() {
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
-          for (const row of conn.db.duelReplay.iter()) upsertDuelReplay(row);
           flushPendingProgress();
           onChange?.();
         })
         .onError((ctx) => {
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
-        .subscribe([tables.player, tables.playerProfile, tables.playerProgress, tables.chatMessage, tables.duel, tables.duelReplay]);
+        .subscribe([
+          tables.player,
+          tables.playerProfile,
+          tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+          tables.chatMessage,
+          tables.duel,
+        ]);
       onChange?.();
     })
     .onDisconnect((_ctx, error) => {
@@ -538,6 +556,7 @@ function connect() {
       chatMessages.length = 0;
       duels.clear();
       duelReplays.clear();
+      replayLoads.clear();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
     })
@@ -620,6 +639,7 @@ export const wildwoodCoop = {
     const replay = duelReplays.get(id);
     return replay ? { ...replay } : null;
   },
+  loadDuelReplay,
   requestDuel() {
     if (!connection) return;
     connection.reducers.requestDuel({});

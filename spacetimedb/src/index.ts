@@ -4,15 +4,18 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
+const PROTOCOL_VERSION = 2;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_MULTIPLIER = 1.5;
 const MAX_INPUT_STEP_SECONDS = 0.2;
 const STALE_PLAYER_SECONDS = 15;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
-const CHAT_COOLDOWN_MICROS = 400_000n;
+const CHAT_COOLDOWN_MICROS = 3_000_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
 const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const DUEL_REQUEST_RANGE = 250;
+const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
+const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
 const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
 const DUEL_COUNTDOWN_MICROS = 3_000_000n;
 const DUEL_DURATION_MICROS = 30_000_000n;
@@ -37,6 +40,8 @@ const player = table(
     moving: t.bool(),
     lastInputAt: t.timestamp(),
     lastInputSequence: t.u32().default(0),
+    power: t.u32().default(95),
+    protocolVersion: t.u32().default(0),
   },
 );
 
@@ -63,6 +68,22 @@ const playerProgress = table(
     speed: t.f32(),
     bootsCollected: t.bool(),
     introComplete: t.bool().default(false),
+  },
+);
+
+const playerNameCooldown = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    changedAt: t.timestamp(),
+  },
+);
+
+const duelRequestCooldown = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    requestedAt: t.timestamp(),
   },
 );
 
@@ -149,7 +170,7 @@ const duelReplay = table(
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, playerProgress, chatMessage, duel, duelReplay });
+const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, duelRequestCooldown, chatMessage, duel, duelReplay });
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -179,6 +200,24 @@ function defaultPlayerProgress(identity: any) {
     bootsCollected: false,
     introComplete: false,
   };
+}
+
+function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
+  return Math.max(0, Math.round(
+    progress.damage * .15 +
+    progress.maxHp +
+    progress.armor * 3 +
+    progress.regen * 10 +
+    50 / progress.attackRate,
+  ));
+}
+
+function requireCurrentProtocol(ctx: any) {
+  const current = ctx.db.player.identity.find(ctx.sender);
+  if (!current || current.protocolVersion !== PROTOCOL_VERSION) {
+    throw new Error("Wildwood updated. Refresh to continue.");
+  }
+  return current;
 }
 
 function sameIdentity(a: any, b: any) {
@@ -445,10 +484,12 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   }
 
   const existing = ctx.db.player.identity.find(ctx.sender);
+  const progressForPresence = existingProgress ?? defaultPlayerProgress(ctx.sender);
   if (existing) {
     if (["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
+        power: powerForProgress(progressForPresence),
         moving: false,
         lastInputAt: ctx.timestamp,
       });
@@ -460,6 +501,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
       y: PLAYER_SPAWN.y,
       facing: 0,
       moving: false,
+      power: powerForProgress(progressForPresence),
       lastInputAt: ctx.timestamp,
       lastInputSequence: 0,
     });
@@ -473,10 +515,12 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     facing: 0,
     hp: 30,
     maxHp: 30,
+    power: powerForProgress(progressForPresence),
     speed: PLAYER_SPEED,
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
+    protocolVersion: 0,
   });
 });
 
@@ -502,12 +546,30 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   ctx.db.player.identity.delete(ctx.sender);
 });
 
+export const registerProtocol = spacetimedb.reducer(
+  { protocolVersion: t.u32() },
+  (ctx, { protocolVersion }) => {
+    if (protocolVersion !== PROTOCOL_VERSION) {
+      throw new Error("Wildwood updated. Refresh to continue.");
+    }
+    const current = ctx.db.player.identity.find(ctx.sender);
+    if (!current) throw new Error("Player connection not ready.");
+    ctx.db.player.identity.update({ ...current, protocolVersion });
+  },
+);
+
 export const setDisplayName = spacetimedb.reducer(
   { displayName: t.string() },
   (ctx, { displayName }) => {
+    requireCurrentProtocol(ctx);
     const normalized = displayName.trim().replace(/\s+/g, " ");
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(normalized)) {
       throw new Error("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
+    }
+
+    const cooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
+    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.changedAt.microsSinceUnixEpoch < DISPLAY_NAME_COOLDOWN_MICROS) {
+      throw new Error("Display name can be changed once every 30 days.");
     }
 
     const existing = ctx.db.playerProfile.identity.find(ctx.sender);
@@ -516,6 +578,8 @@ export const setDisplayName = spacetimedb.reducer(
     } else {
       ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized });
     }
+    if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
+    else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
   },
 );
 
@@ -533,6 +597,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     bootsCollected: t.bool(),
   },
   (ctx, progress) => {
+    const activePlayer = requireCurrentProtocol(ctx);
     const values = [
       progress.maxHp,
       progress.damage,
@@ -577,12 +642,20 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    ctx.db.player.identity.update({
+      ...activePlayer,
+      hp: next.maxHp,
+      maxHp: next.maxHp,
+      power: powerForProgress(next),
+      speed: next.speed,
+    });
   },
 );
 
 export const beginAdventure = spacetimedb.reducer(
   {},
   (ctx) => {
+    requireCurrentProtocol(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     if (current?.introComplete) return;
     if (current) ctx.db.playerProgress.identity.update({ ...current, introComplete: true });
@@ -593,16 +666,25 @@ export const beginAdventure = spacetimedb.reducer(
 export const resetPlayerProgress = spacetimedb.reducer(
   {},
   (ctx) => {
+    const activePlayer = requireCurrentProtocol(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    ctx.db.player.identity.update({
+      ...activePlayer,
+      hp: next.maxHp,
+      maxHp: next.maxHp,
+      power: powerForProgress(next),
+      speed: next.speed,
+    });
   },
 );
 
 export const sendChatMessage = spacetimedb.reducer(
   { message: t.string() },
   (ctx, { message }) => {
+    requireCurrentProtocol(ctx);
     clearExpiredHistory(ctx);
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) return;
@@ -636,10 +718,15 @@ export const sendChatMessage = spacetimedb.reducer(
 export const requestDuel = spacetimedb.reducer(
   {},
   (ctx) => {
+    const challenger = requireCurrentProtocol(ctx);
     clearStalePlayers(ctx);
     clearExpiredDuelRequests(ctx);
-    const challenger = ctx.db.player.identity.find(ctx.sender);
-    if (!challenger || activeDuelFor(ctx, ctx.sender)) return;
+    if (activeDuelFor(ctx, ctx.sender)) return;
+
+    const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);
+    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch < DUEL_REQUEST_COOLDOWN_MICROS) return;
+    if (cooldown) ctx.db.duelRequestCooldown.identity.update({ ...cooldown, requestedAt: ctx.timestamp });
+    else ctx.db.duelRequestCooldown.insert({ identity: ctx.sender, requestedAt: ctx.timestamp });
 
     let opponent: any = null;
     let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
@@ -697,6 +784,7 @@ export const requestDuel = spacetimedb.reducer(
 export const acceptDuel = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
+    requireCurrentProtocol(ctx);
     clearStalePlayers(ctx);
     clearExpiredDuelRequests(ctx);
     const current = ctx.db.duel.id.find(id);
@@ -773,6 +861,7 @@ export const acceptDuel = spacetimedb.reducer(
 export const pulseDuel = spacetimedb.reducer(
   {},
   (ctx) => {
+    requireCurrentProtocol(ctx);
     const current = activeDuelFor(ctx, ctx.sender);
     if (current?.status === "countdown" || current?.status === "active") resolveDuel(ctx, current);
   },
@@ -781,9 +870,9 @@ export const pulseDuel = spacetimedb.reducer(
 export const moveV2 = spacetimedb.reducer(
   { inputX: t.f32(), inputY: t.f32(), sequence: t.u32() },
   (ctx, { inputX, inputY, sequence }) => {
+    const current = requireCurrentProtocol(ctx);
     clearStalePlayers(ctx);
-    const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current || sequence <= current.lastInputSequence || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
+    if (sequence <= current.lastInputSequence || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(inputX) || !Number.isFinite(inputY)) {
       throw new Error("Movement input must be finite");
@@ -840,9 +929,9 @@ export const moveV2 = spacetimedb.reducer(
 export const syncPosition = spacetimedb.reducer(
   { x: t.f64(), y: t.f64(), facing: t.f64(), sequence: t.u32() },
   (ctx, { x, y, facing, sequence }) => {
+    const current = requireCurrentProtocol(ctx);
     clearStalePlayers(ctx);
-    const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current || ["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
+    if (["countdown", "active"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
       throw new Error("Position sync values must be finite");
@@ -863,12 +952,10 @@ export const syncPosition = spacetimedb.reducer(
 export const heartbeat = spacetimedb.reducer(
   {},
   (ctx) => {
+    const current = requireCurrentProtocol(ctx);
     clearStalePlayers(ctx);
     clearExpiredDuelRequests(ctx);
     clearExpiredHistory(ctx);
-    const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current) return;
-
     const activeDuel = activeDuelFor(ctx, ctx.sender);
     if (activeDuel?.status === "countdown" || activeDuel?.status === "active") resolveDuel(ctx, activeDuel);
 
@@ -882,8 +969,7 @@ export const heartbeat = spacetimedb.reducer(
 export const setSpeed = spacetimedb.reducer(
   { speed: t.f32() },
   (ctx, { speed }) => {
-    const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current) return;
+    const current = requireCurrentProtocol(ctx);
 
     const validSpeed = [PLAYER_SPEED, PLAYER_SPEED * BOOTS_SPEED_MULTIPLIER]
       .some((allowed) => Math.abs(speed - allowed) < 0.01);

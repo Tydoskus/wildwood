@@ -39,6 +39,7 @@ import BeginAdventureReducer from "./begin_adventure_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
 import MoveV2Reducer from "./move_v_2_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
+import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
@@ -136,6 +137,7 @@ const reducersSchema = __reducers(
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("move_v_2", MoveV2Reducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
+  __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
