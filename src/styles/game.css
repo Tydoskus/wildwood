@@ -336,6 +336,7 @@
 
   #chatMessages {
     display: grid;
+    align-content: start;
     gap: 4px;
     height: 34px;
     max-height: 34px;

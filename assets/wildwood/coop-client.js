@@ -8471,6 +8471,8 @@ ${ty.variants.map(
   const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
   const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
   const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
+  const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
+  const silentAuthAttemptKey = `${tokenKey}/spacetimeauth_silent_attempt_v1`;
   const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
   const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
   const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
@@ -8513,6 +8515,32 @@ ${ty.variants.map(
     } catch {
     }
   }
+  function hasKnownAccount() {
+    try {
+      return localStorage.getItem(knownAccountKey) === "true";
+    } catch {
+      return false;
+    }
+  }
+  function rememberAccount() {
+    try {
+      localStorage.setItem(knownAccountKey, "true");
+    } catch {
+    }
+  }
+  function silentAuthAlreadyAttempted() {
+    try {
+      return sessionStorage.getItem(silentAuthAttemptKey) === "true";
+    } catch {
+      return true;
+    }
+  }
+  function markSilentAuthAttempted() {
+    try {
+      sessionStorage.setItem(silentAuthAttemptKey, "true");
+    } catch {
+    }
+  }
   function guestToken() {
     try {
       const saved = localStorage.getItem(guestTokenKey);
@@ -8542,7 +8570,8 @@ ${ty.variants.map(
   async function completeAccountCallback() {
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
-    if (!code) return;
+    const authError = url.searchParams.get("error");
+    if (!code && !authError) return;
     const state = url.searchParams.get("state");
     const expectedState = localStorage.getItem(authStateKey);
     const verifier = localStorage.getItem(authVerifierKey);
@@ -8552,6 +8581,14 @@ ${ty.variants.map(
       history.replaceState({}, "", cleanUrl);
       return;
     }
+    if (authError) {
+      authNotice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
+      localStorage.removeItem(authStateKey);
+      localStorage.removeItem(authVerifierKey);
+      history.replaceState({}, "", cleanUrl);
+      return;
+    }
+    if (!code) return;
     try {
       const response = await fetch(SPACETIME_AUTH_TOKEN_ENDPOINT, {
         method: "POST",
@@ -8569,6 +8606,7 @@ ${ty.variants.map(
         throw new Error(result.error_description || result.error || "Token exchange failed");
       }
       localStorage.setItem(accountTokenKey, result.id_token);
+      rememberAccount();
       authNotice = "SIGNED IN";
     } catch (error) {
       authNotice = "SIGN-IN FAILED";
@@ -8579,14 +8617,14 @@ ${ty.variants.map(
       history.replaceState({}, "", cleanUrl);
     }
   }
-  async function startAccountSignIn() {
+  async function startAccountSignIn(silent = false) {
     const verifier = randomUrlSafe(48);
     const state = randomUrlSafe(24);
     const challenge = await sha256UrlSafe(verifier);
     localStorage.setItem(authStateKey, state);
     localStorage.setItem(authVerifierKey, verifier);
     const url = new URL(SPACETIME_AUTHORIZATION_ENDPOINT);
-    url.search = new URLSearchParams({
+    const parameters = new URLSearchParams({
       client_id: SPACETIME_AUTH_CLIENT_ID,
       redirect_uri: redirectUri(),
       response_type: "code",
@@ -8595,8 +8633,21 @@ ${ty.variants.map(
       nonce: randomUrlSafe(24),
       code_challenge: challenge,
       code_challenge_method: "S256"
-    }).toString();
+    });
+    if (silent) parameters.set("prompt", "none");
+    url.search = parameters.toString();
     window.location.assign(url.toString());
+  }
+  async function restoreKnownAccount() {
+    await completeAccountCallback();
+    if (!accountToken() && hasKnownAccount() && !silentAuthAlreadyAttempted()) {
+      markSilentAuthAttempted();
+      authNotice = "RESTORING SIGN-IN";
+      onChange == null ? void 0 : onChange();
+      await startAccountSignIn(true);
+      return;
+    }
+    wildwoodCoop.connect();
   }
   function bounded(value, min, max, fallback) {
     return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
@@ -8972,6 +9023,13 @@ ${ty.variants.map(
       const rejectedToken = /401|unauthorized|verify token/i.test(String((error == null ? void 0 : error.message) || error));
       if (rejectedToken) {
         clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
+        if (signedIn && hasKnownAccount() && !silentAuthAlreadyAttempted()) {
+          markSilentAuthAttempted();
+          authNotice = "RESTORING SIGN-IN";
+          onChange == null ? void 0 : onChange();
+          void startAccountSignIn(true);
+          return;
+        }
         if (signedIn) authNotice = "SIGN-IN EXPIRED";
         console.warn("Wildwood token rejected; reconnecting with a fresh guest session.");
         onChange == null ? void 0 : onChange();
@@ -9020,6 +9078,8 @@ ${ty.variants.map(
         localStorage.removeItem(accountLinkKey);
         localStorage.removeItem(authStateKey);
         localStorage.removeItem(authVerifierKey);
+        localStorage.removeItem(knownAccountKey);
+        sessionStorage.removeItem(silentAuthAttemptKey);
       } catch {
       }
       window.location.reload();
@@ -9154,7 +9214,7 @@ ${ty.variants.map(
   });
   window.addEventListener("pageshow", () => reconnectAfterWake());
   window.addEventListener("online", () => scheduleReconnect(100));
-  void completeAccountCallback().finally(() => wildwoodCoop.connect());
+  void restoreKnownAccount();
   exports.default = wildwoodCoop;
   exports.wildwoodCoop = wildwoodCoop;
   Object.defineProperties(exports, { __esModule: { value: true }, [Symbol.toStringTag]: { value: "Module" } });
