@@ -1,0 +1,90 @@
+import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
+import { CAMPS, ENEMY_TYPES, type EnemyKind, type RewardType } from "./enemies";
+import { clamp, rand } from "./math";
+
+export type WorldPath = { x: number; y: number; w: number; h: number };
+export type WorldDecor =
+  | { type: "stone"; x: number; y: number; w: number; h: number }
+  | { type: "tree"; x: number; y: number; s: number; seed: number };
+export type SpawnSite = {
+  id: number;
+  x: number;
+  y: number;
+  campName: string;
+  type: EnemyKind;
+  rewardType: RewardType;
+  leashRange: number;
+  alive: boolean;
+  respawnAt: number;
+};
+
+type Point = { x: number; y: number };
+
+export function createWorldLayout(playerSpawn: Point) {
+  const decor: WorldDecor[] = [];
+  const paths: WorldPath[] = [];
+  const centerX = WORLD.w / 2;
+  const centerY = WORLD.h / 2;
+
+  paths.push({ x: centerX - 105, y: 0, w: 210, h: WORLD.h });
+  paths.push({ x: 0, y: centerY - 105, w: WORLD.w, h: 210 });
+  paths.push({ x: 760, y: 840, w: 1640, h: 120 });
+  paths.push({ x: 2400, y: 700, w: 1570, h: 120 });
+  paths.push({ x: 780, y: 2790, w: 1620, h: 120 });
+  paths.push({ x: 2400, y: 2720, w: 1430, h: 120 });
+  paths.push({ x: 1500, y: 3950, w: 2100, h: 120 });
+
+  for (let index = 0; index < 36; index += 1) {
+    const side = index % 4;
+    let x = 0;
+    let y = 0;
+    let width = 0;
+    let height = 0;
+    if (side === 0) { x = rand(140, WORLD.w - 410); y = rand(85, 260); width = rand(110, 280); height = rand(35, 70); }
+    if (side === 1) { x = rand(WORLD.w - 260, WORLD.w - 85); y = rand(140, WORLD.h - 410); width = rand(35, 70); height = rand(110, 280); }
+    if (side === 2) { x = rand(140, WORLD.w - 410); y = rand(WORLD.h - 260, WORLD.h - 85); width = rand(110, 280); height = rand(35, 70); }
+    if (side === 3) { x = rand(85, 260); y = rand(140, WORLD.h - 410); width = rand(35, 70); height = rand(110, 280); }
+    decor.push({ type: "stone", x, y, w: width, h: height });
+  }
+
+  for (let index = 0; index < 360; index += 1) {
+    const x = rand(55, WORLD.w - 55);
+    const y = rand(55, WORLD.h - 55);
+    const onRoad = paths.some((path) =>
+      x > path.x - 35 && x < path.x + path.w + 35 && y > path.y - 35 && y < path.y + path.h + 35);
+    if (!onRoad && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
+      decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), seed: Math.random() });
+    }
+  }
+  return { decor, paths };
+}
+
+export function createSpawnSites(boss: Point): SpawnSite[] {
+  const sites: SpawnSite[] = [];
+  let id = 0;
+  for (let campIndex = 0; campIndex < CAMPS.length; campIndex += 1) {
+    const camp = CAMPS[campIndex];
+    for (let index = 0; index < camp.count; index += 1) {
+      const angle = index * 2.399963 + campIndex * 0.71;
+      const fraction = ((index * 37 + campIndex * 19) % 101) / 100;
+      const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
+      let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
+      let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
+      const bossDx = x - boss.x;
+      const bossDy = y - boss.y;
+      const bossDistance = Math.hypot(bossDx, bossDy) || 1;
+      if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
+        x = clamp(boss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
+        y = clamp(boss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
+      }
+      const type = camp.types[index % camp.types.length];
+      sites.push({
+        id: id++, x, y, campName: camp.name, type,
+        rewardType: ENEMY_TYPES[type].rewardType,
+        leashRange: Math.max(420, camp.radius * 0.9),
+        alive: false, respawnAt: 0,
+      });
+    }
+  }
+  return sites;
+}

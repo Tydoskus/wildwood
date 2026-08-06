@@ -9,7 +9,6 @@ import {
   BOSS_AGGRO_RANGE,
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
-  BOSS_ENEMY_SAFE_DISTANCE,
   BOSS_RAIN_RANGE,
   ENEMY_RESPAWN_SAFE_DISTANCE,
   MAX_PROJECTILE_SPEED,
@@ -23,13 +22,32 @@ import {
   WORLD,
 } from "./game/constants";
 import { circlesOverlap, clamp, distanceSquared, rand, randi } from "./game/math";
-import { ITEM_DEFINITIONS, inventoryFromSave, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { inventoryFromSave, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { createCanvasPrimitives } from "./game/canvas";
+import { createSpawnSites, createWorldLayout } from "./game/world";
+import {
+  DUEL_ARENA,
+  DUEL_REPLAY_COUNTDOWN_SECONDS,
+  DUEL_REQUEST_RANGE,
+  DUEL_SHOT_LIFETIME,
+  DUEL_SHOT_SPEED,
+  duelStatLine,
+  replayState,
+} from "./game/duel";
+import {
+  damageRewardForHp,
+  ENEMY_TYPES,
+  loadEnemySprites,
+  REWARD_DATA,
+  rewardLabel,
+} from "./game/enemies";
 import { createChatController } from "./ui/chat";
+import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.194";
+  const GAME_VERSION = "0.195";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -37,6 +55,7 @@ import { createChatController } from "./ui/chat";
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
   ctx.imageSmoothingEnabled = false;
+  const { pixelCircle, roundRect } = createCanvasPrimitives(ctx);
 
   const hpFill = document.getElementById("hpFill");
   const hpText = document.getElementById("hpText");
@@ -110,12 +129,7 @@ import { createChatController } from "./ui/chat";
   const decor = [];
   const paths = [];
   const bossRain = [];
-  const DUEL_REQUEST_RANGE = 250;
-  const DUEL_ARENA = { x: 6000, y: 6000, r: 430 };
   const START_SPAWN = { x: 360, y: 360 };
-  const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
-  const DUEL_SHOT_LIFETIME = .38;
-  const DUEL_SHOT_SPEED = 620;
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -230,154 +244,7 @@ import { createChatController } from "./ui/chat";
   playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
   playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
 
-  const ENEMY_SPRITES = {
-    grunt: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
-    runner: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
-    tank: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-    shooter: {
-      size: 64,
-      height: 70,
-      layers: [
-        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg1.png", x: -16, y: 19, w: 15, h: 21 },
-        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg2.png", x: 1, y: 19, w: 17, h: 22 },
-        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/body.png", x: -20, y: -5, w: 40, h: 40 },
-        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/arm2.png", x: 13, y: -1, w: 20, h: 21 },
-        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/bow.png", x: 15, y: -6, w: 43, h: 33 },
-        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 },
-      ],
-    },
-    splitter: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
-    elite: { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
-    warden: { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
-  };
-  for (const sprite of Object.values(ENEMY_SPRITES)) {
-    if (sprite.layers) {
-      for (const layer of sprite.layers) {
-        layer.image = new Image();
-        layer.image.src = layer.src;
-      }
-    } else {
-      sprite.image = new Image();
-      sprite.image.src = sprite.src;
-    }
-  }
-
-  const ENEMY_TYPES = {
-    grunt: {
-      name: "Bramble",
-      hp: 12, speed: 150, damage: 4, r: 14,
-      color: "#d95738", outline: "#5c1b13", reward: 4, rewardType: "health",
-      aggro: 245
-    },
-    runner: {
-      name: "Needle",
-      hp: 9, speed: 150, damage: 4, r: 10,
-      color: "#ffd34d", outline: "#6f4a12", reward: 5, rewardType: "speed",
-      aggro: 275
-    },
-    tank: {
-      name: "Mossback",
-      hp: 38, speed: 150, damage: 9, r: 22,
-      color: "#768d51", outline: "#2c3b20", reward: 10, rewardType: "armor",
-      aggro: 220
-    },
-    shooter: {
-      name: "Spitter",
-      hp: 18, speed: 150, damage: 8, r: 15,
-      color: "#b16ac8", outline: "#4b235d", reward: 8, rewardType: "damage",
-      ranged: true, aggro: 330
-    },
-    splitter: {
-      name: "Brood",
-      hp: 22, speed: 150, damage: 6, r: 16,
-      color: "#45b6c2", outline: "#174a54", reward: 8, rewardType: "regen",
-      aggro: 255
-    },
-    elite: {
-      name: "King Slime",
-      hp: 92, speed: 150, damage: 13, r: 27,
-      color: "#70a94f", outline: "#2d5127", reward: 30, rewardType: "health", statReward: 44,
-      elite: true, aggro: 300
-    },
-    warden: {
-      name: "Dread Warden",
-      hp: 1000, speed: 150, damage: 75, r: 36,
-      color: "#a52e3a", outline: "#47101a", reward: 180, rewardType: "damage",
-      elite: true, aggro: 350, damageReward: 83
-    }
-  };
-
-  const REWARD_DATA = {
-    damage: { color: "#ff655a" },
-    health: { color: "#66ed79", label: "+6 MAX HEALTH" },
-    speed:  { color: "#ffe05d", label: "+8% ATT SPEED" },
-    armor:  { color: "#d3dbe0", label: "+1 ARMOR" },
-    regen:  { color: "#ff7ccb", label: "+0.3 HP/SEC" }
-  };
-
-  function damageRewardForHp(maxHp, explicitReward) {
-    return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
-  }
-
-  function rewardLabel(type, maxHp, explicitDamageReward, explicitStatReward) {
-    return type === "damage"
-      ? `+${damageRewardForHp(maxHp, explicitDamageReward)} DAMAGE`
-      : type === "health" && explicitStatReward
-        ? `+${explicitStatReward} MAX HEALTH`
-      : REWARD_DATA[type].label;
-  }
-
-  const CAMPS = [
-    {
-      name: "Ember Fen",
-      x: 820, y: 900, minRadius: 260, radius: 610,
-      count: 6,
-      types: ["grunt", "grunt", "runner"],
-      ground: "#5b3b28", ring: "#b66a37"
-    },
-    {
-      name: "Mossfall Ruins",
-      x: 2400, y: 760, minRadius: 260, radius: 630,
-      count: 6,
-      types: ["grunt", "tank", "tank"],
-      ground: "#33423a", ring: "#8d9b75"
-    },
-    {
-      name: "Glass Thicket",
-      x: 3970, y: 1120, minRadius: 280, radius: 600,
-      count: 5,
-      types: ["runner", "runner", "splitter"],
-      ground: "#244f53", ring: "#64bdc5"
-    },
-    {
-      name: "Brine Marsh",
-      x: 850, y: 2860, minRadius: 270, radius: 620,
-      count: 6,
-      types: ["shooter", "splitter", "shooter"],
-      ground: "#243e4d", ring: "#5f9eb5"
-    },
-    {
-      name: "Cinder Quarry",
-      x: 3830, y: 2790, minRadius: 280, radius: 610,
-      count: 6,
-      types: ["tank", "shooter", "tank", "warden"],
-      ground: "#4b4039", ring: "#b5875c"
-    },
-    {
-      name: "Moonroot Grove",
-      x: 1540, y: 4040, minRadius: 240, radius: 560,
-      count: 5,
-      types: ["splitter", "tank", "elite"],
-      ground: "#3d3157", ring: "#9a79d5"
-    },
-    {
-      name: "Sunken Yard",
-      x: 3590, y: 4100, minRadius: 240, radius: 560,
-      count: 5,
-      types: ["runner", "shooter", "elite"],
-      ground: "#553334", ring: "#d37362"
-    }
-  ];
+  const ENEMY_SPRITES = loadEnemySprites();
 
   function resize() {
     viewW = innerWidth;
@@ -439,83 +306,11 @@ import { createChatController } from "./ui/chat";
     return closestEnemy ? { enemy: closestEnemy, t: closestT } : null;
   }
 
-  function makeWorld() {
-    decor.length = 0;
-    paths.length = 0;
-
-    const centerX = WORLD.w / 2;
-    const centerY = WORLD.h / 2;
-
-    // Crossroads and branches connect the seven distinct combat zones.
-    paths.push({ x: centerX - 105, y: 0, w: 210, h: WORLD.h });
-    paths.push({ x: 0, y: centerY - 105, w: WORLD.w, h: 210 });
-    paths.push({ x: 760, y: 840, w: 1640, h: 120 });
-    paths.push({ x: 2400, y: 700, w: 1570, h: 120 });
-    paths.push({ x: 780, y: 2790, w: 1620, h: 120 });
-    paths.push({ x: 2400, y: 2720, w: 1430, h: 120 });
-    paths.push({ x: 1500, y: 3950, w: 2100, h: 120 });
-
-    // Scatter boundary ruins around the expanded world.
-    for (let i = 0; i < 36; i++) {
-      const side = i % 4;
-      let x, y, w, h;
-      if (side === 0) { x = rand(140, WORLD.w - 410); y = rand(85, 260); w = rand(110, 280); h = rand(35, 70); }
-      if (side === 1) { x = rand(WORLD.w - 260, WORLD.w - 85); y = rand(140, WORLD.h - 410); w = rand(35, 70); h = rand(110, 280); }
-      if (side === 2) { x = rand(140, WORLD.w - 410); y = rand(WORLD.h - 260, WORLD.h - 85); w = rand(110, 280); h = rand(35, 70); }
-      if (side === 3) { x = rand(85, 260); y = rand(140, WORLD.h - 410); w = rand(35, 70); h = rand(110, 280); }
-      decor.push({ type: "stone", x, y, w, h });
-    }
-
-    for (let i = 0; i < 360; i++) {
-      const x = rand(55, WORLD.w - 55);
-      const y = rand(55, WORLD.h - 55);
-      let onRoad = false;
-      for (const p of paths) {
-        if (x > p.x - 35 && x < p.x + p.w + 35 && y > p.y - 35 && y < p.y + p.h + 35) {
-          onRoad = true;
-          break;
-        }
-      }
-      if (!onRoad && Math.hypot(x - player.x, y - player.y) > 420) {
-        decor.push({ type: "tree", x, y, s: rand(.7, 1.35), seed: Math.random() });
-      }
-    }
-  }
-
-  function buildSpawnSites() {
-    spawnSites.length = 0;
-    let id = 0;
-
-    for (let campIndex = 0; campIndex < CAMPS.length; campIndex++) {
-      const camp = CAMPS[campIndex];
-
-      for (let i = 0; i < camp.count; i++) {
-        const angle = i * 2.399963 + campIndex * .71;
-        const fraction = ((i * 37 + campIndex * 19) % 101) / 100;
-        const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
-        let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
-        let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
-        const bossDx = x - boss.x;
-        const bossDy = y - boss.y;
-        const bossDistance = Math.hypot(bossDx, bossDy) || 1;
-
-        if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
-          x = clamp(boss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
-          y = clamp(boss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
-        }
-
-        spawnSites.push({
-          id: id++,
-          x, y,
-          campName: camp.name,
-          type: camp.types[i % camp.types.length],
-          rewardType: ENEMY_TYPES[camp.types[i % camp.types.length]].rewardType,
-          leashRange: Math.max(420, camp.radius * .9),
-          alive: false,
-          respawnAt: 0
-        });
-      }
-    }
+  function rebuildWorld() {
+    const layout = createWorldLayout(player);
+    decor.splice(0, decor.length, ...layout.decor);
+    paths.splice(0, paths.length, ...layout.paths);
+    spawnSites.splice(0, spawnSites.length, ...createSpawnSites(boss));
   }
 
   function reset(preserveStats = false) {
@@ -555,8 +350,7 @@ import { createChatController } from "./ui/chat";
     pickupLog.innerHTML = "";
     resetBoss();
 
-    makeWorld();
-    buildSpawnSites();
+    rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
 
     showMessage("EXPLORE", "#ffe769");
@@ -1200,10 +994,6 @@ import { createChatController } from "./ui/chat";
     lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
   }
 
-  function duelStatLine(subject, attacks, damage, regen, blocked) {
-    return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>ATTACKED ${attacks} TIMES<br>DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP<br>BLOCKED ${Math.round(blocked)} DMG</div>`;
-  }
-
   function showDuelResult(replay) {
     if (!replay || !duelResultEl) return;
     const localName = coop?.localDisplayName?.() || "PLAYER";
@@ -1221,46 +1011,6 @@ import { createChatController } from "./ui/chat";
       duelStatLine(other.name, other.attacks, other.damage, other.regen, other.blocked);
     duelResultEl.hidden = false;
     duelResultEl.dataset.replayId = String(replay.id);
-  }
-
-  function replayState(replay, seconds) {
-    const elapsed = Math.min(replay.durationSeconds, seconds);
-    let time = 0;
-    let challengerHp = replay.challengerMaxHp;
-    let opponentHp = replay.opponentMaxHp;
-    let challengerAttacks = 0;
-    let opponentAttacks = 0;
-    const challengerRate = Math.max(.001, replay.challengerAttackRate);
-    const opponentRate = Math.max(.001, replay.opponentAttackRate);
-
-    while (time < elapsed && challengerHp > 0 && opponentHp > 0) {
-      const nextChallengerAttack = challengerAttacks < replay.challengerAttacks
-        ? (challengerAttacks + 1) * challengerRate
-        : Infinity;
-      const nextOpponentAttack = opponentAttacks < replay.opponentAttacks
-        ? (opponentAttacks + 1) * opponentRate
-        : Infinity;
-      const nextEvent = Math.min(elapsed, nextChallengerAttack, nextOpponentAttack);
-      const delta = nextEvent - time;
-      challengerHp = Math.min(replay.challengerMaxHp, challengerHp + replay.challengerRegen * delta);
-      opponentHp = Math.min(replay.opponentMaxHp, opponentHp + replay.opponentRegen * delta);
-      time = nextEvent;
-      const challengerHits = nextChallengerAttack <= time + .00001 && challengerAttacks < replay.challengerAttacks;
-      const opponentHits = nextOpponentAttack <= time + .00001 && opponentAttacks < replay.opponentAttacks;
-      const challengerDamage = challengerHits ? Math.max(1, replay.challengerDamage - replay.opponentArmor) : 0;
-      const opponentDamage = opponentHits ? Math.max(1, replay.opponentDamage - replay.challengerArmor) : 0;
-      opponentHp = Math.max(0, opponentHp - challengerDamage);
-      challengerHp = Math.max(0, challengerHp - opponentDamage);
-      if (challengerHits) challengerAttacks++;
-      if (opponentHits) opponentAttacks++;
-      if (!challengerHits && !opponentHits) break;
-    }
-
-    if (elapsed >= replay.durationSeconds) {
-      challengerHp = replay.challengerFinalHp;
-      opponentHp = replay.opponentFinalHp;
-    }
-    return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
   }
 
   async function openDuelReplay(replayId) {
@@ -1733,20 +1483,6 @@ import { createChatController } from "./ui/chat";
 
     ctx.fillStyle = "rgba(129,233,116,.18)";
     pixelCircle(x - 5*s, y - 9*s, 8*s);
-  }
-
-  function pixelCircle(x, y, r) {
-    const step = 4;
-    const rr = r*r;
-    for (let yy = -r; yy <= r; yy += step) {
-      const half = Math.sqrt(Math.max(0, rr - yy*yy));
-      ctx.fillRect(
-        Math.floor(x - half),
-        Math.floor(y + yy),
-        Math.ceil(half * 2),
-        step
-      );
-    }
   }
 
   function drawDecor() {
@@ -2264,17 +2000,6 @@ import { createChatController } from "./ui/chat";
     ctx.restore();
   }
 
-  function roundRect(x, y, w, h, r) {
-    const rr = Math.min(r, w/2, h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr, y);
-    ctx.arcTo(x+w, y, x+w, y+h, rr);
-    ctx.arcTo(x+w, y+h, x, y+h, rr);
-    ctx.arcTo(x, y+h, x, y, rr);
-    ctx.arcTo(x, y, x+w, y, rr);
-    ctx.closePath();
-  }
-
   function duelCameraPosition() {
     const zoom = Math.min(1, Math.max(.65, Math.min(viewW, viewH) / 820));
     camera.zoom = zoom;
@@ -2423,71 +2148,33 @@ import { createChatController } from "./ui/chat";
   }
 
   function updateHud() {
-    const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
-    hpFill.style.width = (hpRatio * 100).toFixed(1) + "%";
-    hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp} HP`;
-    if (playerNameEl) {
-      playerNameEl.textContent = coop?.localDisplayName?.() || "WANDERER";
-    }
-
-    statsEl.innerHTML =
-      `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>` +
-      `ATK SPEED ${(1/player.attackRate).toFixed(2)}/s &nbsp; ATK RANGE ${Math.round(player.attackRange)}<br>` +
-      `REGEN ${player.regen.toFixed(1)}/s &nbsp; MOVE ${Math.round(player.speed)}`;
-
-    if (coopStatusEl) {
-      const remoteCount = coop && typeof coop.remotePlayerCount === "function"
-        ? coop.remotePlayerCount()
-        : coop
-          ? coop.remotePlayers().length
-          : 0;
-      const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
-      coopStatusEl.textContent = `PLAYERS: ${playerCount}`;
-    }
+    const remoteCount = coop && typeof coop.remotePlayerCount === "function"
+      ? coop.remotePlayerCount()
+      : coop
+        ? coop.remotePlayers().length
+        : 0;
+    const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
+    renderPlayerHud(
+      { hpFill, hpText, playerName: playerNameEl, stats: statsEl, coopStatus: coopStatusEl },
+      player,
+      coop?.localDisplayName?.() || "WANDERER",
+      playerCount,
+    );
     updateDuelControls();
     updateConnectionStatus();
     updateAccountStatus();
   }
 
   function renderInventory() {
-    if (!inventoryItemsEl || !inventoryDetailEl || !equippedFeetSlot) return;
-    inventoryItemsEl.replaceChildren();
-    const itemIds = inventory.itemIds.filter((itemId) => ITEM_DEFINITIONS[itemId]);
-    if (!inventory.selectedItemId && itemIds.length) inventory.selectedItemId = itemIds[0];
-    inventoryCountEl.textContent = `${itemIds.length} / 16`;
-    equippedFeetSlot.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
-    equippedFeetSlot.innerHTML = inventory.equippedFeet === TRAILBLAZER_BOOTS
-      ? `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span><span>FEET</span>`
-      : "<span>FEET</span>";
-
-    for (let index = 0; index < 16; index += 1) {
-      const itemId = itemIds[index];
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "inventory-item" + (itemId ? " is-filled" : "") + (inventory.selectedItemId === itemId ? " is-selected" : "");
-      if (itemId) {
-        const item = ITEM_DEFINITIONS[itemId];
-        button.setAttribute("aria-label", item.name);
-        button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
-        button.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
-        button.addEventListener("click", () => {
-          inventory.selectedItemId = itemId;
-          renderInventory();
-        });
-      } else {
-        button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
-        button.disabled = true;
-      }
-      inventoryItemsEl.appendChild(button);
-    }
-    const selected = ITEM_DEFINITIONS[inventory.selectedItemId] ?? ITEM_DEFINITIONS[itemIds[0]];
-    if (!selected) {
-      inventoryDetailEl.textContent = "SELECT AN ITEM TO VIEW ITS STATS";
-      return;
-    }
-    inventoryDetailEl.innerHTML =
-      `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
-      `<strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
+    if (!inventoryItemsEl || !inventoryDetailEl || !inventoryCountEl || !equippedFeetSlot) return;
+    renderInventoryView(
+      { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedFeet: equippedFeetSlot },
+      inventory,
+      (itemId) => {
+        inventory.selectedItemId = itemId;
+        renderInventory();
+      },
+    );
   }
 
   function nearbyDuelOpponent() {

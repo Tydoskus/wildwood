@@ -6,7 +6,9 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 
 | Area | Location | Purpose |
 | --- | --- | --- |
-| Game client | `src/main.ts` | Gameplay loop, rendering, HUD, loading flow, boss behavior, and local progress application. |
+| Game runtime | `src/main.ts` | Runtime orchestration, mutable combat state, rendering order, input wiring, and screen transitions. |
+| Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
+| UI modules | `src/ui/` | HUD, inventory, and chat rendering/interaction. |
 | Multiplayer client | `src/wildwood-coop.ts` | SpacetimeDB connection, guest/account authentication, subscriptions, durable progress, chat, and duels. |
 | Server module | `spacetimedb/src/index.ts` | Authoritative player state, persistence, reducer validation, account linking, chat, and duels. |
 | Shared game values | `src/game/constants.ts` | World dimensions, player and boss tuning, and movement constants. |
@@ -15,6 +17,8 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 | Generated server bindings | `src/module_bindings/` | TypeScript bindings from the deployed SpacetimeDB schema. Do not edit by hand. |
 
 GitHub Pages deploys the repository contents directly after every push to `main`. The workflow does **not** build the client. Build and commit generated browser bundles before pushing.
+
+See `ENGINEERING.md` for module boundaries, required change rules, and the prioritized technical backlog.
 
 ## Local development
 
