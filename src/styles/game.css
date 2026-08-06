@@ -526,6 +526,24 @@
     line-height: 1.55;
   }
 
+  .account-choice-modal .account-character {
+    margin: 16px 0 4px;
+    color: #9fb5a4;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: .035em;
+  }
+
+  .account-choice-modal .account-character strong {
+    color: #86f45d;
+    text-shadow: 1px 2px 0 #173c1a;
+  }
+
+  .account-choice-modal .account-character.is-empty strong {
+    color: #ffd869;
+    text-shadow: 1px 2px 0 #5d3a14;
+  }
+
   .account-choice-modal button {
     display: block;
     width: min(290px, 100%);

@@ -218,7 +218,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.190";
+    const GAME_VERSION = "0.191";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -253,6 +253,8 @@
     const loadingFill = document.getElementById("loadingFill");
     const accountChoicePanel = document.getElementById("accountChoicePanel");
     const accountChoiceDetail = document.getElementById("accountChoiceDetail");
+    const accountCharacter = document.getElementById("accountCharacter");
+    const accountCharacterName = document.getElementById("accountCharacterName");
     const signInFromStartBtn = document.getElementById("signInFromStartBtn");
     const continueGuestBtn = document.getElementById("continueGuestBtn");
     const newPlayerPanel = document.getElementById("newPlayerPanel");
@@ -889,6 +891,18 @@
       updateLoadingDetail();
     }
     function showAccountChoice() {
+      var _a, _b;
+      const saved = (_a = coop == null ? void 0 : coop.savedProgress) == null ? void 0 : _a.call(coop);
+      const name = (((_b = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b.call(coop)) || "").trim();
+      const characterFound = Boolean((saved == null ? void 0 : saved.introComplete) && name);
+      if (accountCharacter && accountCharacterName) {
+        accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
+        accountCharacter.classList.toggle("is-empty", !characterFound);
+      }
+      if (signInFromStartBtn) signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+      if (accountChoiceDetail) {
+        accountChoiceDetail.textContent = characterFound ? "SIGN IN TO THIS CHARACTER" : "REGISTER OR PLAY AS GUEST";
+      }
       startEl.style.display = "grid";
       connectionPanel.hidden = true;
       accountChoicePanel.hidden = false;
@@ -2668,14 +2682,15 @@
       finishStartup();
     });
     signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
-      var _a;
+      var _a, _b, _c, _d;
+      const characterFound = Boolean(((_b = (_a = coop == null ? void 0 : coop.savedProgress) == null ? void 0 : _a.call(coop)) == null ? void 0 : _b.introComplete) && ((_c = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _c.call(coop)));
       signInFromStartBtn.disabled = true;
       continueGuestBtn.disabled = true;
-      accountChoiceDetail.textContent = "OPENING SIGN-IN…";
-      void ((_a = coop == null ? void 0 : coop.signIn) == null ? void 0 : _a.call(coop).catch(() => {
+      accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
+      void ((_d = coop == null ? void 0 : coop.signIn) == null ? void 0 : _d.call(coop).catch(() => {
         signInFromStartBtn.disabled = false;
         continueGuestBtn.disabled = false;
-        accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+        accountChoiceDetail.textContent = characterFound ? "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST" : "REGISTRATION FAILED · TRY AGAIN OR CONTINUE AS GUEST";
       }));
     });
     screenShakeToggle.addEventListener("click", () => {

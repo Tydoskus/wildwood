@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.190" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.191" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -96,7 +96,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.190</div>
+        <div id="version">v0.191</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -129,6 +129,7 @@
   <div id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle" hidden>
     <h1 id="accountChoiceTitle">WILDWOOD</h1>
     <p>Clear enemy camps, collect upgrades, and take on the dragon.</p>
+    <p id="accountCharacter" class="account-character" aria-live="polite">Character: <strong id="accountCharacterName">none found</strong></p>
     <button id="signInFromStartBtn" type="button">SIGN IN / REGISTER</button>
     <button id="continueGuestBtn" class="secondary-button" type="button">CONTINUE AS GUEST</button>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR PLAY AS GUEST</p>
@@ -167,7 +168,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.190"></script>
-<script src="assets/wildwood/game.js?v=0.190"></script>
+<script src="assets/wildwood/coop-client.js?v=0.191"></script>
+<script src="assets/wildwood/game.js?v=0.191"></script>
 </body>
 </html>
