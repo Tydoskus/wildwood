@@ -9,14 +9,17 @@
     --gold: #ffd85b;
     --red: #ff6767;
     --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
+    --text-outline-width: 1px;
+    --text-shadow: 2px 3px 0 #000;
+    --text-shadow-large: 3px 4px 0 #000;
   }
 
   * {
     box-sizing: border-box;
     font-family: var(--font-rounded);
-    -webkit-text-stroke: 1px #000;
+    -webkit-text-stroke: var(--text-outline-width) #000;
     paint-order: stroke fill;
-    text-shadow: 2px 3px 0 #000;
+    text-shadow: var(--text-shadow);
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
@@ -47,7 +50,7 @@
     inset: 0;
     pointer-events: none;
     color: var(--text);
-    text-shadow: 0 2px 0 #000, 1px 0 0 #000, -1px 0 0 #000;
+    text-shadow: var(--text-shadow);
   }
 
   .topbar {
@@ -96,7 +99,7 @@
     background: var(--panel);
     color: var(--text);
     font: 900 24px/1 var(--font-rounded);
-    text-shadow: 0 2px 0 #000;
+    text-shadow: var(--text-shadow);
   }
 
   .auto-attack-button {
@@ -308,8 +311,8 @@
     line-height: 1;
     letter-spacing: .04em;
     transform: translateY(-1px);
-    -webkit-text-stroke: 1px #000;
-    text-shadow: 2px 3px 0 #000;
+    -webkit-text-stroke: var(--text-outline-width) #000;
+    text-shadow: var(--text-shadow);
   }
 
   #message {
@@ -364,7 +367,7 @@
     transform: translate(-50%, -50%);
     color: #ff4e4e;
     font: 900 clamp(90px, 22vw, 190px)/1 var(--font-rounded);
-    text-shadow: 3px 5px 0 #000;
+    text-shadow: var(--text-shadow-large);
     pointer-events: none;
   }
 
@@ -546,12 +549,12 @@
 
   .account-choice-modal .account-character strong {
     color: #86f45d;
-    text-shadow: 2px 3px 0 #000;
+    text-shadow: var(--text-shadow);
   }
 
   .account-choice-modal .account-character.is-empty strong {
     color: #ffd869;
-    text-shadow: 2px 3px 0 #000;
+    text-shadow: var(--text-shadow);
   }
 
   .account-choice-modal button {
@@ -700,7 +703,7 @@
     color: #ffe777;
     font-size: clamp(22px, 6vw, 32px);
     line-height: 1;
-    text-shadow: 2px 3px 0 #000;
+    text-shadow: var(--text-shadow);
   }
 
   .upgrade-stat {
@@ -725,7 +728,7 @@
     font-size: clamp(28px, 7vw, 54px);
     line-height: .95;
     color: #ffe777;
-    text-shadow: 3px 4px 0 #000;
+    text-shadow: var(--text-shadow-large);
   }
 
   p {
@@ -745,7 +748,7 @@
     padding: 12px 24px;
     margin-top: 12px;
     cursor: pointer;
-    text-shadow: 0 3px 0 #000;
+    text-shadow: var(--text-shadow);
   }
 
   button:active {
@@ -798,6 +801,16 @@
   }
 
   @media (pointer: coarse), (max-width: 800px) {
+    :root {
+      --text-outline-width: .75px;
+      --text-shadow: 1px 2px 0 #000;
+      --text-shadow-large: 2px 3px 0 #000;
+    }
+    .card {
+      background: rgba(13, 20, 17, .96);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
     #stats { min-width: 0; font-size: 10px; }
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }

@@ -109,7 +109,26 @@
       ctx.arcTo(x, y, x + width, y, corner);
       ctx.closePath();
     }
-    return { pixelCircle, roundRect };
+    function outlinedText(text, x, y, fillColor, strokeWidth = ctx.lineWidth) {
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineWidth = strokeWidth;
+      ctx.fillStyle = fillColor;
+      ctx.shadowColor = "rgba(0, 0, 0, .92)";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
+      ctx.fillText(text, x, y);
+      ctx.shadowColor = "transparent";
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = "#000";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = fillColor;
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+    return { outlinedText, pixelCircle, roundRect };
   }
   const ENEMY_SPRITE_SOURCES = {
     grunt: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
@@ -563,14 +582,14 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.196";
+    const GAME_VERSION = "0.197";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
-    const { pixelCircle, roundRect } = createCanvasPrimitives(ctx);
+    const { outlinedText, pixelCircle, roundRect } = createCanvasPrimitives(ctx);
     const hpFill = document.getElementById("hpFill");
     const hpText = document.getElementById("hpText");
     const playerNameEl = document.getElementById("playerName");
@@ -753,7 +772,7 @@
     function resize() {
       viewW = innerWidth;
       viewH = innerHeight;
-      dpr = Math.min(devicePixelRatio || 1, 2);
+      dpr = Math.min(devicePixelRatio || 1, 3);
       canvas.width = Math.round(viewW * dpr);
       canvas.height = Math.round(viewH * dpr);
       canvas.style.width = viewW + "px";
@@ -1911,19 +1930,12 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      ctx.lineWidth = 3;
-      ctx.shadowColor = "#000";
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 3;
       for (const number of damageNumbers) {
         const alpha = clamp(number.life / number.maxLife, 0, 1);
         const x = Math.floor(number.x - camera.x);
         const y = Math.floor(number.y - camera.y);
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = "#000";
-        ctx.strokeText(number.text, x, y);
-        ctx.fillStyle = "#ff5a5a";
-        ctx.fillText(number.text, x, y);
+        outlinedText(number.text, x, y, "#ff5a5a", 3);
       }
       ctx.restore();
     }
@@ -2010,14 +2022,7 @@
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#000";
-      ctx.shadowColor = "#000";
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 3;
-      ctx.strokeText(name, x, y);
-      ctx.fillStyle = color;
-      ctx.fillText(name, x, y);
+      outlinedText(name, x, y, color, 2);
       ctx.restore();
     }
     function playerPower(stats) {
@@ -2031,14 +2036,7 @@
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#000";
-      ctx.shadowColor = "#000";
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 3;
-      ctx.strokeText(`Power: ${power}`, x, y);
-      ctx.fillStyle = "#ffe05d";
-      ctx.fillText(`Power: ${power}`, x, y);
+      outlinedText(`Power: ${power}`, x, y, "#ffe05d", 2);
       ctx.restore();
     }
     function drawRemotePlayers(remotePlayers) {
@@ -2168,20 +2166,11 @@
       ctx.fillStyle = boss.hurt > 0 ? "#fff1b6" : "#d8352d";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
       ctx.save();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#000";
-      ctx.shadowColor = "#000";
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 3;
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      ctx.strokeText("DRAGON", x, barY - 18);
-      ctx.fillStyle = "#f5e9c4";
-      ctx.fillText("DRAGON", x, barY - 18);
-      ctx.strokeText("+650 DAMAGE", x, barY - 5);
-      ctx.fillStyle = "#ff655a";
-      ctx.fillText("+650 DAMAGE", x, barY - 5);
+      outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 3);
+      outlinedText("+650 DAMAGE", x, barY - 5, "#ff655a", 3);
       ctx.restore();
     }
     function drawEnemy(e) {
@@ -2225,23 +2214,11 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#000";
-      ctx.shadowColor = "#000";
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 3;
-      ctx.strokeText(base.name, x, nameY);
-      ctx.fillStyle = "#f5e9c4";
-      ctx.fillText(base.name, x, nameY);
+      outlinedText(base.name, x, nameY, "#f5e9c4", 3);
       const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage, e.rewardStat);
-      ctx.strokeText(label, x, rewardY);
-      ctx.fillStyle = reward.color;
-      ctx.fillText(label, x, rewardY);
+      outlinedText(label, x, rewardY, reward.color, 3);
       const hpLabel = `${Math.max(0, Math.ceil(e.hp))}/${Math.ceil(e.maxHp)} HP`;
-      ctx.strokeText(hpLabel, x, healthY);
-      ctx.fillStyle = "#f4f3df";
-      ctx.fillText(hpLabel, x, healthY);
+      outlinedText(hpLabel, x, healthY, "#f4f3df", 3);
       ctx.restore();
     }
     function drawProjectile(p, enemy = false) {

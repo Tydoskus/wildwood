@@ -24,5 +24,35 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
     ctx.closePath();
   }
 
-  return { pixelCircle, roundRect };
+  function outlinedText(
+    text: string,
+    x: number,
+    y: number,
+    fillColor: string,
+    strokeWidth = ctx.lineWidth,
+  ) {
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineWidth = strokeWidth;
+
+    // Shadow only the fill. Shadowing both stroke and fill produces two
+    // overlapping silhouettes that look like a second outline on small text.
+    ctx.fillStyle = fillColor;
+    ctx.shadowColor = "rgba(0, 0, 0, .92)";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(text, x, y);
+
+    ctx.shadowColor = "transparent";
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = "#000";
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = fillColor;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  return { outlinedText, pixelCircle, roundRect };
 }
