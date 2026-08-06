@@ -648,8 +648,9 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.208";
+    const GAME_VERSION = "0.209";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+    const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
     const STARTING_ATTACK_INTERVAL = 1.56;
@@ -674,6 +675,8 @@
     const equippedFeetSlot = document.getElementById("equippedFeetSlot");
     const screenShakeToggle = document.getElementById("screenShakeToggle");
     const attackRangeToggle = document.getElementById("attackRangeToggle");
+    const musicVolumeInput = document.getElementById("musicVolume");
+    const musicVolumeValue = document.getElementById("musicVolumeValue");
     const fullscreenToggle = document.getElementById("fullscreenToggle");
     const connectionStatusEl = document.getElementById("connectionStatus");
     const accountButton = document.getElementById("accountButton");
@@ -715,6 +718,19 @@
     const duelReplayTitle = document.getElementById("duelReplayTitle");
     const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
     const coop = window.wildwoodCoop || null;
+    const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
+    backgroundMusic.loop = true;
+    backgroundMusic.preload = "metadata";
+    let musicVolume = 0.35;
+    try {
+      const storedVolume = localStorage.getItem(MUSIC_VOLUME_KEY);
+      if (storedVolume !== null) {
+        const savedVolume = Number(storedVolume);
+        if (Number.isFinite(savedVolume)) musicVolume = clamp(savedVolume, 0, 1);
+      }
+    } catch {
+    }
+    backgroundMusic.volume = musicVolume;
     enforceLatestVersion(GAME_VERSION);
     window.setInterval(() => enforceLatestVersion(GAME_VERSION), 3e4);
     const keys = /* @__PURE__ */ new Set();
@@ -1012,10 +1028,12 @@
       finishStartup();
     }
     function finishStartup() {
-      var _a2, _b, _c, _d;
+      var _a2, _b, _c, _d, _e;
       updateLoadingDetail();
-      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
-      if (!((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop).signedIn) && !guestContinuationChosen) {
+      const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) || !((_c = coop == null ? void 0 : coop.localState) == null ? void 0 : _c.call(coop))) return;
+      if ((account == null ? void 0 : account.signedIn) && !((_d = coop == null ? void 0 : coop.localProfileReady) == null ? void 0 : _d.call(coop))) return;
+      if (!(account == null ? void 0 : account.signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
       }
@@ -1027,7 +1045,7 @@
         return;
       }
       if (startupKind === "returning") {
-        (_d = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _d.call(coop);
+        (_e = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _e.call(coop);
         startGame(false);
       }
     }
@@ -1044,26 +1062,47 @@
       updateLoadingDetail();
     }
     function showAccountChoice() {
-      var _a2, _b;
+      var _a2, _b, _c;
       const accountOptionsReady = Boolean((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop));
-      const name = (((_b = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _b.call(coop)) || "").trim();
+      const knownAccount = Boolean((_b = coop == null ? void 0 : coop.accountState) == null ? void 0 : _b.call(coop).knownAccount);
+      const name = (((_c = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _c.call(coop)) || "").trim();
       const characterFound = Boolean(name);
       if (accountCharacter && accountCharacterName) {
         accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
         accountCharacter.classList.toggle("is-empty", !characterFound);
       }
       if (signInFromStartBtn) {
-        signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+        signInFromStartBtn.hidden = false;
+        signInFromStartBtn.textContent = characterFound || knownAccount ? "SIGN IN" : "REGISTER";
         signInFromStartBtn.disabled = accountSignInPending || !accountOptionsReady;
       }
-      if (continueGuestBtn) continueGuestBtn.disabled = accountSignInPending;
+      if (continueGuestBtn) {
+        continueGuestBtn.hidden = false;
+        continueGuestBtn.disabled = accountSignInPending;
+      }
       if (accountChoiceDetail) {
-        accountChoiceDetail.textContent = accountSignInPending ? "OPENING SIGN-IN…" : !accountOptionsReady ? "CONNECTING ACCOUNT OPTIONS…" : characterFound ? "SIGN IN TO THIS CHARACTER" : "REGISTER OR PLAY AS GUEST";
+        accountChoiceDetail.textContent = accountSignInPending ? "OPENING SIGN-IN…" : !accountOptionsReady ? "CONNECTING ACCOUNT OPTIONS…" : characterFound ? "SIGN IN TO THIS CHARACTER" : knownAccount ? "SIGN IN TO LOAD YOUR CHARACTER" : "REGISTER OR PLAY AS GUEST";
       }
       startEl.style.display = "grid";
       connectionPanel.hidden = true;
       accountChoicePanel.hidden = false;
       newPlayerPanel.hidden = true;
+    }
+    function showSigningIn() {
+      if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
+      loadingStageTimer = null;
+      loadingSequenceComplete = true;
+      startEl.style.display = "grid";
+      connectionPanel.hidden = true;
+      accountChoicePanel.hidden = false;
+      newPlayerPanel.hidden = true;
+      if (accountCharacter && accountCharacterName) {
+        accountCharacterName.textContent = "signing in…";
+        accountCharacter.classList.remove("is-empty");
+      }
+      if (signInFromStartBtn) signInFromStartBtn.hidden = true;
+      if (continueGuestBtn) continueGuestBtn.hidden = true;
+      if (accountChoiceDetail) accountChoiceDetail.textContent = "LOADING YOUR CHARACTER…";
     }
     function updateLoadingDetail() {
       var _a2, _b;
@@ -2757,6 +2796,7 @@
       if (markIntro) (_a2 = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a2.call(coop);
       if ((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) coop.syncPosition(player.x, player.y, player.facing, false, true);
       last = performance.now();
+      ensureMusicPlayback();
     }
     function endGame() {
       running = false;
@@ -2772,6 +2812,17 @@
       attackRangeToggle.textContent = attackRangeVisible ? "ON" : "OFF";
       attackRangeToggle.setAttribute("aria-pressed", String(attackRangeVisible));
       attackRangeToggle.classList.toggle("is-off", !attackRangeVisible);
+    }
+    function updateMusicVolume() {
+      const percent = Math.round(musicVolume * 100);
+      backgroundMusic.volume = musicVolume;
+      if (musicVolumeInput) musicVolumeInput.value = String(percent);
+      if (musicVolumeValue) musicVolumeValue.textContent = `${percent}%`;
+    }
+    function ensureMusicPlayback() {
+      if (!hasStarted && !running || musicVolume <= 0 || !backgroundMusic.paused) return;
+      void backgroundMusic.play().catch(() => {
+      });
     }
     function updateFullscreenSetting() {
       const root = document.documentElement;
@@ -2849,7 +2900,6 @@
     });
     continueGuestBtn == null ? void 0 : continueGuestBtn.addEventListener("click", () => {
       guestContinuationChosen = true;
-      showConnecting();
       finishStartup();
     });
     signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
@@ -2882,6 +2932,17 @@
       }
       updateAttackRangeSetting();
     });
+    musicVolumeInput == null ? void 0 : musicVolumeInput.addEventListener("input", () => {
+      musicVolume = clamp(Number(musicVolumeInput.value) / 100, 0, 1);
+      try {
+        localStorage.setItem(MUSIC_VOLUME_KEY, String(musicVolume));
+      } catch {
+      }
+      updateMusicVolume();
+      if (musicVolume > 0) ensureMusicPlayback();
+    });
+    document.addEventListener("pointerdown", ensureMusicPlayback, { capture: true });
+    document.addEventListener("keydown", ensureMusicPlayback, { capture: true });
     autoAttackBtn.addEventListener("click", () => {
       autoAttackEnabled = !autoAttackEnabled;
       updateAutoAttackSetting();
@@ -2941,9 +3002,12 @@
     chat.init();
     if (coop && typeof coop.setOnChange === "function") {
       coop.setOnChange(() => {
+        var _a2;
         loadProgress();
         finishStartup();
-        if (!accountChoicePanel.hidden) showAccountChoice();
+        const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+        if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
+        else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
         chat.refresh();
         updateDuelControls();
         updateConnectionStatus();
@@ -2952,6 +3016,7 @@
     }
     updateFullscreenSetting();
     updateAttackRangeSetting();
+    updateMusicVolume();
     updateDuelControls();
     updateConnectionStatus();
     updateAccountStatus();
@@ -3049,8 +3114,9 @@
     canvas.addEventListener("touchmove", moveTouch, { passive: false });
     canvas.addEventListener("touchend", endTouch, { passive: false });
     canvas.addEventListener("touchcancel", endTouch, { passive: false });
-    const initialAccount = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false };
-    if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
+    const initialAccount = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
+    if (initialAccount.returningFromSignIn) showSigningIn();
+    else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
     else showConnecting();
     loadProgress();
     rebuildWorld();

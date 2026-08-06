@@ -245,7 +245,41 @@
 
   .setting-row + .setting-row { margin-top: 9px; }
 
-  .setting-reset { color: #ff9b91; }
+  .setting-volume { align-items: center; }
+
+  .volume-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 138px;
+  }
+
+  #musicVolume {
+    width: 94px;
+    margin: 0;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+
+  #musicVolumeValue {
+    width: 35px;
+    color: var(--muted);
+    font-size: 10px;
+    text-align: right;
+  }
+
+  .setting-reset {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.12);
+  }
+
+  .setting-reset .danger {
+    min-width: 0;
+    padding-inline: 10px;
+  }
 
   .setting-toggle.danger {
     background: linear-gradient(#b95c54, #803c38);

@@ -52,8 +52,9 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.208";
+  const GAME_VERSION = "0.209";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+  const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const STARTING_ATTACK_INTERVAL = 1.56;
@@ -80,6 +81,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const equippedFeetSlot = document.getElementById("equippedFeetSlot");
   const screenShakeToggle = document.getElementById("screenShakeToggle");
   const attackRangeToggle = document.getElementById("attackRangeToggle");
+  const musicVolumeInput = document.getElementById("musicVolume");
+  const musicVolumeValue = document.getElementById("musicVolumeValue");
   const fullscreenToggle = document.getElementById("fullscreenToggle");
   const connectionStatusEl = document.getElementById("connectionStatus");
   const accountButton = document.getElementById("accountButton");
@@ -121,6 +124,19 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const duelReplayTitle = document.getElementById("duelReplayTitle");
   const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
   const coop = window.wildwoodCoop || null;
+
+  const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
+  backgroundMusic.loop = true;
+  backgroundMusic.preload = "metadata";
+  let musicVolume = .35;
+  try {
+    const storedVolume = localStorage.getItem(MUSIC_VOLUME_KEY);
+    if (storedVolume !== null) {
+      const savedVolume = Number(storedVolume);
+      if (Number.isFinite(savedVolume)) musicVolume = clamp(savedVolume, 0, 1);
+    }
+  } catch {}
+  backgroundMusic.volume = musicVolume;
 
   enforceLatestVersion(GAME_VERSION);
   window.setInterval(() => enforceLatestVersion(GAME_VERSION), 30_000);
@@ -457,9 +473,11 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   function finishStartup() {
     updateLoadingDetail();
+    const account = coop?.accountState?.();
     if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
       !coop?.isConnected?.() || !coop?.localState?.()) return;
-    if (!coop?.accountState?.().signedIn && !guestContinuationChosen) {
+    if (account?.signedIn && !coop?.localProfileReady?.()) return;
+    if (!account?.signedIn && !guestContinuationChosen) {
       showAccountChoice();
       return;
     }
@@ -491,6 +509,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   function showAccountChoice() {
     const accountOptionsReady = Boolean(coop?.isConnected?.());
+    const knownAccount = Boolean(coop?.accountState?.().knownAccount);
     const name = (coop?.knownCharacter?.() || "").trim();
     const characterFound = Boolean(name);
     if (accountCharacter && accountCharacterName) {
@@ -498,10 +517,14 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       accountCharacter.classList.toggle("is-empty", !characterFound);
     }
     if (signInFromStartBtn) {
-      signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+      signInFromStartBtn.hidden = false;
+      signInFromStartBtn.textContent = characterFound || knownAccount ? "SIGN IN" : "REGISTER";
       signInFromStartBtn.disabled = accountSignInPending || !accountOptionsReady;
     }
-    if (continueGuestBtn) continueGuestBtn.disabled = accountSignInPending;
+    if (continueGuestBtn) {
+      continueGuestBtn.hidden = false;
+      continueGuestBtn.disabled = accountSignInPending;
+    }
     if (accountChoiceDetail) {
       accountChoiceDetail.textContent = accountSignInPending
         ? "OPENING SIGN-IN…"
@@ -509,12 +532,31 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
           ? "CONNECTING ACCOUNT OPTIONS…"
           : characterFound
             ? "SIGN IN TO THIS CHARACTER"
+            : knownAccount
+              ? "SIGN IN TO LOAD YOUR CHARACTER"
             : "REGISTER OR PLAY AS GUEST";
     }
     startEl.style.display = "grid";
     connectionPanel.hidden = true;
     accountChoicePanel.hidden = false;
     newPlayerPanel.hidden = true;
+  }
+
+  function showSigningIn() {
+    if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
+    loadingStageTimer = null;
+    loadingSequenceComplete = true;
+    startEl.style.display = "grid";
+    connectionPanel.hidden = true;
+    accountChoicePanel.hidden = false;
+    newPlayerPanel.hidden = true;
+    if (accountCharacter && accountCharacterName) {
+      accountCharacterName.textContent = "signing in…";
+      accountCharacter.classList.remove("is-empty");
+    }
+    if (signInFromStartBtn) signInFromStartBtn.hidden = true;
+    if (continueGuestBtn) continueGuestBtn.hidden = true;
+    if (accountChoiceDetail) accountChoiceDetail.textContent = "LOADING YOUR CHARACTER…";
   }
 
   function updateLoadingDetail() {
@@ -2396,6 +2438,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (markIntro) coop?.beginAdventure?.();
     if (coop?.isConnected?.()) coop.syncPosition(player.x, player.y, player.facing, false, true);
     last = performance.now();
+    ensureMusicPlayback();
   }
 
   function endGame() {
@@ -2414,6 +2457,18 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     attackRangeToggle.textContent = attackRangeVisible ? "ON" : "OFF";
     attackRangeToggle.setAttribute("aria-pressed", String(attackRangeVisible));
     attackRangeToggle.classList.toggle("is-off", !attackRangeVisible);
+  }
+
+  function updateMusicVolume() {
+    const percent = Math.round(musicVolume * 100);
+    backgroundMusic.volume = musicVolume;
+    if (musicVolumeInput) musicVolumeInput.value = String(percent);
+    if (musicVolumeValue) musicVolumeValue.textContent = `${percent}%`;
+  }
+
+  function ensureMusicPlayback() {
+    if ((!hasStarted && !running) || musicVolume <= 0 || !backgroundMusic.paused) return;
+    void backgroundMusic.play().catch(() => {});
   }
 
   function updateFullscreenSetting() {
@@ -2502,7 +2557,6 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   continueGuestBtn?.addEventListener("click", () => {
     guestContinuationChosen = true;
-    showConnecting();
     finishStartup();
   });
 
@@ -2536,6 +2590,16 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     try { localStorage.setItem(ATTACK_RANGE_VISIBLE_KEY, String(attackRangeVisible)); } catch {}
     updateAttackRangeSetting();
   });
+
+  musicVolumeInput?.addEventListener("input", () => {
+    musicVolume = clamp(Number(musicVolumeInput.value) / 100, 0, 1);
+    try { localStorage.setItem(MUSIC_VOLUME_KEY, String(musicVolume)); } catch {}
+    updateMusicVolume();
+    if (musicVolume > 0) ensureMusicPlayback();
+  });
+
+  document.addEventListener("pointerdown", ensureMusicPlayback, { capture: true });
+  document.addEventListener("keydown", ensureMusicPlayback, { capture: true });
 
   autoAttackBtn.addEventListener("click", () => {
     autoAttackEnabled = !autoAttackEnabled;
@@ -2606,7 +2670,9 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     coop.setOnChange(() => {
       loadProgress();
       finishStartup();
-      if (!accountChoicePanel.hidden) showAccountChoice();
+      const account = coop?.accountState?.();
+      if (account?.returningFromSignIn) showSigningIn();
+      else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
       chat.refresh();
       updateDuelControls();
       updateConnectionStatus();
@@ -2615,6 +2681,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
   updateFullscreenSetting();
   updateAttackRangeSetting();
+  updateMusicVolume();
   updateDuelControls();
   updateConnectionStatus();
   updateAccountStatus();
@@ -2720,8 +2787,9 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   canvas.addEventListener("touchend", endTouch, {passive:false});
   canvas.addEventListener("touchcancel", endTouch, {passive:false});
 
-  const initialAccount = coop?.accountState?.() || { signedIn: false, knownAccount: false, authInProgress: false };
-  if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
+  const initialAccount = coop?.accountState?.() || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
+  if (initialAccount.returningFromSignIn) showSigningIn();
+  else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
   else showConnecting();
   loadProgress();
   rebuildWorld();

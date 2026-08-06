@@ -8483,6 +8483,7 @@ ${ty.variants.map(
   const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
   const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
   const silentAuthAttemptKey = `${tokenKey}/spacetimeauth_silent_attempt_v1`;
+  const authReturnUiKey = `${tokenKey}/spacetimeauth_return_ui_v1`;
   const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
   const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
   const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
@@ -8505,6 +8506,7 @@ ${ty.variants.map(
   let pageWasHidden = false;
   let localState = null;
   let localDisplayName = "";
+  let localProfileReady = false;
   let localProgress = null;
   let lastSpeedSent = null;
   let lastDuelPulseAt = 0;
@@ -8516,6 +8518,13 @@ ${ty.variants.map(
   let protocolRefreshScheduled = false;
   let accountLinkClaiming = false;
   let accountCallbackPending = new URL(window.location.href).searchParams.has("code") || new URL(window.location.href).searchParams.has("error");
+  let accountReturnPending = accountCallbackPending && (() => {
+    try {
+      return sessionStorage.getItem(authReturnUiKey) === "true";
+    } catch {
+      return false;
+    }
+  })();
   function reducerErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
   }
@@ -8578,7 +8587,8 @@ ${ty.variants.map(
   function rememberedAccountCharacter() {
     var _a2;
     try {
-      return ((_a2 = localStorage.getItem(knownAccountCharacterKey)) == null ? void 0 : _a2.trim()) || "";
+      const displayName = ((_a2 = localStorage.getItem(knownAccountCharacterKey)) == null ? void 0 : _a2.trim()) || "";
+      return isGeneratedDisplayName(displayName) ? "" : displayName;
     } catch {
       return "";
     }
@@ -8593,13 +8603,14 @@ ${ty.variants.map(
   function rememberedGuestCharacter() {
     var _a2;
     try {
-      return ((_a2 = localStorage.getItem(knownGuestCharacterKey)) == null ? void 0 : _a2.trim()) || "";
+      const displayName = ((_a2 = localStorage.getItem(knownGuestCharacterKey)) == null ? void 0 : _a2.trim()) || "";
+      return isGeneratedDisplayName(displayName) ? "" : displayName;
     } catch {
       return "";
     }
   }
   function rememberConfirmedCharacter(displayName) {
-    if (!displayName) return;
+    if (!displayName || isGeneratedDisplayName(displayName)) return;
     if (accountToken()) {
       rememberAccountCharacter(displayName);
       return;
@@ -8608,6 +8619,17 @@ ${ty.variants.map(
       localStorage.setItem(knownGuestCharacterKey, displayName);
     } catch {
     }
+  }
+  function clearAccountReturnPending() {
+    accountReturnPending = false;
+    try {
+      sessionStorage.removeItem(authReturnUiKey);
+    } catch {
+    }
+  }
+  function completeAccountReturnWhenReady() {
+    if (!accountReturnPending || !accountToken() || !localProfileReady || !localProgress) return;
+    clearAccountReturnPending();
   }
   function silentAuthAlreadyAttempted() {
     try {
@@ -8659,12 +8681,14 @@ ${ty.variants.map(
     const cleanUrl = `${url.pathname}${url.hash}`;
     if (!state || state !== expectedState || !verifier) {
       accountCallbackPending = false;
+      clearAccountReturnPending();
       authNotice = "SIGN-IN CHECK FAILED";
       history.replaceState({}, "", cleanUrl);
       return;
     }
     if (authError) {
       accountCallbackPending = false;
+      clearAccountReturnPending();
       authNotice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
       localStorage.removeItem(authStateKey);
       localStorage.removeItem(authVerifierKey);
@@ -8693,6 +8717,7 @@ ${ty.variants.map(
       authNotice = "SIGNED IN";
     } catch (error) {
       authNotice = "SIGN-IN FAILED";
+      clearAccountReturnPending();
       console.warn("Wildwood account sign-in failed:", error);
     } finally {
       accountCallbackPending = false;
@@ -8702,6 +8727,11 @@ ${ty.variants.map(
     }
   }
   async function startAccountSignIn(silent = false) {
+    try {
+      sessionStorage.setItem(authReturnUiKey, "true");
+      accountReturnPending = true;
+    } catch {
+    }
     const verifier = randomUrlSafe(48);
     const state = randomUrlSafe(24);
     const challenge = await sha256UrlSafe(verifier);
@@ -8851,6 +8881,10 @@ ${ty.variants.map(
     const number = String((hash >>> 16) % 1e3).padStart(3, "0");
     return `${adjective} ${creature} ${number}`;
   }
+  function isGeneratedDisplayName(displayName) {
+    const [adjective, creature, suffix, ...extra] = displayName.split(" ");
+    return extra.length === 0 && NAME_ADJECTIVES.includes(adjective) && NAME_CREATURES.includes(creature) && /^\d{3}$/.test(suffix ?? "");
+  }
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
     if (id === localIdentity) {
@@ -8904,7 +8938,9 @@ ${ty.variants.map(
     profiles.set(id, row.displayName);
     if (id === localIdentity) {
       localDisplayName = row.displayName;
+      localProfileReady = true;
       rememberConfirmedCharacter(row.displayName);
+      completeAccountReturnWhenReady();
     }
     const player = players.get(id);
     if (player) player.name = row.displayName;
@@ -8928,6 +8964,7 @@ ${ty.variants.map(
       equippedFeet: row.equippedFeet,
       introComplete: row.introComplete
     };
+    completeAccountReturnWhenReady();
     if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
     else flushPendingProgress();
     onChange == null ? void 0 : onChange();
@@ -9052,13 +9089,14 @@ ${ty.variants.map(
       const connectedIdentity = identity.toHexString();
       const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
       localIdentity = connectedIdentity;
+      localProfileReady = false;
+      localDisplayName = signedIn ? rememberedAccountCharacter() : rememberedGuestCharacter();
       pendingProgress = readPendingProgress(localIdentity);
       progressSaveInFlightUntil = 0;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
       if (identityChanged) {
-        localDisplayName = accountToken() ? rememberedAccountCharacter() : rememberedGuestCharacter();
         localState = null;
         localProgress = null;
       }
@@ -9141,6 +9179,7 @@ ${ty.variants.map(
       nextPositionSequence = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      localProfileReady = false;
       players.clear();
       profiles.clear();
       chatMessages.length = 0;
@@ -9169,6 +9208,7 @@ ${ty.variants.map(
           return;
         }
         if (signedIn) authNotice = "SIGN-IN EXPIRED";
+        if (signedIn) clearAccountReturnPending();
         console.warn("Wildwood token rejected; reconnecting with a fresh guest session.");
         onChange == null ? void 0 : onChange();
         scheduleReconnect(100);
@@ -9194,12 +9234,15 @@ ${ty.variants.map(
         signedIn: Boolean(accountToken()),
         knownAccount: hasKnownAccount(),
         authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
+        returningFromSignIn: accountReturnPending,
         notice: authNotice
       };
     },
     knownCharacter() {
-      const currentCharacter = (localProgress == null ? void 0 : localProgress.introComplete) ? localDisplayName.trim() : "";
-      const rememberedCharacter = accountToken() ? rememberedAccountCharacter() : rememberedGuestCharacter();
+      const accountCharacter = rememberedAccountCharacter();
+      if (!accountToken() && (accountCharacter || hasKnownAccount())) return accountCharacter;
+      const currentCharacter = localProfileReady && (localProgress == null ? void 0 : localProgress.introComplete) && !isGeneratedDisplayName(localDisplayName) ? localDisplayName.trim() : "";
+      const rememberedCharacter = accountToken() ? accountCharacter : rememberedGuestCharacter();
       return currentCharacter || rememberedCharacter;
     },
     async signIn() {
@@ -9250,6 +9293,9 @@ ${ty.variants.map(
     },
     localDisplayName() {
       return localDisplayName;
+    },
+    localProfileReady() {
+      return localProfileReady;
     },
     async setDisplayName(displayName) {
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
