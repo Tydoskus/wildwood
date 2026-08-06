@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.189";
+  const GAME_VERSION = "0.190";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -292,9 +292,9 @@ import { createChatController } from "./ui/chat";
       aggro: 255
     },
     elite: {
-      name: "Ironhorn",
+      name: "King Slime",
       hp: 92, speed: 150, damage: 13, r: 27,
-      color: "#d47a2b", outline: "#5c2b12", reward: 30, rewardType: "health",
+      color: "#70a94f", outline: "#2d5127", reward: 30, rewardType: "health", statReward: 44,
       elite: true, aggro: 300
     },
     warden: {
@@ -317,9 +317,11 @@ import { createChatController } from "./ui/chat";
     return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
   }
 
-  function rewardLabel(type, maxHp, explicitReward) {
+  function rewardLabel(type, maxHp, explicitDamageReward, explicitStatReward) {
     return type === "damage"
-      ? `+${damageRewardForHp(maxHp, explicitReward)} DAMAGE`
+      ? `+${damageRewardForHp(maxHp, explicitDamageReward)} DAMAGE`
+      : type === "health" && explicitStatReward
+        ? `+${explicitStatReward} MAX HEALTH`
       : REWARD_DATA[type].label;
   }
 
@@ -779,6 +781,7 @@ import { createChatController } from "./ui/chat";
       damage: base.damage,
       reward: base.reward,
       rewardDamage: base.damageReward,
+      rewardStat: base.statReward,
       aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
       leashRange: site.leashRange,
       engaged: false,
@@ -910,14 +913,15 @@ import { createChatController } from "./ui/chat";
     }
   }
 
-  function applyReward(type, x, y, enemyMaxHp, explicitDamageReward) {
+  function applyReward(type, x, y, enemyMaxHp, explicitDamageReward, explicitStatReward) {
     switch (type) {
       case "damage":
         player.damage += damageRewardForHp(enemyMaxHp, explicitDamageReward);
         break;
       case "health":
-        player.maxHp += 6;
-        player.hp = Math.min(player.maxHp, player.hp + 6);
+        const healthReward = explicitStatReward ?? 6;
+        player.maxHp += healthReward;
+        player.hp = Math.min(player.maxHp, player.hp + healthReward);
         break;
       case "speed":
         player.attackRate = Math.max(.16, player.attackRate * .92);
@@ -932,7 +936,7 @@ import { createChatController } from "./ui/chat";
     }
 
     const data = REWARD_DATA[type];
-    logPickup(rewardLabel(type, enemyMaxHp, explicitDamageReward), data.color);
+    logPickup(rewardLabel(type, enemyMaxHp, explicitDamageReward, explicitStatReward), data.color);
     spawnBurst(x, y, data.color, 16, 110);
     score += 20;
     saveProgress();
@@ -1091,7 +1095,7 @@ import { createChatController } from "./ui/chat";
       site.respawnAt = gameTime + 30;
     }
 
-    applyReward(e.rewardType, e.x, e.y, e.maxHp, e.rewardDamage);
+    applyReward(e.rewardType, e.x, e.y, e.maxHp, e.rewardDamage, e.rewardStat);
     spawnBurst(e.x, e.y, base.color, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
@@ -2144,7 +2148,7 @@ import { createChatController } from "./ui/chat";
     ctx.fillStyle = "#f5e9c4";
     ctx.fillText(base.name, x, nameY);
 
-    const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage);
+    const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage, e.rewardStat);
     ctx.strokeText(label, x, rewardY);
     ctx.fillStyle = reward.color;
     ctx.fillText(label, x, rewardY);
