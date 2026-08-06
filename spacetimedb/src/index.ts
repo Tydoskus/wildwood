@@ -3,9 +3,10 @@ import { ScheduleAt, Timestamp } from "spacetimedb";
 
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
-const PLAYER_SPEED = 175;
+const PLAYER_BASE_HP = 100;
+const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 13;
+const PROTOCOL_VERSION = 14;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -372,7 +373,7 @@ function isGeneratedDisplayName(displayName: string) {
 function defaultPlayerProgress(identity: any) {
   return {
     identity,
-    maxHp: 30,
+    maxHp: PLAYER_BASE_HP,
     damage: 4,
     attackRate: DEFAULT_ATTACK_INTERVAL,
     projectileSpeed: 390,
@@ -970,9 +971,11 @@ function enterWorldPresence(ctx: any) {
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const speed = speedForBoots(existingProgress.bootsCollected);
-    if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
+    const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
+    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
       const migratedProgress = {
         ...existingProgress,
+        maxHp,
         attackRange: DEFAULT_ATTACK_RANGE,
         speed,
         inventoryJson,

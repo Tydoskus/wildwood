@@ -52,10 +52,12 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.222";
+  const GAME_VERSION = "0.223";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
+  const BASE_PLAYER_HP = 100;
+  const BASE_PLAYER_SPEED = 180;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const STARTING_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = .32;
@@ -243,9 +245,9 @@ import { formatCompactNumber } from "./ui/number-format";
     x: 360,
     y: 360,
     r: 17,
-    speed: 175,
-    hp: 30,
-    maxHp: 30,
+    speed: BASE_PLAYER_SPEED,
+    hp: BASE_PLAYER_HP,
+    maxHp: BASE_PLAYER_HP,
     damage: 4,
     attackRate: STARTING_ATTACK_INTERVAL,
     projectileSpeed: BASE_PROJECTILE_SPEED,
@@ -402,7 +404,7 @@ import { formatCompactNumber } from "./ui/number-format";
     player.y = START_SPAWN.y;
 
     if (!preserveStats && !hasSavedProgress) {
-      player.maxHp = 30;
+      player.maxHp = BASE_PLAYER_HP;
       player.damage = 4;
       player.attackRate = STARTING_ATTACK_INTERVAL;
       player.projectileSpeed = BASE_PROJECTILE_SPEED;
@@ -410,7 +412,7 @@ import { formatCompactNumber } from "./ui/number-format";
       player.attackRange = BASE_ATTACK_RANGE;
       player.armor = 0;
       player.regen = 0;
-      player.speed = 175;
+      player.speed = BASE_PLAYER_SPEED;
     }
 
     player.hp = player.maxHp;
@@ -482,10 +484,10 @@ import { formatCompactNumber } from "./ui/number-format";
       if (candidate?.stats && typeof candidate.stats === "object") legacy = candidate;
     } catch {}
     const isDefaultProgress = (progress) =>
-      progress.maxHp === 30 && progress.damage === 4 && progress.attackRate === STARTING_ATTACK_INTERVAL &&
+      progress.maxHp === BASE_PLAYER_HP && progress.damage === 4 && progress.attackRate === STARTING_ATTACK_INTERVAL &&
       progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 &&
       progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 &&
-      progress.speed === 175 && progress.bootsCollected === false;
+      progress.speed === BASE_PLAYER_SPEED && progress.bootsCollected === false;
     const serverIsDefault = isDefaultProgress(saved);
     const source = legacy && serverIsDefault
       ? { ...legacy.stats, bootsCollected: legacy.bootsCollected === true }
@@ -505,7 +507,7 @@ import { formatCompactNumber } from "./ui/number-format";
     player.armor = number(source.armor, player.armor, 0, 1000000);
     player.regen = number(source.regen, player.regen, 0, 1000000);
     bootsPickup.collected = source.bootsCollected === true;
-    player.speed = bootsPickup.collected ? 175 + BOOTS_SPEED_BONUS : 175;
+    player.speed = bootsPickup.collected ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
     player.hp = player.maxHp;
     const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
     inventory.itemIds = savedInventory.itemIds;
@@ -675,7 +677,7 @@ import { formatCompactNumber } from "./ui/number-format";
       inventory.itemIds = [TRAILBLAZER_BOOTS];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
-      player.speed = 175 + BOOTS_SPEED_BONUS;
+      player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
       saveProgress();
       renderInventory();
       pausedForUpgrade = true;

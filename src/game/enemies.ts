@@ -29,11 +29,11 @@ const enemyTypes = {
   },
   Spitter: {
     hp: 18, speed: 140, damage: 8, r: 15,
-    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 8, ranged: true,
+    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 8,
   },
   Brood: {
     hp: 220, speed: 170, damage: 16, r: 16,
-    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8,
+    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8, ranged: true,
   },
   "King Slime": {
     hp: 920, speed: 170, damage: 43, r: 27,
@@ -76,7 +76,8 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
   Bramble: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
   Needle: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
   Mossback: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-  Spitter: {
+  Spitter: { src: "assets/wildwood/enemies/slime-orange.png", size: 50 },
+  Brood: {
     size: 64,
     height: 70,
     layers: [
@@ -88,7 +89,6 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 },
     ],
   },
-  Brood: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
   "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
   "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
 };

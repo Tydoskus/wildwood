@@ -8531,7 +8531,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 13;
+  const PROTOCOL_VERSION = 14;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8988,7 +8988,7 @@ ${ty.variants.map(
   }
   function copyProgress(progress) {
     return {
-      maxHp: bounded(progress.maxHp, 1, 1e6, 30),
+      maxHp: bounded(progress.maxHp, 1, 1e6, 100),
       damage: bounded(progress.damage, 1, 1e6, 4),
       attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
       projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
@@ -8996,7 +8996,7 @@ ${ty.variants.map(
       attackRange: DEFAULT_ATTACK_RANGE,
       armor: bounded(progress.armor, 0, 1e6, 0),
       regen: bounded(progress.regen, 0, 1e6, 0),
-      speed: bounded(progress.speed, 1, 2e3, 175),
+      speed: bounded(progress.speed, 1, 2e3, 180),
       bootsCollected: progress.bootsCollected,
       inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
       equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",

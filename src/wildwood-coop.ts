@@ -154,7 +154,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 13;
+const PROTOCOL_VERSION = 14;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -653,7 +653,7 @@ function bounded(value: number, min: number, max: number, fallback: number) {
 
 function copyProgress(progress: ProgressSave): ProgressSave {
   return {
-    maxHp: bounded(progress.maxHp, 1, 1_000_000, 30),
+    maxHp: bounded(progress.maxHp, 1, 1_000_000, 100),
     damage: bounded(progress.damage, 1, 1_000_000, 4),
     attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
     projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
@@ -663,7 +663,7 @@ function copyProgress(progress: ProgressSave): ProgressSave {
     attackRange: DEFAULT_ATTACK_RANGE,
     armor: bounded(progress.armor, 0, 1_000_000, 0),
     regen: bounded(progress.regen, 0, 1_000_000, 0),
-    speed: bounded(progress.speed, 1, 2_000, 175),
+    speed: bounded(progress.speed, 1, 2_000, 180),
     bootsCollected: progress.bootsCollected,
     inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
     equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",

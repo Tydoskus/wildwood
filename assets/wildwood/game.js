@@ -170,8 +170,7 @@
       color: "#b16ac8",
       outline: "#4b235d",
       reward: { type: "damage", amount: 1 },
-      score: 8,
-      ranged: true
+      score: 8
     },
     Brood: {
       hp: 220,
@@ -181,7 +180,8 @@
       color: "#45b6c2",
       outline: "#174a54",
       reward: { type: "regen", amount: 0.3 },
-      score: 8
+      score: 8,
+      ranged: true
     },
     "King Slime": {
       hp: 920,
@@ -213,7 +213,8 @@
     Bramble: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
     Needle: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
     Mossback: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-    Spitter: {
+    Spitter: { src: "assets/wildwood/enemies/slime-orange.png", size: 50 },
+    Brood: {
       size: 64,
       height: 70,
       layers: [
@@ -225,7 +226,6 @@
         { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 }
       ]
     },
-    Brood: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
     "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
     "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 }
   };
@@ -669,10 +669,12 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.222";
+    const GAME_VERSION = "0.223";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
+    const BASE_PLAYER_HP = 100;
+    const BASE_PLAYER_SPEED = 180;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
     const STARTING_ATTACK_INTERVAL = 1.56;
     const MIN_ATTACK_INTERVAL = 0.32;
@@ -854,9 +856,9 @@
       x: 360,
       y: 360,
       r: 17,
-      speed: 175,
-      hp: 30,
-      maxHp: 30,
+      speed: BASE_PLAYER_SPEED,
+      hp: BASE_PLAYER_HP,
+      maxHp: BASE_PLAYER_HP,
       damage: 4,
       attackRate: STARTING_ATTACK_INTERVAL,
       projectileSpeed: BASE_PROJECTILE_SPEED,
@@ -994,7 +996,7 @@
       player.x = START_SPAWN.x;
       player.y = START_SPAWN.y;
       if (!preserveStats && !hasSavedProgress) {
-        player.maxHp = 30;
+        player.maxHp = BASE_PLAYER_HP;
         player.damage = 4;
         player.attackRate = STARTING_ATTACK_INTERVAL;
         player.projectileSpeed = BASE_PROJECTILE_SPEED;
@@ -1002,7 +1004,7 @@
         player.attackRange = BASE_ATTACK_RANGE;
         player.armor = 0;
         player.regen = 0;
-        player.speed = 175;
+        player.speed = BASE_PLAYER_SPEED;
       }
       player.hp = player.maxHp;
       player.attackClock = 0;
@@ -1065,7 +1067,7 @@
         if ((candidate == null ? void 0 : candidate.stats) && typeof candidate.stats === "object") legacy = candidate;
       } catch {
       }
-      const isDefaultProgress = (progress) => progress.maxHp === 30 && progress.damage === 4 && progress.attackRate === STARTING_ATTACK_INTERVAL && progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 && progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 && progress.speed === 175 && progress.bootsCollected === false;
+      const isDefaultProgress = (progress) => progress.maxHp === BASE_PLAYER_HP && progress.damage === 4 && progress.attackRate === STARTING_ATTACK_INTERVAL && progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 && progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 && progress.speed === BASE_PLAYER_SPEED && progress.bootsCollected === false;
       const serverIsDefault = isDefaultProgress(saved);
       const source = legacy && serverIsDefault ? { ...legacy.stats, bootsCollected: legacy.bootsCollected === true } : saved;
       if (waitingForFreshStart && saved.introComplete) return;
@@ -1079,7 +1081,7 @@
       player.armor = number(source.armor, player.armor, 0, 1e6);
       player.regen = number(source.regen, player.regen, 0, 1e6);
       bootsPickup.collected = source.bootsCollected === true;
-      player.speed = bootsPickup.collected ? 175 + BOOTS_SPEED_BONUS : 175;
+      player.speed = bootsPickup.collected ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
       player.hp = player.maxHp;
       const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
       inventory.itemIds = savedInventory.itemIds;
@@ -1238,7 +1240,7 @@
         inventory.itemIds = [TRAILBLAZER_BOOTS];
         inventory.equippedFeet = TRAILBLAZER_BOOTS;
         inventory.selectedItemId = TRAILBLAZER_BOOTS;
-        player.speed = 175 + BOOTS_SPEED_BONUS;
+        player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
         saveProgress();
         renderInventory();
         pausedForUpgrade = true;
