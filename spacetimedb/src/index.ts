@@ -753,6 +753,20 @@ export const claimGuestAccount = spacetimedb.reducer(
         power: powerForProgress(nextProgress),
       });
     }
+
+    // Migration transfers a guest save into the authenticated identity. Leave
+    // no second durable save behind; otherwise an old guest token can later
+    // reconnect with the pre-migration name and stats.
+    const guestActivePlayer = ctx.db.player.identity.find(link.guest);
+    if (guestActivePlayer) ctx.db.player.identity.delete(link.guest);
+    if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
+    if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
+    const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
+    if (guestNameCooldown) ctx.db.playerNameCooldown.identity.delete(link.guest);
+    const guestChatCooldown = ctx.db.chatCooldown.identity.find(link.guest);
+    if (guestChatCooldown) ctx.db.chatCooldown.identity.delete(link.guest);
+    const guestDuelRequestCooldown = ctx.db.duelRequestCooldown.identity.find(link.guest);
+    if (guestDuelRequestCooldown) ctx.db.duelRequestCooldown.identity.delete(link.guest);
     ctx.db.accountLink.code.delete(code);
   },
 );
