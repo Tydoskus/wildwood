@@ -8459,7 +8459,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 4;
+  const PROTOCOL_VERSION = 6;
   const DEFAULT_ATTACK_RANGE = 200;
   const MIN_PROJECTILE_SPEED = 390;
   const MAX_PROJECTILE_SPEED = 2730;
@@ -9154,9 +9154,16 @@ ${ty.variants.map(
       return replay ? { ...replay } : null;
     },
     loadDuelReplay,
-    requestDuel() {
-      if (!connection) return;
-      connection.reducers.requestDuel({});
+    async requestDuel() {
+      if (!connection) return { ok: false, error: "NOT CONNECTED" };
+      try {
+        await connection.reducers.requestDuel({});
+        return { ok: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("Wildwood duel request rejected:", message);
+        return { ok: false, error: message };
+      }
     },
     acceptDuel(id) {
       if (!connection) return;

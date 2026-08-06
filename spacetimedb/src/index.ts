@@ -5,7 +5,7 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 5;
+const PROTOCOL_VERSION = 6;
 const TRAILBLAZER_BOOTS = "trailblazer_boots";
 const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
@@ -219,6 +219,14 @@ function generatedDisplayName(identity: { toHexString: () => string }) {
   const creature = NAME_CREATURES[((hash >>> 8) >>> 0) % NAME_CREATURES.length];
   const number = String((hash >>> 16) % 1000).padStart(3, "0");
   return `${adjective} ${creature} ${number}`;
+}
+
+function isGeneratedDisplayName(displayName: string) {
+  const [adjective, creature, suffix, ...extra] = displayName.split(" ");
+  return extra.length === 0 &&
+    NAME_ADJECTIVES.includes(adjective) &&
+    NAME_CREATURES.includes(creature) &&
+    /^\d{3}$/.test(suffix ?? "");
 }
 
 function defaultPlayerProgress(identity: any) {
@@ -706,18 +714,24 @@ export const claimGuestAccount = spacetimedb.reducer(
 
     const guestProfile = ctx.db.playerProfile.identity.find(link.guest);
     const accountProfile = ctx.db.playerProfile.identity.find(ctx.sender);
-    if (guestProfile && accountProfile) {
+    const preserveAccountName = Boolean(accountProfile && !isGeneratedDisplayName(accountProfile.displayName));
+    const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName));
+    if (transferGuestName && guestProfile && accountProfile) {
       ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName });
-    } else if (guestProfile) {
+    } else if (transferGuestName && guestProfile) {
       ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName });
     }
 
-    const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
-    const accountNameCooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
-    if (guestNameCooldown && accountNameCooldown) {
-      ctx.db.playerNameCooldown.identity.update({ ...accountNameCooldown, changedAt: guestNameCooldown.changedAt });
-    } else if (guestNameCooldown) {
-      ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: guestNameCooldown.changedAt });
+    // A freshly-created guest's generated name must never overwrite an existing
+    // authenticated name or carry a name-change lock onto that account.
+    if (transferGuestName) {
+      const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
+      const accountNameCooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
+      if (guestNameCooldown && accountNameCooldown) {
+        ctx.db.playerNameCooldown.identity.update({ ...accountNameCooldown, changedAt: guestNameCooldown.changedAt });
+      } else if (guestNameCooldown) {
+        ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: guestNameCooldown.changedAt });
+      }
     }
 
     const activePlayer = ctx.db.player.identity.find(ctx.sender);
@@ -743,12 +757,16 @@ export const setDisplayName = spacetimedb.reducer(
       throw new Error("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
     }
 
+    const existing = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (existing?.displayName === normalized) return;
     const cooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
-    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.changedAt.microsSinceUnixEpoch < DISPLAY_NAME_COOLDOWN_MICROS) {
+    // Repair names accidentally replaced by a generated guest name during a
+    // prior account-link operation. The next real name starts the 30-day lock.
+    if (cooldown && !isGeneratedDisplayName(existing?.displayName ?? "") &&
+      ctx.timestamp.microsSinceUnixEpoch - cooldown.changedAt.microsSinceUnixEpoch < DISPLAY_NAME_COOLDOWN_MICROS) {
       throw new Error("Display name can be changed once every 30 days.");
     }
 
-    const existing = ctx.db.playerProfile.identity.find(ctx.sender);
     if (existing) {
       ctx.db.playerProfile.identity.update({ ...existing, displayName: normalized });
     } else {
@@ -880,12 +898,13 @@ export const requestDuel = spacetimedb.reducer(
   {},
   (ctx) => {
     const challenger = requireCurrentProtocol(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) return;
+    clearExpiredDuelRequests(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new Error("You already have a duel request.");
 
     const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);
-    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch < DUEL_REQUEST_COOLDOWN_MICROS) return;
-    if (cooldown) ctx.db.duelRequestCooldown.identity.update({ ...cooldown, requestedAt: ctx.timestamp });
-    else ctx.db.duelRequestCooldown.insert({ identity: ctx.sender, requestedAt: ctx.timestamp });
+    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch < DUEL_REQUEST_COOLDOWN_MICROS) {
+      throw new Error("Wait a moment before challenging again.");
+    }
 
     let opponent: any = null;
     let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
@@ -900,7 +919,9 @@ export const requestDuel = spacetimedb.reducer(
         opponent = candidate;
       }
     }
-    if (!opponent) return;
+    if (!opponent) throw new Error("Move closer to the player you want to challenge.");
+    if (cooldown) ctx.db.duelRequestCooldown.identity.update({ ...cooldown, requestedAt: ctx.timestamp });
+    else ctx.db.duelRequestCooldown.insert({ identity: ctx.sender, requestedAt: ctx.timestamp });
 
     ctx.db.duel.insert({
       id: 0n,

@@ -216,7 +216,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.179";
+    const GAME_VERSION = "0.180";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -2641,7 +2641,9 @@
     });
     duelRequestBtn.addEventListener("click", () => {
       var _a;
-      (_a = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a.call(coop);
+      void ((_a = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a.call(coop).then((result) => {
+        if (!(result == null ? void 0 : result.ok)) showMessage((result == null ? void 0 : result.error) || "DUEL REQUEST FAILED", "#ff9b91");
+      }));
     });
     duelAcceptBtn.addEventListener("click", () => {
       var _a;

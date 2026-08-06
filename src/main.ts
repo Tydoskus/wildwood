@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.179";
+  const GAME_VERSION = "0.180";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -2647,7 +2647,9 @@ import { createChatController } from "./ui/chat";
   });
 
   duelRequestBtn.addEventListener("click", () => {
-    coop?.requestDuel?.();
+    void coop?.requestDuel?.().then((result) => {
+      if (!result?.ok) showMessage(result?.error || "DUEL REQUEST FAILED", "#ff9b91");
+    });
   });
 
   duelAcceptBtn.addEventListener("click", () => {
