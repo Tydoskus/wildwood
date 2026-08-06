@@ -239,6 +239,7 @@ export const PlayerSession = __t.object("PlayerSession", {
   protocolVersion: __t.u32(),
   lastInputSequence: __t.u32(),
   enteredWorld: __t.bool(),
+  tabId: __t.string(),
 });
 export type PlayerSession = __Infer<typeof PlayerSession>;
 

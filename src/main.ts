@@ -52,7 +52,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.227";
+  const GAME_VERSION = "0.228";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -618,6 +618,12 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function updateLoadingDetail() {
     if (!loadingDetail || !loadingFill) return;
+    const connectionNotice = coop?.accountState?.().notice || "";
+    if (/active in another tab/i.test(connectionNotice)) {
+      loadingDetail.textContent = connectionNotice;
+      loadingFill.style.width = "35%";
+      return;
+    }
     const stages = [
       ["LOADING CONNECTION", Boolean(coop?.isConnected?.()), 12],
       ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],

@@ -154,7 +154,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 14;
+const PROTOCOL_VERSION = 15;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -234,6 +234,7 @@ let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
+let worldEntryBlocked = false;
 let accountCallbackPending = new URL(window.location.href).searchParams.has("code") ||
   new URL(window.location.href).searchParams.has("error");
 let accountReturnPending = accountCallbackPending && (() => {
@@ -294,15 +295,22 @@ function requestWorldEntry(): Promise<boolean> {
   if (worldEntryPromise) return worldEntryPromise;
   const conn = connection;
   const generation = connectionGeneration;
-  worldEntryPromise = Promise.resolve(conn.reducers.enterWorld({}))
+  worldEntryPromise = Promise.resolve(conn.reducers.enterWorld({ tabId: authTabId() }))
     .then(() => {
       if (connection !== conn || generation !== connectionGeneration) return false;
+      worldEntryBlocked = false;
       worldEntryGeneration = generation;
       flushPendingProgress(true);
       onChange?.();
       return true;
     })
     .catch((error) => {
+      if (/active in another tab/i.test(reducerErrorMessage(error))) {
+        worldEntryBlocked = true;
+        authNotice = "ACTIVE IN ANOTHER TAB · CLOSE IT, THEN REFRESH";
+        onChange?.();
+        return false;
+      }
       handleReducerFailure("world entry", error);
       return false;
     })
@@ -1293,6 +1301,7 @@ function connect() {
       accountLinkClaiming = false;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
+      worldEntryBlocked = false;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       const connectedIdentity = identity.toHexString();
@@ -1363,7 +1372,7 @@ function connect() {
         }
 
         if ((signedIn || guestSessionExplicit) && !await requestWorldEntry()) {
-          if (isCurrentConnection()) conn.disconnect();
+          if (isCurrentConnection() && !worldEntryBlocked) conn.disconnect();
           return;
         }
 
@@ -1436,6 +1445,7 @@ function connect() {
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
+      worldEntryBlocked = false;
       localProfileReady = false;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);

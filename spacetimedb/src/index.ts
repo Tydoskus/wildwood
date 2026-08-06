@@ -6,7 +6,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 14;
+const PROTOCOL_VERSION = 15;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -138,6 +138,7 @@ const playerSession = table(
     protocolVersion: t.u32().default(0),
     lastInputSequence: t.u32().default(0),
     enteredWorld: t.bool().default(false),
+    tabId: t.string().default(""),
   },
 );
 
@@ -613,7 +614,8 @@ function clearOrphanPresence(ctx: any) {
   for (const sessions of sessionsByIdentity.values()) {
     const identity = sessions[0].identity;
     if (!ctx.db.playerController.identity.find(identity)) {
-      ctx.db.playerController.insert({ identity, connectionId: sessions[0].connectionId });
+      const enteredSession = sessions.find((session: any) => session.enteredWorld);
+      if (enteredSession) ctx.db.playerController.insert({ identity, connectionId: enteredSession.connectionId });
     }
   }
 
@@ -962,13 +964,26 @@ function clearExpiredHistory(ctx: any) {
   trimChatHistory(ctx);
 }
 
-function enterWorldPresence(ctx: any) {
+function enterWorldPresence(ctx: any, tabId: string) {
   const session = requireSupportedSessionProtocol(ctx);
   if (!ctx.connectionId) return;
+  const normalizedTabId = tabId.trim();
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(normalizedTabId)) throw new SenderError("Invalid Wildwood tab session.");
+
   const controller = ctx.db.playerController.identity.find(ctx.sender);
-  if (!controller || !sameConnection(controller.connectionId, ctx.connectionId)) return;
-  if (!session.enteredWorld) {
-    ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true });
+  if (controller && !sameConnection(controller.connectionId, ctx.connectionId)) {
+    const controllerSession = ctx.db.playerSession.connectionId.find(controller.connectionId);
+    const sameTab = controllerSession?.tabId && controllerSession.tabId === normalizedTabId;
+    if (controllerSession?.enteredWorld && !sameTab) {
+      throw new SenderError("Wildwood is active in another tab.");
+    }
+    ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: ctx.connectionId });
+  } else if (!controller) {
+    ctx.db.playerController.insert({ identity: ctx.sender, connectionId: ctx.connectionId });
+  }
+
+  if (!session.enteredWorld || session.tabId !== normalizedTabId) {
+    ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId: normalizedTabId });
   }
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
@@ -1067,15 +1082,10 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     protocolVersion: 0,
     lastInputSequence: 0,
     enteredWorld: false,
+    tabId: "",
   };
   if (existingSession) ctx.db.playerSession.connectionId.update(nextSession);
   else ctx.db.playerSession.insert(nextSession);
-
-  let controller = ctx.db.playerController.identity.find(ctx.sender);
-  if (!controller) {
-    controller = { identity: ctx.sender, connectionId: ctx.connectionId };
-    ctx.db.playerController.insert(controller);
-  }
 });
 
 export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
@@ -1101,13 +1111,6 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
         protocolVersion: replacement.protocolVersion,
       });
     }
-    return;
-  }
-  const connectedReplacement = remainingSessions[0];
-  if (connectedReplacement) {
-    ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: connectedReplacement.connectionId });
-    finishLifetimeSession(ctx, ctx.sender);
-    removeIdentityPresence(ctx, ctx.sender);
     return;
   }
   ctx.db.playerController.identity.delete(ctx.sender);
@@ -1233,9 +1236,9 @@ export const registerProtocol = spacetimedb.reducer(
   },
 );
 
-export const enterWorld = spacetimedb.reducer({}, (ctx) => {
+export const enterWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
   requireSupportedSessionProtocol(ctx);
-  enterWorldPresence(ctx);
+  enterWorldPresence(ctx, tabId);
 });
 
 export const resumeSession = spacetimedb.reducer(

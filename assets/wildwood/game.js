@@ -679,7 +679,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.227";
+    const GAME_VERSION = "0.228";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1192,11 +1192,17 @@
       if (accountChoiceDetail) accountChoiceDetail.textContent = "LOADING YOUR CHARACTER…";
     }
     function updateLoadingDetail() {
-      var _a2, _b2;
+      var _a2, _b2, _c;
       if (!loadingDetail || !loadingFill) return;
+      const connectionNotice = ((_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop).notice) || "";
+      if (/active in another tab/i.test(connectionNotice)) {
+        loadingDetail.textContent = connectionNotice;
+        loadingFill.style.width = "35%";
+        return;
+      }
       const stages = [
-        ["LOADING CONNECTION", Boolean((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)), 12],
-        ["LOADING PLAYER PROFILE", Boolean((_b2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _b2.call(coop)), 35],
+        ["LOADING CONNECTION", Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop)), 12],
+        ["LOADING PLAYER PROFILE", Boolean((_c = coop == null ? void 0 : coop.localState) == null ? void 0 : _c.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
         ["LOADING WORLD ART", treeSpritesheetReady && duelSpaceBackgroundReady && duelPlatformArtReady, 90],

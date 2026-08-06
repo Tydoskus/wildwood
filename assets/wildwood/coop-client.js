@@ -8206,7 +8206,9 @@ ${ty.variants.map(
   const DamageDragonBatchReducer = {
     hits: t.u32()
   };
-  const EnterWorldReducer = {};
+  const EnterWorldReducer = {
+    tabId: t.string()
+  };
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
@@ -8531,7 +8533,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 14;
+  const PROTOCOL_VERSION = 15;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8609,6 +8611,7 @@ ${ty.variants.map(
   let resumeProbePromise = null;
   let worldEntryPromise = null;
   let worldEntryGeneration = 0;
+  let worldEntryBlocked = false;
   let accountCallbackPending = new URL(window.location.href).searchParams.has("code") || new URL(window.location.href).searchParams.has("error");
   let accountReturnPending = accountCallbackPending && (() => {
     try {
@@ -8658,13 +8661,20 @@ ${ty.variants.map(
     if (worldEntryPromise) return worldEntryPromise;
     const conn = connection;
     const generation = connectionGeneration;
-    worldEntryPromise = Promise.resolve(conn.reducers.enterWorld({})).then(() => {
+    worldEntryPromise = Promise.resolve(conn.reducers.enterWorld({ tabId: authTabId() })).then(() => {
       if (connection !== conn || generation !== connectionGeneration) return false;
+      worldEntryBlocked = false;
       worldEntryGeneration = generation;
       flushPendingProgress(true);
       onChange == null ? void 0 : onChange();
       return true;
     }).catch((error) => {
+      if (/active in another tab/i.test(reducerErrorMessage(error))) {
+        worldEntryBlocked = true;
+        authNotice = "ACTIVE IN ANOTHER TAB · CLOSE IT, THEN REFRESH";
+        onChange == null ? void 0 : onChange();
+        return false;
+      }
       handleReducerFailure("world entry", error);
       return false;
     }).finally(() => {
@@ -9499,6 +9509,7 @@ ${ty.variants.map(
       accountLinkClaiming = false;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
+      worldEntryBlocked = false;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       const connectedIdentity = identity.toHexString();
@@ -9566,7 +9577,7 @@ ${ty.variants.map(
           }
         }
         if ((signedIn || guestSessionExplicit) && !await requestWorldEntry()) {
-          if (isCurrentConnection()) conn.disconnect();
+          if (isCurrentConnection() && !worldEntryBlocked) conn.disconnect();
           return;
         }
         conn.db.player.onInsert((_ctx, row) => {
@@ -9666,6 +9677,7 @@ ${ty.variants.map(
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
+      worldEntryBlocked = false;
       localProfileReady = false;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
