@@ -96,7 +96,7 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = {
 
 export const REWARD_DATA: Record<RewardType, { color: string; label?: string }> = {
   damage: { color: "#ff655a" },
-  health: { color: "#66ed79", label: "+6 MAX HEALTH" },
+  health: { color: "#66ed79", label: "+24 MAX HEALTH" },
   speed: { color: "#ffe05d", label: "+0.02 ATK/SEC" },
   armor: { color: "#d3dbe0", label: "+1 ARMOR" },
   regen: { color: "#ff7ccb", label: "+0.3 HP/SEC" },
@@ -138,6 +138,10 @@ export function damageRewardForHp(maxHp: number, explicitReward?: number) {
   return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
 }
 
+export function healthRewardAmount(explicitReward?: number) {
+  return (explicitReward ?? 6) * 4;
+}
+
 export function rewardLabel(
   type: RewardType,
   maxHp: number,
@@ -145,6 +149,6 @@ export function rewardLabel(
   explicitStatReward?: number,
 ) {
   if (type === "damage") return `+${damageRewardForHp(maxHp, explicitDamageReward)} DAMAGE`;
-  if (type === "health" && explicitStatReward) return `+${explicitStatReward} MAX HEALTH`;
+  if (type === "health") return `+${healthRewardAmount(explicitStatReward)} MAX HEALTH`;
   return REWARD_DATA[type].label ?? "";
 }

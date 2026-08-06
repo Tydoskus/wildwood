@@ -41,6 +41,7 @@ import {
 import {
   damageRewardForHp,
   ENEMY_TYPES,
+  healthRewardAmount,
   loadActorShadowSprite,
   loadEnemySprites,
   REWARD_DATA,
@@ -52,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.209";
+  const GAME_VERSION = "0.210";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -807,7 +808,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         player.damage += damageRewardForHp(enemyMaxHp, explicitDamageReward);
         break;
       case "health":
-        const healthReward = explicitStatReward ?? 6;
+        const healthReward = healthRewardAmount(explicitStatReward);
         player.maxHp += healthReward;
         player.hp = Math.min(player.maxHp, player.hp + healthReward);
         break;
@@ -1477,13 +1478,24 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       if (duelSpaceBackground.complete && duelSpaceBackground.naturalWidth > 0) {
         ctx.fillStyle = "#050713";
         ctx.fillRect(0, 0, visibleW, visibleH);
+        const rotateForPortrait = visibleH > visibleW;
+        const backgroundW = rotateForPortrait
+          ? duelSpaceBackground.naturalHeight
+          : duelSpaceBackground.naturalWidth;
+        const backgroundH = rotateForPortrait
+          ? duelSpaceBackground.naturalWidth
+          : duelSpaceBackground.naturalHeight;
         const scale = Math.max(
-          visibleW / duelSpaceBackground.naturalWidth,
-          visibleH / duelSpaceBackground.naturalHeight,
+          visibleW / backgroundW,
+          visibleH / backgroundH,
         );
         const drawW = duelSpaceBackground.naturalWidth * scale;
         const drawH = duelSpaceBackground.naturalHeight * scale;
-        ctx.drawImage(duelSpaceBackground, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
+        ctx.save();
+        ctx.translate(visibleW / 2, visibleH / 2);
+        if (rotateForPortrait) ctx.rotate(Math.PI / 2);
+        ctx.drawImage(duelSpaceBackground, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
         return;
       }
       ctx.fillStyle = "#03050a";
@@ -1627,15 +1639,16 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (!isArenaScene()) return;
     const x = DUEL_ARENA.x - camera.x;
     const y = DUEL_ARENA.y - camera.y;
+    const displayRadius = DUEL_ARENA.r * .75;
     if (duelPlatformArt.complete && duelPlatformArt.naturalWidth > 0) {
-      const drawSize = DUEL_ARENA.r * 2.16;
+      const drawSize = displayRadius * 2.16;
       ctx.drawImage(duelPlatformArt, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
       return;
     }
     ctx.save();
     ctx.fillStyle = "#697174";
     ctx.beginPath();
-    ctx.arc(x, y, DUEL_ARENA.r, 0, TAU);
+    ctx.arc(x, y, displayRadius, 0, TAU);
     ctx.fill();
     ctx.lineWidth = 10;
     ctx.strokeStyle = "#aeb8ba";
@@ -1644,7 +1657,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     ctx.strokeStyle = "rgba(235,239,238,.46)";
     ctx.setLineDash([10, 12]);
     ctx.beginPath();
-    ctx.arc(x, y, DUEL_ARENA.r - 18, 0, TAU);
+    ctx.arc(x, y, displayRadius - 18, 0, TAU);
     ctx.stroke();
     ctx.restore();
   }

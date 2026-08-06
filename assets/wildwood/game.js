@@ -244,7 +244,7 @@
   };
   const REWARD_DATA = {
     damage: { color: "#ff655a" },
-    health: { color: "#66ed79", label: "+6 MAX HEALTH" },
+    health: { color: "#66ed79", label: "+24 MAX HEALTH" },
     speed: { color: "#ffe05d", label: "+0.02 ATK/SEC" },
     armor: { color: "#d3dbe0", label: "+1 ARMOR" },
     regen: { color: "#ff7ccb", label: "+0.3 HP/SEC" }
@@ -281,9 +281,12 @@
   function damageRewardForHp(maxHp, explicitReward) {
     return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
   }
+  function healthRewardAmount(explicitReward) {
+    return (explicitReward ?? 6) * 4;
+  }
   function rewardLabel(type, maxHp, explicitDamageReward, explicitStatReward) {
     if (type === "damage") return `+${damageRewardForHp(maxHp, explicitDamageReward)} DAMAGE`;
-    if (type === "health" && explicitStatReward) return `+${explicitStatReward} MAX HEALTH`;
+    if (type === "health") return `+${healthRewardAmount(explicitStatReward)} MAX HEALTH`;
     return REWARD_DATA[type].label ?? "";
   }
   function createWorldLayout(playerSpawn) {
@@ -648,7 +651,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.209";
+    const GAME_VERSION = "0.210";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1328,7 +1331,7 @@
           player.damage += damageRewardForHp(enemyMaxHp, explicitDamageReward);
           break;
         case "health":
-          const healthReward = explicitStatReward ?? 6;
+          const healthReward = healthRewardAmount(explicitStatReward);
           player.maxHp += healthReward;
           player.hp = Math.min(player.maxHp, player.hp + healthReward);
           break;
@@ -1911,13 +1914,20 @@
         if (duelSpaceBackground.complete && duelSpaceBackground.naturalWidth > 0) {
           ctx.fillStyle = "#050713";
           ctx.fillRect(0, 0, visibleW, visibleH);
+          const rotateForPortrait = visibleH > visibleW;
+          const backgroundW = rotateForPortrait ? duelSpaceBackground.naturalHeight : duelSpaceBackground.naturalWidth;
+          const backgroundH = rotateForPortrait ? duelSpaceBackground.naturalWidth : duelSpaceBackground.naturalHeight;
           const scale = Math.max(
-            visibleW / duelSpaceBackground.naturalWidth,
-            visibleH / duelSpaceBackground.naturalHeight
+            visibleW / backgroundW,
+            visibleH / backgroundH
           );
           const drawW = duelSpaceBackground.naturalWidth * scale;
           const drawH = duelSpaceBackground.naturalHeight * scale;
-          ctx.drawImage(duelSpaceBackground, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
+          ctx.save();
+          ctx.translate(visibleW / 2, visibleH / 2);
+          if (rotateForPortrait) ctx.rotate(Math.PI / 2);
+          ctx.drawImage(duelSpaceBackground, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.restore();
           return;
         }
         ctx.fillStyle = "#03050a";
@@ -2051,15 +2061,16 @@
       if (!isArenaScene()) return;
       const x = DUEL_ARENA.x - camera.x;
       const y = DUEL_ARENA.y - camera.y;
+      const displayRadius = DUEL_ARENA.r * 0.75;
       if (duelPlatformArt.complete && duelPlatformArt.naturalWidth > 0) {
-        const drawSize = DUEL_ARENA.r * 2.16;
+        const drawSize = displayRadius * 2.16;
         ctx.drawImage(duelPlatformArt, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
         return;
       }
       ctx.save();
       ctx.fillStyle = "#697174";
       ctx.beginPath();
-      ctx.arc(x, y, DUEL_ARENA.r, 0, TAU);
+      ctx.arc(x, y, displayRadius, 0, TAU);
       ctx.fill();
       ctx.lineWidth = 10;
       ctx.strokeStyle = "#aeb8ba";
@@ -2068,7 +2079,7 @@
       ctx.strokeStyle = "rgba(235,239,238,.46)";
       ctx.setLineDash([10, 12]);
       ctx.beginPath();
-      ctx.arc(x, y, DUEL_ARENA.r - 18, 0, TAU);
+      ctx.arc(x, y, displayRadius - 18, 0, TAU);
       ctx.stroke();
       ctx.restore();
     }
