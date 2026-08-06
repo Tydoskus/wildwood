@@ -116,8 +116,8 @@
       ctx.fillStyle = fillColor;
       ctx.shadowColor = "rgba(0, 0, 0, .92)";
       ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 3;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 2;
       ctx.fillText(text, x, y);
       ctx.shadowColor = "transparent";
       ctx.shadowOffsetX = 0;
@@ -582,7 +582,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.197";
+    const GAME_VERSION = "0.198";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;

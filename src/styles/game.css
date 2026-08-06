@@ -9,9 +9,9 @@
     --gold: #ffd85b;
     --red: #ff6767;
     --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
-    --text-outline-width: 1px;
-    --text-shadow: 2px 3px 0 #000;
-    --text-shadow-large: 3px 4px 0 #000;
+    --text-outline-width: .08em;
+    --text-shadow: .06em .10em 0 #000;
+    --text-shadow-large: .06em .10em 0 #000;
   }
 
   * {
@@ -801,11 +801,6 @@
   }
 
   @media (pointer: coarse), (max-width: 800px) {
-    :root {
-      --text-outline-width: .75px;
-      --text-shadow: 1px 2px 0 #000;
-      --text-shadow-large: 2px 3px 0 #000;
-    }
     .card {
       background: rgba(13, 20, 17, .96);
       -webkit-backdrop-filter: none;

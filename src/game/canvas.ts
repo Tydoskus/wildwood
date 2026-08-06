@@ -40,8 +40,8 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = fillColor;
     ctx.shadowColor = "rgba(0, 0, 0, .92)";
     ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 2;
     ctx.fillText(text, x, y);
 
     ctx.shadowColor = "transparent";
