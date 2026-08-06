@@ -140,7 +140,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 11;
+const PROTOCOL_VERSION = 12;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -212,6 +212,8 @@ let protocolBlocked = false;
 let protocolRefreshScheduled = false;
 let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
+let worldEntryPromise: Promise<boolean> | null = null;
+let worldEntryGeneration = 0;
 let accountCallbackPending = new URL(window.location.href).searchParams.has("code") ||
   new URL(window.location.href).searchParams.has("error");
 let accountReturnPending = accountCallbackPending && (() => {
@@ -264,6 +266,30 @@ function sendReducer(action: string, reducer: () => unknown, onRejected?: () => 
     onRejected?.();
     handleReducerFailure(action, error);
   }
+}
+
+function requestWorldEntry(): Promise<boolean> {
+  if (protocolBlocked || !connection) return Promise.resolve(false);
+  if (worldEntryGeneration === connectionGeneration) return Promise.resolve(true);
+  if (worldEntryPromise) return worldEntryPromise;
+  const conn = connection;
+  const generation = connectionGeneration;
+  worldEntryPromise = Promise.resolve(conn.reducers.enterWorld({}))
+    .then(() => {
+      if (connection !== conn || generation !== connectionGeneration) return false;
+      worldEntryGeneration = generation;
+      flushPendingProgress(true);
+      onChange?.();
+      return true;
+    })
+    .catch((error) => {
+      handleReducerFailure("world entry", error);
+      return false;
+    })
+    .finally(() => {
+      worldEntryPromise = null;
+    });
+  return worldEntryPromise;
 }
 
 function accountToken() {
@@ -743,6 +769,7 @@ function sameProgressSave(a: ProgressSave, b: ProgressSave) {
 function flushPendingProgressAsync(force = false): Promise<boolean> {
   if (progressSavePromise) return progressSavePromise;
   if (protocolBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
+  if (worldEntryGeneration !== connectionGeneration) return Promise.resolve(false);
   if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
   const conn = connection;
   const identity = localIdentity;
@@ -1155,6 +1182,8 @@ function connect() {
       protocolBlocked = false;
       protocolRefreshScheduled = false;
       accountLinkClaiming = false;
+      worldEntryPromise = null;
+      worldEntryGeneration = 0;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       const connectedIdentity = identity.toHexString();
@@ -1224,6 +1253,11 @@ function connect() {
           }
         }
 
+        if ((signedIn || guestSessionExplicit) && !await requestWorldEntry()) {
+          if (isCurrentConnection()) conn.disconnect();
+          return;
+        }
+
         conn.db.player.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayer(row); });
         conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayer(row); });
         conn.db.player.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayer(row); });
@@ -1287,6 +1321,8 @@ function connect() {
       nextPositionSequence = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      worldEntryPromise = null;
+      worldEntryGeneration = 0;
       localProfileReady = false;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
@@ -1304,6 +1340,8 @@ function connect() {
       nextPositionSequence = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      worldEntryPromise = null;
+      worldEntryGeneration = 0;
       const rejectedToken = /401|unauthorized|verify token/i.test(String(error?.message || error));
       if (rejectedToken) {
         clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
@@ -1378,6 +1416,11 @@ export const wildwoodCoop = {
       onChange?.();
       return { ok: false, error: "WAIT FOR SERVER" };
     }
+    if (!await requestWorldEntry()) {
+      authNotice = "PLAYER START FAILED · TRY AGAIN";
+      onChange?.();
+      return { ok: false, error: "PLAYER START FAILED" };
+    }
     authNotice = "SAVING GUEST";
     onChange?.();
     if (!await drainPendingProgress()) {
@@ -1417,7 +1460,8 @@ export const wildwoodCoop = {
   continueAsGuest() {
     guestSessionExplicit = true;
     authNotice = "GUEST SESSION";
-    connect();
+    if (connection?.isActive) void requestWorldEntry();
+    else connect();
     onChange?.();
   },
   localIdentity() {

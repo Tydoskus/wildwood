@@ -53,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.218";
+  const GAME_VERSION = "0.219";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -504,13 +504,14 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   function finishStartup() {
     updateLoadingDetail();
     const account = coop?.accountState?.();
-    if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
-      !coop?.isConnected?.() || !coop?.localState?.()) return;
-    if (account?.signedIn && !coop?.localProfileReady?.()) return;
+    if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
+      !coop?.isConnected?.()) return;
     if (!account?.signedIn && !guestContinuationChosen) {
       showAccountChoice();
       return;
     }
+    if (!progressLoaded || !coop?.localState?.()) return;
+    if (account?.signedIn && !coop?.localProfileReady?.()) return;
     if (startupKind === "new") {
       if (!newPlayerIntroShown) {
         newPlayerIntroShown = true;

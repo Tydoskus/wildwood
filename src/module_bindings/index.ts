@@ -40,6 +40,7 @@ import BeginAdventureReducer from "./begin_adventure_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
+import EnterWorldReducer from "./enter_world_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -171,6 +172,7 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+  __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

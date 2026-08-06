@@ -5,7 +5,8 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 11;
+const PROTOCOL_VERSION = 12;
+const LEGACY_PROTOCOL_VERSION = 11;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -421,12 +422,22 @@ function requireSession(ctx: any) {
   return session;
 }
 
-function requireCurrentProtocol(ctx: any) {
+function isSupportedProtocol(protocolVersion: number) {
+  return protocolVersion === PROTOCOL_VERSION || protocolVersion === LEGACY_PROTOCOL_VERSION;
+}
+
+function requireSupportedSessionProtocol(ctx: any) {
   const session = requireSession(ctx);
-  const current = ctx.db.player.identity.find(ctx.sender);
-  if (!current || session.protocolVersion !== PROTOCOL_VERSION) {
+  if (!isSupportedProtocol(session.protocolVersion)) {
     throw new SenderError("Wildwood updated. Refresh to continue.");
   }
+  return session;
+}
+
+function requireCurrentProtocol(ctx: any) {
+  requireSupportedSessionProtocol(ctx);
+  const current = ctx.db.player.identity.find(ctx.sender);
+  if (!current) throw new SenderError("Enter Wildwood first.");
   return current;
 }
 
@@ -892,27 +903,11 @@ function clearExpiredHistory(ctx: any) {
   trimChatHistory(ctx);
 }
 
-export const onConnect = spacetimedb.clientConnected((ctx) => {
-  ensureMaintenanceSchedule(ctx);
-  ensureDragonBoss(ctx);
-
+function enterWorldPresence(ctx: any) {
+  const session = requireSupportedSessionProtocol(ctx);
   if (!ctx.connectionId) return;
-  const existingSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
-  const nextSession = {
-    connectionId: ctx.connectionId,
-    identity: ctx.sender,
-    connectedAt: ctx.timestamp,
-    protocolVersion: 0,
-    lastInputSequence: 0,
-  };
-  if (existingSession) ctx.db.playerSession.connectionId.update(nextSession);
-  else ctx.db.playerSession.insert(nextSession);
-
-  let controller = ctx.db.playerController.identity.find(ctx.sender);
-  if (!controller) {
-    controller = { identity: ctx.sender, connectionId: ctx.connectionId };
-    ctx.db.playerController.insert(controller);
-  }
+  const controller = ctx.db.playerController.identity.find(ctx.sender);
+  if (!controller || !sameConnection(controller.connectionId, ctx.connectionId)) return;
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
@@ -934,8 +929,8 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     const speed = speedForBoots(existingProgress.bootsCollected);
     if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
       const migratedProgress = {
-      ...existingProgress,
-      attackRange: DEFAULT_ATTACK_RANGE,
+        ...existingProgress,
+        attackRange: DEFAULT_ATTACK_RANGE,
         speed,
         inventoryJson,
         equippedFeet,
@@ -946,16 +941,15 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   }
 
   const existing = ctx.db.player.identity.find(ctx.sender);
-  const progressForPresence = existingProgress ?? defaultPlayerProgress(ctx.sender);
-  const feetItem = equippedFeetForProgress(progressForPresence);
-  if (!sameConnection(controller.connectionId, ctx.connectionId)) return;
+  const feetItem = equippedFeetForProgress(existingProgress);
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
-        power: powerForProgress(progressForPresence),
+        power: powerForProgress(existingProgress),
         moving: false,
         feetItem,
+        protocolVersion: session.protocolVersion,
         lastInputAt: ctx.timestamp,
       });
       return;
@@ -966,7 +960,8 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
       y: PLAYER_SPAWN.y,
       facing: 0,
       moving: false,
-      power: powerForProgress(progressForPresence),
+      power: powerForProgress(existingProgress),
+      protocolVersion: session.protocolVersion,
       lastInputAt: ctx.timestamp,
       lastInputSequence: 0,
       feetItem,
@@ -979,16 +974,39 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     x: PLAYER_SPAWN.x,
     y: PLAYER_SPAWN.y,
     facing: 0,
-    hp: progressForPresence.maxHp,
-    maxHp: progressForPresence.maxHp,
-    power: powerForProgress(progressForPresence),
-    speed: speedForBoots(progressForPresence.bootsCollected),
+    hp: existingProgress.maxHp,
+    maxHp: existingProgress.maxHp,
+    power: powerForProgress(existingProgress),
+    speed: speedForBoots(existingProgress.bootsCollected),
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
-    protocolVersion: 0,
+    protocolVersion: session.protocolVersion,
     feetItem,
   });
+}
+
+export const onConnect = spacetimedb.clientConnected((ctx) => {
+  ensureMaintenanceSchedule(ctx);
+  ensureDragonBoss(ctx);
+
+  if (!ctx.connectionId) return;
+  const existingSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
+  const nextSession = {
+    connectionId: ctx.connectionId,
+    identity: ctx.sender,
+    connectedAt: ctx.timestamp,
+    protocolVersion: 0,
+    lastInputSequence: 0,
+  };
+  if (existingSession) ctx.db.playerSession.connectionId.update(nextSession);
+  else ctx.db.playerSession.insert(nextSession);
+
+  let controller = ctx.db.playerController.identity.find(ctx.sender);
+  if (!controller) {
+    controller = { identity: ctx.sender, connectionId: ctx.connectionId };
+    ctx.db.playerController.insert(controller);
+  }
 });
 
 export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
@@ -1124,31 +1142,38 @@ export const damageDragonBatch = spacetimedb.reducer(
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
-    if (protocolVersion !== PROTOCOL_VERSION) {
+    if (!isSupportedProtocol(protocolVersion)) {
       throw new SenderError("Wildwood updated. Refresh to continue.");
     }
     const session = requireSession(ctx);
     ctx.db.playerSession.connectionId.update({ ...session, protocolVersion });
     const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current) throw new SenderError("Player connection not ready.");
     const controller = ctx.db.playerController.identity.find(ctx.sender);
-    if (ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
+    if (current && ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
       ctx.db.player.identity.update({ ...current, protocolVersion });
     }
+    // v11 clients predate explicit world entry. Keep them functional long
+    // enough for the version gate to refresh cached pages to v12.
+    if (protocolVersion === LEGACY_PROTOCOL_VERSION) enterWorldPresence(ctx);
   },
 );
+
+export const enterWorld = spacetimedb.reducer({}, (ctx) => {
+  requireSupportedSessionProtocol(ctx);
+  enterWorldPresence(ctx);
+});
 
 export const resumeSession = spacetimedb.reducer(
   {},
   (ctx) => {
-    requireCurrentProtocol(ctx);
+    requireSupportedSessionProtocol(ctx);
   },
 );
 
 export const beginAccountLink = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
-    requireCurrentProtocol(ctx);
+    requireSupportedSessionProtocol(ctx);
     if (hasSpacetimeAuthAccount(ctx)) throw new SenderError("Already signed in.");
     if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) throw new SenderError("Invalid account link.");
     clearExpiredAccountLinks(ctx);
@@ -1160,7 +1185,7 @@ export const beginAccountLink = spacetimedb.reducer(
 export const claimGuestAccount = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
-    requireCurrentProtocol(ctx);
+    requireSupportedSessionProtocol(ctx);
     if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Sign in required.");
     clearExpiredAccountLinks(ctx);
 

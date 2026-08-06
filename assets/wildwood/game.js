@@ -651,7 +651,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.218";
+    const GAME_VERSION = "0.219";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1064,12 +1064,13 @@
       var _a2, _b, _c, _d, _e;
       updateLoadingDetail();
       const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
-      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) || !((_c = coop == null ? void 0 : coop.localState) == null ? void 0 : _c.call(coop))) return;
-      if ((account == null ? void 0 : account.signedIn) && !((_d = coop == null ? void 0 : coop.localProfileReady) == null ? void 0 : _d.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop))) return;
       if (!(account == null ? void 0 : account.signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
       }
+      if (!progressLoaded || !((_c = coop == null ? void 0 : coop.localState) == null ? void 0 : _c.call(coop))) return;
+      if ((account == null ? void 0 : account.signedIn) && !((_d = coop == null ? void 0 : coop.localProfileReady) == null ? void 0 : _d.call(coop))) return;
       if (startupKind === "new") {
         if (!newPlayerIntroShown) {
           newPlayerIntroShown = true;

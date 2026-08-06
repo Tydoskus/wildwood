@@ -8206,6 +8206,7 @@ ${ty.variants.map(
   const DamageDragonBatchReducer = {
     hits: t.u32()
   };
+  const EnterWorldReducer = {};
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
@@ -8467,6 +8468,7 @@ ${ty.variants.map(
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
     reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+    reducerSchema("enter_world", EnterWorldReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
@@ -8510,7 +8512,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 11;
+  const PROTOCOL_VERSION = 12;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8580,6 +8582,8 @@ ${ty.variants.map(
   let protocolRefreshScheduled = false;
   let accountLinkClaiming = false;
   let resumeProbePromise = null;
+  let worldEntryPromise = null;
+  let worldEntryGeneration = 0;
   let accountCallbackPending = new URL(window.location.href).searchParams.has("code") || new URL(window.location.href).searchParams.has("error");
   let accountReturnPending = accountCallbackPending && (() => {
     try {
@@ -8622,6 +8626,26 @@ ${ty.variants.map(
     } catch (error) {
       handleReducerFailure(action, error);
     }
+  }
+  function requestWorldEntry() {
+    if (protocolBlocked || !connection) return Promise.resolve(false);
+    if (worldEntryGeneration === connectionGeneration) return Promise.resolve(true);
+    if (worldEntryPromise) return worldEntryPromise;
+    const conn = connection;
+    const generation = connectionGeneration;
+    worldEntryPromise = Promise.resolve(conn.reducers.enterWorld({})).then(() => {
+      if (connection !== conn || generation !== connectionGeneration) return false;
+      worldEntryGeneration = generation;
+      flushPendingProgress(true);
+      onChange == null ? void 0 : onChange();
+      return true;
+    }).catch((error) => {
+      handleReducerFailure("world entry", error);
+      return false;
+    }).finally(() => {
+      worldEntryPromise = null;
+    });
+    return worldEntryPromise;
   }
   function accountToken() {
     try {
@@ -9052,6 +9076,7 @@ ${ty.variants.map(
   function flushPendingProgressAsync(force = false) {
     if (progressSavePromise) return progressSavePromise;
     if (protocolBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
+    if (worldEntryGeneration !== connectionGeneration) return Promise.resolve(false);
     if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
     const conn = connection;
     const identity = localIdentity;
@@ -9377,6 +9402,8 @@ ${ty.variants.map(
       protocolBlocked = false;
       protocolRefreshScheduled = false;
       accountLinkClaiming = false;
+      worldEntryPromise = null;
+      worldEntryGeneration = 0;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       const connectedIdentity = identity.toHexString();
@@ -9442,6 +9469,10 @@ ${ty.variants.map(
               return;
             }
           }
+        }
+        if ((signedIn || guestSessionExplicit) && !await requestWorldEntry()) {
+          if (isCurrentConnection()) conn.disconnect();
+          return;
         }
         conn.db.player.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertPlayer(row);
@@ -9530,6 +9561,8 @@ ${ty.variants.map(
       nextPositionSequence = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      worldEntryPromise = null;
+      worldEntryGeneration = 0;
       localProfileReady = false;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
@@ -9546,6 +9579,8 @@ ${ty.variants.map(
       nextPositionSequence = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      worldEntryPromise = null;
+      worldEntryGeneration = 0;
       const rejectedToken = /401|unauthorized|verify token/i.test(String((error == null ? void 0 : error.message) || error));
       if (rejectedToken) {
         clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
@@ -9616,6 +9651,11 @@ ${ty.variants.map(
         onChange == null ? void 0 : onChange();
         return { ok: false, error: "WAIT FOR SERVER" };
       }
+      if (!await requestWorldEntry()) {
+        authNotice = "PLAYER START FAILED · TRY AGAIN";
+        onChange == null ? void 0 : onChange();
+        return { ok: false, error: "PLAYER START FAILED" };
+      }
       authNotice = "SAVING GUEST";
       onChange == null ? void 0 : onChange();
       if (!await drainPendingProgress()) {
@@ -9656,7 +9696,8 @@ ${ty.variants.map(
     continueAsGuest() {
       guestSessionExplicit = true;
       authNotice = "GUEST SESSION";
-      connect();
+      if (connection == null ? void 0 : connection.isActive) void requestWorldEntry();
+      else connect();
       onChange == null ? void 0 : onChange();
     },
     localIdentity() {

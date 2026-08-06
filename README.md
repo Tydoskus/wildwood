@@ -102,6 +102,7 @@ Publishing the server is a separate production operation; pushing `main` only de
 
 ## Presence and reconnect invariants
 
+- A websocket connection is not world presence. `on_connect` creates only private session/controller state; `enter_world` creates durable character defaults and the public player row after explicit guest/sign-in choice or completed automatic sign-in.
 - Presence is connection-scoped. `player_session` tracks every websocket; `player_controller` selects one connection that may move, duel, or damage the dragon.
 - Disconnecting a secondary tab must not delete the shared public player row or cancel a duel. Controller ownership transfers to another live session.
 - Every connection registers its own protocol version before reducers or subscriptions run.
