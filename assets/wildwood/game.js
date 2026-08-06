@@ -335,7 +335,7 @@
       const x = rand(55, WORLD.w - 55);
       const y = rand(55, WORLD.h - 55);
       if (!isOnRoad(x, y, 35) && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
-        decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), seed: Math.random() });
+        decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), variant: index % 16 });
       }
     }
     for (let index = 0; index < 430; index += 1) {
@@ -349,6 +349,15 @@
       if (!isOnRoad(x, y, 8)) decor.push({ type: "petal", x, y, variant: index % 3 });
     }
     return { decor, paths };
+  }
+  function loadTreeSpritesheet(onSettled) {
+    const image = new Image();
+    if (onSettled) {
+      image.addEventListener("load", onSettled, { once: true });
+      image.addEventListener("error", onSettled, { once: true });
+    }
+    image.src = "assets/wildwood/tree-spritesheet-v1.png";
+    return image;
   }
   function createSpawnSites(boss) {
     const sites = [];
@@ -598,7 +607,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.202";
+    const GAME_VERSION = "0.203";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -786,6 +795,12 @@
     playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
     const ENEMY_SPRITES = loadEnemySprites();
     const actorShadowSprite = loadActorShadowSprite();
+    let treeSpritesheetReady = false;
+    const treeSpritesheet = loadTreeSpritesheet(() => {
+      treeSpritesheetReady = true;
+      updateLoadingDetail();
+      finishStartup();
+    });
     function resize() {
       viewW = innerWidth;
       viewH = innerHeight;
@@ -942,7 +957,7 @@
     function finishStartup() {
       var _a, _b, _c, _d;
       updateLoadingDetail();
-      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
       if (!((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop).signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
@@ -995,7 +1010,8 @@
         ["LOADING CONNECTION", Boolean((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)), 12],
         ["LOADING PLAYER PROFILE", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
-        ["LOADING PLAYER SPRITE", playerSpriteReady, 82],
+        ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
+        ["LOADING WORLD ART", treeSpritesheetReady, 90],
         ["STARTING WILDWOOD", true, 100]
       ];
       const [text, ready, percent] = stages[loadingStage];
@@ -1841,22 +1857,25 @@
       const visibleH = viewH / camera.zoom;
       const x = Math.floor(o.x - camera.x);
       const y = Math.floor(o.y - camera.y);
-      const s = o.s;
-      if (x < -55 || y < -70 || x > visibleW + 55 || y > visibleH + 55) return;
-      ctx.fillStyle = "#815844";
-      ctx.fillRect(Math.floor(x - 5 * s), Math.floor(y + 7 * s), Math.floor(10 * s), Math.floor(24 * s));
-      const blobs = [
-        [-12, -2, 16, "#185b2b"],
-        [3, -8, 18, "#1d6c31"],
-        [13, 3, 14, "#22773a"],
-        [-3, 6, 18, "#207236"]
-      ];
-      for (const [bx, by, br, c] of blobs) {
-        ctx.fillStyle = c;
-        pixelCircle(x + bx * s, y + by * s, br * s);
-      }
-      ctx.fillStyle = "rgba(129,233,116,.18)";
-      pixelCircle(x - 5 * s, y - 9 * s, 8 * s);
+      const drawSize = Math.round(154 * o.s);
+      if (x < -drawSize || y < -drawSize || x > visibleW + drawSize || y > visibleH + 18) return;
+      if (!treeSpritesheet.complete || treeSpritesheet.naturalWidth <= 0) return;
+      const cellW = treeSpritesheet.naturalWidth / 4;
+      const cellH = treeSpritesheet.naturalHeight / 4;
+      const variant = o.variant % 16;
+      const sourceX = variant % 4 * cellW;
+      const sourceY = Math.floor(variant / 4) * cellH;
+      ctx.drawImage(
+        treeSpritesheet,
+        sourceX,
+        sourceY,
+        cellW,
+        cellH,
+        Math.round(x - drawSize / 2),
+        Math.round(y - drawSize),
+        drawSize,
+        drawSize
+      );
     }
     function drawGrass(o) {
       const x = Math.floor(o.x - camera.x);
@@ -1886,7 +1905,6 @@
       for (const o of decor) if (o.type === "grass") drawGrass(o);
       for (const o of decor) if (o.type === "petal") drawPetal(o);
       for (const o of decor) if (o.type === "stone") drawStone(o);
-      for (const o of decor) if (o.type === "tree") drawTree(o);
     }
     function drawActorShadow(x, y, width, alpha = 0.38) {
       const height = Math.max(8, Math.round(width * 33 / 86));
@@ -2312,6 +2330,37 @@
       }
       ctx.globalAlpha = 1;
     }
+    function drawDepthSortedWorld(remotePlayers) {
+      const layers = [];
+      const visibleW = viewW / camera.zoom;
+      const visibleH = viewH / camera.zoom;
+      const treeMargin = 220;
+      for (const tree of decor) {
+        if (tree.type !== "tree") continue;
+        if (tree.x < camera.x - treeMargin || tree.x > camera.x + visibleW + treeMargin || tree.y < camera.y - 20 || tree.y > camera.y + visibleH + treeMargin) continue;
+        layers.push({ depth: tree.y, priority: 2, draw: () => drawTree(tree) });
+      }
+      for (const enemy of enemies) {
+        if (enemy.dead) continue;
+        layers.push({ depth: enemy.y + enemy.r, priority: 1, draw: () => drawEnemy(enemy) });
+      }
+      if (!boss.dead) {
+        layers.push({ depth: boss.y + 93, priority: 1, draw: drawBoss });
+      }
+      if (!bootsPickup.collected) {
+        layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
+      }
+      for (const remotePlayer of remotePlayers) {
+        layers.push({
+          depth: remotePlayer.y + 29,
+          priority: 1,
+          draw: () => drawRemotePlayers([remotePlayer])
+        });
+      }
+      layers.push({ depth: player.y + 29, priority: 1, draw: drawPlayer });
+      layers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
+      for (const layer of layers) layer.draw();
+    }
     function drawMinimap(remotePlayers) {
       const size = Math.min(180, Math.max(110, viewW * 0.17));
       const pad = 12;
@@ -2472,11 +2521,7 @@
       for (const p of projectiles) drawProjectile(p, false);
       for (const p of enemyShots) drawProjectile(p, true);
       drawDuelShots();
-      for (const e of enemies) drawEnemy(e);
-      drawBoss();
-      drawBootPickup();
-      drawRemotePlayers(remotePlayers);
-      drawPlayer();
+      drawDepthSortedWorld(remotePlayers);
       drawParticles();
       drawDamageNumbers();
       ctx.restore();

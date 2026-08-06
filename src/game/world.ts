@@ -5,7 +5,7 @@ import { clamp, rand } from "./math";
 export type WorldPath = { x: number; y: number; w: number; h: number };
 export type WorldDecor =
   | { type: "stone"; x: number; y: number; w: number; h: number }
-  | { type: "tree"; x: number; y: number; s: number; seed: number }
+  | { type: "tree"; x: number; y: number; s: number; variant: number }
   | { type: "grass"; x: number; y: number; variant: number }
   | { type: "petal"; x: number; y: number; variant: number };
 export type SpawnSite = {
@@ -57,7 +57,7 @@ export function createWorldLayout(playerSpawn: Point) {
     const x = rand(55, WORLD.w - 55);
     const y = rand(55, WORLD.h - 55);
     if (!isOnRoad(x, y, 35) && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
-      decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), seed: Math.random() });
+      decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), variant: index % 16 });
     }
   }
 
@@ -73,6 +73,16 @@ export function createWorldLayout(playerSpawn: Point) {
     if (!isOnRoad(x, y, 8)) decor.push({ type: "petal", x, y, variant: index % 3 });
   }
   return { decor, paths };
+}
+
+export function loadTreeSpritesheet(onSettled?: () => void) {
+  const image = new Image();
+  if (onSettled) {
+    image.addEventListener("load", onSettled, { once: true });
+    image.addEventListener("error", onSettled, { once: true });
+  }
+  image.src = "assets/wildwood/tree-spritesheet-v1.png";
+  return image;
 }
 
 export function createSpawnSites(boss: Point): SpawnSite[] {

@@ -25,7 +25,7 @@ import {
 import { circlesOverlap, clamp, distanceSquared, rand, randi } from "./game/math";
 import { inventoryFromSave, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
-import { createSpawnSites, createWorldLayout } from "./game/world";
+import { createSpawnSites, createWorldLayout, loadTreeSpritesheet } from "./game/world";
 import {
   DUEL_ARENA,
   DUEL_REPLAY_COUNTDOWN_SECONDS,
@@ -49,7 +49,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.202";
+  const GAME_VERSION = "0.203";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -248,6 +248,12 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   const ENEMY_SPRITES = loadEnemySprites();
   const actorShadowSprite = loadActorShadowSprite();
+  let treeSpritesheetReady = false;
+  const treeSpritesheet = loadTreeSpritesheet(() => {
+    treeSpritesheetReady = true;
+    updateLoadingDetail();
+    finishStartup();
+  });
 
   function resize() {
     viewW = innerWidth;
@@ -432,7 +438,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   function finishStartup() {
     updateLoadingDetail();
-    if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady ||
+    if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady ||
       !coop?.isConnected?.() || !coop?.localState?.()) return;
     if (!coop?.accountState?.().signedIn && !guestContinuationChosen) {
       showAccountChoice();
@@ -489,7 +495,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       ["LOADING CONNECTION", Boolean(coop?.isConnected?.()), 12],
       ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
       ["LOADING SAVED PROGRESS", progressLoaded, 60],
-      ["LOADING PLAYER SPRITE", playerSpriteReady, 82],
+      ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
+      ["LOADING WORLD ART", treeSpritesheetReady, 90],
       ["STARTING WILDWOOD", true, 100],
     ];
     const [text, ready, percent] = stages[loadingStage];
@@ -1452,26 +1459,20 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const visibleH = viewH / camera.zoom;
     const x = Math.floor(o.x - camera.x);
     const y = Math.floor(o.y - camera.y);
-    const s = o.s;
-    if (x < -55 || y < -70 || x > visibleW + 55 || y > visibleH + 55) return;
+    const drawSize = Math.round(154 * o.s);
+    if (x < -drawSize || y < -drawSize || x > visibleW + drawSize || y > visibleH + 18) return;
+    if (!treeSpritesheet.complete || treeSpritesheet.naturalWidth <= 0) return;
 
-    ctx.fillStyle = "#815844";
-    ctx.fillRect(Math.floor(x - 5*s), Math.floor(y + 7*s), Math.floor(10*s), Math.floor(24*s));
-
-    const blobs = [
-      [-12, -2, 16, "#185b2b"],
-      [  3, -8, 18, "#1d6c31"],
-      [ 13,  3, 14, "#22773a"],
-      [ -3,  6, 18, "#207236"]
-    ];
-
-    for (const [bx, by, br, c] of blobs) {
-      ctx.fillStyle = c;
-      pixelCircle(x + bx*s, y + by*s, br*s);
-    }
-
-    ctx.fillStyle = "rgba(129,233,116,.18)";
-    pixelCircle(x - 5*s, y - 9*s, 8*s);
+    const cellW = treeSpritesheet.naturalWidth / 4;
+    const cellH = treeSpritesheet.naturalHeight / 4;
+    const variant = o.variant % 16;
+    const sourceX = (variant % 4) * cellW;
+    const sourceY = Math.floor(variant / 4) * cellH;
+    ctx.drawImage(
+      treeSpritesheet,
+      sourceX, sourceY, cellW, cellH,
+      Math.round(x - drawSize / 2), Math.round(y - drawSize), drawSize, drawSize,
+    );
   }
 
   function drawGrass(o) {
@@ -1504,7 +1505,6 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     for (const o of decor) if (o.type === "grass") drawGrass(o);
     for (const o of decor) if (o.type === "petal") drawPetal(o);
     for (const o of decor) if (o.type === "stone") drawStone(o);
-    for (const o of decor) if (o.type === "tree") drawTree(o);
   }
 
   function drawActorShadow(x, y, width, alpha = .38) {
@@ -1963,6 +1963,43 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     ctx.globalAlpha = 1;
   }
 
+  function drawDepthSortedWorld(remotePlayers) {
+    const layers = [];
+    const visibleW = viewW / camera.zoom;
+    const visibleH = viewH / camera.zoom;
+    const treeMargin = 220;
+    for (const tree of decor) {
+      if (tree.type !== "tree") continue;
+      if (
+        tree.x < camera.x - treeMargin ||
+        tree.x > camera.x + visibleW + treeMargin ||
+        tree.y < camera.y - 20 ||
+        tree.y > camera.y + visibleH + treeMargin
+      ) continue;
+      layers.push({ depth: tree.y, priority: 2, draw: () => drawTree(tree) });
+    }
+    for (const enemy of enemies) {
+      if (enemy.dead) continue;
+      layers.push({ depth: enemy.y + enemy.r, priority: 1, draw: () => drawEnemy(enemy) });
+    }
+    if (!boss.dead) {
+      layers.push({ depth: boss.y + 93, priority: 1, draw: drawBoss });
+    }
+    if (!bootsPickup.collected) {
+      layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
+    }
+    for (const remotePlayer of remotePlayers) {
+      layers.push({
+        depth: remotePlayer.y + 29,
+        priority: 1,
+        draw: () => drawRemotePlayers([remotePlayer]),
+      });
+    }
+    layers.push({ depth: player.y + 29, priority: 1, draw: drawPlayer });
+    layers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
+    for (const layer of layers) layer.draw();
+  }
+
   function drawMinimap(remotePlayers) {
     const size = Math.min(180, Math.max(110, viewW * .17));
     const pad = 12;
@@ -2139,11 +2176,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
     drawDuelShots();
-    for (const e of enemies) drawEnemy(e);
-    drawBoss();
-    drawBootPickup();
-    drawRemotePlayers(remotePlayers);
-    drawPlayer();
+    drawDepthSortedWorld(remotePlayers);
     drawParticles();
     drawDamageNumbers();
 
