@@ -35,3 +35,7 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Pages can occasionally remain in deployment_in_progress longer than
+          # the action's 10-minute default even after artifact upload succeeds.
+          timeout: 1800000
