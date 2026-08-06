@@ -21,6 +21,9 @@ const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
+// Beta support: let players correct names freely. Re-enable after account-link
+// migration issues have settled without deleting any existing cooldown data.
+const DISPLAY_NAME_COOLDOWN_ENABLED = false;
 const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
 const DUEL_COUNTDOWN_MICROS = 3_000_000n;
 const DUEL_DURATION_MICROS = 30_000_000n;
@@ -762,7 +765,7 @@ export const setDisplayName = spacetimedb.reducer(
     const cooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
     // Repair names accidentally replaced by a generated guest name during a
     // prior account-link operation. The next real name starts the 30-day lock.
-    if (cooldown && !isGeneratedDisplayName(existing?.displayName ?? "") &&
+    if (DISPLAY_NAME_COOLDOWN_ENABLED && cooldown && !isGeneratedDisplayName(existing?.displayName ?? "") &&
       ctx.timestamp.microsSinceUnixEpoch - cooldown.changedAt.microsSinceUnixEpoch < DISPLAY_NAME_COOLDOWN_MICROS) {
       throw new Error("Display name can be changed once every 30 days.");
     }
