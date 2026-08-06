@@ -17,6 +17,7 @@ import {
   PLAYER_KNOCKBACK_FORCE,
   PLAYER_SPRITE_CENTER_X_SHIFT,
   PLAYER_SPRITE_X_OFFSETS,
+  PLAYER_SPRITE_Y_OFFSETS,
   RANGED_PROJECTILE_SPEED,
   TAU,
   WORLD,
@@ -48,7 +49,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.201";
+  const GAME_VERSION = "0.202";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1571,12 +1572,13 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       const frame = 0;
       const drawSize = 96;
       const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+      const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
       ctx.save();
       ctx.globalAlpha = actor.isLocal ? 1 : .88;
       ctx.drawImage(
         playerSprite,
         frame * cellW, row * cellH, cellW, cellH,
-        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2), drawSize, drawSize
+        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2 + offsetY), drawSize, drawSize
       );
       ctx.restore();
     }
@@ -1664,10 +1666,11 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       const frame = player.moving ? Math.floor(gameTime * 10) % 4 : 0;
       const drawSize = 96;
       const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+      const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
       ctx.drawImage(
         playerSprite,
         frame * cellW, row * cellH, cellW, cellH,
-        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2), drawSize, drawSize
+        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2 + offsetY), drawSize, drawSize
       );
     }
 
@@ -1759,12 +1762,13 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         const frame = other.moving ? Math.floor(gameTime * 10) % 4 : 0;
         const drawSize = 96;
         const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+        const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
         ctx.save();
         ctx.globalAlpha = .82;
         ctx.drawImage(
           playerSprite,
           frame * cellW, row * cellH, cellW, cellH,
-          Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2), drawSize, drawSize
+          Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2 + offsetY), drawSize, drawSize
         );
         ctx.restore();
       }

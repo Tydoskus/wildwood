@@ -26,3 +26,5 @@ export const PLAYER_SPRITE_X_OFFSETS = [
   [0, 14, 28, 41],
 ];
 export const PLAYER_SPRITE_CENTER_X_SHIFT = -6;
+// Display-space vertical nudges by facing row: down, left, right, up.
+export const PLAYER_SPRITE_Y_OFFSETS = [-6, 2, 2, 4];

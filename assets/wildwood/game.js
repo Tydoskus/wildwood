@@ -35,6 +35,7 @@
     [0, 14, 28, 41]
   ];
   const PLAYER_SPRITE_CENTER_X_SHIFT = -6;
+  const PLAYER_SPRITE_Y_OFFSETS = [-6, 2, 2, 4];
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
@@ -597,7 +598,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.201";
+    const GAME_VERSION = "0.202";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1946,6 +1947,7 @@
         const frame = 0;
         const drawSize = 96;
         const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+        const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
         ctx.save();
         ctx.globalAlpha = actor.isLocal ? 1 : 0.88;
         ctx.drawImage(
@@ -1955,7 +1957,7 @@
           cellW,
           cellH,
           Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
-          Math.floor(y - drawSize / 2),
+          Math.floor(y - drawSize / 2 + offsetY),
           drawSize,
           drawSize
         );
@@ -2036,6 +2038,7 @@
         const frame = player.moving ? Math.floor(gameTime * 10) % 4 : 0;
         const drawSize = 96;
         const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+        const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
         ctx.drawImage(
           playerSprite,
           frame * cellW,
@@ -2043,7 +2046,7 @@
           cellW,
           cellH,
           Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
-          Math.floor(y - drawSize / 2),
+          Math.floor(y - drawSize / 2 + offsetY),
           drawSize,
           drawSize
         );
@@ -2122,6 +2125,7 @@
           const frame = other.moving ? Math.floor(gameTime * 10) % 4 : 0;
           const drawSize = 96;
           const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
+          const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
           ctx.save();
           ctx.globalAlpha = 0.82;
           ctx.drawImage(
@@ -2131,7 +2135,7 @@
             cellW,
             cellH,
             Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
-            Math.floor(y - drawSize / 2),
+            Math.floor(y - drawSize / 2 + offsetY),
             drawSize,
             drawSize
           );
