@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.181";
+  const GAME_VERSION = "0.182";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 
   const canvas = document.getElementById("game");
@@ -224,7 +224,7 @@ import { createChatController } from "./ui/chat";
   };
   playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
   playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
-  playerSprite.src = "assets/wildwood/wildwood-player-spritesheet.png";
+  playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
 
   const ENEMY_TYPES = {
     grunt: {
