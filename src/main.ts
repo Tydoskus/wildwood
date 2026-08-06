@@ -53,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.216";
+  const GAME_VERSION = "0.217";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -62,6 +62,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const MIN_ATTACK_INTERVAL = .32;
   const ATTACK_SPEED_REWARD = .02;
   const WORLD_HEALTH_BAR_HEIGHT = 13;
+  const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -850,7 +851,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
     const data = REWARD_DATA[type];
     logPickup(rewardLabel(type, enemyMaxHp, explicitDamageReward, explicitStatReward), data.color);
-    spawnBurst(x, y, data.color, 16, 110);
+    spawnBurst(x, y, ENEMY_DEATH_PARTICLE_COLOR, 16, 110);
     score += 20;
     saveProgress();
   }
@@ -877,7 +878,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     boss.cone = null;
     bossRain.length = 0;
     score += 5000;
-    spawnBurst(boss.x, boss.y, "#ff7b42", 64, 230);
+    spawnBurst(boss.x, boss.y, ENEMY_DEATH_PARTICLE_COLOR, 64, 230);
   }
 
   function showDragonResult(result) {
@@ -1098,7 +1099,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     }
 
     applyReward(e.rewardType, e.x, e.y, e.maxHp, e.rewardDamage, e.rewardStat);
-    spawnBurst(e.x, e.y, base.color, base.elite ? 28 : 12, base.elite ? 150 : 90);
+    spawnBurst(e.x, e.y, ENEMY_DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
   function damagePlayer(amount) {
