@@ -331,11 +331,35 @@
       }
       decor.push({ type: "stone", x, y, w: width, h: height });
     }
-    for (let index = 0; index < 360; index += 1) {
-      const x = rand(55, WORLD.w - 55);
-      const y = rand(55, WORLD.h - 55);
-      if (!isOnRoad(x, y, 35) && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
-        decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), variant: index % 16 });
+    const groveCenters = [];
+    let treeVariant = 0;
+    for (let grove = 0; grove < 18; grove += 1) {
+      let center = null;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const candidate = { x: rand(180, WORLD.w - 180), y: rand(180, WORLD.h - 180) };
+        if (isOnRoad(candidate.x, candidate.y, 150)) continue;
+        if (Math.hypot(candidate.x - playerSpawn.x, candidate.y - playerSpawn.y) < 620) continue;
+        if (groveCenters.some((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) < 390)) continue;
+        center = candidate;
+        break;
+      }
+      if (!center) continue;
+      groveCenters.push(center);
+      const treeCount = Math.floor(rand(5, 10));
+      const radiusX = rand(90, 185);
+      const radiusY = rand(70, 150);
+      for (let tree = 0; tree < treeCount; tree += 1) {
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const angle = rand(0, Math.PI * 2);
+          const distance = Math.sqrt(Math.random());
+          const x = center.x + Math.cos(angle) * radiusX * distance;
+          const y = center.y + Math.sin(angle) * radiusY * distance;
+          if (x < 65 || x > WORLD.w - 65 || y < 65 || y > WORLD.h - 65) continue;
+          if (isOnRoad(x, y, 65)) continue;
+          if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 500) continue;
+          decor.push({ type: "tree", x, y, s: rand(0.72, 1.32), variant: treeVariant++ % 16 });
+          break;
+        }
       }
     }
     for (let index = 0; index < 430; index += 1) {
@@ -608,7 +632,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.204";
+    const GAME_VERSION = "0.205";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1872,6 +1896,7 @@
       const variant = o.variant % 16;
       const sourceX = variant % 4 * cellW;
       const sourceY = Math.floor(variant / 4) * cellH;
+      drawActorShadow(x, y - 5, Math.round(drawSize * 0.62), 0.15);
       ctx.drawImage(
         treeSpritesheet,
         sourceX,
@@ -2341,10 +2366,12 @@
       const layers = [];
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
-      const treeMargin = 220;
+      const treeCullPadding = 48;
       for (const tree of decor) {
         if (tree.type !== "tree") continue;
-        if (tree.x < camera.x - treeMargin || tree.x > camera.x + visibleW + treeMargin || tree.y < camera.y - 20 || tree.y > camera.y + visibleH + treeMargin) continue;
+        const treeSize = Math.round(154 * tree.s);
+        const treeHalfWidth = treeSize / 2;
+        if (tree.x + treeHalfWidth < camera.x - treeCullPadding || tree.x - treeHalfWidth > camera.x + visibleW + treeCullPadding || tree.y < camera.y - treeCullPadding || tree.y - treeSize > camera.y + visibleH + treeCullPadding) continue;
         layers.push({ depth: tree.y, priority: 2, draw: () => drawTree(tree) });
       }
       for (const enemy of enemies) {

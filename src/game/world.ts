@@ -53,11 +53,36 @@ export function createWorldLayout(playerSpawn: Point) {
     decor.push({ type: "stone", x, y, w: width, h: height });
   }
 
-  for (let index = 0; index < 360; index += 1) {
-    const x = rand(55, WORLD.w - 55);
-    const y = rand(55, WORLD.h - 55);
-    if (!isOnRoad(x, y, 35) && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
-      decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), variant: index % 16 });
+  const groveCenters: Point[] = [];
+  let treeVariant = 0;
+  for (let grove = 0; grove < 18; grove += 1) {
+    let center: Point | null = null;
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const candidate = { x: rand(180, WORLD.w - 180), y: rand(180, WORLD.h - 180) };
+      if (isOnRoad(candidate.x, candidate.y, 150)) continue;
+      if (Math.hypot(candidate.x - playerSpawn.x, candidate.y - playerSpawn.y) < 620) continue;
+      if (groveCenters.some((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) < 390)) continue;
+      center = candidate;
+      break;
+    }
+    if (!center) continue;
+    groveCenters.push(center);
+
+    const treeCount = Math.floor(rand(5, 10));
+    const radiusX = rand(90, 185);
+    const radiusY = rand(70, 150);
+    for (let tree = 0; tree < treeCount; tree += 1) {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const angle = rand(0, Math.PI * 2);
+        const distance = Math.sqrt(Math.random());
+        const x = center.x + Math.cos(angle) * radiusX * distance;
+        const y = center.y + Math.sin(angle) * radiusY * distance;
+        if (x < 65 || x > WORLD.w - 65 || y < 65 || y > WORLD.h - 65) continue;
+        if (isOnRoad(x, y, 65)) continue;
+        if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 500) continue;
+        decor.push({ type: "tree", x, y, s: rand(0.72, 1.32), variant: treeVariant++ % 16 });
+        break;
+      }
     }
   }
 

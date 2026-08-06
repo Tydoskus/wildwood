@@ -49,7 +49,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.204";
+  const GAME_VERSION = "0.205";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1478,6 +1478,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const variant = o.variant % 16;
     const sourceX = (variant % 4) * cellW;
     const sourceY = Math.floor(variant / 4) * cellH;
+    drawActorShadow(x, y - 5, Math.round(drawSize * .62), .15);
     ctx.drawImage(
       treeSpritesheet,
       sourceX, sourceY, cellW, cellH,
@@ -1977,14 +1978,16 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const layers = [];
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
-    const treeMargin = 220;
+    const treeCullPadding = 48;
     for (const tree of decor) {
       if (tree.type !== "tree") continue;
+      const treeSize = Math.round(154 * tree.s);
+      const treeHalfWidth = treeSize / 2;
       if (
-        tree.x < camera.x - treeMargin ||
-        tree.x > camera.x + visibleW + treeMargin ||
-        tree.y < camera.y - 20 ||
-        tree.y > camera.y + visibleH + treeMargin
+        tree.x + treeHalfWidth < camera.x - treeCullPadding ||
+        tree.x - treeHalfWidth > camera.x + visibleW + treeCullPadding ||
+        tree.y < camera.y - treeCullPadding ||
+        tree.y - treeSize > camera.y + visibleH + treeCullPadding
       ) continue;
       layers.push({ depth: tree.y, priority: 2, draw: () => drawTree(tree) });
     }
