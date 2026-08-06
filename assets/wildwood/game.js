@@ -218,7 +218,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.188";
+    const GAME_VERSION = "0.189";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -410,14 +410,32 @@
       grunt: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
       runner: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
       tank: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-      shooter: { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 50 },
+      shooter: {
+        size: 64,
+        height: 70,
+        layers: [
+          { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg1.png", x: -16, y: 19, w: 15, h: 21 },
+          { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg2.png", x: 1, y: 19, w: 17, h: 22 },
+          { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/body.png", x: -20, y: -5, w: 40, h: 40 },
+          { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/arm2.png", x: 13, y: -1, w: 20, h: 21 },
+          { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/bow.png", x: 15, y: -6, w: 43, h: 33 },
+          { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 }
+        ]
+      },
       splitter: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
       elite: { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
       warden: { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 }
     };
     for (const sprite of Object.values(ENEMY_SPRITES)) {
-      sprite.image = new Image();
-      sprite.image.src = sprite.src;
+      if (sprite.layers) {
+        for (const layer of sprite.layers) {
+          layer.image = new Image();
+          layer.image.src = layer.src;
+        }
+      } else {
+        sprite.image = new Image();
+        sprite.image.src = sprite.src;
+      }
     }
     const ENEMY_TYPES = {
       grunt: {
@@ -2154,11 +2172,17 @@
       ctx.ellipse(0, e.r * 0.76, e.r * 0.92, e.r * 0.34, 0, 0, TAU);
       ctx.fill();
       const sprite = ENEMY_SPRITES[e.type];
-      const spriteReady = (sprite == null ? void 0 : sprite.image.complete) && sprite.image.naturalWidth > 0;
-      const spriteHeight = spriteReady ? sprite.size * sprite.image.naturalHeight / sprite.image.naturalWidth : e.r * 2;
+      const spriteReady = (sprite == null ? void 0 : sprite.layers) ? sprite.layers.every((layer) => layer.image.complete && layer.image.naturalWidth > 0) : (sprite == null ? void 0 : sprite.image.complete) && sprite.image.naturalWidth > 0;
+      const spriteHeight = spriteReady ? sprite.height ?? sprite.size * sprite.image.naturalHeight / sprite.image.naturalWidth : e.r * 2;
       if (spriteReady) {
         ctx.globalAlpha = e.hurt > 0 ? 0.7 : 1;
-        ctx.drawImage(sprite.image, -sprite.size / 2, -spriteHeight / 2 - 3, sprite.size, spriteHeight);
+        if (sprite.layers) {
+          for (const layer of sprite.layers) {
+            ctx.drawImage(layer.image, layer.x, layer.y - 3, layer.w, layer.h);
+          }
+        } else {
+          ctx.drawImage(sprite.image, -sprite.size / 2, -spriteHeight / 2 - 3, sprite.size, spriteHeight);
+        }
       } else {
         ctx.fillStyle = base.outline;
         pixelCircle(0, 0, e.r + 3);
