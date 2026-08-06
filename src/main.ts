@@ -47,7 +47,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.195";
+  const GAME_VERSION = "0.196";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -2594,7 +2594,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   showConnecting();
   loadProgress();
-  makeWorld();
+  rebuildWorld();
   updateCamera(1);
   render();
   requestAnimationFrame(loop);

@@ -563,7 +563,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.195";
+    const GAME_VERSION = "0.196";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -2848,7 +2848,7 @@
     canvas.addEventListener("touchcancel", endTouch, { passive: false });
     showConnecting();
     loadProgress();
-    makeWorld();
+    rebuildWorld();
     updateCamera(1);
     render();
     requestAnimationFrame(loop);
