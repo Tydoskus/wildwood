@@ -597,7 +597,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.199";
+    const GAME_VERSION = "0.200";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1936,7 +1936,7 @@
     function drawDuelCombatant(actor) {
       const x = Math.floor(actor.x - camera.x);
       const y = Math.floor(actor.y - camera.y);
-      drawActorShadow(x, y + 29, 54, actor.isLocal ? 0.42 : 0.34);
+      drawActorShadow(x, y + 29, 54, actor.isLocal ? 0.21 : 0.17);
       if (playerSprite.complete && playerSprite.naturalWidth > 0) {
         const cellW = playerSprite.naturalWidth / 4;
         const cellH = playerSprite.naturalHeight / 4;
@@ -1961,20 +1961,16 @@
         );
         ctx.restore();
       }
-      const barW = 46;
-      const barH = 7;
-      const barX = Math.round(x - barW / 2);
-      const barY = y - 50;
-      const hpRatio = clamp(actor.hp / actor.maxHp, 0, 1);
-      ctx.fillStyle = "rgba(0,0,0,.82)";
-      ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
-      ctx.fillStyle = "#402326";
-      ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = "#46cf5a";
-      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-      ctx.fillStyle = "rgba(255,255,255,.24)";
-      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-      drawPlayerName(actor.name, x, barY - 4, actor.isLocal ? "#ffffff" : "#9eeeff");
+      drawActorStatus({
+        x,
+        y,
+        name: actor.name,
+        nameColor: actor.isLocal ? "#ffffff" : "#9eeeff",
+        hp: actor.hp,
+        maxHp: actor.maxHp,
+        power: null,
+        fillColor: actor.isLocal ? "#46cf5a" : "#55a9c6"
+      });
     }
     function drawDamageNumbers() {
       ctx.save();
@@ -2028,7 +2024,7 @@
     function drawPlayer() {
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
-      drawActorShadow(x, y + 29, 54, 0.42);
+      drawActorShadow(x, y + 29, 54, 0.21);
       const blink = player.hurtClock > 0 && Math.floor(player.hurtClock * 18) % 2 === 0;
       if (blink) return;
       if (playerSprite.complete && playerSprite.naturalWidth > 0) {
@@ -2052,21 +2048,39 @@
           drawSize
         );
       }
-      const barW = 46;
+      drawActorStatus({
+        x,
+        y,
+        name: coop && coop.localDisplayName() || "PLAYER",
+        nameColor: "#ffffff",
+        hp: player.hp,
+        maxHp: player.maxHp,
+        power: playerPower(player),
+        fillColor: "#46cf5a"
+      });
+    }
+    function drawActorStatus({ x, y, name, nameColor, hp, maxHp, power, fillColor }) {
+      const centerX = Math.round(x);
+      const barW = 52;
       const barH = 7;
-      const barX = Math.round(x - barW / 2);
-      const barY = y - 50;
-      const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
-      ctx.fillStyle = "rgba(0,0,0,.82)";
-      ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+      const barX = centerX - Math.floor(barW / 2);
+      const barY = Math.round(y - 50);
+      const hpRatio = clamp(hp / maxHp, 0, 1);
+      const fillWidth = Math.round(barW * hpRatio);
+      ctx.fillStyle = "rgba(0,0,0,.88)";
+      ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
       ctx.fillStyle = "#402326";
       ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = "#46cf5a";
-      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-      ctx.fillStyle = "rgba(255,255,255,.24)";
-      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-      drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 22, "#ffffff");
-      drawPlayerPower(player, x, barY - 7);
+      ctx.fillStyle = fillColor;
+      ctx.fillRect(barX, barY, fillWidth, barH);
+      if (fillWidth > 0) {
+        ctx.fillStyle = "rgba(255,255,255,.25)";
+        ctx.fillRect(barX, barY, fillWidth, 1);
+      }
+      const powerBaseline = barY - 6;
+      const nameBaseline = power === null ? powerBaseline : powerBaseline - 14;
+      drawPlayerName(name, centerX, nameBaseline, nameColor);
+      if (power !== null) drawPlayerPowerValue(power, centerX, powerBaseline);
     }
     function drawPlayerName(name, x, y, color) {
       if (!name) return;
@@ -2082,13 +2096,12 @@
         stats.damage * 0.15 + stats.maxHp + stats.armor * 3 + stats.regen * 10 + 50 / stats.attackRate
       );
     }
-    function drawPlayerPower(stats, x, y) {
-      const power = Number.isFinite(stats.power) ? stats.power : playerPower(stats);
+    function drawPlayerPowerValue(power, x, y) {
       ctx.save();
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      outlinedText(`Power: ${power}`, x, y, "#ffe05d", 2);
+      outlinedText(`Power: ${Math.round(power)}`, x, y, "#ffe05d", 2);
       ctx.restore();
     }
     function drawRemotePlayers(remotePlayers) {
@@ -2099,7 +2112,7 @@
         const visibleW = viewW / camera.zoom;
         const visibleH = viewH / camera.zoom;
         if (x < -65 || y < -70 || x > visibleW + 65 || y > visibleH + 70) continue;
-        drawActorShadow(x, y + 29, 54, 0.32);
+        drawActorShadow(x, y + 29, 54, 0.16);
         if (playerSprite.complete && playerSprite.naturalWidth > 0) {
           const cellW = playerSprite.naturalWidth / 4;
           const cellH = playerSprite.naturalHeight / 4;
@@ -2124,17 +2137,16 @@
           );
           ctx.restore();
         }
-        const barW = 46;
-        const barH = 5;
-        const barX = Math.round(x - barW / 2);
-        const barY = y - 50;
-        const hpRatio = clamp(other.hp / other.maxHp, 0, 1);
-        ctx.fillStyle = "rgba(0,0,0,.82)";
-        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
-        ctx.fillStyle = "#3d7d92";
-        ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-        drawPlayerName(other.name, x, barY - 22, "#9eeeff");
-        drawPlayerPower(other, x, barY - 7);
+        drawActorStatus({
+          x,
+          y,
+          name: other.name,
+          nameColor: "#9eeeff",
+          hp: other.hp,
+          maxHp: other.maxHp,
+          power: Number.isFinite(other.power) ? other.power : playerPower(other),
+          fillColor: "#55a9c6"
+        });
       }
     }
     function drawBossTelegraphs() {
