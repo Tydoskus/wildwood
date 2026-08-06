@@ -50,7 +50,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.206";
+  const GAME_VERSION = "0.207";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1491,7 +1491,14 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const x = Math.floor(o.x - camera.x);
     const y = Math.floor(o.y - camera.y);
     const drawSize = Math.round(154 * o.s);
-    if (x < -drawSize || y < -drawSize || x > visibleW + drawSize || y > visibleH + 18) return;
+    const halfWidth = drawSize / 2;
+    const cullPadding = 48;
+    if (
+      x + halfWidth < -cullPadding ||
+      x - halfWidth > visibleW + cullPadding ||
+      y < -cullPadding ||
+      y - drawSize > visibleH + cullPadding
+    ) return;
     if (!treeSpritesheet.complete || treeSpritesheet.naturalWidth <= 0) return;
 
     const cellW = treeSpritesheet.naturalWidth / 4;
