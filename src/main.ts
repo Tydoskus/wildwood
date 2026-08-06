@@ -48,7 +48,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.200";
+  const GAME_VERSION = "0.201";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1846,6 +1846,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const drawH = 400;
     const x = Math.floor(boss.x - camera.x);
     const y = Math.floor(boss.y - camera.y);
+    drawActorShadow(x, y + 93, 188, .24);
 
     ctx.drawImage(
       dragonSpriteCanvas,

@@ -597,7 +597,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.200";
+    const GAME_VERSION = "0.201";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -2208,6 +2208,7 @@
       const drawH = 400;
       const x = Math.floor(boss.x - camera.x);
       const y = Math.floor(boss.y - camera.y);
+      drawActorShadow(x, y + 93, 188, 0.24);
       ctx.drawImage(
         dragonSpriteCanvas,
         frame * cellW,
