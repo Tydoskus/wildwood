@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.183";
+  const GAME_VERSION = "0.184";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 
   const canvas = document.getElementById("game");
@@ -225,6 +225,20 @@ import { createChatController } from "./ui/chat";
   playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
   playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
   playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
+
+  const ENEMY_SPRITES = {
+    grunt: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
+    runner: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
+    tank: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
+    shooter: { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 50 },
+    splitter: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
+    elite: { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
+    warden: { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
+  };
+  for (const sprite of Object.values(ENEMY_SPRITES)) {
+    sprite.image = new Image();
+    sprite.image.src = sprite.src;
+  }
 
   const ENEMY_TYPES = {
     grunt: {
@@ -2040,11 +2054,17 @@ import { createChatController } from "./ui/chat";
     ctx.fillRect(barX, barY, barW, barH);
     ctx.fillStyle = boss.hurt > 0 ? "#fff1b6" : "#d8352d";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-    ctx.fillStyle = "#f5e9c4";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,.92)";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = "900 11px ui-monospace, monospace";
-    ctx.fillText(`DRAGON ${Math.ceil(boss.hp).toLocaleString()} HP`, x, barY - 5);
+    ctx.strokeText("DRAGON", x, barY - 18);
+    ctx.fillStyle = "#f5e9c4";
+    ctx.fillText("DRAGON", x, barY - 18);
+    ctx.strokeText("+650 DAMAGE", x, barY - 5);
+    ctx.fillStyle = "#ff655a";
+    ctx.fillText("+650 DAMAGE", x, barY - 5);
   }
 
   function drawEnemy(e) {
@@ -2063,49 +2083,25 @@ import { createChatController } from "./ui/chat";
     ctx.ellipse(0, e.r * .76, e.r * .92, e.r * .34, 0, 0, TAU);
     ctx.fill();
 
-    ctx.fillStyle = base.outline;
-    pixelCircle(0, 0, e.r + 3);
-
-    ctx.fillStyle = e.hurt > 0 ? "#fff3d0" : base.color;
-    pixelCircle(0, 0, e.r);
-
-    if (e.type === "runner") {
-      ctx.fillStyle = "#6f4a12";
-      ctx.fillRect(-e.r-6, -3, 8, 5);
-      ctx.fillRect(e.r-2, 4, 8, 5);
-    } else if (e.type === "tank") {
-      ctx.fillStyle = "#b0bd7c";
-      ctx.fillRect(-12, -8, 24, 7);
-      ctx.fillStyle = "#2b3b1f";
-      ctx.fillRect(-5, -3, 4, 4);
-      ctx.fillRect(4, -3, 4, 4);
-    } else if (e.type === "shooter") {
-      ctx.fillStyle = "#eab2f2";
-      ctx.fillRect(-4, -6, 8, 12);
-      ctx.fillStyle = "#4b235d";
-      ctx.fillRect(-2, -2, 4, 4);
-    } else if (e.type === "splitter") {
-      ctx.fillStyle = "#e3fdff";
-      ctx.fillRect(-5, -4, 3, 3);
-      ctx.fillRect(3, -4, 3, 3);
-    } else if (base.elite) {
-      ctx.fillStyle = "#ffe37e";
-      ctx.fillRect(-14, -14, 28, 6);
-      ctx.fillStyle = "#3e180d";
-      ctx.fillRect(-8, -3, 5, 5);
-      ctx.fillRect(4, -3, 5, 5);
-      ctx.fillRect(-20, -24, 8, 14);
-      ctx.fillRect(12, -24, 8, 14);
+    const sprite = ENEMY_SPRITES[e.type];
+    const spriteReady = sprite?.image.complete && sprite.image.naturalWidth > 0;
+    const spriteHeight = spriteReady ? sprite.size * sprite.image.naturalHeight / sprite.image.naturalWidth : e.r * 2;
+    if (spriteReady) {
+      ctx.globalAlpha = e.hurt > 0 ? .7 : 1;
+      ctx.drawImage(sprite.image, -sprite.size / 2, -spriteHeight / 2 - 3, sprite.size, spriteHeight);
     } else {
-      ctx.fillStyle = "#3a100d";
-      ctx.fillRect(-6, -5, 4, 4);
-      ctx.fillRect(3, -5, 4, 4);
+      ctx.fillStyle = base.outline;
+      pixelCircle(0, 0, e.r + 3);
+      ctx.fillStyle = e.hurt > 0 ? "#fff3d0" : base.color;
+      pixelCircle(0, 0, e.r);
     }
 
     ctx.restore();
 
     const reward = REWARD_DATA[e.rewardType];
-    const rewardY = y + e.r + 8;
+    const visualRadius = Math.max(e.r, spriteHeight / 2);
+    const nameY = y + visualRadius + 8;
+    const rewardY = nameY + 12;
     const healthY = rewardY + 12;
 
     ctx.save();
@@ -2115,6 +2111,10 @@ import { createChatController } from "./ui/chat";
     ctx.lineJoin = "round";
     ctx.lineWidth = 3;
     ctx.strokeStyle = "rgba(0,0,0,.92)";
+
+    ctx.strokeText(base.name, x, nameY);
+    ctx.fillStyle = "#f5e9c4";
+    ctx.fillText(base.name, x, nameY);
 
     const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage);
     ctx.strokeText(label, x, rewardY);
