@@ -80,6 +80,8 @@
   }
 
   .settings-button {
+    display: grid;
+    place-items: center;
     width: 42px;
     height: 42px;
     margin: 0;
@@ -95,8 +97,6 @@
   .auto-attack-button {
     position: static;
   }
-
-  .inventory-button { display: grid; place-items: center; }
 
   .toolbar-icon {
     display: block;
