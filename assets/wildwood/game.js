@@ -218,7 +218,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.193";
+    const GAME_VERSION = "0.194";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;

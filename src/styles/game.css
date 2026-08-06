@@ -285,8 +285,9 @@
     display: grid;
     place-items: center;
     width: min(330px, 58vw);
-    height: 18px;
-    overflow: hidden;
+    height: 21px;
+    margin-bottom: 3px;
+    overflow: visible;
     background: #372929;
   }
 
@@ -294,6 +295,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     width: 100%;
+    overflow: hidden;
     background: linear-gradient(#78ed7c, #2fbf4b);
     transition: width .12s linear;
   }
@@ -305,6 +307,9 @@
     font-weight: 900;
     line-height: 1;
     letter-spacing: .04em;
+    transform: translateY(-1px);
+    -webkit-text-stroke: 1px #000;
+    text-shadow: 2px 3px 0 #000;
   }
 
   #message {
