@@ -1,22 +1,54 @@
-export type EnemyKind = "grunt" | "runner" | "tank" | "shooter" | "splitter" | "elite" | "warden";
 export type RewardType = "damage" | "health" | "speed" | "armor" | "regen";
 
 export type EnemyDefinition = {
-  name: string;
   hp: number;
   speed: number;
   damage: number;
   r: number;
   color: string;
   outline: string;
-  reward: number;
-  rewardType: RewardType;
+  reward: { type: RewardType; amount: number };
+  score: number;
   aggro: number;
   ranged?: boolean;
   elite?: boolean;
-  damageReward?: number;
-  statReward?: number;
 };
+
+const enemyTypes = {
+  Bramble: {
+    hp: 120, speed: 170, damage: 14, r: 14,
+    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 24 }, score: 4, aggro: 245,
+  },
+  Needle: {
+    hp: 90, speed: 170, damage: 14, r: 10,
+    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .02 }, score: 5, aggro: 275,
+  },
+  Mossback: {
+    hp: 380, speed: 170, damage: 19, r: 22,
+    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 10, aggro: 220,
+  },
+  Spitter: {
+    hp: 180, speed: 140, damage: 18, r: 15,
+    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 15 }, score: 8, ranged: true, aggro: 330,
+  },
+  Brood: {
+    hp: 220, speed: 170, damage: 16, r: 16,
+    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8, aggro: 255,
+  },
+  "King Slime": {
+    hp: 920, speed: 170, damage: 43, r: 27,
+    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 176 }, score: 30,
+    elite: true, aggro: 300,
+  },
+  "Dread Warden": {
+    hp: 1000, speed: 205, damage: 175, r: 36,
+    color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 83 }, score: 180,
+    elite: true, aggro: 350,
+  },
+} satisfies Record<string, EnemyDefinition>;
+
+export type EnemyKind = keyof typeof enemyTypes;
+export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = enemyTypes;
 
 export type EnemyCamp = {
   name: string;
@@ -41,10 +73,10 @@ export type LoadedEnemySprite = {
 };
 
 const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
-  grunt: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
-  runner: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
-  tank: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-  shooter: {
+  Bramble: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
+  Needle: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
+  Mossback: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
+  Spitter: {
     size: 64,
     height: 70,
     layers: [
@@ -56,60 +88,27 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 },
     ],
   },
-  splitter: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
-  elite: { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
-  warden: { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
+  Brood: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
+  "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
+  "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
 };
 
-export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = {
-  grunt: {
-    name: "Bramble", hp: 120, speed: 170, damage: 14, r: 14,
-    color: "#d95738", outline: "#5c1b13", reward: 4, rewardType: "health", aggro: 245,
-  },
-  runner: {
-    name: "Needle", hp: 90, speed: 170, damage: 14, r: 10,
-    color: "#ffd34d", outline: "#6f4a12", reward: 5, rewardType: "speed", aggro: 275,
-  },
-  tank: {
-    name: "Mossback", hp: 380, speed: 170, damage: 19, r: 22,
-    color: "#768d51", outline: "#2c3b20", reward: 10, rewardType: "armor", aggro: 220,
-  },
-  shooter: {
-    name: "Spitter", hp: 180, speed: 140, damage: 18, r: 15,
-    color: "#b16ac8", outline: "#4b235d", reward: 8, rewardType: "damage", ranged: true, aggro: 330,
-  },
-  splitter: {
-    name: "Brood", hp: 220, speed: 170, damage: 16, r: 16,
-    color: "#45b6c2", outline: "#174a54", reward: 8, rewardType: "regen", aggro: 255,
-  },
-  elite: {
-    name: "King Slime", hp: 920, speed: 170, damage: 43, r: 27,
-    color: "#70a94f", outline: "#2d5127", reward: 30, rewardType: "health", statReward: 44,
-    elite: true, aggro: 300,
-  },
-  warden: {
-    name: "Dread Warden", hp: 1000, speed: 205, damage: 175, r: 36,
-    color: "#a52e3a", outline: "#47101a", reward: 180, rewardType: "damage", damageReward: 83,
-    elite: true, aggro: 350,
-  },
-};
-
-export const REWARD_DATA: Record<RewardType, { color: string; label?: string }> = {
+export const REWARD_DATA: Record<RewardType, { color: string }> = {
   damage: { color: "#ff655a" },
-  health: { color: "#66ed79", label: "+24 MAX HEALTH" },
-  speed: { color: "#ffe05d", label: "+0.02 ATK/SEC" },
-  armor: { color: "#d3dbe0", label: "+1 ARMOR" },
-  regen: { color: "#ff7ccb", label: "+0.3 HP/SEC" },
+  health: { color: "#66ed79" },
+  speed: { color: "#ffe05d" },
+  armor: { color: "#d3dbe0" },
+  regen: { color: "#ff7ccb" },
 };
 
 export const CAMPS: EnemyCamp[] = [
-  { name: "Ember Fen", x: 820, y: 900, minRadius: 260, radius: 610, count: 6, types: ["grunt", "grunt", "runner"], ground: "#5b3b28", ring: "#b66a37" },
-  { name: "Mossfall Ruins", x: 2400, y: 760, minRadius: 260, radius: 630, count: 6, types: ["grunt", "tank", "tank"], ground: "#33423a", ring: "#8d9b75" },
-  { name: "Glass Thicket", x: 3970, y: 1120, minRadius: 280, radius: 600, count: 5, types: ["runner", "runner", "splitter"], ground: "#244f53", ring: "#64bdc5" },
-  { name: "Brine Marsh", x: 850, y: 2860, minRadius: 270, radius: 620, count: 6, types: ["shooter", "splitter", "shooter"], ground: "#243e4d", ring: "#5f9eb5" },
-  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["tank", "shooter", "tank", "warden"], ground: "#4b4039", ring: "#b5875c" },
-  { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["splitter", "tank", "elite"], ground: "#3d3157", ring: "#9a79d5" },
-  { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["runner", "shooter", "elite"], ground: "#553334", ring: "#d37362" },
+  { name: "Ember Fen", x: 820, y: 900, minRadius: 260, radius: 610, count: 6, types: ["Bramble", "Bramble", "Needle"], ground: "#5b3b28", ring: "#b66a37" },
+  { name: "Mossfall Ruins", x: 2400, y: 760, minRadius: 260, radius: 630, count: 6, types: ["Bramble", "Mossback", "Mossback"], ground: "#33423a", ring: "#8d9b75" },
+  { name: "Glass Thicket", x: 3970, y: 1120, minRadius: 280, radius: 600, count: 5, types: ["Needle", "Needle", "Brood"], ground: "#244f53", ring: "#64bdc5" },
+  { name: "Brine Marsh", x: 850, y: 2860, minRadius: 270, radius: 620, count: 6, types: ["Spitter", "Brood", "Spitter"], ground: "#243e4d", ring: "#5f9eb5" },
+  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Mossback", "Spitter", "Mossback", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+  { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Brood", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
+  { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Needle", "Spitter", "King Slime"], ground: "#553334", ring: "#d37362" },
 ];
 
 export function loadEnemySprites(): Record<EnemyKind, LoadedEnemySprite> {
@@ -134,21 +133,10 @@ export function loadActorShadowSprite() {
   return image;
 }
 
-export function damageRewardForHp(maxHp: number, explicitReward?: number) {
-  return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
-}
-
-export function healthRewardAmount(explicitReward?: number) {
-  return (explicitReward ?? 6) * 4;
-}
-
-export function rewardLabel(
-  type: RewardType,
-  maxHp: number,
-  explicitDamageReward?: number,
-  explicitStatReward?: number,
-) {
-  if (type === "damage") return `+${damageRewardForHp(maxHp, explicitDamageReward)} DAMAGE`;
-  if (type === "health") return `+${healthRewardAmount(explicitStatReward)} MAX HEALTH`;
-  return REWARD_DATA[type].label ?? "";
+export function rewardLabel(reward: EnemyDefinition["reward"]) {
+  if (reward.type === "damage") return `+${reward.amount} DAMAGE`;
+  if (reward.type === "health") return `+${reward.amount} MAX HEALTH`;
+  if (reward.type === "speed") return `+${reward.amount.toFixed(2)} ATK/SEC`;
+  if (reward.type === "armor") return `+${reward.amount} ARMOR`;
+  return `+${reward.amount} HP/SEC`;
 }

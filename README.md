@@ -69,6 +69,10 @@ Wildwood uses a release version to invalidate browser caches and direct stale ta
 
 Then run `npm run build:client` and commit the generated bundles. Missing an `index.html` cache parameter can leave a browser running an old `coop-client.js` against a newer server protocol.
 
+## Enemy balance
+
+Regular enemy balance lives in `src/game/enemies.ts`. Each displayed enemy name is the configuration key. `reward.type` selects the upgraded stat, `reward.amount` is the exact final increase with no hidden multiplier, and `score` only affects the run score. Editing regular enemies is client-only; build the browser bundles, bump the release version, and deploy. Dragon multiplayer balance remains server-side.
+
 ## Server and protocol changes
 
 The browser client and server both define `PROTOCOL_VERSION`:

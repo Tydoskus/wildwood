@@ -1,5 +1,5 @@
 import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
-import { CAMPS, ENEMY_TYPES, type EnemyKind, type RewardType } from "./enemies";
+import { CAMPS, type EnemyKind } from "./enemies";
 import { clamp, rand } from "./math";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
@@ -14,7 +14,6 @@ export type SpawnSite = {
   y: number;
   campName: string;
   type: EnemyKind;
-  rewardType: RewardType;
   leashRange: number;
   alive: boolean;
   respawnAt: number;
@@ -131,7 +130,6 @@ export function createSpawnSites(boss: Point): SpawnSite[] {
       const type = camp.types[index % camp.types.length];
       sites.push({
         id: id++, x, y, campName: camp.name, type,
-        rewardType: ENEMY_TYPES[type].rewardType,
         leashRange: Math.max(420, camp.radius * 0.9),
         alive: false, respawnAt: 0,
       });

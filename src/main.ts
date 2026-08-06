@@ -39,9 +39,7 @@ import {
   replayState,
 } from "./game/duel";
 import {
-  damageRewardForHp,
   ENEMY_TYPES,
-  healthRewardAmount,
   loadActorShadowSprite,
   loadEnemySprites,
   REWARD_DATA,
@@ -54,14 +52,13 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.220";
+  const GAME_VERSION = "0.221";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const STARTING_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = .32;
-  const ATTACK_SPEED_REWARD = .02;
   const WORLD_HEALTH_BAR_HEIGHT = 13;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
@@ -713,7 +710,6 @@ import { formatCompactNumber } from "./ui/number-format";
       type: site.type,
       siteId: site.id,
       campName: site.campName,
-      rewardType: site.rewardType,
       x: site.x,
       y: site.y,
       homeX: site.x,
@@ -726,8 +722,7 @@ import { formatCompactNumber } from "./ui/number-format";
       speed: base.speed,
       damage: base.damage,
       reward: base.reward,
-      rewardDamage: base.damageReward,
-      rewardStat: base.statReward,
+      score: base.score,
       aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
       leashRange: site.leashRange,
       engaged: false,
@@ -863,29 +858,28 @@ import { formatCompactNumber } from "./ui/number-format";
     }
   }
 
-  function applyReward(type, x, y, enemyMaxHp, explicitDamageReward, explicitStatReward) {
-    switch (type) {
+  function applyReward(reward, x, y) {
+    switch (reward.type) {
       case "damage":
-        player.damage += damageRewardForHp(enemyMaxHp, explicitDamageReward);
+        player.damage += reward.amount;
         break;
       case "health":
-        const healthReward = healthRewardAmount(explicitStatReward);
-        player.maxHp += healthReward;
-        player.hp = Math.min(player.maxHp, player.hp + healthReward);
+        player.maxHp += reward.amount;
+        player.hp = Math.min(player.maxHp, player.hp + reward.amount);
         break;
       case "speed":
-        player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + ATTACK_SPEED_REWARD);
+        player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + reward.amount);
         break;
       case "armor":
-        player.armor += 1;
+        player.armor += reward.amount;
         break;
       case "regen":
-        player.regen += .3;
+        player.regen += reward.amount;
         break;
     }
 
-    const data = REWARD_DATA[type];
-    logPickup(rewardLabel(type, enemyMaxHp, explicitDamageReward, explicitStatReward), data.color);
+    const data = REWARD_DATA[reward.type];
+    logPickup(rewardLabel(reward), data.color);
     spawnBurst(x, y, ENEMY_DEATH_PARTICLE_COLOR, 16, 110);
     score += 20;
     saveProgress();
@@ -1142,7 +1136,7 @@ import { formatCompactNumber } from "./ui/number-format";
     e.dead = true;
     kills++;
     totalKills++;
-    score += e.reward;
+    score += e.score;
 
     const base = ENEMY_TYPES[e.type];
     const site = spawnSites[e.siteId];
@@ -1152,7 +1146,7 @@ import { formatCompactNumber } from "./ui/number-format";
       site.respawnAt = gameTime + 30;
     }
 
-    applyReward(e.rewardType, e.x, e.y, e.maxHp, e.rewardDamage, e.rewardStat);
+    applyReward(e.reward, e.x, e.y);
     spawnBurst(e.x, e.y, ENEMY_DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
@@ -2292,7 +2286,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
     ctx.restore();
 
-    const reward = REWARD_DATA[e.rewardType];
+    const reward = REWARD_DATA[e.reward.type];
     const visualRadius = Math.max(e.r, spriteHeight / 2);
     const rewardY = y + visualRadius + 10;
     const barW = Math.max(50, Math.min(86, (sprite?.size ?? e.r * 2) * 1.26));
@@ -2313,13 +2307,13 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    outlinedText(base.name, x, barY - 4, "#f5e9c4", 3);
+    outlinedText(e.type, x, barY - 4, "#f5e9c4", 3);
 
     ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
     outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1.5);
 
-    const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage, e.rewardStat);
+    const label = rewardLabel(e.reward);
     ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "top";
     outlinedText(label, x, rewardY, reward.color, 3);
@@ -2420,7 +2414,8 @@ import { formatCompactNumber } from "./ui/number-format";
 
     ctx.fillStyle = "#ff5d5d";
     for (const e of enemies) {
-      ctx.fillRect(x + e.x*sx - 1, y + e.y*sy - 1, e.type === "elite" ? 5 : 3, e.type === "elite" ? 5 : 3);
+      const markerSize = ENEMY_TYPES[e.type].elite ? 5 : 3;
+      ctx.fillRect(x + e.x*sx - 1, y + e.y*sy - 1, markerSize, markerSize);
     }
 
     ctx.fillStyle = "#58e878";

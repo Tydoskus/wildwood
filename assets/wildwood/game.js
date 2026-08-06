@@ -131,11 +131,94 @@
     }
     return { outlinedText, pixelCircle, roundRect };
   }
+  const enemyTypes = {
+    Bramble: {
+      hp: 120,
+      speed: 170,
+      damage: 14,
+      r: 14,
+      color: "#d95738",
+      outline: "#5c1b13",
+      reward: { type: "health", amount: 24 },
+      score: 4,
+      aggro: 245
+    },
+    Needle: {
+      hp: 90,
+      speed: 170,
+      damage: 14,
+      r: 10,
+      color: "#ffd34d",
+      outline: "#6f4a12",
+      reward: { type: "speed", amount: 0.02 },
+      score: 5,
+      aggro: 275
+    },
+    Mossback: {
+      hp: 380,
+      speed: 170,
+      damage: 19,
+      r: 22,
+      color: "#768d51",
+      outline: "#2c3b20",
+      reward: { type: "armor", amount: 1 },
+      score: 10,
+      aggro: 220
+    },
+    Spitter: {
+      hp: 180,
+      speed: 140,
+      damage: 18,
+      r: 15,
+      color: "#b16ac8",
+      outline: "#4b235d",
+      reward: { type: "damage", amount: 15 },
+      score: 8,
+      ranged: true,
+      aggro: 330
+    },
+    Brood: {
+      hp: 220,
+      speed: 170,
+      damage: 16,
+      r: 16,
+      color: "#45b6c2",
+      outline: "#174a54",
+      reward: { type: "regen", amount: 0.3 },
+      score: 8,
+      aggro: 255
+    },
+    "King Slime": {
+      hp: 920,
+      speed: 170,
+      damage: 43,
+      r: 27,
+      color: "#70a94f",
+      outline: "#2d5127",
+      reward: { type: "health", amount: 176 },
+      score: 30,
+      elite: true,
+      aggro: 300
+    },
+    "Dread Warden": {
+      hp: 1e3,
+      speed: 205,
+      damage: 175,
+      r: 36,
+      color: "#a52e3a",
+      outline: "#47101a",
+      reward: { type: "damage", amount: 83 },
+      score: 180,
+      elite: true,
+      aggro: 350
+    }
+  };
+  const ENEMY_TYPES = enemyTypes;
   const ENEMY_SPRITE_SOURCES = {
-    grunt: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
-    runner: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
-    tank: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-    shooter: {
+    Bramble: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
+    Needle: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
+    Mossback: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
+    Spitter: {
       size: 64,
       height: 70,
       layers: [
@@ -147,116 +230,25 @@
         { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 }
       ]
     },
-    splitter: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
-    elite: { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
-    warden: { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 }
-  };
-  const ENEMY_TYPES = {
-    grunt: {
-      name: "Bramble",
-      hp: 12,
-      speed: 150,
-      damage: 4,
-      r: 14,
-      color: "#d95738",
-      outline: "#5c1b13",
-      reward: 4,
-      rewardType: "health",
-      aggro: 245
-    },
-    runner: {
-      name: "Needle",
-      hp: 9,
-      speed: 150,
-      damage: 4,
-      r: 10,
-      color: "#ffd34d",
-      outline: "#6f4a12",
-      reward: 5,
-      rewardType: "speed",
-      aggro: 275
-    },
-    tank: {
-      name: "Mossback",
-      hp: 38,
-      speed: 150,
-      damage: 9,
-      r: 22,
-      color: "#768d51",
-      outline: "#2c3b20",
-      reward: 10,
-      rewardType: "armor",
-      aggro: 220
-    },
-    shooter: {
-      name: "Spitter",
-      hp: 18,
-      speed: 150,
-      damage: 8,
-      r: 15,
-      color: "#b16ac8",
-      outline: "#4b235d",
-      reward: 8,
-      rewardType: "damage",
-      ranged: true,
-      aggro: 330
-    },
-    splitter: {
-      name: "Brood",
-      hp: 22,
-      speed: 150,
-      damage: 6,
-      r: 16,
-      color: "#45b6c2",
-      outline: "#174a54",
-      reward: 8,
-      rewardType: "regen",
-      aggro: 255
-    },
-    elite: {
-      name: "King Slime",
-      hp: 92,
-      speed: 150,
-      damage: 13,
-      r: 27,
-      color: "#70a94f",
-      outline: "#2d5127",
-      reward: 30,
-      rewardType: "health",
-      statReward: 44,
-      elite: true,
-      aggro: 300
-    },
-    warden: {
-      name: "Dread Warden",
-      hp: 1e3,
-      speed: 150,
-      damage: 75,
-      r: 36,
-      color: "#a52e3a",
-      outline: "#47101a",
-      reward: 180,
-      rewardType: "damage",
-      damageReward: 83,
-      elite: true,
-      aggro: 350
-    }
+    Brood: { src: "assets/wildwood/enemies/slime-green.png", size: 50 },
+    "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
+    "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 }
   };
   const REWARD_DATA = {
     damage: { color: "#ff655a" },
-    health: { color: "#66ed79", label: "+24 MAX HEALTH" },
-    speed: { color: "#ffe05d", label: "+0.02 ATK/SEC" },
-    armor: { color: "#d3dbe0", label: "+1 ARMOR" },
-    regen: { color: "#ff7ccb", label: "+0.3 HP/SEC" }
+    health: { color: "#66ed79" },
+    speed: { color: "#ffe05d" },
+    armor: { color: "#d3dbe0" },
+    regen: { color: "#ff7ccb" }
   };
   const CAMPS = [
-    { name: "Ember Fen", x: 820, y: 900, minRadius: 260, radius: 610, count: 6, types: ["grunt", "grunt", "runner"], ground: "#5b3b28", ring: "#b66a37" },
-    { name: "Mossfall Ruins", x: 2400, y: 760, minRadius: 260, radius: 630, count: 6, types: ["grunt", "tank", "tank"], ground: "#33423a", ring: "#8d9b75" },
-    { name: "Glass Thicket", x: 3970, y: 1120, minRadius: 280, radius: 600, count: 5, types: ["runner", "runner", "splitter"], ground: "#244f53", ring: "#64bdc5" },
-    { name: "Brine Marsh", x: 850, y: 2860, minRadius: 270, radius: 620, count: 6, types: ["shooter", "splitter", "shooter"], ground: "#243e4d", ring: "#5f9eb5" },
-    { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["tank", "shooter", "tank", "warden"], ground: "#4b4039", ring: "#b5875c" },
-    { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["splitter", "tank", "elite"], ground: "#3d3157", ring: "#9a79d5" },
-    { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["runner", "shooter", "elite"], ground: "#553334", ring: "#d37362" }
+    { name: "Ember Fen", x: 820, y: 900, minRadius: 260, radius: 610, count: 6, types: ["Bramble", "Bramble", "Needle"], ground: "#5b3b28", ring: "#b66a37" },
+    { name: "Mossfall Ruins", x: 2400, y: 760, minRadius: 260, radius: 630, count: 6, types: ["Bramble", "Mossback", "Mossback"], ground: "#33423a", ring: "#8d9b75" },
+    { name: "Glass Thicket", x: 3970, y: 1120, minRadius: 280, radius: 600, count: 5, types: ["Needle", "Needle", "Brood"], ground: "#244f53", ring: "#64bdc5" },
+    { name: "Brine Marsh", x: 850, y: 2860, minRadius: 270, radius: 620, count: 6, types: ["Spitter", "Brood", "Spitter"], ground: "#243e4d", ring: "#5f9eb5" },
+    { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Mossback", "Spitter", "Mossback", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+    { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Brood", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
+    { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Needle", "Spitter", "King Slime"], ground: "#553334", ring: "#d37362" }
   ];
   function loadEnemySprites() {
     return Object.fromEntries(Object.entries(ENEMY_SPRITE_SOURCES).map(([kind, source]) => {
@@ -278,16 +270,12 @@
     image.src = "assets/wildwood/2D Character - Casual Monsters/_PNG/slime/shadow.png";
     return image;
   }
-  function damageRewardForHp(maxHp, explicitReward) {
-    return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
-  }
-  function healthRewardAmount(explicitReward) {
-    return (explicitReward ?? 6) * 4;
-  }
-  function rewardLabel(type, maxHp, explicitDamageReward, explicitStatReward) {
-    if (type === "damage") return `+${damageRewardForHp(maxHp, explicitDamageReward)} DAMAGE`;
-    if (type === "health") return `+${healthRewardAmount(explicitStatReward)} MAX HEALTH`;
-    return REWARD_DATA[type].label ?? "";
+  function rewardLabel(reward) {
+    if (reward.type === "damage") return `+${reward.amount} DAMAGE`;
+    if (reward.type === "health") return `+${reward.amount} MAX HEALTH`;
+    if (reward.type === "speed") return `+${reward.amount.toFixed(2)} ATK/SEC`;
+    if (reward.type === "armor") return `+${reward.amount} ARMOR`;
+    return `+${reward.amount} HP/SEC`;
   }
   function createWorldLayout(playerSpawn) {
     const decor = [];
@@ -411,7 +399,6 @@
           y,
           campName: camp.name,
           type,
-          rewardType: ENEMY_TYPES[type].rewardType,
           leashRange: Math.max(420, camp.radius * 0.9),
           alive: false,
           respawnAt: 0
@@ -682,14 +669,13 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.220";
+    const GAME_VERSION = "0.221";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
     const STARTING_ATTACK_INTERVAL = 1.56;
     const MIN_ATTACK_INTERVAL = 0.32;
-    const ATTACK_SPEED_REWARD = 0.02;
     const WORLD_HEALTH_BAR_HEIGHT = 13;
     const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
     const DRAGON_HP_LOSS_FLASH_DURATION = 0.18;
@@ -1281,7 +1267,6 @@
         type: site.type,
         siteId: site.id,
         campName: site.campName,
-        rewardType: site.rewardType,
         x: site.x,
         y: site.y,
         homeX: site.x,
@@ -1294,8 +1279,7 @@
         speed: base.speed,
         damage: base.damage,
         reward: base.reward,
-        rewardDamage: base.damageReward,
-        rewardStat: base.statReward,
+        score: base.score,
         aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
         leashRange: site.leashRange,
         engaged: false,
@@ -1415,28 +1399,27 @@
         player.attackClock = Math.min(player.attackClock, 0.08);
       }
     }
-    function applyReward(type, x, y, enemyMaxHp, explicitDamageReward, explicitStatReward) {
-      switch (type) {
+    function applyReward(reward, x, y) {
+      switch (reward.type) {
         case "damage":
-          player.damage += damageRewardForHp(enemyMaxHp, explicitDamageReward);
+          player.damage += reward.amount;
           break;
         case "health":
-          const healthReward = healthRewardAmount(explicitStatReward);
-          player.maxHp += healthReward;
-          player.hp = Math.min(player.maxHp, player.hp + healthReward);
+          player.maxHp += reward.amount;
+          player.hp = Math.min(player.maxHp, player.hp + reward.amount);
           break;
         case "speed":
-          player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + ATTACK_SPEED_REWARD);
+          player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + reward.amount);
           break;
         case "armor":
-          player.armor += 1;
+          player.armor += reward.amount;
           break;
         case "regen":
-          player.regen += 0.3;
+          player.regen += reward.amount;
           break;
       }
-      const data = REWARD_DATA[type];
-      logPickup(rewardLabel(type, enemyMaxHp, explicitDamageReward, explicitStatReward), data.color);
+      const data = REWARD_DATA[reward.type];
+      logPickup(rewardLabel(reward), data.color);
       spawnBurst(x, y, ENEMY_DEATH_PARTICLE_COLOR, 16, 110);
       score += 20;
       saveProgress();
@@ -1665,14 +1648,14 @@
       e.dead = true;
       kills++;
       totalKills++;
-      score += e.reward;
+      score += e.score;
       const base = ENEMY_TYPES[e.type];
       const site = spawnSites[e.siteId];
       if (site) {
         site.alive = false;
         site.respawnAt = gameTime + 30;
       }
-      applyReward(e.rewardType, e.x, e.y, e.maxHp, e.rewardDamage, e.rewardStat);
+      applyReward(e.reward, e.x, e.y);
       spawnBurst(e.x, e.y, ENEMY_DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
     }
     function damagePlayer(amount) {
@@ -2709,7 +2692,7 @@
         pixelCircle(0, 0, e.r);
       }
       ctx.restore();
-      const reward = REWARD_DATA[e.rewardType];
+      const reward = REWARD_DATA[e.reward.type];
       const visualRadius = Math.max(e.r, spriteHeight / 2);
       const rewardY = y + visualRadius + 10;
       const barW = Math.max(50, Math.min(86, ((sprite == null ? void 0 : sprite.size) ?? e.r * 2) * 1.26));
@@ -2728,11 +2711,11 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(base.name, x, barY - 4, "#f5e9c4", 3);
+      outlinedText(e.type, x, barY - 4, "#f5e9c4", 3);
       ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "middle";
       outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1.5);
-      const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage, e.rewardStat);
+      const label = rewardLabel(e.reward);
       ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "top";
       outlinedText(label, x, rewardY, reward.color, 3);
@@ -2818,7 +2801,8 @@
       }
       ctx.fillStyle = "#ff5d5d";
       for (const e of enemies) {
-        ctx.fillRect(x + e.x * sx - 1, y + e.y * sy - 1, e.type === "elite" ? 5 : 3, e.type === "elite" ? 5 : 3);
+        const markerSize = ENEMY_TYPES[e.type].elite ? 5 : 3;
+        ctx.fillRect(x + e.x * sx - 1, y + e.y * sy - 1, markerSize, markerSize);
       }
       ctx.fillStyle = "#58e878";
       for (const other of remotePlayers) {
