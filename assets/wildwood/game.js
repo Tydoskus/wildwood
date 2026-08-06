@@ -218,7 +218,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.185";
+    const GAME_VERSION = "0.186";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -429,6 +429,7 @@
         color: "#d95738",
         outline: "#5c1b13",
         reward: 4,
+        rewardType: "health",
         aggro: 245
       },
       runner: {
@@ -440,6 +441,7 @@
         color: "#ffd34d",
         outline: "#6f4a12",
         reward: 5,
+        rewardType: "speed",
         aggro: 275
       },
       tank: {
@@ -451,6 +453,7 @@
         color: "#768d51",
         outline: "#2c3b20",
         reward: 10,
+        rewardType: "armor",
         aggro: 220
       },
       shooter: {
@@ -462,6 +465,7 @@
         color: "#b16ac8",
         outline: "#4b235d",
         reward: 8,
+        rewardType: "damage",
         ranged: true,
         aggro: 330
       },
@@ -474,6 +478,7 @@
         color: "#45b6c2",
         outline: "#174a54",
         reward: 8,
+        rewardType: "regen",
         aggro: 255
       },
       elite: {
@@ -485,6 +490,7 @@
         color: "#d47a2b",
         outline: "#5c2b12",
         reward: 30,
+        rewardType: "health",
         elite: true,
         aggro: 300
       },
@@ -497,6 +503,7 @@
         color: "#a52e3a",
         outline: "#47101a",
         reward: 180,
+        rewardType: "damage",
         elite: true,
         aggro: 350,
         damageReward: 83
@@ -524,7 +531,6 @@
         radius: 610,
         count: 6,
         types: ["grunt", "grunt", "runner"],
-        rewards: ["damage", "health", "speed"],
         ground: "#5b3b28",
         ring: "#b66a37"
       },
@@ -536,7 +542,6 @@
         radius: 630,
         count: 6,
         types: ["grunt", "tank", "tank"],
-        rewards: ["armor", "health", "damage"],
         ground: "#33423a",
         ring: "#8d9b75"
       },
@@ -548,7 +553,6 @@
         radius: 600,
         count: 5,
         types: ["runner", "runner", "splitter"],
-        rewards: ["speed", "health", "damage"],
         ground: "#244f53",
         ring: "#64bdc5"
       },
@@ -560,7 +564,6 @@
         radius: 620,
         count: 6,
         types: ["shooter", "splitter", "shooter"],
-        rewards: ["regen", "health", "health"],
         ground: "#243e4d",
         ring: "#5f9eb5"
       },
@@ -572,7 +575,6 @@
         radius: 610,
         count: 6,
         types: ["tank", "shooter", "tank", "warden"],
-        rewards: ["armor", "damage", "regen"],
         ground: "#4b4039",
         ring: "#b5875c"
       },
@@ -584,7 +586,6 @@
         radius: 560,
         count: 5,
         types: ["splitter", "tank", "elite"],
-        rewards: ["regen", "armor", "damage", "health"],
         ground: "#3d3157",
         ring: "#9a79d5"
       },
@@ -596,7 +597,6 @@
         radius: 560,
         count: 5,
         types: ["runner", "shooter", "elite"],
-        rewards: ["speed", "health", "regen", "damage"],
         ground: "#553334",
         ring: "#d37362"
       }
@@ -730,7 +730,7 @@
             y,
             campName: camp.name,
             type: camp.types[i % camp.types.length],
-            rewardType: camp.rewards[(i * 2 + campIndex) % camp.rewards.length],
+            rewardType: ENEMY_TYPES[camp.types[i % camp.types.length]].rewardType,
             leashRange: Math.max(420, camp.radius * 0.9),
             alive: false,
             respawnAt: 0

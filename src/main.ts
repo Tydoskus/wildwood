@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.185";
+  const GAME_VERSION = "0.186";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -246,43 +246,43 @@ import { createChatController } from "./ui/chat";
     grunt: {
       name: "Bramble",
       hp: 12, speed: 150, damage: 4, r: 14,
-      color: "#d95738", outline: "#5c1b13", reward: 4,
+      color: "#d95738", outline: "#5c1b13", reward: 4, rewardType: "health",
       aggro: 245
     },
     runner: {
       name: "Needle",
       hp: 9, speed: 150, damage: 4, r: 10,
-      color: "#ffd34d", outline: "#6f4a12", reward: 5,
+      color: "#ffd34d", outline: "#6f4a12", reward: 5, rewardType: "speed",
       aggro: 275
     },
     tank: {
       name: "Mossback",
       hp: 38, speed: 150, damage: 9, r: 22,
-      color: "#768d51", outline: "#2c3b20", reward: 10,
+      color: "#768d51", outline: "#2c3b20", reward: 10, rewardType: "armor",
       aggro: 220
     },
     shooter: {
       name: "Spitter",
       hp: 18, speed: 150, damage: 8, r: 15,
-      color: "#b16ac8", outline: "#4b235d", reward: 8,
+      color: "#b16ac8", outline: "#4b235d", reward: 8, rewardType: "damage",
       ranged: true, aggro: 330
     },
     splitter: {
       name: "Brood",
       hp: 22, speed: 150, damage: 6, r: 16,
-      color: "#45b6c2", outline: "#174a54", reward: 8,
+      color: "#45b6c2", outline: "#174a54", reward: 8, rewardType: "regen",
       aggro: 255
     },
     elite: {
       name: "Ironhorn",
       hp: 92, speed: 150, damage: 13, r: 27,
-      color: "#d47a2b", outline: "#5c2b12", reward: 30,
+      color: "#d47a2b", outline: "#5c2b12", reward: 30, rewardType: "health",
       elite: true, aggro: 300
     },
     warden: {
       name: "Dread Warden",
       hp: 1000, speed: 150, damage: 75, r: 36,
-      color: "#a52e3a", outline: "#47101a", reward: 180,
+      color: "#a52e3a", outline: "#47101a", reward: 180, rewardType: "damage",
       elite: true, aggro: 350, damageReward: 83
     }
   };
@@ -311,7 +311,6 @@ import { createChatController } from "./ui/chat";
       x: 820, y: 900, minRadius: 260, radius: 610,
       count: 6,
       types: ["grunt", "grunt", "runner"],
-      rewards: ["damage", "health", "speed"],
       ground: "#5b3b28", ring: "#b66a37"
     },
     {
@@ -319,7 +318,6 @@ import { createChatController } from "./ui/chat";
       x: 2400, y: 760, minRadius: 260, radius: 630,
       count: 6,
       types: ["grunt", "tank", "tank"],
-      rewards: ["armor", "health", "damage"],
       ground: "#33423a", ring: "#8d9b75"
     },
     {
@@ -327,7 +325,6 @@ import { createChatController } from "./ui/chat";
       x: 3970, y: 1120, minRadius: 280, radius: 600,
       count: 5,
       types: ["runner", "runner", "splitter"],
-      rewards: ["speed", "health", "damage"],
       ground: "#244f53", ring: "#64bdc5"
     },
     {
@@ -335,7 +332,6 @@ import { createChatController } from "./ui/chat";
       x: 850, y: 2860, minRadius: 270, radius: 620,
       count: 6,
       types: ["shooter", "splitter", "shooter"],
-      rewards: ["regen", "health", "health"],
       ground: "#243e4d", ring: "#5f9eb5"
     },
     {
@@ -343,7 +339,6 @@ import { createChatController } from "./ui/chat";
       x: 3830, y: 2790, minRadius: 280, radius: 610,
       count: 6,
       types: ["tank", "shooter", "tank", "warden"],
-      rewards: ["armor", "damage", "regen"],
       ground: "#4b4039", ring: "#b5875c"
     },
     {
@@ -351,7 +346,6 @@ import { createChatController } from "./ui/chat";
       x: 1540, y: 4040, minRadius: 240, radius: 560,
       count: 5,
       types: ["splitter", "tank", "elite"],
-      rewards: ["regen", "armor", "damage", "health"],
       ground: "#3d3157", ring: "#9a79d5"
     },
     {
@@ -359,7 +353,6 @@ import { createChatController } from "./ui/chat";
       x: 3590, y: 4100, minRadius: 240, radius: 560,
       count: 5,
       types: ["runner", "shooter", "elite"],
-      rewards: ["speed", "health", "regen", "damage"],
       ground: "#553334", ring: "#d37362"
     }
   ];
@@ -494,7 +487,7 @@ import { createChatController } from "./ui/chat";
           x, y,
           campName: camp.name,
           type: camp.types[i % camp.types.length],
-          rewardType: camp.rewards[(i * 2 + campIndex) % camp.rewards.length],
+          rewardType: ENEMY_TYPES[camp.types[i % camp.types.length]].rewardType,
           leashRange: Math.max(420, camp.radius * .9),
           alive: false,
           respawnAt: 0
