@@ -5,7 +5,7 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 8;
+const PROTOCOL_VERSION = 9;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -35,6 +35,13 @@ const DUEL_ARENA = {
   challenger: { x: 5880, y: 5940 },
   opponent: { x: 6120, y: 5940 },
 };
+const DRAGON_ID = 1;
+const DRAGON_MAX_HP = 1_000_000;
+const DRAGON_REWARD_DAMAGE = 650;
+const DRAGON_RADIUS = 140;
+const DRAGON_POSITION = { x: WORLD.width - 360, y: WORLD.height - 360 };
+const DRAGON_HIT_RANGE_TOLERANCE = 60;
+const DRAGON_RESPAWN_MICROS = 30_000_000n;
 
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
@@ -213,6 +220,49 @@ const duelReplay = table(
   },
 );
 
+const dragonBoss = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32(),
+    alive: t.bool(),
+    respawnAtMicros: t.u64(),
+  },
+);
+
+const dragonContribution = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    displayName: t.string(),
+    damage: t.f32(),
+  },
+);
+
+const dragonAttackWindow = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    startedAtMicros: t.u64(),
+    hits: t.u32(),
+  },
+);
+
+const dragonResult = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32(),
+    contributorsJson: t.string(),
+    createdAt: t.timestamp(),
+  },
+);
+
 const maintenanceSchedule = table(
   { scheduled: (): any => runMaintenance },
   {
@@ -221,7 +271,34 @@ const maintenanceSchedule = table(
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, playerBalanceVersion, chatCooldown, duelRequestCooldown, accountLink, chatMessage, duel, duelReplay, maintenanceSchedule });
+const dragonRespawnSchedule = table(
+  { scheduled: (): any => respawnDragon },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
+const spacetimedb = schema({
+  player,
+  playerProfile,
+  playerProgress,
+  playerNameCooldown,
+  playerBalanceVersion,
+  chatCooldown,
+  duelRequestCooldown,
+  accountLink,
+  chatMessage,
+  duel,
+  duelReplay,
+  dragonBoss,
+  dragonContribution,
+  dragonAttackWindow,
+  dragonResult,
+  maintenanceSchedule,
+  dragonRespawnSchedule,
+});
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -386,6 +463,78 @@ function ensureMaintenanceSchedule(ctx: any) {
   ctx.db.maintenanceSchedule.insert({
     scheduledId: 0n,
     scheduledAt: ScheduleAt.interval(MAINTENANCE_INTERVAL_MICROS),
+  });
+}
+
+function ensureDragonBoss(ctx: any) {
+  const existing = ctx.db.dragonBoss.id.find(DRAGON_ID);
+  if (existing) return existing;
+  return ctx.db.dragonBoss.insert({
+    id: DRAGON_ID,
+    encounter: 1n,
+    hp: DRAGON_MAX_HP,
+    maxHp: DRAGON_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+  });
+}
+
+function clearDragonCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.dragonContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.dragonAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.dragonContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.dragonAttackWindow.identity.delete(identity);
+}
+
+function rewardDragonContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    ctx.db.player.identity.update({
+      ...active,
+      power: powerForProgress(next),
+    });
+  }
+}
+
+function finishDragonEncounter(ctx: any, dragon: any) {
+  const contributions = [...ctx.db.dragonContribution.iter()]
+    .filter((row: any) => row.encounter === dragon.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: DRAGON_ID,
+    encounter: dragon.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.dragonResult.id.find(DRAGON_ID)) ctx.db.dragonResult.id.update(result);
+  else ctx.db.dragonResult.insert(result);
+
+  for (const row of contributions) rewardDragonContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + DRAGON_RESPAWN_MICROS;
+  ctx.db.dragonBoss.id.update({
+    ...dragon,
+    hp: 0,
+    alive: false,
+    respawnAtMicros,
+  });
+  ctx.db.dragonRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: dragon.encounter,
   });
 }
 
@@ -635,6 +784,7 @@ function clearExpiredHistory(ctx: any) {
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
+  ensureDragonBoss(ctx);
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
@@ -750,6 +900,80 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredDuelRequests(ctx);
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
+  },
+);
+
+export const respawnDragon = spacetimedb.reducer(
+  { schedule: dragonRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const dragon = ensureDragonBoss(ctx);
+    if (dragon.alive || dragon.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < dragon.respawnAtMicros) return;
+    clearDragonCombatRows(ctx);
+    ctx.db.dragonBoss.id.update({
+      ...dragon,
+      encounter: dragon.encounter + 1n,
+      hp: dragon.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+    });
+  },
+);
+
+export const damageDragon = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const activePlayer = requireCurrentProtocol(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) return;
+    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    if (!progress) return;
+    const dragon = ensureDragonBoss(ctx);
+    if (!dragon.alive || dragon.hp <= 0) return;
+
+    const centerDistance = Math.hypot(
+      activePlayer.x - DRAGON_POSITION.x,
+      activePlayer.y - DRAGON_POSITION.y,
+    );
+    if (centerDistance - DRAGON_RADIUS > progress.attackRange + DRAGON_HIT_RANGE_TOLERANCE) return;
+
+    const now = ctx.timestamp.microsSinceUnixEpoch;
+    const intervalMicros = BigInt(Math.max(1, Math.round(progress.attackRate * 1_000_000)));
+    const currentWindow = ctx.db.dragonAttackWindow.identity.find(ctx.sender);
+    if (
+      !currentWindow ||
+      currentWindow.encounter !== dragon.encounter ||
+      now - currentWindow.startedAtMicros >= intervalMicros
+    ) {
+      const nextWindow = {
+        identity: ctx.sender,
+        encounter: dragon.encounter,
+        startedAtMicros: now,
+        hits: 1,
+      };
+      if (currentWindow) ctx.db.dragonAttackWindow.identity.update(nextWindow);
+      else ctx.db.dragonAttackWindow.insert(nextWindow);
+    } else {
+      if (currentWindow.hits >= progress.projectileCount) return;
+      ctx.db.dragonAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + 1 });
+    }
+
+    const damage = Math.min(dragon.hp, Math.max(1, progress.damage));
+    const currentContribution = ctx.db.dragonContribution.identity.find(ctx.sender);
+    const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+    const nextContribution = {
+      identity: ctx.sender,
+      encounter: dragon.encounter,
+      displayName,
+      damage: currentContribution && currentContribution.encounter === dragon.encounter
+        ? currentContribution.damage + damage
+        : damage,
+    };
+    if (currentContribution) ctx.db.dragonContribution.identity.update(nextContribution);
+    else ctx.db.dragonContribution.insert(nextContribution);
+
+    const nextDragon = { ...dragon, hp: Math.max(0, dragon.hp - damage) };
+    if (nextDragon.hp <= 0) finishDragonEncounter(ctx, nextDragon);
+    else ctx.db.dragonBoss.id.update(nextDragon);
   },
 );
 

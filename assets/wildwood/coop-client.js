@@ -8202,6 +8202,7 @@ ${ty.variants.map(
   const ClaimGuestAccountReducer = {
     code: t.string()
   };
+  const DamageDragonReducer = {};
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
@@ -8245,6 +8246,21 @@ ${ty.variants.map(
     message: t.string(),
     sentAt: t.timestamp().name("sent_at"),
     replayId: t.u64().name("replay_id")
+  });
+  const DragonBossRow = t.row({
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32().name("max_hp"),
+    alive: t.bool(),
+    respawnAtMicros: t.u64().name("respawn_at_micros")
+  });
+  const DragonResultRow = t.row({
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32().name("total_damage"),
+    contributorsJson: t.string().name("contributors_json"),
+    createdAt: t.timestamp().name("created_at")
   });
   const DuelRow = t.row({
     id: t.u64().primaryKey(),
@@ -8356,6 +8372,28 @@ ${ty.variants.map(
         { name: "chat_message_id_key", constraint: "unique", columns: ["id"] }
       ]
     }, ChatMessageRow),
+    dragonBoss: table({
+      name: "dragon_boss",
+      indexes: [
+        { accessor: "id", name: "dragon_boss_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "dragon_boss_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, DragonBossRow),
+    dragonResult: table({
+      name: "dragon_result",
+      indexes: [
+        { accessor: "id", name: "dragon_result_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "dragon_result_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, DragonResultRow),
     duel: table({
       name: "duel",
       indexes: [
@@ -8417,6 +8455,7 @@ ${ty.variants.map(
     reducerSchema("begin_account_link", BeginAccountLinkReducer),
     reducerSchema("begin_adventure", BeginAdventureReducer),
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
+    reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
@@ -8459,7 +8498,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 8;
+  const PROTOCOL_VERSION = 9;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8496,6 +8535,8 @@ ${ty.variants.map(
   const duels = /* @__PURE__ */ new Map();
   const duelReplays = /* @__PURE__ */ new Map();
   const replayLoads = /* @__PURE__ */ new Map();
+  let sharedDragon = null;
+  let latestDragonResult = null;
   let connection = null;
   let localIdentity = "";
   let lastPositionSentAt = 0;
@@ -8969,6 +9010,38 @@ ${ty.variants.map(
     else flushPendingProgress();
     onChange == null ? void 0 : onChange();
   }
+  function upsertDragonBoss(row) {
+    sharedDragon = {
+      encounter: row.encounter,
+      hp: row.hp,
+      maxHp: row.maxHp,
+      alive: row.alive,
+      respawnAtMs: Number(row.respawnAtMicros / 1000n)
+    };
+    onChange == null ? void 0 : onChange();
+  }
+  function upsertDragonResult(row) {
+    let contributors = [];
+    try {
+      const parsed = JSON.parse(row.contributorsJson);
+      if (Array.isArray(parsed)) {
+        contributors = parsed.filter((entry) => entry && typeof entry === "object").map((entry) => ({
+          identity: typeof entry.identity === "string" ? entry.identity : "",
+          name: typeof entry.name === "string" ? entry.name : "PLAYER",
+          damage: Number.isFinite(entry.damage) ? entry.damage : 0,
+          percentage: Number.isFinite(entry.percentage) ? entry.percentage : 0
+        }));
+      }
+    } catch {
+    }
+    latestDragonResult = {
+      encounter: row.encounter,
+      totalDamage: row.totalDamage,
+      contributors,
+      createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n)
+    };
+    onChange == null ? void 0 : onChange();
+  }
   function upsertChatMessage(row) {
     if (chatMessages.some((message) => message.id === row.id)) return;
     chatMessages.push({
@@ -9116,6 +9189,10 @@ ${ty.variants.map(
       conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
       conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
       conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
+      conn.db.dragonBoss.onInsert((_ctx, row) => upsertDragonBoss(row));
+      conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => upsertDragonBoss(row));
+      conn.db.dragonResult.onInsert((_ctx, row) => upsertDragonResult(row));
+      conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => upsertDragonResult(row));
       conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
       conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
       conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
@@ -9124,6 +9201,8 @@ ${ty.variants.map(
         for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
         for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
         for (const row of conn.db.player.iter()) upsertPlayer(row);
+        for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
+        for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
         for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
         for (const row of conn.db.duel.iter()) upsertDuel(row);
         flushPendingProgress();
@@ -9167,6 +9246,8 @@ ${ty.variants.map(
         tables.player,
         tables.playerProfile,
         tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+        tables.dragonBoss,
+        tables.dragonResult,
         tables.chatMessage,
         tables.duel
       ]);
@@ -9186,6 +9267,8 @@ ${ty.variants.map(
       duels.clear();
       duelReplays.clear();
       replayLoads.clear();
+      sharedDragon = null;
+      latestDragonResult = null;
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange == null ? void 0 : onChange();
       scheduleReconnect();
@@ -9314,6 +9397,16 @@ ${ty.variants.map(
       if (!localProgress) return null;
       const progress = pendingProgress ? mergeProgress(localProgress, pendingProgress) : localProgress;
       return { ...progress };
+    },
+    dragonBoss() {
+      return sharedDragon ? { ...sharedDragon } : null;
+    },
+    dragonResult() {
+      return latestDragonResult ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) } : null;
+    },
+    damageDragon() {
+      if (protocolBlocked || !connection) return;
+      sendReducer("dragon damage", () => connection == null ? void 0 : connection.reducers.damageDragon({}));
     },
     saveProgress(progress) {
       persistPendingProgress(progress);

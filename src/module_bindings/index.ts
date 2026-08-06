@@ -38,6 +38,7 @@ import AcceptDuelReducer from "./accept_duel_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
+import DamageDragonReducer from "./damage_dragon_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -52,6 +53,8 @@ import SyncPositionReducer from "./sync_position_reducer";
 
 // Import all table schema definitions
 import ChatMessageRow from "./chat_message_table";
+import DragonBossRow from "./dragon_boss_table";
+import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
 import DuelReplayRow from "./duel_replay_table";
 import PlayerRow from "./player_table";
@@ -73,6 +76,28 @@ const tablesSchema = __schema({
       { name: 'chat_message_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ChatMessageRow),
+  dragonBoss: __table({
+    name: 'dragon_boss',
+    indexes: [
+      { accessor: 'id', name: 'dragon_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'dragon_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DragonBossRow),
+  dragonResult: __table({
+    name: 'dragon_result',
+    indexes: [
+      { accessor: 'id', name: 'dragon_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'dragon_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DragonResultRow),
   duel: __table({
     name: 'duel',
     indexes: [
@@ -136,6 +161,7 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
+  __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

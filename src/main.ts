@@ -53,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.213";
+  const GAME_VERSION = "0.214";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -122,6 +122,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const duelResultStats = document.getElementById("duelResultStats");
   const watchDuelReplayBtn = document.getElementById("watchDuelReplayBtn");
   const closeDuelResultBtn = document.getElementById("closeDuelResultBtn");
+  const dragonResultEl = document.getElementById("dragonResult");
+  const dragonResultTotal = document.getElementById("dragonResultTotal");
+  const dragonResultContributors = document.getElementById("dragonResultContributors");
+  const closeDragonResultBtn = document.getElementById("closeDragonResultBtn");
   const duelReplayEl = document.getElementById("duelReplay");
   const duelReplayTitle = document.getElementById("duelReplayTitle");
   const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
@@ -185,6 +189,12 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   let duelResultHold = false;
   let duelReturnState = null;
   let duelExitFading = false;
+  let dragonResultOpen = false;
+  let observedDragonEncounter = null;
+  let dragonWasAlive = null;
+  let pendingDragonResultEncounter = null;
+  let shownDragonResultEncounter = null;
+  const locallyRewardedDragonEncounters = new Set();
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
 
 
@@ -262,7 +272,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     attackClock: 3,
     nextAttack: "cone",
     cone: null,
-    rewardGranted: false
+    encounter: null
   };
 
   const playerSprite = new Image();
@@ -754,6 +764,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const baseAngle = Math.atan2(dy, dx);
     const spread = .13;
 
+    if (target.isBoss) {
+      coop?.syncPosition?.(player.x, player.y, player.facing, player.moving, true);
+    }
+
     for (let i = 0; i < player.projectileCount; i++) {
       const angle = baseAngle + (i - (player.projectileCount - 1) / 2) * spread;
       const vx = Math.cos(angle) * player.projectileSpeed;
@@ -837,13 +851,17 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   function resetBoss() {
-    boss.hp = boss.maxHp;
-    boss.dead = false;
+    const shared = coop?.dragonBoss?.();
+    if (shared) {
+      boss.encounter = shared.encounter;
+      boss.hp = shared.hp;
+      boss.maxHp = shared.maxHp;
+      boss.dead = !shared.alive;
+    }
     boss.hurt = 0;
     boss.attackClock = 3;
     boss.nextAttack = "cone";
     boss.cone = null;
-    boss.rewardGranted = false;
     bossRain.length = 0;
   }
 
@@ -855,14 +873,99 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     bossRain.length = 0;
     score += 5000;
     spawnBurst(boss.x, boss.y, "#ff7b42", 64, 230);
+  }
 
-    if (!boss.rewardGranted) {
-      boss.rewardGranted = true;
+  function showDragonResult(result) {
+    if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
+    shownDragonResultEncounter = result.encounter;
+    pendingDragonResultEncounter = null;
+    dragonResultOpen = true;
+    dragonResultTotal.textContent = `${Math.round(result.totalDamage).toLocaleString()} TOTAL DAMAGE`;
+    dragonResultContributors.replaceChildren();
+
+    for (const contributor of result.contributors) {
+      const row = document.createElement("div");
+      row.className = "dragon-result-row";
+      const name = document.createElement("span");
+      name.className = "dragon-result-name";
+      name.textContent = contributor.name;
+      const damage = document.createElement("span");
+      damage.className = "dragon-result-damage";
+      damage.textContent = Math.round(contributor.damage).toLocaleString();
+      const percentage = document.createElement("span");
+      percentage.className = "dragon-result-percentage";
+      percentage.textContent = `${contributor.percentage.toFixed(1)}%`;
+      row.append(name, damage, percentage);
+      dragonResultContributors.append(row);
+    }
+
+    if (!result.contributors.length) {
+      const empty = document.createElement("div");
+      empty.className = "dragon-result-row";
+      empty.textContent = "NO DAMAGE RECORDS";
+      dragonResultContributors.append(empty);
+    }
+
+    const encounterKey = String(result.encounter);
+    const earnedReward = result.contributors.some((entry) => entry.identity === coop?.localIdentity?.());
+    if (earnedReward && !locallyRewardedDragonEncounters.has(encounterKey)) {
+      locallyRewardedDragonEncounters.add(encounterKey);
       player.damage += 650;
       logPickup("+650 DAMAGE", "#ff655a");
       showMessage("+650 DAMAGE", "#ff655a");
       saveProgress();
     }
+
+    dragonResultEl.hidden = false;
+  }
+
+  function tryShowDragonResult() {
+    if (pendingDragonResultEncounter === null || shownDragonResultEncounter === pendingDragonResultEncounter) return;
+    const result = coop?.dragonResult?.();
+    if (result?.encounter === pendingDragonResultEncounter) showDragonResult(result);
+  }
+
+  function syncDragonState() {
+    const shared = coop?.dragonBoss?.();
+    if (!shared) return;
+    const initialized = observedDragonEncounter !== null;
+    const encounterChanged = initialized && observedDragonEncounter !== shared.encounter;
+
+    if (!initialized) {
+      observedDragonEncounter = shared.encounter;
+      dragonWasAlive = shared.alive;
+      boss.dead = !shared.alive;
+      if (boss.dead) {
+        boss.cone = null;
+        bossRain.length = 0;
+      }
+    } else if (encounterChanged) {
+      observedDragonEncounter = shared.encounter;
+      dragonWasAlive = shared.alive;
+      pendingDragonResultEncounter = null;
+      boss.attackClock = 3;
+      boss.nextAttack = "cone";
+      boss.cone = null;
+      bossRain.length = 0;
+      boss.dead = !shared.alive;
+    } else if (dragonWasAlive && !shared.alive) {
+      pendingDragonResultEncounter = shared.encounter;
+      killBoss();
+      dragonWasAlive = false;
+    } else if (!dragonWasAlive && shared.alive) {
+      dragonWasAlive = true;
+      boss.dead = false;
+      boss.attackClock = 3;
+      boss.nextAttack = "cone";
+      boss.cone = null;
+      bossRain.length = 0;
+    }
+
+    boss.encounter = shared.encounter;
+    boss.maxHp = shared.maxHp;
+    boss.hp = shared.hp;
+    if (!shared.alive) boss.dead = true;
+    tryShowDragonResult();
   }
 
   function startBossCone() {
@@ -1364,10 +1467,12 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         p.x = startX + (endX - startX) * hit.t;
         p.y = startY + (endY - startY) * hit.t;
         const target = hit.enemy;
-        target.hp -= p.damage;
         spawnDamageNumber(target.x, target.y, p.damage);
         target.hurt = .12;
         p.life = 0;
+
+        if (target.isBoss) coop?.damageDragon?.();
+        else target.hp -= p.damage;
 
         if (!target.isBoss && player.knockback > 0) {
           const ang = Math.atan2(p.vy, p.vx);
@@ -1376,10 +1481,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
           target.vy += Math.sin(ang) * force;
         }
         spawnBurst(p.x, p.y, "#fff0a1", 5, 52);
-        if (target.hp <= 0) {
-          if (target.isBoss) killBoss();
-          else killEnemy(target);
-        }
+        if (!target.isBoss && target.hp <= 0) killEnemy(target);
       } else {
         p.x = endX;
         p.y = endY;
@@ -1501,6 +1603,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   function update(dt) {
+    syncDragonState();
     gameTime += dt;
     flash = Math.max(0, flash - dt);
     screenShake *= Math.pow(.01, dt);
@@ -2044,7 +2147,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     );
 
     const barW = 220;
-    const barH = 10;
+    const barH = 20;
     const barX = x - Math.floor(barW / 2);
     const barY = y - drawH / 2 - 20;
     const hpRatio = clamp(boss.hp / boss.maxHp, 0, 1);
@@ -2057,8 +2160,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
     ctx.save();
     ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
+    ctx.textBaseline = "middle";
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    outlinedText(`${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()} HP`, x, barY + barH / 2, "#fff", 3);
+    ctx.textBaseline = "bottom";
     outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 3);
     outlinedText("+650 DAMAGE", x, barY - 5, "#ff655a", 3);
     ctx.restore();
@@ -2525,7 +2630,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
 
-    if (running && !pausedForUpgrade) update(dt);
+    if (running && !pausedForUpgrade && !dragonResultOpen) update(dt);
     render();
     requestAnimationFrame(loop);
   }
@@ -2729,6 +2834,12 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     leaveDuelResult();
   });
 
+  closeDragonResultBtn.addEventListener("click", () => {
+    dragonResultEl.hidden = true;
+    dragonResultOpen = false;
+    last = performance.now();
+  });
+
   closeDuelReplayBtn.addEventListener("click", () => {
     const closeReplay = () => {
       duelReplayEl.hidden = true;
@@ -2780,6 +2891,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   if (coop && typeof coop.setOnChange === "function") {
     coop.setOnChange(() => {
       loadProgress();
+      syncDragonState();
       finishStartup();
       const account = coop?.accountState?.();
       if (account?.returningFromSignIn) showSigningIn();

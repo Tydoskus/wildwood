@@ -55,6 +55,28 @@ export type PlayerProgress = {
   introComplete: boolean;
 };
 
+export type DragonBossState = {
+  encounter: bigint;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  respawnAtMs: number;
+};
+
+export type DragonContributor = {
+  identity: string;
+  name: string;
+  damage: number;
+  percentage: number;
+};
+
+export type DragonResult = {
+  encounter: bigint;
+  totalDamage: number;
+  contributors: DragonContributor[];
+  createdAtMs: number;
+};
+
 type ProgressSave = Omit<PlayerProgress, "introComplete">;
 
 export type DuelState = {
@@ -118,7 +140,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 8;
+const PROTOCOL_VERSION = 9;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -156,6 +178,8 @@ const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
+let sharedDragon: DragonBossState | null = null;
+let latestDragonResult: DragonResult | null = null;
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -693,6 +717,52 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   onChange?.();
 }
 
+function upsertDragonBoss(row: {
+  encounter: bigint;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  respawnAtMicros: bigint;
+}) {
+  sharedDragon = {
+    encounter: row.encounter,
+    hp: row.hp,
+    maxHp: row.maxHp,
+    alive: row.alive,
+    respawnAtMs: Number(row.respawnAtMicros / 1000n),
+  };
+  onChange?.();
+}
+
+function upsertDragonResult(row: {
+  encounter: bigint;
+  totalDamage: number;
+  contributorsJson: string;
+  createdAt: { microsSinceUnixEpoch: bigint };
+}) {
+  let contributors: DragonContributor[] = [];
+  try {
+    const parsed = JSON.parse(row.contributorsJson);
+    if (Array.isArray(parsed)) {
+      contributors = parsed
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => ({
+          identity: typeof entry.identity === "string" ? entry.identity : "",
+          name: typeof entry.name === "string" ? entry.name : "PLAYER",
+          damage: Number.isFinite(entry.damage) ? entry.damage : 0,
+          percentage: Number.isFinite(entry.percentage) ? entry.percentage : 0,
+        }));
+    }
+  } catch {}
+  latestDragonResult = {
+    encounter: row.encounter,
+    totalDamage: row.totalDamage,
+    contributors,
+    createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n),
+  };
+  onChange?.();
+}
+
 function upsertChatMessage(row: {
   id: bigint;
   sender: Identity;
@@ -881,6 +951,10 @@ function connect() {
       conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
       conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
       conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
+      conn.db.dragonBoss.onInsert((_ctx, row) => upsertDragonBoss(row));
+      conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => upsertDragonBoss(row));
+      conn.db.dragonResult.onInsert((_ctx, row) => upsertDragonResult(row));
+      conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => upsertDragonResult(row));
       conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
       conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
       conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
@@ -892,6 +966,8 @@ function connect() {
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
+          for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
+          for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           flushPendingProgress();
@@ -938,6 +1014,8 @@ function connect() {
           tables.player,
           tables.playerProfile,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+          tables.dragonBoss,
+          tables.dragonResult,
           tables.chatMessage,
           tables.duel,
         ]);
@@ -958,6 +1036,8 @@ function connect() {
       duels.clear();
       duelReplays.clear();
       replayLoads.clear();
+      sharedDragon = null;
+      latestDragonResult = null;
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
@@ -1089,6 +1169,18 @@ export const wildwoodCoop = {
     if (!localProgress) return null;
     const progress = pendingProgress ? mergeProgress(localProgress, pendingProgress) : localProgress;
     return { ...progress };
+  },
+  dragonBoss() {
+    return sharedDragon ? { ...sharedDragon } : null;
+  },
+  dragonResult() {
+    return latestDragonResult
+      ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) }
+      : null;
+  },
+  damageDragon() {
+    if (protocolBlocked || !connection) return;
+    sendReducer("dragon damage", () => connection?.reducers.damageDragon({}));
   },
   saveProgress(progress: ProgressSave) {
     persistPendingProgress(progress);

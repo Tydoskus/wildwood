@@ -33,6 +33,48 @@ export const ChatMessage = __t.object("ChatMessage", {
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
+export const DragonAttackWindow = __t.object("DragonAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type DragonAttackWindow = __Infer<typeof DragonAttackWindow>;
+
+export const DragonBoss = __t.object("DragonBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+});
+export type DragonBoss = __Infer<typeof DragonBoss>;
+
+export const DragonContribution = __t.object("DragonContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type DragonContribution = __Infer<typeof DragonContribution>;
+
+export const DragonRespawnSchedule = __t.object("DragonRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type DragonRespawnSchedule = __Infer<typeof DragonRespawnSchedule>;
+
+export const DragonResult = __t.object("DragonResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type DragonResult = __Infer<typeof DragonResult>;
+
 export const Duel = __t.object("Duel", {
   id: __t.u64(),
   challenger: __t.identity(),

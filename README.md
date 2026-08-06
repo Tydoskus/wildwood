@@ -9,8 +9,8 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 | Game runtime | `src/main.ts` | Runtime orchestration, mutable combat state, rendering order, input wiring, and screen transitions. |
 | Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
 | UI modules | `src/ui/` | HUD, inventory, and chat rendering/interaction. |
-| Multiplayer client | `src/wildwood-coop.ts` | SpacetimeDB connection, guest/account authentication, subscriptions, durable progress, chat, and duels. |
-| Server module | `spacetimedb/src/index.ts` | Authoritative player state, persistence, reducer validation, account linking, chat, and duels. |
+| Multiplayer client | `src/wildwood-coop.ts` | SpacetimeDB connection, guest/account authentication, subscriptions, durable progress, chat, duels, and shared dragon state. |
+| Server module | `spacetimedb/src/index.ts` | Authoritative player/boss state, persistence, reducer validation, contribution accounting, account linking, chat, and duels. |
 | Shared game values | `src/game/constants.ts` | World dimensions, player and boss tuning, and movement constants. |
 | UI markup and styles | `index.html`, `src/styles/game.css` | Static shell, overlays, controls, and visual styling. |
 | Generated browser files | `assets/wildwood/game.js`, `assets/wildwood/coop-client.js` | Bundles served by GitHub Pages. Do not edit by hand. |
