@@ -8226,7 +8226,8 @@ ${ty.variants.map(
     speed: t.f32(),
     bootsCollected: t.bool(),
     inventoryJson: t.string(),
-    equippedFeet: t.string()
+    equippedFeet: t.string(),
+    enemyKills: t.u32()
   };
   const SendChatMessageReducer = {
     message: t.string()
@@ -8345,6 +8346,13 @@ ${ty.variants.map(
     protocolVersion: t.u32().name("protocol_version"),
     feetItem: t.string().name("feet_item")
   });
+  const PlayerLifetimeRow = t.row({
+    identity: t.identity().primaryKey(),
+    joinedAt: t.timestamp().name("joined_at"),
+    playedMicros: t.u64().name("played_micros"),
+    sessionStartedAt: t.timestamp().name("session_started_at"),
+    enemyKills: t.u64().name("enemy_kills")
+  });
   const PlayerProfileRow = t.row({
     identity: t.identity().primaryKey(),
     displayName: t.string().name("display_name")
@@ -8438,6 +8446,17 @@ ${ty.variants.map(
         { name: "player_identity_key", constraint: "unique", columns: ["identity"] }
       ]
     }, PlayerRow),
+    playerLifetime: table({
+      name: "player_lifetime",
+      indexes: [
+        { accessor: "identity", name: "player_lifetime_identity_idx_btree", algorithm: "btree", columns: [
+          "identity"
+        ] }
+      ],
+      constraints: [
+        { name: "player_lifetime_identity_key", constraint: "unique", columns: ["identity"] }
+      ]
+    }, PlayerLifetimeRow),
     playerProfile: table({
       name: "player_profile",
       indexes: [
@@ -8512,7 +8531,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 12;
+  const PROTOCOL_VERSION = 13;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8546,6 +8565,12 @@ ${ty.variants.map(
   const SPACETIME_AUTH_SCOPE = "openid profile email";
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
+  const profileIdentities = /* @__PURE__ */ new Map();
+  const profileProgress = /* @__PURE__ */ new Map();
+  const playerLifetimes = /* @__PURE__ */ new Map();
+  const playerProfileLoads = /* @__PURE__ */ new Map();
+  let activePlayerProfileIdentity = "";
+  let activePlayerProfileSubscription = null;
   const chatMessages = [];
   const duels = /* @__PURE__ */ new Map();
   const duelReplays = /* @__PURE__ */ new Map();
@@ -8974,7 +8999,8 @@ ${ty.variants.map(
       speed: bounded(progress.speed, 1, 2e3, 175),
       bootsCollected: progress.bootsCollected,
       inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
-      equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : ""
+      equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
+      enemyKills: Number.isInteger(progress.enemyKills) ? Math.max(0, Math.min(4294967295, progress.enemyKills)) : 0
     };
   }
   function isProgressSave(value) {
@@ -8989,7 +9015,7 @@ ${ty.variants.map(
       progress.armor,
       progress.regen,
       progress.speed
-    ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" && typeof progress.equippedFeet === "string";
+    ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" && typeof progress.equippedFeet === "string" && (progress.enemyKills === void 0 || Number.isInteger(progress.enemyKills));
   }
   function pendingProgressStorageKey(identity) {
     return `${pendingProgressKey}/${identity}`;
@@ -9173,6 +9199,7 @@ ${ty.variants.map(
   function upsertProfile(row) {
     const id = row.identity.toHexString();
     profiles.set(id, row.displayName);
+    profileIdentities.set(id, row.identity);
     if (id === localIdentity) {
       localDisplayName = row.displayName;
       localProfileReady = true;
@@ -9185,8 +9212,7 @@ ${ty.variants.map(
   }
   function upsertProgress(row) {
     const id = row.identity.toHexString();
-    if (id !== localIdentity) return;
-    localProgress = {
+    const progress = {
       maxHp: row.maxHp,
       damage: row.damage,
       attackRate: row.attackRate,
@@ -9201,9 +9227,21 @@ ${ty.variants.map(
       equippedFeet: row.equippedFeet,
       introComplete: row.introComplete
     };
+    profileProgress.set(id, progress);
+    if (id !== localIdentity) return;
+    localProgress = progress;
     completeAccountReturnWhenReady();
     if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
     else flushPendingProgress();
+    onChange == null ? void 0 : onChange();
+  }
+  function upsertPlayerLifetime(row) {
+    playerLifetimes.set(row.identity.toHexString(), {
+      joinedAtMs: Number(row.joinedAt.microsSinceUnixEpoch / 1000n),
+      playedSeconds: Number(row.playedMicros) / 1e6,
+      sessionStartedAtMs: Number(row.sessionStartedAt.microsSinceUnixEpoch / 1000n),
+      enemyKills: Number(row.enemyKills)
+    });
     onChange == null ? void 0 : onChange();
   }
   function upsertDragonBoss(row) {
@@ -9322,6 +9360,58 @@ ${ty.variants.map(
     replayLoads.set(id, request);
     return request;
   }
+  function cachedPlayerProfile(identity) {
+    const progress = profileProgress.get(identity);
+    const lifetime = playerLifetimes.get(identity);
+    if (!progress || !lifetime) return null;
+    return {
+      identity,
+      name: profiles.get(identity) ?? "PLAYER",
+      progress: { ...progress },
+      lifetime: { ...lifetime }
+    };
+  }
+  function loadPlayerProfile(identity) {
+    const existing = cachedPlayerProfile(identity);
+    if (existing && (identity === localIdentity || identity === activePlayerProfileIdentity)) return Promise.resolve(existing);
+    const loading = playerProfileLoads.get(identity);
+    if (loading) return loading;
+    const conn = connection;
+    const dbIdentity = profileIdentities.get(identity);
+    if (!conn || !dbIdentity) return Promise.resolve(null);
+    releasePlayerProfile();
+    activePlayerProfileIdentity = identity;
+    const request = new Promise((resolve) => {
+      activePlayerProfileSubscription = conn.subscriptionBuilder().onApplied(() => {
+        for (const row of conn.db.playerProgress.iter()) {
+          if (row.identity.toHexString() === identity) upsertProgress(row);
+        }
+        for (const row of conn.db.playerLifetime.iter()) {
+          if (row.identity.toHexString() === identity) upsertPlayerLifetime(row);
+        }
+        playerProfileLoads.delete(identity);
+        resolve(cachedPlayerProfile(identity));
+      }).onError(() => {
+        playerProfileLoads.delete(identity);
+        resolve(null);
+      }).subscribe([
+        tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
+        tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity))
+      ]);
+    });
+    playerProfileLoads.set(identity, request);
+    return request;
+  }
+  function releasePlayerProfile() {
+    if (activePlayerProfileSubscription) activePlayerProfileSubscription.unsubscribe();
+    if (activePlayerProfileIdentity && activePlayerProfileIdentity !== localIdentity) {
+      profileProgress.delete(activePlayerProfileIdentity);
+      playerLifetimes.delete(activePlayerProfileIdentity);
+      playerProfileLoads.delete(activePlayerProfileIdentity);
+    }
+    activePlayerProfileSubscription = null;
+    activePlayerProfileIdentity = "";
+  }
   function removeDuel(row) {
     duels.delete(row.id);
     onChange == null ? void 0 : onChange();
@@ -9331,8 +9421,13 @@ ${ty.variants.map(
     onChange == null ? void 0 : onChange();
   }
   function clearRealtimeCaches() {
+    releasePlayerProfile();
     players.clear();
     profiles.clear();
+    profileIdentities.clear();
+    profileProgress.clear();
+    playerLifetimes.clear();
+    playerProfileLoads.clear();
     chatMessages.length = 0;
     duels.clear();
     duelReplays.clear();
@@ -9495,6 +9590,12 @@ ${ty.variants.map(
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => {
           if (isCurrentConnection()) upsertProgress(row);
         });
+        conn.db.playerLifetime.onInsert((_ctx, row) => {
+          if (isCurrentConnection()) upsertPlayerLifetime(row);
+        });
+        conn.db.playerLifetime.onUpdate((_ctx, _oldRow, row) => {
+          if (isCurrentConnection()) upsertPlayerLifetime(row);
+        });
         conn.db.dragonBoss.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertDragonBoss(row);
         });
@@ -9523,6 +9624,7 @@ ${ty.variants.map(
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
+          for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
           for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
@@ -9539,6 +9641,7 @@ ${ty.variants.map(
           tables.player,
           tables.playerProfile,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+          tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
           tables.dragonResult,
           tables.chatMessage,
@@ -9739,6 +9842,12 @@ ${ty.variants.map(
     dragonResult() {
       return latestDragonResult ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) } : null;
     },
+    playerProfile(identity = localIdentity) {
+      const profile = cachedPlayerProfile(identity);
+      return profile ? { ...profile, progress: { ...profile.progress }, lifetime: { ...profile.lifetime } } : null;
+    },
+    loadPlayerProfile,
+    releasePlayerProfile,
     damageDragon(hits = 1) {
       if (protocolBlocked || !connection) return;
       sendReducer("dragon damage", () => connection == null ? void 0 : connection.reducers.damageDragonBatch({ hits }));

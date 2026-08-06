@@ -108,6 +108,7 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Every connection registers its own protocol version before reducers or subscriptions run.
 - Returning from a short tab hide keeps a healthy socket. Longer resumes use one reducer probe and reconnect only when stale or unreachable; never restore a per-user heartbeat.
 - Scheduled maintenance removes orphan public presence and duel state. Durable player progress and profiles are permanent.
+- Player profile details load by identity only when opened. Never add `player_progress` or `player_lifetime` back to a global client subscription.
 
 ## Shared dragon performance invariants
 

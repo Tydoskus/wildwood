@@ -32,9 +32,10 @@ type ChatOptions = {
   getCoop: () => CoopClient | null;
   showMessage: (text: string, color?: string) => void;
   onOpenReplay?: (replayId: bigint) => void;
+  onOpenPlayer?: (identity: string, displayName: string) => void;
 };
 
-export function createChatController({ elements, getCoop, showMessage, onOpenReplay }: ChatOptions) {
+export function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer }: ChatOptions) {
   let enabled = true;
   let large = false;
 
@@ -82,6 +83,19 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       name.className = "chat-name";
       name.style.color = nameColor(message.sender);
       name.textContent = `${message.senderName}: `;
+      name.setAttribute("role", "button");
+      name.setAttribute("tabindex", "0");
+      name.setAttribute("aria-label", `View ${message.senderName}'s profile`);
+      const openPlayer = (event: Event) => {
+        event.stopPropagation();
+        onOpenPlayer?.(message.sender, message.senderName);
+      };
+      name.addEventListener("click", openPlayer);
+      name.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openPlayer(event);
+      });
       const text = document.createElement("span");
       text.className = "chat-text";
       text.textContent = message.message;
@@ -135,7 +149,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       updateVisibility();
     });
     elements.panel.addEventListener("pointerup", (event) => {
-      if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label")) return;
+      if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label, .chat-name")) return;
       large = !large;
       updateHeight();
     });

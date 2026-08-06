@@ -61,6 +61,7 @@ import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
 import DuelReplayRow from "./duel_replay_table";
 import PlayerRow from "./player_table";
+import PlayerLifetimeRow from "./player_lifetime_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 
@@ -140,6 +141,17 @@ const tablesSchema = __schema({
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerRow),
+  playerLifetime: __table({
+    name: 'player_lifetime',
+    indexes: [
+      { accessor: 'identity', name: 'player_lifetime_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_lifetime_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerLifetimeRow),
   playerProfile: __table({
     name: 'player_profile',
     indexes: [

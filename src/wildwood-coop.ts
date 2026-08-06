@@ -55,6 +55,20 @@ export type PlayerProgress = {
   introComplete: boolean;
 };
 
+export type PlayerLifetime = {
+  joinedAtMs: number;
+  playedSeconds: number;
+  sessionStartedAtMs: number;
+  enemyKills: number;
+};
+
+export type PlayerProfileData = {
+  identity: string;
+  name: string;
+  progress: PlayerProgress;
+  lifetime: PlayerLifetime;
+};
+
 export type DragonBossState = {
   encounter: bigint;
   hp: number;
@@ -77,7 +91,7 @@ export type DragonResult = {
   createdAtMs: number;
 };
 
-type ProgressSave = Omit<PlayerProgress, "introComplete">;
+type ProgressSave = Omit<PlayerProgress, "introComplete"> & { enemyKills: number };
 
 export type DuelState = {
   id: bigint;
@@ -140,7 +154,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 12;
+const PROTOCOL_VERSION = 13;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -175,6 +189,12 @@ const SPACETIME_AUTH_TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const SPACETIME_AUTH_SCOPE = "openid profile email";
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
+const profileIdentities = new Map<string, Identity>();
+const profileProgress = new Map<string, PlayerProgress>();
+const playerLifetimes = new Map<string, PlayerLifetime>();
+const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
+let activePlayerProfileIdentity = "";
+let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
 const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
@@ -647,6 +667,9 @@ function copyProgress(progress: ProgressSave): ProgressSave {
     bootsCollected: progress.bootsCollected,
     inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
     equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
+    enemyKills: Number.isInteger(progress.enemyKills)
+      ? Math.max(0, Math.min(4_294_967_295, progress.enemyKills))
+      : 0,
   };
 }
 
@@ -664,7 +687,8 @@ function isProgressSave(value: unknown): value is ProgressSave {
     progress.speed,
   ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) &&
     typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
-    typeof progress.equippedFeet === "string";
+    typeof progress.equippedFeet === "string" &&
+    (progress.enemyKills === undefined || Number.isInteger(progress.enemyKills));
 }
 
 function pendingProgressStorageKey(identity: string) {
@@ -892,6 +916,7 @@ function upsertPlayer(row: {
 function upsertProfile(row: { identity: Identity; displayName: string }) {
   const id = row.identity.toHexString();
   profiles.set(id, row.displayName);
+  profileIdentities.set(id, row.identity);
   if (id === localIdentity) {
     localDisplayName = row.displayName;
     localProfileReady = true;
@@ -905,8 +930,7 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
 
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   const id = row.identity.toHexString();
-  if (id !== localIdentity) return;
-  localProgress = {
+  const progress = {
     maxHp: row.maxHp,
     damage: row.damage,
     attackRate: row.attackRate,
@@ -921,9 +945,28 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     equippedFeet: row.equippedFeet,
     introComplete: row.introComplete,
   };
+  profileProgress.set(id, progress);
+  if (id !== localIdentity) return;
+  localProgress = progress;
   completeAccountReturnWhenReady();
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
   else flushPendingProgress();
+  onChange?.();
+}
+
+function upsertPlayerLifetime(row: {
+  identity: Identity;
+  joinedAt: { microsSinceUnixEpoch: bigint };
+  playedMicros: bigint;
+  sessionStartedAt: { microsSinceUnixEpoch: bigint };
+  enemyKills: bigint;
+}) {
+  playerLifetimes.set(row.identity.toHexString(), {
+    joinedAtMs: Number(row.joinedAt.microsSinceUnixEpoch / 1_000n),
+    playedSeconds: Number(row.playedMicros) / 1_000_000,
+    sessionStartedAtMs: Number(row.sessionStartedAt.microsSinceUnixEpoch / 1_000n),
+    enemyKills: Number(row.enemyKills),
+  });
   onChange?.();
 }
 
@@ -1088,6 +1131,67 @@ function loadDuelReplay(id: bigint): Promise<DuelReplay | null> {
   return request;
 }
 
+function cachedPlayerProfile(identity: string): PlayerProfileData | null {
+  const progress = profileProgress.get(identity);
+  const lifetime = playerLifetimes.get(identity);
+  if (!progress || !lifetime) return null;
+  return {
+    identity,
+    name: profiles.get(identity) ?? "PLAYER",
+    progress: { ...progress },
+    lifetime: { ...lifetime },
+  };
+}
+
+function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> {
+  const existing = cachedPlayerProfile(identity);
+  if (existing && (identity === localIdentity || identity === activePlayerProfileIdentity)) return Promise.resolve(existing);
+  const loading = playerProfileLoads.get(identity);
+  if (loading) return loading;
+  const conn = connection;
+  const dbIdentity = profileIdentities.get(identity);
+  if (!conn || !dbIdentity) return Promise.resolve(null);
+
+  releasePlayerProfile();
+  activePlayerProfileIdentity = identity;
+
+  const request = new Promise<PlayerProfileData | null>((resolve) => {
+    activePlayerProfileSubscription = conn
+      .subscriptionBuilder()
+      .onApplied(() => {
+        for (const row of conn.db.playerProgress.iter()) {
+          if (row.identity.toHexString() === identity) upsertProgress(row);
+        }
+        for (const row of conn.db.playerLifetime.iter()) {
+          if (row.identity.toHexString() === identity) upsertPlayerLifetime(row);
+        }
+        playerProfileLoads.delete(identity);
+        resolve(cachedPlayerProfile(identity));
+      })
+      .onError(() => {
+        playerProfileLoads.delete(identity);
+        resolve(null);
+      })
+      .subscribe([
+        tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
+        tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
+      ]);
+  });
+  playerProfileLoads.set(identity, request);
+  return request;
+}
+
+function releasePlayerProfile() {
+  if (activePlayerProfileSubscription) activePlayerProfileSubscription.unsubscribe();
+  if (activePlayerProfileIdentity && activePlayerProfileIdentity !== localIdentity) {
+    profileProgress.delete(activePlayerProfileIdentity);
+    playerLifetimes.delete(activePlayerProfileIdentity);
+    playerProfileLoads.delete(activePlayerProfileIdentity);
+  }
+  activePlayerProfileSubscription = null;
+  activePlayerProfileIdentity = "";
+}
+
 function removeDuel(row: { id: bigint }) {
   duels.delete(row.id);
   onChange?.();
@@ -1099,8 +1203,13 @@ function removePlayer(row: { identity: Identity }) {
 }
 
 function clearRealtimeCaches() {
+  releasePlayerProfile();
   players.clear();
   profiles.clear();
+  profileIdentities.clear();
+  profileProgress.clear();
+  playerLifetimes.clear();
+  playerProfileLoads.clear();
   chatMessages.length = 0;
   duels.clear();
   duelReplays.clear();
@@ -1265,6 +1374,8 @@ function connect() {
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProfile(row); });
         conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
+        conn.db.playerLifetime.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
+        conn.db.playerLifetime.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
         conn.db.dragonBoss.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
         conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
         conn.db.dragonResult.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonResult(row); });
@@ -1280,6 +1391,7 @@ function connect() {
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
+          for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
           for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
@@ -1298,6 +1410,7 @@ function connect() {
           tables.player,
           tables.playerProfile,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+          tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
           tables.dragonResult,
           tables.chatMessage,
@@ -1505,6 +1618,14 @@ export const wildwoodCoop = {
       ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) }
       : null;
   },
+  playerProfile(identity = localIdentity) {
+    const profile = cachedPlayerProfile(identity);
+    return profile
+      ? { ...profile, progress: { ...profile.progress }, lifetime: { ...profile.lifetime } }
+      : null;
+  },
+  loadPlayerProfile,
+  releasePlayerProfile,
   damageDragon(hits = 1) {
     if (protocolBlocked || !connection) return;
     sendReducer("dragon damage", () => connection?.reducers.damageDragonBatch({ hits }));

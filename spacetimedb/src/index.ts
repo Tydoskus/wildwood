@@ -5,8 +5,7 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 12;
-const LEGACY_PROTOCOL_VERSION = 11;
+const PROTOCOL_VERSION = 13;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -94,6 +93,20 @@ const playerProgress = table(
   },
 );
 
+// Public profile metadata is queried one identity at a time by the client.
+// Combat progress remains out of the global subscription and is also loaded
+// only for the profile currently being viewed.
+const playerLifetime = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    joinedAt: t.timestamp(),
+    playedMicros: t.u64().default(0n),
+    sessionStartedAt: t.timestamp(),
+    enemyKills: t.u64().default(0n),
+  },
+);
+
 const playerNameCooldown = table(
   { public: false },
   {
@@ -123,6 +136,7 @@ const playerSession = table(
     connectedAt: t.timestamp(),
     protocolVersion: t.u32().default(0),
     lastInputSequence: t.u32().default(0),
+    enteredWorld: t.bool().default(false),
   },
 );
 
@@ -315,6 +329,7 @@ const spacetimedb = schema({
   player,
   playerProfile,
   playerProgress,
+  playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
   playerSession,
@@ -373,6 +388,31 @@ function defaultPlayerProgress(identity: any) {
   };
 }
 
+function ensurePlayerLifetime(ctx: any) {
+  const current = ctx.db.playerLifetime.identity.find(ctx.sender);
+  if (current) return current;
+  const next = {
+    identity: ctx.sender,
+    joinedAt: ctx.timestamp,
+    playedMicros: 0n,
+    sessionStartedAt: ctx.timestamp,
+    enemyKills: 0n,
+  };
+  ctx.db.playerLifetime.insert(next);
+  return next;
+}
+
+function finishLifetimeSession(ctx: any, identity: any) {
+  const lifetime = ctx.db.playerLifetime.identity.find(identity);
+  if (!lifetime) return;
+  const elapsed = ctx.timestamp.microsSinceUnixEpoch - lifetime.sessionStartedAt.microsSinceUnixEpoch;
+  ctx.db.playerLifetime.identity.update({
+    ...lifetime,
+    playedMicros: lifetime.playedMicros + (elapsed > 0n ? elapsed : 0n),
+    sessionStartedAt: ctx.timestamp,
+  });
+}
+
 function speedForBoots(bootsCollected: boolean) {
   return PLAYER_SPEED + (bootsCollected ? BOOTS_SPEED_BONUS : 0);
 }
@@ -423,7 +463,7 @@ function requireSession(ctx: any) {
 }
 
 function isSupportedProtocol(protocolVersion: number) {
-  return protocolVersion === PROTOCOL_VERSION || protocolVersion === LEGACY_PROTOCOL_VERSION;
+  return protocolVersion === PROTOCOL_VERSION;
 }
 
 function requireSupportedSessionProtocol(ctx: any) {
@@ -908,6 +948,9 @@ function enterWorldPresence(ctx: any) {
   if (!ctx.connectionId) return;
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (!controller || !sameConnection(controller.connectionId, ctx.connectionId)) return;
+  if (!session.enteredWorld) {
+    ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true });
+  }
 
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
@@ -941,6 +984,10 @@ function enterWorldPresence(ctx: any) {
   }
 
   const existing = ctx.db.player.identity.find(ctx.sender);
+  const lifetime = ensurePlayerLifetime(ctx);
+  if (!existing) {
+    ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
+  }
   const feetItem = equippedFeetForProgress(existingProgress);
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
@@ -998,6 +1045,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     connectedAt: ctx.timestamp,
     protocolVersion: 0,
     lastInputSequence: 0,
+    enteredWorld: false,
   };
   if (existingSession) ctx.db.playerSession.connectionId.update(nextSession);
   else ctx.db.playerSession.insert(nextSession);
@@ -1018,7 +1066,8 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (!controller || !sameConnection(controller.connectionId, ctx.connectionId)) return;
 
-  const replacement = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>][0];
+  const remainingSessions = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>];
+  const replacement = remainingSessions.find((candidate: any) => candidate.enteredWorld);
   if (replacement) {
     ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: replacement.connectionId });
     const currentPlayer = ctx.db.player.identity.find(ctx.sender);
@@ -1033,8 +1082,16 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
     }
     return;
   }
+  const connectedReplacement = remainingSessions[0];
+  if (connectedReplacement) {
+    ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: connectedReplacement.connectionId });
+    finishLifetimeSession(ctx, ctx.sender);
+    removeIdentityPresence(ctx, ctx.sender);
+    return;
+  }
   ctx.db.playerController.identity.delete(ctx.sender);
 
+  finishLifetimeSession(ctx, ctx.sender);
   removeIdentityPresence(ctx, ctx.sender);
 });
 
@@ -1152,9 +1209,6 @@ export const registerProtocol = spacetimedb.reducer(
     if (current && ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
       ctx.db.player.identity.update({ ...current, protocolVersion });
     }
-    // v11 clients predate explicit world entry. Keep them functional long
-    // enough for the version gate to refresh cached pages to v12.
-    if (protocolVersion === LEGACY_PROTOCOL_VERSION) enterWorldPresence(ctx);
   },
 );
 
@@ -1206,6 +1260,22 @@ export const claimGuestAccount = spacetimedb.reducer(
     const nextProgress = { ...guestProgress, identity: ctx.sender };
     if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
     else ctx.db.playerProgress.insert(nextProgress);
+
+    const guestLifetime = ctx.db.playerLifetime.identity.find(link.guest);
+    const accountLifetime = ctx.db.playerLifetime.identity.find(ctx.sender);
+    if (guestLifetime) {
+      const nextLifetime = {
+        identity: ctx.sender,
+        joinedAt: accountLifetime && accountLifetime.joinedAt.microsSinceUnixEpoch < guestLifetime.joinedAt.microsSinceUnixEpoch
+          ? accountLifetime.joinedAt
+          : guestLifetime.joinedAt,
+        playedMicros: (accountLifetime?.playedMicros ?? 0n) + guestLifetime.playedMicros,
+        sessionStartedAt: ctx.timestamp,
+        enemyKills: (accountLifetime?.enemyKills ?? 0n) + guestLifetime.enemyKills,
+      };
+      if (accountLifetime) ctx.db.playerLifetime.identity.update(nextLifetime);
+      else ctx.db.playerLifetime.insert(nextLifetime);
+    }
 
     const guestProfile = ctx.db.playerProfile.identity.find(link.guest);
     const accountProfile = ctx.db.playerProfile.identity.find(ctx.sender);
@@ -1274,6 +1344,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestActivePlayer) ctx.db.player.identity.delete(link.guest);
     if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
     if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
+    if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);
     const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
     if (guestNameCooldown) ctx.db.playerNameCooldown.identity.delete(link.guest);
     const guestChatCooldown = ctx.db.chatCooldown.identity.find(link.guest);
@@ -1339,6 +1410,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     bootsCollected: t.bool(),
     inventoryJson: t.string(),
     equippedFeet: t.string(),
+    enemyKills: t.u32(),
   },
   (ctx, progress) => {
     const activePlayer = requireCurrentProtocol(ctx);
@@ -1380,6 +1452,11 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    const lifetime = ensurePlayerLifetime(ctx);
+    const boundedKills = BigInt(Math.max(0, Math.min(4_294_967_295, Math.floor(progress.enemyKills))));
+    if (boundedKills > lifetime.enemyKills) {
+      ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: boundedKills });
+    }
     ctx.db.player.identity.update({
       ...activePlayer,
       hp: next.maxHp,
@@ -1410,6 +1487,8 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const next = defaultPlayerProgress(ctx.sender);
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    const lifetime = ensurePlayerLifetime(ctx);
+    ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({
       ...activePlayer,
       hp: next.maxHp,

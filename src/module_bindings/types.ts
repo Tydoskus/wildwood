@@ -183,6 +183,15 @@ export const PlayerController = __t.object("PlayerController", {
 });
 export type PlayerController = __Infer<typeof PlayerController>;
 
+export const PlayerLifetime = __t.object("PlayerLifetime", {
+  identity: __t.identity(),
+  joinedAt: __t.timestamp(),
+  playedMicros: __t.u64(),
+  sessionStartedAt: __t.timestamp(),
+  enemyKills: __t.u64(),
+});
+export type PlayerLifetime = __Infer<typeof PlayerLifetime>;
+
 export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
   identity: __t.identity(),
   changedAt: __t.timestamp(),

@@ -49,11 +49,12 @@ import {
 } from "./game/enemies";
 import { createChatController } from "./ui/chat";
 import { renderInventoryView, renderPlayerHud } from "./ui/hud";
+import { formatCompactNumber } from "./ui/number-format";
 
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.219";
+  const GAME_VERSION = "0.220";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -74,7 +75,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const hpFill = document.getElementById("hpFill");
   const hpText = document.getElementById("hpText");
   const playerNameEl = document.getElementById("playerName");
-  const statsEl = document.getElementById("stats");
+  const playerPowerEl = document.getElementById("playerPower");
   const settingsBtn = document.getElementById("settingsBtn");
   const inventoryBtn = document.getElementById("inventoryBtn");
   const autoAttackBtn = document.getElementById("autoAttackBtn");
@@ -133,6 +134,20 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const duelReplayTitle = document.getElementById("duelReplayTitle");
   const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
   const sceneFadeEl = document.getElementById("sceneFade");
+  const playerProfileEl = document.getElementById("playerProfile");
+  const playerProfileNameEl = document.getElementById("playerProfileName");
+  const playerProfilePowerEl = document.getElementById("playerProfilePower");
+  const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
+  const profileOverviewTab = document.getElementById("profileOverviewTab");
+  const profileStatsTab = document.getElementById("profileStatsTab");
+  const profileOverviewPanel = document.getElementById("profileOverviewPanel");
+  const profileStatsPanel = document.getElementById("profileStatsPanel");
+  const profileJoinedEl = document.getElementById("profileJoined");
+  const profileTimePlayedEl = document.getElementById("profileTimePlayed");
+  const profileKillsEl = document.getElementById("profileKills");
+  const profileOnlineEl = document.getElementById("profileOnline");
+  const profileStatGrid = document.getElementById("profileStatGrid");
+  const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
   const coop = window.wildwoodCoop || null;
 
   const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
@@ -175,6 +190,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   let gameTime = 0;
   let last = performance.now();
   let kills = 0;
+  let totalKills = 0;
+  let lifetimeKillsIdentity = "";
   let score = 0;
   let flash = 0;
   let screenShake = 0;
@@ -200,7 +217,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   let pendingDragonResultEncounter = null;
   let shownDragonResultEncounter = null;
   const locallyRewardedDragonEncounters = new Set();
-  const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
+  let openProfileIdentity = "";
 
 
   const bootsPickup = {
@@ -443,6 +461,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       bootsCollected: bootsPickup.collected,
       inventoryJson: serialiseInventory(inventory),
       equippedFeet: inventory.equippedFeet,
+      enemyKills: totalKills,
     });
   }
 
@@ -452,6 +471,13 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
     const saved = coop.savedProgress();
     if (!saved) return;
+    const lifetime = coop.playerProfile?.(progressIdentity)?.lifetime;
+    if (lifetime) {
+      totalKills = progressIdentity === lifetimeKillsIdentity
+        ? Math.max(totalKills, lifetime.enemyKills)
+        : lifetime.enemyKills;
+      lifetimeKillsIdentity = progressIdentity;
+    }
 
     let legacy = null;
     try {
@@ -1115,6 +1141,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (e.dead) return;
     e.dead = true;
     kills++;
+    totalKills++;
     score += e.reward;
 
     const base = ENEMY_TYPES[e.type];
@@ -2070,7 +2097,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    outlinedText(`Power: ${Math.round(power)}`, x, y, "#ffe05d", 2);
+    outlinedText(`Power: ${formatCompactNumber(power)}`, x, y, "#ffe05d", 2);
     ctx.restore();
   }
 
@@ -2581,14 +2608,131 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         : 0;
     const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
     renderPlayerHud(
-      { hpFill, hpText, playerName: playerNameEl, stats: statsEl, coopStatus: coopStatusEl },
+      { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
       player,
       coop?.localDisplayName?.() || "WANDERER",
       playerCount,
+      playerPower(player),
     );
     updateDuelControls();
     updateConnectionStatus();
     updateAccountStatus();
+  }
+
+  function formatPlayedTime(seconds) {
+    const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
+    const days = Math.floor(wholeMinutes / 1440);
+    const hours = Math.floor(wholeMinutes % 1440 / 60);
+    const minutes = wholeMinutes % 60;
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }
+
+  function isProfileOnline(identity) {
+    if (identity === coop?.localIdentity?.()) return Boolean(coop?.isConnected?.());
+    return coop?.remotePlayers?.().some((other) => other.id === identity) === true;
+  }
+
+  function setProfileTab(tab) {
+    const overview = tab === "overview";
+    profileOverviewTab.classList.toggle("is-active", overview);
+    profileStatsTab.classList.toggle("is-active", !overview);
+    profileOverviewTab.setAttribute("aria-selected", String(overview));
+    profileStatsTab.setAttribute("aria-selected", String(!overview));
+    profileOverviewPanel.hidden = !overview;
+    profileStatsPanel.hidden = overview;
+  }
+
+  function renderPlayerProfile(profile) {
+    if (!profile || profile.identity !== openProfileIdentity) return;
+    const { progress, lifetime } = profile;
+    const online = isProfileOnline(profile.identity);
+    const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
+    const power = playerPower(progress);
+    playerProfileNameEl.textContent = profile.name || "PLAYER";
+    playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
+    profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
+      year: "numeric", month: "short", day: "numeric",
+    });
+    profileTimePlayedEl.textContent = formatPlayedTime(lifetime.playedSeconds + activeSeconds);
+    profileKillsEl.textContent = Math.round(lifetime.enemyKills).toLocaleString();
+    profileOnlineEl.textContent = online ? "ONLINE" : "OFFLINE";
+    profileOnlineEl.style.color = online ? "#72ef58" : "#b7c5b7";
+
+    const stats = [
+      ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
+      ["DAMAGE", Math.round(progress.damage).toLocaleString()],
+      ["ARMOR", Math.round(progress.armor).toLocaleString()],
+      ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s`],
+      ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
+      ["REGEN", `${progress.regen.toFixed(1)}/s`],
+      ["MOVE SPEED", Math.round(progress.speed).toLocaleString()],
+      ["PROJECTILE SPEED", Math.round(progress.projectileSpeed).toLocaleString()],
+      ["PROJECTILES", String(progress.projectileCount)],
+    ];
+    profileStatGrid.replaceChildren();
+    for (const [label, value] of stats) {
+      const item = document.createElement("div");
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = label;
+      detail.textContent = value;
+      item.append(term, detail);
+      profileStatGrid.append(item);
+    }
+    playerProfileLoadingEl.hidden = true;
+    profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
+  }
+
+  async function openPlayerProfile(identity, fallbackName = "PLAYER") {
+    if (!identity) return;
+    openProfileIdentity = identity;
+    playerProfileEl.hidden = false;
+    playerProfileNameEl.textContent = fallbackName;
+    playerProfilePowerEl.textContent = "Power: —";
+    playerProfileLoadingEl.hidden = false;
+    profileOverviewPanel.hidden = true;
+    profileStatsPanel.hidden = true;
+    setProfileTab("overview");
+    profileOverviewPanel.hidden = true;
+    const cached = coop?.playerProfile?.(identity);
+    if (cached) {
+      renderPlayerProfile(cached);
+      return;
+    }
+    const loaded = await coop?.loadPlayerProfile?.(identity);
+    if (identity !== openProfileIdentity) return;
+    if (loaded) renderPlayerProfile(loaded);
+    else playerProfileLoadingEl.textContent = "PLAYER DATA UNAVAILABLE";
+  }
+
+  function closePlayerProfile() {
+    playerProfileEl.hidden = true;
+    openProfileIdentity = "";
+    playerProfileLoadingEl.textContent = "LOADING PLAYER…";
+    coop?.releasePlayerProfile?.();
+  }
+
+  function openPlayerAtScreenPoint(clientX, clientY) {
+    if (!running || !playerProfileEl.hidden || isDueling()) return false;
+    const worldX = camera.x + clientX / camera.zoom;
+    const worldY = camera.y + clientY / camera.zoom;
+    let target = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const other of coop?.remotePlayers?.() ?? []) {
+      const dx = worldX - other.x;
+      const dy = worldY - other.y;
+      if (Math.abs(dx) > 48 || Math.abs(dy) > 60) continue;
+      const distance = dx * dx + dy * dy;
+      if (distance < bestDistance) {
+        target = other;
+        bestDistance = distance;
+      }
+    }
+    if (!target) return false;
+    void openPlayerProfile(target.id, target.name);
+    return true;
   }
 
   function renderInventory() {
@@ -2856,6 +3000,17 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     updateAttackRangeSetting();
   });
 
+  hpText.closest(".card")?.addEventListener("click", () => {
+    const identity = coop?.localIdentity?.();
+    if (identity) void openPlayerProfile(identity, coop?.localDisplayName?.() || "PLAYER");
+  });
+  closePlayerProfileBtn.addEventListener("click", closePlayerProfile);
+  playerProfileEl.addEventListener("click", (event) => {
+    if (event.target === playerProfileEl) closePlayerProfile();
+  });
+  profileOverviewTab.addEventListener("click", () => setProfileTab("overview"));
+  profileStatsTab.addEventListener("click", () => setProfileTab("stats"));
+
   musicVolumeInput?.addEventListener("input", () => {
     musicVolume = clamp(Number(musicVolumeInput.value) / 100, 0, 1);
     try { localStorage.setItem(MUSIC_VOLUME_KEY, String(musicVolume)); } catch {}
@@ -2942,11 +3097,24 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     getCoop: () => coop,
     showMessage,
     onOpenReplay: openDuelReplay,
+    onOpenPlayer: openPlayerProfile,
   });
   chat.init();
 
   if (coop && typeof coop.setOnChange === "function") {
     coop.setOnChange(() => {
+      const identity = coop.localIdentity?.() || "";
+      const lifetime = coop.playerProfile?.(identity)?.lifetime;
+      if (lifetime) {
+        totalKills = identity === lifetimeKillsIdentity
+          ? Math.max(totalKills, lifetime.enemyKills)
+          : lifetime.enemyKills;
+        lifetimeKillsIdentity = identity;
+      }
+      if (openProfileIdentity) {
+        const profile = coop.playerProfile?.(openProfileIdentity);
+        if (profile) renderPlayerProfile(profile);
+      }
       loadProgress();
       const nextSessionGeneration = coop?.sessionGeneration?.() || 0;
       if (nextSessionGeneration !== observedCoopSessionGeneration) {
@@ -2993,6 +3161,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     startupKind = null;
     newPlayerIntroShown = false;
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
+    totalKills = 0;
     bootsPickup.collected = false;
     inventory.itemIds = [];
     inventory.equippedFeet = "";
@@ -3021,6 +3190,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   document.getElementById("restartBtn").addEventListener("click", startGame);
 
   addEventListener("keydown", e => {
+    if (e.code === "Escape" && !playerProfileEl.hidden) {
+      closePlayerProfile();
+      return;
+    }
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
     keys.add(e.code);
@@ -3037,6 +3210,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     touchMove.oy = t.clientY;
     touchMove.x = 0;
     touchMove.y = 0;
+    touchMove.moved = false;
 
     joystickEl.style.left = (t.clientX - 59) + "px";
     joystickEl.style.top = (t.clientY - 59) + "px";
@@ -3051,6 +3225,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       let dx = t.clientX - touchMove.ox;
       let dy = t.clientY - touchMove.oy;
       const d = Math.hypot(dx,dy);
+      if (d > 8) touchMove.moved = true;
       const max = 38;
       if (d > max) { dx = dx/d*max; dy = dy/d*max; }
       touchMove.x = dx / max;
@@ -3064,11 +3239,13 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (!touchMove.active) return;
     for (const t of e.changedTouches) {
       if (t.identifier !== touchMove.id) continue;
+      const wasTap = !touchMove.moved;
       touchMove.active = false;
       touchMove.id = null;
       touchMove.x = touchMove.y = 0;
       stickEl.style.transform = "translate(0,0)";
       joystickEl.style.display = "none";
+      if (wasTap) openPlayerAtScreenPoint(t.clientX, t.clientY);
       break;
     }
   }
@@ -3077,6 +3254,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   canvas.addEventListener("touchmove", moveTouch, {passive:false});
   canvas.addEventListener("touchend", endTouch, {passive:false});
   canvas.addEventListener("touchcancel", endTouch, {passive:false});
+  canvas.addEventListener("click", (event) => {
+    if (event.pointerType === "touch") return;
+    openPlayerAtScreenPoint(event.clientX, event.clientY);
+  });
 
   const initialAccount = coop?.accountState?.() || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
   if (initialAccount.returningFromSignIn) showSigningIn();

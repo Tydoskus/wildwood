@@ -1,21 +1,16 @@
 import { ITEM_DEFINITIONS, TRAILBLAZER_BOOTS } from "../game/inventory";
+import { formatCompactNumber } from "./number-format";
 
 type PlayerHudState = {
   hp: number;
   maxHp: number;
-  damage: number;
-  armor: number;
-  attackRate: number;
-  attackRange: number;
-  regen: number;
-  speed: number;
 };
 
 type HudElements = {
   hpFill: HTMLElement;
   hpText: HTMLElement;
   playerName: HTMLElement | null;
-  stats: HTMLElement;
+  playerPower: HTMLElement;
   coopStatus: HTMLElement | null;
 };
 
@@ -24,15 +19,13 @@ export function renderPlayerHud(
   player: PlayerHudState,
   displayName: string,
   playerCount: number,
+  power: number,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
   elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
   elements.hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp} HP`;
   if (elements.playerName) elements.playerName.textContent = displayName || "WANDERER";
-  elements.stats.innerHTML =
-    `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>` +
-    `ATK SPEED ${(1 / player.attackRate).toFixed(2)}/s &nbsp; ATK RANGE ${Math.round(player.attackRange)}<br>` +
-    `REGEN ${player.regen.toFixed(1)}/s &nbsp; MOVE ${Math.round(player.speed)}`;
+  elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
   if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
 }
 

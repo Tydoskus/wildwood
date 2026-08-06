@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.219" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.220" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -13,12 +13,14 @@
 <div id="hud">
   <div class="topbar">
     <div class="card">
-      <div id="playerName">WANDERER</div>
+      <div class="player-summary">
+        <div id="playerName">WANDERER</div>
+        <div id="playerPower">Power: 30</div>
+      </div>
       <div class="bar">
         <div id="hpFill"></div>
         <div id="hpText">30 / 30 HP</div>
       </div>
-      <div id="stats"></div>
     </div>
     <div class="settings-wrap">
       <button id="autoAttackBtn" class="settings-button auto-attack-button" type="button" aria-label="Toggle auto attack" aria-pressed="true"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Battle.png" alt="" aria-hidden="true"></button>
@@ -103,7 +105,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.219</div>
+        <div id="version">v0.220</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -177,6 +179,34 @@
   </div>
 </div>
 
+<div id="playerProfile" hidden>
+  <div class="modal player-profile-modal" role="dialog" aria-modal="true" aria-labelledby="playerProfileName">
+    <header class="player-profile-header">
+      <div>
+        <h2 id="playerProfileName">PLAYER</h2>
+        <div id="playerProfilePower">Power: 0</div>
+      </div>
+      <button id="closePlayerProfileBtn" class="profile-close-button secondary-button" type="button" aria-label="Close player profile">×</button>
+    </header>
+    <div class="profile-tabs" role="tablist" aria-label="Player profile sections">
+      <button id="profileOverviewTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileOverviewPanel">OVERVIEW</button>
+      <button id="profileStatsTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileStatsPanel">STATS</button>
+    </div>
+    <div id="playerProfileLoading" class="profile-loading">LOADING PLAYER…</div>
+    <section id="profileOverviewPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileOverviewTab">
+      <dl class="profile-grid">
+        <div><dt>DATE JOINED</dt><dd id="profileJoined">—</dd></div>
+        <div><dt>TIME PLAYED</dt><dd id="profileTimePlayed">—</dd></div>
+        <div><dt>ENEMIES DEFEATED</dt><dd id="profileKills">—</dd></div>
+        <div><dt>STATUS</dt><dd id="profileOnline">—</dd></div>
+      </dl>
+    </section>
+    <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab" hidden>
+      <dl id="profileStatGrid" class="profile-grid profile-stat-grid"></dl>
+    </section>
+  </div>
+</div>
+
 <div id="duelReplay" hidden>
   <div id="duelReplayHud">
     <span id="duelReplayTitle">DUEL REPLAY · OBSERVER</span>
@@ -184,7 +214,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.219"></script>
-<script src="assets/wildwood/game.js?v=0.219"></script>
+<script src="assets/wildwood/coop-client.js?v=0.220"></script>
+<script src="assets/wildwood/game.js?v=0.220"></script>
 </body>
 </html>

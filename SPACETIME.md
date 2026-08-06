@@ -48,4 +48,6 @@ Migration order is strict: acknowledge pending guest progress, create the privat
 
 Opening a websocket does not create a character or public presence. Protocol registration may hydrate the login UI, but only `enter_world` creates missing profile/progress rows and the public player row after guest/sign-in choice or successful automatic sign-in.
 
+Player lifetime metadata records join date, accumulated play time, and enemy kills. Own progress/lifetime rows hydrate with the main subscription. Other-player progress/lifetime rows use a single temporary identity-filtered subscription while that profile window is open; closing or switching profiles unsubscribes it.
+
 Long tab resumes use a single `resume_session` reducer probe. Healthy short resumes keep the websocket. Scheduled maintenance removes transient orphan presence without deleting durable profiles or progress.

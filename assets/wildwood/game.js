@@ -480,7 +480,7 @@
   const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
   const CHAT_DISPLAY_TTL_MS = 108e5;
   const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
-  function createChatController({ elements, getCoop, showMessage, onOpenReplay }) {
+  function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer }) {
     let enabled = true;
     let large = false;
     try {
@@ -528,6 +528,19 @@
         name.className = "chat-name";
         name.style.color = nameColor(message.sender);
         name.textContent = `${message.senderName}: `;
+        name.setAttribute("role", "button");
+        name.setAttribute("tabindex", "0");
+        name.setAttribute("aria-label", `View ${message.senderName}'s profile`);
+        const openPlayer = (event) => {
+          event.stopPropagation();
+          onOpenPlayer == null ? void 0 : onOpenPlayer(message.sender, message.senderName);
+        };
+        name.addEventListener("click", openPlayer);
+        name.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openPlayer(event);
+        });
         const text = document.createElement("span");
         text.className = "chat-text";
         text.textContent = message.message;
@@ -580,7 +593,7 @@
         updateVisibility();
       });
       elements.panel.addEventListener("pointerup", (event) => {
-        if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label")) return;
+        if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label, .chat-name")) return;
         large = !large;
         updateHeight();
       });
@@ -609,12 +622,30 @@
     }
     return { init, refresh };
   }
-  function renderPlayerHud(elements, player, displayName, playerCount) {
+  const COMPACT_UNITS = ["", "k", "m", "b", "t"];
+  function formatCompactNumber(value) {
+    if (!Number.isFinite(value)) return "0";
+    const sign = value < 0 ? "-" : "";
+    const absolute = Math.abs(value);
+    if (absolute < 1e3) return `${sign}${Math.round(absolute)}`;
+    let unit = Math.min(Math.floor(Math.log10(absolute) / 3), COMPACT_UNITS.length - 1);
+    let scaled = absolute / 1e3 ** unit;
+    let decimals = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+    let rounded = Number(scaled.toFixed(decimals));
+    if (rounded >= 1e3 && unit < COMPACT_UNITS.length - 1) {
+      unit += 1;
+      scaled = absolute / 1e3 ** unit;
+      decimals = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+      rounded = Number(scaled.toFixed(decimals));
+    }
+    return `${sign}${rounded}${COMPACT_UNITS[unit]}`;
+  }
+  function renderPlayerHud(elements, player, displayName, playerCount, power) {
     const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
     elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
     elements.hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp} HP`;
     if (elements.playerName) elements.playerName.textContent = displayName;
-    elements.stats.innerHTML = `DMG ${player.damage.toFixed(0)} &nbsp; ARM ${player.armor}<br>ATK SPEED ${(1 / player.attackRate).toFixed(2)}/s &nbsp; ATK RANGE ${Math.round(player.attackRange)}<br>REGEN ${player.regen.toFixed(1)}/s &nbsp; MOVE ${Math.round(player.speed)}`;
+    elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
     if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
   }
   const itemsById = ITEM_DEFINITIONS;
@@ -650,8 +681,8 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    var _a;
-    const GAME_VERSION = "0.219";
+    var _a, _b;
+    const GAME_VERSION = "0.220";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -670,7 +701,7 @@
     const hpFill = document.getElementById("hpFill");
     const hpText = document.getElementById("hpText");
     const playerNameEl = document.getElementById("playerName");
-    const statsEl = document.getElementById("stats");
+    const playerPowerEl = document.getElementById("playerPower");
     const settingsBtn = document.getElementById("settingsBtn");
     const inventoryBtn = document.getElementById("inventoryBtn");
     const autoAttackBtn = document.getElementById("autoAttackBtn");
@@ -729,6 +760,20 @@
     const duelReplayTitle = document.getElementById("duelReplayTitle");
     const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
     const sceneFadeEl = document.getElementById("sceneFade");
+    const playerProfileEl = document.getElementById("playerProfile");
+    const playerProfileNameEl = document.getElementById("playerProfileName");
+    const playerProfilePowerEl = document.getElementById("playerProfilePower");
+    const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
+    const profileOverviewTab = document.getElementById("profileOverviewTab");
+    const profileStatsTab = document.getElementById("profileStatsTab");
+    const profileOverviewPanel = document.getElementById("profileOverviewPanel");
+    const profileStatsPanel = document.getElementById("profileStatsPanel");
+    const profileJoinedEl = document.getElementById("profileJoined");
+    const profileTimePlayedEl = document.getElementById("profileTimePlayed");
+    const profileKillsEl = document.getElementById("profileKills");
+    const profileOnlineEl = document.getElementById("profileOnline");
+    const profileStatGrid = document.getElementById("profileStatGrid");
+    const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
     const coop = window.wildwoodCoop || null;
     const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
     backgroundMusic.loop = true;
@@ -769,6 +814,8 @@
     let gameTime = 0;
     let last = performance.now();
     let kills = 0;
+    let totalKills = 0;
+    let lifetimeKillsIdentity = "";
     let score = 0;
     let flash = 0;
     let screenShake = 0;
@@ -796,7 +843,8 @@
     let pendingDragonResultEncounter = null;
     let shownDragonResultEncounter = null;
     const locallyRewardedDragonEncounters = /* @__PURE__ */ new Set();
-    const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
+    const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
+    let openProfileIdentity = "";
     const bootsPickup = {
       x: 940,
       y: 3660,
@@ -1009,16 +1057,22 @@
         speed: player.speed,
         bootsCollected: bootsPickup.collected,
         inventoryJson: serialiseInventory(inventory),
-        equippedFeet: inventory.equippedFeet
+        equippedFeet: inventory.equippedFeet,
+        enemyKills: totalKills
       });
     }
     function loadProgress() {
-      var _a2;
+      var _a2, _b2, _c;
       if (!coop || typeof coop.savedProgress !== "function") return;
       const progressIdentity = ((_a2 = coop.localIdentity) == null ? void 0 : _a2.call(coop)) || "";
       if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
       const saved = coop.savedProgress();
       if (!saved) return;
+      const lifetime = (_c = (_b2 = coop.playerProfile) == null ? void 0 : _b2.call(coop, progressIdentity)) == null ? void 0 : _c.lifetime;
+      if (lifetime) {
+        totalKills = progressIdentity === lifetimeKillsIdentity ? Math.max(totalKills, lifetime.enemyKills) : lifetime.enemyKills;
+        lifetimeKillsIdentity = progressIdentity;
+      }
       let legacy = null;
       try {
         const candidate = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY));
@@ -1061,10 +1115,10 @@
       finishStartup();
     }
     function finishStartup() {
-      var _a2, _b, _c, _d, _e;
+      var _a2, _b2, _c, _d, _e;
       updateLoadingDetail();
       const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
-      if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop))) return;
       if (!(account == null ? void 0 : account.signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
@@ -1096,9 +1150,9 @@
       updateLoadingDetail();
     }
     function showAccountChoice() {
-      var _a2, _b, _c;
+      var _a2, _b2, _c;
       const accountState = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
-      const accountOptionsReady = Boolean(((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) || (accountState == null ? void 0 : accountState.signInRequired));
+      const accountOptionsReady = Boolean(((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop)) || (accountState == null ? void 0 : accountState.signInRequired));
       const knownAccount = Boolean(accountState == null ? void 0 : accountState.knownAccount);
       const name = (((_c = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _c.call(coop)) || "").trim();
       const characterFound = Boolean(name);
@@ -1140,11 +1194,11 @@
       if (accountChoiceDetail) accountChoiceDetail.textContent = "LOADING YOUR CHARACTER…";
     }
     function updateLoadingDetail() {
-      var _a2, _b;
+      var _a2, _b2;
       if (!loadingDetail || !loadingFill) return;
       const stages = [
         ["LOADING CONNECTION", Boolean((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)), 12],
-        ["LOADING PLAYER PROFILE", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)), 35],
+        ["LOADING PLAYER PROFILE", Boolean((_b2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _b2.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
         ["LOADING WORLD ART", treeSpritesheetReady && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
@@ -1179,13 +1233,13 @@
       requestAnimationFrame(() => newPlayerNameInput.focus());
     }
     function beginAdventure() {
-      var _a2, _b;
+      var _a2, _b2;
       const name = newPlayerNameInput.value.trim().replace(/\s+/g, " ");
       if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
         showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
         return;
       }
-      if (name !== (((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "")) (_b = coop == null ? void 0 : coop.setDisplayName) == null ? void 0 : _b.call(coop, name);
+      if (name !== (((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "")) (_b2 = coop == null ? void 0 : coop.setDisplayName) == null ? void 0 : _b2.call(coop, name);
       startGame(true);
     }
     function updateBootPickup() {
@@ -1610,6 +1664,7 @@
       if (e.dead) return;
       e.dead = true;
       kills++;
+      totalKills++;
       score += e.reward;
       const base = ENEMY_TYPES[e.type];
       const site = spawnSites[e.siteId];
@@ -1740,7 +1795,7 @@
       document.body.classList.add("is-replaying");
     }
     function applyDuelState() {
-      var _a2, _b, _c;
+      var _a2, _b2, _c;
       const duel = activeDuel();
       if (!isDueling()) return false;
       const localIsChallenger = duel.challenger === coop.localIdentity();
@@ -1757,12 +1812,12 @@
       lastLocalDuelId = duel.id;
       syncDuelAttacks(duel);
       syncDuelDamageNumbers(duel);
-      heldDuelScene = liveDuelScene(((_b = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b.call(coop)) || []) || heldDuelScene;
+      heldDuelScene = liveDuelScene(((_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop)) || []) || heldDuelScene;
       (_c = coop.pulseDuel) == null ? void 0 : _c.call(coop);
       return true;
     }
     function updatePlayer(dt) {
-      var _a2, _b, _c;
+      var _a2, _b2, _c;
       if (applyDuelState()) return;
       if (duelWasActive) {
         const returnedState = (_a2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _a2.call(coop);
@@ -1780,7 +1835,7 @@
         lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
         lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
         if (lastLocalDuelId) {
-          void ((_b = coop == null ? void 0 : coop.loadDuelReplay) == null ? void 0 : _b.call(coop, lastLocalDuelId).then((replay) => {
+          void ((_b2 = coop == null ? void 0 : coop.loadDuelReplay) == null ? void 0 : _b2.call(coop, lastLocalDuelId).then((replay) => {
             if (replay) showDuelResult(replay);
             else showDuelResultUnavailable();
           }));
@@ -2472,7 +2527,7 @@
       ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      outlinedText(`Power: ${Math.round(power)}`, x, y, "#ffe05d", 2);
+      outlinedText(`Power: ${formatCompactNumber(power)}`, x, y, "#ffe05d", 2);
       ctx.restore();
     }
     function drawRemotePlayers(remotePlayers) {
@@ -2933,14 +2988,129 @@
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
       const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
       renderPlayerHud(
-        { hpFill, hpText, playerName: playerNameEl, stats: statsEl, coopStatus: coopStatusEl },
+        { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
         player,
         ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "WANDERER",
-        playerCount
+        playerCount,
+        playerPower(player)
       );
       updateDuelControls();
       updateConnectionStatus();
       updateAccountStatus();
+    }
+    function formatPlayedTime(seconds) {
+      const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
+      const days = Math.floor(wholeMinutes / 1440);
+      const hours = Math.floor(wholeMinutes % 1440 / 60);
+      const minutes = wholeMinutes % 60;
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    }
+    function isProfileOnline(identity) {
+      var _a2, _b2, _c;
+      if (identity === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop))) return Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop));
+      return ((_c = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c.call(coop).some((other) => other.id === identity)) === true;
+    }
+    function setProfileTab(tab) {
+      const overview = tab === "overview";
+      profileOverviewTab.classList.toggle("is-active", overview);
+      profileStatsTab.classList.toggle("is-active", !overview);
+      profileOverviewTab.setAttribute("aria-selected", String(overview));
+      profileStatsTab.setAttribute("aria-selected", String(!overview));
+      profileOverviewPanel.hidden = !overview;
+      profileStatsPanel.hidden = overview;
+    }
+    function renderPlayerProfile(profile) {
+      if (!profile || profile.identity !== openProfileIdentity) return;
+      const { progress, lifetime } = profile;
+      const online = isProfileOnline(profile.identity);
+      const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
+      const power = playerPower(progress);
+      playerProfileNameEl.textContent = profile.name || "PLAYER";
+      playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
+      profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+      profileTimePlayedEl.textContent = formatPlayedTime(lifetime.playedSeconds + activeSeconds);
+      profileKillsEl.textContent = Math.round(lifetime.enemyKills).toLocaleString();
+      profileOnlineEl.textContent = online ? "ONLINE" : "OFFLINE";
+      profileOnlineEl.style.color = online ? "#72ef58" : "#b7c5b7";
+      const stats = [
+        ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
+        ["DAMAGE", Math.round(progress.damage).toLocaleString()],
+        ["ARMOR", Math.round(progress.armor).toLocaleString()],
+        ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s`],
+        ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
+        ["REGEN", `${progress.regen.toFixed(1)}/s`],
+        ["MOVE SPEED", Math.round(progress.speed).toLocaleString()],
+        ["PROJECTILE SPEED", Math.round(progress.projectileSpeed).toLocaleString()],
+        ["PROJECTILES", String(progress.projectileCount)]
+      ];
+      profileStatGrid.replaceChildren();
+      for (const [label, value] of stats) {
+        const item = document.createElement("div");
+        const term = document.createElement("dt");
+        const detail = document.createElement("dd");
+        term.textContent = label;
+        detail.textContent = value;
+        item.append(term, detail);
+        profileStatGrid.append(item);
+      }
+      playerProfileLoadingEl.hidden = true;
+      profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
+    }
+    async function openPlayerProfile(identity, fallbackName = "PLAYER") {
+      var _a2, _b2;
+      if (!identity) return;
+      openProfileIdentity = identity;
+      playerProfileEl.hidden = false;
+      playerProfileNameEl.textContent = fallbackName;
+      playerProfilePowerEl.textContent = "Power: —";
+      playerProfileLoadingEl.hidden = false;
+      profileOverviewPanel.hidden = true;
+      profileStatsPanel.hidden = true;
+      setProfileTab("overview");
+      profileOverviewPanel.hidden = true;
+      const cached = (_a2 = coop == null ? void 0 : coop.playerProfile) == null ? void 0 : _a2.call(coop, identity);
+      if (cached) {
+        renderPlayerProfile(cached);
+        return;
+      }
+      const loaded = await ((_b2 = coop == null ? void 0 : coop.loadPlayerProfile) == null ? void 0 : _b2.call(coop, identity));
+      if (identity !== openProfileIdentity) return;
+      if (loaded) renderPlayerProfile(loaded);
+      else playerProfileLoadingEl.textContent = "PLAYER DATA UNAVAILABLE";
+    }
+    function closePlayerProfile() {
+      var _a2;
+      playerProfileEl.hidden = true;
+      openProfileIdentity = "";
+      playerProfileLoadingEl.textContent = "LOADING PLAYER…";
+      (_a2 = coop == null ? void 0 : coop.releasePlayerProfile) == null ? void 0 : _a2.call(coop);
+    }
+    function openPlayerAtScreenPoint(clientX, clientY) {
+      var _a2;
+      if (!running || !playerProfileEl.hidden || isDueling()) return false;
+      const worldX = camera.x + clientX / camera.zoom;
+      const worldY = camera.y + clientY / camera.zoom;
+      let target = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (const other of ((_a2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _a2.call(coop)) ?? []) {
+        const dx = worldX - other.x;
+        const dy = worldY - other.y;
+        if (Math.abs(dx) > 48 || Math.abs(dy) > 60) continue;
+        const distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          target = other;
+          bestDistance = distance;
+        }
+      }
+      if (!target) return false;
+      void openPlayerProfile(target.id, target.name);
+      return true;
     }
     function renderInventory() {
       if (!inventoryItemsEl || !inventoryDetailEl || !inventoryCountEl || !equippedFeetSlot) return;
@@ -2970,12 +3140,12 @@
       return closest;
     }
     function duelOpponentName(duel) {
-      var _a2, _b, _c;
+      var _a2, _b2, _c;
       const opponentId = duel.challenger === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop)) ? duel.opponent : duel.challenger;
-      return ((_c = (_b = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c.name) ?? "OPPONENT";
+      return ((_c = (_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c.name) ?? "OPPONENT";
     }
     function updateDuelControls() {
-      var _a2, _b;
+      var _a2, _b2;
       if (!duelControls) return;
       const duel = activeDuel();
       const localId = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
@@ -2984,7 +3154,7 @@
       duelRequestBtn.hidden = true;
       duelAcceptBtn.hidden = true;
       if (((duel == null ? void 0 : duel.status) === "active" || (duel == null ? void 0 : duel.status) === "finishing") && Date.now() >= duel.endsAtMs) {
-        (_b = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _b.call(coop);
+        (_b2 = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _b2.call(coop);
       }
       if ((duel == null ? void 0 : duel.status) === "countdown") {
         const remaining = Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1e3));
@@ -3038,7 +3208,7 @@
       requestAnimationFrame(loop);
     }
     function startGame(markIntro = true) {
-      var _a2, _b;
+      var _a2, _b2;
       startEl.style.display = "none";
       overEl.style.display = "none";
       pausedForUpgrade = false;
@@ -3047,7 +3217,7 @@
       hasStarted = true;
       running = true;
       if (markIntro) (_a2 = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a2.call(coop);
-      if ((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) coop.syncPosition(player.x, player.y, player.facing, false, true);
+      if ((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop)) coop.syncPosition(player.x, player.y, player.facing, false, true);
       last = performance.now();
       ensureMusicPlayback();
     }
@@ -3146,9 +3316,9 @@
       }
     });
     accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
-      var _a2, _b, _c;
+      var _a2, _b2, _c;
       const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
-      if (account == null ? void 0 : account.signedIn) (_b = coop == null ? void 0 : coop.signOut) == null ? void 0 : _b.call(coop);
+      if (account == null ? void 0 : account.signedIn) (_b2 = coop == null ? void 0 : coop.signOut) == null ? void 0 : _b2.call(coop);
       else void ((_c = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c.call(coop));
     });
     continueGuestBtn == null ? void 0 : continueGuestBtn.addEventListener("click", () => {
@@ -3158,12 +3328,12 @@
       finishStartup();
     });
     signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
-      var _a2, _b;
+      var _a2, _b2;
       const characterFound = Boolean((_a2 = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _a2.call(coop));
       accountSignInPending = true;
       showAccountChoice();
       accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
-      void ((_b = coop == null ? void 0 : coop.signIn) == null ? void 0 : _b.call(coop).then((result) => {
+      void ((_b2 = coop == null ? void 0 : coop.signIn) == null ? void 0 : _b2.call(coop).then((result) => {
         if ((result == null ? void 0 : result.ok) !== false) return;
         accountSignInPending = false;
         showAccountChoice();
@@ -3187,6 +3357,17 @@
       }
       updateAttackRangeSetting();
     });
+    (_a = hpText.closest(".card")) == null ? void 0 : _a.addEventListener("click", () => {
+      var _a2, _b2;
+      const identity = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
+      if (identity) void openPlayerProfile(identity, ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "PLAYER");
+    });
+    closePlayerProfileBtn.addEventListener("click", closePlayerProfile);
+    playerProfileEl.addEventListener("click", (event) => {
+      if (event.target === playerProfileEl) closePlayerProfile();
+    });
+    profileOverviewTab.addEventListener("click", () => setProfileTab("overview"));
+    profileStatsTab.addEventListener("click", () => setProfileTab("stats"));
     musicVolumeInput == null ? void 0 : musicVolumeInput.addEventListener("input", () => {
       musicVolume = clamp(Number(musicVolumeInput.value) / 100, 0, 1);
       try {
@@ -3265,25 +3446,36 @@
       },
       getCoop: () => coop,
       showMessage,
-      onOpenReplay: openDuelReplay
+      onOpenReplay: openDuelReplay,
+      onOpenPlayer: openPlayerProfile
     });
     chat.init();
     if (coop && typeof coop.setOnChange === "function") {
       coop.setOnChange(() => {
-        var _a2, _b, _c, _d;
+        var _a2, _b2, _c, _d, _e, _f, _g, _h;
+        const identity = ((_a2 = coop.localIdentity) == null ? void 0 : _a2.call(coop)) || "";
+        const lifetime = (_c = (_b2 = coop.playerProfile) == null ? void 0 : _b2.call(coop, identity)) == null ? void 0 : _c.lifetime;
+        if (lifetime) {
+          totalKills = identity === lifetimeKillsIdentity ? Math.max(totalKills, lifetime.enemyKills) : lifetime.enemyKills;
+          lifetimeKillsIdentity = identity;
+        }
+        if (openProfileIdentity) {
+          const profile = (_d = coop.playerProfile) == null ? void 0 : _d.call(coop, openProfileIdentity);
+          if (profile) renderPlayerProfile(profile);
+        }
         loadProgress();
-        const nextSessionGeneration = ((_a2 = coop == null ? void 0 : coop.sessionGeneration) == null ? void 0 : _a2.call(coop)) || 0;
+        const nextSessionGeneration = ((_e = coop == null ? void 0 : coop.sessionGeneration) == null ? void 0 : _e.call(coop)) || 0;
         if (nextSessionGeneration !== observedCoopSessionGeneration) {
           observedCoopSessionGeneration = nextSessionGeneration;
           movementSyncActive = false;
           if (running) {
-            (_b = coop.syncSpeed) == null ? void 0 : _b.call(coop, player.speed);
-            (_c = coop.syncPosition) == null ? void 0 : _c.call(coop, player.x, player.y, player.facing, player.moving, true);
+            (_f = coop.syncSpeed) == null ? void 0 : _f.call(coop, player.speed);
+            (_g = coop.syncPosition) == null ? void 0 : _g.call(coop, player.x, player.y, player.facing, player.moving, true);
           }
         }
         syncDragonState();
         finishStartup();
-        const account = (_d = coop == null ? void 0 : coop.accountState) == null ? void 0 : _d.call(coop);
+        const account = (_h = coop == null ? void 0 : coop.accountState) == null ? void 0 : _h.call(coop);
         if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
         else if ((account == null ? void 0 : account.signInRequired) && !hasStarted) showAccountChoice();
         else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
@@ -3314,6 +3506,7 @@
       startupKind = null;
       newPlayerIntroShown = false;
       if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
+      totalKills = 0;
       bootsPickup.collected = false;
       inventory.itemIds = [];
       inventory.equippedFeet = "";
@@ -3340,6 +3533,10 @@
     });
     document.getElementById("restartBtn").addEventListener("click", startGame);
     addEventListener("keydown", (e) => {
+      if (e.code === "Escape" && !playerProfileEl.hidden) {
+        closePlayerProfile();
+        return;
+      }
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
       keys.add(e.code);
@@ -3355,6 +3552,7 @@
       touchMove.oy = t.clientY;
       touchMove.x = 0;
       touchMove.y = 0;
+      touchMove.moved = false;
       joystickEl.style.left = t.clientX - 59 + "px";
       joystickEl.style.top = t.clientY - 59 + "px";
       joystickEl.style.bottom = "auto";
@@ -3367,6 +3565,7 @@
         let dx = t.clientX - touchMove.ox;
         let dy = t.clientY - touchMove.oy;
         const d = Math.hypot(dx, dy);
+        if (d > 8) touchMove.moved = true;
         const max = 38;
         if (d > max) {
           dx = dx / d * max;
@@ -3382,11 +3581,13 @@
       if (!touchMove.active) return;
       for (const t of e.changedTouches) {
         if (t.identifier !== touchMove.id) continue;
+        const wasTap = !touchMove.moved;
         touchMove.active = false;
         touchMove.id = null;
         touchMove.x = touchMove.y = 0;
         stickEl.style.transform = "translate(0,0)";
         joystickEl.style.display = "none";
+        if (wasTap) openPlayerAtScreenPoint(t.clientX, t.clientY);
         break;
       }
     }
@@ -3394,7 +3595,11 @@
     canvas.addEventListener("touchmove", moveTouch, { passive: false });
     canvas.addEventListener("touchend", endTouch, { passive: false });
     canvas.addEventListener("touchcancel", endTouch, { passive: false });
-    const initialAccount = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
+    canvas.addEventListener("click", (event) => {
+      if (event.pointerType === "touch") return;
+      openPlayerAtScreenPoint(event.clientX, event.clientY);
+    });
+    const initialAccount = ((_b = coop == null ? void 0 : coop.accountState) == null ? void 0 : _b.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
     if (initialAccount.returningFromSignIn) showSigningIn();
     else if (initialAccount.signInRequired) showAccountChoice();
     else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
