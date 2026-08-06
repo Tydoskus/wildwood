@@ -585,6 +585,26 @@
     text-align: center;
   }
 
+  .account-choice-title {
+    position: relative;
+    width: min(390px, 100%);
+    aspect-ratio: 4.15 / 1;
+    overflow: hidden;
+    margin: 0 auto 10px;
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+  }
+
+  .account-choice-title img {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    display: block;
+    width: 100%;
+    height: auto;
+    transform: translateY(-50%);
+  }
+
   .account-choice-modal p:not(.loading-detail) {
     color: #d8e3d8;
     line-height: 1.55;

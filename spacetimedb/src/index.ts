@@ -189,6 +189,23 @@ const chatMessage = table(
   },
 );
 
+// Private beta feedback submitted through `/bug <description>`. Reports never
+// enter public chat, but remain queryable by developers through Maincloud SQL.
+const bugReport = table(
+  {
+    public: false,
+    indexes: [{ accessor: "byReporter", algorithm: "btree", columns: ["reporter"] as const }],
+  },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    reporter: t.identity(),
+    reporterName: t.string(),
+    message: t.string(),
+    protocolVersion: t.u32(),
+    reportedAt: t.timestamp(),
+  },
+);
+
 const duel = table(
   {
     public: true,
@@ -339,6 +356,7 @@ const spacetimedb = schema({
   duelRequestCooldown,
   accountLink,
   chatMessage,
+  bugReport,
   duel,
   duelReplay,
   dragonBoss,
@@ -1516,10 +1534,29 @@ export const sendChatMessage = spacetimedb.reducer(
       throw new SenderError("Chat message is too long");
     }
 
+    const bugCommand = /^\/bug(?:\s|$)/i.exec(normalized);
+    const report = bugCommand ? normalized.slice(bugCommand[0].length).trim() : "";
+    if (bugCommand && !report) throw new SenderError("Use /bug followed by a description.");
+
     const cooldown = ctx.db.chatCooldown.identity.find(ctx.sender);
-    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) return;
+    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) {
+      if (bugCommand) throw new SenderError("Wait 3 seconds before sending a bug report.");
+      return;
+    }
     if (cooldown) ctx.db.chatCooldown.identity.update({ ...cooldown, lastSentAt: ctx.timestamp });
     else ctx.db.chatCooldown.insert({ identity: ctx.sender, lastSentAt: ctx.timestamp });
+    if (bugCommand) {
+      ctx.db.bugReport.insert({
+        id: 0n,
+        reporter: ctx.sender,
+        reporterName: profile.displayName,
+        message: report,
+        protocolVersion: PROTOCOL_VERSION,
+        reportedAt: ctx.timestamp,
+      });
+      return;
+    }
+
     insertChatMessage(ctx, ctx.sender, profile.displayName, normalized);
   },
 );

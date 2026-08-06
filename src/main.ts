@@ -52,7 +52,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.224";
+  const GAME_VERSION = "0.225";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -570,7 +570,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const name = (coop?.knownCharacter?.() || "").trim();
     const characterFound = Boolean(name);
     if (accountCharacter && accountCharacterName) {
-      accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
+      accountCharacterName.textContent = characterFound ? name : "none";
       accountCharacter.classList.toggle("is-empty", !characterFound);
     }
     if (signInFromStartBtn) {

@@ -17,6 +17,16 @@ export const AccountLink = __t.object("AccountLink", {
 });
 export type AccountLink = __Infer<typeof AccountLink>;
 
+export const BugReport = __t.object("BugReport", {
+  id: __t.u64(),
+  reporter: __t.identity(),
+  reporterName: __t.string(),
+  message: __t.string(),
+  protocolVersion: __t.u32(),
+  reportedAt: __t.timestamp(),
+});
+export type BugReport = __Infer<typeof BugReport>;
+
 export const ChatCooldown = __t.object("ChatCooldown", {
   identity: __t.identity(),
   lastSentAt: __t.timestamp(),
@@ -228,6 +238,7 @@ export const PlayerSession = __t.object("PlayerSession", {
   connectedAt: __t.timestamp(),
   protocolVersion: __t.u32(),
   lastInputSequence: __t.u32(),
+  enteredWorld: __t.bool(),
 });
 export type PlayerSession = __Infer<typeof PlayerSession>;
 

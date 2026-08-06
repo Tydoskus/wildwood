@@ -13,7 +13,7 @@ type ChatMessage = {
 type CoopClient = {
   localDisplayName?: () => string;
   chatMessages?: () => ChatMessage[];
-  sendChatMessage?: (message: string) => void;
+  sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
   setDisplayName?: (name: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
@@ -153,13 +153,23 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       large = !large;
       updateHeight();
     });
-    elements.form.addEventListener("submit", (event) => {
+    elements.form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const message = elements.input.value.trim();
       if (!message) return;
-      getCoop()?.sendChatMessage?.(message);
+      const bugCommand = /^\/bug(?:\s|$)/i.exec(message);
+      if (bugCommand && !message.slice(bugCommand[0].length).trim()) {
+        showMessage("USE /BUG FOLLOWED BY A DESCRIPTION", "#ff9b91");
+        return;
+      }
+      const result = await getCoop()?.sendChatMessage?.(message);
+      if (!result?.ok) {
+        showMessage(result?.error || "MESSAGE FAILED", "#ff9b91");
+        return;
+      }
       elements.input.value = "";
       elements.input.style.height = "28px";
+      if (bugCommand) showMessage("BUG REPORT SENT", "#c9f5c2");
     });
     elements.input.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" || event.shiftKey) return;

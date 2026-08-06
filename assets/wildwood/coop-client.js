@@ -9870,9 +9870,17 @@ ${ty.variants.map(
     chatMessages() {
       return chatMessages.slice();
     },
-    sendChatMessage(message) {
-      if (protocolBlocked || !connection) return;
-      sendReducer("chat message", () => connection == null ? void 0 : connection.reducers.sendChatMessage({ message }));
+    async sendChatMessage(message) {
+      if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+      if (!connection) return { ok: false, error: "NOT CONNECTED" };
+      try {
+        await connection.reducers.sendChatMessage({ message });
+        return { ok: true };
+      } catch (error) {
+        const rejected = reducerErrorMessage(error);
+        handleReducerFailure("chat message", error);
+        return { ok: false, error: rejected };
+      }
     },
     localDuel() {
       for (const duel of duels.values()) {

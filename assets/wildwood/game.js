@@ -584,14 +584,24 @@
         large = !large;
         updateHeight();
       });
-      elements.form.addEventListener("submit", (event) => {
+      elements.form.addEventListener("submit", async (event) => {
         var _a, _b;
         event.preventDefault();
         const message = elements.input.value.trim();
         if (!message) return;
-        (_b = (_a = getCoop()) == null ? void 0 : _a.sendChatMessage) == null ? void 0 : _b.call(_a, message);
+        const bugCommand = /^\/bug(?:\s|$)/i.exec(message);
+        if (bugCommand && !message.slice(bugCommand[0].length).trim()) {
+          showMessage("USE /BUG FOLLOWED BY A DESCRIPTION", "#ff9b91");
+          return;
+        }
+        const result = await ((_b = (_a = getCoop()) == null ? void 0 : _a.sendChatMessage) == null ? void 0 : _b.call(_a, message));
+        if (!(result == null ? void 0 : result.ok)) {
+          showMessage((result == null ? void 0 : result.error) || "MESSAGE FAILED", "#ff9b91");
+          return;
+        }
         elements.input.value = "";
         elements.input.style.height = "28px";
+        if (bugCommand) showMessage("BUG REPORT SENT", "#c9f5c2");
       });
       elements.input.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" || event.shiftKey) return;
@@ -669,7 +679,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.224";
+    const GAME_VERSION = "0.225";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1145,7 +1155,7 @@
       const name = (((_c = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _c.call(coop)) || "").trim();
       const characterFound = Boolean(name);
       if (accountCharacter && accountCharacterName) {
-        accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
+        accountCharacterName.textContent = characterFound ? name : "none";
         accountCharacter.classList.toggle("is-empty", !characterFound);
       }
       if (signInFromStartBtn) {
