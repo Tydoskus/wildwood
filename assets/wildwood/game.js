@@ -200,7 +200,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.175";
+    const GAME_VERSION = "0.176";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;

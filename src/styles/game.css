@@ -156,23 +156,26 @@
 
   .inventory-panel[hidden] { display: none; }
 
-  .inventory-layout { display: block; }
+  .inventory-layout { display: grid; grid-template-columns: 156px minmax(0, 1fr); gap: 8px; }
   .inventory-section-title { margin-bottom: 6px; color: var(--gold); font-size: 10px; font-weight: 900; letter-spacing: .08em; }
   .inventory-section-title span { color: var(--muted); }
 
   .equipment-section {
+    position: relative;
+    min-height: 236px;
     padding: 7px;
     border: 1px solid rgba(255,255,255,.13);
     border-radius: 8px;
     background: rgba(0,0,0,.18);
   }
 
-  .equipment-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .equipment-slots { position: relative; min-height: 204px; }
   .equipment-slot {
+    position: absolute;
     display: grid;
     place-items: center;
-    min-width: 0;
-    height: 54px;
+    width: 46px;
+    height: 46px;
     margin: 0;
     padding: 2px;
     border: 2px solid rgba(255,255,255,.18);
@@ -192,7 +195,13 @@
   .slot-feet::before { width: 17px; height: 7px; margin-top: 5px; border-radius: 2px 2px 5px 5px; }
   .equipment-slot.is-equipped::before { display: none; }
 
-  .bag-section { min-width: 0; margin-top: 8px; padding: 7px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(0,0,0,.18); }
+  .slot-head { left: 50%; top: 0; transform: translateX(-50%); }
+  .slot-hands { left: 0; top: 57px; }
+  .slot-chest { left: 50%; top: 57px; transform: translateX(-50%); }
+  .slot-legs { left: 50%; top: 113px; transform: translateX(-50%); }
+  .slot-feet { left: 50%; top: 160px; transform: translateX(-50%); }
+
+  .bag-section { min-width: 0; padding: 7px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(0,0,0,.18); }
   .inventory-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   .inventory-item { aspect-ratio: 1; margin: 0; padding: 2px; border: 2px solid rgba(255,255,255,.15); border-radius: 5px; background: rgba(2,7,4,.72); color: var(--text); }
   .inventory-item:disabled { opacity: 1; cursor: default; }
@@ -218,7 +227,11 @@
   .inventory-detail p { margin: 4px 0; }
   .inventory-slot, .inventory-stats { color: var(--gold); font-weight: 900; letter-spacing: .04em; }
 
-  @media (max-width: 390px) { .equipment-slot { height: 50px; font-size: 7px; } }
+  @media (max-width: 460px) {
+    .inventory-panel { max-height: calc(100vh - 72px); overflow-y: auto; }
+    .inventory-layout { grid-template-columns: 1fr; }
+    .bag-section { margin-top: 8px; }
+  }
 
   .settings-title {
     margin-bottom: 8px;
