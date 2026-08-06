@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.182";
+  const GAME_VERSION = "0.183";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 
   const canvas = document.getElementById("game");

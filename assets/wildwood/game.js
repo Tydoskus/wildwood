@@ -27,10 +27,12 @@
   const MIN_ENEMY_AGGRO_RADIUS = 285;
   const RANGED_PROJECTILE_SPEED = 165 * 3;
   const PLAYER_SPRITE_X_OFFSETS = [
-    [0, 14, 27, 39],
-    [0, 14, 22, 32],
-    [0, 10, 17, 31],
-    [0, 11, 25, 33]
+    // Calibrated from the flat 4×4 player sheet's alpha bounds so walk frames
+    // keep the character's visual center fixed.
+    [0, 14, 28, 41],
+    [0, 16, 28, 34],
+    [0, 16, 27, 40],
+    [0, 14, 28, 41]
   ];
   const PLAYER_SPRITE_CENTER_X_SHIFT = -6;
   function clamp(value, min, max) {
@@ -216,7 +218,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.182";
+    const GAME_VERSION = "0.183";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
