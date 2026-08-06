@@ -63,32 +63,32 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
 
 export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = {
   grunt: {
-    name: "Bramble", hp: 12, speed: 150, damage: 4, r: 14,
+    name: "Bramble", hp: 120, speed: 170, damage: 14, r: 14,
     color: "#d95738", outline: "#5c1b13", reward: 4, rewardType: "health", aggro: 245,
   },
   runner: {
-    name: "Needle", hp: 9, speed: 150, damage: 4, r: 10,
+    name: "Needle", hp: 90, speed: 170, damage: 14, r: 10,
     color: "#ffd34d", outline: "#6f4a12", reward: 5, rewardType: "speed", aggro: 275,
   },
   tank: {
-    name: "Mossback", hp: 38, speed: 150, damage: 9, r: 22,
+    name: "Mossback", hp: 380, speed: 170, damage: 19, r: 22,
     color: "#768d51", outline: "#2c3b20", reward: 10, rewardType: "armor", aggro: 220,
   },
   shooter: {
-    name: "Spitter", hp: 18, speed: 150, damage: 8, r: 15,
+    name: "Spitter", hp: 180, speed: 140, damage: 18, r: 15,
     color: "#b16ac8", outline: "#4b235d", reward: 8, rewardType: "damage", ranged: true, aggro: 330,
   },
   splitter: {
-    name: "Brood", hp: 22, speed: 150, damage: 6, r: 16,
+    name: "Brood", hp: 220, speed: 170, damage: 16, r: 16,
     color: "#45b6c2", outline: "#174a54", reward: 8, rewardType: "regen", aggro: 255,
   },
   elite: {
-    name: "King Slime", hp: 92, speed: 150, damage: 13, r: 27,
+    name: "King Slime", hp: 920, speed: 170, damage: 43, r: 27,
     color: "#70a94f", outline: "#2d5127", reward: 30, rewardType: "health", statReward: 44,
     elite: true, aggro: 300,
   },
   warden: {
-    name: "Dread Warden", hp: 1000, speed: 150, damage: 75, r: 36,
+    name: "Dread Warden", hp: 1000, speed: 205, damage: 175, r: 36,
     color: "#a52e3a", outline: "#47101a", reward: 180, rewardType: "damage", damageReward: 83,
     elite: true, aggro: 350,
   },
