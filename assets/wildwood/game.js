@@ -133,15 +133,14 @@
   }
   const enemyTypes = {
     Bramble: {
-      hp: 120,
+      hp: 12,
       speed: 170,
-      damage: 14,
+      damage: 4,
       r: 14,
       color: "#d95738",
       outline: "#5c1b13",
       reward: { type: "health", amount: 24 },
-      score: 4,
-      aggro: 245
+      score: 4
     },
     Needle: {
       hp: 90,
@@ -151,8 +150,7 @@
       color: "#ffd34d",
       outline: "#6f4a12",
       reward: { type: "speed", amount: 0.02 },
-      score: 5,
-      aggro: 275
+      score: 5
     },
     Mossback: {
       hp: 380,
@@ -162,20 +160,18 @@
       color: "#768d51",
       outline: "#2c3b20",
       reward: { type: "armor", amount: 1 },
-      score: 10,
-      aggro: 220
+      score: 10
     },
     Spitter: {
-      hp: 180,
+      hp: 18,
       speed: 140,
-      damage: 18,
+      damage: 8,
       r: 15,
       color: "#b16ac8",
       outline: "#4b235d",
-      reward: { type: "damage", amount: 15 },
+      reward: { type: "damage", amount: 1 },
       score: 8,
-      ranged: true,
-      aggro: 330
+      ranged: true
     },
     Brood: {
       hp: 220,
@@ -185,8 +181,7 @@
       color: "#45b6c2",
       outline: "#174a54",
       reward: { type: "regen", amount: 0.3 },
-      score: 8,
-      aggro: 255
+      score: 8
     },
     "King Slime": {
       hp: 920,
@@ -242,13 +237,18 @@
     regen: { color: "#ff7ccb" }
   };
   const CAMPS = [
-    { name: "Ember Fen", x: 820, y: 900, minRadius: 260, radius: 610, count: 6, types: ["Bramble", "Bramble", "Needle"], ground: "#5b3b28", ring: "#b66a37" },
-    { name: "Mossfall Ruins", x: 2400, y: 760, minRadius: 260, radius: 630, count: 6, types: ["Bramble", "Mossback", "Mossback"], ground: "#33423a", ring: "#8d9b75" },
-    { name: "Glass Thicket", x: 3970, y: 1120, minRadius: 280, radius: 600, count: 5, types: ["Needle", "Needle", "Brood"], ground: "#244f53", ring: "#64bdc5" },
-    { name: "Brine Marsh", x: 850, y: 2860, minRadius: 270, radius: 620, count: 6, types: ["Spitter", "Brood", "Spitter"], ground: "#243e4d", ring: "#5f9eb5" },
-    { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Mossback", "Spitter", "Mossback", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
-    { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Brood", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
-    { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Needle", "Spitter", "King Slime"], ground: "#553334", ring: "#d37362" }
+    // Starter: exact +health and +1 damage camps near the top-left spawn.
+    { name: "Ember Fen", x: 820, y: 900, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
+    { name: "Thornshot Rise", x: 1650, y: 820, minRadius: 190, radius: 440, count: 5, types: ["Spitter"], ground: "#4b3545", ring: "#a86591" },
+    // Medium: attack-speed and regeneration camps across the top-right.
+    { name: "Glass Thicket", x: 3300, y: 900, minRadius: 230, radius: 520, count: 5, types: ["Needle"], ground: "#244f53", ring: "#64bdc5" },
+    { name: "Brine Marsh", x: 4050, y: 1700, minRadius: 230, radius: 520, count: 5, types: ["Brood"], ground: "#243e4d", ring: "#5f9eb5" },
+    // Hard: armor enemies occupy the lower-left and late-game routes.
+    { name: "Mossfall Ruins", x: 950, y: 3150, minRadius: 250, radius: 570, count: 6, types: ["Mossback"], ground: "#33423a", ring: "#8d9b75" },
+    // Elite locations stay unchanged; regular camp members share one reward type.
+    { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Spitter", "Spitter", "Spitter", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+    { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
+    { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#553334", ring: "#d37362" }
   ];
   function loadEnemySprites() {
     return Object.fromEntries(Object.entries(ENEMY_SPRITE_SOURCES).map(([kind, source]) => {
@@ -669,7 +669,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.221";
+    const GAME_VERSION = "0.222";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1280,7 +1280,7 @@
         damage: base.damage,
         reward: base.reward,
         score: base.score,
-        aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
+        aggroRadius: Math.max(base.aggro ?? 0, MIN_ENEMY_AGGRO_RADIUS),
         leashRange: site.leashRange,
         engaged: false,
         leashing: false,
@@ -1876,7 +1876,7 @@
         const playerDistance = Math.hypot(toPlayerX, toPlayerY) || 1;
         const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
         if (e.leashing && homeDistance < 10) e.leashing = false;
-        if (!e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
+        if (base.elite && !e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
         if (e.engaged && playerDistance > e.leashRange) {
           e.engaged = false;
           e.leashing = true;
@@ -1990,7 +1990,11 @@
           if (target.isBoss) {
             pendingDragonHits += 1;
             dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
-          } else target.hp -= p.damage;
+          } else {
+            target.engaged = true;
+            target.leashing = false;
+            target.hp -= p.damage;
+          }
           if (!target.isBoss && player.knockback > 0) {
             const ang = Math.atan2(p.vy, p.vx);
             const force = PLAYER_KNOCKBACK_FORCE * player.knockback;

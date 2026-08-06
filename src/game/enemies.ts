@@ -9,31 +9,31 @@ export type EnemyDefinition = {
   outline: string;
   reward: { type: RewardType; amount: number };
   score: number;
-  aggro: number;
+  aggro?: number;
   ranged?: boolean;
   elite?: boolean;
 };
 
 const enemyTypes = {
   Bramble: {
-    hp: 120, speed: 170, damage: 14, r: 14,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 24 }, score: 4, aggro: 245,
+    hp: 12, speed: 170, damage: 4, r: 14,
+    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 24 }, score: 4,
   },
   Needle: {
     hp: 90, speed: 170, damage: 14, r: 10,
-    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .02 }, score: 5, aggro: 275,
+    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .02 }, score: 5,
   },
   Mossback: {
     hp: 380, speed: 170, damage: 19, r: 22,
-    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 10, aggro: 220,
+    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 10,
   },
   Spitter: {
-    hp: 180, speed: 140, damage: 18, r: 15,
-    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 15 }, score: 8, ranged: true, aggro: 330,
+    hp: 18, speed: 140, damage: 8, r: 15,
+    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 8, ranged: true,
   },
   Brood: {
     hp: 220, speed: 170, damage: 16, r: 16,
-    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8, aggro: 255,
+    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8,
   },
   "King Slime": {
     hp: 920, speed: 170, damage: 43, r: 27,
@@ -102,13 +102,18 @@ export const REWARD_DATA: Record<RewardType, { color: string }> = {
 };
 
 export const CAMPS: EnemyCamp[] = [
-  { name: "Ember Fen", x: 820, y: 900, minRadius: 260, radius: 610, count: 6, types: ["Bramble", "Bramble", "Needle"], ground: "#5b3b28", ring: "#b66a37" },
-  { name: "Mossfall Ruins", x: 2400, y: 760, minRadius: 260, radius: 630, count: 6, types: ["Bramble", "Mossback", "Mossback"], ground: "#33423a", ring: "#8d9b75" },
-  { name: "Glass Thicket", x: 3970, y: 1120, minRadius: 280, radius: 600, count: 5, types: ["Needle", "Needle", "Brood"], ground: "#244f53", ring: "#64bdc5" },
-  { name: "Brine Marsh", x: 850, y: 2860, minRadius: 270, radius: 620, count: 6, types: ["Spitter", "Brood", "Spitter"], ground: "#243e4d", ring: "#5f9eb5" },
-  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Mossback", "Spitter", "Mossback", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
-  { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Brood", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
-  { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Needle", "Spitter", "King Slime"], ground: "#553334", ring: "#d37362" },
+  // Starter: exact +health and +1 damage camps near the top-left spawn.
+  { name: "Ember Fen", x: 820, y: 900, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
+  { name: "Thornshot Rise", x: 1650, y: 820, minRadius: 190, radius: 440, count: 5, types: ["Spitter"], ground: "#4b3545", ring: "#a86591" },
+  // Medium: attack-speed and regeneration camps across the top-right.
+  { name: "Glass Thicket", x: 3300, y: 900, minRadius: 230, radius: 520, count: 5, types: ["Needle"], ground: "#244f53", ring: "#64bdc5" },
+  { name: "Brine Marsh", x: 4050, y: 1700, minRadius: 230, radius: 520, count: 5, types: ["Brood"], ground: "#243e4d", ring: "#5f9eb5" },
+  // Hard: armor enemies occupy the lower-left and late-game routes.
+  { name: "Mossfall Ruins", x: 950, y: 3150, minRadius: 250, radius: 570, count: 6, types: ["Mossback"], ground: "#33423a", ring: "#8d9b75" },
+  // Elite locations stay unchanged; regular camp members share one reward type.
+  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Spitter", "Spitter", "Spitter", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+  { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
+  { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#553334", ring: "#d37362" },
 ];
 
 export function loadEnemySprites(): Record<EnemyKind, LoadedEnemySprite> {

@@ -52,7 +52,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.221";
+  const GAME_VERSION = "0.222";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -723,7 +723,7 @@ import { formatCompactNumber } from "./ui/number-format";
       damage: base.damage,
       reward: base.reward,
       score: base.score,
-      aggroRadius: Math.max(base.aggro, MIN_ENEMY_AGGRO_RADIUS),
+      aggroRadius: Math.max(base.aggro ?? 0, MIN_ENEMY_AGGRO_RADIUS),
       leashRange: site.leashRange,
       engaged: false,
       leashing: false,
@@ -1398,7 +1398,7 @@ import { formatCompactNumber } from "./ui/number-format";
       const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
 
       if (e.leashing && homeDistance < 10) e.leashing = false;
-      if (!e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
+      if (base.elite && !e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
 
       if (e.engaged && playerDistance > e.leashRange) {
         e.engaged = false;
@@ -1529,7 +1529,11 @@ import { formatCompactNumber } from "./ui/number-format";
         if (target.isBoss) {
           pendingDragonHits += 1;
           dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
-        } else target.hp -= p.damage;
+        } else {
+          target.engaged = true;
+          target.leashing = false;
+          target.hp -= p.damage;
+        }
 
         if (!target.isBoss && player.knockback > 0) {
           const ang = Math.atan2(p.vy, p.vx);
