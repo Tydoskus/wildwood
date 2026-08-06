@@ -1,6 +1,6 @@
 export const DUEL_REQUEST_RANGE = 250;
 export const DUEL_ARENA = { x: 6000, y: 6000, r: 430 } as const;
-export const DUEL_COMBAT_Y = DUEL_ARENA.y - 130;
+export const DUEL_COMBAT_Y = DUEL_ARENA.y - 60;
 export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
 export const DUEL_SHOT_SPEED = 620;

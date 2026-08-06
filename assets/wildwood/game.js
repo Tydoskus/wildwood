@@ -422,7 +422,7 @@
   }
   const DUEL_REQUEST_RANGE = 250;
   const DUEL_ARENA = { x: 6e3, y: 6e3, r: 430 };
-  const DUEL_COMBAT_Y = DUEL_ARENA.y - 130;
+  const DUEL_COMBAT_Y = DUEL_ARENA.y - 60;
   const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
   const DUEL_SHOT_LIFETIME = 0.38;
   const DUEL_SHOT_SPEED = 620;
@@ -651,7 +651,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.210";
+    const GAME_VERSION = "0.211";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -720,6 +720,7 @@
     const duelReplayEl = document.getElementById("duelReplay");
     const duelReplayTitle = document.getElementById("duelReplayTitle");
     const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
+    const sceneFadeEl = document.getElementById("sceneFade");
     const coop = window.wildwoodCoop || null;
     const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
     backgroundMusic.loop = true;
@@ -775,6 +776,10 @@
     let lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
     let lastLocalDuelId = null;
     let replayMode = null;
+    let heldDuelScene = null;
+    let duelResultHold = false;
+    let duelReturnState = null;
+    let duelExitFading = false;
     const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
     const bootsPickup = {
       x: 940,
@@ -1517,7 +1522,7 @@
       return true;
     }
     function isArenaScene() {
-      return isDueling() || replayMode !== null;
+      return isDueling() || duelResultHold || replayMode !== null;
     }
     function spawnDuelShot(fromX, fromY, toX, toY, color) {
       const distance = Math.hypot(toX - fromX, toY - fromY) || 1;
@@ -1568,6 +1573,14 @@
       duelResultStats.innerHTML = duelStatLine("YOU", self.attacks, self.damage, self.regen, self.blocked) + duelStatLine(other.name, other.attacks, other.damage, other.regen, other.blocked);
       duelResultEl.hidden = false;
       duelResultEl.dataset.replayId = String(replay.id);
+      watchDuelReplayBtn.hidden = false;
+    }
+    function showDuelResultUnavailable() {
+      duelResultTitle.textContent = "DUEL COMPLETE";
+      duelResultStats.innerHTML = '<div class="duel-stat-row">RESULT DETAILS UNAVAILABLE</div>';
+      duelResultEl.hidden = false;
+      duelResultEl.dataset.replayId = "0";
+      watchDuelReplayBtn.hidden = true;
     }
     async function openDuelReplay(replayId) {
       var _a2;
@@ -1592,7 +1605,7 @@
       document.body.classList.add("is-replaying");
     }
     function applyDuelState() {
-      var _a2, _b;
+      var _a2, _b, _c;
       const duel = activeDuel();
       if (!isDueling()) return false;
       const localIsChallenger = duel.challenger === coop.localIdentity();
@@ -1609,7 +1622,8 @@
       lastLocalDuelId = duel.id;
       syncDuelAttacks(duel);
       syncDuelDamageNumbers(duel);
-      (_b = coop.pulseDuel) == null ? void 0 : _b.call(coop);
+      heldDuelScene = liveDuelScene(((_b = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b.call(coop)) || []) || heldDuelScene;
+      (_c = coop.pulseDuel) == null ? void 0 : _c.call(coop);
       return true;
     }
     function updatePlayer(dt) {
@@ -1620,21 +1634,25 @@
         if (!returnedState || returnedState.x < player.r || returnedState.y < player.r || returnedState.x > WORLD.w - player.r || returnedState.y > WORLD.h - player.r) {
           return;
         }
-        player.x = returnedState.x;
-        player.y = returnedState.y;
-        player.facing = returnedState.facing ?? player.facing;
-        player.hp = player.maxHp;
-        player.hurtClock = 0;
+        duelReturnState = {
+          x: returnedState.x,
+          y: returnedState.y,
+          facing: returnedState.facing ?? player.facing
+        };
         duelWasActive = false;
+        duelResultHold = true;
         duelShots.length = 0;
         lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
         lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
         if (lastLocalDuelId) {
           void ((_b = coop == null ? void 0 : coop.loadDuelReplay) == null ? void 0 : _b.call(coop, lastLocalDuelId).then((replay) => {
             if (replay) showDuelResult(replay);
+            else showDuelResultUnavailable();
           }));
         }
+        return;
       }
+      if (duelResultHold) return;
       const multiplayerActive = Boolean(
         coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0
       );
@@ -1874,6 +1892,47 @@
       const follow = 1 - Math.pow(6e-5, dt);
       camera.x += (targetX - camera.x) * follow;
       camera.y += (targetY - camera.y) * follow;
+    }
+    function snapCameraToPlayer() {
+      const rangeIncrease = player.attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
+      camera.zoom = clamp((1 - rangeIncrease * 0.5) * 0.85, MIN_CAMERA_ZOOM, 1);
+      const visibleW = viewW / camera.zoom;
+      const visibleH = viewH / camera.zoom;
+      camera.x = clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
+      camera.y = clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
+    }
+    function fadeToWorld(onBlack) {
+      if (duelExitFading) return;
+      duelExitFading = true;
+      sceneFadeEl.hidden = false;
+      void sceneFadeEl.offsetWidth;
+      sceneFadeEl.classList.add("is-visible");
+      window.setTimeout(() => {
+        onBlack();
+        snapCameraToPlayer();
+        requestAnimationFrame(() => {
+          sceneFadeEl.classList.remove("is-visible");
+          window.setTimeout(() => {
+            sceneFadeEl.hidden = true;
+            duelExitFading = false;
+          }, 180);
+        });
+      }, 180);
+    }
+    function leaveDuelResult() {
+      fadeToWorld(() => {
+        duelResultEl.hidden = true;
+        duelResultHold = false;
+        heldDuelScene = null;
+        if (duelReturnState) {
+          player.x = duelReturnState.x;
+          player.y = duelReturnState.y;
+          player.facing = duelReturnState.facing;
+        }
+        duelReturnState = null;
+        player.hp = player.maxHp;
+        player.hurtClock = 0;
+      });
     }
     function update(dt) {
       gameTime += dt;
@@ -2431,18 +2490,28 @@
       ctx.restore();
       const reward = REWARD_DATA[e.rewardType];
       const visualRadius = Math.max(e.r, spriteHeight / 2);
-      const nameY = y + visualRadius + 8;
-      const rewardY = nameY + 12;
-      const healthY = rewardY + 12;
+      const rewardY = y + visualRadius + 8;
+      const barW = Math.max(42, Math.min(72, ((sprite == null ? void 0 : sprite.size) ?? e.r * 2) * 1.05));
+      const barH = 5;
+      const barX = Math.round(x - barW / 2);
+      const barY = Math.round(y - spriteHeight / 2 - 15);
+      const hpRatio = clamp(e.hp / e.maxHp, 0, 1);
+      const hpLabel = `${Math.max(0, Math.ceil(e.hp))}/${Math.ceil(e.maxHp)} HP`;
+      ctx.fillStyle = "rgba(0,0,0,.86)";
+      ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+      ctx.fillStyle = "#472225";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = e.hurt > 0 ? "#fff1b6" : "#55d568";
+      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
       ctx.save();
       ctx.textAlign = "center";
-      ctx.textBaseline = "top";
+      ctx.textBaseline = "bottom";
       ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(base.name, x, nameY, "#f5e9c4", 3);
+      outlinedText(base.name, x, barY - 15, "#f5e9c4", 3);
+      outlinedText(hpLabel, x, barY - 3, "#f4f3df", 3);
       const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage, e.rewardStat);
+      ctx.textBaseline = "top";
       outlinedText(label, x, rewardY, reward.color, 3);
-      const hpLabel = `${Math.max(0, Math.ceil(e.hp))}/${Math.ceil(e.maxHp)} HP`;
-      outlinedText(hpLabel, x, healthY, "#f4f3df", 3);
       ctx.restore();
     }
     function drawProjectile(p, enemy = false) {
@@ -2655,6 +2724,10 @@
       const remotePlayers = coop ? coop.remotePlayers() : [];
       if (replayMode) {
         renderDuelScene(replayDuelScene());
+        return;
+      }
+      if (duelResultHold && heldDuelScene) {
+        renderDuelScene(heldDuelScene);
         return;
       }
       if (isDueling()) {
@@ -2974,13 +3047,21 @@
       if (replayId > 0n) openDuelReplay(replayId);
     });
     closeDuelResultBtn.addEventListener("click", () => {
-      duelResultEl.hidden = true;
+      leaveDuelResult();
     });
     closeDuelReplayBtn.addEventListener("click", () => {
-      duelReplayEl.hidden = true;
-      replayMode = null;
-      duelCountdownEl.hidden = true;
-      document.body.classList.remove("is-replaying");
+      const closeReplay = () => {
+        duelReplayEl.hidden = true;
+        replayMode = null;
+        duelCountdownEl.hidden = true;
+        document.body.classList.remove("is-replaying");
+      };
+      if (duelResultHold) {
+        closeReplay();
+        duelResultEl.hidden = false;
+        return;
+      }
+      fadeToWorld(closeReplay);
     });
     fullscreenToggle.addEventListener("click", async () => {
       try {
