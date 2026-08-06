@@ -11,7 +11,7 @@ export const ITEM_DEFINITIONS = {
     name: "TRAILBLAZER BOOTS",
     slot: "FEET",
     description: "Leather boots built for crossing Wildwood faster.",
-    stats: ["MOVE SPEED +50%"],
+    stats: ["MOVE SPEED +25"],
   },
 } as const;
 

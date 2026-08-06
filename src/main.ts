@@ -29,8 +29,10 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.184";
+  const GAME_VERSION = "0.185";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+  const BOOTS_SPEED_BONUS = 25;
+  const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -243,43 +245,43 @@ import { createChatController } from "./ui/chat";
   const ENEMY_TYPES = {
     grunt: {
       name: "Bramble",
-      hp: 12, speed: 300, damage: 4, r: 14,
+      hp: 12, speed: 150, damage: 4, r: 14,
       color: "#d95738", outline: "#5c1b13", reward: 4,
       aggro: 245
     },
     runner: {
       name: "Needle",
-      hp: 9, speed: 300, damage: 4, r: 10,
+      hp: 9, speed: 150, damage: 4, r: 10,
       color: "#ffd34d", outline: "#6f4a12", reward: 5,
       aggro: 275
     },
     tank: {
       name: "Mossback",
-      hp: 38, speed: 200, damage: 9, r: 22,
+      hp: 38, speed: 150, damage: 9, r: 22,
       color: "#768d51", outline: "#2c3b20", reward: 10,
       aggro: 220
     },
     shooter: {
       name: "Spitter",
-      hp: 18, speed: 200, damage: 8, r: 15,
+      hp: 18, speed: 150, damage: 8, r: 15,
       color: "#b16ac8", outline: "#4b235d", reward: 8,
       ranged: true, aggro: 330
     },
     splitter: {
       name: "Brood",
-      hp: 22, speed: 300, damage: 6, r: 16,
+      hp: 22, speed: 150, damage: 6, r: 16,
       color: "#45b6c2", outline: "#174a54", reward: 8,
       aggro: 255
     },
     elite: {
       name: "Ironhorn",
-      hp: 92, speed: 300, damage: 13, r: 27,
+      hp: 92, speed: 150, damage: 13, r: 27,
       color: "#d47a2b", outline: "#5c2b12", reward: 30,
       elite: true, aggro: 300
     },
     warden: {
       name: "Dread Warden",
-      hp: 1000, speed: 300, damage: 75, r: 36,
+      hp: 1000, speed: 150, damage: 75, r: 36,
       color: "#a52e3a", outline: "#47101a", reward: 180,
       elite: true, aggro: 350, damageReward: 83
     }
@@ -597,9 +599,9 @@ import { createChatController } from "./ui/chat";
     player.attackRange = BASE_ATTACK_RANGE;
     player.armor = number(source.armor, player.armor, 0, 1000000);
     player.regen = number(source.regen, player.regen, 0, 1000000);
-    player.speed = number(source.speed, player.speed, 1, 2000);
-    player.hp = player.maxHp;
     bootsPickup.collected = source.bootsCollected === true;
+    player.speed = bootsPickup.collected ? 175 + BOOTS_SPEED_BONUS : 175;
+    player.hp = player.maxHp;
     const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
     inventory.itemIds = savedInventory.itemIds;
     inventory.equippedFeet = savedInventory.equippedFeet;
@@ -717,7 +719,7 @@ import { createChatController } from "./ui/chat";
       inventory.itemIds = [TRAILBLAZER_BOOTS];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
-      player.speed *= 1.5;
+      player.speed = 175 + BOOTS_SPEED_BONUS;
       saveProgress();
       renderInventory();
       pausedForUpgrade = true;
@@ -855,7 +857,8 @@ import { createChatController } from "./ui/chat";
         vy,
         r: 6,
         damage: player.damage,
-        life: player.attackRange / player.projectileSpeed,
+        hitLife: player.attackRange / player.projectileSpeed,
+        life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed,
         trail: 0
       });
     }
@@ -1463,9 +1466,13 @@ import { createChatController } from "./ui/chat";
       const startY = p.y;
       const endX = startX + p.vx * travelTime;
       const endY = startY + p.vy * travelTime;
-      const hit = raycastProjectile(startX, startY, endX, endY, p.r);
+      const hitTravelTime = Math.min(travelTime, Math.max(0, p.hitLife ?? p.life));
+      const hitEndX = startX + p.vx * hitTravelTime;
+      const hitEndY = startY + p.vy * hitTravelTime;
+      const hit = hitTravelTime > 0 ? raycastProjectile(startX, startY, hitEndX, hitEndY, p.r) : null;
 
       p.life -= dt;
+      if (p.hitLife !== undefined) p.hitLife -= dt;
       p.trail -= dt;
 
       if (hit) {
@@ -1883,8 +1890,8 @@ import { createChatController } from "./ui/chat";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
     ctx.fillStyle = "rgba(255,255,255,.24)";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 16, "#ffffff");
-    drawPlayerPower(player, x, barY - 4);
+    drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 22, "#ffffff");
+    drawPlayerPower(player, x, barY - 7);
   }
 
   function drawPlayerName(name, x, y, color) {
@@ -1893,7 +1900,7 @@ import { createChatController } from "./ui/chat";
     ctx.font = "900 11px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.strokeStyle = "rgba(0,0,0,.8)";
     ctx.strokeText(name, x, y);
     ctx.fillStyle = color;
@@ -1917,7 +1924,7 @@ import { createChatController } from "./ui/chat";
     ctx.font = "900 11px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.strokeStyle = "rgba(0,0,0,.8)";
     ctx.strokeText(`Power: ${power}`, x, y);
     ctx.fillStyle = "#ffe05d";
@@ -1965,8 +1972,8 @@ import { createChatController } from "./ui/chat";
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
       ctx.fillStyle = "#3d7d92";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-      drawPlayerName(other.name, x, barY - 16, "#9eeeff");
-      drawPlayerPower(other, x, barY - 4);
+      drawPlayerName(other.name, x, barY - 22, "#9eeeff");
+      drawPlayerPower(other, x, barY - 7);
     }
   }
 

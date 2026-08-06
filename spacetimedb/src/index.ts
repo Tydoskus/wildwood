@@ -5,13 +5,13 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 6;
+const PROTOCOL_VERSION = 7;
 const TRAILBLAZER_BOOTS = "trailblazer_boots";
 const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const PLAYER_SPAWN = { x: 360, y: 360 };
-const BOOTS_SPEED_MULTIPLIER = 1.5;
+const BOOTS_SPEED_BONUS = 25;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
@@ -249,6 +249,10 @@ function defaultPlayerProgress(identity: any) {
     equippedFeet: "",
     introComplete: false,
   };
+}
+
+function speedForBoots(bootsCollected: boolean) {
+  return PLAYER_SPEED + (bootsCollected ? BOOTS_SPEED_BONUS : 0);
 }
 
 function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
@@ -579,10 +583,12 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   } else {
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
-    if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
+    const speed = speedForBoots(existingProgress.bootsCollected);
+    if (existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
       const migratedProgress = {
       ...existingProgress,
       attackRange: DEFAULT_ATTACK_RANGE,
+        speed,
         inventoryJson,
         equippedFeet,
       };
@@ -743,7 +749,7 @@ export const claimGuestAccount = spacetimedb.reducer(
         ...activePlayer,
         hp: nextProgress.maxHp,
         maxHp: nextProgress.maxHp,
-        speed: nextProgress.speed,
+        speed: speedForBoots(nextProgress.bootsCollected),
         power: powerForProgress(nextProgress),
       });
     }
@@ -827,7 +833,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRange: DEFAULT_ATTACK_RANGE,
       armor: Math.max(base.armor, normalized.armor),
       regen: Math.max(base.regen, normalized.regen),
-      speed: Math.max(base.speed, normalized.speed),
+      speed: speedForBoots(bootsCollected),
       bootsCollected,
       inventoryJson,
       equippedFeet,
@@ -1075,7 +1081,7 @@ export const setSpeed = spacetimedb.reducer(
   (ctx, { speed }) => {
     const current = requireCurrentProtocol(ctx);
 
-    const validSpeed = [PLAYER_SPEED, PLAYER_SPEED * BOOTS_SPEED_MULTIPLIER]
+    const validSpeed = [PLAYER_SPEED, PLAYER_SPEED + BOOTS_SPEED_BONUS]
       .some((allowed) => Math.abs(speed - allowed) < 0.01);
     if (!validSpeed) throw new Error("Unsupported player speed");
 

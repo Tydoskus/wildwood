@@ -60,7 +60,7 @@
       name: "TRAILBLAZER BOOTS",
       slot: "FEET",
       description: "Leather boots built for crossing Wildwood faster.",
-      stats: ["MOVE SPEED +50%"]
+      stats: ["MOVE SPEED +25"]
     }
   };
   function normaliseInventory(itemIds, equippedFeet, ownsBoots) {
@@ -218,8 +218,10 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.184";
+    const GAME_VERSION = "0.185";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+    const BOOTS_SPEED_BONUS = 25;
+    const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -421,7 +423,7 @@
       grunt: {
         name: "Bramble",
         hp: 12,
-        speed: 300,
+        speed: 150,
         damage: 4,
         r: 14,
         color: "#d95738",
@@ -432,7 +434,7 @@
       runner: {
         name: "Needle",
         hp: 9,
-        speed: 300,
+        speed: 150,
         damage: 4,
         r: 10,
         color: "#ffd34d",
@@ -443,7 +445,7 @@
       tank: {
         name: "Mossback",
         hp: 38,
-        speed: 200,
+        speed: 150,
         damage: 9,
         r: 22,
         color: "#768d51",
@@ -454,7 +456,7 @@
       shooter: {
         name: "Spitter",
         hp: 18,
-        speed: 200,
+        speed: 150,
         damage: 8,
         r: 15,
         color: "#b16ac8",
@@ -466,7 +468,7 @@
       splitter: {
         name: "Brood",
         hp: 22,
-        speed: 300,
+        speed: 150,
         damage: 6,
         r: 16,
         color: "#45b6c2",
@@ -477,7 +479,7 @@
       elite: {
         name: "Ironhorn",
         hp: 92,
-        speed: 300,
+        speed: 150,
         damage: 13,
         r: 27,
         color: "#d47a2b",
@@ -489,7 +491,7 @@
       warden: {
         name: "Dread Warden",
         hp: 1e3,
-        speed: 300,
+        speed: 150,
         damage: 75,
         r: 36,
         color: "#a52e3a",
@@ -814,9 +816,9 @@
       player.attackRange = BASE_ATTACK_RANGE;
       player.armor = number(source.armor, player.armor, 0, 1e6);
       player.regen = number(source.regen, player.regen, 0, 1e6);
-      player.speed = number(source.speed, player.speed, 1, 2e3);
-      player.hp = player.maxHp;
       bootsPickup.collected = source.bootsCollected === true;
+      player.speed = bootsPickup.collected ? 175 + BOOTS_SPEED_BONUS : 175;
+      player.hp = player.maxHp;
       const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
       inventory.itemIds = savedInventory.itemIds;
       inventory.equippedFeet = savedInventory.equippedFeet;
@@ -931,7 +933,7 @@
         inventory.itemIds = [TRAILBLAZER_BOOTS];
         inventory.equippedFeet = TRAILBLAZER_BOOTS;
         inventory.selectedItemId = TRAILBLAZER_BOOTS;
-        player.speed *= 1.5;
+        player.speed = 175 + BOOTS_SPEED_BONUS;
         saveProgress();
         renderInventory();
         pausedForUpgrade = true;
@@ -1054,7 +1056,8 @@
           vy,
           r: 6,
           damage: player.damage,
-          life: player.attackRange / player.projectileSpeed,
+          hitLife: player.attackRange / player.projectileSpeed,
+          life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed,
           trail: 0
         });
       }
@@ -1574,8 +1577,12 @@
         const startY = p.y;
         const endX = startX + p.vx * travelTime;
         const endY = startY + p.vy * travelTime;
-        const hit = raycastProjectile(startX, startY, endX, endY, p.r);
+        const hitTravelTime = Math.min(travelTime, Math.max(0, p.hitLife ?? p.life));
+        const hitEndX = startX + p.vx * hitTravelTime;
+        const hitEndY = startY + p.vy * hitTravelTime;
+        const hit = hitTravelTime > 0 ? raycastProjectile(startX, startY, hitEndX, hitEndY, p.r) : null;
         p.life -= dt;
+        if (p.hitLife !== void 0) p.hitLife -= dt;
         p.trail -= dt;
         if (hit) {
           p.x = startX + (endX - startX) * hit.t;
@@ -1961,8 +1968,8 @@
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
       ctx.fillStyle = "rgba(255,255,255,.24)";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), 1);
-      drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 16, "#ffffff");
-      drawPlayerPower(player, x, barY - 4);
+      drawPlayerName(coop && coop.localDisplayName() || "PLAYER", x, barY - 22, "#ffffff");
+      drawPlayerPower(player, x, barY - 7);
     }
     function drawPlayerName(name, x, y, color) {
       if (!name) return;
@@ -1970,7 +1977,7 @@
       ctx.font = "900 11px ui-monospace, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.strokeStyle = "rgba(0,0,0,.8)";
       ctx.strokeText(name, x, y);
       ctx.fillStyle = color;
@@ -1988,7 +1995,7 @@
       ctx.font = "900 11px ui-monospace, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.strokeStyle = "rgba(0,0,0,.8)";
       ctx.strokeText(`Power: ${power}`, x, y);
       ctx.fillStyle = "#ffe05d";
@@ -2036,8 +2043,8 @@
         ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
         ctx.fillStyle = "#3d7d92";
         ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-        drawPlayerName(other.name, x, barY - 16, "#9eeeff");
-        drawPlayerPower(other, x, barY - 4);
+        drawPlayerName(other.name, x, barY - 22, "#9eeeff");
+        drawPlayerPower(other, x, barY - 7);
       }
     }
     function drawBossTelegraphs() {
