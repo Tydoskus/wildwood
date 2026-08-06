@@ -651,7 +651,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.214";
+    const GAME_VERSION = "0.215";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1082,8 +1082,9 @@
     }
     function showAccountChoice() {
       var _a2, _b, _c;
-      const accountOptionsReady = Boolean((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop));
-      const knownAccount = Boolean((_b = coop == null ? void 0 : coop.accountState) == null ? void 0 : _b.call(coop).knownAccount);
+      const accountState = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+      const accountOptionsReady = Boolean(((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) || (accountState == null ? void 0 : accountState.signInRequired));
+      const knownAccount = Boolean(accountState == null ? void 0 : accountState.knownAccount);
       const name = (((_c = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _c.call(coop)) || "").trim();
       const characterFound = Boolean(name);
       if (accountCharacter && accountCharacterName) {
@@ -3097,7 +3098,9 @@
       else void ((_c = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c.call(coop));
     });
     continueGuestBtn == null ? void 0 : continueGuestBtn.addEventListener("click", () => {
+      var _a2;
       guestContinuationChosen = true;
+      (_a2 = coop == null ? void 0 : coop.continueAsGuest) == null ? void 0 : _a2.call(coop);
       finishStartup();
     });
     signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
@@ -3219,6 +3222,7 @@
         finishStartup();
         const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
         if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
+        else if ((account == null ? void 0 : account.signInRequired) && !hasStarted) showAccountChoice();
         else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
         chat.refresh();
         updateDuelControls();
@@ -3328,6 +3332,7 @@
     canvas.addEventListener("touchcancel", endTouch, { passive: false });
     const initialAccount = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
     if (initialAccount.returningFromSignIn) showSigningIn();
+    else if (initialAccount.signInRequired) showAccountChoice();
     else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
     else showConnecting();
     loadProgress();

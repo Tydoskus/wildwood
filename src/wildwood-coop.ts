@@ -140,7 +140,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 9;
+const PROTOCOL_VERSION = 10;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -188,6 +188,8 @@ let lastPositionMoving = false;
 let nextPositionSequence = 0;
 let reconnectTimer: number | null = null;
 let connecting = false;
+let connectionGeneration = 0;
+let guestSessionExplicit = false;
 let pageWasHidden = false;
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
@@ -458,11 +460,16 @@ async function startAccountSignIn(silent = false) {
 
 async function restoreKnownAccount() {
   await completeAccountCallback();
-  if (!accountToken() && hasKnownAccount() && !silentAuthAlreadyAttempted()) {
-    markSilentAuthAttempted();
-    authNotice = "RESTORING SIGN-IN";
+  if (!accountToken() && hasKnownAccount()) {
+    if (!silentAuthAlreadyAttempted()) {
+      markSilentAuthAttempted();
+      authNotice = "RESTORING SIGN-IN";
+      onChange?.();
+      await startAccountSignIn(true);
+      return;
+    }
+    authNotice = "SIGN-IN REQUIRED";
     onChange?.();
-    await startAccountSignIn(true);
     return;
   }
   wildwoodCoop.connect();
@@ -889,6 +896,17 @@ function removePlayer(row: { identity: Identity }) {
   onChange?.();
 }
 
+function clearRealtimeCaches() {
+  players.clear();
+  profiles.clear();
+  chatMessages.length = 0;
+  duels.clear();
+  duelReplays.clear();
+  replayLoads.clear();
+  sharedDragon = null;
+  latestDragonResult = null;
+}
+
 function scheduleReconnect(delay = 500) {
   if (document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
   reconnectTimer = window.setTimeout(() => {
@@ -907,13 +925,23 @@ function reconnectAfterWake() {
 
 function connect() {
   if (connection?.isActive || connecting) return;
+  if (!accountToken() && hasKnownAccount() && !guestSessionExplicit) {
+    authNotice = "SIGN-IN REQUIRED";
+    onChange?.();
+    return;
+  }
   connecting = true;
+  const generation = ++connectionGeneration;
   const signedIn = Boolean(accountToken());
   connection = DbConnection.builder()
     .withUri(host)
     .withDatabaseName(databaseName)
     .withToken(accountToken() || guestToken() || undefined)
     .onConnect((conn: DbConnection, identity: Identity, token: string) => {
+      if (generation !== connectionGeneration) {
+        conn.disconnect();
+        return;
+      }
       connection = conn;
       connecting = false;
       protocolBlocked = false;
@@ -937,32 +965,36 @@ function connect() {
       }
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
+      clearRealtimeCaches();
       if (!signedIn) {
         try {
           localStorage.setItem(guestTokenKey, token);
         } catch {}
       }
-      sendReducer("protocol registration", () => conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }));
+      void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(() => {
+        if (generation !== connectionGeneration || connection !== conn) return;
+        const isCurrentConnection = () => generation === connectionGeneration && connection === conn;
 
-      conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
-      conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
-      conn.db.player.onDelete((_ctx, row) => removePlayer(row));
-      conn.db.playerProfile.onInsert((_ctx, row) => upsertProfile(row));
-      conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => upsertProfile(row));
-      conn.db.playerProgress.onInsert((_ctx, row) => upsertProgress(row));
-      conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => upsertProgress(row));
-      conn.db.dragonBoss.onInsert((_ctx, row) => upsertDragonBoss(row));
-      conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => upsertDragonBoss(row));
-      conn.db.dragonResult.onInsert((_ctx, row) => upsertDragonResult(row));
-      conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => upsertDragonResult(row));
-      conn.db.chatMessage.onInsert((_ctx, row) => upsertChatMessage(row));
-      conn.db.duel.onInsert((_ctx, row) => upsertDuel(row));
-      conn.db.duel.onUpdate((_ctx, _oldRow, row) => upsertDuel(row));
-      conn.db.duel.onDelete((_ctx, row) => removeDuel(row));
+        conn.db.player.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayer(row); });
+        conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayer(row); });
+        conn.db.player.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayer(row); });
+        conn.db.playerProfile.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProfile(row); });
+        conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProfile(row); });
+        conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
+        conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
+        conn.db.dragonBoss.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
+        conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
+        conn.db.dragonResult.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonResult(row); });
+        conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDragonResult(row); });
+        conn.db.chatMessage.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertChatMessage(row); });
+        conn.db.duel.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDuel(row); });
+        conn.db.duel.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDuel(row); });
+        conn.db.duel.onDelete((_ctx, row) => { if (isCurrentConnection()) removeDuel(row); });
 
-      conn
+        conn
         .subscriptionBuilder()
         .onApplied(() => {
+          if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -1008,6 +1040,7 @@ function connect() {
           onChange?.();
         })
         .onError((ctx) => {
+          if (!isCurrentConnection()) return;
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
         .subscribe([
@@ -1019,9 +1052,15 @@ function connect() {
           tables.chatMessage,
           tables.duel,
         ]);
-      onChange?.();
+        onChange?.();
+      }).catch((error) => {
+        if (generation !== connectionGeneration) return;
+        handleReducerFailure("protocol registration", error);
+        conn.disconnect();
+      });
     })
     .onDisconnect((_ctx, error) => {
+      if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
       lastPositionSentAt = 0;
@@ -1030,19 +1069,13 @@ function connect() {
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       localProfileReady = false;
-      players.clear();
-      profiles.clear();
-      chatMessages.length = 0;
-      duels.clear();
-      duelReplays.clear();
-      replayLoads.clear();
-      sharedDragon = null;
-      latestDragonResult = null;
+      clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
     })
     .onConnectError((_ctx: ErrorContext, error: Error) => {
+      if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
       lastPositionSentAt = 0;
@@ -1060,8 +1093,12 @@ function connect() {
           void startAccountSignIn(true);
           return;
         }
-        if (signedIn) authNotice = "SIGN-IN EXPIRED";
-        if (signedIn) clearAccountReturnPending();
+        if (signedIn && hasKnownAccount()) {
+          authNotice = "SIGN-IN REQUIRED";
+          clearAccountReturnPending();
+          onChange?.();
+          return;
+        }
         console.warn("Wildwood token rejected; reconnecting with a fresh guest session.");
         onChange?.();
         scheduleReconnect(100);
@@ -1085,9 +1122,11 @@ export const wildwoodCoop = {
     return Boolean(connection?.isActive);
   },
   accountState() {
+    const signedIn = Boolean(accountToken());
     return {
-      signedIn: Boolean(accountToken()),
+      signedIn,
       knownAccount: hasKnownAccount(),
+      signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
       authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
       returningFromSignIn: accountReturnPending,
       notice: authNotice,
@@ -1105,6 +1144,12 @@ export const wildwoodCoop = {
   async signIn() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (accountToken()) return { ok: true };
+    if (hasKnownAccount()) {
+      authNotice = "OPENING SIGN-IN";
+      onChange?.();
+      await startAccountSignIn();
+      return { ok: true };
+    }
     if (!connection) {
       authNotice = "WAIT FOR SERVER";
       onChange?.();
@@ -1139,6 +1184,12 @@ export const wildwoodCoop = {
       sessionStorage.removeItem(silentAuthAttemptKey);
     } catch {}
     window.location.reload();
+  },
+  continueAsGuest() {
+    guestSessionExplicit = true;
+    authNotice = "GUEST SESSION";
+    connect();
+    onChange?.();
   },
   localIdentity() {
     return localIdentity;
@@ -1306,7 +1357,9 @@ document.addEventListener("visibilitychange", () => {
     reconnectAfterWake();
   }
 });
-window.addEventListener("pageshow", () => reconnectAfterWake());
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) reconnectAfterWake();
+});
 window.addEventListener("online", () => scheduleReconnect(100));
 void restoreKnownAccount();
 

@@ -53,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.214";
+  const GAME_VERSION = "0.215";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -525,8 +525,9 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   function showAccountChoice() {
-    const accountOptionsReady = Boolean(coop?.isConnected?.());
-    const knownAccount = Boolean(coop?.accountState?.().knownAccount);
+    const accountState = coop?.accountState?.();
+    const accountOptionsReady = Boolean(coop?.isConnected?.() || accountState?.signInRequired);
+    const knownAccount = Boolean(accountState?.knownAccount);
     const name = (coop?.knownCharacter?.() || "").trim();
     const characterFound = Boolean(name);
     if (accountCharacter && accountCharacterName) {
@@ -2765,6 +2766,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   continueGuestBtn?.addEventListener("click", () => {
     guestContinuationChosen = true;
+    coop?.continueAsGuest?.();
     finishStartup();
   });
 
@@ -2895,6 +2897,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       finishStartup();
       const account = coop?.accountState?.();
       if (account?.returningFromSignIn) showSigningIn();
+      else if (account?.signInRequired && !hasStarted) showAccountChoice();
       else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
       chat.refresh();
       updateDuelControls();
@@ -3012,6 +3015,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   const initialAccount = coop?.accountState?.() || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
   if (initialAccount.returningFromSignIn) showSigningIn();
+  else if (initialAccount.signInRequired) showAccountChoice();
   else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
   else showConnecting();
   loadProgress();

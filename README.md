@@ -92,7 +92,8 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Guests receive a locally stored SpacetimeDB token and save progress to that guest identity.
 - Signed-in players use SpacetimeAuth and can migrate a guest save once through the short-lived account-link flow.
 - Do not overwrite an existing authenticated save during migration. The server rejects that case intentionally.
-- A rejected stored token must be cleared and retried as a fresh guest session. `src/wildwood-coop.ts` handles this for 401/invalid-token errors.
+- A rejected guest token may be cleared and retried as a fresh guest session. `src/wildwood-coop.ts` handles this for 401/invalid-token errors.
+- A known signed-in account must pause at sign-in when its token expires. Never silently reconnect it with a guest token; that displays a random guest name and default/incorrect progress.
 - Display names are server-limited to one change every 30 days.
 
 ## Common diagnostics

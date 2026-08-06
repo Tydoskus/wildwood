@@ -1,11 +1,11 @@
-import { schema, table, t } from "spacetimedb/server";
+import { schema, SenderError, table, t } from "spacetimedb/server";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 9;
+const PROTOCOL_VERSION = 10;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -376,7 +376,7 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
 function requireCurrentProtocol(ctx: any) {
   const current = ctx.db.player.identity.find(ctx.sender);
   if (!current || current.protocolVersion !== PROTOCOL_VERSION) {
-    throw new Error("Wildwood updated. Refresh to continue.");
+    throw new SenderError("Wildwood updated. Refresh to continue.");
   }
   return current;
 }
@@ -981,10 +981,10 @@ export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
     if (protocolVersion !== PROTOCOL_VERSION) {
-      throw new Error("Wildwood updated. Refresh to continue.");
+      throw new SenderError("Wildwood updated. Refresh to continue.");
     }
     const current = ctx.db.player.identity.find(ctx.sender);
-    if (!current) throw new Error("Player connection not ready.");
+    if (!current) throw new SenderError("Player connection not ready.");
     ctx.db.player.identity.update({ ...current, protocolVersion });
   },
 );
@@ -993,10 +993,10 @@ export const beginAccountLink = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
     requireCurrentProtocol(ctx);
-    if (hasSpacetimeAuthAccount(ctx)) throw new Error("Already signed in.");
-    if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) throw new Error("Invalid account link.");
+    if (hasSpacetimeAuthAccount(ctx)) throw new SenderError("Already signed in.");
+    if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) throw new SenderError("Invalid account link.");
     clearExpiredAccountLinks(ctx);
-    if (ctx.db.accountLink.code.find(code)) throw new Error("Account link already exists.");
+    if (ctx.db.accountLink.code.find(code)) throw new SenderError("Account link already exists.");
     ctx.db.accountLink.insert({ code, guest: ctx.sender, createdAt: ctx.timestamp });
   },
 );
@@ -1005,16 +1005,16 @@ export const claimGuestAccount = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
     requireCurrentProtocol(ctx);
-    if (!hasSpacetimeAuthAccount(ctx)) throw new Error("Sign in required.");
+    if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Sign in required.");
     clearExpiredAccountLinks(ctx);
 
     const link = ctx.db.accountLink.code.find(code);
-    if (!link) throw new Error("Account link expired. Sign in again.");
-    if (sameIdentity(link.guest, ctx.sender)) throw new Error("Invalid account link.");
+    if (!link) throw new SenderError("Account link expired. Sign in again.");
+    if (sameIdentity(link.guest, ctx.sender)) throw new SenderError("Invalid account link.");
 
     const accountProgress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (accountProgress && !hasFreshProgress(accountProgress)) {
-      throw new Error("This account already has Wildwood progress.");
+      throw new SenderError("This account already has Wildwood progress.");
     }
 
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
@@ -1080,7 +1080,7 @@ export const setDisplayName = spacetimedb.reducer(
     requireCurrentProtocol(ctx);
     const normalized = displayName.trim().replace(/\s+/g, " ");
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(normalized)) {
-      throw new Error("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
+      throw new SenderError("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
     }
 
     const existing = ctx.db.playerProfile.identity.find(ctx.sender);
@@ -1090,7 +1090,7 @@ export const setDisplayName = spacetimedb.reducer(
     // prior account-link operation. The next real name starts the 30-day lock.
     if (DISPLAY_NAME_COOLDOWN_ENABLED && cooldown && !isGeneratedDisplayName(existing?.displayName ?? "") &&
       ctx.timestamp.microsSinceUnixEpoch - cooldown.changedAt.microsSinceUnixEpoch < DISPLAY_NAME_COOLDOWN_MICROS) {
-      throw new Error("Display name can be changed once every 30 days.");
+      throw new SenderError("Display name can be changed once every 30 days.");
     }
 
     if (existing) {
@@ -1209,7 +1209,7 @@ export const sendChatMessage = spacetimedb.reducer(
     const normalized = message.trim();
     if (!normalized) return;
     if (normalized.length > CHAT_MESSAGE_MAX_LENGTH) {
-      throw new Error("Chat message is too long");
+      throw new SenderError("Chat message is too long");
     }
 
     const cooldown = ctx.db.chatCooldown.identity.find(ctx.sender);
@@ -1225,11 +1225,11 @@ export const requestDuel = spacetimedb.reducer(
   (ctx) => {
     const challenger = requireCurrentProtocol(ctx);
     clearExpiredDuelRequests(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) throw new Error("You already have a duel request.");
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("You already have a duel request.");
 
     const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);
     if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch < DUEL_REQUEST_COOLDOWN_MICROS) {
-      throw new Error("Wait a moment before challenging again.");
+      throw new SenderError("Wait a moment before challenging again.");
     }
 
     let opponent: any = null;
@@ -1245,7 +1245,7 @@ export const requestDuel = spacetimedb.reducer(
         opponent = candidate;
       }
     }
-    if (!opponent) throw new Error("Move closer to the player you want to challenge.");
+    if (!opponent) throw new SenderError("Move closer to the player you want to challenge.");
     if (cooldown) ctx.db.duelRequestCooldown.identity.update({ ...cooldown, requestedAt: ctx.timestamp });
     else ctx.db.duelRequestCooldown.insert({ identity: ctx.sender, requestedAt: ctx.timestamp });
 
@@ -1378,7 +1378,7 @@ export const syncPosition = spacetimedb.reducer(
     if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
-      throw new Error("Position sync values must be finite");
+      throw new SenderError("Position sync values must be finite");
     }
 
     ctx.db.player.identity.update({
@@ -1400,7 +1400,7 @@ export const setSpeed = spacetimedb.reducer(
 
     const validSpeed = [PLAYER_SPEED, PLAYER_SPEED + BOOTS_SPEED_BONUS]
       .some((allowed) => Math.abs(speed - allowed) < 0.01);
-    if (!validSpeed) throw new Error("Unsupported player speed");
+    if (!validSpeed) throw new SenderError("Unsupported player speed");
 
     ctx.db.player.identity.update({
       ...current,
