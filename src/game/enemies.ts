@@ -103,7 +103,7 @@ export const REWARD_DATA: Record<RewardType, { color: string }> = {
 
 export const CAMPS: EnemyCamp[] = [
   // Starter: exact +health and +1 damage camps near the top-left spawn.
-  { name: "Ember Fen", x: 820, y: 900, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
+  { name: "Ember Fen", x: 820, y: 1700, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
   { name: "Thornshot Rise", x: 1650, y: 820, minRadius: 190, radius: 440, count: 5, types: ["Spitter"], ground: "#4b3545", ring: "#a86591" },
   // Medium: attack-speed and regeneration camps across the top-right.
   { name: "Glass Thicket", x: 3300, y: 900, minRadius: 230, radius: 520, count: 5, types: ["Needle"], ground: "#244f53", ring: "#64bdc5" },

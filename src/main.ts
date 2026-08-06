@@ -52,7 +52,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.223";
+  const GAME_VERSION = "0.224";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -810,6 +810,7 @@ import { formatCompactNumber } from "./ui/number-format";
       const angle = baseAngle + (i - (player.projectileCount - 1) / 2) * spread;
       const vx = Math.cos(angle) * player.projectileSpeed;
       const vy = Math.sin(angle) * player.projectileSpeed;
+      const projectileLifeBonus = 1.25;
 
       projectiles.push({
         x: player.x + Math.cos(angle) * 20,
@@ -818,8 +819,8 @@ import { formatCompactNumber } from "./ui/number-format";
         vy,
         r: 6,
         damage: player.damage,
-        hitLife: player.attackRange / player.projectileSpeed,
-        life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed,
+        hitLife: player.attackRange / player.projectileSpeed * projectileLifeBonus,
+        life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
         trail: 0
       });
     }
@@ -2046,7 +2047,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const barY = Math.round(y - 54);
     const hpRatio = clamp(hp / maxHp, 0, 1);
     const fillWidth = Math.round(barW * hpRatio);
-    const hpLabel = `${Math.max(0, Math.ceil(hp))}/${Math.ceil(maxHp)}`;
+    const hpLabel = `${Math.max(0, Math.ceil(hp))} / ${Math.ceil(maxHp)} HP`;
 
     ctx.fillStyle = "rgba(0,0,0,.88)";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
@@ -2300,7 +2301,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const barX = Math.round(x - barW / 2);
     const barY = Math.round(y - spriteHeight / 2 - 17);
     const hpRatio = clamp(e.hp / e.maxHp, 0, 1);
-    const hpLabel = `${Math.max(0, Math.ceil(e.hp))}/${Math.ceil(e.maxHp)}`;
+    const hpLabel = `${Math.max(0, Math.ceil(e.hp))} / ${Math.ceil(e.maxHp)} HP`;
 
     ctx.fillStyle = "rgba(0,0,0,.86)";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);

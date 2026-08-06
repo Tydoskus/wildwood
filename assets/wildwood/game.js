@@ -238,7 +238,7 @@
   };
   const CAMPS = [
     // Starter: exact +health and +1 damage camps near the top-left spawn.
-    { name: "Ember Fen", x: 820, y: 900, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
+    { name: "Ember Fen", x: 820, y: 1700, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
     { name: "Thornshot Rise", x: 1650, y: 820, minRadius: 190, radius: 440, count: 5, types: ["Spitter"], ground: "#4b3545", ring: "#a86591" },
     // Medium: attack-speed and regeneration camps across the top-right.
     { name: "Glass Thicket", x: 3300, y: 900, minRadius: 230, radius: 520, count: 5, types: ["Needle"], ground: "#244f53", ring: "#64bdc5" },
@@ -669,7 +669,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.223";
+    const GAME_VERSION = "0.224";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1359,6 +1359,7 @@
         const angle = baseAngle + (i - (player.projectileCount - 1) / 2) * spread;
         const vx = Math.cos(angle) * player.projectileSpeed;
         const vy = Math.sin(angle) * player.projectileSpeed;
+        const projectileLifeBonus = 1.25;
         projectiles.push({
           x: player.x + Math.cos(angle) * 20,
           y: player.y + Math.sin(angle) * 20,
@@ -1366,8 +1367,8 @@
           vy,
           r: 6,
           damage: player.damage,
-          hitLife: player.attackRange / player.projectileSpeed,
-          life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed,
+          hitLife: player.attackRange / player.projectileSpeed * projectileLifeBonus,
+          life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
           trail: 0
         });
       }
@@ -2475,7 +2476,7 @@
       const barY = Math.round(y - 54);
       const hpRatio = clamp(hp / maxHp, 0, 1);
       const fillWidth = Math.round(barW * hpRatio);
-      const hpLabel = `${Math.max(0, Math.ceil(hp))}/${Math.ceil(maxHp)}`;
+      const hpLabel = `${Math.max(0, Math.ceil(hp))} / ${Math.ceil(maxHp)} HP`;
       ctx.fillStyle = "rgba(0,0,0,.88)";
       ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
       ctx.fillStyle = "#402326";
@@ -2706,7 +2707,7 @@
       const barX = Math.round(x - barW / 2);
       const barY = Math.round(y - spriteHeight / 2 - 17);
       const hpRatio = clamp(e.hp / e.maxHp, 0, 1);
-      const hpLabel = `${Math.max(0, Math.ceil(e.hp))}/${Math.ceil(e.maxHp)}`;
+      const hpLabel = `${Math.max(0, Math.ceil(e.hp))} / ${Math.ceil(e.maxHp)} HP`;
       ctx.fillStyle = "rgba(0,0,0,.86)";
       ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
       ctx.fillStyle = "#472225";
