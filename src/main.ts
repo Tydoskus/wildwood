@@ -29,7 +29,8 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.180";
+  const GAME_VERSION = "0.181";
+  const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -49,6 +50,7 @@ import { createChatController } from "./ui/chat";
   const inventoryCountEl = document.getElementById("inventoryCount");
   const equippedFeetSlot = document.getElementById("equippedFeetSlot");
   const screenShakeToggle = document.getElementById("screenShakeToggle");
+  const attackRangeToggle = document.getElementById("attackRangeToggle");
   const fullscreenToggle = document.getElementById("fullscreenToggle");
   const connectionStatusEl = document.getElementById("connectionStatus");
   const accountButton = document.getElementById("accountButton");
@@ -123,6 +125,8 @@ import { createChatController } from "./ui/chat";
   let flash = 0;
   let screenShake = 0;
   let screenShakeEnabled = true;
+  let attackRangeVisible = true;
+  try { attackRangeVisible = localStorage.getItem(ATTACK_RANGE_VISIBLE_KEY) !== "false"; } catch {}
   let messageClock = 0;
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
@@ -1789,7 +1793,7 @@ import { createChatController } from "./ui/chat";
   }
 
   function drawAttackRange() {
-    if (isDueling()) return;
+    if (!attackRangeVisible || isDueling()) return;
     const x = player.x - camera.x;
     const y = player.y - camera.y;
     ctx.save();
@@ -2534,6 +2538,12 @@ import { createChatController } from "./ui/chat";
     screenShakeToggle.classList.toggle("is-off", !screenShakeEnabled);
   }
 
+  function updateAttackRangeSetting() {
+    attackRangeToggle.textContent = attackRangeVisible ? "ON" : "OFF";
+    attackRangeToggle.setAttribute("aria-pressed", String(attackRangeVisible));
+    attackRangeToggle.classList.toggle("is-off", !attackRangeVisible);
+  }
+
   function updateFullscreenSetting() {
     const root = document.documentElement;
     const supported = typeof root.requestFullscreen === "function" || typeof root.webkitRequestFullscreen === "function";
@@ -2641,6 +2651,12 @@ import { createChatController } from "./ui/chat";
     updateScreenShakeSetting();
   });
 
+  attackRangeToggle.addEventListener("click", () => {
+    attackRangeVisible = !attackRangeVisible;
+    try { localStorage.setItem(ATTACK_RANGE_VISIBLE_KEY, String(attackRangeVisible)); } catch {}
+    updateAttackRangeSetting();
+  });
+
   autoAttackBtn.addEventListener("click", () => {
     autoAttackEnabled = !autoAttackEnabled;
     updateAutoAttackSetting();
@@ -2717,6 +2733,7 @@ import { createChatController } from "./ui/chat";
     });
   }
   updateFullscreenSetting();
+  updateAttackRangeSetting();
   updateDuelControls();
   updateConnectionStatus();
   updateAccountStatus();
