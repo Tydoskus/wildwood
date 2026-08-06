@@ -39,6 +39,7 @@ import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
+import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -102,8 +103,14 @@ const tablesSchema = __schema({
   duel: __table({
     name: 'duel',
     indexes: [
+      { accessor: 'byChallenger', name: 'duel_challenger_idx_btree', algorithm: 'btree', columns: [
+        'challenger',
+      ] },
       { accessor: 'id', name: 'duel_id_idx_btree', algorithm: 'btree', columns: [
         'id',
+      ] },
+      { accessor: 'byOpponent', name: 'duel_opponent_idx_btree', algorithm: 'btree', columns: [
+        'opponent',
       ] },
     ],
     constraints: [
@@ -163,6 +170,7 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
+  __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

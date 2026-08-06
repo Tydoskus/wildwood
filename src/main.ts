@@ -53,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.217";
+  const GAME_VERSION = "0.218";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -63,6 +63,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const ATTACK_SPEED_REWARD = .02;
   const WORLD_HEALTH_BAR_HEIGHT = 13;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
+  const DRAGON_HP_LOSS_FLASH_DURATION = .18;
+  const DRAGON_HIT_BATCH_DELAY = .1;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -161,6 +163,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   const decor = [];
   const paths = [];
   const bossRain = [];
+  let pendingDragonHits = 0;
+  let dragonHitBatchTimer = 0;
   const START_SPAWN = { x: 360, y: 360 };
 
   let dpr = 1;
@@ -271,6 +275,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     hp: 1000000,
     dead: false,
     hurt: 0,
+    hpLossFlashFrom: 1000000,
+    hpLossFlashTimer: 0,
     attackClock: 3,
     nextAttack: "cone",
     cone: null,
@@ -400,6 +406,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
     enemies.length = 0;
     projectiles.length = 0;
+    pendingDragonHits = 0;
+    dragonHitBatchTimer = 0;
     enemyShots.length = 0;
     particles.length = 0;
     damageNumbers.length = 0;
@@ -865,6 +873,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       boss.dead = !shared.alive;
     }
     boss.hurt = 0;
+    boss.hpLossFlashFrom = boss.hp;
+    boss.hpLossFlashTimer = 0;
     boss.attackClock = 3;
     boss.nextAttack = "cone";
     boss.cone = null;
@@ -936,6 +946,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (!shared) return;
     const initialized = observedDragonEncounter !== null;
     const encounterChanged = initialized && observedDragonEncounter !== shared.encounter;
+    const previousHp = boss.hp;
 
     if (!initialized) {
       observedDragonEncounter = shared.encounter;
@@ -945,6 +956,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         boss.cone = null;
         bossRain.length = 0;
       }
+      boss.hpLossFlashFrom = shared.hp;
+      boss.hpLossFlashTimer = 0;
     } else if (encounterChanged) {
       observedDragonEncounter = shared.encounter;
       dragonWasAlive = shared.alive;
@@ -954,6 +967,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       boss.cone = null;
       bossRain.length = 0;
       boss.dead = !shared.alive;
+      boss.hpLossFlashFrom = shared.hp;
+      boss.hpLossFlashTimer = 0;
     } else if (dragonWasAlive && !shared.alive) {
       pendingDragonResultEncounter = shared.encounter;
       killBoss();
@@ -965,6 +980,16 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       boss.nextAttack = "cone";
       boss.cone = null;
       bossRain.length = 0;
+      boss.hpLossFlashFrom = shared.hp;
+      boss.hpLossFlashTimer = 0;
+    } else if (shared.alive && shared.hp < previousHp) {
+      boss.hpLossFlashFrom = boss.hpLossFlashTimer > 0
+        ? Math.max(boss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      boss.hpLossFlashTimer = DRAGON_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      boss.hpLossFlashFrom = shared.hp;
+      boss.hpLossFlashTimer = 0;
     }
 
     boss.encounter = shared.encounter;
@@ -1038,6 +1063,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   function updateBoss(dt) {
+    boss.hpLossFlashTimer = Math.max(0, boss.hpLossFlashTimer - dt);
     if (boss.dead) return;
 
     boss.hurt = Math.max(0, boss.hurt - dt);
@@ -1478,8 +1504,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         target.hurt = .12;
         p.life = 0;
 
-        if (target.isBoss) coop?.damageDragon?.();
-        else target.hp -= p.damage;
+        if (target.isBoss) {
+          pendingDragonHits += 1;
+          dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
+        } else target.hp -= p.damage;
 
         if (!target.isBoss && player.knockback > 0) {
           const ang = Math.atan2(p.vy, p.vx);
@@ -1505,6 +1533,14 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
     for (let i = projectiles.length - 1; i >= 0; i--) {
       if (projectiles[i].life <= 0) projectiles.splice(i, 1);
+    }
+    if (pendingDragonHits > 0) {
+      dragonHitBatchTimer -= dt;
+      if (dragonHitBatchTimer <= 0) {
+        coop?.damageDragon?.(pendingDragonHits);
+        pendingDragonHits = 0;
+        dragonHitBatchTimer = 0;
+      }
     }
 
     for (const p of enemyShots) {
@@ -1629,6 +1665,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       updateRespawns();
     } else {
       projectiles.length = 0;
+      pendingDragonHits = 0;
+      dragonHitBatchTimer = 0;
       enemyShots.length = 0;
     }
     for (const shot of duelShots) {
@@ -2163,8 +2201,18 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
     ctx.fillStyle = "#4d1d1d";
     ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = boss.hurt > 0 ? "#fff1b6" : "#d8352d";
+    ctx.fillStyle = "#d8352d";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+    if (boss.hpLossFlashTimer > 0 && boss.hpLossFlashFrom > boss.hp) {
+      const flashFromRatio = clamp(boss.hpLossFlashFrom / boss.maxHp, hpRatio, 1);
+      const flashX = barX + Math.round(barW * hpRatio);
+      const flashRight = barX + Math.round(barW * flashFromRatio);
+      ctx.save();
+      ctx.globalAlpha = clamp(boss.hpLossFlashTimer / DRAGON_HP_LOSS_FLASH_DURATION, 0, 1);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(flashX, barY, Math.max(1, flashRight - flashX), barH);
+      ctx.restore();
+    }
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

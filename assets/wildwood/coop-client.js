@@ -8203,6 +8203,9 @@ ${ty.variants.map(
     code: t.string()
   };
   const DamageDragonReducer = {};
+  const DamageDragonBatchReducer = {
+    hits: t.u32()
+  };
   const PulseDuelReducer = {};
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
@@ -8398,8 +8401,14 @@ ${ty.variants.map(
     duel: table({
       name: "duel",
       indexes: [
+        { accessor: "byChallenger", name: "duel_challenger_idx_btree", algorithm: "btree", columns: [
+          "challenger"
+        ] },
         { accessor: "id", name: "duel_id_idx_btree", algorithm: "btree", columns: [
           "id"
+        ] },
+        { accessor: "byOpponent", name: "duel_opponent_idx_btree", algorithm: "btree", columns: [
+          "opponent"
         ] }
       ],
       constraints: [
@@ -8457,6 +8466,7 @@ ${ty.variants.map(
     reducerSchema("begin_adventure", BeginAdventureReducer),
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
     reducerSchema("damage_dragon", DamageDragonReducer),
+    reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
@@ -9179,7 +9189,6 @@ ${ty.variants.map(
       alive: row.alive,
       respawnAtMs: Number(row.respawnAtMicros / 1000n)
     };
-    onChange == null ? void 0 : onChange();
   }
   function upsertDragonResult(row) {
     let contributors = [];
@@ -9689,9 +9698,9 @@ ${ty.variants.map(
     dragonResult() {
       return latestDragonResult ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) } : null;
     },
-    damageDragon() {
+    damageDragon(hits = 1) {
       if (protocolBlocked || !connection) return;
-      sendReducer("dragon damage", () => connection == null ? void 0 : connection.reducers.damageDragon({}));
+      sendReducer("dragon damage", () => connection == null ? void 0 : connection.reducers.damageDragonBatch({ hits }));
     },
     saveProgress(progress) {
       persistPendingProgress(progress);

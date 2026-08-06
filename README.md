@@ -108,6 +108,13 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Returning from a short tab hide keeps a healthy socket. Longer resumes use one reducer probe and reconnect only when stale or unreachable; never restore a per-user heartbeat.
 - Scheduled maintenance removes orphan public presence and duel state. Durable player progress and profiles are permanent.
 
+## Shared dragon performance invariants
+
+- Batch projectile hits through `damage_dragon_batch`; never restore one reducer call per projectile. Server validation caps accepted hits to the saved projectile count and attack interval.
+- `dragon_boss` subscription updates only shared combat state. Do not trigger the global UI/auth/chat refresh callback for every HP update; the game loop consumes boss state directly.
+- Duel membership checks use the `duel.byChallenger` and `duel.byOpponent` indexes. Do not replace them with a full duel-table scan in the dragon damage path.
+- Contribution-table scans and combat-row cleanup belong only at encounter death or respawn, never on ordinary hits.
+
 ## Common diagnostics
 
 | Symptom | First checks |

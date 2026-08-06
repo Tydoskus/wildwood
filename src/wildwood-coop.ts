@@ -914,7 +914,6 @@ function upsertDragonBoss(row: {
     alive: row.alive,
     respawnAtMs: Number(row.respawnAtMicros / 1000n),
   };
-  onChange?.();
 }
 
 function upsertDragonResult(row: {
@@ -1462,9 +1461,9 @@ export const wildwoodCoop = {
       ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) }
       : null;
   },
-  damageDragon() {
+  damageDragon(hits = 1) {
     if (protocolBlocked || !connection) return;
-    sendReducer("dragon damage", () => connection?.reducers.damageDragon({}));
+    sendReducer("dragon damage", () => connection?.reducers.damageDragonBatch({ hits }));
   },
   saveProgress(progress: ProgressSave) {
     persistPendingProgress(progress);
