@@ -1,17 +1,26 @@
 export const DUEL_REQUEST_RANGE = 250;
 export const DUEL_ARENA = { x: 6000, y: 6000, r: 430 } as const;
+export const DUEL_COMBAT_Y = DUEL_ARENA.y - 130;
 export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
 export const DUEL_SHOT_SPEED = 620;
 
-export function loadDuelArenaArt(onSettled?: () => void) {
+function loadDuelImage(source: string, onSettled?: () => void) {
   const image = new Image();
   if (onSettled) {
     image.addEventListener("load", onSettled, { once: true });
     image.addEventListener("error", onSettled, { once: true });
   }
-  image.src = "assets/wildwood/duel-arena-space-v1.png";
+  image.src = source;
   return image;
+}
+
+export function loadDuelSpaceBackground(onSettled?: () => void) {
+  return loadDuelImage("assets/wildwood/duel-space-background-v1.png", onSettled);
+}
+
+export function loadDuelPlatformArt(onSettled?: () => void) {
+  return loadDuelImage("assets/wildwood/duel-floating-platform-v1.png", onSettled);
 }
 
 type ReplayCombatantFields = {

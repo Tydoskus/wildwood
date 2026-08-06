@@ -28,12 +28,14 @@ import { createCanvasPrimitives } from "./game/canvas";
 import { createSpawnSites, createWorldLayout, loadTreeSpritesheet } from "./game/world";
 import {
   DUEL_ARENA,
+  DUEL_COMBAT_Y,
   DUEL_REPLAY_COUNTDOWN_SECONDS,
   DUEL_REQUEST_RANGE,
   DUEL_SHOT_LIFETIME,
   DUEL_SHOT_SPEED,
   duelStatLine,
-  loadDuelArenaArt,
+  loadDuelPlatformArt,
+  loadDuelSpaceBackground,
   replayState,
 } from "./game/duel";
 import {
@@ -50,7 +52,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.207";
+  const GAME_VERSION = "0.208";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -259,9 +261,15 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     updateLoadingDetail();
     finishStartup();
   });
-  let duelArenaArtReady = false;
-  const duelArenaArt = loadDuelArenaArt(() => {
-    duelArenaArtReady = true;
+  let duelSpaceBackgroundReady = false;
+  const duelSpaceBackground = loadDuelSpaceBackground(() => {
+    duelSpaceBackgroundReady = true;
+    updateLoadingDetail();
+    finishStartup();
+  });
+  let duelPlatformArtReady = false;
+  const duelPlatformArt = loadDuelPlatformArt(() => {
+    duelPlatformArtReady = true;
     updateLoadingDetail();
     finishStartup();
   });
@@ -449,7 +457,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   function finishStartup() {
     updateLoadingDetail();
-    if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelArenaArtReady ||
+    if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
       !coop?.isConnected?.() || !coop?.localState?.()) return;
     if (!coop?.accountState?.().signedIn && !guestContinuationChosen) {
       showAccountChoice();
@@ -516,7 +524,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
       ["LOADING SAVED PROGRESS", progressLoaded, 60],
       ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
-      ["LOADING WORLD ART", treeSpritesheetReady && duelArenaArtReady, 90],
+      ["LOADING WORLD ART", treeSpritesheetReady && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
       ["STARTING WILDWOOD", true, 100],
     ];
     const [text, ready, percent] = stages[loadingStage];
@@ -971,11 +979,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   function isDueling() {
     const duel = activeDuel();
-    if (!duel || !["countdown", "active"].includes(duel.status)) return false;
-    if (duel.status === "active" && Date.now() >= duel.endsAtMs) {
-      coop?.pulseDuel?.();
-      return false;
-    }
+    if (!duel || !["countdown", "active", "finishing"].includes(duel.status)) return false;
+    if ((duel.status === "active" || duel.status === "finishing") && Date.now() >= duel.endsAtMs) coop?.pulseDuel?.();
     return true;
   }
 
@@ -1003,10 +1008,10 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const challengerX = DUEL_ARENA.x - 120;
     const opponentX = DUEL_ARENA.x + 120;
     for (let i = lastDuelAttackCounts.challenger; i < duel.challengerAttacks; i++) {
-      spawnDuelShot(challengerX, DUEL_ARENA.y, opponentX, DUEL_ARENA.y, "#ffe36b");
+      spawnDuelShot(challengerX, DUEL_COMBAT_Y, opponentX, DUEL_COMBAT_Y, "#ffe36b");
     }
     for (let i = lastDuelAttackCounts.opponent; i < duel.opponentAttacks; i++) {
-      spawnDuelShot(opponentX, DUEL_ARENA.y, challengerX, DUEL_ARENA.y, "#ff8aa8");
+      spawnDuelShot(opponentX, DUEL_COMBAT_Y, challengerX, DUEL_COMBAT_Y, "#ff8aa8");
     }
     lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
   }
@@ -1018,8 +1023,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     }
     const challengerDamage = lastDuelHealth.challenger - duel.challengerHp;
     const opponentDamage = lastDuelHealth.opponent - duel.opponentHp;
-    if (challengerDamage > .01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_ARENA.y, challengerDamage);
-    if (opponentDamage > .01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_ARENA.y, opponentDamage);
+    if (challengerDamage > .01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
+    if (opponentDamage > .01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
     lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
   }
 
@@ -1051,7 +1056,16 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
       return;
     }
     visibleReplay = replay;
-    replayMode = { replay, start: performance.now() };
+    damageNumbers.length = 0;
+    replayMode = {
+      replay,
+      start: performance.now(),
+      lastElapsed: 0,
+      lastState: {
+        challengerHp: replay.challengerMaxHp,
+        opponentHp: replay.opponentMaxHp,
+      },
+    };
     duelResultEl.hidden = true;
     duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
     duelReplayEl.hidden = false;
@@ -1418,16 +1432,16 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
     if (isArenaScene()) {
-      if (duelArenaArt.complete && duelArenaArt.naturalWidth > 0) {
+      if (duelSpaceBackground.complete && duelSpaceBackground.naturalWidth > 0) {
         ctx.fillStyle = "#050713";
         ctx.fillRect(0, 0, visibleW, visibleH);
-        const scale = Math.min(
-          visibleW / duelArenaArt.naturalWidth,
-          visibleH / duelArenaArt.naturalHeight,
+        const scale = Math.max(
+          visibleW / duelSpaceBackground.naturalWidth,
+          visibleH / duelSpaceBackground.naturalHeight,
         );
-        const drawW = duelArenaArt.naturalWidth * scale;
-        const drawH = duelArenaArt.naturalHeight * scale;
-        ctx.drawImage(duelArenaArt, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
+        const drawW = duelSpaceBackground.naturalWidth * scale;
+        const drawH = duelSpaceBackground.naturalHeight * scale;
+        ctx.drawImage(duelSpaceBackground, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
         return;
       }
       ctx.fillStyle = "#03050a";
@@ -1569,9 +1583,13 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   function drawDuelArena() {
     if (!isArenaScene()) return;
-    if (duelArenaArt.complete && duelArenaArt.naturalWidth > 0) return;
     const x = DUEL_ARENA.x - camera.x;
     const y = DUEL_ARENA.y - camera.y;
+    if (duelPlatformArt.complete && duelPlatformArt.naturalWidth > 0) {
+      const drawSize = DUEL_ARENA.r * 2.16;
+      ctx.drawImage(duelPlatformArt, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
+      return;
+    }
     ctx.save();
     ctx.fillStyle = "#697174";
     ctx.beginPath();
@@ -2105,7 +2123,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const remoteName = (identity) => remotePlayers.find((other) => other.id === identity)?.name ?? "OPPONENT";
     const actor = (identity, isChallenger) => ({
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
-      y: DUEL_ARENA.y,
+      y: DUEL_COMBAT_Y,
       name: identity === localId ? (coop?.localDisplayName?.() || "PLAYER") : remoteName(identity),
       hp: isChallenger ? duel.challengerHp : duel.opponentHp,
       maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
@@ -2131,7 +2149,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
         const direction = Math.sign(toX - fromX);
         shots.push({
           x: fromX + direction * DUEL_SHOT_SPEED * age,
-          y: DUEL_ARENA.y,
+          y: DUEL_COMBAT_Y,
           color,
         });
       }
@@ -2147,9 +2165,20 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     const countdown = Math.max(0, Math.ceil(DUEL_REPLAY_COUNTDOWN_SECONDS - totalElapsed));
     const elapsed = Math.min(replay.durationSeconds, Math.max(0, totalElapsed - DUEL_REPLAY_COUNTDOWN_SECONDS));
     const state = replayState(replay, elapsed);
+    if (elapsed >= replayMode.lastElapsed) {
+      const challengerDamage = replayMode.lastState.challengerHp - state.challengerHp;
+      const opponentDamage = replayMode.lastState.opponentHp - state.opponentHp;
+      if (challengerDamage > .01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
+      if (opponentDamage > .01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
+    }
+    replayMode.lastElapsed = elapsed;
+    replayMode.lastState = {
+      challengerHp: state.challengerHp,
+      opponentHp: state.opponentHp,
+    };
     const actor = (isChallenger) => ({
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
-      y: DUEL_ARENA.y,
+      y: DUEL_COMBAT_Y,
       name: isChallenger ? replay.challengerName : replay.opponentName,
       hp: isChallenger ? state.challengerHp : state.opponentHp,
       maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
@@ -2180,11 +2209,15 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
     drawGround();
+    const floatY = Math.sin(performance.now() / 1000 * 1.2) * 7;
+    ctx.save();
+    ctx.translate(0, floatY);
     drawDuelArena();
     drawDuelShots(scene.shots);
     drawDuelCombatant(scene.challenger);
     drawDuelCombatant(scene.opponent);
     drawDamageNumbers();
+    ctx.restore();
     ctx.restore();
     duelCountdownEl.textContent = String(scene.countdown || "");
     duelCountdownEl.hidden = !scene.countdown;
@@ -2294,11 +2327,8 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     duelRequestBtn.hidden = true;
     duelAcceptBtn.hidden = true;
 
-    if (duel?.status === "active" && Date.now() >= duel.endsAtMs) {
+    if ((duel?.status === "active" || duel?.status === "finishing") && Date.now() >= duel.endsAtMs) {
       coop?.pulseDuel?.();
-      duelCountdownEl.hidden = true;
-      duelControls.hidden = true;
-      return;
     }
 
     if (duel?.status === "countdown") {
@@ -2313,6 +2343,11 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     if (duel?.status === "active") {
       const remaining = Math.max(0, Math.ceil((duel.endsAtMs - Date.now()) / 1000));
       duelStatusEl.textContent = `DUEL · ${duelOpponentName(duel)} · ${remaining}s`;
+      duelControls.hidden = false;
+      return;
+    }
+    if (duel?.status === "finishing") {
+      duelStatusEl.textContent = "DUEL COMPLETE";
       duelControls.hidden = false;
       return;
     }

@@ -419,17 +419,24 @@
   }
   const DUEL_REQUEST_RANGE = 250;
   const DUEL_ARENA = { x: 6e3, y: 6e3, r: 430 };
+  const DUEL_COMBAT_Y = DUEL_ARENA.y - 130;
   const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
   const DUEL_SHOT_LIFETIME = 0.38;
   const DUEL_SHOT_SPEED = 620;
-  function loadDuelArenaArt(onSettled) {
+  function loadDuelImage(source, onSettled) {
     const image = new Image();
     if (onSettled) {
       image.addEventListener("load", onSettled, { once: true });
       image.addEventListener("error", onSettled, { once: true });
     }
-    image.src = "assets/wildwood/duel-arena-space-v1.png";
+    image.src = source;
     return image;
+  }
+  function loadDuelSpaceBackground(onSettled) {
+    return loadDuelImage("assets/wildwood/duel-space-background-v1.png", onSettled);
+  }
+  function loadDuelPlatformArt(onSettled) {
+    return loadDuelImage("assets/wildwood/duel-floating-platform-v1.png", onSettled);
   }
   function duelStatLine(subject, attacks, damage, regen, blocked) {
     return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>ATTACKED ${attacks} TIMES<br>DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP<br>BLOCKED ${Math.round(blocked)} DMG</div>`;
@@ -641,7 +648,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.207";
+    const GAME_VERSION = "0.208";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -839,9 +846,15 @@
       updateLoadingDetail();
       finishStartup();
     });
-    let duelArenaArtReady = false;
-    const duelArenaArt = loadDuelArenaArt(() => {
-      duelArenaArtReady = true;
+    let duelSpaceBackgroundReady = false;
+    const duelSpaceBackground = loadDuelSpaceBackground(() => {
+      duelSpaceBackgroundReady = true;
+      updateLoadingDetail();
+      finishStartup();
+    });
+    let duelPlatformArtReady = false;
+    const duelPlatformArt = loadDuelPlatformArt(() => {
+      duelPlatformArtReady = true;
       updateLoadingDetail();
       finishStartup();
     });
@@ -1001,7 +1014,7 @@
     function finishStartup() {
       var _a2, _b, _c, _d;
       updateLoadingDetail();
-      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelArenaArtReady || !((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
       if (!((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop).signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
@@ -1060,7 +1073,7 @@
         ["LOADING PLAYER PROFILE", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
-        ["LOADING WORLD ART", treeSpritesheetReady && duelArenaArtReady, 90],
+        ["LOADING WORLD ART", treeSpritesheetReady && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
         ["STARTING WILDWOOD", true, 100]
       ];
       const [text, ready, percent] = stages[loadingStage];
@@ -1457,11 +1470,8 @@
     function isDueling() {
       var _a2;
       const duel = activeDuel();
-      if (!duel || !["countdown", "active"].includes(duel.status)) return false;
-      if (duel.status === "active" && Date.now() >= duel.endsAtMs) {
-        (_a2 = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a2.call(coop);
-        return false;
-      }
+      if (!duel || !["countdown", "active", "finishing"].includes(duel.status)) return false;
+      if ((duel.status === "active" || duel.status === "finishing") && Date.now() >= duel.endsAtMs) (_a2 = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a2.call(coop);
       return true;
     }
     function isArenaScene() {
@@ -1486,10 +1496,10 @@
       const challengerX = DUEL_ARENA.x - 120;
       const opponentX = DUEL_ARENA.x + 120;
       for (let i = lastDuelAttackCounts.challenger; i < duel.challengerAttacks; i++) {
-        spawnDuelShot(challengerX, DUEL_ARENA.y, opponentX, DUEL_ARENA.y, "#ffe36b");
+        spawnDuelShot(challengerX, DUEL_COMBAT_Y, opponentX, DUEL_COMBAT_Y, "#ffe36b");
       }
       for (let i = lastDuelAttackCounts.opponent; i < duel.opponentAttacks; i++) {
-        spawnDuelShot(opponentX, DUEL_ARENA.y, challengerX, DUEL_ARENA.y, "#ff8aa8");
+        spawnDuelShot(opponentX, DUEL_COMBAT_Y, challengerX, DUEL_COMBAT_Y, "#ff8aa8");
       }
       lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
     }
@@ -1500,8 +1510,8 @@
       }
       const challengerDamage = lastDuelHealth.challenger - duel.challengerHp;
       const opponentDamage = lastDuelHealth.opponent - duel.opponentHp;
-      if (challengerDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_ARENA.y, challengerDamage);
-      if (opponentDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_ARENA.y, opponentDamage);
+      if (challengerDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
+      if (opponentDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
       lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
     }
     function showDuelResult(replay) {
@@ -1524,7 +1534,16 @@
         showMessage("REPLAY EXPIRED", "#ff9b91");
         return;
       }
-      replayMode = { replay, start: performance.now() };
+      damageNumbers.length = 0;
+      replayMode = {
+        replay,
+        start: performance.now(),
+        lastElapsed: 0,
+        lastState: {
+          challengerHp: replay.challengerMaxHp,
+          opponentHp: replay.opponentMaxHp
+        }
+      };
       duelResultEl.hidden = true;
       duelReplayTitle.textContent = `${replay.challengerName} VS ${replay.opponentName}`;
       duelReplayEl.hidden = false;
@@ -1850,16 +1869,16 @@
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
       if (isArenaScene()) {
-        if (duelArenaArt.complete && duelArenaArt.naturalWidth > 0) {
+        if (duelSpaceBackground.complete && duelSpaceBackground.naturalWidth > 0) {
           ctx.fillStyle = "#050713";
           ctx.fillRect(0, 0, visibleW, visibleH);
-          const scale = Math.min(
-            visibleW / duelArenaArt.naturalWidth,
-            visibleH / duelArenaArt.naturalHeight
+          const scale = Math.max(
+            visibleW / duelSpaceBackground.naturalWidth,
+            visibleH / duelSpaceBackground.naturalHeight
           );
-          const drawW = duelArenaArt.naturalWidth * scale;
-          const drawH = duelArenaArt.naturalHeight * scale;
-          ctx.drawImage(duelArenaArt, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
+          const drawW = duelSpaceBackground.naturalWidth * scale;
+          const drawH = duelSpaceBackground.naturalHeight * scale;
+          ctx.drawImage(duelSpaceBackground, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
           return;
         }
         ctx.fillStyle = "#03050a";
@@ -1991,9 +2010,13 @@
     }
     function drawDuelArena() {
       if (!isArenaScene()) return;
-      if (duelArenaArt.complete && duelArenaArt.naturalWidth > 0) return;
       const x = DUEL_ARENA.x - camera.x;
       const y = DUEL_ARENA.y - camera.y;
+      if (duelPlatformArt.complete && duelPlatformArt.naturalWidth > 0) {
+        const drawSize = DUEL_ARENA.r * 2.16;
+        ctx.drawImage(duelPlatformArt, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
+        return;
+      }
       ctx.save();
       ctx.fillStyle = "#697174";
       ctx.beginPath();
@@ -2485,7 +2508,7 @@
         var _a3;
         return {
           x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
-          y: DUEL_ARENA.y,
+          y: DUEL_COMBAT_Y,
           name: identity === localId ? ((_a3 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a3.call(coop)) || "PLAYER" : remoteName(identity),
           hp: isChallenger ? duel.challengerHp : duel.opponentHp,
           maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
@@ -2509,7 +2532,7 @@
           const direction = Math.sign(toX - fromX);
           shots.push({
             x: fromX + direction * DUEL_SHOT_SPEED * age,
-            y: DUEL_ARENA.y,
+            y: DUEL_COMBAT_Y,
             color
           });
         }
@@ -2524,9 +2547,20 @@
       const countdown = Math.max(0, Math.ceil(DUEL_REPLAY_COUNTDOWN_SECONDS - totalElapsed));
       const elapsed = Math.min(replay.durationSeconds, Math.max(0, totalElapsed - DUEL_REPLAY_COUNTDOWN_SECONDS));
       const state = replayState(replay, elapsed);
+      if (elapsed >= replayMode.lastElapsed) {
+        const challengerDamage = replayMode.lastState.challengerHp - state.challengerHp;
+        const opponentDamage = replayMode.lastState.opponentHp - state.opponentHp;
+        if (challengerDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
+        if (opponentDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
+      }
+      replayMode.lastElapsed = elapsed;
+      replayMode.lastState = {
+        challengerHp: state.challengerHp,
+        opponentHp: state.opponentHp
+      };
       const actor = (isChallenger) => ({
         x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
-        y: DUEL_ARENA.y,
+        y: DUEL_COMBAT_Y,
         name: isChallenger ? replay.challengerName : replay.opponentName,
         hp: isChallenger ? state.challengerHp : state.opponentHp,
         maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
@@ -2553,11 +2587,15 @@
       ctx.save();
       ctx.scale(camera.zoom, camera.zoom);
       drawGround();
+      const floatY = Math.sin(performance.now() / 1e3 * 1.2) * 7;
+      ctx.save();
+      ctx.translate(0, floatY);
       drawDuelArena();
       drawDuelShots(scene.shots);
       drawDuelCombatant(scene.challenger);
       drawDuelCombatant(scene.opponent);
       drawDamageNumbers();
+      ctx.restore();
       ctx.restore();
       duelCountdownEl.textContent = String(scene.countdown || "");
       duelCountdownEl.hidden = !scene.countdown;
@@ -2653,11 +2691,8 @@
       duelStatusEl.hidden = false;
       duelRequestBtn.hidden = true;
       duelAcceptBtn.hidden = true;
-      if ((duel == null ? void 0 : duel.status) === "active" && Date.now() >= duel.endsAtMs) {
+      if (((duel == null ? void 0 : duel.status) === "active" || (duel == null ? void 0 : duel.status) === "finishing") && Date.now() >= duel.endsAtMs) {
         (_b = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _b.call(coop);
-        duelCountdownEl.hidden = true;
-        duelControls.hidden = true;
-        return;
       }
       if ((duel == null ? void 0 : duel.status) === "countdown") {
         const remaining = Math.max(0, Math.ceil((duel.startsAtMs - Date.now()) / 1e3));
@@ -2671,6 +2706,11 @@
       if ((duel == null ? void 0 : duel.status) === "active") {
         const remaining = Math.max(0, Math.ceil((duel.endsAtMs - Date.now()) / 1e3));
         duelStatusEl.textContent = `DUEL · ${duelOpponentName(duel)} · ${remaining}s`;
+        duelControls.hidden = false;
+        return;
+      }
+      if ((duel == null ? void 0 : duel.status) === "finishing") {
+        duelStatusEl.textContent = "DUEL COMPLETE";
         duelControls.hidden = false;
         return;
       }
