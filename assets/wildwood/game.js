@@ -607,7 +607,8 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.203";
+    var _a;
+    const GAME_VERSION = "0.204";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -730,6 +731,7 @@
     let loadingStageTimer = null;
     let loadingSequenceComplete = false;
     let guestContinuationChosen = false;
+    let accountSignInPending = false;
     const player = {
       x: 360,
       y: 360,
@@ -955,9 +957,9 @@
       finishStartup();
     }
     function finishStartup() {
-      var _a, _b, _c, _d;
+      var _a2, _b, _c, _d;
       updateLoadingDetail();
-      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
       if (!((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop).signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
@@ -987,16 +989,21 @@
       updateLoadingDetail();
     }
     function showAccountChoice() {
-      var _a;
-      const name = (((_a = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _a.call(coop)) || "").trim();
+      var _a2, _b;
+      const accountOptionsReady = Boolean((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop));
+      const name = (((_b = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _b.call(coop)) || "").trim();
       const characterFound = Boolean(name);
       if (accountCharacter && accountCharacterName) {
         accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
         accountCharacter.classList.toggle("is-empty", !characterFound);
       }
-      if (signInFromStartBtn) signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+      if (signInFromStartBtn) {
+        signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+        signInFromStartBtn.disabled = accountSignInPending || !accountOptionsReady;
+      }
+      if (continueGuestBtn) continueGuestBtn.disabled = accountSignInPending;
       if (accountChoiceDetail) {
-        accountChoiceDetail.textContent = characterFound ? "SIGN IN TO THIS CHARACTER" : "REGISTER OR PLAY AS GUEST";
+        accountChoiceDetail.textContent = accountSignInPending ? "OPENING SIGN-IN…" : !accountOptionsReady ? "CONNECTING ACCOUNT OPTIONS…" : characterFound ? "SIGN IN TO THIS CHARACTER" : "REGISTER OR PLAY AS GUEST";
       }
       startEl.style.display = "grid";
       connectionPanel.hidden = true;
@@ -1004,10 +1011,10 @@
       newPlayerPanel.hidden = true;
     }
     function updateLoadingDetail() {
-      var _a, _b;
+      var _a2, _b;
       if (!loadingDetail || !loadingFill) return;
       const stages = [
-        ["LOADING CONNECTION", Boolean((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop)), 12],
+        ["LOADING CONNECTION", Boolean((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)), 12],
         ["LOADING PLAYER PROFILE", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
@@ -1032,9 +1039,9 @@
       }, delay);
     }
     function showNewPlayerIntro() {
-      var _a;
+      var _a2;
       if (!newPlayerNameInput.value) {
-        newPlayerNameInput.value = ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "WANDERER";
+        newPlayerNameInput.value = ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "WANDERER";
       }
       startEl.style.display = "grid";
       connectionPanel.hidden = true;
@@ -1043,13 +1050,13 @@
       requestAnimationFrame(() => newPlayerNameInput.focus());
     }
     function beginAdventure() {
-      var _a, _b;
+      var _a2, _b;
       const name = newPlayerNameInput.value.trim().replace(/\s+/g, " ");
       if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
         showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
         return;
       }
-      if (name !== (((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "")) (_b = coop == null ? void 0 : coop.setDisplayName) == null ? void 0 : _b.call(coop, name);
+      if (name !== (((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "")) (_b = coop == null ? void 0 : coop.setDisplayName) == null ? void 0 : _b.call(coop, name);
       startGame(true);
     }
     function updateBootPickup() {
@@ -1407,11 +1414,11 @@
       return coop && typeof coop.localDuel === "function" ? coop.localDuel() : null;
     }
     function isDueling() {
-      var _a;
+      var _a2;
       const duel = activeDuel();
       if (!duel || !["countdown", "active"].includes(duel.status)) return false;
       if (duel.status === "active" && Date.now() >= duel.endsAtMs) {
-        (_a = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a.call(coop);
+        (_a2 = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a2.call(coop);
         return false;
       }
       return true;
@@ -1457,9 +1464,9 @@
       lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
     }
     function showDuelResult(replay) {
-      var _a;
+      var _a2;
       if (!replay || !duelResultEl) return;
-      const localName = ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "PLAYER";
+      const localName = ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER";
       const selfIsChallenger = replay.challengerName === localName;
       const self = selfIsChallenger ? { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked } : { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked };
       const other = selfIsChallenger ? { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked } : { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
@@ -1470,8 +1477,8 @@
       duelResultEl.dataset.replayId = String(replay.id);
     }
     async function openDuelReplay(replayId) {
-      var _a;
-      const replay = (coop == null ? void 0 : coop.loadDuelReplay) ? await coop.loadDuelReplay(replayId) : (_a = coop == null ? void 0 : coop.duelReplay) == null ? void 0 : _a.call(coop, replayId);
+      var _a2;
+      const replay = (coop == null ? void 0 : coop.loadDuelReplay) ? await coop.loadDuelReplay(replayId) : (_a2 = coop == null ? void 0 : coop.duelReplay) == null ? void 0 : _a2.call(coop, replayId);
       if (!replay) {
         showMessage("REPLAY EXPIRED", "#ff9b91");
         return;
@@ -1483,11 +1490,11 @@
       document.body.classList.add("is-replaying");
     }
     function applyDuelState() {
-      var _a, _b;
+      var _a2, _b;
       const duel = activeDuel();
       if (!isDueling()) return false;
       const localIsChallenger = duel.challenger === coop.localIdentity();
-      const localState = (_a = coop.localState) == null ? void 0 : _a.call(coop);
+      const localState = (_a2 = coop.localState) == null ? void 0 : _a2.call(coop);
       if (localState) {
         player.x = localState.x;
         player.y = localState.y;
@@ -1504,10 +1511,10 @@
       return true;
     }
     function updatePlayer(dt) {
-      var _a, _b, _c;
+      var _a2, _b, _c;
       if (applyDuelState()) return;
       if (duelWasActive) {
-        const returnedState = (_a = coop == null ? void 0 : coop.localState) == null ? void 0 : _a.call(coop);
+        const returnedState = (_a2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _a2.call(coop);
         if (!returnedState || returnedState.x < player.r || returnedState.y < player.r || returnedState.x > WORLD.w - player.r || returnedState.y > WORLD.h - player.r) {
           return;
         }
@@ -2407,20 +2414,20 @@
       camera.y = DUEL_ARENA.y - viewH / zoom / 2;
     }
     function liveDuelScene(remotePlayers) {
-      var _a;
+      var _a2;
       const duel = activeDuel();
       if (!duel) return null;
-      const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
+      const localId = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
       const remoteName = (identity) => {
-        var _a2;
-        return ((_a2 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a2.name) ?? "OPPONENT";
+        var _a3;
+        return ((_a3 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a3.name) ?? "OPPONENT";
       };
       const actor = (identity, isChallenger) => {
-        var _a2;
+        var _a3;
         return {
           x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
           y: DUEL_ARENA.y,
-          name: identity === localId ? ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER" : remoteName(identity),
+          name: identity === localId ? ((_a3 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a3.call(coop)) || "PLAYER" : remoteName(identity),
           hp: isChallenger ? duel.challengerHp : duel.opponentHp,
           maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
           facing: isChallenger ? 0 : Math.PI,
@@ -2533,13 +2540,13 @@
       drawVignette();
     }
     function updateHud() {
-      var _a;
+      var _a2;
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
       const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
       renderPlayerHud(
         { hpFill, hpText, playerName: playerNameEl, stats: statsEl, coopStatus: coopStatusEl },
         player,
-        ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "WANDERER",
+        ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "WANDERER",
         playerCount
       );
       updateDuelControls();
@@ -2558,8 +2565,8 @@
       );
     }
     function nearbyDuelOpponent() {
-      var _a;
-      if (!coop || !((_a = coop.isConnected) == null ? void 0 : _a.call(coop))) return null;
+      var _a2;
+      if (!coop || !((_a2 = coop.isConnected) == null ? void 0 : _a2.call(coop))) return null;
       let closest = null;
       let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
       for (const other of coop.remotePlayers()) {
@@ -2574,15 +2581,15 @@
       return closest;
     }
     function duelOpponentName(duel) {
-      var _a, _b, _c;
-      const opponentId = duel.challenger === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop)) ? duel.opponent : duel.challenger;
+      var _a2, _b, _c;
+      const opponentId = duel.challenger === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop)) ? duel.opponent : duel.challenger;
       return ((_c = (_b = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c.name) ?? "OPPONENT";
     }
     function updateDuelControls() {
-      var _a, _b;
+      var _a2, _b;
       if (!duelControls) return;
       const duel = activeDuel();
-      const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
+      const localId = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
       const nearby = nearbyDuelOpponent();
       duelStatusEl.hidden = false;
       duelRequestBtn.hidden = true;
@@ -2640,7 +2647,7 @@
       requestAnimationFrame(loop);
     }
     function startGame(markIntro = true) {
-      var _a, _b;
+      var _a2, _b;
       startEl.style.display = "none";
       overEl.style.display = "none";
       pausedForUpgrade = false;
@@ -2648,7 +2655,7 @@
       reset(hasStarted);
       hasStarted = true;
       running = true;
-      if (markIntro) (_a = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a.call(coop);
+      if (markIntro) (_a2 = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a2.call(coop);
       if ((_b = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b.call(coop)) coop.syncPosition(player.x, player.y, player.facing, false, true);
       last = performance.now();
     }
@@ -2705,9 +2712,9 @@
       connectionStatusEl.classList.toggle("is-offline", !connected);
     }
     function updateAccountStatus() {
-      var _a;
+      var _a2;
       if (!accountButton || !accountStatusEl) return;
-      const account = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, notice: "" };
+      const account = ((_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop)) || { signedIn: false, notice: "" };
       accountButton.textContent = account.signedIn ? "SIGN OUT" : "SIGN IN / CREATE";
       const status = account.notice || (account.signedIn ? "SIGNED IN · ACCOUNT SAVE" : "GUEST · DEVICE SAVE");
       accountStatusEl.textContent = status;
@@ -2736,26 +2743,31 @@
       }
     });
     accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
-      var _a, _b, _c;
-      const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
+      var _a2, _b, _c;
+      const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
       if (account == null ? void 0 : account.signedIn) (_b = coop == null ? void 0 : coop.signOut) == null ? void 0 : _b.call(coop);
       else void ((_c = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c.call(coop));
     });
     continueGuestBtn == null ? void 0 : continueGuestBtn.addEventListener("click", () => {
       guestContinuationChosen = true;
-      accountChoicePanel.hidden = true;
+      showConnecting();
       finishStartup();
     });
     signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
-      var _a, _b;
-      const characterFound = Boolean((_a = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _a.call(coop));
-      signInFromStartBtn.disabled = true;
-      continueGuestBtn.disabled = true;
+      var _a2, _b;
+      const characterFound = Boolean((_a2 = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _a2.call(coop));
+      accountSignInPending = true;
+      showAccountChoice();
       accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
-      void ((_b = coop == null ? void 0 : coop.signIn) == null ? void 0 : _b.call(coop).catch(() => {
-        signInFromStartBtn.disabled = false;
-        continueGuestBtn.disabled = false;
+      void ((_b = coop == null ? void 0 : coop.signIn) == null ? void 0 : _b.call(coop).then((result) => {
+        if ((result == null ? void 0 : result.ok) !== false) return;
+        accountSignInPending = false;
+        showAccountChoice();
         accountChoiceDetail.textContent = characterFound ? "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST" : "REGISTRATION FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+      }).catch(() => {
+        accountSignInPending = false;
+        showAccountChoice();
+        accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST";
       }));
     });
     screenShakeToggle.addEventListener("click", () => {
@@ -2776,15 +2788,15 @@
       updateAutoAttackSetting();
     });
     duelRequestBtn.addEventListener("click", () => {
-      var _a;
-      void ((_a = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a.call(coop).then((result) => {
+      var _a2;
+      void ((_a2 = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a2.call(coop).then((result) => {
         if (!(result == null ? void 0 : result.ok)) showMessage((result == null ? void 0 : result.error) || "DUEL REQUEST FAILED", "#ff9b91");
       }));
     });
     duelAcceptBtn.addEventListener("click", () => {
-      var _a;
+      var _a2;
       const duel = activeDuel();
-      if ((duel == null ? void 0 : duel.status) === "requested") (_a = coop == null ? void 0 : coop.acceptDuel) == null ? void 0 : _a.call(coop, duel.id);
+      if ((duel == null ? void 0 : duel.status) === "requested") (_a2 = coop == null ? void 0 : coop.acceptDuel) == null ? void 0 : _a2.call(coop, duel.id);
     });
     watchDuelReplayBtn.addEventListener("click", () => {
       const replayId = BigInt(duelResultEl.dataset.replayId || "0");
@@ -2832,6 +2844,7 @@
       coop.setOnChange(() => {
         loadProgress();
         finishStartup();
+        if (!accountChoicePanel.hidden) showAccountChoice();
         chat.refresh();
         updateDuelControls();
         updateConnectionStatus();
@@ -2937,7 +2950,9 @@
     canvas.addEventListener("touchmove", moveTouch, { passive: false });
     canvas.addEventListener("touchend", endTouch, { passive: false });
     canvas.addEventListener("touchcancel", endTouch, { passive: false });
-    showConnecting();
+    const initialAccount = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false };
+    if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
+    else showConnecting();
     loadProgress();
     rebuildWorld();
     updateCamera(1);

@@ -138,6 +138,7 @@ const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
 const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
 const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
+const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
 const silentAuthAttemptKey = `${tokenKey}/spacetimeauth_silent_attempt_v1`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
@@ -172,6 +173,8 @@ let authNotice = "";
 let protocolBlocked = false;
 let protocolRefreshScheduled = false;
 let accountLinkClaiming = false;
+let accountCallbackPending = new URL(window.location.href).searchParams.has("code") ||
+  new URL(window.location.href).searchParams.has("error");
 
 function reducerErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -256,6 +259,25 @@ function rememberAccountCharacter(displayName: string) {
   } catch {}
 }
 
+function rememberedGuestCharacter() {
+  try {
+    return localStorage.getItem(knownGuestCharacterKey)?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberConfirmedCharacter(displayName: string) {
+  if (!displayName) return;
+  if (accountToken()) {
+    rememberAccountCharacter(displayName);
+    return;
+  }
+  try {
+    localStorage.setItem(knownGuestCharacterKey, displayName);
+  } catch {}
+}
+
 function silentAuthAlreadyAttempted() {
   try {
     return sessionStorage.getItem(silentAuthAttemptKey) === "true";
@@ -309,12 +331,14 @@ async function completeAccountCallback() {
   const verifier = localStorage.getItem(authVerifierKey);
   const cleanUrl = `${url.pathname}${url.hash}`;
   if (!state || state !== expectedState || !verifier) {
+    accountCallbackPending = false;
     authNotice = "SIGN-IN CHECK FAILED";
     history.replaceState({}, "", cleanUrl);
     return;
   }
 
   if (authError) {
+    accountCallbackPending = false;
     authNotice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
     localStorage.removeItem(authStateKey);
     localStorage.removeItem(authVerifierKey);
@@ -346,6 +370,7 @@ async function completeAccountCallback() {
     authNotice = "SIGN-IN FAILED";
     console.warn("Wildwood account sign-in failed:", error);
   } finally {
+    accountCallbackPending = false;
     localStorage.removeItem(authStateKey);
     localStorage.removeItem(authVerifierKey);
     history.replaceState({}, "", cleanUrl);
@@ -581,7 +606,7 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
   profiles.set(id, row.displayName);
   if (id === localIdentity) {
     localDisplayName = row.displayName;
-    if (accountToken()) rememberAccountCharacter(row.displayName);
+    rememberConfirmedCharacter(row.displayName);
   }
   const player = players.get(id);
   if (player) player.name = row.displayName;
@@ -769,14 +794,19 @@ function connect() {
       accountLinkClaiming = false;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
-      localIdentity = identity.toHexString();
+      const connectedIdentity = identity.toHexString();
+      const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
+      localIdentity = connectedIdentity;
       pendingProgress = readPendingProgress(localIdentity);
       progressSaveInFlightUntil = 0;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
-      localDisplayName = "";
-      localProgress = null;
+      if (identityChanged) {
+        localDisplayName = accountToken() ? rememberedAccountCharacter() : rememberedGuestCharacter();
+        localState = null;
+        localProgress = null;
+      }
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       if (!signedIn) {
@@ -858,13 +888,9 @@ function connect() {
     .onDisconnect((_ctx, error) => {
       connecting = false;
       connection = null;
-      localIdentity = "";
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
-      localState = null;
-      localDisplayName = "";
-      localProgress = null;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       players.clear();
@@ -883,9 +909,6 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
-      localState = null;
-      localDisplayName = "";
-      localProgress = null;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       const rejectedToken = /401|unauthorized|verify token/i.test(String(error?.message || error));
@@ -924,21 +947,23 @@ export const wildwoodCoop = {
   accountState() {
     return {
       signedIn: Boolean(accountToken()),
+      knownAccount: hasKnownAccount(),
+      authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
       notice: authNotice,
     };
   },
   knownCharacter() {
     const currentCharacter = localProgress?.introComplete ? localDisplayName.trim() : "";
-    const accountCharacter = rememberedAccountCharacter();
-    return accountCharacter || currentCharacter;
+    const rememberedCharacter = accountToken() ? rememberedAccountCharacter() : rememberedGuestCharacter();
+    return currentCharacter || rememberedCharacter;
   },
   async signIn() {
-    if (protocolBlocked) return;
-    if (accountToken()) return;
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (accountToken()) return { ok: true };
     if (!connection) {
       authNotice = "WAIT FOR SERVER";
       onChange?.();
-      return;
+      return { ok: false, error: "WAIT FOR SERVER" };
     }
     const code = randomUrlSafe(40);
     localStorage.setItem(accountLinkKey, code);
@@ -951,12 +976,13 @@ export const wildwoodCoop = {
       authNotice = "SIGN-IN NOT READY";
       handleReducerFailure("sign-in preparation", error);
       onChange?.();
-      return;
+      return { ok: false, error: "SIGN-IN NOT READY" };
     }
     authNotice = "PREPARING SIGN-IN";
     onChange?.();
     await new Promise((resolve) => window.setTimeout(resolve, 450));
     await startAccountSignIn();
+    return { ok: true };
   },
   signOut() {
     try {
@@ -976,7 +1002,7 @@ export const wildwoodCoop = {
     return localState;
   },
   localDisplayName() {
-    return localDisplayName || (localIdentity ? generatedDisplayName(localIdentity) : "");
+    return localDisplayName;
   },
   async setDisplayName(displayName: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };

@@ -49,7 +49,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.203";
+  const GAME_VERSION = "0.204";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -177,6 +177,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   let loadingStageTimer = null;
   let loadingSequenceComplete = false;
   let guestContinuationChosen = false;
+  let accountSignInPending = false;
 
   const player = {
     x: 360,
@@ -471,17 +472,26 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   function showAccountChoice() {
+    const accountOptionsReady = Boolean(coop?.isConnected?.());
     const name = (coop?.knownCharacter?.() || "").trim();
     const characterFound = Boolean(name);
     if (accountCharacter && accountCharacterName) {
       accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
       accountCharacter.classList.toggle("is-empty", !characterFound);
     }
-    if (signInFromStartBtn) signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+    if (signInFromStartBtn) {
+      signInFromStartBtn.textContent = characterFound ? "SIGN IN" : "REGISTER";
+      signInFromStartBtn.disabled = accountSignInPending || !accountOptionsReady;
+    }
+    if (continueGuestBtn) continueGuestBtn.disabled = accountSignInPending;
     if (accountChoiceDetail) {
-      accountChoiceDetail.textContent = characterFound
-        ? "SIGN IN TO THIS CHARACTER"
-        : "REGISTER OR PLAY AS GUEST";
+      accountChoiceDetail.textContent = accountSignInPending
+        ? "OPENING SIGN-IN…"
+        : !accountOptionsReady
+          ? "CONNECTING ACCOUNT OPTIONS…"
+          : characterFound
+            ? "SIGN IN TO THIS CHARACTER"
+            : "REGISTER OR PLAY AS GUEST";
     }
     startEl.style.display = "grid";
     connectionPanel.hidden = true;
@@ -2425,21 +2435,26 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   continueGuestBtn?.addEventListener("click", () => {
     guestContinuationChosen = true;
-    accountChoicePanel.hidden = true;
+    showConnecting();
     finishStartup();
   });
 
   signInFromStartBtn?.addEventListener("click", () => {
     const characterFound = Boolean(coop?.knownCharacter?.());
-    signInFromStartBtn.disabled = true;
-    continueGuestBtn.disabled = true;
+    accountSignInPending = true;
+    showAccountChoice();
     accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
-    void coop?.signIn?.().catch(() => {
-      signInFromStartBtn.disabled = false;
-      continueGuestBtn.disabled = false;
+    void coop?.signIn?.().then((result) => {
+      if (result?.ok !== false) return;
+      accountSignInPending = false;
+      showAccountChoice();
       accountChoiceDetail.textContent = characterFound
         ? "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST"
         : "REGISTRATION FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+    }).catch(() => {
+      accountSignInPending = false;
+      showAccountChoice();
+      accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST";
     });
   });
 
@@ -2524,6 +2539,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     coop.setOnChange(() => {
       loadProgress();
       finishStartup();
+      if (!accountChoicePanel.hidden) showAccountChoice();
       chat.refresh();
       updateDuelControls();
       updateConnectionStatus();
@@ -2637,7 +2653,9 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   canvas.addEventListener("touchend", endTouch, {passive:false});
   canvas.addEventListener("touchcancel", endTouch, {passive:false});
 
-  showConnecting();
+  const initialAccount = coop?.accountState?.() || { signedIn: false, knownAccount: false, authInProgress: false };
+  if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
+  else showConnecting();
   loadProgress();
   rebuildWorld();
   updateCamera(1);
