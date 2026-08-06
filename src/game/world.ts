@@ -5,7 +5,9 @@ import { clamp, rand } from "./math";
 export type WorldPath = { x: number; y: number; w: number; h: number };
 export type WorldDecor =
   | { type: "stone"; x: number; y: number; w: number; h: number }
-  | { type: "tree"; x: number; y: number; s: number; seed: number };
+  | { type: "tree"; x: number; y: number; s: number; seed: number }
+  | { type: "grass"; x: number; y: number; variant: number }
+  | { type: "petal"; x: number; y: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -34,6 +36,10 @@ export function createWorldLayout(playerSpawn: Point) {
   paths.push({ x: 2400, y: 2720, w: 1430, h: 120 });
   paths.push({ x: 1500, y: 3950, w: 2100, h: 120 });
 
+  const isOnRoad = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+
   for (let index = 0; index < 36; index += 1) {
     const side = index % 4;
     let x = 0;
@@ -50,11 +56,21 @@ export function createWorldLayout(playerSpawn: Point) {
   for (let index = 0; index < 360; index += 1) {
     const x = rand(55, WORLD.w - 55);
     const y = rand(55, WORLD.h - 55);
-    const onRoad = paths.some((path) =>
-      x > path.x - 35 && x < path.x + path.w + 35 && y > path.y - 35 && y < path.y + path.h + 35);
-    if (!onRoad && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
+    if (!isOnRoad(x, y, 35) && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
       decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), seed: Math.random() });
     }
+  }
+
+  for (let index = 0; index < 430; index += 1) {
+    const x = rand(24, WORLD.w - 24);
+    const y = rand(24, WORLD.h - 24);
+    if (!isOnRoad(x, y, 8)) decor.push({ type: "grass", x, y, variant: index % 4 });
+  }
+
+  for (let index = 0; index < 115; index += 1) {
+    const x = rand(24, WORLD.w - 24);
+    const y = rand(24, WORLD.h - 24);
+    if (!isOnRoad(x, y, 8)) decor.push({ type: "petal", x, y, variant: index % 3 });
   }
   return { decor, paths };
 }

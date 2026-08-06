@@ -128,6 +128,12 @@ export function loadEnemySprites(): Record<EnemyKind, LoadedEnemySprite> {
   })) as Record<EnemyKind, LoadedEnemySprite>;
 }
 
+export function loadActorShadowSprite() {
+  const image = new Image();
+  image.src = "assets/wildwood/2D Character - Casual Monsters/_PNG/slime/shadow.png";
+  return image;
+}
+
 export function damageRewardForHp(maxHp: number, explicitReward?: number) {
   return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
 }

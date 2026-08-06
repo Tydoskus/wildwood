@@ -272,6 +272,11 @@
       return [kind, { size: source.size, image }];
     }));
   }
+  function loadActorShadowSprite() {
+    const image = new Image();
+    image.src = "assets/wildwood/2D Character - Casual Monsters/_PNG/slime/shadow.png";
+    return image;
+  }
   function damageRewardForHp(maxHp, explicitReward) {
     return explicitReward ?? Math.max(1, Math.floor(maxHp / 12));
   }
@@ -292,6 +297,7 @@
     paths.push({ x: 780, y: 2790, w: 1620, h: 120 });
     paths.push({ x: 2400, y: 2720, w: 1430, h: 120 });
     paths.push({ x: 1500, y: 3950, w: 2100, h: 120 });
+    const isOnRoad = (x, y, margin = 0) => paths.some((path) => x > path.x - margin && x < path.x + path.w + margin && y > path.y - margin && y < path.y + path.h + margin);
     for (let index = 0; index < 36; index += 1) {
       const side = index % 4;
       let x = 0;
@@ -327,10 +333,19 @@
     for (let index = 0; index < 360; index += 1) {
       const x = rand(55, WORLD.w - 55);
       const y = rand(55, WORLD.h - 55);
-      const onRoad = paths.some((path) => x > path.x - 35 && x < path.x + path.w + 35 && y > path.y - 35 && y < path.y + path.h + 35);
-      if (!onRoad && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
+      if (!isOnRoad(x, y, 35) && Math.hypot(x - playerSpawn.x, y - playerSpawn.y) > 420) {
         decor.push({ type: "tree", x, y, s: rand(0.7, 1.35), seed: Math.random() });
       }
+    }
+    for (let index = 0; index < 430; index += 1) {
+      const x = rand(24, WORLD.w - 24);
+      const y = rand(24, WORLD.h - 24);
+      if (!isOnRoad(x, y, 8)) decor.push({ type: "grass", x, y, variant: index % 4 });
+    }
+    for (let index = 0; index < 115; index += 1) {
+      const x = rand(24, WORLD.w - 24);
+      const y = rand(24, WORLD.h - 24);
+      if (!isOnRoad(x, y, 8)) decor.push({ type: "petal", x, y, variant: index % 3 });
     }
     return { decor, paths };
   }
@@ -582,7 +597,7 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    const GAME_VERSION = "0.198";
+    const GAME_VERSION = "0.199";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -769,6 +784,7 @@
     playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
     playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
     const ENEMY_SPRITES = loadEnemySprites();
+    const actorShadowSprite = loadActorShadowSprite();
     function resize() {
       viewW = innerWidth;
       viewH = innerHeight;
@@ -1783,26 +1799,14 @@
         }
         return;
       }
-      ctx.fillStyle = "#102b19";
+      ctx.fillStyle = "#31945b";
       ctx.fillRect(0, 0, visibleW, visibleH);
-      const tile = 32;
-      const sx = Math.floor(camera.x / tile) * tile;
-      const sy = Math.floor(camera.y / tile) * tile;
-      for (let y = sy; y < camera.y + visibleH + tile; y += tile) {
-        for (let x = sx; x < camera.x + visibleW + tile; x += tile) {
-          const n = x * 13 + y * 7 >>> 5 & 3;
-          ctx.fillStyle = ["#12301c", "#102d1a", "#14331e", "#112f1b"][n];
-          ctx.fillRect(Math.floor(x - camera.x), Math.floor(y - camera.y), tile, tile);
-          ctx.fillStyle = "rgba(0,0,0,.08)";
-          ctx.fillRect(Math.floor(x - camera.x + n * 7 % 26), Math.floor(y - camera.y + n * 11 % 26), 3, 3);
-        }
-      }
       for (const p of paths) {
         const x = Math.floor(p.x - camera.x);
         const y = Math.floor(p.y - camera.y);
-        ctx.fillStyle = "#775243";
+        ctx.fillStyle = "#8b6551";
         ctx.fillRect(x, y, p.w, p.h);
-        ctx.fillStyle = "rgba(255,255,255,.035)";
+        ctx.fillStyle = "rgba(68,38,29,.12)";
         for (let yy = y + 7; yy < y + p.h; yy += 18) {
           for (let xx = x + (yy / 18 % 2 ? 4 : 12); xx < x + p.w; xx += 24) {
             ctx.fillRect(xx, yy, 2, 2);
@@ -1853,9 +1857,55 @@
       ctx.fillStyle = "rgba(129,233,116,.18)";
       pixelCircle(x - 5 * s, y - 9 * s, 8 * s);
     }
+    function drawGrass(o) {
+      const x = Math.floor(o.x - camera.x);
+      const y = Math.floor(o.y - camera.y);
+      const visibleW = viewW / camera.zoom;
+      const visibleH = viewH / camera.zoom;
+      if (x < -8 || y < -8 || x > visibleW + 8 || y > visibleH + 8) return;
+      ctx.fillStyle = o.variant % 2 ? "#237b49" : "#267f4c";
+      ctx.fillRect(x - 1, y - 5, 2, 7);
+      ctx.fillRect(x - 5, y - 2, 2, 5);
+      ctx.fillRect(x + 3, y - 3, 2, 6);
+      if (o.variant > 1) ctx.fillRect(x + 6, y, 2, 3);
+    }
+    function drawPetal(o) {
+      const x = Math.floor(o.x - camera.x);
+      const y = Math.floor(o.y - camera.y);
+      const visibleW = viewW / camera.zoom;
+      const visibleH = viewH / camera.zoom;
+      if (x < -8 || y < -8 || x > visibleW + 8 || y > visibleH + 8) return;
+      ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][o.variant % 3];
+      ctx.fillRect(x - 3, y - 1, 7, 3);
+      ctx.fillRect(x - 1, y - 3, 3, 7);
+      ctx.fillStyle = "rgba(255,255,255,.72)";
+      ctx.fillRect(x, y, 1, 1);
+    }
     function drawDecor() {
+      for (const o of decor) if (o.type === "grass") drawGrass(o);
+      for (const o of decor) if (o.type === "petal") drawPetal(o);
       for (const o of decor) if (o.type === "stone") drawStone(o);
       for (const o of decor) if (o.type === "tree") drawTree(o);
+    }
+    function drawActorShadow(x, y, width, alpha = 0.38) {
+      const height = Math.max(8, Math.round(width * 33 / 86));
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (actorShadowSprite.complete && actorShadowSprite.naturalWidth > 0) {
+        ctx.drawImage(
+          actorShadowSprite,
+          Math.round(x - width / 2),
+          Math.round(y - height / 2),
+          Math.round(width),
+          height
+        );
+      } else {
+        ctx.fillStyle = "#102719";
+        ctx.beginPath();
+        ctx.ellipse(x, y, width / 2, height / 2, 0, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
     }
     function drawDuelArena() {
       if (!isArenaScene()) return;
@@ -1886,6 +1936,7 @@
     function drawDuelCombatant(actor) {
       const x = Math.floor(actor.x - camera.x);
       const y = Math.floor(actor.y - camera.y);
+      drawActorShadow(x, y + 29, 54, actor.isLocal ? 0.42 : 0.34);
       if (playerSprite.complete && playerSprite.naturalWidth > 0) {
         const cellW = playerSprite.naturalWidth / 4;
         const cellH = playerSprite.naturalHeight / 4;
@@ -1977,6 +2028,7 @@
     function drawPlayer() {
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
+      drawActorShadow(x, y + 29, 54, 0.42);
       const blink = player.hurtClock > 0 && Math.floor(player.hurtClock * 18) % 2 === 0;
       if (blink) return;
       if (playerSprite.complete && playerSprite.naturalWidth > 0) {
@@ -2047,6 +2099,7 @@
         const visibleW = viewW / camera.zoom;
         const visibleH = viewH / camera.zoom;
         if (x < -65 || y < -70 || x > visibleW + 65 || y > visibleH + 70) continue;
+        drawActorShadow(x, y + 29, 54, 0.32);
         if (playerSprite.complete && playerSprite.naturalWidth > 0) {
           const cellW = playerSprite.naturalWidth / 4;
           const cellH = playerSprite.naturalHeight / 4;
@@ -2180,15 +2233,14 @@
       const y = Math.floor(e.y - camera.y);
       const base = ENEMY_TYPES[e.type];
       if (x < -80 || y < -80 || x > visibleW + 80 || y > visibleH + 80) return;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.fillStyle = "rgba(0,0,0,.28)";
-      ctx.beginPath();
-      ctx.ellipse(0, e.r * 0.76, e.r * 0.92, e.r * 0.34, 0, 0, TAU);
-      ctx.fill();
       const sprite = ENEMY_SPRITES[e.type];
       const spriteReady = (sprite == null ? void 0 : sprite.layers) ? sprite.layers.every((layer) => layer.image.complete && layer.image.naturalWidth > 0) : (sprite == null ? void 0 : sprite.image.complete) && sprite.image.naturalWidth > 0;
       const spriteHeight = spriteReady ? sprite.height ?? sprite.size * sprite.image.naturalHeight / sprite.image.naturalWidth : e.r * 2;
+      const shadowWidth = Math.max(34, Math.min(76, ((sprite == null ? void 0 : sprite.size) ?? e.r * 2) * 0.9));
+      const shadowY = y + Math.max(10, Math.min(30, spriteHeight / 2 - 4));
+      drawActorShadow(x, shadowY, shadowWidth, 0.36);
+      ctx.save();
+      ctx.translate(x, y);
       if (spriteReady) {
         ctx.globalAlpha = e.hurt > 0 ? 0.7 : 1;
         if (sprite.layers) {
@@ -2260,9 +2312,9 @@
       ctx.save();
       roundRect(x + 5, y + 5, size - 10, size - 10, 7);
       ctx.clip();
-      ctx.fillStyle = "#244a2c";
+      ctx.fillStyle = "#31945b";
       ctx.fillRect(x + 5, y + 5, size - 10, size - 10);
-      ctx.fillStyle = "#8a6250";
+      ctx.fillStyle = "#8b6551";
       for (const p of paths) {
         ctx.fillRect(x + p.x * sx, y + p.y * sy, p.w * sx, p.h * sy);
       }
