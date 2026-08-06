@@ -8209,6 +8209,7 @@ ${ty.variants.map(
   };
   const RequestDuelReducer = {};
   const ResetPlayerProgressReducer = {};
+  const ResumeSessionReducer = {};
   const SavePlayerProgressReducer = {
     maxHp: t.f32(),
     damage: t.f32(),
@@ -8460,6 +8461,7 @@ ${ty.variants.map(
     reducerSchema("register_protocol", RegisterProtocolReducer),
     reducerSchema("request_duel", RequestDuelReducer),
     reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
+    reducerSchema("resume_session", ResumeSessionReducer),
     reducerSchema("save_player_progress", SavePlayerProgressReducer),
     reducerSchema("send_chat_message", SendChatMessageReducer),
     reducerSchema("set_display_name", SetDisplayNameReducer),
@@ -8498,7 +8500,7 @@ ${ty.variants.map(
   const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 10;
+  const PROTOCOL_VERSION = 11;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8516,6 +8518,7 @@ ${ty.variants.map(
   const guestTokenKey = `${tokenKey}/guest_v1`;
   const accountTokenKey = `${tokenKey}/spacetimeauth_id_token_v1`;
   const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
+  const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
   const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
   const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
   const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
@@ -8545,8 +8548,13 @@ ${ty.variants.map(
   let reconnectTimer = null;
   let connecting = false;
   let connectionGeneration = 0;
+  let sessionGeneration = 0;
+  let hydrationReady = false;
+  let connectedSignedIn = false;
   let guestSessionExplicit = false;
   let pageWasHidden = false;
+  let pageHiddenAt = 0;
+  let lastServerActivityAt = performance.now();
   let localState = null;
   let localDisplayName = "";
   let localProfileReady = false;
@@ -8556,10 +8564,12 @@ ${ty.variants.map(
   let onChange = null;
   let pendingProgress = null;
   let progressSaveInFlightUntil = 0;
+  let progressSavePromise = null;
   let authNotice = "";
   let protocolBlocked = false;
   let protocolRefreshScheduled = false;
   let accountLinkClaiming = false;
+  let resumeProbePromise = null;
   let accountCallbackPending = new URL(window.location.href).searchParams.has("code") || new URL(window.location.href).searchParams.has("error");
   let accountReturnPending = accountCallbackPending && (() => {
     try {
@@ -8570,6 +8580,9 @@ ${ty.variants.map(
   })();
   function reducerErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+  }
+  function touchServerActivity() {
+    lastServerActivityAt = performance.now();
   }
   function handleReducerFailure(action, error) {
     const message = reducerErrorMessage(error);
@@ -8597,7 +8610,6 @@ ${ty.variants.map(
         handleReducerFailure(action, error);
       });
     } catch (error) {
-      onRejected == null ? void 0 : onRejected();
       handleReducerFailure(action, error);
     }
   }
@@ -8607,6 +8619,51 @@ ${ty.variants.map(
     } catch {
       return null;
     }
+  }
+  function readTabValue(key) {
+    try {
+      const current = sessionStorage.getItem(key);
+      if (current !== null) return current;
+      const legacy = localStorage.getItem(key);
+      if (legacy !== null) {
+        sessionStorage.setItem(key, legacy);
+        localStorage.removeItem(key);
+      }
+      return legacy;
+    } catch {
+      return null;
+    }
+  }
+  function writeTabValue(key, value) {
+    sessionStorage.setItem(key, value);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+    }
+  }
+  function clearTabValue(key) {
+    try {
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    } catch {
+    }
+  }
+  function readAccountLinkTransaction() {
+    const stored = readTabValue(accountLinkKey);
+    if (!stored) return null;
+    try {
+      const parsed = JSON.parse(stored);
+      if (typeof parsed.code === "string" && typeof parsed.guestIdentity === "string") {
+        return { code: parsed.code, guestIdentity: parsed.guestIdentity };
+      }
+    } catch {
+      if (/^[A-Za-z0-9_-]{32,128}$/.test(stored)) return { code: stored, guestIdentity: "" };
+    }
+    clearTabValue(accountLinkKey);
+    return null;
+  }
+  function writeAccountLinkTransaction(transaction) {
+    writeTabValue(accountLinkKey, JSON.stringify(transaction));
   }
   function clearStoredToken(key) {
     try {
@@ -8654,7 +8711,7 @@ ${ty.variants.map(
   }
   function rememberConfirmedCharacter(displayName) {
     if (!displayName || isGeneratedDisplayName(displayName)) return;
-    if (accountToken()) {
+    if ((connection == null ? void 0 : connection.isActive) ? connectedSignedIn : Boolean(accountToken())) {
       rememberAccountCharacter(displayName);
       return;
     }
@@ -8667,6 +8724,57 @@ ${ty.variants.map(
     accountReturnPending = false;
     try {
       sessionStorage.removeItem(authReturnUiKey);
+    } catch {
+    }
+  }
+  function authTabId() {
+    const key = `${accountMigrationPendingKey}/tab_id`;
+    try {
+      const existing = sessionStorage.getItem(key);
+      if (existing) return existing;
+      const created = randomUrlSafe(12);
+      sessionStorage.setItem(key, created);
+      return created;
+    } catch {
+      return "current-tab";
+    }
+  }
+  function readMigrationBarriers() {
+    try {
+      const stored = localStorage.getItem(accountMigrationPendingKey);
+      if (!stored) return {};
+      const legacyTimestamp = Number(stored);
+      if (Number.isFinite(legacyTimestamp) && legacyTimestamp > 0) return { legacy: legacyTimestamp };
+      const parsed = JSON.parse(stored);
+      const barriers = {};
+      for (const [tab, startedAt] of Object.entries(parsed)) {
+        if (Number.isFinite(startedAt) && Date.now() - Number(startedAt) < 15 * 6e4) {
+          barriers[tab] = Number(startedAt);
+        }
+      }
+      return barriers;
+    } catch {
+      return {};
+    }
+  }
+  function markAccountMigrationPending() {
+    try {
+      const barriers = readMigrationBarriers();
+      barriers[authTabId()] = Date.now();
+      localStorage.setItem(accountMigrationPendingKey, JSON.stringify(barriers));
+    } catch {
+    }
+  }
+  function accountMigrationPending() {
+    return Object.keys(readMigrationBarriers()).length > 0;
+  }
+  function clearAccountMigrationPending() {
+    try {
+      const barriers = readMigrationBarriers();
+      delete barriers[authTabId()];
+      delete barriers.legacy;
+      if (Object.keys(barriers).length) localStorage.setItem(accountMigrationPendingKey, JSON.stringify(barriers));
+      else localStorage.removeItem(accountMigrationPendingKey);
     } catch {
     }
   }
@@ -8719,13 +8827,16 @@ ${ty.variants.map(
     const authError = url.searchParams.get("error");
     if (!code && !authError) return;
     const state = url.searchParams.get("state");
-    const expectedState = localStorage.getItem(authStateKey);
-    const verifier = localStorage.getItem(authVerifierKey);
+    const expectedState = readTabValue(authStateKey);
+    const verifier = readTabValue(authVerifierKey);
     const cleanUrl = `${url.pathname}${url.hash}`;
     if (!state || state !== expectedState || !verifier) {
       accountCallbackPending = false;
       clearAccountReturnPending();
       authNotice = "SIGN-IN CHECK FAILED";
+      if (readAccountLinkTransaction()) clearAccountMigrationPending();
+      clearTabValue(authStateKey);
+      clearTabValue(authVerifierKey);
       history.replaceState({}, "", cleanUrl);
       return;
     }
@@ -8733,8 +8844,9 @@ ${ty.variants.map(
       accountCallbackPending = false;
       clearAccountReturnPending();
       authNotice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
-      localStorage.removeItem(authStateKey);
-      localStorage.removeItem(authVerifierKey);
+      if (readAccountLinkTransaction()) clearAccountMigrationPending();
+      clearTabValue(authStateKey);
+      clearTabValue(authVerifierKey);
       history.replaceState({}, "", cleanUrl);
       return;
     }
@@ -8760,12 +8872,13 @@ ${ty.variants.map(
       authNotice = "SIGNED IN";
     } catch (error) {
       authNotice = "SIGN-IN FAILED";
+      if (readAccountLinkTransaction()) clearAccountMigrationPending();
       clearAccountReturnPending();
       console.warn("Wildwood account sign-in failed:", error);
     } finally {
       accountCallbackPending = false;
-      localStorage.removeItem(authStateKey);
-      localStorage.removeItem(authVerifierKey);
+      clearTabValue(authStateKey);
+      clearTabValue(authVerifierKey);
       history.replaceState({}, "", cleanUrl);
     }
   }
@@ -8778,8 +8891,8 @@ ${ty.variants.map(
     const verifier = randomUrlSafe(48);
     const state = randomUrlSafe(24);
     const challenge = await sha256UrlSafe(verifier);
-    localStorage.setItem(authStateKey, state);
-    localStorage.setItem(authVerifierKey, verifier);
+    writeTabValue(authStateKey, state);
+    writeTabValue(authVerifierKey, verifier);
     const url = new URL(SPACETIME_AUTHORIZATION_ENDPOINT);
     const parameters = new URLSearchParams({
       client_id: SPACETIME_AUTH_CLIENT_ID,
@@ -8844,9 +8957,25 @@ ${ty.variants.map(
       progress.speed
     ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) && typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" && typeof progress.equippedFeet === "string";
   }
+  function pendingProgressStorageKey(identity) {
+    return `${pendingProgressKey}/${identity}`;
+  }
   function readPendingProgress(identity) {
     try {
-      const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
+      const scopedKey = pendingProgressStorageKey(identity);
+      let serialized = localStorage.getItem(scopedKey);
+      if (!serialized) {
+        const legacy = localStorage.getItem(pendingProgressKey);
+        if (legacy) {
+          const legacyCandidate = JSON.parse(legacy);
+          if ((legacyCandidate == null ? void 0 : legacyCandidate.identity) === identity) {
+            serialized = legacy;
+            localStorage.setItem(scopedKey, legacy);
+            localStorage.removeItem(pendingProgressKey);
+          }
+        }
+      }
+      const candidate = JSON.parse(serialized || "null");
       if (!candidate || typeof candidate !== "object") return null;
       const pending = candidate;
       if (pending.identity !== identity || !isProgressSave(pending.progress)) return null;
@@ -8856,7 +8985,7 @@ ${ty.variants.map(
         attackRate: bounded(rawProgress.attackRate * 2, MIN_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL)
       });
       if (pending.balanceVersion !== ATTACK_BALANCE_VERSION) {
-        localStorage.setItem(pendingProgressKey, JSON.stringify({ identity, balanceVersion: ATTACK_BALANCE_VERSION, progress }));
+        localStorage.setItem(scopedKey, JSON.stringify({ identity, balanceVersion: ATTACK_BALANCE_VERSION, progress }));
       }
       return progress;
     } catch {
@@ -8867,7 +8996,7 @@ ${ty.variants.map(
     pendingProgress = copyProgress(progress);
     if (!localIdentity) return;
     try {
-      localStorage.setItem(pendingProgressKey, JSON.stringify({
+      localStorage.setItem(pendingProgressStorageKey(localIdentity), JSON.stringify({
         identity: localIdentity,
         balanceVersion: ATTACK_BALANCE_VERSION,
         progress: pendingProgress
@@ -8875,12 +9004,15 @@ ${ty.variants.map(
     } catch {
     }
   }
-  function clearPendingProgress() {
-    pendingProgress = null;
-    progressSaveInFlightUntil = 0;
+  function clearPendingProgress(identity = localIdentity) {
+    if (identity === localIdentity) {
+      pendingProgress = null;
+      progressSaveInFlightUntil = 0;
+    }
     try {
+      if (identity) localStorage.removeItem(pendingProgressStorageKey(identity));
       const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
-      if (!candidate || candidate.identity === localIdentity) localStorage.removeItem(pendingProgressKey);
+      if (!candidate || candidate.identity === identity) localStorage.removeItem(pendingProgressKey);
     } catch {
     }
   }
@@ -8904,17 +9036,39 @@ ${ty.variants.map(
       equippedFeet: pending.equippedFeet
     };
   }
-  function flushPendingProgress(force = false) {
-    if (protocolBlocked || !connection || !pendingProgress) return;
-    if (!force && Date.now() < progressSaveInFlightUntil) return;
+  function sameProgressSave(a, b) {
+    return JSON.stringify(copyProgress(a)) === JSON.stringify(copyProgress(b));
+  }
+  function flushPendingProgressAsync(force = false) {
+    if (progressSavePromise) return progressSavePromise;
+    if (protocolBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
+    if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
+    const conn = connection;
+    const identity = localIdentity;
+    const snapshot = copyProgress(pendingProgress);
     progressSaveInFlightUntil = Date.now() + 4e3;
-    sendReducer(
-      "progress save",
-      () => connection == null ? void 0 : connection.reducers.savePlayerProgress(copyProgress(pendingProgress)),
-      () => {
-        if (!protocolBlocked) progressSaveInFlightUntil = 0;
+    progressSavePromise = Promise.resolve(conn.reducers.savePlayerProgress(snapshot)).then(() => {
+      if (identity === localIdentity && pendingProgress && sameProgressSave(pendingProgress, snapshot)) {
+        clearPendingProgress(identity);
       }
-    );
+      return true;
+    }).catch((error) => {
+      if (!protocolBlocked) progressSaveInFlightUntil = 0;
+      handleReducerFailure("progress save", error);
+      return false;
+    }).finally(() => {
+      progressSavePromise = null;
+    });
+    return progressSavePromise;
+  }
+  function flushPendingProgress(force = false) {
+    void flushPendingProgressAsync(force);
+  }
+  async function drainPendingProgress() {
+    for (let attempt = 0; attempt < 3 && pendingProgress; attempt += 1) {
+      if (!await flushPendingProgressAsync(true)) return false;
+    }
+    return !pendingProgress;
   }
   window.setInterval(() => flushPendingProgress(), 2500);
   window.addEventListener("pagehide", () => flushPendingProgress(true));
@@ -9159,10 +9313,37 @@ ${ty.variants.map(
       connect();
     }, delay);
   }
-  function reconnectAfterWake() {
-    if (document.hidden || connecting) return;
-    if (connection == null ? void 0 : connection.isActive) connection.disconnect();
-    scheduleReconnect(200);
+  function reconnectAfterWake(force = false) {
+    if (document.hidden || connecting || resumeProbePromise) return;
+    const conn = connection;
+    if (force || !(conn == null ? void 0 : conn.isActive)) {
+      if (conn == null ? void 0 : conn.isActive) conn.disconnect();
+      scheduleReconnect(200);
+      return;
+    }
+    const hiddenFor = pageHiddenAt ? Date.now() - pageHiddenAt : 0;
+    const activityAge = performance.now() - lastServerActivityAt;
+    if (hiddenFor < 1e4 && activityAge < 3e4) {
+      onChange == null ? void 0 : onChange();
+      return;
+    }
+    const generation = connectionGeneration;
+    resumeProbePromise = Promise.race([
+      conn.reducers.resumeSession({}),
+      new Promise((_resolve, reject) => window.setTimeout(() => reject(new Error("Resume check timed out")), 2500))
+    ]).then(() => {
+      if (connection === conn && generation === connectionGeneration) {
+        touchServerActivity();
+        onChange == null ? void 0 : onChange();
+      }
+    }).catch(() => {
+      if (connection === conn && generation === connectionGeneration) {
+        conn.disconnect();
+        scheduleReconnect(200);
+      }
+    }).finally(() => {
+      resumeProbePromise = null;
+    });
   }
   function connect() {
     if ((connection == null ? void 0 : connection.isActive) || connecting) return;
@@ -9181,6 +9362,9 @@ ${ty.variants.map(
       }
       connection = conn;
       connecting = false;
+      hydrationReady = false;
+      connectedSignedIn = signedIn;
+      touchServerActivity();
       protocolBlocked = false;
       protocolRefreshScheduled = false;
       accountLinkClaiming = false;
@@ -9209,9 +9393,47 @@ ${ty.variants.map(
         } catch {
         }
       }
-      void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(() => {
+      void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
-        const isCurrentConnection = () => generation === connectionGeneration && connection === conn;
+        const isCurrentConnection = () => {
+          const current = generation === connectionGeneration && connection === conn;
+          if (current) touchServerActivity();
+          return current;
+        };
+        const accountLink = signedIn ? readAccountLinkTransaction() : null;
+        if (accountLink && !protocolBlocked) {
+          accountLinkClaiming = true;
+          authNotice = "LINKING ACCOUNT SAVE";
+          onChange == null ? void 0 : onChange();
+          try {
+            await conn.reducers.claimGuestAccount({ code: accountLink.code });
+            if (!isCurrentConnection()) return;
+            accountLinkClaiming = false;
+            clearTabValue(accountLinkKey);
+            clearAccountMigrationPending();
+            if (accountLink.guestIdentity) clearPendingProgress(accountLink.guestIdentity);
+            clearStoredToken(guestTokenKey);
+            authNotice = "ACCOUNT SAVE LINKED";
+          } catch (error) {
+            if (!isCurrentConnection()) return;
+            accountLinkClaiming = false;
+            const message = reducerErrorMessage(error);
+            clearTabValue(accountLinkKey);
+            if (/already has wildwood progress/i.test(message)) {
+              clearAccountMigrationPending();
+              authNotice = "ACCOUNT CHARACTER LOADED";
+            } else {
+              clearStoredToken(accountTokenKey);
+              clearAccountMigrationPending();
+              guestSessionExplicit = true;
+              clearAccountReturnPending();
+              authNotice = "GUEST SAVE NOT LINKED";
+              handleReducerFailure("account migration", error);
+              conn.disconnect();
+              return;
+            }
+          }
+        }
         conn.db.player.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertPlayer(row);
         });
@@ -9266,40 +9488,9 @@ ${ty.variants.map(
           for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
+          hydrationReady = true;
+          sessionGeneration += 1;
           flushPendingProgress();
-          const accountLink = signedIn ? localStorage.getItem(accountLinkKey) : null;
-          if (accountLink && !protocolBlocked && !accountLinkClaiming) {
-            accountLinkClaiming = true;
-            try {
-              void Promise.resolve(conn.reducers.claimGuestAccount({ code: accountLink })).then(() => {
-                accountLinkClaiming = false;
-                try {
-                  localStorage.removeItem(accountLinkKey);
-                } catch {
-                }
-                authNotice = "ACCOUNT SAVE LINKED";
-                onChange == null ? void 0 : onChange();
-              }).catch((error) => {
-                accountLinkClaiming = false;
-                try {
-                  localStorage.removeItem(accountLinkKey);
-                } catch {
-                }
-                authNotice = "ACCOUNT SAVE NOT LINKED";
-                handleReducerFailure("account migration", error);
-                onChange == null ? void 0 : onChange();
-              });
-            } catch (error) {
-              accountLinkClaiming = false;
-              try {
-                localStorage.removeItem(accountLinkKey);
-              } catch {
-              }
-              authNotice = "ACCOUNT SAVE NOT LINKED";
-              handleReducerFailure("account migration", error);
-              onChange == null ? void 0 : onChange();
-            }
-          }
           onChange == null ? void 0 : onChange();
         }).onError((ctx) => {
           if (!isCurrentConnection()) return;
@@ -9323,6 +9514,8 @@ ${ty.variants.map(
       if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
+      hydrationReady = false;
+      connectedSignedIn = false;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
@@ -9337,6 +9530,8 @@ ${ty.variants.map(
       if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
+      hydrationReady = false;
+      connectedSignedIn = false;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
@@ -9376,30 +9571,32 @@ ${ty.variants.map(
       onChange = callback;
     },
     isConnected() {
-      return Boolean(connection == null ? void 0 : connection.isActive);
+      return Boolean((connection == null ? void 0 : connection.isActive) && hydrationReady);
     },
     accountState() {
-      const signedIn = Boolean(accountToken());
+      const signedIn = (connection == null ? void 0 : connection.isActive) ? connectedSignedIn : Boolean(accountToken());
       return {
         signedIn,
         knownAccount: hasKnownAccount(),
         signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
         authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
         returningFromSignIn: accountReturnPending,
+        hydrated: hydrationReady,
         notice: authNotice
       };
     },
     knownCharacter() {
       const accountCharacter = rememberedAccountCharacter();
-      if (!accountToken() && (accountCharacter || hasKnownAccount())) return accountCharacter;
+      const signedIn = (connection == null ? void 0 : connection.isActive) ? connectedSignedIn : Boolean(accountToken());
+      if (!signedIn && (accountCharacter || hasKnownAccount())) return accountCharacter;
       const currentCharacter = localProfileReady && (localProgress == null ? void 0 : localProgress.introComplete) && !isGeneratedDisplayName(localDisplayName) ? localDisplayName.trim() : "";
-      const rememberedCharacter = accountToken() ? accountCharacter : rememberedGuestCharacter();
+      const rememberedCharacter = signedIn ? accountCharacter : rememberedGuestCharacter();
       return currentCharacter || rememberedCharacter;
     },
     async signIn() {
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
-      if (accountToken()) return { ok: true };
-      if (hasKnownAccount()) {
+      if ((connection == null ? void 0 : connection.isActive) ? connectedSignedIn : Boolean(accountToken())) return { ok: true };
+      if (hasKnownAccount() && !connection) {
         authNotice = "OPENING SIGN-IN";
         onChange == null ? void 0 : onChange();
         await startAccountSignIn();
@@ -9410,36 +9607,41 @@ ${ty.variants.map(
         onChange == null ? void 0 : onChange();
         return { ok: false, error: "WAIT FOR SERVER" };
       }
+      authNotice = "SAVING GUEST";
+      onChange == null ? void 0 : onChange();
+      if (!await drainPendingProgress()) {
+        authNotice = "GUEST SAVE FAILED · TRY AGAIN";
+        onChange == null ? void 0 : onChange();
+        return { ok: false, error: "GUEST SAVE FAILED" };
+      }
       const code = randomUrlSafe(40);
-      localStorage.setItem(accountLinkKey, code);
+      writeAccountLinkTransaction({ code, guestIdentity: localIdentity });
       try {
         await connection.reducers.beginAccountLink({ code });
       } catch (error) {
-        try {
-          localStorage.removeItem(accountLinkKey);
-        } catch {
-        }
+        clearTabValue(accountLinkKey);
         authNotice = "SIGN-IN NOT READY";
         handleReducerFailure("sign-in preparation", error);
         onChange == null ? void 0 : onChange();
         return { ok: false, error: "SIGN-IN NOT READY" };
       }
+      markAccountMigrationPending();
       authNotice = "PREPARING SIGN-IN";
       onChange == null ? void 0 : onChange();
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
       await startAccountSignIn();
       return { ok: true };
     },
     signOut() {
       try {
         localStorage.removeItem(accountTokenKey);
-        localStorage.removeItem(accountLinkKey);
-        localStorage.removeItem(authStateKey);
-        localStorage.removeItem(authVerifierKey);
         localStorage.removeItem(knownAccountKey);
+        localStorage.removeItem(accountMigrationPendingKey);
         sessionStorage.removeItem(silentAuthAttemptKey);
       } catch {
       }
+      clearTabValue(accountLinkKey);
+      clearTabValue(authStateKey);
+      clearTabValue(authVerifierKey);
       window.location.reload();
     },
     continueAsGuest() {
@@ -9450,6 +9652,9 @@ ${ty.variants.map(
     },
     localIdentity() {
       return localIdentity;
+    },
+    sessionGeneration() {
+      return sessionGeneration;
     },
     localState() {
       return localState;
@@ -9601,6 +9806,7 @@ ${ty.variants.map(
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       pageWasHidden = true;
+      pageHiddenAt = Date.now();
       return;
     }
     if (pageWasHidden) {
@@ -9609,9 +9815,20 @@ ${ty.variants.map(
     }
   });
   window.addEventListener("pageshow", (event) => {
-    if (event.persisted) reconnectAfterWake();
+    if (event.persisted) reconnectAfterWake(true);
   });
-  window.addEventListener("online", () => scheduleReconnect(100));
+  window.addEventListener("online", () => reconnectAfterWake());
+  window.addEventListener("storage", (event) => {
+    if (event.oldValue === event.newValue) return;
+    if (event.key === accountTokenKey) {
+      if (!accountMigrationPending()) window.location.reload();
+      return;
+    }
+    if (event.key === accountMigrationPendingKey && event.newValue === null) {
+      const shouldBeSignedIn = Boolean(accountToken());
+      if (!(connection == null ? void 0 : connection.isActive) || shouldBeSignedIn !== connectedSignedIn) window.location.reload();
+    }
+  });
   void restoreKnownAccount();
   exports.default = wildwoodCoop;
   exports.wildwoodCoop = wildwoodCoop;

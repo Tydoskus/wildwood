@@ -651,7 +651,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.215";
+    const GAME_VERSION = "0.216";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -801,6 +801,7 @@
     const inventory = { itemIds: [], equippedFeet: "", selectedItemId: "" };
     let hasSavedProgress = false;
     let progressLoaded = false;
+    let progressLoadedIdentity = "";
     let waitingForFreshStart = false;
     let startupKind = null;
     let newPlayerIntroShown = false;
@@ -1003,7 +1004,10 @@
       });
     }
     function loadProgress() {
-      if (progressLoaded || !coop || typeof coop.savedProgress !== "function") return;
+      var _a2;
+      if (!coop || typeof coop.savedProgress !== "function") return;
+      const progressIdentity = ((_a2 = coop.localIdentity) == null ? void 0 : _a2.call(coop)) || "";
+      if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
       const saved = coop.savedProgress();
       if (!saved) return;
       let legacy = null;
@@ -1035,6 +1039,7 @@
       renderInventory();
       hasSavedProgress = true;
       progressLoaded = true;
+      progressLoadedIdentity = progressIdentity;
       if (waitingForFreshStart) waitingForFreshStart = false;
       if (legacy && serverIsDefault) {
         saveProgress();
@@ -1614,6 +1619,7 @@
       }
     }
     let movementSyncActive = false;
+    let observedCoopSessionGeneration = 0;
     function activeDuel() {
       return coop && typeof coop.localDuel === "function" ? coop.localDuel() : null;
     }
@@ -3216,11 +3222,20 @@
     chat.init();
     if (coop && typeof coop.setOnChange === "function") {
       coop.setOnChange(() => {
-        var _a2;
+        var _a2, _b, _c, _d;
         loadProgress();
+        const nextSessionGeneration = ((_a2 = coop == null ? void 0 : coop.sessionGeneration) == null ? void 0 : _a2.call(coop)) || 0;
+        if (nextSessionGeneration !== observedCoopSessionGeneration) {
+          observedCoopSessionGeneration = nextSessionGeneration;
+          movementSyncActive = false;
+          if (running) {
+            (_b = coop.syncSpeed) == null ? void 0 : _b.call(coop, player.speed);
+            (_c = coop.syncPosition) == null ? void 0 : _c.call(coop, player.x, player.y, player.facing, player.moving, true);
+          }
+        }
         syncDragonState();
         finishStartup();
-        const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+        const account = (_d = coop == null ? void 0 : coop.accountState) == null ? void 0 : _d.call(coop);
         if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
         else if ((account == null ? void 0 : account.signInRequired) && !hasStarted) showAccountChoice();
         else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
@@ -3246,6 +3261,7 @@
       if (!confirm("Erase all saved Wildwood progress and start over?")) return;
       hasSavedProgress = false;
       progressLoaded = false;
+      progressLoadedIdentity = "";
       waitingForFreshStart = true;
       startupKind = null;
       newPlayerIntroShown = false;

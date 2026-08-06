@@ -5,7 +5,7 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 10;
+const PROTOCOL_VERSION = 11;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -106,6 +106,30 @@ const playerBalanceVersion = table(
   {
     identity: t.identity().primaryKey(),
     version: t.u32(),
+  },
+);
+
+// Presence belongs to a physical websocket, not an identity. Multiple tabs can
+// share one identity; only the controller connection owns movement and duels.
+const playerSession = table(
+  {
+    public: false,
+    indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }],
+  },
+  {
+    connectionId: t.connectionId().primaryKey(),
+    identity: t.identity(),
+    connectedAt: t.timestamp(),
+    protocolVersion: t.u32().default(0),
+    lastInputSequence: t.u32().default(0),
+  },
+);
+
+const playerController = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    connectionId: t.connectionId(),
   },
 );
 
@@ -286,6 +310,8 @@ const spacetimedb = schema({
   playerProgress,
   playerNameCooldown,
   playerBalanceVersion,
+  playerSession,
+  playerController,
   chatCooldown,
   duelRequestCooldown,
   accountLink,
@@ -373,10 +399,36 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
   ));
 }
 
-function requireCurrentProtocol(ctx: any) {
-  const current = ctx.db.player.identity.find(ctx.sender);
-  if (!current || current.protocolVersion !== PROTOCOL_VERSION) {
+function sameConnection(a: any, b: any) {
+  return a?.toHexString?.() === b?.toHexString?.();
+}
+
+function sessionForContext(ctx: any) {
+  return ctx.connectionId ? ctx.db.playerSession.connectionId.find(ctx.connectionId) : null;
+}
+
+function requireSession(ctx: any) {
+  const session = sessionForContext(ctx);
+  if (!session || !sameIdentity(session.identity, ctx.sender)) {
     throw new SenderError("Wildwood updated. Refresh to continue.");
+  }
+  return session;
+}
+
+function requireCurrentProtocol(ctx: any) {
+  const session = requireSession(ctx);
+  const current = ctx.db.player.identity.find(ctx.sender);
+  if (!current || session.protocolVersion !== PROTOCOL_VERSION) {
+    throw new SenderError("Wildwood updated. Refresh to continue.");
+  }
+  return current;
+}
+
+function requireControllingPlayer(ctx: any) {
+  const current = requireCurrentProtocol(ctx);
+  const controller = ctx.db.playerController.identity.find(ctx.sender);
+  if (!ctx.connectionId || !controller || !sameConnection(controller.connectionId, ctx.connectionId)) {
+    throw new SenderError("Wildwood is active in another tab.");
   }
   return current;
 }
@@ -442,6 +494,55 @@ function activeDuelFor(ctx: any, identity: any) {
     }
   }
   return null;
+}
+
+function removeIdentityPresence(ctx: any, identity: any) {
+  const currentDuel = activeDuelFor(ctx, identity);
+  if (currentDuel) {
+    if (currentDuel.status === "finishing") {
+      finishDuel(ctx, currentDuel);
+    } else {
+      const challengerDisconnected = sameIdentity(currentDuel.challenger, identity);
+      const remainingIdentity = challengerDisconnected ? currentDuel.opponent : currentDuel.challenger;
+      const remainingX = challengerDisconnected ? currentDuel.opponentOriginX : currentDuel.challengerOriginX;
+      const remainingY = challengerDisconnected ? currentDuel.opponentOriginY : currentDuel.challengerOriginY;
+      const remainingMaxHp = challengerDisconnected ? currentDuel.opponentMaxHp : currentDuel.challengerMaxHp;
+      returnDuelPlayer(ctx, remainingIdentity, remainingX, remainingY, remainingMaxHp);
+      ctx.db.duel.id.delete(currentDuel.id);
+    }
+  }
+  const activePlayer = ctx.db.player.identity.find(identity);
+  if (activePlayer) ctx.db.player.identity.delete(identity);
+}
+
+function clearOrphanPresence(ctx: any) {
+  const sessionsByIdentity = new Map<string, any[]>();
+  for (const session of ctx.db.playerSession.iter() as Iterable<any>) {
+    const key = session.identity.toHexString();
+    const sessions = sessionsByIdentity.get(key) ?? [];
+    sessions.push(session);
+    sessionsByIdentity.set(key, sessions);
+  }
+
+  const invalidControllers: any[] = [];
+  for (const controller of ctx.db.playerController.iter() as Iterable<any>) {
+    const session = ctx.db.playerSession.connectionId.find(controller.connectionId);
+    if (!session || !sameIdentity(session.identity, controller.identity)) invalidControllers.push(controller.identity);
+  }
+  for (const identity of invalidControllers) ctx.db.playerController.identity.delete(identity);
+
+  for (const sessions of sessionsByIdentity.values()) {
+    const identity = sessions[0].identity;
+    if (!ctx.db.playerController.identity.find(identity)) {
+      ctx.db.playerController.insert({ identity, connectionId: sessions[0].connectionId });
+    }
+  }
+
+  const orphanIdentities: any[] = [];
+  for (const activePlayer of ctx.db.player.iter() as Iterable<any>) {
+    if (!ctx.db.playerController.identity.find(activePlayer.identity)) orphanIdentities.push(activePlayer.identity);
+  }
+  for (const identity of orphanIdentities) removeIdentityPresence(ctx, identity);
 }
 
 function clearExpiredDuelRequests(ctx: any) {
@@ -786,6 +887,24 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
   ensureDragonBoss(ctx);
 
+  if (!ctx.connectionId) return;
+  const existingSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
+  const nextSession = {
+    connectionId: ctx.connectionId,
+    identity: ctx.sender,
+    connectedAt: ctx.timestamp,
+    protocolVersion: 0,
+    lastInputSequence: 0,
+  };
+  if (existingSession) ctx.db.playerSession.connectionId.update(nextSession);
+  else ctx.db.playerSession.insert(nextSession);
+
+  let controller = ctx.db.playerController.identity.find(ctx.sender);
+  if (!controller) {
+    controller = { identity: ctx.sender, connectionId: ctx.connectionId };
+    ctx.db.playerController.insert(controller);
+  }
+
   const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
     ctx.db.playerProfile.insert({
@@ -820,6 +939,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   const existing = ctx.db.player.identity.find(ctx.sender);
   const progressForPresence = existingProgress ?? defaultPlayerProgress(ctx.sender);
   const feetItem = equippedFeetForProgress(progressForPresence);
+  if (!sameConnection(controller.connectionId, ctx.connectionId)) return;
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
@@ -850,10 +970,10 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     x: PLAYER_SPAWN.x,
     y: PLAYER_SPAWN.y,
     facing: 0,
-    hp: 30,
-    maxHp: 30,
+    hp: progressForPresence.maxHp,
+    maxHp: progressForPresence.maxHp,
     power: powerForProgress(progressForPresence),
-    speed: PLAYER_SPEED,
+    speed: speedForBoots(progressForPresence.bootsCollected),
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
@@ -863,30 +983,32 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
 });
 
 export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
-  const currentDuel = activeDuelFor(ctx, ctx.sender);
-  if (currentDuel) {
-    if (currentDuel.status === "finishing") {
-      finishDuel(ctx, currentDuel);
-      ctx.db.player.identity.delete(ctx.sender);
-      return;
+  if (!ctx.connectionId) return;
+  const session = ctx.db.playerSession.connectionId.find(ctx.connectionId);
+  if (!session) return;
+  ctx.db.playerSession.connectionId.delete(ctx.connectionId);
+
+  const controller = ctx.db.playerController.identity.find(ctx.sender);
+  if (!controller || !sameConnection(controller.connectionId, ctx.connectionId)) return;
+
+  const replacement = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>][0];
+  if (replacement) {
+    ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: replacement.connectionId });
+    const currentPlayer = ctx.db.player.identity.find(ctx.sender);
+    if (currentPlayer) {
+      ctx.db.player.identity.update({
+        ...currentPlayer,
+        moving: false,
+        lastInputAt: ctx.timestamp,
+        lastInputSequence: replacement.lastInputSequence,
+        protocolVersion: replacement.protocolVersion,
+      });
     }
-    const challengerDisconnected = sameIdentity(currentDuel.challenger, ctx.sender);
-    const remainingIdentity = challengerDisconnected
-      ? currentDuel.opponent
-      : currentDuel.challenger;
-    const remainingX = challengerDisconnected
-      ? currentDuel.opponentOriginX
-      : currentDuel.challengerOriginX;
-    const remainingY = challengerDisconnected
-      ? currentDuel.opponentOriginY
-      : currentDuel.challengerOriginY;
-    const remainingMaxHp = challengerDisconnected
-      ? currentDuel.opponentMaxHp
-      : currentDuel.challengerMaxHp;
-    returnDuelPlayer(ctx, remainingIdentity, remainingX, remainingY, remainingMaxHp);
-    ctx.db.duel.id.delete(currentDuel.id);
+    return;
   }
-  ctx.db.player.identity.delete(ctx.sender);
+  ctx.db.playerController.identity.delete(ctx.sender);
+
+  removeIdentityPresence(ctx, ctx.sender);
 });
 
 export const runMaintenance = spacetimedb.reducer(
@@ -900,6 +1022,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredDuelRequests(ctx);
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
+    clearOrphanPresence(ctx);
   },
 );
 
@@ -923,7 +1046,7 @@ export const respawnDragon = spacetimedb.reducer(
 export const damageDragon = spacetimedb.reducer(
   {},
   (ctx) => {
-    const activePlayer = requireCurrentProtocol(ctx);
+    const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress) return;
@@ -983,9 +1106,21 @@ export const registerProtocol = spacetimedb.reducer(
     if (protocolVersion !== PROTOCOL_VERSION) {
       throw new SenderError("Wildwood updated. Refresh to continue.");
     }
+    const session = requireSession(ctx);
+    ctx.db.playerSession.connectionId.update({ ...session, protocolVersion });
     const current = ctx.db.player.identity.find(ctx.sender);
     if (!current) throw new SenderError("Player connection not ready.");
-    ctx.db.player.identity.update({ ...current, protocolVersion });
+    const controller = ctx.db.playerController.identity.find(ctx.sender);
+    if (ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
+      ctx.db.player.identity.update({ ...current, protocolVersion });
+    }
+  },
+);
+
+export const resumeSession = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    requireCurrentProtocol(ctx);
   },
 );
 
@@ -1011,6 +1146,9 @@ export const claimGuestAccount = spacetimedb.reducer(
     const link = ctx.db.accountLink.code.find(code);
     if (!link) throw new SenderError("Account link expired. Sign in again.");
     if (sameIdentity(link.guest, ctx.sender)) throw new SenderError("Invalid account link.");
+    if (activeDuelFor(ctx, link.guest) || activeDuelFor(ctx, ctx.sender)) {
+      throw new SenderError("Finish duel before linking this account.");
+    }
 
     const accountProgress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (accountProgress && !hasFreshProgress(accountProgress)) {
@@ -1018,9 +1156,8 @@ export const claimGuestAccount = spacetimedb.reducer(
     }
 
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
-    const nextProgress = guestProgress
-      ? { ...guestProgress, identity: ctx.sender }
-      : defaultPlayerProgress(ctx.sender);
+    if (!guestProgress) throw new SenderError("Guest save unavailable. Return to guest mode and try again.");
+    const nextProgress = { ...guestProgress, identity: ctx.sender };
     if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
     else ctx.db.playerProgress.insert(nextProgress);
 
@@ -1054,8 +1191,35 @@ export const claimGuestAccount = spacetimedb.reducer(
         maxHp: nextProgress.maxHp,
         speed: speedForBoots(nextProgress.bootsCollected),
         power: powerForProgress(nextProgress),
+        feetItem: equippedFeetForProgress(nextProgress),
       });
     }
+
+    const finalDisplayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? generatedDisplayName(ctx.sender);
+    const guestContribution = ctx.db.dragonContribution.identity.find(link.guest);
+    const accountContribution = ctx.db.dragonContribution.identity.find(ctx.sender);
+    if (guestContribution) {
+      const nextContribution = {
+        identity: ctx.sender,
+        encounter: guestContribution.encounter,
+        displayName: finalDisplayName,
+        damage: accountContribution?.encounter === guestContribution.encounter
+          ? accountContribution.damage + guestContribution.damage
+          : guestContribution.damage,
+      };
+      if (accountContribution) ctx.db.dragonContribution.identity.update(nextContribution);
+      else ctx.db.dragonContribution.insert(nextContribution);
+      ctx.db.dragonContribution.identity.delete(link.guest);
+    }
+    const guestDragonWindow = ctx.db.dragonAttackWindow.identity.find(link.guest);
+    if (guestDragonWindow) ctx.db.dragonAttackWindow.identity.delete(link.guest);
+    const accountDragonWindow = ctx.db.dragonAttackWindow.identity.find(ctx.sender);
+    if (accountDragonWindow) ctx.db.dragonAttackWindow.identity.delete(ctx.sender);
+
+    const accountBalance = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
+    const nextBalance = { identity: ctx.sender, version: ATTACK_BALANCE_VERSION };
+    if (accountBalance) ctx.db.playerBalanceVersion.identity.update(nextBalance);
+    else ctx.db.playerBalanceVersion.insert(nextBalance);
 
     // Migration transfers a guest save into the authenticated identity. Leave
     // no second durable save behind; otherwise an old guest token can later
@@ -1070,7 +1234,19 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestChatCooldown) ctx.db.chatCooldown.identity.delete(link.guest);
     const guestDuelRequestCooldown = ctx.db.duelRequestCooldown.identity.find(link.guest);
     if (guestDuelRequestCooldown) ctx.db.duelRequestCooldown.identity.delete(link.guest);
-    ctx.db.accountLink.code.delete(code);
+    const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
+    if (guestBalance) ctx.db.playerBalanceVersion.identity.delete(link.guest);
+
+    const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
+    for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
+    const guestController = ctx.db.playerController.identity.find(link.guest);
+    if (guestController) ctx.db.playerController.identity.delete(link.guest);
+
+    const guestLinkCodes: string[] = [];
+    for (const pendingLink of ctx.db.accountLink.iter() as Iterable<any>) {
+      if (sameIdentity(pendingLink.guest, link.guest)) guestLinkCodes.push(pendingLink.code);
+    }
+    for (const pendingCode of guestLinkCodes) ctx.db.accountLink.code.delete(pendingCode);
   },
 );
 
@@ -1223,7 +1399,7 @@ export const sendChatMessage = spacetimedb.reducer(
 export const requestDuel = spacetimedb.reducer(
   {},
   (ctx) => {
-    const challenger = requireCurrentProtocol(ctx);
+    const challenger = requireControllingPlayer(ctx);
     clearExpiredDuelRequests(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("You already have a duel request.");
 
@@ -1290,7 +1466,7 @@ export const requestDuel = spacetimedb.reducer(
 export const acceptDuel = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
-    requireCurrentProtocol(ctx);
+    requireControllingPlayer(ctx);
     const current = ctx.db.duel.id.find(id);
     if (!current || current.status !== "requested" || !sameIdentity(current.opponent, ctx.sender)) return;
     if (ctx.timestamp.microsSinceUnixEpoch - current.createdAt.microsSinceUnixEpoch > DUEL_REQUEST_TIMEOUT_MICROS) {
@@ -1365,7 +1541,7 @@ export const acceptDuel = spacetimedb.reducer(
 export const pulseDuel = spacetimedb.reducer(
   {},
   (ctx) => {
-    requireCurrentProtocol(ctx);
+    requireControllingPlayer(ctx);
     const current = activeDuelFor(ctx, ctx.sender);
     if (current?.status === "countdown" || current?.status === "active" || current?.status === "finishing") resolveDuel(ctx, current);
   },
@@ -1374,13 +1550,15 @@ export const pulseDuel = spacetimedb.reducer(
 export const syncPosition = spacetimedb.reducer(
   { x: t.f64(), y: t.f64(), facing: t.f64(), moving: t.bool(), sequence: t.u32() },
   (ctx, { x, y, facing, moving, sequence }) => {
-    const current = requireCurrentProtocol(ctx);
-    if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
+    const current = requireControllingPlayer(ctx);
+    const session = requireSession(ctx);
+    if (sequence <= session.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
       throw new SenderError("Position sync values must be finite");
     }
 
+    ctx.db.playerSession.connectionId.update({ ...session, lastInputSequence: sequence });
     ctx.db.player.identity.update({
       ...current,
       x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x)),
@@ -1396,7 +1574,7 @@ export const syncPosition = spacetimedb.reducer(
 export const setSpeed = spacetimedb.reducer(
   { speed: t.f32() },
   (ctx, { speed }) => {
-    const current = requireCurrentProtocol(ctx);
+    const current = requireControllingPlayer(ctx);
 
     const validSpeed = [PLAYER_SPEED, PLAYER_SPEED + BOOTS_SPEED_BONUS]
       .some((allowed) => Math.abs(speed - allowed) < 0.01);

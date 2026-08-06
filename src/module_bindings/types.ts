@@ -177,6 +177,12 @@ export const PlayerBalanceVersion = __t.object("PlayerBalanceVersion", {
 });
 export type PlayerBalanceVersion = __Infer<typeof PlayerBalanceVersion>;
 
+export const PlayerController = __t.object("PlayerController", {
+  identity: __t.identity(),
+  connectionId: __t.connectionId(),
+});
+export type PlayerController = __Infer<typeof PlayerController>;
+
 export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
   identity: __t.identity(),
   changedAt: __t.timestamp(),
@@ -206,4 +212,13 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   equippedFeet: __t.string(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
+
+export const PlayerSession = __t.object("PlayerSession", {
+  connectionId: __t.connectionId(),
+  identity: __t.identity(),
+  connectedAt: __t.timestamp(),
+  protocolVersion: __t.u32(),
+  lastInputSequence: __t.u32(),
+});
+export type PlayerSession = __Infer<typeof PlayerSession>;
 

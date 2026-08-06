@@ -53,7 +53,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.215";
+  const GAME_VERSION = "0.216";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -208,6 +208,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
   let hasSavedProgress = false;
   let progressLoaded = false;
+  let progressLoadedIdentity = "";
   let waitingForFreshStart = false;
   let startupKind = null;
   let newPlayerIntroShown = false;
@@ -437,7 +438,9 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   function loadProgress() {
-    if (progressLoaded || !coop || typeof coop.savedProgress !== "function") return;
+    if (!coop || typeof coop.savedProgress !== "function") return;
+    const progressIdentity = coop.localIdentity?.() || "";
+    if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
     const saved = coop.savedProgress();
     if (!saved) return;
 
@@ -479,6 +482,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
     renderInventory();
     hasSavedProgress = true;
     progressLoaded = true;
+    progressLoadedIdentity = progressIdentity;
     if (waitingForFreshStart) waitingForFreshStart = false;
     if (legacy && serverIsDefault) {
       saveProgress();
@@ -1125,6 +1129,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   }
 
   let movementSyncActive = false;
+  let observedCoopSessionGeneration = 0;
 
   function activeDuel() {
     return coop && typeof coop.localDuel === "function" ? coop.localDuel() : null;
@@ -2893,6 +2898,15 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
   if (coop && typeof coop.setOnChange === "function") {
     coop.setOnChange(() => {
       loadProgress();
+      const nextSessionGeneration = coop?.sessionGeneration?.() || 0;
+      if (nextSessionGeneration !== observedCoopSessionGeneration) {
+        observedCoopSessionGeneration = nextSessionGeneration;
+        movementSyncActive = false;
+        if (running) {
+          coop.syncSpeed?.(player.speed);
+          coop.syncPosition?.(player.x, player.y, player.facing, player.moving, true);
+        }
+      }
       syncDragonState();
       finishStartup();
       const account = coop?.accountState?.();
@@ -2924,6 +2938,7 @@ import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 
     hasSavedProgress = false;
     progressLoaded = false;
+    progressLoadedIdentity = "";
     waitingForFreshStart = true;
     startupKind = null;
     newPlayerIntroShown = false;

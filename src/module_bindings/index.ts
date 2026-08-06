@@ -43,6 +43,7 @@ import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
+import ResumeSessionReducer from "./resume_session_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
@@ -166,6 +167,7 @@ const reducersSchema = __reducers(
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
+  __reducerSchema("resume_session", ResumeSessionReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),

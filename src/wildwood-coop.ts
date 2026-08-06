@@ -140,7 +140,7 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 10;
+const PROTOCOL_VERSION = 11;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -159,6 +159,7 @@ const tokenKey = `${host}/${databaseName}/auth_token`;
 const guestTokenKey = `${tokenKey}/guest_v1`;
 const accountTokenKey = `${tokenKey}/spacetimeauth_id_token_v1`;
 const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
+const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
 const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
 const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
@@ -189,8 +190,13 @@ let nextPositionSequence = 0;
 let reconnectTimer: number | null = null;
 let connecting = false;
 let connectionGeneration = 0;
+let sessionGeneration = 0;
+let hydrationReady = false;
+let connectedSignedIn = false;
 let guestSessionExplicit = false;
 let pageWasHidden = false;
+let pageHiddenAt = 0;
+let lastServerActivityAt = performance.now();
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProfileReady = false;
@@ -200,10 +206,12 @@ let lastDuelPulseAt = 0;
 let onChange: (() => void) | null = null;
 let pendingProgress: ProgressSave | null = null;
 let progressSaveInFlightUntil = 0;
+let progressSavePromise: Promise<boolean> | null = null;
 let authNotice = "";
 let protocolBlocked = false;
 let protocolRefreshScheduled = false;
 let accountLinkClaiming = false;
+let resumeProbePromise: Promise<void> | null = null;
 let accountCallbackPending = new URL(window.location.href).searchParams.has("code") ||
   new URL(window.location.href).searchParams.has("error");
 let accountReturnPending = accountCallbackPending && (() => {
@@ -216,6 +224,10 @@ let accountReturnPending = accountCallbackPending && (() => {
 
 function reducerErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function touchServerActivity() {
+  lastServerActivityAt = performance.now();
 }
 
 function handleReducerFailure(action: string, error: unknown) {
@@ -260,6 +272,61 @@ function accountToken() {
   } catch {
     return null;
   }
+}
+
+type AccountLinkTransaction = {
+  code: string;
+  guestIdentity: string;
+};
+
+function readTabValue(key: string) {
+  try {
+    const current = sessionStorage.getItem(key);
+    if (current !== null) return current;
+    const legacy = localStorage.getItem(key);
+    if (legacy !== null) {
+      sessionStorage.setItem(key, legacy);
+      localStorage.removeItem(key);
+    }
+    return legacy;
+  } catch {
+    return null;
+  }
+}
+
+function writeTabValue(key: string, value: string) {
+  sessionStorage.setItem(key, value);
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function clearTabValue(key: string) {
+  try {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function readAccountLinkTransaction(): AccountLinkTransaction | null {
+  const stored = readTabValue(accountLinkKey);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as Partial<AccountLinkTransaction>;
+    if (typeof parsed.code === "string" && typeof parsed.guestIdentity === "string") {
+      return { code: parsed.code, guestIdentity: parsed.guestIdentity };
+    }
+  } catch {
+    // Legacy releases stored only the link code. Identity is unavailable, but
+    // server-side claim still remains safe and authoritative.
+    if (/^[A-Za-z0-9_-]{32,128}$/.test(stored)) return { code: stored, guestIdentity: "" };
+  }
+  clearTabValue(accountLinkKey);
+  return null;
+}
+
+function writeAccountLinkTransaction(transaction: AccountLinkTransaction) {
+  writeTabValue(accountLinkKey, JSON.stringify(transaction));
 }
 
 function clearStoredToken(key: string) {
@@ -309,7 +376,7 @@ function rememberedGuestCharacter() {
 
 function rememberConfirmedCharacter(displayName: string) {
   if (!displayName || isGeneratedDisplayName(displayName)) return;
-  if (accountToken()) {
+  if (connection?.isActive ? connectedSignedIn : Boolean(accountToken())) {
     rememberAccountCharacter(displayName);
     return;
   }
@@ -322,6 +389,60 @@ function clearAccountReturnPending() {
   accountReturnPending = false;
   try {
     sessionStorage.removeItem(authReturnUiKey);
+  } catch {}
+}
+
+function authTabId() {
+  const key = `${accountMigrationPendingKey}/tab_id`;
+  try {
+    const existing = sessionStorage.getItem(key);
+    if (existing) return existing;
+    const created = randomUrlSafe(12);
+    sessionStorage.setItem(key, created);
+    return created;
+  } catch {
+    return "current-tab";
+  }
+}
+
+function readMigrationBarriers() {
+  try {
+    const stored = localStorage.getItem(accountMigrationPendingKey);
+    if (!stored) return {} as Record<string, number>;
+    const legacyTimestamp = Number(stored);
+    if (Number.isFinite(legacyTimestamp) && legacyTimestamp > 0) return { legacy: legacyTimestamp };
+    const parsed = JSON.parse(stored) as Record<string, unknown>;
+    const barriers: Record<string, number> = {};
+    for (const [tab, startedAt] of Object.entries(parsed)) {
+      if (Number.isFinite(startedAt) && Date.now() - Number(startedAt) < 15 * 60_000) {
+        barriers[tab] = Number(startedAt);
+      }
+    }
+    return barriers;
+  } catch {
+    return {} as Record<string, number>;
+  }
+}
+
+function markAccountMigrationPending() {
+  try {
+    const barriers = readMigrationBarriers();
+    barriers[authTabId()] = Date.now();
+    localStorage.setItem(accountMigrationPendingKey, JSON.stringify(barriers));
+  } catch {}
+}
+
+function accountMigrationPending() {
+  return Object.keys(readMigrationBarriers()).length > 0;
+}
+
+function clearAccountMigrationPending() {
+  try {
+    const barriers = readMigrationBarriers();
+    delete barriers[authTabId()];
+    delete barriers.legacy;
+    if (Object.keys(barriers).length) localStorage.setItem(accountMigrationPendingKey, JSON.stringify(barriers));
+    else localStorage.removeItem(accountMigrationPendingKey);
   } catch {}
 }
 
@@ -379,13 +500,16 @@ async function completeAccountCallback() {
   const authError = url.searchParams.get("error");
   if (!code && !authError) return;
   const state = url.searchParams.get("state");
-  const expectedState = localStorage.getItem(authStateKey);
-  const verifier = localStorage.getItem(authVerifierKey);
+  const expectedState = readTabValue(authStateKey);
+  const verifier = readTabValue(authVerifierKey);
   const cleanUrl = `${url.pathname}${url.hash}`;
   if (!state || state !== expectedState || !verifier) {
     accountCallbackPending = false;
     clearAccountReturnPending();
     authNotice = "SIGN-IN CHECK FAILED";
+    if (readAccountLinkTransaction()) clearAccountMigrationPending();
+    clearTabValue(authStateKey);
+    clearTabValue(authVerifierKey);
     history.replaceState({}, "", cleanUrl);
     return;
   }
@@ -394,8 +518,9 @@ async function completeAccountCallback() {
     accountCallbackPending = false;
     clearAccountReturnPending();
     authNotice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
-    localStorage.removeItem(authStateKey);
-    localStorage.removeItem(authVerifierKey);
+    if (readAccountLinkTransaction()) clearAccountMigrationPending();
+    clearTabValue(authStateKey);
+    clearTabValue(authVerifierKey);
     history.replaceState({}, "", cleanUrl);
     return;
   }
@@ -422,12 +547,13 @@ async function completeAccountCallback() {
     authNotice = "SIGNED IN";
   } catch (error) {
     authNotice = "SIGN-IN FAILED";
+    if (readAccountLinkTransaction()) clearAccountMigrationPending();
     clearAccountReturnPending();
     console.warn("Wildwood account sign-in failed:", error);
   } finally {
     accountCallbackPending = false;
-    localStorage.removeItem(authStateKey);
-    localStorage.removeItem(authVerifierKey);
+    clearTabValue(authStateKey);
+    clearTabValue(authVerifierKey);
     history.replaceState({}, "", cleanUrl);
   }
 }
@@ -440,8 +566,8 @@ async function startAccountSignIn(silent = false) {
   const verifier = randomUrlSafe(48);
   const state = randomUrlSafe(24);
   const challenge = await sha256UrlSafe(verifier);
-  localStorage.setItem(authStateKey, state);
-  localStorage.setItem(authVerifierKey, verifier);
+  writeTabValue(authStateKey, state);
+  writeTabValue(authVerifierKey, verifier);
   const url = new URL(SPACETIME_AUTHORIZATION_ENDPOINT);
   const parameters = new URLSearchParams({
     client_id: SPACETIME_AUTH_CLIENT_ID,
@@ -515,9 +641,26 @@ function isProgressSave(value: unknown): value is ProgressSave {
     typeof progress.equippedFeet === "string";
 }
 
+function pendingProgressStorageKey(identity: string) {
+  return `${pendingProgressKey}/${identity}`;
+}
+
 function readPendingProgress(identity: string): ProgressSave | null {
   try {
-    const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
+    const scopedKey = pendingProgressStorageKey(identity);
+    let serialized = localStorage.getItem(scopedKey);
+    if (!serialized) {
+      const legacy = localStorage.getItem(pendingProgressKey);
+      if (legacy) {
+        const legacyCandidate = JSON.parse(legacy) as { identity?: unknown } | null;
+        if (legacyCandidate?.identity === identity) {
+          serialized = legacy;
+          localStorage.setItem(scopedKey, legacy);
+          localStorage.removeItem(pendingProgressKey);
+        }
+      }
+    }
+    const candidate = JSON.parse(serialized || "null");
     if (!candidate || typeof candidate !== "object") return null;
     const pending = candidate as { identity?: unknown; balanceVersion?: unknown; progress?: unknown };
     if (pending.identity !== identity || !isProgressSave(pending.progress)) return null;
@@ -529,7 +672,7 @@ function readPendingProgress(identity: string): ProgressSave | null {
           attackRate: bounded(rawProgress.attackRate * 2, MIN_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL),
         });
     if (pending.balanceVersion !== ATTACK_BALANCE_VERSION) {
-      localStorage.setItem(pendingProgressKey, JSON.stringify({ identity, balanceVersion: ATTACK_BALANCE_VERSION, progress }));
+      localStorage.setItem(scopedKey, JSON.stringify({ identity, balanceVersion: ATTACK_BALANCE_VERSION, progress }));
     }
     return progress;
   } catch {
@@ -541,7 +684,7 @@ function persistPendingProgress(progress: ProgressSave) {
   pendingProgress = copyProgress(progress);
   if (!localIdentity) return;
   try {
-    localStorage.setItem(pendingProgressKey, JSON.stringify({
+    localStorage.setItem(pendingProgressStorageKey(localIdentity), JSON.stringify({
       identity: localIdentity,
       balanceVersion: ATTACK_BALANCE_VERSION,
       progress: pendingProgress,
@@ -549,12 +692,15 @@ function persistPendingProgress(progress: ProgressSave) {
   } catch {}
 }
 
-function clearPendingProgress() {
-  pendingProgress = null;
-  progressSaveInFlightUntil = 0;
+function clearPendingProgress(identity = localIdentity) {
+  if (identity === localIdentity) {
+    pendingProgress = null;
+    progressSaveInFlightUntil = 0;
+  }
   try {
+    if (identity) localStorage.removeItem(pendingProgressStorageKey(identity));
     const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
-    if (!candidate || candidate.identity === localIdentity) localStorage.removeItem(pendingProgressKey);
+    if (!candidate || candidate.identity === identity) localStorage.removeItem(pendingProgressKey);
   } catch {}
 }
 
@@ -590,15 +736,45 @@ function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProg
   };
 }
 
-function flushPendingProgress(force = false) {
-  if (protocolBlocked || !connection || !pendingProgress) return;
-  if (!force && Date.now() < progressSaveInFlightUntil) return;
+function sameProgressSave(a: ProgressSave, b: ProgressSave) {
+  return JSON.stringify(copyProgress(a)) === JSON.stringify(copyProgress(b));
+}
+
+function flushPendingProgressAsync(force = false): Promise<boolean> {
+  if (progressSavePromise) return progressSavePromise;
+  if (protocolBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
+  if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
+  const conn = connection;
+  const identity = localIdentity;
+  const snapshot = copyProgress(pendingProgress);
   progressSaveInFlightUntil = Date.now() + 4_000;
-  sendReducer(
-    "progress save",
-    () => connection?.reducers.savePlayerProgress(copyProgress(pendingProgress!)),
-    () => { if (!protocolBlocked) progressSaveInFlightUntil = 0; },
-  );
+  progressSavePromise = Promise.resolve(conn.reducers.savePlayerProgress(snapshot))
+    .then(() => {
+      if (identity === localIdentity && pendingProgress && sameProgressSave(pendingProgress, snapshot)) {
+        clearPendingProgress(identity);
+      }
+      return true;
+    })
+    .catch((error) => {
+      if (!protocolBlocked) progressSaveInFlightUntil = 0;
+      handleReducerFailure("progress save", error);
+      return false;
+    })
+    .finally(() => {
+      progressSavePromise = null;
+    });
+  return progressSavePromise;
+}
+
+function flushPendingProgress(force = false) {
+  void flushPendingProgressAsync(force);
+}
+
+async function drainPendingProgress() {
+  for (let attempt = 0; attempt < 3 && pendingProgress; attempt += 1) {
+    if (!await flushPendingProgressAsync(true)) return false;
+  }
+  return !pendingProgress;
 }
 
 window.setInterval(() => flushPendingProgress(), 2_500);
@@ -915,12 +1091,42 @@ function scheduleReconnect(delay = 500) {
   }, delay);
 }
 
-function reconnectAfterWake() {
-  if (document.hidden || connecting) return;
-  // Mobile browsers can leave a dead WebSocket marked active after sleep.
-  // Reopen it when the game becomes visible again instead of waiting forever.
-  if (connection?.isActive) connection.disconnect();
-  scheduleReconnect(200);
+function reconnectAfterWake(force = false) {
+  if (document.hidden || connecting || resumeProbePromise) return;
+  const conn = connection;
+  if (force || !conn?.isActive) {
+    if (conn?.isActive) conn.disconnect();
+    scheduleReconnect(200);
+    return;
+  }
+
+  const hiddenFor = pageHiddenAt ? Date.now() - pageHiddenAt : 0;
+  const activityAge = performance.now() - lastServerActivityAt;
+  if (hiddenFor < 10_000 && activityAge < 30_000) {
+    onChange?.();
+    return;
+  }
+
+  const generation = connectionGeneration;
+  resumeProbePromise = Promise.race([
+    conn.reducers.resumeSession({}),
+    new Promise<never>((_resolve, reject) => window.setTimeout(() => reject(new Error("Resume check timed out")), 2_500)),
+  ])
+    .then(() => {
+      if (connection === conn && generation === connectionGeneration) {
+        touchServerActivity();
+        onChange?.();
+      }
+    })
+    .catch(() => {
+      if (connection === conn && generation === connectionGeneration) {
+        conn.disconnect();
+        scheduleReconnect(200);
+      }
+    })
+    .finally(() => {
+      resumeProbePromise = null;
+    });
 }
 
 function connect() {
@@ -944,6 +1150,9 @@ function connect() {
       }
       connection = conn;
       connecting = false;
+      hydrationReady = false;
+      connectedSignedIn = signedIn;
+      touchServerActivity();
       protocolBlocked = false;
       protocolRefreshScheduled = false;
       accountLinkClaiming = false;
@@ -971,9 +1180,50 @@ function connect() {
           localStorage.setItem(guestTokenKey, token);
         } catch {}
       }
-      void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(() => {
+      void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
-        const isCurrentConnection = () => generation === connectionGeneration && connection === conn;
+        const isCurrentConnection = () => {
+          const current = generation === connectionGeneration && connection === conn;
+          if (current) touchServerActivity();
+          return current;
+        };
+
+        const accountLink = signedIn ? readAccountLinkTransaction() : null;
+        if (accountLink && !protocolBlocked) {
+          accountLinkClaiming = true;
+          authNotice = "LINKING ACCOUNT SAVE";
+          onChange?.();
+          try {
+            await conn.reducers.claimGuestAccount({ code: accountLink.code });
+            if (!isCurrentConnection()) return;
+            accountLinkClaiming = false;
+            clearTabValue(accountLinkKey);
+            clearAccountMigrationPending();
+            if (accountLink.guestIdentity) clearPendingProgress(accountLink.guestIdentity);
+            clearStoredToken(guestTokenKey);
+            authNotice = "ACCOUNT SAVE LINKED";
+          } catch (error) {
+            if (!isCurrentConnection()) return;
+            accountLinkClaiming = false;
+            const message = reducerErrorMessage(error);
+            clearTabValue(accountLinkKey);
+            if (/already has wildwood progress/i.test(message)) {
+              clearAccountMigrationPending();
+              authNotice = "ACCOUNT CHARACTER LOADED";
+            } else {
+              // Never hydrate a fresh account after a failed guest migration.
+              // Return to the intact guest token instead of showing defaults.
+              clearStoredToken(accountTokenKey);
+              clearAccountMigrationPending();
+              guestSessionExplicit = true;
+              clearAccountReturnPending();
+              authNotice = "GUEST SAVE NOT LINKED";
+              handleReducerFailure("account migration", error);
+              conn.disconnect();
+              return;
+            }
+          }
+        }
 
         conn.db.player.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayer(row); });
         conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayer(row); });
@@ -1002,41 +1252,9 @@ function connect() {
           for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
+          hydrationReady = true;
+          sessionGeneration += 1;
           flushPendingProgress();
-          const accountLink = signedIn ? localStorage.getItem(accountLinkKey) : null;
-          if (accountLink && !protocolBlocked && !accountLinkClaiming) {
-            accountLinkClaiming = true;
-            // Reducers are acknowledged asynchronously. Show success only
-            // after the server accepts the migration, never on a timer.
-            try {
-              void Promise.resolve(conn.reducers.claimGuestAccount({ code: accountLink }))
-                .then(() => {
-                  accountLinkClaiming = false;
-                  try {
-                    localStorage.removeItem(accountLinkKey);
-                  } catch {}
-                  authNotice = "ACCOUNT SAVE LINKED";
-                  onChange?.();
-                })
-                .catch((error) => {
-                  accountLinkClaiming = false;
-                  try {
-                    localStorage.removeItem(accountLinkKey);
-                  } catch {}
-                  authNotice = "ACCOUNT SAVE NOT LINKED";
-                  handleReducerFailure("account migration", error);
-                  onChange?.();
-                });
-            } catch (error) {
-              accountLinkClaiming = false;
-              try {
-                localStorage.removeItem(accountLinkKey);
-              } catch {}
-              authNotice = "ACCOUNT SAVE NOT LINKED";
-              handleReducerFailure("account migration", error);
-              onChange?.();
-            }
-          }
           onChange?.();
         })
         .onError((ctx) => {
@@ -1063,6 +1281,8 @@ function connect() {
       if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
+      hydrationReady = false;
+      connectedSignedIn = false;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
@@ -1078,6 +1298,8 @@ function connect() {
       if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
+      hydrationReady = false;
+      connectedSignedIn = false;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
@@ -1119,32 +1341,34 @@ export const wildwoodCoop = {
     onChange = callback;
   },
   isConnected() {
-    return Boolean(connection?.isActive);
+    return Boolean(connection?.isActive && hydrationReady);
   },
   accountState() {
-    const signedIn = Boolean(accountToken());
+    const signedIn = connection?.isActive ? connectedSignedIn : Boolean(accountToken());
     return {
       signedIn,
       knownAccount: hasKnownAccount(),
       signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
       authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
       returningFromSignIn: accountReturnPending,
+      hydrated: hydrationReady,
       notice: authNotice,
     };
   },
   knownCharacter() {
     const accountCharacter = rememberedAccountCharacter();
-    if (!accountToken() && (accountCharacter || hasKnownAccount())) return accountCharacter;
+    const signedIn = connection?.isActive ? connectedSignedIn : Boolean(accountToken());
+    if (!signedIn && (accountCharacter || hasKnownAccount())) return accountCharacter;
     const currentCharacter = localProfileReady && localProgress?.introComplete && !isGeneratedDisplayName(localDisplayName)
       ? localDisplayName.trim()
       : "";
-    const rememberedCharacter = accountToken() ? accountCharacter : rememberedGuestCharacter();
+    const rememberedCharacter = signedIn ? accountCharacter : rememberedGuestCharacter();
     return currentCharacter || rememberedCharacter;
   },
   async signIn() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
-    if (accountToken()) return { ok: true };
-    if (hasKnownAccount()) {
+    if (connection?.isActive ? connectedSignedIn : Boolean(accountToken())) return { ok: true };
+    if (hasKnownAccount() && !connection) {
       authNotice = "OPENING SIGN-IN";
       onChange?.();
       await startAccountSignIn();
@@ -1155,34 +1379,40 @@ export const wildwoodCoop = {
       onChange?.();
       return { ok: false, error: "WAIT FOR SERVER" };
     }
+    authNotice = "SAVING GUEST";
+    onChange?.();
+    if (!await drainPendingProgress()) {
+      authNotice = "GUEST SAVE FAILED · TRY AGAIN";
+      onChange?.();
+      return { ok: false, error: "GUEST SAVE FAILED" };
+    }
     const code = randomUrlSafe(40);
-    localStorage.setItem(accountLinkKey, code);
+    writeAccountLinkTransaction({ code, guestIdentity: localIdentity });
     try {
       await connection.reducers.beginAccountLink({ code });
     } catch (error) {
-      try {
-        localStorage.removeItem(accountLinkKey);
-      } catch {}
+      clearTabValue(accountLinkKey);
       authNotice = "SIGN-IN NOT READY";
       handleReducerFailure("sign-in preparation", error);
       onChange?.();
       return { ok: false, error: "SIGN-IN NOT READY" };
     }
+    markAccountMigrationPending();
     authNotice = "PREPARING SIGN-IN";
     onChange?.();
-    await new Promise((resolve) => window.setTimeout(resolve, 450));
     await startAccountSignIn();
     return { ok: true };
   },
   signOut() {
     try {
       localStorage.removeItem(accountTokenKey);
-      localStorage.removeItem(accountLinkKey);
-      localStorage.removeItem(authStateKey);
-      localStorage.removeItem(authVerifierKey);
       localStorage.removeItem(knownAccountKey);
+      localStorage.removeItem(accountMigrationPendingKey);
       sessionStorage.removeItem(silentAuthAttemptKey);
     } catch {}
+    clearTabValue(accountLinkKey);
+    clearTabValue(authStateKey);
+    clearTabValue(authVerifierKey);
     window.location.reload();
   },
   continueAsGuest() {
@@ -1193,6 +1423,9 @@ export const wildwoodCoop = {
   },
   localIdentity() {
     return localIdentity;
+  },
+  sessionGeneration() {
+    return sessionGeneration;
   },
   localState() {
     return localState;
@@ -1350,6 +1583,7 @@ runtime.wildwoodCoop = wildwoodCoop;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pageWasHidden = true;
+    pageHiddenAt = Date.now();
     return;
   }
   if (pageWasHidden) {
@@ -1358,9 +1592,20 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 window.addEventListener("pageshow", (event) => {
-  if (event.persisted) reconnectAfterWake();
+  if (event.persisted) reconnectAfterWake(true);
 });
-window.addEventListener("online", () => scheduleReconnect(100));
+window.addEventListener("online", () => reconnectAfterWake());
+window.addEventListener("storage", (event) => {
+  if (event.oldValue === event.newValue) return;
+  if (event.key === accountTokenKey) {
+    if (!accountMigrationPending()) window.location.reload();
+    return;
+  }
+  if (event.key === accountMigrationPendingKey && event.newValue === null) {
+    const shouldBeSignedIn = Boolean(accountToken());
+    if (!connection?.isActive || shouldBeSignedIn !== connectedSignedIn) window.location.reload();
+  }
+});
 void restoreKnownAccount();
 
 export default wildwoodCoop;

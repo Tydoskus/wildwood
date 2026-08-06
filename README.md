@@ -91,10 +91,22 @@ Publishing the server is a separate production operation; pushing `main` only de
 
 - Guests receive a locally stored SpacetimeDB token and save progress to that guest identity.
 - Signed-in players use SpacetimeAuth and can migrate a guest save once through the short-lived account-link flow.
+- OAuth state, PKCE verifier, and guest-link transaction live in `sessionStorage`; never move them to shared `localStorage`.
+- Before leaving for SpacetimeAuth, await the guest save reducer and account-link reducer. Page lifecycle events are not a durable save acknowledgement.
+- On authenticated reconnect, claim the guest save before installing subscriptions. Subscribing first can hydrate default account rows and make them appear authoritative.
 - Do not overwrite an existing authenticated save during migration. The server rejects that case intentionally.
+- Successful migration removes the retired guest progress/profile, transient presence, cooldown, balance, dragon-combat, and account-link rows. Chat/replay history remains historical.
 - A rejected guest token may be cleared and retried as a fresh guest session. `src/wildwood-coop.ts` handles this for 401/invalid-token errors.
 - A known signed-in account must pause at sign-in when its token expires. Never silently reconnect it with a guest token; that displays a random guest name and default/incorrect progress.
-- Display names are server-limited to one change every 30 days.
+- Display-name cooldown data remains stored; enforcement is temporarily disabled for beta support.
+
+## Presence and reconnect invariants
+
+- Presence is connection-scoped. `player_session` tracks every websocket; `player_controller` selects one connection that may move, duel, or damage the dragon.
+- Disconnecting a secondary tab must not delete the shared public player row or cancel a duel. Controller ownership transfers to another live session.
+- Every connection registers its own protocol version before reducers or subscriptions run.
+- Returning from a short tab hide keeps a healthy socket. Longer resumes use one reducer probe and reconnect only when stale or unreachable; never restore a per-user heartbeat.
+- Scheduled maintenance removes orphan public presence and duel state. Durable player progress and profiles are permanent.
 
 ## Common diagnostics
 
