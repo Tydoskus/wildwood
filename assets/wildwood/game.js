@@ -651,7 +651,7 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.212";
+    const GAME_VERSION = "0.213";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -659,7 +659,7 @@
     const STARTING_ATTACK_INTERVAL = 1.56;
     const MIN_ATTACK_INTERVAL = 0.32;
     const ATTACK_SPEED_REWARD = 0.02;
-    const WORLD_HEALTH_BAR_HEIGHT = 11;
+    const WORLD_HEALTH_BAR_HEIGHT = 13;
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -2279,10 +2279,10 @@
     }
     function drawActorStatus({ x, y, name, nameColor, hp, maxHp, power, fillColor }) {
       const centerX = Math.round(x);
-      const barW = 64;
+      const barW = 77;
       const barH = WORLD_HEALTH_BAR_HEIGHT;
       const barX = centerX - Math.floor(barW / 2);
-      const barY = Math.round(y - 52);
+      const barY = Math.round(y - 54);
       const hpRatio = clamp(hp / maxHp, 0, 1);
       const fillWidth = Math.round(barW * hpRatio);
       const hpLabel = `${Math.max(0, Math.ceil(hp))}/${Math.ceil(maxHp)}`;
@@ -2297,20 +2297,20 @@
         ctx.fillRect(barX, barY, fillWidth, 1);
       }
       ctx.save();
-      ctx.font = '900 8px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 1.5);
       ctx.restore();
-      const powerBaseline = barY - 6;
-      const nameBaseline = power === null ? powerBaseline : powerBaseline - 14;
+      const powerBaseline = barY - 7;
+      const nameBaseline = power === null ? powerBaseline : powerBaseline - 17;
       drawPlayerName(name, centerX, nameBaseline, nameColor);
       if (power !== null) drawPlayerPowerValue(power, centerX, powerBaseline);
     }
     function drawPlayerName(name, x, y, color) {
       if (!name) return;
       ctx.save();
-      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       outlinedText(name, x, y, color, 2);
@@ -2323,7 +2323,7 @@
     }
     function drawPlayerPowerValue(power, x, y) {
       ctx.save();
-      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       outlinedText(`Power: ${Math.round(power)}`, x, y, "#ffe05d", 2);
@@ -2498,11 +2498,11 @@
       ctx.restore();
       const reward = REWARD_DATA[e.rewardType];
       const visualRadius = Math.max(e.r, spriteHeight / 2);
-      const rewardY = y + visualRadius + 8;
-      const barW = Math.max(42, Math.min(72, ((sprite == null ? void 0 : sprite.size) ?? e.r * 2) * 1.05));
+      const rewardY = y + visualRadius + 10;
+      const barW = Math.max(50, Math.min(86, ((sprite == null ? void 0 : sprite.size) ?? e.r * 2) * 1.26));
       const barH = WORLD_HEALTH_BAR_HEIGHT;
       const barX = Math.round(x - barW / 2);
-      const barY = Math.round(y - spriteHeight / 2 - 15);
+      const barY = Math.round(y - spriteHeight / 2 - 17);
       const hpRatio = clamp(e.hp / e.maxHp, 0, 1);
       const hpLabel = `${Math.max(0, Math.ceil(e.hp))}/${Math.ceil(e.maxHp)}`;
       ctx.fillStyle = "rgba(0,0,0,.86)";
@@ -2514,13 +2514,13 @@
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
+      ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      outlinedText(base.name, x, barY - 4, "#f5e9c4", 3);
       ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(base.name, x, barY - 3, "#f5e9c4", 3);
-      ctx.font = '900 8px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "middle";
       outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1.5);
       const label = rewardLabel(e.rewardType, e.maxHp, e.rewardDamage, e.rewardStat);
-      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "top";
       outlinedText(label, x, rewardY, reward.color, 3);
       ctx.restore();
