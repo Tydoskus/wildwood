@@ -679,7 +679,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.225";
+    const GAME_VERSION = "0.226";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;

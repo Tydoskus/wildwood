@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.225" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.226" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -105,7 +105,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.225</div>
+        <div id="version">v0.226</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -130,14 +130,20 @@
 
 <div id="start">
   <div id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite">
-    <h1>WILDWOOD</h1>
+    <h1 class="wildwood-wordmark-title" aria-label="Wildwood">
+      <span class="wildwood-wordmark-frame" aria-hidden="true">
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+      </span>
+    </h1>
     <p>CONNECTING TO WILDWOOD</p>
     <div class="loading-track" aria-hidden="true"><div id="loadingFill" class="loading-fill"></div></div>
     <p id="loadingDetail" class="loading-detail">LOADING CONNECTION</p>
   </div>
   <div id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle" hidden>
-    <h1 id="accountChoiceTitle" class="account-choice-title" aria-label="Wildwood">
-      <img src="assets/wildwood/wildwood-wordmark.png" alt="" aria-hidden="true" />
+    <h1 id="accountChoiceTitle" class="wildwood-wordmark-title" aria-label="Wildwood">
+      <span class="wildwood-wordmark-frame" aria-hidden="true">
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+      </span>
     </h1>
     <p>This game is in beta, report bugs with /bug</p>
     <p id="accountCharacter" class="account-character" aria-live="polite">Character found: <strong id="accountCharacterName">none</strong></p>
@@ -146,7 +152,12 @@
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR PLAY AS GUEST</p>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
-    <h1>WELCOME TO WILDWOOD</h1>
+    <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
+      <span class="welcome-wordmark-prefix" aria-hidden="true">WELCOME TO</span>
+      <span class="wildwood-wordmark-frame" aria-hidden="true">
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+      </span>
+    </h1>
     <label class="onboarding-name-label" for="newPlayerNameInput">PLAYER NAME</label>
     <input id="newPlayerNameInput" maxlength="20" autocomplete="off" spellcheck="false" />
     <p>Explore the map and fight enemies scattered through different areas. Defeated enemies grant the stat shown beneath them and return about 30 seconds later.</p>
@@ -216,7 +227,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.225"></script>
-<script src="assets/wildwood/game.js?v=0.225"></script>
+<script src="assets/wildwood/coop-client.js?v=0.226"></script>
+<script src="assets/wildwood/game.js?v=0.226"></script>
 </body>
 </html>

@@ -585,17 +585,22 @@
     text-align: center;
   }
 
-  .account-choice-title {
-    position: relative;
+  .wildwood-wordmark-title {
     width: min(390px, 100%);
-    aspect-ratio: 4.15 / 1;
-    overflow: hidden;
     margin: 0 auto 10px;
     -webkit-text-stroke: 0;
     text-shadow: none;
   }
 
-  .account-choice-title img {
+  .wildwood-wordmark-frame {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 4.15 / 1;
+    overflow: hidden;
+  }
+
+  .wildwood-wordmark-frame img {
     position: absolute;
     top: 50%;
     left: 0;
@@ -603,6 +608,19 @@
     width: 100%;
     height: auto;
     transform: translateY(-50%);
+  }
+
+  .welcome-wordmark-title {
+    display: grid;
+    gap: 6px;
+  }
+
+  .welcome-wordmark-prefix {
+    color: #f5f5e9;
+    font-size: clamp(16px, 4vw, 24px);
+    line-height: 1;
+    -webkit-text-stroke: var(--text-outline-width) #000;
+    text-shadow: var(--text-shadow);
   }
 
   .account-choice-modal p:not(.loading-detail) {
