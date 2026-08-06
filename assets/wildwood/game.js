@@ -155,14 +155,30 @@
       }
       elements.messages.scrollTop = elements.messages.scrollHeight;
     }
-    function saveDisplayName() {
-      var _a, _b;
+    async function saveDisplayName() {
+      var _a, _b, _c, _d;
       const name = elements.displayNameInput.value.trim().replace(/\s+/g, " ");
       if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
         showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
         return;
       }
-      (_b = (_a = getCoop()) == null ? void 0 : _a.setDisplayName) == null ? void 0 : _b.call(_a, name);
+      const currentName = (_b = (_a = getCoop()) == null ? void 0 : _a.localDisplayName) == null ? void 0 : _b.call(_a);
+      if (name === currentName) {
+        showMessage("NAME ALREADY SET", "#bce7ff");
+        return;
+      }
+      elements.saveNameButton.disabled = true;
+      const result = await ((_d = (_c = getCoop()) == null ? void 0 : _c.setDisplayName) == null ? void 0 : _d.call(_c, name));
+      elements.saveNameButton.disabled = false;
+      if (result == null ? void 0 : result.ok) {
+        showMessage("NAME UPDATED", "#c9f5c2");
+        return;
+      }
+      if (/once every 30 days/i.test((result == null ? void 0 : result.error) ?? "")) {
+        showMessage("NAME LOCKED · CHANGES EVERY 30 DAYS", "#ff9b91");
+        return;
+      }
+      showMessage("NAME UPDATE FAILED", "#ff9b91");
     }
     function init() {
       elements.toggle.addEventListener("click", () => {
@@ -200,7 +216,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.178";
+    const GAME_VERSION = "0.179";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;

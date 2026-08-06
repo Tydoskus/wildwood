@@ -866,9 +866,16 @@ export const wildwoodCoop = {
   localDisplayName() {
     return localDisplayName || (localIdentity ? generatedDisplayName(localIdentity) : "");
   },
-  setDisplayName(displayName: string) {
-    if (!connection) return;
-    connection.reducers.setDisplayName({ displayName });
+  async setDisplayName(displayName: string) {
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.setDisplayName({ displayName });
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("Wildwood display-name update rejected:", message);
+      return { ok: false, error: message };
+    }
   },
   savedProgress() {
     if (!localProgress) return null;

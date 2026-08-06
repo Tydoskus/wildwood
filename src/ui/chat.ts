@@ -14,7 +14,7 @@ type CoopClient = {
   localDisplayName?: () => string;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => void;
-  setDisplayName?: (name: string) => void;
+  setDisplayName?: (name: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
 type ChatElements = {
@@ -104,13 +104,29 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.messages.scrollTop = elements.messages.scrollHeight;
   }
 
-  function saveDisplayName() {
+  async function saveDisplayName() {
     const name = elements.displayNameInput.value.trim().replace(/\s+/g, " ");
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
       showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
       return;
     }
-    getCoop()?.setDisplayName?.(name);
+    const currentName = getCoop()?.localDisplayName?.();
+    if (name === currentName) {
+      showMessage("NAME ALREADY SET", "#bce7ff");
+      return;
+    }
+    elements.saveNameButton.disabled = true;
+    const result = await getCoop()?.setDisplayName?.(name);
+    elements.saveNameButton.disabled = false;
+    if (result?.ok) {
+      showMessage("NAME UPDATED", "#c9f5c2");
+      return;
+    }
+    if (/once every 30 days/i.test(result?.error ?? "")) {
+      showMessage("NAME LOCKED · CHANGES EVERY 30 DAYS", "#ff9b91");
+      return;
+    }
+    showMessage("NAME UPDATE FAILED", "#ff9b91");
   }
 
   function init() {
