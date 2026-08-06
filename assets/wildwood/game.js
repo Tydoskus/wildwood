@@ -245,7 +245,7 @@
   const REWARD_DATA = {
     damage: { color: "#ff655a" },
     health: { color: "#66ed79", label: "+6 MAX HEALTH" },
-    speed: { color: "#ffe05d", label: "+8% ATT SPEED" },
+    speed: { color: "#ffe05d", label: "+0.02 ATK/SEC" },
     armor: { color: "#d3dbe0", label: "+1 ARMOR" },
     regen: { color: "#ff7ccb", label: "+0.3 HP/SEC" }
   };
@@ -422,6 +422,15 @@
   const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
   const DUEL_SHOT_LIFETIME = 0.38;
   const DUEL_SHOT_SPEED = 620;
+  function loadDuelArenaArt(onSettled) {
+    const image = new Image();
+    if (onSettled) {
+      image.addEventListener("load", onSettled, { once: true });
+      image.addEventListener("error", onSettled, { once: true });
+    }
+    image.src = "assets/wildwood/duel-arena-space-v1.png";
+    return image;
+  }
   function duelStatLine(subject, attacks, damage, regen, blocked) {
     return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>ATTACKED ${attacks} TIMES<br>DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP<br>BLOCKED ${Math.round(blocked)} DMG</div>`;
   }
@@ -632,10 +641,13 @@
   }
   (() => {
     var _a;
-    const GAME_VERSION = "0.205";
+    const GAME_VERSION = "0.206";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
+    const STARTING_ATTACK_INTERVAL = 1.56;
+    const MIN_ATTACK_INTERVAL = 0.32;
+    const ATTACK_SPEED_REWARD = 0.02;
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -764,7 +776,7 @@
       hp: 30,
       maxHp: 30,
       damage: 4,
-      attackRate: 0.78,
+      attackRate: STARTING_ATTACK_INTERVAL,
       projectileSpeed: BASE_PROJECTILE_SPEED,
       projectileCount: 1,
       attackRange: BASE_ATTACK_RANGE,
@@ -824,6 +836,12 @@
     let treeSpritesheetReady = false;
     const treeSpritesheet = loadTreeSpritesheet(() => {
       treeSpritesheetReady = true;
+      updateLoadingDetail();
+      finishStartup();
+    });
+    let duelArenaArtReady = false;
+    const duelArenaArt = loadDuelArenaArt(() => {
+      duelArenaArtReady = true;
       updateLoadingDetail();
       finishStartup();
     });
@@ -888,7 +906,7 @@
       if (!preserveStats && !hasSavedProgress) {
         player.maxHp = 30;
         player.damage = 4;
-        player.attackRate = 0.78;
+        player.attackRate = STARTING_ATTACK_INTERVAL;
         player.projectileSpeed = BASE_PROJECTILE_SPEED;
         player.projectileCount = 1;
         player.attackRange = BASE_ATTACK_RANGE;
@@ -946,14 +964,14 @@
         if ((candidate == null ? void 0 : candidate.stats) && typeof candidate.stats === "object") legacy = candidate;
       } catch {
       }
-      const isDefaultProgress = (progress) => progress.maxHp === 30 && progress.damage === 4 && progress.attackRate === 0.78 && progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 && progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 && progress.speed === 175 && progress.bootsCollected === false;
+      const isDefaultProgress = (progress) => progress.maxHp === 30 && progress.damage === 4 && progress.attackRate === STARTING_ATTACK_INTERVAL && progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 && progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 && progress.speed === 175 && progress.bootsCollected === false;
       const serverIsDefault = isDefaultProgress(saved);
       const source = legacy && serverIsDefault ? { ...legacy.stats, bootsCollected: legacy.bootsCollected === true } : saved;
       if (waitingForFreshStart && saved.introComplete) return;
       const number = (value, fallback, min, max) => Number.isFinite(value) ? clamp(value, min, max) : fallback;
       player.maxHp = number(source.maxHp, player.maxHp, 1, 1e6);
       player.damage = number(source.damage, player.damage, 1, 1e6);
-      player.attackRate = number(source.attackRate, player.attackRate, 0.16, 10);
+      player.attackRate = number(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
       player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
       player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
       player.attackRange = BASE_ATTACK_RANGE;
@@ -983,7 +1001,7 @@
     function finishStartup() {
       var _a2, _b, _c, _d;
       updateLoadingDetail();
-      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !progressLoaded || !playerSpriteReady || !treeSpritesheetReady || !duelArenaArtReady || !((_a2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a2.call(coop)) || !((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop))) return;
       if (!((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop).signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
@@ -1042,7 +1060,7 @@
         ["LOADING PLAYER PROFILE", Boolean((_b = coop == null ? void 0 : coop.localState) == null ? void 0 : _b.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
-        ["LOADING WORLD ART", treeSpritesheetReady, 90],
+        ["LOADING WORLD ART", treeSpritesheetReady && duelArenaArtReady, 90],
         ["STARTING WILDWOOD", true, 100]
       ];
       const [text, ready, percent] = stages[loadingStage];
@@ -1263,8 +1281,7 @@
           player.hp = Math.min(player.maxHp, player.hp + healthReward);
           break;
         case "speed":
-          player.attackRate = Math.max(0.16, player.attackRate * 0.92);
-          player.projectileSpeed = Math.min(MAX_PROJECTILE_SPEED, player.projectileSpeed * 1.04);
+          player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + ATTACK_SPEED_REWARD);
           break;
         case "armor":
           player.armor += 1;
@@ -1833,6 +1850,18 @@
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
       if (isArenaScene()) {
+        if (duelArenaArt.complete && duelArenaArt.naturalWidth > 0) {
+          ctx.fillStyle = "#050713";
+          ctx.fillRect(0, 0, visibleW, visibleH);
+          const scale = Math.min(
+            visibleW / duelArenaArt.naturalWidth,
+            visibleH / duelArenaArt.naturalHeight
+          );
+          const drawW = duelArenaArt.naturalWidth * scale;
+          const drawH = duelArenaArt.naturalHeight * scale;
+          ctx.drawImage(duelArenaArt, (visibleW - drawW) / 2, (visibleH - drawH) / 2, drawW, drawH);
+          return;
+        }
         ctx.fillStyle = "#03050a";
         ctx.fillRect(0, 0, visibleW, visibleH);
         const spacing = 42;
@@ -1960,6 +1989,7 @@
     }
     function drawDuelArena() {
       if (!isArenaScene()) return;
+      if (duelArenaArt.complete && duelArenaArt.naturalWidth > 0) return;
       const x = DUEL_ARENA.x - camera.x;
       const y = DUEL_ARENA.y - camera.y;
       ctx.save();

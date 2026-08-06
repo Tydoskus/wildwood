@@ -97,7 +97,7 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = {
 export const REWARD_DATA: Record<RewardType, { color: string; label?: string }> = {
   damage: { color: "#ff655a" },
   health: { color: "#66ed79", label: "+6 MAX HEALTH" },
-  speed: { color: "#ffe05d", label: "+8% ATT SPEED" },
+  speed: { color: "#ffe05d", label: "+0.02 ATK/SEC" },
   armor: { color: "#d3dbe0", label: "+1 ARMOR" },
   regen: { color: "#ff7ccb", label: "+0.3 HP/SEC" },
 };

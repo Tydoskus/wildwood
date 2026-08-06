@@ -5,7 +5,10 @@ const WORLD = { width: 4800, height: 4800 };
 const PLAYER_RADIUS = 17;
 const PLAYER_SPEED = 175;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 7;
+const PROTOCOL_VERSION = 8;
+const ATTACK_BALANCE_VERSION = 1;
+const DEFAULT_ATTACK_INTERVAL = 1.56;
+const MIN_ATTACK_INTERVAL = .32;
 const TRAILBLAZER_BOOTS = "trailblazer_boots";
 const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
@@ -87,6 +90,14 @@ const playerNameCooldown = table(
   {
     identity: t.identity().primaryKey(),
     changedAt: t.timestamp(),
+  },
+);
+
+const playerBalanceVersion = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    version: t.u32(),
   },
 );
 
@@ -209,7 +220,7 @@ const maintenanceSchedule = table(
   },
 );
 
-const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, chatCooldown, duelRequestCooldown, accountLink, chatMessage, duel, duelReplay, maintenanceSchedule });
+const spacetimedb = schema({ player, playerProfile, playerProgress, playerNameCooldown, playerBalanceVersion, chatCooldown, duelRequestCooldown, accountLink, chatMessage, duel, duelReplay, maintenanceSchedule });
 export default spacetimedb;
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
@@ -237,7 +248,7 @@ function defaultPlayerProgress(identity: any) {
     identity,
     maxHp: 30,
     damage: 4,
-    attackRate: 0.78,
+    attackRate: DEFAULT_ATTACK_INTERVAL,
     projectileSpeed: 390,
     projectileCount: 1,
     attackRange: DEFAULT_ATTACK_RANGE,
@@ -253,6 +264,25 @@ function defaultPlayerProgress(identity: any) {
 
 function speedForBoots(bootsCollected: boolean) {
   return PLAYER_SPEED + (bootsCollected ? BOOTS_SPEED_BONUS : 0);
+}
+
+function markAttackBalanceCurrent(ctx: any) {
+  const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
+  const next = { identity: ctx.sender, version: ATTACK_BALANCE_VERSION };
+  if (current) ctx.db.playerBalanceVersion.identity.update(next);
+  else ctx.db.playerBalanceVersion.insert(next);
+}
+
+function migrateAttackBalance(ctx: any, progress: any) {
+  const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
+  if (current?.version === ATTACK_BALANCE_VERSION) return progress;
+  const migrated = {
+    ...progress,
+    attackRate: Math.max(MIN_ATTACK_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, progress.attackRate * 2)),
+  };
+  ctx.db.playerProgress.identity.update(migrated);
+  markAttackBalanceCurrent(ctx);
+  return migrated;
 }
 
 function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
@@ -577,10 +607,13 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     });
   }
 
-  let existingProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+  let existingProgress: any = ctx.db.playerProgress.identity.find(ctx.sender);
   if (!existingProgress) {
-    ctx.db.playerProgress.insert(defaultPlayerProgress(ctx.sender));
+    existingProgress = defaultPlayerProgress(ctx.sender);
+    ctx.db.playerProgress.insert(existingProgress);
+    markAttackBalanceCurrent(ctx);
   } else {
+    existingProgress = migrateAttackBalance(ctx, existingProgress);
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const speed = speedForBoots(existingProgress.bootsCollected);
@@ -824,7 +857,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     const normalized = {
       maxHp: bounded(progress.maxHp, 1, 1_000_000, base.maxHp),
       damage: bounded(progress.damage, 1, 1_000_000, base.damage),
-      attackRate: bounded(progress.attackRate, .16, 10, base.attackRate),
+      attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, base.attackRate),
       projectileSpeed: bounded(progress.projectileSpeed, 390, 2_730, base.projectileSpeed),
       projectileCount: Number.isInteger(progress.projectileCount)
         ? Math.max(1, Math.min(20, progress.projectileCount))

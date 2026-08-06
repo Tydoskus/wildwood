@@ -129,6 +129,12 @@ export const Player = __t.object("Player", {
 });
 export type Player = __Infer<typeof Player>;
 
+export const PlayerBalanceVersion = __t.object("PlayerBalanceVersion", {
+  identity: __t.identity(),
+  version: __t.u32(),
+});
+export type PlayerBalanceVersion = __Infer<typeof PlayerBalanceVersion>;
+
 export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
   identity: __t.identity(),
   changedAt: __t.timestamp(),

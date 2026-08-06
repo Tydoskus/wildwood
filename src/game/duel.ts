@@ -4,6 +4,16 @@ export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
 export const DUEL_SHOT_SPEED = 620;
 
+export function loadDuelArenaArt(onSettled?: () => void) {
+  const image = new Image();
+  if (onSettled) {
+    image.addEventListener("load", onSettled, { once: true });
+    image.addEventListener("error", onSettled, { once: true });
+  }
+  image.src = "assets/wildwood/duel-arena-space-v1.png";
+  return image;
+}
+
 type ReplayCombatantFields = {
   durationSeconds: number;
   challengerMaxHp: number;

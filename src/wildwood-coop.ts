@@ -118,8 +118,11 @@ const MOVEMENT_HZ = 24;
 const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 7;
+const PROTOCOL_VERSION = 8;
 const DEFAULT_ATTACK_RANGE = 200;
+const DEFAULT_ATTACK_INTERVAL = 1.56;
+const MIN_ATTACK_INTERVAL = .32;
+const ATTACK_BALANCE_VERSION = 1;
 const MIN_PROJECTILE_SPEED = 390;
 const MAX_PROJECTILE_SPEED = 2730;
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
@@ -419,7 +422,7 @@ function copyProgress(progress: ProgressSave): ProgressSave {
   return {
     maxHp: bounded(progress.maxHp, 1, 1_000_000, 30),
     damage: bounded(progress.damage, 1, 1_000_000, 4),
-    attackRate: bounded(progress.attackRate, .16, 10, .78),
+    attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
     projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
     projectileCount: Number.isInteger(progress.projectileCount)
       ? Math.max(1, Math.min(20, progress.projectileCount))
@@ -455,10 +458,19 @@ function readPendingProgress(identity: string): ProgressSave | null {
   try {
     const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
     if (!candidate || typeof candidate !== "object") return null;
-    const pending = candidate as { identity?: unknown; progress?: unknown };
-    return pending.identity === identity && isProgressSave(pending.progress)
-      ? copyProgress(pending.progress)
-      : null;
+    const pending = candidate as { identity?: unknown; balanceVersion?: unknown; progress?: unknown };
+    if (pending.identity !== identity || !isProgressSave(pending.progress)) return null;
+    const rawProgress = pending.progress as ProgressSave;
+    const progress = pending.balanceVersion === ATTACK_BALANCE_VERSION
+      ? copyProgress(rawProgress)
+      : copyProgress({
+          ...rawProgress,
+          attackRate: bounded(rawProgress.attackRate * 2, MIN_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL),
+        });
+    if (pending.balanceVersion !== ATTACK_BALANCE_VERSION) {
+      localStorage.setItem(pendingProgressKey, JSON.stringify({ identity, balanceVersion: ATTACK_BALANCE_VERSION, progress }));
+    }
+    return progress;
   } catch {
     return null;
   }
@@ -468,7 +480,11 @@ function persistPendingProgress(progress: ProgressSave) {
   pendingProgress = copyProgress(progress);
   if (!localIdentity) return;
   try {
-    localStorage.setItem(pendingProgressKey, JSON.stringify({ identity: localIdentity, progress: pendingProgress }));
+    localStorage.setItem(pendingProgressKey, JSON.stringify({
+      identity: localIdentity,
+      balanceVersion: ATTACK_BALANCE_VERSION,
+      progress: pendingProgress,
+    }));
   } catch {}
 }
 
