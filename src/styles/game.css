@@ -8,10 +8,15 @@
     --green: #69e56f;
     --gold: #ffd85b;
     --red: #ff6767;
+    --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
   }
 
   * {
     box-sizing: border-box;
+    font-family: var(--font-rounded);
+    -webkit-text-stroke: 1px #000;
+    paint-order: stroke fill;
+    text-shadow: 2px 3px 0 #000;
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
@@ -23,7 +28,7 @@
     margin: 0;
     overflow: hidden;
     background: #07100b;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--font-rounded);
     touch-action: none;
   }
 
@@ -90,7 +95,7 @@
     border-radius: 10px;
     background: var(--panel);
     color: var(--text);
-    font: 900 24px/1 ui-monospace, monospace;
+    font: 900 24px/1 var(--font-rounded);
     text-shadow: 0 2px 0 #000;
   }
 
@@ -159,7 +164,7 @@
     border-radius: 6px;
     background: rgba(4,11,7,.75);
     color: #9fafa0;
-    font: 900 8px ui-monospace, monospace;
+    font: 900 8px var(--font-rounded);
     line-height: 1;
   }
 
@@ -353,8 +358,8 @@
     z-index: 7;
     transform: translate(-50%, -50%);
     color: #ff4e4e;
-    font: 900 clamp(90px, 22vw, 190px)/1 ui-monospace, monospace;
-    text-shadow: 0 5px 0 #3a1010, 3px 0 0 #160808, -3px 0 0 #160808;
+    font: 900 clamp(90px, 22vw, 190px)/1 var(--font-rounded);
+    text-shadow: 3px 5px 0 #000;
     pointer-events: none;
   }
 
@@ -461,7 +466,7 @@
     border-radius: 5px;
     background: rgba(0,0,0,.28);
     color: var(--text);
-    font: 12px ui-monospace, monospace;
+    font: 12px var(--font-rounded);
     padding: 6px 7px;
   }
 
@@ -536,12 +541,12 @@
 
   .account-choice-modal .account-character strong {
     color: #86f45d;
-    text-shadow: 1px 2px 0 #173c1a;
+    text-shadow: 2px 3px 0 #000;
   }
 
   .account-choice-modal .account-character.is-empty strong {
     color: #ffd869;
-    text-shadow: 1px 2px 0 #5d3a14;
+    text-shadow: 2px 3px 0 #000;
   }
 
   .account-choice-modal button {
@@ -598,7 +603,7 @@
     border-radius: 7px;
     background: #07100b;
     color: #fff;
-    font: 900 17px ui-monospace, monospace;
+    font: 900 17px var(--font-rounded);
     padding: 10px 12px;
     text-align: center;
   }
@@ -639,7 +644,7 @@
   .duel-stat-name { color: var(--gold); font-weight: 900; }
   #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }
   #duelReplay[hidden] { display: none; }
-  #duelReplayHud { position: fixed; top: 12px; left: 50%; display: flex; align-items: center; gap: 10px; transform: translateX(-50%); color: #eef1ee; font: 900 11px ui-monospace, monospace; letter-spacing: .08em; white-space: nowrap; }
+  #duelReplayHud { position: fixed; top: 12px; left: 50%; display: flex; align-items: center; gap: 10px; transform: translateX(-50%); color: #eef1ee; font: 900 11px var(--font-rounded); letter-spacing: .08em; white-space: nowrap; }
   #duelReplayHud button { margin: 0; padding: 7px 10px; border-width: 2px; border-radius: 7px; font-size: 11px; }
   body.is-replaying #hud { display: none; }
   body.is-replaying #duelReplay { display: block; background: transparent; pointer-events: none; }
@@ -690,7 +695,7 @@
     color: #ffe777;
     font-size: clamp(22px, 6vw, 32px);
     line-height: 1;
-    text-shadow: 0 3px 0 #833318, 2px 0 0 #111, -2px 0 0 #111;
+    text-shadow: 2px 3px 0 #000;
   }
 
   .upgrade-stat {
@@ -715,7 +720,7 @@
     font-size: clamp(28px, 7vw, 54px);
     line-height: .95;
     color: #ffe777;
-    text-shadow: 0 4px 0 #833318, 3px 0 0 #111, -3px 0 0 #111;
+    text-shadow: 3px 4px 0 #000;
   }
 
   p {
@@ -731,7 +736,7 @@
     border-radius: 10px;
     background: linear-gradient(#72ef58, #31bd34);
     color: white;
-    font: 900 20px ui-monospace, monospace;
+    font: 900 20px var(--font-rounded);
     padding: 12px 24px;
     margin-top: 12px;
     cursor: pointer;

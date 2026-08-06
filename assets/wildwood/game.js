@@ -218,7 +218,7 @@
     return { init, refresh };
   }
   (() => {
-    const GAME_VERSION = "0.192";
+    const GAME_VERSION = "0.193";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const BOOTS_SPEED_BONUS = 25;
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -1914,14 +1914,17 @@
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.font = "900 14px ui-monospace, monospace";
+      ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.lineWidth = 3;
+      ctx.shadowColor = "#000";
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
       for (const number of damageNumbers) {
         const alpha = clamp(number.life / number.maxLife, 0, 1);
         const x = Math.floor(number.x - camera.x);
         const y = Math.floor(number.y - camera.y);
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = "rgba(35,0,0,.92)";
+        ctx.strokeStyle = "#000";
         ctx.strokeText(number.text, x, y);
         ctx.fillStyle = "#ff5a5a";
         ctx.fillText(number.text, x, y);
@@ -2008,11 +2011,14 @@
     function drawPlayerName(name, x, y, color) {
       if (!name) return;
       ctx.save();
-      ctx.font = "900 11px ui-monospace, monospace";
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(0,0,0,.8)";
+      ctx.strokeStyle = "#000";
+      ctx.shadowColor = "#000";
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
       ctx.strokeText(name, x, y);
       ctx.fillStyle = color;
       ctx.fillText(name, x, y);
@@ -2026,11 +2032,14 @@
     function drawPlayerPower(stats, x, y) {
       const power = Number.isFinite(stats.power) ? stats.power : playerPower(stats);
       ctx.save();
-      ctx.font = "900 11px ui-monospace, monospace";
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(0,0,0,.8)";
+      ctx.strokeStyle = "#000";
+      ctx.shadowColor = "#000";
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
       ctx.strokeText(`Power: ${power}`, x, y);
       ctx.fillStyle = "#ffe05d";
       ctx.fillText(`Power: ${power}`, x, y);
@@ -2162,17 +2171,22 @@
       ctx.fillRect(barX, barY, barW, barH);
       ctx.fillStyle = boss.hurt > 0 ? "#fff1b6" : "#d8352d";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+      ctx.save();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(0,0,0,.92)";
+      ctx.strokeStyle = "#000";
+      ctx.shadowColor = "#000";
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.font = "900 11px ui-monospace, monospace";
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.strokeText("DRAGON", x, barY - 18);
       ctx.fillStyle = "#f5e9c4";
       ctx.fillText("DRAGON", x, barY - 18);
       ctx.strokeText("+650 DAMAGE", x, barY - 5);
       ctx.fillStyle = "#ff655a";
       ctx.fillText("+650 DAMAGE", x, barY - 5);
+      ctx.restore();
     }
     function drawEnemy(e) {
       const visibleW = viewW / camera.zoom;
@@ -2214,10 +2228,13 @@
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.font = "900 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.lineJoin = "round";
       ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(0,0,0,.92)";
+      ctx.strokeStyle = "#000";
+      ctx.shadowColor = "#000";
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
       ctx.strokeText(base.name, x, nameY);
       ctx.fillStyle = "#f5e9c4";
       ctx.fillText(base.name, x, nameY);
