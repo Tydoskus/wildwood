@@ -8507,6 +8507,42 @@ ${ty.variants.map(
   let pendingProgress = readPendingProgress();
   let progressSaveInFlightUntil = 0;
   let authNotice = "";
+  let protocolBlocked = false;
+  let protocolRefreshScheduled = false;
+  let accountLinkClaiming = false;
+  function reducerErrorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  function handleReducerFailure(action, error) {
+    const message = reducerErrorMessage(error);
+    if (!/wildwood updated\. refresh to continue\./i.test(message)) {
+      console.warn(`Wildwood ${action} rejected:`, message);
+      return;
+    }
+    protocolBlocked = true;
+    progressSaveInFlightUntil = Number.POSITIVE_INFINITY;
+    authNotice = "UPDATE REQUIRED · REFRESHING";
+    onChange == null ? void 0 : onChange();
+    if (protocolRefreshScheduled) return;
+    protocolRefreshScheduled = true;
+    window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("v", `refresh-${Date.now()}`);
+      window.location.replace(url.toString());
+    }, 250);
+  }
+  function sendReducer(action, reducer, onRejected) {
+    if (protocolBlocked) return;
+    try {
+      void Promise.resolve(reducer()).catch((error) => {
+        onRejected == null ? void 0 : onRejected();
+        handleReducerFailure(action, error);
+      });
+    } catch (error) {
+      onRejected == null ? void 0 : onRejected();
+      handleReducerFailure(action, error);
+    }
+  }
   function accountToken() {
     try {
       return localStorage.getItem(accountTokenKey);
@@ -8731,14 +8767,16 @@ ${ty.variants.map(
     };
   }
   function flushPendingProgress(force = false) {
-    if (!connection || !pendingProgress) return;
+    if (protocolBlocked || !connection || !pendingProgress) return;
     if (!force && Date.now() < progressSaveInFlightUntil) return;
     progressSaveInFlightUntil = Date.now() + 4e3;
-    try {
-      connection.reducers.savePlayerProgress(copyProgress(pendingProgress));
-    } catch {
-      progressSaveInFlightUntil = 0;
-    }
+    sendReducer(
+      "progress save",
+      () => connection == null ? void 0 : connection.reducers.savePlayerProgress(copyProgress(pendingProgress)),
+      () => {
+        if (!protocolBlocked) progressSaveInFlightUntil = 0;
+      }
+    );
   }
   window.setInterval(() => flushPendingProgress(), 2500);
   window.addEventListener("pagehide", () => flushPendingProgress(true));
@@ -8943,6 +8981,9 @@ ${ty.variants.map(
     connection = DbConnection.builder().withUri(host).withDatabaseName(databaseName).withToken(accountToken() || guestToken() || void 0).onConnect((conn, identity, token) => {
       connection = conn;
       connecting = false;
+      protocolBlocked = false;
+      protocolRefreshScheduled = false;
+      accountLinkClaiming = false;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       localIdentity = identity.toHexString();
@@ -8959,7 +9000,7 @@ ${ty.variants.map(
         } catch {
         }
       }
-      conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
+      sendReducer("protocol registration", () => conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }));
       conn.db.player.onInsert((_ctx, row) => upsertPlayer(row));
       conn.db.player.onUpdate((_ctx, _oldRow, row) => upsertPlayer(row));
       conn.db.player.onDelete((_ctx, row) => removePlayer(row));
@@ -8979,16 +9020,37 @@ ${ty.variants.map(
         for (const row of conn.db.duel.iter()) upsertDuel(row);
         flushPendingProgress();
         const accountLink = signedIn ? localStorage.getItem(accountLinkKey) : null;
-        if (accountLink) {
-          conn.reducers.claimGuestAccount({ code: accountLink });
-          window.setTimeout(() => {
+        if (accountLink && !protocolBlocked && !accountLinkClaiming) {
+          accountLinkClaiming = true;
+          try {
+            void Promise.resolve(conn.reducers.claimGuestAccount({ code: accountLink })).then(() => {
+              accountLinkClaiming = false;
+              try {
+                localStorage.removeItem(accountLinkKey);
+              } catch {
+              }
+              authNotice = "ACCOUNT SAVE LINKED";
+              onChange == null ? void 0 : onChange();
+            }).catch((error) => {
+              accountLinkClaiming = false;
+              try {
+                localStorage.removeItem(accountLinkKey);
+              } catch {
+              }
+              authNotice = "ACCOUNT SAVE NOT LINKED";
+              handleReducerFailure("account migration", error);
+              onChange == null ? void 0 : onChange();
+            });
+          } catch (error) {
+            accountLinkClaiming = false;
             try {
               localStorage.removeItem(accountLinkKey);
             } catch {
             }
-            authNotice = "ACCOUNT SAVE LINKED";
+            authNotice = "ACCOUNT SAVE NOT LINKED";
+            handleReducerFailure("account migration", error);
             onChange == null ? void 0 : onChange();
-          }, 750);
+          }
         }
         onChange == null ? void 0 : onChange();
       }).onError((ctx) => {
@@ -9071,6 +9133,7 @@ ${ty.variants.map(
       };
     },
     async signIn() {
+      if (protocolBlocked) return;
       if (accountToken()) return;
       if (!connection) {
         authNotice = "WAIT FOR SERVER";
@@ -9079,7 +9142,18 @@ ${ty.variants.map(
       }
       const code = randomUrlSafe(40);
       localStorage.setItem(accountLinkKey, code);
-      connection.reducers.beginAccountLink({ code });
+      try {
+        await connection.reducers.beginAccountLink({ code });
+      } catch (error) {
+        try {
+          localStorage.removeItem(accountLinkKey);
+        } catch {
+        }
+        authNotice = "SIGN-IN NOT READY";
+        handleReducerFailure("sign-in preparation", error);
+        onChange == null ? void 0 : onChange();
+        return;
+      }
       authNotice = "PREPARING SIGN-IN";
       onChange == null ? void 0 : onChange();
       await new Promise((resolve) => window.setTimeout(resolve, 450));
@@ -9107,12 +9181,14 @@ ${ty.variants.map(
       return localDisplayName || (localIdentity ? generatedDisplayName(localIdentity) : "");
     },
     async setDisplayName(displayName) {
+      if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
       if (!connection) return { ok: false, error: "NOT CONNECTED" };
       try {
         await connection.reducers.setDisplayName({ displayName });
         return { ok: true };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = reducerErrorMessage(error);
+        handleReducerFailure("display-name update", error);
         console.warn("Wildwood display-name update rejected:", message);
         return { ok: false, error: message };
       }
@@ -9128,20 +9204,21 @@ ${ty.variants.map(
       flushPendingProgress();
     },
     resetProgress() {
+      if (protocolBlocked) return;
       clearPendingProgress();
       if (!connection) return;
-      connection.reducers.resetPlayerProgress({});
+      sendReducer("progress reset", () => connection == null ? void 0 : connection.reducers.resetPlayerProgress({}));
     },
     beginAdventure() {
-      if (!connection) return;
-      connection.reducers.beginAdventure({});
+      if (protocolBlocked || !connection) return;
+      sendReducer("adventure start", () => connection == null ? void 0 : connection.reducers.beginAdventure({}));
     },
     chatMessages() {
       return chatMessages.slice();
     },
     sendChatMessage(message) {
-      if (!connection) return;
-      connection.reducers.sendChatMessage({ message });
+      if (protocolBlocked || !connection) return;
+      sendReducer("chat message", () => connection == null ? void 0 : connection.reducers.sendChatMessage({ message }));
     },
     localDuel() {
       for (const duel of duels.values()) {
@@ -9155,34 +9232,36 @@ ${ty.variants.map(
     },
     loadDuelReplay,
     async requestDuel() {
+      if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
       if (!connection) return { ok: false, error: "NOT CONNECTED" };
       try {
         await connection.reducers.requestDuel({});
         return { ok: true };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = reducerErrorMessage(error);
+        handleReducerFailure("duel request", error);
         console.warn("Wildwood duel request rejected:", message);
         return { ok: false, error: message };
       }
     },
     acceptDuel(id) {
-      if (!connection) return;
-      connection.reducers.acceptDuel({ id });
+      if (protocolBlocked || !connection) return;
+      sendReducer("duel acceptance", () => connection == null ? void 0 : connection.reducers.acceptDuel({ id }));
     },
     pulseDuel() {
-      if (!connection) return;
+      if (protocolBlocked || !connection) return;
       const now = performance.now();
       if (now - lastDuelPulseAt < 500) return;
       lastDuelPulseAt = now;
-      connection.reducers.pulseDuel({});
+      sendReducer("duel pulse", () => connection == null ? void 0 : connection.reducers.pulseDuel({}));
     },
     syncSpeed(speed) {
-      if (!connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
+      if (protocolBlocked || !connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
       lastSpeedSent = speed;
-      connection.reducers.setSpeed({ speed });
+      sendReducer("speed sync", () => connection == null ? void 0 : connection.reducers.setSpeed({ speed }));
     },
     syncPosition(x, y, facing, moving = false, force = false) {
-      if (!connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
+      if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
       const now = performance.now();
       const movingChanged = moving !== lastPositionMoving;
       if (!force && !movingChanged && !moving) return;
@@ -9190,7 +9269,7 @@ ${ty.variants.map(
       lastPositionSentAt = now;
       lastPositionMoving = moving;
       const sequence = ++nextPositionSequence;
-      connection.reducers.syncPosition({ x, y, facing, moving, sequence });
+      sendReducer("position sync", () => connection == null ? void 0 : connection.reducers.syncPosition({ x, y, facing, moving, sequence }));
     },
     remotePlayers(dt = 1 / 60) {
       const result = [];
