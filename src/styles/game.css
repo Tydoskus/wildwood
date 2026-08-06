@@ -98,35 +98,12 @@
 
   .inventory-button { display: grid; place-items: center; }
 
-  .inventory-glyph {
-    position: relative;
+  .toolbar-icon {
     display: block;
-    width: 19px;
-    height: 17px;
-    border: 3px solid currentColor;
-    border-radius: 3px 3px 5px 5px;
-    box-shadow: inset 0 -3px 0 rgba(0,0,0,.42);
-  }
-
-  .inventory-glyph::before {
-    content: "";
-    position: absolute;
-    left: 3px;
-    top: -8px;
-    width: 7px;
-    height: 7px;
-    border: 3px solid currentColor;
-    border-bottom: 0;
-    border-radius: 5px 5px 0 0;
-  }
-
-  .inventory-glyph::after {
-    content: "";
-    position: absolute;
-    left: 2px;
-    right: 2px;
-    top: 5px;
-    border-top: 2px solid currentColor;
+    width: 25px;
+    height: 25px;
+    object-fit: contain;
+    pointer-events: none;
   }
 
   .settings-button.is-off {

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.176" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.177" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -20,8 +20,8 @@
       <div id="stats"></div>
     </div>
     <div class="settings-wrap">
-      <button id="autoAttackBtn" class="settings-button auto-attack-button" type="button" aria-label="Toggle auto attack" aria-pressed="true">⚔</button>
-      <button id="inventoryBtn" class="settings-button inventory-button" type="button" aria-label="Open inventory" aria-expanded="false"><span class="inventory-glyph" aria-hidden="true"></span></button>
+      <button id="autoAttackBtn" class="settings-button auto-attack-button" type="button" aria-label="Toggle auto attack" aria-pressed="true"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Battle.png" alt="" aria-hidden="true"></button>
+      <button id="inventoryBtn" class="settings-button inventory-button" type="button" aria-label="Open inventory" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Inventory.png" alt="" aria-hidden="true"></button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false">⚙</button>
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-title">SETTINGS</div>
@@ -92,7 +92,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.176</div>
+        <div id="version">v0.177</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -163,7 +163,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.176"></script>
-<script src="assets/wildwood/game.js?v=0.176"></script>
+<script src="assets/wildwood/coop-client.js?v=0.177"></script>
+<script src="assets/wildwood/game.js?v=0.177"></script>
 </body>
 </html>
