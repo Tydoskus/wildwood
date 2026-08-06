@@ -29,7 +29,7 @@ import { createChatController } from "./ui/chat";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.191";
+  const GAME_VERSION = "0.192";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const BOOTS_SPEED_BONUS = 25;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
@@ -668,9 +668,8 @@ import { createChatController } from "./ui/chat";
   }
 
   function showAccountChoice() {
-    const saved = coop?.savedProgress?.();
-    const name = (coop?.localDisplayName?.() || "").trim();
-    const characterFound = Boolean(saved?.introComplete && name);
+    const name = (coop?.knownCharacter?.() || "").trim();
+    const characterFound = Boolean(name);
     if (accountCharacter && accountCharacterName) {
       accountCharacterName.textContent = characterFound ? `${name} found` : "none found";
       accountCharacter.classList.toggle("is-empty", !characterFound);
@@ -2682,7 +2681,7 @@ import { createChatController } from "./ui/chat";
   });
 
   signInFromStartBtn?.addEventListener("click", () => {
-    const characterFound = Boolean(coop?.savedProgress?.()?.introComplete && coop?.localDisplayName?.());
+    const characterFound = Boolean(coop?.knownCharacter?.());
     signInFromStartBtn.disabled = true;
     continueGuestBtn.disabled = true;
     accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";

@@ -137,6 +137,7 @@ const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
 const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
 const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
+const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
 const silentAuthAttemptKey = `${tokenKey}/spacetimeauth_silent_attempt_v1`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
@@ -165,7 +166,7 @@ let localProgress: PlayerProgress | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
 let onChange: (() => void) | null = null;
-let pendingProgress = readPendingProgress();
+let pendingProgress: ProgressSave | null = null;
 let progressSaveInFlightUntil = 0;
 let authNotice = "";
 let protocolBlocked = false;
@@ -237,6 +238,21 @@ function hasKnownAccount() {
 function rememberAccount() {
   try {
     localStorage.setItem(knownAccountKey, "true");
+  } catch {}
+}
+
+function rememberedAccountCharacter() {
+  try {
+    return localStorage.getItem(knownAccountCharacterKey)?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberAccountCharacter(displayName: string) {
+  if (!displayName) return;
+  try {
+    localStorage.setItem(knownAccountCharacterKey, displayName);
   } catch {}
 }
 
@@ -410,10 +426,14 @@ function isProgressSave(value: unknown): value is ProgressSave {
     typeof progress.equippedFeet === "string";
 }
 
-function readPendingProgress(): ProgressSave | null {
+function readPendingProgress(identity: string): ProgressSave | null {
   try {
     const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
-    return isProgressSave(candidate) ? copyProgress(candidate) : null;
+    if (!candidate || typeof candidate !== "object") return null;
+    const pending = candidate as { identity?: unknown; progress?: unknown };
+    return pending.identity === identity && isProgressSave(pending.progress)
+      ? copyProgress(pending.progress)
+      : null;
   } catch {
     return null;
   }
@@ -421,8 +441,9 @@ function readPendingProgress(): ProgressSave | null {
 
 function persistPendingProgress(progress: ProgressSave) {
   pendingProgress = copyProgress(progress);
+  if (!localIdentity) return;
   try {
-    localStorage.setItem(pendingProgressKey, JSON.stringify(pendingProgress));
+    localStorage.setItem(pendingProgressKey, JSON.stringify({ identity: localIdentity, progress: pendingProgress }));
   } catch {}
 }
 
@@ -430,7 +451,8 @@ function clearPendingProgress() {
   pendingProgress = null;
   progressSaveInFlightUntil = 0;
   try {
-    localStorage.removeItem(pendingProgressKey);
+    const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
+    if (!candidate || candidate.identity === localIdentity) localStorage.removeItem(pendingProgressKey);
   } catch {}
 }
 
@@ -557,7 +579,10 @@ function upsertPlayer(row: {
 function upsertProfile(row: { identity: Identity; displayName: string }) {
   const id = row.identity.toHexString();
   profiles.set(id, row.displayName);
-  if (id === localIdentity) localDisplayName = row.displayName;
+  if (id === localIdentity) {
+    localDisplayName = row.displayName;
+    if (accountToken()) rememberAccountCharacter(row.displayName);
+  }
   const player = players.get(id);
   if (player) player.name = row.displayName;
   onChange?.();
@@ -745,6 +770,8 @@ function connect() {
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       localIdentity = identity.toHexString();
+      pendingProgress = readPendingProgress(localIdentity);
+      progressSaveInFlightUntil = 0;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
@@ -899,6 +926,11 @@ export const wildwoodCoop = {
       signedIn: Boolean(accountToken()),
       notice: authNotice,
     };
+  },
+  knownCharacter() {
+    const currentCharacter = localProgress?.introComplete ? localDisplayName.trim() : "";
+    const accountCharacter = rememberedAccountCharacter();
+    return accountCharacter || currentCharacter;
   },
   async signIn() {
     if (protocolBlocked) return;
