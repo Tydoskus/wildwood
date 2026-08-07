@@ -135,8 +135,8 @@
   }
   const enemyTypes = {
     Bramble: {
-      hp: 12,
-      speed: 190,
+      hp: 42,
+      speed: 210,
       damage: 14,
       attackSpeed: 1,
       r: 14,
@@ -154,52 +154,52 @@
       color: "#ffd34d",
       outline: "#6f4a12",
       reward: { type: "speed", amount: 0.01 },
-      score: 5
+      score: 1
     },
     Mossback: {
       hp: 380,
-      speed: 190,
+      speed: 210,
       damage: 29,
       attackSpeed: 1,
       r: 22,
       color: "#768d51",
       outline: "#2c3b20",
       reward: { type: "armor", amount: 1 },
-      score: 10
+      score: 1
     },
     Spitter: {
-      hp: 18,
-      speed: 160,
+      hp: 28,
+      speed: 210,
       damage: 48,
       attackSpeed: 1,
       r: 15,
       color: "#b16ac8",
       outline: "#4b235d",
       reward: { type: "damage", amount: 1 },
-      score: 8
+      score: 1
     },
     Brood: {
       hp: 220,
-      speed: 190,
+      speed: 180,
       damage: 56,
       attackSpeed: 0.69,
       r: 16,
       color: "#45b6c2",
       outline: "#174a54",
       reward: { type: "regen", amount: 0.3 },
-      score: 8,
+      score: 1,
       ranged: true
     },
     Cindermaw: {
       hp: 360,
-      speed: 190,
+      speed: 210,
       damage: 86,
       attackSpeed: 1,
       r: 19,
       color: "#d95738",
       outline: "#5c1b13",
       reward: { type: "damage", amount: 6 },
-      score: 36
+      score: 1
     },
     "King Slime": {
       hp: 920,
@@ -210,7 +210,7 @@
       color: "#70a94f",
       outline: "#2d5127",
       reward: { type: "health", amount: 176 },
-      score: 30,
+      score: 1,
       elite: true,
       aggro: 300
     },
@@ -223,7 +223,7 @@
       color: "#a52e3a",
       outline: "#47101a",
       reward: { type: "damage", amount: 83 },
-      score: 180,
+      score: 1,
       elite: true,
       aggro: 350
     }
@@ -700,7 +700,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.235";
+    const GAME_VERSION = "0.236";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
