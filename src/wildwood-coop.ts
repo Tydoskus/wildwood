@@ -154,6 +154,8 @@ const NEARBY_MOVEMENT_HZ = 30;
 const DISTANT_MOVEMENT_HZ = 5;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
+const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
+const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
 const PROTOCOL_VERSION = 15;
@@ -209,6 +211,8 @@ let localIdentity = "";
 let lastPositionSentAt = 0;
 let lastPositionMoving = false;
 let nextPositionSequence = 0;
+let latencyMs: number | null = null;
+let lastLatencyProbeStartedAt = 0;
 let reconnectTimer: number | null = null;
 let connecting = false;
 let connectionGeneration = 0;
@@ -255,6 +259,13 @@ function touchServerActivity() {
   lastServerActivityAt = performance.now();
 }
 
+function recordLatency(startedAt: number) {
+  const sample = Math.max(0, performance.now() - startedAt);
+  latencyMs = latencyMs === null
+    ? sample
+    : latencyMs + (sample - latencyMs) * LATENCY_SMOOTHING;
+}
+
 function handleReducerFailure(action: string, error: unknown) {
   const message = reducerErrorMessage(error);
   if (!/wildwood updated\. refresh to continue\./i.test(message)) {
@@ -281,10 +292,17 @@ function handleReducerFailure(action: string, error: unknown) {
 function sendReducer(action: string, reducer: () => unknown, onRejected?: () => void) {
   if (protocolBlocked) return;
   try {
-    void Promise.resolve(reducer()).catch((error) => {
-      onRejected?.();
-      handleReducerFailure(action, error);
-    });
+    const startedAt = performance.now();
+    const measureLatency = startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
+    if (measureLatency) lastLatencyProbeStartedAt = startedAt;
+    void Promise.resolve(reducer())
+      .then(() => {
+        if (measureLatency) recordLatency(startedAt);
+      })
+      .catch((error) => {
+        onRejected?.();
+        handleReducerFailure(action, error);
+      });
   } catch (error) {
     onRejected?.();
     handleReducerFailure(action, error);
@@ -1316,6 +1334,8 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      latencyMs = null;
+      lastLatencyProbeStartedAt = 0;
       if (identityChanged) {
         localState = null;
         localProgress = null;
@@ -1328,8 +1348,10 @@ function connect() {
           localStorage.setItem(guestTokenKey, token);
         } catch {}
       }
+      const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
+        recordLatency(protocolStartedAt);
         const isCurrentConnection = () => {
           const current = generation === connectionGeneration && connection === conn;
           if (current) touchServerActivity();
@@ -1443,6 +1465,8 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      latencyMs = null;
+      lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
@@ -1463,6 +1487,8 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      latencyMs = null;
+      lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
@@ -1504,6 +1530,9 @@ export const wildwoodCoop = {
   },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);
+  },
+  latencyMs() {
+    return latencyMs;
   },
   accountState() {
     const signedIn = connection?.isActive ? connectedSignedIn : Boolean(accountToken());

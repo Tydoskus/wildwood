@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.232" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.233" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -31,6 +31,10 @@
         <div class="setting-row">
           <span>SERVER</span>
           <span id="connectionStatus" class="connection-status">CONNECTING</span>
+        </div>
+        <div class="setting-row">
+          <span>LATENCY</span>
+          <button id="latencyToggle" class="setting-toggle" type="button" aria-pressed="false">OFF</button>
         </div>
         <div class="setting-row">
           <span>SCREEN SHAKE</span>
@@ -105,7 +109,8 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.232</div>
+        <div id="latencyStatus" hidden>PING: --</div>
+        <div id="version">v0.233</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -227,7 +232,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.232"></script>
-<script src="assets/wildwood/game.js?v=0.232"></script>
+<script src="assets/wildwood/coop-client.js?v=0.233"></script>
+<script src="assets/wildwood/game.js?v=0.233"></script>
 </body>
 </html>

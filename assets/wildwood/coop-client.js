@@ -8533,6 +8533,8 @@ ${ty.variants.map(
   const DISTANT_MOVEMENT_HZ = 5;
   const NEARBY_MOVEMENT_INTERVAL_MS = 1e3 / NEARBY_MOVEMENT_HZ;
   const DISTANT_MOVEMENT_INTERVAL_MS = 1e3 / DISTANT_MOVEMENT_HZ;
+  const LATENCY_SAMPLE_INTERVAL_MS = 1e3;
+  const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
   const PROTOCOL_VERSION = 15;
@@ -8586,6 +8588,8 @@ ${ty.variants.map(
   let lastPositionSentAt = 0;
   let lastPositionMoving = false;
   let nextPositionSequence = 0;
+  let latencyMs = null;
+  let lastLatencyProbeStartedAt = 0;
   let reconnectTimer = null;
   let connecting = false;
   let connectionGeneration = 0;
@@ -8628,6 +8632,10 @@ ${ty.variants.map(
   function touchServerActivity() {
     lastServerActivityAt = performance.now();
   }
+  function recordLatency(startedAt) {
+    const sample = Math.max(0, performance.now() - startedAt);
+    latencyMs = latencyMs === null ? sample : latencyMs + (sample - latencyMs) * LATENCY_SMOOTHING;
+  }
   function handleReducerFailure(action, error) {
     const message = reducerErrorMessage(error);
     if (!/wildwood updated\. refresh to continue\./i.test(message)) {
@@ -8649,7 +8657,12 @@ ${ty.variants.map(
   function sendReducer(action, reducer, onRejected) {
     if (protocolBlocked) return;
     try {
-      void Promise.resolve(reducer()).catch((error) => {
+      const startedAt = performance.now();
+      const measureLatency = startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
+      if (measureLatency) lastLatencyProbeStartedAt = startedAt;
+      void Promise.resolve(reducer()).then(() => {
+        if (measureLatency) recordLatency(startedAt);
+      }).catch((error) => {
         onRejected == null ? void 0 : onRejected();
         handleReducerFailure(action, error);
       });
@@ -9524,6 +9537,8 @@ ${ty.variants.map(
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      latencyMs = null;
+      lastLatencyProbeStartedAt = 0;
       if (identityChanged) {
         localState = null;
         localProgress = null;
@@ -9537,8 +9552,10 @@ ${ty.variants.map(
         } catch {
         }
       }
+      const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
+        recordLatency(protocolStartedAt);
         const isCurrentConnection = () => {
           const current = generation === connectionGeneration && connection === conn;
           if (current) touchServerActivity();
@@ -9675,6 +9692,8 @@ ${ty.variants.map(
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      latencyMs = null;
+      lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
@@ -9694,6 +9713,8 @@ ${ty.variants.map(
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      latencyMs = null;
+      lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
@@ -9733,6 +9754,9 @@ ${ty.variants.map(
     },
     isConnected() {
       return Boolean((connection == null ? void 0 : connection.isActive) && hydrationReady);
+    },
+    latencyMs() {
+      return latencyMs;
     },
     accountState() {
       const signedIn = (connection == null ? void 0 : connection.isActive) ? connectedSignedIn : Boolean(accountToken());

@@ -53,8 +53,9 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.232";
+  const GAME_VERSION = "0.233";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+  const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
   const BASE_PLAYER_HP = 100;
@@ -88,6 +89,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const equippedFeetSlot = document.getElementById("equippedFeetSlot");
   const screenShakeToggle = document.getElementById("screenShakeToggle");
   const attackRangeToggle = document.getElementById("attackRangeToggle");
+  const latencyToggle = document.getElementById("latencyToggle");
+  const latencyStatusEl = document.getElementById("latencyStatus");
   const musicVolumeInput = document.getElementById("musicVolume");
   const musicVolumeValue = document.getElementById("musicVolumeValue");
   const fullscreenToggle = document.getElementById("fullscreenToggle");
@@ -199,6 +202,8 @@ import { formatCompactNumber } from "./ui/number-format";
   let screenShakeEnabled = true;
   let attackRangeVisible = true;
   try { attackRangeVisible = localStorage.getItem(ATTACK_RANGE_VISIBLE_KEY) !== "false"; } catch {}
+  let latencyVisible = false;
+  try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
@@ -2644,6 +2649,7 @@ import { formatCompactNumber } from "./ui/number-format";
     updateDuelControls();
     updateConnectionStatus();
     updateAccountStatus();
+    updateLatencyStatus();
   }
 
   function formatPlayedTime(seconds) {
@@ -2895,6 +2901,27 @@ import { formatCompactNumber } from "./ui/number-format";
     attackRangeToggle.classList.toggle("is-off", !attackRangeVisible);
   }
 
+  function updateLatencySetting() {
+    latencyToggle.textContent = latencyVisible ? "ON" : "OFF";
+    latencyToggle.setAttribute("aria-pressed", String(latencyVisible));
+    latencyToggle.classList.toggle("is-off", !latencyVisible);
+    updateLatencyStatus();
+  }
+
+  function updateLatencyStatus() {
+    latencyStatusEl.hidden = !latencyVisible;
+    if (!latencyVisible) return;
+    const latency = coop?.latencyMs?.();
+    const connected = Boolean(coop?.isConnected?.());
+    const rounded = typeof latency === "number" && Number.isFinite(latency) ? Math.round(latency) : null;
+    const displayedLatency = connected ? rounded : null;
+    const text = displayedLatency !== null ? `PING: ${displayedLatency}MS` : "PING: --";
+    if (latencyStatusEl.textContent !== text) latencyStatusEl.textContent = text;
+    latencyStatusEl.dataset.quality = displayedLatency === null
+      ? ""
+      : displayedLatency <= 80 ? "good" : displayedLatency <= 150 ? "fair" : "poor";
+  }
+
   function updateMusicVolume() {
     const percent = Math.round(musicVolume * 100);
     backgroundMusic.volume = musicVolume;
@@ -3026,6 +3053,12 @@ import { formatCompactNumber } from "./ui/number-format";
     attackRangeVisible = !attackRangeVisible;
     try { localStorage.setItem(ATTACK_RANGE_VISIBLE_KEY, String(attackRangeVisible)); } catch {}
     updateAttackRangeSetting();
+  });
+
+  latencyToggle.addEventListener("click", () => {
+    latencyVisible = !latencyVisible;
+    try { localStorage.setItem(LATENCY_VISIBLE_KEY, String(latencyVisible)); } catch {}
+    updateLatencySetting();
   });
 
   hpText.closest(".card")?.addEventListener("click", () => {
@@ -3167,6 +3200,7 @@ import { formatCompactNumber } from "./ui/number-format";
   }
   updateFullscreenSetting();
   updateAttackRangeSetting();
+  updateLatencySetting();
   updateMusicVolume();
   updateDuelControls();
   updateConnectionStatus();

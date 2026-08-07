@@ -48,6 +48,8 @@ Migration order is strict: acknowledge pending guest progress, create the privat
 
 Movement uploads use an adaptive rate. A client sends at 30 Hz when another player is inside its viewport plus a 25% margin on every edge, allowing the rate to increase before either player becomes visible. Isolated movement sends at 5 Hz. Movement start, movement stop, and forced combat/session synchronization bypass the timer.
 
+Optional latency display measures and smooths acknowledgement time from normal reducer calls. It does not create a ping reducer, timer, heartbeat, or additional server traffic.
+
 Opening a websocket does not create a character or public presence. Protocol registration may hydrate the login UI, but only `enter_world` creates missing profile/progress rows and the public player row after guest/sign-in choice or successful automatic sign-in.
 
 Player lifetime metadata records join date, accumulated play time, and enemy kills. Own progress/lifetime rows hydrate with the main subscription. Other-player progress/lifetime rows use a single temporary identity-filtered subscription while that profile window is open; closing or switching profiles unsubscribes it.

@@ -437,6 +437,10 @@
     pointer-events: none;
   }
 
+  #latencyStatus[data-quality="good"] { color: #72ef58; }
+  #latencyStatus[data-quality="fair"] { color: var(--gold); }
+  #latencyStatus[data-quality="poor"] { color: #ff8f86; }
+
   #playerName {
     min-width: 0;
     max-width: 230px;
