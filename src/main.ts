@@ -53,7 +53,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.229";
+  const GAME_VERSION = "0.230";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -1483,6 +1483,8 @@ import { formatCompactNumber } from "./ui/number-format";
           const pushY = toPlayerY / playerDistance;
           e.x -= pushX * ENEMY_CONTACT_RECOIL_DISTANCE;
           e.y -= pushY * ENEMY_CONTACT_RECOIL_DISTANCE;
+          e.vx = 0;
+          e.vy = 0;
         }
       }
     }
@@ -2018,8 +2020,6 @@ import { formatCompactNumber } from "./ui/number-format";
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
     drawActorShadow(x, y + 29, 54, .21);
-    const blink = player.hurtClock > 0 && Math.floor(player.hurtClock * 18) % 2 === 0;
-    if (blink) return;
 
     if (playerSprite.complete && playerSprite.naturalWidth > 0) {
       const cellW = playerSprite.naturalWidth / 4;
