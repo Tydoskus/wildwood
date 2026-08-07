@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.230" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.231" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -105,7 +105,7 @@
       <span>CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
-        <div id="version">v0.230</div>
+        <div id="version">v0.231</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -195,18 +195,18 @@
 <div id="playerProfile" hidden>
   <div class="modal player-profile-modal" role="dialog" aria-modal="true" aria-labelledby="playerProfileName">
     <header class="player-profile-header">
-      <div>
+      <div class="player-profile-title-row">
         <h2 id="playerProfileName">PLAYER</h2>
         <div id="playerProfilePower">Power: 0</div>
       </div>
       <button id="closePlayerProfileBtn" class="profile-close-button secondary-button" type="button" aria-label="Close player profile">×</button>
     </header>
     <div class="profile-tabs" role="tablist" aria-label="Player profile sections">
-      <button id="profileOverviewTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileOverviewPanel">OVERVIEW</button>
-      <button id="profileStatsTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileStatsPanel">STATS</button>
+      <button id="profileStatsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileStatsPanel">STATS</button>
+      <button id="profileOverviewTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileOverviewPanel">INFO</button>
     </div>
     <div id="playerProfileLoading" class="profile-loading">LOADING PLAYER…</div>
-    <section id="profileOverviewPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileOverviewTab">
+    <section id="profileOverviewPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileOverviewTab" hidden>
       <dl class="profile-grid">
         <div><dt>DATE JOINED</dt><dd id="profileJoined">—</dd></div>
         <div><dt>TIME PLAYED</dt><dd id="profileTimePlayed">—</dd></div>
@@ -214,7 +214,7 @@
         <div><dt>STATUS</dt><dd id="profileOnline">—</dd></div>
       </dl>
     </section>
-    <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab" hidden>
+    <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
       <dl id="profileStatGrid" class="profile-grid profile-stat-grid"></dl>
     </section>
   </div>
@@ -227,7 +227,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.230"></script>
-<script src="assets/wildwood/game.js?v=0.230"></script>
+<script src="assets/wildwood/coop-client.js?v=0.231"></script>
+<script src="assets/wildwood/game.js?v=0.231"></script>
 </body>
 </html>

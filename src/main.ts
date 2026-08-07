@@ -53,7 +53,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.230";
+  const GAME_VERSION = "0.231";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -2697,6 +2697,7 @@ import { formatCompactNumber } from "./ui/number-format";
     }
     playerProfileLoadingEl.hidden = true;
     profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
+    profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
   }
 
   async function openPlayerProfile(identity, fallbackName = "PLAYER") {
@@ -2708,8 +2709,8 @@ import { formatCompactNumber } from "./ui/number-format";
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
     profileStatsPanel.hidden = true;
-    setProfileTab("overview");
-    profileOverviewPanel.hidden = true;
+    setProfileTab("stats");
+    profileStatsPanel.hidden = true;
     const cached = coop?.playerProfile?.(identity);
     if (cached) {
       renderPlayerProfile(cached);

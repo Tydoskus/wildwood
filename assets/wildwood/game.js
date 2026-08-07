@@ -680,7 +680,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.230";
+    const GAME_VERSION = "0.231";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -3072,6 +3072,7 @@
       }
       playerProfileLoadingEl.hidden = true;
       profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
+      profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
     }
     async function openPlayerProfile(identity, fallbackName = "PLAYER") {
       var _a2, _b2;
@@ -3083,8 +3084,8 @@
       playerProfileLoadingEl.hidden = false;
       profileOverviewPanel.hidden = true;
       profileStatsPanel.hidden = true;
-      setProfileTab("overview");
-      profileOverviewPanel.hidden = true;
+      setProfileTab("stats");
+      profileStatsPanel.hidden = true;
       const cached = (_a2 = coop == null ? void 0 : coop.playerProfile) == null ? void 0 : _a2.call(coop, identity);
       if (cached) {
         renderPlayerProfile(cached);
