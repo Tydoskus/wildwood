@@ -15,7 +15,8 @@ export const MIN_CAMERA_ZOOM = 0.5;
 export const ENEMY_SPEED_MULTIPLIER = 3;
 export const ELITE_SPEED_MULTIPLIER = 2;
 export const MELEE_ENEMY_SPEED_MULTIPLIER = 2;
-export const MIN_ENEMY_AGGRO_RADIUS = 285;
+export const REGULAR_ENEMY_AGGRO_PADDING = 15;
+export const ENEMY_CONTACT_RECOIL_DISTANCE = 85;
 export const RANGED_PROJECTILE_SPEED = 165 * 3;
 export const PLAYER_SPRITE_X_OFFSETS = [
   // Calibrated from the flat 4×4 player sheet's alpha bounds so walk frames

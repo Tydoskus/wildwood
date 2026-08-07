@@ -24,7 +24,8 @@
   const BASE_ATTACK_RANGE = 200;
   const ATTACK_RANGE_ZOOM_REFERENCE = 155;
   const MIN_CAMERA_ZOOM = 0.5;
-  const MIN_ENEMY_AGGRO_RADIUS = 285;
+  const REGULAR_ENEMY_AGGRO_PADDING = 15;
+  const ENEMY_CONTACT_RECOIL_DISTANCE = 85;
   const RANGED_PROJECTILE_SPEED = 165 * 3;
   const PLAYER_SPRITE_X_OFFSETS = [
     // Calibrated from the flat 4×4 player sheet's alpha bounds so walk frames
@@ -134,7 +135,7 @@
   const enemyTypes = {
     Bramble: {
       hp: 12,
-      speed: 170,
+      speed: 180,
       damage: 4,
       r: 14,
       color: "#d95738",
@@ -144,7 +145,7 @@
     },
     Needle: {
       hp: 90,
-      speed: 170,
+      speed: 180,
       damage: 14,
       r: 10,
       color: "#ffd34d",
@@ -154,7 +155,7 @@
     },
     Mossback: {
       hp: 380,
-      speed: 170,
+      speed: 180,
       damage: 19,
       r: 22,
       color: "#768d51",
@@ -164,7 +165,7 @@
     },
     Spitter: {
       hp: 18,
-      speed: 140,
+      speed: 150,
       damage: 8,
       r: 15,
       color: "#b16ac8",
@@ -174,7 +175,7 @@
     },
     Brood: {
       hp: 220,
-      speed: 170,
+      speed: 180,
       damage: 16,
       r: 16,
       color: "#45b6c2",
@@ -185,7 +186,7 @@
     },
     "King Slime": {
       hp: 920,
-      speed: 170,
+      speed: 180,
       damage: 43,
       r: 27,
       color: "#70a94f",
@@ -197,7 +198,7 @@
     },
     "Dread Warden": {
       hp: 1e3,
-      speed: 205,
+      speed: 215,
       damage: 175,
       r: 36,
       color: "#a52e3a",
@@ -679,7 +680,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.228";
+    const GAME_VERSION = "0.229";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -1298,7 +1299,7 @@
         damage: base.damage,
         reward: base.reward,
         score: base.score,
-        aggroRadius: Math.max(base.aggro ?? 0, MIN_ENEMY_AGGRO_RADIUS),
+        aggroRadius: base.aggro ?? 0,
         leashRange: site.leashRange,
         engaged: false,
         leashing: false,
@@ -1678,8 +1679,8 @@
       spawnBurst(e.x, e.y, ENEMY_DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
     }
     function damagePlayer(amount) {
-      if (isDueling()) return;
-      if (player.hurtClock > 0) return;
+      if (isDueling()) return false;
+      if (player.hurtClock > 0) return false;
       const dealt = Math.max(1, Math.round(amount - player.armor));
       player.hp -= dealt;
       spawnDamageNumber(player.x, player.y, dealt);
@@ -1692,6 +1693,7 @@
         breakEnemyLeashes();
         endGame();
       }
+      return true;
     }
     function breakEnemyLeashes() {
       for (const e of enemies) {
@@ -1895,7 +1897,8 @@
         const playerDistance = Math.hypot(toPlayerX, toPlayerY) || 1;
         const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
         if (e.leashing && homeDistance < 10) e.leashing = false;
-        if (base.elite && !e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
+        const aggroRadius = base.elite ? e.aggroRadius : Math.max(0, player.attackRange - REGULAR_ENEMY_AGGRO_PADDING);
+        if (!e.leashing && playerDistance < aggroRadius) e.engaged = true;
         if (e.engaged && playerDistance > e.leashRange) {
           e.engaged = false;
           e.leashing = true;
@@ -1951,11 +1954,12 @@
         e.x = clamp(e.x, e.r, WORLD.w - e.r);
         e.y = clamp(e.y, e.r, WORLD.h - e.r);
         if (e.engaged && circlesOverlap(player, e)) {
-          damagePlayer(e.damage);
-          const pushX = toPlayerX / playerDistance;
-          const pushY = toPlayerY / playerDistance;
-          e.x -= pushX * 34;
-          e.y -= pushY * 34;
+          if (damagePlayer(e.damage)) {
+            const pushX = toPlayerX / playerDistance;
+            const pushY = toPlayerY / playerDistance;
+            e.x -= pushX * ENEMY_CONTACT_RECOIL_DISTANCE;
+            e.y -= pushY * ENEMY_CONTACT_RECOIL_DISTANCE;
+          }
         }
       }
       for (let i = 0; i < enemies.length; i++) {

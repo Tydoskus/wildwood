@@ -16,32 +16,32 @@ export type EnemyDefinition = {
 
 const enemyTypes = {
   Bramble: {
-    hp: 12, speed: 170, damage: 4, r: 14,
+    hp: 12, speed: 180, damage: 4, r: 14,
     color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 24 }, score: 4,
   },
   Needle: {
-    hp: 90, speed: 170, damage: 14, r: 10,
+    hp: 90, speed: 180, damage: 14, r: 10,
     color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .02 }, score: 5,
   },
   Mossback: {
-    hp: 380, speed: 170, damage: 19, r: 22,
+    hp: 380, speed: 180, damage: 19, r: 22,
     color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 10,
   },
   Spitter: {
-    hp: 18, speed: 140, damage: 8, r: 15,
+    hp: 18, speed: 150, damage: 8, r: 15,
     color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 8,
   },
   Brood: {
-    hp: 220, speed: 170, damage: 16, r: 16,
+    hp: 220, speed: 180, damage: 16, r: 16,
     color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8, ranged: true,
   },
   "King Slime": {
-    hp: 920, speed: 170, damage: 43, r: 27,
+    hp: 920, speed: 180, damage: 43, r: 27,
     color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 176 }, score: 30,
     elite: true, aggro: 300,
   },
   "Dread Warden": {
-    hp: 1000, speed: 205, damage: 175, r: 36,
+    hp: 1000, speed: 215, damage: 175, r: 36,
     color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 83 }, score: 180,
     elite: true, aggro: 350,
   },

@@ -10,14 +10,15 @@ import {
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
   BOSS_RAIN_RANGE,
+  ENEMY_CONTACT_RECOIL_DISTANCE,
   ENEMY_RESPAWN_SAFE_DISTANCE,
   MAX_PROJECTILE_SPEED,
-  MIN_ENEMY_AGGRO_RADIUS,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
   PLAYER_SPRITE_CENTER_X_SHIFT,
   PLAYER_SPRITE_X_OFFSETS,
   PLAYER_SPRITE_Y_OFFSETS,
+  REGULAR_ENEMY_AGGRO_PADDING,
   RANGED_PROJECTILE_SPEED,
   TAU,
   WORLD,
@@ -52,7 +53,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.228";
+  const GAME_VERSION = "0.229";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -731,7 +732,7 @@ import { formatCompactNumber } from "./ui/number-format";
       damage: base.damage,
       reward: base.reward,
       score: base.score,
-      aggroRadius: Math.max(base.aggro ?? 0, MIN_ENEMY_AGGRO_RADIUS),
+      aggroRadius: base.aggro ?? 0,
       leashRange: site.leashRange,
       engaged: false,
       leashing: false,
@@ -1160,8 +1161,8 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function damagePlayer(amount) {
-    if (isDueling()) return;
-    if (player.hurtClock > 0) return;
+    if (isDueling()) return false;
+    if (player.hurtClock > 0) return false;
     const dealt = Math.max(1, Math.round(amount - player.armor));
     player.hp -= dealt;
     spawnDamageNumber(player.x, player.y, dealt);
@@ -1175,6 +1176,7 @@ import { formatCompactNumber } from "./ui/number-format";
       breakEnemyLeashes();
       endGame();
     }
+    return true;
   }
 
   function breakEnemyLeashes() {
@@ -1407,7 +1409,10 @@ import { formatCompactNumber } from "./ui/number-format";
       const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
 
       if (e.leashing && homeDistance < 10) e.leashing = false;
-      if (base.elite && !e.leashing && playerDistance < e.aggroRadius) e.engaged = true;
+      const aggroRadius = base.elite
+        ? e.aggroRadius
+        : Math.max(0, player.attackRange - REGULAR_ENEMY_AGGRO_PADDING);
+      if (!e.leashing && playerDistance < aggroRadius) e.engaged = true;
 
       if (e.engaged && playerDistance > e.leashRange) {
         e.engaged = false;
@@ -1473,11 +1478,12 @@ import { formatCompactNumber } from "./ui/number-format";
       e.y = clamp(e.y, e.r, WORLD.h - e.r);
 
       if (e.engaged && circlesOverlap(player, e)) {
-        damagePlayer(e.damage);
-        const pushX = toPlayerX / playerDistance;
-        const pushY = toPlayerY / playerDistance;
-        e.x -= pushX * 34;
-        e.y -= pushY * 34;
+        if (damagePlayer(e.damage)) {
+          const pushX = toPlayerX / playerDistance;
+          const pushY = toPlayerY / playerDistance;
+          e.x -= pushX * ENEMY_CONTACT_RECOIL_DISTANCE;
+          e.y -= pushY * ENEMY_CONTACT_RECOIL_DISTANCE;
+        }
       }
     }
 
