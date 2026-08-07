@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Keep ordinary main-branch commits deployed without interfering with work on
+# feature branches or detached-head operations such as rebases.
+branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
+[ "$branch" = "main" ] || exit 0
+
+remote=$(git config --get branch.main.remote)
+[ -n "$remote" ] || remote=origin
+
+echo "Auto-pushing $branch to $remote..."
+if ! git push "$remote" "$branch"; then
+  echo "Auto-push failed. Commit remains saved locally; run: git push $remote $branch" >&2
+  exit 1
+fi
