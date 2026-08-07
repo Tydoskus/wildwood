@@ -25,7 +25,8 @@
   const ATTACK_RANGE_ZOOM_REFERENCE = 155;
   const MIN_CAMERA_ZOOM = 0.5;
   const REGULAR_ENEMY_AGGRO_PADDING = 15;
-  const ENEMY_CONTACT_RECOIL_DISTANCE = 85;
+  const ENEMY_HIT_MIN_MOVE_SPEED = 1;
+  const ENEMY_HIT_SPEED_RECOVERY_SECONDS = 3;
   const RANGED_PROJECTILE_SPEED = 165 * 3;
   const PLAYER_SPRITE_X_OFFSETS = [
     // Calibrated from the flat 4×4 player sheet's alpha bounds so walk frames
@@ -135,28 +136,31 @@
   const enemyTypes = {
     Bramble: {
       hp: 12,
-      speed: 180,
-      damage: 4,
+      speed: 190,
+      damage: 14,
+      attackSpeed: 1,
       r: 14,
       color: "#d95738",
       outline: "#5c1b13",
-      reward: { type: "health", amount: 24 },
+      reward: { type: "health", amount: 14 },
       score: 4
     },
     Needle: {
       hp: 90,
-      speed: 180,
-      damage: 14,
+      speed: 210,
+      damage: 24,
+      attackSpeed: 1,
       r: 10,
       color: "#ffd34d",
       outline: "#6f4a12",
-      reward: { type: "speed", amount: 0.02 },
+      reward: { type: "speed", amount: 0.01 },
       score: 5
     },
     Mossback: {
       hp: 380,
-      speed: 180,
-      damage: 19,
+      speed: 190,
+      damage: 29,
+      attackSpeed: 1,
       r: 22,
       color: "#768d51",
       outline: "#2c3b20",
@@ -165,8 +169,9 @@
     },
     Spitter: {
       hp: 18,
-      speed: 150,
-      damage: 8,
+      speed: 160,
+      damage: 48,
+      attackSpeed: 1,
       r: 15,
       color: "#b16ac8",
       outline: "#4b235d",
@@ -175,8 +180,9 @@
     },
     Brood: {
       hp: 220,
-      speed: 180,
-      damage: 16,
+      speed: 190,
+      damage: 56,
+      attackSpeed: 0.69,
       r: 16,
       color: "#45b6c2",
       outline: "#174a54",
@@ -184,10 +190,22 @@
       score: 8,
       ranged: true
     },
+    Cindermaw: {
+      hp: 360,
+      speed: 190,
+      damage: 86,
+      attackSpeed: 1,
+      r: 19,
+      color: "#d95738",
+      outline: "#5c1b13",
+      reward: { type: "damage", amount: 6 },
+      score: 36
+    },
     "King Slime": {
       hp: 920,
-      speed: 180,
-      damage: 43,
+      speed: 190,
+      damage: 143,
+      attackSpeed: 1,
       r: 27,
       color: "#70a94f",
       outline: "#2d5127",
@@ -198,8 +216,9 @@
     },
     "Dread Warden": {
       hp: 1e3,
-      speed: 215,
-      damage: 175,
+      speed: 220,
+      damage: 275,
+      attackSpeed: 1,
       r: 36,
       color: "#a52e3a",
       outline: "#47101a",
@@ -227,6 +246,7 @@
         { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 }
       ]
     },
+    Cindermaw: { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 64 },
     "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
     "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 }
   };
@@ -247,7 +267,7 @@
     // Hard: armor enemies occupy the lower-left and late-game routes.
     { name: "Mossfall Ruins", x: 950, y: 3150, minRadius: 250, radius: 570, count: 6, types: ["Mossback"], ground: "#33423a", ring: "#8d9b75" },
     // Elite locations stay unchanged; regular camp members share one reward type.
-    { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Spitter", "Spitter", "Spitter", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+    { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Cindermaw", "Cindermaw", "Cindermaw", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
     { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
     { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#553334", ring: "#d37362" }
   ];
@@ -680,7 +700,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.233";
+    const GAME_VERSION = "0.234";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -1312,7 +1332,8 @@
         leashRange: site.leashRange,
         engaged: false,
         leashing: false,
-        attackClock: rand(0.2, 1.2),
+        attackClock: base.ranged ? rand(0.2, 1.2) : 0,
+        moveSpeedRecovery: ENEMY_HIT_SPEED_RECOVERY_SECONDS,
         hurt: 0,
         dead: false,
         phase: Math.random() * TAU
@@ -1913,7 +1934,10 @@
         const base = ENEMY_TYPES[e.type];
         e.hurt = Math.max(0, e.hurt - dt);
         e.attackClock -= dt;
+        e.moveSpeedRecovery = Math.min(ENEMY_HIT_SPEED_RECOVERY_SECONDS, e.moveSpeedRecovery + dt);
         e.phase += dt * 3;
+        const moveSpeedProgress = e.moveSpeedRecovery / ENEMY_HIT_SPEED_RECOVERY_SECONDS;
+        const currentMoveSpeed = ENEMY_HIT_MIN_MOVE_SPEED + (e.speed - ENEMY_HIT_MIN_MOVE_SPEED) * moveSpeedProgress;
         const toPlayerX = player.x - e.x;
         const toPlayerY = player.y - e.y;
         const playerDistance = Math.hypot(toPlayerX, toPlayerY) || 1;
@@ -1951,8 +1975,8 @@
           let rangedMove = 0;
           if (playerDistance > preferred + 25) rangedMove = 1;
           if (playerDistance < preferred - 35) rangedMove = -1;
-          e.vx += toPlayerX / playerDistance * e.speed * rangedMove * dt * 6;
-          e.vy += toPlayerY / playerDistance * e.speed * rangedMove * dt * 6;
+          e.vx += toPlayerX / playerDistance * currentMoveSpeed * rangedMove * dt * 6;
+          e.vy += toPlayerY / playerDistance * currentMoveSpeed * rangedMove * dt * 6;
           if (e.attackClock <= 0 && playerDistance < 390) {
             enemyShots.push({
               x: e.x,
@@ -1963,11 +1987,12 @@
               damage: e.damage,
               life: 4
             });
-            e.attackClock = rand(1.2, 1.7);
+            const rangedAttackInterval = 1 / Math.max(0.01, base.attackSpeed);
+            e.attackClock = rand(rangedAttackInterval * 0.83, rangedAttackInterval * 1.17);
           }
         } else if (moveMode) {
-          e.vx += dx * e.speed * dt * 7;
-          e.vy += dy * e.speed * dt * 7;
+          e.vx += dx * currentMoveSpeed * dt * 7;
+          e.vy += dy * currentMoveSpeed * dt * 7;
         }
         e.vx *= Math.pow(2e-3, dt);
         e.vy *= Math.pow(2e-3, dt);
@@ -1975,12 +2000,10 @@
         e.y += e.vy * dt;
         e.x = clamp(e.x, e.r, WORLD.w - e.r);
         e.y = clamp(e.y, e.r, WORLD.h - e.r);
-        if (e.engaged && circlesOverlap(player, e)) {
+        if (e.engaged && e.attackClock <= 0 && circlesOverlap(player, e)) {
           if (damagePlayer(e.damage)) {
-            const pushX = toPlayerX / playerDistance;
-            const pushY = toPlayerY / playerDistance;
-            e.x -= pushX * ENEMY_CONTACT_RECOIL_DISTANCE;
-            e.y -= pushY * ENEMY_CONTACT_RECOIL_DISTANCE;
+            e.attackClock = 1 / Math.max(0.01, base.attackSpeed);
+            e.moveSpeedRecovery = 0;
             e.vx = 0;
             e.vy = 0;
           }

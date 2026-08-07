@@ -4,6 +4,7 @@ export type EnemyDefinition = {
   hp: number;
   speed: number;
   damage: number;
+  attackSpeed: number; // Attacks per second.
   r: number;
   color: string;
   outline: string;
@@ -16,32 +17,36 @@ export type EnemyDefinition = {
 
 const enemyTypes = {
   Bramble: {
-    hp: 12, speed: 190, damage: 14, r: 14,
+    hp: 12, speed: 190, damage: 14, attackSpeed: 1, r: 14,
     color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 14 }, score: 4,
   },
   Needle: {
-    hp: 90, speed: 210, damage: 24, r: 10,
+    hp: 90, speed: 210, damage: 24, attackSpeed: 1, r: 10,
     color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .01 }, score: 5,
   },
   Mossback: {
-    hp: 380, speed: 190, damage: 29, r: 22,
+    hp: 380, speed: 190, damage: 29, attackSpeed: 1, r: 22,
     color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 10,
   },
   Spitter: {
-    hp: 18, speed: 160, damage: 48, r: 15,
+    hp: 18, speed: 160, damage: 48, attackSpeed: 1, r: 15,
     color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 8,
   },
   Brood: {
-    hp: 220, speed: 190, damage: 56, r: 16,
+    hp: 220, speed: 190, damage: 56, attackSpeed: .69, r: 16,
     color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 8, ranged: true,
   },
+  Cindermaw: {
+    hp: 360, speed: 190, damage: 86, attackSpeed: 1, r: 19,
+    color: "#d95738", outline: "#5c1b13", reward: { type: "damage", amount: 6 }, score: 36,
+  },
   "King Slime": {
-    hp: 920, speed: 190, damage: 143, r: 27,
+    hp: 920, speed: 190, damage: 143, attackSpeed: 1, r: 27,
     color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 176 }, score: 30,
     elite: true, aggro: 300,
   },
   "Dread Warden": {
-    hp: 1000, speed: 220, damage: 275, r: 36,
+    hp: 1000, speed: 220, damage: 275, attackSpeed: 1, r: 36,
     color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 83 }, score: 180,
     elite: true, aggro: 350,
   },
@@ -89,6 +94,7 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 },
     ],
   },
+  Cindermaw: { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 64 },
   "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
   "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
 };
@@ -111,7 +117,7 @@ export const CAMPS: EnemyCamp[] = [
   // Hard: armor enemies occupy the lower-left and late-game routes.
   { name: "Mossfall Ruins", x: 950, y: 3150, minRadius: 250, radius: 570, count: 6, types: ["Mossback"], ground: "#33423a", ring: "#8d9b75" },
   // Elite locations stay unchanged; regular camp members share one reward type.
-  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Spitter", "Spitter", "Spitter", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Cindermaw", "Cindermaw", "Cindermaw", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
   { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
   { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#553334", ring: "#d37362" },
 ];

@@ -10,7 +10,8 @@ import {
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
   BOSS_RAIN_RANGE,
-  ENEMY_CONTACT_RECOIL_DISTANCE,
+  ENEMY_HIT_MIN_MOVE_SPEED,
+  ENEMY_HIT_SPEED_RECOVERY_SECONDS,
   ENEMY_RESPAWN_SAFE_DISTANCE,
   MAX_PROJECTILE_SPEED,
   MIN_CAMERA_ZOOM,
@@ -53,7 +54,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.233";
+  const GAME_VERSION = "0.234";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -742,7 +743,8 @@ import { formatCompactNumber } from "./ui/number-format";
       leashRange: site.leashRange,
       engaged: false,
       leashing: false,
-      attackClock: rand(.2, 1.2),
+      attackClock: base.ranged ? rand(.2, 1.2) : 0,
+      moveSpeedRecovery: ENEMY_HIT_SPEED_RECOVERY_SECONDS,
       hurt: 0,
       dead: false,
       phase: Math.random() * TAU
@@ -1419,7 +1421,10 @@ import { formatCompactNumber } from "./ui/number-format";
       const base = ENEMY_TYPES[e.type];
       e.hurt = Math.max(0, e.hurt - dt);
       e.attackClock -= dt;
+      e.moveSpeedRecovery = Math.min(ENEMY_HIT_SPEED_RECOVERY_SECONDS, e.moveSpeedRecovery + dt);
       e.phase += dt * 3;
+      const moveSpeedProgress = e.moveSpeedRecovery / ENEMY_HIT_SPEED_RECOVERY_SECONDS;
+      const currentMoveSpeed = ENEMY_HIT_MIN_MOVE_SPEED + (e.speed - ENEMY_HIT_MIN_MOVE_SPEED) * moveSpeedProgress;
 
       const toPlayerX = player.x - e.x;
       const toPlayerY = player.y - e.y;
@@ -1468,8 +1473,8 @@ import { formatCompactNumber } from "./ui/number-format";
         if (playerDistance > preferred + 25) rangedMove = 1;
         if (playerDistance < preferred - 35) rangedMove = -1;
 
-        e.vx += (toPlayerX / playerDistance) * e.speed * rangedMove * dt * 6;
-        e.vy += (toPlayerY / playerDistance) * e.speed * rangedMove * dt * 6;
+        e.vx += (toPlayerX / playerDistance) * currentMoveSpeed * rangedMove * dt * 6;
+        e.vy += (toPlayerY / playerDistance) * currentMoveSpeed * rangedMove * dt * 6;
 
         if (e.attackClock <= 0 && playerDistance < 390) {
           enemyShots.push({
@@ -1481,11 +1486,12 @@ import { formatCompactNumber } from "./ui/number-format";
             damage: e.damage,
             life: 4
           });
-          e.attackClock = rand(1.2, 1.7);
+          const rangedAttackInterval = 1 / Math.max(.01, base.attackSpeed);
+          e.attackClock = rand(rangedAttackInterval * .83, rangedAttackInterval * 1.17);
         }
       } else if (moveMode) {
-        e.vx += dx * e.speed * dt * 7;
-        e.vy += dy * e.speed * dt * 7;
+        e.vx += dx * currentMoveSpeed * dt * 7;
+        e.vy += dy * currentMoveSpeed * dt * 7;
       }
 
       e.vx *= Math.pow(.002, dt);
@@ -1495,12 +1501,10 @@ import { formatCompactNumber } from "./ui/number-format";
       e.x = clamp(e.x, e.r, WORLD.w - e.r);
       e.y = clamp(e.y, e.r, WORLD.h - e.r);
 
-      if (e.engaged && circlesOverlap(player, e)) {
+      if (e.engaged && e.attackClock <= 0 && circlesOverlap(player, e)) {
         if (damagePlayer(e.damage)) {
-          const pushX = toPlayerX / playerDistance;
-          const pushY = toPlayerY / playerDistance;
-          e.x -= pushX * ENEMY_CONTACT_RECOIL_DISTANCE;
-          e.y -= pushY * ENEMY_CONTACT_RECOIL_DISTANCE;
+          e.attackClock = 1 / Math.max(.01, base.attackSpeed);
+          e.moveSpeedRecovery = 0;
           e.vx = 0;
           e.vy = 0;
         }
