@@ -46,6 +46,8 @@ Migration order is strict: acknowledge pending guest progress, create the privat
 
 `player_session` is private and keyed by SpacetimeDB connection ID. `player_controller` assigns one live connection per identity to authoritative movement, duels, and dragon attacks. Extra tabs may subscribe without owning the player. Controller disconnect transfers ownership when another session exists; final disconnect removes public presence and resolves duel cleanup.
 
+Movement uploads use an adaptive rate. A client sends at 30 Hz when another player is inside its viewport plus a 25% margin on every edge, allowing the rate to increase before either player becomes visible. Isolated movement sends at 5 Hz. Movement start, movement stop, and forced combat/session synchronization bypass the timer.
+
 Opening a websocket does not create a character or public presence. Protocol registration may hydrate the login UI, but only `enter_world` creates missing profile/progress rows and the public player row after guest/sign-in choice or successful automatic sign-in.
 
 Player lifetime metadata records join date, accumulated play time, and enemy kills. Own progress/lifetime rows hydrate with the main subscription. Other-player progress/lifetime rows use a single temporary identity-filtered subscription while that profile window is open; closing or switching profiles unsubscribes it.

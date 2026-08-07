@@ -8529,8 +8529,10 @@ ${ty.variants.map(
     return new DbConnectionBuilder(REMOTE_MODULE, (config) => new _DbConnection(config));
   };
   let DbConnection = _DbConnection;
-  const MOVEMENT_HZ = 24;
-  const MOVEMENT_INTERVAL_MS = 1e3 / MOVEMENT_HZ;
+  const NEARBY_MOVEMENT_HZ = 30;
+  const DISTANT_MOVEMENT_HZ = 5;
+  const NEARBY_MOVEMENT_INTERVAL_MS = 1e3 / NEARBY_MOVEMENT_HZ;
+  const DISTANT_MOVEMENT_INTERVAL_MS = 1e3 / DISTANT_MOVEMENT_HZ;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
   const PROTOCOL_VERSION = 15;
@@ -9934,12 +9936,13 @@ ${ty.variants.map(
       lastSpeedSent = speed;
       sendReducer("speed sync", () => connection == null ? void 0 : connection.reducers.setSpeed({ speed }));
     },
-    syncPosition(x, y, facing, moving = false, force = false) {
+    syncPosition(x, y, facing, moving = false, force = false, highFrequency = false) {
       if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
       const now = performance.now();
       const movingChanged = moving !== lastPositionMoving;
+      const movementIntervalMs = highFrequency ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;
       if (!force && !movingChanged && !moving) return;
-      if (!force && !movingChanged && now - lastPositionSentAt < MOVEMENT_INTERVAL_MS) return;
+      if (!force && !movingChanged && now - lastPositionSentAt < movementIntervalMs) return;
       lastPositionSentAt = now;
       lastPositionMoving = moving;
       const sequence = ++nextPositionSequence;
@@ -9979,6 +9982,16 @@ ${ty.variants.map(
         if (player.id !== localIdentity) count += 1;
       }
       return count;
+    },
+    hasRemotePlayerInArea(minX, minY, maxX, maxY) {
+      for (const player of players.values()) {
+        if (player.id === localIdentity) continue;
+        const latest = player.samples[player.samples.length - 1];
+        const x = (latest == null ? void 0 : latest.x) ?? player.x;
+        const y = (latest == null ? void 0 : latest.y) ?? player.y;
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
+      }
+      return false;
     }
   };
   runtime.wildwoodCoop = wildwoodCoop;

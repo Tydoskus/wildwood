@@ -680,7 +680,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.231";
+    const GAME_VERSION = "0.232";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
     const BOOTS_SPEED_BONUS = 25;
@@ -693,6 +693,7 @@
     const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
     const DRAGON_HP_LOSS_FLASH_DURATION = 0.18;
     const DRAGON_HIT_BATCH_DELAY = 0.1;
+    const NETWORK_NEAR_SCREEN_MARGIN_RATIO = 0.25;
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1821,7 +1822,7 @@
       return true;
     }
     function updatePlayer(dt) {
-      var _a2, _b2, _c;
+      var _a2, _b2, _c, _d;
       if (applyDuelState()) return;
       if (duelWasActive) {
         const returnedState = (_a2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _a2.call(coop);
@@ -1878,7 +1879,20 @@
       }
       player.x = clamp(player.x, player.r, WORLD.w - player.r);
       player.y = clamp(player.y, player.r, WORLD.h - player.r);
-      if (multiplayerActive) coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted);
+      if (multiplayerActive) {
+        const visibleW = viewW / camera.zoom;
+        const visibleH = viewH / camera.zoom;
+        const marginX = visibleW * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
+        const marginY = visibleH * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
+        const highFrequency = ((_d = coop.hasRemotePlayerInArea) == null ? void 0 : _d.call(
+          coop,
+          camera.x - marginX,
+          camera.y - marginY,
+          camera.x + visibleW + marginX,
+          camera.y + visibleH + marginY
+        )) ?? false;
+        coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted, highFrequency);
+      }
       player.hurtClock = Math.max(0, player.hurtClock - dt);
       if (player.regen > 0 && player.hp > 0) {
         player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);

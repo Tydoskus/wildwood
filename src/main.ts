@@ -53,7 +53,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.231";
+  const GAME_VERSION = "0.232";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const BOOTS_SPEED_BONUS = 25;
@@ -66,6 +66,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_HIT_BATCH_DELAY = .1;
+  const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -1385,7 +1386,19 @@ import { formatCompactNumber } from "./ui/number-format";
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
 
-    if (multiplayerActive) coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted);
+    if (multiplayerActive) {
+      const visibleW = viewW / camera.zoom;
+      const visibleH = viewH / camera.zoom;
+      const marginX = visibleW * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
+      const marginY = visibleH * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
+      const highFrequency = coop.hasRemotePlayerInArea?.(
+        camera.x - marginX,
+        camera.y - marginY,
+        camera.x + visibleW + marginX,
+        camera.y + visibleH + marginY,
+      ) ?? false;
+      coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted, highFrequency);
+    }
 
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) {

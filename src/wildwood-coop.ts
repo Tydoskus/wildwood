@@ -150,8 +150,10 @@ type RemotePlayerSample = {
   moving: boolean;
 };
 
-const MOVEMENT_HZ = 24;
-const MOVEMENT_INTERVAL_MS = 1000 / MOVEMENT_HZ;
+const NEARBY_MOVEMENT_HZ = 30;
+const DISTANT_MOVEMENT_HZ = 5;
+const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
+const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
 const PROTOCOL_VERSION = 15;
@@ -1710,12 +1712,13 @@ export const wildwoodCoop = {
     lastSpeedSent = speed;
     sendReducer("speed sync", () => connection?.reducers.setSpeed({ speed }));
   },
-  syncPosition(x: number, y: number, facing: number, moving = false, force = false) {
+  syncPosition(x: number, y: number, facing: number, moving = false, force = false, highFrequency = false) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
     const now = performance.now();
     const movingChanged = moving !== lastPositionMoving;
+    const movementIntervalMs = highFrequency ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;
     if (!force && !movingChanged && !moving) return;
-    if (!force && !movingChanged && now - lastPositionSentAt < MOVEMENT_INTERVAL_MS) return;
+    if (!force && !movingChanged && now - lastPositionSentAt < movementIntervalMs) return;
 
     lastPositionSentAt = now;
     lastPositionMoving = moving;
@@ -1758,6 +1761,16 @@ export const wildwoodCoop = {
       if (player.id !== localIdentity) count += 1;
     }
     return count;
+  },
+  hasRemotePlayerInArea(minX: number, minY: number, maxX: number, maxY: number) {
+    for (const player of players.values()) {
+      if (player.id === localIdentity) continue;
+      const latest = player.samples[player.samples.length - 1];
+      const x = latest?.x ?? player.x;
+      const y = latest?.y ?? player.y;
+      if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
+    }
+    return false;
   },
 };
 
