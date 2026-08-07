@@ -661,7 +661,7 @@
   function renderPlayerHud(elements, player, displayName, playerCount, power) {
     const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
     elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
-    elements.hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp} HP`;
+    elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))} HP`;
     if (elements.playerName) elements.playerName.textContent = displayName;
     elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
     if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
@@ -700,7 +700,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.234";
+    const GAME_VERSION = "0.235";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -2541,7 +2541,7 @@
       const barY = Math.round(y - 54);
       const hpRatio = clamp(hp / maxHp, 0, 1);
       const fillWidth = Math.round(barW * hpRatio);
-      const hpLabel = `${Math.max(0, Math.ceil(hp))} / ${Math.ceil(maxHp)} HP`;
+      const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))} HP`;
       ctx.fillStyle = "rgba(0,0,0,.88)";
       ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
       ctx.fillStyle = "#402326";
@@ -2727,7 +2727,7 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(`${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()} HP`, x, barY + barH / 2, "#fff", 3);
+      outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(boss.hp)))} / ${formatCompactNumber(Math.ceil(boss.maxHp))} HP`, x, barY + barH / 2, "#fff", 3);
       ctx.textBaseline = "bottom";
       outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 3);
       outlinedText("+650 DAMAGE", x, barY - 5, "#ff655a", 3);
@@ -2772,7 +2772,7 @@
       const barX = Math.round(x - barW / 2);
       const barY = Math.round(y - spriteHeight / 2 - 17);
       const hpRatio = clamp(e.hp / e.maxHp, 0, 1);
-      const hpLabel = `${Math.max(0, Math.ceil(e.hp))} / ${Math.ceil(e.maxHp)} HP`;
+      const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(e.hp)))} / ${formatCompactNumber(Math.ceil(e.maxHp))} HP`;
       ctx.fillStyle = "rgba(0,0,0,.86)";
       ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
       ctx.fillStyle = "#472225";
