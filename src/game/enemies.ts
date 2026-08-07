@@ -17,7 +17,7 @@ export type EnemyDefinition = {
 
 const enemyTypes = {
   Bramble: {
-    hp: 12, speed: 190, damage: 14, attackSpeed: 1, r: 14,
+    hp: 42, speed: 190, damage: 14, attackSpeed: 1, r: 14,
     color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 14 }, score: 4,
   },
   Needle: {
@@ -29,7 +29,7 @@ const enemyTypes = {
     color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 10,
   },
   Spitter: {
-    hp: 18, speed: 160, damage: 48, attackSpeed: 1, r: 15,
+    hp: 28, speed: 160, damage: 48, attackSpeed: 1, r: 15,
     color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 8,
   },
   Brood: {
