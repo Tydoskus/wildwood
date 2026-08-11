@@ -576,6 +576,28 @@
 
   #start { background: #000; }
 
+  #gameUpdateGate {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .94);
+  }
+
+  #gameUpdateGate[hidden] { display: none; }
+
+  .modal.game-update-modal { width: min(430px, calc(100vw - 28px)); }
+  .game-update-modal h2 { margin: 8px 0 3px; color: var(--gold); font-size: clamp(22px, 6vw, 30px); }
+  .game-update-modal p { font-size: 10px; letter-spacing: .07em; }
+  .update-wait-track { height: 10px; margin: 14px 0 10px; overflow: hidden; border: 2px solid #080a08; border-radius: 6px; background: #101914; }
+  .update-wait-track span { display: block; width: 34%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #34be39, #86f45d); animation: update-wait 1.25s ease-in-out infinite; }
+
+  @keyframes update-wait {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(300%); }
+  }
+
   #gameOver { display: none; }
 
   #connectionPanel[hidden], #accountChoicePanel[hidden], #newPlayerPanel[hidden] { display: none; }
@@ -800,7 +822,7 @@
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
   .profile-stat-grid dd { color: var(--gold); }
-  .leaderboard-modal { width: min(430px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.leaderboard-modal { width: min(430px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   .leaderboard-tabs { margin: 9px 0 8px; }
@@ -838,6 +860,23 @@
 
   @media (max-width: 520px) {
     .duel-stats { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px), (pointer: coarse) {
+    .modal.leaderboard-modal { padding: 9px; }
+    .leaderboard-header { gap: 8px; }
+    .leaderboard-header h2 { font-size: 18px; }
+    .leaderboard-modal .profile-close-button { width: 31px; min-width: 31px; height: 31px; font-size: 20px; }
+    .leaderboard-tabs { margin: 4px 0 3px; }
+    .leaderboard-tabs .profile-tab { padding: 3px 8px; font-size: 9px; }
+    .leaderboard-column-headings { padding: 0 7px 2px 35px; font-size: 7px; }
+    .leaderboard-rows { gap: 0; max-height: min(45vh, 329px); padding: 0; }
+    .leaderboard-row { min-height: 25px; padding: 0 7px; border-radius: 0; }
+    .leaderboard-row + .leaderboard-row { border-top: 0; }
+    .leaderboard-row:first-child { border-radius: 6px 6px 0 0; }
+    .leaderboard-row:last-child { border-radius: 0 0 6px 6px; }
+    .leaderboard-rank { font-size: 8px; }
+    .leaderboard-name, .leaderboard-value { font-size: 9px; }
   }
 
   .upgrade-modal {

@@ -251,7 +251,6 @@ let progressSaveInFlightUntil = 0;
 let progressSavePromise: Promise<boolean> | null = null;
 let authNotice = "";
 let protocolBlocked = false;
-let protocolRefreshScheduled = false;
 let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
 let worldEntryPromise: Promise<boolean> | null = null;
@@ -294,15 +293,8 @@ function handleReducerFailure(action: string, error: unknown) {
   // freshly loaded client can submit it safely.
   protocolBlocked = true;
   progressSaveInFlightUntil = Number.POSITIVE_INFINITY;
-  authNotice = "UPDATE REQUIRED · REFRESHING";
+  authNotice = "GAME UPDATING · WAITING FOR DEPLOY";
   onChange?.();
-  if (protocolRefreshScheduled) return;
-  protocolRefreshScheduled = true;
-  window.setTimeout(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("v", `refresh-${Date.now()}`);
-    window.location.replace(url.toString());
-  }, 250);
 }
 
 function sendReducer(action: string, reducer: () => unknown, onRejected?: () => void) {
@@ -1348,7 +1340,7 @@ function clearRealtimeCaches() {
 }
 
 function scheduleReconnect(delay = 500) {
-  if (document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
+  if (protocolBlocked || document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
   reconnectTimer = window.setTimeout(() => {
     reconnectTimer = null;
     connect();
@@ -1356,7 +1348,7 @@ function scheduleReconnect(delay = 500) {
 }
 
 function reconnectAfterWake(force = false) {
-  if (document.hidden || connecting || resumeProbePromise) return;
+  if (protocolBlocked || document.hidden || connecting || resumeProbePromise) return;
   const conn = connection;
   if (force || !conn?.isActive) {
     if (conn?.isActive) conn.disconnect();
@@ -1394,7 +1386,7 @@ function reconnectAfterWake(force = false) {
 }
 
 function connect() {
-  if (connection?.isActive || connecting) return;
+  if (protocolBlocked || connection?.isActive || connecting) return;
   if (!accountToken() && hasKnownAccount() && !guestSessionExplicit) {
     authNotice = "SIGN-IN REQUIRED";
     onChange?.();
@@ -1418,7 +1410,6 @@ function connect() {
       connectedSignedIn = signedIn;
       touchServerActivity();
       protocolBlocked = false;
-      protocolRefreshScheduled = false;
       accountLinkClaiming = false;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
@@ -1655,6 +1646,7 @@ export const wildwoodCoop = {
       authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
       returningFromSignIn: accountReturnPending,
       hydrated: hydrationReady,
+      updating: protocolBlocked,
       notice: authNotice,
     };
   },

@@ -1,16 +1,27 @@
 (function() {
   "use strict";
+  let versionCheckInFlight = false;
+  let reloadScheduled = false;
   function enforceLatestVersion(version) {
+    if (versionCheckInFlight || reloadScheduled) return;
+    versionCheckInFlight = true;
     fetch(`version.json?cache=${Date.now()}`, { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((release) => {
       if (!(release == null ? void 0 : release.version) || release.version === version) return;
       const url = new URL(window.location.href);
       if (url.searchParams.get("v") === release.version) return;
+      reloadScheduled = true;
       url.searchParams.set("v", release.version);
       window.location.replace(url.toString());
     }).catch(() => {
+    }).finally(() => {
+      versionCheckInFlight = false;
     });
   }
   const RELEASE_NOTES = {
+    "0.241": [
+      "Mobile leaderboard made more compact",
+      "Update deployment waiting screen added"
+    ],
     "0.240": [
       "Power leaderboard added",
       "Power now scales damage with attack speed",
@@ -713,8 +724,8 @@
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   }
   (() => {
-    var _a, _b;
-    const GAME_VERSION = "0.240";
+    var _b, _c;
+    const GAME_VERSION = "0.241";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -829,6 +840,7 @@
     const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
     const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
     const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
+    const gameUpdateGateEl = document.getElementById("gameUpdateGate");
     const coop = window.wildwoodCoop || null;
     const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
     backgroundMusic.loop = true;
@@ -1124,13 +1136,13 @@
       });
     }
     function loadProgress() {
-      var _a2, _b2, _c;
+      var _a, _b2, _c2;
       if (!coop || typeof coop.savedProgress !== "function") return;
-      const progressIdentity = ((_a2 = coop.localIdentity) == null ? void 0 : _a2.call(coop)) || "";
+      const progressIdentity = ((_a = coop.localIdentity) == null ? void 0 : _a.call(coop)) || "";
       if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
       const saved = coop.savedProgress();
       if (!saved) return;
-      const lifetime = (_c = (_b2 = coop.playerProfile) == null ? void 0 : _b2.call(coop, progressIdentity)) == null ? void 0 : _c.lifetime;
+      const lifetime = (_c2 = (_b2 = coop.playerProfile) == null ? void 0 : _b2.call(coop, progressIdentity)) == null ? void 0 : _c2.lifetime;
       if (lifetime) {
         totalKills = progressIdentity === lifetimeKillsIdentity ? Math.max(totalKills, lifetime.enemyKills) : lifetime.enemyKills;
         lifetimeKillsIdentity = progressIdentity;
@@ -1177,15 +1189,15 @@
       finishStartup();
     }
     function finishStartup() {
-      var _a2, _b2, _c, _d, _e;
+      var _a, _b2, _c2, _d, _e;
       updateLoadingDetail();
-      const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+      const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
       if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop))) return;
       if (!(account == null ? void 0 : account.signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
       }
-      if (!progressLoaded || !((_c = coop == null ? void 0 : coop.localState) == null ? void 0 : _c.call(coop))) return;
+      if (!progressLoaded || !((_c2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _c2.call(coop))) return;
       if ((account == null ? void 0 : account.signedIn) && !((_d = coop == null ? void 0 : coop.localProfileReady) == null ? void 0 : _d.call(coop))) return;
       if (startupKind === "new") {
         if (!newPlayerIntroShown) {
@@ -1211,12 +1223,16 @@
       newPlayerPanel.hidden = true;
       updateLoadingDetail();
     }
+    function updateProtocolGate(accountState = ((_a) => (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop))()) {
+      if (!gameUpdateGateEl) return;
+      gameUpdateGateEl.hidden = !(accountState == null ? void 0 : accountState.updating);
+    }
     function showAccountChoice() {
-      var _a2, _b2, _c;
-      const accountState = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+      var _a, _b2, _c2;
+      const accountState = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
       const accountOptionsReady = Boolean(((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop)) || (accountState == null ? void 0 : accountState.signInRequired));
       const knownAccount = Boolean(accountState == null ? void 0 : accountState.knownAccount);
-      const name = (((_c = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _c.call(coop)) || "").trim();
+      const name = (((_c2 = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _c2.call(coop)) || "").trim();
       const characterFound = Boolean(name);
       if (accountCharacter && accountCharacterName) {
         accountCharacterName.textContent = characterFound ? name : "none";
@@ -1256,9 +1272,9 @@
       if (accountChoiceDetail) accountChoiceDetail.textContent = "LOADING YOUR CHARACTER…";
     }
     function updateLoadingDetail() {
-      var _a2, _b2, _c;
+      var _a, _b2, _c2;
       if (!loadingDetail || !loadingFill) return;
-      const connectionNotice = ((_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop).notice) || "";
+      const connectionNotice = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop).notice) || "";
       if (/active in another tab/i.test(connectionNotice)) {
         loadingDetail.textContent = connectionNotice;
         loadingFill.style.width = "35%";
@@ -1266,7 +1282,7 @@
       }
       const stages = [
         ["LOADING CONNECTION", Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop)), 12],
-        ["LOADING PLAYER PROFILE", Boolean((_c = coop == null ? void 0 : coop.localState) == null ? void 0 : _c.call(coop)), 35],
+        ["LOADING PLAYER PROFILE", Boolean((_c2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _c2.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
         ["LOADING WORLD ART", treeSpritesheetReady && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
@@ -1290,9 +1306,9 @@
       }, delay);
     }
     function showNewPlayerIntro() {
-      var _a2;
+      var _a;
       if (!newPlayerNameInput.value) {
-        newPlayerNameInput.value = ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "WANDERER";
+        newPlayerNameInput.value = ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "WANDERER";
       }
       startEl.style.display = "grid";
       connectionPanel.hidden = true;
@@ -1301,13 +1317,13 @@
       requestAnimationFrame(() => newPlayerNameInput.focus());
     }
     function beginAdventure() {
-      var _a2, _b2;
+      var _a, _b2;
       const name = newPlayerNameInput.value.trim().replace(/\s+/g, " ");
       if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
         showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
         return;
       }
-      if (name !== (((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "")) (_b2 = coop == null ? void 0 : coop.setDisplayName) == null ? void 0 : _b2.call(coop, name);
+      if (name !== (((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "")) (_b2 = coop == null ? void 0 : coop.setDisplayName) == null ? void 0 : _b2.call(coop, name);
       startGame(true);
     }
     function updateBootPickup() {
@@ -1427,14 +1443,14 @@
       });
     }
     function fireAt(target) {
-      var _a2;
+      var _a;
       const dx = target.x - player.x;
       const dy = target.y - player.y;
       const distance = Math.hypot(dx, dy) || 1;
       const baseAngle = Math.atan2(dy, dx);
       const spread = 0.13;
       if (target.isBoss) {
-        (_a2 = coop == null ? void 0 : coop.syncPosition) == null ? void 0 : _a2.call(coop, player.x, player.y, player.facing, player.moving, true);
+        (_a = coop == null ? void 0 : coop.syncPosition) == null ? void 0 : _a.call(coop, player.x, player.y, player.facing, player.moving, true);
       }
       for (let i = 0; i < player.projectileCount; i++) {
         const angle = baseAngle + (i - (player.projectileCount - 1) / 2) * spread;
@@ -1509,8 +1525,8 @@
       saveProgress();
     }
     function resetBoss() {
-      var _a2;
-      const shared = (_a2 = coop == null ? void 0 : coop.dragonBoss) == null ? void 0 : _a2.call(coop);
+      var _a;
+      const shared = (_a = coop == null ? void 0 : coop.dragonBoss) == null ? void 0 : _a.call(coop);
       if (shared) {
         boss.encounter = shared.encounter;
         boss.hp = shared.hp;
@@ -1538,8 +1554,8 @@
       shownDragonResultEncounter = result.encounter;
       pendingDragonResultEncounter = null;
       const localContribution = result.contributors.find((entry) => {
-        var _a2;
-        return entry.identity === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop));
+        var _a;
+        return entry.identity === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop));
       });
       if (!localContribution) {
         if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
@@ -1598,14 +1614,14 @@
       dragonResultEl.hidden = false;
     }
     function tryShowDragonResult() {
-      var _a2;
+      var _a;
       if (pendingDragonResultEncounter === null || shownDragonResultEncounter === pendingDragonResultEncounter) return;
-      const result = (_a2 = coop == null ? void 0 : coop.dragonResult) == null ? void 0 : _a2.call(coop);
+      const result = (_a = coop == null ? void 0 : coop.dragonResult) == null ? void 0 : _a.call(coop);
       if ((result == null ? void 0 : result.encounter) === pendingDragonResultEncounter) showDragonResult(result);
     }
     function syncDragonState() {
-      var _a2;
-      const shared = (_a2 = coop == null ? void 0 : coop.dragonBoss) == null ? void 0 : _a2.call(coop);
+      var _a;
+      const shared = (_a = coop == null ? void 0 : coop.dragonBoss) == null ? void 0 : _a.call(coop);
       if (!shared) return;
       const initialized = observedDragonEncounter !== null;
       const encounterChanged = initialized && observedDragonEncounter !== shared.encounter;
@@ -1795,10 +1811,10 @@
       return coop && typeof coop.localDuel === "function" ? coop.localDuel() : null;
     }
     function isDueling() {
-      var _a2;
+      var _a;
       const duel = activeDuel();
       if (!duel || !["countdown", "active", "finishing"].includes(duel.status)) return false;
-      if ((duel.status === "active" || duel.status === "finishing") && Date.now() >= duel.endsAtMs) (_a2 = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a2.call(coop);
+      if ((duel.status === "active" || duel.status === "finishing") && Date.now() >= duel.endsAtMs) (_a = coop == null ? void 0 : coop.pulseDuel) == null ? void 0 : _a.call(coop);
       return true;
     }
     function isArenaScene() {
@@ -1842,9 +1858,9 @@
       lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
     }
     function showDuelResult(replay) {
-      var _a2;
+      var _a;
       if (!replay || !duelResultEl) return;
-      const localName = ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER";
+      const localName = ((_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop)) || "PLAYER";
       const selfIsChallenger = replay.challengerName === localName;
       const self = selfIsChallenger ? { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked } : { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked };
       const other = selfIsChallenger ? { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked } : { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
@@ -1863,8 +1879,8 @@
       watchDuelReplayBtn.hidden = true;
     }
     async function openDuelReplay(replayId) {
-      var _a2;
-      const replay = (coop == null ? void 0 : coop.loadDuelReplay) ? await coop.loadDuelReplay(replayId) : (_a2 = coop == null ? void 0 : coop.duelReplay) == null ? void 0 : _a2.call(coop, replayId);
+      var _a;
+      const replay = (coop == null ? void 0 : coop.loadDuelReplay) ? await coop.loadDuelReplay(replayId) : (_a = coop == null ? void 0 : coop.duelReplay) == null ? void 0 : _a.call(coop, replayId);
       if (!replay) {
         showMessage("REPLAY EXPIRED", "#ff9b91");
         return;
@@ -1885,11 +1901,11 @@
       document.body.classList.add("is-replaying");
     }
     function applyDuelState() {
-      var _a2, _b2, _c;
+      var _a, _b2, _c2;
       const duel = activeDuel();
       if (!isDueling()) return false;
       const localIsChallenger = duel.challenger === coop.localIdentity();
-      const localState = (_a2 = coop.localState) == null ? void 0 : _a2.call(coop);
+      const localState = (_a = coop.localState) == null ? void 0 : _a.call(coop);
       if (localState) {
         player.x = localState.x;
         player.y = localState.y;
@@ -1903,14 +1919,14 @@
       syncDuelAttacks(duel);
       syncDuelDamageNumbers(duel);
       heldDuelScene = liveDuelScene(((_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop)) || []) || heldDuelScene;
-      (_c = coop.pulseDuel) == null ? void 0 : _c.call(coop);
+      (_c2 = coop.pulseDuel) == null ? void 0 : _c2.call(coop);
       return true;
     }
     function updatePlayer(dt) {
-      var _a2, _b2, _c, _d;
+      var _a, _b2, _c2, _d;
       if (applyDuelState()) return;
       if (duelWasActive) {
-        const returnedState = (_a2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _a2.call(coop);
+        const returnedState = (_a = coop == null ? void 0 : coop.localState) == null ? void 0 : _a.call(coop);
         if (!returnedState || returnedState.x < player.r || returnedState.y < player.r || returnedState.x > WORLD.w - player.r || returnedState.y > WORLD.h - player.r) {
           return;
         }
@@ -1957,7 +1973,7 @@
         player.y += my * player.speed * dt;
         if (Math.abs(mx) + Math.abs(my) > 0.1) player.facing = Math.atan2(my, mx);
       }
-      if (typeof ((_c = boss.cone) == null ? void 0 : _c.pushAngle) === "number") {
+      if (typeof ((_c2 = boss.cone) == null ? void 0 : _c2.pushAngle) === "number") {
         const waveSpeed = (BOSS_CONE_RANGE - boss.r) / boss.cone.duration;
         player.x += Math.cos(boss.cone.pushAngle) * waveSpeed * dt;
         player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
@@ -2092,7 +2108,7 @@
       }
     }
     function updateProjectiles(dt) {
-      var _a2;
+      var _a;
       for (const p of projectiles) {
         const travelTime = Math.min(dt, p.life);
         const startX = p.x;
@@ -2153,7 +2169,7 @@
       if (pendingDragonHits > 0) {
         dragonHitBatchTimer -= dt;
         if (dragonHitBatchTimer <= 0) {
-          (_a2 = coop == null ? void 0 : coop.damageDragon) == null ? void 0 : _a2.call(coop, pendingDragonHits);
+          (_a = coop == null ? void 0 : coop.damageDragon) == null ? void 0 : _a.call(coop, pendingDragonHits);
           pendingDragonHits = 0;
           dragonHitBatchTimer = 0;
         }
@@ -2553,12 +2569,12 @@
       ctx.restore();
     }
     function publicPlayerName(identity, name) {
-      var _a2;
+      var _a;
       const baseName = name || "PLAYER";
-      return ((_a2 = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a2.call(coop, identity)) ? `${baseName} (guest)` : baseName;
+      return ((_a = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a.call(coop, identity)) ? `${baseName} (guest)` : baseName;
     }
     function drawPlayer() {
-      var _a2, _b2, _c;
+      var _a, _b2, _c2;
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
       drawActorShadow(x, y + 29, 54, 0.21);
@@ -2587,20 +2603,20 @@
       drawActorStatus({
         x,
         y,
-        name: publicPlayerName((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop), (_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)),
+        name: publicPlayerName((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop), (_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)),
         nameColor: "#ffffff",
         hp: player.hp,
         maxHp: player.maxHp,
         power: playerPower(player),
         fillColor: "#46cf5a"
       });
-      drawSpeechBubble((_c = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c.call(coop), x, y);
+      drawSpeechBubble((_c2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c2.call(coop), x, y);
     }
     function updateSpeechBubbles() {
-      var _a2;
+      var _a;
       activeSpeechBubbles = /* @__PURE__ */ new Map();
       const now = Date.now();
-      const messages = ((_a2 = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _a2.call(coop)) ?? [];
+      const messages = ((_a = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _a.call(coop)) ?? [];
       for (let index = messages.length - 1; index >= 0; index -= 1) {
         const message = messages[index];
         const age = now - message.sentAtMs;
@@ -3041,20 +3057,20 @@
       camera.y = DUEL_ARENA.y - viewH / zoom / 2;
     }
     function liveDuelScene(remotePlayers) {
-      var _a2;
+      var _a;
       const duel = activeDuel();
       if (!duel) return null;
-      const localId = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
+      const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       const remoteName = (identity) => {
-        var _a3;
-        return ((_a3 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a3.name) ?? "OPPONENT";
+        var _a2;
+        return ((_a2 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a2.name) ?? "OPPONENT";
       };
       const actor = (identity, isChallenger) => {
-        var _a3;
+        var _a2;
         return {
           x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
           y: DUEL_COMBAT_Y,
-          name: identity === localId ? ((_a3 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a3.call(coop)) || "PLAYER" : remoteName(identity),
+          name: identity === localId ? ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER" : remoteName(identity),
           hp: isChallenger ? duel.challengerHp : duel.opponentHp,
           maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
           facing: isChallenger ? 0 : Math.PI,
@@ -3187,13 +3203,13 @@
       drawVignette();
     }
     function updateHud() {
-      var _a2, _b2;
+      var _a, _b2;
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
       const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
       renderPlayerHud(
         { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
         player,
-        publicPlayerName((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop), ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "WANDERER"),
+        publicPlayerName((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop), ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "WANDERER"),
         playerCount,
         playerPower(player)
       );
@@ -3212,9 +3228,9 @@
       return `${minutes}m`;
     }
     function isProfileOnline(identity) {
-      var _a2, _b2, _c;
-      if (identity === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop))) return Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop));
-      return ((_c = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c.call(coop).some((other) => other.id === identity)) === true;
+      var _a, _b2, _c2;
+      if (identity === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) return Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop));
+      return ((_c2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c2.call(coop).some((other) => other.id === identity)) === true;
     }
     function setProfileTab(tab) {
       const overview = tab === "overview";
@@ -3268,7 +3284,7 @@
       profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
     }
     async function openPlayerProfile(identity, fallbackName = "PLAYER") {
-      var _a2, _b2;
+      var _a, _b2;
       if (!identity) return;
       openProfileIdentity = identity;
       playerProfileEl.hidden = false;
@@ -3279,7 +3295,7 @@
       profileStatsPanel.hidden = true;
       setProfileTab("stats");
       profileStatsPanel.hidden = true;
-      const cached = (_a2 = coop == null ? void 0 : coop.playerProfile) == null ? void 0 : _a2.call(coop, identity);
+      const cached = (_a = coop == null ? void 0 : coop.playerProfile) == null ? void 0 : _a.call(coop, identity);
       if (cached) {
         renderPlayerProfile(cached);
         return;
@@ -3290,16 +3306,16 @@
       else playerProfileLoadingEl.textContent = "PLAYER DATA UNAVAILABLE";
     }
     function closePlayerProfile() {
-      var _a2;
+      var _a;
       playerProfileEl.hidden = true;
       openProfileIdentity = "";
       playerProfileLoadingEl.textContent = "LOADING PLAYER…";
-      (_a2 = coop == null ? void 0 : coop.releasePlayerProfile) == null ? void 0 : _a2.call(coop);
+      (_a = coop == null ? void 0 : coop.releasePlayerProfile) == null ? void 0 : _a.call(coop);
     }
     function renderLeaderboard() {
-      var _a2, _b2;
+      var _a, _b2;
       const valueKey = leaderboardStat === "health" ? "maxHp" : leaderboardStat;
-      const entries = (((_a2 = coop == null ? void 0 : coop.leaderboardEntries) == null ? void 0 : _a2.call(coop)) ?? []).filter((entry) => Number.isFinite(entry[valueKey])).sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name)).slice(0, 100);
+      const entries = (((_a = coop == null ? void 0 : coop.leaderboardEntries) == null ? void 0 : _a.call(coop)) ?? []).filter((entry) => Number.isFinite(entry[valueKey])).sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name)).slice(0, 100);
       const localIdentity = ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop)) || "";
       leaderboardRowsEl.replaceChildren();
       entries.forEach((entry, index) => {
@@ -3379,13 +3395,13 @@
       }
     }
     function openPlayerAtScreenPoint(clientX, clientY) {
-      var _a2;
+      var _a;
       if (!running || !playerProfileEl.hidden || isDueling()) return false;
       const worldX = camera.x + clientX / camera.zoom;
       const worldY = camera.y + clientY / camera.zoom;
       let target = null;
       let bestDistance = Number.POSITIVE_INFINITY;
-      for (const other of ((_a2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _a2.call(coop)) ?? []) {
+      for (const other of ((_a = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _a.call(coop)) ?? []) {
         const dx = worldX - other.x;
         const dy = worldY - other.y;
         if (Math.abs(dx) > 48 || Math.abs(dy) > 60) continue;
@@ -3411,8 +3427,8 @@
       );
     }
     function nearbyDuelOpponent() {
-      var _a2;
-      if (!coop || !((_a2 = coop.isConnected) == null ? void 0 : _a2.call(coop))) return null;
+      var _a;
+      if (!coop || !((_a = coop.isConnected) == null ? void 0 : _a.call(coop))) return null;
       let closest = null;
       let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
       for (const other of coop.remotePlayers()) {
@@ -3427,15 +3443,15 @@
       return closest;
     }
     function duelOpponentName(duel) {
-      var _a2, _b2, _c;
-      const opponentId = duel.challenger === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop)) ? duel.opponent : duel.challenger;
-      return ((_c = (_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c.name) ?? "OPPONENT";
+      var _a, _b2, _c2;
+      const opponentId = duel.challenger === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop)) ? duel.opponent : duel.challenger;
+      return ((_c2 = (_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c2.name) ?? "OPPONENT";
     }
     function updateDuelControls() {
-      var _a2, _b2;
+      var _a, _b2;
       if (!duelControls) return;
       const duel = activeDuel();
-      const localId = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
+      const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       const nearby = nearbyDuelOpponent();
       duelStatusEl.hidden = false;
       duelRequestBtn.hidden = true;
@@ -3495,7 +3511,7 @@
       requestAnimationFrame(loop);
     }
     function startGame(markIntro = true) {
-      var _a2, _b2;
+      var _a, _b2;
       startEl.style.display = "none";
       overEl.style.display = "none";
       pausedForUpgrade = false;
@@ -3503,7 +3519,7 @@
       reset(hasStarted);
       hasStarted = true;
       running = true;
-      if (markIntro) (_a2 = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a2.call(coop);
+      if (markIntro) (_a = coop == null ? void 0 : coop.beginAdventure) == null ? void 0 : _a.call(coop);
       if ((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop)) coop.syncPosition(player.x, player.y, player.facing, false, true);
       last = performance.now();
       ensureMusicPlayback();
@@ -3530,10 +3546,10 @@
       updateLatencyStatus();
     }
     function updateLatencyStatus() {
-      var _a2, _b2;
+      var _a, _b2;
       latencyStatusEl.hidden = !latencyVisible;
       if (!latencyVisible) return;
-      const latency = (_a2 = coop == null ? void 0 : coop.latencyMs) == null ? void 0 : _a2.call(coop);
+      const latency = (_a = coop == null ? void 0 : coop.latencyMs) == null ? void 0 : _a.call(coop);
       const connected = Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop));
       const rounded = typeof latency === "number" && Number.isFinite(latency) ? Math.round(latency) : null;
       const displayedLatency = connected ? rounded : null;
@@ -3590,9 +3606,9 @@
       connectionStatusEl.classList.toggle("is-offline", !connected);
     }
     function updateAccountStatus() {
-      var _a2;
+      var _a;
       if (!accountButton || !accountStatusEl) return;
-      const account = ((_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop)) || { signedIn: false, notice: "" };
+      const account = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop)) || { signedIn: false, notice: "" };
       accountButton.textContent = account.signedIn ? "SIGN OUT" : "SIGN IN / CREATE";
       const status = account.notice || (account.signedIn ? "SIGNED IN · ACCOUNT SAVE" : "GUEST · DEVICE SAVE");
       accountStatusEl.textContent = status;
@@ -3631,20 +3647,20 @@
       }
     });
     accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
-      var _a2, _b2, _c;
-      const account = (_a2 = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a2.call(coop);
+      var _a, _b2, _c2;
+      const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
       if (account == null ? void 0 : account.signedIn) (_b2 = coop == null ? void 0 : coop.signOut) == null ? void 0 : _b2.call(coop);
-      else void ((_c = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c.call(coop));
+      else void ((_c2 = coop == null ? void 0 : coop.signIn) == null ? void 0 : _c2.call(coop));
     });
     continueGuestBtn == null ? void 0 : continueGuestBtn.addEventListener("click", () => {
-      var _a2;
+      var _a;
       guestContinuationChosen = true;
-      (_a2 = coop == null ? void 0 : coop.continueAsGuest) == null ? void 0 : _a2.call(coop);
+      (_a = coop == null ? void 0 : coop.continueAsGuest) == null ? void 0 : _a.call(coop);
       finishStartup();
     });
     signInFromStartBtn == null ? void 0 : signInFromStartBtn.addEventListener("click", () => {
-      var _a2, _b2;
-      const characterFound = Boolean((_a2 = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _a2.call(coop));
+      var _a, _b2;
+      const characterFound = Boolean((_a = coop == null ? void 0 : coop.knownCharacter) == null ? void 0 : _a.call(coop));
       accountSignInPending = true;
       showAccountChoice();
       accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
@@ -3680,9 +3696,9 @@
       }
       updateLatencySetting();
     });
-    (_a = hpText.closest(".card")) == null ? void 0 : _a.addEventListener("click", () => {
-      var _a2, _b2;
-      const identity = (_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop);
+    (_b = hpText.closest(".card")) == null ? void 0 : _b.addEventListener("click", () => {
+      var _a, _b2;
+      const identity = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       if (identity) void openPlayerProfile(identity, ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "PLAYER");
     });
     closePlayerProfileBtn.addEventListener("click", closePlayerProfile);
@@ -3711,15 +3727,15 @@
       );
     });
     duelRequestBtn.addEventListener("click", () => {
-      var _a2;
-      void ((_a2 = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a2.call(coop).then((result) => {
+      var _a;
+      void ((_a = coop == null ? void 0 : coop.requestDuel) == null ? void 0 : _a.call(coop).then((result) => {
         if (!(result == null ? void 0 : result.ok)) showMessage((result == null ? void 0 : result.error) || "DUEL REQUEST FAILED", "#ff9b91");
       }));
     });
     duelAcceptBtn.addEventListener("click", () => {
-      var _a2;
+      var _a;
       const duel = activeDuel();
-      if ((duel == null ? void 0 : duel.status) === "requested") (_a2 = coop == null ? void 0 : coop.acceptDuel) == null ? void 0 : _a2.call(coop, duel.id);
+      if ((duel == null ? void 0 : duel.status) === "requested") (_a = coop == null ? void 0 : coop.acceptDuel) == null ? void 0 : _a.call(coop, duel.id);
     });
     watchDuelReplayBtn.addEventListener("click", () => {
       const replayId = BigInt(duelResultEl.dataset.replayId || "0");
@@ -3780,9 +3796,9 @@
     chat.init();
     if (coop && typeof coop.setOnChange === "function") {
       coop.setOnChange(() => {
-        var _a2, _b2, _c, _d, _e, _f, _g, _h;
-        const identity = ((_a2 = coop.localIdentity) == null ? void 0 : _a2.call(coop)) || "";
-        const lifetime = (_c = (_b2 = coop.playerProfile) == null ? void 0 : _b2.call(coop, identity)) == null ? void 0 : _c.lifetime;
+        var _a, _b2, _c2, _d, _e, _f, _g, _h;
+        const identity = ((_a = coop.localIdentity) == null ? void 0 : _a.call(coop)) || "";
+        const lifetime = (_c2 = (_b2 = coop.playerProfile) == null ? void 0 : _b2.call(coop, identity)) == null ? void 0 : _c2.lifetime;
         if (lifetime) {
           totalKills = identity === lifetimeKillsIdentity ? Math.max(totalKills, lifetime.enemyKills) : lifetime.enemyKills;
           lifetimeKillsIdentity = identity;
@@ -3805,6 +3821,7 @@
         syncDragonState();
         finishStartup();
         const account = (_h = coop == null ? void 0 : coop.accountState) == null ? void 0 : _h.call(coop);
+        updateProtocolGate(account);
         if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
         else if ((account == null ? void 0 : account.signInRequired) && !hasStarted) showAccountChoice();
         else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
@@ -3821,15 +3838,20 @@
     updateDuelControls();
     updateConnectionStatus();
     updateAccountStatus();
+    updateProtocolGate();
     showCurrentUpdateNotice();
     window.setInterval(() => chat.refresh(), 1e3);
+    window.setInterval(() => {
+      var _a;
+      if ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop).updating) enforceLatestVersion(GAME_VERSION);
+    }, 5e3);
     bootUpgradeClose.addEventListener("click", () => {
       pausedForUpgrade = false;
       bootUpgradeEl.hidden = true;
       last = performance.now();
     });
     document.addEventListener("pointerdown", (event) => {
-      var _a2, _b2, _c, _d, _e;
+      var _a, _b2, _c2, _d, _e;
       const target = event.target;
       if (!(target instanceof Element)) return;
       const toolbar = settingsBtn.closest(".settings-wrap");
@@ -3839,9 +3861,9 @@
         settingsBtn.setAttribute("aria-expanded", "false");
         inventoryBtn.setAttribute("aria-expanded", "false");
       }
-      if (!playerProfileEl.hidden && !((_a2 = playerProfileEl.querySelector(".modal")) == null ? void 0 : _a2.contains(target))) closePlayerProfile();
+      if (!playerProfileEl.hidden && !((_a = playerProfileEl.querySelector(".modal")) == null ? void 0 : _a.contains(target))) closePlayerProfile();
       if (!leaderboardEl.hidden && !((_b2 = leaderboardEl.querySelector(".modal")) == null ? void 0 : _b2.contains(target))) closeLeaderboard();
-      if (!dragonResultEl.hidden && !((_c = dragonResultEl.querySelector(".modal")) == null ? void 0 : _c.contains(target))) closeDragonResult();
+      if (!dragonResultEl.hidden && !((_c2 = dragonResultEl.querySelector(".modal")) == null ? void 0 : _c2.contains(target))) closeDragonResult();
       if (!duelResultEl.hidden && !((_d = duelResultEl.querySelector(".modal")) == null ? void 0 : _d.contains(target))) leaveDuelResult();
       if (!bootUpgradeEl.hidden && !((_e = bootUpgradeEl.querySelector(".modal")) == null ? void 0 : _e.contains(target))) bootUpgradeClose.click();
       if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
@@ -3953,7 +3975,7 @@
       if (event.pointerType === "touch") return;
       openPlayerAtScreenPoint(event.clientX, event.clientY);
     });
-    const initialAccount = ((_b = coop == null ? void 0 : coop.accountState) == null ? void 0 : _b.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
+    const initialAccount = ((_c = coop == null ? void 0 : coop.accountState) == null ? void 0 : _c.call(coop)) || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
     if (initialAccount.returningFromSignIn) showSigningIn();
     else if (initialAccount.signInRequired) showAccountChoice();
     else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();

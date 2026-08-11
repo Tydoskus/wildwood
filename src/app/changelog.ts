@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.241": [
+    "Mobile leaderboard made more compact",
+    "Update deployment waiting screen added",
+  ],
   "0.240": [
     "Power leaderboard added",
     "Power now scales damage with attack speed",

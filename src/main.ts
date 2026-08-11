@@ -55,7 +55,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.240";
+  const GAME_VERSION = "0.241";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -172,6 +172,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
   const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
   const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
+  const gameUpdateGateEl = document.getElementById("gameUpdateGate");
   const coop = window.wildwoodCoop || null;
 
   const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
@@ -590,6 +591,11 @@ import { formatCompactNumber } from "./ui/number-format";
     accountChoicePanel.hidden = true;
     newPlayerPanel.hidden = true;
     updateLoadingDetail();
+  }
+
+  function updateProtocolGate(accountState = coop?.accountState?.()) {
+    if (!gameUpdateGateEl) return;
+    gameUpdateGateEl.hidden = !accountState?.updating;
   }
 
   function showAccountChoice() {
@@ -3436,6 +3442,7 @@ import { formatCompactNumber } from "./ui/number-format";
       syncDragonState();
       finishStartup();
       const account = coop?.accountState?.();
+      updateProtocolGate(account);
       if (account?.returningFromSignIn) showSigningIn();
       else if (account?.signInRequired && !hasStarted) showAccountChoice();
       else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
@@ -3452,8 +3459,12 @@ import { formatCompactNumber } from "./ui/number-format";
   updateDuelControls();
   updateConnectionStatus();
   updateAccountStatus();
+  updateProtocolGate();
   showCurrentUpdateNotice();
   window.setInterval(() => chat.refresh(), 1_000);
+  window.setInterval(() => {
+    if (coop?.accountState?.().updating) enforceLatestVersion(GAME_VERSION);
+  }, 5_000);
 
   bootUpgradeClose.addEventListener("click", () => {
     pausedForUpgrade = false;

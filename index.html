@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.240" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.241" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -111,7 +111,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.240</div>
+        <div id="version">v0.241</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -169,6 +169,20 @@
     <p>Explore the map and fight enemies scattered through different areas. Defeated enemies grant the stat shown beneath them and return about 30 seconds later.</p>
     <p><span class="key">WASD</span> or <span class="key">ARROWS</span> to move. Touch and drag on mobile.</p>
     <button id="beginAdventureBtn" type="button">BEGIN ADVENTURE</button>
+  </div>
+</div>
+
+<div id="gameUpdateGate" hidden>
+  <div class="modal game-update-modal" role="status" aria-live="assertive">
+    <h1 class="wildwood-wordmark-title" aria-label="Wildwood">
+      <span class="wildwood-wordmark-frame" aria-hidden="true">
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+      </span>
+    </h1>
+    <h2>GAME UPDATING</h2>
+    <p>SERVER UPDATE IN PROGRESS</p>
+    <div class="update-wait-track" aria-hidden="true"><span></span></div>
+    <p class="loading-detail">RECONNECTING WHEN NEW VERSION IS READY</p>
   </div>
 </div>
 
@@ -250,7 +264,7 @@
 
 <aside id="updateNotice" class="update-notice card" aria-labelledby="updateNoticeTitle" hidden>
   <header>
-    <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.240</strong></div>
+    <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.241</strong></div>
     <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
   </header>
   <ul id="updateNoticeItems"></ul>
@@ -263,7 +277,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.240"></script>
-<script src="assets/wildwood/game.js?v=0.240"></script>
+<script src="assets/wildwood/coop-client.js?v=0.241"></script>
+<script src="assets/wildwood/game.js?v=0.241"></script>
 </body>
 </html>

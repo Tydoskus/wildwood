@@ -8659,7 +8659,6 @@ ${ty.variants.map(
   let progressSavePromise = null;
   let authNotice = "";
   let protocolBlocked = false;
-  let protocolRefreshScheduled = false;
   let accountLinkClaiming = false;
   let resumeProbePromise = null;
   let worldEntryPromise = null;
@@ -8691,15 +8690,8 @@ ${ty.variants.map(
     }
     protocolBlocked = true;
     progressSaveInFlightUntil = Number.POSITIVE_INFINITY;
-    authNotice = "UPDATE REQUIRED · REFRESHING";
+    authNotice = "GAME UPDATING · WAITING FOR DEPLOY";
     onChange == null ? void 0 : onChange();
-    if (protocolRefreshScheduled) return;
-    protocolRefreshScheduled = true;
-    window.setTimeout(() => {
-      const url = new URL(window.location.href);
-      url.searchParams.set("v", `refresh-${Date.now()}`);
-      window.location.replace(url.toString());
-    }, 250);
   }
   function sendReducer(action, reducer, onRejected) {
     if (protocolBlocked) return;
@@ -9574,14 +9566,14 @@ ${ty.variants.map(
     latestDragonResult = null;
   }
   function scheduleReconnect(delay = 500) {
-    if (document.hidden || reconnectTimer !== null || (connection == null ? void 0 : connection.isActive) || connecting) return;
+    if (protocolBlocked || document.hidden || reconnectTimer !== null || (connection == null ? void 0 : connection.isActive) || connecting) return;
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       connect();
     }, delay);
   }
   function reconnectAfterWake(force = false) {
-    if (document.hidden || connecting || resumeProbePromise) return;
+    if (protocolBlocked || document.hidden || connecting || resumeProbePromise) return;
     const conn = connection;
     if (force || !(conn == null ? void 0 : conn.isActive)) {
       if (conn == null ? void 0 : conn.isActive) conn.disconnect();
@@ -9613,7 +9605,7 @@ ${ty.variants.map(
     });
   }
   function connect() {
-    if ((connection == null ? void 0 : connection.isActive) || connecting) return;
+    if (protocolBlocked || (connection == null ? void 0 : connection.isActive) || connecting) return;
     if (!accountToken() && hasKnownAccount() && !guestSessionExplicit) {
       authNotice = "SIGN-IN REQUIRED";
       onChange == null ? void 0 : onChange();
@@ -9633,7 +9625,6 @@ ${ty.variants.map(
       connectedSignedIn = signedIn;
       touchServerActivity();
       protocolBlocked = false;
-      protocolRefreshScheduled = false;
       accountLinkClaiming = false;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
@@ -9903,6 +9894,7 @@ ${ty.variants.map(
         authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
         returningFromSignIn: accountReturnPending,
         hydrated: hydrationReady,
+        updating: protocolBlocked,
         notice: authNotice
       };
     },
