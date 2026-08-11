@@ -8210,6 +8210,19 @@ ${ty.variants.map(
     identity: t.identity(),
     label: t.string()
   };
+  const DevUpdatePlayerSaveReducer = {
+    identity: t.identity(),
+    displayName: t.string(),
+    maxHp: t.f32(),
+    damage: t.f32(),
+    attackRate: t.f32(),
+    projectileSpeed: t.f32(),
+    projectileCount: t.u32(),
+    attackRange: t.f32(),
+    armor: t.f32(),
+    regen: t.f32(),
+    speed: t.f32()
+  };
   const EnterWorldReducer = {
     tabId: t.string()
   };
@@ -8564,6 +8577,7 @@ ${ty.variants.map(
     reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
     reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
+    reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
     reducerSchema("enter_world", EnterWorldReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
@@ -10093,6 +10107,21 @@ ${ty.variants.map(
       } catch (error) {
         const message = reducerErrorMessage(error);
         handleReducerFailure("audit label update", error);
+        return { ok: false, error: message };
+      }
+    },
+    async updatePlayerSave(identity, update) {
+      if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
+        return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
+      }
+      const entry = accessAuditEntries.get(identity);
+      if (!entry) return { ok: false, error: "PLAYER IDENTITY NOT FOUND" };
+      try {
+        await connection.reducers.devUpdatePlayerSave({ identity: entry.identityValue, ...update });
+        return { ok: true };
+      } catch (error) {
+        const message = reducerErrorMessage(error);
+        handleReducerFailure("developer save update", error);
         return { ok: false, error: message };
       }
     },

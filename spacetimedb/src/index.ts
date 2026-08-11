@@ -1702,6 +1702,65 @@ export const devSetAccessAuditLabel = spacetimedb.reducer(
   },
 );
 
+export const devUpdatePlayerSave = spacetimedb.reducer(
+  {
+    identity: t.identity(),
+    displayName: t.string(),
+    maxHp: t.f32(),
+    damage: t.f32(),
+    attackRate: t.f32(),
+    projectileSpeed: t.f32(),
+    projectileCount: t.u32(),
+    attackRange: t.f32(),
+    armor: t.f32(),
+    regen: t.f32(),
+    speed: t.f32(),
+  },
+  (ctx, update) => {
+    requireDeveloper(ctx);
+    const profile = ctx.db.playerProfile.identity.find(update.identity);
+    const progress = ctx.db.playerProgress.identity.find(update.identity);
+    if (!profile || !progress) throw new SenderError("Player save row not found.");
+    const displayName = update.displayName.trim().replace(/\s+/g, " ");
+    if (!/^[A-Za-z0-9 _-]{2,20}$/.test(displayName)) {
+      throw new SenderError("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores.");
+    }
+    const bounded = (value: number, min: number, max: number, field: string) => {
+      if (!Number.isFinite(value) || value < min || value > max) {
+        throw new SenderError(`${field} must be between ${min} and ${max}.`);
+      }
+      return value;
+    };
+    const nextProgress = {
+      ...progress,
+      maxHp: bounded(update.maxHp, 1, 1_000_000, "Max HP"),
+      damage: bounded(update.damage, 1, 1_000_000, "Damage"),
+      attackRate: bounded(update.attackRate, .05, 10, "Attack rate"),
+      projectileSpeed: bounded(update.projectileSpeed, 1, 5_000, "Projectile speed"),
+      projectileCount: Math.max(1, Math.min(20, Math.floor(update.projectileCount))),
+      attackRange: bounded(update.attackRange, 1, 5_000, "Attack range"),
+      armor: bounded(update.armor, 0, 1_000_000, "Armor"),
+      regen: bounded(update.regen, 0, 1_000_000, "Regen"),
+      speed: bounded(update.speed, 1, 2_000, "Move speed"),
+    };
+    ctx.db.playerProfile.identity.update({ ...profile, displayName });
+    ctx.db.playerProgress.identity.update(nextProgress);
+    const active = ctx.db.player.identity.find(update.identity);
+    if (active) {
+      ctx.db.player.identity.update({
+        ...active,
+        hp: Math.min(active.hp, nextProgress.maxHp),
+        maxHp: nextProgress.maxHp,
+        speed: nextProgress.speed,
+        power: powerForProgress(nextProgress),
+      });
+    }
+    const audit = ctx.db.playerAccessAudit.identity.find(update.identity);
+    if (audit) ctx.db.playerAccessAudit.identity.update({ ...audit, displayName });
+    refreshLeaderboard(ctx);
+  },
+);
+
 export const savePlayerProgress = spacetimedb.reducer(
   {
     maxHp: t.f32(),

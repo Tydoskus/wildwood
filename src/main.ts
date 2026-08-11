@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.245";
+  const GAME_VERSION = "0.246";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -162,6 +162,20 @@ import { formatCompactNumber } from "./ui/number-format";
   const profileOnlineEl = document.getElementById("profileOnline");
   const profileStatGrid = document.getElementById("profileStatGrid");
   const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
+  const editPlayerSaveBtn = document.getElementById("editPlayerSaveBtn");
+  const profileEditPanel = document.getElementById("profileEditPanel");
+  const profileEditName = document.getElementById("profileEditName");
+  const profileEditMaxHp = document.getElementById("profileEditMaxHp");
+  const profileEditDamage = document.getElementById("profileEditDamage");
+  const profileEditAttackRate = document.getElementById("profileEditAttackRate");
+  const profileEditArmor = document.getElementById("profileEditArmor");
+  const profileEditRegen = document.getElementById("profileEditRegen");
+  const profileEditSpeed = document.getElementById("profileEditSpeed");
+  const profileEditAttackRange = document.getElementById("profileEditAttackRange");
+  const profileEditProjectileSpeed = document.getElementById("profileEditProjectileSpeed");
+  const profileEditProjectileCount = document.getElementById("profileEditProjectileCount");
+  const cancelPlayerSaveEditBtn = document.getElementById("cancelPlayerSaveEditBtn");
+  const savePlayerSaveEditBtn = document.getElementById("savePlayerSaveEditBtn");
   const leaderboardEl = document.getElementById("leaderboard");
   const leaderboardPowerTab = document.getElementById("leaderboardPowerTab");
   const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
@@ -253,6 +267,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const locallyRewardedDragonEncounters = new Set();
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
   let openProfileIdentity = "";
+  let openProfileData = null;
   let leaderboardStat = "power";
 
 
@@ -2873,6 +2888,7 @@ import { formatCompactNumber } from "./ui/number-format";
   function renderPlayerProfile(profile) {
     if (!profile || profile.identity !== openProfileIdentity) return;
     const { progress, lifetime } = profile;
+    openProfileData = profile;
     const online = isProfileOnline(profile.identity);
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     const power = playerPower(progress);
@@ -2908,6 +2924,7 @@ import { formatCompactNumber } from "./ui/number-format";
       profileStatGrid.append(item);
     }
     playerProfileLoadingEl.hidden = true;
+    editPlayerSaveBtn.hidden = !isDeveloperIdentity(coop?.localIdentity?.());
     profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
     profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
   }
@@ -2915,6 +2932,9 @@ import { formatCompactNumber } from "./ui/number-format";
   async function openPlayerProfile(identity, fallbackName = "PLAYER") {
     if (!identity) return;
     openProfileIdentity = identity;
+    openProfileData = null;
+    profileEditPanel.hidden = true;
+    editPlayerSaveBtn.hidden = true;
     playerProfileEl.hidden = false;
     renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
     playerProfilePowerEl.textContent = "Power: —";
@@ -2937,6 +2957,8 @@ import { formatCompactNumber } from "./ui/number-format";
   function closePlayerProfile() {
     playerProfileEl.hidden = true;
     openProfileIdentity = "";
+    openProfileData = null;
+    profileEditPanel.hidden = true;
     playerProfileLoadingEl.textContent = "LOADING PLAYER…";
     coop?.releasePlayerProfile?.();
   }
@@ -3036,6 +3058,28 @@ import { formatCompactNumber } from "./ui/number-format";
       const firstSeen = document.createElement("small");
       firstSeen.textContent = `FIRST · ${new Date(entry.firstSeenAtMs).toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" })}`;
       account.append(accountName, identity, firstSeen);
+      const actions = document.createElement("div");
+      actions.className = "dev-audit-account-actions";
+      const open = document.createElement("button");
+      open.type = "button";
+      open.textContent = "OPEN / EDIT";
+      open.addEventListener("click", () => {
+        closeDevAudit();
+        void openPlayerProfile(entry.identity, entry.displayName);
+      });
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.textContent = "COPY ID";
+      copy.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(entry.identity);
+          showMessage("IDENTITY COPIED", "#72ef58");
+        } catch {
+          showMessage("COPY FAILED", "#ff9b91");
+        }
+      });
+      actions.append(open, copy);
+      account.append(actions);
 
       const lastSeen = document.createElement("div");
       lastSeen.className = "dev-audit-last-seen";
@@ -3085,6 +3129,53 @@ import { formatCompactNumber } from "./ui/number-format";
   function closeDevAudit() {
     devAuditEl.hidden = true;
     devAuditBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function beginPlayerSaveEdit() {
+    if (!openProfileData || !isDeveloperIdentity(coop?.localIdentity?.())) return;
+    const progress = openProfileData.progress;
+    profileEditName.value = openProfileData.name;
+    profileEditMaxHp.value = String(progress.maxHp);
+    profileEditDamage.value = String(progress.damage);
+    profileEditAttackRate.value = String(progress.attackRate);
+    profileEditArmor.value = String(progress.armor);
+    profileEditRegen.value = String(progress.regen);
+    profileEditSpeed.value = String(progress.speed);
+    profileEditAttackRange.value = String(progress.attackRange);
+    profileEditProjectileSpeed.value = String(progress.projectileSpeed);
+    profileEditProjectileCount.value = String(progress.projectileCount);
+    profileEditPanel.hidden = false;
+    editPlayerSaveBtn.hidden = true;
+  }
+
+  function cancelPlayerSaveEdit() {
+    profileEditPanel.hidden = true;
+    editPlayerSaveBtn.hidden = !openProfileData || !isDeveloperIdentity(coop?.localIdentity?.());
+  }
+
+  async function savePlayerSaveEdit() {
+    if (!openProfileIdentity || !isDeveloperIdentity(coop?.localIdentity?.())) return;
+    savePlayerSaveEditBtn.disabled = true;
+    const result = await coop?.updatePlayerSave?.(openProfileIdentity, {
+      displayName: profileEditName.value,
+      maxHp: Number(profileEditMaxHp.value),
+      damage: Number(profileEditDamage.value),
+      attackRate: Number(profileEditAttackRate.value),
+      armor: Number(profileEditArmor.value),
+      regen: Number(profileEditRegen.value),
+      speed: Number(profileEditSpeed.value),
+      attackRange: Number(profileEditAttackRange.value),
+      projectileSpeed: Number(profileEditProjectileSpeed.value),
+      projectileCount: Number(profileEditProjectileCount.value),
+    });
+    savePlayerSaveEditBtn.disabled = false;
+    if (!result?.ok) {
+      showMessage(result?.error || "DATABASE UPDATE FAILED", "#ff9b91");
+      return;
+    }
+    showMessage("PLAYER SAVE UPDATED", "#72ef58");
+    profileEditPanel.hidden = true;
+    editPlayerSaveBtn.hidden = false;
   }
 
   function closeUpdateNotice() {
@@ -3450,6 +3541,9 @@ import { formatCompactNumber } from "./ui/number-format";
   });
   profileOverviewTab.addEventListener("click", () => setProfileTab("overview"));
   profileStatsTab.addEventListener("click", () => setProfileTab("stats"));
+  editPlayerSaveBtn.addEventListener("click", beginPlayerSaveEdit);
+  cancelPlayerSaveEditBtn.addEventListener("click", cancelPlayerSaveEdit);
+  savePlayerSaveEditBtn.addEventListener("click", () => void savePlayerSaveEdit());
 
   musicVolumeInput?.addEventListener("input", () => {
     musicVolume = clamp(Number(musicVolumeInput.value) / 100, 0, 1);

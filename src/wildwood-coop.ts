@@ -1822,6 +1822,32 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
+  async updatePlayerSave(identity: string, update: {
+    displayName: string;
+    maxHp: number;
+    damage: number;
+    attackRate: number;
+    projectileSpeed: number;
+    projectileCount: number;
+    attackRange: number;
+    armor: number;
+    regen: number;
+    speed: number;
+  }) {
+    if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
+      return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
+    }
+    const entry = accessAuditEntries.get(identity);
+    if (!entry) return { ok: false, error: "PLAYER IDENTITY NOT FOUND" };
+    try {
+      await connection.reducers.devUpdatePlayerSave({ identity: entry.identityValue, ...update });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("developer save update", error);
+      return { ok: false, error: message };
+    }
+  },
   isGuest(identity = localIdentity) {
     const knownStatus = guestAccounts.get(identity) ?? leaderboardEntries.get(identity)?.isGuest;
     if (knownStatus !== undefined) return knownStatus;

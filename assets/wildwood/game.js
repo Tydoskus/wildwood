@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.246": [
+      "Developer button visibility fixed",
+      "Developer player-save editor added"
+    ],
     "0.245": [
       "Private account access auditing added",
       "Developer account badge and audit panel added"
@@ -763,7 +767,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.245";
+    const GAME_VERSION = "0.246";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -867,6 +871,20 @@
     const profileOnlineEl = document.getElementById("profileOnline");
     const profileStatGrid = document.getElementById("profileStatGrid");
     const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
+    const editPlayerSaveBtn = document.getElementById("editPlayerSaveBtn");
+    const profileEditPanel = document.getElementById("profileEditPanel");
+    const profileEditName = document.getElementById("profileEditName");
+    const profileEditMaxHp = document.getElementById("profileEditMaxHp");
+    const profileEditDamage = document.getElementById("profileEditDamage");
+    const profileEditAttackRate = document.getElementById("profileEditAttackRate");
+    const profileEditArmor = document.getElementById("profileEditArmor");
+    const profileEditRegen = document.getElementById("profileEditRegen");
+    const profileEditSpeed = document.getElementById("profileEditSpeed");
+    const profileEditAttackRange = document.getElementById("profileEditAttackRange");
+    const profileEditProjectileSpeed = document.getElementById("profileEditProjectileSpeed");
+    const profileEditProjectileCount = document.getElementById("profileEditProjectileCount");
+    const cancelPlayerSaveEditBtn = document.getElementById("cancelPlayerSaveEditBtn");
+    const savePlayerSaveEditBtn = document.getElementById("savePlayerSaveEditBtn");
     const leaderboardEl = document.getElementById("leaderboard");
     const leaderboardPowerTab = document.getElementById("leaderboardPowerTab");
     const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
@@ -961,6 +979,7 @@
     const locallyRewardedDragonEncounters = /* @__PURE__ */ new Set();
     const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
     let openProfileIdentity = "";
+    let openProfileData = null;
     let leaderboardStat = "power";
     const bootsPickup = {
       x: 940,
@@ -3313,8 +3332,10 @@
       profileStatsPanel.hidden = overview;
     }
     function renderPlayerProfile(profile) {
+      var _a;
       if (!profile || profile.identity !== openProfileIdentity) return;
       const { progress, lifetime } = profile;
+      openProfileData = profile;
       const online = isProfileOnline(profile.identity);
       const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
       const power = playerPower(progress);
@@ -3351,6 +3372,7 @@
         profileStatGrid.append(item);
       }
       playerProfileLoadingEl.hidden = true;
+      editPlayerSaveBtn.hidden = !isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop));
       profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
       profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
     }
@@ -3358,6 +3380,9 @@
       var _a, _b2;
       if (!identity) return;
       openProfileIdentity = identity;
+      openProfileData = null;
+      profileEditPanel.hidden = true;
+      editPlayerSaveBtn.hidden = true;
       playerProfileEl.hidden = false;
       renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
       playerProfilePowerEl.textContent = "Power: —";
@@ -3380,6 +3405,8 @@
       var _a;
       playerProfileEl.hidden = true;
       openProfileIdentity = "";
+      openProfileData = null;
+      profileEditPanel.hidden = true;
       playerProfileLoadingEl.textContent = "LOADING PLAYER…";
       (_a = coop == null ? void 0 : coop.releasePlayerProfile) == null ? void 0 : _a.call(coop);
     }
@@ -3468,6 +3495,28 @@
         const firstSeen = document.createElement("small");
         firstSeen.textContent = `FIRST · ${new Date(entry.firstSeenAtMs).toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" })}`;
         account.append(accountName, identity, firstSeen);
+        const actions = document.createElement("div");
+        actions.className = "dev-audit-account-actions";
+        const open = document.createElement("button");
+        open.type = "button";
+        open.textContent = "OPEN / EDIT";
+        open.addEventListener("click", () => {
+          closeDevAudit();
+          void openPlayerProfile(entry.identity, entry.displayName);
+        });
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.textContent = "COPY ID";
+        copy.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(entry.identity);
+            showMessage("IDENTITY COPIED", "#72ef58");
+          } catch {
+            showMessage("COPY FAILED", "#ff9b91");
+          }
+        });
+        actions.append(open, copy);
+        account.append(actions);
         const lastSeen = document.createElement("div");
         lastSeen.className = "dev-audit-last-seen";
         lastSeen.textContent = new Date(entry.lastSeenAtMs).toLocaleString([], {
@@ -3517,6 +3566,53 @@
     function closeDevAudit() {
       devAuditEl.hidden = true;
       devAuditBtn.setAttribute("aria-expanded", "false");
+    }
+    function beginPlayerSaveEdit() {
+      var _a;
+      if (!openProfileData || !isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) return;
+      const progress = openProfileData.progress;
+      profileEditName.value = openProfileData.name;
+      profileEditMaxHp.value = String(progress.maxHp);
+      profileEditDamage.value = String(progress.damage);
+      profileEditAttackRate.value = String(progress.attackRate);
+      profileEditArmor.value = String(progress.armor);
+      profileEditRegen.value = String(progress.regen);
+      profileEditSpeed.value = String(progress.speed);
+      profileEditAttackRange.value = String(progress.attackRange);
+      profileEditProjectileSpeed.value = String(progress.projectileSpeed);
+      profileEditProjectileCount.value = String(progress.projectileCount);
+      profileEditPanel.hidden = false;
+      editPlayerSaveBtn.hidden = true;
+    }
+    function cancelPlayerSaveEdit() {
+      var _a;
+      profileEditPanel.hidden = true;
+      editPlayerSaveBtn.hidden = !openProfileData || !isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop));
+    }
+    async function savePlayerSaveEdit() {
+      var _a, _b2;
+      if (!openProfileIdentity || !isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) return;
+      savePlayerSaveEditBtn.disabled = true;
+      const result = await ((_b2 = coop == null ? void 0 : coop.updatePlayerSave) == null ? void 0 : _b2.call(coop, openProfileIdentity, {
+        displayName: profileEditName.value,
+        maxHp: Number(profileEditMaxHp.value),
+        damage: Number(profileEditDamage.value),
+        attackRate: Number(profileEditAttackRate.value),
+        armor: Number(profileEditArmor.value),
+        regen: Number(profileEditRegen.value),
+        speed: Number(profileEditSpeed.value),
+        attackRange: Number(profileEditAttackRange.value),
+        projectileSpeed: Number(profileEditProjectileSpeed.value),
+        projectileCount: Number(profileEditProjectileCount.value)
+      }));
+      savePlayerSaveEditBtn.disabled = false;
+      if (!(result == null ? void 0 : result.ok)) {
+        showMessage((result == null ? void 0 : result.error) || "DATABASE UPDATE FAILED", "#ff9b91");
+        return;
+      }
+      showMessage("PLAYER SAVE UPDATED", "#72ef58");
+      profileEditPanel.hidden = true;
+      editPlayerSaveBtn.hidden = false;
     }
     function closeUpdateNotice() {
       updateNoticeEl.hidden = true;
@@ -3864,6 +3960,9 @@
     });
     profileOverviewTab.addEventListener("click", () => setProfileTab("overview"));
     profileStatsTab.addEventListener("click", () => setProfileTab("stats"));
+    editPlayerSaveBtn.addEventListener("click", beginPlayerSaveEdit);
+    cancelPlayerSaveEditBtn.addEventListener("click", cancelPlayerSaveEdit);
+    savePlayerSaveEditBtn.addEventListener("click", () => void savePlayerSaveEdit());
     musicVolumeInput == null ? void 0 : musicVolumeInput.addEventListener("input", () => {
       musicVolume = clamp(Number(musicVolumeInput.value) / 100, 0, 1);
       try {

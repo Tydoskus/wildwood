@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.246": [
+    "Developer button visibility fixed",
+    "Developer player-save editor added",
+  ],
   "0.245": [
     "Private account access auditing added",
     "Developer account badge and audit panel added",
