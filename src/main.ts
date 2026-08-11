@@ -54,7 +54,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.237";
+  const GAME_VERSION = "0.238";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -136,6 +136,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const dragonResultTotal = document.getElementById("dragonResultTotal");
   const dragonResultContributors = document.getElementById("dragonResultContributors");
   const closeDragonResultBtn = document.getElementById("closeDragonResultBtn");
+  const dragonWorldNoticeEl = document.getElementById("dragonWorldNotice");
+  const dragonWorldNoticeDetailEl = document.getElementById("dragonWorldNoticeDetail");
   const duelReplayEl = document.getElementById("duelReplay");
   const duelReplayTitle = document.getElementById("duelReplayTitle");
   const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
@@ -226,7 +228,7 @@ import { formatCompactNumber } from "./ui/number-format";
   let duelResultHold = false;
   let duelReturnState = null;
   let duelExitFading = false;
-  let dragonResultOpen = false;
+  let dragonWorldNoticeTimer = null;
   let observedDragonEncounter = null;
   let dragonWasAlive = null;
   let pendingDragonResultEncounter = null;
@@ -943,7 +945,20 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
     shownDragonResultEncounter = result.encounter;
     pendingDragonResultEncounter = null;
-    dragonResultOpen = true;
+    const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
+    if (!localContribution) {
+      if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
+      dragonWorldNoticeDetailEl.textContent = `${result.contributors.length} ${result.contributors.length === 1 ? "PLAYER" : "PLAYERS"} · ${formatCompactNumber(result.totalDamage)} TOTAL DAMAGE`;
+      dragonWorldNoticeEl.hidden = false;
+      dragonWorldNoticeEl.style.animation = "none";
+      void dragonWorldNoticeEl.offsetWidth;
+      dragonWorldNoticeEl.style.animation = "";
+      dragonWorldNoticeTimer = window.setTimeout(() => {
+        dragonWorldNoticeEl.hidden = true;
+        dragonWorldNoticeTimer = null;
+      }, 6_000);
+      return;
+    }
     dragonResultTotal.textContent = `${Math.round(result.totalDamage).toLocaleString()} TOTAL DAMAGE`;
     dragonResultContributors.replaceChildren();
 
@@ -971,8 +986,7 @@ import { formatCompactNumber } from "./ui/number-format";
     }
 
     const encounterKey = String(result.encounter);
-    const earnedReward = result.contributors.some((entry) => entry.identity === coop?.localIdentity?.());
-    if (earnedReward && !locallyRewardedDragonEncounters.has(encounterKey)) {
+    if (!locallyRewardedDragonEncounters.has(encounterKey)) {
       locallyRewardedDragonEncounters.add(encounterKey);
       player.damage += 650;
       logPickup("+650 DAMAGE", "#ff655a");
@@ -2945,7 +2959,7 @@ import { formatCompactNumber } from "./ui/number-format";
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
 
-    if (running && !pausedForUpgrade && !dragonResultOpen) update(dt);
+    if (running && !pausedForUpgrade) update(dt);
     render();
     requestAnimationFrame(loop);
   }
@@ -3200,7 +3214,6 @@ import { formatCompactNumber } from "./ui/number-format";
 
   closeDragonResultBtn.addEventListener("click", () => {
     dragonResultEl.hidden = true;
-    dragonResultOpen = false;
     last = performance.now();
   });
 

@@ -701,7 +701,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.237";
+    const GAME_VERSION = "0.238";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -781,6 +781,8 @@
     const dragonResultTotal = document.getElementById("dragonResultTotal");
     const dragonResultContributors = document.getElementById("dragonResultContributors");
     const closeDragonResultBtn = document.getElementById("closeDragonResultBtn");
+    const dragonWorldNoticeEl = document.getElementById("dragonWorldNotice");
+    const dragonWorldNoticeDetailEl = document.getElementById("dragonWorldNoticeDetail");
     const duelReplayEl = document.getElementById("duelReplay");
     const duelReplayTitle = document.getElementById("duelReplayTitle");
     const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
@@ -874,7 +876,7 @@
     let duelResultHold = false;
     let duelReturnState = null;
     let duelExitFading = false;
-    let dragonResultOpen = false;
+    let dragonWorldNoticeTimer = null;
     let observedDragonEncounter = null;
     let dragonWasAlive = null;
     let pendingDragonResultEncounter = null;
@@ -1513,7 +1515,23 @@
       if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
       shownDragonResultEncounter = result.encounter;
       pendingDragonResultEncounter = null;
-      dragonResultOpen = true;
+      const localContribution = result.contributors.find((entry) => {
+        var _a2;
+        return entry.identity === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop));
+      });
+      if (!localContribution) {
+        if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
+        dragonWorldNoticeDetailEl.textContent = `${result.contributors.length} ${result.contributors.length === 1 ? "PLAYER" : "PLAYERS"} · ${formatCompactNumber(result.totalDamage)} TOTAL DAMAGE`;
+        dragonWorldNoticeEl.hidden = false;
+        dragonWorldNoticeEl.style.animation = "none";
+        void dragonWorldNoticeEl.offsetWidth;
+        dragonWorldNoticeEl.style.animation = "";
+        dragonWorldNoticeTimer = window.setTimeout(() => {
+          dragonWorldNoticeEl.hidden = true;
+          dragonWorldNoticeTimer = null;
+        }, 6e3);
+        return;
+      }
       dragonResultTotal.textContent = `${Math.round(result.totalDamage).toLocaleString()} TOTAL DAMAGE`;
       dragonResultContributors.replaceChildren();
       for (const contributor of result.contributors) {
@@ -1538,11 +1556,7 @@
         dragonResultContributors.append(empty);
       }
       const encounterKey = String(result.encounter);
-      const earnedReward = result.contributors.some((entry) => {
-        var _a2;
-        return entry.identity === ((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop));
-      });
-      if (earnedReward && !locallyRewardedDragonEncounters.has(encounterKey)) {
+      if (!locallyRewardedDragonEncounters.has(encounterKey)) {
         locallyRewardedDragonEncounters.add(encounterKey);
         player.damage += 650;
         logPickup("+650 DAMAGE", "#ff655a");
@@ -3331,7 +3345,7 @@
       const rawDt = (now - last) / 1e3;
       last = now;
       const dt = Math.min(0.035, Math.max(0, rawDt));
-      if (running && !pausedForUpgrade && !dragonResultOpen) update(dt);
+      if (running && !pausedForUpgrade) update(dt);
       render();
       requestAnimationFrame(loop);
     }
@@ -3566,7 +3580,6 @@
     });
     closeDragonResultBtn.addEventListener("click", () => {
       dragonResultEl.hidden = true;
-      dragonResultOpen = false;
       last = performance.now();
     });
     closeDuelReplayBtn.addEventListener("click", () => {

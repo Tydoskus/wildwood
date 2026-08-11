@@ -763,6 +763,8 @@
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
   .duel-stat-name { color: var(--gold); font-weight: 900; }
   .dragon-result-modal { max-width: 560px; border-color: rgba(255,101,90,.6); }
+  #dragonResult { background: rgba(1,5,3,.46); pointer-events: none; }
+  #dragonResult .dragon-result-modal { pointer-events: auto; }
   .dragon-result-modal h2 { margin: 0; color: #ff8a65; font-size: clamp(24px, 7vw, 38px); }
   .dragon-result-total { margin: 7px 0 14px; color: var(--gold); font-size: 12px; }
   .dragon-result-contributors { display: grid; gap: 7px; max-height: min(44vh, 360px); margin-bottom: 15px; overflow-y: auto; text-align: left; }
@@ -770,6 +772,14 @@
   .dragon-result-name { min-width: 0; overflow: hidden; color: #fff; text-overflow: ellipsis; white-space: nowrap; }
   .dragon-result-damage { color: var(--gold); }
   .dragon-result-percentage { min-width: 52px; color: #72ef58; text-align: right; }
+  #dragonWorldNotice { position: fixed; top: 76px; left: 50%; z-index: 9; display: grid; gap: 3px; min-width: min(350px, calc(100vw - 30px)); padding: 10px 16px; border: 2px solid rgba(255,101,90,.68); border-radius: 9px; background: rgba(13,22,17,.94); color: #fff; text-align: center; pointer-events: none; transform: translateX(-50%); animation: dragon-world-notice 6s ease forwards; }
+  #dragonWorldNotice[hidden] { display: none; }
+  #dragonWorldNotice strong { color: #ff8a65; font-size: 14px; }
+  #dragonWorldNotice span { color: var(--gold); font-size: 9px; }
+  @keyframes dragon-world-notice {
+    0%, 78% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -8px); }
+  }
   .player-profile-modal { width: min(520px, calc(100vw - 26px)); max-height: calc(100vh - 26px); overflow-y: auto; text-align: left; }
   .player-profile-header { display: flex; align-items: center; gap: 14px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 18px; }

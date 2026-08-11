@@ -167,6 +167,12 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 
+export const LeaderboardRefreshState = __t.object("LeaderboardRefreshState", {
+  id: __t.u32(),
+  refreshedAtMicros: __t.u64(),
+});
+export type LeaderboardRefreshState = __Infer<typeof LeaderboardRefreshState>;
+
 export const MaintenanceSchedule = __t.object("MaintenanceSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
@@ -189,6 +195,12 @@ export const Player = __t.object("Player", {
   feetItem: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
+
+export const PlayerAccountStatus = __t.object("PlayerAccountStatus", {
+  identity: __t.identity(),
+  isGuest: __t.bool(),
+});
+export type PlayerAccountStatus = __Infer<typeof PlayerAccountStatus>;
 
 export const PlayerBalanceVersion = __t.object("PlayerBalanceVersion", {
   identity: __t.identity(),

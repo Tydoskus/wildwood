@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.237" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.238" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -111,7 +111,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.237</div>
+        <div id="version">v0.238</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -198,6 +198,11 @@
   </div>
 </div>
 
+<div id="dragonWorldNotice" role="status" aria-live="polite" hidden>
+  <strong>DRAGON DEFEATED</strong>
+  <span id="dragonWorldNoticeDetail">0 PLAYERS · 0 TOTAL DAMAGE</span>
+</div>
+
 <div id="playerProfile" hidden>
   <div class="modal player-profile-modal" role="dialog" aria-modal="true" aria-labelledby="playerProfileName">
     <header class="player-profile-header">
@@ -249,7 +254,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.237"></script>
-<script src="assets/wildwood/game.js?v=0.237"></script>
+<script src="assets/wildwood/coop-client.js?v=0.238"></script>
+<script src="assets/wildwood/game.js?v=0.238"></script>
 </body>
 </html>

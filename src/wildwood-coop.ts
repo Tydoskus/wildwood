@@ -166,7 +166,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 16;
+const PROTOCOL_VERSION = 17;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -203,6 +203,7 @@ const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const profileIdentities = new Map<string, Identity>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
+const guestAccounts = new Map<string, boolean>();
 const profileProgress = new Map<string, PlayerProgress>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
@@ -988,6 +989,16 @@ function removeLeaderboardEntry(row: { identity: Identity }) {
   onChange?.();
 }
 
+function upsertPlayerAccountStatus(row: { identity: Identity; isGuest: boolean }) {
+  guestAccounts.set(row.identity.toHexString(), row.isGuest);
+  onChange?.();
+}
+
+function removePlayerAccountStatus(row: { identity: Identity }) {
+  guestAccounts.delete(row.identity.toHexString());
+  onChange?.();
+}
+
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   const id = row.identity.toHexString();
   const progress = {
@@ -1268,6 +1279,7 @@ function clearRealtimeCaches() {
   profiles.clear();
   profileIdentities.clear();
   leaderboardEntries.clear();
+  guestAccounts.clear();
   profileProgress.clear();
   playerLifetimes.clear();
   playerProfileLoads.clear();
@@ -1441,6 +1453,9 @@ function connect() {
         conn.db.leaderboardEntry.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
         conn.db.leaderboardEntry.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
         conn.db.leaderboardEntry.onDelete((_ctx, row) => { if (isCurrentConnection()) removeLeaderboardEntry(row); });
+        conn.db.playerAccountStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
+        conn.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
+        conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayerAccountStatus(row); });
         conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerLifetime.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
@@ -1460,6 +1475,7 @@ function connect() {
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
+          for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -1480,6 +1496,7 @@ function connect() {
           tables.player,
           tables.playerProfile,
           tables.leaderboardEntry,
+          tables.playerAccountStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
@@ -1672,10 +1689,13 @@ export const wildwoodCoop = {
     return localProfileReady;
   },
   leaderboardEntries() {
-    return [...leaderboardEntries.values()].map((entry) => ({ ...entry }));
+    return [...leaderboardEntries.values()].map((entry) => ({
+      ...entry,
+      isGuest: guestAccounts.get(entry.identity) ?? entry.isGuest,
+    }));
   },
   isGuest(identity = localIdentity) {
-    return leaderboardEntries.get(identity)?.isGuest ?? false;
+    return guestAccounts.get(identity) ?? leaderboardEntries.get(identity)?.isGuest ?? false;
   },
   async setDisplayName(displayName: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };

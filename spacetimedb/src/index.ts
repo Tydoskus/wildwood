@@ -6,7 +6,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 16;
+const PROTOCOL_VERSION = 17;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -22,6 +22,8 @@ const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
 const CHAT_HISTORY_MAX_ROWS = 200;
 const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
+const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
+const LEADERBOARD_LIMIT = 100;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
@@ -104,6 +106,24 @@ const leaderboardEntry = table(
     damage: t.f32(),
     maxHp: t.f32(),
     isGuest: t.bool(),
+  },
+);
+
+// Public account kind stays separate from rankings so guest labels also work
+// for players outside top 100. Legacy rows become known on next connection.
+const playerAccountStatus = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    isGuest: t.bool(),
+  },
+);
+
+const leaderboardRefreshState = table(
+  { public: false },
+  {
+    id: t.u32().primaryKey(),
+    refreshedAtMicros: t.u64(),
   },
 );
 
@@ -362,6 +382,8 @@ const spacetimedb = schema({
   playerProfile,
   playerProgress,
   leaderboardEntry,
+  playerAccountStatus,
+  leaderboardRefreshState,
   playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
@@ -480,24 +502,69 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
   ));
 }
 
-function syncLeaderboardEntry(ctx: any, identity: any, progress: any, isGuest?: boolean) {
-  if (!progress) return;
-  const profile = ctx.db.playerProfile.identity.find(identity);
-  if (!profile) return;
-  const current = ctx.db.leaderboardEntry.identity.find(identity);
-  const next = {
-    identity,
-    displayName: profile.displayName,
-    damage: progress.damage,
-    maxHp: progress.maxHp,
-    isGuest: isGuest ?? current?.isGuest ?? true,
-  };
-  if (current) ctx.db.leaderboardEntry.identity.update(next);
-  else ctx.db.leaderboardEntry.insert(next);
+function syncSenderAccountStatus(ctx: any) {
+  const current = ctx.db.playerAccountStatus.identity.find(ctx.sender);
+  const next = { identity: ctx.sender, isGuest: !hasSpacetimeAuthAccount(ctx) };
+  if (current) ctx.db.playerAccountStatus.identity.update(next);
+  else ctx.db.playerAccountStatus.insert(next);
 }
 
-function syncSenderLeaderboardEntry(ctx: any, progress: any) {
-  syncLeaderboardEntry(ctx, ctx.sender, progress, !hasSpacetimeAuthAccount(ctx));
+function refreshLeaderboard(ctx: any) {
+  const candidates: any[] = [];
+  for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+    const profile = ctx.db.playerProfile.identity.find(progress.identity);
+    if (!profile) continue;
+    const current = ctx.db.leaderboardEntry.identity.find(progress.identity);
+    candidates.push({
+      identity: progress.identity,
+      identityKey: progress.identity.toHexString(),
+      displayName: profile.displayName,
+      damage: progress.damage,
+      maxHp: progress.maxHp,
+      isGuest: ctx.db.playerAccountStatus.identity.find(progress.identity)?.isGuest ?? current?.isGuest ?? false,
+    });
+  }
+
+  const byName = (a: any, b: any) => a.displayName.localeCompare(b.displayName);
+  const selected = new Map<string, any>();
+  for (const candidate of [...candidates].sort((a, b) => b.damage - a.damage || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
+    selected.set(candidate.identityKey, candidate);
+  }
+  for (const candidate of [...candidates].sort((a, b) => b.maxHp - a.maxHp || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
+    selected.set(candidate.identityKey, candidate);
+  }
+
+  for (const current of [...ctx.db.leaderboardEntry.iter()] as any[]) {
+    if (!selected.has(current.identity.toHexString())) ctx.db.leaderboardEntry.identity.delete(current.identity);
+  }
+  for (const candidate of selected.values()) {
+    const next = {
+      identity: candidate.identity,
+      displayName: candidate.displayName,
+      damage: candidate.damage,
+      maxHp: candidate.maxHp,
+      isGuest: candidate.isGuest,
+    };
+    const current = ctx.db.leaderboardEntry.identity.find(candidate.identity);
+    if (!current) ctx.db.leaderboardEntry.insert(next);
+    else if (
+      current.displayName !== next.displayName ||
+      current.damage !== next.damage ||
+      current.maxHp !== next.maxHp ||
+      current.isGuest !== next.isGuest
+    ) ctx.db.leaderboardEntry.identity.update(next);
+  }
+
+  const refreshState = ctx.db.leaderboardRefreshState.id.find(1);
+  const nextState = { id: 1, refreshedAtMicros: ctx.timestamp.microsSinceUnixEpoch };
+  if (refreshState) ctx.db.leaderboardRefreshState.id.update(nextState);
+  else ctx.db.leaderboardRefreshState.insert(nextState);
+}
+
+function refreshLeaderboardIfDue(ctx: any) {
+  const state = ctx.db.leaderboardRefreshState.id.find(1);
+  if (state && ctx.timestamp.microsSinceUnixEpoch - state.refreshedAtMicros < LEADERBOARD_REFRESH_INTERVAL_MICROS) return;
+  refreshLeaderboard(ctx);
 }
 
 function sameConnection(a: any, b: any) {
@@ -707,7 +774,6 @@ function rewardDragonContributor(ctx: any, identity: any) {
   if (!current) return;
   const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE };
   ctx.db.playerProgress.identity.update(next);
-  syncLeaderboardEntry(ctx, identity, next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     ctx.db.player.identity.update({
@@ -1054,7 +1120,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     }
   }
 
-  syncSenderLeaderboardEntry(ctx, existingProgress);
+  syncSenderAccountStatus(ctx);
 
   const existing = ctx.db.player.identity.find(ctx.sender);
   const lifetime = ensurePlayerLifetime(ctx);
@@ -1168,6 +1234,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
+    refreshLeaderboardIfDue(ctx);
   },
 );
 
@@ -1373,7 +1440,12 @@ export const claimGuestAccount = spacetimedb.reducer(
     }
 
     const finalDisplayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? generatedDisplayName(ctx.sender);
-    syncLeaderboardEntry(ctx, ctx.sender, nextProgress, false);
+    const accountStatus = ctx.db.playerAccountStatus.identity.find(ctx.sender);
+    const linkedStatus = { identity: ctx.sender, isGuest: false };
+    if (accountStatus) ctx.db.playerAccountStatus.identity.update(linkedStatus);
+    else ctx.db.playerAccountStatus.insert(linkedStatus);
+    const guestAccountStatus = ctx.db.playerAccountStatus.identity.find(link.guest);
+    if (guestAccountStatus) ctx.db.playerAccountStatus.identity.delete(link.guest);
     const guestLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(link.guest);
     if (guestLeaderboardEntry) ctx.db.leaderboardEntry.identity.delete(link.guest);
     const guestContribution = ctx.db.dragonContribution.identity.find(link.guest);
@@ -1455,7 +1527,6 @@ export const setDisplayName = spacetimedb.reducer(
     } else {
       ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized });
     }
-    syncSenderLeaderboardEntry(ctx, ctx.db.playerProgress.identity.find(ctx.sender));
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
   },
@@ -1517,7 +1588,6 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
-    syncSenderLeaderboardEntry(ctx, next);
     const lifetime = ensurePlayerLifetime(ctx);
     const boundedKills = BigInt(Math.max(0, Math.min(4_294_967_295, Math.floor(progress.enemyKills))));
     if (boundedKills > lifetime.enemyKills) {
@@ -1553,7 +1623,6 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const next = defaultPlayerProgress(ctx.sender);
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
-    syncSenderLeaderboardEntry(ctx, next);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({
