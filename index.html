@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.236" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.237" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -25,6 +25,7 @@
     <div class="settings-wrap">
       <button id="autoAttackBtn" class="settings-button auto-attack-button" type="button" aria-label="Toggle auto attack" aria-pressed="true"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Battle.png" alt="" aria-hidden="true"></button>
       <button id="inventoryBtn" class="settings-button inventory-button" type="button" aria-label="Open inventory" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Inventory.png" alt="" aria-hidden="true"></button>
+      <button id="leaderboardBtn" class="settings-button leaderboard-button" type="button" aria-label="Open leaderboard" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Hero.png" alt="" aria-hidden="true"></button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false">⚙</button>
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-title">SETTINGS</div>
@@ -110,7 +111,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.236</div>
+        <div id="version">v0.237</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -225,6 +226,22 @@
   </div>
 </div>
 
+<div id="leaderboard" hidden>
+  <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+    <header class="leaderboard-header">
+      <h2 id="leaderboardTitle">LEADERBOARD</h2>
+      <button id="closeLeaderboardBtn" class="profile-close-button secondary-button" type="button" aria-label="Close leaderboard">×</button>
+    </header>
+    <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
+      <button id="leaderboardDamageTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">DAMAGE</button>
+      <button id="leaderboardHealthTab" class="profile-tab" type="button" role="tab" aria-selected="false">HEALTH</button>
+    </div>
+    <div class="leaderboard-column-headings" aria-hidden="true"><span>RANK · PLAYER</span><span id="leaderboardValueHeading">DAMAGE</span></div>
+    <ol id="leaderboardRows" class="leaderboard-rows"></ol>
+    <div id="leaderboardEmpty" class="profile-loading" hidden>NO RANKINGS YET</div>
+  </div>
+</div>
+
 <div id="duelReplay" hidden>
   <div id="duelReplayHud">
     <span id="duelReplayTitle">DUEL REPLAY · OBSERVER</span>
@@ -232,7 +249,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.235"></script>
-<script src="assets/wildwood/game.js?v=0.235"></script>
+<script src="assets/wildwood/coop-client.js?v=0.237"></script>
+<script src="assets/wildwood/game.js?v=0.237"></script>
 </body>
 </html>

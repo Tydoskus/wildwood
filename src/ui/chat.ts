@@ -12,6 +12,7 @@ type ChatMessage = {
 
 type CoopClient = {
   localDisplayName?: () => string;
+  isGuest?: (identity: string) => boolean;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
   setDisplayName?: (name: string) => Promise<{ ok: boolean; error?: string }>;
@@ -82,7 +83,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const name = document.createElement("span");
       name.className = "chat-name";
       name.style.color = nameColor(message.sender);
-      name.textContent = `${message.senderName}: `;
+      const guestSuffix = coop?.isGuest?.(message.sender) ? " (guest)" : "";
+      name.textContent = `${message.senderName}${guestSuffix}: `;
       name.setAttribute("role", "button");
       name.setAttribute("tabindex", "0");
       name.setAttribute("aria-label", `View ${message.senderName}'s profile`);

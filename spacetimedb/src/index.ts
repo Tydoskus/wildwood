@@ -6,7 +6,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 15;
+const PROTOCOL_VERSION = 16;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -91,6 +91,19 @@ const playerProgress = table(
     introComplete: t.bool().default(false),
     inventoryJson: t.string().default("[]"),
     equippedFeet: t.string().default(""),
+  },
+);
+
+// Compact public ranking snapshot. Full player progress remains private to the
+// owner's subscription and identity-scoped profile views.
+const leaderboardEntry = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    displayName: t.string(),
+    damage: t.f32(),
+    maxHp: t.f32(),
+    isGuest: t.bool(),
   },
 );
 
@@ -348,6 +361,7 @@ const spacetimedb = schema({
   player,
   playerProfile,
   playerProgress,
+  leaderboardEntry,
   playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
@@ -464,6 +478,26 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
     progress.regen * 10 +
     50 / progress.attackRate,
   ));
+}
+
+function syncLeaderboardEntry(ctx: any, identity: any, progress: any, isGuest?: boolean) {
+  if (!progress) return;
+  const profile = ctx.db.playerProfile.identity.find(identity);
+  if (!profile) return;
+  const current = ctx.db.leaderboardEntry.identity.find(identity);
+  const next = {
+    identity,
+    displayName: profile.displayName,
+    damage: progress.damage,
+    maxHp: progress.maxHp,
+    isGuest: isGuest ?? current?.isGuest ?? true,
+  };
+  if (current) ctx.db.leaderboardEntry.identity.update(next);
+  else ctx.db.leaderboardEntry.insert(next);
+}
+
+function syncSenderLeaderboardEntry(ctx: any, progress: any) {
+  syncLeaderboardEntry(ctx, ctx.sender, progress, !hasSpacetimeAuthAccount(ctx));
 }
 
 function sameConnection(a: any, b: any) {
@@ -673,6 +707,7 @@ function rewardDragonContributor(ctx: any, identity: any) {
   if (!current) return;
   const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE };
   ctx.db.playerProgress.identity.update(next);
+  syncLeaderboardEntry(ctx, identity, next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     ctx.db.player.identity.update({
@@ -1019,6 +1054,8 @@ function enterWorldPresence(ctx: any, tabId: string) {
     }
   }
 
+  syncSenderLeaderboardEntry(ctx, existingProgress);
+
   const existing = ctx.db.player.identity.find(ctx.sender);
   const lifetime = ensurePlayerLifetime(ctx);
   if (!existing) {
@@ -1336,6 +1373,9 @@ export const claimGuestAccount = spacetimedb.reducer(
     }
 
     const finalDisplayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? generatedDisplayName(ctx.sender);
+    syncLeaderboardEntry(ctx, ctx.sender, nextProgress, false);
+    const guestLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(link.guest);
+    if (guestLeaderboardEntry) ctx.db.leaderboardEntry.identity.delete(link.guest);
     const guestContribution = ctx.db.dragonContribution.identity.find(link.guest);
     const accountContribution = ctx.db.dragonContribution.identity.find(ctx.sender);
     if (guestContribution) {
@@ -1415,6 +1455,7 @@ export const setDisplayName = spacetimedb.reducer(
     } else {
       ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized });
     }
+    syncSenderLeaderboardEntry(ctx, ctx.db.playerProgress.identity.find(ctx.sender));
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
   },
@@ -1476,6 +1517,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    syncSenderLeaderboardEntry(ctx, next);
     const lifetime = ensurePlayerLifetime(ctx);
     const boundedKills = BigInt(Math.max(0, Math.min(4_294_967_295, Math.floor(progress.enemyKills))));
     if (boundedKills > lifetime.enemyKills) {
@@ -1511,6 +1553,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const next = defaultPlayerProgress(ctx.sender);
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    syncSenderLeaderboardEntry(ctx, next);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({

@@ -728,7 +728,8 @@
 
   #duelResult,
   #dragonResult,
-  #playerProfile {
+  #playerProfile,
+  #leaderboard {
     position: fixed;
     inset: 0;
     z-index: 8;
@@ -740,7 +741,8 @@
 
   #duelResult[hidden],
   #dragonResult[hidden],
-  #playerProfile[hidden] { display: none; }
+  #playerProfile[hidden],
+  #leaderboard[hidden] { display: none; }
 
   #sceneFade {
     position: fixed;
@@ -784,6 +786,21 @@
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
   .profile-stat-grid dd { color: var(--gold); }
+  .leaderboard-modal { width: min(520px, calc(100vw - 26px)); max-height: calc(100vh - 26px); overflow: hidden; text-align: left; }
+  .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(23px, 6vw, 34px); }
+  .leaderboard-tabs { margin-top: 14px; }
+  .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 0 12px 7px 48px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
+  .leaderboard-rows { display: grid; gap: 6px; max-height: min(58vh, 470px); margin: 0; padding: 0 3px 1px 0; overflow-y: auto; list-style: none; }
+  .leaderboard-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 43px; padding: 7px 11px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: rgba(0,0,0,.22); }
+  .leaderboard-row.is-local { border-color: rgba(114,239,88,.72); background: rgba(67,160,62,.18); }
+  .leaderboard-rank { color: var(--muted); font-size: 11px; text-align: center; }
+  .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }
+  .leaderboard-row:nth-child(2) .leaderboard-rank { color: #dce6e8; }
+  .leaderboard-row:nth-child(3) .leaderboard-rank { color: #e4a96a; }
+  .leaderboard-name { min-width: 0; overflow: hidden; color: #fff; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .leaderboard-guest { color: var(--muted); font-size: .82em; }
+  .leaderboard-value { color: var(--gold); font-size: 12px; text-align: right; white-space: nowrap; }
   .chat-name { cursor: pointer; }
   .chat-name:hover { filter: brightness(1.2); }
   #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }

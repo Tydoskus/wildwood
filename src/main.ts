@@ -54,7 +54,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.236";
+  const GAME_VERSION = "0.237";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -81,6 +81,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const playerPowerEl = document.getElementById("playerPower");
   const settingsBtn = document.getElementById("settingsBtn");
   const inventoryBtn = document.getElementById("inventoryBtn");
+  const leaderboardBtn = document.getElementById("leaderboardBtn");
   const autoAttackBtn = document.getElementById("autoAttackBtn");
   const settingsPanel = document.getElementById("settingsPanel");
   const inventoryPanel = document.getElementById("inventoryPanel");
@@ -153,6 +154,13 @@ import { formatCompactNumber } from "./ui/number-format";
   const profileOnlineEl = document.getElementById("profileOnline");
   const profileStatGrid = document.getElementById("profileStatGrid");
   const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
+  const leaderboardEl = document.getElementById("leaderboard");
+  const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
+  const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
+  const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
+  const leaderboardRowsEl = document.getElementById("leaderboardRows");
+  const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
+  const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
   const coop = window.wildwoodCoop || null;
 
   const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
@@ -226,6 +234,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const locallyRewardedDragonEncounters = new Set();
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
   let openProfileIdentity = "";
+  let leaderboardStat = "damage";
 
 
   const bootsPickup = {
@@ -2038,6 +2047,11 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.restore();
   }
 
+  function publicPlayerName(identity, name) {
+    const baseName = name || "PLAYER";
+    return coop?.isGuest?.(identity) ? `${baseName} (guest)` : baseName;
+  }
+
   function drawPlayer() {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
@@ -2064,7 +2078,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
     drawActorStatus({
       x, y,
-      name: coop && coop.localDisplayName() || "PLAYER",
+      name: publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
       nameColor: "#ffffff",
       hp: player.hp,
       maxHp: player.maxHp,
@@ -2171,7 +2185,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
       drawActorStatus({
         x, y,
-        name: other.name,
+        name: publicPlayerName(other.id, other.name),
         nameColor: "#9eeeff",
         hp: other.hp,
         maxHp: other.maxHp,
@@ -2646,7 +2660,7 @@ import { formatCompactNumber } from "./ui/number-format";
     renderPlayerHud(
       { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
       player,
-      coop?.localDisplayName?.() || "WANDERER",
+      publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.() || "WANDERER"),
       playerCount,
       playerPower(player),
     );
@@ -2687,7 +2701,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const online = isProfileOnline(profile.identity);
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     const power = playerPower(progress);
-    playerProfileNameEl.textContent = profile.name || "PLAYER";
+    playerProfileNameEl.textContent = publicPlayerName(profile.identity, profile.name);
     playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
     profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
       year: "numeric", month: "short", day: "numeric",
@@ -2727,7 +2741,7 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!identity) return;
     openProfileIdentity = identity;
     playerProfileEl.hidden = false;
-    playerProfileNameEl.textContent = fallbackName;
+    playerProfileNameEl.textContent = publicPlayerName(identity, fallbackName);
     playerProfilePowerEl.textContent = "Power: —";
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
@@ -2750,6 +2764,69 @@ import { formatCompactNumber } from "./ui/number-format";
     openProfileIdentity = "";
     playerProfileLoadingEl.textContent = "LOADING PLAYER…";
     coop?.releasePlayerProfile?.();
+  }
+
+  function renderLeaderboard() {
+    const valueKey = leaderboardStat === "health" ? "maxHp" : "damage";
+    const entries = (coop?.leaderboardEntries?.() ?? [])
+      .filter((entry) => Number.isFinite(entry[valueKey]))
+      .sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name))
+      .slice(0, 100);
+    const localIdentity = coop?.localIdentity?.() || "";
+    leaderboardRowsEl.replaceChildren();
+    entries.forEach((entry, index) => {
+      const row = document.createElement("li");
+      row.className = "leaderboard-row";
+      row.classList.toggle("is-local", entry.identity === localIdentity);
+
+      const rank = document.createElement("span");
+      rank.className = "leaderboard-rank";
+      rank.textContent = `#${index + 1}`;
+
+      const name = document.createElement("span");
+      name.className = "leaderboard-name";
+      name.textContent = entry.name;
+      if (entry.isGuest) {
+        const guest = document.createElement("span");
+        guest.className = "leaderboard-guest";
+        guest.textContent = " (guest)";
+        name.appendChild(guest);
+      }
+
+      const value = document.createElement("span");
+      value.className = "leaderboard-value";
+      value.textContent = formatCompactNumber(entry[valueKey]);
+      row.append(rank, name, value);
+      leaderboardRowsEl.appendChild(row);
+    });
+    leaderboardEmptyEl.hidden = entries.length > 0;
+    leaderboardRowsEl.hidden = entries.length === 0;
+  }
+
+  function setLeaderboardTab(tab) {
+    leaderboardStat = tab === "health" ? "health" : "damage";
+    const damage = leaderboardStat === "damage";
+    leaderboardDamageTab.classList.toggle("is-active", damage);
+    leaderboardHealthTab.classList.toggle("is-active", !damage);
+    leaderboardDamageTab.setAttribute("aria-selected", String(damage));
+    leaderboardHealthTab.setAttribute("aria-selected", String(!damage));
+    leaderboardValueHeading.textContent = damage ? "DAMAGE" : "HEALTH";
+    renderLeaderboard();
+  }
+
+  function openLeaderboard() {
+    leaderboardEl.hidden = false;
+    leaderboardBtn.setAttribute("aria-expanded", "true");
+    settingsPanel.hidden = true;
+    inventoryPanel.hidden = true;
+    settingsBtn.setAttribute("aria-expanded", "false");
+    inventoryBtn.setAttribute("aria-expanded", "false");
+    setLeaderboardTab(leaderboardStat);
+  }
+
+  function closeLeaderboard() {
+    leaderboardEl.hidden = true;
+    leaderboardBtn.setAttribute("aria-expanded", "false");
   }
 
   function openPlayerAtScreenPoint(clientX, clientY) {
@@ -2998,6 +3075,7 @@ import { formatCompactNumber } from "./ui/number-format";
     inventoryPanel.hidden = true;
     settingsBtn.setAttribute("aria-expanded", String(opening));
     inventoryBtn.setAttribute("aria-expanded", "false");
+    closeLeaderboard();
   });
 
   inventoryBtn.addEventListener("click", () => {
@@ -3006,8 +3084,17 @@ import { formatCompactNumber } from "./ui/number-format";
     settingsPanel.hidden = true;
     inventoryBtn.setAttribute("aria-expanded", String(opening));
     settingsBtn.setAttribute("aria-expanded", "false");
+    closeLeaderboard();
     if (opening) renderInventory();
   });
+
+  leaderboardBtn.addEventListener("click", openLeaderboard);
+  closeLeaderboardBtn.addEventListener("click", closeLeaderboard);
+  leaderboardEl.addEventListener("click", (event) => {
+    if (event.target === leaderboardEl) closeLeaderboard();
+  });
+  leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
+  leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
 
   equippedFeetSlot?.addEventListener("click", () => {
     if (inventory.equippedFeet) {
@@ -3180,6 +3267,7 @@ import { formatCompactNumber } from "./ui/number-format";
         const profile = coop.playerProfile?.(openProfileIdentity);
         if (profile) renderPlayerProfile(profile);
       }
+      if (!leaderboardEl.hidden) renderLeaderboard();
       loadProgress();
       const nextSessionGeneration = coop?.sessionGeneration?.() || 0;
       if (nextSessionGeneration !== observedCoopSessionGeneration) {
@@ -3245,6 +3333,7 @@ import { formatCompactNumber } from "./ui/number-format";
     overEl.style.display = "none";
     settingsPanel.hidden = true;
     inventoryPanel.hidden = true;
+    closeLeaderboard();
     settingsBtn.setAttribute("aria-expanded", "false");
     inventoryBtn.setAttribute("aria-expanded", "false");
   });
@@ -3256,6 +3345,10 @@ import { formatCompactNumber } from "./ui/number-format";
   document.getElementById("restartBtn").addEventListener("click", startGame);
 
   addEventListener("keydown", e => {
+    if (e.code === "Escape" && !leaderboardEl.hidden) {
+      closeLeaderboard();
+      return;
+    }
     if (e.code === "Escape" && !playerProfileEl.hidden) {
       closePlayerProfile();
       return;

@@ -8333,6 +8333,13 @@ ${ty.variants.map(
     opponentBlocked: t.f32().name("opponent_blocked"),
     createdAt: t.timestamp().name("created_at")
   });
+  const LeaderboardEntryRow = t.row({
+    identity: t.identity().primaryKey(),
+    displayName: t.string().name("display_name"),
+    damage: t.f32(),
+    maxHp: t.f32().name("max_hp"),
+    isGuest: t.bool().name("is_guest")
+  });
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),
     x: t.f64(),
@@ -8437,6 +8444,17 @@ ${ty.variants.map(
         { name: "duel_replay_id_key", constraint: "unique", columns: ["id"] }
       ]
     }, DuelReplayRow),
+    leaderboardEntry: table({
+      name: "leaderboard_entry",
+      indexes: [
+        { accessor: "identity", name: "leaderboard_entry_identity_idx_btree", algorithm: "btree", columns: [
+          "identity"
+        ] }
+      ],
+      constraints: [
+        { name: "leaderboard_entry_identity_key", constraint: "unique", columns: ["identity"] }
+      ]
+    }, LeaderboardEntryRow),
     player: table({
       name: "player",
       indexes: [
@@ -8537,7 +8555,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 15;
+  const PROTOCOL_VERSION = 16;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8572,6 +8590,7 @@ ${ty.variants.map(
   const players = /* @__PURE__ */ new Map();
   const profiles = /* @__PURE__ */ new Map();
   const profileIdentities = /* @__PURE__ */ new Map();
+  const leaderboardEntries = /* @__PURE__ */ new Map();
   const profileProgress = /* @__PURE__ */ new Map();
   const playerLifetimes = /* @__PURE__ */ new Map();
   const playerProfileLoads = /* @__PURE__ */ new Map();
@@ -9235,6 +9254,21 @@ ${ty.variants.map(
     if (player) player.name = row.displayName;
     onChange == null ? void 0 : onChange();
   }
+  function upsertLeaderboardEntry(row) {
+    const identity = row.identity.toHexString();
+    leaderboardEntries.set(identity, {
+      identity,
+      name: row.displayName,
+      damage: row.damage,
+      maxHp: row.maxHp,
+      isGuest: row.isGuest
+    });
+    onChange == null ? void 0 : onChange();
+  }
+  function removeLeaderboardEntry(row) {
+    leaderboardEntries.delete(row.identity.toHexString());
+    onChange == null ? void 0 : onChange();
+  }
   function upsertProgress(row) {
     const id = row.identity.toHexString();
     const progress = {
@@ -9450,6 +9484,7 @@ ${ty.variants.map(
     players.clear();
     profiles.clear();
     profileIdentities.clear();
+    leaderboardEntries.clear();
     profileProgress.clear();
     playerLifetimes.clear();
     playerProfileLoads.clear();
@@ -9614,6 +9649,15 @@ ${ty.variants.map(
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => {
           if (isCurrentConnection()) upsertProfile(row);
         });
+        conn.db.leaderboardEntry.onInsert((_ctx, row) => {
+          if (isCurrentConnection()) upsertLeaderboardEntry(row);
+        });
+        conn.db.leaderboardEntry.onUpdate((_ctx, _oldRow, row) => {
+          if (isCurrentConnection()) upsertLeaderboardEntry(row);
+        });
+        conn.db.leaderboardEntry.onDelete((_ctx, row) => {
+          if (isCurrentConnection()) removeLeaderboardEntry(row);
+        });
         conn.db.playerProgress.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertProgress(row);
         });
@@ -9653,6 +9697,7 @@ ${ty.variants.map(
         conn.subscriptionBuilder().onApplied(() => {
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
+          for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -9670,6 +9715,7 @@ ${ty.variants.map(
         }).subscribe([
           tables.player,
           tables.playerProfile,
+          tables.leaderboardEntry,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
@@ -9855,6 +9901,13 @@ ${ty.variants.map(
     },
     localProfileReady() {
       return localProfileReady;
+    },
+    leaderboardEntries() {
+      return [...leaderboardEntries.values()].map((entry) => ({ ...entry }));
+    },
+    isGuest(identity = localIdentity) {
+      var _a2;
+      return ((_a2 = leaderboardEntries.get(identity)) == null ? void 0 : _a2.isGuest) ?? false;
     },
     async setDisplayName(displayName) {
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };

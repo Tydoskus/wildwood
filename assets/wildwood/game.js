@@ -517,7 +517,7 @@
       return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
     }
     function refresh() {
-      var _a, _b;
+      var _a, _b, _c;
       const coop = getCoop();
       const localName = (_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop);
       if (localName && document.activeElement !== elements.displayNameInput) {
@@ -535,7 +535,8 @@
         const name = document.createElement("span");
         name.className = "chat-name";
         name.style.color = nameColor(message.sender);
-        name.textContent = `${message.senderName}: `;
+        const guestSuffix = ((_c = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _c.call(coop, message.sender)) ? " (guest)" : "";
+        name.textContent = `${message.senderName}${guestSuffix}: `;
         name.setAttribute("role", "button");
         name.setAttribute("tabindex", "0");
         name.setAttribute("aria-label", `View ${message.senderName}'s profile`);
@@ -662,7 +663,7 @@
     const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
     elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
     elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))} HP`;
-    if (elements.playerName) elements.playerName.textContent = displayName;
+    if (elements.playerName) elements.playerName.textContent = displayName || "WANDERER";
     elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
     if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
   }
@@ -700,7 +701,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.236";
+    const GAME_VERSION = "0.237";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -725,6 +726,7 @@
     const playerPowerEl = document.getElementById("playerPower");
     const settingsBtn = document.getElementById("settingsBtn");
     const inventoryBtn = document.getElementById("inventoryBtn");
+    const leaderboardBtn = document.getElementById("leaderboardBtn");
     const autoAttackBtn = document.getElementById("autoAttackBtn");
     const settingsPanel = document.getElementById("settingsPanel");
     const inventoryPanel = document.getElementById("inventoryPanel");
@@ -797,6 +799,13 @@
     const profileOnlineEl = document.getElementById("profileOnline");
     const profileStatGrid = document.getElementById("profileStatGrid");
     const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
+    const leaderboardEl = document.getElementById("leaderboard");
+    const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
+    const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
+    const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
+    const leaderboardRowsEl = document.getElementById("leaderboardRows");
+    const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
+    const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
     const coop = window.wildwoodCoop || null;
     const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
     backgroundMusic.loop = true;
@@ -873,6 +882,7 @@
     const locallyRewardedDragonEncounters = /* @__PURE__ */ new Set();
     const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
     let openProfileIdentity = "";
+    let leaderboardStat = "damage";
     const bootsPickup = {
       x: 940,
       y: 3660,
@@ -2496,7 +2506,13 @@
       ctx.fillRect(3, 5, 14, 6);
       ctx.restore();
     }
+    function publicPlayerName(identity, name) {
+      var _a2;
+      const baseName = name || "PLAYER";
+      return ((_a2 = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a2.call(coop, identity)) ? `${baseName} (guest)` : baseName;
+    }
     function drawPlayer() {
+      var _a2, _b2;
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
       drawActorShadow(x, y + 29, 54, 0.21);
@@ -2525,7 +2541,7 @@
       drawActorStatus({
         x,
         y,
-        name: coop && coop.localDisplayName() || "PLAYER",
+        name: publicPlayerName((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop), (_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)),
         nameColor: "#ffffff",
         hp: player.hp,
         maxHp: player.maxHp,
@@ -2622,7 +2638,7 @@
         drawActorStatus({
           x,
           y,
-          name: other.name,
+          name: publicPlayerName(other.id, other.name),
           nameColor: "#9eeeff",
           hp: other.hp,
           maxHp: other.maxHp,
@@ -3040,13 +3056,13 @@
       drawVignette();
     }
     function updateHud() {
-      var _a2;
+      var _a2, _b2;
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
       const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
       renderPlayerHud(
         { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
         player,
-        ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "WANDERER",
+        publicPlayerName((_a2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a2.call(coop), ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "WANDERER"),
         playerCount,
         playerPower(player)
       );
@@ -3084,7 +3100,7 @@
       const online = isProfileOnline(profile.identity);
       const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
       const power = playerPower(progress);
-      playerProfileNameEl.textContent = profile.name || "PLAYER";
+      playerProfileNameEl.textContent = publicPlayerName(profile.identity, profile.name);
       playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
       profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
         year: "numeric",
@@ -3125,7 +3141,7 @@
       if (!identity) return;
       openProfileIdentity = identity;
       playerProfileEl.hidden = false;
-      playerProfileNameEl.textContent = fallbackName;
+      playerProfileNameEl.textContent = publicPlayerName(identity, fallbackName);
       playerProfilePowerEl.textContent = "Power: —";
       playerProfileLoadingEl.hidden = false;
       profileOverviewPanel.hidden = true;
@@ -3148,6 +3164,60 @@
       openProfileIdentity = "";
       playerProfileLoadingEl.textContent = "LOADING PLAYER…";
       (_a2 = coop == null ? void 0 : coop.releasePlayerProfile) == null ? void 0 : _a2.call(coop);
+    }
+    function renderLeaderboard() {
+      var _a2, _b2;
+      const valueKey = leaderboardStat === "health" ? "maxHp" : "damage";
+      const entries = (((_a2 = coop == null ? void 0 : coop.leaderboardEntries) == null ? void 0 : _a2.call(coop)) ?? []).filter((entry) => Number.isFinite(entry[valueKey])).sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name)).slice(0, 100);
+      const localIdentity = ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop)) || "";
+      leaderboardRowsEl.replaceChildren();
+      entries.forEach((entry, index) => {
+        const row = document.createElement("li");
+        row.className = "leaderboard-row";
+        row.classList.toggle("is-local", entry.identity === localIdentity);
+        const rank = document.createElement("span");
+        rank.className = "leaderboard-rank";
+        rank.textContent = `#${index + 1}`;
+        const name = document.createElement("span");
+        name.className = "leaderboard-name";
+        name.textContent = entry.name;
+        if (entry.isGuest) {
+          const guest = document.createElement("span");
+          guest.className = "leaderboard-guest";
+          guest.textContent = " (guest)";
+          name.appendChild(guest);
+        }
+        const value = document.createElement("span");
+        value.className = "leaderboard-value";
+        value.textContent = formatCompactNumber(entry[valueKey]);
+        row.append(rank, name, value);
+        leaderboardRowsEl.appendChild(row);
+      });
+      leaderboardEmptyEl.hidden = entries.length > 0;
+      leaderboardRowsEl.hidden = entries.length === 0;
+    }
+    function setLeaderboardTab(tab) {
+      leaderboardStat = tab === "health" ? "health" : "damage";
+      const damage = leaderboardStat === "damage";
+      leaderboardDamageTab.classList.toggle("is-active", damage);
+      leaderboardHealthTab.classList.toggle("is-active", !damage);
+      leaderboardDamageTab.setAttribute("aria-selected", String(damage));
+      leaderboardHealthTab.setAttribute("aria-selected", String(!damage));
+      leaderboardValueHeading.textContent = damage ? "DAMAGE" : "HEALTH";
+      renderLeaderboard();
+    }
+    function openLeaderboard() {
+      leaderboardEl.hidden = false;
+      leaderboardBtn.setAttribute("aria-expanded", "true");
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
+      setLeaderboardTab(leaderboardStat);
+    }
+    function closeLeaderboard() {
+      leaderboardEl.hidden = true;
+      leaderboardBtn.setAttribute("aria-expanded", "false");
     }
     function openPlayerAtScreenPoint(clientX, clientY) {
       var _a2;
@@ -3376,6 +3446,7 @@
       inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", String(opening));
       inventoryBtn.setAttribute("aria-expanded", "false");
+      closeLeaderboard();
     });
     inventoryBtn.addEventListener("click", () => {
       const opening = inventoryPanel.hidden;
@@ -3383,8 +3454,16 @@
       settingsPanel.hidden = true;
       inventoryBtn.setAttribute("aria-expanded", String(opening));
       settingsBtn.setAttribute("aria-expanded", "false");
+      closeLeaderboard();
       if (opening) renderInventory();
     });
+    leaderboardBtn.addEventListener("click", openLeaderboard);
+    closeLeaderboardBtn.addEventListener("click", closeLeaderboard);
+    leaderboardEl.addEventListener("click", (event) => {
+      if (event.target === leaderboardEl) closeLeaderboard();
+    });
+    leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
+    leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
     equippedFeetSlot == null ? void 0 : equippedFeetSlot.addEventListener("click", () => {
       if (inventory.equippedFeet) {
         inventory.selectedItemId = inventory.equippedFeet;
@@ -3547,6 +3626,7 @@
           const profile = (_d = coop.playerProfile) == null ? void 0 : _d.call(coop, openProfileIdentity);
           if (profile) renderPlayerProfile(profile);
         }
+        if (!leaderboardEl.hidden) renderLeaderboard();
         loadProgress();
         const nextSessionGeneration = ((_e = coop == null ? void 0 : coop.sessionGeneration) == null ? void 0 : _e.call(coop)) || 0;
         if (nextSessionGeneration !== observedCoopSessionGeneration) {
@@ -3609,6 +3689,7 @@
       overEl.style.display = "none";
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
+      closeLeaderboard();
       settingsBtn.setAttribute("aria-expanded", "false");
       inventoryBtn.setAttribute("aria-expanded", "false");
     });
@@ -3618,6 +3699,10 @@
     });
     document.getElementById("restartBtn").addEventListener("click", startGame);
     addEventListener("keydown", (e) => {
+      if (e.code === "Escape" && !leaderboardEl.hidden) {
+        closeLeaderboard();
+        return;
+      }
       if (e.code === "Escape" && !playerProfileEl.hidden) {
         closePlayerProfile();
         return;

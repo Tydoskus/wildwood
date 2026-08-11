@@ -69,6 +69,14 @@ export type PlayerProfileData = {
   lifetime: PlayerLifetime;
 };
 
+export type LeaderboardEntry = {
+  identity: string;
+  name: string;
+  damage: number;
+  maxHp: number;
+  isGuest: boolean;
+};
+
 export type DragonBossState = {
   encounter: bigint;
   hp: number;
@@ -158,7 +166,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 15;
+const PROTOCOL_VERSION = 16;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -194,6 +202,7 @@ const SPACETIME_AUTH_SCOPE = "openid profile email";
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const profileIdentities = new Map<string, Identity>();
+const leaderboardEntries = new Map<string, LeaderboardEntry>();
 const profileProgress = new Map<string, PlayerProgress>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
@@ -956,6 +965,29 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
   onChange?.();
 }
 
+function upsertLeaderboardEntry(row: {
+  identity: Identity;
+  displayName: string;
+  damage: number;
+  maxHp: number;
+  isGuest: boolean;
+}) {
+  const identity = row.identity.toHexString();
+  leaderboardEntries.set(identity, {
+    identity,
+    name: row.displayName,
+    damage: row.damage,
+    maxHp: row.maxHp,
+    isGuest: row.isGuest,
+  });
+  onChange?.();
+}
+
+function removeLeaderboardEntry(row: { identity: Identity }) {
+  leaderboardEntries.delete(row.identity.toHexString());
+  onChange?.();
+}
+
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   const id = row.identity.toHexString();
   const progress = {
@@ -1235,6 +1267,7 @@ function clearRealtimeCaches() {
   players.clear();
   profiles.clear();
   profileIdentities.clear();
+  leaderboardEntries.clear();
   profileProgress.clear();
   playerLifetimes.clear();
   playerProfileLoads.clear();
@@ -1405,6 +1438,9 @@ function connect() {
         conn.db.player.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayer(row); });
         conn.db.playerProfile.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProfile(row); });
+        conn.db.leaderboardEntry.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
+        conn.db.leaderboardEntry.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
+        conn.db.leaderboardEntry.onDelete((_ctx, row) => { if (isCurrentConnection()) removeLeaderboardEntry(row); });
         conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerLifetime.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
@@ -1423,6 +1459,7 @@ function connect() {
         .onApplied(() => {
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
+          for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -1442,6 +1479,7 @@ function connect() {
         .subscribe([
           tables.player,
           tables.playerProfile,
+          tables.leaderboardEntry,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
@@ -1632,6 +1670,12 @@ export const wildwoodCoop = {
   },
   localProfileReady() {
     return localProfileReady;
+  },
+  leaderboardEntries() {
+    return [...leaderboardEntries.values()].map((entry) => ({ ...entry }));
+  },
+  isGuest(identity = localIdentity) {
+    return leaderboardEntries.get(identity)?.isGuest ?? false;
   },
   async setDisplayName(displayName: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
