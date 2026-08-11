@@ -43,6 +43,9 @@ export const ChatMessage = __t.object("ChatMessage", {
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
+export const DevAccessAudit = __t.object("DevAccessAudit", {});
+export type DevAccessAudit = __Infer<typeof DevAccessAudit>;
+
 export const DragonAttackWindow = __t.object("DragonAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),
@@ -199,6 +202,18 @@ export const Player = __t.object("Player", {
   zoneY: __t.i32(),
 });
 export type Player = __Infer<typeof Player>;
+
+export const PlayerAccessAudit = __t.object("PlayerAccessAudit", {
+  identity: __t.identity(),
+  viewer: __t.identity(),
+  displayName: __t.string(),
+  firstSeenAt: __t.timestamp(),
+  lastSeenAt: __t.timestamp(),
+  accountType: __t.string(),
+  lastProtocolVersion: __t.u32(),
+  label: __t.string(),
+});
+export type PlayerAccessAudit = __Infer<typeof PlayerAccessAudit>;
 
 export const PlayerAccountStatus = __t.object("PlayerAccountStatus", {
   identity: __t.identity(),

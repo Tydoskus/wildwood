@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.245": [
+      "Private account access auditing added",
+      "Developer account badge and audit panel added"
+    ],
     "0.244": [
       "Nearby players now appear reliably as they enter your area"
     ],
@@ -47,6 +51,11 @@
   function releaseNotes(version) {
     return RELEASE_NOTES[version] ?? [];
   }
+  const DEVELOPER_IDENTITY = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
+  function isDeveloperIdentity(identity) {
+    return (identity == null ? void 0 : identity.replace(/^0x/i, "").toLowerCase()) === DEVELOPER_IDENTITY;
+  }
+  const DEVELOPER_BADGE = "[DEV]";
   const TAU = Math.PI * 2;
   const WORLD = { w: 4800, h: 4800 };
   const ENEMY_RESPAWN_SAFE_DISTANCE = 420;
@@ -573,7 +582,13 @@
         name.className = "chat-name";
         name.style.color = nameColor(message.sender);
         const guestSuffix = ((_c = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _c.call(coop, message.sender)) ? " (guest)" : "";
-        name.textContent = `${message.senderName}${guestSuffix}: `;
+        if (isDeveloperIdentity(message.sender)) {
+          const badge = document.createElement("span");
+          badge.className = "dev-badge";
+          badge.textContent = `${DEVELOPER_BADGE} `;
+          name.appendChild(badge);
+        }
+        name.append(document.createTextNode(`${message.senderName}${guestSuffix}: `));
         name.setAttribute("role", "button");
         name.setAttribute("tabindex", "0");
         name.setAttribute("aria-label", `View ${message.senderName}'s profile`);
@@ -696,11 +711,21 @@
     }
     return `${sign}${rounded}${COMPACT_UNITS[unit]}`;
   }
-  function renderPlayerHud(elements, player, displayName, playerCount, power) {
+  function renderPlayerHud(elements, player, displayName, playerCount, power, isDeveloper = false) {
     const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
     elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
     elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))} HP`;
-    if (elements.playerName) elements.playerName.textContent = displayName || "WANDERER";
+    if (elements.playerName) {
+      const name = displayName || "WANDERER";
+      if (isDeveloper) {
+        const badge = document.createElement("span");
+        badge.className = "dev-badge";
+        badge.textContent = "[DEV] ";
+        elements.playerName.replaceChildren(badge, document.createTextNode(name));
+      } else {
+        elements.playerName.textContent = name;
+      }
+    }
     elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
     if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
   }
@@ -738,7 +763,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.244";
+    const GAME_VERSION = "0.245";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -767,6 +792,7 @@
     const settingsBtn = document.getElementById("settingsBtn");
     const inventoryBtn = document.getElementById("inventoryBtn");
     const leaderboardBtn = document.getElementById("leaderboardBtn");
+    const devAuditBtn = document.getElementById("devAuditBtn");
     const autoAttackBtn = document.getElementById("autoAttackBtn");
     const settingsPanel = document.getElementById("settingsPanel");
     const inventoryPanel = document.getElementById("inventoryPanel");
@@ -849,6 +875,10 @@
     const leaderboardRowsEl = document.getElementById("leaderboardRows");
     const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
     const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
+    const devAuditEl = document.getElementById("devAudit");
+    const devAuditRowsEl = document.getElementById("devAuditRows");
+    const devAuditEmptyEl = document.getElementById("devAuditEmpty");
+    const closeDevAuditBtn = document.getElementById("closeDevAuditBtn");
     const updateNoticeEl = document.getElementById("updateNotice");
     const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
     const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
@@ -1577,7 +1607,7 @@
           const row = document.createElement("div");
           row.className = "dragon-world-notice-row";
           const name = document.createElement("span");
-          name.textContent = contributor.name;
+          renderDomPlayerName(name, contributor.identity, contributor.name);
           const percentage = document.createElement("span");
           percentage.textContent = `${Math.round(contributor.percentage)}%`;
           row.append(name, percentage);
@@ -1600,7 +1630,7 @@
         row.className = "dragon-result-row";
         const name = document.createElement("span");
         name.className = "dragon-result-name";
-        name.textContent = contributor.name;
+        renderDomPlayerName(name, contributor.identity, contributor.name);
         const damage = document.createElement("span");
         damage.className = "dragon-result-damage";
         damage.textContent = Math.round(contributor.damage).toLocaleString();
@@ -2582,7 +2612,21 @@
     function publicPlayerName(identity, name) {
       var _a;
       const baseName = name || "PLAYER";
-      return ((_a = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a.call(coop, identity)) ? `${baseName} (guest)` : baseName;
+      const guestName = ((_a = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a.call(coop, identity)) ? `${baseName} (guest)` : baseName;
+      return isDeveloperIdentity(identity) ? `${DEVELOPER_BADGE} ${guestName}` : guestName;
+    }
+    function renderDomPlayerName(element, identity, name) {
+      var _a;
+      const baseName = name || "PLAYER";
+      element.replaceChildren();
+      if (isDeveloperIdentity(identity)) {
+        const badge = document.createElement("span");
+        badge.className = "dev-badge";
+        badge.textContent = `${DEVELOPER_BADGE} `;
+        element.appendChild(badge);
+      }
+      element.append(document.createTextNode(baseName));
+      if ((_a = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a.call(coop, identity)) element.append(document.createTextNode(" (guest)"));
     }
     function drawPlayer() {
       var _a, _b2, _c2;
@@ -2738,9 +2782,20 @@
       if (!name) return;
       ctx.save();
       ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      outlinedText(name, x, y, color, 2);
+      const developerPrefix = `${DEVELOPER_BADGE} `;
+      if (name.startsWith(developerPrefix)) {
+        const playerName = name.slice(developerPrefix.length);
+        const prefixWidth = ctx.measureText(developerPrefix).width;
+        const totalWidth = prefixWidth + ctx.measureText(playerName).width;
+        const left = x - totalWidth / 2;
+        ctx.textAlign = "left";
+        outlinedText(developerPrefix, left, y, "#ffd85b", 2);
+        outlinedText(playerName, left + prefixWidth, y, color, 2);
+      } else {
+        ctx.textAlign = "center";
+        outlinedText(name, x, y, color, 2);
+      }
       ctx.restore();
     }
     function playerPower(stats) {
@@ -3214,16 +3269,20 @@
       drawVignette();
     }
     function updateHud() {
-      var _a, _b2;
+      var _a, _b2, _c2, _d, _e;
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
       const reportedOnline = coop && typeof coop.onlinePlayerCount === "function" ? coop.onlinePlayerCount() : null;
       const playerCount = coop && coop.isConnected() ? Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1 : 0;
+      const developer = isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop));
+      devAuditBtn.hidden = !developer;
+      if (!developer && !devAuditEl.hidden) closeDevAudit();
       renderPlayerHud(
         { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
         player,
-        publicPlayerName((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop), ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "WANDERER"),
+        ((_c2 = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _c2.call(coop, (_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop))) ? `${((_d = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _d.call(coop)) || "WANDERER"} (guest)` : ((_e = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _e.call(coop)) || "WANDERER",
         playerCount,
-        playerPower(player)
+        playerPower(player),
+        developer
       );
       updateDuelControls();
       updateConnectionStatus();
@@ -3259,7 +3318,7 @@
       const online = isProfileOnline(profile.identity);
       const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
       const power = playerPower(progress);
-      playerProfileNameEl.textContent = publicPlayerName(profile.identity, profile.name);
+      renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
       playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
       profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
         year: "numeric",
@@ -3300,7 +3359,7 @@
       if (!identity) return;
       openProfileIdentity = identity;
       playerProfileEl.hidden = false;
-      playerProfileNameEl.textContent = publicPlayerName(identity, fallbackName);
+      renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
       playerProfilePowerEl.textContent = "Power: —";
       playerProfileLoadingEl.hidden = false;
       profileOverviewPanel.hidden = true;
@@ -3340,7 +3399,13 @@
         const name = document.createElement("button");
         name.className = "leaderboard-name";
         name.type = "button";
-        name.textContent = entry.name;
+        if (isDeveloperIdentity(entry.identity)) {
+          const badge = document.createElement("span");
+          badge.className = "dev-badge";
+          badge.textContent = `${DEVELOPER_BADGE} `;
+          name.appendChild(badge);
+        }
+        name.append(document.createTextNode(entry.name));
         if (entry.isGuest) {
           const guest = document.createElement("span");
           guest.className = "leaderboard-guest";
@@ -3374,6 +3439,7 @@
       renderLeaderboard();
     }
     function openLeaderboard() {
+      closeDevAudit();
       leaderboardEl.hidden = false;
       leaderboardBtn.setAttribute("aria-expanded", "true");
       settingsPanel.hidden = true;
@@ -3385,6 +3451,72 @@
     function closeLeaderboard() {
       leaderboardEl.hidden = true;
       leaderboardBtn.setAttribute("aria-expanded", "false");
+    }
+    function renderDevAudit() {
+      var _a;
+      const entries = (((_a = coop == null ? void 0 : coop.accessAuditEntries) == null ? void 0 : _a.call(coop)) ?? []).sort((a, b) => b.lastSeenAtMs - a.lastSeenAtMs || a.displayName.localeCompare(b.displayName));
+      devAuditRowsEl.replaceChildren();
+      for (const entry of entries) {
+        const row = document.createElement("div");
+        row.className = "dev-audit-row";
+        const account = document.createElement("div");
+        account.className = "dev-audit-account";
+        const accountName = document.createElement("strong");
+        renderDomPlayerName(accountName, entry.identity, entry.displayName);
+        const identity = document.createElement("small");
+        identity.textContent = `${entry.accountType.toUpperCase()} · ${entry.identity.slice(0, 10)}…${entry.identity.slice(-6)}`;
+        const firstSeen = document.createElement("small");
+        firstSeen.textContent = `FIRST · ${new Date(entry.firstSeenAtMs).toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" })}`;
+        account.append(accountName, identity, firstSeen);
+        const lastSeen = document.createElement("div");
+        lastSeen.className = "dev-audit-last-seen";
+        lastSeen.textContent = new Date(entry.lastSeenAtMs).toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit"
+        });
+        const client = document.createElement("div");
+        client.className = "dev-audit-client";
+        client.textContent = `P${entry.lastProtocolVersion}`;
+        const editor = document.createElement("div");
+        editor.className = "dev-audit-editor";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.maxLength = 60;
+        input.value = entry.label;
+        input.placeholder = "DEVICE / NOTE";
+        input.setAttribute("aria-label", `Label for ${entry.displayName}`);
+        const save = document.createElement("button");
+        save.type = "button";
+        save.textContent = "SAVE";
+        save.addEventListener("click", async () => {
+          var _a2;
+          save.disabled = true;
+          const result = await ((_a2 = coop == null ? void 0 : coop.setAccessAuditLabel) == null ? void 0 : _a2.call(coop, entry.identity, input.value));
+          save.disabled = false;
+          showMessage((result == null ? void 0 : result.ok) ? "AUDIT LABEL SAVED" : (result == null ? void 0 : result.error) || "AUDIT UPDATE FAILED", (result == null ? void 0 : result.ok) ? "#72ef58" : "#ff9b91");
+        });
+        editor.append(input, save);
+        row.append(account, lastSeen, client, editor);
+        devAuditRowsEl.appendChild(row);
+      }
+      devAuditEmptyEl.hidden = entries.length > 0;
+      devAuditRowsEl.hidden = entries.length === 0;
+    }
+    function openDevAudit() {
+      var _a;
+      if (!isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) return;
+      devAuditEl.hidden = false;
+      devAuditBtn.setAttribute("aria-expanded", "true");
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      closeLeaderboard();
+      renderDevAudit();
+    }
+    function closeDevAudit() {
+      devAuditEl.hidden = true;
+      devAuditBtn.setAttribute("aria-expanded", "false");
     }
     function closeUpdateNotice() {
       updateNoticeEl.hidden = true;
@@ -3460,9 +3592,10 @@
       return closest;
     }
     function duelOpponentName(duel) {
-      var _a, _b2, _c2;
+      var _a, _b2;
       const opponentId = duel.challenger === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop)) ? duel.opponent : duel.challenger;
-      return ((_c2 = (_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop).find((other) => other.id === opponentId)) == null ? void 0 : _c2.name) ?? "OPPONENT";
+      const opponent = (_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop).find((other) => other.id === opponentId);
+      return opponent ? publicPlayerName(opponent.id, opponent.name) : "OPPONENT";
     }
     function updateDuelControls() {
       var _a, _b2;
@@ -3512,7 +3645,7 @@
       }
       if (nearby) {
         duelStatusEl.hidden = true;
-        duelRequestBtn.textContent = `Challenge ${nearby.name} to Duel`;
+        duelRequestBtn.textContent = `Challenge ${publicPlayerName(nearby.id, nearby.name)} to Duel`;
         duelRequestBtn.hidden = false;
         duelControls.hidden = false;
         return;
@@ -3639,6 +3772,7 @@
       settingsBtn.setAttribute("aria-expanded", String(opening));
       inventoryBtn.setAttribute("aria-expanded", "false");
       closeLeaderboard();
+      closeDevAudit();
     });
     inventoryBtn.addEventListener("click", () => {
       const opening = inventoryPanel.hidden;
@@ -3647,6 +3781,7 @@
       inventoryBtn.setAttribute("aria-expanded", String(opening));
       settingsBtn.setAttribute("aria-expanded", "false");
       closeLeaderboard();
+      closeDevAudit();
       if (opening) renderInventory();
     });
     leaderboardBtn.addEventListener("click", openLeaderboard);
@@ -3657,6 +3792,11 @@
     leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
     leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
     leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
+    devAuditBtn.addEventListener("click", openDevAudit);
+    closeDevAuditBtn.addEventListener("click", closeDevAudit);
+    devAuditEl.addEventListener("click", (event) => {
+      if (event.target === devAuditEl) closeDevAudit();
+    });
     equippedFeetSlot == null ? void 0 : equippedFeetSlot.addEventListener("click", () => {
       if (inventory.equippedFeet) {
         inventory.selectedItemId = inventory.equippedFeet;
@@ -3825,6 +3965,7 @@
           if (profile) renderPlayerProfile(profile);
         }
         if (!leaderboardEl.hidden) renderLeaderboard();
+        if (!devAuditEl.hidden) renderDevAudit();
         loadProgress();
         const nextSessionGeneration = ((_e = coop == null ? void 0 : coop.sessionGeneration) == null ? void 0 : _e.call(coop)) || 0;
         if (nextSessionGeneration !== observedCoopSessionGeneration) {
@@ -3868,7 +4009,7 @@
       last = performance.now();
     });
     document.addEventListener("pointerdown", (event) => {
-      var _a, _b2, _c2, _d, _e;
+      var _a, _b2, _c2, _d, _e, _f;
       const target = event.target;
       if (!(target instanceof Element)) return;
       const toolbar = settingsBtn.closest(".settings-wrap");
@@ -3880,9 +4021,10 @@
       }
       if (!playerProfileEl.hidden && !((_a = playerProfileEl.querySelector(".modal")) == null ? void 0 : _a.contains(target))) closePlayerProfile();
       if (!leaderboardEl.hidden && !((_b2 = leaderboardEl.querySelector(".modal")) == null ? void 0 : _b2.contains(target))) closeLeaderboard();
-      if (!dragonResultEl.hidden && !((_c2 = dragonResultEl.querySelector(".modal")) == null ? void 0 : _c2.contains(target))) closeDragonResult();
-      if (!duelResultEl.hidden && !((_d = duelResultEl.querySelector(".modal")) == null ? void 0 : _d.contains(target))) leaveDuelResult();
-      if (!bootUpgradeEl.hidden && !((_e = bootUpgradeEl.querySelector(".modal")) == null ? void 0 : _e.contains(target))) bootUpgradeClose.click();
+      if (!devAuditEl.hidden && !((_c2 = devAuditEl.querySelector(".modal")) == null ? void 0 : _c2.contains(target))) closeDevAudit();
+      if (!dragonResultEl.hidden && !((_d = dragonResultEl.querySelector(".modal")) == null ? void 0 : _d.contains(target))) closeDragonResult();
+      if (!duelResultEl.hidden && !((_e = duelResultEl.querySelector(".modal")) == null ? void 0 : _e.contains(target))) leaveDuelResult();
+      if (!bootUpgradeEl.hidden && !((_f = bootUpgradeEl.querySelector(".modal")) == null ? void 0 : _f.contains(target))) bootUpgradeClose.click();
       if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
     });
     resetProgressBtn.addEventListener("click", () => {
@@ -3924,6 +4066,10 @@
     addEventListener("keydown", (e) => {
       if (e.code === "Escape" && !leaderboardEl.hidden) {
         closeLeaderboard();
+        return;
+      }
+      if (e.code === "Escape" && !devAuditEl.hidden) {
+        closeDevAudit();
         return;
       }
       if (e.code === "Escape" && !playerProfileEl.hidden) {

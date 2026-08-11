@@ -1,5 +1,5 @@
 import { schema, SenderError, table, t } from "spacetimedb/server";
-import { ScheduleAt, Timestamp } from "spacetimedb";
+import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_ZONE_SIZE = 600;
@@ -7,13 +7,15 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 19;
+const PROTOCOL_VERSION = 20;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
 const TRAILBLAZER_BOOTS = "trailblazer_boots";
 const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
+const DEVELOPER_IDENTITY_HEX = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
+const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const BOOTS_SPEED_BONUS = 25;
@@ -173,6 +175,26 @@ const playerBalanceVersion = table(
   {
     identity: t.identity().primaryKey(),
     version: t.u32(),
+  },
+);
+
+// Persistent sign-in history. Private storage prevents account activity from
+// becoming public player data. The viewer index powers the developer-only view
+// without scanning private rows.
+const playerAccessAudit = table(
+  {
+    public: false,
+    indexes: [{ accessor: "byViewer", algorithm: "btree", columns: ["viewer"] as const }],
+  },
+  {
+    identity: t.identity().primaryKey(),
+    viewer: t.identity(),
+    displayName: t.string(),
+    firstSeenAt: t.timestamp(),
+    lastSeenAt: t.timestamp(),
+    accountType: t.string(),
+    lastProtocolVersion: t.u32(),
+    label: t.string().default(""),
   },
 );
 
@@ -407,6 +429,7 @@ const spacetimedb = schema({
   playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
+  playerAccessAudit,
   playerSession,
   playerController,
   chatCooldown,
@@ -424,6 +447,15 @@ const spacetimedb = schema({
   dragonRespawnSchedule,
 });
 export default spacetimedb;
+
+export const devAccessAudit = spacetimedb.view(
+  { name: "dev_access_audit", public: true },
+  t.array(playerAccessAudit.rowType),
+  (ctx) => {
+    if (!isDeveloperIdentity(ctx.sender)) return [];
+    return Array.from(ctx.db.playerAccessAudit.byViewer.filter(ctx.sender));
+  },
+);
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
   let hash = 2166136261;
@@ -655,6 +687,55 @@ function hasSpacetimeAuthAccount(ctx: any) {
     Array.isArray(jwt.audience) &&
     jwt.audience.includes(SPACETIME_AUTH_CLIENT_ID),
   );
+}
+
+function isDeveloperIdentity(identity: any) {
+  return identity?.toHexString?.().replace(/^0x/i, "").toLowerCase() === DEVELOPER_IDENTITY_HEX;
+}
+
+function requireDeveloper(ctx: any) {
+  if (!isDeveloperIdentity(ctx.sender) || !hasSpacetimeAuthAccount(ctx)) {
+    throw new SenderError("Developer access required.");
+  }
+}
+
+function touchPlayerAccessAudit(ctx: any, protocolVersion: number) {
+  const profile = ctx.db.playerProfile.identity.find(ctx.sender);
+  if (!profile) return;
+  const current = ctx.db.playerAccessAudit.identity.find(ctx.sender);
+  const next = {
+    identity: ctx.sender,
+    viewer: DEVELOPER_IDENTITY,
+    displayName: profile.displayName,
+    firstSeenAt: current?.firstSeenAt ?? ctx.timestamp,
+    lastSeenAt: ctx.timestamp,
+    accountType: hasSpacetimeAuthAccount(ctx) ? "account" : "guest",
+    lastProtocolVersion: protocolVersion,
+    label: current?.label ?? "",
+  };
+  if (current) ctx.db.playerAccessAudit.identity.update(next);
+  else ctx.db.playerAccessAudit.insert(next);
+}
+
+function backfillKnownAccessAudit(ctx: any) {
+  if (!isDeveloperIdentity(ctx.sender)) return;
+  for (const lifetime of ctx.db.playerLifetime.iter() as Iterable<any>) {
+    if (ctx.db.playerAccessAudit.identity.find(lifetime.identity)) continue;
+    const profile = ctx.db.playerProfile.identity.find(lifetime.identity);
+    if (!profile) continue;
+    const status = ctx.db.playerAccountStatus.identity.find(lifetime.identity);
+    const activePlayer = ctx.db.player.identity.find(lifetime.identity);
+    ctx.db.playerAccessAudit.insert({
+      identity: lifetime.identity,
+      viewer: DEVELOPER_IDENTITY,
+      displayName: profile.displayName,
+      firstSeenAt: lifetime.joinedAt,
+      lastSeenAt: lifetime.sessionStartedAt,
+      accountType: status ? (status.isGuest ? "guest" : "account") : "unknown",
+      lastProtocolVersion: activePlayer?.protocolVersion ?? 0,
+      label: "",
+    });
+  }
 }
 
 function clearExpiredAccountLinks(ctx: any) {
@@ -1185,6 +1266,8 @@ function enterWorldPresence(ctx: any, tabId: string) {
   }
 
   syncSenderAccountStatus(ctx);
+  touchPlayerAccessAudit(ctx, session.protocolVersion);
+  backfillKnownAccessAudit(ctx);
 
   const existing = ctx.db.player.identity.find(ctx.sender);
   const lifetime = ensurePlayerLifetime(ctx);
@@ -1264,6 +1347,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   if (!ctx.connectionId) return;
   const session = ctx.db.playerSession.connectionId.find(ctx.connectionId);
   if (!session) return;
+  if (session.enteredWorld) touchPlayerAccessAudit(ctx, session.protocolVersion);
   ctx.db.playerSession.connectionId.delete(ctx.connectionId);
 
   const controller = ctx.db.playerController.identity.find(ctx.sender);
@@ -1579,7 +1663,7 @@ export const claimGuestAccount = spacetimedb.reducer(
 export const setDisplayName = spacetimedb.reducer(
   { displayName: t.string() },
   (ctx, { displayName }) => {
-    requireCurrentProtocol(ctx);
+    const activePlayer = requireCurrentProtocol(ctx);
     const normalized = displayName.trim().replace(/\s+/g, " ");
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(normalized)) {
       throw new SenderError("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
@@ -1602,6 +1686,19 @@ export const setDisplayName = spacetimedb.reducer(
     }
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
+    touchPlayerAccessAudit(ctx, activePlayer.protocolVersion);
+  },
+);
+
+export const devSetAccessAuditLabel = spacetimedb.reducer(
+  { identity: t.identity(), label: t.string() },
+  (ctx, { identity, label }) => {
+    requireDeveloper(ctx);
+    const normalized = label.trim().replace(/\s+/g, " ");
+    if (normalized.length > 60) throw new SenderError("Audit label must be 60 characters or fewer.");
+    const current = ctx.db.playerAccessAudit.identity.find(identity);
+    if (!current) throw new SenderError("Access audit row not found.");
+    ctx.db.playerAccessAudit.identity.update({ ...current, label: normalized });
   },
 );
 

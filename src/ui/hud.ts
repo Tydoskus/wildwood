@@ -20,11 +20,22 @@ export function renderPlayerHud(
   displayName: string,
   playerCount: number,
   power: number,
+  isDeveloper = false,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
   elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
   elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))} HP`;
-  if (elements.playerName) elements.playerName.textContent = displayName || "WANDERER";
+  if (elements.playerName) {
+    const name = displayName || "WANDERER";
+    if (isDeveloper) {
+      const badge = document.createElement("span");
+      badge.className = "dev-badge";
+      badge.textContent = "[DEV] ";
+      elements.playerName.replaceChildren(badge, document.createTextNode(name));
+    } else {
+      elements.playerName.textContent = name;
+    }
+  }
   elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
   if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
 }

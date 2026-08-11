@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.244" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.245" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -26,6 +26,7 @@
       <button id="autoAttackBtn" class="settings-button auto-attack-button" type="button" aria-label="Toggle auto attack" aria-pressed="true"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Battle.png" alt="" aria-hidden="true"></button>
       <button id="inventoryBtn" class="settings-button inventory-button" type="button" aria-label="Open inventory" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Inventory.png" alt="" aria-hidden="true"></button>
       <button id="leaderboardBtn" class="settings-button leaderboard-button" type="button" aria-label="Open leaderboard" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Hero.png" alt="" aria-hidden="true"></button>
+      <button id="devAuditBtn" class="settings-button dev-audit-button" type="button" aria-label="Open access audit" aria-expanded="false" hidden>DEV</button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false">⚙</button>
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-title">SETTINGS</div>
@@ -111,7 +112,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.244</div>
+        <div id="version">v0.245</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -262,9 +263,22 @@
   </div>
 </div>
 
+<div id="devAudit" hidden>
+  <div class="modal dev-audit-modal" role="dialog" aria-modal="true" aria-labelledby="devAuditTitle">
+    <header class="leaderboard-header">
+      <h2 id="devAuditTitle">ACCESS AUDIT</h2>
+      <button id="closeDevAuditBtn" class="profile-close-button secondary-button" type="button" aria-label="Close access audit">×</button>
+    </header>
+    <p class="dev-audit-help">PRIVATE · LABEL DEVICES OR OLD ACCOUNTS</p>
+    <div class="dev-audit-headings" aria-hidden="true"><span>ACCOUNT</span><span>LAST SEEN</span><span>CLIENT</span><span>LABEL</span></div>
+    <div id="devAuditRows" class="dev-audit-rows"></div>
+    <div id="devAuditEmpty" class="profile-loading">NO AUDIT ROWS YET</div>
+  </div>
+</div>
+
 <aside id="updateNotice" class="update-notice card" aria-labelledby="updateNoticeTitle" hidden>
   <header>
-    <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.244</strong></div>
+    <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.245</strong></div>
     <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
   </header>
   <ul id="updateNoticeItems"></ul>
@@ -277,7 +291,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.244"></script>
-<script src="assets/wildwood/game.js?v=0.244"></script>
+<script src="assets/wildwood/coop-client.js?v=0.245"></script>
+<script src="assets/wildwood/game.js?v=0.245"></script>
 </body>
 </html>

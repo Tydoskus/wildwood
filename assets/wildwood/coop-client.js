@@ -8206,6 +8206,10 @@ ${ty.variants.map(
   const DamageDragonBatchReducer = {
     hits: t.u32()
   };
+  const DevSetAccessAuditLabelReducer = {
+    identity: t.identity(),
+    label: t.string()
+  };
   const EnterWorldReducer = {
     tabId: t.string()
   };
@@ -8254,6 +8258,16 @@ ${ty.variants.map(
     message: t.string(),
     sentAt: t.timestamp().name("sent_at"),
     replayId: t.u64().name("replay_id")
+  });
+  const DevAccessAuditRow = t.row({
+    identity: t.identity().primaryKey(),
+    viewer: t.identity(),
+    displayName: t.string().name("display_name"),
+    firstSeenAt: t.timestamp().name("first_seen_at"),
+    lastSeenAt: t.timestamp().name("last_seen_at"),
+    accountType: t.string().name("account_type"),
+    lastProtocolVersion: t.u32().name("last_protocol_version"),
+    label: t.string()
   });
   const DragonBossRow = t.row({
     id: t.u32().primaryKey(),
@@ -8535,7 +8549,12 @@ ${ty.variants.map(
       constraints: [
         { name: "world_status_id_key", constraint: "unique", columns: ["id"] }
       ]
-    }, WorldStatusRow)
+    }, WorldStatusRow),
+    devAccessAudit: table({
+      name: "dev_access_audit",
+      indexes: [],
+      constraints: []
+    }, DevAccessAuditRow)
   });
   const reducersSchema = reducers(
     reducerSchema("accept_duel", AcceptDuelReducer),
@@ -8544,6 +8563,7 @@ ${ty.variants.map(
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
     reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+    reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
     reducerSchema("enter_world", EnterWorldReducer),
     reducerSchema("pulse_duel", PulseDuelReducer),
     reducerSchema("register_protocol", RegisterProtocolReducer),
@@ -8584,6 +8604,10 @@ ${ty.variants.map(
     return new DbConnectionBuilder(REMOTE_MODULE, (config) => new _DbConnection(config));
   };
   let DbConnection = _DbConnection;
+  const DEVELOPER_IDENTITY = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
+  function isDeveloperIdentity(identity) {
+    return (identity == null ? void 0 : identity.replace(/^0x/i, "").toLowerCase()) === DEVELOPER_IDENTITY;
+  }
   const NEARBY_MOVEMENT_HZ = 15;
   const DISTANT_MOVEMENT_HZ = 3;
   const NEARBY_MOVEMENT_INTERVAL_MS = 1e3 / NEARBY_MOVEMENT_HZ;
@@ -8593,7 +8617,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 19;
+  const PROTOCOL_VERSION = 20;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8629,6 +8653,7 @@ ${ty.variants.map(
   const profiles = /* @__PURE__ */ new Map();
   const profileIdentities = /* @__PURE__ */ new Map();
   const leaderboardEntries = /* @__PURE__ */ new Map();
+  const accessAuditEntries = /* @__PURE__ */ new Map();
   const guestAccounts = /* @__PURE__ */ new Map();
   let onlinePlayerCount = 0;
   const profileProgress = /* @__PURE__ */ new Map();
@@ -9307,6 +9332,24 @@ ${ty.variants.map(
     leaderboardEntries.delete(row.identity.toHexString());
     onChange == null ? void 0 : onChange();
   }
+  function upsertAccessAudit(row) {
+    const identity = row.identity.toHexString();
+    accessAuditEntries.set(identity, {
+      identity,
+      identityValue: row.identity,
+      displayName: row.displayName,
+      firstSeenAtMs: Number(row.firstSeenAt.microsSinceUnixEpoch / 1000n),
+      lastSeenAtMs: Number(row.lastSeenAt.microsSinceUnixEpoch / 1000n),
+      accountType: row.accountType,
+      lastProtocolVersion: row.lastProtocolVersion,
+      label: row.label
+    });
+    onChange == null ? void 0 : onChange();
+  }
+  function removeAccessAudit(row) {
+    accessAuditEntries.delete(row.identity.toHexString());
+    onChange == null ? void 0 : onChange();
+  }
   function upsertPlayerAccountStatus(row) {
     guestAccounts.set(row.identity.toHexString(), row.isGuest);
     onChange == null ? void 0 : onChange();
@@ -9575,6 +9618,7 @@ ${ty.variants.map(
     profiles.clear();
     profileIdentities.clear();
     leaderboardEntries.clear();
+    accessAuditEntries.clear();
     guestAccounts.clear();
     onlinePlayerCount = 0;
     profileProgress.clear();
@@ -9749,6 +9793,15 @@ ${ty.variants.map(
         conn.db.leaderboardEntry.onDelete((_ctx, row) => {
           if (isCurrentConnection()) removeLeaderboardEntry(row);
         });
+        conn.db.devAccessAudit.onInsert((_ctx, row) => {
+          if (isCurrentConnection()) upsertAccessAudit(row);
+        });
+        conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => {
+          if (isCurrentConnection()) upsertAccessAudit(row);
+        });
+        conn.db.devAccessAudit.onDelete((_ctx, row) => {
+          if (isCurrentConnection()) removeAccessAudit(row);
+        });
         conn.db.playerAccountStatus.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertPlayerAccountStatus(row);
         });
@@ -9804,6 +9857,7 @@ ${ty.variants.map(
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
+          for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
           for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
@@ -9825,6 +9879,7 @@ ${ty.variants.map(
           tables.player.where((player) => player.identity.eq(identity)),
           tables.playerProfile,
           tables.leaderboardEntry,
+          ...isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit] : [],
           tables.playerAccountStatus,
           tables.worldStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
@@ -10019,6 +10074,27 @@ ${ty.variants.map(
         ...entry,
         isGuest: guestAccounts.get(entry.identity) ?? entry.isGuest
       }));
+    },
+    isDeveloper(identity = localIdentity) {
+      return isDeveloperIdentity(identity);
+    },
+    accessAuditEntries() {
+      return [...accessAuditEntries.values()].map(({ identityValue: _identityValue, ...entry }) => ({ ...entry }));
+    },
+    async setAccessAuditLabel(identity, label) {
+      if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
+        return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
+      }
+      const entry = accessAuditEntries.get(identity);
+      if (!entry) return { ok: false, error: "AUDIT ROW NOT FOUND" };
+      try {
+        await connection.reducers.devSetAccessAuditLabel({ identity: entry.identityValue, label });
+        return { ok: true };
+      } catch (error) {
+        const message = reducerErrorMessage(error);
+        handleReducerFailure("audit label update", error);
+        return { ok: false, error: message };
+      }
     },
     isGuest(identity = localIdentity) {
       var _a2;

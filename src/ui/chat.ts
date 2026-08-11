@@ -1,3 +1,5 @@
+import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
+
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 10_800_000;
 const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
@@ -84,7 +86,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       name.className = "chat-name";
       name.style.color = nameColor(message.sender);
       const guestSuffix = coop?.isGuest?.(message.sender) ? " (guest)" : "";
-      name.textContent = `${message.senderName}${guestSuffix}: `;
+      if (isDeveloperIdentity(message.sender)) {
+        const badge = document.createElement("span");
+        badge.className = "dev-badge";
+        badge.textContent = `${DEVELOPER_BADGE} `;
+        name.appendChild(badge);
+      }
+      name.append(document.createTextNode(`${message.senderName}${guestSuffix}: `));
       name.setAttribute("role", "button");
       name.setAttribute("tabindex", "0");
       name.setAttribute("aria-label", `View ${message.senderName}'s profile`);

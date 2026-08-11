@@ -1,5 +1,6 @@
 import { DbConnection, tables, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
+import { isDeveloperIdentity } from "./app/developer";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -76,6 +77,16 @@ export type LeaderboardEntry = {
   damage: number;
   maxHp: number;
   isGuest: boolean;
+};
+
+export type AccessAuditEntry = {
+  identity: string;
+  displayName: string;
+  firstSeenAtMs: number;
+  lastSeenAtMs: number;
+  accountType: string;
+  lastProtocolVersion: number;
+  label: string;
 };
 
 export type DragonBossState = {
@@ -168,7 +179,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 19;
+const PROTOCOL_VERSION = 20;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -205,6 +216,7 @@ const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const profileIdentities = new Map<string, Identity>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
+const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
 const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
 const profileProgress = new Map<string, PlayerProgress>();
@@ -991,6 +1003,34 @@ function removeLeaderboardEntry(row: { identity: Identity }) {
   onChange?.();
 }
 
+function upsertAccessAudit(row: {
+  identity: Identity;
+  displayName: string;
+  firstSeenAt: { microsSinceUnixEpoch: bigint };
+  lastSeenAt: { microsSinceUnixEpoch: bigint };
+  accountType: string;
+  lastProtocolVersion: number;
+  label: string;
+}) {
+  const identity = row.identity.toHexString();
+  accessAuditEntries.set(identity, {
+    identity,
+    identityValue: row.identity,
+    displayName: row.displayName,
+    firstSeenAtMs: Number(row.firstSeenAt.microsSinceUnixEpoch / 1000n),
+    lastSeenAtMs: Number(row.lastSeenAt.microsSinceUnixEpoch / 1000n),
+    accountType: row.accountType,
+    lastProtocolVersion: row.lastProtocolVersion,
+    label: row.label,
+  });
+  onChange?.();
+}
+
+function removeAccessAudit(row: { identity: Identity }) {
+  accessAuditEntries.delete(row.identity.toHexString());
+  onChange?.();
+}
+
 function upsertPlayerAccountStatus(row: { identity: Identity; isGuest: boolean }) {
   guestAccounts.set(row.identity.toHexString(), row.isGuest);
   onChange?.();
@@ -1334,6 +1374,7 @@ function clearRealtimeCaches() {
   profiles.clear();
   profileIdentities.clear();
   leaderboardEntries.clear();
+  accessAuditEntries.clear();
   guestAccounts.clear();
   onlinePlayerCount = 0;
   profileProgress.clear();
@@ -1508,6 +1549,9 @@ function connect() {
         conn.db.leaderboardEntry.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
         conn.db.leaderboardEntry.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
         conn.db.leaderboardEntry.onDelete((_ctx, row) => { if (isCurrentConnection()) removeLeaderboardEntry(row); });
+        conn.db.devAccessAudit.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
+        conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
+        conn.db.devAccessAudit.onDelete((_ctx, row) => { if (isCurrentConnection()) removeAccessAudit(row); });
         conn.db.playerAccountStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
         conn.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
         conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayerAccountStatus(row); });
@@ -1532,6 +1576,7 @@ function connect() {
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
+          for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
           for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
@@ -1555,6 +1600,7 @@ function connect() {
           tables.player.where((player) => player.identity.eq(identity)),
           tables.playerProfile,
           tables.leaderboardEntry,
+          ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit] : []),
           tables.playerAccountStatus,
           tables.worldStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
@@ -1754,6 +1800,27 @@ export const wildwoodCoop = {
       ...entry,
       isGuest: guestAccounts.get(entry.identity) ?? entry.isGuest,
     }));
+  },
+  isDeveloper(identity = localIdentity) {
+    return isDeveloperIdentity(identity);
+  },
+  accessAuditEntries() {
+    return [...accessAuditEntries.values()].map(({ identityValue: _identityValue, ...entry }) => ({ ...entry }));
+  },
+  async setAccessAuditLabel(identity: string, label: string) {
+    if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
+      return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
+    }
+    const entry = accessAuditEntries.get(identity);
+    if (!entry) return { ok: false, error: "AUDIT ROW NOT FOUND" };
+    try {
+      await connection.reducers.devSetAccessAuditLabel({ identity: entry.identityValue, label });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("audit label update", error);
+      return { ok: false, error: message };
+    }
   },
   isGuest(identity = localIdentity) {
     const knownStatus = guestAccounts.get(identity) ?? leaderboardEntries.get(identity)?.isGuest;

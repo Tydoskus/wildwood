@@ -751,7 +751,8 @@
   #duelResult,
   #dragonResult,
   #playerProfile,
-  #leaderboard {
+  #leaderboard,
+  #devAudit {
     position: fixed;
     inset: 0;
     z-index: 8;
@@ -764,7 +765,8 @@
   #duelResult[hidden],
   #dragonResult[hidden],
   #playerProfile[hidden],
-  #leaderboard[hidden] { display: none; }
+  #leaderboard[hidden],
+  #devAudit[hidden] { display: none; }
 
   #sceneFade {
     position: fixed;
@@ -842,6 +844,21 @@
   .leaderboard-name:active { transform: none; }
   .leaderboard-guest { color: var(--muted); font-size: .82em; }
   .leaderboard-value { color: var(--gold); font-size: 10px; text-align: right; white-space: nowrap; }
+  .dev-badge { color: var(--gold); }
+  .dev-audit-button { color: var(--gold); font-size: 10px; }
+  .modal.dev-audit-modal { width: min(760px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
+  .dev-audit-headings, .dev-audit-row { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(105px, .9fr) 62px minmax(150px, 1.4fr); gap: 8px; align-items: center; }
+  .dev-audit-headings { padding: 0 7px 4px; color: var(--muted); font-size: 7px; }
+  .dev-audit-rows { max-height: min(68vh, 520px); overflow-y: auto; background: rgba(0,0,0,.22); }
+  .dev-audit-row { min-height: 50px; padding: 5px 7px; }
+  .dev-audit-account { min-width: 0; }
+  .dev-audit-account strong, .dev-audit-account small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dev-audit-account strong { color: #fff; font-size: 9px; }
+  .dev-audit-account small, .dev-audit-last-seen, .dev-audit-client { color: var(--muted); font-size: 7px; }
+  .dev-audit-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }
+  .dev-audit-editor input { min-width: 0; height: 29px; margin: 0; padding: 4px 6px; font-size: 8px; }
+  .dev-audit-editor button { min-width: 48px; height: 29px; margin: 0; padding: 3px 6px; border-width: 2px; border-radius: 5px; font-size: 8px; }
   .update-notice { position: fixed; top: 14px; right: 14px; z-index: 12; width: min(330px, calc(100vw - 28px)); padding: 10px 11px; pointer-events: auto; }
   .update-notice[hidden] { display: none; }
   .update-notice header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -878,6 +895,13 @@
     .leaderboard-row { min-height: 25px; padding: 0 7px; }
     .leaderboard-rank { font-size: 8px; }
     .leaderboard-name, .leaderboard-value { font-size: 9px; }
+    .modal.dev-audit-modal { padding: 9px; }
+    .dev-audit-headings { display: none; }
+    .dev-audit-row { grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; min-height: 64px; }
+    .dev-audit-account { grid-column: 1; grid-row: 1; }
+    .dev-audit-last-seen { grid-column: 1; grid-row: 2; }
+    .dev-audit-client { grid-column: 2; grid-row: 1; text-align: right; }
+    .dev-audit-editor { grid-column: 2; grid-row: 2; min-width: 150px; }
   }
 
   .upgrade-modal {

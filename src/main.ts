@@ -3,6 +3,7 @@
 
 import { enforceLatestVersion } from "./app/version";
 import { releaseNotes } from "./app/changelog";
+import { DEVELOPER_BADGE, isDeveloperIdentity } from "./app/developer";
 import {
   ATTACK_RANGE_ZOOM_REFERENCE,
   BASE_ATTACK_RANGE,
@@ -55,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.244";
+  const GAME_VERSION = "0.245";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -86,6 +87,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const settingsBtn = document.getElementById("settingsBtn");
   const inventoryBtn = document.getElementById("inventoryBtn");
   const leaderboardBtn = document.getElementById("leaderboardBtn");
+  const devAuditBtn = document.getElementById("devAuditBtn");
   const autoAttackBtn = document.getElementById("autoAttackBtn");
   const settingsPanel = document.getElementById("settingsPanel");
   const inventoryPanel = document.getElementById("inventoryPanel");
@@ -168,6 +170,10 @@ import { formatCompactNumber } from "./ui/number-format";
   const leaderboardRowsEl = document.getElementById("leaderboardRows");
   const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
   const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
+  const devAuditEl = document.getElementById("devAudit");
+  const devAuditRowsEl = document.getElementById("devAuditRows");
+  const devAuditEmptyEl = document.getElementById("devAuditEmpty");
+  const closeDevAuditBtn = document.getElementById("closeDevAuditBtn");
   const updateNoticeEl = document.getElementById("updateNotice");
   const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
   const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
@@ -969,7 +975,7 @@ import { formatCompactNumber } from "./ui/number-format";
         const row = document.createElement("div");
         row.className = "dragon-world-notice-row";
         const name = document.createElement("span");
-        name.textContent = contributor.name;
+        renderDomPlayerName(name, contributor.identity, contributor.name);
         const percentage = document.createElement("span");
         percentage.textContent = `${Math.round(contributor.percentage)}%`;
         row.append(name, percentage);
@@ -993,7 +999,7 @@ import { formatCompactNumber } from "./ui/number-format";
       row.className = "dragon-result-row";
       const name = document.createElement("span");
       name.className = "dragon-result-name";
-      name.textContent = contributor.name;
+      renderDomPlayerName(name, contributor.identity, contributor.name);
       const damage = document.createElement("span");
       damage.className = "dragon-result-damage";
       damage.textContent = Math.round(contributor.damage).toLocaleString();
@@ -2091,7 +2097,21 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function publicPlayerName(identity, name) {
     const baseName = name || "PLAYER";
-    return coop?.isGuest?.(identity) ? `${baseName} (guest)` : baseName;
+    const guestName = coop?.isGuest?.(identity) ? `${baseName} (guest)` : baseName;
+    return isDeveloperIdentity(identity) ? `${DEVELOPER_BADGE} ${guestName}` : guestName;
+  }
+
+  function renderDomPlayerName(element, identity, name) {
+    const baseName = name || "PLAYER";
+    element.replaceChildren();
+    if (isDeveloperIdentity(identity)) {
+      const badge = document.createElement("span");
+      badge.className = "dev-badge";
+      badge.textContent = `${DEVELOPER_BADGE} `;
+      element.appendChild(badge);
+    }
+    element.append(document.createTextNode(baseName));
+    if (coop?.isGuest?.(identity)) element.append(document.createTextNode(" (guest)"));
   }
 
   function drawPlayer() {
@@ -2256,9 +2276,20 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!name) return;
     ctx.save();
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    outlinedText(name, x, y, color, 2);
+    const developerPrefix = `${DEVELOPER_BADGE} `;
+    if (name.startsWith(developerPrefix)) {
+      const playerName = name.slice(developerPrefix.length);
+      const prefixWidth = ctx.measureText(developerPrefix).width;
+      const totalWidth = prefixWidth + ctx.measureText(playerName).width;
+      const left = x - totalWidth / 2;
+      ctx.textAlign = "left";
+      outlinedText(developerPrefix, left, y, "#ffd85b", 2);
+      outlinedText(playerName, left + prefixWidth, y, color, 2);
+    } else {
+      ctx.textAlign = "center";
+      outlinedText(name, x, y, color, 2);
+    }
     ctx.restore();
   }
 
@@ -2795,12 +2826,18 @@ import { formatCompactNumber } from "./ui/number-format";
     const playerCount = coop && coop.isConnected()
       ? (Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1)
       : 0;
+    const developer = isDeveloperIdentity(coop?.localIdentity?.());
+    devAuditBtn.hidden = !developer;
+    if (!developer && !devAuditEl.hidden) closeDevAudit();
     renderPlayerHud(
       { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
       player,
-      publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.() || "WANDERER"),
+      coop?.isGuest?.(coop?.localIdentity?.())
+        ? `${coop?.localDisplayName?.() || "WANDERER"} (guest)`
+        : coop?.localDisplayName?.() || "WANDERER",
       playerCount,
       playerPower(player),
+      developer,
     );
     updateDuelControls();
     updateConnectionStatus();
@@ -2839,7 +2876,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const online = isProfileOnline(profile.identity);
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     const power = playerPower(progress);
-    playerProfileNameEl.textContent = publicPlayerName(profile.identity, profile.name);
+    renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
     playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
     profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
       year: "numeric", month: "short", day: "numeric",
@@ -2879,7 +2916,7 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!identity) return;
     openProfileIdentity = identity;
     playerProfileEl.hidden = false;
-    playerProfileNameEl.textContent = publicPlayerName(identity, fallbackName);
+    renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
     playerProfilePowerEl.textContent = "Power: —";
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
@@ -2924,7 +2961,13 @@ import { formatCompactNumber } from "./ui/number-format";
       const name = document.createElement("button");
       name.className = "leaderboard-name";
       name.type = "button";
-      name.textContent = entry.name;
+      if (isDeveloperIdentity(entry.identity)) {
+        const badge = document.createElement("span");
+        badge.className = "dev-badge";
+        badge.textContent = `${DEVELOPER_BADGE} `;
+        name.appendChild(badge);
+      }
+      name.append(document.createTextNode(entry.name));
       if (entry.isGuest) {
         const guest = document.createElement("span");
         guest.className = "leaderboard-guest";
@@ -2961,6 +3004,7 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function openLeaderboard() {
+    closeDevAudit();
     leaderboardEl.hidden = false;
     leaderboardBtn.setAttribute("aria-expanded", "true");
     settingsPanel.hidden = true;
@@ -2973,6 +3017,74 @@ import { formatCompactNumber } from "./ui/number-format";
   function closeLeaderboard() {
     leaderboardEl.hidden = true;
     leaderboardBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function renderDevAudit() {
+    const entries = (coop?.accessAuditEntries?.() ?? [])
+      .sort((a, b) => b.lastSeenAtMs - a.lastSeenAtMs || a.displayName.localeCompare(b.displayName));
+    devAuditRowsEl.replaceChildren();
+    for (const entry of entries) {
+      const row = document.createElement("div");
+      row.className = "dev-audit-row";
+
+      const account = document.createElement("div");
+      account.className = "dev-audit-account";
+      const accountName = document.createElement("strong");
+      renderDomPlayerName(accountName, entry.identity, entry.displayName);
+      const identity = document.createElement("small");
+      identity.textContent = `${entry.accountType.toUpperCase()} · ${entry.identity.slice(0, 10)}…${entry.identity.slice(-6)}`;
+      const firstSeen = document.createElement("small");
+      firstSeen.textContent = `FIRST · ${new Date(entry.firstSeenAtMs).toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" })}`;
+      account.append(accountName, identity, firstSeen);
+
+      const lastSeen = document.createElement("div");
+      lastSeen.className = "dev-audit-last-seen";
+      lastSeen.textContent = new Date(entry.lastSeenAtMs).toLocaleString([], {
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+      });
+
+      const client = document.createElement("div");
+      client.className = "dev-audit-client";
+      client.textContent = `P${entry.lastProtocolVersion}`;
+
+      const editor = document.createElement("div");
+      editor.className = "dev-audit-editor";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.maxLength = 60;
+      input.value = entry.label;
+      input.placeholder = "DEVICE / NOTE";
+      input.setAttribute("aria-label", `Label for ${entry.displayName}`);
+      const save = document.createElement("button");
+      save.type = "button";
+      save.textContent = "SAVE";
+      save.addEventListener("click", async () => {
+        save.disabled = true;
+        const result = await coop?.setAccessAuditLabel?.(entry.identity, input.value);
+        save.disabled = false;
+        showMessage(result?.ok ? "AUDIT LABEL SAVED" : result?.error || "AUDIT UPDATE FAILED", result?.ok ? "#72ef58" : "#ff9b91");
+      });
+      editor.append(input, save);
+      row.append(account, lastSeen, client, editor);
+      devAuditRowsEl.appendChild(row);
+    }
+    devAuditEmptyEl.hidden = entries.length > 0;
+    devAuditRowsEl.hidden = entries.length === 0;
+  }
+
+  function openDevAudit() {
+    if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
+    devAuditEl.hidden = false;
+    devAuditBtn.setAttribute("aria-expanded", "true");
+    settingsPanel.hidden = true;
+    inventoryPanel.hidden = true;
+    closeLeaderboard();
+    renderDevAudit();
+  }
+
+  function closeDevAudit() {
+    devAuditEl.hidden = true;
+    devAuditBtn.setAttribute("aria-expanded", "false");
   }
 
   function closeUpdateNotice() {
@@ -3047,7 +3159,8 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function duelOpponentName(duel) {
     const opponentId = duel.challenger === coop?.localIdentity?.() ? duel.opponent : duel.challenger;
-    return coop?.remotePlayers?.().find((other) => other.id === opponentId)?.name ?? "OPPONENT";
+    const opponent = coop?.remotePlayers?.().find((other) => other.id === opponentId);
+    return opponent ? publicPlayerName(opponent.id, opponent.name) : "OPPONENT";
   }
 
   function updateDuelControls() {
@@ -3099,7 +3212,7 @@ import { formatCompactNumber } from "./ui/number-format";
     }
     if (nearby) {
       duelStatusEl.hidden = true;
-      duelRequestBtn.textContent = `Challenge ${nearby.name} to Duel`;
+      duelRequestBtn.textContent = `Challenge ${publicPlayerName(nearby.id, nearby.name)} to Duel`;
       duelRequestBtn.hidden = false;
       duelControls.hidden = false;
       return;
@@ -3243,6 +3356,7 @@ import { formatCompactNumber } from "./ui/number-format";
     settingsBtn.setAttribute("aria-expanded", String(opening));
     inventoryBtn.setAttribute("aria-expanded", "false");
     closeLeaderboard();
+    closeDevAudit();
   });
 
   inventoryBtn.addEventListener("click", () => {
@@ -3252,6 +3366,7 @@ import { formatCompactNumber } from "./ui/number-format";
     inventoryBtn.setAttribute("aria-expanded", String(opening));
     settingsBtn.setAttribute("aria-expanded", "false");
     closeLeaderboard();
+    closeDevAudit();
     if (opening) renderInventory();
   });
 
@@ -3263,6 +3378,11 @@ import { formatCompactNumber } from "./ui/number-format";
   leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
   leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
   leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
+  devAuditBtn.addEventListener("click", openDevAudit);
+  closeDevAuditBtn.addEventListener("click", closeDevAudit);
+  devAuditEl.addEventListener("click", (event) => {
+    if (event.target === devAuditEl) closeDevAudit();
+  });
 
   equippedFeetSlot?.addEventListener("click", () => {
     if (inventory.equippedFeet) {
@@ -3441,6 +3561,7 @@ import { formatCompactNumber } from "./ui/number-format";
         if (profile) renderPlayerProfile(profile);
       }
       if (!leaderboardEl.hidden) renderLeaderboard();
+      if (!devAuditEl.hidden) renderDevAudit();
       loadProgress();
       const nextSessionGeneration = coop?.sessionGeneration?.() || 0;
       if (nextSessionGeneration !== observedCoopSessionGeneration) {
@@ -3496,6 +3617,7 @@ import { formatCompactNumber } from "./ui/number-format";
     }
     if (!playerProfileEl.hidden && !playerProfileEl.querySelector(".modal")?.contains(target)) closePlayerProfile();
     if (!leaderboardEl.hidden && !leaderboardEl.querySelector(".modal")?.contains(target)) closeLeaderboard();
+    if (!devAuditEl.hidden && !devAuditEl.querySelector(".modal")?.contains(target)) closeDevAudit();
     if (!dragonResultEl.hidden && !dragonResultEl.querySelector(".modal")?.contains(target)) closeDragonResult();
     if (!duelResultEl.hidden && !duelResultEl.querySelector(".modal")?.contains(target)) leaveDuelResult();
     if (!bootUpgradeEl.hidden && !bootUpgradeEl.querySelector(".modal")?.contains(target)) bootUpgradeClose.click();
@@ -3544,6 +3666,10 @@ import { formatCompactNumber } from "./ui/number-format";
   addEventListener("keydown", e => {
     if (e.code === "Escape" && !leaderboardEl.hidden) {
       closeLeaderboard();
+      return;
+    }
+    if (e.code === "Escape" && !devAuditEl.hidden) {
+      closeDevAudit();
       return;
     }
     if (e.code === "Escape" && !playerProfileEl.hidden) {

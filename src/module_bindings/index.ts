@@ -40,6 +40,7 @@ import BeginAdventureReducer from "./begin_adventure_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
+import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
@@ -56,6 +57,7 @@ import SyncPositionReducer from "./sync_position_reducer";
 
 // Import all table schema definitions
 import ChatMessageRow from "./chat_message_table";
+import DevAccessAuditRow from "./dev_access_audit_table";
 import DragonBossRow from "./dragon_boss_table";
 import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
@@ -214,6 +216,13 @@ const tablesSchema = __schema({
       { name: 'world_status_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, WorldStatusRow),
+  devAccessAudit: __table({
+    name: 'dev_access_audit',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, DevAccessAuditRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -224,6 +233,7 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+  __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.245": [
+    "Private account access auditing added",
+    "Developer account badge and audit panel added",
+  ],
   "0.244": [
     "Nearby players now appear reliably as they enter your area",
   ],
