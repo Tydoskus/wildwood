@@ -51,6 +51,7 @@ import ResumeSessionReducer from "./resume_session_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
+import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 
@@ -153,6 +154,9 @@ const tablesSchema = __schema({
       { accessor: 'identity', name: 'player_identity_idx_btree', algorithm: 'btree', columns: [
         'identity',
       ] },
+      { accessor: 'byMap', name: 'player_map_id_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+      ] },
       { accessor: 'byZone', name: 'player_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
         'zoneX',
         'zoneY',
@@ -245,6 +249,7 @@ const reducersSchema = __reducers(
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
+  __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
 );

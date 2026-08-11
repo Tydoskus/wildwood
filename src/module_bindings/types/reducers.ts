@@ -23,6 +23,7 @@ import ResumeSessionReducer from "../resume_session_reducer";
 import SavePlayerProgressReducer from "../save_player_progress_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
+import SetProfileIconReducer from "../set_profile_icon_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 
@@ -43,6 +44,7 @@ export type ResumeSessionParams = __Infer<typeof ResumeSessionReducer>;
 export type SavePlayerProgressParams = __Infer<typeof SavePlayerProgressReducer>;
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
+export type SetProfileIconParams = __Infer<typeof SetProfileIconReducer>;
 export type SetSpeedParams = __Infer<typeof SetSpeedReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 

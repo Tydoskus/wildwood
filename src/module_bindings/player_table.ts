@@ -26,4 +26,5 @@ export default __t.row({
   feetItem: __t.string().name("feet_item"),
   zoneX: __t.i32().name("zone_x"),
   zoneY: __t.i32().name("zone_y"),
+  mapId: __t.string().name("map_id"),
 });

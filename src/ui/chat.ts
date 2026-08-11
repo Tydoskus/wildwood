@@ -15,6 +15,7 @@ type ChatMessage = {
 type CoopClient = {
   localDisplayName?: () => string;
   isGuest?: (identity: string) => boolean;
+  profileIcon?: (identity: string) => number;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
   setDisplayName?: (name: string) => Promise<{ ok: boolean; error?: string }>;
@@ -109,7 +110,11 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const text = document.createElement("span");
       text.className = "chat-text";
       text.textContent = message.message;
-      line.append(time, name, text);
+      const icon = document.createElement("span");
+      icon.className = "chat-profile-icon";
+      const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(message.sender) ?? 0)));
+      icon.style.backgroundPosition = `${(iconIndex % 8) / 7 * 100}% ${Math.floor(iconIndex / 8) / 7 * 100}%`;
+      line.append(time, icon, name, text);
       if (message.replayId > 0n) {
         const replay = document.createElement("button");
         replay.className = "chat-replay";

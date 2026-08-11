@@ -21,7 +21,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, owns
   const items = hasBoots ? [TRAILBLAZER_BOOTS] : [];
   return {
     itemIds: items,
-    equippedFeet: hasBoots && (equippedFeet === TRAILBLAZER_BOOTS || !equippedFeet)
+    equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS
       ? TRAILBLAZER_BOOTS
       : "",
   };

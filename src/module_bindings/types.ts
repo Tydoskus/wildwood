@@ -200,6 +200,7 @@ export const Player = __t.object("Player", {
   feetItem: __t.string(),
   zoneX: __t.i32(),
   zoneY: __t.i32(),
+  mapId: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
 
@@ -251,6 +252,7 @@ export type PlayerNameCooldown = __Infer<typeof PlayerNameCooldown>;
 export const PlayerProfile = __t.object("PlayerProfile", {
   identity: __t.identity(),
   displayName: __t.string(),
+  profileIcon: __t.u32(),
 });
 export type PlayerProfile = __Infer<typeof PlayerProfile>;
 

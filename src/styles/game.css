@@ -81,6 +81,20 @@
     padding: 2px 3px 6px;
   }
 
+  .player-hud-card { display: flex; align-items: stretch; gap: 8px; padding: 7px 9px; }
+  .player-hud-content { min-width: 0; flex: 1; }
+  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-icons.png"); background-repeat: no-repeat; background-size: 800% 800%; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-icon-button { width: 47px; height: 47px; align-self: center; }
+  .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
+  .profile-window-icon.is-editable { border-color: var(--green); cursor: pointer; }
+  #profileIconPicker { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px; background: rgba(1,5,3,.82); }
+  #profileIconPicker[hidden] { display: none; }
+  .profile-icon-picker-modal { width: min(510px, calc(100vw - 18px)); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
+  .profile-icon-picker-modal h2 { margin: 0; color: var(--gold); font-size: clamp(17px, 4vw, 24px); }
+  .profile-icon-choices { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; max-height: min(74vh, 480px); margin-top: 10px; overflow-y: auto; }
+  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-icons.png"); background-repeat: no-repeat; background-size: 800% 800%; }
+  .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
+
   #playerPower {
     flex: 0 0 auto;
     color: var(--gold);
@@ -224,11 +238,38 @@
   .inventory-detail strong { display: block; color: var(--text); font-size: 12px; }
   .inventory-detail p { margin: 4px 0; }
   .inventory-slot, .inventory-stats { color: var(--gold); font-weight: 900; letter-spacing: .04em; }
+  .inventory-actions { display: flex; gap: 6px; margin-top: 7px; }
+  .inventory-actions button { flex: 1; margin: 0; padding: 6px 8px; font-size: 8px; }
+
+  #itemInspect { position: fixed; inset: 0; z-index: 11; display: grid; place-items: center; padding: 12px; background: rgba(1,5,3,.72); }
+  #itemInspect[hidden] { display: none; }
+  .item-inspect-modal { position: relative; width: min(310px, calc(100vw - 28px)); padding: 16px; text-align: center; }
+  .item-inspect-modal .profile-close-button { position: absolute; top: 8px; right: 8px; }
+  .item-inspect-modal h2 { margin: 7px 0; color: var(--text); font-size: 18px; }
+  .item-inspect-modal p { margin: 7px 0 10px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+  .item-inspect-icon { display: grid; place-items: center; width: 68px; height: 68px; margin: 4px auto 9px; border: 2px solid rgba(216,145,49,.7); border-radius: 8px; background: rgba(158,99,29,.2); }
+  .item-inspect-icon .boot-pixel-icon { transform: scale(1.65); }
 
   @media (max-width: 460px) {
-    .inventory-panel { max-height: calc(100vh - 72px); overflow-y: auto; }
-    .inventory-layout { grid-template-columns: 1fr; }
-    .bag-section { margin-top: 8px; }
+    .inventory-panel { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 66px); padding: 7px; overflow-y: auto; }
+    .inventory-panel .settings-title { margin-bottom: 5px; }
+    .inventory-layout { grid-template-columns: 112px minmax(0, 1fr); gap: 5px; }
+    .inventory-section-title { margin-bottom: 4px; font-size: 8px; }
+    .equipment-section, .bag-section { padding: 4px; }
+    .equipment-section { min-height: 190px; }
+    .equipment-slots { min-height: 166px; }
+    .equipment-slot { width: 36px; height: 36px; font-size: 6px; }
+    .equipment-slot::before { width: 10px; height: 10px; margin-bottom: 1px; }
+    .slot-head { top: 0; }
+    .slot-hands, .slot-chest { top: 42px; }
+    .slot-legs { top: 84px; }
+    .slot-feet { top: 126px; }
+    .inventory-items { gap: 3px; }
+    .inventory-detail { min-height: 0; margin-top: 5px; padding: 6px; font-size: 8px; line-height: 1.25; }
+    .inventory-detail strong { font-size: 10px; }
+    .inventory-detail p { margin: 2px 0; }
+    .inventory-actions { margin-top: 5px; }
+    .inventory-actions button { padding: 5px 6px; font-size: 7px; }
   }
 
   .settings-title {
@@ -519,6 +560,7 @@
     max-height: 255px;
   }
   .chat-line { overflow-wrap: anywhere; }
+  .chat-profile-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px 0 1px; border: 1px solid rgba(255,255,255,.25); border-radius: 3px; background: #0d1411 url("../../assets/wildwood/profile-icons.png") no-repeat; background-size: 800% 800%; vertical-align: -4px; -webkit-text-stroke: 0; text-shadow: none; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
   .chat-name { color: var(--gold); font-weight: 900; }
   .chat-text { color: var(--text); white-space: pre-wrap; }
@@ -798,7 +840,7 @@
   .dragon-result-name { min-width: 0; overflow: hidden; color: #fff; text-overflow: ellipsis; white-space: nowrap; }
   .dragon-result-damage { color: var(--gold); }
   .dragon-result-percentage { min-width: 52px; color: #72ef58; text-align: right; }
-  #dragonWorldNotice { position: fixed; top: 76px; left: 50%; z-index: 9; display: grid; gap: 3px; min-width: min(350px, calc(100vw - 30px)); padding: 10px 16px; border: 2px solid rgba(255,101,90,.68); border-radius: 9px; background: rgba(13,22,17,.94); color: #fff; text-align: center; pointer-events: none; transform: translateX(-50%); animation: dragon-world-notice 6s ease forwards; }
+  #dragonWorldNotice { position: fixed; top: 142px; left: 50%; z-index: 9; display: grid; gap: 3px; min-width: min(350px, calc(100vw - 30px)); padding: 10px 16px; border: 2px solid rgba(255,101,90,.68); border-radius: 9px; background: rgba(13,22,17,.94); color: #fff; text-align: center; pointer-events: none; transform: translateX(-50%); animation: dragon-world-notice 6s ease forwards; }
   #dragonWorldNotice[hidden] { display: none; }
   #dragonWorldNotice strong { color: #ff8a65; font-size: 14px; }
   .dragon-world-notice-detail { display: grid; gap: 2px; width: min(260px, calc(100vw - 70px)); margin: 1px auto 0; }
@@ -872,14 +914,14 @@
   .profile-edit-grid .profile-edit-name { grid-column: 1 / -1; }
   .profile-edit-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
   .profile-edit-actions button { margin: 0; padding: 7px 11px; font-size: 9px; }
-  .update-notice { position: fixed; top: 14px; right: 14px; z-index: 12; width: min(330px, calc(100vw - 28px)); padding: 10px 11px; pointer-events: auto; }
-  .update-notice[hidden] { display: none; }
-  .update-notice header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  .update-notice header div { display: grid; gap: 2px; }
-  .update-notice header span { color: var(--muted); font-size: 8px; letter-spacing: .08em; }
-  .update-notice header strong { color: var(--gold); font-size: 14px; }
-  .update-notice button { width: 27px; min-width: 27px; height: 27px; margin: 0; padding: 0; border-width: 2px; border-radius: 6px; background: linear-gradient(#6e797a, #41494a); font-size: 17px; line-height: 1; }
-  .update-notice ul { display: grid; gap: 4px; margin: 8px 0 0; padding: 0 0 0 17px; color: #fff; font-size: 9px; line-height: 1.25; }
+  .signin-update-notice { width: 100%; margin: 0 0 12px; padding: 9px 10px; border: 2px solid rgba(255,216,91,.42); border-radius: 8px; background: rgba(0,0,0,.24); text-align: left; }
+  .signin-update-notice[hidden] { display: none; }
+  .signin-update-notice header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .signin-update-notice header div { display: grid; gap: 2px; }
+  .signin-update-notice header span { color: var(--muted); font-size: 8px; letter-spacing: .08em; }
+  .signin-update-notice header strong { color: var(--gold); font-size: 14px; }
+  .signin-update-notice button { width: 27px; min-width: 27px; height: 27px; margin: 0; padding: 0; border-width: 2px; border-radius: 6px; background: linear-gradient(#6e797a, #41494a); font-size: 17px; line-height: 1; }
+  .signin-update-notice ul { display: grid; gap: 4px; margin: 7px 0 0; padding: 0 0 0 17px; color: #fff; font-size: 9px; line-height: 1.25; }
   .chat-name { cursor: pointer; }
   .chat-name:hover { filter: brightness(1.2); }
   #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }

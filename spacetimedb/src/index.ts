@@ -3,11 +3,12 @@ import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_ZONE_SIZE = 600;
+const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 20;
+const PROTOCOL_VERSION = 21;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -56,7 +57,10 @@ const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer",
 const player = table(
   {
     public: true,
-    indexes: [{ accessor: "byZone", algorithm: "btree", columns: ["zoneX", "zoneY"] as const }],
+    indexes: [
+      { accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const },
+      { accessor: "byZone", algorithm: "btree", columns: ["zoneX", "zoneY"] as const },
+    ],
   },
   {
     identity: t.identity().primaryKey(),
@@ -74,6 +78,7 @@ const player = table(
     feetItem: t.string().default(""),
     zoneX: t.i32().default(0),
     zoneY: t.i32().default(0),
+    mapId: t.string().default(TUTORIAL_FOREST_MAP_ID),
   },
 );
 
@@ -82,6 +87,7 @@ const playerProfile = table(
   {
     identity: t.identity().primaryKey(),
     displayName: t.string(),
+    profileIcon: t.u32().default(0),
   },
 );
 
@@ -521,8 +527,8 @@ function finishLifetimeSession(ctx: any, identity: any) {
   });
 }
 
-function speedForBoots(bootsCollected: boolean) {
-  return PLAYER_SPEED + (bootsCollected ? BOOTS_SPEED_BONUS : 0);
+function speedForBoots(bootsEquipped: boolean) {
+  return PLAYER_SPEED + (bootsEquipped ? BOOTS_SPEED_BONUS : 0);
 }
 
 function markAttackBalanceCurrent(ctx: any) {
@@ -772,7 +778,7 @@ function inventoryForProgress(progress: any) {
 
 function equippedFeetForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
-  return inventory.includes(progress.equippedFeet) ? progress.equippedFeet : inventory[0] ?? "";
+  return inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
 }
 
 function sameIdentity(a: any, b: any) {
@@ -1237,6 +1243,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     ctx.db.playerProfile.insert({
       identity: ctx.sender,
       displayName: generatedDisplayName(ctx.sender),
+      profileIcon: 0,
     });
   }
 
@@ -1249,7 +1256,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     existingProgress = migrateAttackBalance(ctx, existingProgress);
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
-    const speed = speedForBoots(existingProgress.bootsCollected);
+    const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedFeet !== equippedFeet) {
       const migratedProgress = {
@@ -1279,6 +1286,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
+        mapId: TUTORIAL_FOREST_MAP_ID,
         ...playerZone(existing.x, existing.y),
         power: powerForProgress(existingProgress),
         moving: false,
@@ -1290,6 +1298,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     }
     ctx.db.player.identity.update({
       ...existing,
+      mapId: TUTORIAL_FOREST_MAP_ID,
       x: PLAYER_SPAWN.x,
       y: PLAYER_SPAWN.y,
       ...playerZone(PLAYER_SPAWN.x, PLAYER_SPAWN.y),
@@ -1309,11 +1318,12 @@ function enterWorldPresence(ctx: any, tabId: string) {
     x: PLAYER_SPAWN.x,
     y: PLAYER_SPAWN.y,
     ...playerZone(PLAYER_SPAWN.x, PLAYER_SPAWN.y),
+    mapId: TUTORIAL_FOREST_MAP_ID,
     facing: 0,
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
     power: powerForProgress(existingProgress),
-    speed: speedForBoots(existingProgress.bootsCollected),
+    speed: speedForBoots(feetItem === TRAILBLAZER_BOOTS),
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
@@ -1564,9 +1574,9 @@ export const claimGuestAccount = spacetimedb.reducer(
     const preserveAccountName = Boolean(accountProfile && !isGeneratedDisplayName(accountProfile.displayName));
     const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName));
     if (transferGuestName && guestProfile && accountProfile) {
-      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName });
+      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon });
     } else if (transferGuestName && guestProfile) {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName });
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon });
     }
 
     // A freshly-created guest's generated name must never overwrite an existing
@@ -1587,7 +1597,7 @@ export const claimGuestAccount = spacetimedb.reducer(
         ...activePlayer,
         hp: nextProgress.maxHp,
         maxHp: nextProgress.maxHp,
-        speed: speedForBoots(nextProgress.bootsCollected),
+        speed: speedForBoots(nextProgress.equippedFeet === TRAILBLAZER_BOOTS),
         power: powerForProgress(nextProgress),
         feetItem: equippedFeetForProgress(nextProgress),
       });
@@ -1682,7 +1692,7 @@ export const setDisplayName = spacetimedb.reducer(
     if (existing) {
       ctx.db.playerProfile.identity.update({ ...existing, displayName: normalized });
     } else {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized });
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized, profileIcon: 0 });
     }
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
@@ -1699,6 +1709,18 @@ export const devSetAccessAuditLabel = spacetimedb.reducer(
     const current = ctx.db.playerAccessAudit.identity.find(identity);
     if (!current) throw new SenderError("Access audit row not found.");
     ctx.db.playerAccessAudit.identity.update({ ...current, label: normalized });
+  },
+);
+
+export const setProfileIcon = spacetimedb.reducer(
+  { profileIcon: t.u32() },
+  (ctx, { profileIcon }) => {
+    requireCurrentProtocol(ctx);
+    if (!Number.isInteger(profileIcon) || profileIcon > 63) throw new SenderError("Profile icon must be between 0 and 63.");
+    const profile = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (!profile) throw new SenderError("Player profile not found.");
+    if (profile.profileIcon === profileIcon) return;
+    ctx.db.playerProfile.identity.update({ ...profile, profileIcon });
   },
 );
 
@@ -1797,8 +1819,9 @@ export const savePlayerProgress = spacetimedb.reducer(
       bootsCollected: progress.bootsCollected === true,
     };
     const bootsCollected = base.bootsCollected || normalized.bootsCollected;
-    const inventoryJson = JSON.stringify(bootsCollected ? [TRAILBLAZER_BOOTS] : []);
-    const equippedFeet = bootsCollected ? TRAILBLAZER_BOOTS : "";
+    const inventory = bootsCollected ? [TRAILBLAZER_BOOTS] : [];
+    const inventoryJson = JSON.stringify(inventory);
+    const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
     const next = {
       identity: ctx.sender,
       maxHp: Math.max(base.maxHp, normalized.maxHp),
@@ -1809,7 +1832,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRange: DEFAULT_ATTACK_RANGE,
       armor: Math.max(base.armor, normalized.armor),
       regen: Math.max(base.regen, normalized.regen),
-      speed: speedForBoots(bootsCollected),
+      speed: speedForBoots(equippedFeet === TRAILBLAZER_BOOTS),
       bootsCollected,
       inventoryJson,
       equippedFeet,

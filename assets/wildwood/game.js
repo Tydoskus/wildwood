@@ -18,6 +18,12 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.247": [
+      "Tutorial Forest map-wide player visibility added",
+      "Sign-in now requires an explicit button press",
+      "Mobile inventory and item actions improved",
+      "Player profile icons added"
+    ],
     "0.246": [
       "Developer button visibility fixed",
       "Developer player-save editor added"
@@ -122,7 +128,7 @@
     const items = hasBoots ? [TRAILBLAZER_BOOTS] : [];
     return {
       itemIds: items,
-      equippedFeet: hasBoots && (equippedFeet === TRAILBLAZER_BOOTS || !equippedFeet) ? TRAILBLAZER_BOOTS : ""
+      equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS ? TRAILBLAZER_BOOTS : ""
     };
   }
   function inventoryFromSave(inventoryJson, equippedFeet, ownsBoots) {
@@ -567,7 +573,7 @@
       return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
     }
     function refresh() {
-      var _a, _b, _c;
+      var _a, _b, _c, _d;
       const coop = getCoop();
       const localName = (_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop);
       if (localName && document.activeElement !== elements.displayNameInput) {
@@ -609,7 +615,11 @@
         const text = document.createElement("span");
         text.className = "chat-text";
         text.textContent = message.message;
-        line.append(time, name, text);
+        const icon = document.createElement("span");
+        icon.className = "chat-profile-icon";
+        const iconIndex = Math.max(0, Math.min(63, Math.floor(((_d = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _d.call(coop, message.sender)) ?? 0)));
+        icon.style.backgroundPosition = `${iconIndex % 8 / 7 * 100}% ${Math.floor(iconIndex / 8) / 7 * 100}%`;
+        line.append(time, icon, name, text);
         if (message.replayId > 0n) {
           const replay = document.createElement("button");
           replay.className = "chat-replay";
@@ -734,7 +744,7 @@
     if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS: ${playerCount}`;
   }
   const itemsById = ITEM_DEFINITIONS;
-  function renderInventoryView(elements, inventory, onSelect) {
+  function renderInventoryView(elements, inventory, actions) {
     elements.items.replaceChildren();
     const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
     if (!inventory.selectedItemId && itemIds.length) inventory.selectedItemId = itemIds[0];
@@ -751,7 +761,7 @@
         button.setAttribute("aria-label", item.name);
         button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
         button.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
-        button.addEventListener("click", () => onSelect(itemId));
+        button.addEventListener("click", () => actions.onSelect(itemId));
       } else {
         button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
         button.disabled = true;
@@ -764,10 +774,24 @@
       return;
     }
     elements.detail.innerHTML = `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div><strong>${selected.name}</strong><p>${selected.description}</p><div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
+    const actionRow = document.createElement("div");
+    actionRow.className = "inventory-actions";
+    const equip = document.createElement("button");
+    equip.type = "button";
+    const equipped = inventory.equippedFeet === selected.id;
+    equip.textContent = equipped ? "UNEQUIP" : "EQUIP";
+    equip.addEventListener("click", () => equipped ? actions.onUnequip(selected.id) : actions.onEquip(selected.id));
+    const inspect = document.createElement("button");
+    inspect.type = "button";
+    inspect.className = "secondary-button";
+    inspect.textContent = "INSPECT";
+    inspect.addEventListener("click", () => actions.onInspect(selected.id));
+    actionRow.append(equip, inspect);
+    elements.detail.appendChild(actionRow);
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.246";
+    const GAME_VERSION = "0.247";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -793,6 +817,7 @@
     const hpText = document.getElementById("hpText");
     const playerNameEl = document.getElementById("playerName");
     const playerPowerEl = document.getElementById("playerPower");
+    const playerHudProfileIcon = document.getElementById("playerHudProfileIcon");
     const settingsBtn = document.getElementById("settingsBtn");
     const inventoryBtn = document.getElementById("inventoryBtn");
     const leaderboardBtn = document.getElementById("leaderboardBtn");
@@ -804,6 +829,13 @@
     const inventoryDetailEl = document.getElementById("inventoryDetail");
     const inventoryCountEl = document.getElementById("inventoryCount");
     const equippedFeetSlot = document.getElementById("equippedFeetSlot");
+    const itemInspectEl = document.getElementById("itemInspect");
+    const closeItemInspectBtn = document.getElementById("closeItemInspectBtn");
+    const itemInspectIcon = document.getElementById("itemInspectIcon");
+    const itemInspectSlot = document.getElementById("itemInspectSlot");
+    const itemInspectName = document.getElementById("itemInspectName");
+    const itemInspectDescription = document.getElementById("itemInspectDescription");
+    const itemInspectStats = document.getElementById("itemInspectStats");
     const screenShakeToggle = document.getElementById("screenShakeToggle");
     const attackRangeToggle = document.getElementById("attackRangeToggle");
     const latencyToggle = document.getElementById("latencyToggle");
@@ -860,6 +892,7 @@
     const playerProfileEl = document.getElementById("playerProfile");
     const playerProfileNameEl = document.getElementById("playerProfileName");
     const playerProfilePowerEl = document.getElementById("playerProfilePower");
+    const playerProfileIcon = document.getElementById("playerProfileIcon");
     const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
     const profileOverviewTab = document.getElementById("profileOverviewTab");
     const profileStatsTab = document.getElementById("profileStatsTab");
@@ -901,6 +934,9 @@
     const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
     const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
     const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
+    const profileIconPickerEl = document.getElementById("profileIconPicker");
+    const profileIconChoices = document.getElementById("profileIconChoices");
+    const closeProfileIconPickerBtn = document.getElementById("closeProfileIconPickerBtn");
     const gameUpdateGateEl = document.getElementById("gameUpdateGate");
     const coop = window.wildwoodCoop || null;
     const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
@@ -1065,6 +1101,8 @@
     playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
     playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
     playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
+    const profileIconSheet = new Image();
+    profileIconSheet.src = "assets/wildwood/profile-icons.png";
     const ENEMY_SPRITES = loadEnemySprites();
     const actorShadowSprite = loadActorShadowSprite();
     let treeSpritesheetReady = false;
@@ -1229,11 +1267,11 @@
       player.armor = number(source.armor, player.armor, 0, 1e6);
       player.regen = number(source.regen, player.regen, 0, 1e6);
       bootsPickup.collected = source.bootsCollected === true;
-      player.speed = bootsPickup.collected ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
       player.hp = player.maxHp;
       const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
       inventory.itemIds = savedInventory.itemIds;
       inventory.equippedFeet = savedInventory.equippedFeet;
+      player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
       if (!inventory.selectedItemId && inventory.itemIds.length) inventory.selectedItemId = inventory.itemIds[0];
       renderInventory();
       hasSavedProgress = true;
@@ -1316,6 +1354,7 @@
       connectionPanel.hidden = true;
       accountChoicePanel.hidden = false;
       newPlayerPanel.hidden = true;
+      showCurrentUpdateNotice();
     }
     function showSigningIn() {
       if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
@@ -2571,6 +2610,7 @@
       drawActorStatus({
         x,
         y,
+        identity: actor.identity,
         name: actor.name,
         nameColor: actor.isLocal ? "#ffffff" : "#9eeeff",
         hp: actor.hp,
@@ -2647,8 +2687,36 @@
       element.append(document.createTextNode(baseName));
       if ((_a = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _a.call(coop, identity)) element.append(document.createTextNode(" (guest)"));
     }
+    function applyProfileIcon(element, iconIndex) {
+      const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
+      const column = index % 8;
+      const row = Math.floor(index / 8);
+      element.style.backgroundPosition = `${column / 7 * 100}% ${row / 7 * 100}%`;
+      element.dataset.profileIcon = String(index);
+    }
+    function drawProfileIcon(identity, x, bottom, size = 15) {
+      var _a;
+      if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
+      const index = Math.max(0, Math.min(63, Math.floor(((_a = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a.call(coop, identity)) ?? 0)));
+      const cellW = profileIconSheet.naturalWidth / 8;
+      const cellH = profileIconSheet.naturalHeight / 8;
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        profileIconSheet,
+        index % 8 * cellW,
+        Math.floor(index / 8) * cellH,
+        cellW,
+        cellH,
+        Math.round(x),
+        Math.round(bottom - size),
+        size,
+        size
+      );
+      ctx.restore();
+    }
     function drawPlayer() {
-      var _a, _b2, _c2;
+      var _a, _b2, _c2, _d;
       const x = Math.floor(player.x - camera.x);
       const y = Math.floor(player.y - camera.y);
       drawActorShadow(x, y + 29, 54, 0.21);
@@ -2677,14 +2745,15 @@
       drawActorStatus({
         x,
         y,
-        name: publicPlayerName((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop), (_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)),
+        identity: (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop),
+        name: publicPlayerName((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop), (_c2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _c2.call(coop)),
         nameColor: "#ffffff",
         hp: player.hp,
         maxHp: player.maxHp,
         power: playerPower(player),
         fillColor: "#46cf5a"
       });
-      drawSpeechBubble((_c2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c2.call(coop), x, y);
+      drawSpeechBubble((_d = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _d.call(coop), x, y);
     }
     function updateSpeechBubbles() {
       var _a;
@@ -2767,7 +2836,7 @@
       });
       ctx.restore();
     }
-    function drawActorStatus({ x, y, name, nameColor, hp, maxHp, power, fillColor }) {
+    function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }) {
       const centerX = Math.round(x);
       const barW = 77;
       const barH = WORLD_HEALTH_BAR_HEIGHT;
@@ -2794,14 +2863,16 @@
       ctx.restore();
       const powerBaseline = barY - 7;
       const nameBaseline = power === null ? powerBaseline : powerBaseline - 17;
-      drawPlayerName(name, centerX, nameBaseline, nameColor);
+      drawPlayerName(identity, name, centerX, nameBaseline, nameColor);
       if (power !== null) drawPlayerPowerValue(power, centerX, powerBaseline);
     }
-    function drawPlayerName(name, x, y, color) {
+    function drawPlayerName(identity, name, x, y, color) {
       if (!name) return;
       ctx.save();
       ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "bottom";
+      const nameWidth = ctx.measureText(name).width;
+      drawProfileIcon(identity, x - nameWidth / 2 - 19, y, 15);
       const developerPrefix = `${DEVELOPER_BADGE} `;
       if (name.startsWith(developerPrefix)) {
         const playerName = name.slice(developerPrefix.length);
@@ -2868,6 +2939,7 @@
         drawActorStatus({
           x,
           y,
+          identity: other.id,
           name: publicPlayerName(other.id, other.name),
           nameColor: "#9eeeff",
           hp: other.hp,
@@ -3107,6 +3179,12 @@
       roundRect(x, y, size, size, 10);
       ctx.fill();
       ctx.stroke();
+      ctx.save();
+      ctx.font = '900 9px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      outlinedText("TUTORIAL FOREST", x + size / 2, y + 7, "#f5f5e9", 1.5);
+      ctx.restore();
       const sx = size / WORLD.w;
       const sy = size / WORLD.h;
       ctx.save();
@@ -3153,6 +3231,7 @@
       const actor = (identity, isChallenger) => {
         var _a2;
         return {
+          identity,
           x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
           y: DUEL_COMBAT_Y,
           name: identity === localId ? ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER" : remoteName(identity),
@@ -3288,17 +3367,18 @@
       drawVignette();
     }
     function updateHud() {
-      var _a, _b2, _c2, _d, _e;
+      var _a, _b2, _c2, _d, _e, _f;
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
       const reportedOnline = coop && typeof coop.onlinePlayerCount === "function" ? coop.onlinePlayerCount() : null;
       const playerCount = coop && coop.isConnected() ? Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1 : 0;
       const developer = isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop));
+      applyProfileIcon(playerHudProfileIcon, ((_b2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _b2.call(coop)) ?? 0);
       devAuditBtn.hidden = !developer;
       if (!developer && !devAuditEl.hidden) closeDevAudit();
       renderPlayerHud(
         { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
         player,
-        ((_c2 = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _c2.call(coop, (_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop))) ? `${((_d = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _d.call(coop)) || "WANDERER"} (guest)` : ((_e = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _e.call(coop)) || "WANDERER",
+        ((_d = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _d.call(coop, (_c2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c2.call(coop))) ? `${((_e = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _e.call(coop)) || "WANDERER"} (guest)` : ((_f = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _f.call(coop)) || "WANDERER",
         playerCount,
         playerPower(player),
         developer
@@ -3332,7 +3412,7 @@
       profileStatsPanel.hidden = overview;
     }
     function renderPlayerProfile(profile) {
-      var _a;
+      var _a, _b2, _c2;
       if (!profile || profile.identity !== openProfileIdentity) return;
       const { progress, lifetime } = profile;
       openProfileData = profile;
@@ -3340,6 +3420,11 @@
       const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
       const power = playerPower(progress);
       renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
+      applyProfileIcon(playerProfileIcon, ((_a = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a.call(coop, profile.identity)) ?? 0);
+      const ownProfile = profile.identity === ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop));
+      playerProfileIcon.classList.toggle("is-editable", ownProfile);
+      playerProfileIcon.disabled = !ownProfile;
+      playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
       playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
       profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
         year: "numeric",
@@ -3372,12 +3457,12 @@
         profileStatGrid.append(item);
       }
       playerProfileLoadingEl.hidden = true;
-      editPlayerSaveBtn.hidden = !isDeveloperIdentity((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop));
+      editPlayerSaveBtn.hidden = !isDeveloperIdentity((_c2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c2.call(coop));
       profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
       profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
     }
     async function openPlayerProfile(identity, fallbackName = "PLAYER") {
-      var _a, _b2;
+      var _a, _b2, _c2, _d, _e;
       if (!identity) return;
       openProfileIdentity = identity;
       openProfileData = null;
@@ -3385,18 +3470,21 @@
       editPlayerSaveBtn.hidden = true;
       playerProfileEl.hidden = false;
       renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
+      applyProfileIcon(playerProfileIcon, ((_a = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a.call(coop, identity)) ?? 0);
+      playerProfileIcon.classList.toggle("is-editable", identity === ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop)));
+      playerProfileIcon.disabled = identity !== ((_c2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c2.call(coop));
       playerProfilePowerEl.textContent = "Power: —";
       playerProfileLoadingEl.hidden = false;
       profileOverviewPanel.hidden = true;
       profileStatsPanel.hidden = true;
       setProfileTab("stats");
       profileStatsPanel.hidden = true;
-      const cached = (_a = coop == null ? void 0 : coop.playerProfile) == null ? void 0 : _a.call(coop, identity);
+      const cached = (_d = coop == null ? void 0 : coop.playerProfile) == null ? void 0 : _d.call(coop, identity);
       if (cached) {
         renderPlayerProfile(cached);
         return;
       }
-      const loaded = await ((_b2 = coop == null ? void 0 : coop.loadPlayerProfile) == null ? void 0 : _b2.call(coop, identity));
+      const loaded = await ((_e = coop == null ? void 0 : coop.loadPlayerProfile) == null ? void 0 : _e.call(coop, identity));
       if (identity !== openProfileIdentity) return;
       if (loaded) renderPlayerProfile(loaded);
       else playerProfileLoadingEl.textContent = "PLAYER DATA UNAVAILABLE";
@@ -3639,6 +3727,38 @@
       } catch {
       }
     }
+    function openProfileIconPicker() {
+      var _a, _b2;
+      if (!((_a = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _a.call(coop))) return;
+      const selected = ((_b2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _b2.call(coop)) ?? 0;
+      profileIconChoices.replaceChildren();
+      for (let index = 0; index < 64; index += 1) {
+        const choice = document.createElement("button");
+        choice.type = "button";
+        choice.className = "profile-icon-choice";
+        choice.classList.toggle("is-selected", index === selected);
+        choice.setAttribute("aria-label", `Use profile icon ${index + 1}`);
+        choice.setAttribute("aria-pressed", String(index === selected));
+        applyProfileIcon(choice, index);
+        choice.addEventListener("click", async () => {
+          var _a2, _b3;
+          const result = await ((_a2 = coop == null ? void 0 : coop.setProfileIcon) == null ? void 0 : _a2.call(coop, index));
+          if (!(result == null ? void 0 : result.ok)) {
+            showMessage((result == null ? void 0 : result.error) || "PROFILE ICON UPDATE FAILED", "#ff9b91");
+            return;
+          }
+          applyProfileIcon(playerHudProfileIcon, index);
+          if (openProfileIdentity === ((_b3 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b3.call(coop))) applyProfileIcon(playerProfileIcon, index);
+          profileIconPickerEl.hidden = true;
+          showMessage("PROFILE ICON UPDATED", "#72ef58");
+        });
+        profileIconChoices.appendChild(choice);
+      }
+      profileIconPickerEl.hidden = false;
+    }
+    function closeProfileIconPicker() {
+      profileIconPickerEl.hidden = true;
+    }
     function openPlayerAtScreenPoint(clientX, clientY) {
       var _a;
       if (!running || !playerProfileEl.hidden || isDueling()) return false;
@@ -3665,11 +3785,46 @@
       renderInventoryView(
         { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedFeet: equippedFeetSlot },
         inventory,
-        (itemId) => {
-          inventory.selectedItemId = itemId;
-          renderInventory();
+        {
+          onSelect(itemId) {
+            inventory.selectedItemId = itemId;
+            renderInventory();
+          },
+          onEquip(itemId) {
+            var _a;
+            if (((_a = ITEM_DEFINITIONS[itemId]) == null ? void 0 : _a.slot) !== "FEET") return;
+            inventory.equippedFeet = itemId;
+            player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
+            saveProgress();
+            renderInventory();
+            showMessage(`${ITEM_DEFINITIONS[itemId].name} EQUIPPED`, "#72ef58");
+          },
+          onUnequip(itemId) {
+            if (inventory.equippedFeet !== itemId) return;
+            inventory.equippedFeet = "";
+            player.speed = BASE_PLAYER_SPEED;
+            saveProgress();
+            renderInventory();
+            showMessage(`${ITEM_DEFINITIONS[itemId].name} UNEQUIPPED`, "#ffe05d");
+          },
+          onInspect(itemId) {
+            openItemInspect(itemId);
+          }
         }
       );
+    }
+    function openItemInspect(itemId) {
+      const item = ITEM_DEFINITIONS[itemId];
+      if (!item) return;
+      itemInspectSlot.textContent = `${item.slot} · ${inventory.equippedFeet === item.id ? "EQUIPPED" : "IN BAG"}`;
+      itemInspectName.textContent = item.name;
+      itemInspectDescription.textContent = item.description;
+      itemInspectStats.textContent = item.stats.join(" · ");
+      itemInspectIcon.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
+      itemInspectEl.hidden = false;
+    }
+    function closeItemInspect() {
+      itemInspectEl.hidden = true;
     }
     function nearbyDuelOpponent() {
       var _a;
@@ -3899,6 +4054,10 @@
         renderInventory();
       }
     });
+    closeItemInspectBtn == null ? void 0 : closeItemInspectBtn.addEventListener("click", closeItemInspect);
+    itemInspectEl == null ? void 0 : itemInspectEl.addEventListener("click", (event) => {
+      if (event.target === itemInspectEl) closeItemInspect();
+    });
     accountButton == null ? void 0 : accountButton.addEventListener("click", () => {
       var _a, _b2, _c2;
       const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
@@ -3918,7 +4077,10 @@
       showAccountChoice();
       accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
       void ((_b2 = coop == null ? void 0 : coop.signIn) == null ? void 0 : _b2.call(coop).then((result) => {
-        if ((result == null ? void 0 : result.ok) !== false) return;
+        if ((result == null ? void 0 : result.ok) !== false) {
+          showConnecting();
+          return;
+        }
         accountSignInPending = false;
         showAccountChoice();
         accountChoiceDetail.textContent = characterFound ? "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST" : "REGISTRATION FAILED · TRY AGAIN OR CONTINUE AS GUEST";
@@ -4006,6 +4168,18 @@
     }
     closeDragonResultBtn.addEventListener("click", closeDragonResult);
     closeUpdateNoticeBtn.addEventListener("click", closeUpdateNotice);
+    playerHudProfileIcon.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openProfileIconPicker();
+    });
+    playerProfileIcon.addEventListener("click", () => {
+      var _a;
+      if (openProfileIdentity === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) openProfileIconPicker();
+    });
+    closeProfileIconPickerBtn.addEventListener("click", closeProfileIconPicker);
+    profileIconPickerEl.addEventListener("click", (event) => {
+      if (event.target === profileIconPickerEl) closeProfileIconPicker();
+    });
     closeDuelReplayBtn.addEventListener("click", () => {
       const closeReplay = () => {
         duelReplayEl.hidden = true;
@@ -4096,7 +4270,6 @@
     updateConnectionStatus();
     updateAccountStatus();
     updateProtocolGate();
-    showCurrentUpdateNotice();
     window.setInterval(() => chat.refresh(), 1e3);
     window.setInterval(() => {
       var _a;
@@ -4108,7 +4281,7 @@
       last = performance.now();
     });
     document.addEventListener("pointerdown", (event) => {
-      var _a, _b2, _c2, _d, _e, _f;
+      var _a, _b2, _c2, _d, _e, _f, _g;
       const target = event.target;
       if (!(target instanceof Element)) return;
       const toolbar = settingsBtn.closest(".settings-wrap");
@@ -4125,6 +4298,7 @@
       if (!duelResultEl.hidden && !((_e = duelResultEl.querySelector(".modal")) == null ? void 0 : _e.contains(target))) leaveDuelResult();
       if (!bootUpgradeEl.hidden && !((_f = bootUpgradeEl.querySelector(".modal")) == null ? void 0 : _f.contains(target))) bootUpgradeClose.click();
       if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
+      if (!profileIconPickerEl.hidden && !((_g = profileIconPickerEl.querySelector(".modal")) == null ? void 0 : _g.contains(target))) closeProfileIconPicker();
     });
     resetProgressBtn.addEventListener("click", () => {
       if (!confirm("Erase all saved Wildwood progress and start over?")) return;
@@ -4163,6 +4337,14 @@
     });
     document.getElementById("restartBtn").addEventListener("click", startGame);
     addEventListener("keydown", (e) => {
+      if (e.code === "Escape" && !profileIconPickerEl.hidden) {
+        closeProfileIconPicker();
+        return;
+      }
+      if (e.code === "Escape" && !itemInspectEl.hidden) {
+        closeItemInspect();
+        return;
+      }
       if (e.code === "Escape" && !leaderboardEl.hidden) {
         closeLeaderboard();
         return;

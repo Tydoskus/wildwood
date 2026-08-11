@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.246" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.247" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -12,14 +12,17 @@
 
 <div id="hud">
   <div class="topbar">
-    <div class="card">
-      <div class="player-summary">
-        <div id="playerName">PLAYER</div>
-        <div id="playerPower">Power: 30</div>
-      </div>
-      <div class="bar">
-        <div id="hpFill"></div>
-        <div id="hpText">30 / 30 HP</div>
+    <div class="card player-hud-card">
+      <button id="playerHudProfileIcon" class="profile-icon profile-icon-button" type="button" aria-label="Choose profile icon"></button>
+      <div class="player-hud-content">
+        <div class="player-summary">
+          <div id="playerName">PLAYER</div>
+          <div id="playerPower">Power: 30</div>
+        </div>
+        <div class="bar">
+          <div id="hpFill"></div>
+          <div id="hpText">30 / 30 HP</div>
+        </div>
       </div>
     </div>
     <div class="settings-wrap">
@@ -112,7 +115,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.246</div>
+        <div id="version">v0.247</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -120,6 +123,17 @@
       <textarea id="chatInput" maxlength="250" rows="1" autocomplete="off" placeholder="Say something…"></textarea>
       <button type="submit">SEND</button>
     </form>
+  </div>
+</div>
+
+<div id="itemInspect" hidden>
+  <div class="modal item-inspect-modal" role="dialog" aria-modal="true" aria-labelledby="itemInspectName">
+    <button id="closeItemInspectBtn" class="profile-close-button secondary-button" type="button" aria-label="Close item inspection">×</button>
+    <div id="itemInspectIcon" class="item-inspect-icon" aria-hidden="true"></div>
+    <div id="itemInspectSlot" class="inventory-slot">ITEM</div>
+    <h2 id="itemInspectName">ITEM</h2>
+    <p id="itemInspectDescription"></p>
+    <div id="itemInspectStats" class="inventory-stats"></div>
   </div>
 </div>
 
@@ -154,6 +168,13 @@
     </h1>
     <p>This game is in beta, report bugs with /bug</p>
     <p id="accountCharacter" class="account-character" aria-live="polite">Character found: <strong id="accountCharacterName">none</strong></p>
+    <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
+      <header>
+        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.247</strong></div>
+        <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
+      </header>
+      <ul id="updateNoticeItems"></ul>
+    </aside>
     <button id="signInFromStartBtn" type="button">REGISTER</button>
     <button id="continueGuestBtn" class="secondary-button" type="button">CONTINUE AS GUEST</button>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR PLAY AS GUEST</p>
@@ -221,6 +242,7 @@
 <div id="playerProfile" hidden>
   <div class="modal player-profile-modal" role="dialog" aria-modal="true" aria-labelledby="playerProfileName">
     <header class="player-profile-header">
+      <button id="playerProfileIcon" class="profile-icon profile-window-icon" type="button" aria-label="Player profile icon"></button>
       <div class="player-profile-title-row">
         <h2 id="playerProfileName">PLAYER</h2>
         <div id="playerProfilePower">Power: 0</div>
@@ -265,6 +287,16 @@
   </div>
 </div>
 
+<div id="profileIconPicker" hidden>
+  <div class="modal profile-icon-picker-modal" role="dialog" aria-modal="true" aria-labelledby="profileIconPickerTitle">
+    <header class="leaderboard-header">
+      <h2 id="profileIconPickerTitle">CHOOSE PROFILE ICON</h2>
+      <button id="closeProfileIconPickerBtn" class="profile-close-button secondary-button" type="button" aria-label="Close profile icon picker">×</button>
+    </header>
+    <div id="profileIconChoices" class="profile-icon-choices"></div>
+  </div>
+</div>
+
 <div id="leaderboard" hidden>
   <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
     <header class="leaderboard-header">
@@ -295,14 +327,6 @@
   </div>
 </div>
 
-<aside id="updateNotice" class="update-notice card" aria-labelledby="updateNoticeTitle" hidden>
-  <header>
-    <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.246</strong></div>
-    <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
-  </header>
-  <ul id="updateNoticeItems"></ul>
-</aside>
-
 <div id="duelReplay" hidden>
   <div id="duelReplayHud">
     <span id="duelReplayTitle">DUEL REPLAY · OBSERVER</span>
@@ -310,7 +334,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.246"></script>
-<script src="assets/wildwood/game.js?v=0.246"></script>
+<script src="assets/wildwood/coop-client.js?v=0.247"></script>
+<script src="assets/wildwood/game.js?v=0.247"></script>
 </body>
 </html>

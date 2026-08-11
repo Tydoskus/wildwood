@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.247": [
+    "Tutorial Forest map-wide player visibility added",
+    "Sign-in now requires an explicit button press",
+    "Mobile inventory and item actions improved",
+    "Player profile icons added",
+  ],
   "0.246": [
     "Developer button visibility fixed",
     "Developer player-save editor added",

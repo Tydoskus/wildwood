@@ -66,7 +66,12 @@ const itemsById = ITEM_DEFINITIONS as Record<string, ItemDefinition>;
 export function renderInventoryView(
   elements: InventoryElements,
   inventory: InventoryViewState,
-  onSelect: (itemId: string) => void,
+  actions: {
+    onSelect: (itemId: string) => void;
+    onEquip: (itemId: string) => void;
+    onUnequip: (itemId: string) => void;
+    onInspect: (itemId: string) => void;
+  },
 ) {
   elements.items.replaceChildren();
   const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
@@ -88,7 +93,7 @@ export function renderInventoryView(
       button.setAttribute("aria-label", item.name);
       button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
       button.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
-      button.addEventListener("click", () => onSelect(itemId));
+      button.addEventListener("click", () => actions.onSelect(itemId));
     } else {
       button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
       button.disabled = true;
@@ -105,4 +110,18 @@ export function renderInventoryView(
     `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
     `<strong>${selected.name}</strong><p>${selected.description}</p>` +
     `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
+  const actionRow = document.createElement("div");
+  actionRow.className = "inventory-actions";
+  const equip = document.createElement("button");
+  equip.type = "button";
+  const equipped = inventory.equippedFeet === selected.id;
+  equip.textContent = equipped ? "UNEQUIP" : "EQUIP";
+  equip.addEventListener("click", () => equipped ? actions.onUnequip(selected.id) : actions.onEquip(selected.id));
+  const inspect = document.createElement("button");
+  inspect.type = "button";
+  inspect.className = "secondary-button";
+  inspect.textContent = "INSPECT";
+  inspect.addEventListener("click", () => actions.onInspect(selected.id));
+  actionRow.append(equip, inspect);
+  elements.detail.appendChild(actionRow);
 }

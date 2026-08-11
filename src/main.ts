@@ -27,7 +27,7 @@ import {
   WORLD,
 } from "./game/constants";
 import { circlesOverlap, clamp, distanceSquared, rand, randi } from "./game/math";
-import { inventoryFromSave, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { inventoryFromSave, ITEM_DEFINITIONS, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
 import { createSpawnSites, createWorldLayout, loadTreeSpritesheet } from "./game/world";
 import {
@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.246";
+  const GAME_VERSION = "0.247";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -84,6 +84,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const hpText = document.getElementById("hpText");
   const playerNameEl = document.getElementById("playerName");
   const playerPowerEl = document.getElementById("playerPower");
+  const playerHudProfileIcon = document.getElementById("playerHudProfileIcon");
   const settingsBtn = document.getElementById("settingsBtn");
   const inventoryBtn = document.getElementById("inventoryBtn");
   const leaderboardBtn = document.getElementById("leaderboardBtn");
@@ -95,6 +96,13 @@ import { formatCompactNumber } from "./ui/number-format";
   const inventoryDetailEl = document.getElementById("inventoryDetail");
   const inventoryCountEl = document.getElementById("inventoryCount");
   const equippedFeetSlot = document.getElementById("equippedFeetSlot");
+  const itemInspectEl = document.getElementById("itemInspect");
+  const closeItemInspectBtn = document.getElementById("closeItemInspectBtn");
+  const itemInspectIcon = document.getElementById("itemInspectIcon");
+  const itemInspectSlot = document.getElementById("itemInspectSlot");
+  const itemInspectName = document.getElementById("itemInspectName");
+  const itemInspectDescription = document.getElementById("itemInspectDescription");
+  const itemInspectStats = document.getElementById("itemInspectStats");
   const screenShakeToggle = document.getElementById("screenShakeToggle");
   const attackRangeToggle = document.getElementById("attackRangeToggle");
   const latencyToggle = document.getElementById("latencyToggle");
@@ -151,6 +159,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const playerProfileEl = document.getElementById("playerProfile");
   const playerProfileNameEl = document.getElementById("playerProfileName");
   const playerProfilePowerEl = document.getElementById("playerProfilePower");
+  const playerProfileIcon = document.getElementById("playerProfileIcon");
   const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
   const profileOverviewTab = document.getElementById("profileOverviewTab");
   const profileStatsTab = document.getElementById("profileStatsTab");
@@ -192,6 +201,9 @@ import { formatCompactNumber } from "./ui/number-format";
   const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
   const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
   const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
+  const profileIconPickerEl = document.getElementById("profileIconPicker");
+  const profileIconChoices = document.getElementById("profileIconChoices");
+  const closeProfileIconPickerBtn = document.getElementById("closeProfileIconPickerBtn");
   const gameUpdateGateEl = document.getElementById("gameUpdateGate");
   const coop = window.wildwoodCoop || null;
 
@@ -361,6 +373,8 @@ import { formatCompactNumber } from "./ui/number-format";
   playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
   playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
   playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
+  const profileIconSheet = new Image();
+  profileIconSheet.src = "assets/wildwood/profile-icons.png";
 
   const ENEMY_SPRITES = loadEnemySprites();
   const actorShadowSprite = loadActorShadowSprite();
@@ -558,11 +572,11 @@ import { formatCompactNumber } from "./ui/number-format";
     player.armor = number(source.armor, player.armor, 0, 1000000);
     player.regen = number(source.regen, player.regen, 0, 1000000);
     bootsPickup.collected = source.bootsCollected === true;
-    player.speed = bootsPickup.collected ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
     player.hp = player.maxHp;
     const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
     inventory.itemIds = savedInventory.itemIds;
     inventory.equippedFeet = savedInventory.equippedFeet;
+    player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
     if (!inventory.selectedItemId && inventory.itemIds.length) inventory.selectedItemId = inventory.itemIds[0];
     renderInventory();
     hasSavedProgress = true;
@@ -653,6 +667,7 @@ import { formatCompactNumber } from "./ui/number-format";
     connectionPanel.hidden = true;
     accountChoicePanel.hidden = false;
     newPlayerPanel.hidden = true;
+    showCurrentUpdateNotice();
   }
 
   function showSigningIn() {
@@ -2047,6 +2062,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
     drawActorStatus({
       x, y,
+      identity: actor.identity,
       name: actor.name,
       nameColor: actor.isLocal ? "#ffffff" : "#9eeeff",
       hp: actor.hp,
@@ -2129,6 +2145,29 @@ import { formatCompactNumber } from "./ui/number-format";
     if (coop?.isGuest?.(identity)) element.append(document.createTextNode(" (guest)"));
   }
 
+  function applyProfileIcon(element, iconIndex) {
+    const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
+    const column = index % 8;
+    const row = Math.floor(index / 8);
+    element.style.backgroundPosition = `${column / 7 * 100}% ${row / 7 * 100}%`;
+    element.dataset.profileIcon = String(index);
+  }
+
+  function drawProfileIcon(identity, x, bottom, size = 15) {
+    if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
+    const index = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(identity) ?? 0)));
+    const cellW = profileIconSheet.naturalWidth / 8;
+    const cellH = profileIconSheet.naturalHeight / 8;
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(
+      profileIconSheet,
+      (index % 8) * cellW, Math.floor(index / 8) * cellH, cellW, cellH,
+      Math.round(x), Math.round(bottom - size), size, size,
+    );
+    ctx.restore();
+  }
+
   function drawPlayer() {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
@@ -2155,6 +2194,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
     drawActorStatus({
       x, y,
+      identity: coop?.localIdentity?.(),
       name: publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
       nameColor: "#ffffff",
       hp: player.hp,
@@ -2253,7 +2293,7 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.restore();
   }
 
-  function drawActorStatus({ x, y, name, nameColor, hp, maxHp, power, fillColor }) {
+  function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }) {
     const centerX = Math.round(x);
     const barW = 77;
     const barH = WORLD_HEALTH_BAR_HEIGHT;
@@ -2283,15 +2323,17 @@ import { formatCompactNumber } from "./ui/number-format";
 
     const powerBaseline = barY - 7;
     const nameBaseline = power === null ? powerBaseline : powerBaseline - 17;
-    drawPlayerName(name, centerX, nameBaseline, nameColor);
+    drawPlayerName(identity, name, centerX, nameBaseline, nameColor);
     if (power !== null) drawPlayerPowerValue(power, centerX, powerBaseline);
   }
 
-  function drawPlayerName(name, x, y, color) {
+  function drawPlayerName(identity, name, x, y, color) {
     if (!name) return;
     ctx.save();
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
+    const nameWidth = ctx.measureText(name).width;
+    drawProfileIcon(identity, x - nameWidth / 2 - 19, y, 15);
     const developerPrefix = `${DEVELOPER_BADGE} `;
     if (name.startsWith(developerPrefix)) {
       const playerName = name.slice(developerPrefix.length);
@@ -2362,6 +2404,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
       drawActorStatus({
         x, y,
+        identity: other.id,
         name: publicPlayerName(other.id, other.name),
         nameColor: "#9eeeff",
         hp: other.hp,
@@ -2629,6 +2672,12 @@ import { formatCompactNumber } from "./ui/number-format";
     roundRect(x, y, size, size, 10);
     ctx.fill();
     ctx.stroke();
+    ctx.save();
+    ctx.font = '900 9px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    outlinedText("TUTORIAL FOREST", x + size / 2, y + 7, "#f5f5e9", 1.5);
+    ctx.restore();
 
     const sx = size / WORLD.w;
     const sy = size / WORLD.h;
@@ -2679,6 +2728,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const localId = coop?.localIdentity?.();
     const remoteName = (identity) => remotePlayers.find((other) => other.id === identity)?.name ?? "OPPONENT";
     const actor = (identity, isChallenger) => ({
+      identity,
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
       name: identity === localId ? (coop?.localDisplayName?.() || "PLAYER") : remoteName(identity),
@@ -2842,6 +2892,7 @@ import { formatCompactNumber } from "./ui/number-format";
       ? (Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1)
       : 0;
     const developer = isDeveloperIdentity(coop?.localIdentity?.());
+    applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0);
     devAuditBtn.hidden = !developer;
     if (!developer && !devAuditEl.hidden) closeDevAudit();
     renderPlayerHud(
@@ -2893,6 +2944,11 @@ import { formatCompactNumber } from "./ui/number-format";
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     const power = playerPower(progress);
     renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
+    applyProfileIcon(playerProfileIcon, coop?.profileIcon?.(profile.identity) ?? 0);
+    const ownProfile = profile.identity === coop?.localIdentity?.();
+    playerProfileIcon.classList.toggle("is-editable", ownProfile);
+    playerProfileIcon.disabled = !ownProfile;
+    playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
     playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
     profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
       year: "numeric", month: "short", day: "numeric",
@@ -2937,6 +2993,9 @@ import { formatCompactNumber } from "./ui/number-format";
     editPlayerSaveBtn.hidden = true;
     playerProfileEl.hidden = false;
     renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
+    applyProfileIcon(playerProfileIcon, coop?.profileIcon?.(identity) ?? 0);
+    playerProfileIcon.classList.toggle("is-editable", identity === coop?.localIdentity?.());
+    playerProfileIcon.disabled = identity !== coop?.localIdentity?.();
     playerProfilePowerEl.textContent = "Power: —";
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
@@ -3199,6 +3258,38 @@ import { formatCompactNumber } from "./ui/number-format";
     try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); } catch {}
   }
 
+  function openProfileIconPicker() {
+    if (!coop?.isConnected?.()) return;
+    const selected = coop?.profileIcon?.() ?? 0;
+    profileIconChoices.replaceChildren();
+    for (let index = 0; index < 64; index += 1) {
+      const choice = document.createElement("button");
+      choice.type = "button";
+      choice.className = "profile-icon-choice";
+      choice.classList.toggle("is-selected", index === selected);
+      choice.setAttribute("aria-label", `Use profile icon ${index + 1}`);
+      choice.setAttribute("aria-pressed", String(index === selected));
+      applyProfileIcon(choice, index);
+      choice.addEventListener("click", async () => {
+        const result = await coop?.setProfileIcon?.(index);
+        if (!result?.ok) {
+          showMessage(result?.error || "PROFILE ICON UPDATE FAILED", "#ff9b91");
+          return;
+        }
+        applyProfileIcon(playerHudProfileIcon, index);
+        if (openProfileIdentity === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, index);
+        profileIconPickerEl.hidden = true;
+        showMessage("PROFILE ICON UPDATED", "#72ef58");
+      });
+      profileIconChoices.appendChild(choice);
+    }
+    profileIconPickerEl.hidden = false;
+  }
+
+  function closeProfileIconPicker() {
+    profileIconPickerEl.hidden = true;
+  }
+
   function openPlayerAtScreenPoint(clientX, clientY) {
     if (!running || !playerProfileEl.hidden || isDueling()) return false;
     const worldX = camera.x + clientX / camera.zoom;
@@ -3225,11 +3316,47 @@ import { formatCompactNumber } from "./ui/number-format";
     renderInventoryView(
       { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedFeet: equippedFeetSlot },
       inventory,
-      (itemId) => {
-        inventory.selectedItemId = itemId;
-        renderInventory();
+      {
+        onSelect(itemId) {
+          inventory.selectedItemId = itemId;
+          renderInventory();
+        },
+        onEquip(itemId) {
+          if (ITEM_DEFINITIONS[itemId]?.slot !== "FEET") return;
+          inventory.equippedFeet = itemId;
+          player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
+          saveProgress();
+          renderInventory();
+          showMessage(`${ITEM_DEFINITIONS[itemId].name} EQUIPPED`, "#72ef58");
+        },
+        onUnequip(itemId) {
+          if (inventory.equippedFeet !== itemId) return;
+          inventory.equippedFeet = "";
+          player.speed = BASE_PLAYER_SPEED;
+          saveProgress();
+          renderInventory();
+          showMessage(`${ITEM_DEFINITIONS[itemId].name} UNEQUIPPED`, "#ffe05d");
+        },
+        onInspect(itemId) {
+          openItemInspect(itemId);
+        },
       },
     );
+  }
+
+  function openItemInspect(itemId) {
+    const item = ITEM_DEFINITIONS[itemId];
+    if (!item) return;
+    itemInspectSlot.textContent = `${item.slot} · ${inventory.equippedFeet === item.id ? "EQUIPPED" : "IN BAG"}`;
+    itemInspectName.textContent = item.name;
+    itemInspectDescription.textContent = item.description;
+    itemInspectStats.textContent = item.stats.join(" · ");
+    itemInspectIcon.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
+    itemInspectEl.hidden = false;
+  }
+
+  function closeItemInspect() {
+    itemInspectEl.hidden = true;
   }
 
   function nearbyDuelOpponent() {
@@ -3481,6 +3608,10 @@ import { formatCompactNumber } from "./ui/number-format";
       renderInventory();
     }
   });
+  closeItemInspectBtn?.addEventListener("click", closeItemInspect);
+  itemInspectEl?.addEventListener("click", (event) => {
+    if (event.target === itemInspectEl) closeItemInspect();
+  });
 
   accountButton?.addEventListener("click", () => {
     const account = coop?.accountState?.();
@@ -3500,7 +3631,10 @@ import { formatCompactNumber } from "./ui/number-format";
     showAccountChoice();
     accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
     void coop?.signIn?.().then((result) => {
-      if (result?.ok !== false) return;
+      if (result?.ok !== false) {
+        showConnecting();
+        return;
+      }
       accountSignInPending = false;
       showAccountChoice();
       accountChoiceDetail.textContent = characterFound
@@ -3590,6 +3724,17 @@ import { formatCompactNumber } from "./ui/number-format";
   }
   closeDragonResultBtn.addEventListener("click", closeDragonResult);
   closeUpdateNoticeBtn.addEventListener("click", closeUpdateNotice);
+  playerHudProfileIcon.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openProfileIconPicker();
+  });
+  playerProfileIcon.addEventListener("click", () => {
+    if (openProfileIdentity === coop?.localIdentity?.()) openProfileIconPicker();
+  });
+  closeProfileIconPickerBtn.addEventListener("click", closeProfileIconPicker);
+  profileIconPickerEl.addEventListener("click", (event) => {
+    if (event.target === profileIconPickerEl) closeProfileIconPicker();
+  });
 
   closeDuelReplayBtn.addEventListener("click", () => {
     const closeReplay = () => {
@@ -3687,7 +3832,6 @@ import { formatCompactNumber } from "./ui/number-format";
   updateConnectionStatus();
   updateAccountStatus();
   updateProtocolGate();
-  showCurrentUpdateNotice();
   window.setInterval(() => chat.refresh(), 1_000);
   window.setInterval(() => {
     if (coop?.accountState?.().updating) enforceLatestVersion(GAME_VERSION);
@@ -3716,6 +3860,7 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!duelResultEl.hidden && !duelResultEl.querySelector(".modal")?.contains(target)) leaveDuelResult();
     if (!bootUpgradeEl.hidden && !bootUpgradeEl.querySelector(".modal")?.contains(target)) bootUpgradeClose.click();
     if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
+    if (!profileIconPickerEl.hidden && !profileIconPickerEl.querySelector(".modal")?.contains(target)) closeProfileIconPicker();
   });
 
   resetProgressBtn.addEventListener("click", () => {
@@ -3758,6 +3903,14 @@ import { formatCompactNumber } from "./ui/number-format";
   document.getElementById("restartBtn").addEventListener("click", startGame);
 
   addEventListener("keydown", e => {
+    if (e.code === "Escape" && !profileIconPickerEl.hidden) {
+      closeProfileIconPicker();
+      return;
+    }
+    if (e.code === "Escape" && !itemInspectEl.hidden) {
+      closeItemInspect();
+      return;
+    }
     if (e.code === "Escape" && !leaderboardEl.hidden) {
       closeLeaderboard();
       return;

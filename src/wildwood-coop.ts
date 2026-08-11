@@ -174,12 +174,12 @@ const NEARBY_MOVEMENT_HZ = 15;
 const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
-const PLAYER_ZONE_SIZE = 600;
+const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 20;
+const PROTOCOL_VERSION = 21;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -204,7 +204,6 @@ const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
 const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
 const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
-const silentAuthAttemptKey = `${tokenKey}/spacetimeauth_silent_attempt_v1`;
 const authReturnUiKey = `${tokenKey}/spacetimeauth_return_ui_v1`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
@@ -214,6 +213,7 @@ const SPACETIME_AUTH_TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const SPACETIME_AUTH_SCOPE = "openid profile email";
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
+const profileIcons = new Map<string, number>();
 const profileIdentities = new Map<string, Identity>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
 const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
@@ -224,10 +224,8 @@ const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
-let spatialPlayerSubscription: { unsubscribe: () => void } | null = null;
-let spatialZoneX: number | null = null;
-let spatialZoneY: number | null = null;
-let spatialSubscriptionGeneration = 0;
+let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
+let mapSubscriptionGeneration = 0;
 const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
@@ -278,6 +276,9 @@ let accountReturnPending = accountCallbackPending && (() => {
     return false;
   }
 })();
+// Persisted credentials identify a known character, but entering that account
+// always requires the player to press SIGN IN for this page session.
+let accountSessionApproved = accountReturnPending;
 
 function reducerErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -546,20 +547,6 @@ function completeAccountReturnWhenReady() {
   clearAccountReturnPending();
 }
 
-function silentAuthAlreadyAttempted() {
-  try {
-    return sessionStorage.getItem(silentAuthAttemptKey) === "true";
-  } catch {
-    return true;
-  }
-}
-
-function markSilentAuthAttempted() {
-  try {
-    sessionStorage.setItem(silentAuthAttemptKey, "true");
-  } catch {}
-}
-
 function guestToken() {
   try {
     const saved = localStorage.getItem(guestTokenKey);
@@ -653,7 +640,7 @@ async function completeAccountCallback() {
   }
 }
 
-async function startAccountSignIn(silent = false) {
+async function startAccountSignIn() {
   try {
     sessionStorage.setItem(authReturnUiKey, "true");
     accountReturnPending = true;
@@ -674,7 +661,6 @@ async function startAccountSignIn(silent = false) {
     code_challenge: challenge,
     code_challenge_method: "S256",
   });
-  if (silent) parameters.set("prompt", "none");
   url.search = parameters.toString();
   window.location.assign(url.toString());
 }
@@ -682,13 +668,11 @@ async function startAccountSignIn(silent = false) {
 async function restoreKnownAccount() {
   await completeAccountCallback();
   if (!accountToken() && hasKnownAccount()) {
-    if (!silentAuthAlreadyAttempted()) {
-      markSilentAuthAttempted();
-      authNotice = "RESTORING SIGN-IN";
-      onChange?.();
-      await startAccountSignIn(true);
-      return;
-    }
+    authNotice = "SIGN-IN REQUIRED";
+    onChange?.();
+    return;
+  }
+  if (accountToken() && hasKnownAccount() && !accountSessionApproved) {
     authNotice = "SIGN-IN REQUIRED";
     onChange?.();
     return;
@@ -923,7 +907,7 @@ function upsertPlayer(row: {
       moving: row.moving,
       lastInputSequence: row.lastInputSequence,
     };
-    refreshSpatialPlayerSubscription(row.x, row.y);
+    refreshMapPlayerSubscription();
     onChange?.();
     return;
   }
@@ -963,9 +947,10 @@ function upsertPlayer(row: {
   onChange?.();
 }
 
-function upsertProfile(row: { identity: Identity; displayName: string }) {
+function upsertProfile(row: { identity: Identity; displayName: string; profileIcon: number }) {
   const id = row.identity.toHexString();
   profiles.set(id, row.displayName);
+  profileIcons.set(id, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
   profileIdentities.set(id, row.identity);
   if (id === localIdentity) {
     localDisplayName = row.displayName;
@@ -1321,57 +1306,42 @@ function removePlayer(row: { identity: Identity }) {
   onChange?.();
 }
 
-function releaseSpatialPlayerSubscription() {
-  spatialSubscriptionGeneration += 1;
-  spatialPlayerSubscription?.unsubscribe();
-  spatialPlayerSubscription = null;
-  spatialZoneX = null;
-  spatialZoneY = null;
+function releaseMapPlayerSubscription() {
+  mapSubscriptionGeneration += 1;
+  mapPlayerSubscription?.unsubscribe();
+  mapPlayerSubscription = null;
 }
 
-function refreshSpatialPlayerSubscription(x: number, y: number, force = false) {
+function refreshMapPlayerSubscription(force = false) {
   const conn = connection;
   if (!conn?.isActive || !hydrationReady) return;
-  const zoneX = Math.floor(x / PLAYER_ZONE_SIZE);
-  const zoneY = Math.floor(y / PLAYER_ZONE_SIZE);
-  if (!force && zoneX === spatialZoneX && zoneY === spatialZoneY) return;
+  if (!force && mapPlayerSubscription) return;
 
-  const previous = spatialPlayerSubscription;
-  const previousZoneX = spatialZoneX;
-  const previousZoneY = spatialZoneY;
-  const generation = ++spatialSubscriptionGeneration;
-  spatialZoneX = zoneX;
-  spatialZoneY = zoneY;
-  const queries = [];
-  for (let nearbyY = zoneY - 1; nearbyY <= zoneY + 1; nearbyY += 1) {
-    for (let nearbyX = zoneX - 1; nearbyX <= zoneX + 1; nearbyX += 1) {
-      queries.push(tables.player.where((row) => row.zoneX.eq(nearbyX).and(row.zoneY.eq(nearbyY))));
-    }
-  }
+  const previous = mapPlayerSubscription;
+  const generation = ++mapSubscriptionGeneration;
 
   const next = conn
     .subscriptionBuilder()
     .onApplied(() => {
-      if (connection !== conn || generation !== spatialSubscriptionGeneration) return;
+      if (connection !== conn || generation !== mapSubscriptionGeneration) return;
       previous?.unsubscribe();
       for (const row of conn.db.player.iter()) upsertPlayer(row);
     })
     .onError((ctx) => {
-      if (connection !== conn || generation !== spatialSubscriptionGeneration) return;
-      console.error("Wildwood spatial player subscription error:", ctx.event);
-      spatialPlayerSubscription = previous;
-      spatialZoneX = previousZoneX;
-      spatialZoneY = previousZoneY;
+      if (connection !== conn || generation !== mapSubscriptionGeneration) return;
+      console.error("Wildwood map player subscription error:", ctx.event);
+      mapPlayerSubscription = previous;
     })
-    .subscribe(queries);
-  spatialPlayerSubscription = next;
+    .subscribe([tables.player.where((row) => row.mapId.eq(TUTORIAL_FOREST_MAP_ID))]);
+  mapPlayerSubscription = next;
 }
 
 function clearRealtimeCaches() {
   releasePlayerProfile();
-  releaseSpatialPlayerSubscription();
+  releaseMapPlayerSubscription();
   players.clear();
   profiles.clear();
+  profileIcons.clear();
   profileIdentities.clear();
   leaderboardEntries.clear();
   accessAuditEntries.clear();
@@ -1436,6 +1406,11 @@ function reconnectAfterWake(force = false) {
 
 function connect() {
   if (protocolBlocked || connection?.isActive || connecting) return;
+  if (accountToken() && hasKnownAccount() && !accountSessionApproved) {
+    authNotice = "SIGN-IN REQUIRED";
+    onChange?.();
+    return;
+  }
   if (!accountToken() && hasKnownAccount() && !guestSessionExplicit) {
     authNotice = "SIGN-IN REQUIRED";
     onChange?.();
@@ -1587,7 +1562,7 @@ function connect() {
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
-          if (localState) refreshSpatialPlayerSubscription(localState.x, localState.y, true);
+          refreshMapPlayerSubscription(true);
           sessionGeneration += 1;
           flushPendingProgress();
           onChange?.();
@@ -1657,13 +1632,6 @@ function connect() {
       const rejectedToken = /401|unauthorized|verify token/i.test(String(error?.message || error));
       if (rejectedToken) {
         clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
-        if (signedIn && hasKnownAccount() && !silentAuthAlreadyAttempted()) {
-          markSilentAuthAttempted();
-          authNotice = "RESTORING SIGN-IN";
-          onChange?.();
-          void startAccountSignIn(true);
-          return;
-        }
         if (signedIn && hasKnownAccount()) {
           authNotice = "SIGN-IN REQUIRED";
           clearAccountReturnPending();
@@ -1696,12 +1664,12 @@ export const wildwoodCoop = {
     return latencyMs;
   },
   accountState() {
-    const signedIn = connection?.isActive ? connectedSignedIn : Boolean(accountToken());
+    const signedIn = Boolean(connection?.isActive && connectedSignedIn);
     return {
       signedIn,
       knownAccount: hasKnownAccount(),
       signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
-      authInProgress: accountCallbackPending || authNotice === "RESTORING SIGN-IN",
+      authInProgress: accountCallbackPending,
       returningFromSignIn: accountReturnPending,
       hydrated: hydrationReady,
       updating: protocolBlocked,
@@ -1720,7 +1688,14 @@ export const wildwoodCoop = {
   },
   async signIn() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
-    if (connection?.isActive ? connectedSignedIn : Boolean(accountToken())) return { ok: true };
+    if (connection?.isActive && connectedSignedIn) return { ok: true };
+    if (accountToken() && hasKnownAccount()) {
+      accountSessionApproved = true;
+      authNotice = "OPENING CHARACTER";
+      onChange?.();
+      connect();
+      return { ok: true };
+    }
     if (hasKnownAccount() && !connection) {
       authNotice = "OPENING SIGN-IN";
       onChange?.();
@@ -1766,7 +1741,6 @@ export const wildwoodCoop = {
       localStorage.removeItem(accountTokenKey);
       localStorage.removeItem(knownAccountKey);
       localStorage.removeItem(accountMigrationPendingKey);
-      sessionStorage.removeItem(silentAuthAttemptKey);
     } catch {}
     clearTabValue(accountLinkKey);
     clearTabValue(authStateKey);
@@ -1791,6 +1765,9 @@ export const wildwoodCoop = {
   },
   localDisplayName() {
     return localDisplayName;
+  },
+  profileIcon(identity = localIdentity) {
+    return profileIcons.get(identity) ?? 0;
   },
   localProfileReady() {
     return localProfileReady;
@@ -1864,6 +1841,19 @@ export const wildwoodCoop = {
       const message = reducerErrorMessage(error);
       handleReducerFailure("display-name update", error);
       console.warn("Wildwood display-name update rejected:", message);
+      return { ok: false, error: message };
+    }
+  },
+  async setProfileIcon(profileIcon: number) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    const normalized = Math.max(0, Math.min(63, Math.floor(profileIcon)));
+    try {
+      await connection.reducers.setProfileIcon({ profileIcon: normalized });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("profile icon update", error);
       return { ok: false, error: message };
     }
   },
@@ -1964,7 +1954,7 @@ export const wildwoodCoop = {
   },
   syncPosition(x: number, y: number, facing: number, moving = false, force = false, highFrequency = false) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
-    refreshSpatialPlayerSubscription(x, y);
+    refreshMapPlayerSubscription();
     const now = performance.now();
     const movingChanged = moving !== lastPositionMoving;
     const movementIntervalMs = highFrequency ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;
