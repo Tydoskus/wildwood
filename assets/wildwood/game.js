@@ -701,7 +701,7 @@
   }
   (() => {
     var _a, _b;
-    const GAME_VERSION = "0.238";
+    const GAME_VERSION = "0.239";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
     const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -1521,7 +1521,17 @@
       });
       if (!localContribution) {
         if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
-        dragonWorldNoticeDetailEl.textContent = `${result.contributors.length} ${result.contributors.length === 1 ? "PLAYER" : "PLAYERS"} · ${formatCompactNumber(result.totalDamage)} TOTAL DAMAGE`;
+        dragonWorldNoticeDetailEl.replaceChildren();
+        for (const contributor of result.contributors) {
+          const row = document.createElement("div");
+          row.className = "dragon-world-notice-row";
+          const name = document.createElement("span");
+          name.textContent = contributor.name;
+          const percentage = document.createElement("span");
+          percentage.textContent = `${Math.round(contributor.percentage)}%`;
+          row.append(name, percentage);
+          dragonWorldNoticeDetailEl.appendChild(row);
+        }
         dragonWorldNoticeEl.hidden = false;
         dragonWorldNoticeEl.style.animation = "none";
         void dragonWorldNoticeEl.offsetWidth;
