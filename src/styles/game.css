@@ -84,7 +84,7 @@
   .player-hud-card { display: flex; align-items: stretch; gap: 8px; padding: 7px 9px; }
   .topbar > .player-hud-card { border-top: 0; border-left: 0; border-radius: 0 0 10px 0; }
   .player-hud-content { min-width: 0; flex: 1; }
-  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { border-color: var(--green); cursor: pointer; }
@@ -93,7 +93,7 @@
   .profile-icon-picker-modal { width: min(510px, calc(100vw - 18px)); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
   .profile-icon-picker-modal h2 { margin: 0; color: var(--gold); font-size: clamp(17px, 4vw, 24px); }
   .profile-icon-choices { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; max-height: min(74vh, 480px); margin-top: 10px; overflow-y: auto; }
-  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; }
+  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; }
   .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
 
   #playerPower {
@@ -557,12 +557,8 @@
     text-shadow: none;
   }
 
-  .chat-size-icon::before,
-  .chat-size-icon::after { position: absolute; }
-  .chat-size-icon::before { top: 0; right: 0; content: "↗"; }
-  .chat-size-icon::after { bottom: 0; left: 0; content: "↙"; }
+  .chat-size-icon::before { position: absolute; inset: 0; display: grid; place-items: center; content: "↗"; font-size: 15px; }
   #chatSizeToggle[aria-expanded="true"] .chat-size-icon::before { content: "↙"; }
-  #chatSizeToggle[aria-expanded="true"] .chat-size-icon::after { content: "↗"; }
 
   #saveNameBtn,
   #chatForm button {
@@ -597,7 +593,7 @@
   #chatPanel:not(.is-large) .chat-line { display: none; }
   #chatPanel:not(.is-large) .chat-line:nth-last-child(-n + 2) { display: block; }
   .chat-line { overflow-wrap: anywhere; }
-  .chat-profile-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px 0 1px; border: 1px solid rgba(255,255,255,.25); border-radius: 3px; background: #0d1411 url("../../assets/wildwood/profile-portraits-grid-v1.png") no-repeat; background-size: 800% 800%; vertical-align: -4px; -webkit-text-stroke: 0; text-shadow: none; }
+  .chat-profile-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px 0 1px; border: 1px solid rgba(255,255,255,.25); border-radius: 3px; background: #0d1411 url("../../assets/wildwood/profile-portraits-grid-v1.png") no-repeat; background-size: 800% 800%; background-clip: padding-box; vertical-align: -4px; -webkit-text-stroke: 0; text-shadow: none; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
   .chat-name { color: var(--gold); font-weight: 900; }
   .chat-text { color: var(--text); white-space: pre-wrap; }
@@ -889,22 +885,22 @@
     0%, 78% { opacity: 1; transform: translate(-50%, 0); }
     100% { opacity: 0; transform: translate(-50%, -8px); }
   }
-  .player-profile-modal { width: min(520px, calc(100vw - 26px)); max-height: calc(100vh - 26px); overflow-y: auto; text-align: left; }
-  .player-profile-header { display: flex; align-items: center; gap: 14px; }
-  .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 18px; }
+  .modal.player-profile-modal { width: min(520px, calc(100vw - 26px)); max-height: calc(100vh - 26px); padding: 14px; overflow-y: auto; text-align: left; }
+  .player-profile-header { display: flex; align-items: center; gap: 10px; }
+  .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
-  .player-profile-header h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-size: clamp(18px, 4.4vw, 26px); line-height: 1.05; white-space: nowrap; text-overflow: ellipsis; }
+  .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-size: clamp(15px, 3.6vw, 23px); line-height: 1.08; overflow-wrap: anywhere; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
-  #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 13px; white-space: nowrap; text-align: right; }
+  #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 11px; white-space: nowrap; text-align: right; }
   .profile-close-button { width: 40px; min-width: 40px; height: 40px; margin: 0; padding: 0; font-size: 25px; line-height: 1; }
-  .profile-tabs { display: flex; gap: 7px; margin: 18px 0 12px; border-bottom: 2px solid rgba(255,255,255,.13); }
+  .profile-tabs { display: flex; gap: 7px; margin: 12px 0 8px; border-bottom: 2px solid rgba(255,255,255,.13); }
   .profile-tab { margin: 0 0 -2px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; border-radius: 5px 5px 0 0; background: transparent; color: var(--muted); font-size: 10px; }
   .profile-tab.is-active { border-bottom-color: var(--green); color: #fff; }
   .profile-loading { padding: 24px 8px; color: var(--muted); font-size: 11px; text-align: center; }
   .profile-panel[hidden], .profile-loading[hidden] { display: none; }
   .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
-  .profile-grid > div { min-width: 0; padding: 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
+  .profile-grid > div { min-width: 0; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
   .profile-stat-grid { gap: 0; background: rgba(0,0,0,.2); }
@@ -946,7 +942,7 @@
   .dev-audit-editor button { min-width: 48px; height: 29px; margin: 0; padding: 3px 6px; border-width: 2px; border-radius: 5px; font-size: 8px; }
   .dev-audit-account-actions { display: flex; gap: 4px; margin-top: 4px; }
   .dev-audit-account-actions button { min-width: 50px; height: 25px; margin: 0; padding: 2px 6px; border-width: 2px; border-radius: 5px; font-size: 7px; }
-  .profile-edit-button { margin: 10px 0 0 auto; padding: 6px 10px; font-size: 9px; }
+  .profile-edit-button { display: block; margin: 7px 0 0 auto; padding: 6px 10px; font-size: 9px; }
   .profile-edit-button[hidden], .profile-edit-panel[hidden] { display: none; }
   .profile-edit-panel { margin-top: 10px; padding-top: 10px; border-top: 2px solid rgba(255,255,255,.13); }
   .profile-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
@@ -980,6 +976,23 @@
   }
 
   @media (max-width: 600px), (pointer: coarse) {
+    #playerProfile { padding: 5px; }
+    .modal.player-profile-modal { width: min(520px, calc(100vw - 10px)); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; border-width: 2px; border-radius: 10px; }
+    .player-profile-header { gap: 7px; }
+    .profile-window-icon { width: 46px; min-width: 46px; height: 46px; border-radius: 6px; }
+    .player-profile-title-row { gap: 7px; }
+    .player-profile-header h2 { font-size: clamp(14px, 4.8vw, 20px); }
+    .player-profile-presence { margin-top: 2px; font-size: 7px; line-height: 1.15; }
+    #playerProfilePower { font-size: 10px; }
+    .player-profile-modal .profile-close-button { width: 34px; min-width: 34px; height: 34px; font-size: 21px; }
+    .player-profile-modal .profile-tabs { margin: 8px 0 5px; }
+    .player-profile-modal .profile-tab { padding: 5px 9px; font-size: 9px; }
+    .player-profile-modal .profile-grid { gap: 4px; }
+    .player-profile-modal .profile-grid > div { padding: 6px 4px; }
+    .player-profile-modal .profile-grid dt { font-size: 7px; }
+    .player-profile-modal .profile-grid dd { margin-top: 2px; font-size: 10px; }
+    .player-profile-modal .profile-stat-grid { gap: 0; }
+    .profile-edit-button { margin-top: 5px; padding: 4px 7px; font-size: 8px; }
     .modal.leaderboard-modal { padding: 9px; }
     .leaderboard-header { gap: 8px; }
     .leaderboard-header h2 { font-size: 18px; }
@@ -998,6 +1011,11 @@
     .dev-audit-last-seen { grid-column: 1; grid-row: 2; }
     .dev-audit-client { grid-column: 2; grid-row: 1; text-align: right; }
     .dev-audit-editor { grid-column: 2; grid-row: 2; min-width: 150px; }
+  }
+
+  @media (max-width: 420px) {
+    .player-profile-title-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    #playerProfilePower { width: 100%; margin: 0; font-size: 9px; text-align: right; }
   }
 
   .upgrade-modal {

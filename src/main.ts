@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.251";
+  const GAME_VERSION = "0.252";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -2687,9 +2687,8 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function drawMinimap(remotePlayers) {
     const size = Math.min(180, Math.max(110, viewW * .17));
-    const pad = 12;
-    const x = viewW - size - pad;
-    const y = pad;
+    const x = viewW - size;
+    const y = 0;
 
     ctx.save();
     ctx.fillStyle = "rgba(12,18,15,.82)";
@@ -3345,6 +3344,15 @@ import { formatCompactNumber } from "./ui/number-format";
     const worldY = camera.y + clientY / camera.zoom;
     let target = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+    const localIdentity = coop?.localIdentity?.();
+    if (localIdentity) {
+      const dx = worldX - player.x;
+      const dy = worldY - player.y;
+      if (Math.abs(dx) <= 48 && Math.abs(dy) <= 60) {
+        target = { id: localIdentity, name: coop?.localDisplayName?.() || "PLAYER" };
+        bestDistance = dx * dx + dy * dy;
+      }
+    }
     for (const other of coop?.remotePlayers?.() ?? []) {
       const dx = worldX - other.x;
       const dy = worldY - other.y;

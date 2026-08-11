@@ -18,6 +18,11 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.252": [
+      "Player profiles scale better and preserve full usernames",
+      "Your own character now opens your player profile",
+      "Minimap and toolbar presentation improved"
+    ],
     "0.251": [
       "Leaderboard profile portraits corrected",
       "Mobile HUD and World Chat layout improved",
@@ -823,7 +828,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.251";
+    const GAME_VERSION = "0.252";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -3226,9 +3231,8 @@
     }
     function drawMinimap(remotePlayers) {
       const size = Math.min(180, Math.max(110, viewW * 0.17));
-      const pad = 12;
-      const x = viewW - size - pad;
-      const y = pad;
+      const x = viewW - size;
+      const y = 0;
       ctx.save();
       ctx.fillStyle = "rgba(12,18,15,.82)";
       ctx.strokeStyle = "rgba(255,255,255,.25)";
@@ -3837,13 +3841,22 @@
       profileIconPickerEl.hidden = true;
     }
     function openPlayerAtScreenPoint(clientX, clientY) {
-      var _a;
+      var _a, _b2, _c2;
       if (!running || !playerProfileEl.hidden || isDueling()) return false;
       const worldX = camera.x + clientX / camera.zoom;
       const worldY = camera.y + clientY / camera.zoom;
       let target = null;
       let bestDistance = Number.POSITIVE_INFINITY;
-      for (const other of ((_a = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _a.call(coop)) ?? []) {
+      const localIdentity = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
+      if (localIdentity) {
+        const dx = worldX - player.x;
+        const dy = worldY - player.y;
+        if (Math.abs(dx) <= 48 && Math.abs(dy) <= 60) {
+          target = { id: localIdentity, name: ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "PLAYER" };
+          bestDistance = dx * dx + dy * dy;
+        }
+      }
+      for (const other of ((_c2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c2.call(coop)) ?? []) {
         const dx = worldX - other.x;
         const dy = worldY - other.y;
         if (Math.abs(dx) > 48 || Math.abs(dy) > 60) continue;

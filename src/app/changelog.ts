@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.252": [
+    "Player profiles scale better and preserve full usernames",
+    "Your own character now opens your player profile",
+    "Minimap and toolbar presentation improved",
+  ],
   "0.251": [
     "Leaderboard profile portraits corrected",
     "Mobile HUD and World Chat layout improved",
