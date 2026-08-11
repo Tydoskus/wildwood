@@ -168,7 +168,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 18;
+const PROTOCOL_VERSION = 19;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -206,6 +206,7 @@ const profiles = new Map<string, string>();
 const profileIdentities = new Map<string, Identity>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
 const guestAccounts = new Map<string, boolean>();
+let onlinePlayerCount = 0;
 const profileProgress = new Map<string, PlayerProgress>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
@@ -1000,6 +1001,12 @@ function removePlayerAccountStatus(row: { identity: Identity }) {
   onChange?.();
 }
 
+function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
+  if (row.id !== 0) return;
+  onlinePlayerCount = Math.max(0, row.onlinePlayers);
+  onChange?.();
+}
+
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   const id = row.identity.toHexString();
   const progress = {
@@ -1328,6 +1335,7 @@ function clearRealtimeCaches() {
   profileIdentities.clear();
   leaderboardEntries.clear();
   guestAccounts.clear();
+  onlinePlayerCount = 0;
   profileProgress.clear();
   playerLifetimes.clear();
   playerProfileLoads.clear();
@@ -1503,6 +1511,8 @@ function connect() {
         conn.db.playerAccountStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
         conn.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
         conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayerAccountStatus(row); });
+        conn.db.worldStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertWorldStatus(row); });
+        conn.db.worldStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertWorldStatus(row); });
         conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerLifetime.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
@@ -1523,6 +1533,7 @@ function connect() {
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
+          for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -1545,6 +1556,7 @@ function connect() {
           tables.playerProfile,
           tables.leaderboardEntry,
           tables.playerAccountStatus,
+          tables.worldStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
@@ -1744,7 +1756,10 @@ export const wildwoodCoop = {
     }));
   },
   isGuest(identity = localIdentity) {
-    return guestAccounts.get(identity) ?? leaderboardEntries.get(identity)?.isGuest ?? false;
+    const knownStatus = guestAccounts.get(identity) ?? leaderboardEntries.get(identity)?.isGuest;
+    if (knownStatus !== undefined) return knownStatus;
+    if (identity === localIdentity) return connection?.isActive ? !connectedSignedIn : !accountToken();
+    return false;
   },
   async setDisplayName(displayName: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
@@ -1904,6 +1919,9 @@ export const wildwoodCoop = {
       if (player.id !== localIdentity) count += 1;
     }
     return count;
+  },
+  onlinePlayerCount() {
+    return onlinePlayerCount;
   },
   hasRemotePlayerInArea(minX: number, minY: number, maxX: number, maxY: number) {
     for (const player of players.values()) {

@@ -55,7 +55,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.241";
+  const GAME_VERSION = "0.242";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -2787,7 +2787,12 @@ import { formatCompactNumber } from "./ui/number-format";
       : coop
         ? coop.remotePlayers().length
         : 0;
-    const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
+    const reportedOnline = coop && typeof coop.onlinePlayerCount === "function"
+      ? coop.onlinePlayerCount()
+      : null;
+    const playerCount = coop && coop.isConnected()
+      ? (Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1)
+      : 0;
     renderPlayerHud(
       { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
       player,

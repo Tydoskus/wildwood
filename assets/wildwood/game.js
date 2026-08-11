@@ -18,6 +18,11 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.242": [
+      "Accurate global online player count",
+      "Chat renamed to World Chat",
+      "Guest name labels made consistent"
+    ],
     "0.241": [
       "Mobile leaderboard made more compact",
       "Update deployment waiting screen added"
@@ -725,7 +730,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.241";
+    const GAME_VERSION = "0.242";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -3205,7 +3210,8 @@
     function updateHud() {
       var _a, _b2;
       const remoteCount = coop && typeof coop.remotePlayerCount === "function" ? coop.remotePlayerCount() : coop ? coop.remotePlayers().length : 0;
-      const playerCount = coop && coop.isConnected() ? remoteCount + 1 : 1;
+      const reportedOnline = coop && typeof coop.onlinePlayerCount === "function" ? coop.onlinePlayerCount() : null;
+      const playerCount = coop && coop.isConnected() ? Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1 : 0;
       renderPlayerHud(
         { hpFill, hpText, playerName: playerNameEl, playerPower: playerPowerEl, coopStatus: coopStatusEl },
         player,

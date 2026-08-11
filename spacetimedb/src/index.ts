@@ -7,7 +7,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 18;
+const PROTOCOL_VERSION = 19;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -124,6 +124,16 @@ const playerAccountStatus = table(
   {
     identity: t.identity().primaryKey(),
     isGuest: t.bool(),
+  },
+);
+
+// One tiny public presence aggregate keeps the HUD accurate without making
+// every client subscribe to every active player row.
+const worldStatus = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    onlinePlayers: t.u32(),
   },
 );
 
@@ -392,6 +402,7 @@ const spacetimedb = schema({
   playerProgress,
   leaderboardEntry,
   playerAccountStatus,
+  worldStatus,
   leaderboardRefreshState,
   playerLifetime,
   playerNameCooldown,
@@ -687,6 +698,30 @@ function sameIdentity(a: any, b: any) {
   return a?.toHexString?.() === b?.toHexString?.();
 }
 
+function countOnlinePlayers(ctx: any) {
+  let count = 0;
+  for (const _player of ctx.db.player.iter()) count += 1;
+  return count;
+}
+
+function ensureWorldStatus(ctx: any) {
+  const current = ctx.db.worldStatus.id.find(0);
+  if (current) return current;
+  return ctx.db.worldStatus.insert({ id: 0, onlinePlayers: countOnlinePlayers(ctx) });
+}
+
+function adjustOnlinePlayers(ctx: any, change: number) {
+  const current = ensureWorldStatus(ctx);
+  const onlinePlayers = Math.max(0, current.onlinePlayers + change);
+  if (onlinePlayers !== current.onlinePlayers) ctx.db.worldStatus.id.update({ ...current, onlinePlayers });
+}
+
+function reconcileOnlinePlayers(ctx: any) {
+  const current = ensureWorldStatus(ctx);
+  const onlinePlayers = countOnlinePlayers(ctx);
+  if (onlinePlayers !== current.onlinePlayers) ctx.db.worldStatus.id.update({ ...current, onlinePlayers });
+}
+
 function activeDuelFor(ctx: any, identity: any) {
   const isActive = (current: any) =>
     current.status === "requested" ||
@@ -718,7 +753,10 @@ function removeIdentityPresence(ctx: any, identity: any) {
     }
   }
   const activePlayer = ctx.db.player.identity.find(identity);
-  if (activePlayer) ctx.db.player.identity.delete(identity);
+  if (activePlayer) {
+    ctx.db.player.identity.delete(identity);
+    adjustOnlinePlayers(ctx, -1);
+  }
 }
 
 function clearOrphanPresence(ctx: any) {
@@ -1199,11 +1237,13 @@ function enterWorldPresence(ctx: any, tabId: string) {
     protocolVersion: session.protocolVersion,
     feetItem,
   });
+  adjustOnlinePlayers(ctx, 1);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
   ensureDragonBoss(ctx);
+  ensureWorldStatus(ctx);
 
   if (!ctx.connectionId) return;
   const existingSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
@@ -1263,6 +1303,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
+    reconcileOnlinePlayers(ctx);
     refreshLeaderboardIfDue(ctx);
   },
 );
@@ -1506,7 +1547,10 @@ export const claimGuestAccount = spacetimedb.reducer(
     // no second durable save behind; otherwise an old guest token can later
     // reconnect with the pre-migration name and stats.
     const guestActivePlayer = ctx.db.player.identity.find(link.guest);
-    if (guestActivePlayer) ctx.db.player.identity.delete(link.guest);
+    if (guestActivePlayer) {
+      ctx.db.player.identity.delete(link.guest);
+      adjustOnlinePlayers(ctx, -1);
+    }
     if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
     if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
     if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);

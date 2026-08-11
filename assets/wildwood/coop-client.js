@@ -8389,6 +8389,10 @@ ${ty.variants.map(
     inventoryJson: t.string().name("inventory_json"),
     equippedFeet: t.string().name("equipped_feet")
   });
+  const WorldStatusRow = t.row({
+    id: t.u32().primaryKey(),
+    onlinePlayers: t.u32().name("online_players")
+  });
   const tablesSchema = schema({
     chatMessage: table({
       name: "chat_message",
@@ -8520,7 +8524,18 @@ ${ty.variants.map(
       constraints: [
         { name: "player_progress_identity_key", constraint: "unique", columns: ["identity"] }
       ]
-    }, PlayerProgressRow)
+    }, PlayerProgressRow),
+    worldStatus: table({
+      name: "world_status",
+      indexes: [
+        { accessor: "id", name: "world_status_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "world_status_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, WorldStatusRow)
   });
   const reducersSchema = reducers(
     reducerSchema("accept_duel", AcceptDuelReducer),
@@ -8578,7 +8593,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 18;
+  const PROTOCOL_VERSION = 19;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8615,6 +8630,7 @@ ${ty.variants.map(
   const profileIdentities = /* @__PURE__ */ new Map();
   const leaderboardEntries = /* @__PURE__ */ new Map();
   const guestAccounts = /* @__PURE__ */ new Map();
+  let onlinePlayerCount = 0;
   const profileProgress = /* @__PURE__ */ new Map();
   const playerLifetimes = /* @__PURE__ */ new Map();
   const playerProfileLoads = /* @__PURE__ */ new Map();
@@ -9299,6 +9315,11 @@ ${ty.variants.map(
     guestAccounts.delete(row.identity.toHexString());
     onChange == null ? void 0 : onChange();
   }
+  function upsertWorldStatus(row) {
+    if (row.id !== 0) return;
+    onlinePlayerCount = Math.max(0, row.onlinePlayers);
+    onChange == null ? void 0 : onChange();
+  }
   function upsertProgress(row) {
     const id = row.identity.toHexString();
     const progress = {
@@ -9555,6 +9576,7 @@ ${ty.variants.map(
     profileIdentities.clear();
     leaderboardEntries.clear();
     guestAccounts.clear();
+    onlinePlayerCount = 0;
     profileProgress.clear();
     playerLifetimes.clear();
     playerProfileLoads.clear();
@@ -9736,6 +9758,12 @@ ${ty.variants.map(
         conn.db.playerAccountStatus.onDelete((_ctx, row) => {
           if (isCurrentConnection()) removePlayerAccountStatus(row);
         });
+        conn.db.worldStatus.onInsert((_ctx, row) => {
+          if (isCurrentConnection()) upsertWorldStatus(row);
+        });
+        conn.db.worldStatus.onUpdate((_ctx, _oldRow, row) => {
+          if (isCurrentConnection()) upsertWorldStatus(row);
+        });
         conn.db.playerProgress.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertProgress(row);
         });
@@ -9777,6 +9805,7 @@ ${ty.variants.map(
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
+          for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
           for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -9797,6 +9826,7 @@ ${ty.variants.map(
           tables.playerProfile,
           tables.leaderboardEntry,
           tables.playerAccountStatus,
+          tables.worldStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
@@ -9992,7 +10022,10 @@ ${ty.variants.map(
     },
     isGuest(identity = localIdentity) {
       var _a2;
-      return guestAccounts.get(identity) ?? ((_a2 = leaderboardEntries.get(identity)) == null ? void 0 : _a2.isGuest) ?? false;
+      const knownStatus = guestAccounts.get(identity) ?? ((_a2 = leaderboardEntries.get(identity)) == null ? void 0 : _a2.isGuest);
+      if (knownStatus !== void 0) return knownStatus;
+      if (identity === localIdentity) return (connection == null ? void 0 : connection.isActive) ? !connectedSignedIn : !accountToken();
+      return false;
     },
     async setDisplayName(displayName) {
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
@@ -10145,6 +10178,9 @@ ${ty.variants.map(
         if (player.id !== localIdentity) count += 1;
       }
       return count;
+    },
+    onlinePlayerCount() {
+      return onlinePlayerCount;
     },
     hasRemotePlayerInArea(minX, minY, maxX, maxY) {
       for (const player of players.values()) {

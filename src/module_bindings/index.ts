@@ -66,6 +66,7 @@ import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
+import WorldStatusRow from "./world_status_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -202,6 +203,17 @@ const tablesSchema = __schema({
       { name: 'player_progress_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerProgressRow),
+  worldStatus: __table({
+    name: 'world_status',
+    indexes: [
+      { accessor: 'id', name: 'world_status_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'world_status_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WorldStatusRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
