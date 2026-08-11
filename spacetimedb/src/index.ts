@@ -2,11 +2,12 @@ import { schema, SenderError, table, t } from "spacetimedb/server";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 
 const WORLD = { width: 4800, height: 4800 };
+const PLAYER_ZONE_SIZE = 600;
 const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 17;
+const PROTOCOL_VERSION = 18;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -24,6 +25,7 @@ const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const LEADERBOARD_LIMIT = 100;
+const LEADERBOARD_REFRESH_VERSION = 2;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
@@ -50,7 +52,10 @@ const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", 
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
 const player = table(
-  { public: true },
+  {
+    public: true,
+    indexes: [{ accessor: "byZone", algorithm: "btree", columns: ["zoneX", "zoneY"] as const }],
+  },
   {
     identity: t.identity().primaryKey(),
     x: t.f64(),
@@ -65,6 +70,8 @@ const player = table(
     power: t.u32().default(95),
     protocolVersion: t.u32().default(0),
     feetItem: t.string().default(""),
+    zoneX: t.i32().default(0),
+    zoneY: t.i32().default(0),
   },
 );
 
@@ -106,6 +113,7 @@ const leaderboardEntry = table(
     damage: t.f32(),
     maxHp: t.f32(),
     isGuest: t.bool(),
+    power: t.u32().default(0),
   },
 );
 
@@ -124,6 +132,7 @@ const leaderboardRefreshState = table(
   {
     id: t.u32().primaryKey(),
     refreshedAtMicros: t.u64(),
+    version: t.u32().default(0),
   },
 );
 
@@ -493,13 +502,20 @@ function migrateAttackBalance(ctx: any, progress: any) {
 }
 
 function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
+  const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, progress.attackRate);
   return Math.max(0, Math.round(
-    progress.damage * .15 +
+    progress.damage * attackSpeedMultiplier +
     progress.maxHp +
     progress.armor * 3 +
-    progress.regen * 10 +
-    50 / progress.attackRate,
+    progress.regen * 10,
   ));
+}
+
+function playerZone(x: number, y: number) {
+  return {
+    zoneX: Math.floor(x / PLAYER_ZONE_SIZE),
+    zoneY: Math.floor(y / PLAYER_ZONE_SIZE),
+  };
 }
 
 function syncSenderAccountStatus(ctx: any) {
@@ -519,6 +535,7 @@ function refreshLeaderboard(ctx: any) {
       identity: progress.identity,
       identityKey: progress.identity.toHexString(),
       displayName: profile.displayName,
+      power: powerForProgress(progress),
       damage: progress.damage,
       maxHp: progress.maxHp,
       isGuest: ctx.db.playerAccountStatus.identity.find(progress.identity)?.isGuest ?? current?.isGuest ?? false,
@@ -527,6 +544,9 @@ function refreshLeaderboard(ctx: any) {
 
   const byName = (a: any, b: any) => a.displayName.localeCompare(b.displayName);
   const selected = new Map<string, any>();
+  for (const candidate of [...candidates].sort((a, b) => b.power - a.power || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
+    selected.set(candidate.identityKey, candidate);
+  }
   for (const candidate of [...candidates].sort((a, b) => b.damage - a.damage || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
     selected.set(candidate.identityKey, candidate);
   }
@@ -541,6 +561,7 @@ function refreshLeaderboard(ctx: any) {
     const next = {
       identity: candidate.identity,
       displayName: candidate.displayName,
+      power: candidate.power,
       damage: candidate.damage,
       maxHp: candidate.maxHp,
       isGuest: candidate.isGuest,
@@ -549,6 +570,7 @@ function refreshLeaderboard(ctx: any) {
     if (!current) ctx.db.leaderboardEntry.insert(next);
     else if (
       current.displayName !== next.displayName ||
+      current.power !== next.power ||
       current.damage !== next.damage ||
       current.maxHp !== next.maxHp ||
       current.isGuest !== next.isGuest
@@ -556,14 +578,17 @@ function refreshLeaderboard(ctx: any) {
   }
 
   const refreshState = ctx.db.leaderboardRefreshState.id.find(1);
-  const nextState = { id: 1, refreshedAtMicros: ctx.timestamp.microsSinceUnixEpoch };
+  const nextState = { id: 1, refreshedAtMicros: ctx.timestamp.microsSinceUnixEpoch, version: LEADERBOARD_REFRESH_VERSION };
   if (refreshState) ctx.db.leaderboardRefreshState.id.update(nextState);
   else ctx.db.leaderboardRefreshState.insert(nextState);
 }
 
 function refreshLeaderboardIfDue(ctx: any) {
   const state = ctx.db.leaderboardRefreshState.id.find(1);
-  if (state && ctx.timestamp.microsSinceUnixEpoch - state.refreshedAtMicros < LEADERBOARD_REFRESH_INTERVAL_MICROS) return;
+  if (
+    state?.version === LEADERBOARD_REFRESH_VERSION &&
+    ctx.timestamp.microsSinceUnixEpoch - state.refreshedAtMicros < LEADERBOARD_REFRESH_INTERVAL_MICROS
+  ) return;
   refreshLeaderboard(ctx);
 }
 
@@ -853,6 +878,7 @@ function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: 
     ...current,
     x,
     y,
+    ...playerZone(x, y),
     hp: maxHp,
     maxHp,
     moving: false,
@@ -1132,6 +1158,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
+        ...playerZone(existing.x, existing.y),
         power: powerForProgress(existingProgress),
         moving: false,
         feetItem,
@@ -1144,6 +1171,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
       ...existing,
       x: PLAYER_SPAWN.x,
       y: PLAYER_SPAWN.y,
+      ...playerZone(PLAYER_SPAWN.x, PLAYER_SPAWN.y),
       facing: 0,
       moving: false,
       power: powerForProgress(existingProgress),
@@ -1159,6 +1187,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     identity: ctx.sender,
     x: PLAYER_SPAWN.x,
     y: PLAYER_SPAWN.y,
+    ...playerZone(PLAYER_SPAWN.x, PLAYER_SPAWN.y),
     facing: 0,
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
@@ -1801,6 +1830,7 @@ export const acceptDuel = spacetimedb.reducer(
       ...challenger,
       x: DUEL_ARENA.challenger.x,
       y: DUEL_ARENA.challenger.y,
+      ...playerZone(DUEL_ARENA.challenger.x, DUEL_ARENA.challenger.y),
       hp: challengerProgress.maxHp,
       maxHp: challengerProgress.maxHp,
       moving: false,
@@ -1810,6 +1840,7 @@ export const acceptDuel = spacetimedb.reducer(
       ...opponent,
       x: DUEL_ARENA.opponent.x,
       y: DUEL_ARENA.opponent.y,
+      ...playerZone(DUEL_ARENA.opponent.x, DUEL_ARENA.opponent.y),
       hp: opponentProgress.maxHp,
       maxHp: opponentProgress.maxHp,
       moving: false,
@@ -1831,18 +1862,19 @@ export const syncPosition = spacetimedb.reducer(
   { x: t.f64(), y: t.f64(), facing: t.f64(), moving: t.bool(), sequence: t.u32() },
   (ctx, { x, y, facing, moving, sequence }) => {
     const current = requireControllingPlayer(ctx);
-    const session = requireSession(ctx);
-    if (sequence <= session.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
+    if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
       throw new SenderError("Position sync values must be finite");
     }
 
-    ctx.db.playerSession.connectionId.update({ ...session, lastInputSequence: sequence });
+    const clampedX = Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x));
+    const clampedY = Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y));
     ctx.db.player.identity.update({
       ...current,
-      x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x)),
-      y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y)),
+      x: clampedX,
+      y: clampedY,
+      ...playerZone(clampedX, clampedY),
       facing,
       moving,
       lastInputAt: ctx.timestamp,

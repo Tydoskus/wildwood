@@ -149,6 +149,10 @@ const tablesSchema = __schema({
       { accessor: 'identity', name: 'player_identity_idx_btree', algorithm: 'btree', columns: [
         'identity',
       ] },
+      { accessor: 'byZone', name: 'player_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
+        'zoneX',
+        'zoneY',
+      ] },
     ],
     constraints: [
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },

@@ -2,6 +2,7 @@
 // Gradual TypeScript migration: existing game behavior stays unchanged.
 
 import { enforceLatestVersion } from "./app/version";
+import { releaseNotes } from "./app/changelog";
 import {
   ATTACK_RANGE_ZOOM_REFERENCE,
   BASE_ATTACK_RANGE,
@@ -54,7 +55,8 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.239";
+  const GAME_VERSION = "0.240";
+  const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
@@ -69,6 +71,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_HIT_BATCH_DELAY = .1;
   const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
+  const SPEECH_BUBBLE_DURATION_MS = 6_000;
+  const SPEECH_BUBBLE_FADE_MS = 1_250;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -157,12 +161,17 @@ import { formatCompactNumber } from "./ui/number-format";
   const profileStatGrid = document.getElementById("profileStatGrid");
   const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
   const leaderboardEl = document.getElementById("leaderboard");
+  const leaderboardPowerTab = document.getElementById("leaderboardPowerTab");
   const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
   const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
   const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
   const leaderboardRowsEl = document.getElementById("leaderboardRows");
   const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
   const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
+  const updateNoticeEl = document.getElementById("updateNotice");
+  const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
+  const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
+  const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
   const coop = window.wildwoodCoop || null;
 
   const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
@@ -216,6 +225,7 @@ import { formatCompactNumber } from "./ui/number-format";
   let latencyVisible = false;
   try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
+  let activeSpeechBubbles = new Map();
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
   let duelWasActive = false;
@@ -236,7 +246,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const locallyRewardedDragonEncounters = new Set();
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
   let openProfileIdentity = "";
-  let leaderboardStat = "damage";
+  let leaderboardStat = "power";
 
 
   const bootsPickup = {
@@ -2109,6 +2119,95 @@ import { formatCompactNumber } from "./ui/number-format";
       power: playerPower(player),
       fillColor: "#46cf5a",
     });
+    drawSpeechBubble(coop?.localIdentity?.(), x, y);
+  }
+
+  function updateSpeechBubbles() {
+    activeSpeechBubbles = new Map();
+    const now = Date.now();
+    const messages = coop?.chatMessages?.() ?? [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      const age = now - message.sentAtMs;
+      if (age < 0 || age >= SPEECH_BUBBLE_DURATION_MS) continue;
+      if (message.senderName === "DUEL" || message.replayId > 0n || activeSpeechBubbles.has(message.sender)) continue;
+      activeSpeechBubbles.set(message.sender, { text: message.message, age });
+    }
+  }
+
+  function wrapSpeechBubbleText(text, maxWidth) {
+    const lines = [];
+    let line = "";
+    for (const word of text.split(/\s+/)) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (ctx.measureText(candidate).width <= maxWidth) {
+        line = candidate;
+        continue;
+      }
+      if (line) lines.push(line);
+      line = word;
+      while (ctx.measureText(line).width > maxWidth) {
+        let end = line.length - 1;
+        while (end > 1 && ctx.measureText(line.slice(0, end)).width > maxWidth) end -= 1;
+        lines.push(line.slice(0, end));
+        line = line.slice(end);
+      }
+      if (lines.length >= 3) break;
+    }
+    if (line && lines.length < 3) lines.push(line);
+    if (lines.length === 3 && text.length > lines.join(" ").length) {
+      while (lines[2].length > 1 && ctx.measureText(`${lines[2]}…`).width > maxWidth) lines[2] = lines[2].slice(0, -1);
+      lines[2] += "…";
+    }
+    return lines;
+  }
+
+  function drawSpeechBubble(identity, x, y) {
+    const bubble = activeSpeechBubbles.get(identity);
+    if (!bubble) return;
+    const fadeStart = SPEECH_BUBBLE_DURATION_MS - SPEECH_BUBBLE_FADE_MS;
+    const opacity = bubble.age <= fadeStart
+      ? 1
+      : clamp(1 - (bubble.age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
+    const maxTextWidth = 190;
+    const paddingX = 10;
+    const paddingY = 7;
+    const lineHeight = 15;
+
+    ctx.save();
+    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    const lines = wrapSpeechBubbleText(bubble.text, maxTextWidth);
+    const textWidth = Math.max(28, ...lines.map((line) => ctx.measureText(line).width));
+    const width = Math.ceil(textWidth + paddingX * 2);
+    const height = lines.length * lineHeight + paddingY * 2;
+    const visibleWidth = viewW / camera.zoom;
+    const centerX = clamp(x, width / 2 + 4, visibleWidth - width / 2 - 4);
+    const bottom = Math.max(height + 8, y - 92);
+    const left = Math.round(centerX - width / 2);
+    const top = Math.round(bottom - height);
+
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = "#f4f0df";
+    ctx.strokeStyle = "#171b18";
+    ctx.lineWidth = 2;
+    roundRect(left, top, width, height, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(centerX - 6, bottom - 1);
+    ctx.lineTo(centerX, bottom + 7);
+    ctx.lineTo(centerX + 6, bottom - 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#20251f";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    lines.forEach((line, index) => {
+      ctx.fillText(line, centerX, top + paddingY + lineHeight * (index + .5));
+    });
+    ctx.restore();
   }
 
   function drawActorStatus({ x, y, name, nameColor, hp, maxHp, power, fillColor }) {
@@ -2156,12 +2255,12 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function playerPower(stats) {
+    const attackSpeedMultiplier = STARTING_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
     return Math.round(
-      stats.damage * .15 +
+      stats.damage * attackSpeedMultiplier +
       stats.maxHp +
       stats.armor * 3 +
-      stats.regen * 10 +
-      50 / stats.attackRate,
+      stats.regen * 10,
     );
   }
 
@@ -2216,6 +2315,7 @@ import { formatCompactNumber } from "./ui/number-format";
         power: Number.isFinite(other.power) ? other.power : playerPower(other),
         fillColor: "#55a9c6",
       });
+      drawSpeechBubble(other.id, x, y);
     }
   }
 
@@ -2629,6 +2729,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function render() {
     const remotePlayers = coop ? coop.remotePlayers() : [];
+    updateSpeechBubbles();
     if (replayMode) {
       renderDuelScene(replayDuelScene());
       return;
@@ -2739,7 +2840,7 @@ import { formatCompactNumber } from "./ui/number-format";
       ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
       ["DAMAGE", Math.round(progress.damage).toLocaleString()],
       ["ARMOR", Math.round(progress.armor).toLocaleString()],
-      ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s`],
+      ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= MIN_ATTACK_INTERVAL + .0001 ? " (MAX)" : ""}`],
       ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
       ["REGEN", `${progress.regen.toFixed(1)}/s`],
       ["MOVE SPEED", Math.round(progress.speed).toLocaleString()],
@@ -2791,7 +2892,7 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function renderLeaderboard() {
-    const valueKey = leaderboardStat === "health" ? "maxHp" : "damage";
+    const valueKey = leaderboardStat === "health" ? "maxHp" : leaderboardStat;
     const entries = (coop?.leaderboardEntries?.() ?? [])
       .filter((entry) => Number.isFinite(entry[valueKey]))
       .sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name))
@@ -2828,13 +2929,16 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function setLeaderboardTab(tab) {
-    leaderboardStat = tab === "health" ? "health" : "damage";
+    leaderboardStat = tab === "health" || tab === "damage" ? tab : "power";
+    const power = leaderboardStat === "power";
     const damage = leaderboardStat === "damage";
+    leaderboardPowerTab.classList.toggle("is-active", power);
     leaderboardDamageTab.classList.toggle("is-active", damage);
-    leaderboardHealthTab.classList.toggle("is-active", !damage);
+    leaderboardHealthTab.classList.toggle("is-active", leaderboardStat === "health");
+    leaderboardPowerTab.setAttribute("aria-selected", String(power));
     leaderboardDamageTab.setAttribute("aria-selected", String(damage));
-    leaderboardHealthTab.setAttribute("aria-selected", String(!damage));
-    leaderboardValueHeading.textContent = damage ? "DAMAGE" : "HEALTH";
+    leaderboardHealthTab.setAttribute("aria-selected", String(leaderboardStat === "health"));
+    leaderboardValueHeading.textContent = leaderboardStat === "health" ? "HEALTH" : leaderboardStat.toUpperCase();
     renderLeaderboard();
   }
 
@@ -2851,6 +2955,27 @@ import { formatCompactNumber } from "./ui/number-format";
   function closeLeaderboard() {
     leaderboardEl.hidden = true;
     leaderboardBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function closeUpdateNotice() {
+    updateNoticeEl.hidden = true;
+  }
+
+  function showCurrentUpdateNotice() {
+    let seenVersion = "";
+    try { seenVersion = localStorage.getItem(SEEN_VERSION_KEY) || ""; } catch {}
+    if (seenVersion === GAME_VERSION) return;
+    const notes = releaseNotes(GAME_VERSION);
+    if (!notes.length) return;
+    updateNoticeTitleEl.textContent = `v${GAME_VERSION}`;
+    updateNoticeItemsEl.replaceChildren();
+    for (const note of notes) {
+      const item = document.createElement("li");
+      item.textContent = note;
+      updateNoticeItemsEl.appendChild(item);
+    }
+    updateNoticeEl.hidden = false;
+    try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); } catch {}
   }
 
   function openPlayerAtScreenPoint(clientX, clientY) {
@@ -3117,6 +3242,7 @@ import { formatCompactNumber } from "./ui/number-format";
   leaderboardEl.addEventListener("click", (event) => {
     if (event.target === leaderboardEl) closeLeaderboard();
   });
+  leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
   leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
   leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
 
@@ -3200,6 +3326,10 @@ import { formatCompactNumber } from "./ui/number-format";
   autoAttackBtn.addEventListener("click", () => {
     autoAttackEnabled = !autoAttackEnabled;
     updateAutoAttackSetting();
+    logPickup(
+      autoAttackEnabled ? "AUTO ATTACK ENABLED" : "AUTO ATTACK DISABLED",
+      autoAttackEnabled ? "#72ef58" : "#ff9b91",
+    );
   });
 
   duelRequestBtn.addEventListener("click", () => {
@@ -3222,10 +3352,12 @@ import { formatCompactNumber } from "./ui/number-format";
     leaveDuelResult();
   });
 
-  closeDragonResultBtn.addEventListener("click", () => {
+  function closeDragonResult() {
     dragonResultEl.hidden = true;
     last = performance.now();
-  });
+  }
+  closeDragonResultBtn.addEventListener("click", closeDragonResult);
+  closeUpdateNoticeBtn.addEventListener("click", closeUpdateNotice);
 
   closeDuelReplayBtn.addEventListener("click", () => {
     const closeReplay = () => {
@@ -3320,12 +3452,31 @@ import { formatCompactNumber } from "./ui/number-format";
   updateDuelControls();
   updateConnectionStatus();
   updateAccountStatus();
+  showCurrentUpdateNotice();
   window.setInterval(() => chat.refresh(), 1_000);
 
   bootUpgradeClose.addEventListener("click", () => {
     pausedForUpgrade = false;
     bootUpgradeEl.hidden = true;
     last = performance.now();
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const toolbar = settingsBtn.closest(".settings-wrap");
+    if (toolbar && !toolbar.contains(target)) {
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
+    }
+    if (!playerProfileEl.hidden && !playerProfileEl.querySelector(".modal")?.contains(target)) closePlayerProfile();
+    if (!leaderboardEl.hidden && !leaderboardEl.querySelector(".modal")?.contains(target)) closeLeaderboard();
+    if (!dragonResultEl.hidden && !dragonResultEl.querySelector(".modal")?.contains(target)) closeDragonResult();
+    if (!duelResultEl.hidden && !duelResultEl.querySelector(".modal")?.contains(target)) leaveDuelResult();
+    if (!bootUpgradeEl.hidden && !bootUpgradeEl.querySelector(".modal")?.contains(target)) bootUpgradeClose.click();
+    if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
   });
 
   resetProgressBtn.addEventListener("click", () => {

@@ -72,6 +72,7 @@ export type PlayerProfileData = {
 export type LeaderboardEntry = {
   identity: string;
   name: string;
+  power: number;
   damage: number;
   maxHp: number;
   isGuest: boolean;
@@ -158,15 +159,16 @@ type RemotePlayerSample = {
   moving: boolean;
 };
 
-const NEARBY_MOVEMENT_HZ = 30;
-const DISTANT_MOVEMENT_HZ = 5;
+const NEARBY_MOVEMENT_HZ = 15;
+const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
+const PLAYER_ZONE_SIZE = 600;
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 17;
+const PROTOCOL_VERSION = 18;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -209,6 +211,10 @@ const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
+let spatialPlayerSubscription: { unsubscribe: () => void } | null = null;
+let spatialZoneX: number | null = null;
+let spatialZoneY: number | null = null;
+let spatialSubscriptionGeneration = 0;
 const chatMessages: ChatMessage[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
@@ -912,6 +918,7 @@ function upsertPlayer(row: {
       moving: row.moving,
       lastInputSequence: row.lastInputSequence,
     };
+    refreshSpatialPlayerSubscription(row.x, row.y);
     onChange?.();
     return;
   }
@@ -969,6 +976,7 @@ function upsertProfile(row: { identity: Identity; displayName: string }) {
 function upsertLeaderboardEntry(row: {
   identity: Identity;
   displayName: string;
+  power: number;
   damage: number;
   maxHp: number;
   isGuest: boolean;
@@ -977,6 +985,7 @@ function upsertLeaderboardEntry(row: {
   leaderboardEntries.set(identity, {
     identity,
     name: row.displayName,
+    power: row.power,
     damage: row.damage,
     maxHp: row.maxHp,
     isGuest: row.isGuest,
@@ -1273,8 +1282,55 @@ function removePlayer(row: { identity: Identity }) {
   onChange?.();
 }
 
+function releaseSpatialPlayerSubscription() {
+  spatialSubscriptionGeneration += 1;
+  spatialPlayerSubscription?.unsubscribe();
+  spatialPlayerSubscription = null;
+  spatialZoneX = null;
+  spatialZoneY = null;
+}
+
+function refreshSpatialPlayerSubscription(x: number, y: number, force = false) {
+  const conn = connection;
+  if (!conn?.isActive || !hydrationReady) return;
+  const zoneX = Math.floor(x / PLAYER_ZONE_SIZE);
+  const zoneY = Math.floor(y / PLAYER_ZONE_SIZE);
+  if (!force && zoneX === spatialZoneX && zoneY === spatialZoneY) return;
+
+  const previous = spatialPlayerSubscription;
+  const previousZoneX = spatialZoneX;
+  const previousZoneY = spatialZoneY;
+  const generation = ++spatialSubscriptionGeneration;
+  spatialZoneX = zoneX;
+  spatialZoneY = zoneY;
+  const queries = [];
+  for (let nearbyY = zoneY - 1; nearbyY <= zoneY + 1; nearbyY += 1) {
+    for (let nearbyX = zoneX - 1; nearbyX <= zoneX + 1; nearbyX += 1) {
+      queries.push(tables.player.where((row) => row.zoneX.eq(nearbyX).and(row.zoneY.eq(nearbyY))));
+    }
+  }
+
+  const next = conn
+    .subscriptionBuilder()
+    .onApplied(() => {
+      if (connection !== conn || generation !== spatialSubscriptionGeneration) return;
+      previous?.unsubscribe();
+      for (const row of conn.db.player.iter()) upsertPlayer(row);
+    })
+    .onError((ctx) => {
+      if (connection !== conn || generation !== spatialSubscriptionGeneration) return;
+      console.error("Wildwood spatial player subscription error:", ctx.event);
+      spatialPlayerSubscription = previous;
+      spatialZoneX = previousZoneX;
+      spatialZoneY = previousZoneY;
+    })
+    .subscribe(queries);
+  spatialPlayerSubscription = next;
+}
+
 function clearRealtimeCaches() {
   releasePlayerProfile();
+  releaseSpatialPlayerSubscription();
   players.clear();
   profiles.clear();
   profileIdentities.clear();
@@ -1484,6 +1540,7 @@ function connect() {
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
+          if (localState) refreshSpatialPlayerSubscription(localState.x, localState.y, true);
           sessionGeneration += 1;
           flushPendingProgress();
           onChange?.();
@@ -1493,7 +1550,7 @@ function connect() {
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         })
         .subscribe([
-          tables.player,
+          tables.player.where((player) => player.identity.eq(identity)),
           tables.playerProfile,
           tables.leaderboardEntry,
           tables.playerAccountStatus,
@@ -1807,6 +1864,7 @@ export const wildwoodCoop = {
   },
   syncPosition(x: number, y: number, facing: number, moving = false, force = false, highFrequency = false) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
+    refreshSpatialPlayerSubscription(x, y);
     const now = performance.now();
     const movingChanged = moving !== lastPositionMoving;
     const movementIntervalMs = highFrequency ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;

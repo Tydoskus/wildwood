@@ -8338,7 +8338,8 @@ ${ty.variants.map(
     displayName: t.string().name("display_name"),
     damage: t.f32(),
     maxHp: t.f32().name("max_hp"),
-    isGuest: t.bool().name("is_guest")
+    isGuest: t.bool().name("is_guest"),
+    power: t.u32()
   });
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8353,7 +8354,9 @@ ${ty.variants.map(
     lastInputSequence: t.u32().name("last_input_sequence"),
     power: t.u32(),
     protocolVersion: t.u32().name("protocol_version"),
-    feetItem: t.string().name("feet_item")
+    feetItem: t.string().name("feet_item"),
+    zoneX: t.i32().name("zone_x"),
+    zoneY: t.i32().name("zone_y")
   });
   const PlayerAccountStatusRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8464,6 +8467,10 @@ ${ty.variants.map(
       indexes: [
         { accessor: "identity", name: "player_identity_idx_btree", algorithm: "btree", columns: [
           "identity"
+        ] },
+        { accessor: "byZone", name: "player_zone_x_zone_y_idx_btree", algorithm: "btree", columns: [
+          "zoneX",
+          "zoneY"
         ] }
       ],
       constraints: [
@@ -8562,15 +8569,16 @@ ${ty.variants.map(
     return new DbConnectionBuilder(REMOTE_MODULE, (config) => new _DbConnection(config));
   };
   let DbConnection = _DbConnection;
-  const NEARBY_MOVEMENT_HZ = 30;
-  const DISTANT_MOVEMENT_HZ = 5;
+  const NEARBY_MOVEMENT_HZ = 15;
+  const DISTANT_MOVEMENT_HZ = 3;
   const NEARBY_MOVEMENT_INTERVAL_MS = 1e3 / NEARBY_MOVEMENT_HZ;
   const DISTANT_MOVEMENT_INTERVAL_MS = 1e3 / DISTANT_MOVEMENT_HZ;
+  const PLAYER_ZONE_SIZE = 600;
   const LATENCY_SAMPLE_INTERVAL_MS = 1e3;
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 17;
+  const PROTOCOL_VERSION = 18;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8612,6 +8620,10 @@ ${ty.variants.map(
   const playerProfileLoads = /* @__PURE__ */ new Map();
   let activePlayerProfileIdentity = "";
   let activePlayerProfileSubscription = null;
+  let spatialPlayerSubscription = null;
+  let spatialZoneX = null;
+  let spatialZoneY = null;
+  let spatialSubscriptionGeneration = 0;
   const chatMessages = [];
   const duels = /* @__PURE__ */ new Map();
   const duelReplays = /* @__PURE__ */ new Map();
@@ -9219,6 +9231,7 @@ ${ty.variants.map(
         moving: row.moving,
         lastInputSequence: row.lastInputSequence
       };
+      refreshSpatialPlayerSubscription(row.x, row.y);
       onChange == null ? void 0 : onChange();
       return;
     }
@@ -9275,6 +9288,7 @@ ${ty.variants.map(
     leaderboardEntries.set(identity, {
       identity,
       name: row.displayName,
+      power: row.power,
       damage: row.damage,
       maxHp: row.maxHp,
       isGuest: row.isGuest
@@ -9503,8 +9517,47 @@ ${ty.variants.map(
     players.delete(row.identity.toHexString());
     onChange == null ? void 0 : onChange();
   }
+  function releaseSpatialPlayerSubscription() {
+    spatialSubscriptionGeneration += 1;
+    spatialPlayerSubscription == null ? void 0 : spatialPlayerSubscription.unsubscribe();
+    spatialPlayerSubscription = null;
+    spatialZoneX = null;
+    spatialZoneY = null;
+  }
+  function refreshSpatialPlayerSubscription(x, y, force = false) {
+    const conn = connection;
+    if (!(conn == null ? void 0 : conn.isActive) || !hydrationReady) return;
+    const zoneX = Math.floor(x / PLAYER_ZONE_SIZE);
+    const zoneY = Math.floor(y / PLAYER_ZONE_SIZE);
+    if (!force && zoneX === spatialZoneX && zoneY === spatialZoneY) return;
+    const previous = spatialPlayerSubscription;
+    const previousZoneX = spatialZoneX;
+    const previousZoneY = spatialZoneY;
+    const generation = ++spatialSubscriptionGeneration;
+    spatialZoneX = zoneX;
+    spatialZoneY = zoneY;
+    const queries = [];
+    for (let nearbyY = zoneY - 1; nearbyY <= zoneY + 1; nearbyY += 1) {
+      for (let nearbyX = zoneX - 1; nearbyX <= zoneX + 1; nearbyX += 1) {
+        queries.push(tables.player.where((row) => row.zoneX.eq(nearbyX).and(row.zoneY.eq(nearbyY))));
+      }
+    }
+    const next = conn.subscriptionBuilder().onApplied(() => {
+      if (connection !== conn || generation !== spatialSubscriptionGeneration) return;
+      previous == null ? void 0 : previous.unsubscribe();
+      for (const row of conn.db.player.iter()) upsertPlayer(row);
+    }).onError((ctx) => {
+      if (connection !== conn || generation !== spatialSubscriptionGeneration) return;
+      console.error("Wildwood spatial player subscription error:", ctx.event);
+      spatialPlayerSubscription = previous;
+      spatialZoneX = previousZoneX;
+      spatialZoneY = previousZoneY;
+    }).subscribe(queries);
+    spatialPlayerSubscription = next;
+  }
   function clearRealtimeCaches() {
     releasePlayerProfile();
+    releaseSpatialPlayerSubscription();
     players.clear();
     profiles.clear();
     profileIdentities.clear();
@@ -9741,6 +9794,7 @@ ${ty.variants.map(
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
+          if (localState) refreshSpatialPlayerSubscription(localState.x, localState.y, true);
           sessionGeneration += 1;
           flushPendingProgress();
           onChange == null ? void 0 : onChange();
@@ -9748,7 +9802,7 @@ ${ty.variants.map(
           if (!isCurrentConnection()) return;
           console.error("Wildwood SpacetimeDB subscription error:", ctx.event);
         }).subscribe([
-          tables.player,
+          tables.player.where((player) => player.identity.eq(identity)),
           tables.playerProfile,
           tables.leaderboardEntry,
           tables.playerAccountStatus,
@@ -10054,6 +10108,7 @@ ${ty.variants.map(
     },
     syncPosition(x, y, facing, moving = false, force = false, highFrequency = false) {
       if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
+      refreshSpatialPlayerSubscription(x, y);
       const now = performance.now();
       const movingChanged = moving !== lastPositionMoving;
       const movementIntervalMs = highFrequency ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;

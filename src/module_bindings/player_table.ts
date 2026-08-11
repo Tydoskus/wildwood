@@ -24,4 +24,6 @@ export default __t.row({
   power: __t.u32(),
   protocolVersion: __t.u32().name("protocol_version"),
   feetItem: __t.string().name("feet_item"),
+  zoneX: __t.i32().name("zone_x"),
+  zoneY: __t.i32().name("zone_y"),
 });

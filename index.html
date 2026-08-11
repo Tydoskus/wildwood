@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Wildwood</title>
-<link rel="stylesheet" href="src/styles/game.css?v=0.239" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.240" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -111,7 +111,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.239</div>
+        <div id="version">v0.240</div>
       </div>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
@@ -238,14 +238,23 @@
       <button id="closeLeaderboardBtn" class="profile-close-button secondary-button" type="button" aria-label="Close leaderboard">×</button>
     </header>
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
-      <button id="leaderboardDamageTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">DAMAGE</button>
+      <button id="leaderboardPowerTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">POWER</button>
+      <button id="leaderboardDamageTab" class="profile-tab" type="button" role="tab" aria-selected="false">DAMAGE</button>
       <button id="leaderboardHealthTab" class="profile-tab" type="button" role="tab" aria-selected="false">HEALTH</button>
     </div>
-    <div class="leaderboard-column-headings" aria-hidden="true"><span>RANK · PLAYER</span><span id="leaderboardValueHeading">DAMAGE</span></div>
+    <div class="leaderboard-column-headings" aria-hidden="true"><span>RANK · PLAYER</span><span id="leaderboardValueHeading">POWER</span></div>
     <ol id="leaderboardRows" class="leaderboard-rows"></ol>
     <div id="leaderboardEmpty" class="profile-loading" hidden>NO RANKINGS YET</div>
   </div>
 </div>
+
+<aside id="updateNotice" class="update-notice card" aria-labelledby="updateNoticeTitle" hidden>
+  <header>
+    <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.240</strong></div>
+    <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
+  </header>
+  <ul id="updateNoticeItems"></ul>
+</aside>
 
 <div id="duelReplay" hidden>
   <div id="duelReplayHud">
@@ -254,7 +263,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.239"></script>
-<script src="assets/wildwood/game.js?v=0.239"></script>
+<script src="assets/wildwood/coop-client.js?v=0.240"></script>
+<script src="assets/wildwood/game.js?v=0.240"></script>
 </body>
 </html>

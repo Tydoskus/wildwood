@@ -164,12 +164,14 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   damage: __t.f32(),
   maxHp: __t.f32(),
   isGuest: __t.bool(),
+  power: __t.u32(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 
 export const LeaderboardRefreshState = __t.object("LeaderboardRefreshState", {
   id: __t.u32(),
   refreshedAtMicros: __t.u64(),
+  version: __t.u32(),
 });
 export type LeaderboardRefreshState = __Infer<typeof LeaderboardRefreshState>;
 
@@ -193,6 +195,8 @@ export const Player = __t.object("Player", {
   power: __t.u32(),
   protocolVersion: __t.u32(),
   feetItem: __t.string(),
+  zoneX: __t.i32(),
+  zoneY: __t.i32(),
 });
 export type Player = __Infer<typeof Player>;
 

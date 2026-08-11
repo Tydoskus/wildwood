@@ -816,6 +816,14 @@
   .leaderboard-name { min-width: 0; overflow: hidden; color: #fff; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .leaderboard-guest { color: var(--muted); font-size: .82em; }
   .leaderboard-value { color: var(--gold); font-size: 10px; text-align: right; white-space: nowrap; }
+  .update-notice { position: fixed; top: 14px; right: 14px; z-index: 12; width: min(330px, calc(100vw - 28px)); padding: 10px 11px; pointer-events: auto; }
+  .update-notice[hidden] { display: none; }
+  .update-notice header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .update-notice header div { display: grid; gap: 2px; }
+  .update-notice header span { color: var(--muted); font-size: 8px; letter-spacing: .08em; }
+  .update-notice header strong { color: var(--gold); font-size: 14px; }
+  .update-notice button { width: 27px; min-width: 27px; height: 27px; margin: 0; padding: 0; border-width: 2px; border-radius: 6px; background: linear-gradient(#6e797a, #41494a); font-size: 17px; line-height: 1; }
+  .update-notice ul { display: grid; gap: 4px; margin: 8px 0 0; padding: 0 0 0 17px; color: #fff; font-size: 9px; line-height: 1.25; }
   .chat-name { cursor: pointer; }
   .chat-name:hover { filter: brightness(1.2); }
   #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }

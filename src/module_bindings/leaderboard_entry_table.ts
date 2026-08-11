@@ -16,4 +16,5 @@ export default __t.row({
   damage: __t.f32(),
   maxHp: __t.f32().name("max_hp"),
   isGuest: __t.bool().name("is_guest"),
+  power: __t.u32(),
 });
