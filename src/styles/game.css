@@ -821,6 +821,8 @@
   .profile-grid > div { min-width: 0; padding: 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
+  .profile-stat-grid { gap: 0; background: rgba(0,0,0,.2); }
+  .profile-stat-grid > div { border: 0; border-radius: 0; background: transparent; }
   .profile-stat-grid dd { color: var(--gold); }
   .modal.leaderboard-modal { width: min(430px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
@@ -828,14 +830,16 @@
   .leaderboard-tabs { margin: 9px 0 8px; }
   .leaderboard-tabs .profile-tab { padding: 6px 10px; }
   .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 42px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
-  .leaderboard-rows { display: grid; gap: 4px; max-height: min(64vh, 470px); margin: 0; padding: 0 2px 1px 0; overflow-y: auto; list-style: none; }
-  .leaderboard-row { display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 35px; padding: 5px 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.22); }
-  .leaderboard-row.is-local { border-color: rgba(114,239,88,.72); background: rgba(67,160,62,.18); }
+  .leaderboard-rows { display: grid; gap: 0; max-height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
+  .leaderboard-row { display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 35px; padding: 5px 8px; border: 0; border-radius: 0; background: transparent; }
+  .leaderboard-row.is-local { background: rgba(67,160,62,.24); }
   .leaderboard-rank { color: var(--muted); font-size: 9px; text-align: center; }
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }
   .leaderboard-row:nth-child(2) .leaderboard-rank { color: #dce6e8; }
   .leaderboard-row:nth-child(3) .leaderboard-rank { color: #e4a96a; }
-  .leaderboard-name { min-width: 0; overflow: hidden; color: #fff; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .leaderboard-name { min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; color: #fff; font-size: 10px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .leaderboard-name:hover, .leaderboard-name:focus-visible { color: var(--green); }
+  .leaderboard-name:active { transform: none; }
   .leaderboard-guest { color: var(--muted); font-size: .82em; }
   .leaderboard-value { color: var(--gold); font-size: 10px; text-align: right; white-space: nowrap; }
   .update-notice { position: fixed; top: 14px; right: 14px; z-index: 12; width: min(330px, calc(100vw - 28px)); padding: 10px 11px; pointer-events: auto; }
@@ -871,10 +875,7 @@
     .leaderboard-tabs .profile-tab { padding: 3px 8px; font-size: 9px; }
     .leaderboard-column-headings { padding: 0 7px 2px 35px; font-size: 7px; }
     .leaderboard-rows { gap: 0; max-height: min(45vh, 329px); padding: 0; }
-    .leaderboard-row { min-height: 25px; padding: 0 7px; border-radius: 0; }
-    .leaderboard-row + .leaderboard-row { border-top: 0; }
-    .leaderboard-row:first-child { border-radius: 6px 6px 0 0; }
-    .leaderboard-row:last-child { border-radius: 0 0 6px 6px; }
+    .leaderboard-row { min-height: 25px; padding: 0 7px; }
     .leaderboard-rank { font-size: 8px; }
     .leaderboard-name, .leaderboard-value { font-size: 9px; }
   }

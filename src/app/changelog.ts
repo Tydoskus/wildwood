@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.243": [
+    "Leaderboard rows simplified into a compact list",
+    "Profile stats simplified into a compact grid",
+    "Leaderboard names now open player profiles",
+  ],
   "0.242": [
     "Accurate global online player count",
     "Chat renamed to World Chat",
