@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.248": [
+    "Profile portrait alignment corrected",
+    "Profile portraits added to leaderboard",
+  ],
   "0.247": [
     "Tutorial Forest map-wide player visibility added",
     "Sign-in now requires an explicit button press",

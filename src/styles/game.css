@@ -875,9 +875,10 @@
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   .leaderboard-tabs { margin: 9px 0 8px; }
   .leaderboard-tabs .profile-tab { padding: 6px 10px; }
-  .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 42px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
+  .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 70px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .leaderboard-rows { display: grid; gap: 0; max-height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
-  .leaderboard-row { display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 35px; padding: 5px 8px; border: 0; border-radius: 0; background: transparent; }
+  .leaderboard-row { display: grid; grid-template-columns: 29px 25px minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 35px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; }
+  .leaderboard-profile-icon { width: 25px; height: 25px; border-radius: 4px; }
   .leaderboard-row.is-local { background: rgba(67,160,62,.24); }
   .leaderboard-rank { color: var(--muted); font-size: 9px; text-align: center; }
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }

@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.248": [
+      "Profile portrait alignment corrected",
+      "Profile portraits added to leaderboard"
+    ],
     "0.247": [
       "Tutorial Forest map-wide player visibility added",
       "Sign-in now requires an explicit button press",
@@ -791,7 +795,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.247";
+    const GAME_VERSION = "0.248";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -3505,6 +3509,7 @@
       const localIdentity = ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop)) || "";
       leaderboardRowsEl.replaceChildren();
       entries.forEach((entry, index) => {
+        var _a2;
         const row = document.createElement("li");
         row.className = "leaderboard-row";
         row.classList.toggle("is-local", entry.identity === localIdentity);
@@ -3531,10 +3536,13 @@
           closeLeaderboard();
           void openPlayerProfile(entry.identity, entry.name);
         });
+        const icon = document.createElement("span");
+        icon.className = "leaderboard-profile-icon profile-icon";
+        applyProfileIcon(icon, ((_a2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a2.call(coop, entry.identity)) ?? 0);
         const value = document.createElement("span");
         value.className = "leaderboard-value";
         value.textContent = formatCompactNumber(entry[valueKey]);
-        row.append(rank, name, value);
+        row.append(rank, icon, name, value);
         leaderboardRowsEl.appendChild(row);
       });
       leaderboardEmptyEl.hidden = entries.length > 0;

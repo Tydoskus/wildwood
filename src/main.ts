@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.247";
+  const GAME_VERSION = "0.248";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -3060,10 +3060,14 @@ import { formatCompactNumber } from "./ui/number-format";
         void openPlayerProfile(entry.identity, entry.name);
       });
 
+      const icon = document.createElement("span");
+      icon.className = "leaderboard-profile-icon profile-icon";
+      applyProfileIcon(icon, coop?.profileIcon?.(entry.identity) ?? 0);
+
       const value = document.createElement("span");
       value.className = "leaderboard-value";
       value.textContent = formatCompactNumber(entry[valueKey]);
-      row.append(rank, name, value);
+      row.append(rank, icon, name, value);
       leaderboardRowsEl.appendChild(row);
     });
     leaderboardEmptyEl.hidden = entries.length > 0;
