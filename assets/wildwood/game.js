@@ -18,6 +18,9 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.244": [
+      "Nearby players now appear reliably as they enter your area"
+    ],
     "0.243": [
       "Leaderboard rows simplified into a compact list",
       "Profile stats simplified into a compact grid",
@@ -735,7 +738,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.243";
+    const GAME_VERSION = "0.244";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1933,7 +1936,7 @@
       return true;
     }
     function updatePlayer(dt) {
-      var _a, _b2, _c2, _d;
+      var _a, _b2, _c2, _d, _e;
       if (applyDuelState()) return;
       if (duelWasActive) {
         const returnedState = (_a = coop == null ? void 0 : coop.localState) == null ? void 0 : _a.call(coop);
@@ -1959,9 +1962,7 @@
         return;
       }
       if (duelResultHold) return;
-      const multiplayerActive = Boolean(
-        coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0
-      );
+      const multiplayerActive = Boolean((_c2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _c2.call(coop));
       const multiplayerJustStarted = multiplayerActive && !movementSyncActive;
       movementSyncActive = multiplayerActive;
       if (multiplayerActive) coop.syncSpeed(player.speed);
@@ -1983,7 +1984,7 @@
         player.y += my * player.speed * dt;
         if (Math.abs(mx) + Math.abs(my) > 0.1) player.facing = Math.atan2(my, mx);
       }
-      if (typeof ((_c2 = boss.cone) == null ? void 0 : _c2.pushAngle) === "number") {
+      if (typeof ((_d = boss.cone) == null ? void 0 : _d.pushAngle) === "number") {
         const waveSpeed = (BOSS_CONE_RANGE - boss.r) / boss.cone.duration;
         player.x += Math.cos(boss.cone.pushAngle) * waveSpeed * dt;
         player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
@@ -1995,7 +1996,7 @@
         const visibleH = viewH / camera.zoom;
         const marginX = visibleW * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
         const marginY = visibleH * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
-        const highFrequency = ((_d = coop.hasRemotePlayerInArea) == null ? void 0 : _d.call(
+        const highFrequency = ((_e = coop.hasRemotePlayerInArea) == null ? void 0 : _e.call(
           coop,
           camera.x - marginX,
           camera.y - marginY,

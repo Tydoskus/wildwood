@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.244": [
+    "Nearby players now appear reliably as they enter your area",
+  ],
   "0.243": [
     "Leaderboard rows simplified into a compact list",
     "Profile stats simplified into a compact grid",

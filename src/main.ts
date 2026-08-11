@@ -55,7 +55,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.243";
+  const GAME_VERSION = "0.244";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1405,9 +1405,11 @@ import { formatCompactNumber } from "./ui/number-format";
       return;
     }
     if (duelResultHold) return;
-    const multiplayerActive = Boolean(
-      coop && coop.isConnected() && typeof coop.remotePlayerCount === "function" && coop.remotePlayerCount() > 0,
-    );
+    // Keep server position and the spatial subscription current even while no
+    // remote player is cached yet. Gating sync on remotePlayerCount creates a
+    // deadlock: no remote row means no movement sync, so neither player moves
+    // into the other's area-of-interest query.
+    const multiplayerActive = Boolean(coop?.isConnected?.());
     const multiplayerJustStarted = multiplayerActive && !movementSyncActive;
     movementSyncActive = multiplayerActive;
     if (multiplayerActive) coop.syncSpeed(player.speed);
