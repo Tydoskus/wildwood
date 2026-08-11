@@ -83,7 +83,7 @@
 
   .player-hud-card { display: flex; align-items: stretch; gap: 8px; padding: 7px 9px; }
   .player-hud-content { min-width: 0; flex: 1; }
-  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-icons.png"); background-repeat: no-repeat; background-size: 800% 800%; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-v2.png"); background-repeat: no-repeat; background-size: 800% 800%; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { border-color: var(--green); cursor: pointer; }
@@ -92,7 +92,7 @@
   .profile-icon-picker-modal { width: min(510px, calc(100vw - 18px)); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
   .profile-icon-picker-modal h2 { margin: 0; color: var(--gold); font-size: clamp(17px, 4vw, 24px); }
   .profile-icon-choices { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; max-height: min(74vh, 480px); margin-top: 10px; overflow-y: auto; }
-  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-icons.png"); background-repeat: no-repeat; background-size: 800% 800%; }
+  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-v2.png"); background-repeat: no-repeat; background-size: 800% 800%; }
   .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
 
   #playerPower {
@@ -560,7 +560,7 @@
     max-height: 255px;
   }
   .chat-line { overflow-wrap: anywhere; }
-  .chat-profile-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px 0 1px; border: 1px solid rgba(255,255,255,.25); border-radius: 3px; background: #0d1411 url("../../assets/wildwood/profile-icons.png") no-repeat; background-size: 800% 800%; vertical-align: -4px; -webkit-text-stroke: 0; text-shadow: none; }
+  .chat-profile-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px 0 1px; border: 1px solid rgba(255,255,255,.25); border-radius: 3px; background: #0d1411 url("../../assets/wildwood/profile-portraits-v2.png") no-repeat; background-size: 800% 800%; vertical-align: -4px; -webkit-text-stroke: 0; text-shadow: none; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
   .chat-name { color: var(--gold); font-weight: 900; }
   .chat-text { color: var(--text); white-space: pre-wrap; }

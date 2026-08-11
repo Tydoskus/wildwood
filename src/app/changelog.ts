@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.249": [
+    "Profile portrait caching and alignment fixed",
+    "Neutral default profile portrait added",
+  ],
   "0.248": [
     "Profile portrait alignment corrected",
     "Profile portraits added to leaderboard",

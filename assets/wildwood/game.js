@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.249": [
+      "Profile portrait caching and alignment fixed",
+      "Neutral default profile portrait added"
+    ],
     "0.248": [
       "Profile portrait alignment corrected",
       "Profile portraits added to leaderboard"
@@ -795,7 +799,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.248";
+    const GAME_VERSION = "0.249";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1106,7 +1110,7 @@
     playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
     playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
     const profileIconSheet = new Image();
-    profileIconSheet.src = "assets/wildwood/profile-icons.png";
+    profileIconSheet.src = "assets/wildwood/profile-portraits-v2.png";
     const ENEMY_SPRITES = loadEnemySprites();
     const actorShadowSprite = loadActorShadowSprite();
     let treeSpritesheetReady = false;
