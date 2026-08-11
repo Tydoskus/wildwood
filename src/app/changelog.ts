@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.251": [
+    "Leaderboard profile portraits corrected",
+    "Mobile HUD and World Chat layout improved",
+    "Player profiles now show online or last-seen status",
+    "Update notes now close only from their close button",
+  ],
   "0.250": [
     "Profile portrait grid math corrected",
   ],

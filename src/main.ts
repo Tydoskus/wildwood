@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.250";
+  const GAME_VERSION = "0.251";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -158,6 +158,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const sceneFadeEl = document.getElementById("sceneFade");
   const playerProfileEl = document.getElementById("playerProfile");
   const playerProfileNameEl = document.getElementById("playerProfileName");
+  const playerProfilePresenceEl = document.getElementById("playerProfilePresence");
   const playerProfilePowerEl = document.getElementById("playerProfilePower");
   const playerProfileIcon = document.getElementById("playerProfileIcon");
   const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
@@ -374,6 +375,9 @@ import { formatCompactNumber } from "./ui/number-format";
   playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
   playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
   const profileIconSheet = new Image();
+  profileIconSheet.addEventListener("load", () => {
+    if (!leaderboardEl.hidden) renderLeaderboard();
+  });
   profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v1.png";
 
   const ENEMY_SPRITES = loadEnemySprites();
@@ -2153,6 +2157,28 @@ import { formatCompactNumber } from "./ui/number-format";
     element.dataset.profileIcon = String(index);
   }
 
+  function paintProfileIconCanvas(canvas, iconIndex) {
+    const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
+    const iconContext = canvas.getContext("2d");
+    if (!iconContext) return;
+    iconContext.clearRect(0, 0, canvas.width, canvas.height);
+    if (!profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
+    const cellWidth = profileIconSheet.naturalWidth / 8;
+    const cellHeight = profileIconSheet.naturalHeight / 8;
+    iconContext.imageSmoothingEnabled = true;
+    iconContext.drawImage(
+      profileIconSheet,
+      (index % 8) * cellWidth,
+      Math.floor(index / 8) * cellHeight,
+      cellWidth,
+      cellHeight,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+  }
+
   function drawProfileIcon(identity, x, bottom, size = 15) {
     if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
     const index = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(identity) ?? 0)));
@@ -2926,6 +2952,16 @@ import { formatCompactNumber } from "./ui/number-format";
     return coop?.remotePlayers?.().some((other) => other.id === identity) === true;
   }
 
+  function profilePresenceText(online, lastSeenAtMs) {
+    if (online) return "ONLINE";
+    if (!Number.isFinite(lastSeenAtMs) || lastSeenAtMs <= 0) return "LAST SEEN —";
+    const lastSeen = new Date(lastSeenAtMs);
+    const options = lastSeen.getFullYear() === new Date().getFullYear()
+      ? { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }
+      : { year: "numeric", month: "short", day: "numeric" };
+    return `LAST SEEN ${lastSeen.toLocaleString([], options).toUpperCase()}`;
+  }
+
   function setProfileTab(tab) {
     const overview = tab === "overview";
     profileOverviewTab.classList.toggle("is-active", overview);
@@ -2941,9 +2977,12 @@ import { formatCompactNumber } from "./ui/number-format";
     const { progress, lifetime } = profile;
     openProfileData = profile;
     const online = isProfileOnline(profile.identity);
+    const presenceText = profilePresenceText(online, lifetime.sessionStartedAtMs);
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     const power = playerPower(progress);
     renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
+    playerProfilePresenceEl.textContent = presenceText;
+    playerProfilePresenceEl.classList.toggle("is-online", online);
     applyProfileIcon(playerProfileIcon, coop?.profileIcon?.(profile.identity) ?? 0);
     const ownProfile = profile.identity === coop?.localIdentity?.();
     playerProfileIcon.classList.toggle("is-editable", ownProfile);
@@ -2955,7 +2994,7 @@ import { formatCompactNumber } from "./ui/number-format";
     });
     profileTimePlayedEl.textContent = formatPlayedTime(lifetime.playedSeconds + activeSeconds);
     profileKillsEl.textContent = Math.round(lifetime.enemyKills).toLocaleString();
-    profileOnlineEl.textContent = online ? "ONLINE" : "OFFLINE";
+    profileOnlineEl.textContent = presenceText;
     profileOnlineEl.style.color = online ? "#72ef58" : "#b7c5b7";
 
     const stats = [
@@ -2993,6 +3032,9 @@ import { formatCompactNumber } from "./ui/number-format";
     editPlayerSaveBtn.hidden = true;
     playerProfileEl.hidden = false;
     renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
+    const online = isProfileOnline(identity);
+    playerProfilePresenceEl.textContent = online ? "ONLINE" : "CHECKING LAST SEEN";
+    playerProfilePresenceEl.classList.toggle("is-online", online);
     applyProfileIcon(playerProfileIcon, coop?.profileIcon?.(identity) ?? 0);
     playerProfileIcon.classList.toggle("is-editable", identity === coop?.localIdentity?.());
     playerProfileIcon.disabled = identity !== coop?.localIdentity?.();
@@ -3060,9 +3102,12 @@ import { formatCompactNumber } from "./ui/number-format";
         void openPlayerProfile(entry.identity, entry.name);
       });
 
-      const icon = document.createElement("span");
-      icon.className = "leaderboard-profile-icon profile-icon";
-      applyProfileIcon(icon, coop?.profileIcon?.(entry.identity) ?? 0);
+      const icon = document.createElement("canvas");
+      icon.className = "leaderboard-profile-icon";
+      icon.width = 64;
+      icon.height = 64;
+      icon.setAttribute("aria-hidden", "true");
+      paintProfileIconCanvas(icon, coop?.profileIcon?.(entry.identity) ?? 0);
 
       const value = document.createElement("span");
       value.className = "leaderboard-value";
@@ -3776,6 +3821,8 @@ import { formatCompactNumber } from "./ui/number-format";
     elements: {
       toggle: document.getElementById("chatToggle"),
       panel: document.getElementById("chatPanel"),
+      header: document.querySelector("#chatPanel .chat-header"),
+      sizeToggle: document.getElementById("chatSizeToggle"),
       messages: document.getElementById("chatMessages"),
       form: document.getElementById("chatForm"),
       input: document.getElementById("chatInput"),
@@ -3863,7 +3910,6 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!dragonResultEl.hidden && !dragonResultEl.querySelector(".modal")?.contains(target)) closeDragonResult();
     if (!duelResultEl.hidden && !duelResultEl.querySelector(".modal")?.contains(target)) leaveDuelResult();
     if (!bootUpgradeEl.hidden && !bootUpgradeEl.querySelector(".modal")?.contains(target)) bootUpgradeClose.click();
-    if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
     if (!profileIconPickerEl.hidden && !profileIconPickerEl.querySelector(".modal")?.contains(target)) closeProfileIconPicker();
   });
 

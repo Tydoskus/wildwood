@@ -55,8 +55,8 @@
 
   .topbar {
     position: absolute;
-    left: 12px;
-    top: 10px;
+    left: 0;
+    top: 0;
     right: 12px;
     display: flex;
     align-items: flex-start;
@@ -82,6 +82,7 @@
   }
 
   .player-hud-card { display: flex; align-items: stretch; gap: 8px; padding: 7px 9px; }
+  .topbar > .player-hud-card { border-top: 0; border-left: 0; border-radius: 0 0 10px 0; }
   .player-hud-content { min-width: 0; flex: 1; }
   .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; }
@@ -505,12 +506,12 @@
     position: fixed;
     left: 0;
     bottom: 0;
-    width: min(260px, calc(100vw - 12px));
+    width: min(320px, calc(100vw - 12px));
     padding: 5px 6px;
     border-bottom: 0;
     border-left: 0;
     border-radius: 0 10px 0 0;
-    cursor: pointer;
+    cursor: default;
     pointer-events: auto;
     z-index: 6;
   }
@@ -524,13 +525,44 @@
   }
 
   .chat-header {
+    min-height: 23px;
     justify-content: flex-start;
     gap: 8px;
     color: #fff;
     font-size: 10px;
     font-weight: 900;
     letter-spacing: .08em;
+    cursor: pointer;
   }
+
+  .chat-size-toggle {
+    position: relative;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 5px;
+    background: rgba(255,255,255,.08);
+    cursor: pointer;
+  }
+
+  .chat-size-icon {
+    position: absolute;
+    inset: 2px;
+    color: #fff;
+    font: 900 10px/1 Arial, sans-serif;
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+  }
+
+  .chat-size-icon::before,
+  .chat-size-icon::after { position: absolute; }
+  .chat-size-icon::before { top: 0; right: 0; content: "↗"; }
+  .chat-size-icon::after { bottom: 0; left: 0; content: "↙"; }
+  #chatSizeToggle[aria-expanded="true"] .chat-size-icon::before { content: "↙"; }
+  #chatSizeToggle[aria-expanded="true"] .chat-size-icon::after { content: "↗"; }
 
   #saveNameBtn,
   #chatForm button {
@@ -545,20 +577,25 @@
 
   #chatMessages {
     display: grid;
-    align-content: start;
+    align-content: safe end;
     gap: 4px;
-    height: 34px;
-    max-height: 34px;
+    height: 38px;
+    max-height: 38px;
     margin: 5px 0;
-    overflow-y: auto;
+    overflow: hidden;
     font-size: 10px;
     line-height: 1.3;
   }
 
   #chatPanel.is-large #chatMessages {
-    height: 255px;
-    max-height: 255px;
+    height: 225px;
+    max-height: 225px;
+    overflow-y: auto;
   }
+  #chatPanel.is-large { width: min(420px, calc(100vw - 12px)); }
+  #chatPanel:not(.is-large) #chatForm { display: none; }
+  #chatPanel:not(.is-large) .chat-line { display: none; }
+  #chatPanel:not(.is-large) .chat-line:nth-last-child(-n + 2) { display: block; }
   .chat-line { overflow-wrap: anywhere; }
   .chat-profile-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px 0 1px; border: 1px solid rgba(255,255,255,.25); border-radius: 3px; background: #0d1411 url("../../assets/wildwood/profile-portraits-grid-v1.png") no-repeat; background-size: 800% 800%; vertical-align: -4px; -webkit-text-stroke: 0; text-shadow: none; }
   .chat-time { color: var(--muted); font-size: 9px; margin-right: 4px; }
@@ -854,8 +891,11 @@
   }
   .player-profile-modal { width: min(520px, calc(100vw - 26px)); max-height: calc(100vh - 26px); overflow-y: auto; text-align: left; }
   .player-profile-header { display: flex; align-items: center; gap: 14px; }
-  .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 18px; }
-  .player-profile-header h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-size: clamp(23px, 6vw, 34px); white-space: nowrap; text-overflow: ellipsis; }
+  .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 18px; }
+  .player-profile-identity { min-width: 0; flex: 1; }
+  .player-profile-header h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-size: clamp(18px, 4.4vw, 26px); line-height: 1.05; white-space: nowrap; text-overflow: ellipsis; }
+  .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
+  .player-profile-presence.is-online { color: #72ef58; }
   #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 13px; white-space: nowrap; text-align: right; }
   .profile-close-button { width: 40px; min-width: 40px; height: 40px; margin: 0; padding: 0; font-size: 25px; line-height: 1; }
   .profile-tabs { display: flex; gap: 7px; margin: 18px 0 12px; border-bottom: 2px solid rgba(255,255,255,.13); }
@@ -878,7 +918,7 @@
   .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 70px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .leaderboard-rows { display: grid; gap: 0; max-height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
   .leaderboard-row { display: grid; grid-template-columns: 29px 25px minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 35px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; }
-  .leaderboard-profile-icon { width: 25px; height: 25px; border-radius: 4px; }
+  canvas.leaderboard-profile-icon { position: static; inset: auto; display: block; width: 25px; height: 25px; padding: 0; border: 2px solid rgba(255,255,255,.25); border-radius: 4px; background: #0d1411; image-rendering: auto; }
   .leaderboard-row.is-local { background: rgba(67,160,62,.24); }
   .leaderboard-rank { color: var(--muted); font-size: 9px; text-align: center; }
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }
@@ -1105,4 +1145,17 @@
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
     #pickupLog { bottom: 180px; }
+    .topbar { top: 0; right: 7px; left: 0; }
+    .player-hud-card { gap: 6px; padding: 5px 6px; }
+    .profile-icon-button { width: 38px; height: 38px; border-radius: 6px; }
+    .player-summary { min-width: min(250px, 50vw); gap: 8px; padding: 0 2px 3px; }
+    .bar { width: min(250px, 50vw); height: 17px; margin-bottom: 1px; }
+    #playerName, #playerPower { font-size: 9px; }
+    #hpText { font-size: 10px; }
+    .settings-wrap { top: calc(100% + 6px); gap: 7px; }
+    .settings-button { width: 36px; height: 36px; border-radius: 8px; font-size: 20px; }
+    .toolbar-icon { width: 22px; height: 22px; }
+    #chatPanel { width: min(300px, 100vw); }
+    #chatPanel.is-large { width: 100vw; border-right: 0; border-radius: 0; }
+    #chatPanel.is-large #chatMessages { height: min(36vh, 170px); max-height: min(36vh, 170px); }
   }

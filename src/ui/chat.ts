@@ -16,6 +16,7 @@ type CoopClient = {
   localDisplayName?: () => string;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
+  chatRevision?: () => number;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
   setDisplayName?: (name: string) => Promise<{ ok: boolean; error?: string }>;
@@ -24,6 +25,8 @@ type CoopClient = {
 type ChatElements = {
   toggle: HTMLButtonElement;
   panel: HTMLElement;
+  header: HTMLElement;
+  sizeToggle: HTMLButtonElement;
   messages: HTMLElement;
   form: HTMLFormElement;
   input: HTMLTextAreaElement;
@@ -42,6 +45,8 @@ type ChatOptions = {
 export function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer }: ChatOptions) {
   let enabled = true;
   let large = false;
+  let renderedRevision = -1;
+  let nextExpiryAt = 0;
 
   try { enabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false"; } catch {}
 
@@ -55,6 +60,9 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
 
   function updateHeight() {
     elements.panel.classList.toggle("is-large", large);
+    elements.sizeToggle.setAttribute("aria-expanded", String(large));
+    elements.sizeToggle.setAttribute("aria-label", large ? "Minimize chat" : "Expand chat");
+    if (large) requestAnimationFrame(() => { elements.messages.scrollTop = elements.messages.scrollHeight; });
   }
 
   function nameColor(identity: string) {
@@ -73,10 +81,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.displayNameInput.value = localName;
     }
 
-    elements.messages.replaceChildren();
     const now = Date.now();
-    const messages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? [])
-      .slice(large ? -15 : -2);
+    const revision = coop?.chatRevision?.() ?? -1;
+    if (revision === renderedRevision && now < nextExpiryAt) return;
+    const messages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? []).slice(-100);
+    renderedRevision = revision;
+    nextExpiryAt = messages.length > 0 ? messages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
+    elements.messages.replaceChildren();
     for (const message of messages) {
       const line = document.createElement("div");
       line.className = "chat-line";
@@ -163,8 +174,12 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       enabled = !enabled;
       updateVisibility();
     });
-    elements.panel.addEventListener("pointerup", (event) => {
-      if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label, .chat-name")) return;
+    elements.header.addEventListener("pointerup", (event) => {
+      if (event.target instanceof Element && event.target.closest("button")) return;
+      large = !large;
+      updateHeight();
+    });
+    elements.sizeToggle.addEventListener("click", () => {
       large = !large;
       updateHeight();
     });

@@ -227,6 +227,7 @@ let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
 let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
 let mapSubscriptionGeneration = 0;
 const chatMessages: ChatMessage[] = [];
+let chatPresentationRevision = 0;
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
@@ -960,6 +961,7 @@ function upsertProfile(row: { identity: Identity; displayName: string; profileIc
   }
   const player = players.get(id);
   if (player) player.name = row.displayName;
+  chatPresentationRevision += 1;
   onChange?.();
 }
 
@@ -1018,11 +1020,13 @@ function removeAccessAudit(row: { identity: Identity }) {
 
 function upsertPlayerAccountStatus(row: { identity: Identity; isGuest: boolean }) {
   guestAccounts.set(row.identity.toHexString(), row.isGuest);
+  chatPresentationRevision += 1;
   onChange?.();
 }
 
 function removePlayerAccountStatus(row: { identity: Identity }) {
   guestAccounts.delete(row.identity.toHexString());
+  chatPresentationRevision += 1;
   onChange?.();
 }
 
@@ -1138,6 +1142,7 @@ function upsertChatMessage(row: {
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
   while (chatMessages.length > 100) chatMessages.shift();
+  chatPresentationRevision += 1;
   onChange?.();
 }
 
@@ -1351,6 +1356,7 @@ function clearRealtimeCaches() {
   playerLifetimes.clear();
   playerProfileLoads.clear();
   chatMessages.length = 0;
+  chatPresentationRevision += 1;
   duels.clear();
   duelReplays.clear();
   replayLoads.clear();
@@ -1899,6 +1905,9 @@ export const wildwoodCoop = {
   },
   chatMessages() {
     return chatMessages.slice();
+  },
+  chatRevision() {
+    return chatPresentationRevision;
   },
   async sendChatMessage(message: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };

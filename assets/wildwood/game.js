@@ -18,6 +18,12 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.251": [
+      "Leaderboard profile portraits corrected",
+      "Mobile HUD and World Chat layout improved",
+      "Player profiles now show online or last-seen status",
+      "Update notes now close only from their close button"
+    ],
     "0.250": [
       "Profile portrait grid math corrected"
     ],
@@ -558,6 +564,8 @@
   function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer }) {
     let enabled = true;
     let large = false;
+    let renderedRevision = -1;
+    let nextExpiryAt = 0;
     try {
       enabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false";
     } catch {
@@ -574,6 +582,11 @@
     }
     function updateHeight() {
       elements.panel.classList.toggle("is-large", large);
+      elements.sizeToggle.setAttribute("aria-expanded", String(large));
+      elements.sizeToggle.setAttribute("aria-label", large ? "Minimize chat" : "Expand chat");
+      if (large) requestAnimationFrame(() => {
+        elements.messages.scrollTop = elements.messages.scrollHeight;
+      });
     }
     function nameColor(identity) {
       let hash = 2166136261;
@@ -584,15 +597,19 @@
       return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
     }
     function refresh() {
-      var _a, _b, _c, _d;
+      var _a, _b, _c, _d, _e;
       const coop = getCoop();
       const localName = (_a = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a.call(coop);
       if (localName && document.activeElement !== elements.displayNameInput) {
         elements.displayNameInput.value = localName;
       }
-      elements.messages.replaceChildren();
       const now = Date.now();
-      const messages = (((_b = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _b.call(coop).filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS)) ?? []).slice(large ? -15 : -2);
+      const revision = ((_b = coop == null ? void 0 : coop.chatRevision) == null ? void 0 : _b.call(coop)) ?? -1;
+      if (revision === renderedRevision && now < nextExpiryAt) return;
+      const messages = (((_c = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _c.call(coop).filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS)) ?? []).slice(-100);
+      renderedRevision = revision;
+      nextExpiryAt = messages.length > 0 ? messages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
+      elements.messages.replaceChildren();
       for (const message of messages) {
         const line = document.createElement("div");
         line.className = "chat-line";
@@ -602,7 +619,7 @@
         const name = document.createElement("span");
         name.className = "chat-name";
         name.style.color = nameColor(message.sender);
-        const guestSuffix = ((_c = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _c.call(coop, message.sender)) ? " (guest)" : "";
+        const guestSuffix = ((_d = coop == null ? void 0 : coop.isGuest) == null ? void 0 : _d.call(coop, message.sender)) ? " (guest)" : "";
         if (isDeveloperIdentity(message.sender)) {
           const badge = document.createElement("span");
           badge.className = "dev-badge";
@@ -628,7 +645,7 @@
         text.textContent = message.message;
         const icon = document.createElement("span");
         icon.className = "chat-profile-icon";
-        const iconIndex = Math.max(0, Math.min(63, Math.floor(((_d = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _d.call(coop, message.sender)) ?? 0)));
+        const iconIndex = Math.max(0, Math.min(63, Math.floor(((_e = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _e.call(coop, message.sender)) ?? 0)));
         icon.style.backgroundPosition = `${iconIndex % 8 / 7 * 100}% ${Math.floor(iconIndex / 8) / 7 * 100}%`;
         line.append(time, icon, name, text);
         if (message.replayId > 0n) {
@@ -678,8 +695,12 @@
         enabled = !enabled;
         updateVisibility();
       });
-      elements.panel.addEventListener("pointerup", (event) => {
-        if (event.target instanceof Element && event.target.closest("#chatForm, button, input, textarea, label, .chat-name")) return;
+      elements.header.addEventListener("pointerup", (event) => {
+        if (event.target instanceof Element && event.target.closest("button")) return;
+        large = !large;
+        updateHeight();
+      });
+      elements.sizeToggle.addEventListener("click", () => {
         large = !large;
         updateHeight();
       });
@@ -802,7 +823,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.250";
+    const GAME_VERSION = "0.251";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -902,6 +923,7 @@
     const sceneFadeEl = document.getElementById("sceneFade");
     const playerProfileEl = document.getElementById("playerProfile");
     const playerProfileNameEl = document.getElementById("playerProfileName");
+    const playerProfilePresenceEl = document.getElementById("playerProfilePresence");
     const playerProfilePowerEl = document.getElementById("playerProfilePower");
     const playerProfileIcon = document.getElementById("playerProfileIcon");
     const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
@@ -1113,6 +1135,9 @@
     playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
     playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
     const profileIconSheet = new Image();
+    profileIconSheet.addEventListener("load", () => {
+      if (!leaderboardEl.hidden) renderLeaderboard();
+    });
     profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v1.png";
     const ENEMY_SPRITES = loadEnemySprites();
     const actorShadowSprite = loadActorShadowSprite();
@@ -2705,6 +2730,27 @@
       element.style.backgroundPosition = `${column / 7 * 100}% ${row / 7 * 100}%`;
       element.dataset.profileIcon = String(index);
     }
+    function paintProfileIconCanvas(canvas2, iconIndex) {
+      const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
+      const iconContext = canvas2.getContext("2d");
+      if (!iconContext) return;
+      iconContext.clearRect(0, 0, canvas2.width, canvas2.height);
+      if (!profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
+      const cellWidth = profileIconSheet.naturalWidth / 8;
+      const cellHeight = profileIconSheet.naturalHeight / 8;
+      iconContext.imageSmoothingEnabled = true;
+      iconContext.drawImage(
+        profileIconSheet,
+        index % 8 * cellWidth,
+        Math.floor(index / 8) * cellHeight,
+        cellWidth,
+        cellHeight,
+        0,
+        0,
+        canvas2.width,
+        canvas2.height
+      );
+    }
     function drawProfileIcon(identity, x, bottom, size = 15) {
       var _a;
       if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
@@ -3413,6 +3459,13 @@
       if (identity === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) return Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop));
       return ((_c2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c2.call(coop).some((other) => other.id === identity)) === true;
     }
+    function profilePresenceText(online, lastSeenAtMs) {
+      if (online) return "ONLINE";
+      if (!Number.isFinite(lastSeenAtMs) || lastSeenAtMs <= 0) return "LAST SEEN —";
+      const lastSeen = new Date(lastSeenAtMs);
+      const options = lastSeen.getFullYear() === (/* @__PURE__ */ new Date()).getFullYear() ? { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } : { year: "numeric", month: "short", day: "numeric" };
+      return `LAST SEEN ${lastSeen.toLocaleString([], options).toUpperCase()}`;
+    }
     function setProfileTab(tab) {
       const overview = tab === "overview";
       profileOverviewTab.classList.toggle("is-active", overview);
@@ -3428,9 +3481,12 @@
       const { progress, lifetime } = profile;
       openProfileData = profile;
       const online = isProfileOnline(profile.identity);
+      const presenceText = profilePresenceText(online, lifetime.sessionStartedAtMs);
       const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
       const power = playerPower(progress);
       renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
+      playerProfilePresenceEl.textContent = presenceText;
+      playerProfilePresenceEl.classList.toggle("is-online", online);
       applyProfileIcon(playerProfileIcon, ((_a = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a.call(coop, profile.identity)) ?? 0);
       const ownProfile = profile.identity === ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop));
       playerProfileIcon.classList.toggle("is-editable", ownProfile);
@@ -3444,7 +3500,7 @@
       });
       profileTimePlayedEl.textContent = formatPlayedTime(lifetime.playedSeconds + activeSeconds);
       profileKillsEl.textContent = Math.round(lifetime.enemyKills).toLocaleString();
-      profileOnlineEl.textContent = online ? "ONLINE" : "OFFLINE";
+      profileOnlineEl.textContent = presenceText;
       profileOnlineEl.style.color = online ? "#72ef58" : "#b7c5b7";
       const stats = [
         ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
@@ -3481,6 +3537,9 @@
       editPlayerSaveBtn.hidden = true;
       playerProfileEl.hidden = false;
       renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
+      const online = isProfileOnline(identity);
+      playerProfilePresenceEl.textContent = online ? "ONLINE" : "CHECKING LAST SEEN";
+      playerProfilePresenceEl.classList.toggle("is-online", online);
       applyProfileIcon(playerProfileIcon, ((_a = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a.call(coop, identity)) ?? 0);
       playerProfileIcon.classList.toggle("is-editable", identity === ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop)));
       playerProfileIcon.disabled = identity !== ((_c2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _c2.call(coop));
@@ -3543,9 +3602,12 @@
           closeLeaderboard();
           void openPlayerProfile(entry.identity, entry.name);
         });
-        const icon = document.createElement("span");
-        icon.className = "leaderboard-profile-icon profile-icon";
-        applyProfileIcon(icon, ((_a2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a2.call(coop, entry.identity)) ?? 0);
+        const icon = document.createElement("canvas");
+        icon.className = "leaderboard-profile-icon";
+        icon.width = 64;
+        icon.height = 64;
+        icon.setAttribute("aria-hidden", "true");
+        paintProfileIconCanvas(icon, ((_a2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a2.call(coop, entry.identity)) ?? 0);
         const value = document.createElement("span");
         value.className = "leaderboard-value";
         value.textContent = formatCompactNumber(entry[valueKey]);
@@ -4227,6 +4289,8 @@
       elements: {
         toggle: document.getElementById("chatToggle"),
         panel: document.getElementById("chatPanel"),
+        header: document.querySelector("#chatPanel .chat-header"),
+        sizeToggle: document.getElementById("chatSizeToggle"),
         messages: document.getElementById("chatMessages"),
         form: document.getElementById("chatForm"),
         input: document.getElementById("chatInput"),
@@ -4312,7 +4376,6 @@
       if (!dragonResultEl.hidden && !((_d = dragonResultEl.querySelector(".modal")) == null ? void 0 : _d.contains(target))) closeDragonResult();
       if (!duelResultEl.hidden && !((_e = duelResultEl.querySelector(".modal")) == null ? void 0 : _e.contains(target))) leaveDuelResult();
       if (!bootUpgradeEl.hidden && !((_f = bootUpgradeEl.querySelector(".modal")) == null ? void 0 : _f.contains(target))) bootUpgradeClose.click();
-      if (!updateNoticeEl.hidden && !updateNoticeEl.contains(target)) closeUpdateNotice();
       if (!profileIconPickerEl.hidden && !((_g = profileIconPickerEl.querySelector(".modal")) == null ? void 0 : _g.contains(target))) closeProfileIconPicker();
     });
     resetProgressBtn.addEventListener("click", () => {

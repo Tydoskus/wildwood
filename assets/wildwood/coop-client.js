@@ -8687,6 +8687,7 @@ ${ty.variants.map(
   let mapPlayerSubscription = null;
   let mapSubscriptionGeneration = 0;
   const chatMessages = [];
+  let chatPresentationRevision = 0;
   const duels = /* @__PURE__ */ new Map();
   const duelReplays = /* @__PURE__ */ new Map();
   const replayLoads = /* @__PURE__ */ new Map();
@@ -9321,6 +9322,7 @@ ${ty.variants.map(
     }
     const player = players.get(id);
     if (player) player.name = row.displayName;
+    chatPresentationRevision += 1;
     onChange == null ? void 0 : onChange();
   }
   function upsertLeaderboardEntry(row) {
@@ -9359,10 +9361,12 @@ ${ty.variants.map(
   }
   function upsertPlayerAccountStatus(row) {
     guestAccounts.set(row.identity.toHexString(), row.isGuest);
+    chatPresentationRevision += 1;
     onChange == null ? void 0 : onChange();
   }
   function removePlayerAccountStatus(row) {
     guestAccounts.delete(row.identity.toHexString());
+    chatPresentationRevision += 1;
     onChange == null ? void 0 : onChange();
   }
   function upsertWorldStatus(row) {
@@ -9447,6 +9451,7 @@ ${ty.variants.map(
     });
     chatMessages.sort((a, b) => a.id < b.id ? -1 : 1);
     while (chatMessages.length > 100) chatMessages.shift();
+    chatPresentationRevision += 1;
     onChange == null ? void 0 : onChange();
   }
   function upsertDuel(row) {
@@ -9617,6 +9622,7 @@ ${ty.variants.map(
     playerLifetimes.clear();
     playerProfileLoads.clear();
     chatMessages.length = 0;
+    chatPresentationRevision += 1;
     duels.clear();
     duelReplays.clear();
     replayLoads.clear();
@@ -10181,6 +10187,9 @@ ${ty.variants.map(
     },
     chatMessages() {
       return chatMessages.slice();
+    },
+    chatRevision() {
+      return chatPresentationRevision;
     },
     async sendChatMessage(message) {
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
