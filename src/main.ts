@@ -29,7 +29,14 @@ import {
 import { circlesOverlap, clamp, distanceSquared, rand, randi } from "./game/math";
 import { inventoryFromSave, ITEM_DEFINITIONS, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
-import { createSpawnSites, createWorldLayout, loadTreeSpritesheet } from "./game/world";
+import {
+  BEGINNER_DESERT_MAP_ID,
+  createSpawnSites,
+  createWorldLayout,
+  loadTreeSpritesheet,
+  TUTORIAL_FOREST_MAP_ID,
+  type MapId,
+} from "./game/world";
 import {
   DUEL_ARENA,
   DUEL_COMBAT_Y,
@@ -56,7 +63,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.264";
+  const GAME_VERSION = "0.265";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -71,6 +78,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_HIT_BATCH_DELAY = .1;
+  const DRAGON_CONTACT_DAMAGE = 1000;
+  const DRAGON_CONTACT_DAMAGE_COOLDOWN = .75;
   const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
   const SPEECH_BUBBLE_DURATION_MS = 6_000;
   const SPEECH_BUBBLE_FADE_MS = 1_250;
@@ -248,11 +257,21 @@ import { formatCompactNumber } from "./ui/number-format";
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   const START_SPAWN = { x: 360, y: 360 };
-  const PORTAL = { x: 190, y: 448, width: 198, height: 198, depth: 448 };
-  const PORTAL_COLLIDERS = [
-    { x: PORTAL.x - PORTAL.width * .32, y: PORTAL.y - 52, r: 22 },
-    { x: PORTAL.x + PORTAL.width * .32, y: PORTAL.y - 52, r: 22 },
-  ];
+  const MAP_CONFIG = {
+    [TUTORIAL_FOREST_MAP_ID]: {
+      name: "TUTORIAL FOREST",
+      portal: { x: 190, y: 448, width: 198, height: 198, depth: 448, destination: BEGINNER_DESERT_MAP_ID },
+      arrival: { x: 190, y: 540 },
+    },
+    [BEGINNER_DESERT_MAP_ID]: {
+      name: "BEGINNER DESERT",
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
+      arrival: { x: 360, y: 770 },
+    },
+  } as const;
+  let currentMapId: MapId = TUTORIAL_FOREST_MAP_ID;
+  let mapTransitioning = false;
+  let portalCooldown = 0;
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -372,6 +391,7 @@ import { formatCompactNumber } from "./ui/number-format";
     hurt: 0,
     hpLossFlashFrom: 1000000,
     hpLossFlashTimer: 0,
+    contactDamageClock: 0,
     attackClock: 3,
     nextAttack: "cone",
     cone: null,
@@ -531,15 +551,18 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function rebuildWorld() {
-    const layout = createWorldLayout(player);
+    const layout = createWorldLayout(player, currentMapId);
     decor.splice(0, decor.length, ...layout.decor);
     paths.splice(0, paths.length, ...layout.paths);
-    spawnSites.splice(0, spawnSites.length, ...createSpawnSites(boss));
+    spawnSites.splice(0, spawnSites.length, ...createSpawnSites(boss, currentMapId));
   }
 
   function reset(preserveStats = false) {
-    player.x = START_SPAWN.x;
-    player.y = START_SPAWN.y;
+    const mapSpawn = currentMapId === BEGINNER_DESERT_MAP_ID
+      ? MAP_CONFIG[BEGINNER_DESERT_MAP_ID].arrival
+      : START_SPAWN;
+    player.x = mapSpawn.x;
+    player.y = mapSpawn.y;
 
     if (!preserveStats && !hasSavedProgress) {
       player.maxHp = BASE_PLAYER_HP;
@@ -579,7 +602,7 @@ import { formatCompactNumber } from "./ui/number-format";
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
 
-    showMessage("TUTORIAL FOREST", "#ffe769");
+    showMessage(MAP_CONFIG[currentMapId].name, "#ffe769");
     updateHud();
   }
 
@@ -1018,7 +1041,7 @@ import { formatCompactNumber } from "./ui/number-format";
       }
     }
 
-    if (!boss.dead) {
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !boss.dead) {
       const centerDistance = Math.hypot(player.x - boss.x, player.y - boss.y);
       const edgeDistance = Math.max(0, centerDistance - boss.r);
       if (edgeDistance * edgeDistance < best) {
@@ -1073,6 +1096,7 @@ import { formatCompactNumber } from "./ui/number-format";
     boss.hurt = 0;
     boss.hpLossFlashFrom = boss.hp;
     boss.hpLossFlashTimer = 0;
+    boss.contactDamageClock = 0;
     boss.attackClock = 3;
     boss.nextAttack = "cone";
     boss.cone = null;
@@ -1284,6 +1308,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function updateBoss(dt) {
     boss.hpLossFlashTimer = Math.max(0, boss.hpLossFlashTimer - dt);
+    boss.contactDamageClock = Math.max(0, boss.contactDamageClock - dt);
     if (boss.dead) return;
 
     boss.hurt = Math.max(0, boss.hurt - dt);
@@ -1537,6 +1562,10 @@ import { formatCompactNumber } from "./ui/number-format";
       return;
     }
     if (duelResultHold) return;
+    if (mapTransitioning) {
+      player.moving = false;
+      return;
+    }
     // Keep server position and the spatial subscription current even while no
     // remote player is cached yet. Gating sync on remotePlayerCount creates a
     // deadlock: no remote row means no movement sync, so neither player moves
@@ -1574,6 +1603,7 @@ import { formatCompactNumber } from "./ui/number-format";
     }
 
     resolvePortalCollision();
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID) resolveDragonCollision();
 
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
@@ -1600,8 +1630,21 @@ import { formatCompactNumber } from "./ui/number-format";
     if (autoAttackEnabled) attackNearest(dt);
   }
 
+  function activePortal() {
+    return MAP_CONFIG[currentMapId].portal;
+  }
+
+  function portalColliders() {
+    const portal = activePortal();
+    return [
+      { x: portal.x - portal.width * .32, y: portal.y - 52, r: 22 },
+      { x: portal.x + portal.width * .32, y: portal.y - 52, r: 22 },
+    ];
+  }
+
   function resolvePortalCollision() {
-    for (const obstacle of PORTAL_COLLIDERS) {
+    const portal = activePortal();
+    for (const obstacle of portalColliders()) {
       const dx = player.x - obstacle.x;
       const dy = player.y - obstacle.y;
       const minimumDistance = player.r + obstacle.r;
@@ -1609,11 +1652,94 @@ import { formatCompactNumber } from "./ui/number-format";
       if (distanceSquared >= minimumDistance * minimumDistance) continue;
 
       const distance = Math.sqrt(distanceSquared);
-      const nx = distance > .001 ? dx / distance : (player.x < PORTAL.x ? -1 : 1);
+      const nx = distance > .001 ? dx / distance : (player.x < portal.x ? -1 : 1);
       const ny = distance > .001 ? dy / distance : 0;
       player.x = obstacle.x + nx * minimumDistance;
       player.y = obstacle.y + ny * minimumDistance;
     }
+  }
+
+  function updatePortal(dt) {
+    portalCooldown = Math.max(0, portalCooldown - dt);
+    if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
+    const portal = activePortal();
+    const triggerX = portal.x;
+    const triggerY = portal.y - portal.height * .32;
+    if (Math.hypot(player.x - triggerX, player.y - triggerY) > 48) return;
+
+    mapTransitioning = true;
+    const destination = portal.destination;
+    void Promise.resolve(coop?.changeMap?.(destination)).then((changed) => {
+      if (!changed) {
+        mapTransitioning = false;
+        portalCooldown = 1;
+        return;
+      }
+      fadeToWorld(() => {
+        const arrival = MAP_CONFIG[destination].arrival;
+        loadMap(destination, arrival.x, arrival.y, Math.PI / 2);
+        portalCooldown = 1.5;
+        mapTransitioning = false;
+        showMessage(MAP_CONFIG[currentMapId].name, "#ffe769");
+        coop?.syncPosition?.(player.x, player.y, player.facing, false, true);
+      });
+    });
+  }
+
+  function loadMap(mapId: MapId, x: number, y: number, facing = 0) {
+    currentMapId = mapId;
+    player.x = x;
+    player.y = y;
+    player.facing = facing;
+    player.moving = false;
+    enemies.length = 0;
+    spawnSites.length = 0;
+    projectiles.length = 0;
+    enemyShots.length = 0;
+    particles.length = 0;
+    damageNumbers.length = 0;
+    pendingDragonHits = 0;
+    dragonHitBatchTimer = 0;
+    bossRain.length = 0;
+    boss.cone = null;
+    rebuildWorld();
+    for (const site of spawnSites) spawnFromSite(site);
+  }
+
+  function reconcileMapFromServer() {
+    if (!running || mapTransitioning || isDueling()) return;
+    const state = coop?.localState?.();
+    if (!state || state.mapId === currentMapId) return;
+    if (state.mapId !== TUTORIAL_FOREST_MAP_ID && state.mapId !== BEGINNER_DESERT_MAP_ID) return;
+
+    mapTransitioning = true;
+    fadeToWorld(() => {
+      loadMap(state.mapId, state.x, state.y, state.facing);
+      portalCooldown = 1.5;
+      mapTransitioning = false;
+      showMessage(MAP_CONFIG[currentMapId].name, "#ffe769");
+    });
+  }
+
+  function resolveDragonCollision() {
+    if (boss.dead) return;
+
+    const dx = player.x - boss.x;
+    const dy = player.y - boss.y;
+    const minimumDistance = player.r + boss.r;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared >= minimumDistance * minimumDistance) return;
+
+    if (boss.contactDamageClock <= 0) {
+      damagePlayer(DRAGON_CONTACT_DAMAGE);
+      boss.contactDamageClock = DRAGON_CONTACT_DAMAGE_COOLDOWN;
+    }
+
+    const distance = Math.sqrt(distanceSquared);
+    const nx = distance > .001 ? dx / distance : 1;
+    const ny = distance > .001 ? dy / distance : 0;
+    player.x = boss.x + nx * minimumDistance;
+    player.y = boss.y + ny * minimumDistance;
   }
 
   function updateEnemies(dt) {
@@ -1835,7 +1961,7 @@ import { formatCompactNumber } from "./ui/number-format";
     for (let i = projectiles.length - 1; i >= 0; i--) {
       if (projectiles[i].life <= 0) projectiles.splice(i, 1);
     }
-    if (pendingDragonHits > 0) {
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID && pendingDragonHits > 0) {
       dragonHitBatchTimer -= dt;
       if (dragonHitBatchTimer <= 0) {
         coop?.damageDragon?.(pendingDragonHits);
@@ -1947,7 +2073,7 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function update(dt) {
-    syncDragonState();
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID) syncDragonState();
     gameTime += dt;
     flash = Math.max(0, flash - dt);
     screenShake *= Math.pow(.01, dt);
@@ -1959,9 +2085,10 @@ import { formatCompactNumber } from "./ui/number-format";
 
     updatePlayer(dt);
     if (!isDueling()) {
-      updateBootPickup();
+      updatePortal(dt);
+      if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBootPickup();
       updateEnemies(dt);
-      updateBoss(dt);
+      if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBoss(dt);
       updateProjectiles(dt);
       updateRespawns();
     } else {
@@ -2025,15 +2152,16 @@ import { formatCompactNumber } from "./ui/number-format";
       }
       return;
     }
-    ctx.fillStyle = "#31945b";
+    const desert = currentMapId === BEGINNER_DESERT_MAP_ID;
+    ctx.fillStyle = desert ? "#d9a95f" : "#31945b";
     ctx.fillRect(0, 0, visibleW, visibleH);
 
     for (const p of paths) {
       const x = Math.floor(p.x - camera.x);
       const y = Math.floor(p.y - camera.y);
-      ctx.fillStyle = "#8b6551";
+      ctx.fillStyle = desert ? "#c48b4b" : "#8b6551";
       ctx.fillRect(x, y, p.w, p.h);
-      ctx.fillStyle = "rgba(68,38,29,.12)";
+      ctx.fillStyle = desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)";
       for (let yy = y + 7; yy < y + p.h; yy += 18) {
         for (let xx = x + ((yy / 18) % 2 ? 4 : 12); xx < x + p.w; xx += 24) {
           ctx.fillRect(xx, yy, 2, 2);
@@ -2075,14 +2203,15 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function drawPortal() {
     if (!portalArch.complete || portalArch.naturalWidth <= 0 || !portalSwirl.complete || portalSwirl.naturalWidth <= 0) return;
-    const x = Math.round(PORTAL.x - camera.x);
-    const y = Math.round(PORTAL.y - camera.y);
+    const portal = activePortal();
+    const x = Math.round(portal.x - camera.x);
+    const y = Math.round(portal.y - camera.y);
     const frameStep = Math.floor(gameTime * 10) % 30;
     const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
     const cell = portalSwirl.naturalWidth / 4;
-    const portalWidth = Math.round(PORTAL.width * .59 * 1.265);
-    const portalHeight = Math.round(PORTAL.height * .75 * 1.265);
-    drawActorShadow(x, y - 4, Math.round(PORTAL.width * .68), .14);
+    const portalWidth = Math.round(portal.width * .59 * 1.265);
+    const portalHeight = Math.round(portal.height * .75 * 1.265);
+    drawActorShadow(x, y - 4, Math.round(portal.width * .68), .14);
     ctx.drawImage(
       portalSwirl,
       (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell,
@@ -2090,8 +2219,94 @@ import { formatCompactNumber } from "./ui/number-format";
     );
     ctx.drawImage(
       portalArch,
-      Math.round(x - PORTAL.width / 2), Math.round(y - PORTAL.height), PORTAL.width, PORTAL.height,
+      Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height,
     );
+  }
+
+  function drawCactus(o) {
+    const x = Math.round(o.x - camera.x);
+    const y = Math.round(o.y - camera.y);
+    const visibleW = viewW / camera.zoom;
+    const visibleH = viewH / camera.zoom;
+    if (x < -90 || y < -100 || x > visibleW + 90 || y > visibleH + 50) return;
+    const h = Math.round(68 * o.s);
+    const w = Math.max(10, Math.round(15 * o.s));
+    drawActorShadow(x, y - 2, Math.round(46 * o.s), .12);
+    ctx.fillStyle = "#245a36";
+    ctx.fillRect(x - w / 2 - 2, y - h, w + 4, h);
+    ctx.fillStyle = "#3f8050";
+    ctx.fillRect(x - w / 2, y - h, w - 2, h - 4);
+    ctx.fillStyle = "#70a961";
+    ctx.fillRect(x - w / 2 + 2, y - h + 4, 3, h - 10);
+    const armY = y - Math.round(h * .58);
+    const direction = o.variant % 2 ? -1 : 1;
+    ctx.fillStyle = "#245a36";
+    ctx.fillRect(x + direction * (w / 2 - 1), armY, direction * Math.round(19 * o.s), Math.round(10 * o.s));
+    ctx.fillRect(x + direction * Math.round(16 * o.s), armY - Math.round(18 * o.s), Math.round(10 * o.s), Math.round(27 * o.s));
+    ctx.fillStyle = "#3f8050";
+    ctx.fillRect(x + direction * Math.round(14 * o.s), armY - Math.round(16 * o.s), direction * Math.round(8 * o.s), Math.round(23 * o.s));
+  }
+
+  function drawDesertRock(o) {
+    const x = Math.round(o.x - camera.x);
+    const y = Math.round(o.y - camera.y);
+    const visibleW = viewW / camera.zoom;
+    const visibleH = viewH / camera.zoom;
+    if (x < -60 || y < -60 || x > visibleW + 60 || y > visibleH + 40) return;
+    const w = Math.round(35 * o.s);
+    const h = Math.round(22 * o.s);
+    drawActorShadow(x, y, Math.round(w * 1.2), .11);
+    ctx.fillStyle = "#79543d";
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.lineTo(x - w * .32, y - h * .72);
+    ctx.lineTo(x + w * .2, y - h);
+    ctx.lineTo(x + w / 2, y - h * .28);
+    ctx.lineTo(x + w * .38, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#b77b4b";
+    ctx.beginPath();
+    ctx.moveTo(x - w * .32, y - h * .72);
+    ctx.lineTo(x + w * .2, y - h);
+    ctx.lineTo(x + w * .12, y - h * .45);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawDune(o) {
+    const x = Math.round(o.x - camera.x);
+    const y = Math.round(o.y - camera.y);
+    const visibleW = viewW / camera.zoom;
+    const visibleH = viewH / camera.zoom;
+    if (x + o.w / 2 < -40 || x - o.w / 2 > visibleW + 40 || y < -80 || y - o.h > visibleH + 40) return;
+    ctx.save();
+    ctx.fillStyle = o.variant % 2 ? "#c58b48" : "#c9934e";
+    ctx.beginPath();
+    ctx.ellipse(x, y, o.w / 2, o.h / 2, 0, Math.PI, TAU);
+    ctx.fill();
+    ctx.fillStyle = o.variant % 2 ? "#e3b66b" : "#e9bd72";
+    ctx.beginPath();
+    ctx.ellipse(x - o.w * .08, y - o.h * .08, o.w * .39, o.h * .25, 0, Math.PI, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(119,71,36,.22)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(x, y, o.w * .38, o.h * .32, 0, Math.PI * 1.08, Math.PI * 1.88);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDesertGrass(o) {
+    const x = Math.round(o.x - camera.x);
+    const y = Math.round(o.y - camera.y);
+    const visibleW = viewW / camera.zoom;
+    const visibleH = viewH / camera.zoom;
+    if (x < -10 || y < -10 || x > visibleW + 10 || y > visibleH + 10) return;
+    ctx.fillStyle = o.variant % 2 ? "#8b7b3d" : "#a28a43";
+    ctx.fillRect(x - 1, y - 6, 2, 7);
+    ctx.fillRect(x - 5, y - 3, 2, 5);
+    ctx.fillRect(x + 3, y - 4, 2, 6);
   }
 
   function drawGrass(o) {
@@ -2121,8 +2336,11 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function drawDecor() {
+    for (const o of decor) if (o.type === "dune") drawDune(o);
     for (const o of decor) if (o.type === "grass") drawGrass(o);
     for (const o of decor) if (o.type === "petal") drawPetal(o);
+    for (const o of decor) if (o.type === "desertGrass") drawDesertGrass(o);
+    for (const o of decor) if (o.type === "rock") drawDesertRock(o);
   }
 
   function drawActorShadow(x, y, width, alpha = .38) {
@@ -2787,6 +3005,10 @@ import { formatCompactNumber } from "./ui/number-format";
     const visibleH = viewH / camera.zoom;
     const treeCullPadding = 240;
     for (const tree of decor) {
+      if (tree.type === "cactus") {
+        layers.push({ depth: tree.y, priority: 2, draw: () => drawCactus(tree) });
+        continue;
+      }
       if (tree.type !== "tree") continue;
       const treeSize = Math.round(154 * tree.s);
       const treeHalfWidth = treeSize / 2;
@@ -2802,13 +3024,13 @@ import { formatCompactNumber } from "./ui/number-format";
       if (enemy.dead) continue;
       layers.push({ depth: enemy.y + enemy.r, priority: 1, draw: () => drawEnemy(enemy) });
     }
-    if (!boss.dead) {
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !boss.dead) {
       layers.push({ depth: boss.y + 93, priority: 1, draw: drawBoss });
     }
-    if (!bootsPickup.collected) {
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !bootsPickup.collected) {
       layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
     }
-    layers.push({ depth: PORTAL.depth, priority: 2, draw: drawPortal });
+    layers.push({ depth: activePortal().depth, priority: 2, draw: drawPortal });
     for (const remotePlayer of remotePlayers) {
       layers.push({
         depth: remotePlayer.y + 29,
@@ -2837,7 +3059,7 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.font = '900 9px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    outlinedText("TUTORIAL FOREST", x + size / 2, y + 7, "#f5f5e9", 1.5);
+    outlinedText(MAP_CONFIG[currentMapId].name, x + size / 2, y + 7, "#f5f5e9", 1.5);
     ctx.restore();
 
     const sx = size / WORLD.w;
@@ -2847,10 +3069,10 @@ import { formatCompactNumber } from "./ui/number-format";
     roundRect(x+5, y+5, size-10, size-10, 7);
     ctx.clip();
 
-    ctx.fillStyle = "#31945b";
+    ctx.fillStyle = currentMapId === BEGINNER_DESERT_MAP_ID ? "#d9a95f" : "#31945b";
     ctx.fillRect(x+5, y+5, size-10, size-10);
 
-    ctx.fillStyle = "#8b6551";
+    ctx.fillStyle = currentMapId === BEGINNER_DESERT_MAP_ID ? "#c48b4b" : "#8b6551";
     for (const p of paths) {
       ctx.fillRect(x + p.x*sx, y + p.y*sy, p.w*sx, p.h*sy);
     }
@@ -3018,7 +3240,7 @@ import { formatCompactNumber } from "./ui/number-format";
     drawGround();
     drawDuelArena();
     if (!isDueling()) drawDecor();
-    if (!isDueling()) drawBossTelegraphs();
+    if (!isDueling() && currentMapId === TUTORIAL_FOREST_MAP_ID) drawBossTelegraphs();
     drawAttackRange();
 
     for (const p of projectiles) drawProjectile(p, false);
@@ -3685,7 +3907,16 @@ import { formatCompactNumber } from "./ui/number-format";
     overEl.style.display = "none";
     pausedForUpgrade = false;
     bootUpgradeEl.hidden = true;
+    const serverMapId = coop?.localState?.()?.mapId;
+    if (serverMapId === TUTORIAL_FOREST_MAP_ID || serverMapId === BEGINNER_DESERT_MAP_ID) currentMapId = serverMapId;
     reset(hasStarted);
+    const serverState = coop?.localState?.();
+    if (serverState && serverState.mapId === currentMapId) {
+      player.x = serverState.x;
+      player.y = serverState.y;
+      player.facing = serverState.facing;
+      snapCameraToPlayer();
+    }
     hasStarted = true;
     running = true;
     if (markIntro) coop?.beginAdventure?.();
@@ -4065,7 +4296,8 @@ import { formatCompactNumber } from "./ui/number-format";
           coop.syncPosition?.(player.x, player.y, player.facing, player.moving, true);
         }
       }
-      syncDragonState();
+      reconcileMapFromServer();
+      if (currentMapId === TUTORIAL_FOREST_MAP_ID) syncDragonState();
       finishStartup();
       const account = coop?.accountState?.();
       updateProtocolGate(account);

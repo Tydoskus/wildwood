@@ -4,11 +4,13 @@ import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_ZONE_SIZE = 600;
 const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
+const BEGINNER_DESERT_MAP_ID = "beginner_desert";
+const VALID_MAP_IDS = new Set([TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID]);
 const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 25;
+const PROTOCOL_VERSION = 26;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -19,6 +21,15 @@ const DEVELOPER_IDENTITY_HEX = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64
 const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const PLAYER_SPAWN = { x: 360, y: 360 };
+const MAP_PORTALS = {
+  [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID },
+  [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
+} as const;
+const MAP_ARRIVALS = {
+  [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
+  [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
+} as const;
+const MAP_PORTAL_USE_RANGE = 125;
 const BOOTS_SPEED_BONUS = 25;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
@@ -1315,7 +1326,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
-        mapId: TUTORIAL_FOREST_MAP_ID,
         ...playerZone(existing.x, existing.y),
         power: powerForProgress(existingProgress),
         moving: false,
@@ -1326,12 +1336,16 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       });
       return;
     }
+    const entryMapId = VALID_MAP_IDS.has(existing.mapId) ? existing.mapId : TUTORIAL_FOREST_MAP_ID;
+    const entryPosition = entryMapId === BEGINNER_DESERT_MAP_ID
+      ? MAP_ARRIVALS[BEGINNER_DESERT_MAP_ID]
+      : PLAYER_SPAWN;
     ctx.db.player.identity.update({
       ...existing,
-      mapId: TUTORIAL_FOREST_MAP_ID,
-      x: PLAYER_SPAWN.x,
-      y: PLAYER_SPAWN.y,
-      ...playerZone(PLAYER_SPAWN.x, PLAYER_SPAWN.y),
+      mapId: entryMapId,
+      x: entryPosition.x,
+      y: entryPosition.y,
+      ...playerZone(entryPosition.x, entryPosition.y),
       facing: 0,
       moving: false,
       power: powerForProgress(existingProgress),
@@ -1455,6 +1469,7 @@ export const respawnDragon = spacetimedb.reducer(
 function applyDragonDamage(ctx: any, requestedHits: number) {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== TUTORIAL_FOREST_MAP_ID) return;
   const progress = ctx.db.playerProgress.identity.find(ctx.sender);
   if (!progress) return;
   const dragon = ensureDragonBoss(ctx);
@@ -1998,6 +2013,7 @@ export const requestDuel = spacetimedb.reducer(
     let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
     for (const candidate of ctx.db.player.iter() as Iterable<any>) {
       if (sameIdentity(candidate.identity, ctx.sender)) continue;
+      if (candidate.mapId !== challenger.mapId) continue;
       if (activeDuelFor(ctx, candidate.identity)) continue;
       const dx = candidate.x - challenger.x;
       const dy = candidate.y - challenger.y;
@@ -2156,6 +2172,31 @@ export const syncPosition = spacetimedb.reducer(
       moving,
       lastInputAt: ctx.timestamp,
       lastInputSequence: sequence,
+    });
+  },
+);
+
+export const changeMap = spacetimedb.reducer(
+  { mapId: t.string() },
+  (ctx, { mapId }) => {
+    const current = requireControllingPlayer(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
+    if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
+
+    const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS];
+    if (!sourcePortal || sourcePortal.destination !== mapId) throw new SenderError("Maps are not connected.");
+    const portalDistance = Math.hypot(current.x - sourcePortal.x, current.y - sourcePortal.y);
+    if (portalDistance > MAP_PORTAL_USE_RANGE) throw new SenderError("Move closer to the portal.");
+
+    const arrival = MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    ctx.db.player.identity.update({
+      ...current,
+      mapId,
+      x: arrival.x,
+      y: arrival.y,
+      ...playerZone(arrival.x, arrival.y),
+      moving: false,
+      lastInputAt: ctx.timestamp,
     });
   },
 );

@@ -8199,6 +8199,9 @@ ${ty.variants.map(
     code: t.string()
   };
   const BeginAdventureReducer = {};
+  const ChangeMapReducer = {
+    mapId: t.string()
+  };
   const ClaimGuestAccountReducer = {
     code: t.string()
   };
@@ -8588,6 +8591,7 @@ ${ty.variants.map(
     reducerSchema("accept_duel", AcceptDuelReducer),
     reducerSchema("begin_account_link", BeginAccountLinkReducer),
     reducerSchema("begin_adventure", BeginAdventureReducer),
+    reducerSchema("change_map", ChangeMapReducer),
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
     reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
@@ -8644,11 +8648,12 @@ ${ty.variants.map(
   const NEARBY_MOVEMENT_INTERVAL_MS = 1e3 / NEARBY_MOVEMENT_HZ;
   const DISTANT_MOVEMENT_INTERVAL_MS = 1e3 / DISTANT_MOVEMENT_HZ;
   const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
+  const BEGINNER_DESERT_MAP_ID = "beginner_desert";
   const LATENCY_SAMPLE_INTERVAL_MS = 1e3;
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 25;
+  const PROTOCOL_VERSION = 26;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8695,6 +8700,7 @@ ${ty.variants.map(
   let activePlayerProfileSubscription = null;
   let mapPlayerSubscription = null;
   let mapSubscriptionGeneration = 0;
+  let currentMapId = TUTORIAL_FOREST_MAP_ID;
   const chatMessages = [];
   let chatPresentationRevision = 0;
   const duels = /* @__PURE__ */ new Map();
@@ -9298,16 +9304,24 @@ ${ty.variants.map(
         worldEntryBlocked = true;
         authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
       }
+      const mapChanged = currentMapId !== row.mapId;
+      currentMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
       localState = {
         x: row.x,
         y: row.y,
         facing: row.facing,
         speed: row.speed,
         moving: row.moving,
-        lastInputSequence: row.lastInputSequence
+        lastInputSequence: row.lastInputSequence,
+        mapId: currentMapId
       };
-      refreshMapPlayerSubscription();
+      if (mapChanged) players.clear();
+      refreshMapPlayerSubscription(mapChanged);
       onChange == null ? void 0 : onChange();
+      return;
+    }
+    if (row.mapId !== currentMapId) {
+      players.delete(id);
       return;
     }
     const existing = players.get(id);
@@ -9642,7 +9656,7 @@ ${ty.variants.map(
       if (connection !== conn || generation !== mapSubscriptionGeneration) return;
       console.error("Wildwood map player subscription error:", ctx.event);
       mapPlayerSubscription = previous;
-    }).subscribe([tables.player.where((row) => row.mapId.eq(TUTORIAL_FOREST_MAP_ID))]);
+    }).subscribe([tables.player.where((row) => row.mapId.eq(currentMapId))]);
     mapPlayerSubscription = next;
   }
   function clearRealtimeCaches() {
@@ -10366,6 +10380,16 @@ ${ty.variants.map(
       lastPositionMoving = moving;
       const sequence = ++nextPositionSequence;
       sendReducer("position sync", () => connection == null ? void 0 : connection.reducers.syncPosition({ x, y, facing, moving, sequence }));
+    },
+    async changeMap(mapId) {
+      if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID].includes(mapId)) return false;
+      try {
+        await connection.reducers.changeMap({ mapId });
+        return true;
+      } catch (error) {
+        handleReducerFailure("map change", error);
+        return false;
+      }
     },
     remotePlayers(dt = 1 / 60) {
       const result = [];

@@ -6,7 +6,11 @@ export type WorldPath = { x: number; y: number; w: number; h: number };
 export type WorldDecor =
   | { type: "tree"; x: number; y: number; s: number; variant: number }
   | { type: "grass"; x: number; y: number; variant: number }
-  | { type: "petal"; x: number; y: number; variant: number };
+  | { type: "petal"; x: number; y: number; variant: number }
+  | { type: "cactus"; x: number; y: number; s: number; variant: number }
+  | { type: "rock"; x: number; y: number; s: number; variant: number }
+  | { type: "dune"; x: number; y: number; w: number; h: number; variant: number }
+  | { type: "desertGrass"; x: number; y: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -19,8 +23,88 @@ export type SpawnSite = {
 };
 
 type Point = { x: number; y: number };
+export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
+export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
+export type MapId = typeof TUTORIAL_FOREST_MAP_ID | typeof BEGINNER_DESERT_MAP_ID;
 
-export function createWorldLayout(playerSpawn: Point) {
+const DESERT_CAMPS = [
+  { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Bramble"] as EnemyKind[] },
+  { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Spitter"] as EnemyKind[] },
+  { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Needle"] as EnemyKind[] },
+  { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Bramble", "Spitter"] as EnemyKind[] },
+];
+
+function seededUnit(index: number, salt: number) {
+  const value = Math.sin(index * 91.713 + salt * 37.119) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function createDesertLayout() {
+  const decor: WorldDecor[] = [];
+  const paths: WorldPath[] = [
+    { x: 280, y: 360, w: 3900, h: 150 },
+    { x: 1040, y: 430, w: 150, h: 3300 },
+    { x: 1050, y: 2380, w: 3000, h: 150 },
+    { x: 1960, y: 2380, w: 150, h: 1350 },
+  ];
+  const isOnRoad = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+
+  for (let index = 0; index < 24; index += 1) {
+    const x = 180 + seededUnit(index, 11) * (WORLD.w - 360);
+    const y = 180 + seededUnit(index, 12) * (WORLD.h - 360);
+    if (isOnRoad(x, y, 100) || Math.hypot(x - 360, y - 680) < 430) continue;
+    decor.push({
+      type: "dune",
+      x: Math.round(x),
+      y: Math.round(y),
+      w: Math.round(180 + seededUnit(index, 13) * 260),
+      h: Math.round(38 + seededUnit(index, 14) * 54),
+      variant: index % 3,
+    });
+  }
+
+  for (let index = 0; index < 78; index += 1) {
+    const x = 90 + seededUnit(index, 1) * (WORLD.w - 180);
+    const y = 90 + seededUnit(index, 2) * (WORLD.h - 180);
+    if (isOnRoad(x, y, 55) || Math.hypot(x - 360, y - 680) < 340) continue;
+    decor.push({
+      type: "cactus",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .72 + seededUnit(index, 3) * .52,
+      variant: index % 4,
+    });
+  }
+
+  for (let index = 0; index < 125; index += 1) {
+    const x = 50 + seededUnit(index, 4) * (WORLD.w - 100);
+    const y = 50 + seededUnit(index, 5) * (WORLD.h - 100);
+    if (isOnRoad(x, y, 18)) continue;
+    decor.push({
+      type: "rock",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .55 + seededUnit(index, 6) * .7,
+      variant: index % 3,
+    });
+  }
+
+  for (let index = 0; index < 310; index += 1) {
+    decor.push({
+      type: "desertGrass",
+      x: Math.round(30 + seededUnit(index, 7) * (WORLD.w - 60)),
+      y: Math.round(30 + seededUnit(index, 8) * (WORLD.h - 60)),
+      variant: index % 3,
+    });
+  }
+
+  return { decor, paths };
+}
+
+export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
+  if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -91,23 +175,26 @@ export function loadTreeSpritesheet(onSettled?: () => void) {
   return image;
 }
 
-export function createSpawnSites(boss: Point): SpawnSite[] {
+export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   const sites: SpawnSite[] = [];
+  const camps = mapId === BEGINNER_DESERT_MAP_ID ? DESERT_CAMPS : CAMPS;
   let id = 0;
-  for (let campIndex = 0; campIndex < CAMPS.length; campIndex += 1) {
-    const camp = CAMPS[campIndex];
+  for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
+    const camp = camps[campIndex];
     for (let index = 0; index < camp.count; index += 1) {
       const angle = index * 2.399963 + campIndex * 0.71;
       const fraction = ((index * 37 + campIndex * 19) % 101) / 100;
       const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
       let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
       let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
-      const bossDx = x - boss.x;
-      const bossDy = y - boss.y;
-      const bossDistance = Math.hypot(bossDx, bossDy) || 1;
-      if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
-        x = clamp(boss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
-        y = clamp(boss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
+      if (mapId === TUTORIAL_FOREST_MAP_ID) {
+        const bossDx = x - boss.x;
+        const bossDy = y - boss.y;
+        const bossDistance = Math.hypot(bossDx, bossDy) || 1;
+        if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
+          x = clamp(boss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
+          y = clamp(boss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
+        }
       }
       const type = camp.types[index % camp.types.length];
       sites.push({

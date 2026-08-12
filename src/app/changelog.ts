@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.265": [
+    "Beginner Desert added as Wildwood's second multiplayer map",
+    "Forest portal now travels between maps with a fade transition",
+    "Beginner Desert adds dunes, roads, cacti, rocks, and enemy camps",
+    "Dragon body collision now deals 1,000 contact damage",
+  ],
   "0.264": [
     "Portal position and archway collision refined",
   ],

@@ -29,6 +29,7 @@ export type LocalPlayerState = {
   speed: number;
   moving: boolean;
   lastInputSequence: number;
+  mapId: string;
 };
 
 export type ChatMessage = {
@@ -178,11 +179,12 @@ const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
 const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
+const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 25;
+const PROTOCOL_VERSION = 26;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -230,6 +232,7 @@ let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
 let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
 let mapSubscriptionGeneration = 0;
+let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
 const duels = new Map<bigint, DuelState>();
@@ -929,6 +932,7 @@ function upsertPlayer(row: {
   feetItem: string;
   lastInputSequence: number;
   controllerTabId: string;
+  mapId: string;
 }) {
   const id = row.identity.toHexString();
   if (id === localIdentity) {
@@ -936,6 +940,8 @@ function upsertPlayer(row: {
       worldEntryBlocked = true;
       authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
     }
+    const mapChanged = currentMapId !== row.mapId;
+    currentMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
     localState = {
       x: row.x,
       y: row.y,
@@ -943,9 +949,16 @@ function upsertPlayer(row: {
       speed: row.speed,
       moving: row.moving,
       lastInputSequence: row.lastInputSequence,
+      mapId: currentMapId,
     };
-    refreshMapPlayerSubscription();
+    if (mapChanged) players.clear();
+    refreshMapPlayerSubscription(mapChanged);
     onChange?.();
+    return;
+  }
+
+  if (row.mapId !== currentMapId) {
+    players.delete(id);
     return;
   }
 
@@ -1379,7 +1392,7 @@ function refreshMapPlayerSubscription(force = false) {
       console.error("Wildwood map player subscription error:", ctx.event);
       mapPlayerSubscription = previous;
     })
-    .subscribe([tables.player.where((row) => row.mapId.eq(TUTORIAL_FOREST_MAP_ID))]);
+    .subscribe([tables.player.where((row) => row.mapId.eq(currentMapId))]);
   mapPlayerSubscription = next;
 }
 
@@ -2090,6 +2103,16 @@ export const wildwoodCoop = {
     lastPositionMoving = moving;
     const sequence = ++nextPositionSequence;
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
+  },
+  async changeMap(mapId: string) {
+    if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID].includes(mapId)) return false;
+    try {
+      await connection.reducers.changeMap({ mapId });
+      return true;
+    } catch (error) {
+      handleReducerFailure("map change", error);
+      return false;
+    }
   },
   remotePlayers(dt = 1 / 60) {
     const result: RemotePlayer[] = [];
