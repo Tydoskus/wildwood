@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.266": [
+    "Beginner Desert now has its own goblin and venom skeleton enemies",
+    "Desert enemies offer much stronger combat with high health and damage",
+  ],
   "0.265": [
     "Beginner Desert added as Wildwood's second multiplayer map",
     "Forest portal now travels between maps with a fade transition",

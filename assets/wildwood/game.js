@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.266": [
+      "Beginner Desert now has its own goblin and venom skeleton enemies",
+      "Desert enemies offer much stronger combat with high health and damage"
+    ],
     "0.265": [
       "Beginner Desert added as Wildwood's second multiplayer map",
       "Forest portal now travels between maps with a fade transition",
@@ -359,6 +363,56 @@
       score: 1,
       elite: true,
       aggro: 350
+    },
+    // BEGINNER DESERT ENEMIES
+    // Balance these values directly: hp, speed, damage, attackSpeed, and reward.
+    "Dune Raider": {
+      hp: 12e5,
+      speed: 220,
+      damage: 1e4,
+      attackSpeed: 0.65,
+      r: 19,
+      color: "#d6a13a",
+      outline: "#5f3c18",
+      reward: { type: "damage", amount: 250 },
+      score: 10
+    },
+    "Dune Archer": {
+      hp: 9e5,
+      speed: 205,
+      damage: 12500,
+      attackSpeed: 0.55,
+      r: 17,
+      color: "#d5b04d",
+      outline: "#61481d",
+      reward: { type: "health", amount: 2500 },
+      score: 12,
+      ranged: true
+    },
+    "Venom Guard": {
+      hp: 26e5,
+      speed: 195,
+      damage: 16e3,
+      attackSpeed: 0.55,
+      r: 24,
+      color: "#79d18b",
+      outline: "#285a37",
+      reward: { type: "armor", amount: 50 },
+      score: 18
+    },
+    "Wastes Reaper": {
+      hp: 5e6,
+      speed: 225,
+      damage: 24e3,
+      attackSpeed: 0.7,
+      r: 31,
+      color: "#8fe09a",
+      outline: "#294f34",
+      reward: { type: "damage", amount: 1e3 },
+      score: 30,
+      ranged: true,
+      elite: true,
+      aggro: 300
     }
   };
   const ENEMY_TYPES = enemyTypes;
@@ -381,7 +435,54 @@
     },
     Cindermaw: { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 64 },
     "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
-    "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 }
+    "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
+    "Dune Raider": {
+      size: 70,
+      height: 78,
+      layers: [
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/leg.png", x: -15, y: 23, w: 17, h: 15 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/leg2.png", x: 1, y: 23, w: 17, h: 15 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/body.png", x: -28, y: -39, w: 56, h: 70 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/arm.png", x: -38, y: -16, w: 72, h: 31 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/arm2.png", x: 18, y: -8, w: 17, h: 17 }
+      ]
+    },
+    "Dune Archer": {
+      size: 68,
+      height: 76,
+      layers: [
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg.png", x: -14, y: 22, w: 15, h: 16 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg2.png", x: 1, y: 22, w: 15, h: 16 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/body.png", x: -25, y: -31, w: 50, h: 58 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/hat.png", x: -32, y: -43, w: 64, h: 39 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/arm2.png", x: 12, y: -5, w: 14, h: 15 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png", x: 15, y: -12, w: 50, h: 30 }
+      ]
+    },
+    "Venom Guard": {
+      size: 76,
+      height: 86,
+      layers: [
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg.png", x: -16, y: 24, w: 18, h: 26 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg2.png", x: 1, y: 27, w: 17, h: 23 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/body.png", x: -25, y: -18, w: 50, h: 50 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/arm.png", x: -40, y: -10, w: 70, h: 44 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/head.png", x: -34, y: -49, w: 68, h: 57 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/shield.png", x: 18, y: -6, w: 32, h: 34 }
+      ]
+    },
+    "Wastes Reaper": {
+      size: 86,
+      height: 92,
+      layers: [
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg1.png", x: -18, y: 25, w: 19, h: 27 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg2.png", x: 1, y: 25, w: 20, h: 27 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/body.png", x: -26, y: -22, w: 52, h: 52 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/arm2.png", x: 16, y: -9, w: 25, h: 26 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43 },
+        { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 }
+      ]
+    }
   };
   const REWARD_DATA = {
     damage: { color: "#ff655a" },
@@ -434,10 +535,10 @@
   const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
   const BEGINNER_DESERT_MAP_ID = "beginner_desert";
   const DESERT_CAMPS = [
-    { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Bramble"] },
-    { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Spitter"] },
-    { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Needle"] },
-    { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Bramble", "Spitter"] }
+    { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] },
+    { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] },
+    { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] },
+    { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard", "Venom Guard", "Venom Guard", "Wastes Reaper"] }
   ];
   function seededUnit(index, salt) {
     const value = Math.sin(index * 91.713 + salt * 37.119) * 43758.5453;
@@ -952,7 +1053,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.265";
+    const GAME_VERSION = "0.266";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
