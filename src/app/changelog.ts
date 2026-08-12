@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.256": [
+    "World Chat header spacing tightened",
+  ],
   "0.255": [
     "Sign-in now recovers cleanly when saved account tokens expire",
     "Sign-in options and update history layout improved",
