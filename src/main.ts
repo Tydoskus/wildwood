@@ -63,7 +63,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.268";
+  const GAME_VERSION = "0.269";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -725,7 +725,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const number = (value, fallback, min, max) =>
       Number.isFinite(value) ? clamp(value, min, max) : fallback;
 
-    player.maxHp = number(source.maxHp, player.maxHp, 1, 1000000);
+    player.maxHp = number(source.maxHp, player.maxHp, 1, 1_000_000_000);
     player.damage = number(source.damage, player.damage, 1, 1000000);
     player.attackRate = number(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
     player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
@@ -1911,6 +1911,10 @@ import { formatCompactNumber } from "./ui/number-format";
     return MAP_CONFIG[currentMapId].portal;
   }
 
+  function portalIsUnlocked() {
+    return currentMapId !== TUTORIAL_FOREST_MAP_ID || Boolean(coop?.savedProgress?.()?.desertUnlocked);
+  }
+
   function portalColliders() {
     const portal = activePortal();
     return [
@@ -1938,7 +1942,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function updatePortal(dt) {
     portalCooldown = Math.max(0, portalCooldown - dt);
-    if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
+    if (mapTransitioning || portalCooldown > 0 || isDueling() || !portalIsUnlocked()) return;
     const portal = activePortal();
     const triggerX = portal.x;
     const triggerY = portal.y - portal.height * .32;
@@ -2500,25 +2504,37 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function drawPortal() {
-    if (!portalArch.complete || portalArch.naturalWidth <= 0 || !portalSwirl.complete || portalSwirl.naturalWidth <= 0) return;
+    if (!portalArch.complete || portalArch.naturalWidth <= 0) return;
     const portal = activePortal();
     const x = Math.round(portal.x - camera.x);
     const y = Math.round(portal.y - camera.y);
-    const frameStep = Math.floor(gameTime * 10) % 30;
-    const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
-    const cell = portalSwirl.naturalWidth / 4;
-    const portalWidth = Math.round(portal.width * .59 * 1.265);
-    const portalHeight = Math.round(portal.height * .75 * 1.265);
     drawActorShadow(x, y - 4, Math.round(portal.width * .68), .14);
-    ctx.drawImage(
-      portalSwirl,
-      (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell,
-      Math.round(x - portalWidth / 2), Math.round(y - portalHeight - 5), portalWidth, portalHeight,
-    );
+    if (portalIsUnlocked() && portalSwirl.complete && portalSwirl.naturalWidth > 0) {
+      const frameStep = Math.floor(gameTime * 10) % 30;
+      const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
+      const cell = portalSwirl.naturalWidth / 4;
+      const portalWidth = Math.round(portal.width * .59 * 1.265);
+      const portalHeight = Math.round(portal.height * .75 * 1.265);
+      ctx.drawImage(
+        portalSwirl,
+        (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell,
+        Math.round(x - portalWidth / 2), Math.round(y - portalHeight - 5), portalWidth, portalHeight,
+      );
+    }
     ctx.drawImage(
       portalArch,
       Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height,
     );
+    if (portalIsUnlocked()) {
+      const destination = MAP_CONFIG[portal.destination].name;
+      const floatY = Math.sin(gameTime * 2.4) * 3;
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      outlinedText(destination, x, Math.round(y - portal.height - 8 + floatY), "#f5e9c4", 4);
+      ctx.restore();
+    }
   }
 
   function drawCactus(o) {

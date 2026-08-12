@@ -17,4 +17,5 @@ export default __t.row({
   maxHp: __t.f32().name("max_hp"),
   alive: __t.bool(),
   respawnAtMicros: __t.u64().name("respawn_at_micros"),
+  lastDamageAtMicros: __t.u64().name("last_damage_at_micros"),
 });

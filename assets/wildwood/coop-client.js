@@ -8300,7 +8300,8 @@ ${ty.variants.map(
     hp: t.f32(),
     maxHp: t.f32().name("max_hp"),
     alive: t.bool(),
-    respawnAtMicros: t.u64().name("respawn_at_micros")
+    respawnAtMicros: t.u64().name("respawn_at_micros"),
+    lastDamageAtMicros: t.u64().name("last_damage_at_micros")
   });
   const DragonResultRow = t.row({
     id: t.u32().primaryKey(),
@@ -8432,7 +8433,8 @@ ${ty.variants.map(
     bootsCollected: t.bool().name("boots_collected"),
     introComplete: t.bool().name("intro_complete"),
     inventoryJson: t.string().name("inventory_json"),
-    equippedFeet: t.string().name("equipped_feet")
+    equippedFeet: t.string().name("equipped_feet"),
+    desertUnlocked: t.bool().name("desert_unlocked")
   });
   const SpiderBossRow = t.row({
     id: t.u32().primaryKey(),
@@ -8440,7 +8442,8 @@ ${ty.variants.map(
     hp: t.f32(),
     maxHp: t.f32().name("max_hp"),
     alive: t.bool(),
-    respawnAtMicros: t.u64().name("respawn_at_micros")
+    respawnAtMicros: t.u64().name("respawn_at_micros"),
+    lastDamageAtMicros: t.u64().name("last_damage_at_micros")
   });
   const SpiderResultRow = t.row({
     id: t.u32().primaryKey(),
@@ -8694,7 +8697,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 27;
+  const PROTOCOL_VERSION = 28;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -9484,7 +9487,8 @@ ${ty.variants.map(
       bootsCollected: row.bootsCollected,
       inventoryJson: row.inventoryJson,
       equippedFeet: row.equippedFeet,
-      introComplete: row.introComplete
+      introComplete: row.introComplete,
+      desertUnlocked: row.desertUnlocked
     };
     profileProgress.set(id, progress);
     if (id !== localIdentity) return;

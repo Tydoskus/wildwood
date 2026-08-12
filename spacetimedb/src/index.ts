@@ -10,7 +10,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 27;
+const PROTOCOL_VERSION = 28;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -68,6 +68,8 @@ const SPIDER_RADIUS = 125;
 const SPIDER_POSITION = { x: 4050, y: 4050 };
 const SPIDER_HIT_RANGE_TOLERANCE = 60;
 const SPIDER_RESPAWN_MICROS = 30_000_000n;
+const BOSS_REGEN_DELAY_MICROS = 180_000_000n;
+const BOSS_REGEN_FRACTION_PER_MAINTENANCE = .05;
 
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
@@ -127,6 +129,7 @@ const playerProgress = table(
     introComplete: t.bool().default(false),
     inventoryJson: t.string().default("[]"),
     equippedFeet: t.string().default(""),
+    desertUnlocked: t.bool().default(false),
   },
 );
 
@@ -395,6 +398,7 @@ const dragonBoss = table(
     maxHp: t.f32(),
     alive: t.bool(),
     respawnAtMicros: t.u64(),
+    lastDamageAtMicros: t.u64().default(0n),
   },
 );
 
@@ -455,6 +459,7 @@ const spiderBoss = table(
     maxHp: t.f32(),
     alive: t.bool(),
     respawnAtMicros: t.u64(),
+    lastDamageAtMicros: t.u64().default(0n),
   },
 );
 
@@ -578,6 +583,7 @@ function defaultPlayerProgress(identity: any) {
     inventoryJson: "[]",
     equippedFeet: "",
     introComplete: false,
+    desertUnlocked: false,
   };
 }
 
@@ -872,7 +878,20 @@ function hasFreshProgress(progress: any) {
     progress.speed === defaultProgress.speed &&
     progress.bootsCollected === defaultProgress.bootsCollected &&
     progress.inventoryJson === defaultProgress.inventoryJson &&
-    progress.equippedFeet === defaultProgress.equippedFeet;
+    progress.equippedFeet === defaultProgress.equippedFeet &&
+    progress.desertUnlocked === defaultProgress.desertUnlocked;
+}
+
+function contributedToLatestDragon(ctx: any, identity: any) {
+  const latest = ctx.db.dragonResult.id.find(DRAGON_ID);
+  if (!latest) return false;
+  try {
+    const contributors = JSON.parse(latest.contributorsJson);
+    const identityHex = identity.toHexString();
+    return Array.isArray(contributors) && contributors.some((entry: any) => entry?.identity === identityHex);
+  } catch {
+    return false;
+  }
 }
 
 function inventoryForProgress(progress: any) {
@@ -1012,6 +1031,7 @@ function ensureDragonBoss(ctx: any) {
     maxHp: DRAGON_MAX_HP,
     alive: true,
     respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
   });
 }
 
@@ -1025,7 +1045,22 @@ function ensureSpiderBoss(ctx: any) {
     maxHp: SPIDER_MAX_HP,
     alive: true,
     respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
   });
+}
+
+function regenerateIdleBosses(ctx: any) {
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const regenerate = (current: any, update: (next: any) => void) => {
+    if (!current.alive || current.hp <= 0 || current.hp >= current.maxHp) return;
+    if (current.lastDamageAtMicros === 0n || now - current.lastDamageAtMicros < BOSS_REGEN_DELAY_MICROS) return;
+    update({
+      ...current,
+      hp: Math.min(current.maxHp, current.hp + current.maxHp * BOSS_REGEN_FRACTION_PER_MAINTENANCE),
+    });
+  };
+  regenerate(ensureDragonBoss(ctx), (next) => ctx.db.dragonBoss.id.update(next));
+  regenerate(ensureSpiderBoss(ctx), (next) => ctx.db.spiderBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -1094,7 +1129,7 @@ function clearDragonCombatRows(ctx: any) {
 function rewardDragonContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
-  const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE };
+  const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE, desertUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -1427,6 +1462,12 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     markAttackBalanceCurrent(ctx);
   } else {
     existingProgress = migrateAttackBalance(ctx, existingProgress);
+    const existingPlayer = ctx.db.player.identity.find(ctx.sender);
+    if (!existingProgress.desertUnlocked &&
+      (existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID || contributedToLatestDragon(ctx, ctx.sender))) {
+      existingProgress = { ...existingProgress, desertUnlocked: true };
+      ctx.db.playerProgress.identity.update(existingProgress);
+    }
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
@@ -1580,6 +1621,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearOrphanPresence(ctx);
     reconcileOnlinePlayers(ctx);
     refreshLeaderboardIfDue(ctx);
+    regenerateIdleBosses(ctx);
   },
 );
 
@@ -1596,6 +1638,7 @@ export const respawnDragon = spacetimedb.reducer(
       hp: dragon.maxHp,
       alive: true,
       respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
     });
   },
 );
@@ -1613,6 +1656,7 @@ export const respawnSpider = spacetimedb.reducer(
       hp: spider.maxHp,
       alive: true,
       respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
     });
   },
 );
@@ -1674,7 +1718,11 @@ function applyDragonDamage(ctx: any, requestedHits: number) {
   if (currentContribution) ctx.db.dragonContribution.identity.update(nextContribution);
   else ctx.db.dragonContribution.insert(nextContribution);
 
-  const nextDragon = { ...dragon, hp: Math.max(0, dragon.hp - damage) };
+  const nextDragon = {
+    ...dragon,
+    hp: Math.max(0, dragon.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
   if (nextDragon.hp <= 0) finishDragonEncounter(ctx, nextDragon);
   else ctx.db.dragonBoss.id.update(nextDragon);
 }
@@ -1744,7 +1792,11 @@ function applySpiderDamage(ctx: any, requestedHits: number) {
   if (currentContribution) ctx.db.spiderContribution.identity.update(nextContribution);
   else ctx.db.spiderContribution.insert(nextContribution);
 
-  const nextSpider = { ...spider, hp: Math.max(0, spider.hp - damage) };
+  const nextSpider = {
+    ...spider,
+    hp: Math.max(0, spider.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
   if (nextSpider.hp <= 0) finishSpiderEncounter(ctx, nextSpider);
   else ctx.db.spiderBoss.id.update(nextSpider);
 }
@@ -2124,6 +2176,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       inventoryJson,
       equippedFeet,
       introComplete: base.introComplete,
+      desertUnlocked: base.desertUnlocked,
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
@@ -2400,6 +2453,14 @@ export const changeMap = spacetimedb.reducer(
     const current = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
+    const currentProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+    if (current.mapId === BEGINNER_DESERT_MAP_ID && currentProgress && !currentProgress.desertUnlocked) {
+      ctx.db.playerProgress.identity.update({ ...currentProgress, desertUnlocked: true });
+    }
+    if (mapId === BEGINNER_DESERT_MAP_ID) {
+      const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+      if (!progress?.desertUnlocked) throw new SenderError("Defeat the Dragon before entering Beginner Desert.");
+    }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS];
     if (!sourcePortal || sourcePortal.destination !== mapId) throw new SenderError("Maps are not connected.");

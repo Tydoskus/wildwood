@@ -25,4 +25,5 @@ export default __t.row({
   introComplete: __t.bool().name("intro_complete"),
   inventoryJson: __t.string().name("inventory_json"),
   equippedFeet: __t.string().name("equipped_feet"),
+  desertUnlocked: __t.bool().name("desert_unlocked"),
 });

@@ -55,6 +55,7 @@ export type PlayerProgress = {
   inventoryJson: string;
   equippedFeet: string;
   introComplete: boolean;
+  desertUnlocked: boolean;
 };
 
 export type PlayerLifetime = {
@@ -118,7 +119,7 @@ export type DragonResult = {
   createdAtMs: number;
 };
 
-type ProgressSave = Omit<PlayerProgress, "introComplete"> & { enemyKills: number };
+type ProgressSave = Omit<PlayerProgress, "introComplete" | "desertUnlocked"> & { enemyKills: number };
 
 export type DuelState = {
   id: bigint;
@@ -187,7 +188,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 27;
+const PROTOCOL_VERSION = 28;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -1112,6 +1113,7 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     inventoryJson: row.inventoryJson,
     equippedFeet: row.equippedFeet,
     introComplete: row.introComplete,
+    desertUnlocked: row.desertUnlocked,
   };
   profileProgress.set(id, progress);
   if (id !== localIdentity) return;

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.269": [
+    "Tutorial Forest portal unlocks after you help defeat the Dragon",
+    "Active portals now show their destination above the archway",
+    "Damaged bosses regenerate after three minutes without being attacked",
+    "World Chat player count now reads Players Online",
+  ],
   "0.268": [
     "Two Blight Oracles now guard Oracle Mesa in the top-right desert",
   ],

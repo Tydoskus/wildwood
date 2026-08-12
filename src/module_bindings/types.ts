@@ -61,6 +61,7 @@ export const DragonBoss = __t.object("DragonBoss", {
   maxHp: __t.f32(),
   alive: __t.bool(),
   respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
 });
 export type DragonBoss = __Infer<typeof DragonBoss>;
 
@@ -275,6 +276,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   introComplete: __t.bool(),
   inventoryJson: __t.string(),
   equippedFeet: __t.string(),
+  desertUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -304,6 +306,7 @@ export const SpiderBoss = __t.object("SpiderBoss", {
   maxHp: __t.f32(),
   alive: __t.bool(),
   respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
 });
 export type SpiderBoss = __Infer<typeof SpiderBoss>;
 
