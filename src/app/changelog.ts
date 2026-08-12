@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.258": [
+    "World Chat keeps your place while reading older messages",
+  ],
   "0.257": [
     "Sign-in and loading panel frames removed",
     "Extra mobile World Chat bottom spacing added",

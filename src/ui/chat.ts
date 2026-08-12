@@ -84,6 +84,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const now = Date.now();
     const revision = coop?.chatRevision?.() ?? -1;
     if (revision === renderedRevision && now < nextExpiryAt) return;
+    const previousScrollTop = elements.messages.scrollTop;
+    const previousScrollHeight = elements.messages.scrollHeight;
+    const distanceFromBottom = previousScrollHeight - elements.messages.clientHeight - previousScrollTop;
+    const followNewestMessage = !large || renderedRevision < 0 || distanceFromBottom <= 16;
     const messages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? []).slice(-100);
     renderedRevision = revision;
     nextExpiryAt = messages.length > 0 ? messages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
@@ -151,7 +155,14 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       }
       elements.messages.appendChild(line);
     }
-    elements.messages.scrollTop = elements.messages.scrollHeight;
+    if (followNewestMessage) {
+      elements.messages.scrollTop = elements.messages.scrollHeight;
+    } else {
+      // Appended messages do not move history being read. If old messages
+      // expire from the top, compensate only for the removed height.
+      const heightChange = elements.messages.scrollHeight - previousScrollHeight;
+      elements.messages.scrollTop = Math.max(0, previousScrollTop + Math.min(0, heightChange));
+    }
   }
 
   async function saveDisplayName() {

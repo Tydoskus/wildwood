@@ -18,6 +18,9 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.258": [
+      "World Chat keeps your place while reading older messages"
+    ],
     "0.257": [
       "Sign-in and loading panel frames removed",
       "Extra mobile World Chat bottom spacing added"
@@ -630,6 +633,10 @@
       const now = Date.now();
       const revision = ((_b = coop == null ? void 0 : coop.chatRevision) == null ? void 0 : _b.call(coop)) ?? -1;
       if (revision === renderedRevision && now < nextExpiryAt) return;
+      const previousScrollTop = elements.messages.scrollTop;
+      const previousScrollHeight = elements.messages.scrollHeight;
+      const distanceFromBottom = previousScrollHeight - elements.messages.clientHeight - previousScrollTop;
+      const followNewestMessage = !large || renderedRevision < 0 || distanceFromBottom <= 16;
       const messages = (((_c = coop == null ? void 0 : coop.chatMessages) == null ? void 0 : _c.call(coop).filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS)) ?? []).slice(-100);
       renderedRevision = revision;
       nextExpiryAt = messages.length > 0 ? messages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
@@ -697,7 +704,12 @@
         }
         elements.messages.appendChild(line);
       }
-      elements.messages.scrollTop = elements.messages.scrollHeight;
+      if (followNewestMessage) {
+        elements.messages.scrollTop = elements.messages.scrollHeight;
+      } else {
+        const heightChange = elements.messages.scrollHeight - previousScrollHeight;
+        elements.messages.scrollTop = Math.max(0, previousScrollTop + Math.min(0, heightChange));
+      }
     }
     async function saveDisplayName() {
       var _a, _b, _c, _d;
@@ -857,7 +869,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.257";
+    const GAME_VERSION = "0.258";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
