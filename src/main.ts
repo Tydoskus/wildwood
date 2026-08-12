@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.259";
+  const GAME_VERSION = "0.260";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -244,7 +244,7 @@ import { formatCompactNumber } from "./ui/number-format";
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   const START_SPAWN = { x: 360, y: 360 };
-  const PORTAL = { x: 190, y: 245, width: 180, height: 180, depth: 245 };
+  const PORTAL = { x: 190, y: 445, width: 180, height: 180, depth: 445 };
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -355,7 +355,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
   const boss = {
     isBoss: true,
-    x: WORLD.w - 560,
+    x: WORLD.w - 760,
     y: WORLD.h - 560,
     r: 140,
     maxHp: 1000000,
@@ -1993,10 +1993,11 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!portalArch.complete || portalArch.naturalWidth <= 0 || !portalSwirl.complete || portalSwirl.naturalWidth <= 0) return;
     const x = Math.round(PORTAL.x - camera.x);
     const y = Math.round(PORTAL.y - camera.y);
-    const frame = Math.floor(gameTime * 10) % 16;
+    const frameStep = Math.floor(gameTime * 10) % 30;
+    const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
     const cell = portalSwirl.naturalWidth / 4;
-    const portalWidth = Math.round(PORTAL.width * .59);
-    const portalHeight = Math.round(PORTAL.height * .75);
+    const portalWidth = Math.round(PORTAL.width * .59 * 1.15);
+    const portalHeight = Math.round(PORTAL.height * .75 * 1.15);
     drawActorShadow(x, y - 4, Math.round(PORTAL.width * .68), .14);
     ctx.drawImage(
       portalSwirl,

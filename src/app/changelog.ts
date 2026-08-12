@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.260": [
+    "Portal placement and animation improved",
+    "Dragon moved farther west",
+  ],
   "0.259": [
     "New animated portal and cleaner static Tutorial Forest trees",
     "Time Played leaderboard added",

@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.260": [
+      "Portal placement and animation improved",
+      "Dragon moved farther west"
+    ],
     "0.259": [
       "New animated portal and cleaner static Tutorial Forest trees",
       "Time Played leaderboard added",
@@ -854,7 +858,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.259";
+    const GAME_VERSION = "0.260";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1039,7 +1043,7 @@
     let pendingDragonHits = 0;
     let dragonHitBatchTimer = 0;
     const START_SPAWN = { x: 360, y: 360 };
-    const PORTAL = { x: 190, y: 245, width: 180, height: 180, depth: 245 };
+    const PORTAL = { x: 190, y: 445, width: 180, height: 180, depth: 445 };
     let dpr = 1;
     let viewW = innerWidth;
     let viewH = innerHeight;
@@ -1147,7 +1151,7 @@
     dragonSprite.src = "assets/wildwood/dragon_boss_spritesheet.png";
     const boss = {
       isBoss: true,
-      x: WORLD.w - 560,
+      x: WORLD.w - 760,
       y: WORLD.h - 560,
       r: 140,
       maxHp: 1e6,
@@ -2608,10 +2612,11 @@
       if (!portalArch.complete || portalArch.naturalWidth <= 0 || !portalSwirl.complete || portalSwirl.naturalWidth <= 0) return;
       const x = Math.round(PORTAL.x - camera.x);
       const y = Math.round(PORTAL.y - camera.y);
-      const frame = Math.floor(gameTime * 10) % 16;
+      const frameStep = Math.floor(gameTime * 10) % 30;
+      const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
       const cell = portalSwirl.naturalWidth / 4;
-      const portalWidth = Math.round(PORTAL.width * 0.59);
-      const portalHeight = Math.round(PORTAL.height * 0.75);
+      const portalWidth = Math.round(PORTAL.width * 0.59 * 1.15);
+      const portalHeight = Math.round(PORTAL.height * 0.75 * 1.15);
       drawActorShadow(x, y - 4, Math.round(PORTAL.width * 0.68), 0.14);
       ctx.drawImage(
         portalSwirl,
