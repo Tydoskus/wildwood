@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.270": [
+    "An empty future portal archway now stands beside the Tutorial Forest portal in Beginner Desert",
+  ],
   "0.269": [
     "Tutorial Forest portal unlocks after you help defeat the Dragon",
     "Active portals now show their destination above the archway",

@@ -63,7 +63,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.269";
+  const GAME_VERSION = "0.270";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -286,6 +286,7 @@ import { formatCompactNumber } from "./ui/number-format";
     [BEGINNER_DESERT_MAP_ID]: {
       name: "BEGINNER DESERT",
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
+      emptyArch: { x: 580, y: 680, width: 198, height: 198, depth: 680 },
       arrival: { x: 360, y: 770 },
     },
   } as const;
@@ -1917,10 +1918,20 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function portalColliders() {
     const portal = activePortal();
-    return [
+    const colliders = [
       { x: portal.x - portal.width * .32, y: portal.y - 52, r: 22 },
       { x: portal.x + portal.width * .32, y: portal.y - 52, r: 22 },
     ];
+    const emptyArch = currentMapId === BEGINNER_DESERT_MAP_ID
+      ? MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch
+      : null;
+    if (emptyArch) {
+      colliders.push(
+        { x: emptyArch.x - emptyArch.width * .32, y: emptyArch.y - 52, r: 22 },
+        { x: emptyArch.x + emptyArch.width * .32, y: emptyArch.y - 52, r: 22 },
+      );
+    }
+    return colliders;
   }
 
   function resolvePortalCollision() {
@@ -2535,6 +2546,18 @@ import { formatCompactNumber } from "./ui/number-format";
       outlinedText(destination, x, Math.round(y - portal.height - 8 + floatY), "#f5e9c4", 4);
       ctx.restore();
     }
+  }
+
+  function drawEmptyDesertArch() {
+    if (currentMapId !== BEGINNER_DESERT_MAP_ID || !portalArch.complete || portalArch.naturalWidth <= 0) return;
+    const arch = MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch;
+    const x = Math.round(arch.x - camera.x);
+    const y = Math.round(arch.y - camera.y);
+    drawActorShadow(x, y - 4, Math.round(arch.width * .68), .14);
+    ctx.drawImage(
+      portalArch,
+      Math.round(x - arch.width / 2), Math.round(y - arch.height), arch.width, arch.height,
+    );
   }
 
   function drawCactus(o) {
@@ -3426,6 +3449,9 @@ import { formatCompactNumber } from "./ui/number-format";
       layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
     }
     layers.push({ depth: activePortal().depth, priority: 2, draw: drawPortal });
+    if (currentMapId === BEGINNER_DESERT_MAP_ID) {
+      layers.push({ depth: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch.depth, priority: 2, draw: drawEmptyDesertArch });
+    }
     for (const remotePlayer of remotePlayers) {
       layers.push({
         depth: remotePlayer.y + 29,
