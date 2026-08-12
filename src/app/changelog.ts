@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.263": [
+    "Portal swirl enlarged and archway collision aligned",
+  ],
   "0.262": [
     "Tutorial Forest enemies now wander near their camps and face their target",
     "Portal arch enlarged and given solid pillar collision",

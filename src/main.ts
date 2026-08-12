@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.262";
+  const GAME_VERSION = "0.263";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -250,8 +250,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const START_SPAWN = { x: 360, y: 360 };
   const PORTAL = { x: 190, y: 445, width: 198, height: 198, depth: 445 };
   const PORTAL_COLLIDERS = [
-    { x: PORTAL.x - PORTAL.width * .32, y: PORTAL.y - 12, r: 22 },
-    { x: PORTAL.x + PORTAL.width * .32, y: PORTAL.y - 12, r: 22 },
+    { x: PORTAL.x - PORTAL.width * .32, y: PORTAL.y - 87, r: 22 },
+    { x: PORTAL.x + PORTAL.width * .32, y: PORTAL.y - 87, r: 22 },
   ];
 
   let dpr = 1;
@@ -2080,8 +2080,8 @@ import { formatCompactNumber } from "./ui/number-format";
     const frameStep = Math.floor(gameTime * 10) % 30;
     const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
     const cell = portalSwirl.naturalWidth / 4;
-    const portalWidth = Math.round(PORTAL.width * .59 * 1.15);
-    const portalHeight = Math.round(PORTAL.height * .75 * 1.15);
+    const portalWidth = Math.round(PORTAL.width * .59 * 1.265);
+    const portalHeight = Math.round(PORTAL.height * .75 * 1.265);
     drawActorShadow(x, y - 4, Math.round(PORTAL.width * .68), .14);
     ctx.drawImage(
       portalSwirl,
