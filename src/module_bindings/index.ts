@@ -41,6 +41,7 @@ import ChangeMapReducer from "./change_map_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
+import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
@@ -72,6 +73,8 @@ import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
+import SpiderBossRow from "./spider_boss_table";
+import SpiderResultRow from "./spider_result_table";
 import WorldStatusRow from "./world_status_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -212,6 +215,28 @@ const tablesSchema = __schema({
       { name: 'player_progress_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerProgressRow),
+  spiderBoss: __table({
+    name: 'spider_boss',
+    indexes: [
+      { accessor: 'id', name: 'spider_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'spider_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SpiderBossRow),
+  spiderResult: __table({
+    name: 'spider_result',
+    indexes: [
+      { accessor: 'id', name: 'spider_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'spider_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SpiderResultRow),
   worldStatus: __table({
     name: 'world_status',
     indexes: [
@@ -241,6 +266,7 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+  __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_world", EnterWorldReducer),

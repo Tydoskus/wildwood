@@ -289,6 +289,48 @@ export const PlayerSession = __t.object("PlayerSession", {
 });
 export type PlayerSession = __Infer<typeof PlayerSession>;
 
+export const SpiderAttackWindow = __t.object("SpiderAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type SpiderAttackWindow = __Infer<typeof SpiderAttackWindow>;
+
+export const SpiderBoss = __t.object("SpiderBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+});
+export type SpiderBoss = __Infer<typeof SpiderBoss>;
+
+export const SpiderContribution = __t.object("SpiderContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type SpiderContribution = __Infer<typeof SpiderContribution>;
+
+export const SpiderRespawnSchedule = __t.object("SpiderRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type SpiderRespawnSchedule = __Infer<typeof SpiderRespawnSchedule>;
+
+export const SpiderResult = __t.object("SpiderResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type SpiderResult = __Infer<typeof SpiderResult>;
+
 export const WorldStatus = __t.object("WorldStatus", {
   id: __t.u32(),
   onlinePlayers: __t.u32(),

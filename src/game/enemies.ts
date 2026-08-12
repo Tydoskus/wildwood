@@ -54,22 +54,27 @@ const enemyTypes = {
   // BEGINNER DESERT ENEMIES
   // Balance these values directly: hp, speed, damage, attackSpeed, and reward.
   "Dune Raider": {
-    hp: 1_200_000, speed: 220, damage: 10_000, attackSpeed: .65, r: 19,
+    hp: 1_200_000, speed: 220, damage: 20_000, attackSpeed: .65, r: 19,
     color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: 250 }, score: 10,
   },
   "Dune Archer": {
-    hp: 900_000, speed: 205, damage: 12_500, attackSpeed: .55, r: 17,
+    hp: 900_000, speed: 205, damage: 25_000, attackSpeed: .55, r: 17,
     color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 2_500 }, score: 12,
     ranged: true,
   },
   "Venom Guard": {
-    hp: 2_600_000, speed: 195, damage: 16_000, attackSpeed: .55, r: 24,
+    hp: 2_600_000, speed: 195, damage: 32_000, attackSpeed: .55, r: 24,
     color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 50 }, score: 18,
   },
   "Wastes Reaper": {
-    hp: 5_000_000, speed: 225, damage: 24_000, attackSpeed: .7, r: 31,
+    hp: 5_000_000, speed: 225, damage: 48_000, attackSpeed: .7, r: 31,
     color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: 1_000 }, score: 30,
     ranged: true, elite: true, aggro: 300,
+  },
+  "Blight Oracle": {
+    hp: 4_000_000, speed: 210, damage: 40_000, attackSpeed: .6, r: 29,
+    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 22 }, score: 25,
+    elite: true, aggro: 300,
   },
 } satisfies Record<string, EnemyDefinition>;
 
@@ -163,6 +168,18 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/arm2.png", x: 16, y: -9, w: 25, h: 26 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 },
+    ],
+  },
+  "Blight Oracle": {
+    size: 82,
+    height: 92,
+    layers: [
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg.png", x: -17, y: 25, w: 20, h: 27 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg2.png", x: 1, y: 27, w: 19, h: 25 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/body.png", x: -29, y: -23, w: 58, h: 59 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm.png", x: -35, y: -12, w: 25, h: 26 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm2.png", x: 10, y: -12, w: 25, h: 26 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/head.png", x: -34, y: -56, w: 68, h: 57 },
     ],
   },
 };

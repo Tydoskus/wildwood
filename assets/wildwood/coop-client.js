@@ -8209,6 +8209,9 @@ ${ty.variants.map(
   const DamageDragonBatchReducer = {
     hits: t.u32()
   };
+  const DamageSpiderBatchReducer = {
+    hits: t.u32()
+  };
   const DevSetAccessAuditLabelReducer = {
     identity: t.identity(),
     label: t.string()
@@ -8431,6 +8434,21 @@ ${ty.variants.map(
     inventoryJson: t.string().name("inventory_json"),
     equippedFeet: t.string().name("equipped_feet")
   });
+  const SpiderBossRow = t.row({
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32().name("max_hp"),
+    alive: t.bool(),
+    respawnAtMicros: t.u64().name("respawn_at_micros")
+  });
+  const SpiderResultRow = t.row({
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32().name("total_damage"),
+    contributorsJson: t.string().name("contributors_json"),
+    createdAt: t.timestamp().name("created_at")
+  });
   const WorldStatusRow = t.row({
     id: t.u32().primaryKey(),
     onlinePlayers: t.u32().name("online_players")
@@ -8570,6 +8588,28 @@ ${ty.variants.map(
         { name: "player_progress_identity_key", constraint: "unique", columns: ["identity"] }
       ]
     }, PlayerProgressRow),
+    spiderBoss: table({
+      name: "spider_boss",
+      indexes: [
+        { accessor: "id", name: "spider_boss_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "spider_boss_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, SpiderBossRow),
+    spiderResult: table({
+      name: "spider_result",
+      indexes: [
+        { accessor: "id", name: "spider_result_id_idx_btree", algorithm: "btree", columns: [
+          "id"
+        ] }
+      ],
+      constraints: [
+        { name: "spider_result_id_key", constraint: "unique", columns: ["id"] }
+      ]
+    }, SpiderResultRow),
     worldStatus: table({
       name: "world_status",
       indexes: [
@@ -8595,6 +8635,7 @@ ${ty.variants.map(
     reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
     reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+    reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
     reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
     reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
     reducerSchema("enter_world", EnterWorldReducer),
@@ -8653,7 +8694,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 26;
+  const PROTOCOL_VERSION = 27;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8707,6 +8748,8 @@ ${ty.variants.map(
   const duelReplays = /* @__PURE__ */ new Map();
   const replayLoads = /* @__PURE__ */ new Map();
   let sharedDragon = null;
+  let sharedSpider = null;
+  let latestSpiderResult = null;
   let latestDragonResult = null;
   let connection = null;
   let localIdentity = "";
@@ -9137,7 +9180,7 @@ ${ty.variants.map(
   }
   function copyProgress(progress) {
     return {
-      maxHp: bounded(progress.maxHp, 1, 1e6, 100),
+      maxHp: bounded(progress.maxHp, 1, 1e9, 100),
       damage: bounded(progress.damage, 1, 1e6, 4),
       attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
       projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
@@ -9469,6 +9512,15 @@ ${ty.variants.map(
       respawnAtMs: Number(row.respawnAtMicros / 1000n)
     };
   }
+  function upsertSpiderBoss(row) {
+    sharedSpider = {
+      encounter: row.encounter,
+      hp: row.hp,
+      maxHp: row.maxHp,
+      alive: row.alive,
+      respawnAtMs: Number(row.respawnAtMicros / 1000n)
+    };
+  }
   function upsertDragonResult(row) {
     let contributors = [];
     try {
@@ -9484,6 +9536,28 @@ ${ty.variants.map(
     } catch {
     }
     latestDragonResult = {
+      encounter: row.encounter,
+      totalDamage: row.totalDamage,
+      contributors,
+      createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n)
+    };
+    onChange == null ? void 0 : onChange();
+  }
+  function upsertSpiderResult(row) {
+    let contributors = [];
+    try {
+      const parsed = JSON.parse(row.contributorsJson);
+      if (Array.isArray(parsed)) {
+        contributors = parsed.filter((entry) => entry && typeof entry === "object").map((entry) => ({
+          identity: typeof entry.identity === "string" ? entry.identity : "",
+          name: typeof entry.name === "string" ? entry.name : "PLAYER",
+          damage: Number(entry.damage) || 0,
+          percentage: Number(entry.percentage) || 0
+        }));
+      }
+    } catch {
+    }
+    latestSpiderResult = {
       encounter: row.encounter,
       totalDamage: row.totalDamage,
       contributors,
@@ -9680,6 +9754,8 @@ ${ty.variants.map(
     replayLoads.clear();
     sharedDragon = null;
     latestDragonResult = null;
+    sharedSpider = null;
+    latestSpiderResult = null;
   }
   function scheduleReconnect(delay = 500) {
     if (protocolBlocked || worldEntryBlocked || document.hidden || reconnectTimer !== null || (connection == null ? void 0 : connection.isActive) || connecting) return;
@@ -9919,6 +9995,18 @@ ${ty.variants.map(
         conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => {
           if (isCurrentConnection()) upsertDragonResult(row);
         });
+        conn.db.spiderBoss.onInsert((_ctx, row) => {
+          if (isCurrentConnection()) upsertSpiderBoss(row);
+        });
+        conn.db.spiderBoss.onUpdate((_ctx, _oldRow, row) => {
+          if (isCurrentConnection()) upsertSpiderBoss(row);
+        });
+        conn.db.spiderResult.onInsert((_ctx, row) => {
+          if (isCurrentConnection()) upsertSpiderResult(row);
+        });
+        conn.db.spiderResult.onUpdate((_ctx, _oldRow, row) => {
+          if (isCurrentConnection()) upsertSpiderResult(row);
+        });
         conn.db.chatMessage.onInsert((_ctx, row) => {
           if (isCurrentConnection()) upsertChatMessage(row);
         });
@@ -9943,6 +10031,8 @@ ${ty.variants.map(
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
           for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
+          for (const row of conn.db.spiderBoss.iter()) upsertSpiderBoss(row);
+          for (const row of conn.db.spiderResult.iter()) upsertSpiderResult(row);
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
@@ -9964,6 +10054,8 @@ ${ty.variants.map(
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
           tables.dragonResult,
+          tables.spiderBoss,
+          tables.spiderResult,
           tables.chatMessage,
           tables.duel
         ]);
@@ -10285,6 +10377,12 @@ ${ty.variants.map(
     dragonResult() {
       return latestDragonResult ? { ...latestDragonResult, contributors: latestDragonResult.contributors.map((entry) => ({ ...entry })) } : null;
     },
+    spiderBoss() {
+      return sharedSpider ? { ...sharedSpider } : null;
+    },
+    spiderResult() {
+      return latestSpiderResult ? { ...latestSpiderResult, contributors: latestSpiderResult.contributors.map((entry) => ({ ...entry })) } : null;
+    },
     playerProfile(identity = localIdentity) {
       const profile = cachedPlayerProfile(identity);
       return profile ? { ...profile, progress: { ...profile.progress }, lifetime: { ...profile.lifetime } } : null;
@@ -10294,6 +10392,10 @@ ${ty.variants.map(
     damageDragon(hits = 1) {
       if (protocolBlocked || !connection) return;
       sendReducer("dragon damage", () => connection == null ? void 0 : connection.reducers.damageDragonBatch({ hits }));
+    },
+    damageSpider(hits = 1) {
+      if (protocolBlocked || !connection) return;
+      sendReducer("spider damage", () => connection == null ? void 0 : connection.reducers.damageSpiderBatch({ hits }));
     },
     saveProgress(progress) {
       persistPendingProgress(progress);

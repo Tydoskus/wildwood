@@ -63,7 +63,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.266";
+  const GAME_VERSION = "0.267";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -78,6 +78,12 @@ import { formatCompactNumber } from "./ui/number-format";
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_HIT_BATCH_DELAY = .1;
+  const SPIDER_HIT_BATCH_DELAY = .1;
+  const SPIDER_AGGRO_RANGE = 1150;
+  const SPIDER_WEB_RANGE = 720;
+  const SPIDER_WEB_DAMAGE = 900_000;
+  const SPIDER_VENOM_DAMAGE = 1_100_000;
+  const SPIDER_CONTACT_DAMAGE = 1_000_000;
   const DRAGON_CONTACT_DAMAGE = 1000;
   const DRAGON_CONTACT_DAMAGE_COOLDOWN = .75;
   const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
@@ -239,6 +245,17 @@ import { formatCompactNumber } from "./ui/number-format";
   } catch {}
   backgroundMusic.volume = musicVolume;
 
+  function syncMapMusic() {
+    const nextSource = currentMapId === BEGINNER_DESERT_MAP_ID
+      ? "assets/wildwood/audio/desert.mp3"
+      : "assets/wildwood/audio/forest.mp3";
+    if (backgroundMusic.getAttribute("src") === nextSource) return;
+    const shouldResume = !backgroundMusic.paused;
+    backgroundMusic.src = nextSource;
+    backgroundMusic.load();
+    if (shouldResume && musicVolume > 0) void backgroundMusic.play().catch(() => {});
+  }
+
   enforceLatestVersion(GAME_VERSION);
   window.setInterval(() => enforceLatestVersion(GAME_VERSION), 30_000);
   const keys = new Set();
@@ -254,8 +271,11 @@ import { formatCompactNumber } from "./ui/number-format";
   const decor = [];
   const paths = [];
   const bossRain = [];
+  const spiderVenom = [];
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
+  let pendingSpiderHits = 0;
+  let spiderHitBatchTimer = 0;
   const START_SPAWN = { x: 360, y: 360 };
   const MAP_CONFIG = {
     [TUTORIAL_FOREST_MAP_ID]: {
@@ -310,6 +330,10 @@ import { formatCompactNumber } from "./ui/number-format";
   let dragonWasAlive = null;
   let pendingDragonResultEncounter = null;
   let shownDragonResultEncounter = null;
+  let observedSpiderEncounter = null;
+  let spiderWasAlive = null;
+  let pendingSpiderResultEncounter = null;
+  let shownSpiderResultEncounter = null;
   const locallyRewardedDragonEncounters = new Set();
   const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
   let openProfileIdentity = "";
@@ -380,6 +404,26 @@ import { formatCompactNumber } from "./ui/number-format";
   });
   dragonSprite.src = "assets/wildwood/dragon_boss_spritesheet.png";
 
+  const spiderSprite = new Image();
+  const spiderSpriteCanvas = document.createElement("canvas");
+  const spiderSpriteCtx = spiderSpriteCanvas.getContext("2d", { willReadFrequently: true });
+  let spiderSpriteReady = false;
+  spiderSprite.addEventListener("load", () => {
+    spiderSpriteCanvas.width = spiderSprite.naturalWidth;
+    spiderSpriteCanvas.height = spiderSprite.naturalHeight;
+    spiderSpriteCtx.drawImage(spiderSprite, 0, 0);
+    const pixels = spiderSpriteCtx.getImageData(0, 0, spiderSpriteCanvas.width, spiderSpriteCanvas.height);
+    for (let index = 0; index < pixels.data.length; index += 4) {
+      const red = pixels.data[index];
+      const green = pixels.data[index + 1];
+      const blue = pixels.data[index + 2];
+      if (green > 135 && green > red * 1.35 && green > blue * 1.35) pixels.data[index + 3] = 0;
+    }
+    spiderSpriteCtx.putImageData(pixels, 0, 0);
+    spiderSpriteReady = true;
+  });
+  spiderSprite.src = "assets/wildwood/desert-spider-boss-spritesheet.png";
+
   const boss = {
     isBoss: true,
     x: WORLD.w - 760,
@@ -396,6 +440,24 @@ import { formatCompactNumber } from "./ui/number-format";
     nextAttack: "cone",
     cone: null,
     encounter: null
+  };
+
+  const spiderBoss = {
+    isBoss: true,
+    bossKind: "spider",
+    x: 4050,
+    y: 4050,
+    r: 125,
+    maxHp: 150_000_000,
+    hp: 150_000_000,
+    dead: false,
+    hpLossFlashFrom: 150_000_000,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "web",
+    web: null,
+    encounter: null,
   };
 
   const playerSprite = new Image();
@@ -515,8 +577,9 @@ import { formatCompactNumber } from "./ui/number-format";
     let closestEnemy = null;
     let closestT = Infinity;
 
+    const mapBoss = currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : boss;
     for (let index = -1; index < enemies.length; index++) {
-      const e = index < 0 ? boss : enemies[index];
+      const e = index < 0 ? mapBoss : enemies[index];
       if (e.dead) continue;
 
       const ex = e.x - startX;
@@ -586,6 +649,8 @@ import { formatCompactNumber } from "./ui/number-format";
     projectiles.length = 0;
     pendingDragonHits = 0;
     dragonHitBatchTimer = 0;
+    pendingSpiderHits = 0;
+    spiderHitBatchTimer = 0;
     enemyShots.length = 0;
     particles.length = 0;
     damageNumbers.length = 0;
@@ -598,6 +663,7 @@ import { formatCompactNumber } from "./ui/number-format";
     messageClock = 0;
     pickupLog.innerHTML = "";
     resetBoss();
+    resetSpiderBoss();
 
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
@@ -936,6 +1002,17 @@ import { formatCompactNumber } from "./ui/number-format";
     site.respawnAt = 0;
   }
 
+  function engageEnemy(enemy) {
+    const group = enemy.type === "Dune Archer"
+      ? enemies.filter((candidate) => !candidate.dead && candidate.type === "Dune Archer")
+      : [enemy];
+    for (const candidate of group) {
+      candidate.engaged = true;
+      candidate.leashing = false;
+      candidate.wandering = false;
+    }
+  }
+
   function updateRespawns() {
     const safeDistanceSq = ENEMY_RESPAWN_SAFE_DISTANCE * ENEMY_RESPAWN_SAFE_DISTANCE;
 
@@ -1041,12 +1118,13 @@ import { formatCompactNumber } from "./ui/number-format";
       }
     }
 
-    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !boss.dead) {
-      const centerDistance = Math.hypot(player.x - boss.x, player.y - boss.y);
-      const edgeDistance = Math.max(0, centerDistance - boss.r);
+    const mapBoss = currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : boss;
+    if (!mapBoss.dead) {
+      const centerDistance = Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y);
+      const edgeDistance = Math.max(0, centerDistance - mapBoss.r);
       if (edgeDistance * edgeDistance < best) {
         best = edgeDistance * edgeDistance;
-        target = boss;
+        target = mapBoss;
       }
     }
 
@@ -1103,6 +1181,117 @@ import { formatCompactNumber } from "./ui/number-format";
     bossRain.length = 0;
   }
 
+  function resetSpiderBoss() {
+    const shared = coop?.spiderBoss?.();
+    if (shared) {
+      spiderBoss.encounter = shared.encounter;
+      spiderBoss.hp = shared.hp;
+      spiderBoss.maxHp = shared.maxHp;
+      spiderBoss.dead = !shared.alive;
+    }
+    spiderBoss.hpLossFlashFrom = spiderBoss.hp;
+    spiderBoss.hpLossFlashTimer = 0;
+    spiderBoss.contactDamageClock = 0;
+    spiderBoss.attackClock = 3;
+    spiderBoss.nextAttack = "web";
+    spiderBoss.web = null;
+    spiderVenom.length = 0;
+  }
+
+  function showSpiderResult(result) {
+    if (!result || shownSpiderResultEncounter === result.encounter) return;
+    shownSpiderResultEncounter = result.encounter;
+    pendingSpiderResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
+    if (!localContribution) {
+      const heading = dragonWorldNoticeEl.querySelector("strong");
+      if (heading) heading.textContent = "DESERT SPIDER DEFEATED";
+      dragonWorldNoticeDetailEl.replaceChildren();
+      for (const contributor of result.contributors) {
+        const row = document.createElement("div");
+        row.className = "dragon-world-notice-row";
+        const name = document.createElement("span");
+        renderDomPlayerName(name, contributor.identity, contributor.name);
+        const percentage = document.createElement("span");
+        percentage.textContent = `${Math.round(contributor.percentage)}%`;
+        row.append(name, percentage);
+        dragonWorldNoticeDetailEl.appendChild(row);
+      }
+      dragonWorldNoticeEl.hidden = false;
+      if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
+      dragonWorldNoticeTimer = window.setTimeout(() => {
+        dragonWorldNoticeEl.hidden = true;
+        dragonWorldNoticeTimer = null;
+      }, 6_000);
+      return;
+    }
+
+    dragonResultTitle.textContent = "DESERT SPIDER DEFEATED";
+    dragonResultTotal.textContent = `${Math.round(result.totalDamage).toLocaleString()} TOTAL DAMAGE`;
+    dragonResultContributors.replaceChildren();
+    for (const contributor of result.contributors) {
+      const row = document.createElement("div");
+      row.className = "dragon-result-row";
+      const name = document.createElement("span");
+      name.className = "dragon-result-name";
+      renderDomPlayerName(name, contributor.identity, contributor.name);
+      const damage = document.createElement("span");
+      damage.className = "dragon-result-damage";
+      damage.textContent = Math.round(contributor.damage).toLocaleString();
+      const percentage = document.createElement("span");
+      percentage.className = "dragon-result-percentage";
+      percentage.textContent = `${contributor.percentage.toFixed(1)}%`;
+      row.append(name, damage, percentage);
+      dragonResultContributors.append(row);
+    }
+    logPickup("+100K MAX HEALTH", "#6fe48e");
+    showMessage("+100K MAX HEALTH", "#6fe48e");
+    dragonResultEl.hidden = false;
+  }
+
+  function syncSpiderState() {
+    const shared = coop?.spiderBoss?.();
+    if (!shared) return;
+    const initialized = observedSpiderEncounter !== null;
+    const encounterChanged = initialized && observedSpiderEncounter !== shared.encounter;
+    const previousHp = spiderBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedSpiderEncounter = shared.encounter;
+      spiderWasAlive = shared.alive;
+      spiderBoss.dead = !shared.alive;
+      spiderBoss.attackClock = 3;
+      spiderBoss.nextAttack = "web";
+      spiderBoss.web = null;
+      spiderVenom.length = 0;
+      spiderBoss.hpLossFlashFrom = shared.hp;
+      spiderBoss.hpLossFlashTimer = 0;
+    } else if (spiderWasAlive && !shared.alive) {
+      spiderWasAlive = false;
+      spiderBoss.dead = true;
+      spiderBoss.web = null;
+      spiderVenom.length = 0;
+      pendingSpiderResultEncounter = shared.encounter;
+      spawnBurst(spiderBoss.x, spiderBoss.y, ENEMY_DEATH_PARTICLE_COLOR, 64, 230);
+    } else if (!spiderWasAlive && shared.alive) {
+      spiderWasAlive = true;
+      spiderBoss.dead = false;
+      spiderBoss.attackClock = 3;
+      spiderBoss.nextAttack = "web";
+    } else if (shared.alive && shared.hp < previousHp) {
+      spiderBoss.hpLossFlashFrom = spiderBoss.hpLossFlashTimer > 0
+        ? Math.max(spiderBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      spiderBoss.hpLossFlashTimer = DRAGON_HP_LOSS_FLASH_DURATION;
+    }
+    spiderBoss.encounter = shared.encounter;
+    spiderBoss.maxHp = shared.maxHp;
+    spiderBoss.hp = shared.hp;
+    if (pendingSpiderResultEncounter !== null) {
+      const result = coop?.spiderResult?.();
+      if (result?.encounter === pendingSpiderResultEncounter) showSpiderResult(result);
+    }
+  }
+
   function killBoss() {
     if (boss.dead) return;
 
@@ -1115,6 +1304,9 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function showDragonResult(result) {
     if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
+    dragonResultTitle.textContent = "DRAGON DEFEATED";
+    const worldHeading = dragonWorldNoticeEl.querySelector("strong");
+    if (worldHeading) worldHeading.textContent = "DRAGON DEFEATED";
     shownDragonResultEncounter = result.encounter;
     pendingDragonResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
@@ -1353,6 +1545,90 @@ import { formatCompactNumber } from "./ui/number-format";
 
     if (boss.nextAttack === "cone") startBossCone();
     else startBossRain();
+  }
+
+  function startSpiderWeb() {
+    spiderBoss.web = { timer: 1.15, duration: 1.15, hitPlayer: false };
+    spiderBoss.nextAttack = "venom";
+  }
+
+  function startSpiderVenom() {
+    for (let index = 0; index < 6; index += 1) {
+      const angle = index * TAU / 6 + rand(-.25, .25);
+      const radius = rand(15, 125);
+      spiderVenom.push({
+        x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60),
+        y: clamp(player.y + Math.sin(angle) * radius, 60, WORLD.h - 60),
+        timer: .9 + index * .13,
+        maxTimer: .9 + index * .13,
+        r: 58,
+      });
+    }
+    spiderBoss.attackClock = 4.2;
+    spiderBoss.nextAttack = "web";
+  }
+
+  function updateSpiderBoss(dt) {
+    spiderBoss.hpLossFlashTimer = Math.max(0, spiderBoss.hpLossFlashTimer - dt);
+    spiderBoss.contactDamageClock = Math.max(0, spiderBoss.contactDamageClock - dt);
+    if (spiderBoss.dead) return;
+
+    for (let index = spiderVenom.length - 1; index >= 0; index -= 1) {
+      const pool = spiderVenom[index];
+      pool.timer -= dt;
+      if (pool.timer <= 0) {
+        const dx = player.x - pool.x;
+        const dy = player.y - pool.y;
+        if (dx * dx + dy * dy <= pool.r * pool.r) damagePlayer(SPIDER_VENOM_DAMAGE);
+        spawnBurst(pool.x, pool.y, "#89e255", 22, 150);
+        spiderVenom.splice(index, 1);
+      }
+    }
+
+    if (spiderBoss.web) {
+      const web = spiderBoss.web;
+      const previousProgress = clamp(1 - web.timer / web.duration, 0, 1);
+      web.timer -= dt;
+      const progress = clamp(1 - web.timer / web.duration, 0, 1);
+      const minRadius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * previousProgress;
+      const maxRadius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * progress;
+      const distance = Math.hypot(player.x - spiderBoss.x, player.y - spiderBoss.y);
+      if (!web.hitPlayer && distance >= minRadius - 30 && distance <= maxRadius + 30) {
+        web.hitPlayer = true;
+        damagePlayer(SPIDER_WEB_DAMAGE);
+      }
+      if (web.timer <= 0) {
+        spiderBoss.web = null;
+        spiderBoss.attackClock = 2.5;
+      }
+      return;
+    }
+
+    spiderBoss.attackClock -= dt;
+    if (spiderBoss.attackClock > 0) return;
+    const dx = player.x - spiderBoss.x;
+    const dy = player.y - spiderBoss.y;
+    if (dx * dx + dy * dy > SPIDER_AGGRO_RANGE * SPIDER_AGGRO_RANGE) return;
+    if (spiderBoss.nextAttack === "web") startSpiderWeb();
+    else startSpiderVenom();
+  }
+
+  function resolveSpiderCollision() {
+    if (spiderBoss.dead) return;
+    const dx = player.x - spiderBoss.x;
+    const dy = player.y - spiderBoss.y;
+    const minimumDistance = player.r + spiderBoss.r;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared >= minimumDistance * minimumDistance) return;
+    if (spiderBoss.contactDamageClock <= 0) {
+      damagePlayer(SPIDER_CONTACT_DAMAGE);
+      spiderBoss.contactDamageClock = .75;
+    }
+    const distance = Math.sqrt(distanceSquared);
+    const nx = distance > .001 ? dx / distance : 1;
+    const ny = distance > .001 ? dy / distance : 0;
+    player.x = spiderBoss.x + nx * minimumDistance;
+    player.y = spiderBoss.y + ny * minimumDistance;
   }
 
   function killEnemy(e) {
@@ -1604,6 +1880,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
     resolvePortalCollision();
     if (currentMapId === TUTORIAL_FOREST_MAP_ID) resolveDragonCollision();
+    if (currentMapId === BEGINNER_DESERT_MAP_ID) resolveSpiderCollision();
 
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
@@ -1688,6 +1965,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function loadMap(mapId: MapId, x: number, y: number, facing = 0) {
     currentMapId = mapId;
+    syncMapMusic();
     player.x = x;
     player.y = y;
     player.facing = facing;
@@ -1700,8 +1978,12 @@ import { formatCompactNumber } from "./ui/number-format";
     damageNumbers.length = 0;
     pendingDragonHits = 0;
     dragonHitBatchTimer = 0;
+    pendingSpiderHits = 0;
+    spiderHitBatchTimer = 0;
     bossRain.length = 0;
     boss.cone = null;
+    spiderVenom.length = 0;
+    spiderBoss.web = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }
@@ -1763,11 +2045,11 @@ import { formatCompactNumber } from "./ui/number-format";
         ? e.aggroRadius
         : Math.max(0, player.attackRange - REGULAR_ENEMY_AGGRO_PADDING);
       if (!e.leashing && playerDistance < aggroRadius) {
-        e.engaged = true;
-        e.wandering = false;
+        engageEnemy(e);
       }
 
-      if (e.engaged && playerDistance > e.leashRange) {
+      const leashRange = e.type === "Dune Archer" ? Math.max(900, e.leashRange) : e.leashRange;
+      if (e.engaged && playerDistance > leashRange) {
         e.engaged = false;
         e.leashing = true;
         e.attackClock = Math.max(e.attackClock, .5);
@@ -1928,11 +2210,15 @@ import { formatCompactNumber } from "./ui/number-format";
         p.life = 0;
 
         if (target.isBoss) {
-          pendingDragonHits += 1;
-          dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
+          if (target.bossKind === "spider") {
+            pendingSpiderHits += 1;
+            spiderHitBatchTimer = SPIDER_HIT_BATCH_DELAY;
+          } else {
+            pendingDragonHits += 1;
+            dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
+          }
         } else {
-          target.engaged = true;
-          target.leashing = false;
+          engageEnemy(target);
           target.hp -= p.damage;
         }
 
@@ -1967,6 +2253,14 @@ import { formatCompactNumber } from "./ui/number-format";
         coop?.damageDragon?.(pendingDragonHits);
         pendingDragonHits = 0;
         dragonHitBatchTimer = 0;
+      }
+    }
+    if (currentMapId === BEGINNER_DESERT_MAP_ID && pendingSpiderHits > 0) {
+      spiderHitBatchTimer -= dt;
+      if (spiderHitBatchTimer <= 0) {
+        coop?.damageSpider?.(pendingSpiderHits);
+        pendingSpiderHits = 0;
+        spiderHitBatchTimer = 0;
       }
     }
 
@@ -2074,6 +2368,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function update(dt) {
     if (currentMapId === TUTORIAL_FOREST_MAP_ID) syncDragonState();
+    if (currentMapId === BEGINNER_DESERT_MAP_ID) syncSpiderState();
     gameTime += dt;
     flash = Math.max(0, flash - dt);
     screenShake *= Math.pow(.01, dt);
@@ -2089,12 +2384,15 @@ import { formatCompactNumber } from "./ui/number-format";
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBootPickup();
       updateEnemies(dt);
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBoss(dt);
+      if (currentMapId === BEGINNER_DESERT_MAP_ID) updateSpiderBoss(dt);
       updateProjectiles(dt);
       updateRespawns();
     } else {
       projectiles.length = 0;
       pendingDragonHits = 0;
       dragonHitBatchTimer = 0;
+      pendingSpiderHits = 0;
+      spiderHitBatchTimer = 0;
       enemyShots.length = 0;
     }
     for (const shot of duelShots) {
@@ -2900,6 +3198,84 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.restore();
   }
 
+  function drawSpiderTelegraphs() {
+    if (spiderBoss.dead) return;
+    const x = spiderBoss.x - camera.x;
+    const y = spiderBoss.y - camera.y;
+    if (spiderBoss.web) {
+      const progress = clamp(1 - spiderBoss.web.timer / spiderBoss.web.duration, 0, 1);
+      const radius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * progress;
+      ctx.save();
+      ctx.strokeStyle = "rgba(235,239,218,.9)";
+      ctx.lineWidth = 7;
+      ctx.setLineDash([13, 10]);
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const pool of spiderVenom) {
+      const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1);
+      ctx.save();
+      ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`;
+      ctx.strokeStyle = "rgba(155,238,88,.95)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(pool.x - camera.x, pool.y - camera.y, pool.r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawSpiderBoss() {
+    if (spiderBoss.dead || !spiderSpriteReady) return;
+    const cellW = spiderSpriteCanvas.width / 4;
+    const cellH = spiderSpriteCanvas.height / 2;
+    const frame = Math.floor(gameTime * 5) % 8;
+    const column = frame % 4;
+    const row = Math.floor(frame / 4);
+    const drawW = 310;
+    const drawH = 155;
+    const x = Math.floor(spiderBoss.x - camera.x);
+    const y = Math.floor(spiderBoss.y - camera.y);
+    drawActorShadow(x, y + 55, 220, .24);
+    ctx.drawImage(
+      spiderSpriteCanvas,
+      column * cellW, row * cellH, cellW, cellH,
+      Math.floor(x - drawW / 2), Math.floor(y - drawH / 2), drawW, drawH,
+    );
+
+    const barW = 250;
+    const barH = 22;
+    const barX = x - Math.floor(barW / 2);
+    const barY = y - drawH / 2 - 32;
+    const hpRatio = clamp(spiderBoss.hp / spiderBoss.maxHp, 0, 1);
+    ctx.fillStyle = "rgba(0,0,0,.86)";
+    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = "#342027";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "#9f5c2f";
+    ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+    if (spiderBoss.hpLossFlashTimer > 0 && spiderBoss.hpLossFlashFrom > spiderBoss.hp) {
+      const fromRatio = clamp(spiderBoss.hpLossFlashFrom / spiderBoss.maxHp, hpRatio, 1);
+      ctx.save();
+      ctx.globalAlpha = clamp(spiderBoss.hpLossFlashTimer / DRAGON_HP_LOSS_FLASH_DURATION, 0, 1);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(barX + Math.round(barW * hpRatio), barY, Math.max(1, Math.round(barW * (fromRatio - hpRatio))), barH);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(spiderBoss.hp)))} / ${formatCompactNumber(Math.ceil(spiderBoss.maxHp))} HP`, x, barY + barH / 2, "#fff", 3);
+    ctx.textBaseline = "bottom";
+    outlinedText("DESERT SPIDER", x, barY - 18, "#f5e9c4", 3);
+    outlinedText("+100K MAX HEALTH", x, barY - 5, "#6fe48e", 3);
+    ctx.restore();
+  }
+
   function drawEnemy(e) {
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
@@ -3026,6 +3402,9 @@ import { formatCompactNumber } from "./ui/number-format";
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !boss.dead) {
       layers.push({ depth: boss.y + 93, priority: 1, draw: drawBoss });
+    }
+    if (currentMapId === BEGINNER_DESERT_MAP_ID && !spiderBoss.dead) {
+      layers.push({ depth: spiderBoss.y + 55, priority: 1, draw: drawSpiderBoss });
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !bootsPickup.collected) {
       layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
@@ -3241,6 +3620,7 @@ import { formatCompactNumber } from "./ui/number-format";
     drawDuelArena();
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapId === TUTORIAL_FOREST_MAP_ID) drawBossTelegraphs();
+    if (!isDueling() && currentMapId === BEGINNER_DESERT_MAP_ID) drawSpiderTelegraphs();
     drawAttackRange();
 
     for (const p of projectiles) drawProjectile(p, false);
@@ -3902,16 +4282,17 @@ import { formatCompactNumber } from "./ui/number-format";
     requestAnimationFrame(loop);
   }
 
-  function startGame(markIntro = true) {
+  function startGame(markIntro = true, restoreServerPosition = true) {
     startEl.style.display = "none";
     overEl.style.display = "none";
     pausedForUpgrade = false;
     bootUpgradeEl.hidden = true;
     const serverMapId = coop?.localState?.()?.mapId;
     if (serverMapId === TUTORIAL_FOREST_MAP_ID || serverMapId === BEGINNER_DESERT_MAP_ID) currentMapId = serverMapId;
+    syncMapMusic();
     reset(hasStarted);
     const serverState = coop?.localState?.();
-    if (serverState && serverState.mapId === currentMapId) {
+    if (restoreServerPosition && serverState && serverState.mapId === currentMapId) {
       player.x = serverState.x;
       player.y = serverState.y;
       player.facing = serverState.facing;
@@ -4386,7 +4767,7 @@ import { formatCompactNumber } from "./ui/number-format";
   newPlayerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") beginAdventure();
   });
-  document.getElementById("restartBtn").addEventListener("click", startGame);
+  document.getElementById("restartBtn").addEventListener("click", () => startGame(false, false));
 
   addEventListener("keydown", e => {
     if (e.code === "Escape" && !profileIconPickerEl.hidden) {

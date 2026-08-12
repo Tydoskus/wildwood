@@ -10,7 +10,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 26;
+const PROTOCOL_VERSION = 27;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -61,6 +61,13 @@ const DRAGON_RADIUS = 140;
 const DRAGON_POSITION = { x: WORLD.width - 760, y: WORLD.height - 560 };
 const DRAGON_HIT_RANGE_TOLERANCE = 60;
 const DRAGON_RESPAWN_MICROS = 30_000_000n;
+const SPIDER_ID = 1;
+const SPIDER_MAX_HP = 150_000_000;
+const SPIDER_REWARD_HEALTH = 100_000;
+const SPIDER_RADIUS = 125;
+const SPIDER_POSITION = { x: 4050, y: 4050 };
+const SPIDER_HIT_RANGE_TOLERANCE = 60;
+const SPIDER_RESPAWN_MICROS = 30_000_000n;
 
 const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
@@ -439,6 +446,58 @@ const dragonRespawnSchedule = table(
   },
 );
 
+const spiderBoss = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32(),
+    alive: t.bool(),
+    respawnAtMicros: t.u64(),
+  },
+);
+
+const spiderContribution = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    displayName: t.string(),
+    damage: t.f32(),
+  },
+);
+
+const spiderAttackWindow = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    startedAtMicros: t.u64(),
+    hits: t.u32(),
+  },
+);
+
+const spiderResult = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32(),
+    contributorsJson: t.string(),
+    createdAt: t.timestamp(),
+  },
+);
+
+const spiderRespawnSchedule = table(
+  { scheduled: (): any => respawnSpider },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
   player,
   playerProfile,
@@ -466,6 +525,11 @@ const spacetimedb = schema({
   dragonResult,
   maintenanceSchedule,
   dragonRespawnSchedule,
+  spiderBoss,
+  spiderContribution,
+  spiderAttackWindow,
+  spiderResult,
+  spiderRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -951,6 +1015,75 @@ function ensureDragonBoss(ctx: any) {
   });
 }
 
+function ensureSpiderBoss(ctx: any) {
+  const existing = ctx.db.spiderBoss.id.find(SPIDER_ID);
+  if (existing) return existing;
+  return ctx.db.spiderBoss.insert({
+    id: SPIDER_ID,
+    encounter: 1n,
+    hp: SPIDER_MAX_HP,
+    maxHp: SPIDER_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+  });
+}
+
+function clearSpiderCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.spiderContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.spiderAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.spiderContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.spiderAttackWindow.identity.delete(identity);
+}
+
+function rewardSpiderContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const next = { ...current, maxHp: current.maxHp + SPIDER_REWARD_HEALTH };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    ctx.db.player.identity.update({
+      ...active,
+      hp: active.hp + SPIDER_REWARD_HEALTH,
+      maxHp: next.maxHp,
+      power: powerForProgress(next),
+    });
+  }
+}
+
+function finishSpiderEncounter(ctx: any, spider: any) {
+  const contributions = [...ctx.db.spiderContribution.iter()]
+    .filter((row: any) => row.encounter === spider.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: SPIDER_ID,
+    encounter: spider.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.spiderResult.id.find(SPIDER_ID)) ctx.db.spiderResult.id.update(result);
+  else ctx.db.spiderResult.insert(result);
+
+  for (const row of contributions) rewardSpiderContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + SPIDER_RESPAWN_MICROS;
+  ctx.db.spiderBoss.id.update({ ...spider, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.spiderRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: spider.encounter,
+  });
+}
+
 function clearDragonCombatRows(ctx: any) {
   const contributionIdentities = [...ctx.db.dragonContribution.iter()].map((row: any) => row.identity);
   const attackIdentities = [...ctx.db.dragonAttackWindow.iter()].map((row: any) => row.identity);
@@ -1382,6 +1515,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
   ensureDragonBoss(ctx);
+  ensureSpiderBoss(ctx);
   ensureWorldStatus(ctx);
 
   if (!ctx.connectionId) return;
@@ -1466,6 +1600,23 @@ export const respawnDragon = spacetimedb.reducer(
   },
 );
 
+export const respawnSpider = spacetimedb.reducer(
+  { schedule: spiderRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const spider = ensureSpiderBoss(ctx);
+    if (spider.alive || spider.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < spider.respawnAtMicros) return;
+    clearSpiderCombatRows(ctx);
+    ctx.db.spiderBoss.id.update({
+      ...spider,
+      encounter: spider.encounter + 1n,
+      hp: spider.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+    });
+  },
+);
+
 function applyDragonDamage(ctx: any, requestedHits: number) {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
@@ -1534,6 +1685,73 @@ export const damageDragon = spacetimedb.reducer({}, (ctx) => applyDragonDamage(c
 export const damageDragonBatch = spacetimedb.reducer(
   { hits: t.u32() },
   (ctx, { hits }) => applyDragonDamage(ctx, hits),
+);
+
+function applySpiderDamage(ctx: any, requestedHits: number) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== BEGINNER_DESERT_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const spider = ensureSpiderBoss(ctx);
+  if (!spider.alive || spider.hp <= 0) return;
+
+  const centerDistance = Math.hypot(
+    activePlayer.x - SPIDER_POSITION.x,
+    activePlayer.y - SPIDER_POSITION.y,
+  );
+  if (centerDistance - SPIDER_RADIUS > progress.attackRange + SPIDER_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(progress.attackRate * 1_000_000)));
+  const currentWindow = ctx.db.spiderAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== spider.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: spider.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.spiderAttackWindow.identity.update(nextWindow);
+    else ctx.db.spiderAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.spiderAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(spider.hp, Math.max(1, progress.damage) * acceptedHits);
+  const currentContribution = ctx.db.spiderContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === spider.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: spider.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.spiderContribution.identity.update(nextContribution);
+  else ctx.db.spiderContribution.insert(nextContribution);
+
+  const nextSpider = { ...spider, hp: Math.max(0, spider.hp - damage) };
+  if (nextSpider.hp <= 0) finishSpiderEncounter(ctx, nextSpider);
+  else ctx.db.spiderBoss.id.update(nextSpider);
+}
+
+export const damageSpiderBatch = spacetimedb.reducer(
+  { hits: t.u32() },
+  (ctx, { hits }) => applySpiderDamage(ctx, hits),
 );
 
 export const registerProtocol = spacetimedb.reducer(
@@ -1824,7 +2042,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
     };
     const nextProgress = {
       ...progress,
-      maxHp: bounded(update.maxHp, 1, 1_000_000, "Max HP"),
+      maxHp: bounded(update.maxHp, 1, 1_000_000_000, "Max HP"),
       damage: bounded(update.damage, 1, 1_000_000, "Damage"),
       attackRate: bounded(update.attackRate, .05, 10, "Attack rate"),
       projectileSpeed: bounded(update.projectileSpeed, 1, 5_000, "Projectile speed"),
@@ -1875,7 +2093,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     const bounded = (value: number, min: number, max: number, fallback: number) =>
       Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
     const normalized = {
-      maxHp: bounded(progress.maxHp, 1, 1_000_000, base.maxHp),
+      maxHp: bounded(progress.maxHp, 1, 1_000_000_000, base.maxHp),
       damage: bounded(progress.damage, 1, 1_000_000, base.damage),
       attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, base.attackRate),
       projectileSpeed: bounded(progress.projectileSpeed, 390, 2_730, base.projectileSpeed),

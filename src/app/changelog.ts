@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.267": [
+    "Desert Spider boss added with 150 million health and unique web and venom attacks",
+    "Desert Spider contributors earn 100,000 max health",
+    "Desert enemies deal twice the damage and Dune Archers now attack as a group",
+    "Blight Oracle elite added with a +22 health regeneration reward",
+    "Beginner Desert now has its own music and desert deaths respawn at the desert entrance",
+  ],
   "0.266": [
     "Beginner Desert now has its own goblin and venom skeleton enemies",
     "Desert enemies offer much stronger combat with high health and damage",
