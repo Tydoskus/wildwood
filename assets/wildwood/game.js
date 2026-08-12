@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.257": [
+      "Sign-in and loading panel frames removed",
+      "Extra mobile World Chat bottom spacing added"
+    ],
     "0.256": [
       "World Chat header spacing tightened"
     ],
@@ -853,7 +857,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.256";
+    const GAME_VERSION = "0.257";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";

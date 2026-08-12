@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.257": [
+    "Sign-in and loading panel frames removed",
+    "Extra mobile World Chat bottom spacing added",
+  ],
   "0.256": [
     "World Chat header spacing tightened",
   ],

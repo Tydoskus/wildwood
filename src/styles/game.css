@@ -1101,6 +1101,14 @@
     text-align: center;
   }
 
+  #connectionPanel,
+  #accountChoicePanel,
+  #gameUpdateGate .game-update-modal {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
   h1 {
     margin: 0 0 8px;
     font-size: clamp(28px, 7vw, 54px);
@@ -1197,7 +1205,10 @@
     .settings-wrap { top: calc(100% + 6px); gap: 7px; }
     .settings-button { width: 36px; height: 36px; border-radius: 8px; font-size: 20px; }
     .toolbar-icon { width: 22px; height: 22px; }
-    #chatPanel { width: min(300px, 100vw); }
+    #chatPanel {
+      width: min(300px, 100vw);
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
     #chatPanel.is-large { width: 100vw; border-right: 0; border-radius: 0; }
     #chatPanel.is-large #chatMessages { height: min(36vh, 170px); max-height: min(36vh, 170px); }
   }
