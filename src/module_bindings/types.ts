@@ -166,6 +166,8 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   displayName: __t.string(),
   damage: __t.f32(),
   maxHp: __t.f32(),
+  armor: __t.f32(),
+  regen: __t.f32(),
   isGuest: __t.bool(),
   power: __t.u32(),
 });

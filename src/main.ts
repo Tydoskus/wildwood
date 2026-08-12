@@ -2,7 +2,7 @@
 // Gradual TypeScript migration: existing game behavior stays unchanged.
 
 import { enforceLatestVersion } from "./app/version";
-import { releaseNotes } from "./app/changelog";
+import { recentReleaseNotes } from "./app/changelog";
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "./app/developer";
 import {
   ATTACK_RANGE_ZOOM_REFERENCE,
@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.252";
+  const GAME_VERSION = "0.253";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -190,6 +190,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const leaderboardPowerTab = document.getElementById("leaderboardPowerTab");
   const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
   const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
+  const leaderboardArmorTab = document.getElementById("leaderboardArmorTab");
+  const leaderboardRegenTab = document.getElementById("leaderboardRegenTab");
   const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
   const leaderboardRowsEl = document.getElementById("leaderboardRows");
   const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
@@ -202,11 +204,13 @@ import { formatCompactNumber } from "./ui/number-format";
   const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
   const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
   const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
+  const signinVersionEl = document.getElementById("signinVersion");
   const profileIconPickerEl = document.getElementById("profileIconPicker");
   const profileIconChoices = document.getElementById("profileIconChoices");
   const closeProfileIconPickerBtn = document.getElementById("closeProfileIconPickerBtn");
   const gameUpdateGateEl = document.getElementById("gameUpdateGate");
   const coop = window.wildwoodCoop || null;
+  if (signinVersionEl) signinVersionEl.textContent = `v${GAME_VERSION}`;
 
   const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
   backgroundMusic.loop = true;
@@ -3105,12 +3109,27 @@ import { formatCompactNumber } from "./ui/number-format";
       icon.className = "leaderboard-profile-icon";
       icon.width = 64;
       icon.height = 64;
-      icon.setAttribute("aria-hidden", "true");
+      icon.setAttribute("role", "button");
+      icon.setAttribute("tabindex", "0");
+      icon.setAttribute("aria-label", `View ${entry.name}'s profile`);
+      const openEntryProfile = (event) => {
+        event.stopPropagation();
+        closeLeaderboard();
+        void openPlayerProfile(entry.identity, entry.name);
+      };
+      icon.addEventListener("click", openEntryProfile);
+      icon.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openEntryProfile(event);
+      });
       paintProfileIconCanvas(icon, coop?.profileIcon?.(entry.identity) ?? 0);
 
       const value = document.createElement("span");
       value.className = "leaderboard-value";
-      value.textContent = formatCompactNumber(entry[valueKey]);
+      value.textContent = leaderboardStat === "regen"
+        ? `${entry.regen < 1_000 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s`
+        : formatCompactNumber(entry[valueKey]);
       row.append(rank, icon, name, value);
       leaderboardRowsEl.appendChild(row);
     });
@@ -3119,15 +3138,22 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function setLeaderboardTab(tab) {
-    leaderboardStat = tab === "health" || tab === "damage" ? tab : "power";
+    leaderboardStat = ["power", "damage", "health", "armor", "regen"].includes(tab) ? tab : "power";
     const power = leaderboardStat === "power";
     const damage = leaderboardStat === "damage";
+    const health = leaderboardStat === "health";
+    const armor = leaderboardStat === "armor";
+    const regen = leaderboardStat === "regen";
     leaderboardPowerTab.classList.toggle("is-active", power);
     leaderboardDamageTab.classList.toggle("is-active", damage);
-    leaderboardHealthTab.classList.toggle("is-active", leaderboardStat === "health");
+    leaderboardHealthTab.classList.toggle("is-active", health);
+    leaderboardArmorTab.classList.toggle("is-active", armor);
+    leaderboardRegenTab.classList.toggle("is-active", regen);
     leaderboardPowerTab.setAttribute("aria-selected", String(power));
     leaderboardDamageTab.setAttribute("aria-selected", String(damage));
-    leaderboardHealthTab.setAttribute("aria-selected", String(leaderboardStat === "health"));
+    leaderboardHealthTab.setAttribute("aria-selected", String(health));
+    leaderboardArmorTab.setAttribute("aria-selected", String(armor));
+    leaderboardRegenTab.setAttribute("aria-selected", String(regen));
     leaderboardValueHeading.textContent = leaderboardStat === "health" ? "HEALTH" : leaderboardStat.toUpperCase();
     renderLeaderboard();
   }
@@ -3293,14 +3319,23 @@ import { formatCompactNumber } from "./ui/number-format";
     let seenVersion = "";
     try { seenVersion = localStorage.getItem(SEEN_VERSION_KEY) || ""; } catch {}
     if (seenVersion === GAME_VERSION) return;
-    const notes = releaseNotes(GAME_VERSION);
-    if (!notes.length) return;
+    const releases = recentReleaseNotes(10);
+    if (!releases.length) return;
     updateNoticeTitleEl.textContent = `v${GAME_VERSION}`;
     updateNoticeItemsEl.replaceChildren();
-    for (const note of notes) {
-      const item = document.createElement("li");
-      item.textContent = note;
-      updateNoticeItemsEl.appendChild(item);
+    for (const release of releases) {
+      const group = document.createElement("li");
+      group.className = "update-release";
+      const version = document.createElement("strong");
+      version.textContent = `v${release.version}`;
+      const notes = document.createElement("ul");
+      for (const note of release.notes) {
+        const item = document.createElement("li");
+        item.textContent = note;
+        notes.appendChild(item);
+      }
+      group.append(version, notes);
+      updateNoticeItemsEl.appendChild(group);
     }
     updateNoticeEl.hidden = false;
     try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); } catch {}
@@ -3344,11 +3379,14 @@ import { formatCompactNumber } from "./ui/number-format";
     const worldY = camera.y + clientY / camera.zoom;
     let target = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+    const isPlayerProfileHit = (dx, dy) =>
+      (Math.abs(dx) <= 48 && dy >= -60 && dy <= 60) ||
+      (Math.abs(dx) <= 125 && dy >= -105 && dy < -45);
     const localIdentity = coop?.localIdentity?.();
     if (localIdentity) {
       const dx = worldX - player.x;
       const dy = worldY - player.y;
-      if (Math.abs(dx) <= 48 && Math.abs(dy) <= 60) {
+      if (isPlayerProfileHit(dx, dy)) {
         target = { id: localIdentity, name: coop?.localDisplayName?.() || "PLAYER" };
         bestDistance = dx * dx + dy * dy;
       }
@@ -3356,7 +3394,7 @@ import { formatCompactNumber } from "./ui/number-format";
     for (const other of coop?.remotePlayers?.() ?? []) {
       const dx = worldX - other.x;
       const dy = worldY - other.y;
-      if (Math.abs(dx) > 48 || Math.abs(dy) > 60) continue;
+      if (!isPlayerProfileHit(dx, dy)) continue;
       const distance = dx * dx + dy * dy;
       if (distance < bestDistance) {
         target = other;
@@ -3653,6 +3691,8 @@ import { formatCompactNumber } from "./ui/number-format";
   leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
   leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
   leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
+  leaderboardArmorTab.addEventListener("click", () => setLeaderboardTab("armor"));
+  leaderboardRegenTab.addEventListener("click", () => setLeaderboardTab("regen"));
   devAuditBtn.addEventListener("click", openDevAudit);
   closeDevAuditBtn.addEventListener("click", closeDevAudit);
   devAuditEl.addEventListener("click", (event) => {
@@ -3783,7 +3823,8 @@ import { formatCompactNumber } from "./ui/number-format";
   closeUpdateNoticeBtn.addEventListener("click", closeUpdateNotice);
   playerHudProfileIcon.addEventListener("click", (event) => {
     event.stopPropagation();
-    openProfileIconPicker();
+    const identity = coop?.localIdentity?.();
+    if (identity) void openPlayerProfile(identity, coop?.localDisplayName?.() || "PLAYER");
   });
   playerProfileIcon.addEventListener("click", () => {
     if (openProfileIdentity === coop?.localIdentity?.()) openProfileIconPicker();

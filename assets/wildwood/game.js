@@ -18,6 +18,12 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.253": [
+      "Armor and Regen leaderboards added",
+      "Account linking now preserves leaderboard placement immediately",
+      "Profile portraits now open player profiles throughout the game",
+      "World Chat, inventory, profile spacing, and update history improved"
+    ],
     "0.252": [
       "Player profiles scale better and preserve full usernames",
       "Your own character now opens your player profile",
@@ -80,8 +86,8 @@
       "Auto attack now confirms enabled or disabled"
     ]
   };
-  function releaseNotes(version) {
-    return RELEASE_NOTES[version] ?? [];
+  function recentReleaseNotes(limit = 10) {
+    return Object.entries(RELEASE_NOTES).sort(([a], [b]) => b.localeCompare(a, void 0, { numeric: true })).slice(0, Math.max(0, limit)).map(([version, notes]) => ({ version, notes }));
   }
   const DEVELOPER_IDENTITY = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
   function isDeveloperIdentity(identity) {
@@ -631,7 +637,7 @@
           badge.textContent = `${DEVELOPER_BADGE} `;
           name.appendChild(badge);
         }
-        name.append(document.createTextNode(`${message.senderName}${guestSuffix}: `));
+        name.append(document.createTextNode(`${message.senderName}${guestSuffix}`));
         name.setAttribute("role", "button");
         name.setAttribute("tabindex", "0");
         name.setAttribute("aria-label", `View ${message.senderName}'s profile`);
@@ -650,10 +656,20 @@
         text.textContent = message.message;
         const icon = document.createElement("span");
         icon.className = "chat-profile-icon";
+        icon.setAttribute("role", "button");
+        icon.setAttribute("tabindex", "0");
+        icon.setAttribute("aria-label", `View ${message.senderName}'s profile`);
+        icon.addEventListener("click", openPlayer);
+        icon.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openPlayer(event);
+        });
         const iconIndex = Math.max(0, Math.min(63, Math.floor(((_e = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _e.call(coop, message.sender)) ?? 0)));
         icon.style.backgroundPosition = `${iconIndex % 8 / 7 * 100}% ${Math.floor(iconIndex / 8) / 7 * 100}%`;
         line.append(time, icon, name, text);
         if (message.replayId > 0n) {
+          line.classList.add("has-replay");
           const replay = document.createElement("button");
           replay.className = "chat-replay";
           replay.type = "button";
@@ -828,7 +844,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.252";
+    const GAME_VERSION = "0.253";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -960,6 +976,8 @@
     const leaderboardPowerTab = document.getElementById("leaderboardPowerTab");
     const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
     const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
+    const leaderboardArmorTab = document.getElementById("leaderboardArmorTab");
+    const leaderboardRegenTab = document.getElementById("leaderboardRegenTab");
     const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
     const leaderboardRowsEl = document.getElementById("leaderboardRows");
     const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
@@ -972,11 +990,13 @@
     const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
     const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
     const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
+    const signinVersionEl = document.getElementById("signinVersion");
     const profileIconPickerEl = document.getElementById("profileIconPicker");
     const profileIconChoices = document.getElementById("profileIconChoices");
     const closeProfileIconPickerBtn = document.getElementById("closeProfileIconPickerBtn");
     const gameUpdateGateEl = document.getElementById("gameUpdateGate");
     const coop = window.wildwoodCoop || null;
+    if (signinVersionEl) signinVersionEl.textContent = `v${GAME_VERSION}`;
     const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
     backgroundMusic.loop = true;
     backgroundMusic.preload = "metadata";
@@ -3610,11 +3630,24 @@
         icon.className = "leaderboard-profile-icon";
         icon.width = 64;
         icon.height = 64;
-        icon.setAttribute("aria-hidden", "true");
+        icon.setAttribute("role", "button");
+        icon.setAttribute("tabindex", "0");
+        icon.setAttribute("aria-label", `View ${entry.name}'s profile`);
+        const openEntryProfile = (event) => {
+          event.stopPropagation();
+          closeLeaderboard();
+          void openPlayerProfile(entry.identity, entry.name);
+        };
+        icon.addEventListener("click", openEntryProfile);
+        icon.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openEntryProfile(event);
+        });
         paintProfileIconCanvas(icon, ((_a2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a2.call(coop, entry.identity)) ?? 0);
         const value = document.createElement("span");
         value.className = "leaderboard-value";
-        value.textContent = formatCompactNumber(entry[valueKey]);
+        value.textContent = leaderboardStat === "regen" ? `${entry.regen < 1e3 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s` : formatCompactNumber(entry[valueKey]);
         row.append(rank, icon, name, value);
         leaderboardRowsEl.appendChild(row);
       });
@@ -3622,15 +3655,22 @@
       leaderboardRowsEl.hidden = entries.length === 0;
     }
     function setLeaderboardTab(tab) {
-      leaderboardStat = tab === "health" || tab === "damage" ? tab : "power";
+      leaderboardStat = ["power", "damage", "health", "armor", "regen"].includes(tab) ? tab : "power";
       const power = leaderboardStat === "power";
       const damage = leaderboardStat === "damage";
+      const health = leaderboardStat === "health";
+      const armor = leaderboardStat === "armor";
+      const regen = leaderboardStat === "regen";
       leaderboardPowerTab.classList.toggle("is-active", power);
       leaderboardDamageTab.classList.toggle("is-active", damage);
-      leaderboardHealthTab.classList.toggle("is-active", leaderboardStat === "health");
+      leaderboardHealthTab.classList.toggle("is-active", health);
+      leaderboardArmorTab.classList.toggle("is-active", armor);
+      leaderboardRegenTab.classList.toggle("is-active", regen);
       leaderboardPowerTab.setAttribute("aria-selected", String(power));
       leaderboardDamageTab.setAttribute("aria-selected", String(damage));
-      leaderboardHealthTab.setAttribute("aria-selected", String(leaderboardStat === "health"));
+      leaderboardHealthTab.setAttribute("aria-selected", String(health));
+      leaderboardArmorTab.setAttribute("aria-selected", String(armor));
+      leaderboardRegenTab.setAttribute("aria-selected", String(regen));
       leaderboardValueHeading.textContent = leaderboardStat === "health" ? "HEALTH" : leaderboardStat.toUpperCase();
       renderLeaderboard();
     }
@@ -3793,14 +3833,23 @@
       } catch {
       }
       if (seenVersion === GAME_VERSION) return;
-      const notes = releaseNotes(GAME_VERSION);
-      if (!notes.length) return;
+      const releases = recentReleaseNotes(10);
+      if (!releases.length) return;
       updateNoticeTitleEl.textContent = `v${GAME_VERSION}`;
       updateNoticeItemsEl.replaceChildren();
-      for (const note of notes) {
-        const item = document.createElement("li");
-        item.textContent = note;
-        updateNoticeItemsEl.appendChild(item);
+      for (const release of releases) {
+        const group = document.createElement("li");
+        group.className = "update-release";
+        const version = document.createElement("strong");
+        version.textContent = `v${release.version}`;
+        const notes = document.createElement("ul");
+        for (const note of release.notes) {
+          const item = document.createElement("li");
+          item.textContent = note;
+          notes.appendChild(item);
+        }
+        group.append(version, notes);
+        updateNoticeItemsEl.appendChild(group);
       }
       updateNoticeEl.hidden = false;
       try {
@@ -3847,11 +3896,12 @@
       const worldY = camera.y + clientY / camera.zoom;
       let target = null;
       let bestDistance = Number.POSITIVE_INFINITY;
+      const isPlayerProfileHit = (dx, dy) => Math.abs(dx) <= 48 && dy >= -60 && dy <= 60 || Math.abs(dx) <= 125 && dy >= -105 && dy < -45;
       const localIdentity = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       if (localIdentity) {
         const dx = worldX - player.x;
         const dy = worldY - player.y;
-        if (Math.abs(dx) <= 48 && Math.abs(dy) <= 60) {
+        if (isPlayerProfileHit(dx, dy)) {
           target = { id: localIdentity, name: ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "PLAYER" };
           bestDistance = dx * dx + dy * dy;
         }
@@ -3859,7 +3909,7 @@
       for (const other of ((_c2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c2.call(coop)) ?? []) {
         const dx = worldX - other.x;
         const dy = worldY - other.y;
-        if (Math.abs(dx) > 48 || Math.abs(dy) > 60) continue;
+        if (!isPlayerProfileHit(dx, dy)) continue;
         const distance = dx * dx + dy * dy;
         if (distance < bestDistance) {
           target = other;
@@ -4133,6 +4183,8 @@
     leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
     leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
     leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
+    leaderboardArmorTab.addEventListener("click", () => setLeaderboardTab("armor"));
+    leaderboardRegenTab.addEventListener("click", () => setLeaderboardTab("regen"));
     devAuditBtn.addEventListener("click", openDevAudit);
     closeDevAuditBtn.addEventListener("click", closeDevAudit);
     devAuditEl.addEventListener("click", (event) => {
@@ -4259,8 +4311,10 @@
     closeDragonResultBtn.addEventListener("click", closeDragonResult);
     closeUpdateNoticeBtn.addEventListener("click", closeUpdateNotice);
     playerHudProfileIcon.addEventListener("click", (event) => {
+      var _a, _b2;
       event.stopPropagation();
-      openProfileIconPicker();
+      const identity = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
+      if (identity) void openPlayerProfile(identity, ((_b2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _b2.call(coop)) || "PLAYER");
     });
     playerProfileIcon.addEventListener("click", () => {
       var _a;

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.253": [
+    "Armor and Regen leaderboards added",
+    "Account linking now preserves leaderboard placement immediately",
+    "Profile portraits now open player profiles throughout the game",
+    "World Chat, inventory, profile spacing, and update history improved",
+  ],
   "0.252": [
     "Player profiles scale better and preserve full usernames",
     "Your own character now opens your player profile",
@@ -64,4 +70,11 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 
 export function releaseNotes(version: string) {
   return RELEASE_NOTES[version] ?? [];
+}
+
+export function recentReleaseNotes(limit = 10) {
+  return Object.entries(RELEASE_NOTES)
+    .sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }))
+    .slice(0, Math.max(0, limit))
+    .map(([version, notes]) => ({ version, notes }));
 }

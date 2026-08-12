@@ -8,7 +8,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 21;
+const PROTOCOL_VERSION = 22;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -28,7 +28,7 @@ const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const LEADERBOARD_LIMIT = 100;
-const LEADERBOARD_REFRESH_VERSION = 2;
+const LEADERBOARD_REFRESH_VERSION = 3;
 const DUEL_REQUEST_RANGE = 250;
 const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
@@ -120,6 +120,8 @@ const leaderboardEntry = table(
     displayName: t.string(),
     damage: t.f32(),
     maxHp: t.f32(),
+    armor: t.f32().default(0),
+    regen: t.f32().default(0),
     isGuest: t.bool(),
     power: t.u32().default(0),
   },
@@ -587,6 +589,8 @@ function refreshLeaderboard(ctx: any) {
       power: powerForProgress(progress),
       damage: progress.damage,
       maxHp: progress.maxHp,
+      armor: progress.armor,
+      regen: progress.regen,
       isGuest: ctx.db.playerAccountStatus.identity.find(progress.identity)?.isGuest ?? current?.isGuest ?? false,
     });
   }
@@ -602,6 +606,12 @@ function refreshLeaderboard(ctx: any) {
   for (const candidate of [...candidates].sort((a, b) => b.maxHp - a.maxHp || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
     selected.set(candidate.identityKey, candidate);
   }
+  for (const candidate of [...candidates].sort((a, b) => b.armor - a.armor || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
+    selected.set(candidate.identityKey, candidate);
+  }
+  for (const candidate of [...candidates].sort((a, b) => b.regen - a.regen || byName(a, b)).slice(0, LEADERBOARD_LIMIT)) {
+    selected.set(candidate.identityKey, candidate);
+  }
 
   for (const current of [...ctx.db.leaderboardEntry.iter()] as any[]) {
     if (!selected.has(current.identity.toHexString())) ctx.db.leaderboardEntry.identity.delete(current.identity);
@@ -613,6 +623,8 @@ function refreshLeaderboard(ctx: any) {
       power: candidate.power,
       damage: candidate.damage,
       maxHp: candidate.maxHp,
+      armor: candidate.armor,
+      regen: candidate.regen,
       isGuest: candidate.isGuest,
     };
     const current = ctx.db.leaderboardEntry.identity.find(candidate.identity);
@@ -622,6 +634,8 @@ function refreshLeaderboard(ctx: any) {
       current.power !== next.power ||
       current.damage !== next.damage ||
       current.maxHp !== next.maxHp ||
+      current.armor !== next.armor ||
+      current.regen !== next.regen ||
       current.isGuest !== next.isGuest
     ) ctx.db.leaderboardEntry.identity.update(next);
   }
@@ -1611,6 +1625,21 @@ export const claimGuestAccount = spacetimedb.reducer(
     const guestAccountStatus = ctx.db.playerAccountStatus.identity.find(link.guest);
     if (guestAccountStatus) ctx.db.playerAccountStatus.identity.delete(link.guest);
     const guestLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(link.guest);
+    const accountLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(ctx.sender);
+    if (guestLeaderboardEntry || accountLeaderboardEntry) {
+      const nextLeaderboardEntry = {
+        identity: ctx.sender,
+        displayName: finalDisplayName,
+        power: powerForProgress(nextProgress),
+        damage: nextProgress.damage,
+        maxHp: nextProgress.maxHp,
+        armor: nextProgress.armor,
+        regen: nextProgress.regen,
+        isGuest: false,
+      };
+      if (accountLeaderboardEntry) ctx.db.leaderboardEntry.identity.update(nextLeaderboardEntry);
+      else ctx.db.leaderboardEntry.insert(nextLeaderboardEntry);
+    }
     if (guestLeaderboardEntry) ctx.db.leaderboardEntry.identity.delete(link.guest);
     const guestContribution = ctx.db.dragonContribution.identity.find(link.guest);
     const accountContribution = ctx.db.dragonContribution.identity.find(ctx.sender);

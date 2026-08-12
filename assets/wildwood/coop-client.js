@@ -8368,6 +8368,8 @@ ${ty.variants.map(
     displayName: t.string().name("display_name"),
     damage: t.f32(),
     maxHp: t.f32().name("max_hp"),
+    armor: t.f32(),
+    regen: t.f32(),
     isGuest: t.bool().name("is_guest"),
     power: t.u32()
   });
@@ -8640,7 +8642,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 21;
+  const PROTOCOL_VERSION = 22;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -9333,6 +9335,8 @@ ${ty.variants.map(
       power: row.power,
       damage: row.damage,
       maxHp: row.maxHp,
+      armor: row.armor,
+      regen: row.regen,
       isGuest: row.isGuest
     });
     onChange == null ? void 0 : onChange();
