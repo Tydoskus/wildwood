@@ -18,6 +18,13 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.259": [
+      "New animated portal and cleaner static Tutorial Forest trees",
+      "Time Played leaderboard added",
+      "Player HUD, profiles, chat, and gameplay windows refined",
+      "Dragon moved deeper into the forest",
+      "New Wildwood app icon and settings icon added"
+    ],
     "0.258": [
       "World Chat keeps your place while reading older messages"
     ],
@@ -411,67 +418,45 @@
     paths.push({ x: 2400, y: 2720, w: 1430, h: 120 });
     paths.push({ x: 1500, y: 3950, w: 2100, h: 120 });
     const isOnRoad = (x, y, margin = 0) => paths.some((path) => x > path.x - margin && x < path.x + path.w + margin && y > path.y - margin && y < path.y + path.h + margin);
-    for (let index = 0; index < 36; index += 1) {
-      const side = index % 4;
-      let x = 0;
-      let y = 0;
-      let width = 0;
-      let height = 0;
-      if (side === 0) {
-        x = rand(140, WORLD.w - 410);
-        y = rand(85, 260);
-        width = rand(110, 280);
-        height = rand(35, 70);
-      }
-      if (side === 1) {
-        x = rand(WORLD.w - 260, WORLD.w - 85);
-        y = rand(140, WORLD.h - 410);
-        width = rand(35, 70);
-        height = rand(110, 280);
-      }
-      if (side === 2) {
-        x = rand(140, WORLD.w - 410);
-        y = rand(WORLD.h - 260, WORLD.h - 85);
-        width = rand(110, 280);
-        height = rand(35, 70);
-      }
-      if (side === 3) {
-        x = rand(85, 260);
-        y = rand(140, WORLD.h - 410);
-        width = rand(35, 70);
-        height = rand(110, 280);
-      }
-      decor.push({ type: "stone", x, y, w: width, h: height });
-    }
-    const groveCenters = [];
+    const groveCenters = [
+      { x: 740, y: 620 },
+      { x: 1310, y: 520 },
+      { x: 1990, y: 500 },
+      { x: 2860, y: 500 },
+      { x: 3720, y: 610 },
+      { x: 4360, y: 930 },
+      { x: 560, y: 1390 },
+      { x: 1190, y: 2250 },
+      { x: 4100, y: 2360 },
+      { x: 620, y: 3020 },
+      { x: 1390, y: 3650 },
+      { x: 2640, y: 3670 },
+      { x: 4210, y: 3430 },
+      { x: 780, y: 4320 },
+      { x: 2440, y: 4380 }
+    ];
+    const treeOffsets = [
+      { x: -118, y: -54 },
+      { x: 104, y: -66 },
+      { x: -72, y: 86 },
+      { x: 126, y: 104 }
+    ];
     let treeVariant = 0;
-    for (let grove = 0; grove < 18; grove += 1) {
-      let center = null;
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        const candidate = { x: rand(180, WORLD.w - 180), y: rand(180, WORLD.h - 180) };
-        if (isOnRoad(candidate.x, candidate.y, 150)) continue;
-        if (Math.hypot(candidate.x - playerSpawn.x, candidate.y - playerSpawn.y) < 620) continue;
-        if (groveCenters.some((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) < 390)) continue;
-        center = candidate;
-        break;
-      }
-      if (!center) continue;
-      groveCenters.push(center);
-      const treeCount = Math.floor(rand(5, 10));
-      const radiusX = rand(90, 185);
-      const radiusY = rand(70, 150);
-      for (let tree = 0; tree < treeCount; tree += 1) {
-        for (let attempt = 0; attempt < 12; attempt += 1) {
-          const angle = rand(0, Math.PI * 2);
-          const distance = Math.sqrt(Math.random());
-          const x = center.x + Math.cos(angle) * radiusX * distance;
-          const y = center.y + Math.sin(angle) * radiusY * distance;
-          if (x < 65 || x > WORLD.w - 65 || y < 65 || y > WORLD.h - 65) continue;
-          if (isOnRoad(x, y, 65)) continue;
-          if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 500) continue;
-          decor.push({ type: "tree", x, y, s: rand(0.72, 1.32), variant: treeVariant++ % 16 });
-          break;
-        }
+    for (let groveIndex = 0; groveIndex < groveCenters.length; groveIndex += 1) {
+      const center = groveCenters[groveIndex];
+      for (let offsetIndex = 0; offsetIndex < treeOffsets.length; offsetIndex += 1) {
+        const offset = treeOffsets[(offsetIndex + groveIndex) % treeOffsets.length];
+        const x = center.x + offset.x;
+        const y = center.y + offset.y;
+        if (isOnRoad(x, y, 78)) continue;
+        if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 430) continue;
+        decor.push({
+          type: "tree",
+          x: Math.round(x),
+          y: Math.round(y),
+          s: [0.82, 0.94, 1.06, 0.88][(groveIndex + offsetIndex) % 4],
+          variant: treeVariant++ % 16
+        });
       }
     }
     for (let index = 0; index < 430; index += 1) {
@@ -869,7 +854,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.258";
+    const GAME_VERSION = "0.259";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1003,6 +988,7 @@
     const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
     const leaderboardArmorTab = document.getElementById("leaderboardArmorTab");
     const leaderboardRegenTab = document.getElementById("leaderboardRegenTab");
+    const leaderboardTimeTab = document.getElementById("leaderboardTimeTab");
     const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
     const leaderboardRowsEl = document.getElementById("leaderboardRows");
     const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
@@ -1053,6 +1039,7 @@
     let pendingDragonHits = 0;
     let dragonHitBatchTimer = 0;
     const START_SPAWN = { x: 360, y: 360 };
+    const PORTAL = { x: 190, y: 245, width: 180, height: 180, depth: 245 };
     let dpr = 1;
     let viewW = innerWidth;
     let viewH = innerHeight;
@@ -1160,8 +1147,8 @@
     dragonSprite.src = "assets/wildwood/dragon_boss_spritesheet.png";
     const boss = {
       isBoss: true,
-      x: WORLD.w - 360,
-      y: WORLD.h - 360,
+      x: WORLD.w - 560,
+      y: WORLD.h - 560,
       r: 140,
       maxHp: 1e6,
       hp: 1e6,
@@ -1191,8 +1178,61 @@
     profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v1.png";
     const ENEMY_SPRITES = loadEnemySprites();
     const actorShadowSprite = loadActorShadowSprite();
+    let portalArchSettled = false;
+    const portalArch = new Image();
+    const settlePortalArch = () => {
+      portalArchSettled = true;
+      updateLoadingDetail();
+      finishStartup();
+    };
+    portalArch.addEventListener("load", settlePortalArch, { once: true });
+    portalArch.addEventListener("error", settlePortalArch, { once: true });
+    portalArch.src = "assets/wildwood/stone-portal-arch.png";
+    let portalSwirlSettled = false;
+    const portalSwirl = new Image();
+    const settlePortalSwirl = () => {
+      portalSwirlSettled = true;
+      updateLoadingDetail();
+      finishStartup();
+    };
+    portalSwirl.addEventListener("load", settlePortalSwirl, { once: true });
+    portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
+    portalSwirl.src = "assets/wildwood/portal-swirl-spritesheet.png";
     let treeSpritesheetReady = false;
+    let treeSpriteBounds = [];
+    function measureTreeSpriteBounds() {
+      const canvas2 = document.createElement("canvas");
+      canvas2.width = treeSpritesheet.naturalWidth;
+      canvas2.height = treeSpritesheet.naturalHeight;
+      const context = canvas2.getContext("2d", { willReadFrequently: true });
+      if (!context) return [];
+      context.drawImage(treeSpritesheet, 0, 0);
+      const cellW = treeSpritesheet.naturalWidth / 4;
+      const cellH = treeSpritesheet.naturalHeight / 4;
+      return Array.from({ length: 16 }, (_, variant) => {
+        const cellX = Math.floor(variant % 4 * cellW);
+        const cellY = Math.floor(Math.floor(variant / 4) * cellH);
+        const width = Math.ceil(cellW);
+        const height = Math.ceil(cellH);
+        const pixels = context.getImageData(cellX, cellY, width, height).data;
+        let left = width;
+        let top = height;
+        let right = 0;
+        let bottom = 0;
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            if (pixels[(y * width + x) * 4 + 3] < 8) continue;
+            left = Math.min(left, x);
+            top = Math.min(top, y);
+            right = Math.max(right, x + 1);
+            bottom = Math.max(bottom, y + 1);
+          }
+        }
+        return right > left && bottom > top ? { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top } : { x: cellX, y: cellY, w: width, h: height };
+      });
+    }
     const treeSpritesheet = loadTreeSpritesheet(() => {
+      if (treeSpritesheet.naturalWidth > 0) treeSpriteBounds = measureTreeSpriteBounds();
       treeSpritesheetReady = true;
       updateLoadingDetail();
       finishStartup();
@@ -1378,7 +1418,7 @@
       var _a, _b2, _c2, _d, _e;
       updateLoadingDetail();
       const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
-      if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop))) return;
+      if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !portalArchSettled || !portalSwirlSettled || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop))) return;
       if (!(account == null ? void 0 : account.signedIn) && !guestContinuationChosen) {
         showAccountChoice();
         return;
@@ -1472,7 +1512,7 @@
         ["LOADING PLAYER PROFILE", Boolean((_c2 = coop == null ? void 0 : coop.localState) == null ? void 0 : _c2.call(coop)), 35],
         ["LOADING SAVED PROGRESS", progressLoaded, 60],
         ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
-        ["LOADING WORLD ART", treeSpritesheetReady && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
+        ["LOADING WORLD ART", treeSpritesheetReady && portalArchSettled && portalSwirlSettled && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
         ["STARTING WILDWOOD", true, 100]
       ];
       const [text, ready, percent] = stages[loadingStage];
@@ -2534,53 +2574,62 @@
         }
       }
     }
-    function drawStone(o) {
-      const visibleW = viewW / camera.zoom;
-      const visibleH = viewH / camera.zoom;
-      const x = Math.floor(o.x - camera.x);
-      const y = Math.floor(o.y - camera.y);
-      if (x + o.w < -20 || y + o.h < -20 || x > visibleW + 20 || y > visibleH + 20) return;
-      ctx.fillStyle = "#777e7b";
-      ctx.fillRect(x, y, o.w, o.h);
-      ctx.fillStyle = "#949b98";
-      ctx.fillRect(x + 5, y + 5, o.w - 10, o.h - 10);
-      ctx.fillStyle = "rgba(45,47,47,.35)";
-      const cols = Math.max(1, Math.floor(o.w / 24));
-      const rows = Math.max(1, Math.floor(o.h / 24));
-      for (let iy = 0; iy < rows; iy++) {
-        for (let ix = 0; ix < cols; ix++) {
-          const px = x + 8 + (ix * 19 + iy * 7) % Math.max(10, o.w - 15);
-          const py = y + 8 + (iy * 17 + ix * 5) % Math.max(10, o.h - 15);
-          ctx.fillRect(px, py, 4 + (ix + iy) % 5, 3 + (ix * 2 + iy) % 4);
-        }
-      }
-    }
     function drawTree(o) {
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
       const x = Math.floor(o.x - camera.x);
       const y = Math.floor(o.y - camera.y);
       const drawSize = Math.round(154 * o.s);
-      const halfWidth = drawSize / 2;
-      const cullPadding = 48;
+      const halfWidth = Math.ceil(drawSize / 2);
+      const cullPadding = drawSize + 32;
       if (x + halfWidth < -cullPadding || x - halfWidth > visibleW + cullPadding || y < -cullPadding || y - drawSize > visibleH + cullPadding) return;
       if (!treeSpritesheet.complete || treeSpritesheet.naturalWidth <= 0) return;
-      const cellW = treeSpritesheet.naturalWidth / 4;
-      const cellH = treeSpritesheet.naturalHeight / 4;
       const variant = o.variant % 16;
-      const sourceX = variant % 4 * cellW;
-      const sourceY = Math.floor(variant / 4) * cellH;
-      drawActorShadow(x, y - 5, Math.round(drawSize * 0.62), 0.15);
+      const source = treeSpriteBounds[variant];
+      if (!source) return;
+      const drawHeight = drawSize;
+      const drawWidth = Math.round(drawHeight * source.w / source.h);
+      const drawX = Math.round(x - drawWidth / 2);
+      const drawY = Math.round(y - drawHeight);
+      drawActorShadow(x, y - 4, Math.round(drawWidth * 0.52), 0.12);
       ctx.drawImage(
         treeSpritesheet,
-        sourceX,
-        sourceY,
-        cellW,
-        cellH,
-        Math.round(x - drawSize / 2),
-        Math.round(y - drawSize),
-        drawSize,
-        drawSize
+        source.x,
+        source.y,
+        source.w,
+        source.h,
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight
+      );
+    }
+    function drawPortal() {
+      if (!portalArch.complete || portalArch.naturalWidth <= 0 || !portalSwirl.complete || portalSwirl.naturalWidth <= 0) return;
+      const x = Math.round(PORTAL.x - camera.x);
+      const y = Math.round(PORTAL.y - camera.y);
+      const frame = Math.floor(gameTime * 10) % 16;
+      const cell = portalSwirl.naturalWidth / 4;
+      const portalWidth = Math.round(PORTAL.width * 0.59);
+      const portalHeight = Math.round(PORTAL.height * 0.75);
+      drawActorShadow(x, y - 4, Math.round(PORTAL.width * 0.68), 0.14);
+      ctx.drawImage(
+        portalSwirl,
+        frame % 4 * cell,
+        Math.floor(frame / 4) * cell,
+        cell,
+        cell,
+        Math.round(x - portalWidth / 2),
+        Math.round(y - portalHeight - 5),
+        portalWidth,
+        portalHeight
+      );
+      ctx.drawImage(
+        portalArch,
+        Math.round(x - PORTAL.width / 2),
+        Math.round(y - PORTAL.height),
+        PORTAL.width,
+        PORTAL.height
       );
     }
     function drawGrass(o) {
@@ -2610,7 +2659,6 @@
     function drawDecor() {
       for (const o of decor) if (o.type === "grass") drawGrass(o);
       for (const o of decor) if (o.type === "petal") drawPetal(o);
-      for (const o of decor) if (o.type === "stone") drawStone(o);
     }
     function drawActorShadow(x, y, width, alpha = 0.38) {
       const height = Math.max(8, Math.round(width * 33 / 86));
@@ -2918,7 +2966,7 @@
       const height = lines.length * lineHeight + paddingY * 2;
       const visibleWidth = viewW / camera.zoom;
       const centerX = clamp(x, width / 2 + 4, visibleWidth - width / 2 - 4);
-      const bottom = Math.max(height + 8, y - 92);
+      const bottom = Math.max(height + 8, y - 108);
       const left = Math.round(centerX - width / 2);
       const top = Math.round(bottom - height);
       ctx.globalAlpha = opacity;
@@ -2945,7 +2993,7 @@
     }
     function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }) {
       const centerX = Math.round(x);
-      const barW = 77;
+      const barW = 87;
       const barH = WORLD_HEALTH_BAR_HEIGHT;
       const barX = centerX - Math.floor(barW / 2);
       const barY = Math.round(y - 54);
@@ -2968,31 +3016,36 @@
       ctx.textBaseline = "middle";
       outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 1.5);
       ctx.restore();
-      const powerBaseline = barY - 7;
-      const nameBaseline = power === null ? powerBaseline : powerBaseline - 17;
-      drawPlayerName(identity, name, centerX, nameBaseline, nameColor);
-      if (power !== null) drawPlayerPowerValue(power, centerX, powerBaseline);
+      drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
     }
-    function drawPlayerName(identity, name, x, y, color) {
+    function drawPlayerIdentity(identity, name, power, centerX, bottom, color) {
       if (!name) return;
+      const iconSize = 30;
+      const gap = 5;
+      const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
       ctx.save();
       ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "bottom";
       const nameWidth = ctx.measureText(name).width;
-      drawProfileIcon(identity, x - nameWidth / 2 - 19, y, 15);
+      const powerWidth = powerLabel ? ctx.measureText(powerLabel).width : 0;
+      const textWidth = Math.max(nameWidth, powerWidth);
+      const groupWidth = iconSize + gap + textWidth;
+      const groupLeft = Math.round(centerX - groupWidth / 2);
+      const textLeft = groupLeft + iconSize + gap;
+      const nameBottom = powerLabel ? bottom - 16 : bottom;
+      drawProfileIcon(identity, groupLeft, powerLabel ? bottom : bottom + 7, iconSize);
       const developerPrefix = `${DEVELOPER_BADGE} `;
       if (name.startsWith(developerPrefix)) {
         const playerName = name.slice(developerPrefix.length);
         const prefixWidth = ctx.measureText(developerPrefix).width;
-        const totalWidth = prefixWidth + ctx.measureText(playerName).width;
-        const left = x - totalWidth / 2;
         ctx.textAlign = "left";
-        outlinedText(developerPrefix, left, y, "#ffd85b", 2);
-        outlinedText(playerName, left + prefixWidth, y, color, 2);
+        outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 2);
+        outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 2);
       } else {
-        ctx.textAlign = "center";
-        outlinedText(name, x, y, color, 2);
+        ctx.textAlign = "left";
+        outlinedText(name, textLeft, nameBottom, color, 2);
       }
+      if (powerLabel) outlinedText(powerLabel, textLeft, bottom, "#ffe05d", 2);
       ctx.restore();
     }
     function playerPower(stats) {
@@ -3000,14 +3053,6 @@
       return Math.round(
         stats.damage * attackSpeedMultiplier + stats.maxHp + stats.armor * 3 + stats.regen * 10
       );
-    }
-    function drawPlayerPowerValue(power, x, y) {
-      ctx.save();
-      ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      outlinedText(`Power: ${formatCompactNumber(power)}`, x, y, "#ffe05d", 2);
-      ctx.restore();
     }
     function drawRemotePlayers(remotePlayers) {
       if (!coop) return;
@@ -3245,7 +3290,7 @@
       const layers = [];
       const visibleW = viewW / camera.zoom;
       const visibleH = viewH / camera.zoom;
-      const treeCullPadding = 48;
+      const treeCullPadding = 240;
       for (const tree of decor) {
         if (tree.type !== "tree") continue;
         const treeSize = Math.round(154 * tree.s);
@@ -3263,6 +3308,7 @@
       if (!bootsPickup.collected) {
         layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
       }
+      layers.push({ depth: PORTAL.depth, priority: 2, draw: drawPortal });
       for (const remotePlayer of remotePlayers) {
         layers.push({
           depth: remotePlayer.y + 29,
@@ -3619,7 +3665,7 @@
     }
     function renderLeaderboard() {
       var _a, _b2;
-      const valueKey = leaderboardStat === "health" ? "maxHp" : leaderboardStat;
+      const valueKey = leaderboardStat === "health" ? "maxHp" : leaderboardStat === "time" ? "playedSeconds" : leaderboardStat;
       const entries = (((_a = coop == null ? void 0 : coop.leaderboardEntries) == null ? void 0 : _a.call(coop)) ?? []).filter((entry) => Number.isFinite(entry[valueKey])).sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name)).slice(0, 100);
       const localIdentity = ((_b2 = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _b2.call(coop)) || "";
       leaderboardRowsEl.replaceChildren();
@@ -3672,7 +3718,7 @@
         paintProfileIconCanvas(icon, ((_a2 = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a2.call(coop, entry.identity)) ?? 0);
         const value = document.createElement("span");
         value.className = "leaderboard-value";
-        value.textContent = leaderboardStat === "regen" ? `${entry.regen < 1e3 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s` : formatCompactNumber(entry[valueKey]);
+        value.textContent = leaderboardStat === "time" ? formatPlayedTime(entry.playedSeconds) : leaderboardStat === "regen" ? `${entry.regen < 1e3 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s` : formatCompactNumber(entry[valueKey]);
         row.append(rank, icon, name, value);
         leaderboardRowsEl.appendChild(row);
       });
@@ -3680,23 +3726,26 @@
       leaderboardRowsEl.hidden = entries.length === 0;
     }
     function setLeaderboardTab(tab) {
-      leaderboardStat = ["power", "damage", "health", "armor", "regen"].includes(tab) ? tab : "power";
+      leaderboardStat = ["power", "damage", "health", "armor", "regen", "time"].includes(tab) ? tab : "power";
       const power = leaderboardStat === "power";
       const damage = leaderboardStat === "damage";
       const health = leaderboardStat === "health";
       const armor = leaderboardStat === "armor";
       const regen = leaderboardStat === "regen";
+      const time = leaderboardStat === "time";
       leaderboardPowerTab.classList.toggle("is-active", power);
       leaderboardDamageTab.classList.toggle("is-active", damage);
       leaderboardHealthTab.classList.toggle("is-active", health);
       leaderboardArmorTab.classList.toggle("is-active", armor);
       leaderboardRegenTab.classList.toggle("is-active", regen);
+      leaderboardTimeTab.classList.toggle("is-active", time);
       leaderboardPowerTab.setAttribute("aria-selected", String(power));
       leaderboardDamageTab.setAttribute("aria-selected", String(damage));
       leaderboardHealthTab.setAttribute("aria-selected", String(health));
       leaderboardArmorTab.setAttribute("aria-selected", String(armor));
       leaderboardRegenTab.setAttribute("aria-selected", String(regen));
-      leaderboardValueHeading.textContent = leaderboardStat === "health" ? "HEALTH" : leaderboardStat.toUpperCase();
+      leaderboardTimeTab.setAttribute("aria-selected", String(time));
+      leaderboardValueHeading.textContent = leaderboardStat === "health" ? "HEALTH" : leaderboardStat === "time" ? "TIME PLAYED" : leaderboardStat.toUpperCase();
       renderLeaderboard();
     }
     function openLeaderboard() {
@@ -4210,6 +4259,7 @@
     leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
     leaderboardArmorTab.addEventListener("click", () => setLeaderboardTab("armor"));
     leaderboardRegenTab.addEventListener("click", () => setLeaderboardTab("regen"));
+    leaderboardTimeTab.addEventListener("click", () => setLeaderboardTab("time"));
     devAuditBtn.addEventListener("click", openDevAudit);
     closeDevAuditBtn.addEventListener("click", closeDevAudit);
     devAuditEl.addEventListener("click", (event) => {

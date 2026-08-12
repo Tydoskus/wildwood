@@ -170,6 +170,7 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   power: __t.u32(),
   armor: __t.f32(),
   regen: __t.f32(),
+  playedMicros: __t.u64(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 

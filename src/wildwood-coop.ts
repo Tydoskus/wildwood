@@ -78,6 +78,7 @@ export type LeaderboardEntry = {
   maxHp: number;
   armor: number;
   regen: number;
+  playedSeconds: number;
   isGuest: boolean;
 };
 
@@ -181,7 +182,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 22;
+const PROTOCOL_VERSION = 23;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -996,6 +997,7 @@ function upsertLeaderboardEntry(row: {
   maxHp: number;
   armor: number;
   regen: number;
+  playedMicros: bigint;
   isGuest: boolean;
 }) {
   const identity = row.identity.toHexString();
@@ -1007,6 +1009,7 @@ function upsertLeaderboardEntry(row: {
     maxHp: row.maxHp,
     armor: row.armor,
     regen: row.regen,
+    playedSeconds: Number(row.playedMicros) / 1_000_000,
     isGuest: row.isGuest,
   });
   onChange?.();

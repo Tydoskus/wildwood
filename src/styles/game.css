@@ -12,6 +12,7 @@
     --text-outline-width: .08em;
     --text-shadow: .06em .10em 0 #000;
     --text-shadow-large: .06em .10em 0 #000;
+    --game-window-width: min(420px, calc(100vw - 24px));
   }
 
   * {
@@ -99,9 +100,9 @@
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { position: relative; border-color: var(--green); cursor: pointer; }
   .profile-window-icon.is-editable::after { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; border: 2px solid #080a08; border-radius: 50%; background: var(--green); color: #0a120c; content: "✎"; font: 900 11px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
-  #profileIconPicker { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px; background: rgba(1,5,3,.82); }
+  #profileIconPicker { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px; background: transparent; }
   #profileIconPicker[hidden] { display: none; }
-  .profile-icon-picker-modal { width: min(510px, calc(100vw - 18px)); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
+  .profile-icon-picker-modal { width: var(--game-window-width); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
   .profile-icon-picker-modal h2 { margin: 0; color: var(--gold); font-size: clamp(17px, 4vw, 24px); }
   .profile-icon-choices { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; max-height: min(74vh, 480px); margin-top: 10px; overflow-y: auto; }
   .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; }
@@ -110,7 +111,7 @@
   #playerPower {
     flex: 0 0 auto;
     color: var(--gold);
-    font-size: 10px;
+    font-size: 12.5px;
     letter-spacing: .035em;
     text-align: right;
   }
@@ -127,8 +128,8 @@
   .settings-button {
     display: grid;
     place-items: center;
-    width: 42px;
-    height: 42px;
+    width: 53px;
+    height: 53px;
     margin: 0;
     padding: 0;
     border: 2px solid rgba(255,255,255,.24);
@@ -147,8 +148,8 @@
 
   .toolbar-icon {
     display: block;
-    width: 25px;
-    height: 25px;
+    width: 31px;
+    height: 31px;
     object-fit: contain;
     pointer-events: none;
   }
@@ -160,7 +161,7 @@
 
   .settings-panel {
     position: absolute;
-    top: 50px;
+    top: 61px;
     left: 0;
     width: 250px;
     padding: 10px;
@@ -174,7 +175,7 @@
     top: 50%;
     left: 50%;
     z-index: 10;
-    width: min(420px, calc(100vw - 24px));
+    width: var(--game-window-width);
     max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
     padding: 10px;
@@ -258,9 +259,9 @@
   .inventory-actions { display: flex; gap: 6px; margin-top: 7px; }
   .inventory-actions button { flex: 1; margin: 0; padding: 6px 8px; font-size: 8px; }
 
-  #itemInspect { position: fixed; inset: 0; z-index: 11; display: grid; place-items: center; padding: 12px; background: rgba(1,5,3,.72); }
+  #itemInspect { position: fixed; inset: 0; z-index: 11; display: grid; place-items: center; padding: 12px; background: transparent; }
   #itemInspect[hidden] { display: none; }
-  .item-inspect-modal { position: relative; width: min(310px, calc(100vw - 28px)); padding: 16px; text-align: center; }
+  .item-inspect-modal { position: relative; width: var(--game-window-width); padding: 16px; text-align: center; }
   .item-inspect-modal .profile-close-button { position: absolute; top: 8px; right: 8px; }
   .item-inspect-modal h2 { margin: 7px 0; color: var(--text); font-size: 18px; }
   .item-inspect-modal p { margin: 7px 0 10px; color: var(--muted); font-size: 10px; line-height: 1.35; }
@@ -268,7 +269,8 @@
   .item-inspect-icon .boot-pixel-icon { transform: scale(1.65); }
 
   @media (max-width: 460px) {
-    .inventory-panel { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 66px); padding: 7px; overflow-y: auto; }
+    :root { --game-window-width: min(360px, calc(100vw - 16px)); }
+    .inventory-panel { max-height: calc(100vh - 66px); padding: 7px; overflow-y: auto; }
     .inventory-panel .settings-title { margin-bottom: 5px; }
     .inventory-layout { grid-template-columns: 112px minmax(0, 1fr); gap: 5px; }
     .inventory-section-title { margin-bottom: 4px; font-size: 8px; }
@@ -507,7 +509,7 @@
     min-height: 12px;
     overflow: hidden;
     color: var(--gold);
-    font-size: 10px;
+    font-size: 12.5px;
     letter-spacing: .05em;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -613,7 +615,7 @@
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 8px; line-height: 1.15; text-align: right; white-space: nowrap; }
   .chat-name { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; color: var(--gold); font-size: 9px; font-weight: 900; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
-  .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 15px; padding: 2px 5px; border-radius: 4px; background: rgba(255,255,255,.09); color: var(--text); font-size: 9px; line-height: 1.22; white-space: pre-wrap; }
+  .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 15px; padding: 2px 9px; border-radius: 4px; background: rgba(255,255,255,.09); color: var(--text); font-size: 9px; line-height: 1.22; white-space: pre-wrap; }
   .chat-line.has-replay .chat-text { grid-column: 2; }
   .chat-line .chat-replay { grid-column: 3; grid-row: 2; align-self: center; justify-self: end; }
   #chatForm { gap: 5px; }
@@ -666,7 +668,7 @@
     inset: 0;
     display: grid;
     place-items: center;
-    background: rgba(1, 5, 3, .78);
+    background: transparent;
     z-index: 5;
   }
 
@@ -840,7 +842,7 @@
     display: grid;
     place-items: center;
     padding: 13px;
-    background: rgba(1, 5, 3, .78);
+    background: transparent;
     z-index: 6;
   }
 
@@ -857,7 +859,7 @@
     display: grid;
     place-items: center;
     padding: 13px;
-    background: rgba(1, 5, 3, .78);
+    background: transparent;
   }
 
   #duelResult[hidden],
@@ -879,13 +881,13 @@
   #sceneFade[hidden] { display: none; }
   #sceneFade.is-visible { opacity: 1; pointer-events: auto; }
 
-  .duel-modal { max-width: 560px; border-color: rgba(198,208,210,.56); }
+  .duel-modal { width: var(--game-window-width); border-color: rgba(198,208,210,.56); }
   .duel-modal h2 { margin: 0; color: #eef1ee; font-size: clamp(22px, 6vw, 34px); }
   .duel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
   .duel-stat-name { color: var(--gold); font-weight: 900; }
-  .dragon-result-modal { width: min(430px, calc(100vw - 26px)); padding: 14px; border-color: rgba(255,101,90,.6); }
-  #dragonResult { background: rgba(1,5,3,.46); pointer-events: none; }
+  .dragon-result-modal { width: var(--game-window-width); padding: 14px; border-color: rgba(255,101,90,.6); }
+  #dragonResult { background: transparent; pointer-events: none; }
   #dragonResult .dragon-result-modal { pointer-events: auto; }
   .dragon-result-modal h2 { margin: 0; color: #ff8a65; font-size: clamp(24px, 7vw, 38px); }
   .dragon-result-total { margin: 5px 0 9px; color: var(--gold); font-size: 11px; }
@@ -907,11 +909,11 @@
     100% { opacity: 0; transform: translate(-50%, -8px); }
   }
   #playerProfile { padding: 5px; }
-  .modal.player-profile-modal { width: min(520px, calc(100vw - 10px)); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; text-align: left; }
+  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; text-align: left; }
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
-  .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-size: clamp(15px, 3.6vw, 23px); line-height: 1.08; overflow-wrap: anywhere; }
+  .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-size: clamp(12px, 2.9vw, 18px); line-height: 1.08; overflow-wrap: anywhere; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
   #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 11px; white-space: nowrap; text-align: right; }
@@ -928,7 +930,7 @@
   .profile-stat-grid { gap: 0; background: rgba(0,0,0,.2); }
   .profile-stat-grid > div { border: 0; border-radius: 0; background: transparent; }
   .profile-stat-grid dd { color: var(--gold); }
-  .modal.leaderboard-modal { width: min(430px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.leaderboard-modal { width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   .leaderboard-tabs { margin: 9px 0 8px; }
@@ -949,7 +951,7 @@
   .leaderboard-value { color: var(--gold); font-size: 10px; text-align: right; white-space: nowrap; }
   .dev-badge { color: var(--gold); }
   .dev-audit-button { color: var(--gold); font-size: 10px; }
-  .modal.dev-audit-modal { width: min(760px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.dev-audit-modal { width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
   .dev-audit-headings, .dev-audit-row { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(105px, .9fr) 62px minmax(150px, 1.4fr); gap: 8px; align-items: center; }
   .dev-audit-headings { padding: 0 7px 4px; color: var(--muted); font-size: 7px; }
@@ -1005,7 +1007,7 @@
     .player-profile-header { gap: 7px; }
     .profile-window-icon { width: 46px; min-width: 46px; height: 46px; border-radius: 6px; }
     .player-profile-title-row { gap: 7px; }
-    .player-profile-header h2 { font-size: clamp(14px, 4.8vw, 20px); }
+    .player-profile-header h2 { font-size: clamp(11px, 3.8vw, 16px); }
     .player-profile-presence { margin-top: 2px; font-size: 7px; line-height: 1.15; }
     #playerProfilePower { font-size: 10px; }
     .player-profile-modal .profile-close-button { width: 34px; min-width: 34px; height: 34px; font-size: 21px; }
@@ -1043,9 +1045,12 @@
   }
 
   .upgrade-modal {
-    max-width: 360px;
+    width: var(--game-window-width);
+    max-width: none;
     border-color: rgba(255,218,94,.52);
   }
+
+  #gameOver .modal { width: var(--game-window-width); }
 
   .boots-icon {
     display: flex;
@@ -1200,14 +1205,14 @@
     .profile-icon-button { width: 38px; height: 38px; border-radius: 6px; }
     .player-summary { min-width: min(250px, 50vw); gap: 8px; padding: 0 2px 3px; }
     .bar { width: min(250px, 50vw); height: 17px; margin-bottom: 1px; }
-    #playerName, #playerPower { font-size: 9px; }
+    #playerName, #playerPower { font-size: 11.25px; }
     #hpText { font-size: 10px; }
     .settings-wrap { top: calc(100% + 6px); gap: 7px; }
-    .settings-button { width: 36px; height: 36px; border-radius: 8px; font-size: 20px; }
-    .toolbar-icon { width: 22px; height: 22px; }
+    .settings-button { width: 45px; height: 45px; border-radius: 9px; font-size: 25px; }
+    .toolbar-icon { width: 28px; height: 28px; }
     #chatPanel {
       width: min(300px, 100vw);
-      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
     }
     #chatPanel.is-large { width: 100vw; border-right: 0; border-radius: 0; }
     #chatPanel.is-large #chatMessages { height: min(36vh, 170px); max-height: min(36vh, 170px); }

@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.259": [
+    "New animated portal and cleaner static Tutorial Forest trees",
+    "Time Played leaderboard added",
+    "Player HUD, profiles, chat, and gameplay windows refined",
+    "Dragon moved deeper into the forest",
+    "New Wildwood app icon and settings icon added",
+  ],
   "0.258": [
     "World Chat keeps your place while reading older messages",
   ],

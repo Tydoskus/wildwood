@@ -19,4 +19,5 @@ export default __t.row({
   power: __t.u32(),
   armor: __t.f32(),
   regen: __t.f32(),
+  playedMicros: __t.u64().name("played_micros"),
 });

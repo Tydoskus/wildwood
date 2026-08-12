@@ -4,7 +4,6 @@ import { clamp, rand } from "./math";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
 export type WorldDecor =
-  | { type: "stone"; x: number; y: number; w: number; h: number }
   | { type: "tree"; x: number; y: number; s: number; variant: number }
   | { type: "grass"; x: number; y: number; variant: number }
   | { type: "petal"; x: number; y: number; variant: number };
@@ -39,49 +38,32 @@ export function createWorldLayout(playerSpawn: Point) {
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
 
-  for (let index = 0; index < 36; index += 1) {
-    const side = index % 4;
-    let x = 0;
-    let y = 0;
-    let width = 0;
-    let height = 0;
-    if (side === 0) { x = rand(140, WORLD.w - 410); y = rand(85, 260); width = rand(110, 280); height = rand(35, 70); }
-    if (side === 1) { x = rand(WORLD.w - 260, WORLD.w - 85); y = rand(140, WORLD.h - 410); width = rand(35, 70); height = rand(110, 280); }
-    if (side === 2) { x = rand(140, WORLD.w - 410); y = rand(WORLD.h - 260, WORLD.h - 85); width = rand(110, 280); height = rand(35, 70); }
-    if (side === 3) { x = rand(85, 260); y = rand(140, WORLD.h - 410); width = rand(35, 70); height = rand(110, 280); }
-    decor.push({ type: "stone", x, y, w: width, h: height });
-  }
-
-  const groveCenters: Point[] = [];
+  const groveCenters: Point[] = [
+    { x: 740, y: 620 }, { x: 1310, y: 520 }, { x: 1990, y: 500 },
+    { x: 2860, y: 500 }, { x: 3720, y: 610 }, { x: 4360, y: 930 },
+    { x: 560, y: 1390 }, { x: 1190, y: 2250 }, { x: 4100, y: 2360 },
+    { x: 620, y: 3020 }, { x: 1390, y: 3650 }, { x: 2640, y: 3670 },
+    { x: 4210, y: 3430 }, { x: 780, y: 4320 }, { x: 2440, y: 4380 },
+  ];
+  const treeOffsets = [
+    { x: -118, y: -54 }, { x: 104, y: -66 }, { x: -72, y: 86 }, { x: 126, y: 104 },
+  ];
   let treeVariant = 0;
-  for (let grove = 0; grove < 18; grove += 1) {
-    let center: Point | null = null;
-    for (let attempt = 0; attempt < 80; attempt += 1) {
-      const candidate = { x: rand(180, WORLD.w - 180), y: rand(180, WORLD.h - 180) };
-      if (isOnRoad(candidate.x, candidate.y, 150)) continue;
-      if (Math.hypot(candidate.x - playerSpawn.x, candidate.y - playerSpawn.y) < 620) continue;
-      if (groveCenters.some((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) < 390)) continue;
-      center = candidate;
-      break;
-    }
-    if (!center) continue;
-    groveCenters.push(center);
-
-    const treeCount = Math.floor(rand(5, 10));
-    const radiusX = rand(90, 185);
-    const radiusY = rand(70, 150);
-    for (let tree = 0; tree < treeCount; tree += 1) {
-      for (let attempt = 0; attempt < 12; attempt += 1) {
-        const angle = rand(0, Math.PI * 2);
-        const distance = Math.sqrt(Math.random());
-        const x = center.x + Math.cos(angle) * radiusX * distance;
-        const y = center.y + Math.sin(angle) * radiusY * distance;
-        if (x < 65 || x > WORLD.w - 65 || y < 65 || y > WORLD.h - 65) continue;
-        if (isOnRoad(x, y, 65)) continue;
-        if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 500) continue;
-        decor.push({ type: "tree", x, y, s: rand(0.72, 1.32), variant: treeVariant++ % 16 });
-        break;
-      }
+  for (let groveIndex = 0; groveIndex < groveCenters.length; groveIndex += 1) {
+    const center = groveCenters[groveIndex];
+    for (let offsetIndex = 0; offsetIndex < treeOffsets.length; offsetIndex += 1) {
+      const offset = treeOffsets[(offsetIndex + groveIndex) % treeOffsets.length];
+      const x = center.x + offset.x;
+      const y = center.y + offset.y;
+      if (isOnRoad(x, y, 78)) continue;
+      if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 430) continue;
+      decor.push({
+        type: "tree",
+        x: Math.round(x),
+        y: Math.round(y),
+        s: [0.82, 0.94, 1.06, 0.88][(groveIndex + offsetIndex) % 4],
+        variant: treeVariant++ % 16,
+      });
     }
   }
 
