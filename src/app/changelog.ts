@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.264": [
+    "Portal position and archway collision refined",
+  ],
   "0.263": [
     "Portal swirl enlarged and archway collision aligned",
   ],

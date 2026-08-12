@@ -18,6 +18,9 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.264": [
+      "Portal position and archway collision refined"
+    ],
     "0.263": [
       "Portal swirl enlarged and archway collision aligned"
     ],
@@ -871,7 +874,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.263";
+    const GAME_VERSION = "0.264";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1060,10 +1063,10 @@
     let pendingDragonHits = 0;
     let dragonHitBatchTimer = 0;
     const START_SPAWN = { x: 360, y: 360 };
-    const PORTAL = { x: 190, y: 445, width: 198, height: 198, depth: 445 };
+    const PORTAL = { x: 190, y: 448, width: 198, height: 198, depth: 448 };
     const PORTAL_COLLIDERS = [
-      { x: PORTAL.x - PORTAL.width * 0.32, y: PORTAL.y - 87, r: 22 },
-      { x: PORTAL.x + PORTAL.width * 0.32, y: PORTAL.y - 87, r: 22 }
+      { x: PORTAL.x - PORTAL.width * 0.32, y: PORTAL.y - 52, r: 22 },
+      { x: PORTAL.x + PORTAL.width * 0.32, y: PORTAL.y - 52, r: 22 }
     ];
     let dpr = 1;
     let viewW = innerWidth;
