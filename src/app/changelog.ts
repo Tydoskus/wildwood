@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.268": [
+    "Two Blight Oracles now guard Oracle Mesa in the top-right desert",
+  ],
   "0.267": [
     "Desert Spider boss added with 150 million health and unique web and venom attacks",
     "Desert Spider contributors earn 100,000 max health",

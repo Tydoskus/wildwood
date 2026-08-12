@@ -18,6 +18,9 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.268": [
+      "Two Blight Oracles now guard Oracle Mesa in the top-right desert"
+    ],
     "0.267": [
       "Desert Spider boss added with 150 million health and unique web and venom attacks",
       "Desert Spider contributors earn 100,000 max health",
@@ -569,7 +572,8 @@
   const DESERT_CAMPS = [
     { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] },
     { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] },
-    { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard", "Venom Guard", "Venom Guard", "Venom Guard", "Venom Guard", "Venom Guard", "Blight Oracle"] },
+    { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 210, count: 2, types: ["Blight Oracle"] },
+    { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] },
     { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard", "Venom Guard", "Venom Guard", "Wastes Reaper"] }
   ];
   function seededUnit(index, salt) {
@@ -1085,7 +1089,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.267";
+    const GAME_VERSION = "0.268";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
