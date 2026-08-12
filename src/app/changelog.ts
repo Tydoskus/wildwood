@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.262": [
+    "Tutorial Forest enemies now wander near their camps and face their target",
+    "Portal arch enlarged and given solid pillar collision",
+    "Overhead player labels simplified",
+  ],
   "0.261": [
     "Account sessions now reliably detect another active tab",
     "Sign In Anyway securely transfers play to the current tab",

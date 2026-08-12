@@ -18,6 +18,11 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.262": [
+      "Tutorial Forest enemies now wander near their camps and face their target",
+      "Portal arch enlarged and given solid pillar collision",
+      "Overhead player labels simplified"
+    ],
     "0.261": [
       "Account sessions now reliably detect another active tab",
       "Sign In Anyway securely transfers play to the current tab",
@@ -863,7 +868,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.261";
+    const GAME_VERSION = "0.262";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -881,6 +886,8 @@
     const NETWORK_NEAR_SCREEN_MARGIN_RATIO = 0.25;
     const SPEECH_BUBBLE_DURATION_MS = 6e3;
     const SPEECH_BUBBLE_FADE_MS = 1250;
+    const ENEMY_WANDER_RADIUS = 72;
+    const ENEMY_WANDER_SPEED_RATIO = 0.28;
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
@@ -1050,7 +1057,11 @@
     let pendingDragonHits = 0;
     let dragonHitBatchTimer = 0;
     const START_SPAWN = { x: 360, y: 360 };
-    const PORTAL = { x: 190, y: 445, width: 180, height: 180, depth: 445 };
+    const PORTAL = { x: 190, y: 445, width: 198, height: 198, depth: 445 };
+    const PORTAL_COLLIDERS = [
+      { x: PORTAL.x - PORTAL.width * 0.32, y: PORTAL.y - 12, r: 22 },
+      { x: PORTAL.x + PORTAL.width * 0.32, y: PORTAL.y - 12, r: 22 }
+    ];
     let dpr = 1;
     let viewW = innerWidth;
     let viewH = innerHeight;
@@ -1351,7 +1362,7 @@
       resetBoss();
       rebuildWorld();
       for (const site of spawnSites) spawnFromSite(site);
-      showMessage("EXPLORE", "#ffe769");
+      showMessage("TUTORIAL FOREST", "#ffe769");
       updateHud();
     }
     function saveProgress() {
@@ -1638,6 +1649,11 @@
         leashRange: site.leashRange,
         engaged: false,
         leashing: false,
+        facingX: Math.random() < 0.5 ? -1 : 1,
+        wandering: false,
+        wanderTargetX: site.x,
+        wanderTargetY: site.y,
+        wanderWait: rand(1, 4),
         attackClock: base.ranged ? rand(0.2, 1.2) : 0,
         moveSpeedRecovery: ENEMY_HIT_SPEED_RECOVERY_SECONDS,
         hurt: 0,
@@ -2232,6 +2248,7 @@
         player.x += Math.cos(boss.cone.pushAngle) * waveSpeed * dt;
         player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
       }
+      resolvePortalCollision();
       player.x = clamp(player.x, player.r, WORLD.w - player.r);
       player.y = clamp(player.y, player.r, WORLD.h - player.r);
       if (multiplayerActive) {
@@ -2254,6 +2271,20 @@
       }
       if (autoAttackEnabled) attackNearest(dt);
     }
+    function resolvePortalCollision() {
+      for (const obstacle of PORTAL_COLLIDERS) {
+        const dx = player.x - obstacle.x;
+        const dy = player.y - obstacle.y;
+        const minimumDistance = player.r + obstacle.r;
+        const distanceSquared2 = dx * dx + dy * dy;
+        if (distanceSquared2 >= minimumDistance * minimumDistance) continue;
+        const distance = Math.sqrt(distanceSquared2);
+        const nx = distance > 1e-3 ? dx / distance : player.x < PORTAL.x ? -1 : 1;
+        const ny = distance > 1e-3 ? dy / distance : 0;
+        player.x = obstacle.x + nx * minimumDistance;
+        player.y = obstacle.y + ny * minimumDistance;
+      }
+    }
     function updateEnemies(dt) {
       for (const e of enemies) {
         if (e.dead) continue;
@@ -2270,27 +2301,61 @@
         const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
         if (e.leashing && homeDistance < 10) e.leashing = false;
         const aggroRadius = base.elite ? e.aggroRadius : Math.max(0, player.attackRange - REGULAR_ENEMY_AGGRO_PADDING);
-        if (!e.leashing && playerDistance < aggroRadius) e.engaged = true;
+        if (!e.leashing && playerDistance < aggroRadius) {
+          e.engaged = true;
+          e.wandering = false;
+        }
         if (e.engaged && playerDistance > e.leashRange) {
           e.engaged = false;
           e.leashing = true;
           e.attackClock = Math.max(e.attackClock, 0.5);
         }
-        let targetX;
-        let targetY;
-        let targetDistance;
+        let targetX = e.x;
+        let targetY = e.y;
+        let targetDistance = 1;
         let moveMode = 0;
+        let moveSpeedRatio = 1;
         if (e.engaged) {
           targetX = player.x;
           targetY = player.y;
           targetDistance = playerDistance;
           moveMode = 1;
+          if (Math.abs(toPlayerX) > 0.5) e.facingX = toPlayerX < 0 ? -1 : 1;
         } else {
-          targetX = e.homeX;
-          targetY = e.homeY;
+          moveSpeedRatio = ENEMY_WANDER_SPEED_RATIO;
+          if (e.leashing || homeDistance > ENEMY_WANDER_RADIUS) {
+            e.wandering = false;
+            targetX = e.homeX;
+            targetY = e.homeY;
+            moveMode = 1;
+            if (e.leashing) moveSpeedRatio = 1;
+          } else if (e.wandering) {
+            targetX = e.wanderTargetX;
+            targetY = e.wanderTargetY;
+            if (Math.hypot(targetX - e.x, targetY - e.y) < 8) {
+              e.wandering = false;
+              e.wanderWait = rand(2.2, 5.2);
+              targetX = e.x;
+              targetY = e.y;
+            } else {
+              moveMode = 1;
+            }
+          } else {
+            e.wanderWait -= dt;
+            if (e.wanderWait <= 0) {
+              const angle = Math.random() * TAU;
+              const distance = rand(22, ENEMY_WANDER_RADIUS);
+              e.wanderTargetX = e.homeX + Math.cos(angle) * distance;
+              e.wanderTargetY = e.homeY + Math.sin(angle) * distance;
+              e.wandering = true;
+              targetX = e.wanderTargetX;
+              targetY = e.wanderTargetY;
+              moveMode = 1;
+            }
+          }
           targetDistance = Math.hypot(targetX - e.x, targetY - e.y) || 1;
-          moveMode = targetDistance > 7 ? 1 : 0;
-          if (targetDistance < 12 && e.hp < e.maxHp) {
+          if (moveMode && Math.abs(targetX - e.x) > 0.5) e.facingX = targetX < e.x ? -1 : 1;
+          if (homeDistance < 12 && e.hp < e.maxHp) {
             e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.16 * dt);
           }
         }
@@ -2317,8 +2382,8 @@
             e.attackClock = rand(rangedAttackInterval * 0.83, rangedAttackInterval * 1.17);
           }
         } else if (moveMode) {
-          e.vx += dx * currentMoveSpeed * dt * 7;
-          e.vy += dy * currentMoveSpeed * dt * 7;
+          e.vx += dx * currentMoveSpeed * moveSpeedRatio * dt * 7;
+          e.vy += dy * currentMoveSpeed * moveSpeedRatio * dt * 7;
         }
         e.vx *= Math.pow(2e-3, dt);
         e.vy *= Math.pow(2e-3, dt);
@@ -2879,27 +2944,6 @@
         canvas2.height
       );
     }
-    function drawProfileIcon(identity, x, bottom, size = 15) {
-      var _a;
-      if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
-      const index = Math.max(0, Math.min(63, Math.floor(((_a = coop == null ? void 0 : coop.profileIcon) == null ? void 0 : _a.call(coop, identity)) ?? 0)));
-      const cellW = profileIconSheet.naturalWidth / 8;
-      const cellH = profileIconSheet.naturalHeight / 8;
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(
-        profileIconSheet,
-        index % 8 * cellW,
-        Math.floor(index / 8) * cellH,
-        cellW,
-        cellH,
-        Math.round(x),
-        Math.round(bottom - size),
-        size,
-        size
-      );
-      ctx.restore();
-    }
     function drawPlayer() {
       var _a, _b2, _c2, _d;
       const x = Math.floor(player.x - camera.x);
@@ -3048,10 +3092,8 @@
       ctx.restore();
       drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
     }
-    function drawPlayerIdentity(identity, name, power, centerX, bottom, color) {
+    function drawPlayerIdentity(_identity, name, power, centerX, bottom, color) {
       if (!name) return;
-      const iconSize = 30;
-      const gap = 5;
       const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
       ctx.save();
       ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
@@ -3059,11 +3101,8 @@
       const nameWidth = ctx.measureText(name).width;
       const powerWidth = powerLabel ? ctx.measureText(powerLabel).width : 0;
       const textWidth = Math.max(nameWidth, powerWidth);
-      const groupWidth = iconSize + gap + textWidth;
-      const groupLeft = Math.round(centerX - groupWidth / 2);
-      const textLeft = groupLeft + iconSize + gap;
+      const textLeft = Math.round(centerX - textWidth / 2);
       const nameBottom = powerLabel ? bottom - 16 : bottom;
-      drawProfileIcon(identity, groupLeft, powerLabel ? bottom : bottom + 7, iconSize);
       const developerPrefix = `${DEVELOPER_BADGE} `;
       if (name.startsWith(developerPrefix)) {
         const playerName = name.slice(developerPrefix.length);
@@ -3249,6 +3288,7 @@
       drawActorShadow(x, shadowY, shadowWidth, 0.36);
       ctx.save();
       ctx.translate(x, y);
+      if (e.facingX < 0) ctx.scale(-1, 1);
       if (spriteReady) {
         ctx.globalAlpha = e.hurt > 0 ? 0.7 : 1;
         if (sprite.layers) {

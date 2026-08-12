@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.261";
+  const GAME_VERSION = "0.262";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -74,6 +74,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
   const SPEECH_BUBBLE_DURATION_MS = 6_000;
   const SPEECH_BUBBLE_FADE_MS = 1_250;
+  const ENEMY_WANDER_RADIUS = 72;
+  const ENEMY_WANDER_SPEED_RATIO = .28;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -246,7 +248,11 @@ import { formatCompactNumber } from "./ui/number-format";
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   const START_SPAWN = { x: 360, y: 360 };
-  const PORTAL = { x: 190, y: 445, width: 180, height: 180, depth: 445 };
+  const PORTAL = { x: 190, y: 445, width: 198, height: 198, depth: 445 };
+  const PORTAL_COLLIDERS = [
+    { x: PORTAL.x - PORTAL.width * .32, y: PORTAL.y - 12, r: 22 },
+    { x: PORTAL.x + PORTAL.width * .32, y: PORTAL.y - 12, r: 22 },
+  ];
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -573,7 +579,7 @@ import { formatCompactNumber } from "./ui/number-format";
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
 
-    showMessage("EXPLORE", "#ffe769");
+    showMessage("TUTORIAL FOREST", "#ffe769");
     updateHud();
   }
 
@@ -891,6 +897,11 @@ import { formatCompactNumber } from "./ui/number-format";
       leashRange: site.leashRange,
       engaged: false,
       leashing: false,
+      facingX: Math.random() < .5 ? -1 : 1,
+      wandering: false,
+      wanderTargetX: site.x,
+      wanderTargetY: site.y,
+      wanderWait: rand(1, 4),
       attackClock: base.ranged ? rand(.2, 1.2) : 0,
       moveSpeedRecovery: ENEMY_HIT_SPEED_RECOVERY_SECONDS,
       hurt: 0,
@@ -1562,6 +1573,8 @@ import { formatCompactNumber } from "./ui/number-format";
       player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
     }
 
+    resolvePortalCollision();
+
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
 
@@ -1587,6 +1600,22 @@ import { formatCompactNumber } from "./ui/number-format";
     if (autoAttackEnabled) attackNearest(dt);
   }
 
+  function resolvePortalCollision() {
+    for (const obstacle of PORTAL_COLLIDERS) {
+      const dx = player.x - obstacle.x;
+      const dy = player.y - obstacle.y;
+      const minimumDistance = player.r + obstacle.r;
+      const distanceSquared = dx * dx + dy * dy;
+      if (distanceSquared >= minimumDistance * minimumDistance) continue;
+
+      const distance = Math.sqrt(distanceSquared);
+      const nx = distance > .001 ? dx / distance : (player.x < PORTAL.x ? -1 : 1);
+      const ny = distance > .001 ? dy / distance : 0;
+      player.x = obstacle.x + nx * minimumDistance;
+      player.y = obstacle.y + ny * minimumDistance;
+    }
+  }
+
   function updateEnemies(dt) {
     for (const e of enemies) {
       if (e.dead) continue;
@@ -1607,7 +1636,10 @@ import { formatCompactNumber } from "./ui/number-format";
       const aggroRadius = base.elite
         ? e.aggroRadius
         : Math.max(0, player.attackRange - REGULAR_ENEMY_AGGRO_PADDING);
-      if (!e.leashing && playerDistance < aggroRadius) e.engaged = true;
+      if (!e.leashing && playerDistance < aggroRadius) {
+        e.engaged = true;
+        e.wandering = false;
+      }
 
       if (e.engaged && playerDistance > e.leashRange) {
         e.engaged = false;
@@ -1615,23 +1647,55 @@ import { formatCompactNumber } from "./ui/number-format";
         e.attackClock = Math.max(e.attackClock, .5);
       }
 
-      let targetX;
-      let targetY;
-      let targetDistance;
+      let targetX = e.x;
+      let targetY = e.y;
+      let targetDistance = 1;
       let moveMode = 0;
+      let moveSpeedRatio = 1;
 
       if (e.engaged) {
         targetX = player.x;
         targetY = player.y;
         targetDistance = playerDistance;
         moveMode = 1;
+        if (Math.abs(toPlayerX) > .5) e.facingX = toPlayerX < 0 ? -1 : 1;
       } else {
-        targetX = e.homeX;
-        targetY = e.homeY;
-        targetDistance = Math.hypot(targetX - e.x, targetY - e.y) || 1;
-        moveMode = targetDistance > 7 ? 1 : 0;
+        moveSpeedRatio = ENEMY_WANDER_SPEED_RATIO;
+        if (e.leashing || homeDistance > ENEMY_WANDER_RADIUS) {
+          e.wandering = false;
+          targetX = e.homeX;
+          targetY = e.homeY;
+          moveMode = 1;
+          if (e.leashing) moveSpeedRatio = 1;
+        } else if (e.wandering) {
+          targetX = e.wanderTargetX;
+          targetY = e.wanderTargetY;
+          if (Math.hypot(targetX - e.x, targetY - e.y) < 8) {
+            e.wandering = false;
+            e.wanderWait = rand(2.2, 5.2);
+            targetX = e.x;
+            targetY = e.y;
+          } else {
+            moveMode = 1;
+          }
+        } else {
+          e.wanderWait -= dt;
+          if (e.wanderWait <= 0) {
+            const angle = Math.random() * TAU;
+            const distance = rand(22, ENEMY_WANDER_RADIUS);
+            e.wanderTargetX = e.homeX + Math.cos(angle) * distance;
+            e.wanderTargetY = e.homeY + Math.sin(angle) * distance;
+            e.wandering = true;
+            targetX = e.wanderTargetX;
+            targetY = e.wanderTargetY;
+            moveMode = 1;
+          }
+        }
 
-        if (targetDistance < 12 && e.hp < e.maxHp) {
+        targetDistance = Math.hypot(targetX - e.x, targetY - e.y) || 1;
+        if (moveMode && Math.abs(targetX - e.x) > .5) e.facingX = targetX < e.x ? -1 : 1;
+
+        if (homeDistance < 12 && e.hp < e.maxHp) {
           e.hp = Math.min(e.maxHp, e.hp + e.maxHp * .16 * dt);
         }
       }
@@ -1662,8 +1726,8 @@ import { formatCompactNumber } from "./ui/number-format";
           e.attackClock = rand(rangedAttackInterval * .83, rangedAttackInterval * 1.17);
         }
       } else if (moveMode) {
-        e.vx += dx * currentMoveSpeed * dt * 7;
-        e.vy += dy * currentMoveSpeed * dt * 7;
+        e.vx += dx * currentMoveSpeed * moveSpeedRatio * dt * 7;
+        e.vy += dy * currentMoveSpeed * moveSpeedRatio * dt * 7;
       }
 
       e.vx *= Math.pow(.002, dt);
@@ -2429,10 +2493,8 @@ import { formatCompactNumber } from "./ui/number-format";
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
   }
 
-  function drawPlayerIdentity(identity, name, power, centerX, bottom, color) {
+  function drawPlayerIdentity(_identity, name, power, centerX, bottom, color) {
     if (!name) return;
-    const iconSize = 30;
-    const gap = 5;
     const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
     ctx.save();
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
@@ -2440,11 +2502,8 @@ import { formatCompactNumber } from "./ui/number-format";
     const nameWidth = ctx.measureText(name).width;
     const powerWidth = powerLabel ? ctx.measureText(powerLabel).width : 0;
     const textWidth = Math.max(nameWidth, powerWidth);
-    const groupWidth = iconSize + gap + textWidth;
-    const groupLeft = Math.round(centerX - groupWidth / 2);
-    const textLeft = groupLeft + iconSize + gap;
+    const textLeft = Math.round(centerX - textWidth / 2);
     const nameBottom = powerLabel ? bottom - 16 : bottom;
-    drawProfileIcon(identity, groupLeft, powerLabel ? bottom : bottom + 7, iconSize);
     const developerPrefix = `${DEVELOPER_BADGE} `;
     if (name.startsWith(developerPrefix)) {
       const playerName = name.slice(developerPrefix.length);
@@ -2644,6 +2703,7 @@ import { formatCompactNumber } from "./ui/number-format";
 
     ctx.save();
     ctx.translate(x, y);
+    if (e.facingX < 0) ctx.scale(-1, 1);
 
     if (spriteReady) {
       ctx.globalAlpha = e.hurt > 0 ? .7 : 1;
