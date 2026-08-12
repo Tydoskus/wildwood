@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.255": [
+    "Sign-in now recovers cleanly when saved account tokens expire",
+    "Sign-in options and update history layout improved",
+    "World Chat now respects phone safe areas and keeps one row layout at every size",
+    "Spitter health reduced to 24",
+  ],
   "0.254": [
     "Armor and Regen leaderboards added",
     "Account linking now preserves leaderboard placement immediately",

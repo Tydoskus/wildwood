@@ -18,6 +18,12 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.255": [
+      "Sign-in now recovers cleanly when saved account tokens expire",
+      "Sign-in options and update history layout improved",
+      "World Chat now respects phone safe areas and keeps one row layout at every size",
+      "Spitter health reduced to 24"
+    ],
     "0.254": [
       "Armor and Regen leaderboards added",
       "Account linking now preserves leaderboard placement immediately",
@@ -252,7 +258,7 @@
       score: 1
     },
     Spitter: {
-      hp: 28,
+      hp: 24,
       speed: 210,
       damage: 48,
       attackSpeed: 1,
@@ -844,7 +850,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.254";
+    const GAME_VERSION = "0.255";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -4225,11 +4231,11 @@
         }
         accountSignInPending = false;
         showAccountChoice();
-        accountChoiceDetail.textContent = characterFound ? "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST" : "REGISTRATION FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+        accountChoiceDetail.textContent = characterFound ? "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN" : "REGISTRATION FAILED · TRY AGAIN OR USE GUEST LOGIN";
       }).catch(() => {
         accountSignInPending = false;
         showAccountChoice();
-        accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR CONTINUE AS GUEST";
+        accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN";
       }));
     });
     screenShakeToggle.addEventListener("click", () => {

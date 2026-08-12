@@ -8663,6 +8663,7 @@ ${ty.variants.map(
   const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
   const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
   const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
+  const authRetryKey = `${tokenKey}/spacetimeauth_401_retry_v1`;
   const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
   const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
   const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
@@ -8804,7 +8805,22 @@ ${ty.variants.map(
   }
   function accountToken() {
     try {
-      return localStorage.getItem(accountTokenKey);
+      const token = localStorage.getItem(accountTokenKey);
+      if (!token) return null;
+      const payloadPart = token.split(".")[1];
+      if (payloadPart) {
+        try {
+          const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+          const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+          const payload = JSON.parse(atob(padded));
+          if (typeof payload.exp === "number" && payload.exp * 1e3 <= Date.now() + 3e4) {
+            localStorage.removeItem(accountTokenKey);
+            return null;
+          }
+        } catch {
+        }
+      }
+      return token;
     } catch {
       return null;
     }
@@ -9732,6 +9748,7 @@ ${ty.variants.map(
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
+        clearTabValue(authRetryKey);
         recordLatency(protocolStartedAt);
         const isCurrentConnection = () => {
           const current = generation === connectionGeneration && connection === conn;
@@ -9942,6 +9959,21 @@ ${ty.variants.map(
       if (rejectedToken) {
         clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
         if (signedIn && hasKnownAccount()) {
+          const alreadyRetried = readTabValue(authRetryKey) === "true";
+          if (accountSessionApproved && !alreadyRetried) {
+            writeTabValue(authRetryKey, "true");
+            authNotice = "REOPENING SIGN-IN";
+            void startAccountSignIn().catch((signInError) => {
+              clearAccountReturnPending();
+              accountSessionApproved = false;
+              authNotice = "SIGN-IN FAILED · TRY AGAIN";
+              console.warn("Wildwood account reauthentication failed:", signInError);
+              onChange == null ? void 0 : onChange();
+            });
+            onChange == null ? void 0 : onChange();
+            return;
+          }
+          accountSessionApproved = false;
           authNotice = "SIGN-IN REQUIRED";
           clearAccountReturnPending();
           onChange == null ? void 0 : onChange();
@@ -9994,6 +10026,7 @@ ${ty.variants.map(
     async signIn() {
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
       if ((connection == null ? void 0 : connection.isActive) && connectedSignedIn) return { ok: true };
+      clearTabValue(authRetryKey);
       if (accountToken() && hasKnownAccount()) {
         accountSessionApproved = true;
         authNotice = "OPENING CHARACTER";

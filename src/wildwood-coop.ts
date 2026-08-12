@@ -203,6 +203,7 @@ const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
 const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
 const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
 const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
+const authRetryKey = `${tokenKey}/spacetimeauth_401_retry_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
 const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
 const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
@@ -367,7 +368,27 @@ function requestWorldEntry(): Promise<boolean> {
 
 function accountToken() {
   try {
-    return localStorage.getItem(accountTokenKey);
+    const token = localStorage.getItem(accountTokenKey);
+    if (!token) return null;
+
+    // SpacetimeAuth ID tokens are JWTs. Avoid trying a token that is already
+    // expired (or about to expire), which otherwise produces a visible 401
+    // before the browser is sent back through sign-in.
+    const payloadPart = token.split(".")[1];
+    if (payloadPart) {
+      try {
+        const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+        const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+        if (typeof payload.exp === "number" && payload.exp * 1_000 <= Date.now() + 30_000) {
+          localStorage.removeItem(accountTokenKey);
+          return null;
+        }
+      } catch {
+        // Let SpacetimeDB validate unfamiliar token formats.
+      }
+    }
+    return token;
   } catch {
     return null;
   }
@@ -1479,6 +1500,7 @@ function connect() {
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
+        clearTabValue(authRetryKey);
         recordLatency(protocolStartedAt);
         const isCurrentConnection = () => {
           const current = generation === connectionGeneration && connection === conn;
@@ -1645,6 +1667,21 @@ function connect() {
       if (rejectedToken) {
         clearStoredToken(signedIn ? accountTokenKey : guestTokenKey);
         if (signedIn && hasKnownAccount()) {
+          const alreadyRetried = readTabValue(authRetryKey) === "true";
+          if (accountSessionApproved && !alreadyRetried) {
+            writeTabValue(authRetryKey, "true");
+            authNotice = "REOPENING SIGN-IN";
+            void startAccountSignIn().catch((signInError) => {
+              clearAccountReturnPending();
+              accountSessionApproved = false;
+              authNotice = "SIGN-IN FAILED · TRY AGAIN";
+              console.warn("Wildwood account reauthentication failed:", signInError);
+              onChange?.();
+            });
+            onChange?.();
+            return;
+          }
+          accountSessionApproved = false;
           authNotice = "SIGN-IN REQUIRED";
           clearAccountReturnPending();
           onChange?.();
@@ -1701,6 +1738,7 @@ export const wildwoodCoop = {
   async signIn() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (connection?.isActive && connectedSignedIn) return { ok: true };
+    clearTabValue(authRetryKey);
     if (accountToken() && hasKnownAccount()) {
       accountSessionApproved = true;
       authNotice = "OPENING CHARACTER";

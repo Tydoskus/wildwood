@@ -29,7 +29,7 @@ const enemyTypes = {
     color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 1,
   },
   Spitter: {
-    hp: 28, speed: 210, damage: 48, attackSpeed: 1, r: 15,
+    hp: 24, speed: 210, damage: 48, attackSpeed: 1, r: 15,
     color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 1,
   },
   Brood: {
