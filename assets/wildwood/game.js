@@ -18,7 +18,7 @@
     });
   }
   const RELEASE_NOTES = {
-    "0.253": [
+    "0.254": [
       "Armor and Regen leaderboards added",
       "Account linking now preserves leaderboard placement immediately",
       "Profile portraits now open player profiles throughout the game",
@@ -844,7 +844,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.253";
+    const GAME_VERSION = "0.254";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";

@@ -15,8 +15,8 @@ export default __t.row({
   displayName: __t.string().name("display_name"),
   damage: __t.f32(),
   maxHp: __t.f32().name("max_hp"),
-  armor: __t.f32(),
-  regen: __t.f32(),
   isGuest: __t.bool().name("is_guest"),
   power: __t.u32(),
+  armor: __t.f32(),
+  regen: __t.f32(),
 });

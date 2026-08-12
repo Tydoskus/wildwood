@@ -1,5 +1,5 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
-  "0.253": [
+  "0.254": [
     "Armor and Regen leaderboards added",
     "Account linking now preserves leaderboard placement immediately",
     "Profile portraits now open player profiles throughout the game",

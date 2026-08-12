@@ -8368,10 +8368,10 @@ ${ty.variants.map(
     displayName: t.string().name("display_name"),
     damage: t.f32(),
     maxHp: t.f32().name("max_hp"),
-    armor: t.f32(),
-    regen: t.f32(),
     isGuest: t.bool().name("is_guest"),
-    power: t.u32()
+    power: t.u32(),
+    armor: t.f32(),
+    regen: t.f32()
   });
   const PlayerRow = t.row({
     identity: t.identity().primaryKey(),

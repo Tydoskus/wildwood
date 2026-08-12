@@ -120,10 +120,10 @@ const leaderboardEntry = table(
     displayName: t.string(),
     damage: t.f32(),
     maxHp: t.f32(),
-    armor: t.f32().default(0),
-    regen: t.f32().default(0),
     isGuest: t.bool(),
     power: t.u32().default(0),
+    armor: t.f32().default(0),
+    regen: t.f32().default(0),
   },
 );
 
