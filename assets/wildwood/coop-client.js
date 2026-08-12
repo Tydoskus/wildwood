@@ -8267,6 +8267,9 @@ ${ty.variants.map(
     moving: t.bool(),
     sequence: t.u32()
   };
+  const TakeOverSessionReducer = {
+    tabId: t.string()
+  };
   const ChatMessageRow = t.row({
     id: t.u64().primaryKey(),
     sender: t.identity(),
@@ -8390,7 +8393,8 @@ ${ty.variants.map(
     feetItem: t.string().name("feet_item"),
     zoneX: t.i32().name("zone_x"),
     zoneY: t.i32().name("zone_y"),
-    mapId: t.string().name("map_id")
+    mapId: t.string().name("map_id"),
+    controllerTabId: t.string().name("controller_tab_id")
   });
   const PlayerAccountStatusRow = t.row({
     identity: t.identity().primaryKey(),
@@ -8600,7 +8604,8 @@ ${ty.variants.map(
     reducerSchema("set_display_name", SetDisplayNameReducer),
     reducerSchema("set_profile_icon", SetProfileIconReducer),
     reducerSchema("set_speed", SetSpeedReducer),
-    reducerSchema("sync_position", SyncPositionReducer)
+    reducerSchema("sync_position", SyncPositionReducer),
+    reducerSchema("take_over_session", TakeOverSessionReducer)
   );
   const proceduresSchema = procedures();
   const REMOTE_MODULE = {
@@ -8643,7 +8648,7 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 24;
+  const PROTOCOL_VERSION = 25;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8731,6 +8736,7 @@ ${ty.variants.map(
   let worldEntryPromise = null;
   let worldEntryGeneration = 0;
   let worldEntryBlocked = false;
+  let takeoverRequested = false;
   let accountCallbackPending = new URL(window.location.href).searchParams.has("code") || new URL(window.location.href).searchParams.has("error");
   let accountReturnPending = accountCallbackPending && (() => {
     try {
@@ -8752,6 +8758,12 @@ ${ty.variants.map(
   }
   function handleReducerFailure(action, error) {
     const message = reducerErrorMessage(error);
+    if (/active in another tab/i.test(message)) {
+      worldEntryBlocked = true;
+      authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
+      onChange == null ? void 0 : onChange();
+      return;
+    }
     if (!/wildwood updated\. refresh to continue\./i.test(message)) {
       console.warn(`Wildwood ${action} rejected:`, message);
       return;
@@ -8762,7 +8774,7 @@ ${ty.variants.map(
     onChange == null ? void 0 : onChange();
   }
   function sendReducer(action, reducer, onRejected) {
-    if (protocolBlocked) return;
+    if (protocolBlocked || worldEntryBlocked) return;
     try {
       const startedAt = performance.now();
       const measureLatency = startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
@@ -8793,7 +8805,7 @@ ${ty.variants.map(
     }).catch((error) => {
       if (/active in another tab/i.test(reducerErrorMessage(error))) {
         worldEntryBlocked = true;
-        authNotice = "ACTIVE IN ANOTHER TAB · CLOSE IT, THEN REFRESH";
+        authNotice = "LOGGED IN ON ANOTHER TAB";
         onChange == null ? void 0 : onChange();
         return false;
       }
@@ -9232,7 +9244,7 @@ ${ty.variants.map(
   }
   function flushPendingProgressAsync(force = false) {
     if (progressSavePromise) return progressSavePromise;
-    if (protocolBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
+    if (protocolBlocked || worldEntryBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
     if (worldEntryGeneration !== connectionGeneration) return Promise.resolve(false);
     if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
     const conn = connection;
@@ -9282,6 +9294,10 @@ ${ty.variants.map(
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
     if (id === localIdentity) {
+      if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
+        worldEntryBlocked = true;
+        authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
+      }
       localState = {
         x: row.x,
         y: row.y,
@@ -9652,14 +9668,14 @@ ${ty.variants.map(
     latestDragonResult = null;
   }
   function scheduleReconnect(delay = 500) {
-    if (protocolBlocked || document.hidden || reconnectTimer !== null || (connection == null ? void 0 : connection.isActive) || connecting) return;
+    if (protocolBlocked || worldEntryBlocked || document.hidden || reconnectTimer !== null || (connection == null ? void 0 : connection.isActive) || connecting) return;
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       connect();
     }, delay);
   }
   function reconnectAfterWake(force = false) {
-    if (protocolBlocked || document.hidden || connecting || resumeProbePromise) return;
+    if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
     const conn = connection;
     if (force || !(conn == null ? void 0 : conn.isActive)) {
       if (conn == null ? void 0 : conn.isActive) conn.disconnect();
@@ -9681,8 +9697,12 @@ ${ty.variants.map(
         touchServerActivity();
         onChange == null ? void 0 : onChange();
       }
-    }).catch(() => {
+    }).catch((error) => {
       if (connection === conn && generation === connectionGeneration) {
+        if (/active in another tab/i.test(reducerErrorMessage(error))) {
+          handleReducerFailure("session resume", error);
+          return;
+        }
         conn.disconnect();
         scheduleReconnect(200);
       }
@@ -9789,6 +9809,24 @@ ${ty.variants.map(
               conn.disconnect();
               return;
             }
+          }
+        }
+        if (takeoverRequested) {
+          authNotice = "SIGNING OUT OTHER TAB…";
+          onChange == null ? void 0 : onChange();
+          try {
+            await conn.reducers.takeOverSession({ tabId: authTabId() });
+            if (!isCurrentConnection()) return;
+            takeoverRequested = false;
+            worldEntryBlocked = false;
+          } catch (error) {
+            if (!isCurrentConnection()) return;
+            takeoverRequested = false;
+            worldEntryBlocked = true;
+            authNotice = "TAKEOVER FAILED · TRY AGAIN";
+            handleReducerFailure("session takeover", error);
+            onChange == null ? void 0 : onChange();
+            return;
           }
         }
         if ((signedIn || guestSessionExplicit) && !await requestWorldEntry()) {
@@ -9936,7 +9974,6 @@ ${ty.variants.map(
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
-      worldEntryBlocked = false;
       localProfileReady = false;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
@@ -10014,6 +10051,7 @@ ${ty.variants.map(
         returningFromSignIn: accountReturnPending,
         hydrated: hydrationReady,
         updating: protocolBlocked,
+        sessionConflict: worldEntryBlocked,
         notice: authNotice
       };
     },
@@ -10075,6 +10113,40 @@ ${ty.variants.map(
       onChange == null ? void 0 : onChange();
       await startAccountSignIn();
       return { ok: true };
+    },
+    async takeOverSession() {
+      if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+      takeoverRequested = true;
+      if (!(connection == null ? void 0 : connection.isActive)) {
+        worldEntryBlocked = false;
+        authNotice = "RECONNECTING TO SIGN OUT OTHER TAB…";
+        connect();
+        onChange == null ? void 0 : onChange();
+        return { ok: true };
+      }
+      const conn = connection;
+      authNotice = "SIGNING OUT OTHER TAB…";
+      onChange == null ? void 0 : onChange();
+      try {
+        await conn.reducers.takeOverSession({ tabId: authTabId() });
+        if (connection !== conn) return { ok: false, error: "CONNECTION CHANGED" };
+        takeoverRequested = false;
+        worldEntryBlocked = false;
+        worldEntryGeneration = 0;
+        authNotice = "OPENING CHARACTER";
+        conn.disconnect();
+        scheduleReconnect(100);
+        onChange == null ? void 0 : onChange();
+        return { ok: true };
+      } catch (error) {
+        takeoverRequested = false;
+        const message = reducerErrorMessage(error);
+        worldEntryBlocked = true;
+        authNotice = "TAKEOVER FAILED · TRY AGAIN";
+        handleReducerFailure("session takeover", error);
+        onChange == null ? void 0 : onChange();
+        return { ok: false, error: message };
+      }
     },
     signOut() {
       try {

@@ -807,6 +807,18 @@
     line-height: 1.5;
   }
 
+  #sessionTakeoverBtn {
+    width: min(240px, 100%);
+    margin: 12px auto 0;
+  }
+
+  .session-takeover-note {
+    margin: 7px 0 0 !important;
+    color: var(--muted) !important;
+    font-size: 8px !important;
+    letter-spacing: .04em !important;
+  }
+
   .onboarding-modal {
     width: min(620px, calc(100vw - 26px));
   }

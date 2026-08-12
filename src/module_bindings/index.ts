@@ -54,6 +54,7 @@ import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
+import TakeOverSessionReducer from "./take_over_session_reducer";
 
 // Import all procedure arg schemas
 
@@ -252,6 +253,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
+  __reducerSchema("take_over_session", TakeOverSessionReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

@@ -27,4 +27,5 @@ export default __t.row({
   zoneX: __t.i32().name("zone_x"),
   zoneY: __t.i32().name("zone_y"),
   mapId: __t.string().name("map_id"),
+  controllerTabId: __t.string().name("controller_tab_id"),
 });

@@ -56,7 +56,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.260";
+  const GAME_VERSION = "0.261";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -118,6 +118,8 @@ import { formatCompactNumber } from "./ui/number-format";
   const pickupLog = document.getElementById("pickupLog");
   const startEl = document.getElementById("start");
   const connectionPanel = document.getElementById("connectionPanel");
+  const sessionTakeoverBtn = document.getElementById("sessionTakeoverBtn");
+  const sessionTakeoverNote = document.getElementById("sessionTakeoverNote");
   const loadingDetail = document.getElementById("loadingDetail");
   const loadingFill = document.getElementById("loadingFill");
   const accountChoicePanel = document.getElementById("accountChoicePanel");
@@ -659,6 +661,10 @@ import { formatCompactNumber } from "./ui/number-format";
   function finishStartup() {
     updateLoadingDetail();
     const account = coop?.accountState?.();
+    if (account?.sessionConflict) {
+      showSessionConflict();
+      return;
+    }
     if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !portalArchSettled || !portalSwirlSettled || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
       !coop?.isConnected?.()) return;
     if (!account?.signedIn && !guestContinuationChosen) {
@@ -690,7 +696,21 @@ import { formatCompactNumber } from "./ui/number-format";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
     newPlayerPanel.hidden = true;
+    sessionTakeoverBtn.hidden = true;
+    sessionTakeoverBtn.disabled = false;
+    sessionTakeoverNote.hidden = true;
     updateLoadingDetail();
+  }
+
+  function showSessionConflict() {
+    startEl.style.display = "grid";
+    connectionPanel.hidden = false;
+    accountChoicePanel.hidden = true;
+    newPlayerPanel.hidden = true;
+    loadingDetail.textContent = coop?.accountState?.().notice || "LOGGED IN ON ANOTHER TAB";
+    loadingFill.style.width = "100%";
+    sessionTakeoverBtn.hidden = false;
+    sessionTakeoverNote.hidden = false;
   }
 
   function updateProtocolGate(accountState = coop?.accountState?.()) {
@@ -755,9 +775,9 @@ import { formatCompactNumber } from "./ui/number-format";
   function updateLoadingDetail() {
     if (!loadingDetail || !loadingFill) return;
     const connectionNotice = coop?.accountState?.().notice || "";
-    if (/active in another tab/i.test(connectionNotice)) {
+    if (/active in another tab|logged in on another tab|signing out other tab|takeover failed/i.test(connectionNotice)) {
       loadingDetail.textContent = connectionNotice;
-      loadingFill.style.width = "35%";
+      loadingFill.style.width = "100%";
       return;
     }
     const stages = [
@@ -3595,7 +3615,7 @@ import { formatCompactNumber } from "./ui/number-format";
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
 
-    if (running && !pausedForUpgrade) update(dt);
+    if (running && !pausedForUpgrade && !coop?.accountState?.().sessionConflict) update(dt);
     render();
     requestAnimationFrame(loop);
   }
@@ -3802,6 +3822,22 @@ import { formatCompactNumber } from "./ui/number-format";
     });
   });
 
+  sessionTakeoverBtn?.addEventListener("click", () => {
+    sessionTakeoverBtn.disabled = true;
+    loadingDetail.textContent = "SIGNING OUT OTHER TAB…";
+    void coop?.takeOverSession?.().then((result) => {
+      if (result?.ok === false) {
+        sessionTakeoverBtn.disabled = false;
+        loadingDetail.textContent = "TAKEOVER FAILED · TRY AGAIN";
+        return;
+      }
+      showConnecting();
+    }).catch(() => {
+      sessionTakeoverBtn.disabled = false;
+      loadingDetail.textContent = "TAKEOVER FAILED · TRY AGAIN";
+    });
+  });
+
   screenShakeToggle.addEventListener("click", () => {
     screenShakeEnabled = !screenShakeEnabled;
     if (!screenShakeEnabled) screenShake = 0;
@@ -3973,7 +4009,8 @@ import { formatCompactNumber } from "./ui/number-format";
       finishStartup();
       const account = coop?.accountState?.();
       updateProtocolGate(account);
-      if (account?.returningFromSignIn) showSigningIn();
+      if (account?.sessionConflict) showSessionConflict();
+      else if (account?.returningFromSignIn) showSigningIn();
       else if (account?.signInRequired && !hasStarted) showAccountChoice();
       else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
       chat.refresh();

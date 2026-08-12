@@ -18,6 +18,11 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.261": [
+      "Account sessions now reliably detect another active tab",
+      "Sign In Anyway securely transfers play to the current tab",
+      "Displaced tabs stop gameplay and cannot change account data"
+    ],
     "0.260": [
       "Portal placement and animation improved",
       "Dragon moved farther west"
@@ -858,7 +863,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.260";
+    const GAME_VERSION = "0.261";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -918,6 +923,8 @@
     const pickupLog = document.getElementById("pickupLog");
     const startEl = document.getElementById("start");
     const connectionPanel = document.getElementById("connectionPanel");
+    const sessionTakeoverBtn = document.getElementById("sessionTakeoverBtn");
+    const sessionTakeoverNote = document.getElementById("sessionTakeoverNote");
     const loadingDetail = document.getElementById("loadingDetail");
     const loadingFill = document.getElementById("loadingFill");
     const accountChoicePanel = document.getElementById("accountChoicePanel");
@@ -1422,6 +1429,10 @@
       var _a, _b2, _c2, _d, _e;
       updateLoadingDetail();
       const account = (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop);
+      if (account == null ? void 0 : account.sessionConflict) {
+        showSessionConflict();
+        return;
+      }
       if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !portalArchSettled || !portalSwirlSettled || !duelSpaceBackgroundReady || !duelPlatformArtReady || !((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop))) return;
       if (!(account == null ? void 0 : account.signedIn) && !guestContinuationChosen) {
         showAccountChoice();
@@ -1451,7 +1462,21 @@
       connectionPanel.hidden = false;
       accountChoicePanel.hidden = true;
       newPlayerPanel.hidden = true;
+      sessionTakeoverBtn.hidden = true;
+      sessionTakeoverBtn.disabled = false;
+      sessionTakeoverNote.hidden = true;
       updateLoadingDetail();
+    }
+    function showSessionConflict() {
+      var _a;
+      startEl.style.display = "grid";
+      connectionPanel.hidden = false;
+      accountChoicePanel.hidden = true;
+      newPlayerPanel.hidden = true;
+      loadingDetail.textContent = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop).notice) || "LOGGED IN ON ANOTHER TAB";
+      loadingFill.style.width = "100%";
+      sessionTakeoverBtn.hidden = false;
+      sessionTakeoverNote.hidden = false;
     }
     function updateProtocolGate(accountState = ((_a) => (_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop))()) {
       if (!gameUpdateGateEl) return;
@@ -1506,9 +1531,9 @@
       var _a, _b2, _c2;
       if (!loadingDetail || !loadingFill) return;
       const connectionNotice = ((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop).notice) || "";
-      if (/active in another tab/i.test(connectionNotice)) {
+      if (/active in another tab|logged in on another tab|signing out other tab|takeover failed/i.test(connectionNotice)) {
         loadingDetail.textContent = connectionNotice;
-        loadingFill.style.width = "35%";
+        loadingFill.style.width = "100%";
         return;
       }
       const stages = [
@@ -4123,10 +4148,11 @@
       duelControls.hidden = true;
     }
     function loop(now) {
+      var _a;
       const rawDt = (now - last) / 1e3;
       last = now;
       const dt = Math.min(0.035, Math.max(0, rawDt));
-      if (running && !pausedForUpgrade) update(dt);
+      if (running && !pausedForUpgrade && !((_a = coop == null ? void 0 : coop.accountState) == null ? void 0 : _a.call(coop).sessionConflict)) update(dt);
       render();
       requestAnimationFrame(loop);
     }
@@ -4312,6 +4338,22 @@
         accountChoiceDetail.textContent = "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN";
       }));
     });
+    sessionTakeoverBtn == null ? void 0 : sessionTakeoverBtn.addEventListener("click", () => {
+      var _a;
+      sessionTakeoverBtn.disabled = true;
+      loadingDetail.textContent = "SIGNING OUT OTHER TAB…";
+      void ((_a = coop == null ? void 0 : coop.takeOverSession) == null ? void 0 : _a.call(coop).then((result) => {
+        if ((result == null ? void 0 : result.ok) === false) {
+          sessionTakeoverBtn.disabled = false;
+          loadingDetail.textContent = "TAKEOVER FAILED · TRY AGAIN";
+          return;
+        }
+        showConnecting();
+      }).catch(() => {
+        sessionTakeoverBtn.disabled = false;
+        loadingDetail.textContent = "TAKEOVER FAILED · TRY AGAIN";
+      }));
+    });
     screenShakeToggle.addEventListener("click", () => {
       screenShakeEnabled = !screenShakeEnabled;
       if (!screenShakeEnabled) screenShake = 0;
@@ -4479,7 +4521,8 @@
         finishStartup();
         const account = (_h = coop == null ? void 0 : coop.accountState) == null ? void 0 : _h.call(coop);
         updateProtocolGate(account);
-        if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
+        if (account == null ? void 0 : account.sessionConflict) showSessionConflict();
+        else if (account == null ? void 0 : account.returningFromSignIn) showSigningIn();
         else if ((account == null ? void 0 : account.signInRequired) && !hasStarted) showAccountChoice();
         else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
         chat.refresh();

@@ -26,6 +26,7 @@ import SetDisplayNameReducer from "../set_display_name_reducer";
 import SetProfileIconReducer from "../set_profile_icon_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
+import TakeOverSessionReducer from "../take_over_session_reducer";
 
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
 export type BeginAccountLinkParams = __Infer<typeof BeginAccountLinkReducer>;
@@ -47,4 +48,5 @@ export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
 export type SetProfileIconParams = __Infer<typeof SetProfileIconReducer>;
 export type SetSpeedParams = __Infer<typeof SetSpeedReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
+export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;
 

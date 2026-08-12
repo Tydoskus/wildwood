@@ -182,7 +182,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 24;
+const PROTOCOL_VERSION = 25;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -272,6 +272,7 @@ let resumeProbePromise: Promise<void> | null = null;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
+let takeoverRequested = false;
 let accountCallbackPending = new URL(window.location.href).searchParams.has("code") ||
   new URL(window.location.href).searchParams.has("error");
 let accountReturnPending = accountCallbackPending && (() => {
@@ -302,6 +303,12 @@ function recordLatency(startedAt: number) {
 
 function handleReducerFailure(action: string, error: unknown) {
   const message = reducerErrorMessage(error);
+  if (/active in another tab/i.test(message)) {
+    worldEntryBlocked = true;
+    authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
+    onChange?.();
+    return;
+  }
   if (!/wildwood updated\. refresh to continue\./i.test(message)) {
     console.warn(`Wildwood ${action} rejected:`, message);
     return;
@@ -317,7 +324,7 @@ function handleReducerFailure(action: string, error: unknown) {
 }
 
 function sendReducer(action: string, reducer: () => unknown, onRejected?: () => void) {
-  if (protocolBlocked) return;
+  if (protocolBlocked || worldEntryBlocked) return;
   try {
     const startedAt = performance.now();
     const measureLatency = startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
@@ -354,7 +361,7 @@ function requestWorldEntry(): Promise<boolean> {
     .catch((error) => {
       if (/active in another tab/i.test(reducerErrorMessage(error))) {
         worldEntryBlocked = true;
-        authNotice = "ACTIVE IN ANOTHER TAB · CLOSE IT, THEN REFRESH";
+        authNotice = "LOGGED IN ON ANOTHER TAB";
         onChange?.();
         return false;
       }
@@ -850,7 +857,7 @@ function sameProgressSave(a: ProgressSave, b: ProgressSave) {
 
 function flushPendingProgressAsync(force = false): Promise<boolean> {
   if (progressSavePromise) return progressSavePromise;
-  if (protocolBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
+  if (protocolBlocked || worldEntryBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
   if (worldEntryGeneration !== connectionGeneration) return Promise.resolve(false);
   if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
   const conn = connection;
@@ -921,9 +928,14 @@ function upsertPlayer(row: {
   speed: number;
   feetItem: string;
   lastInputSequence: number;
+  controllerTabId: string;
 }) {
   const id = row.identity.toHexString();
   if (id === localIdentity) {
+    if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
+      worldEntryBlocked = true;
+      authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
+    }
     localState = {
       x: row.x,
       y: row.y,
@@ -1395,7 +1407,7 @@ function clearRealtimeCaches() {
 }
 
 function scheduleReconnect(delay = 500) {
-  if (protocolBlocked || document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
+  if (protocolBlocked || worldEntryBlocked || document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
   reconnectTimer = window.setTimeout(() => {
     reconnectTimer = null;
     connect();
@@ -1403,7 +1415,7 @@ function scheduleReconnect(delay = 500) {
 }
 
 function reconnectAfterWake(force = false) {
-  if (protocolBlocked || document.hidden || connecting || resumeProbePromise) return;
+  if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
   const conn = connection;
   if (force || !conn?.isActive) {
     if (conn?.isActive) conn.disconnect();
@@ -1429,8 +1441,12 @@ function reconnectAfterWake(force = false) {
         onChange?.();
       }
     })
-    .catch(() => {
+    .catch((error) => {
       if (connection === conn && generation === connectionGeneration) {
+        if (/active in another tab/i.test(reducerErrorMessage(error))) {
+          handleReducerFailure("session resume", error);
+          return;
+        }
         conn.disconnect();
         scheduleReconnect(200);
       }
@@ -1548,6 +1564,25 @@ function connect() {
           }
         }
 
+        if (takeoverRequested) {
+          authNotice = "SIGNING OUT OTHER TAB…";
+          onChange?.();
+          try {
+            await conn.reducers.takeOverSession({ tabId: authTabId() });
+            if (!isCurrentConnection()) return;
+            takeoverRequested = false;
+            worldEntryBlocked = false;
+          } catch (error) {
+            if (!isCurrentConnection()) return;
+            takeoverRequested = false;
+            worldEntryBlocked = true;
+            authNotice = "TAKEOVER FAILED · TRY AGAIN";
+            handleReducerFailure("session takeover", error);
+            onChange?.();
+            return;
+          }
+        }
+
         if ((signedIn || guestSessionExplicit) && !await requestWorldEntry()) {
           if (isCurrentConnection() && !worldEntryBlocked) conn.disconnect();
           return;
@@ -1644,7 +1679,6 @@ function connect() {
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
-      worldEntryBlocked = false;
       localProfileReady = false;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
@@ -1725,6 +1759,7 @@ export const wildwoodCoop = {
       returningFromSignIn: accountReturnPending,
       hydrated: hydrationReady,
       updating: protocolBlocked,
+      sessionConflict: worldEntryBlocked,
       notice: authNotice,
     };
   },
@@ -1788,6 +1823,40 @@ export const wildwoodCoop = {
     onChange?.();
     await startAccountSignIn();
     return { ok: true };
+  },
+  async takeOverSession() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    takeoverRequested = true;
+    if (!connection?.isActive) {
+      worldEntryBlocked = false;
+      authNotice = "RECONNECTING TO SIGN OUT OTHER TAB…";
+      connect();
+      onChange?.();
+      return { ok: true };
+    }
+    const conn = connection;
+    authNotice = "SIGNING OUT OTHER TAB…";
+    onChange?.();
+    try {
+      await conn.reducers.takeOverSession({ tabId: authTabId() });
+      if (connection !== conn) return { ok: false, error: "CONNECTION CHANGED" };
+      takeoverRequested = false;
+      worldEntryBlocked = false;
+      worldEntryGeneration = 0;
+      authNotice = "OPENING CHARACTER";
+      conn.disconnect();
+      scheduleReconnect(100);
+      onChange?.();
+      return { ok: true };
+    } catch (error) {
+      takeoverRequested = false;
+      const message = reducerErrorMessage(error);
+      worldEntryBlocked = true;
+      authNotice = "TAKEOVER FAILED · TRY AGAIN";
+      handleReducerFailure("session takeover", error);
+      onChange?.();
+      return { ok: false, error: message };
+    }
   },
   signOut() {
     try {

@@ -8,7 +8,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 24;
+const PROTOCOL_VERSION = 25;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -79,6 +79,7 @@ const player = table(
     zoneX: t.i32().default(0),
     zoneY: t.i32().default(0),
     mapId: t.string().default(TUTORIAL_FOREST_MAP_ID),
+    controllerTabId: t.string().default(""),
   },
 );
 
@@ -726,6 +727,7 @@ function isDeveloperIdentity(identity: any) {
 }
 
 function requireDeveloper(ctx: any) {
+  requireControllingPlayer(ctx);
   if (!isDeveloperIdentity(ctx.sender) || !hasSpacetimeAuthAccount(ctx)) {
     throw new SenderError("Developer access required.");
   }
@@ -1242,7 +1244,7 @@ function clearExpiredHistory(ctx: any) {
   trimChatHistory(ctx);
 }
 
-function enterWorldPresence(ctx: any, tabId: string) {
+function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   const session = requireSupportedSessionProtocol(ctx);
   if (!ctx.connectionId) return;
   const normalizedTabId = tabId.trim();
@@ -1253,7 +1255,8 @@ function enterWorldPresence(ctx: any, tabId: string) {
     const controllerSession = ctx.db.playerSession.connectionId.find(controller.connectionId);
     const sameTab = controllerSession?.tabId && controllerSession.tabId === normalizedTabId;
     if (controllerSession?.enteredWorld && !sameTab) {
-      throw new SenderError("Wildwood is active in another tab.");
+      if (!forceTakeover) throw new SenderError("Wildwood is active in another tab.");
+      ctx.db.playerSession.connectionId.update({ ...controllerSession, enteredWorld: false });
     }
     ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: ctx.connectionId });
   } else if (!controller) {
@@ -1318,6 +1321,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
         moving: false,
         feetItem,
         protocolVersion: session.protocolVersion,
+        controllerTabId: normalizedTabId,
         lastInputAt: ctx.timestamp,
       });
       return;
@@ -1332,6 +1336,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
       moving: false,
       power: powerForProgress(existingProgress),
       protocolVersion: session.protocolVersion,
+      controllerTabId: normalizedTabId,
       lastInputAt: ctx.timestamp,
       lastInputSequence: 0,
       feetItem,
@@ -1354,6 +1359,7 @@ function enterWorldPresence(ctx: any, tabId: string) {
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
     protocolVersion: session.protocolVersion,
+    controllerTabId: normalizedTabId,
     feetItem,
   });
   adjustOnlinePlayers(ctx, 1);
@@ -1401,6 +1407,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
         lastInputAt: ctx.timestamp,
         lastInputSequence: replacement.lastInputSequence,
         protocolVersion: replacement.protocolVersion,
+        controllerTabId: replacement.tabId,
       });
     }
     return;
@@ -1535,10 +1542,15 @@ export const enterWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tab
   enterWorldPresence(ctx, tabId);
 });
 
+export const takeOverSession = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
+  requireSupportedSessionProtocol(ctx);
+  enterWorldPresence(ctx, tabId, true);
+});
+
 export const resumeSession = spacetimedb.reducer(
   {},
   (ctx) => {
-    requireSupportedSessionProtocol(ctx);
+    requireControllingPlayer(ctx);
   },
 );
 
@@ -1715,7 +1727,7 @@ export const claimGuestAccount = spacetimedb.reducer(
 export const setDisplayName = spacetimedb.reducer(
   { displayName: t.string() },
   (ctx, { displayName }) => {
-    const activePlayer = requireCurrentProtocol(ctx);
+    const activePlayer = requireControllingPlayer(ctx);
     const normalized = displayName.trim().replace(/\s+/g, " ");
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(normalized)) {
       throw new SenderError("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
@@ -1757,7 +1769,7 @@ export const devSetAccessAuditLabel = spacetimedb.reducer(
 export const setProfileIcon = spacetimedb.reducer(
   { profileIcon: t.u32() },
   (ctx, { profileIcon }) => {
-    requireCurrentProtocol(ctx);
+    requireControllingPlayer(ctx);
     if (!Number.isInteger(profileIcon) || profileIcon > 63) throw new SenderError("Profile icon must be between 0 and 63.");
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
@@ -1842,7 +1854,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     enemyKills: t.u32(),
   },
   (ctx, progress) => {
-    const activePlayer = requireCurrentProtocol(ctx);
+    const activePlayer = requireControllingPlayer(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const base = current ?? defaultPlayerProgress(ctx.sender);
     const bounded = (value: number, min: number, max: number, fallback: number) =>
@@ -1901,7 +1913,7 @@ export const savePlayerProgress = spacetimedb.reducer(
 export const beginAdventure = spacetimedb.reducer(
   {},
   (ctx) => {
-    requireCurrentProtocol(ctx);
+    requireControllingPlayer(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     if (current?.introComplete) return;
     if (current) ctx.db.playerProgress.identity.update({ ...current, introComplete: true });
@@ -1912,7 +1924,7 @@ export const beginAdventure = spacetimedb.reducer(
 export const resetPlayerProgress = spacetimedb.reducer(
   {},
   (ctx) => {
-    const activePlayer = requireCurrentProtocol(ctx);
+    const activePlayer = requireControllingPlayer(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     if (current) ctx.db.playerProgress.identity.update(next);
@@ -1933,7 +1945,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
 export const sendChatMessage = spacetimedb.reducer(
   { message: t.string() },
   (ctx, { message }) => {
-    requireCurrentProtocol(ctx);
+    requireControllingPlayer(ctx);
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) return;
 

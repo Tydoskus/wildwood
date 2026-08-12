@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.261": [
+    "Account sessions now reliably detect another active tab",
+    "Sign In Anyway securely transfers play to the current tab",
+    "Displaced tabs stop gameplay and cannot change account data",
+  ],
   "0.260": [
     "Portal placement and animation improved",
     "Dragon moved farther west",
