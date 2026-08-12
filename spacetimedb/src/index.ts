@@ -1053,7 +1053,11 @@ function regenerateIdleBosses(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
     if (!current.alive || current.hp <= 0 || current.hp >= current.maxHp) return;
-    if (current.lastDamageAtMicros === 0n || now - current.lastDamageAtMicros < BOSS_REGEN_DELAY_MICROS) return;
+    if (current.lastDamageAtMicros === 0n) {
+      update({ ...current, lastDamageAtMicros: now });
+      return;
+    }
+    if (now - current.lastDamageAtMicros < BOSS_REGEN_DELAY_MICROS) return;
     update({
       ...current,
       hp: Math.min(current.maxHp, current.hp + current.maxHp * BOSS_REGEN_FRACTION_PER_MAINTENANCE),
