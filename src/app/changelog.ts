@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.299": [
+    "Profile portraits now use a precise 3% center crop, removing the inset-frame look",
+  ],
   "0.298": [
     "Profile portrait grid seams were removed; UI frames now provide the clean black outline",
     "Player and enemy overhead labels are now fully opaque with thicker black outlines",

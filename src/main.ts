@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.298";
+  const GAME_VERSION = "0.299";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -132,6 +132,8 @@ import {
   const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v1";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const WORLD_HEALTH_BAR_HEIGHT = 15;
+  const PROFILE_PORTRAIT_ZOOM = 1.03;
+  const PROFILE_PORTRAIT_GRID = 8;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_CONE_WINDUP = .75;
@@ -2507,7 +2509,8 @@ import {
     const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
     const column = index % 8;
     const row = Math.floor(index / 8);
-    element.style.backgroundPosition = `${column / 7 * 100}% ${row / 7 * 100}%`;
+    const positionStep = PROFILE_PORTRAIT_ZOOM / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
+    element.style.backgroundPosition = `${column * positionStep}% ${row * positionStep}%`;
     element.dataset.profileIcon = String(index);
   }
 
@@ -2517,15 +2520,17 @@ import {
     if (!iconContext) return;
     iconContext.clearRect(0, 0, canvas.width, canvas.height);
     if (!profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
-    const cellWidth = profileIconSheet.naturalWidth / 8;
-    const cellHeight = profileIconSheet.naturalHeight / 8;
+    const cellWidth = profileIconSheet.naturalWidth / PROFILE_PORTRAIT_GRID;
+    const cellHeight = profileIconSheet.naturalHeight / PROFILE_PORTRAIT_GRID;
+    const insetX = cellWidth * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
+    const insetY = cellHeight * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
     iconContext.imageSmoothingEnabled = true;
     iconContext.drawImage(
       profileIconSheet,
-      (index % 8) * cellWidth,
-      Math.floor(index / 8) * cellHeight,
-      cellWidth,
-      cellHeight,
+      (index % PROFILE_PORTRAIT_GRID) * cellWidth + insetX,
+      Math.floor(index / PROFILE_PORTRAIT_GRID) * cellHeight + insetY,
+      cellWidth / PROFILE_PORTRAIT_ZOOM,
+      cellHeight / PROFILE_PORTRAIT_ZOOM,
       0,
       0,
       canvas.width,
@@ -2536,13 +2541,15 @@ import {
   function drawProfileIcon(identity: string | undefined, x: number, bottom: number, size = 15) {
     if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
     const index = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(identity) ?? 0)));
-    const cellW = profileIconSheet.naturalWidth / 8;
-    const cellH = profileIconSheet.naturalHeight / 8;
+    const cellW = profileIconSheet.naturalWidth / PROFILE_PORTRAIT_GRID;
+    const cellH = profileIconSheet.naturalHeight / PROFILE_PORTRAIT_GRID;
+    const insetX = cellW * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
+    const insetY = cellH * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(
       profileIconSheet,
-      (index % 8) * cellW, Math.floor(index / 8) * cellH, cellW, cellH,
+      (index % PROFILE_PORTRAIT_GRID) * cellW + insetX, Math.floor(index / PROFILE_PORTRAIT_GRID) * cellH + insetY, cellW / PROFILE_PORTRAIT_ZOOM, cellH / PROFILE_PORTRAIT_ZOOM,
       Math.round(x), Math.round(bottom - size), size, size,
     );
     ctx.restore();
