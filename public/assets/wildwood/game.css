@@ -633,6 +633,7 @@
   #chatPanel.is-large { width: min(420px, calc(100vw - 12px)); }
   #chatPanel:not(.is-large) #chatForm { display: none; }
   #chatPanel:not(.is-large) #topMeta { display: none; }
+  #chatPanel:not(.is-large) .chat-size-toggle { margin-left: auto; }
   #chatPanel:not(.is-large) #chatMessages { display: grid; align-content: end; }
   #chatPanel:not(.is-large) .chat-line { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 18px; }
   #chatPanel:not(.is-large) .chat-time,
