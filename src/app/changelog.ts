@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.277": [
+    "Live duel attacks now use the same server-recorded timeline as duel replays",
+    "Guest account links now preserve the earliest character join date",
+  ],
   "0.275": [
     "Duel replay buttons now have their own chat column and no longer overlap message timestamps",
   ],

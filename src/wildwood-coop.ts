@@ -133,9 +133,17 @@ export type DuelState = {
   endsAtMs: number;
   challengerHp: number;
   challengerMaxHp: number;
+  challengerDamage: number;
+  challengerArmor: number;
+  challengerAttackRate: number;
+  challengerRegen: number;
   challengerAttacks: number;
   opponentHp: number;
   opponentMaxHp: number;
+  opponentDamage: number;
+  opponentArmor: number;
+  opponentAttackRate: number;
+  opponentRegen: number;
   opponentAttacks: number;
 };
 
@@ -1287,9 +1295,17 @@ function upsertDuel(row: {
   endsAtMicros: bigint;
   challengerHp: number;
   challengerMaxHp: number;
+  challengerDamage: number;
+  challengerArmor: number;
+  challengerAttackRate: number;
+  challengerRegen: number;
   challengerAttacks: number;
   opponentHp: number;
   opponentMaxHp: number;
+  opponentDamage: number;
+  opponentArmor: number;
+  opponentAttackRate: number;
+  opponentRegen: number;
   opponentAttacks: number;
 }) {
   duels.set(row.id, {
@@ -1303,9 +1319,17 @@ function upsertDuel(row: {
     endsAtMs: Number(row.endsAtMicros / 1000n),
     challengerHp: row.challengerHp,
     challengerMaxHp: row.challengerMaxHp,
+    challengerDamage: row.challengerDamage,
+    challengerArmor: row.challengerArmor,
+    challengerAttackRate: row.challengerAttackRate,
+    challengerRegen: row.challengerRegen,
     challengerAttacks: row.challengerAttacks,
     opponentHp: row.opponentHp,
     opponentMaxHp: row.opponentMaxHp,
+    opponentDamage: row.opponentDamage,
+    opponentArmor: row.opponentArmor,
+    opponentAttackRate: row.opponentAttackRate,
+    opponentRegen: row.opponentRegen,
     opponentAttacks: row.opponentAttacks,
   });
   onChange?.();

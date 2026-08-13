@@ -43,6 +43,8 @@ import {
   DUEL_REPLAY_COUNTDOWN_SECONDS,
   DUEL_SHOT_LIFETIME,
   DUEL_SHOT_SPEED,
+  duelShotsAt,
+  duelTimelineState,
   duelStatLine,
   loadDuelPlatformArt,
   loadDuelSpaceBackground,
@@ -62,7 +64,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.275";
+  const GAME_VERSION = "0.277";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -263,7 +265,6 @@ import { formatCompactNumber } from "./ui/number-format";
   const particles = [];
   const damageNumbers = [];
   const projectiles = [];
-  const duelShots = [];
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
   const enemyShots = [];
   const enemies = [];
@@ -315,8 +316,7 @@ import { formatCompactNumber } from "./ui/number-format";
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
   let duelWasActive = false;
-  let lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
-  let lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
+  let liveDuelPresentation = null;
   let lastLocalDuelId = null;
   let visibleReplay = null;
   let replayMode = null;
@@ -1679,44 +1679,31 @@ import { formatCompactNumber } from "./ui/number-format";
     return isDueling() || duelResultHold || replayMode !== null;
   }
 
-  function spawnDuelShot(fromX, fromY, toX, toY, color) {
-    const distance = Math.hypot(toX - fromX, toY - fromY) || 1;
-    duelShots.push({
-      x: fromX,
-      y: fromY,
-      vx: (toX - fromX) / distance * DUEL_SHOT_SPEED,
-      vy: (toY - fromY) / distance * DUEL_SHOT_SPEED,
-      color,
-      life: DUEL_SHOT_LIFETIME,
-    });
+  function liveDuelPresentationState(duel) {
+    const durationSeconds = Math.max(0, (duel.endsAtMs - duel.startsAtMs) / 1000);
+    const elapsed = Math.max(0, Math.min(durationSeconds, (Date.now() - duel.startsAtMs) / 1000));
+    const state = duelTimelineState(duel, elapsed);
+    return { elapsed, state };
   }
 
-  function syncDuelAttacks(duel) {
-    if (lastDuelAttackCounts.id !== duel.id) {
-      lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
-      return;
+  function syncLiveDuelDamageNumbers(duel) {
+    const presentation = liveDuelPresentationState(duel);
+    const previous = liveDuelPresentation?.id === duel.id
+      ? liveDuelPresentation
+      : { id: duel.id, elapsed: 0, challengerHp: duel.challengerMaxHp, opponentHp: duel.opponentMaxHp };
+    if (presentation.elapsed >= previous.elapsed) {
+      const challengerDamage = previous.challengerHp - presentation.state.challengerHp;
+      const opponentDamage = previous.opponentHp - presentation.state.opponentHp;
+      if (challengerDamage > .01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
+      if (opponentDamage > .01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
     }
-    const challengerX = DUEL_ARENA.x - 120;
-    const opponentX = DUEL_ARENA.x + 120;
-    for (let i = lastDuelAttackCounts.challenger; i < duel.challengerAttacks; i++) {
-      spawnDuelShot(challengerX, DUEL_COMBAT_Y, opponentX, DUEL_COMBAT_Y, "#ffe36b");
-    }
-    for (let i = lastDuelAttackCounts.opponent; i < duel.opponentAttacks; i++) {
-      spawnDuelShot(opponentX, DUEL_COMBAT_Y, challengerX, DUEL_COMBAT_Y, "#ff8aa8");
-    }
-    lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
-  }
-
-  function syncDuelDamageNumbers(duel) {
-    if (lastDuelHealth.id !== duel.id) {
-      lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
-      return;
-    }
-    const challengerDamage = lastDuelHealth.challenger - duel.challengerHp;
-    const opponentDamage = lastDuelHealth.opponent - duel.opponentHp;
-    if (challengerDamage > .01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
-    if (opponentDamage > .01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
-    lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
+    liveDuelPresentation = {
+      id: duel.id,
+      elapsed: presentation.elapsed,
+      challengerHp: presentation.state.challengerHp,
+      opponentHp: presentation.state.opponentHp,
+    };
+    return presentation;
   }
 
   function showDuelResult(replay) {
@@ -1782,13 +1769,15 @@ import { formatCompactNumber } from "./ui/number-format";
       player.y = localState.y;
       player.facing = localState.facing ?? player.facing;
     }
+    const presentation = syncLiveDuelDamageNumbers(duel);
+    const localHp = localIsChallenger ? presentation.state.challengerHp : presentation.state.opponentHp;
     player.maxHp = localIsChallenger ? duel.challengerMaxHp : duel.opponentMaxHp;
-    player.hp = localIsChallenger ? duel.challengerHp : duel.opponentHp;
+    player.hp = duel.status === "finishing"
+      ? localIsChallenger ? duel.challengerHp : duel.opponentHp
+      : localHp;
     player.moving = false;
     duelWasActive = true;
     lastLocalDuelId = duel.id;
-    syncDuelAttacks(duel);
-    syncDuelDamageNumbers(duel);
     heldDuelScene = liveDuelScene(coop?.remotePlayers?.() || []) || heldDuelScene;
     coop.pulseDuel?.();
     return true;
@@ -1809,9 +1798,7 @@ import { formatCompactNumber } from "./ui/number-format";
       };
       duelWasActive = false;
       duelResultHold = true;
-      duelShots.length = 0;
-      lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
-      lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
+      liveDuelPresentation = null;
       if (lastLocalDuelId) {
         void coop?.loadDuelReplay?.(lastLocalDuelId).then((replay) => {
           if (replay) showDuelResult(replay);
@@ -2411,14 +2398,6 @@ import { formatCompactNumber } from "./ui/number-format";
       spiderHitBatchTimer = 0;
       enemyShots.length = 0;
     }
-    for (const shot of duelShots) {
-      shot.life -= dt;
-      shot.x += shot.vx * dt;
-      shot.y += shot.vy * dt;
-    }
-    for (let i = duelShots.length - 1; i >= 0; i--) {
-      if (duelShots[i].life <= 0) duelShots.splice(i, 1);
-    }
     updateParticles(dt);
     updateDamageNumbers(dt);
     updateCamera(dt);
@@ -2729,7 +2708,7 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.restore();
   }
 
-  function drawDuelShots(shots = duelShots) {
+  function drawDuelShots(shots) {
     for (const shot of shots) {
       ctx.fillStyle = shot.color;
       pixelCircle(shot.x - camera.x, shot.y - camera.y, 6);
@@ -3530,6 +3509,7 @@ import { formatCompactNumber } from "./ui/number-format";
   function liveDuelScene(remotePlayers) {
     const duel = activeDuel();
     if (!duel) return null;
+    const presentation = liveDuelPresentationState(duel);
     const localId = coop?.localIdentity?.();
     const remoteName = (identity) => {
       const visible = remotePlayers.find((other) => other.id === identity)?.name;
@@ -3540,7 +3520,9 @@ import { formatCompactNumber } from "./ui/number-format";
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
       name: identity === localId ? (coop?.localDisplayName?.() || "PLAYER") : remoteName(identity),
-      hp: isChallenger ? duel.challengerHp : duel.opponentHp,
+      hp: duel.status === "finishing"
+        ? isChallenger ? duel.challengerHp : duel.opponentHp
+        : isChallenger ? presentation.state.challengerHp : presentation.state.opponentHp,
       maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
       facing: isChallenger ? 0 : Math.PI,
       isLocal: identity === localId,
@@ -3548,30 +3530,37 @@ import { formatCompactNumber } from "./ui/number-format";
     return {
       challenger: actor(duel.challenger, true),
       opponent: actor(duel.opponent, false),
-      shots: duelShots,
-      countdown: duel.status === "countdown"
+      shots: liveDuelShots(duel, presentation),
+      countdown: Date.now() < duel.startsAtMs
         ? Math.max(1, Math.ceil((duel.startsAtMs - Date.now()) / 1000))
         : 0,
     };
   }
 
+  function timelineDuelShots(duel, elapsed, limits) {
+    return duelShotsAt({
+      challengerAttackRate: duel.challengerAttackRate,
+      opponentAttackRate: duel.opponentAttackRate,
+      challengerAttacks: limits.challengerAttacks,
+      opponentAttacks: limits.opponentAttacks,
+    }, elapsed, {
+      shotLifetime: DUEL_SHOT_LIFETIME,
+      shotSpeed: DUEL_SHOT_SPEED,
+      challengerFromX: DUEL_ARENA.x - 120,
+      opponentFromX: DUEL_ARENA.x + 120,
+      y: DUEL_COMBAT_Y,
+    });
+  }
+
+  function liveDuelShots(duel, presentation = liveDuelPresentationState(duel)) {
+    return timelineDuelShots(duel, presentation.elapsed, presentation.state);
+  }
+
   function replayDuelShots(replay, elapsed) {
-    const shots = [];
-    const addShots = (attackRate, attackCount, fromX, toX, color) => {
-      for (let attack = 1; attack <= attackCount; attack++) {
-        const age = elapsed - attack * attackRate;
-        if (age < 0 || age >= DUEL_SHOT_LIFETIME) continue;
-        const direction = Math.sign(toX - fromX);
-        shots.push({
-          x: fromX + direction * DUEL_SHOT_SPEED * age,
-          y: DUEL_COMBAT_Y,
-          color,
-        });
-      }
-    };
-    addShots(replay.challengerAttackRate, replay.challengerAttacks, DUEL_ARENA.x - 120, DUEL_ARENA.x + 120, "#ffe36b");
-    addShots(replay.opponentAttackRate, replay.opponentAttacks, DUEL_ARENA.x + 120, DUEL_ARENA.x - 120, "#ff8aa8");
-    return shots;
+    return timelineDuelShots(replay, elapsed, {
+      challengerAttacks: replay.challengerAttacks,
+      opponentAttacks: replay.opponentAttacks,
+    });
   }
 
   function replayDuelScene() {
@@ -3671,7 +3660,6 @@ import { formatCompactNumber } from "./ui/number-format";
 
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
-    drawDuelShots();
     drawDepthSortedWorld(remotePlayers);
     drawParticles();
     drawDamageNumbers();

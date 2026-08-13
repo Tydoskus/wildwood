@@ -42,6 +42,7 @@ import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
+import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
@@ -267,6 +268,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
+  __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_world", EnterWorldReducer),

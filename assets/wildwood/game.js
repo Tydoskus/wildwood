@@ -18,6 +18,10 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.277": [
+      "Live duel attacks now use the same server-recorded timeline as duel replays",
+      "Guest account links now preserve the earliest character join date"
+    ],
     "0.275": [
       "Duel replay buttons now have their own chat column and no longer overlap message timestamps"
     ],
@@ -810,38 +814,70 @@
   function duelStatLine(subject, attacks, damage, regen, blocked) {
     return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>ATTACKED ${attacks} TIMES<br>DID ${Math.round(damage)} DMG<br>REGENERATED ${Math.round(regen)} HP<br>BLOCKED ${Math.round(blocked)} DMG</div>`;
   }
-  function replayState(replay, seconds) {
-    const elapsed = Math.min(replay.durationSeconds, seconds);
+  function duelShotsAt(duel, elapsed, options) {
+    const shots = [];
+    const addShots = (attackRate, attackCount, fromX, toX, color) => {
+      const interval = Math.max(1e-3, attackRate);
+      const limit = Math.max(0, Math.floor(attackCount));
+      const firstVisibleAttack = Math.max(1, Math.ceil((elapsed - options.shotLifetime) / interval));
+      const lastVisibleAttack = Math.min(limit, Math.floor((elapsed + 1e-5) / interval));
+      const direction = Math.sign(toX - fromX);
+      for (let attack = firstVisibleAttack; attack <= lastVisibleAttack; attack++) {
+        const age = elapsed - attack * interval;
+        if (age < 0 || age >= options.shotLifetime) continue;
+        shots.push({
+          x: fromX + direction * options.shotSpeed * age,
+          y: options.y,
+          color
+        });
+      }
+    };
+    addShots(duel.challengerAttackRate, duel.challengerAttacks, options.challengerFromX, options.opponentFromX, "#ffe36b");
+    addShots(duel.opponentAttackRate, duel.opponentAttacks, options.opponentFromX, options.challengerFromX, "#ff8aa8");
+    return shots;
+  }
+  function duelTimelineState(duel, seconds, limits = {}) {
+    const elapsed = Math.max(0, seconds);
     let time = 0;
-    let challengerHp = replay.challengerMaxHp;
-    let opponentHp = replay.opponentMaxHp;
+    let challengerHp = duel.challengerMaxHp;
+    let opponentHp = duel.opponentMaxHp;
     let challengerAttacks = 0;
     let opponentAttacks = 0;
-    const challengerRate = Math.max(1e-3, replay.challengerAttackRate);
-    const opponentRate = Math.max(1e-3, replay.opponentAttackRate);
+    const challengerRate = Math.max(1e-3, duel.challengerAttackRate);
+    const opponentRate = Math.max(1e-3, duel.opponentAttackRate);
+    const challengerLimit = Number.isFinite(limits.challengerAttacks) ? Math.max(0, Math.floor(limits.challengerAttacks)) : Infinity;
+    const opponentLimit = Number.isFinite(limits.opponentAttacks) ? Math.max(0, Math.floor(limits.opponentAttacks)) : Infinity;
     while (time < elapsed && challengerHp > 0 && opponentHp > 0) {
-      const nextChallengerAttack = challengerAttacks < replay.challengerAttacks ? (challengerAttacks + 1) * challengerRate : Infinity;
-      const nextOpponentAttack = opponentAttacks < replay.opponentAttacks ? (opponentAttacks + 1) * opponentRate : Infinity;
+      const nextChallengerAttack = challengerAttacks < challengerLimit ? (challengerAttacks + 1) * challengerRate : Infinity;
+      const nextOpponentAttack = opponentAttacks < opponentLimit ? (opponentAttacks + 1) * opponentRate : Infinity;
       const nextEvent = Math.min(elapsed, nextChallengerAttack, nextOpponentAttack);
       const delta = nextEvent - time;
-      challengerHp = Math.min(replay.challengerMaxHp, challengerHp + replay.challengerRegen * delta);
-      opponentHp = Math.min(replay.opponentMaxHp, opponentHp + replay.opponentRegen * delta);
+      challengerHp = Math.min(duel.challengerMaxHp, challengerHp + duel.challengerRegen * delta);
+      opponentHp = Math.min(duel.opponentMaxHp, opponentHp + duel.opponentRegen * delta);
       time = nextEvent;
-      const challengerHits = nextChallengerAttack <= time + 1e-5 && challengerAttacks < replay.challengerAttacks;
-      const opponentHits = nextOpponentAttack <= time + 1e-5 && opponentAttacks < replay.opponentAttacks;
-      const challengerDamage = challengerHits ? damageAfterArmor(replay.challengerDamage, replay.opponentArmor) : 0;
-      const opponentDamage = opponentHits ? damageAfterArmor(replay.opponentDamage, replay.challengerArmor) : 0;
+      const challengerHits = nextChallengerAttack <= time + 1e-5 && challengerAttacks < challengerLimit;
+      const opponentHits = nextOpponentAttack <= time + 1e-5 && opponentAttacks < opponentLimit;
+      const challengerDamage = challengerHits ? damageAfterArmor(duel.challengerDamage, duel.opponentArmor) : 0;
+      const opponentDamage = opponentHits ? damageAfterArmor(duel.opponentDamage, duel.challengerArmor) : 0;
       opponentHp = Math.max(0, opponentHp - challengerDamage);
       challengerHp = Math.max(0, challengerHp - opponentDamage);
       if (challengerHits) challengerAttacks += 1;
       if (opponentHits) opponentAttacks += 1;
       if (!challengerHits && !opponentHits) break;
     }
-    if (elapsed >= replay.durationSeconds) {
-      challengerHp = replay.challengerFinalHp;
-      opponentHp = replay.opponentFinalHp;
-    }
     return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
+  }
+  function replayState(replay, seconds) {
+    const elapsed = Math.min(replay.durationSeconds, seconds);
+    const state = duelTimelineState(replay, elapsed, {
+      challengerAttacks: replay.challengerAttacks,
+      opponentAttacks: replay.opponentAttacks
+    });
+    if (elapsed >= replay.durationSeconds) {
+      state.challengerHp = replay.challengerFinalHp;
+      state.opponentHp = replay.opponentFinalHp;
+    }
+    return state;
   }
   const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
   const CHAT_DISPLAY_TTL_MS = 108e5;
@@ -1127,7 +1163,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.275";
+    const GAME_VERSION = "0.277";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1323,7 +1359,6 @@
     const particles = [];
     const damageNumbers = [];
     const projectiles = [];
-    const duelShots = [];
     const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
     const enemyShots = [];
     const enemies = [];
@@ -1380,8 +1415,7 @@
     let pausedForUpgrade = false;
     let autoAttackEnabled = true;
     let duelWasActive = false;
-    let lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
-    let lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
+    let liveDuelPresentation = null;
     let lastLocalDuelId = null;
     let replayMode = null;
     let heldDuelScene = null;
@@ -2614,42 +2648,28 @@
     function isArenaScene() {
       return isDueling() || duelResultHold || replayMode !== null;
     }
-    function spawnDuelShot(fromX, fromY, toX, toY, color) {
-      const distance = Math.hypot(toX - fromX, toY - fromY) || 1;
-      duelShots.push({
-        x: fromX,
-        y: fromY,
-        vx: (toX - fromX) / distance * DUEL_SHOT_SPEED,
-        vy: (toY - fromY) / distance * DUEL_SHOT_SPEED,
-        color,
-        life: DUEL_SHOT_LIFETIME
-      });
+    function liveDuelPresentationState(duel) {
+      const durationSeconds = Math.max(0, (duel.endsAtMs - duel.startsAtMs) / 1e3);
+      const elapsed = Math.max(0, Math.min(durationSeconds, (Date.now() - duel.startsAtMs) / 1e3));
+      const state = duelTimelineState(duel, elapsed);
+      return { elapsed, state };
     }
-    function syncDuelAttacks(duel) {
-      if (lastDuelAttackCounts.id !== duel.id) {
-        lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
-        return;
+    function syncLiveDuelDamageNumbers(duel) {
+      const presentation = liveDuelPresentationState(duel);
+      const previous = (liveDuelPresentation == null ? void 0 : liveDuelPresentation.id) === duel.id ? liveDuelPresentation : { id: duel.id, elapsed: 0, challengerHp: duel.challengerMaxHp, opponentHp: duel.opponentMaxHp };
+      if (presentation.elapsed >= previous.elapsed) {
+        const challengerDamage = previous.challengerHp - presentation.state.challengerHp;
+        const opponentDamage = previous.opponentHp - presentation.state.opponentHp;
+        if (challengerDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
+        if (opponentDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
       }
-      const challengerX = DUEL_ARENA.x - 120;
-      const opponentX = DUEL_ARENA.x + 120;
-      for (let i = lastDuelAttackCounts.challenger; i < duel.challengerAttacks; i++) {
-        spawnDuelShot(challengerX, DUEL_COMBAT_Y, opponentX, DUEL_COMBAT_Y, "#ffe36b");
-      }
-      for (let i = lastDuelAttackCounts.opponent; i < duel.opponentAttacks; i++) {
-        spawnDuelShot(opponentX, DUEL_COMBAT_Y, challengerX, DUEL_COMBAT_Y, "#ff8aa8");
-      }
-      lastDuelAttackCounts = { id: duel.id, challenger: duel.challengerAttacks, opponent: duel.opponentAttacks };
-    }
-    function syncDuelDamageNumbers(duel) {
-      if (lastDuelHealth.id !== duel.id) {
-        lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
-        return;
-      }
-      const challengerDamage = lastDuelHealth.challenger - duel.challengerHp;
-      const opponentDamage = lastDuelHealth.opponent - duel.opponentHp;
-      if (challengerDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x - 120, DUEL_COMBAT_Y, challengerDamage);
-      if (opponentDamage > 0.01) spawnDamageNumber(DUEL_ARENA.x + 120, DUEL_COMBAT_Y, opponentDamage);
-      lastDuelHealth = { id: duel.id, challenger: duel.challengerHp, opponent: duel.opponentHp };
+      liveDuelPresentation = {
+        id: duel.id,
+        elapsed: presentation.elapsed,
+        challengerHp: presentation.state.challengerHp,
+        opponentHp: presentation.state.opponentHp
+      };
+      return presentation;
     }
     function showDuelResult(replay) {
       var _a;
@@ -2705,13 +2725,13 @@
         player.y = localState.y;
         player.facing = localState.facing ?? player.facing;
       }
+      const presentation = syncLiveDuelDamageNumbers(duel);
+      const localHp = localIsChallenger ? presentation.state.challengerHp : presentation.state.opponentHp;
       player.maxHp = localIsChallenger ? duel.challengerMaxHp : duel.opponentMaxHp;
-      player.hp = localIsChallenger ? duel.challengerHp : duel.opponentHp;
+      player.hp = duel.status === "finishing" ? localIsChallenger ? duel.challengerHp : duel.opponentHp : localHp;
       player.moving = false;
       duelWasActive = true;
       lastLocalDuelId = duel.id;
-      syncDuelAttacks(duel);
-      syncDuelDamageNumbers(duel);
       heldDuelScene = liveDuelScene(((_b2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _b2.call(coop)) || []) || heldDuelScene;
       (_c2 = coop.pulseDuel) == null ? void 0 : _c2.call(coop);
       return true;
@@ -2731,9 +2751,7 @@
         };
         duelWasActive = false;
         duelResultHold = true;
-        duelShots.length = 0;
-        lastDuelAttackCounts = { id: null, challenger: 0, opponent: 0 };
-        lastDuelHealth = { id: null, challenger: 0, opponent: 0 };
+        liveDuelPresentation = null;
         if (lastLocalDuelId) {
           void ((_b2 = coop == null ? void 0 : coop.loadDuelReplay) == null ? void 0 : _b2.call(coop, lastLocalDuelId).then((replay) => {
             if (replay) showDuelResult(replay);
@@ -3269,14 +3287,6 @@
         spiderHitBatchTimer = 0;
         enemyShots.length = 0;
       }
-      for (const shot of duelShots) {
-        shot.life -= dt;
-        shot.x += shot.vx * dt;
-        shot.y += shot.vy * dt;
-      }
-      for (let i = duelShots.length - 1; i >= 0; i--) {
-        if (duelShots[i].life <= 0) duelShots.splice(i, 1);
-      }
       updateParticles(dt);
       updateDamageNumbers(dt);
       updateCamera(dt);
@@ -3580,7 +3590,7 @@
       ctx.stroke();
       ctx.restore();
     }
-    function drawDuelShots(shots = duelShots) {
+    function drawDuelShots(shots) {
       for (const shot of shots) {
         ctx.fillStyle = shot.color;
         pixelCircle(shot.x - camera.x, shot.y - camera.y, 6);
@@ -4315,6 +4325,7 @@
       var _a;
       const duel = activeDuel();
       if (!duel) return null;
+      const presentation = liveDuelPresentationState(duel);
       const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       const remoteName = (identity) => {
         var _a2, _b2;
@@ -4328,7 +4339,7 @@
           x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
           y: DUEL_COMBAT_Y,
           name: identity === localId ? ((_a2 = coop == null ? void 0 : coop.localDisplayName) == null ? void 0 : _a2.call(coop)) || "PLAYER" : remoteName(identity),
-          hp: isChallenger ? duel.challengerHp : duel.opponentHp,
+          hp: duel.status === "finishing" ? isChallenger ? duel.challengerHp : duel.opponentHp : isChallenger ? presentation.state.challengerHp : presentation.state.opponentHp,
           maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
           facing: isChallenger ? 0 : Math.PI,
           isLocal: identity === localId
@@ -4337,27 +4348,32 @@
       return {
         challenger: actor(duel.challenger, true),
         opponent: actor(duel.opponent, false),
-        shots: duelShots,
-        countdown: duel.status === "countdown" ? Math.max(1, Math.ceil((duel.startsAtMs - Date.now()) / 1e3)) : 0
+        shots: liveDuelShots(duel, presentation),
+        countdown: Date.now() < duel.startsAtMs ? Math.max(1, Math.ceil((duel.startsAtMs - Date.now()) / 1e3)) : 0
       };
     }
+    function timelineDuelShots(duel, elapsed, limits) {
+      return duelShotsAt({
+        challengerAttackRate: duel.challengerAttackRate,
+        opponentAttackRate: duel.opponentAttackRate,
+        challengerAttacks: limits.challengerAttacks,
+        opponentAttacks: limits.opponentAttacks
+      }, elapsed, {
+        shotLifetime: DUEL_SHOT_LIFETIME,
+        shotSpeed: DUEL_SHOT_SPEED,
+        challengerFromX: DUEL_ARENA.x - 120,
+        opponentFromX: DUEL_ARENA.x + 120,
+        y: DUEL_COMBAT_Y
+      });
+    }
+    function liveDuelShots(duel, presentation = liveDuelPresentationState(duel)) {
+      return timelineDuelShots(duel, presentation.elapsed, presentation.state);
+    }
     function replayDuelShots(replay, elapsed) {
-      const shots = [];
-      const addShots = (attackRate, attackCount, fromX, toX, color) => {
-        for (let attack = 1; attack <= attackCount; attack++) {
-          const age = elapsed - attack * attackRate;
-          if (age < 0 || age >= DUEL_SHOT_LIFETIME) continue;
-          const direction = Math.sign(toX - fromX);
-          shots.push({
-            x: fromX + direction * DUEL_SHOT_SPEED * age,
-            y: DUEL_COMBAT_Y,
-            color
-          });
-        }
-      };
-      addShots(replay.challengerAttackRate, replay.challengerAttacks, DUEL_ARENA.x - 120, DUEL_ARENA.x + 120, "#ffe36b");
-      addShots(replay.opponentAttackRate, replay.opponentAttacks, DUEL_ARENA.x + 120, DUEL_ARENA.x - 120, "#ff8aa8");
-      return shots;
+      return timelineDuelShots(replay, elapsed, {
+        challengerAttacks: replay.challengerAttacks,
+        opponentAttacks: replay.opponentAttacks
+      });
     }
     function replayDuelScene() {
       const replay = replayMode.replay;
@@ -4448,7 +4464,6 @@
       drawAttackRange();
       for (const p of projectiles) drawProjectile(p, false);
       for (const p of enemyShots) drawProjectile(p, true);
-      drawDuelShots();
       drawDepthSortedWorld(remotePlayers);
       drawParticles();
       drawDamageNumbers();

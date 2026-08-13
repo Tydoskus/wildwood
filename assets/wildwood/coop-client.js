@@ -8212,6 +8212,10 @@ ${ty.variants.map(
   const DamageSpiderBatchReducer = {
     hits: t.u32()
   };
+  const DevRepairPlayerJoinedAtReducer = {
+    identity: t.identity(),
+    sourceIdentity: t.identity()
+  };
   const DevSetAccessAuditLabelReducer = {
     identity: t.identity(),
     label: t.string()
@@ -8641,6 +8645,7 @@ ${ty.variants.map(
     reducerSchema("damage_dragon", DamageDragonReducer),
     reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
     reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
+    reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
     reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
     reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
     reducerSchema("enter_world", EnterWorldReducer),
@@ -9621,9 +9626,17 @@ ${ty.variants.map(
       endsAtMs: Number(row.endsAtMicros / 1000n),
       challengerHp: row.challengerHp,
       challengerMaxHp: row.challengerMaxHp,
+      challengerDamage: row.challengerDamage,
+      challengerArmor: row.challengerArmor,
+      challengerAttackRate: row.challengerAttackRate,
+      challengerRegen: row.challengerRegen,
       challengerAttacks: row.challengerAttacks,
       opponentHp: row.opponentHp,
       opponentMaxHp: row.opponentMaxHp,
+      opponentDamage: row.opponentDamage,
+      opponentArmor: row.opponentArmor,
+      opponentAttackRate: row.opponentAttackRate,
+      opponentRegen: row.opponentRegen,
       opponentAttacks: row.opponentAttacks
     });
     onChange == null ? void 0 : onChange();

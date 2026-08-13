@@ -21,6 +21,9 @@ const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 const DEVELOPER_IDENTITY_HEX = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
 const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
+// Maincloud database owner. CLI maintenance calls run as this identity, while
+// in-game developer actions run as DEVELOPER_IDENTITY above.
+const DATABASE_OWNER_IDENTITY_HEX = "c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const PLAYER_SPAWN = { x: 360, y: 360 };
 const MAP_PORTALS = {
@@ -613,6 +616,10 @@ function finishLifetimeSession(ctx: any, identity: any) {
   });
 }
 
+function earlierTimestamp(first: Timestamp, second: Timestamp) {
+  return first.microsSinceUnixEpoch <= second.microsSinceUnixEpoch ? first : second;
+}
+
 function speedForBoots(bootsEquipped: boolean) {
   return PLAYER_SPEED + (bootsEquipped ? BOOTS_SPEED_BONUS : 0);
 }
@@ -806,6 +813,10 @@ function hasSpacetimeAuthAccount(ctx: any) {
 
 function isDeveloperIdentity(identity: any) {
   return identity?.toHexString?.().replace(/^0x/i, "").toLowerCase() === DEVELOPER_IDENTITY_HEX;
+}
+
+function isDatabaseOwnerIdentity(identity: any) {
+  return identity?.toHexString?.().replace(/^0x/i, "").toLowerCase() === DATABASE_OWNER_IDENTITY_HEX;
 }
 
 function requireDeveloper(ctx: any) {
@@ -1859,8 +1870,8 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestLifetime) {
       const nextLifetime = {
         identity: ctx.sender,
-        joinedAt: accountLifetime && accountLifetime.joinedAt.microsSinceUnixEpoch < guestLifetime.joinedAt.microsSinceUnixEpoch
-          ? accountLifetime.joinedAt
+        joinedAt: accountLifetime
+          ? earlierTimestamp(accountLifetime.joinedAt, guestLifetime.joinedAt)
           : guestLifetime.joinedAt,
         playedMicros: (accountLifetime?.playedMicros ?? 0n) + guestLifetime.playedMicros,
         sessionStartedAt: ctx.timestamp,
@@ -1922,7 +1933,7 @@ export const claimGuestAccount = spacetimedb.reducer(
         maxHp: nextProgress.maxHp,
         armor: nextProgress.armor,
         regen: nextProgress.regen,
-        playedMicros: accountLeaderboardEntry?.playedMicros ?? guestLeaderboardEntry?.playedMicros ?? 0n,
+        playedMicros: (accountLeaderboardEntry?.playedMicros ?? 0n) + (guestLeaderboardEntry?.playedMicros ?? 0n),
         isGuest: false,
       };
       if (accountLeaderboardEntry) ctx.db.leaderboardEntry.identity.update(nextLeaderboardEntry);
@@ -2026,6 +2037,27 @@ export const devSetAccessAuditLabel = spacetimedb.reducer(
     const current = ctx.db.playerAccessAudit.identity.find(identity);
     if (!current) throw new SenderError("Access audit row not found.");
     ctx.db.playerAccessAudit.identity.update({ ...current, label: normalized });
+  },
+);
+
+// Maintenance-only correction for legacy account links created before all
+// lifetime metadata was reliably transferred. This intentionally does not
+// require a live player controller so the developer can run it through the
+// authenticated SpacetimeDB CLI. It can only move a join date earlier.
+export const devRepairPlayerJoinedAt = spacetimedb.reducer(
+  { identity: t.identity(), sourceIdentity: t.identity() },
+  (ctx, { identity, sourceIdentity }) => {
+    if (!isDeveloperIdentity(ctx.sender) && !isDatabaseOwnerIdentity(ctx.sender)) {
+      throw new SenderError("Developer access required.");
+    }
+    if (sameIdentity(identity, sourceIdentity)) throw new SenderError("Source and target must differ.");
+    const targetLifetime = ctx.db.playerLifetime.identity.find(identity);
+    const sourceLifetime = ctx.db.playerLifetime.identity.find(sourceIdentity);
+    if (!targetLifetime || !sourceLifetime) throw new SenderError("Player lifetime row not found.");
+
+    const joinedAt = earlierTimestamp(targetLifetime.joinedAt, sourceLifetime.joinedAt);
+    if (joinedAt.microsSinceUnixEpoch === targetLifetime.joinedAt.microsSinceUnixEpoch) return;
+    ctx.db.playerLifetime.identity.update({ ...targetLifetime, joinedAt });
   },
 );
 
