@@ -9,6 +9,7 @@ export type PortalCutsceneFrame = {
   blackoutOpacity: number;
   portalIntensity: number;
   showDestination: boolean;
+  destinationOpacity: number;
 };
 
 type CutsceneViewport = { width: number; height: number };
@@ -49,6 +50,7 @@ export function createPortalCutscene() {
       blackoutOpacity: 0,
       portalIntensity: 0,
       showDestination: false,
+      destinationOpacity: 0,
     };
     elapsed += dt;
     const pan = clamp(elapsed / PAN_SECONDS, 0, 1);
@@ -76,6 +78,7 @@ export function createPortalCutscene() {
         ? .22 + (Math.sin(revealElapsed * 38) > -.15 ? .78 : 0)
         : 1;
     const finished = returnProgress === 1;
+    const destinationOpacity = clamp((revealElapsed - FLICKER_SECONDS) / .5, 0, 1);
     if (finished) {
       start = null;
       target = null;
@@ -87,7 +90,8 @@ export function createPortalCutscene() {
       camera,
       blackoutOpacity: returning ? 1 - returnEase : easeOutCubic(pan),
       portalIntensity,
-      showDestination: revealElapsed >= .2,
+      showDestination: destinationOpacity > 0,
+      destinationOpacity,
     };
   }
 

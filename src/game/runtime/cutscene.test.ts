@@ -19,20 +19,38 @@ describe("portal cutscene", () => {
     expect(pan.camera.x).toBeGreaterThan(20);
 
     const reveal = cutscene.update(2.1);
-    expect(reveal.showDestination).toBe(true);
+    expect(reveal.showDestination).toBe(false);
+    expect(reveal.destinationOpacity).toBe(0);
     expect(reveal.blackoutOpacity).toBe(1);
     expect(reveal.portalIntensity).toBeGreaterThan(0);
 
-    const holdFrame = cutscene.update(2);
+    const destinationFrame = cutscene.update(1.5);
+    expect(destinationFrame.showDestination).toBe(true);
+    expect(destinationFrame.destinationOpacity).toBeGreaterThan(0);
+
+    const holdFrame = cutscene.update(1.2);
     expect(holdFrame.returning).toBe(false);
 
-    const returnFrame = cutscene.update(.8);
+    const returnFrame = cutscene.update(.1);
     expect(returnFrame.returning).toBe(true);
     expect(returnFrame.blackoutOpacity).toBeLessThan(1);
 
     const end = cutscene.update(4);
     expect(end.finished).toBe(true);
     expect(cutscene.active).toBe(false);
+  });
+
+  it("fades the destination in only after portal activation completes", () => {
+    const cutscene = createPortalCutscene();
+    cutscene.begin({ x: 20, y: 40, zoom: .9 }, { x: 800, y: 600 }, { width: 400, height: 300 });
+
+    const activating = cutscene.update(4.6);
+    expect(activating.portalIntensity).toBeGreaterThan(0);
+    expect(activating.destinationOpacity).toBe(0);
+
+    const fadingIn = cutscene.update(.5);
+    expect(fadingIn.destinationOpacity).toBeGreaterThan(0);
+    expect(fadingIn.destinationOpacity).toBeLessThanOrEqual(1);
   });
 
   it("centers an edge portal instead of clamping the cinematic to world bounds", () => {

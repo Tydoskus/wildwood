@@ -31,7 +31,7 @@ export type WorldRendererOptions = {
   activePortal: () => Portal;
   portalIsUnlocked: () => boolean;
   portalRevealIntensity: () => number;
-  portalDestinationVisible: () => boolean;
+  portalDestinationOpacity: () => number;
   emptyDesertArch: EmptyArch;
   tutorialMapId: MapId;
   desertMapId: MapId;
@@ -128,8 +128,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const cutsceneActive = cutsceneIntensity >= 0;
     const portalIntensity = cutsceneActive ? cutsceneIntensity : options.portalIsUnlocked() ? 1 : 0;
     if (portalIntensity > 0 && options.portalSwirl.complete && options.portalSwirl.naturalWidth > 0) {
-      const frameStep = Math.floor(options.getGameTime() * 10) % 30;
-      const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
+      // Ease through the sprite sequence instead of abruptly reversing at
+      // either end. The swirl now settles into and out of each turn.
+      const cycle = options.getGameTime() / 3;
+      const sweep = .5 - Math.cos(cycle * TAU) * .5;
+      const frame = Math.round(sweep * 15);
       const cell = options.portalSwirl.naturalWidth / 4;
       const width = Math.round(portal.width * .59 * 1.265 * 1.05);
       const height = Math.round(portal.height * .75 * 1.265);
@@ -139,8 +142,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       ctx.restore();
     }
     ctx.drawImage(options.portalArch, Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height);
-    if ((cutsceneActive && !options.portalDestinationVisible()) || (!cutsceneActive && !options.portalIsUnlocked())) return;
+    const destinationOpacity = cutsceneActive ? options.portalDestinationOpacity() : options.portalIsUnlocked() ? 1 : 0;
+    if (destinationOpacity <= 0) return;
     ctx.save();
+    ctx.globalAlpha = destinationOpacity;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';

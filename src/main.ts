@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.307";
+  const GAME_VERSION = "0.309";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -357,7 +357,7 @@ import {
   const portalCutscene = createPortalCutscene();
   let portalCutsceneIntensity = -1;
   let portalCutsceneBlackoutOpacity = 0;
-  let portalCutsceneDestinationVisible = false;
+  let portalCutsceneDestinationOpacity = 0;
   let portalCutscenePreview = false;
   let queuedDragonResult: DragonResult | null = null;
 
@@ -629,7 +629,7 @@ import {
     activePortal,
     portalIsUnlocked,
     portalRevealIntensity: () => portalCutsceneIntensity,
-    portalDestinationVisible: () => portalCutsceneDestinationVisible,
+    portalDestinationOpacity: () => portalCutsceneDestinationOpacity,
     emptyDesertArch: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,
@@ -1335,7 +1335,7 @@ import {
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, { width: viewW, height: viewH });
     portalCutsceneIntensity = 0;
     portalCutsceneBlackoutOpacity = 0;
-    portalCutsceneDestinationVisible = false;
+    portalCutsceneDestinationOpacity = 0;
     portalCutscenePreview = preview;
     keys.clear();
     touchMove.active = false;
@@ -1350,12 +1350,12 @@ import {
     camera.zoom = frame.camera.zoom;
     portalCutsceneIntensity = frame.portalIntensity;
     portalCutsceneBlackoutOpacity = frame.blackoutOpacity;
-    portalCutsceneDestinationVisible = frame.showDestination;
+    portalCutsceneDestinationOpacity = frame.destinationOpacity;
     if (!frame.finished) return true;
 
     portalCutsceneIntensity = -1;
     portalCutsceneBlackoutOpacity = 0;
-    portalCutsceneDestinationVisible = false;
+    portalCutsceneDestinationOpacity = 0;
     cutsceneOverlayEl.hidden = true;
     document.body.classList.remove("is-cutscene");
     const wasPreview = portalCutscenePreview;
