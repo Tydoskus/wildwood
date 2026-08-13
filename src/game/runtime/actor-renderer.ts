@@ -229,12 +229,11 @@ export function createActorRenderer(options: {
 
     const reward = REWARD_DATA[enemy.reward.type];
     const visualRadius = Math.max(enemy.r, spriteHeight / 2);
-    const labelClearance = Math.max(0, Math.min(14, (visualRadius - 18) * .55));
-    const rewardY = y + visualRadius + 10 + labelClearance;
+    const rewardY = y + visualRadius + 10;
     const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26));
     const barH = options.worldHealthBarHeight;
     const barX = Math.round(x - barW / 2);
-    const barY = Math.round(y - spriteHeight / 2 - 17 - labelClearance);
+    const barY = Math.round(y - spriteHeight / 2 - 17);
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))} HP`;
 
@@ -246,6 +245,7 @@ export function createActorRenderer(options: {
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
 
     ctx.save();
+    ctx.globalAlpha = 1;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
@@ -253,7 +253,7 @@ export function createActorRenderer(options: {
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
-    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1);
+    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 2);
 
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "top";

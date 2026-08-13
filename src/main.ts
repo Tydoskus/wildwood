@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.297";
+  const GAME_VERSION = "0.298";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -2637,6 +2637,8 @@ import {
   }
 
   function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
+    ctx.save();
+    ctx.globalAlpha = 1;
     const centerX = Math.round(x);
     const barW = 94;
     const barH = WORLD_HEALTH_BAR_HEIGHT;
@@ -2661,16 +2663,18 @@ import {
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 1);
+    outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 2);
     ctx.restore();
 
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
+    ctx.restore();
   }
 
   function drawPlayerIdentity(_identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) {
     if (!name) return;
     const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
     ctx.save();
+    ctx.globalAlpha = 1;
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
     const nameWidth = ctx.measureText(name).width;
@@ -2681,15 +2685,15 @@ import {
       const playerName = name.slice(developerPrefix.length);
       const prefixWidth = ctx.measureText(developerPrefix).width;
       ctx.textAlign = "left";
-      outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 1);
-      outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 1);
+      outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 2);
+      outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 2);
     } else {
       ctx.textAlign = "center";
-      outlinedText(name, centerX, nameBottom, color, 1);
+      outlinedText(name, centerX, nameBottom, color, 2);
     }
     if (powerLabel) {
       ctx.textAlign = "center";
-      outlinedText(powerLabel, centerX, bottom, "#ffe05d", 1);
+      outlinedText(powerLabel, centerX, bottom, "#ffe05d", 2);
     }
     ctx.restore();
   }

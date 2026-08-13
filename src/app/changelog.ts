@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.298": [
+    "Profile portrait grid seams were removed; UI frames now provide the clean black outline",
+    "Player and enemy overhead labels are now fully opaque with thicker black outlines",
+    "Large-enemy label spacing was restored to its original compact layout",
+  ],
   "0.297": [
     "Profile portraits now use white backgrounds and black outlines",
     "Profile, chat, and overhead player/enemy names now share the same rounded name font",
