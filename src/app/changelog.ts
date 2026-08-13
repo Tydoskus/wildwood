@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.291": [
+    "Player HUD and toolbar now share one clean border treatment without a shadow seam",
+  ],
   "0.290": [
     "Player name and health display now sit vertically centered in the HUD frame",
   ],
