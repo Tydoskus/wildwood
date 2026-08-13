@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.321";
+  const GAME_VERSION = "0.322";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -437,8 +437,21 @@ import {
   let loadingStageStartedAt = performance.now();
   let loadingStageTimer: number | null = null;
   let loadingSequenceComplete = false;
+  let pageLoadComplete = document.readyState === "complete";
   let guestContinuationChosen = false;
   let accountSignInPending = false;
+
+  if (!pageLoadComplete) {
+    window.addEventListener("load", () => {
+      pageLoadComplete = true;
+      updateLoadingDetail();
+      finishStartup();
+      const account = coop?.accountState?.();
+      if (!hasStarted && account?.sessionConflict) showSessionConflict();
+      else if (!hasStarted && account?.returningFromSignIn) showSigningIn();
+      else if (!hasStarted && !account?.signedIn && !account?.authInProgress) showAccountChoice();
+    }, { once: true });
+  }
 
   const player: PlayerState = {
     x: 360,
@@ -908,12 +921,13 @@ import {
       showSessionConflict();
       return;
     }
-    if (hasStarted || running || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !portalArchSettled || !portalSwirlSettled || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
-      !coop?.isConnected?.()) return;
-    if (!account?.signedIn && !guestContinuationChosen) {
+    if (hasStarted || running) return;
+    if (!account?.signedIn && !account?.authInProgress && !account?.returningFromSignIn && !guestContinuationChosen && isSignInScreenReady()) {
       showAccountChoice();
       return;
     }
+    if (!pageLoadComplete || !loadingSequenceComplete || !playerSpriteReady || !treeSpritesheetReady || !portalArchSettled || !portalSwirlSettled || !duelSpaceBackgroundReady || !duelPlatformArtReady ||
+      !coop?.isConnected?.()) return;
     if (!progressLoaded || !coop?.localState?.()) return;
     if (account?.signedIn && !coop?.localProfileReady?.()) return;
     if (startupKind === "new") {
@@ -965,6 +979,10 @@ import {
   }
 
   function showAccountChoice() {
+    if (!isSignInScreenReady()) {
+      if (connectionPanel.hidden) showConnecting();
+      return;
+    }
     const accountState = coop?.accountState?.();
     const accountOptionsReady = Boolean(coop?.isConnected?.() || accountState?.signInRequired);
     const knownAccount = Boolean(accountState?.knownAccount);
@@ -1002,6 +1020,10 @@ import {
   }
 
   function showSigningIn() {
+    if (!isSignInScreenReady()) {
+      if (connectionPanel.hidden) showConnecting();
+      return;
+    }
     if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
     loadingStageTimer = null;
     loadingSequenceComplete = true;
@@ -1032,6 +1054,7 @@ import {
       ["LOADING SAVED PROGRESS", progressLoaded, 60],
       ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
       ["LOADING WORLD ART", treeSpritesheetReady && portalArchSettled && portalSwirlSettled && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
+      ["LOADING PAGE ART", pageLoadComplete, 97],
       ["STARTING WILDWOOD", true, 100],
     ];
     const [text, ready, percent] = stages[loadingStage];
@@ -1051,6 +1074,10 @@ import {
         finishStartup();
       }
     }, delay);
+  }
+
+  function isSignInScreenReady() {
+    return pageLoadComplete && playerSpriteReady && treeSpritesheetReady && portalArchSettled && portalSwirlSettled && duelSpaceBackgroundReady && duelPlatformArtReady;
   }
 
   function showNewPlayerIntro() {
