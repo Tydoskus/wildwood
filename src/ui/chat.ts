@@ -103,14 +103,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const match = /^(.+?) beat (.+?) in a duel\.$/.exec(message.message);
     if (!match || !localName) return null;
     const [, winner, loser] = match;
-    if (loser === localName) return { name: "DUEL RESULT", text: `YOU LOST TO ${winner}.` };
-    if (winner === localName) return { name: "DUEL RESULT", text: `YOU BEAT ${loser}.` };
+    if (loser === localName) return { name: loser, text: `${loser} lost to ${winner} in a duel.` };
     return null;
   }
 
   function displayNameFor(message: ChatMessage, localName: string | undefined) {
     if (message.replayId === 0n) return message.senderName;
-    return duelPresentation(message, localName)?.name ?? /^(.+?) (?:beat|and) /.exec(message.message)?.[1] ?? "DUEL RESULT";
+    return duelPresentation(message, localName)?.name ?? (message.senderName || "DUEL");
   }
 
   function refresh() {

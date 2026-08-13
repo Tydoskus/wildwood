@@ -1,5 +1,5 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
-  "0.309": [
+  "0.310": [
     "Game updates now show a clear handoff screen before the latest version loads",
     "Account sign-in keeps its loading state while your character opens",
     "Minimized World Chat reliably keeps the newest messages visible",
@@ -11,6 +11,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Duel replay chat opens player profiles from the name and portrait",
     "Activated portal swirl now eases smoothly through its animation",
     "Portal destination text now fades in after activation completes",
+    "Minimized chat now pins the newest message visibly at the top",
+    "Lost duels now read as a normal message from your player name",
   ],
   "0.302": [
     "Dragon portal cutscene now fades back to the player after the portal lights",
@@ -283,7 +285,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
-  "0.309": "AUG 13, 2026",
+  "0.310": "AUG 13, 2026",
 };
 
 export function releaseDate(version: string) {
