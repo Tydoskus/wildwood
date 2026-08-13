@@ -66,11 +66,12 @@ export function drawStartingPlayer(
   options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; skinTone?: number; feetItem?: string; alpha?: number; scale?: number },
 ) {
   const scale = options.scale ?? .6;
-  const frame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : Math.floor(options.gameTime * 2) % 4;
+  const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
+  const idleFrame = Math.floor(options.gameTime * 2) % 4;
   const gait = {
-    back: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 }, { x: 0, y: -3 }][frame] ?? { x: 0, y: 0 },
-    front: [{ x: 0, y: 0 }, { x: -1, y: -3 }, { x: -4, y: 0 }, { x: 2, y: 0 }][frame] ?? { x: 0, y: 0 },
-    head: [0, -2, -3, -2][frame] ?? 0,
+    back: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 }, { x: 0, y: -3 }][walkFrame] ?? { x: 0, y: 0 },
+    front: [{ x: 0, y: 0 }, { x: -1, y: -3 }, { x: -4, y: 0 }, { x: 2, y: 0 }][walkFrame] ?? { x: 0, y: 0 },
+    head: [0, -2, -3, -2][idleFrame] ?? 0,
   };
   const boots = options.feetItem === TRAILBLAZER_BOOTS;
   const backLeg = boots ? assets.bootsBackLeg : assets.basicBackLeg;

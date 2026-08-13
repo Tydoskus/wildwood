@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.333": [
+    "Starter-character idle now keeps both legs still while the head gently bobs.",
+  ],
   "0.332": [
     "Player appearance now uses modular dynamic skin, a held stone, Basic Paper Hat, and starter legs.",
     "Trailblazer Boots now switch the player appearance to the boot-leg set.",
