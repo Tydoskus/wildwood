@@ -22,27 +22,31 @@
 <body>
 <main>
   <h1>Sprite Aligner</h1>
-  <p>Built-in candidate animation with center guides. Pause on a frame, then tune offsets.</p>
+  <p>Built-in candidate animation with center guides. Arrow keys nudge offsets. Shift + arrow moves 5px.</p>
   <section class="controls">
     <label>Built-in candidate<select id="candidateSelect">
-      <option value="assets/wildwood/player-foxfolk-spritesheet-v3.png">Foxfolk</option>
-      <option value="assets/wildwood/player-mushroomfolk-spritesheet-v3.png">Mushroomfolk</option>
-      <option value="assets/wildwood/player-newtfolk-spritesheet-v3.png">Newtfolk</option>
-      <option value="assets/wildwood/wildwood-player-spritesheet-flat-v1.png">Original player</option>
+      <option value="assets/wildwood/player-foxfolk-spritesheet-outline-v1.png">Foxfolk</option>
+      <option value="assets/wildwood/player-mushroomfolk-spritesheet-outline-v1.png">Mushroomfolk</option>
+      <option value="assets/wildwood/player-newtfolk-spritesheet-outline-v1.png">Newtfolk</option>
+      <option value="assets/wildwood/wildwood-player-spritesheet-outline-v1.png">Original player</option>
     </select></label>
     <label>Or local PNG<input id="file" type="file" accept="image/png" /></label>
     <label>Direction<select id="direction">
       <option value="0">DOWN</option><option value="1">LEFT</option><option value="2">RIGHT</option><option value="3">UP</option>
     </select></label>
     <label>Frame<select id="frame"></select></label>
+    <label>Offset edit<select id="editScope">
+      <option value="frame">selected frame</option>
+      <option value="direction">direction · all 4 frames</option>
+    </select></label>
     <label>X offset <span id="xValue" class="value">0</span><input id="x" type="range" min="-50" max="50" value="0" /></label>
     <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-50" max="50" value="0" /></label>
     <label>Zoom <span id="zoomValue" class="value">1×</span><input id="zoom" type="range" min="1" max="4" value="1" /></label>
     <button id="playPause" type="button" aria-pressed="true">pause animation</button>
   </section>
-  <canvas id="canvas" width="680" height="680"></canvas>
+  <canvas id="canvas" width="680" height="680" tabindex="0" aria-label="Sprite preview. Click, then use arrow keys to nudge offsets."></canvas>
   <output id="result">Loading Foxfolk.</output>
-  <button id="copy" type="button">copy offsets</button>
+  <button id="copy" type="button">copy all character offsets</button>
 </main>
 <script>
   const reference = new Image();
@@ -50,8 +54,9 @@
   const candidate = new Image();
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
-  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), direction = document.getElementById("direction"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), zoom = document.getElementById("zoom"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
+  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), direction = document.getElementById("direction"), frame = document.getElementById("frame"), editScope = document.getElementById("editScope"), x = document.getElementById("x"), y = document.getElementById("y"), zoom = document.getElementById("zoom"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
   let playing = true;
+  let characterName = candidateSelect.options[candidateSelect.selectedIndex].text;
   const frameXOffsets = [[0, 14, 28, 41], [0, 16, 28, 34], [0, 16, 27, 40], [0, 14, 28, 41]];
   const rowYOffsets = [-6, 2, 2, 4];
   const centerXShift = -6;
@@ -59,6 +64,19 @@
   for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(column); option.textContent = `walk ${column + 1}`; frame.append(option); }
   function selectedFrameIndex() { return Number(direction.value) * 4 + Number(frame.value); }
   function syncFrameControls() { const adjustment = frameAdjustments[selectedFrameIndex()]; x.value = adjustment.x; y.value = adjustment.y; }
+  function affectedAdjustments() { return editScope.value === "direction" ? frameAdjustments.slice(Number(direction.value) * 4, Number(direction.value) * 4 + 4) : [frameAdjustments[selectedFrameIndex()]]; }
+  function offsetTable() {
+    const rows = ["DOWN", "LEFT", "RIGHT", "UP"].map((name, row) => `  ${name.padEnd(5)} ${frameAdjustments.slice(row * 4, row * 4 + 4).map(({ x, y }) => `(${x}, ${y})`).join("  ")}`);
+    return `${characterName}\nsource-pixel offsets (x, y)\n${rows.join("\n")}`;
+  }
+  function setOffset(axis, value) {
+    if (editScope.value === "direction") {
+      const delta = value - frameAdjustments[selectedFrameIndex()][axis];
+      affectedAdjustments().forEach((adjustment) => { adjustment[axis] = Math.max(-50, Math.min(50, adjustment[axis] + delta)); });
+    } else frameAdjustments[selectedFrameIndex()][axis] = Math.max(-50, Math.min(50, value));
+    syncFrameControls(); draw();
+  }
+  function nudgeOffsets(dx, dy) { affectedAdjustments().forEach((adjustment) => { adjustment.x = Math.max(-50, Math.min(50, adjustment.x + dx)); adjustment.y = Math.max(-50, Math.min(50, adjustment.y + dy)); }); syncFrameControls(); draw(); }
   function value(id, value, suffix = "") { document.getElementById(id).textContent = `${value}${suffix}`; }
   function draw() {
     value("xValue", x.value); value("yValue", y.value); value("zoomValue", zoom.value, "×");
@@ -67,16 +85,24 @@
     ctx.imageSmoothingEnabled = false;
     if (candidate.complete && candidate.naturalWidth) ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + (frameXOffsets[row][walkFrame] + Number(x.value)) * sourceScale + centerXShift * rendererScale, top + Number(y.value) * sourceScale + rowYOffsets[row] * rendererScale, size, size);
     ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-    result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${candidateSelect.options[candidateSelect.selectedIndex].text}\nframe ${direction.options[direction.selectedIndex].text} · ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Loading candidate sheet.";
+    result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${characterName}\nframe ${direction.options[direction.selectedIndex].text} · ${frame.options[frame.selectedIndex].text}\nedit: ${editScope.options[editScope.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px\n\n${offsetTable()}` : "Loading candidate sheet.";
   }
   function resetAdjustments() { frameAdjustments.forEach((adjustment) => { adjustment.x = 0; adjustment.y = 0; }); syncFrameControls(); }
-  file.addEventListener("change", () => { const selected = file.files[0]; if (selected) { resetAdjustments(); candidate.src = URL.createObjectURL(selected); } });
-  candidateSelect.addEventListener("change", () => { resetAdjustments(); candidate.src = candidateSelect.value; });
+  file.addEventListener("change", () => { const selected = file.files[0]; if (selected) { characterName = selected.name.replace(/\.png$/i, ""); resetAdjustments(); candidate.src = URL.createObjectURL(selected); } });
+  candidateSelect.addEventListener("change", () => { characterName = candidateSelect.options[candidateSelect.selectedIndex].text; resetAdjustments(); candidate.src = candidateSelect.value; });
   candidate.addEventListener("load", draw); reference.addEventListener("load", draw);
   [direction, frame].forEach((control) => control.addEventListener("input", () => { syncFrameControls(); draw(); }));
-  [x, y].forEach((control) => control.addEventListener("input", () => { frameAdjustments[selectedFrameIndex()][control.id] = Number(control.value); draw(); }));
+  editScope.addEventListener("input", draw);
+  [x, y].forEach((control) => control.addEventListener("input", () => setOffset(control.id, Number(control.value))));
   zoom.addEventListener("input", draw);
-  document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(result.textContent); });
+  document.addEventListener("keydown", (event) => {
+    if (["INPUT", "SELECT", "BUTTON"].includes(document.activeElement.tagName)) return;
+    const amount = event.shiftKey ? 5 : 1;
+    const arrows = { ArrowLeft: [-amount, 0], ArrowRight: [amount, 0], ArrowUp: [0, -amount], ArrowDown: [0, amount] };
+    const nudge = arrows[event.key]; if (!nudge) return;
+    event.preventDefault(); nudgeOffsets(...nudge);
+  });
+  document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(offsetTable()); });
   candidate.src = candidateSelect.value;
   playPause.addEventListener("click", () => { playing = !playing; playPause.textContent = playing ? "pause animation" : "play animation"; playPause.setAttribute("aria-pressed", String(playing)); });
   window.setInterval(() => { if (!playing) return; frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; syncFrameControls(); draw(); }, 650);

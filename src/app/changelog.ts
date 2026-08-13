@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.331": [
+    "Player character sheets now have crisp black silhouette outlines.",
+    "Sprite Aligner can move a full four-frame direction, nudge with arrow keys, and copy its complete character offset table.",
+  ],
   "0.330": [
     "Sprite Aligner now previews the same frame anchors used in the game and tunes each frame separately.",
   ],
@@ -310,6 +314,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
+  "0.331": "AUG 13, 2026",
   "0.330": "AUG 13, 2026",
   "0.329": "AUG 13, 2026",
   "0.328": "AUG 13, 2026",
