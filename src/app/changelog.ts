@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.273": [
+    "Duel replay buttons in World Chat now use a larger two-line tap target",
+    "Live duels now show the challenged player's correct name immediately",
+    "Enemies now respawn on schedule even when a player remains near their spawn",
+    "Enemy score values and death-screen score and kill totals were removed",
+  ],
   "0.272": [
     "Player profiles now include a Duel button",
     "Duels start immediately against any player from anywhere without requiring acceptance",

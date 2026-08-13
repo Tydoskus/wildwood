@@ -1,6 +1,5 @@
 export const TAU = Math.PI * 2;
 export const WORLD = { w: 4800, h: 4800 };
-export const ENEMY_RESPAWN_SAFE_DISTANCE = 420;
 export const BOSS_ENEMY_SAFE_DISTANCE = 900;
 export const BOSS_AGGRO_RANGE = 1150;
 export const BOSS_CONE_RANGE = 760;

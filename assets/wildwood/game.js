@@ -18,6 +18,12 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.273": [
+      "Duel replay buttons in World Chat now use a larger two-line tap target",
+      "Live duels now show the challenged player's correct name immediately",
+      "Enemies now respawn on schedule even when a player remains near their spawn",
+      "Enemy score values and death-screen score and kill totals were removed"
+    ],
     "0.272": [
       "Player profiles now include a Duel button",
       "Duels start immediately against any player from anywhere without requiring acceptance",
@@ -181,7 +187,6 @@
   const DEVELOPER_BADGE = "[DEV]";
   const TAU = Math.PI * 2;
   const WORLD = { w: 4800, h: 4800 };
-  const ENEMY_RESPAWN_SAFE_DISTANCE = 420;
   const BOSS_ENEMY_SAFE_DISTANCE = 900;
   const BOSS_AGGRO_RANGE = 1150;
   const BOSS_CONE_RANGE = 760;
@@ -329,8 +334,7 @@
       r: 14,
       color: "#d95738",
       outline: "#5c1b13",
-      reward: { type: "health", amount: 14 },
-      score: 4
+      reward: { type: "health", amount: 14 }
     },
     Needle: {
       hp: 90,
@@ -340,8 +344,7 @@
       r: 10,
       color: "#ffd34d",
       outline: "#6f4a12",
-      reward: { type: "speed", amount: 0.01 },
-      score: 1
+      reward: { type: "speed", amount: 0.01 }
     },
     Mossback: {
       hp: 380,
@@ -351,8 +354,7 @@
       r: 22,
       color: "#768d51",
       outline: "#2c3b20",
-      reward: { type: "armor", amount: 1 },
-      score: 1
+      reward: { type: "armor", amount: 1 }
     },
     Spitter: {
       hp: 24,
@@ -362,8 +364,7 @@
       r: 15,
       color: "#b16ac8",
       outline: "#4b235d",
-      reward: { type: "damage", amount: 1 },
-      score: 1
+      reward: { type: "damage", amount: 1 }
     },
     Brood: {
       hp: 220,
@@ -374,7 +375,6 @@
       color: "#45b6c2",
       outline: "#174a54",
       reward: { type: "regen", amount: 0.3 },
-      score: 1,
       ranged: true
     },
     Cindermaw: {
@@ -385,8 +385,7 @@
       r: 19,
       color: "#d95738",
       outline: "#5c1b13",
-      reward: { type: "damage", amount: 6 },
-      score: 1
+      reward: { type: "damage", amount: 6 }
     },
     "King Slime": {
       hp: 920,
@@ -397,7 +396,6 @@
       color: "#70a94f",
       outline: "#2d5127",
       reward: { type: "health", amount: 176 },
-      score: 1,
       elite: true,
       aggro: 300
     },
@@ -410,7 +408,6 @@
       color: "#a52e3a",
       outline: "#47101a",
       reward: { type: "damage", amount: 83 },
-      score: 1,
       elite: true,
       aggro: 350
     },
@@ -424,8 +421,7 @@
       r: 19,
       color: "#d6a13a",
       outline: "#5f3c18",
-      reward: { type: "damage", amount: 1200 },
-      score: 10
+      reward: { type: "damage", amount: 1200 }
     },
     "Dune Archer": {
       hp: 9e5,
@@ -436,7 +432,6 @@
       color: "#d5b04d",
       outline: "#61481d",
       reward: { type: "health", amount: 8500 },
-      score: 12,
       ranged: true
     },
     "Venom Guard": {
@@ -447,8 +442,7 @@
       r: 24,
       color: "#79d18b",
       outline: "#285a37",
-      reward: { type: "armor", amount: 150 },
-      score: 18
+      reward: { type: "armor", amount: 150 }
     },
     "Wastes Reaper": {
       hp: 5e6,
@@ -459,7 +453,6 @@
       color: "#8fe09a",
       outline: "#294f34",
       reward: { type: "damage", amount: 5e3 },
-      score: 30,
       ranged: true,
       elite: true,
       aggro: 300
@@ -473,7 +466,6 @@
       color: "#a5df79",
       outline: "#345426",
       reward: { type: "regen", amount: 220 },
-      score: 25,
       elite: true,
       aggro: 300
     }
@@ -1129,7 +1121,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.272";
+    const GAME_VERSION = "0.273";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1214,7 +1206,6 @@
     const newPlayerNameInput = document.getElementById("newPlayerNameInput");
     const beginAdventureBtn = document.getElementById("beginAdventureBtn");
     const overEl = document.getElementById("gameOver");
-    const finalScore = document.getElementById("finalScore");
     const joystickEl = document.getElementById("joystick");
     const stickEl = document.getElementById("stick");
     const bootUpgradeEl = document.getElementById("bootUpgrade");
@@ -1363,10 +1354,8 @@
     let hasStarted = false;
     let gameTime = 0;
     let last = performance.now();
-    let kills = 0;
     let totalKills = 0;
     let lifetimeKillsIdentity = "";
-    let score = 0;
     let flash = 0;
     let screenShake = 0;
     let screenShakeEnabled = true;
@@ -1692,8 +1681,6 @@
       particles.length = 0;
       damageNumbers.length = 0;
       gameTime = 0;
-      kills = 0;
-      score = 0;
       flash = 0;
       screenShake = 0;
       messageClock = 0;
@@ -1984,7 +1971,6 @@
         speed: base.speed,
         damage: base.damage,
         reward: base.reward,
-        score: base.score,
         aggroRadius: base.aggro ?? 0,
         leashRange: site.leashRange,
         engaged: false,
@@ -2012,15 +1998,8 @@
       }
     }
     function updateRespawns() {
-      const safeDistanceSq = ENEMY_RESPAWN_SAFE_DISTANCE * ENEMY_RESPAWN_SAFE_DISTANCE;
       for (const site of spawnSites) {
         if (!site.alive && site.respawnAt > 0 && gameTime >= site.respawnAt) {
-          const dx = site.x - player.x;
-          const dy = site.y - player.y;
-          if (dx * dx + dy * dy < safeDistanceSq) {
-            site.respawnAt = gameTime + 5;
-            continue;
-          }
           spawnFromSite(site);
           spawnBurst(site.x, site.y, "#76d978", 8, 55);
         }
@@ -2142,7 +2121,6 @@
       const data = REWARD_DATA[reward.type];
       logPickup(rewardLabel(reward), data.color);
       spawnBurst(x, y, ENEMY_DEATH_PARTICLE_COLOR, 16, 110);
-      score += 20;
       saveProgress();
     }
     function resetBoss() {
@@ -2278,7 +2256,6 @@
       boss.dead = true;
       boss.cone = null;
       bossRain.length = 0;
-      score += 5e3;
       spawnBurst(boss.x, boss.y, ENEMY_DEATH_PARTICLE_COLOR, 64, 230);
     }
     function showDragonResult(result) {
@@ -2581,9 +2558,7 @@
     function killEnemy(e) {
       if (e.dead) return;
       e.dead = true;
-      kills++;
       totalKills++;
-      score += e.score;
       const base = ENEMY_TYPES[e.type];
       const site = spawnSites[e.siteId];
       if (site) {
@@ -4320,8 +4295,9 @@
       if (!duel) return null;
       const localId = (_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop);
       const remoteName = (identity) => {
-        var _a2;
-        return ((_a2 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a2.name) ?? "OPPONENT";
+        var _a2, _b2;
+        const visible = (_a2 = remotePlayers.find((other) => other.id === identity)) == null ? void 0 : _a2.name;
+        return visible || ((_b2 = coop == null ? void 0 : coop.playerDisplayName) == null ? void 0 : _b2.call(coop, identity)) || "OPPONENT";
       };
       const actor = (identity, isChallenger) => {
         var _a2;
@@ -5076,7 +5052,6 @@
     }
     function endGame() {
       running = false;
-      finalScore.textContent = `Survived ${Math.floor(gameTime / 60)}:${Math.floor(gameTime % 60).toString().padStart(2, "0")} · ${kills} kills · score ${score}`;
       overEl.style.display = "grid";
     }
     function updateScreenShakeSetting() {

@@ -9,7 +9,6 @@ export type EnemyDefinition = {
   color: string;
   outline: string;
   reward: { type: RewardType; amount: number };
-  score: number;
   aggro?: number;
   ranged?: boolean;
   elite?: boolean;
@@ -18,36 +17,36 @@ export type EnemyDefinition = {
 const enemyTypes = {
   Bramble: {
     hp: 42, speed: 210, damage: 14, attackSpeed: 1, r: 14,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 14 }, score: 4,
+    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 14 },
   },
   Needle: {
     hp: 90, speed: 210, damage: 24, attackSpeed: 1, r: 10,
-    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .01 }, score: 1,
+    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .01 },
   },
   Mossback: {
     hp: 380, speed: 210, damage: 29, attackSpeed: 1, r: 22,
-    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 }, score: 1,
+    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 },
   },
   Spitter: {
     hp: 24, speed: 210, damage: 48, attackSpeed: 1, r: 15,
-    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 }, score: 1,
+    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 },
   },
   Brood: {
     hp: 220, speed: 180, damage: 56, attackSpeed: .69, r: 16,
-    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, score: 1, ranged: true,
+    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, ranged: true,
   },
   Cindermaw: {
     hp: 360, speed: 210, damage: 86, attackSpeed: 1, r: 19,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "damage", amount: 6 }, score: 1,
+    color: "#d95738", outline: "#5c1b13", reward: { type: "damage", amount: 6 },
   },
   "King Slime": {
     hp: 920, speed: 190, damage: 143, attackSpeed: 1, r: 27,
-    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 176 }, score: 1,
+    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 176 },
     elite: true, aggro: 300,
   },
   "Dread Warden": {
     hp: 1000, speed: 220, damage: 275, attackSpeed: 1, r: 36,
-    color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 83 }, score: 1,
+    color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 83 },
     elite: true, aggro: 350,
   },
 
@@ -55,25 +54,25 @@ const enemyTypes = {
   // Balance these values directly: hp, speed, damage, attackSpeed, and reward.
   "Dune Raider": {
     hp: 1_200_000, speed: 220, damage: 20_000, attackSpeed: .65, r: 19,
-    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: 1200 }, score: 10,
+    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: 1200 },
   },
   "Dune Archer": {
     hp: 900_000, speed: 205, damage: 25_000, attackSpeed: .55, r: 17,
-    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 }, score: 12,
+    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 },
     ranged: true,
   },
   "Venom Guard": {
     hp: 2_600_000, speed: 195, damage: 32_000, attackSpeed: .55, r: 24,
-    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 }, score: 18,
+    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 },
   },
   "Wastes Reaper": {
     hp: 5_000_000, speed: 225, damage: 48_000, attackSpeed: .7, r: 31,
-    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: 5_000 }, score: 30,
+    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: 5_000 },
     ranged: true, elite: true, aggro: 300,
   },
   "Blight Oracle": {
     hp: 4_000_000, speed: 210, damage: 40_000, attackSpeed: .6, r: 29,
-    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 220 }, score: 25,
+    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 220 },
     elite: true, aggro: 300,
   },
 } satisfies Record<string, EnemyDefinition>;

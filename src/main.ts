@@ -14,7 +14,6 @@ import {
   BOSS_RAIN_RANGE,
   ENEMY_HIT_MIN_MOVE_SPEED,
   ENEMY_HIT_SPEED_RECOVERY_SECONDS,
-  ENEMY_RESPAWN_SAFE_DISTANCE,
   MAX_PROJECTILE_SPEED,
   MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
@@ -63,7 +62,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.272";
+  const GAME_VERSION = "0.273";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -150,7 +149,6 @@ import { formatCompactNumber } from "./ui/number-format";
   const newPlayerNameInput = document.getElementById("newPlayerNameInput");
   const beginAdventureBtn = document.getElementById("beginAdventureBtn");
   const overEl = document.getElementById("gameOver");
-  const finalScore = document.getElementById("finalScore");
   const joystickEl = document.getElementById("joystick");
   const stickEl = document.getElementById("stick");
   const bootUpgradeEl = document.getElementById("bootUpgrade");
@@ -303,10 +301,8 @@ import { formatCompactNumber } from "./ui/number-format";
   let hasStarted = false;
   let gameTime = 0;
   let last = performance.now();
-  let kills = 0;
   let totalKills = 0;
   let lifetimeKillsIdentity = "";
-  let score = 0;
   let flash = 0;
   let screenShake = 0;
   let screenShakeEnabled = true;
@@ -659,8 +655,6 @@ import { formatCompactNumber } from "./ui/number-format";
     damageNumbers.length = 0;
 
     gameTime = 0;
-    kills = 0;
-    score = 0;
     flash = 0;
     screenShake = 0;
     messageClock = 0;
@@ -984,7 +978,6 @@ import { formatCompactNumber } from "./ui/number-format";
       speed: base.speed,
       damage: base.damage,
       reward: base.reward,
-      score: base.score,
       aggroRadius: base.aggro ?? 0,
       leashRange: site.leashRange,
       engaged: false,
@@ -1017,17 +1010,8 @@ import { formatCompactNumber } from "./ui/number-format";
   }
 
   function updateRespawns() {
-    const safeDistanceSq = ENEMY_RESPAWN_SAFE_DISTANCE * ENEMY_RESPAWN_SAFE_DISTANCE;
-
     for (const site of spawnSites) {
       if (!site.alive && site.respawnAt > 0 && gameTime >= site.respawnAt) {
-        const dx = site.x - player.x;
-        const dy = site.y - player.y;
-        if (dx * dx + dy * dy < safeDistanceSq) {
-          site.respawnAt = gameTime + 5;
-          continue;
-        }
-
         spawnFromSite(site);
         spawnBurst(site.x, site.y, "#76d978", 8, 55);
       }
@@ -1162,7 +1146,6 @@ import { formatCompactNumber } from "./ui/number-format";
     const data = REWARD_DATA[reward.type];
     logPickup(rewardLabel(reward), data.color);
     spawnBurst(x, y, ENEMY_DEATH_PARTICLE_COLOR, 16, 110);
-    score += 20;
     saveProgress();
   }
 
@@ -1301,7 +1284,6 @@ import { formatCompactNumber } from "./ui/number-format";
     boss.dead = true;
     boss.cone = null;
     bossRain.length = 0;
-    score += 5000;
     spawnBurst(boss.x, boss.y, ENEMY_DEATH_PARTICLE_COLOR, 64, 230);
   }
 
@@ -1637,9 +1619,7 @@ import { formatCompactNumber } from "./ui/number-format";
   function killEnemy(e) {
     if (e.dead) return;
     e.dead = true;
-    kills++;
     totalKills++;
-    score += e.score;
 
     const base = ENEMY_TYPES[e.type];
     const site = spawnSites[e.siteId];
@@ -3532,7 +3512,10 @@ import { formatCompactNumber } from "./ui/number-format";
     const duel = activeDuel();
     if (!duel) return null;
     const localId = coop?.localIdentity?.();
-    const remoteName = (identity) => remotePlayers.find((other) => other.id === identity)?.name ?? "OPPONENT";
+    const remoteName = (identity) => {
+      const visible = remotePlayers.find((other) => other.id === identity)?.name;
+      return visible || coop?.playerDisplayName?.(identity) || "OPPONENT";
+    };
     const actor = (identity, isChallenger) => ({
       identity,
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
@@ -4341,7 +4324,6 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function endGame() {
     running = false;
-    finalScore.textContent = `Survived ${Math.floor(gameTime / 60)}:${Math.floor(gameTime % 60).toString().padStart(2,"0")} · ${kills} kills · score ${score}`;
     overEl.style.display = "grid";
   }
 
