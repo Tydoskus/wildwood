@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.278": [
+    "Replay results now use a compact custom play button",
+    "Minimized World Chat stays left-anchored and never exceeds half the screen width",
+    "Player and enemy overhead labels are larger, sharper, and centered",
+    "Multiplayer runtime upgraded to SpacetimeDB 2.8.1",
+  ],
   "0.277": [
     "Live duel attacks now use the same server-recorded timeline as duel replays",
     "Guest account links now preserve the earliest character join date",
