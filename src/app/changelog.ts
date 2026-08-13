@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.334": [
+    "Starter head and Basic Paper Hat now use the shared center anchor.",
+  ],
   "0.333": [
     "Starter-character idle now keeps both legs still while the head gently bobs.",
   ],

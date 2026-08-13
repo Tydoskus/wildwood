@@ -57,7 +57,7 @@
     { id: "helmet", label: "expansion helmet · front of head", anchorY: 118, anchor: "bottom", motion: "head" },
     { id: "hold", label: "held projectile · character 4 Shot.png", file: "Shot.png", baseX: 18, baseY: 112, character: "character_4" },
   ];
-  const defaults = Object.fromEntries(LAYERS.map((part) => [part.id, part.id === "head" ? { x: 4, y: 15 } : part.id === "helmet" ? { x: 4, y: 26 } : part.id === "chest" ? { x: 0, y: 11 } : { x: 0, y: 0 }]));
+  const defaults = Object.fromEntries(LAYERS.map((part) => [part.id, part.id === "head" ? { x: 0, y: 15 } : part.id === "helmet" ? { x: 0, y: 26 } : part.id === "chest" ? { x: 0, y: 11 } : { x: 0, y: 0 }]));
   const SKIN_TONES = [
     ["porcelain", "#f9dfd0"], ["fair", "#f2c8ac"], ["light", "#e9b58f"], ["warm beige", "#d99e76"], ["golden", "#c88358"],
     ["tan", "#ae6f48"], ["brown", "#8e5738"], ["deep brown", "#6d402a"], ["rich espresso", "#4f2d20"], ["deep umber", "#352017"],

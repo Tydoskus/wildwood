@@ -88,8 +88,8 @@ export function drawStartingPlayer(
   drawLayer(backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
-  ctx.save(); ctx.translate(90 - 61.75 / 2 + 4, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
-  drawLayer(assets.basicPaperHat, 90 - assets.basicPaperHat.naturalWidth / 2 + 4, 118 - assets.basicPaperHat.naturalHeight + 26 + gait.head);
+  ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
+  drawLayer(assets.basicPaperHat, 90 - assets.basicPaperHat.naturalWidth / 2, 118 - assets.basicPaperHat.naturalHeight + 26 + gait.head);
   drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + 18, 112);
   ctx.restore();
 }
