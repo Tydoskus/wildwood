@@ -24,7 +24,6 @@ import {
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
   WILDWOOD_SPACETIMEDB_DB_NAME?: string;
-  wildwoodCoop?: typeof wildwoodCoop;
 };
 
 export type RemotePlayer = {

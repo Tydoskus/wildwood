@@ -1,11 +1,7 @@
-// @ts-nocheck
-// Gradual TypeScript migration: existing game behavior stays unchanged.
-
 import { enforceLatestVersion } from "./app/version";
 import { recentReleaseNotes } from "./app/changelog";
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "./app/developer";
 import {
-  ATTACK_RANGE_ZOOM_REFERENCE,
   BASE_ATTACK_RANGE,
   BASE_PROJECTILE_SPEED,
   BOSS_AGGRO_RANGE,
@@ -15,7 +11,6 @@ import {
   ENEMY_HIT_MIN_MOVE_SPEED,
   ENEMY_HIT_SPEED_RECOVERY_SECONDS,
   MAX_PROJECTILE_SPEED,
-  MIN_CAMERA_ZOOM,
   PLAYER_KNOCKBACK_FORCE,
   PLAYER_SPRITE_CENTER_X_SHIFT,
   PLAYER_SPRITE_X_OFFSETS,
@@ -25,10 +20,33 @@ import {
   TAU,
   WORLD,
 } from "./game/constants";
-import { circlesOverlap, clamp, distanceSquared, rand, randi } from "./game/math";
+import { circlesOverlap, clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { inventoryFromSave, ITEM_DEFINITIONS, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, serialiseInventory, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
+import { createMapMusicController } from "./game/runtime/audio";
+import { createCamera, snapCameraToPlayer as snapRuntimeCamera, updateCamera as updateRuntimeCamera } from "./game/runtime/camera";
+import { createCombatEffects } from "./game/runtime/combat-effects";
+import { requiredCanvasContext, requiredElement, requiredSelector } from "./game/runtime/dom";
+import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
+import type {
+  BossCone,
+  DragonBossState,
+  EnemyShot,
+  EnemyState,
+  PlayerState,
+  Projectile,
+  SpiderBossState,
+  BossRainStrike,
+  DuelPresentation,
+  DuelReturnState,
+  DuelScene,
+  ReplayMode,
+  RuntimeDuelReplay,
+  RuntimeDuelState,
+  RuntimeReward,
+  SpiderVenomPool,
+} from "./game/runtime/types";
 import {
   BEGINNER_DESERT_MAP_ID,
   createSpawnSites,
@@ -36,6 +54,9 @@ import {
   loadTreeSpritesheet,
   TUTORIAL_FOREST_MAP_ID,
   type MapId,
+  type SpawnSite,
+  type WorldDecor,
+  type WorldPath,
 } from "./game/world";
 import {
   DUEL_ARENA,
@@ -60,6 +81,7 @@ import {
 import { createChatController } from "./ui/chat";
 import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 import { formatCompactNumber } from "./ui/number-format";
+import type { RemotePlayer, wildwoodCoop } from "./wildwood-coop";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -71,6 +93,19 @@ import {
 
 (() => {
   "use strict";
+
+  type PlayerProfile = NonNullable<ReturnType<typeof wildwoodCoop.playerProfile>>;
+  type DragonResult = NonNullable<ReturnType<typeof wildwoodCoop.dragonResult>>;
+  type SpiderResult = NonNullable<ReturnType<typeof wildwoodCoop.spiderResult>>;
+  type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
+  type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
+  type RockDecor = Extract<WorldDecor, { type: "rock" }>;
+  type DuneDecor = Extract<WorldDecor, { type: "dune" }>;
+  type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
+  type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
+  type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
+  type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
+  type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
   const GAME_VERSION = "0.277";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
@@ -96,185 +131,171 @@ import {
   const ENEMY_WANDER_RADIUS = 72;
   const ENEMY_WANDER_SPEED_RATIO = .28;
 
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const canvas = requiredElement<HTMLCanvasElement>("game");
+  const ctx = requiredCanvasContext(canvas, { alpha: false });
   ctx.imageSmoothingEnabled = false;
   const { outlinedText, pixelCircle, roundRect } = createCanvasPrimitives(ctx);
 
-  const hpFill = document.getElementById("hpFill");
-  const hpText = document.getElementById("hpText");
-  const playerNameEl = document.getElementById("playerName");
-  const playerPowerEl = document.getElementById("playerPower");
-  const playerHudProfileIcon = document.getElementById("playerHudProfileIcon");
-  const settingsBtn = document.getElementById("settingsBtn");
-  const inventoryBtn = document.getElementById("inventoryBtn");
-  const leaderboardBtn = document.getElementById("leaderboardBtn");
-  const devAuditBtn = document.getElementById("devAuditBtn");
-  const autoAttackBtn = document.getElementById("autoAttackBtn");
-  const settingsPanel = document.getElementById("settingsPanel");
-  const inventoryPanel = document.getElementById("inventoryPanel");
-  const inventoryItemsEl = document.getElementById("inventoryItems");
-  const inventoryDetailEl = document.getElementById("inventoryDetail");
-  const inventoryCountEl = document.getElementById("inventoryCount");
-  const equippedFeetSlot = document.getElementById("equippedFeetSlot");
-  const itemInspectEl = document.getElementById("itemInspect");
-  const closeItemInspectBtn = document.getElementById("closeItemInspectBtn");
-  const itemInspectIcon = document.getElementById("itemInspectIcon");
-  const itemInspectSlot = document.getElementById("itemInspectSlot");
-  const itemInspectName = document.getElementById("itemInspectName");
-  const itemInspectDescription = document.getElementById("itemInspectDescription");
-  const itemInspectStats = document.getElementById("itemInspectStats");
-  const screenShakeToggle = document.getElementById("screenShakeToggle");
-  const attackRangeToggle = document.getElementById("attackRangeToggle");
-  const latencyToggle = document.getElementById("latencyToggle");
-  const latencyStatusEl = document.getElementById("latencyStatus");
-  const musicVolumeInput = document.getElementById("musicVolume");
-  const musicVolumeValue = document.getElementById("musicVolumeValue");
-  const fullscreenToggle = document.getElementById("fullscreenToggle");
-  const connectionStatusEl = document.getElementById("connectionStatus");
-  const accountButton = document.getElementById("accountButton");
-  const accountStatusEl = document.getElementById("accountStatus");
-  const resetProgressBtn = document.getElementById("resetProgressBtn");
-  const messageEl = document.getElementById("message");
-  const pickupLog = document.getElementById("pickupLog");
-  const startEl = document.getElementById("start");
-  const connectionPanel = document.getElementById("connectionPanel");
-  const sessionTakeoverBtn = document.getElementById("sessionTakeoverBtn");
-  const sessionTakeoverNote = document.getElementById("sessionTakeoverNote");
-  const loadingDetail = document.getElementById("loadingDetail");
-  const loadingFill = document.getElementById("loadingFill");
-  const accountChoicePanel = document.getElementById("accountChoicePanel");
-  const accountChoiceDetail = document.getElementById("accountChoiceDetail");
-  const accountCharacter = document.getElementById("accountCharacter");
-  const accountCharacterName = document.getElementById("accountCharacterName");
-  const signInFromStartBtn = document.getElementById("signInFromStartBtn");
-  const continueGuestBtn = document.getElementById("continueGuestBtn");
-  const newPlayerPanel = document.getElementById("newPlayerPanel");
-  const newPlayerNameInput = document.getElementById("newPlayerNameInput");
-  const beginAdventureBtn = document.getElementById("beginAdventureBtn");
-  const overEl = document.getElementById("gameOver");
-  const joystickEl = document.getElementById("joystick");
-  const stickEl = document.getElementById("stick");
-  const bootUpgradeEl = document.getElementById("bootUpgrade");
-  const bootUpgradeClose = document.getElementById("bootUpgradeClose");
-  const coopStatusEl = document.getElementById("coopStatus");
-  const duelControls = document.getElementById("duelControls");
-  const duelStatusEl = document.getElementById("duelStatus");
-  const duelRequestBtn = document.getElementById("duelRequestBtn");
-  const duelAcceptBtn = document.getElementById("duelAcceptBtn");
-  const duelCountdownEl = document.getElementById("duelCountdown");
-  const duelResultEl = document.getElementById("duelResult");
-  const duelResultTitle = document.getElementById("duelResultTitle");
-  const duelResultStats = document.getElementById("duelResultStats");
-  const watchDuelReplayBtn = document.getElementById("watchDuelReplayBtn");
-  const closeDuelResultBtn = document.getElementById("closeDuelResultBtn");
-  const dragonResultEl = document.getElementById("dragonResult");
-  const dragonResultTotal = document.getElementById("dragonResultTotal");
-  const dragonResultContributors = document.getElementById("dragonResultContributors");
-  const closeDragonResultBtn = document.getElementById("closeDragonResultBtn");
-  const dragonWorldNoticeEl = document.getElementById("dragonWorldNotice");
-  const dragonWorldNoticeDetailEl = document.getElementById("dragonWorldNoticeDetail");
-  const duelReplayEl = document.getElementById("duelReplay");
-  const duelReplayTitle = document.getElementById("duelReplayTitle");
-  const closeDuelReplayBtn = document.getElementById("closeDuelReplayBtn");
-  const sceneFadeEl = document.getElementById("sceneFade");
-  const playerProfileEl = document.getElementById("playerProfile");
-  const playerProfileNameEl = document.getElementById("playerProfileName");
-  const playerProfilePresenceEl = document.getElementById("playerProfilePresence");
-  const playerProfilePowerEl = document.getElementById("playerProfilePower");
-  const playerProfileIcon = document.getElementById("playerProfileIcon");
-  const playerProfileLoadingEl = document.getElementById("playerProfileLoading");
-  const profileOverviewTab = document.getElementById("profileOverviewTab");
-  const profileStatsTab = document.getElementById("profileStatsTab");
-  const profileOverviewPanel = document.getElementById("profileOverviewPanel");
-  const profileStatsPanel = document.getElementById("profileStatsPanel");
-  const profileJoinedEl = document.getElementById("profileJoined");
-  const profileTimePlayedEl = document.getElementById("profileTimePlayed");
-  const profileKillsEl = document.getElementById("profileKills");
-  const profileOnlineEl = document.getElementById("profileOnline");
-  const profileStatGrid = document.getElementById("profileStatGrid");
-  const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
-  const editPlayerSaveBtn = document.getElementById("editPlayerSaveBtn");
-  const profileDuelBtn = document.getElementById("profileDuelBtn");
-  const profileEditPanel = document.getElementById("profileEditPanel");
-  const profileEditName = document.getElementById("profileEditName");
-  const profileEditMaxHp = document.getElementById("profileEditMaxHp");
-  const profileEditDamage = document.getElementById("profileEditDamage");
-  const profileEditAttackRate = document.getElementById("profileEditAttackRate");
-  const profileEditArmor = document.getElementById("profileEditArmor");
-  const profileEditRegen = document.getElementById("profileEditRegen");
-  const profileEditSpeed = document.getElementById("profileEditSpeed");
-  const profileEditAttackRange = document.getElementById("profileEditAttackRange");
-  const profileEditProjectileSpeed = document.getElementById("profileEditProjectileSpeed");
-  const profileEditProjectileCount = document.getElementById("profileEditProjectileCount");
-  const cancelPlayerSaveEditBtn = document.getElementById("cancelPlayerSaveEditBtn");
-  const savePlayerSaveEditBtn = document.getElementById("savePlayerSaveEditBtn");
-  const leaderboardEl = document.getElementById("leaderboard");
-  const leaderboardPowerTab = document.getElementById("leaderboardPowerTab");
-  const leaderboardDamageTab = document.getElementById("leaderboardDamageTab");
-  const leaderboardHealthTab = document.getElementById("leaderboardHealthTab");
-  const leaderboardArmorTab = document.getElementById("leaderboardArmorTab");
-  const leaderboardRegenTab = document.getElementById("leaderboardRegenTab");
-  const leaderboardTimeTab = document.getElementById("leaderboardTimeTab");
-  const leaderboardValueHeading = document.getElementById("leaderboardValueHeading");
-  const leaderboardRowsEl = document.getElementById("leaderboardRows");
-  const leaderboardEmptyEl = document.getElementById("leaderboardEmpty");
-  const closeLeaderboardBtn = document.getElementById("closeLeaderboardBtn");
-  const devAuditEl = document.getElementById("devAudit");
-  const devAuditRowsEl = document.getElementById("devAuditRows");
-  const devAuditEmptyEl = document.getElementById("devAuditEmpty");
-  const closeDevAuditBtn = document.getElementById("closeDevAuditBtn");
-  const updateNoticeEl = document.getElementById("updateNotice");
-  const updateNoticeTitleEl = document.getElementById("updateNoticeTitle");
-  const updateNoticeItemsEl = document.getElementById("updateNoticeItems");
-  const closeUpdateNoticeBtn = document.getElementById("closeUpdateNoticeBtn");
-  const signinVersionEl = document.getElementById("signinVersion");
-  const profileIconPickerEl = document.getElementById("profileIconPicker");
-  const profileIconChoices = document.getElementById("profileIconChoices");
-  const closeProfileIconPickerBtn = document.getElementById("closeProfileIconPickerBtn");
-  const gameUpdateGateEl = document.getElementById("gameUpdateGate");
+  const hpFill = requiredElement("hpFill");
+  const hpText = requiredElement("hpText");
+  const playerNameEl = requiredElement("playerName");
+  const playerPowerEl = requiredElement("playerPower");
+  const playerHudProfileIcon = requiredElement("playerHudProfileIcon");
+  const settingsBtn = requiredElement("settingsBtn");
+  const inventoryBtn = requiredElement("inventoryBtn");
+  const leaderboardBtn = requiredElement("leaderboardBtn");
+  const devAuditBtn = requiredElement("devAuditBtn");
+  const autoAttackBtn = requiredElement("autoAttackBtn");
+  const settingsPanel = requiredElement("settingsPanel");
+  const inventoryPanel = requiredElement("inventoryPanel");
+  const inventoryItemsEl = requiredElement("inventoryItems");
+  const inventoryDetailEl = requiredElement("inventoryDetail");
+  const inventoryCountEl = requiredElement("inventoryCount");
+  const equippedFeetSlot = requiredElement("equippedFeetSlot");
+  const itemInspectEl = requiredElement("itemInspect");
+  const closeItemInspectBtn = requiredElement("closeItemInspectBtn");
+  const itemInspectIcon = requiredElement("itemInspectIcon");
+  const itemInspectSlot = requiredElement("itemInspectSlot");
+  const itemInspectName = requiredElement("itemInspectName");
+  const itemInspectDescription = requiredElement("itemInspectDescription");
+  const itemInspectStats = requiredElement("itemInspectStats");
+  const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
+  const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
+  const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
+  const latencyStatusEl = requiredElement("latencyStatus");
+  const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
+  const musicVolumeValue = requiredElement("musicVolumeValue");
+  const fullscreenToggle = requiredElement<HTMLButtonElement>("fullscreenToggle");
+  const connectionStatusEl = requiredElement("connectionStatus");
+  const accountButton = requiredElement("accountButton");
+  const accountStatusEl = requiredElement("accountStatus");
+  const resetProgressBtn = requiredElement("resetProgressBtn");
+  const messageEl = requiredElement("message");
+  const pickupLog = requiredElement("pickupLog");
+  const startEl = requiredElement("start");
+  const connectionPanel = requiredElement("connectionPanel");
+  const sessionTakeoverBtn = requiredElement<HTMLButtonElement>("sessionTakeoverBtn");
+  const sessionTakeoverNote = requiredElement("sessionTakeoverNote");
+  const loadingDetail = requiredElement("loadingDetail");
+  const loadingFill = requiredElement("loadingFill");
+  const accountChoicePanel = requiredElement("accountChoicePanel");
+  const accountChoiceDetail = requiredElement("accountChoiceDetail");
+  const accountCharacter = requiredElement("accountCharacter");
+  const accountCharacterName = requiredElement("accountCharacterName");
+  const signInFromStartBtn = requiredElement<HTMLButtonElement>("signInFromStartBtn");
+  const continueGuestBtn = requiredElement<HTMLButtonElement>("continueGuestBtn");
+  const newPlayerPanel = requiredElement("newPlayerPanel");
+  const newPlayerNameInput = requiredElement<HTMLInputElement>("newPlayerNameInput");
+  const beginAdventureBtn = requiredElement("beginAdventureBtn");
+  const overEl = requiredElement("gameOver");
+  const joystickEl = requiredElement("joystick");
+  const stickEl = requiredElement("stick");
+  const bootUpgradeEl = requiredElement("bootUpgrade");
+  const bootUpgradeClose = requiredElement("bootUpgradeClose");
+  const coopStatusEl = requiredElement("coopStatus");
+  const duelControls = requiredElement("duelControls");
+  const duelStatusEl = requiredElement("duelStatus");
+  const duelRequestBtn = requiredElement("duelRequestBtn");
+  const duelAcceptBtn = requiredElement("duelAcceptBtn");
+  const duelCountdownEl = requiredElement("duelCountdown");
+  const duelResultEl = requiredElement("duelResult");
+  const duelResultTitle = requiredElement("duelResultTitle");
+  const duelResultStats = requiredElement("duelResultStats");
+  const watchDuelReplayBtn = requiredElement("watchDuelReplayBtn");
+  const closeDuelResultBtn = requiredElement("closeDuelResultBtn");
+  const dragonResultEl = requiredElement("dragonResult");
+  const dragonResultTitle = requiredElement("dragonResultTitle");
+  const dragonResultTotal = requiredElement("dragonResultTotal");
+  const dragonResultContributors = requiredElement("dragonResultContributors");
+  const closeDragonResultBtn = requiredElement("closeDragonResultBtn");
+  const dragonWorldNoticeEl = requiredElement("dragonWorldNotice");
+  const dragonWorldNoticeDetailEl = requiredElement("dragonWorldNoticeDetail");
+  const duelReplayEl = requiredElement("duelReplay");
+  const duelReplayTitle = requiredElement("duelReplayTitle");
+  const closeDuelReplayBtn = requiredElement("closeDuelReplayBtn");
+  const sceneFadeEl = requiredElement("sceneFade");
+  const playerProfileEl = requiredElement("playerProfile");
+  const playerProfileNameEl = requiredElement("playerProfileName");
+  const playerProfilePresenceEl = requiredElement("playerProfilePresence");
+  const playerProfilePowerEl = requiredElement("playerProfilePower");
+  const playerProfileIcon = requiredElement<HTMLButtonElement>("playerProfileIcon");
+  const playerProfileLoadingEl = requiredElement("playerProfileLoading");
+  const profileOverviewTab = requiredElement("profileOverviewTab");
+  const profileStatsTab = requiredElement("profileStatsTab");
+  const profileOverviewPanel = requiredElement("profileOverviewPanel");
+  const profileStatsPanel = requiredElement("profileStatsPanel");
+  const profileJoinedEl = requiredElement("profileJoined");
+  const profileTimePlayedEl = requiredElement("profileTimePlayed");
+  const profileKillsEl = requiredElement("profileKills");
+  const profileOnlineEl = requiredElement("profileOnline");
+  const profileStatGrid = requiredElement("profileStatGrid");
+  const closePlayerProfileBtn = requiredElement("closePlayerProfileBtn");
+  const editPlayerSaveBtn = requiredElement("editPlayerSaveBtn");
+  const profileDuelBtn = requiredElement<HTMLButtonElement>("profileDuelBtn");
+  const profileEditPanel = requiredElement("profileEditPanel");
+  const profileEditName = requiredElement<HTMLInputElement>("profileEditName");
+  const profileEditMaxHp = requiredElement<HTMLInputElement>("profileEditMaxHp");
+  const profileEditDamage = requiredElement<HTMLInputElement>("profileEditDamage");
+  const profileEditAttackRate = requiredElement<HTMLInputElement>("profileEditAttackRate");
+  const profileEditArmor = requiredElement<HTMLInputElement>("profileEditArmor");
+  const profileEditRegen = requiredElement<HTMLInputElement>("profileEditRegen");
+  const profileEditSpeed = requiredElement<HTMLInputElement>("profileEditSpeed");
+  const profileEditAttackRange = requiredElement<HTMLInputElement>("profileEditAttackRange");
+  const profileEditProjectileSpeed = requiredElement<HTMLInputElement>("profileEditProjectileSpeed");
+  const profileEditProjectileCount = requiredElement<HTMLInputElement>("profileEditProjectileCount");
+  const cancelPlayerSaveEditBtn = requiredElement("cancelPlayerSaveEditBtn");
+  const savePlayerSaveEditBtn = requiredElement<HTMLButtonElement>("savePlayerSaveEditBtn");
+  const leaderboardEl = requiredElement("leaderboard");
+  const leaderboardPowerTab = requiredElement("leaderboardPowerTab");
+  const leaderboardDamageTab = requiredElement("leaderboardDamageTab");
+  const leaderboardHealthTab = requiredElement("leaderboardHealthTab");
+  const leaderboardArmorTab = requiredElement("leaderboardArmorTab");
+  const leaderboardRegenTab = requiredElement("leaderboardRegenTab");
+  const leaderboardTimeTab = requiredElement("leaderboardTimeTab");
+  const leaderboardValueHeading = requiredElement("leaderboardValueHeading");
+  const leaderboardRowsEl = requiredElement("leaderboardRows");
+  const leaderboardEmptyEl = requiredElement("leaderboardEmpty");
+  const closeLeaderboardBtn = requiredElement("closeLeaderboardBtn");
+  const devAuditEl = requiredElement("devAudit");
+  const devAuditRowsEl = requiredElement("devAuditRows");
+  const devAuditEmptyEl = requiredElement("devAuditEmpty");
+  const closeDevAuditBtn = requiredElement("closeDevAuditBtn");
+  const updateNoticeEl = requiredElement("updateNotice");
+  const updateNoticeTitleEl = requiredElement("updateNoticeTitle");
+  const updateNoticeItemsEl = requiredElement("updateNoticeItems");
+  const closeUpdateNoticeBtn = requiredElement("closeUpdateNoticeBtn");
+  const signinVersionEl = requiredElement("signinVersion");
+  const profileIconPickerEl = requiredElement("profileIconPicker");
+  const profileIconChoices = requiredElement("profileIconChoices");
+  const closeProfileIconPickerBtn = requiredElement("closeProfileIconPickerBtn");
+  const gameUpdateGateEl = requiredElement("gameUpdateGate");
   const coop = window.wildwoodCoop || null;
   if (signinVersionEl) signinVersionEl.textContent = `v${GAME_VERSION}`;
 
-  const backgroundMusic = new Audio("assets/wildwood/audio/forest.mp3");
-  backgroundMusic.loop = true;
-  backgroundMusic.preload = "metadata";
-  let musicVolume = .35;
-  try {
-    const storedVolume = localStorage.getItem(MUSIC_VOLUME_KEY);
-    if (storedVolume !== null) {
-      const savedVolume = Number(storedVolume);
-      if (Number.isFinite(savedVolume)) musicVolume = clamp(savedVolume, 0, 1);
-    }
-  } catch {}
-  backgroundMusic.volume = musicVolume;
+  const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID);
+  let musicVolume = mapMusic.volume;
 
   function syncMapMusic() {
-    const nextSource = currentMapId === BEGINNER_DESERT_MAP_ID
-      ? "assets/wildwood/audio/desert.mp3"
-      : "assets/wildwood/audio/forest.mp3";
-    if (backgroundMusic.getAttribute("src") === nextSource) return;
-    const shouldResume = !backgroundMusic.paused;
-    backgroundMusic.src = nextSource;
-    backgroundMusic.load();
-    if (shouldResume && musicVolume > 0) void backgroundMusic.play().catch(() => {});
+    mapMusic.syncMap(currentMapId);
   }
 
   enforceLatestVersion(GAME_VERSION);
   window.setInterval(() => enforceLatestVersion(GAME_VERSION), 30_000);
   const keys = new Set();
-  const camera = { x: 0, y: 0, zoom: 1 };
-  const particles = [];
-  const damageNumbers = [];
-  const projectiles = [];
+  const camera = createCamera();
+  const effects = createCombatEffects();
+  const { particles, damageNumbers, spawnBurst, spawnDamageNumber } = effects;
+  const projectiles: Projectile[] = [];
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
-  const enemyShots = [];
-  const enemies = [];
-  const spawnSites = [];
-  const decor = [];
-  const paths = [];
-  const bossRain = [];
-  const spiderVenom = [];
+  const enemyShots: EnemyShot[] = [];
+  const enemies: EnemyState[] = [];
+  const spawnSites: SpawnSite[] = [];
+  const decor: WorldDecor[] = [];
+  const paths: WorldPath[] = [];
+  const bossRain: BossRainStrike[] = [];
+  const spiderVenom: SpiderVenomPool[] = [];
+  const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
+  const { spawnFromSite, engageEnemy, updateRespawns } = enemyLifecycle;
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   let pendingSpiderHits = 0;
@@ -318,28 +339,28 @@ import {
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
   let duelWasActive = false;
-  let liveDuelPresentation = null;
-  let lastLocalDuelId = null;
-  let visibleReplay = null;
-  let replayMode = null;
-  let heldDuelScene = null;
+  let liveDuelPresentation: DuelPresentation | null = null;
+  let lastLocalDuelId: bigint | null = null;
+  let visibleReplay: RuntimeDuelReplay | null = null;
+  let replayMode: ReplayMode | null = null;
+  let heldDuelScene: DuelScene | null = null;
   let duelResultHold = false;
-  let duelReturnState = null;
+  let duelReturnState: DuelReturnState | null = null;
   let duelExitFading = false;
-  let dragonWorldNoticeTimer = null;
-  let observedDragonEncounter = null;
-  let dragonWasAlive = null;
-  let pendingDragonResultEncounter = null;
-  let shownDragonResultEncounter = null;
-  let observedSpiderEncounter = null;
-  let spiderWasAlive = null;
-  let pendingSpiderResultEncounter = null;
-  let shownSpiderResultEncounter = null;
-  const locallyRewardedDragonEncounters = new Set();
-  const touchMove = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
+  let dragonWorldNoticeTimer: number | null = null;
+  let observedDragonEncounter: bigint | null = null;
+  let dragonWasAlive: boolean | null = null;
+  let pendingDragonResultEncounter: bigint | null = null;
+  let shownDragonResultEncounter: bigint | null = null;
+  let observedSpiderEncounter: bigint | null = null;
+  let spiderWasAlive: boolean | null = null;
+  let pendingSpiderResultEncounter: bigint | null = null;
+  let shownSpiderResultEncounter: bigint | null = null;
+  const locallyRewardedDragonEncounters = new Set<string>();
+  const touchMove: { active: boolean; id: number | null; ox: number; oy: number; x: number; y: number; moved: boolean } = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, moved: false };
   let openProfileIdentity = "";
-  let openProfileData = null;
-  let leaderboardStat = "power";
+  let openProfileData: PlayerProfile | null = null;
+  let leaderboardStat: LeaderboardStat = "power";
 
 
   const bootsPickup = {
@@ -348,22 +369,22 @@ import {
     r: 18,
     collected: false
   };
-  const inventory = { itemIds: [], equippedFeet: "", selectedItemId: "" };
+  const inventory: InventoryState & { selectedItemId: string } = { itemIds: [], equippedFeet: "", selectedItemId: "" };
 
   let hasSavedProgress = false;
   let progressLoaded = false;
   let progressLoadedIdentity = "";
   let waitingForFreshStart = false;
-  let startupKind = null;
+  let startupKind: string | null = null;
   let newPlayerIntroShown = false;
   let loadingStage = 0;
   let loadingStageStartedAt = performance.now();
-  let loadingStageTimer = null;
+  let loadingStageTimer: number | null = null;
   let loadingSequenceComplete = false;
   let guestContinuationChosen = false;
   let accountSignInPending = false;
 
-  const player = {
+  const player: PlayerState = {
     x: 360,
     y: 360,
     r: 17,
@@ -386,7 +407,7 @@ import {
 
   const dragonSprite = new Image();
   const dragonSpriteCanvas = document.createElement("canvas");
-  const dragonSpriteCtx = dragonSpriteCanvas.getContext("2d", { willReadFrequently: true });
+  const dragonSpriteCtx = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
   let dragonSpriteReady = false;
 
   dragonSprite.addEventListener("load", () => {
@@ -407,7 +428,7 @@ import {
 
   const spiderSprite = new Image();
   const spiderSpriteCanvas = document.createElement("canvas");
-  const spiderSpriteCtx = spiderSpriteCanvas.getContext("2d", { willReadFrequently: true });
+  const spiderSpriteCtx = requiredCanvasContext(spiderSpriteCanvas, { willReadFrequently: true });
   let spiderSpriteReady = false;
   spiderSprite.addEventListener("load", () => {
     spiderSpriteCanvas.width = spiderSprite.naturalWidth;
@@ -425,7 +446,7 @@ import {
   });
   spiderSprite.src = "assets/wildwood/desert-spider-boss-spritesheet.png";
 
-  const boss = {
+  const boss: DragonBossState = {
     isBoss: true,
     x: WORLD.w - 760,
     y: WORLD.h - 560,
@@ -443,7 +464,7 @@ import {
     encounter: null
   };
 
-  const spiderBoss = {
+  const spiderBoss: SpiderBossState = {
     isBoss: true,
     bossKind: "spider",
     x: 4050,
@@ -452,6 +473,7 @@ import {
     maxHp: 150_000_000,
     hp: 150_000_000,
     dead: false,
+    hurt: 0,
     hpLossFlashFrom: 150_000_000,
     hpLossFlashTimer: 0,
     contactDamageClock: 0,
@@ -500,7 +522,7 @@ import {
   portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
   portalSwirl.src = "assets/wildwood/portal-swirl-spritesheet.png";
   let treeSpritesheetReady = false;
-  let treeSpriteBounds = [];
+  let treeSpriteBounds: Array<{ x: number; y: number; w: number; h: number }> = [];
   function measureTreeSpriteBounds() {
     const canvas = document.createElement("canvas");
     canvas.width = treeSpritesheet.naturalWidth;
@@ -568,14 +590,14 @@ import {
   addEventListener("resize", resize);
   resize();
 
-  function raycastProjectile(startX, startY, endX, endY, radius) {
+  function raycastProjectile(startX: number, startY: number, endX: number, endY: number, radius: number) {
     const dx = endX - startX;
     const dy = endY - startY;
     const lengthSq = dx * dx + dy * dy;
     if (lengthSq === 0) return null;
 
     const invLength = 1 / Math.sqrt(lengthSq);
-    let closestEnemy = null;
+    let closestEnemy: EnemyState | DragonBossState | SpiderBossState | null = null;
     let closestT = Infinity;
 
     const mapBoss = currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : boss;
@@ -706,10 +728,10 @@ import {
 
     let legacy = null;
     try {
-      const candidate = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY));
+      const candidate = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY) ?? "null");
       if (candidate?.stats && typeof candidate.stats === "object") legacy = candidate;
     } catch {}
-    const isDefaultProgress = (progress) =>
+    const isDefaultProgress = (progress: { maxHp: number; damage: number; attackRate: number; projectileSpeed: number; projectileCount: number; attackRange: number; armor: number; regen: number; speed: number; bootsCollected: boolean }) =>
       progress.maxHp === BASE_PLAYER_HP && progress.damage === 4 && progress.attackRate === STARTING_ATTACK_INTERVAL &&
       progress.projectileSpeed === BASE_PROJECTILE_SPEED && progress.projectileCount === 1 &&
       progress.attackRange === BASE_ATTACK_RANGE && progress.armor === 0 && progress.regen === 0 &&
@@ -721,7 +743,7 @@ import {
 
     if (waitingForFreshStart && saved.introComplete) return;
 
-    const number = (value, fallback, min, max) =>
+    const number = (value: number, fallback: number, min: number, max: number) =>
       Number.isFinite(value) ? clamp(value, min, max) : fallback;
 
     player.maxHp = number(source.maxHp, player.maxHp, 1, 1_000_000_000);
@@ -874,7 +896,7 @@ import {
       loadingFill.style.width = "100%";
       return;
     }
-    const stages = [
+    const stages: Array<[string, boolean, number]> = [
       ["LOADING CONNECTION", Boolean(coop?.isConnected?.()), 12],
       ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
       ["LOADING SAVED PROGRESS", progressLoaded, 60],
@@ -942,14 +964,14 @@ import {
     }
   }
 
-  function showMessage(text, color = "#fff") {
+  function showMessage(text: string, color = "#fff") {
     messageEl.textContent = text;
     messageEl.style.color = color;
     messageEl.style.opacity = "1";
     messageClock = 1.45;
   }
 
-  function logPickup(text, color) {
+  function logPickup(text: string, color: string) {
     const el = document.createElement("div");
     el.className = "pickup";
     el.textContent = text;
@@ -958,107 +980,7 @@ import {
     setTimeout(() => el.remove(), 2400);
   }
 
-  function spawnFromSite(site) {
-    const base = ENEMY_TYPES[site.type];
-
-    // Enemy stats stay fixed by enemy type.
-    const maxHp = base.hp;
-
-    enemies.push({
-      type: site.type,
-      siteId: site.id,
-      campName: site.campName,
-      x: site.x,
-      y: site.y,
-      homeX: site.x,
-      homeY: site.y,
-      vx: 0,
-      vy: 0,
-      r: base.r,
-      hp: maxHp,
-      maxHp,
-      speed: base.speed,
-      damage: base.damage,
-      reward: base.reward,
-      aggroRadius: base.aggro ?? 0,
-      leashRange: site.leashRange,
-      engaged: false,
-      leashing: false,
-      facingX: Math.random() < .5 ? -1 : 1,
-      wandering: false,
-      wanderTargetX: site.x,
-      wanderTargetY: site.y,
-      wanderWait: rand(1, 4),
-      attackClock: base.ranged ? rand(.2, 1.2) : 0,
-      moveSpeedRecovery: ENEMY_HIT_SPEED_RECOVERY_SECONDS,
-      hurt: 0,
-      dead: false,
-      phase: Math.random() * TAU
-    });
-
-    site.alive = true;
-    site.respawnAt = 0;
-  }
-
-  function engageEnemy(enemy) {
-    const group = enemy.type === "Dune Archer"
-      ? enemies.filter((candidate) => !candidate.dead && candidate.type === "Dune Archer")
-      : [enemy];
-    for (const candidate of group) {
-      candidate.engaged = true;
-      candidate.leashing = false;
-      candidate.wandering = false;
-    }
-  }
-
-  function updateRespawns() {
-    for (const site of spawnSites) {
-      if (!site.alive && site.respawnAt > 0 && gameTime >= site.respawnAt) {
-        spawnFromSite(site);
-        spawnBurst(site.x, site.y, "#76d978", 8, 55);
-      }
-    }
-  }
-
-  function spawnBurst(x, y, color, count = 8, speed = 75) {
-    for (let i = 0; i < count; i++) {
-      const a = Math.random() * TAU;
-      const s = rand(speed * .4, speed);
-      particles.push({
-        x, y,
-        vx: Math.cos(a) * s,
-        vy: Math.sin(a) * s,
-        life: rand(.25, .7),
-        maxLife: 1,
-        size: randi(2, 5),
-        color
-      });
-    }
-  }
-
-  function formatDamage(amount) {
-    const units = [[1e9, "b"], [1e6, "m"], [1e3, "k"]];
-    for (const [value, suffix] of units) {
-      if (amount < value) continue;
-      const scaled = amount / value;
-      const digits = scaled >= 100 ? 0 : 1;
-      return `${Number(scaled.toFixed(digits))}${suffix}`;
-    }
-    return String(Math.round(amount));
-  }
-
-  function spawnDamageNumber(x, y, amount) {
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    damageNumbers.push({
-      x: x + rand(-10, 10),
-      y: y - 28,
-      life: .72,
-      maxLife: .72,
-      text: `-${formatDamage(amount)}`,
-    });
-  }
-
-  function fireAt(target) {
+  function fireAt(target: { x: number; y: number; isBoss?: boolean }) {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -1091,7 +1013,7 @@ import {
     spawnBurst(player.x + dx / distance * 17, player.y + dy / distance * 17, "#ffe36b", 4, 38);
   }
 
-  function attackNearest(dt) {
+  function attackNearest(dt: number) {
     player.attackClock -= dt;
     if (player.attackClock > 0) return;
 
@@ -1125,7 +1047,7 @@ import {
     }
   }
 
-  function applyReward(reward, x, y) {
+  function applyReward(reward: RuntimeReward, x: number, y: number) {
     switch (reward.type) {
       case "damage":
         player.damage += reward.amount;
@@ -1186,7 +1108,7 @@ import {
     spiderVenom.length = 0;
   }
 
-  function showSpiderResult(result) {
+  function showSpiderResult(result: SpiderResult | null) {
     if (!result || shownSpiderResultEncounter === result.encounter) return;
     shownSpiderResultEncounter = result.encounter;
     pendingSpiderResultEncounter = null;
@@ -1289,7 +1211,7 @@ import {
     spawnBurst(boss.x, boss.y, ENEMY_DEATH_PARTICLE_COLOR, 64, 230);
   }
 
-  function showDragonResult(result) {
+  function showDragonResult(result: DragonResult | null) {
     if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
     dragonResultTitle.textContent = "DRAGON DEFEATED";
     const worldHeading = dragonWorldNoticeEl.querySelector("strong");
@@ -1433,7 +1355,7 @@ import {
     boss.nextAttack = "rain";
   }
 
-  function hitBossConeWave(cone, minRadius, maxRadius) {
+  function hitBossConeWave(cone: BossCone, minRadius: number, maxRadius: number) {
     if (cone.hitPlayer) return;
 
     const dx = player.x - boss.x;
@@ -1456,7 +1378,7 @@ import {
     }
   }
 
-  function resolveBossCone(cone) {
+  function resolveBossCone(cone: BossCone) {
     spawnBurst(
       boss.x + Math.cos(cone.angle) * BOSS_CONE_RANGE,
       boss.y + Math.sin(cone.angle) * BOSS_CONE_RANGE,
@@ -1485,7 +1407,7 @@ import {
     boss.nextAttack = "cone";
   }
 
-  function updateBoss(dt) {
+  function updateBoss(dt: number) {
     boss.hpLossFlashTimer = Math.max(0, boss.hpLossFlashTimer - dt);
     boss.contactDamageClock = Math.max(0, boss.contactDamageClock - dt);
     if (boss.dead) return;
@@ -1555,7 +1477,7 @@ import {
     spiderBoss.nextAttack = "web";
   }
 
-  function updateSpiderBoss(dt) {
+  function updateSpiderBoss(dt: number) {
     spiderBoss.hpLossFlashTimer = Math.max(0, spiderBoss.hpLossFlashTimer - dt);
     spiderBoss.contactDamageClock = Math.max(0, spiderBoss.contactDamageClock - dt);
     if (spiderBoss.dead) return;
@@ -1618,7 +1540,7 @@ import {
     player.y = spiderBoss.y + ny * minimumDistance;
   }
 
-  function killEnemy(e) {
+  function killEnemy(e: EnemyState) {
     if (e.dead) return;
     e.dead = true;
     totalKills++;
@@ -1635,7 +1557,7 @@ import {
     spawnBurst(e.x, e.y, ENEMY_DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
-  function damagePlayer(amount) {
+  function damagePlayer(amount: number) {
     if (isDueling()) return false;
     if (player.hurtClock > 0) return false;
     const dealt = damageAfterArmor(amount, player.armor);
@@ -1666,7 +1588,7 @@ import {
   let movementSyncActive = false;
   let observedCoopSessionGeneration = 0;
 
-  function activeDuel() {
+  function activeDuel(): RuntimeDuelState | null {
     return coop && typeof coop.localDuel === "function" ? coop.localDuel() : null;
   }
 
@@ -1681,14 +1603,14 @@ import {
     return isDueling() || duelResultHold || replayMode !== null;
   }
 
-  function liveDuelPresentationState(duel) {
+  function liveDuelPresentationState(duel: RuntimeDuelState) {
     const durationSeconds = Math.max(0, (duel.endsAtMs - duel.startsAtMs) / 1000);
     const elapsed = Math.max(0, Math.min(durationSeconds, (Date.now() - duel.startsAtMs) / 1000));
     const state = duelTimelineState(duel, elapsed);
     return { elapsed, state };
   }
 
-  function syncLiveDuelDamageNumbers(duel) {
+  function syncLiveDuelDamageNumbers(duel: RuntimeDuelState) {
     const presentation = liveDuelPresentationState(duel);
     const previous = liveDuelPresentation?.id === duel.id
       ? liveDuelPresentation
@@ -1708,7 +1630,7 @@ import {
     return presentation;
   }
 
-  function showDuelResult(replay) {
+  function showDuelResult(replay: RuntimeDuelReplay | null) {
     if (!replay || !duelResultEl) return;
     const localName = coop?.localDisplayName?.() || "PLAYER";
     const selfIsChallenger = replay.challengerName === localName;
@@ -1736,7 +1658,7 @@ import {
     watchDuelReplayBtn.hidden = true;
   }
 
-  async function openDuelReplay(replayId) {
+  async function openDuelReplay(replayId: bigint) {
     const replay = coop?.loadDuelReplay
       ? await coop.loadDuelReplay(replayId)
       : coop?.duelReplay?.(replayId);
@@ -1763,7 +1685,7 @@ import {
 
   function applyDuelState() {
     const duel = activeDuel();
-    if (!isDueling()) return false;
+    if (!duel || !coop || !isDueling()) return false;
     const localIsChallenger = duel.challenger === coop.localIdentity();
     const localState = coop.localState?.();
     if (localState) {
@@ -1785,7 +1707,7 @@ import {
     return true;
   }
 
-  function updatePlayer(dt) {
+  function updatePlayer(dt: number) {
     if (applyDuelState()) return;
     if (duelWasActive) {
       const returnedState = coop?.localState?.();
@@ -1821,7 +1743,7 @@ import {
     const multiplayerActive = Boolean(coop?.isConnected?.());
     const multiplayerJustStarted = multiplayerActive && !movementSyncActive;
     movementSyncActive = multiplayerActive;
-    if (multiplayerActive) coop.syncSpeed(player.speed);
+    if (multiplayerActive && coop) coop.syncSpeed(player.speed);
 
     let mx = 0, my = 0;
     if (keys.has("KeyW") || keys.has("ArrowUp")) my -= 1;
@@ -1862,13 +1784,13 @@ import {
       const visibleH = viewH / camera.zoom;
       const marginX = visibleW * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
       const marginY = visibleH * NETWORK_NEAR_SCREEN_MARGIN_RATIO;
-      const highFrequency = coop.hasRemotePlayerInArea?.(
+      const highFrequency = coop?.hasRemotePlayerInArea?.(
         camera.x - marginX,
         camera.y - marginY,
         camera.x + visibleW + marginX,
         camera.y + visibleH + marginY,
       ) ?? false;
-      coop.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted, highFrequency);
+      coop?.syncPosition(player.x, player.y, player.facing, player.moving, multiplayerJustStarted, highFrequency);
     }
 
     player.hurtClock = Math.max(0, player.hurtClock - dt);
@@ -1922,7 +1844,7 @@ import {
     }
   }
 
-  function updatePortal(dt) {
+  function updatePortal(dt: number) {
     portalCooldown = Math.max(0, portalCooldown - dt);
     if (mapTransitioning || portalCooldown > 0 || isDueling() || !portalIsUnlocked()) return;
     const portal = activePortal();
@@ -1982,7 +1904,7 @@ import {
 
     mapTransitioning = true;
     fadeToWorld(() => {
-      loadMap(state.mapId, state.x, state.y, state.facing);
+      loadMap(state.mapId as MapId, state.x, state.y, state.facing);
       portalCooldown = 1.5;
       mapTransitioning = false;
       showMessage(MAP_CONFIG[currentMapId].name, "#ffe769");
@@ -2010,7 +1932,7 @@ import {
     player.y = boss.y + ny * minimumDistance;
   }
 
-  function updateEnemies(dt) {
+  function updateEnemies(dt: number) {
     for (const e of enemies) {
       if (e.dead) continue;
       const base = ENEMY_TYPES[e.type];
@@ -2190,7 +2112,7 @@ import {
     }
   }
 
-  function updateProjectiles(dt) {
+  function updateProjectiles(dt: number) {
     for (const p of projectiles) {
       const travelTime = Math.min(dt, p.life);
       const startX = p.x;
@@ -2215,7 +2137,7 @@ import {
         p.life = 0;
 
         if (target.isBoss) {
-          if (target.bossKind === "spider") {
+          if ("bossKind" in target && target.bossKind === "spider") {
             pendingSpiderHits += 1;
             spiderHitBatchTimer = SPIDER_HIT_BATCH_DELAY;
           } else {
@@ -2285,58 +2207,7 @@ import {
     }
   }
 
-  function updateParticles(dt) {
-    for (const p of particles) {
-      p.life -= dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vx *= Math.pow(.03, dt);
-      p.vy *= Math.pow(.03, dt);
-    }
-    for (let i = particles.length - 1; i >= 0; i--) {
-      if (particles[i].life <= 0) particles.splice(i, 1);
-    }
-  }
-
-  function updateDamageNumbers(dt) {
-    for (const number of damageNumbers) {
-      number.life -= dt;
-      number.y -= 34 * dt;
-    }
-    for (let i = damageNumbers.length - 1; i >= 0; i--) {
-      if (damageNumbers[i].life <= 0) damageNumbers.splice(i, 1);
-    }
-  }
-
-  function updateCamera(dt) {
-    const rangeIncrease = player.attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
-    const targetZoom = clamp((1 - rangeIncrease * .5) * .85, MIN_CAMERA_ZOOM, 1);
-    const zoomFollow = 1 - Math.pow(.0008, dt);
-    camera.zoom += (targetZoom - camera.zoom) * zoomFollow;
-
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    const targetX = isDueling()
-      ? DUEL_ARENA.x - visibleW / 2
-      : clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
-    const targetY = isDueling()
-      ? DUEL_ARENA.y - visibleH / 2
-      : clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
-    const follow = 1 - Math.pow(.00006, dt);
-    camera.x += (targetX - camera.x) * follow;
-    camera.y += (targetY - camera.y) * follow;
-  }
-
-  function snapCameraToPlayer() {
-    const rangeIncrease = player.attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
-    camera.zoom = clamp((1 - rangeIncrease * .5) * .85, MIN_CAMERA_ZOOM, 1);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    camera.x = clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW));
-    camera.y = clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH));
-  }
-
-  function fadeToWorld(onBlack) {
+  function fadeToWorld(onBlack: () => void) {
     if (duelExitFading) return;
     duelExitFading = true;
     sceneFadeEl.hidden = false;
@@ -2344,7 +2215,7 @@ import {
     sceneFadeEl.classList.add("is-visible");
     window.setTimeout(() => {
       onBlack();
-      snapCameraToPlayer();
+      snapRuntimeCamera(camera, player, { width: viewW, height: viewH });
       requestAnimationFrame(() => {
         sceneFadeEl.classList.remove("is-visible");
         window.setTimeout(() => {
@@ -2371,7 +2242,7 @@ import {
     });
   }
 
-  function update(dt) {
+  function update(dt: number) {
     if (currentMapId === TUTORIAL_FOREST_MAP_ID) syncDragonState();
     if (currentMapId === BEGINNER_DESERT_MAP_ID) syncSpiderState();
     gameTime += dt;
@@ -2391,7 +2262,7 @@ import {
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBoss(dt);
       if (currentMapId === BEGINNER_DESERT_MAP_ID) updateSpiderBoss(dt);
       updateProjectiles(dt);
-      updateRespawns();
+      updateRespawns(gameTime);
     } else {
       projectiles.length = 0;
       pendingDragonHits = 0;
@@ -2400,9 +2271,8 @@ import {
       spiderHitBatchTimer = 0;
       enemyShots.length = 0;
     }
-    updateParticles(dt);
-    updateDamageNumbers(dt);
-    updateCamera(dt);
+    effects.update(dt);
+    updateRuntimeCamera(camera, player, { width: viewW, height: viewH }, isDueling() ? DUEL_ARENA : null, dt);
     updateHud();
   }
 
@@ -2465,7 +2335,7 @@ import {
     }
   }
 
-  function drawTree(o) {
+  function drawTree(o: TreeDecor) {
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
     const x = Math.floor(o.x - camera.x);
@@ -2542,7 +2412,7 @@ import {
     );
   }
 
-  function drawCactus(o) {
+  function drawCactus(o: CactusDecor) {
     const x = Math.round(o.x - camera.x);
     const y = Math.round(o.y - camera.y);
     const visibleW = viewW / camera.zoom;
@@ -2566,7 +2436,7 @@ import {
     ctx.fillRect(x + direction * Math.round(14 * o.s), armY - Math.round(16 * o.s), direction * Math.round(8 * o.s), Math.round(23 * o.s));
   }
 
-  function drawDesertRock(o) {
+  function drawDesertRock(o: RockDecor) {
     const x = Math.round(o.x - camera.x);
     const y = Math.round(o.y - camera.y);
     const visibleW = viewW / camera.zoom;
@@ -2593,7 +2463,7 @@ import {
     ctx.fill();
   }
 
-  function drawDune(o) {
+  function drawDune(o: DuneDecor) {
     const x = Math.round(o.x - camera.x);
     const y = Math.round(o.y - camera.y);
     const visibleW = viewW / camera.zoom;
@@ -2616,7 +2486,7 @@ import {
     ctx.restore();
   }
 
-  function drawDesertGrass(o) {
+  function drawDesertGrass(o: DesertGrassDecor) {
     const x = Math.round(o.x - camera.x);
     const y = Math.round(o.y - camera.y);
     const visibleW = viewW / camera.zoom;
@@ -2628,7 +2498,7 @@ import {
     ctx.fillRect(x + 3, y - 4, 2, 6);
   }
 
-  function drawGrass(o) {
+  function drawGrass(o: GrassDecor) {
     const x = Math.floor(o.x - camera.x);
     const y = Math.floor(o.y - camera.y);
     const visibleW = viewW / camera.zoom;
@@ -2641,7 +2511,7 @@ import {
     if (o.variant > 1) ctx.fillRect(x + 6, y, 2, 3);
   }
 
-  function drawPetal(o) {
+  function drawPetal(o: PetalDecor) {
     const x = Math.floor(o.x - camera.x);
     const y = Math.floor(o.y - camera.y);
     const visibleW = viewW / camera.zoom;
@@ -2662,7 +2532,7 @@ import {
     for (const o of decor) if (o.type === "rock") drawDesertRock(o);
   }
 
-  function drawActorShadow(x, y, width, alpha = .38) {
+  function drawActorShadow(x: number, y: number, width: number, alpha = .38) {
     const height = Math.max(8, Math.round(width * 33 / 86));
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -2710,14 +2580,14 @@ import {
     ctx.restore();
   }
 
-  function drawDuelShots(shots) {
+  function drawDuelShots(shots: DuelScene["shots"]) {
     for (const shot of shots) {
       ctx.fillStyle = shot.color;
       pixelCircle(shot.x - camera.x, shot.y - camera.y, 6);
     }
   }
 
-  function drawDuelCombatant(actor) {
+  function drawDuelCombatant(actor: DuelScene["challenger"]) {
     const x = Math.floor(actor.x - camera.x);
     const y = Math.floor(actor.y - camera.y);
     drawActorShadow(x, y + 29, 54, actor.isLocal ? .21 : .17);
@@ -2754,21 +2624,6 @@ import {
       power: null,
       fillColor: actor.isLocal ? "#46cf5a" : "#55a9c6",
     });
-  }
-
-  function drawDamageNumbers() {
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.font = '900 19px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    for (const number of damageNumbers) {
-      const alpha = clamp(number.life / number.maxLife, 0, 1);
-      const x = Math.floor(number.x - camera.x);
-      const y = Math.floor(number.y - camera.y);
-      ctx.globalAlpha = alpha;
-      outlinedText(number.text, x, y, "#ff5a5a", 3);
-    }
-    ctx.restore();
   }
 
   function drawAttackRange() {
@@ -2810,13 +2665,13 @@ import {
     ctx.restore();
   }
 
-  function publicPlayerName(identity, name) {
+  function publicPlayerName(identity: string | undefined, name: string | undefined) {
     const baseName = name || "PLAYER";
     const guestName = coop?.isGuest?.(identity) ? `${baseName} (guest)` : baseName;
     return isDeveloperIdentity(identity) ? `${DEVELOPER_BADGE} ${guestName}` : guestName;
   }
 
-  function renderDomPlayerName(element, identity, name) {
+  function renderDomPlayerName(element: HTMLElement, identity: string | undefined, name: string | undefined) {
     const baseName = name || "PLAYER";
     element.replaceChildren();
     if (isDeveloperIdentity(identity)) {
@@ -2829,7 +2684,7 @@ import {
     if (coop?.isGuest?.(identity)) element.append(document.createTextNode(" (guest)"));
   }
 
-  function applyProfileIcon(element, iconIndex) {
+  function applyProfileIcon(element: HTMLElement, iconIndex: number) {
     const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
     const column = index % 8;
     const row = Math.floor(index / 8);
@@ -2837,7 +2692,7 @@ import {
     element.dataset.profileIcon = String(index);
   }
 
-  function paintProfileIconCanvas(canvas, iconIndex) {
+  function paintProfileIconCanvas(canvas: HTMLCanvasElement, iconIndex: number) {
     const index = Math.max(0, Math.min(63, Math.floor(Number(iconIndex) || 0)));
     const iconContext = canvas.getContext("2d");
     if (!iconContext) return;
@@ -2859,7 +2714,7 @@ import {
     );
   }
 
-  function drawProfileIcon(identity, x, bottom, size = 15) {
+  function drawProfileIcon(identity: string | undefined, x: number, bottom: number, size = 15) {
     if (!identity || !profileIconSheet.complete || profileIconSheet.naturalWidth <= 0) return;
     const index = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(identity) ?? 0)));
     const cellW = profileIconSheet.naturalWidth / 8;
@@ -2924,7 +2779,7 @@ import {
     }
   }
 
-  function wrapSpeechBubbleText(text, maxWidth) {
+  function wrapSpeechBubbleText(text: string, maxWidth: number) {
     const lines = [];
     let line = "";
     for (const word of text.split(/\s+/)) {
@@ -2951,7 +2806,7 @@ import {
     return lines;
   }
 
-  function drawSpeechBubble(identity, x, y) {
+  function drawSpeechBubble(identity: string | undefined, x: number, y: number) {
     const bubble = activeSpeechBubbles.get(identity);
     if (!bubble) return;
     const fadeStart = SPEECH_BUBBLE_DURATION_MS - SPEECH_BUBBLE_FADE_MS;
@@ -2999,7 +2854,7 @@ import {
     ctx.restore();
   }
 
-  function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }) {
+  function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
     const centerX = Math.round(x);
     const barW = 87;
     const barH = WORLD_HEALTH_BAR_HEIGHT;
@@ -3030,7 +2885,7 @@ import {
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
   }
 
-  function drawPlayerIdentity(_identity, name, power, centerX, bottom, color) {
+  function drawPlayerIdentity(_identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) {
     if (!name) return;
     const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
     ctx.save();
@@ -3056,7 +2911,7 @@ import {
     ctx.restore();
   }
 
-  function playerPower(stats) {
+  function playerPower(stats: Pick<PlayerState, "attackRate" | "damage" | "maxHp" | "armor" | "regen">) {
     const attackSpeedMultiplier = STARTING_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
     return Math.min(0xffffffff, Math.round(
       stats.damage * attackSpeedMultiplier +
@@ -3066,7 +2921,7 @@ import {
     ));
   }
 
-  function drawRemotePlayers(remotePlayers) {
+  function drawRemotePlayers(remotePlayers: RemotePlayer[]) {
     if (!coop) return;
 
     for (const other of remotePlayers) {
@@ -3106,7 +2961,7 @@ import {
         nameColor: "#9eeeff",
         hp: other.hp,
         maxHp: other.maxHp,
-        power: Number.isFinite(other.power) ? other.power : playerPower(other),
+        power: Number.isFinite(other.power) ? other.power : 0,
         fillColor: "#55a9c6",
       });
       drawSpeechBubble(other.id, x, y);
@@ -3297,7 +3152,7 @@ import {
     ctx.restore();
   }
 
-  function drawEnemy(e) {
+  function drawEnemy(e: EnemyState) {
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
     const x = Math.floor(e.x - camera.x);
@@ -3306,11 +3161,13 @@ import {
     if (x < -80 || y < -80 || x > visibleW + 80 || y > visibleH + 80) return;
 
     const sprite = ENEMY_SPRITES[e.type];
-    const spriteReady = sprite?.layers
-      ? sprite.layers.every((layer) => layer.image.complete && layer.image.naturalWidth > 0)
-      : sprite?.image.complete && sprite.image.naturalWidth > 0;
-    const spriteHeight = spriteReady
-      ? (sprite.height ?? sprite.size * sprite.image.naturalHeight / sprite.image.naturalWidth)
+    const layers = sprite?.layers;
+    const image = sprite?.image;
+    const spriteReady = layers
+      ? layers.every((layer) => layer.image.complete && layer.image.naturalWidth > 0)
+      : Boolean(image?.complete && image.naturalWidth > 0);
+    const spriteHeight = spriteReady && image
+      ? (sprite.height ?? sprite.size * image.naturalHeight / image.naturalWidth)
       : e.r * 2;
     const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? e.r * 2) * .9));
     const shadowY = y + Math.max(10, Math.min(30, spriteHeight / 2 - 4));
@@ -3326,8 +3183,8 @@ import {
         for (const layer of sprite.layers) {
           ctx.drawImage(layer.image, layer.x, layer.y - 3, layer.w, layer.h);
         }
-      } else {
-        ctx.drawImage(sprite.image, -sprite.size / 2, -spriteHeight / 2 - 3, sprite.size, spriteHeight);
+      } else if (image) {
+        ctx.drawImage(image, -sprite.size / 2, -spriteHeight / 2 - 3, sprite.size, spriteHeight);
       }
     } else {
       ctx.fillStyle = base.outline;
@@ -3372,7 +3229,7 @@ import {
     ctx.restore();
   }
 
-  function drawProjectile(p, enemy = false) {
+  function drawProjectile(p: Projectile | EnemyShot, enemy = false) {
     const x = Math.floor(p.x - camera.x);
     const y = Math.floor(p.y - camera.y);
     ctx.fillStyle = enemy ? "#d67cff" : "#5a250d";
@@ -3381,23 +3238,8 @@ import {
     pixelCircle(x, y, p.r);
   }
 
-  function drawParticles() {
-    for (const p of particles) {
-      const a = clamp(p.life / (p.maxLife || 1), 0, 1);
-      ctx.globalAlpha = a;
-      ctx.fillStyle = p.color;
-      ctx.fillRect(
-        Math.floor(p.x - camera.x),
-        Math.floor(p.y - camera.y),
-        p.size,
-        p.size
-      );
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function drawDepthSortedWorld(remotePlayers) {
-    const layers = [];
+  function drawDepthSortedWorld(remotePlayers: RemotePlayer[]) {
+    const layers: Array<{ depth: number; priority: number; draw: () => void }> = [];
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
     const treeCullPadding = 240;
@@ -3446,7 +3288,7 @@ import {
     for (const layer of layers) layer.draw();
   }
 
-  function drawMinimap(remotePlayers) {
+  function drawMinimap(remotePlayers: RemotePlayer[]) {
     const size = Math.min(180, Math.max(110, viewW * .17));
     const x = viewW - size;
     const y = 0;
@@ -3508,16 +3350,16 @@ import {
     camera.y = DUEL_ARENA.y - viewH / zoom / 2;
   }
 
-  function liveDuelScene(remotePlayers) {
+  function liveDuelScene(remotePlayers: RemotePlayer[]): DuelScene | null {
     const duel = activeDuel();
     if (!duel) return null;
     const presentation = liveDuelPresentationState(duel);
     const localId = coop?.localIdentity?.();
-    const remoteName = (identity) => {
+    const remoteName = (identity: string) => {
       const visible = remotePlayers.find((other) => other.id === identity)?.name;
       return visible || coop?.playerDisplayName?.(identity) || "OPPONENT";
     };
-    const actor = (identity, isChallenger) => ({
+    const actor = (identity: string, isChallenger: boolean): DuelScene["challenger"] => ({
       identity,
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
@@ -3539,7 +3381,7 @@ import {
     };
   }
 
-  function timelineDuelShots(duel, elapsed, limits) {
+  function timelineDuelShots(duel: RuntimeDuelState | RuntimeDuelReplay, elapsed: number, limits: Pick<RuntimeDuelState, "challengerAttacks" | "opponentAttacks">) {
     return duelShotsAt({
       challengerAttackRate: duel.challengerAttackRate,
       opponentAttackRate: duel.opponentAttackRate,
@@ -3554,11 +3396,11 @@ import {
     });
   }
 
-  function liveDuelShots(duel, presentation = liveDuelPresentationState(duel)) {
+  function liveDuelShots(duel: RuntimeDuelState, presentation = liveDuelPresentationState(duel)) {
     return timelineDuelShots(duel, presentation.elapsed, presentation.state);
   }
 
-  function replayDuelShots(replay, elapsed) {
+  function replayDuelShots(replay: RuntimeDuelReplay, elapsed: number) {
     return timelineDuelShots(replay, elapsed, {
       challengerAttacks: replay.challengerAttacks,
       opponentAttacks: replay.opponentAttacks,
@@ -3566,6 +3408,7 @@ import {
   }
 
   function replayDuelScene() {
+    if (!replayMode) return null;
     const replay = replayMode.replay;
     const totalElapsed = Math.max(0, (performance.now() - replayMode.start) / 1000);
     const countdown = Math.max(0, Math.ceil(DUEL_REPLAY_COUNTDOWN_SECONDS - totalElapsed));
@@ -3582,7 +3425,7 @@ import {
       challengerHp: state.challengerHp,
       opponentHp: state.opponentHp,
     };
-    const actor = (isChallenger) => ({
+    const actor = (isChallenger: boolean): DuelScene["challenger"] => ({
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
       name: isChallenger ? replay.challengerName : replay.opponentName,
@@ -3610,7 +3453,7 @@ import {
     ctx.fillRect(0, 0, viewW, viewH);
   }
 
-  function renderDuelScene(scene) {
+  function renderDuelScene(scene: DuelScene) {
     duelCameraPosition();
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
@@ -3622,7 +3465,7 @@ import {
     drawDuelShots(scene.shots);
     drawDuelCombatant(scene.challenger);
     drawDuelCombatant(scene.opponent);
-    drawDamageNumbers();
+    effects.drawDamageNumbers(ctx, camera, outlinedText);
     ctx.restore();
     ctx.restore();
     duelCountdownEl.textContent = String(scene.countdown || "");
@@ -3634,7 +3477,8 @@ import {
     const remotePlayers = coop ? coop.remotePlayers() : [];
     updateSpeechBubbles();
     if (replayMode) {
-      renderDuelScene(replayDuelScene());
+      const scene = replayDuelScene();
+      if (scene) renderDuelScene(scene);
       return;
     }
     if (duelResultHold && heldDuelScene) {
@@ -3663,8 +3507,8 @@ import {
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
     drawDepthSortedWorld(remotePlayers);
-    drawParticles();
-    drawDamageNumbers();
+    effects.drawParticles(ctx, camera);
+    effects.drawDamageNumbers(ctx, camera, outlinedText);
 
     ctx.restore();
 
@@ -3688,7 +3532,7 @@ import {
       ? coop.onlinePlayerCount()
       : null;
     const playerCount = coop && coop.isConnected()
-      ? (Number.isFinite(reportedOnline) ? reportedOnline : remoteCount + 1)
+      ? (Number.isFinite(reportedOnline) ? reportedOnline ?? remoteCount + 1 : remoteCount + 1)
       : 0;
     const developer = isDeveloperIdentity(coop?.localIdentity?.());
     applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0);
@@ -3710,7 +3554,7 @@ import {
     updateLatencyStatus();
   }
 
-  function formatPlayedTime(seconds) {
+  function formatPlayedTime(seconds: number) {
     const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
     const days = Math.floor(wholeMinutes / 1440);
     const hours = Math.floor(wholeMinutes % 1440 / 60);
@@ -3720,23 +3564,23 @@ import {
     return `${minutes}m`;
   }
 
-  function isProfileOnline(identity) {
+  function isProfileOnline(identity: string) {
     if (identity === coop?.localIdentity?.()) return Boolean(coop?.isConnected?.());
     return Boolean(coop?.activePlayerMap?.(identity)) ||
       coop?.remotePlayers?.().some((other) => other.id === identity) === true;
   }
 
-  function profilePresenceText(online, lastSeenAtMs) {
+  function profilePresenceText(online: boolean, lastSeenAtMs: number) {
     if (online) return "ONLINE";
     if (!Number.isFinite(lastSeenAtMs) || lastSeenAtMs <= 0) return "LAST SEEN —";
     const lastSeen = new Date(lastSeenAtMs);
-    const options = lastSeen.getFullYear() === new Date().getFullYear()
+    const options: Intl.DateTimeFormatOptions = lastSeen.getFullYear() === new Date().getFullYear()
       ? { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }
       : { year: "numeric", month: "short", day: "numeric" };
     return `LAST SEEN ${lastSeen.toLocaleString([], options).toUpperCase()}`;
   }
 
-  function setProfileTab(tab) {
+  function setProfileTab(tab: "overview" | "stats") {
     const overview = tab === "overview";
     profileOverviewTab.classList.toggle("is-active", overview);
     profileStatsTab.classList.toggle("is-active", !overview);
@@ -3746,7 +3590,7 @@ import {
     profileStatsPanel.hidden = overview;
   }
 
-  function renderPlayerProfile(profile) {
+  function renderPlayerProfile(profile: PlayerProfile | null) {
     if (!profile || profile.identity !== openProfileIdentity) return;
     const { progress, lifetime } = profile;
     openProfileData = profile;
@@ -3806,7 +3650,7 @@ import {
     profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
   }
 
-  async function openPlayerProfile(identity, fallbackName = "PLAYER") {
+  async function openPlayerProfile(identity: string, fallbackName = "PLAYER") {
     if (!identity) return;
     openProfileIdentity = identity;
     openProfileData = null;
@@ -3864,7 +3708,7 @@ import {
   }
 
   function renderLeaderboard() {
-    const valueKey = leaderboardStat === "health" ? "maxHp" : leaderboardStat === "time" ? "playedSeconds" : leaderboardStat;
+    const valueKey: "power" | "damage" | "maxHp" | "armor" | "regen" | "playedSeconds" = leaderboardStat === "health" ? "maxHp" : leaderboardStat === "time" ? "playedSeconds" : leaderboardStat;
     const entries = (coop?.leaderboardEntries?.() ?? [])
       .filter((entry) => Number.isFinite(entry[valueKey]))
       .sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name))
@@ -3908,7 +3752,7 @@ import {
       icon.setAttribute("role", "button");
       icon.setAttribute("tabindex", "0");
       icon.setAttribute("aria-label", `View ${entry.name}'s profile`);
-      const openEntryProfile = (event) => {
+      const openEntryProfile = (event: Event) => {
         event.stopPropagation();
         closeLeaderboard();
         void openPlayerProfile(entry.identity, entry.name);
@@ -3935,8 +3779,8 @@ import {
     leaderboardRowsEl.hidden = entries.length === 0;
   }
 
-  function setLeaderboardTab(tab) {
-    leaderboardStat = ["power", "damage", "health", "armor", "regen", "time"].includes(tab) ? tab : "power";
+  function setLeaderboardTab(tab: string) {
+    leaderboardStat = (["power", "damage", "health", "armor", "regen", "time"] as const).includes(tab as LeaderboardStat) ? tab as LeaderboardStat : "power";
     const power = leaderboardStat === "power";
     const damage = leaderboardStat === "damage";
     const health = leaderboardStat === "health";
@@ -4174,13 +4018,13 @@ import {
     profileIconPickerEl.hidden = true;
   }
 
-  function openPlayerAtScreenPoint(clientX, clientY) {
+  function openPlayerAtScreenPoint(clientX: number, clientY: number) {
     if (!running || !playerProfileEl.hidden || isDueling()) return false;
     const worldX = camera.x + clientX / camera.zoom;
     const worldY = camera.y + clientY / camera.zoom;
     let target = null;
     let bestDistance = Number.POSITIVE_INFINITY;
-    const isPlayerProfileHit = (dx, dy) =>
+    const isPlayerProfileHit = (dx: number, dy: number) =>
       (Math.abs(dx) <= 48 && dy >= -60 && dy <= 60) ||
       (Math.abs(dx) <= 125 && dy >= -105 && dy < -45);
     const localIdentity = coop?.localIdentity?.();
@@ -4218,12 +4062,12 @@ import {
           renderInventory();
         },
         onEquip(itemId) {
-          if (ITEM_DEFINITIONS[itemId]?.slot !== "FEET") return;
+          if (itemDefinition(itemId)?.slot !== "FEET") return;
           inventory.equippedFeet = itemId;
           player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
           saveProgress();
           renderInventory();
-          showMessage(`${ITEM_DEFINITIONS[itemId].name} EQUIPPED`, "#72ef58");
+          showMessage(`${itemDefinition(itemId)?.name ?? "ITEM"} EQUIPPED`, "#72ef58");
         },
         onUnequip(itemId) {
           if (inventory.equippedFeet !== itemId) return;
@@ -4231,7 +4075,7 @@ import {
           player.speed = BASE_PLAYER_SPEED;
           saveProgress();
           renderInventory();
-          showMessage(`${ITEM_DEFINITIONS[itemId].name} UNEQUIPPED`, "#ffe05d");
+          showMessage(`${itemDefinition(itemId)?.name ?? "ITEM"} UNEQUIPPED`, "#ffe05d");
         },
         onInspect(itemId) {
           openItemInspect(itemId);
@@ -4240,8 +4084,8 @@ import {
     );
   }
 
-  function openItemInspect(itemId) {
-    const item = ITEM_DEFINITIONS[itemId];
+  function openItemInspect(itemId: string) {
+    const item = itemDefinition(itemId);
     if (!item) return;
     itemInspectSlot.textContent = `${item.slot} · ${inventory.equippedFeet === item.id ? "EQUIPPED" : "IN BAG"}`;
     itemInspectName.textContent = item.name;
@@ -4255,7 +4099,7 @@ import {
     itemInspectEl.hidden = true;
   }
 
-  function duelOpponentName(duel) {
+  function duelOpponentName(duel: RuntimeDuelState) {
     const opponentId = duel.challenger === coop?.localIdentity?.() ? duel.opponent : duel.challenger;
     const opponent = coop?.remotePlayers?.().find((other) => other.id === opponentId);
     const name = opponent?.name || coop?.playerDisplayName?.(opponentId) || "OPPONENT";
@@ -4297,7 +4141,7 @@ import {
     duelControls.hidden = true;
   }
 
-  function loop(now) {
+  function loop(now: number) {
     const rawDt = (now - last) / 1000;
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
@@ -4321,7 +4165,7 @@ import {
       player.x = serverState.x;
       player.y = serverState.y;
       player.facing = serverState.facing;
-      snapCameraToPlayer();
+      snapRuntimeCamera(camera, player, { width: viewW, height: viewH });
     }
     hasStarted = true;
     running = true;
@@ -4371,14 +4215,13 @@ import {
 
   function updateMusicVolume() {
     const percent = Math.round(musicVolume * 100);
-    backgroundMusic.volume = musicVolume;
+    mapMusic.setVolume(musicVolume);
     if (musicVolumeInput) musicVolumeInput.value = String(percent);
     if (musicVolumeValue) musicVolumeValue.textContent = `${percent}%`;
   }
 
   function ensureMusicPlayback() {
-    if ((!hasStarted && !running) || musicVolume <= 0 || !backgroundMusic.paused) return;
-    void backgroundMusic.play().catch(() => {});
+    mapMusic.ensurePlaying(hasStarted || running);
   }
 
   function updateFullscreenSetting() {
@@ -4397,7 +4240,7 @@ import {
       try {
         await root.requestFullscreen({ navigationUI: "hide" });
       } catch (error) {
-        if (error?.name !== "TypeError") throw error;
+        if (!(error instanceof Error) || error.name !== "TypeError") throw error;
         await root.requestFullscreen();
       }
       return;
@@ -4658,15 +4501,15 @@ import {
 
   const chat = createChatController({
     elements: {
-      toggle: document.getElementById("chatToggle"),
-      panel: document.getElementById("chatPanel"),
-      header: document.querySelector("#chatPanel .chat-header"),
-      sizeToggle: document.getElementById("chatSizeToggle"),
-      messages: document.getElementById("chatMessages"),
-      form: document.getElementById("chatForm"),
-      input: document.getElementById("chatInput"),
-      displayNameInput: document.getElementById("displayNameInput"),
-      saveNameButton: document.getElementById("saveNameBtn"),
+      toggle: requiredElement<HTMLButtonElement>("chatToggle"),
+      panel: requiredElement("chatPanel"),
+      header: requiredSelector("#chatPanel .chat-header"),
+      sizeToggle: requiredElement<HTMLButtonElement>("chatSizeToggle"),
+      messages: requiredElement("chatMessages"),
+      form: requiredElement<HTMLFormElement>("chatForm"),
+      input: requiredElement<HTMLTextAreaElement>("chatInput"),
+      displayNameInput: requiredElement<HTMLInputElement>("displayNameInput"),
+      saveNameButton: requiredElement<HTMLButtonElement>("saveNameBtn"),
     },
     getCoop: () => coop,
     showMessage,
@@ -4791,9 +4634,9 @@ import {
   newPlayerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") beginAdventure();
   });
-  document.getElementById("restartBtn").addEventListener("click", () => startGame(false, false));
+  requiredElement<HTMLButtonElement>("restartBtn").addEventListener("click", () => startGame(false, false));
 
-  addEventListener("keydown", e => {
+  addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.code === "Escape" && !profileIconPickerEl.hidden) {
       closeProfileIconPicker();
       return;
@@ -4818,10 +4661,10 @@ import {
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
     keys.add(e.code);
   });
-  addEventListener("keyup", e => keys.delete(e.code));
+  addEventListener("keyup", (e: KeyboardEvent) => keys.delete(e.code));
   addEventListener("blur", () => keys.clear());
 
-  function beginTouch(e) {
+  function beginTouch(e: TouchEvent) {
     if (!running || touchMove.active) return;
     const t = e.changedTouches[0];
     touchMove.active = true;
@@ -4838,7 +4681,7 @@ import {
     joystickEl.style.display = "block";
   }
 
-  function moveTouch(e) {
+  function moveTouch(e: TouchEvent) {
     if (!touchMove.active) return;
     for (const t of e.changedTouches) {
       if (t.identifier !== touchMove.id) continue;
@@ -4855,7 +4698,7 @@ import {
     }
   }
 
-  function endTouch(e) {
+  function endTouch(e: TouchEvent) {
     if (!touchMove.active) return;
     for (const t of e.changedTouches) {
       if (t.identifier !== touchMove.id) continue;
@@ -4875,18 +4718,17 @@ import {
   canvas.addEventListener("touchend", endTouch, {passive:false});
   canvas.addEventListener("touchcancel", endTouch, {passive:false});
   canvas.addEventListener("click", (event) => {
-    if (event.pointerType === "touch") return;
     openPlayerAtScreenPoint(event.clientX, event.clientY);
   });
 
-  const initialAccount = coop?.accountState?.() || { signedIn: false, knownAccount: false, authInProgress: false, returningFromSignIn: false };
-  if (initialAccount.returningFromSignIn) showSigningIn();
-  else if (initialAccount.signInRequired) showAccountChoice();
-  else if (!initialAccount.signedIn && !initialAccount.knownAccount && !initialAccount.authInProgress) showAccountChoice();
+  const initialAccount = coop?.accountState?.();
+  if (initialAccount?.returningFromSignIn) showSigningIn();
+  else if (initialAccount?.signInRequired) showAccountChoice();
+  else if (!initialAccount?.signedIn && !initialAccount?.knownAccount && !initialAccount?.authInProgress) showAccountChoice();
   else showConnecting();
   loadProgress();
   rebuildWorld();
-  updateCamera(1);
+  updateRuntimeCamera(camera, player, { width: viewW, height: viewH }, null, 1);
   render();
   requestAnimationFrame(loop);
 })();

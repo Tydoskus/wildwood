@@ -17,6 +17,10 @@ export const ITEM_DEFINITIONS = {
   },
 } as const;
 
+export function itemDefinition(itemId: string) {
+  return ITEM_DEFINITIONS[itemId as keyof typeof ITEM_DEFINITIONS];
+}
+
 export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, ownsBoots: boolean): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
   const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
