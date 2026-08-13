@@ -28,7 +28,7 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
-  playerSprite: HTMLImageElement;
+  playerSprite: (identity?: string) => HTMLImageElement;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
   playerSpriteXOffsets: readonly (readonly number[])[];
@@ -45,10 +45,10 @@ export function createActorRenderer(options: {
   const { ctx, camera } = options;
 
   function drawPlayerSprite(
-    actor: { x: number; y: number; facing: number; moving?: boolean },
+    actor: { x: number; y: number; facing: number; moving?: boolean; identity?: string; id?: string },
     alpha = 1,
   ) {
-    const sprite = options.playerSprite;
+    const sprite = options.playerSprite(actor.identity ?? actor.id);
     if (!sprite.complete || sprite.naturalWidth <= 0) return;
 
     const cellW = sprite.naturalWidth / 4;
@@ -136,7 +136,7 @@ export function createActorRenderer(options: {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
     options.drawShadow(x, y + 29, 54, .21);
-    drawPlayerSprite({ ...player, x, y });
+    drawPlayerSprite({ ...player, x, y, identity });
     options.drawStatus({
       x,
       y,

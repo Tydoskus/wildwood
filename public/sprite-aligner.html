@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Wildwood Sprite Aligner</title>
+<style>
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0c1710; color: #f3f5e9; }
+  body { display: grid; place-items: start center; min-height: 100vh; margin: 0; padding: 20px; }
+  main { width: min(720px, 100%); }
+  h1 { margin: 0 0 6px; font-size: 20px; } p { margin: 0 0 16px; color: #b9c9ba; font-size: 13px; }
+  .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  label { display: grid; gap: 5px; color: #cbdaca; font-size: 12px; }
+  input, select, button { font: inherit; } input, select { box-sizing: border-box; width: 100%; }
+  .value { color: #8cf278; font-variant-numeric: tabular-nums; }
+  canvas { display: block; width: min(100%, 680px); margin: auto; border: 2px solid #000; background: #18251a; image-rendering: pixelated; }
+  output { display: block; margin-top: 12px; padding: 9px; border: 1px solid #405a43; background: #101c12; color: #f8f8f8; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
+  button { padding: 7px 10px; border: 1px solid #000; background: #fff; color: #111; cursor: pointer; }
+  @media (max-width: 520px) { .controls { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sprite Aligner</h1>
+  <p>Reference stays fixed. Candidate overlays in green. Match each frame center and baseline.</p>
+  <section class="controls">
+    <label>Candidate sheet<input id="file" type="file" accept="image/png" /></label>
+    <label>Frame<select id="frame"></select></label>
+    <label>X offset <span id="xValue" class="value">0</span><input id="x" type="range" min="-50" max="50" value="0" /></label>
+    <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-50" max="50" value="0" /></label>
+    <label>Candidate opacity <span id="opacityValue" class="value">50%</span><input id="opacity" type="range" min="0" max="100" value="50" /></label>
+    <label>Zoom <span id="zoomValue" class="value">1×</span><input id="zoom" type="range" min="1" max="4" value="1" /></label>
+  </section>
+  <canvas id="canvas" width="680" height="680"></canvas>
+  <output id="result">Load a candidate sheet.</output>
+  <button id="copy" type="button">copy offsets</button>
+</main>
+<script>
+  const reference = new Image();
+  reference.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
+  const candidate = new Image();
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const file = document.getElementById("file"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), opacity = document.getElementById("opacity"), zoom = document.getElementById("zoom"), result = document.getElementById("result");
+  for (let row = 0; row < 4; row += 1) for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(row * 4 + column); option.textContent = `${["DOWN", "LEFT", "RIGHT", "UP"][row]} · walk ${column + 1}`; frame.append(option); }
+  function value(id, value, suffix = "") { document.getElementById(id).textContent = `${value}${suffix}`; }
+  function draw() {
+    value("xValue", x.value); value("yValue", y.value); value("opacityValue", opacity.value, "%"); value("zoomValue", zoom.value, "×");
+    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#162419"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = Number(zoom.value), size = 280 * scale, cell = reference.naturalWidth / 4, index = Number(frame.value), sourceX = index % 4 * cell, sourceY = Math.floor(index / 4) * cell, left = Math.round((canvas.width - size) / 2), top = Math.round((canvas.height - size) / 2);
+    ctx.imageSmoothingEnabled = false;
+    if (reference.complete) { ctx.globalAlpha = .75; ctx.drawImage(reference, sourceX, sourceY, cell, cell, left, top, size, size); }
+    if (candidate.complete && candidate.naturalWidth) { ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = Number(opacity.value) / 100; ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + Number(x.value) * scale, top + Number(y.value) * scale, size, size); ctx.globalCompositeOperation = "source-over"; }
+    ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
+    result.textContent = candidate.complete && candidate.naturalWidth ? `frame ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Load a candidate sheet.";
+  }
+  file.addEventListener("change", () => { const selected = file.files[0]; if (selected) candidate.src = URL.createObjectURL(selected); });
+  candidate.addEventListener("load", draw); reference.addEventListener("load", draw);
+  [frame, x, y, opacity, zoom].forEach((control) => control.addEventListener("input", draw));
+  document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(result.textContent); });
+  draw();
+</script>
+</body>
+</html>

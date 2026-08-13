@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.325";
+  const GAME_VERSION = "0.326";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -251,6 +251,11 @@ import {
   const playerProfilePowerEl = requiredElement("playerProfilePower");
   const playerProfileIcon = requiredElement<HTMLButtonElement>("playerProfileIcon");
   const editPlayerNameBtn = requiredElement<HTMLButtonElement>("editPlayerNameBtn");
+  const profileCharacterPreviewEl = requiredElement("profileCharacterPreview");
+  const profileCharacterCanvas = requiredElement<HTMLCanvasElement>("profileCharacterCanvas");
+  const profileCharacterCtx = requiredCanvasContext(profileCharacterCanvas);
+  const previousPlayerSpriteBtn = requiredElement<HTMLButtonElement>("previousPlayerSpriteBtn");
+  const nextPlayerSpriteBtn = requiredElement<HTMLButtonElement>("nextPlayerSpriteBtn");
   const playerProfileLoadingEl = requiredElement("playerProfileLoading");
   const profileOverviewTab = requiredElement("profileOverviewTab");
   const profileStatsTab = requiredElement("profileStatsTab");
@@ -552,16 +557,32 @@ import {
     encounter: null,
   };
 
-  const playerSprite = new Image();
+  const PLAYER_SPRITE_SOURCES = [
+    "assets/wildwood/wildwood-player-spritesheet-flat-v1.png",
+    "assets/wildwood/player-foxfolk-spritesheet-v1.png",
+    "assets/wildwood/player-mushroomfolk-spritesheet-v1.png",
+    "assets/wildwood/player-newtfolk-spritesheet-v1.png",
+  ] as const;
+  const playerSprites = PLAYER_SPRITE_SOURCES.map(() => new Image());
+  const playerSprite = playerSprites[0];
   let playerSpriteReady = false;
+  let settledPlayerSprites = 0;
   const markPlayerSpriteReady = () => {
+    settledPlayerSprites += 1;
+    if (settledPlayerSprites < playerSprites.length) return;
     playerSpriteReady = true;
     updateLoadingDetail();
     finishStartup();
   };
-  playerSprite.addEventListener("load", markPlayerSpriteReady, { once: true });
-  playerSprite.addEventListener("error", markPlayerSpriteReady, { once: true });
-  playerSprite.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
+  playerSprites.forEach((sprite, index) => {
+    sprite.addEventListener("load", markPlayerSpriteReady, { once: true });
+    sprite.addEventListener("error", markPlayerSpriteReady, { once: true });
+    sprite.src = PLAYER_SPRITE_SOURCES[index];
+  });
+  function playerSpriteFor(identity?: string) {
+    const spriteIndex = Math.max(0, Math.min(playerSprites.length - 1, Math.floor(coop?.playerSprite?.(identity) ?? 0)));
+    return playerSprites[spriteIndex] ?? playerSprite;
+  }
   const profileIconSheet = new Image();
   profileIconSheet.addEventListener("load", () => {
     if (!leaderboardEl.hidden) renderLeaderboard();
@@ -688,7 +709,7 @@ import {
     camera,
     viewport: () => ({ width: viewW, height: viewH }),
     gameTime: () => gameTime,
-    playerSprite,
+    playerSprite: playerSpriteFor,
     enemySprites: ENEMY_SPRITES,
     duelPlatformArt,
     playerSpriteXOffsets: PLAYER_SPRITE_X_OFFSETS,
@@ -2988,6 +3009,7 @@ import {
   function render() {
     textCtx.setTransform(1, 0, 0, 1, 0, 0);
     textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+    drawProfileCharacterPreview();
     const remotePlayers = coop ? coop.remotePlayers() : [];
     updateSpeechBubbles();
     if (replayMode) {
@@ -3126,6 +3148,7 @@ import {
     playerProfileIcon.disabled = !ownProfile;
     playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
     editPlayerNameBtn.hidden = !ownProfile;
+    updateProfileCharacterPreview(profile.identity, ownProfile);
     renderPower(playerProfilePowerEl, formatCompactNumber(power));
     profileDuelBtn.hidden = ownProfile;
     profileDuelBtn.dataset.identity = ownProfile ? "" : profile.identity;
@@ -3163,6 +3186,7 @@ import {
     playerProfileIcon.classList.toggle("is-editable", identity === coop?.localIdentity?.());
     playerProfileIcon.disabled = identity !== coop?.localIdentity?.();
     editPlayerNameBtn.hidden = identity !== coop?.localIdentity?.();
+    updateProfileCharacterPreview(identity, identity === coop?.localIdentity?.());
     renderPower(playerProfilePowerEl, "—");
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
@@ -3188,6 +3212,56 @@ import {
     profileEditPanel.hidden = true;
     playerProfileLoadingEl.textContent = "LOADING PLAYER…";
     coop?.releasePlayerProfile?.();
+  }
+
+  function updateProfileCharacterPreview(identity: string, ownProfile: boolean) {
+    profileCharacterPreviewEl.dataset.identity = identity;
+    previousPlayerSpriteBtn.hidden = !ownProfile;
+    nextPlayerSpriteBtn.hidden = !ownProfile;
+    drawProfileCharacterPreview();
+  }
+
+  function drawProfileCharacterPreview() {
+    if (playerProfileEl.hidden) return;
+    const identity = profileCharacterPreviewEl.dataset.identity;
+    const width = profileCharacterCanvas.width;
+    const height = profileCharacterCanvas.height;
+    const now = performance.now();
+    const sprite = playerSpriteFor(identity);
+    profileCharacterCtx.clearRect(0, 0, width, height);
+    profileCharacterCtx.fillStyle = "#37783a";
+    profileCharacterCtx.fillRect(0, 0, width, height);
+    profileCharacterCtx.fillStyle = "rgba(203,239,117,.28)";
+    for (let x = -20; x < width + 24; x += 21) {
+      const drift = ((now * .028 + x * 1.7) % 82) - 20;
+      const baseX = x - drift;
+      const sway = Math.sin(now * .005 + x) * 3;
+      profileCharacterCtx.fillRect(Math.round(baseX + sway), 66, 2, 14);
+      profileCharacterCtx.fillRect(Math.round(baseX + sway - 3), 72, 2, 8);
+      profileCharacterCtx.fillRect(Math.round(baseX + sway + 3), 74, 2, 7);
+    }
+    profileCharacterCtx.fillStyle = "rgba(20,66,30,.38)";
+    profileCharacterCtx.fillRect(0, 79, width, 9);
+    if (!sprite.complete || sprite.naturalWidth <= 0) return;
+    const cellWidth = sprite.naturalWidth / 4;
+    const cellHeight = sprite.naturalHeight / 4;
+    const frame = Math.floor(now / 120) % 4;
+    const size = 84;
+    profileCharacterCtx.imageSmoothingEnabled = false;
+    profileCharacterCtx.drawImage(
+      sprite,
+      frame * cellWidth, 0, cellWidth, cellHeight,
+      Math.round(width / 2 - size / 2), 3, size, size,
+    );
+  }
+
+  function selectProfileCharacter(direction: -1 | 1) {
+    if (openProfileIdentity !== coop?.localIdentity?.()) return;
+    const current = Math.max(0, Math.min(playerSprites.length - 1, Math.floor(coop?.playerSprite?.() ?? 0)));
+    const next = (current + direction + playerSprites.length) % playerSprites.length;
+    void coop?.setPlayerSprite?.(next).then((result) => {
+      if (!result?.ok) showMessage(result?.error || "CHARACTER UPDATE FAILED", "#ff9b91");
+    });
   }
 
   function renderPower(element: HTMLElement, value: string) {
@@ -3893,6 +3967,8 @@ import {
     if (event.target === playerProfileEl) closePlayerProfile();
   });
   editPlayerNameBtn.addEventListener("click", openProfileNameEditor);
+  previousPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(-1));
+  nextPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(1));
   profileNameEditorEl.addEventListener("click", (event) => {
     if (event.target === profileNameEditorEl) closeProfileNameEditor();
   });

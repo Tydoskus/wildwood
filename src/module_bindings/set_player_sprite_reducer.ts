@@ -10,9 +10,6 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  identity: __t.identity().primaryKey(),
-  displayName: __t.string().name("display_name"),
-  profileIcon: __t.u32().name("profile_icon"),
-  playerSprite: __t.u32().name("player_sprite"),
-});
+export default {
+  playerSprite: __t.u32(),
+};
