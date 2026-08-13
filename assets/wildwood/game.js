@@ -18,6 +18,9 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.274": [
+      "Enemies now collide with players instead of standing directly on top of them"
+    ],
     "0.273": [
       "Duel replay buttons in World Chat now use a larger two-line tap target",
       "Live duels now show the challenged player's correct name immediately",
@@ -1121,7 +1124,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.273";
+    const GAME_VERSION = "0.274";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -3024,6 +3027,22 @@
             e.moveSpeedRecovery = 0;
             e.vx = 0;
             e.vy = 0;
+          }
+        }
+        const collisionX = e.x - player.x;
+        const collisionY = e.y - player.y;
+        const minimumDistance = player.r + e.r;
+        const collisionDistanceSq = collisionX * collisionX + collisionY * collisionY;
+        if (collisionDistanceSq < minimumDistance * minimumDistance) {
+          const collisionDistance = Math.sqrt(collisionDistanceSq);
+          const nx = collisionDistance > 1e-3 ? collisionX / collisionDistance : e.facingX || 1;
+          const ny = collisionDistance > 1e-3 ? collisionY / collisionDistance : 0;
+          e.x = clamp(player.x + nx * minimumDistance, e.r, WORLD.w - e.r);
+          e.y = clamp(player.y + ny * minimumDistance, e.r, WORLD.h - e.r);
+          const inwardSpeed = e.vx * nx + e.vy * ny;
+          if (inwardSpeed < 0) {
+            e.vx -= inwardSpeed * nx;
+            e.vy -= inwardSpeed * ny;
           }
         }
       }

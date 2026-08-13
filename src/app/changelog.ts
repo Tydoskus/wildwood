@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.274": [
+    "Enemies now collide with players instead of standing directly on top of them",
+  ],
   "0.273": [
     "Duel replay buttons in World Chat now use a larger two-line tap target",
     "Live duels now show the challenged player's correct name immediately",
