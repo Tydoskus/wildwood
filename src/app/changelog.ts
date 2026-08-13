@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.290": [
+    "Player name and health display now sit vertically centered in the HUD frame",
+  ],
   "0.289": [
     "Large regular enemies now have more space between their sprites, health bars, and reward labels",
   ],
