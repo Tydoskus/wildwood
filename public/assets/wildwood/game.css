@@ -151,6 +151,7 @@
     color: var(--text);
     font: 900 24px/1 var(--font-rounded);
     text-shadow: var(--text-shadow);
+    transition: box-shadow 160ms ease-in-out;
   }
 
   .settings-button[hidden] { display: none; }
@@ -176,6 +177,7 @@
     background: linear-gradient(#8c5555, #683334);
     color: #f5c7c4;
   }
+  .settings-button:active { transform: none; box-shadow: inset 0 0 0 999px rgba(255,255,255,.14); }
 
   .settings-panel {
     position: absolute;
