@@ -396,6 +396,8 @@ const duelReplay = table(
     opponentRegened: t.f32(),
     opponentBlocked: t.f32(),
     createdAt: t.timestamp(),
+    challengerIdentity: t.string().default(""),
+    opponentIdentity: t.string().default(""),
   },
 );
 
@@ -1212,8 +1214,8 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
   trimChatHistory(ctx);
 }
 
-function insertDuelAnnouncement(ctx: any, winnerName: string, loserName: string, replayId: bigint) {
-  insertChatMessage(ctx, ctx.sender, "DUEL", `${winnerName} beat ${loserName} in a duel.`, replayId);
+function insertDuelAnnouncement(ctx: any, winner: any, winnerName: string, loserName: string, replayId: bigint) {
+  insertChatMessage(ctx, winner, winnerName, `${winnerName} beat ${loserName} in a duel.`, replayId);
 }
 
 function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: number) {
@@ -1261,6 +1263,8 @@ function finishDuel(ctx: any, current: any) {
 
   ctx.db.duelReplay.insert({
     id: current.id,
+    challengerIdentity: current.challenger.toHexString(),
+    opponentIdentity: current.opponent.toHexString(),
     challengerName,
     opponentName,
     winnerName,
@@ -1289,11 +1293,11 @@ function finishDuel(ctx: any, current: any) {
   });
 
   if (challengerWon) {
-    insertDuelAnnouncement(ctx, challengerName, opponentName, current.id);
+    insertDuelAnnouncement(ctx, current.challenger, challengerName, opponentName, current.id);
   } else if (opponentWon) {
-    insertDuelAnnouncement(ctx, opponentName, challengerName, current.id);
+    insertDuelAnnouncement(ctx, current.opponent, opponentName, challengerName, current.id);
   } else {
-    insertChatMessage(ctx, ctx.sender, "DUEL", `${challengerName} and ${opponentName} drew a duel.`, current.id);
+    insertChatMessage(ctx, current.challenger, challengerName, `${challengerName} and ${opponentName} drew a duel.`, current.id);
   }
   ctx.db.duel.id.delete(current.id);
 }

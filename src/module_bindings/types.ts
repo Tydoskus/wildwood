@@ -153,6 +153,8 @@ export const DuelReplay = __t.object("DuelReplay", {
   opponentRegened: __t.f32(),
   opponentBlocked: __t.f32(),
   createdAt: __t.timestamp(),
+  challengerIdentity: __t.string(),
+  opponentIdentity: __t.string(),
 });
 export type DuelReplay = __Infer<typeof DuelReplay>;
 

@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.284";
+  const GAME_VERSION = "0.285";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -367,6 +367,7 @@ import {
   let visibleReplay: RuntimeDuelReplay | null = null;
   let replayMode: ReplayMode | null = null;
   let heldDuelScene: DuelScene | null = null;
+  let renderedDuelScene: DuelScene | null = null;
   let duelResultHold = false;
   let duelReturnState: DuelReturnState | null = null;
   let duelExitFading = false;
@@ -2837,6 +2838,7 @@ import {
       opponentHp: state.opponentHp,
     };
     const actor = (isChallenger: boolean): DuelScene["challenger"] => ({
+      identity: isChallenger ? replay.challengerIdentity : replay.opponentIdentity,
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
       name: isChallenger ? replay.challengerName : replay.opponentName,
@@ -2865,6 +2867,7 @@ import {
   }
 
   function renderDuelScene(scene: DuelScene) {
+    renderedDuelScene = scene;
     duelCameraPosition();
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
@@ -2899,6 +2902,7 @@ import {
       if (scene) renderDuelScene(scene);
       return;
     }
+    renderedDuelScene = null;
     ctx.save();
 
     const sx = screenShakeEnabled && screenShake > .2 ? rand(-screenShake, screenShake) : 0;
@@ -3314,7 +3318,7 @@ import {
   }
 
   function openPlayerAtScreenPoint(clientX: number, clientY: number) {
-    if (!running || !playerProfileEl.hidden || isDueling()) return false;
+    if (!running || !playerProfileEl.hidden) return false;
     const worldX = camera.x + clientX / camera.zoom;
     const worldY = camera.y + clientY / camera.zoom;
     let target = null;
@@ -3322,6 +3326,14 @@ import {
     const isPlayerProfileHit = (dx: number, dy: number) =>
       (Math.abs(dx) <= 48 && dy >= -60 && dy <= 60) ||
       (Math.abs(dx) <= 125 && dy >= -105 && dy < -45);
+    if (isDueling() || replayMode) {
+      const duelTarget = [renderedDuelScene?.challenger, renderedDuelScene?.opponent]
+        .filter((actor): actor is DuelScene["challenger"] => Boolean(actor?.identity))
+        .find((actor) => isPlayerProfileHit(worldX - actor.x, worldY - actor.y));
+      if (!duelTarget?.identity) return false;
+      void openPlayerProfile(duelTarget.identity, duelTarget.name);
+      return true;
+    }
     const localIdentity = coop?.localIdentity?.();
     if (localIdentity) {
       const dx = worldX - player.x;

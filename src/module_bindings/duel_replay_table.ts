@@ -37,4 +37,6 @@ export default __t.row({
   opponentRegened: __t.f32().name("opponent_regened"),
   opponentBlocked: __t.f32().name("opponent_blocked"),
   createdAt: __t.timestamp().name("created_at"),
+  challengerIdentity: __t.string().name("challenger_identity"),
+  opponentIdentity: __t.string().name("opponent_identity"),
 });

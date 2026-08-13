@@ -84,7 +84,7 @@
     backdrop-filter: blur(4px);
   }
 
-  .player-hud-stack { display: flex; flex-direction: column; width: min(420px, 58vw); height: var(--hud-map-size); }
+  .player-hud-stack { display: flex; flex-direction: column; width: min(420px, 68vw); height: var(--hud-map-size); }
 
   .player-summary {
     display: flex;
@@ -95,7 +95,7 @@
     padding: 2px 3px 6px;
   }
 
-  .player-hud-card { display: flex; align-items: stretch; gap: 8px; width: 100%; padding: 7px 9px; border-top: 0; border-left: 0; border-radius: 0 10px 0 0; }
+  .player-hud-card { position: relative; z-index: 2; display: flex; align-items: stretch; gap: 8px; width: 100%; padding: 7px 9px; overflow: hidden; border-top: 0; border-left: 0; border-radius: 0 10px 0 0; }
   .player-hud-content { min-width: 0; flex: 1; }
   .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; cursor: pointer; }
@@ -120,6 +120,7 @@
 
   .settings-wrap {
     position: relative;
+    z-index: 1;
     display: flex;
     flex: 1;
     min-height: 0;
@@ -633,6 +634,7 @@
   .chat-name { grid-column: 2; grid-row: 1; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 19px; padding: 3px 11px; border-radius: 5px; background: rgba(255,255,255,.09); color: var(--text); font-size: 11.25px; line-height: 1.5; white-space: pre-wrap; }
   .chat-line.has-replay .chat-text { grid-column: 2 / 4; }
+  .chat-line.has-replay { cursor: pointer; }
   #chatForm { gap: 5px; }
 
   #chatInput,

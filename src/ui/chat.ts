@@ -74,6 +74,11 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
   }
 
+  function displayNameFor(message: ChatMessage) {
+    if (message.senderName !== "DUEL") return message.senderName;
+    return /^(.+?) (?:beat|and) /.exec(message.message)?.[1] ?? "DUEL RESULT";
+  }
+
   function refresh() {
     const coop = getCoop();
     const localName = coop?.localDisplayName?.();
@@ -93,8 +98,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     nextExpiryAt = messages.length > 0 ? messages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
     elements.messages.replaceChildren();
     for (const message of messages) {
+      const displayName = displayNameFor(message);
       const line = document.createElement("div");
       line.className = "chat-line";
+      const isDuelMessage = message.replayId > 0n;
       const time = document.createElement("span");
       time.className = "chat-time";
       time.textContent = new Date(message.sentAtMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -108,19 +115,24 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         badge.textContent = `${DEVELOPER_BADGE} `;
         name.appendChild(badge);
       }
-      name.append(document.createTextNode(`${message.senderName}${guestSuffix}`));
+      name.append(document.createTextNode(`${displayName}${guestSuffix}`));
       name.setAttribute("role", "button");
       name.setAttribute("tabindex", "0");
-      name.setAttribute("aria-label", `View ${message.senderName}'s profile`);
+      name.setAttribute("aria-label", isDuelMessage ? "Watch duel replay" : `View ${displayName}'s profile`);
       const openPlayer = (event: Event) => {
         event.stopPropagation();
-        onOpenPlayer?.(message.sender, message.senderName);
+        onOpenPlayer?.(message.sender, displayName);
       };
-      name.addEventListener("click", openPlayer);
+      const openReplay = (event: Event) => {
+        event.stopPropagation();
+        onOpenReplay?.(message.replayId);
+      };
+      const activateMessage = isDuelMessage ? openReplay : openPlayer;
+      name.addEventListener("click", activateMessage);
       name.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        openPlayer(event);
+        activateMessage(event);
       });
       const text = document.createElement("span");
       text.className = "chat-text";
@@ -129,18 +141,27 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       icon.className = "chat-profile-icon";
       icon.setAttribute("role", "button");
       icon.setAttribute("tabindex", "0");
-      icon.setAttribute("aria-label", `View ${message.senderName}'s profile`);
-      icon.addEventListener("click", openPlayer);
+      icon.setAttribute("aria-label", isDuelMessage ? "Watch duel replay" : `View ${displayName}'s profile`);
+      icon.addEventListener("click", activateMessage);
       icon.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        openPlayer(event);
+        activateMessage(event);
       });
       const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(message.sender) ?? 0)));
       icon.style.backgroundPosition = `${(iconIndex % 8) / 7 * 100}% ${Math.floor(iconIndex / 8) / 7 * 100}%`;
       line.append(time, icon, name, text);
-      if (message.replayId > 0n) {
+      if (isDuelMessage) {
         line.classList.add("has-replay");
+        line.setAttribute("role", "button");
+        line.setAttribute("tabindex", "0");
+        line.setAttribute("aria-label", "Watch duel replay");
+        line.addEventListener("click", openReplay);
+        line.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openReplay(event);
+        });
         const replay = document.createElement("button");
         replay.className = "chat-replay";
         replay.type = "button";
@@ -150,10 +171,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         replayIcon.className = "chat-replay-icon";
         replayIcon.setAttribute("aria-hidden", "true");
         replay.appendChild(replayIcon);
-        replay.addEventListener("click", (event) => {
-          event.stopPropagation();
-          onOpenReplay?.(message.replayId);
-        });
+        replay.addEventListener("click", openReplay);
         text.append(" ", replay);
       }
       elements.messages.appendChild(line);

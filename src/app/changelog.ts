@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.285": [
+    "Duel result chat now names the winning player instead of DUEL",
+    "Click anywhere on a duel result chat message to watch its replay",
+    "Click either fighter during a live duel or new duel replay to open their profile",
+    "Player HUD now stays above its connected toolbar and clips its health display inside the frame",
+  ],
   "0.284": [
     "Player action icons now form one connected toolbar beneath the player panel",
     "The player panel and action toolbar now match the minimap height",

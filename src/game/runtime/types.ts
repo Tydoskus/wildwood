@@ -199,6 +199,8 @@ export type RuntimeDuelState = {
 
 export type RuntimeDuelReplay = {
   id: bigint;
+  challengerIdentity: string;
+  opponentIdentity: string;
   challengerName: string;
   opponentName: string;
   winnerName: string;

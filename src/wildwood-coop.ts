@@ -150,6 +150,8 @@ export type DuelState = {
 
 export type DuelReplay = {
   id: bigint;
+  challengerIdentity: string;
+  opponentIdentity: string;
   challengerName: string;
   opponentName: string;
   winnerName: string;
@@ -1195,6 +1197,8 @@ function upsertDuel(row: {
 function upsertDuelReplay(row: any) {
   duelReplays.set(row.id, {
     id: row.id,
+    challengerIdentity: row.challengerIdentity,
+    opponentIdentity: row.opponentIdentity,
     challengerName: row.challengerName,
     opponentName: row.opponentName,
     winnerName: row.winnerName,
