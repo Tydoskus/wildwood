@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.293": [
+    "Dragon fire cone now travels slower, giving more time to react",
+  ],
   "0.292": [
     "Tutorial Forest Mossbacks now reward +5 armor",
     "Tutorial Forest health-reward enemies now grant double health",
