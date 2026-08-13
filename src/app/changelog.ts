@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.288": [
+    "Player HUD and toolbar now use equal-height rows while still matching the minimap",
+  ],
   "0.287": [
     "Player HUD now visibly overlaps the toolbar frame and fully clips its contents",
   ],
