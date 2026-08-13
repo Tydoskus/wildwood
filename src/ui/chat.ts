@@ -128,9 +128,9 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const followNewestMessage = !large || renderedRevision < 0 || distanceFromBottom <= 16;
     const allMessages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? []).slice(-100);
     // Do not rely on scrolling hidden rows in compact mode. Its DOM contains
-    // exactly the newest two rows, newest first, so each incoming message is
-    // immediately visible even after the panel has been minimized for hours.
-    const messages = large ? allMessages : allMessages.slice(-2).reverse();
+    // exactly the newest two rows in the same oldest-to-newest order as the
+    // expanded view.
+    const messages = large ? allMessages : allMessages.slice(-2);
     renderedRevision = revision;
     nextExpiryAt = allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
     elements.messages.replaceChildren();
@@ -214,7 +214,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.messages.appendChild(line);
     }
     if (followNewestMessage) {
-      elements.messages.scrollTop = large ? elements.messages.scrollHeight : 0;
+      elements.messages.scrollTop = elements.messages.scrollHeight;
     } else {
       // Appended messages do not move history being read. If old messages
       // expire from the top, compensate only for the removed height.
