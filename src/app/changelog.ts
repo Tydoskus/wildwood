@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.287": [
+    "Player HUD now visibly overlaps the toolbar frame and fully clips its contents",
+  ],
   "0.286": [
     "Player toolbar buttons now have lighter transparent backgrounds and white labels",
   ],
