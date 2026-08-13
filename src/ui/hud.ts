@@ -36,7 +36,13 @@ export function renderPlayerHud(
       elements.playerName.textContent = name;
     }
   }
-  elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
+  const powerLabel = document.createElement("span");
+  powerLabel.className = "power-label";
+  powerLabel.textContent = "Power:";
+  const powerValue = document.createElement("span");
+  powerValue.className = "power-value";
+  powerValue.textContent = formatCompactNumber(power);
+  elements.playerPower.replaceChildren(powerLabel, " ", powerValue);
   if (elements.coopStatus) elements.coopStatus.textContent = `Players online: ${playerCount}`;
 }
 

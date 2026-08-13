@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.319" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.320" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -21,7 +21,7 @@
       <div class="player-hud-content">
         <div class="player-summary">
           <div id="playerName">PLAYER</div>
-          <div id="playerPower">Power: 30</div>
+          <div id="playerPower"><span class="power-label">Power:</span> <span class="power-value">30</span></div>
         </div>
         <div class="bar">
           <div id="hpFill"></div>
@@ -117,7 +117,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.319</div>
+        <div id="version">v0.320</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -177,13 +177,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.319</strong><time id="updateNoticeDate" class="signin-update-date" datetime="2026-08-13">AUG 13, 2026</time></div>
+        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.320</strong><time id="updateNoticeDate" class="signin-update-date" datetime="2026-08-13">AUG 13, 2026</time></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.319</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.320</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -256,7 +256,7 @@
           </div>
           <div id="playerProfilePresence" class="player-profile-presence">CHECKING STATUS</div>
         </div>
-        <div id="playerProfilePower">Power: 0</div>
+        <div id="playerProfilePower"><span class="power-label">Power:</span> <span class="power-value">0</span></div>
       </div>
       <button id="closePlayerProfileBtn" class="profile-close-button secondary-button" type="button" aria-label="Close player profile">×</button>
     </header>
@@ -369,7 +369,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.319"></script>
-<script src="assets/wildwood/game.js?v=0.319"></script>
+<script src="assets/wildwood/coop-client.js?v=0.320"></script>
+<script src="assets/wildwood/game.js?v=0.320"></script>
 </body>
 </html>

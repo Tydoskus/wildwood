@@ -115,7 +115,6 @@
 
   #playerPower {
     flex: 0 0 auto;
-    color: var(--gold);
     font-size: 12.5px;
     letter-spacing: .035em;
     text-align: right;
@@ -966,7 +965,9 @@
   .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
-  #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 11px; white-space: nowrap; text-align: right; }
+  #playerProfilePower { margin-left: auto; font-size: 11px; white-space: nowrap; text-align: right; }
+  .power-label { color: var(--gold); }
+  .power-value { color: #fff; }
   .profile-close-button { width: 40px; min-width: 40px; height: 40px; margin: 0; padding: 0; font-size: 25px; line-height: 1; }
   .profile-tabs { display: flex; gap: 7px; margin: 12px 0 8px; border-bottom: 2px solid rgba(255,255,255,.13); }
   .profile-tab { margin: 0 0 -2px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; border-radius: 5px 5px 0 0; background: transparent; color: var(--muted); font-size: 10px; }

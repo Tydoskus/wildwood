@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.319";
+  const GAME_VERSION = "0.320";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -3080,7 +3080,7 @@ import {
     playerProfileIcon.disabled = !ownProfile;
     playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
     editPlayerNameBtn.hidden = !ownProfile;
-    playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
+    renderPower(playerProfilePowerEl, formatCompactNumber(power));
     profileDuelBtn.hidden = ownProfile;
     profileDuelBtn.dataset.identity = ownProfile ? "" : profile.identity;
     updateProfileDuelButton();
@@ -3117,7 +3117,7 @@ import {
     playerProfileIcon.classList.toggle("is-editable", identity === coop?.localIdentity?.());
     playerProfileIcon.disabled = identity !== coop?.localIdentity?.();
     editPlayerNameBtn.hidden = identity !== coop?.localIdentity?.();
-    playerProfilePowerEl.textContent = "Power: —";
+    renderPower(playerProfilePowerEl, "—");
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
     profileStatsPanel.hidden = true;
@@ -3142,6 +3142,16 @@ import {
     profileEditPanel.hidden = true;
     playerProfileLoadingEl.textContent = "LOADING PLAYER…";
     coop?.releasePlayerProfile?.();
+  }
+
+  function renderPower(element: HTMLElement, value: string) {
+    const label = document.createElement("span");
+    label.className = "power-label";
+    label.textContent = "Power:";
+    const number = document.createElement("span");
+    number.className = "power-value";
+    number.textContent = value;
+    element.replaceChildren(label, " ", number);
   }
 
   function openProfileNameEditor() {
