@@ -636,7 +636,8 @@
   #chatPanel:not(.is-large) .chat-line { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 18px; }
   #chatPanel:not(.is-large) .chat-time,
   #chatPanel:not(.is-large) .chat-profile-icon { display: none; }
-  #chatPanel:not(.is-large) .chat-name { flex: 0 1 auto; max-width: 44%; font-size: 10px; }
+  #chatPanel:not(.is-large) .chat-name { flex: 0 0 auto; max-width: none; overflow: visible; font-size: 10px; text-overflow: clip; }
+  #chatPanel:not(.is-large) .chat-name::after { content: ":"; }
   #chatPanel:not(.is-large) .chat-text,
   #chatPanel:not(.is-large) .chat-line.has-replay .chat-text { flex: 1 1 0; grid-column: auto; grid-row: auto; min-width: 0; min-height: 0; padding: 0; overflow: hidden; border-radius: 0; background: transparent; font-size: 10px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
   #chatPanel:not(.is-large) .chat-replay { display: none; }
