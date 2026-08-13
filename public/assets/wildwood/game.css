@@ -960,7 +960,7 @@
     100% { opacity: 0; transform: translate(-50%, -8px); }
   }
   #playerProfile { padding: 5px; }
-  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; text-align: left; }
+  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; border-color: #000; background: rgba(13,20,17,.62); text-align: left; }
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
