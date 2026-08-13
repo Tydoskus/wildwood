@@ -129,8 +129,11 @@
   }
 
   .settings-button {
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
     flex: 1 1 0;
     min-width: 0;
     width: auto;
@@ -140,7 +143,7 @@
     border: 2px solid rgba(255,255,255,.24);
     border-top: 0;
     border-radius: 0;
-    background: var(--panel);
+    background: rgba(13,20,17,.70);
     color: var(--text);
     font: 900 24px/1 var(--font-rounded);
     text-shadow: var(--text-shadow);
@@ -162,6 +165,8 @@
     object-fit: contain;
     pointer-events: none;
   }
+
+  .toolbar-label { max-width: 100%; overflow: hidden; color: #fff; font: 900 clamp(5px, 1.5vw, 8px)/1 var(--font-rounded); letter-spacing: .01em; text-align: center; text-overflow: clip; white-space: nowrap; -webkit-text-stroke: 0; text-shadow: 1px 1px 0 #000; }
 
   .settings-button.is-off {
     background: linear-gradient(#8c5555, #683334);

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.286": [
+    "Player toolbar buttons now have lighter transparent backgrounds and white labels",
+  ],
   "0.285": [
     "Duel result chat now names the winning player instead of DUEL",
     "Click anywhere on a duel result chat message to watch its replay",
