@@ -896,6 +896,9 @@
 
   #sceneFade[hidden] { display: none; }
   #sceneFade.is-visible { opacity: 1; pointer-events: auto; }
+  #cutsceneOverlay { position: fixed; inset: 0; z-index: 5; background: rgba(0,0,0,.76); pointer-events: auto; }
+  #cutsceneOverlay[hidden] { display: none; }
+  body.is-cutscene #hud { visibility: hidden; }
 
   .duel-modal { width: var(--game-window-width); border-color: rgba(198,208,210,.56); }
   .duel-modal h2 { margin: 0; color: #eef1ee; font-size: clamp(22px, 6vw, 34px); }

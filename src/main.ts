@@ -27,6 +27,7 @@ import { createCanvasPrimitives } from "./game/canvas";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera, snapCameraToPlayer as snapRuntimeCamera, updateCamera as updateRuntimeCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
+import { createPortalCutscene } from "./game/runtime/cutscene";
 import { requiredCanvasContext, requiredElement, requiredSelector } from "./game/runtime/dom";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
 import { createWorldRenderer } from "./game/runtime/world-renderer";
@@ -124,11 +125,12 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.278";
+  const GAME_VERSION = "0.279";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
+  const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v1";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const WORLD_HEALTH_BAR_HEIGHT = 15;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
@@ -231,6 +233,7 @@ import {
   const duelReplayTitle = requiredElement("duelReplayTitle");
   const closeDuelReplayBtn = requiredElement("closeDuelReplayBtn");
   const sceneFadeEl = requiredElement("sceneFade");
+  const cutsceneOverlayEl = requiredElement("cutsceneOverlay");
   const playerProfileEl = requiredElement("playerProfile");
   const playerProfileNameEl = requiredElement("playerProfileName");
   const playerProfilePresenceEl = requiredElement("playerProfilePresence");
@@ -334,6 +337,10 @@ import {
   let currentMapId: MapId = TUTORIAL_FOREST_MAP_ID;
   let mapTransitioning = false;
   let portalCooldown = 0;
+  const portalCutscene = createPortalCutscene();
+  let portalCutsceneIntensity = -1;
+  let portalCutsceneDestinationVisible = false;
+  let queuedDragonResult: DragonResult | null = null;
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -601,6 +608,8 @@ import {
     mapName: (mapId) => MAP_CONFIG[mapId].name,
     activePortal,
     portalIsUnlocked,
+    portalRevealIntensity: () => portalCutsceneIntensity,
+    portalDestinationVisible: () => portalCutsceneDestinationVisible,
     emptyDesertArch: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,
@@ -800,6 +809,9 @@ import {
     if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
     const saved = coop.savedProgress();
     if (!saved) return;
+    if (saved.desertUnlocked) {
+      try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
+    }
     const lifetime = coop.playerProfile?.(progressIdentity)?.lifetime;
     if (lifetime) {
       totalKills = progressIdentity === lifetimeKillsIdentity
@@ -1293,14 +1305,55 @@ import {
     spawnBurst(boss.x, boss.y, ENEMY_DEATH_PARTICLE_COLOR, 64, 230);
   }
 
+  function hasSeenDragonPortalCutscene() {
+    try { return localStorage.getItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY) === "true"; } catch { return false; }
+  }
+
+  function startDragonPortalCutscene() {
+    const portal = MAP_CONFIG[TUTORIAL_FOREST_MAP_ID].portal;
+    portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, { width: viewW, height: viewH });
+    portalCutsceneIntensity = 0;
+    portalCutsceneDestinationVisible = false;
+    keys.clear();
+    touchMove.active = false;
+    cutsceneOverlayEl.hidden = false;
+    document.body.classList.add("is-cutscene");
+    try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
+  }
+
+  function updatePortalCutscene(dt: number) {
+    const frame = portalCutscene.update(dt);
+    camera.x = frame.camera.x;
+    camera.y = frame.camera.y;
+    camera.zoom = frame.camera.zoom;
+    portalCutsceneIntensity = frame.portalIntensity;
+    portalCutsceneDestinationVisible = frame.showDestination;
+    if (!frame.finished) return true;
+
+    portalCutsceneIntensity = -1;
+    portalCutsceneDestinationVisible = false;
+    cutsceneOverlayEl.hidden = true;
+    document.body.classList.remove("is-cutscene");
+    const result = queuedDragonResult;
+    queuedDragonResult = null;
+    if (result) showDragonResult(result);
+    return false;
+  }
+
   function showDragonResult(result: DragonResult | null) {
     if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
+    if (portalCutscene.active && queuedDragonResult?.encounter === result.encounter) return;
     dragonResultTitle.textContent = "DRAGON DEFEATED";
     const worldHeading = dragonWorldNoticeEl.querySelector("strong");
     if (worldHeading) worldHeading.textContent = "DRAGON DEFEATED";
+    const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
+    if (localContribution && !hasSeenDragonPortalCutscene()) {
+      queuedDragonResult = result;
+      startDragonPortalCutscene();
+      return;
+    }
     shownDragonResultEncounter = result.encounter;
     pendingDragonResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
     if (!localContribution) {
       if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
       dragonWorldNoticeDetailEl.replaceChildren();
@@ -2334,6 +2387,12 @@ import {
     if (messageClock > 0) {
       messageClock -= dt;
       if (messageClock <= 0) messageEl.style.opacity = "0";
+    }
+
+    if (portalCutscene.active) {
+      updatePortalCutscene(dt);
+      updateHud();
+      return;
     }
 
     updatePlayer(dt);

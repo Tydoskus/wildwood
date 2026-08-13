@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.279": [
+    "First Dragon victory now unlocks Beginner Desert through a cinematic portal reveal",
+    "The camera pans to the Forest portal while player input pauses, then play resumes",
+  ],
   "0.278": [
     "Replay results now use a compact custom play button",
     "Minimized World Chat stays left-anchored and never exceeds half the screen width",

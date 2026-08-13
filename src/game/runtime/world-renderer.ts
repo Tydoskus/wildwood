@@ -30,6 +30,8 @@ export type WorldRendererOptions = {
   mapName: (mapId: MapId) => string;
   activePortal: () => Portal;
   portalIsUnlocked: () => boolean;
+  portalRevealIntensity: () => number;
+  portalDestinationVisible: () => boolean;
   emptyDesertArch: EmptyArch;
   tutorialMapId: MapId;
   desertMapId: MapId;
@@ -122,16 +124,22 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const x = Math.round(portal.x - camera.x);
     const y = Math.round(portal.y - camera.y);
     options.drawShadow(x, y - 4, Math.round(portal.width * .68), .14);
-    if (options.portalIsUnlocked() && options.portalSwirl.complete && options.portalSwirl.naturalWidth > 0) {
+    const cutsceneIntensity = options.portalRevealIntensity();
+    const cutsceneActive = cutsceneIntensity >= 0;
+    const portalIntensity = cutsceneActive ? cutsceneIntensity : options.portalIsUnlocked() ? 1 : 0;
+    if (portalIntensity > 0 && options.portalSwirl.complete && options.portalSwirl.naturalWidth > 0) {
       const frameStep = Math.floor(options.getGameTime() * 10) % 30;
       const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
       const cell = options.portalSwirl.naturalWidth / 4;
       const width = Math.round(portal.width * .59 * 1.265);
       const height = Math.round(portal.height * .75 * 1.265);
+      ctx.save();
+      ctx.globalAlpha = portalIntensity;
       ctx.drawImage(options.portalSwirl, (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell, Math.round(x - width / 2), Math.round(y - height - 5), width, height);
+      ctx.restore();
     }
     ctx.drawImage(options.portalArch, Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height);
-    if (!options.portalIsUnlocked()) return;
+    if ((cutsceneActive && !options.portalDestinationVisible()) || (!cutsceneActive && !options.portalIsUnlocked())) return;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";

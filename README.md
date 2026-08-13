@@ -10,7 +10,7 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 | Runtime rendering | `src/game/runtime/{world,boss,actor}-renderer.ts` | Canvas rendering for world scenery, bosses, and player/enemy/duel actors. |
 | UI views | `src/ui/{hud,profile,leaderboard,settings}.ts` | HUD, inventory, profile, leaderboard, and settings DOM rendering. |
 | Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
-| Runtime systems | `src/game/runtime/` | Strictly typed audio, camera, combat-effects, enemy-lifecycle, DOM, and browser contracts. |
+| Runtime systems | `src/game/runtime/` | Strictly typed audio, camera, combat-effects, enemy-lifecycle, cutscenes, DOM, and browser contracts. |
 | UI modules | `src/ui/` | HUD, inventory, and chat rendering/interaction. |
 | Multiplayer client | `src/wildwood-coop.ts` | SpacetimeDB connection, guest/account authentication, subscriptions, durable progress, chat, duels, and shared dragon state. |
 | Multiplayer services | `src/coop/services/` | Isolated progress rules/storage migration and duel cooldown persistence. |

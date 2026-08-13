@@ -1,0 +1,78 @@
+import { WORLD } from "../constants";
+import { clamp } from "../math";
+import type { Camera } from "./camera";
+
+export type PortalCutsceneFrame = {
+  active: boolean;
+  finished: boolean;
+  camera: Camera;
+  portalIntensity: number;
+  showDestination: boolean;
+};
+
+type CutsceneViewport = { width: number; height: number };
+
+const PAN_SECONDS = 1.8;
+const FLICKER_SECONDS = 1.25;
+const HOLD_SECONDS = 2.2;
+
+function easeOutCubic(value: number) {
+  return 1 - Math.pow(1 - value, 3);
+}
+
+export function createPortalCutscene() {
+  let elapsed = 0;
+  let start: Camera | null = null;
+  let target: Camera | null = null;
+
+  function begin(camera: Camera, focus: { x: number; y: number }, viewport: CutsceneViewport) {
+    const zoom = Math.max(.82, Math.min(1, camera.zoom));
+    const maxX = Math.max(0, WORLD.w - viewport.width / zoom);
+    const maxY = Math.max(0, WORLD.h - viewport.height / zoom);
+    start = { ...camera };
+    target = {
+      zoom,
+      x: clamp(focus.x - viewport.width / zoom / 2, 0, maxX),
+      y: clamp(focus.y - viewport.height / zoom / 2, 0, maxY),
+    };
+    elapsed = 0;
+  }
+
+  function update(dt: number): PortalCutsceneFrame {
+    if (!start || !target) return {
+      active: false,
+      finished: false,
+      camera: { x: 0, y: 0, zoom: 1 },
+      portalIntensity: 0,
+      showDestination: false,
+    };
+    elapsed += dt;
+    const pan = clamp(elapsed / PAN_SECONDS, 0, 1);
+    const camera = {
+      x: start.x + (target.x - start.x) * easeOutCubic(pan),
+      y: start.y + (target.y - start.y) * easeOutCubic(pan),
+      zoom: start.zoom + (target.zoom - start.zoom) * easeOutCubic(pan),
+    };
+    const revealElapsed = Math.max(0, elapsed - PAN_SECONDS);
+    const flicker = elapsed >= PAN_SECONDS && revealElapsed < FLICKER_SECONDS;
+    const portalIntensity = elapsed < PAN_SECONDS
+      ? 0
+      : flicker
+        ? .22 + (Math.sin(revealElapsed * 38) > -.15 ? .78 : 0)
+        : 1;
+    const finished = elapsed >= PAN_SECONDS + FLICKER_SECONDS + HOLD_SECONDS;
+    if (finished) {
+      start = null;
+      target = null;
+    }
+    return {
+      active: true,
+      finished,
+      camera,
+      portalIntensity,
+      showDestination: revealElapsed >= .2,
+    };
+  }
+
+  return { begin, update, get active() { return start !== null; } };
+}

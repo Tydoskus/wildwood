@@ -13,7 +13,7 @@ This file records module boundaries, change rules, and known technical work. Rea
 | `src/game/duel.ts` | Duel constants and pure replay simulation helpers. |
 | `src/game/canvas.ts` | Reusable canvas path and pixel-shape primitives. |
 | `src/game/inventory.ts` | Inventory normalization, item definitions, and serialization. |
-| `src/game/runtime/` | Typed runtime systems: audio, camera, combat effects, enemy lifecycle, world/boss/actor rendering, DOM contracts, and shared runtime state models. |
+| `src/game/runtime/` | Typed runtime systems: audio, camera, combat effects, enemy lifecycle, world/boss/actor rendering, cutscenes, DOM contracts, and shared runtime state models. |
 | `src/ui/` | UI renderers for HUD, inventory, profiles, leaderboard, and settings controls. |
 | `src/ui/hud.ts` | HUD and inventory DOM rendering. |
 | `src/ui/chat.ts` | Chat UI behavior. |
@@ -58,4 +58,4 @@ Keep static definitions and pure calculations outside `main.ts`. Keep mutable co
 
 ## Current extraction result
 
-`src/main.ts` is strict TypeScript: no file-level suppression. Typed runtime systems now own audio, camera, combat effects, enemy lifecycle, and world/boss/actor rendering; UI modules own their DOM rendering. This reduced `main.ts` from 4,892 to 3,939 lines. Further extraction should follow explicit subsystem boundaries above rather than targeting line count alone.
+`src/main.ts` is strict TypeScript: no file-level suppression. Typed runtime systems now own audio, camera, combat effects, enemy lifecycle, world/boss/actor rendering, and cutscenes; UI modules own their DOM rendering. This reduced `main.ts` from 4,892 to 3,999 lines. Further extraction should follow explicit subsystem boundaries above rather than targeting line count alone.
