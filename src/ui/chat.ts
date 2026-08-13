@@ -23,7 +23,6 @@ type CoopClient = {
   chatRevision?: () => number;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
-  setDisplayName?: (name: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
 type ChatElements = {
@@ -35,8 +34,6 @@ type ChatElements = {
   form: HTMLFormElement;
   input: HTMLTextAreaElement;
   sendButton: HTMLButtonElement;
-  displayNameInput: HTMLInputElement;
-  saveNameButton: HTMLButtonElement;
 };
 
 type ChatOptions = {
@@ -115,9 +112,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   function refresh() {
     const coop = getCoop();
     const localName = coop?.localDisplayName?.();
-    if (localName && document.activeElement !== elements.displayNameInput) {
-      elements.displayNameInput.value = localName;
-    }
 
     const now = Date.now();
     const revision = coop?.chatRevision?.() ?? -1;
@@ -223,31 +217,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     }
   }
 
-  async function saveDisplayName() {
-    const name = elements.displayNameInput.value.trim().replace(/\s+/g, " ");
-    if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
-      showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
-      return;
-    }
-    const currentName = getCoop()?.localDisplayName?.();
-    if (name === currentName) {
-      showMessage("NAME ALREADY SET", "#bce7ff");
-      return;
-    }
-    elements.saveNameButton.disabled = true;
-    const result = await getCoop()?.setDisplayName?.(name);
-    elements.saveNameButton.disabled = false;
-    if (result?.ok) {
-      showMessage("NAME UPDATED", "#c9f5c2");
-      return;
-    }
-    if (/once every 30 days/i.test(result?.error ?? "")) {
-      showMessage("NAME LOCKED · CHANGES EVERY 30 DAYS", "#ff9b91");
-      return;
-    }
-    showMessage("NAME UPDATE FAILED", "#ff9b91");
-  }
-
   function init() {
     elements.toggle.addEventListener("click", () => {
       enabled = !enabled;
@@ -303,7 +272,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.input.style.height = "auto";
       elements.input.style.height = `${Math.min(elements.input.scrollHeight, 54)}px`;
     });
-    elements.saveNameButton.addEventListener("click", saveDisplayName);
     updateVisibility();
     updateHeight();
     updateChatCooldown();

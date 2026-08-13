@@ -24,7 +24,7 @@ export function renderPlayerHud(
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
   elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
-  elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))} HP`;
+  elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))}`;
   if (elements.playerName) {
     const name = displayName || "WANDERER";
     if (isDeveloper) {

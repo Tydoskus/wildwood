@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.318" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.319" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -25,7 +25,7 @@
         </div>
         <div class="bar">
           <div id="hpFill"></div>
-          <div id="hpText">30 / 30 HP</div>
+          <div id="hpText">30 / 30</div>
         </div>
       </div>
     </div>
@@ -53,6 +53,10 @@
           <span>ATTACK RANGE</span>
           <button id="attackRangeToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
         </div>
+        <div class="setting-row">
+          <span>ANTI-ALIASING</span>
+          <button id="antiAliasingToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
+        </div>
         <div class="setting-row setting-volume">
           <label for="musicVolume">MUSIC</label>
           <div class="volume-control">
@@ -73,13 +77,6 @@
           <button id="accountButton" class="setting-toggle account-button" type="button">SIGN IN</button>
         </div>
         <div id="accountStatus" class="account-status">GUEST · DEVICE SAVE</div>
-        <div class="name-row">
-          <label for="displayNameInput">PLAYER NAME</label>
-          <div class="name-edit">
-            <input id="displayNameInput" maxlength="20" autocomplete="off" spellcheck="false" />
-            <button id="saveNameBtn" class="setting-toggle" type="button">SAVE</button>
-          </div>
-        </div>
         <div class="setting-reset">
           <button id="resetProgressBtn" class="setting-toggle danger" type="button">RESET SAVE</button>
         </div>
@@ -120,7 +117,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.318</div>
+        <div id="version">v0.319</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -180,13 +177,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.318</strong><time id="updateNoticeDate" class="signin-update-date" datetime="2026-08-13">AUG 13, 2026</time></div>
+        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.319</strong><time id="updateNoticeDate" class="signin-update-date" datetime="2026-08-13">AUG 13, 2026</time></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.318</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.319</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -253,7 +250,10 @@
       <button id="playerProfileIcon" class="profile-icon profile-window-icon" type="button" aria-label="Player profile icon"></button>
       <div class="player-profile-title-row">
         <div class="player-profile-identity">
-          <h2 id="playerProfileName">PLAYER</h2>
+          <div class="player-profile-name-row">
+            <h2 id="playerProfileName">PLAYER</h2>
+            <button id="editPlayerNameBtn" class="profile-name-edit" type="button" aria-label="Change player name" hidden>✎</button>
+          </div>
           <div id="playerProfilePresence" class="player-profile-presence">CHECKING STATUS</div>
         </div>
         <div id="playerProfilePower">Power: 0</div>
@@ -297,6 +297,16 @@
       </div>
     </section>
   </div>
+</div>
+
+<div id="profileNameEditor" hidden>
+  <form id="profileNameEditorForm" class="modal profile-name-editor-modal" aria-label="Change player name">
+    <label for="profileNameInput">PLAYER NAME</label>
+    <div class="profile-name-editor-controls">
+      <input id="profileNameInput" maxlength="20" autocomplete="off" spellcheck="false" />
+      <button id="savePlayerNameBtn" type="submit">save</button>
+    </div>
+  </form>
 </div>
 
 <div id="profileIconPicker" hidden>
@@ -359,7 +369,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.318"></script>
-<script src="assets/wildwood/game.js?v=0.318"></script>
+<script src="assets/wildwood/coop-client.js?v=0.319"></script>
+<script src="assets/wildwood/game.js?v=0.319"></script>
 </body>
 </html>

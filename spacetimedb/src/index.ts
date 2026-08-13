@@ -2019,6 +2019,12 @@ export const setDisplayName = spacetimedb.reducer(
 
     const existing = ctx.db.playerProfile.identity.find(ctx.sender);
     if (existing?.displayName === normalized) return;
+    const normalizedComparison = normalized.toLowerCase();
+    for (const profile of ctx.db.playerProfile.iter() as Iterable<any>) {
+      if (!sameIdentity(profile.identity, ctx.sender) && profile.displayName.toLowerCase() === normalizedComparison) {
+        throw new SenderError("Player name is already taken.");
+      }
+    }
     const cooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
     // Repair names accidentally replaced by a generated guest name during a
     // prior account-link operation. The next real name starts the 30-day lock.

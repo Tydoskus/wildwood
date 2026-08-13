@@ -559,8 +559,7 @@
   #chatPanel:not(.is-large) { background: transparent; backdrop-filter: none; }
   #chatPanel:not(.is-large) #topMeta { color: #fff; }
   .chat-header,
-  #chatForm,
-  .name-edit {
+  #chatForm {
     display: flex;
     align-items: center;
   }
@@ -599,7 +598,6 @@
   .chat-size-icon::before { position: absolute; inset: 2px 1px; background: #fff; content: ""; clip-path: polygon(0 0, 100% 50%, 0 100%, 22% 50%); filter: drop-shadow(1px 1px 0 #101914); transform: rotate(-45deg); }
   #chatSizeToggle[aria-expanded="true"] .chat-size-icon::before { transform: rotate(135deg); }
 
-  #saveNameBtn,
   #chatForm button {
     min-width: 0;
     margin: 0;
@@ -656,7 +654,7 @@
   #chatForm { gap: 5px; }
 
   #chatInput,
-  #displayNameInput {
+  #profileNameInput {
     min-width: 0;
     border: 1px solid rgba(255,255,255,.24);
     border-radius: 5px;
@@ -679,10 +677,6 @@
 
   #chatForm button { cursor: pointer; }
   #chatForm button:disabled { min-width: 53px; opacity: .72; cursor: wait; }
-  .name-row { display: grid; gap: 5px; margin-top: 9px; font-size: 11px; }
-  .name-edit { gap: 5px; }
-  #displayNameInput { flex: 1; width: 0; }
-
   .pickup {
     justify-self: start;
     padding: 5px 8px;
@@ -966,7 +960,10 @@
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
+  .player-profile-name-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
   .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-family: var(--player-name-font); font-size: clamp(12px, 2.9vw, 18px); line-height: 1.08; overflow-wrap: anywhere; }
+  .profile-name-edit { display: grid; flex: 0 0 auto; place-items: center; width: 19px; min-width: 19px; height: 19px; margin: 0; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 4px; background: transparent; color: var(--green); font: 900 12px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
   #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 11px; white-space: nowrap; text-align: right; }
@@ -983,6 +980,13 @@
   .profile-stat-grid { gap: 0; background: rgba(0,0,0,.2); }
   .profile-stat-grid > div { border: 0; border-radius: 0; background: transparent; }
   .profile-stat-grid dd { color: var(--gold); }
+  #profileNameEditor { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 13px; background: transparent; }
+  #profileNameEditor[hidden] { display: none; }
+  .profile-name-editor-modal { width: min(290px, calc(100vw - 26px)); padding: 10px; text-align: left; }
+  .profile-name-editor-modal label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+  .profile-name-editor-controls { display: flex; gap: 5px; }
+  #profileNameInput { flex: 1; width: 0; }
+  #savePlayerNameBtn { min-width: 0; margin: 0; padding: 4px 8px; border-width: 1px; border-radius: 5px; font-size: 11px; line-height: 1; text-transform: none; }
   .modal.leaderboard-modal { width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }

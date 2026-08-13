@@ -1889,6 +1889,10 @@ export const wildwoodCoop = {
   playerDisplayName(identity: string) {
     return profiles.get(identity) ?? generatedDisplayName(identity);
   },
+  isDisplayNameTaken(displayName: string) {
+    const normalized = displayName.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    return [...profiles].some(([identity, name]) => identity !== localIdentity && name.toLocaleLowerCase() === normalized);
+  },
   profileIcon(identity = localIdentity) {
     return profileIcons.get(identity) ?? 0;
   },

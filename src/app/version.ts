@@ -6,6 +6,8 @@ type UpdateDetected = (latestVersion: string) => void;
 export function enforceLatestVersion(version: string, onUpdateDetected?: UpdateDetected) {
   if (versionCheckInFlight || reloadScheduled) return;
   versionCheckInFlight = true;
+  // This request must bypass HTTP cache so a freshly deployed version is
+  // detected, but it is intentionally infrequent (boot plus five-minute poll).
   fetch(`version.json?cache=${Date.now()}`, { cache: "no-store" })
     .then((response) => response.ok ? response.json() : null)
     .then((release) => {

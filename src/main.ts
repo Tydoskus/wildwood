@@ -124,9 +124,10 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.318";
+  const GAME_VERSION = "0.319";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+  const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
@@ -184,6 +185,7 @@ import {
   const itemInspectStats = requiredElement("itemInspectStats");
   const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
+  const antiAliasingToggle = requiredElement<HTMLButtonElement>("antiAliasingToggle");
   const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
   const latencyStatusEl = requiredElement("latencyStatus");
   const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
@@ -243,6 +245,7 @@ import {
   const playerProfilePresenceEl = requiredElement("playerProfilePresence");
   const playerProfilePowerEl = requiredElement("playerProfilePower");
   const playerProfileIcon = requiredElement<HTMLButtonElement>("playerProfileIcon");
+  const editPlayerNameBtn = requiredElement<HTMLButtonElement>("editPlayerNameBtn");
   const playerProfileLoadingEl = requiredElement("playerProfileLoading");
   const profileOverviewTab = requiredElement("profileOverviewTab");
   const profileStatsTab = requiredElement("profileStatsTab");
@@ -256,6 +259,10 @@ import {
   const closePlayerProfileBtn = requiredElement("closePlayerProfileBtn");
   const editPlayerSaveBtn = requiredElement("editPlayerSaveBtn");
   const profileDuelBtn = requiredElement<HTMLButtonElement>("profileDuelBtn");
+  const profileNameEditorEl = requiredElement("profileNameEditor");
+  const profileNameEditorForm = requiredElement<HTMLFormElement>("profileNameEditorForm");
+  const profileNameInput = requiredElement<HTMLInputElement>("profileNameInput");
+  const savePlayerNameBtn = requiredElement<HTMLButtonElement>("savePlayerNameBtn");
   const profileEditPanel = requiredElement("profileEditPanel");
   const profileEditName = requiredElement<HTMLInputElement>("profileEditName");
   const profileEditMaxHp = requiredElement<HTMLInputElement>("profileEditMaxHp");
@@ -317,7 +324,7 @@ import {
   }
 
   enforceLatestVersion(GAME_VERSION, showGameUpdating);
-  window.setInterval(() => enforceLatestVersion(GAME_VERSION, showGameUpdating), 30_000);
+  window.setInterval(() => enforceLatestVersion(GAME_VERSION, showGameUpdating), 300_000);
   const keys = new Set();
   const camera = createCamera();
   const effects = createCombatEffects();
@@ -375,6 +382,8 @@ import {
   let screenShakeEnabled = true;
   let attackRangeVisible = true;
   try { attackRangeVisible = localStorage.getItem(ATTACK_RANGE_VISIBLE_KEY) !== "false"; } catch {}
+  let antiAliasingEnabled = true;
+  try { antiAliasingEnabled = localStorage.getItem(ANTI_ALIASING_ENABLED_KEY) !== "false"; } catch {}
   let latencyVisible = false;
   try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
@@ -2563,7 +2572,7 @@ import {
     const cellHeight = profileIconSheet.naturalHeight / PROFILE_PORTRAIT_GRID;
     const insetX = cellWidth * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
     const insetY = cellHeight * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
-    iconContext.imageSmoothingEnabled = true;
+    iconContext.imageSmoothingEnabled = antiAliasingEnabled;
     iconContext.drawImage(
       profileIconSheet,
       (index % PROFILE_PORTRAIT_GRID) * cellWidth + insetX,
@@ -2585,7 +2594,7 @@ import {
     const insetX = cellW * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
     const insetY = cellH * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
     ctx.save();
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = antiAliasingEnabled;
     ctx.drawImage(
       profileIconSheet,
       (index % PROFILE_PORTRAIT_GRID) * cellW + insetX, Math.floor(index / PROFILE_PORTRAIT_GRID) * cellH + insetY, cellW / PROFILE_PORTRAIT_ZOOM, cellH / PROFILE_PORTRAIT_ZOOM,
@@ -2692,7 +2701,7 @@ import {
     const barY = Math.round(y - 54);
     const hpRatio = clamp(hp / maxHp, 0, 1);
     const fillWidth = Math.round(barW * hpRatio);
-    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))} HP`;
+    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`;
 
     ctx.fillStyle = "rgba(0,0,0,.88)";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
@@ -3070,6 +3079,7 @@ import {
     playerProfileIcon.classList.toggle("is-editable", ownProfile);
     playerProfileIcon.disabled = !ownProfile;
     playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
+    editPlayerNameBtn.hidden = !ownProfile;
     playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
     profileDuelBtn.hidden = ownProfile;
     profileDuelBtn.dataset.identity = ownProfile ? "" : profile.identity;
@@ -3106,6 +3116,7 @@ import {
     applyProfileIcon(playerProfileIcon, coop?.profileIcon?.(identity) ?? 0);
     playerProfileIcon.classList.toggle("is-editable", identity === coop?.localIdentity?.());
     playerProfileIcon.disabled = identity !== coop?.localIdentity?.();
+    editPlayerNameBtn.hidden = identity !== coop?.localIdentity?.();
     playerProfilePowerEl.textContent = "Power: —";
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
@@ -3124,12 +3135,61 @@ import {
   }
 
   function closePlayerProfile() {
+    closeProfileNameEditor();
     playerProfileEl.hidden = true;
     openProfileIdentity = "";
     openProfileData = null;
     profileEditPanel.hidden = true;
     playerProfileLoadingEl.textContent = "LOADING PLAYER…";
     coop?.releasePlayerProfile?.();
+  }
+
+  function openProfileNameEditor() {
+    if (!openProfileIdentity || openProfileIdentity !== coop?.localIdentity?.()) return;
+    profileNameInput.value = coop?.localDisplayName?.() || "";
+    profileNameEditorEl.hidden = false;
+    requestAnimationFrame(() => {
+      profileNameInput.focus();
+      profileNameInput.select();
+    });
+  }
+
+  function closeProfileNameEditor() {
+    profileNameEditorEl.hidden = true;
+  }
+
+  async function saveProfileName(event: SubmitEvent) {
+    event.preventDefault();
+    const name = profileNameInput.value.trim().replace(/\s+/g, " ");
+    if (!/^[A-Za-z0-9 _-]{2,20}$/.test(name)) {
+      showMessage("NAME: 2–20 SAFE CHARACTERS", "#ff9b91");
+      return;
+    }
+    if (name === (coop?.localDisplayName?.() || "")) {
+      showMessage("NAME ALREADY SET", "#bce7ff");
+      return;
+    }
+    if (coop?.isDisplayNameTaken?.(name)) {
+      showMessage("NAME TAKEN · TRY ANOTHER", "#ff9b91");
+      return;
+    }
+    savePlayerNameBtn.disabled = true;
+    const result = await coop?.setDisplayName?.(name);
+    savePlayerNameBtn.disabled = false;
+    if (result?.ok) {
+      closeProfileNameEditor();
+      showMessage("NAME UPDATED", "#c9f5c2");
+      return;
+    }
+    if (/already taken/i.test(result?.error ?? "")) {
+      showMessage("NAME TAKEN · TRY ANOTHER", "#ff9b91");
+      return;
+    }
+    if (/once every 30 days/i.test(result?.error ?? "")) {
+      showMessage("NAME LOCKED · CHANGES EVERY 30 DAYS", "#ff9b91");
+      return;
+    }
+    showMessage("NAME UPDATE FAILED", "#ff9b91");
   }
 
   function updateProfileDuelButton() {
@@ -3573,6 +3633,10 @@ import {
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
   }
 
+  function updateAntiAliasingSetting() {
+    renderBooleanSetting(antiAliasingToggle, antiAliasingEnabled);
+  }
+
   function updateLatencySetting() {
     renderBooleanSetting(latencyToggle, latencyVisible);
     updateLatencyStatus();
@@ -3621,7 +3685,8 @@ import {
   }
 
   function updateAutoAttackSetting() {
-    renderBooleanSetting(autoAttackBtn, autoAttackEnabled);
+    autoAttackBtn.setAttribute("aria-pressed", String(autoAttackEnabled));
+    autoAttackBtn.classList.toggle("is-off", !autoAttackEnabled);
   }
 
   function updateConnectionStatus() {
@@ -3755,6 +3820,12 @@ import {
     updateAttackRangeSetting();
   });
 
+  antiAliasingToggle.addEventListener("click", () => {
+    antiAliasingEnabled = !antiAliasingEnabled;
+    try { localStorage.setItem(ANTI_ALIASING_ENABLED_KEY, String(antiAliasingEnabled)); } catch {}
+    updateAntiAliasingSetting();
+  });
+
   latencyToggle.addEventListener("click", () => {
     latencyVisible = !latencyVisible;
     try { localStorage.setItem(LATENCY_VISIBLE_KEY, String(latencyVisible)); } catch {}
@@ -3769,6 +3840,11 @@ import {
   playerProfileEl.addEventListener("click", (event) => {
     if (event.target === playerProfileEl) closePlayerProfile();
   });
+  editPlayerNameBtn.addEventListener("click", openProfileNameEditor);
+  profileNameEditorEl.addEventListener("click", (event) => {
+    if (event.target === profileNameEditorEl) closeProfileNameEditor();
+  });
+  profileNameEditorForm.addEventListener("submit", (event) => void saveProfileName(event));
   profileOverviewTab.addEventListener("click", () => setProfileTab("overview"));
   profileStatsTab.addEventListener("click", () => setProfileTab("stats"));
   editPlayerSaveBtn.addEventListener("click", beginPlayerSaveEdit);
@@ -3875,8 +3951,6 @@ import {
       form: requiredElement<HTMLFormElement>("chatForm"),
       input: requiredElement<HTMLTextAreaElement>("chatInput"),
       sendButton: requiredElement<HTMLButtonElement>("chatSendBtn"),
-      displayNameInput: requiredElement<HTMLInputElement>("displayNameInput"),
-      saveNameButton: requiredElement<HTMLButtonElement>("saveNameBtn"),
     },
     getCoop: () => coop,
     showMessage,
@@ -3928,6 +4002,7 @@ import {
   }
   updateFullscreenSetting();
   updateAttackRangeSetting();
+  updateAntiAliasingSetting();
   updateLatencySetting();
   updateMusicVolume();
   updateDuelControls();
@@ -3955,7 +4030,7 @@ import {
       settingsBtn.setAttribute("aria-expanded", "false");
       inventoryBtn.setAttribute("aria-expanded", "false");
     }
-    if (!playerProfileEl.hidden && !playerProfileEl.querySelector(".modal")?.contains(target)) closePlayerProfile();
+    if (!playerProfileEl.hidden && !playerProfileEl.querySelector(".modal")?.contains(target) && !profileNameEditorEl.contains(target)) closePlayerProfile();
     if (!leaderboardEl.hidden && !leaderboardEl.querySelector(".modal")?.contains(target)) closeLeaderboard();
     if (!devAuditEl.hidden && !devAuditEl.querySelector(".modal")?.contains(target)) closeDevAudit();
     if (!dragonResultEl.hidden && !dragonResultEl.querySelector(".modal")?.contains(target)) closeDragonResult();
@@ -4018,6 +4093,10 @@ import {
     }
     if (e.code === "Escape" && !devAuditEl.hidden) {
       closeDevAudit();
+      return;
+    }
+    if (e.code === "Escape" && !profileNameEditorEl.hidden) {
+      closeProfileNameEditor();
       return;
     }
     if (e.code === "Escape" && !playerProfileEl.hidden) {
