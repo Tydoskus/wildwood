@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.293";
+  const GAME_VERSION = "0.294";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -134,7 +134,8 @@ import {
   const WORLD_HEALTH_BAR_HEIGHT = 15;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
-  const DRAGON_CONE_DURATION = 1.5;
+  const DRAGON_CONE_WINDUP = .35;
+  const DRAGON_CONE_DURATION = 1.2;
   const DRAGON_HIT_BATCH_DELAY = .1;
   const SPIDER_HIT_BATCH_DELAY = .1;
   const SPIDER_AGGRO_RANGE = 1150;
@@ -1483,6 +1484,7 @@ import {
   function startBossCone() {
     boss.cone = {
       angle: Math.atan2(player.y - boss.y, player.x - boss.x),
+      windup: DRAGON_CONE_WINDUP,
       timer: DRAGON_CONE_DURATION,
       duration: DRAGON_CONE_DURATION,
       hitPlayer: false,
@@ -1565,6 +1567,10 @@ import {
 
     if (boss.cone) {
       const cone = boss.cone;
+      if (cone.windup > 0) {
+        cone.windup -= dt;
+        return;
+      }
       const previousProgress = clamp(1 - cone.timer / cone.duration, 0, 1);
       boss.cone.timer -= dt;
       const progress = clamp(1 - cone.timer / cone.duration, 0, 1);

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.294": [
+    "Dragon cone now warns for an extra moment before firing; fireball speed is unchanged",
+  ],
   "0.293": [
     "Dragon fire cone now travels slower, giving more time to react",
   ],

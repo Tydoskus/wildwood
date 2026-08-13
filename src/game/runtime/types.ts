@@ -77,6 +77,7 @@ export type EnemyState = Circle & {
 
 export type BossCone = {
   angle: number;
+  windup: number;
   timer: number;
   duration: number;
   hitPlayer: boolean;
