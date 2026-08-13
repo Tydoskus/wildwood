@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.283": [
+    "World Chat expand and minimize arrows now point diagonally",
+    "Replay medallions now sit at the end of their chat messages",
+    "Chat message text, portraits, and message bubbles are 25% larger",
+    "Minimized World Chat now has a transparent panel background",
+  ],
   "0.282": [
     "World Chat now uses one clear custom expand/minimize arrow",
     "Replay play controls now sit directly on the game without button backgrounds",

@@ -154,7 +154,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
           event.stopPropagation();
           onOpenReplay?.(message.replayId);
         });
-        line.appendChild(replay);
+        text.append(" ", replay);
       }
       elements.messages.appendChild(line);
     }
