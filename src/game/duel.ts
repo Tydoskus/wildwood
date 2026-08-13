@@ -5,6 +5,8 @@ export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
 export const DUEL_SHOT_SPEED = 620;
 
+import { damageAfterArmor } from "./combat";
+
 function loadDuelImage(source: string, onSettled?: () => void) {
   const image = new Image();
   if (onSettled) {
@@ -71,8 +73,8 @@ export function replayState(replay: ReplayCombatantFields, seconds: number) {
     time = nextEvent;
     const challengerHits = nextChallengerAttack <= time + 0.00001 && challengerAttacks < replay.challengerAttacks;
     const opponentHits = nextOpponentAttack <= time + 0.00001 && opponentAttacks < replay.opponentAttacks;
-    const challengerDamage = challengerHits ? Math.max(1, replay.challengerDamage - replay.opponentArmor) : 0;
-    const opponentDamage = opponentHits ? Math.max(1, replay.opponentDamage - replay.challengerArmor) : 0;
+    const challengerDamage = challengerHits ? damageAfterArmor(replay.challengerDamage, replay.opponentArmor) : 0;
+    const opponentDamage = opponentHits ? damageAfterArmor(replay.opponentDamage, replay.challengerArmor) : 0;
     opponentHp = Math.max(0, opponentHp - challengerDamage);
     challengerHp = Math.max(0, challengerHp - opponentDamage);
     if (challengerHits) challengerAttacks += 1;

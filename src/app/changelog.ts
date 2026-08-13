@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.271": [
+    "Armor now reduces damage by percentage, with 1,000 armor reducing 9% and 1 million reducing 90%",
+    "Player profiles now show armor reduction and online map location",
+    "Damage numbers are larger and appear higher above combatants",
+    "A third Blight Oracle guards Oracle Mesa and Wastes Reaper moved near the desert damage camp",
+    "Returning from a background tab now reconnects more reliably",
+  ],
   "0.270": [
     "An empty future portal archway now stands beside the Tutorial Forest portal in Beginner Desert",
   ],

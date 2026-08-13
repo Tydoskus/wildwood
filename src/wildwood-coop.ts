@@ -70,6 +70,7 @@ export type PlayerProfileData = {
   name: string;
   progress: PlayerProgress;
   lifetime: PlayerLifetime;
+  mapId?: string;
 };
 
 export type LeaderboardEntry = {
@@ -188,7 +189,8 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 28;
+const PROTOCOL_VERSION = 29;
+const MAX_ARMOR = 1_000_000_000_000;
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -231,6 +233,7 @@ const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
 const profileProgress = new Map<string, PlayerProgress>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
+const playerMaps = new Map<string, string>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
@@ -735,7 +738,7 @@ function copyProgress(progress: ProgressSave): ProgressSave {
       ? Math.max(1, Math.min(20, progress.projectileCount))
       : 1,
     attackRange: DEFAULT_ATTACK_RANGE,
-    armor: bounded(progress.armor, 0, 1_000_000, 0),
+    armor: bounded(progress.armor, 0, MAX_ARMOR, 0),
     regen: bounded(progress.regen, 0, 1_000_000, 0),
     speed: bounded(progress.speed, 1, 2_000, 180),
     bootsCollected: progress.bootsCollected,
@@ -941,6 +944,7 @@ function upsertPlayer(row: {
   mapId: string;
 }) {
   const id = row.identity.toHexString();
+  playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
   if (id === localIdentity) {
     if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
       worldEntryBlocked = true;
@@ -1356,6 +1360,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     name: profiles.get(identity) ?? "PLAYER",
     progress: { ...progress },
     lifetime: { ...lifetime },
+    mapId: identity === localIdentity ? localState?.mapId : playerMaps.get(identity),
   };
 }
 
@@ -1381,6 +1386,9 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         for (const row of conn.db.playerLifetime.iter()) {
           if (row.identity.toHexString() === identity) upsertPlayerLifetime(row);
         }
+        for (const row of conn.db.player.iter()) {
+          if (row.identity.toHexString() === identity) playerMaps.set(identity, row.mapId);
+        }
         playerProfileLoads.delete(identity);
         resolve(cachedPlayerProfile(identity));
       })
@@ -1391,6 +1399,7 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
       .subscribe([
         tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
         tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
+        tables.player.where((player) => player.identity.eq(dbIdentity)),
       ]);
   });
   playerProfileLoads.set(identity, request);
@@ -1414,7 +1423,9 @@ function removeDuel(row: { id: bigint }) {
 }
 
 function removePlayer(row: { identity: Identity }) {
-  players.delete(row.identity.toHexString());
+  const identity = row.identity.toHexString();
+  players.delete(identity);
+  playerMaps.delete(identity);
   onChange?.();
 }
 
@@ -1461,6 +1472,7 @@ function clearRealtimeCaches() {
   onlinePlayerCount = 0;
   profileProgress.clear();
   playerLifetimes.clear();
+  playerMaps.clear();
   playerProfileLoads.clear();
   chatMessages.length = 0;
   chatPresentationRevision += 1;
@@ -1485,7 +1497,11 @@ function reconnectAfterWake(force = false) {
   if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
   const conn = connection;
   if (force || !conn?.isActive) {
-    if (conn?.isActive) conn.disconnect();
+    if (conn) {
+      connection = null;
+      connecting = false;
+      conn.disconnect();
+    }
     scheduleReconnect(200);
     return;
   }
@@ -1514,6 +1530,8 @@ function reconnectAfterWake(force = false) {
           handleReducerFailure("session resume", error);
           return;
         }
+        connection = null;
+        connecting = false;
         conn.disconnect();
         scheduleReconnect(200);
       }
@@ -2081,6 +2099,9 @@ export const wildwoodCoop = {
       ? { ...profile, progress: { ...profile.progress }, lifetime: { ...profile.lifetime } }
       : null;
   },
+  activePlayerMap(identity = localIdentity) {
+    return identity === localIdentity ? localState?.mapId ?? null : playerMaps.get(identity) ?? null;
+  },
   loadPlayerProfile,
   releasePlayerProfile,
   damageDragon(hits = 1) {
@@ -2256,6 +2277,10 @@ window.addEventListener("pageshow", (event) => {
   if (event.persisted) reconnectAfterWake(true);
 });
 window.addEventListener("online", () => reconnectAfterWake());
+window.addEventListener("focus", () => reconnectAfterWake());
+window.setInterval(() => {
+  if (!document.hidden && navigator.onLine && !connection?.isActive && !connecting) scheduleReconnect(100);
+}, 5_000);
 window.addEventListener("storage", (event) => {
   if (event.oldValue === event.newValue) return;
   if (event.key === accountTokenKey) {

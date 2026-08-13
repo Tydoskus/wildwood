@@ -18,6 +18,13 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.271": [
+      "Armor now reduces damage by percentage, with 1,000 armor reducing 9% and 1 million reducing 90%",
+      "Player profiles now show armor reduction and online map location",
+      "Damage numbers are larger and appear higher above combatants",
+      "A third Blight Oracle guards Oracle Mesa and Wastes Reaper moved near the desert damage camp",
+      "Returning from a background tab now reconnects more reliably"
+    ],
     "0.270": [
       "An empty future portal archway now stands beside the Tutorial Forest portal in Beginner Desert"
     ],
@@ -212,6 +219,24 @@
     const radius = a.r + b.r;
     return distanceSquared(a, b) < radius * radius;
   }
+  const FIRST_ARMOR_TIER = 1e3;
+  const ARMOR_TIER_MAGNITUDE = 1e3;
+  function armorDamageReduction(armor) {
+    const normalized = Math.max(0, Number.isFinite(armor) ? armor : 0);
+    if (normalized <= FIRST_ARMOR_TIER) return 0.09 * normalized / FIRST_ARMOR_TIER;
+    const tier = Math.log(normalized / FIRST_ARMOR_TIER) / Math.log(ARMOR_TIER_MAGNITUDE);
+    if (tier <= 1) return 0.09 + (0.9 - 0.09) * tier;
+    return Math.min(0.999999, 1 - 0.1 * Math.pow(0.1, tier - 1));
+  }
+  function damageAfterArmor(damage, armor) {
+    const incoming = Math.max(0, Number.isFinite(damage) ? damage : 0);
+    return Math.max(1, Math.round(incoming * (1 - armorDamageReduction(armor))));
+  }
+  function formatArmorReduction(armor) {
+    const percentage = armorDamageReduction(armor) * 100;
+    const decimals = percentage < 10 ? 1 : percentage < 99 ? 1 : 2;
+    return `${percentage.toFixed(decimals).replace(/\.?0+$/, "")}%`;
+  }
   const TRAILBLAZER_BOOTS = "trailblazer_boots";
   const ITEM_DEFINITIONS = {
     [TRAILBLAZER_BOOTS]: {
@@ -393,7 +418,7 @@
       r: 19,
       color: "#d6a13a",
       outline: "#5f3c18",
-      reward: { type: "damage", amount: 250 },
+      reward: { type: "damage", amount: 1200 },
       score: 10
     },
     "Dune Archer": {
@@ -404,7 +429,7 @@
       r: 17,
       color: "#d5b04d",
       outline: "#61481d",
-      reward: { type: "health", amount: 2500 },
+      reward: { type: "health", amount: 8500 },
       score: 12,
       ranged: true
     },
@@ -416,7 +441,7 @@
       r: 24,
       color: "#79d18b",
       outline: "#285a37",
-      reward: { type: "armor", amount: 50 },
+      reward: { type: "armor", amount: 150 },
       score: 18
     },
     "Wastes Reaper": {
@@ -427,7 +452,7 @@
       r: 31,
       color: "#8fe09a",
       outline: "#294f34",
-      reward: { type: "damage", amount: 1e3 },
+      reward: { type: "damage", amount: 5e3 },
       score: 30,
       ranged: true,
       elite: true,
@@ -441,7 +466,7 @@
       r: 29,
       color: "#a5df79",
       outline: "#345426",
-      reward: { type: "regen", amount: 22 },
+      reward: { type: "regen", amount: 220 },
       score: 25,
       elite: true,
       aggro: 300
@@ -581,9 +606,10 @@
   const DESERT_CAMPS = [
     { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] },
     { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] },
-    { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 210, count: 2, types: ["Blight Oracle"] },
+    { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 230, count: 3, types: ["Blight Oracle"] },
+    { name: "Reaper Approach", x: 1740, y: 1420, minRadius: 0, radius: 0, count: 1, types: ["Wastes Reaper"] },
     { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] },
-    { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard", "Venom Guard", "Venom Guard", "Wastes Reaper"] }
+    { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard"] }
   ];
   function seededUnit(index, salt) {
     const value = Math.sin(index * 91.713 + salt * 37.119) * 43758.5453;
@@ -800,8 +826,8 @@
       time = nextEvent;
       const challengerHits = nextChallengerAttack <= time + 1e-5 && challengerAttacks < replay.challengerAttacks;
       const opponentHits = nextOpponentAttack <= time + 1e-5 && opponentAttacks < replay.opponentAttacks;
-      const challengerDamage = challengerHits ? Math.max(1, replay.challengerDamage - replay.opponentArmor) : 0;
-      const opponentDamage = opponentHits ? Math.max(1, replay.opponentDamage - replay.challengerArmor) : 0;
+      const challengerDamage = challengerHits ? damageAfterArmor(replay.challengerDamage, replay.opponentArmor) : 0;
+      const opponentDamage = opponentHits ? damageAfterArmor(replay.opponentDamage, replay.challengerArmor) : 0;
       opponentHp = Math.max(0, opponentHp - challengerDamage);
       challengerHp = Math.max(0, challengerHp - opponentDamage);
       if (challengerHits) challengerAttacks += 1;
@@ -1098,7 +1124,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.270";
+    const GAME_VERSION = "0.271";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -1109,6 +1135,7 @@
     const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
     const STARTING_ATTACK_INTERVAL = 1.56;
     const MIN_ATTACK_INTERVAL = 0.32;
+    const MAX_ARMOR = 1e12;
     const WORLD_HEALTH_BAR_HEIGHT = 13;
     const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
     const DRAGON_HP_LOSS_FLASH_DURATION = 0.18;
@@ -1719,7 +1746,7 @@
       player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
       player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
       player.attackRange = BASE_ATTACK_RANGE;
-      player.armor = number(source.armor, player.armor, 0, 1e6);
+      player.armor = number(source.armor, player.armor, 0, MAX_ARMOR);
       player.regen = number(source.regen, player.regen, 0, 1e6);
       bootsPickup.collected = source.bootsCollected === true;
       player.hp = player.maxHp;
@@ -2023,7 +2050,7 @@
       if (!Number.isFinite(amount) || amount <= 0) return;
       damageNumbers.push({
         x: x + rand(-10, 10),
-        y: y - 18,
+        y: y - 28,
         life: 0.72,
         maxLife: 0.72,
         text: `-${formatDamage(amount)}`
@@ -2563,7 +2590,7 @@
     function damagePlayer(amount) {
       if (isDueling()) return false;
       if (player.hurtClock > 0) return false;
-      const dealt = Math.max(1, Math.round(amount - player.armor));
+      const dealt = damageAfterArmor(amount, player.armor);
       player.hp -= dealt;
       spawnDamageNumber(player.x, player.y, dealt);
       player.hurtClock = 0.1;
@@ -3601,7 +3628,7 @@
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 19px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       for (const number of damageNumbers) {
         const alpha = clamp(number.life / number.maxLife, 0, 1);
         const x = Math.floor(number.x - camera.x);
@@ -3868,9 +3895,9 @@
     }
     function playerPower(stats) {
       const attackSpeedMultiplier = STARTING_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
-      return Math.round(
+      return Math.min(4294967295, Math.round(
         stats.damage * attackSpeedMultiplier + stats.maxHp + stats.armor * 3 + stats.regen * 10
-      );
+      ));
     }
     function drawRemotePlayers(remotePlayers) {
       if (!coop) return;
@@ -4461,9 +4488,9 @@
       return `${minutes}m`;
     }
     function isProfileOnline(identity) {
-      var _a, _b2, _c2;
+      var _a, _b2, _c2, _d;
       if (identity === ((_a = coop == null ? void 0 : coop.localIdentity) == null ? void 0 : _a.call(coop))) return Boolean((_b2 = coop == null ? void 0 : coop.isConnected) == null ? void 0 : _b2.call(coop));
-      return ((_c2 = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _c2.call(coop).some((other) => other.id === identity)) === true;
+      return Boolean((_c2 = coop == null ? void 0 : coop.activePlayerMap) == null ? void 0 : _c2.call(coop, identity)) || ((_d = coop == null ? void 0 : coop.remotePlayers) == null ? void 0 : _d.call(coop).some((other) => other.id === identity)) === true;
     }
     function profilePresenceText(online, lastSeenAtMs) {
       if (online) return "ONLINE";
@@ -4487,7 +4514,8 @@
       const { progress, lifetime } = profile;
       openProfileData = profile;
       const online = isProfileOnline(profile.identity);
-      const presenceText = profilePresenceText(online, lifetime.sessionStartedAtMs);
+      const mapName = profile.mapId === BEGINNER_DESERT_MAP_ID ? "BEGINNER DESERT" : profile.mapId === TUTORIAL_FOREST_MAP_ID ? "TUTORIAL FOREST" : "";
+      const presenceText = online && mapName ? `ONLINE - ${mapName}` : profilePresenceText(online, lifetime.sessionStartedAtMs);
       const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1e3) : 0;
       const power = playerPower(progress);
       renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
@@ -4511,7 +4539,7 @@
       const stats = [
         ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
         ["DAMAGE", Math.round(progress.damage).toLocaleString()],
-        ["ARMOR", Math.round(progress.armor).toLocaleString()],
+        ["ARMOR", `${Math.round(progress.armor).toLocaleString()} (${formatArmorReduction(progress.armor)} REDUCTION)`],
         ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= MIN_ATTACK_INTERVAL + 1e-4 ? " (MAX)" : ""}`],
         ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
         ["REGEN", `${progress.regen.toFixed(1)}/s`],

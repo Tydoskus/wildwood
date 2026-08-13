@@ -1,5 +1,6 @@
 import { schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
+import { damageAfterArmor } from "./combat";
 
 const WORLD = { width: 4800, height: 4800 };
 const PLAYER_ZONE_SIZE = 600;
@@ -10,7 +11,8 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 28;
+const PROTOCOL_VERSION = 29;
+const MAX_ARMOR = 1_000_000_000_000;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -637,12 +639,12 @@ function migrateAttackBalance(ctx: any, progress: any) {
 
 function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
   const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, progress.attackRate);
-  return Math.max(0, Math.round(
+  return Math.min(0xffffffff, Math.max(0, Math.round(
     progress.damage * attackSpeedMultiplier +
     progress.maxHp +
     progress.armor * 3 +
     progress.regen * 10,
-  ));
+  )));
 }
 
 function playerZone(x: number, y: number) {
@@ -1336,8 +1338,8 @@ function resolveDuel(ctx: any, current: any) {
   let opponentRegened = current.opponentRegened;
   let challengerBlocked = current.challengerBlocked;
   let opponentBlocked = current.opponentBlocked;
-  const challengerHit = Math.max(1, current.challengerDamage - current.opponentArmor);
-  const opponentHit = Math.max(1, current.opponentDamage - current.challengerArmor);
+  const challengerHit = damageAfterArmor(current.challengerDamage, current.opponentArmor);
+  const opponentHit = damageAfterArmor(current.opponentDamage, current.challengerArmor);
   const challengerIntervalMicros = Math.max(1, Math.round(current.challengerAttackRate * 1_000_000));
   const opponentIntervalMicros = Math.max(1, Math.round(current.opponentAttackRate * 1_000_000));
 
@@ -1367,12 +1369,12 @@ function resolveDuel(ctx: any, current: any) {
     if (challengerHits) {
       challengerAttacks += 1;
       challengerDamageDealt += opponentTaken;
-      challengerBlocked += Math.min(current.opponentArmor, Math.max(0, current.challengerDamage - 1));
+      challengerBlocked += Math.max(0, current.challengerDamage - challengerHit);
     }
     if (opponentHits) {
       opponentAttacks += 1;
       opponentDamageDealt += challengerTaken;
-      opponentBlocked += Math.min(current.challengerArmor, Math.max(0, current.opponentDamage - 1));
+      opponentBlocked += Math.max(0, current.opponentDamage - opponentHit);
     }
   }
 
@@ -2104,7 +2106,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       projectileSpeed: bounded(update.projectileSpeed, 1, 5_000, "Projectile speed"),
       projectileCount: Math.max(1, Math.min(20, Math.floor(update.projectileCount))),
       attackRange: bounded(update.attackRange, 1, 5_000, "Attack range"),
-      armor: bounded(update.armor, 0, 1_000_000, "Armor"),
+      armor: bounded(update.armor, 0, MAX_ARMOR, "Armor"),
       regen: bounded(update.regen, 0, 1_000_000, "Regen"),
       speed: bounded(update.speed, 1, 2_000, "Move speed"),
     };
@@ -2156,7 +2158,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       projectileCount: Number.isInteger(progress.projectileCount)
         ? Math.max(1, Math.min(20, progress.projectileCount))
         : base.projectileCount,
-      armor: bounded(progress.armor, 0, 1_000_000, base.armor),
+      armor: bounded(progress.armor, 0, MAX_ARMOR, base.armor),
       regen: bounded(progress.regen, 0, 1_000_000, base.regen),
       speed: bounded(progress.speed, 1, 2_000, base.speed),
       bootsCollected: progress.bootsCollected === true,

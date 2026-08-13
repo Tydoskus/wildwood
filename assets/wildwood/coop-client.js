@@ -8697,7 +8697,8 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 28;
+  const PROTOCOL_VERSION = 29;
+  const MAX_ARMOR = 1e12;
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8739,6 +8740,7 @@ ${ty.variants.map(
   let onlinePlayerCount = 0;
   const profileProgress = /* @__PURE__ */ new Map();
   const playerLifetimes = /* @__PURE__ */ new Map();
+  const playerMaps = /* @__PURE__ */ new Map();
   const playerProfileLoads = /* @__PURE__ */ new Map();
   let activePlayerProfileIdentity = "";
   let activePlayerProfileSubscription = null;
@@ -9189,7 +9191,7 @@ ${ty.variants.map(
       projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
       projectileCount: Number.isInteger(progress.projectileCount) ? Math.max(1, Math.min(20, progress.projectileCount)) : 1,
       attackRange: DEFAULT_ATTACK_RANGE,
-      armor: bounded(progress.armor, 0, 1e6, 0),
+      armor: bounded(progress.armor, 0, MAX_ARMOR, 0),
       regen: bounded(progress.regen, 0, 1e6, 0),
       speed: bounded(progress.speed, 1, 2e3, 180),
       bootsCollected: progress.bootsCollected,
@@ -9345,6 +9347,7 @@ ${ty.variants.map(
   }
   function upsertPlayer(row) {
     const id = row.identity.toHexString();
+    playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
     if (id === localIdentity) {
       if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
         worldEntryBlocked = true;
@@ -9663,7 +9666,8 @@ ${ty.variants.map(
       identity,
       name: profiles.get(identity) ?? "PLAYER",
       progress: { ...progress },
-      lifetime: { ...lifetime }
+      lifetime: { ...lifetime },
+      mapId: identity === localIdentity ? localState == null ? void 0 : localState.mapId : playerMaps.get(identity)
     };
   }
   function loadPlayerProfile(identity) {
@@ -9684,6 +9688,9 @@ ${ty.variants.map(
         for (const row of conn.db.playerLifetime.iter()) {
           if (row.identity.toHexString() === identity) upsertPlayerLifetime(row);
         }
+        for (const row of conn.db.player.iter()) {
+          if (row.identity.toHexString() === identity) playerMaps.set(identity, row.mapId);
+        }
         playerProfileLoads.delete(identity);
         resolve(cachedPlayerProfile(identity));
       }).onError(() => {
@@ -9691,7 +9698,8 @@ ${ty.variants.map(
         resolve(null);
       }).subscribe([
         tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
-        tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity))
+        tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
+        tables.player.where((player) => player.identity.eq(dbIdentity))
       ]);
     });
     playerProfileLoads.set(identity, request);
@@ -9712,7 +9720,9 @@ ${ty.variants.map(
     onChange == null ? void 0 : onChange();
   }
   function removePlayer(row) {
-    players.delete(row.identity.toHexString());
+    const identity = row.identity.toHexString();
+    players.delete(identity);
+    playerMaps.delete(identity);
     onChange == null ? void 0 : onChange();
   }
   function releaseMapPlayerSubscription() {
@@ -9750,6 +9760,7 @@ ${ty.variants.map(
     onlinePlayerCount = 0;
     profileProgress.clear();
     playerLifetimes.clear();
+    playerMaps.clear();
     playerProfileLoads.clear();
     chatMessages.length = 0;
     chatPresentationRevision += 1;
@@ -9772,7 +9783,11 @@ ${ty.variants.map(
     if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
     const conn = connection;
     if (force || !(conn == null ? void 0 : conn.isActive)) {
-      if (conn == null ? void 0 : conn.isActive) conn.disconnect();
+      if (conn) {
+        connection = null;
+        connecting = false;
+        conn.disconnect();
+      }
       scheduleReconnect(200);
       return;
     }
@@ -9797,6 +9812,8 @@ ${ty.variants.map(
           handleReducerFailure("session resume", error);
           return;
         }
+        connection = null;
+        connecting = false;
         conn.disconnect();
         scheduleReconnect(200);
       }
@@ -10391,6 +10408,9 @@ ${ty.variants.map(
       const profile = cachedPlayerProfile(identity);
       return profile ? { ...profile, progress: { ...profile.progress }, lifetime: { ...profile.lifetime } } : null;
     },
+    activePlayerMap(identity = localIdentity) {
+      return identity === localIdentity ? (localState == null ? void 0 : localState.mapId) ?? null : playerMaps.get(identity) ?? null;
+    },
     loadPlayerProfile,
     releasePlayerProfile,
     damageDragon(hits = 1) {
@@ -10562,6 +10582,10 @@ ${ty.variants.map(
     if (event.persisted) reconnectAfterWake(true);
   });
   window.addEventListener("online", () => reconnectAfterWake());
+  window.addEventListener("focus", () => reconnectAfterWake());
+  window.setInterval(() => {
+    if (!document.hidden && navigator.onLine && !(connection == null ? void 0 : connection.isActive) && !connecting) scheduleReconnect(100);
+  }, 5e3);
   window.addEventListener("storage", (event) => {
     if (event.oldValue === event.newValue) return;
     if (event.key === accountTokenKey) {

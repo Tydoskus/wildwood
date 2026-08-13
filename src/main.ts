@@ -27,6 +27,7 @@ import {
   WORLD,
 } from "./game/constants";
 import { circlesOverlap, clamp, distanceSquared, rand, randi } from "./game/math";
+import { damageAfterArmor, formatArmorReduction } from "./game/combat";
 import { inventoryFromSave, ITEM_DEFINITIONS, serialiseInventory, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
 import {
@@ -63,7 +64,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.270";
+  const GAME_VERSION = "0.271";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -74,6 +75,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const STARTING_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = .32;
+  const MAX_ARMOR = 1_000_000_000_000;
   const WORLD_HEALTH_BAR_HEIGHT = 13;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
@@ -732,7 +734,7 @@ import { formatCompactNumber } from "./ui/number-format";
     player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
     player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
     player.attackRange = BASE_ATTACK_RANGE;
-    player.armor = number(source.armor, player.armor, 0, 1000000);
+    player.armor = number(source.armor, player.armor, 0, MAX_ARMOR);
     player.regen = number(source.regen, player.regen, 0, 1000000);
     bootsPickup.collected = source.bootsCollected === true;
     player.hp = player.maxHp;
@@ -1063,7 +1065,7 @@ import { formatCompactNumber } from "./ui/number-format";
     if (!Number.isFinite(amount) || amount <= 0) return;
     damageNumbers.push({
       x: x + rand(-10, 10),
-      y: y - 18,
+      y: y - 28,
       life: .72,
       maxLife: .72,
       text: `-${formatDamage(amount)}`,
@@ -1654,7 +1656,7 @@ import { formatCompactNumber } from "./ui/number-format";
   function damagePlayer(amount) {
     if (isDueling()) return false;
     if (player.hurtClock > 0) return false;
-    const dealt = Math.max(1, Math.round(amount - player.armor));
+    const dealt = damageAfterArmor(amount, player.armor);
     player.hp -= dealt;
     spawnDamageNumber(player.x, player.y, dealt);
     player.hurtClock = .1;
@@ -2778,7 +2780,7 @@ import { formatCompactNumber } from "./ui/number-format";
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 19px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     for (const number of damageNumbers) {
       const alpha = clamp(number.life / number.maxLife, 0, 1);
       const x = Math.floor(number.x - camera.x);
@@ -3076,12 +3078,12 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function playerPower(stats) {
     const attackSpeedMultiplier = STARTING_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
-    return Math.round(
+    return Math.min(0xffffffff, Math.round(
       stats.damage * attackSpeedMultiplier +
       stats.maxHp +
       stats.armor * 3 +
       stats.regen * 10,
-    );
+    ));
   }
 
   function drawRemotePlayers(remotePlayers) {
@@ -3728,7 +3730,8 @@ import { formatCompactNumber } from "./ui/number-format";
 
   function isProfileOnline(identity) {
     if (identity === coop?.localIdentity?.()) return Boolean(coop?.isConnected?.());
-    return coop?.remotePlayers?.().some((other) => other.id === identity) === true;
+    return Boolean(coop?.activePlayerMap?.(identity)) ||
+      coop?.remotePlayers?.().some((other) => other.id === identity) === true;
   }
 
   function profilePresenceText(online, lastSeenAtMs) {
@@ -3756,7 +3759,12 @@ import { formatCompactNumber } from "./ui/number-format";
     const { progress, lifetime } = profile;
     openProfileData = profile;
     const online = isProfileOnline(profile.identity);
-    const presenceText = profilePresenceText(online, lifetime.sessionStartedAtMs);
+    const mapName = profile.mapId === BEGINNER_DESERT_MAP_ID
+      ? "BEGINNER DESERT"
+      : profile.mapId === TUTORIAL_FOREST_MAP_ID ? "TUTORIAL FOREST" : "";
+    const presenceText = online && mapName
+      ? `ONLINE - ${mapName}`
+      : profilePresenceText(online, lifetime.sessionStartedAtMs);
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     const power = playerPower(progress);
     renderDomPlayerName(playerProfileNameEl, profile.identity, profile.name);
@@ -3779,7 +3787,7 @@ import { formatCompactNumber } from "./ui/number-format";
     const stats = [
       ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
       ["DAMAGE", Math.round(progress.damage).toLocaleString()],
-      ["ARMOR", Math.round(progress.armor).toLocaleString()],
+      ["ARMOR", `${Math.round(progress.armor).toLocaleString()} (${formatArmorReduction(progress.armor)} REDUCTION)`],
       ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= MIN_ATTACK_INTERVAL + .0001 ? " (MAX)" : ""}`],
       ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
       ["REGEN", `${progress.regen.toFixed(1)}/s`],
