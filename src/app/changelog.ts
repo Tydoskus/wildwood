@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.296": [
+    "Dragon cone now gives an additional 0.4 seconds of warning before fireballs fire",
+  ],
   "0.295": [
     "iOS chat return key now sends messages",
     "World Chat now shows its three-second send cooldown",
