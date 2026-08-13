@@ -979,7 +979,9 @@
   .dev-audit-account-actions { display: flex; gap: 4px; margin-top: 4px; }
   .dev-audit-account-actions button { min-width: 50px; height: 25px; margin: 0; padding: 2px 6px; border-width: 2px; border-radius: 5px; font-size: 7px; }
   .profile-edit-button { display: block; margin: 7px 0 0 auto; padding: 6px 10px; font-size: 9px; }
-  .profile-edit-button[hidden], .profile-edit-panel[hidden] { display: none; }
+  .profile-duel-button { display: block; min-width: 112px; margin: 7px 0 0 auto; padding: 7px 12px; font-size: 10px; }
+  .profile-duel-button.is-cooling-down { background: linear-gradient(#676f70, #454b4c); color: #d1d7d5; cursor: not-allowed; }
+  .profile-duel-button[hidden], .profile-edit-button[hidden], .profile-edit-panel[hidden] { display: none; }
   .profile-edit-panel { margin-top: 10px; padding-top: 10px; border-top: 2px solid rgba(255,255,255,.13); }
   .profile-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .profile-edit-grid label { display: grid; gap: 4px; color: var(--muted); font-size: 8px; }

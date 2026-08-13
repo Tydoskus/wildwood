@@ -11,7 +11,7 @@ const PLAYER_RADIUS = 17;
 const PLAYER_BASE_HP = 100;
 const PLAYER_SPEED = 180;
 const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 29;
+const PROTOCOL_VERSION = 30;
 const MAX_ARMOR = 1_000_000_000_000;
 const ATTACK_BALANCE_VERSION = 1;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
@@ -42,8 +42,7 @@ const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 4;
-const DUEL_REQUEST_RANGE = 250;
-const DUEL_REQUEST_COOLDOWN_MICROS = 5_000_000n;
+const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
 // Beta support: let players correct names freely. Re-enable after account-link
 // migration issues have settled without deleting any existing cooldown data.
@@ -942,9 +941,6 @@ function activeDuelFor(ctx: any, identity: any) {
   for (const current of ctx.db.duel.byChallenger.filter(identity) as Iterable<any>) {
     if (isActive(current)) return current;
   }
-  for (const current of ctx.db.duel.byOpponent.filter(identity) as Iterable<any>) {
-    if (isActive(current)) return current;
-  }
   return null;
 }
 
@@ -954,12 +950,6 @@ function removeIdentityPresence(ctx: any, identity: any) {
     if (currentDuel.status === "finishing") {
       finishDuel(ctx, currentDuel);
     } else {
-      const challengerDisconnected = sameIdentity(currentDuel.challenger, identity);
-      const remainingIdentity = challengerDisconnected ? currentDuel.opponent : currentDuel.challenger;
-      const remainingX = challengerDisconnected ? currentDuel.opponentOriginX : currentDuel.challengerOriginX;
-      const remainingY = challengerDisconnected ? currentDuel.opponentOriginY : currentDuel.challengerOriginY;
-      const remainingMaxHp = challengerDisconnected ? currentDuel.opponentMaxHp : currentDuel.challengerMaxHp;
-      returnDuelPlayer(ctx, remainingIdentity, remainingX, remainingY, remainingMaxHp);
       ctx.db.duel.id.delete(currentDuel.id);
     }
   }
@@ -1226,21 +1216,11 @@ function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: 
 
 function syncDuelPlayerHealth(ctx: any, current: any) {
   const challenger = ctx.db.player.identity.find(current.challenger);
-  const opponent = ctx.db.player.identity.find(current.opponent);
   if (challenger) {
     ctx.db.player.identity.update({
       ...challenger,
       hp: current.challengerHp,
       maxHp: current.challengerMaxHp,
-      moving: false,
-      lastInputAt: ctx.timestamp,
-    });
-  }
-  if (opponent) {
-    ctx.db.player.identity.update({
-      ...opponent,
-      hp: current.opponentHp,
-      maxHp: current.opponentMaxHp,
       moving: false,
       lastInputAt: ctx.timestamp,
     });
@@ -1255,14 +1235,6 @@ function finishDuel(ctx: any, current: any) {
     current.challengerOriginY,
     current.challengerMaxHp,
   );
-  returnDuelPlayer(
-    ctx,
-    current.opponent,
-    current.opponentOriginX,
-    current.opponentOriginY,
-    current.opponentMaxHp,
-  );
-
   const challengerName = ctx.db.playerProfile.identity.find(current.challenger)?.displayName ?? "PLAYER";
   const opponentName = ctx.db.playerProfile.identity.find(current.opponent)?.displayName ?? "PLAYER";
   const challengerWon = current.challengerHp > current.opponentHp;
@@ -2275,106 +2247,44 @@ export const sendChatMessage = spacetimedb.reducer(
 );
 
 export const requestDuel = spacetimedb.reducer(
-  {},
-  (ctx) => {
+  { opponent: t.identity() },
+  (ctx, { opponent }) => {
     const challenger = requireControllingPlayer(ctx);
-    clearExpiredDuelRequests(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("You already have a duel request.");
+    if (sameIdentity(opponent, ctx.sender)) throw new SenderError("You cannot duel yourself.");
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your current duel first.");
 
     const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);
-    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch < DUEL_REQUEST_COOLDOWN_MICROS) {
-      throw new SenderError("Wait a moment before challenging again.");
+    const cooldownElapsed = cooldown
+      ? ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch
+      : DUEL_REQUEST_COOLDOWN_MICROS;
+    if (cooldownElapsed < DUEL_REQUEST_COOLDOWN_MICROS) {
+      const remainingSeconds = Number((DUEL_REQUEST_COOLDOWN_MICROS - cooldownElapsed + 999_999n) / 1_000_000n);
+      throw new SenderError(`Duel cooldown: ${remainingSeconds} seconds remaining.`);
     }
 
-    let opponent: any = null;
-    let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
-    for (const candidate of ctx.db.player.iter() as Iterable<any>) {
-      if (sameIdentity(candidate.identity, ctx.sender)) continue;
-      if (candidate.mapId !== challenger.mapId) continue;
-      if (activeDuelFor(ctx, candidate.identity)) continue;
-      const dx = candidate.x - challenger.x;
-      const dy = candidate.y - challenger.y;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq <= closestDistanceSq) {
-        closestDistanceSq = distanceSq;
-        opponent = candidate;
-      }
-    }
-    if (!opponent) throw new SenderError("Move closer to the player you want to challenge.");
+    const challengerProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const opponentProgress = ctx.db.playerProgress.identity.find(opponent);
+    const opponentProfile = ctx.db.playerProfile.identity.find(opponent);
+    if (!challengerProgress || !opponentProgress || !opponentProfile) throw new SenderError("Player profile unavailable.");
     if (cooldown) ctx.db.duelRequestCooldown.identity.update({ ...cooldown, requestedAt: ctx.timestamp });
     else ctx.db.duelRequestCooldown.insert({ identity: ctx.sender, requestedAt: ctx.timestamp });
 
+    const startsAtMicros = ctx.timestamp.microsSinceUnixEpoch + DUEL_COUNTDOWN_MICROS;
+    const endsAtMicros = startsAtMicros + DUEL_DURATION_MICROS;
     ctx.db.duel.insert({
       id: 0n,
       challenger: ctx.sender,
-      opponent: opponent.identity,
-      status: "requested",
-      createdAt: ctx.timestamp,
-      startedAt: ctx.timestamp,
-      startsAtMicros: ctx.timestamp.microsSinceUnixEpoch,
-      endsAtMicros: ctx.timestamp.microsSinceUnixEpoch,
-      lastResolvedAt: ctx.timestamp,
-      challengerOriginX: challenger.x,
-      challengerOriginY: challenger.y,
-      opponentOriginX: opponent.x,
-      opponentOriginY: opponent.y,
-      challengerHp: 0,
-      challengerMaxHp: 0,
-      challengerDamage: 0,
-      challengerArmor: 0,
-      challengerAttackRate: 1,
-      challengerRegen: 0,
-      challengerAttacks: 0,
-      challengerDamageDealt: 0,
-      challengerRegened: 0,
-      challengerBlocked: 0,
-      opponentHp: 0,
-      opponentMaxHp: 0,
-      opponentDamage: 0,
-      opponentArmor: 0,
-      opponentAttackRate: 1,
-      opponentRegen: 0,
-      opponentAttacks: 0,
-      opponentDamageDealt: 0,
-      opponentRegened: 0,
-      opponentBlocked: 0,
-    });
-  },
-);
-
-export const acceptDuel = spacetimedb.reducer(
-  { id: t.u64() },
-  (ctx, { id }) => {
-    requireControllingPlayer(ctx);
-    const current = ctx.db.duel.id.find(id);
-    if (!current || current.status !== "requested" || !sameIdentity(current.opponent, ctx.sender)) return;
-    if (ctx.timestamp.microsSinceUnixEpoch - current.createdAt.microsSinceUnixEpoch > DUEL_REQUEST_TIMEOUT_MICROS) {
-      ctx.db.duel.id.delete(current.id);
-      return;
-    }
-
-    const challenger = ctx.db.player.identity.find(current.challenger);
-    const opponent = ctx.db.player.identity.find(current.opponent);
-    const challengerProgress = ctx.db.playerProgress.identity.find(current.challenger);
-    const opponentProgress = ctx.db.playerProgress.identity.find(current.opponent);
-    if (!challenger || !opponent || !challengerProgress || !opponentProgress) {
-      ctx.db.duel.id.delete(current.id);
-      return;
-    }
-    if (Math.hypot(challenger.x - opponent.x, challenger.y - opponent.y) > DUEL_REQUEST_RANGE) {
-      ctx.db.duel.id.delete(current.id);
-      return;
-    }
-
-    const startsAtMicros = ctx.timestamp.microsSinceUnixEpoch + DUEL_COUNTDOWN_MICROS;
-    const endsAtMicros = startsAtMicros + DUEL_DURATION_MICROS;
-    ctx.db.duel.id.update({
-      ...current,
+      opponent,
       status: "countdown",
+      createdAt: ctx.timestamp,
       startedAt: ctx.timestamp,
       startsAtMicros,
       endsAtMicros,
       lastResolvedAt: ctx.timestamp,
+      challengerOriginX: challenger.x,
+      challengerOriginY: challenger.y,
+      opponentOriginX: 0,
+      opponentOriginY: 0,
       challengerHp: challengerProgress.maxHp,
       challengerMaxHp: challengerProgress.maxHp,
       challengerDamage: challengerProgress.damage,
@@ -2406,16 +2316,14 @@ export const acceptDuel = spacetimedb.reducer(
       moving: false,
       lastInputAt: ctx.timestamp,
     });
-    ctx.db.player.identity.update({
-      ...opponent,
-      x: DUEL_ARENA.opponent.x,
-      y: DUEL_ARENA.opponent.y,
-      ...playerZone(DUEL_ARENA.opponent.x, DUEL_ARENA.opponent.y),
-      hp: opponentProgress.maxHp,
-      maxHp: opponentProgress.maxHp,
-      moving: false,
-      lastInputAt: ctx.timestamp,
-    });
+  },
+);
+
+export const acceptDuel = spacetimedb.reducer(
+  { id: t.u64() },
+  (ctx, { id: _id }) => {
+    requireControllingPlayer(ctx);
+    throw new SenderError("Duel acceptance is no longer required.");
   },
 );
 

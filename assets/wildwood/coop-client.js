@@ -8236,7 +8236,9 @@ ${ty.variants.map(
   const RegisterProtocolReducer = {
     protocolVersion: t.u32()
   };
-  const RequestDuelReducer = {};
+  const RequestDuelReducer = {
+    opponent: t.identity()
+  };
   const ResetPlayerProgressReducer = {};
   const ResumeSessionReducer = {};
   const SavePlayerProgressReducer = {
@@ -8697,8 +8699,10 @@ ${ty.variants.map(
   const LATENCY_SMOOTHING = 0.25;
   const REMOTE_INTERPOLATION_DELAY_MS = 100;
   const REMOTE_SAMPLE_LIMIT = 8;
-  const PROTOCOL_VERSION = 29;
+  const PROTOCOL_VERSION = 30;
   const MAX_ARMOR = 1e12;
+  const DUEL_COOLDOWN_MS = 12e4;
+  const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
   const DEFAULT_ATTACK_RANGE = 200;
   const DEFAULT_ATTACK_INTERVAL = 1.56;
   const MIN_ATTACK_INTERVAL = 0.32;
@@ -8779,6 +8783,7 @@ ${ty.variants.map(
   let localProgress = null;
   let lastSpeedSent = null;
   let lastDuelPulseAt = 0;
+  let duelCooldownUntil = 0;
   let onChange = null;
   let pendingProgress = null;
   let progressSaveInFlightUntil = 0;
@@ -8802,6 +8807,23 @@ ${ty.variants.map(
   let accountSessionApproved = accountReturnPending;
   function reducerErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+  }
+  function rememberDuelCooldown(until) {
+    duelCooldownUntil = until;
+    if (!localIdentity) return;
+    try {
+      localStorage.setItem(`${DUEL_COOLDOWN_KEY_PREFIX}${localIdentity}`, String(until));
+    } catch {
+    }
+  }
+  function restoreDuelCooldown() {
+    if (!localIdentity) return;
+    try {
+      const saved = Number(localStorage.getItem(`${DUEL_COOLDOWN_KEY_PREFIX}${localIdentity}`));
+      duelCooldownUntil = Number.isFinite(saved) ? Math.max(0, saved) : 0;
+    } catch {
+      duelCooldownUntil = 0;
+    }
   }
   function touchServerActivity() {
     lastServerActivityAt = performance.now();
@@ -9856,6 +9878,7 @@ ${ty.variants.map(
       const connectedIdentity = identity.toHexString();
       const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
       localIdentity = connectedIdentity;
+      restoreDuelCooldown();
       localProfileReady = false;
       localDisplayName = signedIn ? rememberedAccountCharacter() : rememberedGuestCharacter();
       pendingProgress = readPendingProgress(localIdentity);
@@ -10078,7 +10101,7 @@ ${ty.variants.map(
           tables.spiderBoss,
           tables.spiderResult,
           tables.chatMessage,
-          tables.duel
+          tables.duel.where((duel) => duel.challenger.eq(identity))
         ]);
         onChange == null ? void 0 : onChange();
       }).catch((error) => {
@@ -10306,6 +10329,9 @@ ${ty.variants.map(
     localDisplayName() {
       return localDisplayName;
     },
+    playerDisplayName(identity) {
+      return profiles.get(identity) ?? generatedDisplayName(identity);
+    },
     profileIcon(identity = localIdentity) {
       return profileIcons.get(identity) ?? 0;
     },
@@ -10456,23 +10482,32 @@ ${ty.variants.map(
     },
     localDuel() {
       for (const duel of duels.values()) {
-        if (duel.challenger === localIdentity || duel.opponent === localIdentity) return { ...duel };
+        if (duel.challenger === localIdentity) return { ...duel };
       }
       return null;
+    },
+    duelCooldownRemainingMs() {
+      return Math.max(0, duelCooldownUntil - Date.now());
     },
     duelReplay(id) {
       const replay = duelReplays.get(id);
       return replay ? { ...replay } : null;
     },
     loadDuelReplay,
-    async requestDuel() {
+    async requestDuel(opponentIdentity) {
+      var _a2;
       if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
       if (!connection) return { ok: false, error: "NOT CONNECTED" };
+      const opponent = profileIdentities.get(opponentIdentity);
+      if (!opponent) return { ok: false, error: "PLAYER PROFILE UNAVAILABLE" };
       try {
-        await connection.reducers.requestDuel({});
+        await connection.reducers.requestDuel({ opponent });
+        rememberDuelCooldown(Date.now() + DUEL_COOLDOWN_MS);
         return { ok: true };
       } catch (error) {
         const message = reducerErrorMessage(error);
+        const cooldownSeconds = (_a2 = /duel cooldown:\s*(\d+) seconds/i.exec(message)) == null ? void 0 : _a2[1];
+        if (cooldownSeconds) rememberDuelCooldown(Date.now() + Number(cooldownSeconds) * 1e3);
         handleReducerFailure("duel request", error);
         console.warn("Wildwood duel request rejected:", message);
         return { ok: false, error: message };

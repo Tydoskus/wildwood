@@ -189,8 +189,10 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 29;
+const PROTOCOL_VERSION = 30;
 const MAX_ARMOR = 1_000_000_000_000;
+const DUEL_COOLDOWN_MS = 120_000;
+const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
 const DEFAULT_ATTACK_RANGE = 200;
 const DEFAULT_ATTACK_INTERVAL = 1.56;
 const MIN_ATTACK_INTERVAL = .32;
@@ -273,6 +275,7 @@ let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
+let duelCooldownUntil = 0;
 let onChange: (() => void) | null = null;
 let pendingProgress: ProgressSave | null = null;
 let progressSaveInFlightUntil = 0;
@@ -300,6 +303,22 @@ let accountSessionApproved = accountReturnPending;
 
 function reducerErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function rememberDuelCooldown(until: number) {
+  duelCooldownUntil = until;
+  if (!localIdentity) return;
+  try { localStorage.setItem(`${DUEL_COOLDOWN_KEY_PREFIX}${localIdentity}`, String(until)); } catch {}
+}
+
+function restoreDuelCooldown() {
+  if (!localIdentity) return;
+  try {
+    const saved = Number(localStorage.getItem(`${DUEL_COOLDOWN_KEY_PREFIX}${localIdentity}`));
+    duelCooldownUntil = Number.isFinite(saved) ? Math.max(0, saved) : 0;
+  } catch {
+    duelCooldownUntil = 0;
+  }
 }
 
 function touchServerActivity() {
@@ -1580,6 +1599,7 @@ function connect() {
       const connectedIdentity = identity.toHexString();
       const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
       localIdentity = connectedIdentity;
+      restoreDuelCooldown();
       localProfileReady = false;
       localDisplayName = signedIn ? rememberedAccountCharacter() : rememberedGuestCharacter();
       pendingProgress = readPendingProgress(localIdentity);
@@ -1748,7 +1768,7 @@ function connect() {
           tables.spiderBoss,
           tables.spiderResult,
           tables.chatMessage,
-          tables.duel,
+          tables.duel.where((duel) => duel.challenger.eq(identity)),
         ]);
         onChange?.();
       }).catch((error) => {
@@ -1981,6 +2001,9 @@ export const wildwoodCoop = {
   localDisplayName() {
     return localDisplayName;
   },
+  playerDisplayName(identity: string) {
+    return profiles.get(identity) ?? generatedDisplayName(identity);
+  },
   profileIcon(identity = localIdentity) {
     return profileIcons.get(identity) ?? 0;
   },
@@ -2147,23 +2170,31 @@ export const wildwoodCoop = {
   },
   localDuel() {
     for (const duel of duels.values()) {
-      if (duel.challenger === localIdentity || duel.opponent === localIdentity) return { ...duel };
+      if (duel.challenger === localIdentity) return { ...duel };
     }
     return null;
+  },
+  duelCooldownRemainingMs() {
+    return Math.max(0, duelCooldownUntil - Date.now());
   },
   duelReplay(id: bigint) {
     const replay = duelReplays.get(id);
     return replay ? { ...replay } : null;
   },
   loadDuelReplay,
-  async requestDuel() {
+  async requestDuel(opponentIdentity: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    const opponent = profileIdentities.get(opponentIdentity);
+    if (!opponent) return { ok: false, error: "PLAYER PROFILE UNAVAILABLE" };
     try {
-      await connection.reducers.requestDuel({});
+      await connection.reducers.requestDuel({ opponent });
+      rememberDuelCooldown(Date.now() + DUEL_COOLDOWN_MS);
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
+      const cooldownSeconds = /duel cooldown:\s*(\d+) seconds/i.exec(message)?.[1];
+      if (cooldownSeconds) rememberDuelCooldown(Date.now() + Number(cooldownSeconds) * 1_000);
       handleReducerFailure("duel request", error);
       console.warn("Wildwood duel request rejected:", message);
       return { ok: false, error: message };

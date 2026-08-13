@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.272": [
+    "Player profiles now include a Duel button",
+    "Duels start immediately against any player from anywhere without requiring acceptance",
+    "Duel targets keep playing normally while their saved stats are used for the duel simulation",
+    "A visible two-minute cooldown now follows every duel",
+  ],
   "0.271": [
     "Armor now reduces damage by percentage, with 1,000 armor reducing 9% and 1 million reducing 90%",
     "Player profiles now show armor reduction and online map location",

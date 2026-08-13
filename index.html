@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="src/styles/game.css?v=0.271" />
+<link rel="stylesheet" href="src/styles/game.css?v=0.272" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -117,7 +117,7 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS ONLINE: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.271</div>
+        <div id="version">v0.272</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -177,13 +177,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.271</strong></div>
+        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.272</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.271</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.272</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -258,6 +258,7 @@
       </div>
       <button id="closePlayerProfileBtn" class="profile-close-button secondary-button" type="button" aria-label="Close player profile">×</button>
     </header>
+    <button id="profileDuelBtn" class="profile-duel-button" type="button" hidden>DUEL</button>
     <button id="editPlayerSaveBtn" class="secondary-button profile-edit-button" type="button" hidden>EDIT SAVE</button>
     <div class="profile-tabs" role="tablist" aria-label="Player profile sections">
       <button id="profileStatsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileStatsPanel">STATS</button>
@@ -346,7 +347,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.271"></script>
-<script src="assets/wildwood/game.js?v=0.271"></script>
+<script src="assets/wildwood/coop-client.js?v=0.272"></script>
+<script src="assets/wildwood/game.js?v=0.272"></script>
 </body>
 </html>

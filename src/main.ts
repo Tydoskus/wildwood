@@ -42,7 +42,6 @@ import {
   DUEL_ARENA,
   DUEL_COMBAT_Y,
   DUEL_REPLAY_COUNTDOWN_SECONDS,
-  DUEL_REQUEST_RANGE,
   DUEL_SHOT_LIFETIME,
   DUEL_SHOT_SPEED,
   duelStatLine,
@@ -64,7 +63,7 @@ import { formatCompactNumber } from "./ui/number-format";
 (() => {
   "use strict";
 
-  const GAME_VERSION = "0.271";
+  const GAME_VERSION = "0.272";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -194,6 +193,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const profileStatGrid = document.getElementById("profileStatGrid");
   const closePlayerProfileBtn = document.getElementById("closePlayerProfileBtn");
   const editPlayerSaveBtn = document.getElementById("editPlayerSaveBtn");
+  const profileDuelBtn = document.getElementById("profileDuelBtn");
   const profileEditPanel = document.getElementById("profileEditPanel");
   const profileEditName = document.getElementById("profileEditName");
   const profileEditMaxHp = document.getElementById("profileEditMaxHp");
@@ -3776,6 +3776,9 @@ import { formatCompactNumber } from "./ui/number-format";
     playerProfileIcon.disabled = !ownProfile;
     playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
     playerProfilePowerEl.textContent = `Power: ${formatCompactNumber(power)}`;
+    profileDuelBtn.hidden = ownProfile;
+    profileDuelBtn.dataset.identity = ownProfile ? "" : profile.identity;
+    updateProfileDuelButton();
     profileJoinedEl.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], {
       year: "numeric", month: "short", day: "numeric",
     });
@@ -3817,6 +3820,9 @@ import { formatCompactNumber } from "./ui/number-format";
     openProfileData = null;
     profileEditPanel.hidden = true;
     editPlayerSaveBtn.hidden = true;
+    profileDuelBtn.hidden = identity === coop?.localIdentity?.();
+    profileDuelBtn.dataset.identity = identity;
+    updateProfileDuelButton();
     playerProfileEl.hidden = false;
     renderDomPlayerName(playerProfileNameEl, identity, fallbackName);
     const online = isProfileOnline(identity);
@@ -3849,6 +3855,20 @@ import { formatCompactNumber } from "./ui/number-format";
     profileEditPanel.hidden = true;
     playerProfileLoadingEl.textContent = "LOADING PLAYER…";
     coop?.releasePlayerProfile?.();
+  }
+
+  function updateProfileDuelButton() {
+    if (!profileDuelBtn || profileDuelBtn.hidden) return;
+    const remainingMs = coop?.duelCooldownRemainingMs?.() || 0;
+    const remainingSeconds = Math.ceil(remainingMs / 1_000);
+    const active = isDueling();
+    profileDuelBtn.disabled = active || remainingSeconds > 0;
+    profileDuelBtn.classList.toggle("is-cooling-down", remainingSeconds > 0);
+    profileDuelBtn.textContent = active
+      ? "DUEL IN PROGRESS"
+      : remainingSeconds > 0
+        ? `DUEL · ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`
+        : "DUEL";
   }
 
   function renderLeaderboard() {
@@ -4243,36 +4263,20 @@ import { formatCompactNumber } from "./ui/number-format";
     itemInspectEl.hidden = true;
   }
 
-  function nearbyDuelOpponent() {
-    if (!coop || !coop.isConnected?.()) return null;
-    let closest = null;
-    let closestDistanceSq = DUEL_REQUEST_RANGE * DUEL_REQUEST_RANGE;
-    for (const other of coop.remotePlayers()) {
-      const dx = other.x - player.x;
-      const dy = other.y - player.y;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq <= closestDistanceSq) {
-        closest = other;
-        closestDistanceSq = distanceSq;
-      }
-    }
-    return closest;
-  }
-
   function duelOpponentName(duel) {
     const opponentId = duel.challenger === coop?.localIdentity?.() ? duel.opponent : duel.challenger;
     const opponent = coop?.remotePlayers?.().find((other) => other.id === opponentId);
-    return opponent ? publicPlayerName(opponent.id, opponent.name) : "OPPONENT";
+    const name = opponent?.name || coop?.playerDisplayName?.(opponentId) || "OPPONENT";
+    return publicPlayerName(opponentId, name);
   }
 
   function updateDuelControls() {
     if (!duelControls) return;
     const duel = activeDuel();
-    const localId = coop?.localIdentity?.();
-    const nearby = nearbyDuelOpponent();
     duelStatusEl.hidden = false;
     duelRequestBtn.hidden = true;
     duelAcceptBtn.hidden = true;
+    updateProfileDuelButton();
 
     if ((duel?.status === "active" || duel?.status === "finishing") && Date.now() >= duel.endsAtMs) {
       coop?.pulseDuel?.();
@@ -4295,27 +4299,6 @@ import { formatCompactNumber } from "./ui/number-format";
     }
     if (duel?.status === "finishing") {
       duelStatusEl.textContent = "DUEL COMPLETE";
-      duelControls.hidden = false;
-      return;
-    }
-    if (duel?.status === "requested") {
-      if (Date.now() - duel.createdAtMs >= 30_000) {
-        duelControls.hidden = true;
-        return;
-      }
-      duelControls.hidden = false;
-      if (duel.opponent === localId) {
-        duelStatusEl.textContent = `${duelOpponentName(duel)} CHALLENGES YOU`;
-        duelAcceptBtn.hidden = false;
-      } else {
-        duelStatusEl.textContent = "DUEL REQUEST SENT";
-      }
-      return;
-    }
-    if (nearby) {
-      duelStatusEl.hidden = true;
-      duelRequestBtn.textContent = `Challenge ${publicPlayerName(nearby.id, nearby.name)} to Duel`;
-      duelRequestBtn.hidden = false;
       duelControls.hidden = false;
       return;
     }
@@ -4611,15 +4594,15 @@ import { formatCompactNumber } from "./ui/number-format";
     );
   });
 
-  duelRequestBtn.addEventListener("click", () => {
-    void coop?.requestDuel?.().then((result) => {
-      if (!result?.ok) showMessage(result?.error || "DUEL REQUEST FAILED", "#ff9b91");
+  profileDuelBtn.addEventListener("click", () => {
+    const opponentIdentity = profileDuelBtn.dataset.identity || "";
+    if (!opponentIdentity || profileDuelBtn.disabled) return;
+    profileDuelBtn.disabled = true;
+    void coop?.requestDuel?.(opponentIdentity).then((result) => {
+      if (!result?.ok) showMessage(result?.error || "DUEL FAILED", "#ff9b91");
+      else closePlayerProfile();
+      updateProfileDuelButton();
     });
-  });
-
-  duelAcceptBtn.addEventListener("click", () => {
-    const duel = activeDuel();
-    if (duel?.status === "requested") coop?.acceptDuel?.(duel.id);
   });
 
   watchDuelReplayBtn.addEventListener("click", () => {
