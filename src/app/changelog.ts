@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.284": [
+    "Player action icons now form one connected toolbar beneath the player panel",
+    "The player panel and action toolbar now match the minimap height",
+    "Minimized World Chat now shows its newest message first",
+    "Minimized World Chat status and version text now stay white",
+  ],
   "0.283": [
     "World Chat expand and minimize arrows now point diagonally",
     "Replay medallions now sit at the end of their chat messages",
