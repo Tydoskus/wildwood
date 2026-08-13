@@ -1,5 +1,5 @@
 import { enforceLatestVersion } from "./app/version";
-import { recentReleaseNotes } from "./app/changelog";
+import { recentReleaseNotes, releaseDate } from "./app/changelog";
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "./app/developer";
 import {
   BASE_ATTACK_RANGE,
@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.302";
+  const GAME_VERSION = "0.307";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -291,6 +291,7 @@ import {
   const closeDevAuditBtn = requiredElement("closeDevAuditBtn");
   const updateNoticeEl = requiredElement("updateNotice");
   const updateNoticeTitleEl = requiredElement("updateNoticeTitle");
+  const updateNoticeDateEl = requiredElement("updateNoticeDate");
   const updateNoticeItemsEl = requiredElement("updateNoticeItems");
   const closeUpdateNoticeBtn = requiredElement("closeUpdateNoticeBtn");
   const signinVersionEl = requiredElement("signinVersion");
@@ -301,6 +302,13 @@ import {
   const coop = window.wildwoodCoop || null;
   if (signinVersionEl) signinVersionEl.textContent = `v${GAME_VERSION}`;
 
+  let updateReloadPending = false;
+
+  function showGameUpdating() {
+    updateReloadPending = true;
+    gameUpdateGateEl.hidden = false;
+  }
+
   const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID);
   let musicVolume = mapMusic.volume;
 
@@ -308,8 +316,8 @@ import {
     mapMusic.syncMap(currentMapId);
   }
 
-  enforceLatestVersion(GAME_VERSION);
-  window.setInterval(() => enforceLatestVersion(GAME_VERSION), 30_000);
+  enforceLatestVersion(GAME_VERSION, showGameUpdating);
+  window.setInterval(() => enforceLatestVersion(GAME_VERSION, showGameUpdating), 30_000);
   const keys = new Set();
   const camera = createCamera();
   const effects = createCombatEffects();
@@ -918,6 +926,8 @@ import {
     sessionTakeoverBtn.hidden = true;
     sessionTakeoverBtn.disabled = false;
     sessionTakeoverNote.hidden = true;
+    dragonResultEl.hidden = true;
+    dragonWorldNoticeEl.hidden = true;
     updateLoadingDetail();
   }
 
@@ -934,7 +944,8 @@ import {
 
   function updateProtocolGate(accountState = coop?.accountState?.()) {
     if (!gameUpdateGateEl) return;
-    gameUpdateGateEl.hidden = !accountState?.updating;
+    gameUpdateGateEl.hidden = !(accountState?.updating || updateReloadPending);
+    if (accountState?.updating) enforceLatestVersion(GAME_VERSION, showGameUpdating);
   }
 
   function showAccountChoice() {
@@ -1215,6 +1226,7 @@ import {
     if (!result || shownSpiderResultEncounter === result.encounter) return;
     shownSpiderResultEncounter = result.encounter;
     pendingSpiderResultEncounter = null;
+    if (!running) return;
     const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
     if (!localContribution) {
       const heading = dragonWorldNoticeEl.querySelector("strong");
@@ -1360,6 +1372,14 @@ import {
   function showDragonResult(result: DragonResult | null) {
     if (!result || !dragonResultEl || shownDragonResultEncounter === result.encounter) return;
     if (portalCutscene.active && queuedDragonResult?.encounter === result.encounter) return;
+    // Shared result rows can arrive while the sign-in/loading screen is still
+    // visible. They describe world history, not a reward screen for a player
+    // who has not entered the game yet.
+    if (!running) {
+      shownDragonResultEncounter = result.encounter;
+      pendingDragonResultEncounter = null;
+      return;
+    }
     dragonResultTitle.textContent = "DRAGON DEFEATED";
     const worldHeading = dragonWorldNoticeEl.querySelector("strong");
     if (worldHeading) worldHeading.textContent = "DRAGON DEFEATED";
@@ -2523,6 +2543,12 @@ import {
     const column = index % 8;
     const row = Math.floor(index / 8);
     const positionStep = PROFILE_PORTRAIT_ZOOM / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
+    // These two surfaces are buttons, unlike chat portraits. Set the portrait
+    // image directly so generic button styling or a late stylesheet refresh
+    // cannot leave them blank while the same icon is visible elsewhere.
+    element.style.backgroundImage = 'url("assets/wildwood/profile-portraits-grid-v2.png")';
+    element.style.backgroundRepeat = "no-repeat";
+    element.style.backgroundSize = "824% 824%";
     element.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + column * positionStep}% ${PROFILE_PORTRAIT_POSITION_START + row * positionStep}%`;
     element.dataset.profileIcon = String(index);
   }
@@ -3330,8 +3356,9 @@ import {
     const releases = recentReleaseNotes(10);
     if (!releases.length) return;
     renderUpdateNotice(
-      { overlay: updateNoticeEl, title: updateNoticeTitleEl, items: updateNoticeItemsEl },
+      { overlay: updateNoticeEl, title: updateNoticeTitleEl, date: updateNoticeDateEl, items: updateNoticeItemsEl },
       GAME_VERSION,
+      releaseDate(GAME_VERSION),
       releases,
     );
   }
@@ -3891,8 +3918,8 @@ import {
       updateProtocolGate(account);
       if (account?.sessionConflict) showSessionConflict();
       else if (account?.returningFromSignIn) showSigningIn();
-      else if (account?.signInRequired && !hasStarted) showAccountChoice();
-      else if (!accountChoicePanel.hidden && !hasStarted) showAccountChoice();
+      else if (!hasStarted && account?.signedIn && !account?.hydrated) showConnecting();
+      else if (!hasStarted && !account?.signedIn && !account?.authInProgress) showAccountChoice();
       chat.refresh();
       updateDuelControls();
       updateConnectionStatus();
@@ -3909,7 +3936,7 @@ import {
   updateProtocolGate();
   window.setInterval(() => chat.refresh(), 1_000);
   window.setInterval(() => {
-    if (coop?.accountState?.().updating) enforceLatestVersion(GAME_VERSION);
+    if (coop?.accountState?.().updating) enforceLatestVersion(GAME_VERSION, showGameUpdating);
   }, 5_000);
 
   bootUpgradeClose.addEventListener("click", () => {

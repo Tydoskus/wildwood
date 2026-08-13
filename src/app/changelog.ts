@@ -1,4 +1,15 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.307": [
+    "Game updates now show a clear handoff screen before the latest version loads",
+    "Account sign-in keeps its loading state while your character opens",
+    "Minimized World Chat reliably keeps the newest messages visible",
+    "Dragon and Spider defeat notices wait until you enter the game",
+    "HUD and player-profile portraits now repaint reliably",
+    "Update notes now show their release date in a shorter sign-in panel",
+    "Duel chat now tells you when you won or lost",
+    "Dragon portal reveal stays centered and holds one second longer",
+    "Duel replay chat opens player profiles from the name and portrait",
+  ],
   "0.302": [
     "Dragon portal cutscene now fades back to the player after the portal lights",
     "Developer panel now includes a local Dragon cutscene preview",
@@ -269,6 +280,14 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   ],
 };
 
+const RELEASE_DATES: Record<string, string> = {
+  "0.307": "AUG 13, 2026",
+};
+
+export function releaseDate(version: string) {
+  return RELEASE_DATES[version] ?? "";
+}
+
 export function releaseNotes(version: string) {
   return RELEASE_NOTES[version] ?? [];
 }
@@ -277,5 +296,5 @@ export function recentReleaseNotes(limit = 10) {
   return Object.entries(RELEASE_NOTES)
     .sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }))
     .slice(0, Math.max(0, limit))
-    .map(([version, notes]) => ({ version, notes }));
+    .map(([version, notes]) => ({ version, notes, date: releaseDate(version) }));
 }

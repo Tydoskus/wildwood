@@ -1,4 +1,3 @@
-import { WORLD } from "../constants";
 import { clamp } from "../math";
 import type { Camera } from "./camera";
 
@@ -16,7 +15,7 @@ type CutsceneViewport = { width: number; height: number };
 
 const PAN_SECONDS = 3.6;
 const FLICKER_SECONDS = 1.25;
-const HOLD_SECONDS = .8;
+const HOLD_SECONDS = 1.8;
 const RETURN_SECONDS = 3.6;
 
 function easeOutCubic(value: number) {
@@ -30,13 +29,13 @@ export function createPortalCutscene() {
 
   function begin(camera: Camera, focus: { x: number; y: number }, viewport: CutsceneViewport) {
     const zoom = Math.max(.82, Math.min(1, camera.zoom));
-    const maxX = Math.max(0, WORLD.w - viewport.width / zoom);
-    const maxY = Math.max(0, WORLD.h - viewport.height / zoom);
     start = { ...camera };
     target = {
       zoom,
-      x: clamp(focus.x - viewport.width / zoom / 2, 0, maxX),
-      y: clamp(focus.y - viewport.height / zoom / 2, 0, maxY),
+      // A cinematic can look beyond the playable world. Clamping here pins
+      // edge portals away from the screen center, which breaks the reveal.
+      x: focus.x - viewport.width / zoom / 2,
+      y: focus.y - viewport.height / zoom / 2,
     };
     elapsed = 0;
   }

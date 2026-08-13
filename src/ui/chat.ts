@@ -69,6 +69,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.panel.classList.toggle("is-large", large);
     elements.sizeToggle.setAttribute("aria-expanded", String(large));
     elements.sizeToggle.setAttribute("aria-label", large ? "Minimize chat" : "Expand chat");
+    // Minimized chat renders only its two latest messages. Rebuild when the
+    // presentation changes so there is no hidden scroll position to preserve.
+    renderedRevision = -1;
+    refresh();
     if (large) requestAnimationFrame(() => { elements.messages.scrollTop = elements.messages.scrollHeight; });
   }
 
@@ -95,9 +99,18 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
   }
 
-  function displayNameFor(message: ChatMessage) {
-    if (message.senderName !== "DUEL") return message.senderName;
-    return /^(.+?) (?:beat|and) /.exec(message.message)?.[1] ?? "DUEL RESULT";
+  function duelPresentation(message: ChatMessage, localName: string | undefined) {
+    const match = /^(.+?) beat (.+?) in a duel\.$/.exec(message.message);
+    if (!match || !localName) return null;
+    const [, winner, loser] = match;
+    if (loser === localName) return { name: "DUEL RESULT", text: `YOU LOST TO ${winner}.` };
+    if (winner === localName) return { name: "DUEL RESULT", text: `YOU BEAT ${loser}.` };
+    return null;
+  }
+
+  function displayNameFor(message: ChatMessage, localName: string | undefined) {
+    if (message.replayId === 0n) return message.senderName;
+    return duelPresentation(message, localName)?.name ?? /^(.+?) (?:beat|and) /.exec(message.message)?.[1] ?? "DUEL RESULT";
   }
 
   function refresh() {
@@ -114,12 +127,17 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const previousScrollHeight = elements.messages.scrollHeight;
     const distanceFromBottom = previousScrollHeight - elements.messages.clientHeight - previousScrollTop;
     const followNewestMessage = !large || renderedRevision < 0 || distanceFromBottom <= 16;
-    const messages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? []).slice(-100);
+    const allMessages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? []).slice(-100);
+    // Do not rely on scrolling hidden rows in compact mode. Its DOM contains
+    // exactly the newest two rows, newest first, so each incoming message is
+    // immediately visible even after the panel has been minimized for hours.
+    const messages = large ? allMessages : allMessages.slice(-2).reverse();
     renderedRevision = revision;
-    nextExpiryAt = messages.length > 0 ? messages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
+    nextExpiryAt = allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
     elements.messages.replaceChildren();
     for (const message of messages) {
-      const displayName = displayNameFor(message);
+      const duel = message.replayId > 0n ? duelPresentation(message, localName) : null;
+      const displayName = displayNameFor(message, localName);
       const line = document.createElement("div");
       line.className = "chat-line";
       const isDuelMessage = message.replayId > 0n;
@@ -139,7 +157,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       name.append(document.createTextNode(`${displayName}${guestSuffix}`));
       name.setAttribute("role", "button");
       name.setAttribute("tabindex", "0");
-      name.setAttribute("aria-label", isDuelMessage ? "Watch duel replay" : `View ${displayName}'s profile`);
+      name.setAttribute("aria-label", `View ${displayName}'s profile`);
       const openPlayer = (event: Event) => {
         event.stopPropagation();
         onOpenPlayer?.(message.sender, displayName);
@@ -148,26 +166,25 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         event.stopPropagation();
         onOpenReplay?.(message.replayId);
       };
-      const activateMessage = isDuelMessage ? openReplay : openPlayer;
-      name.addEventListener("click", activateMessage);
+      name.addEventListener("click", openPlayer);
       name.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        activateMessage(event);
+        openPlayer(event);
       });
       const text = document.createElement("span");
       text.className = "chat-text";
-      text.textContent = message.message;
+      text.textContent = duel?.text ?? message.message;
       const icon = document.createElement("span");
       icon.className = "chat-profile-icon";
       icon.setAttribute("role", "button");
       icon.setAttribute("tabindex", "0");
-      icon.setAttribute("aria-label", isDuelMessage ? "Watch duel replay" : `View ${displayName}'s profile`);
-      icon.addEventListener("click", activateMessage);
+      icon.setAttribute("aria-label", `View ${displayName}'s profile`);
+      icon.addEventListener("click", openPlayer);
       icon.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        activateMessage(event);
+        openPlayer(event);
       });
       const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(message.sender) ?? 0)));
       icon.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + (iconIndex % 8) * PROFILE_PORTRAIT_POSITION_STEP}% ${PROFILE_PORTRAIT_POSITION_START + Math.floor(iconIndex / 8) * PROFILE_PORTRAIT_POSITION_STEP}%`;
@@ -198,7 +215,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.messages.appendChild(line);
     }
     if (followNewestMessage) {
-      elements.messages.scrollTop = elements.messages.scrollHeight;
+      elements.messages.scrollTop = large ? elements.messages.scrollHeight : 0;
     } else {
       // Appended messages do not move history being read. If old messages
       // expire from the top, compensate only for the removed height.
