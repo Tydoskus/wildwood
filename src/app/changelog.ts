@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.281": [
+    "World Chat replay buttons now use the custom Wildwood play medallion",
+    "World Chat expand and minimize control now uses custom pixel corner marks",
+  ],
   "0.280": [
     "Player projectiles now always travel at 1,000 speed",
     "Projectile speed and projectile count are hidden from player profile stats",

@@ -146,7 +146,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         replay.type = "button";
         replay.title = "Watch duel replay";
         replay.setAttribute("aria-label", "Watch duel replay");
-        replay.textContent = "▶";
+        const replayIcon = document.createElement("span");
+        replayIcon.className = "chat-replay-icon";
+        replayIcon.setAttribute("aria-hidden", "true");
+        replay.appendChild(replayIcon);
         replay.addEventListener("click", (event) => {
           event.stopPropagation();
           onOpenReplay?.(message.replayId);
