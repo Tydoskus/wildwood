@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.323";
+  const GAME_VERSION = "0.324";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -163,7 +163,7 @@ import {
   const textCanvas = requiredElement<HTMLCanvasElement>("textLayer");
   const textCtx = requiredCanvasContext(textCanvas);
   ctx.imageSmoothingEnabled = false;
-  const { outlinedText, fillFloatingText, pixelCircle, roundRect } = createCanvasPrimitives(ctx, textCtx, () => antiAliasingEnabled);
+  const { outlinedText, fillFloatingText, pixelCircle, roundRect } = createCanvasPrimitives(ctx, textCtx);
 
   const hpFill = requiredElement("hpFill");
   const hpText = requiredElement("hpText");
@@ -3028,7 +3028,10 @@ import {
 
     ctx.restore();
 
-    if (!isDueling() && !portalCutsceneActive) drawMinimap(remotePlayers);
+    if (!isDueling() && !portalCutsceneActive) {
+      drawMinimap(remotePlayers);
+      clearFloatingTextFromMinimap();
+    }
 
     if (flash > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash * .75})`;
@@ -3044,6 +3047,13 @@ import {
       drawPortal();
       ctx.restore();
     }
+  }
+
+  function clearFloatingTextFromMinimap() {
+    const size = Math.min(126, Math.max(118, viewW * .17));
+    const x = viewW - size;
+    textCtx.setTransform(1, 0, 0, 1, 0, 0);
+    textCtx.clearRect(Math.floor((x - 3) * dpr), 0, Math.ceil((size + 3) * dpr), Math.ceil((size + 3) * dpr));
   }
 
   function updateHud() {

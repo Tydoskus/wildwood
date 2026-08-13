@@ -228,7 +228,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   function drawMinimap(remotePlayers: RemotePlayer[]) {
     const view = viewport(); const size = Math.min(126, Math.max(118, view.width * .17)); const x = view.width - size; const y = 0;
     ctx.save(); ctx.fillStyle = "rgba(12,18,15,.82)"; ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2; options.roundRect(x, y, size, size, 10); ctx.fill(); ctx.stroke();
-    ctx.save(); ctx.font = '900 9px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; ctx.textAlign = "center"; ctx.textBaseline = "top"; options.outlinedText(options.mapName(options.getMapId()), x + size / 2, y + 7, "#f5f5e9", 1.5); ctx.restore();
     const sx = size / WORLD.w; const sy = size / WORLD.h;
     ctx.save(); options.roundRect(x + 5, y + 5, size - 10, size - 10, 7); ctx.clip();
     const desert = options.getMapId() === options.desertMapId;

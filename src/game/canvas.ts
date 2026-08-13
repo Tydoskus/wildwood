@@ -1,10 +1,9 @@
 export function createCanvasPrimitives(
   ctx: CanvasRenderingContext2D,
   textLayer?: CanvasRenderingContext2D,
-  smoothTextEnabled: () => boolean = () => false,
 ) {
   function textContext() {
-    return textLayer && smoothTextEnabled() ? textLayer : ctx;
+    return textLayer ?? ctx;
   }
 
   function copyTextState(target: CanvasRenderingContext2D) {

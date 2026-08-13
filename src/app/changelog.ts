@@ -1,5 +1,5 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
-  "0.323": [
+  "0.324": [
     "Game updates now show a clear handoff screen before the latest version loads",
     "Account sign-in keeps its loading state while your character opens",
     "Minimized World Chat reliably keeps the newest messages visible",
@@ -26,6 +26,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Anti-aliasing now smooths floating world text while sprites stay crisp",
     "Sign-in now waits for page and game art before showing account choices",
     "Sign-in now keeps one clear loading state through account hydration",
+    "Floating text now stays smooth and always sits beneath the minimap",
   ],
   "0.302": [
     "Dragon portal cutscene now fades back to the player after the portal lights",
@@ -298,7 +299,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
-  "0.323": "AUG 13, 2026",
+  "0.324": "AUG 13, 2026",
 };
 
 export function releaseDate(version: string) {
