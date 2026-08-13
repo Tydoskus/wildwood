@@ -10,14 +10,17 @@ describe("portal cutscene", () => {
       { width: 400, height: 300 },
     );
 
-    const pan = cutscene.update(1);
+    const pan = cutscene.update(1.8);
     expect(pan.active).toBe(true);
     expect(pan.showDestination).toBe(false);
+    expect(pan.blackoutOpacity).toBeGreaterThan(0);
+    expect(pan.blackoutOpacity).toBeLessThan(1);
     expect(pan.portalIntensity).toBe(0);
     expect(pan.camera.x).toBeGreaterThan(20);
 
-    const reveal = cutscene.update(1.1);
+    const reveal = cutscene.update(2.1);
     expect(reveal.showDestination).toBe(true);
+    expect(reveal.blackoutOpacity).toBe(1);
     expect(reveal.portalIntensity).toBeGreaterThan(0);
 
     const end = cutscene.update(4);

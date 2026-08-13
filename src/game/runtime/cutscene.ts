@@ -6,13 +6,14 @@ export type PortalCutsceneFrame = {
   active: boolean;
   finished: boolean;
   camera: Camera;
+  blackoutOpacity: number;
   portalIntensity: number;
   showDestination: boolean;
 };
 
 type CutsceneViewport = { width: number; height: number };
 
-const PAN_SECONDS = 1.8;
+const PAN_SECONDS = 3.6;
 const FLICKER_SECONDS = 1.25;
 const HOLD_SECONDS = 2.2;
 
@@ -43,6 +44,7 @@ export function createPortalCutscene() {
       active: false,
       finished: false,
       camera: { x: 0, y: 0, zoom: 1 },
+      blackoutOpacity: 0,
       portalIntensity: 0,
       showDestination: false,
     };
@@ -69,6 +71,7 @@ export function createPortalCutscene() {
       active: true,
       finished,
       camera,
+      blackoutOpacity: easeOutCubic(pan),
       portalIntensity,
       showDestination: revealElapsed >= .2,
     };

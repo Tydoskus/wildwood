@@ -918,7 +918,7 @@
 
   #sceneFade[hidden] { display: none; }
   #sceneFade.is-visible { opacity: 1; pointer-events: auto; }
-  #cutsceneOverlay { position: fixed; inset: 0; z-index: 5; background: rgba(0,0,0,.76); pointer-events: auto; }
+  #cutsceneOverlay { position: fixed; inset: 0; z-index: 5; background: transparent; pointer-events: auto; }
   #cutsceneOverlay[hidden] { display: none; }
   body.is-cutscene #hud { visibility: hidden; }
 

@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.300";
+  const GAME_VERSION = "0.301";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -343,6 +343,7 @@ import {
   let portalCooldown = 0;
   const portalCutscene = createPortalCutscene();
   let portalCutsceneIntensity = -1;
+  let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationVisible = false;
   let queuedDragonResult: DragonResult | null = null;
 
@@ -1315,6 +1316,7 @@ import {
     const portal = MAP_CONFIG[TUTORIAL_FOREST_MAP_ID].portal;
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, { width: viewW, height: viewH });
     portalCutsceneIntensity = 0;
+    portalCutsceneBlackoutOpacity = 0;
     portalCutsceneDestinationVisible = false;
     keys.clear();
     touchMove.active = false;
@@ -1328,10 +1330,12 @@ import {
     camera.y = frame.camera.y;
     camera.zoom = frame.camera.zoom;
     portalCutsceneIntensity = frame.portalIntensity;
+    portalCutsceneBlackoutOpacity = frame.blackoutOpacity;
     portalCutsceneDestinationVisible = frame.showDestination;
     if (!frame.finished) return true;
 
     portalCutsceneIntensity = -1;
+    portalCutsceneBlackoutOpacity = 0;
     portalCutsceneDestinationVisible = false;
     cutsceneOverlayEl.hidden = true;
     document.body.classList.remove("is-cutscene");
@@ -2713,7 +2717,7 @@ import {
     ));
   }
 
-  function drawDepthSortedWorld(remotePlayers: RemotePlayer[]) {
+  function drawDepthSortedWorld(remotePlayers: RemotePlayer[], includePortal = true) {
     const layers: Array<{ depth: number; priority: number; draw: () => void }> = [];
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
@@ -2747,7 +2751,7 @@ import {
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !bootsPickup.collected) {
       layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
     }
-    layers.push({ depth: activePortal().depth, priority: 2, draw: drawPortal });
+    if (includePortal) layers.push({ depth: activePortal().depth, priority: 2, draw: drawPortal });
     if (currentMapId === BEGINNER_DESERT_MAP_ID) {
       layers.push({ depth: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch.depth, priority: 2, draw: drawEmptyDesertArch });
     }
@@ -2935,13 +2939,14 @@ import {
 
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
-    drawDepthSortedWorld(remotePlayers);
+    const portalCutsceneActive = portalCutscene.active;
+    drawDepthSortedWorld(remotePlayers, !portalCutsceneActive);
     effects.drawParticles(ctx, camera);
     effects.drawDamageNumbers(ctx, camera, outlinedText);
 
     ctx.restore();
 
-    if (!isDueling()) drawMinimap(remotePlayers);
+    if (!isDueling() && !portalCutsceneActive) drawMinimap(remotePlayers);
 
     if (flash > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash * .75})`;
@@ -2949,6 +2954,14 @@ import {
     }
 
     drawVignette();
+    if (portalCutsceneActive) {
+      ctx.fillStyle = `rgba(0,0,0,${portalCutsceneBlackoutOpacity})`;
+      ctx.fillRect(0, 0, viewW, viewH);
+      ctx.save();
+      ctx.scale(camera.zoom, camera.zoom);
+      drawPortal();
+      ctx.restore();
+    }
   }
 
   function updateHud() {

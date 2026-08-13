@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.301": [
+    "Dragon portal cutscene camera pan now moves at half speed",
+    "Cutscene blackout now fades to full black while the portal and arch remain visible above it",
+  ],
   "0.300": [
     "Dragon portal cutscene now triggers correctly after your first Dragon defeat",
     "Profile portraits now center their crop correctly in every UI frame",
