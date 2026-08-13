@@ -995,6 +995,10 @@
   .dev-badge { color: var(--gold); }
   .dev-audit-button { color: var(--gold); font-size: 10px; }
   .modal.dev-audit-modal { width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .dev-audit-tabs { display: flex; gap: 5px; margin: 3px 0 7px; }
+  .dev-audit-tabs .profile-tab { flex: 1; }
+  #devCutscenesPanel[hidden] { display: none; }
+  .dev-cutscene-trigger { width: 100%; min-height: 48px; margin: 8px 0 2px; border-color: rgba(255,216,91,.52); color: var(--gold); font-size: 10px; }
   .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
   .dev-audit-headings, .dev-audit-row { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(105px, .9fr) 62px minmax(150px, 1.4fr); gap: 8px; align-items: center; }
   .dev-audit-headings { padding: 0 7px 4px; color: var(--muted); font-size: 7px; }

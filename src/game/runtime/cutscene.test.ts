@@ -23,6 +23,10 @@ describe("portal cutscene", () => {
     expect(reveal.blackoutOpacity).toBe(1);
     expect(reveal.portalIntensity).toBeGreaterThan(0);
 
+    const returnFrame = cutscene.update(2);
+    expect(returnFrame.returning).toBe(true);
+    expect(returnFrame.blackoutOpacity).toBeLessThan(1);
+
     const end = cutscene.update(4);
     expect(end.finished).toBe(true);
     expect(cutscene.active).toBe(false);

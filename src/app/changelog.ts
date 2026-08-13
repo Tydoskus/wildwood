@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.302": [
+    "Dragon portal cutscene now fades back to the player after the portal lights",
+    "Developer panel now includes a local Dragon cutscene preview",
+  ],
   "0.301": [
     "Dragon portal cutscene camera pan now moves at half speed",
     "Cutscene blackout now fades to full black while the portal and arch remain visible above it",

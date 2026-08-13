@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.301";
+  const GAME_VERSION = "0.302";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -281,6 +281,11 @@ import {
   const leaderboardEmptyEl = requiredElement("leaderboardEmpty");
   const closeLeaderboardBtn = requiredElement("closeLeaderboardBtn");
   const devAuditEl = requiredElement("devAudit");
+  const devAuditTab = requiredElement("devAuditTab");
+  const devCutscenesTab = requiredElement("devCutscenesTab");
+  const devAuditPanel = requiredElement("devAuditPanel");
+  const devCutscenesPanel = requiredElement("devCutscenesPanel");
+  const triggerDragonCutsceneBtn = requiredElement("triggerDragonCutsceneBtn");
   const devAuditRowsEl = requiredElement("devAuditRows");
   const devAuditEmptyEl = requiredElement("devAuditEmpty");
   const closeDevAuditBtn = requiredElement("closeDevAuditBtn");
@@ -345,6 +350,7 @@ import {
   let portalCutsceneIntensity = -1;
   let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationVisible = false;
+  let portalCutscenePreview = false;
   let queuedDragonResult: DragonResult | null = null;
 
   let dpr = 1;
@@ -1312,12 +1318,13 @@ import {
     try { return localStorage.getItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY) === "true"; } catch { return false; }
   }
 
-  function startDragonPortalCutscene() {
+  function startDragonPortalCutscene(preview = false) {
     const portal = MAP_CONFIG[TUTORIAL_FOREST_MAP_ID].portal;
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, { width: viewW, height: viewH });
     portalCutsceneIntensity = 0;
     portalCutsceneBlackoutOpacity = 0;
     portalCutsceneDestinationVisible = false;
+    portalCutscenePreview = preview;
     keys.clear();
     touchMove.active = false;
     cutsceneOverlayEl.hidden = false;
@@ -1339,10 +1346,14 @@ import {
     portalCutsceneDestinationVisible = false;
     cutsceneOverlayEl.hidden = true;
     document.body.classList.remove("is-cutscene");
-    try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
+    const wasPreview = portalCutscenePreview;
+    portalCutscenePreview = false;
+    if (!wasPreview) {
+      try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
+    }
     const result = queuedDragonResult;
     queuedDragonResult = null;
-    if (result) showDragonResult(result);
+    if (result && !wasPreview) showDragonResult(result);
     return false;
   }
 
@@ -3234,6 +3245,17 @@ import {
     devAuditRowsEl.hidden = entries.length === 0;
   }
 
+  function setDevPanelTab(tab: "audit" | "cutscenes") {
+    const audit = tab === "audit";
+    devAuditTab.classList.toggle("is-active", audit);
+    devAuditTab.setAttribute("aria-selected", String(audit));
+    devCutscenesTab.classList.toggle("is-active", !audit);
+    devCutscenesTab.setAttribute("aria-selected", String(!audit));
+    devAuditPanel.hidden = !audit;
+    devCutscenesPanel.hidden = audit;
+    if (audit) renderDevAudit();
+  }
+
   function openDevAudit() {
     if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
     devAuditEl.hidden = false;
@@ -3241,7 +3263,7 @@ import {
     settingsPanel.hidden = true;
     inventoryPanel.hidden = true;
     closeLeaderboard();
-    renderDevAudit();
+    setDevPanelTab("audit");
   }
 
   function closeDevAudit() {
@@ -3617,6 +3639,18 @@ import {
   leaderboardTimeTab.addEventListener("click", () => setLeaderboardTab("time"));
   devAuditBtn.addEventListener("click", openDevAudit);
   closeDevAuditBtn.addEventListener("click", closeDevAudit);
+  devAuditTab.addEventListener("click", () => setDevPanelTab("audit"));
+  devCutscenesTab.addEventListener("click", () => setDevPanelTab("cutscenes"));
+  triggerDragonCutsceneBtn.addEventListener("click", () => {
+    if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
+    if (currentMapId !== TUTORIAL_FOREST_MAP_ID) {
+      showMessage("DRAGON CUTSCENE: TUTORIAL FOREST ONLY", "#ff9b91");
+      return;
+    }
+    if (portalCutscene.active) return;
+    closeDevAudit();
+    startDragonPortalCutscene(true);
+  });
   devAuditEl.addEventListener("click", (event) => {
     if (event.target === devAuditEl) closeDevAudit();
   });

@@ -5,6 +5,7 @@ import type { Camera } from "./camera";
 export type PortalCutsceneFrame = {
   active: boolean;
   finished: boolean;
+  returning: boolean;
   camera: Camera;
   blackoutOpacity: number;
   portalIntensity: number;
@@ -15,7 +16,8 @@ type CutsceneViewport = { width: number; height: number };
 
 const PAN_SECONDS = 3.6;
 const FLICKER_SECONDS = 1.25;
-const HOLD_SECONDS = 2.2;
+const HOLD_SECONDS = .8;
+const RETURN_SECONDS = 3.6;
 
 function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
@@ -43,6 +45,7 @@ export function createPortalCutscene() {
     if (!start || !target) return {
       active: false,
       finished: false,
+      returning: false,
       camera: { x: 0, y: 0, zoom: 1 },
       blackoutOpacity: 0,
       portalIntensity: 0,
@@ -50,19 +53,30 @@ export function createPortalCutscene() {
     };
     elapsed += dt;
     const pan = clamp(elapsed / PAN_SECONDS, 0, 1);
-    const camera = {
+    const panCamera = {
       x: start.x + (target.x - start.x) * easeOutCubic(pan),
       y: start.y + (target.y - start.y) * easeOutCubic(pan),
       zoom: start.zoom + (target.zoom - start.zoom) * easeOutCubic(pan),
     };
     const revealElapsed = Math.max(0, elapsed - PAN_SECONDS);
+    const returnStart = PAN_SECONDS + FLICKER_SECONDS + HOLD_SECONDS;
+    const returnProgress = clamp((elapsed - returnStart) / RETURN_SECONDS, 0, 1);
+    const returning = returnProgress > 0;
+    const returnEase = easeOutCubic(returnProgress);
+    const camera = returning
+      ? {
+          x: target.x + (start.x - target.x) * returnEase,
+          y: target.y + (start.y - target.y) * returnEase,
+          zoom: target.zoom + (start.zoom - target.zoom) * returnEase,
+        }
+      : panCamera;
     const flicker = elapsed >= PAN_SECONDS && revealElapsed < FLICKER_SECONDS;
     const portalIntensity = elapsed < PAN_SECONDS
       ? 0
       : flicker
         ? .22 + (Math.sin(revealElapsed * 38) > -.15 ? .78 : 0)
         : 1;
-    const finished = elapsed >= PAN_SECONDS + FLICKER_SECONDS + HOLD_SECONDS;
+    const finished = returnProgress === 1;
     if (finished) {
       start = null;
       target = null;
@@ -70,8 +84,9 @@ export function createPortalCutscene() {
     return {
       active: true,
       finished,
+      returning,
       camera,
-      blackoutOpacity: easeOutCubic(pan),
+      blackoutOpacity: returning ? 1 - returnEase : easeOutCubic(pan),
       portalIntensity,
       showDestination: revealElapsed >= .2,
     };
