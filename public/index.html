@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.294" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.295" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -120,14 +120,14 @@
       <div id="topMeta">
         <div id="coopStatus">PLAYERS ONLINE: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.294</div>
+        <div id="version">v0.295</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
     <form id="chatForm">
-      <textarea id="chatInput" maxlength="250" rows="1" autocomplete="off" placeholder="Say something…"></textarea>
-      <button type="submit">SEND</button>
+      <textarea id="chatInput" maxlength="250" rows="1" autocomplete="off" enterkeyhint="send" placeholder="Say something…"></textarea>
+      <button id="chatSendBtn" type="submit">SEND</button>
     </form>
   </div>
 </div>
@@ -180,13 +180,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.294</strong></div>
+        <div><span>WILDWOOD UPDATED</span><strong id="updateNoticeTitle">v0.295</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.294</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.295</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -349,7 +349,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.294"></script>
-<script src="assets/wildwood/game.js?v=0.294"></script>
+<script src="assets/wildwood/coop-client.js?v=0.295"></script>
+<script src="assets/wildwood/game.js?v=0.295"></script>
 </body>
 </html>

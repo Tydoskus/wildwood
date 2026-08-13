@@ -666,6 +666,7 @@
   }
 
   #chatForm button { cursor: pointer; }
+  #chatForm button:disabled { min-width: 53px; opacity: .72; cursor: wait; }
   .name-row { display: grid; gap: 5px; margin-top: 9px; font-size: 11px; }
   .name-edit { gap: 5px; }
   #displayNameInput { flex: 1; width: 0; }

@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.294";
+  const GAME_VERSION = "0.295";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -3791,6 +3791,7 @@ import {
       messages: requiredElement("chatMessages"),
       form: requiredElement<HTMLFormElement>("chatForm"),
       input: requiredElement<HTMLTextAreaElement>("chatInput"),
+      sendButton: requiredElement<HTMLButtonElement>("chatSendBtn"),
       displayNameInput: requiredElement<HTMLInputElement>("displayNameInput"),
       saveNameButton: requiredElement<HTMLButtonElement>("saveNameBtn"),
     },

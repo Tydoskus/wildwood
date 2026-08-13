@@ -2,6 +2,7 @@ import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 10_800_000;
+const CHAT_COOLDOWN_MS = 3_000;
 const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
 
 type ChatMessage = {
@@ -30,6 +31,7 @@ type ChatElements = {
   messages: HTMLElement;
   form: HTMLFormElement;
   input: HTMLTextAreaElement;
+  sendButton: HTMLButtonElement;
   displayNameInput: HTMLInputElement;
   saveNameButton: HTMLButtonElement;
 };
@@ -47,6 +49,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   let large = false;
   let renderedRevision = -1;
   let nextExpiryAt = 0;
+  let chatCooldownUntil = 0;
+  let chatCooldownTimer: number | null = null;
 
   try { enabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false"; } catch {}
 
@@ -63,6 +67,20 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.sizeToggle.setAttribute("aria-expanded", String(large));
     elements.sizeToggle.setAttribute("aria-label", large ? "Minimize chat" : "Expand chat");
     if (large) requestAnimationFrame(() => { elements.messages.scrollTop = elements.messages.scrollHeight; });
+  }
+
+  function updateChatCooldown() {
+    const remaining = Math.max(0, chatCooldownUntil - Date.now());
+    const active = remaining > 0;
+    elements.sendButton.disabled = active;
+    elements.sendButton.textContent = active ? `WAIT ${Math.ceil(remaining / 1000)}S` : "SEND";
+    if (chatCooldownTimer !== null) window.clearTimeout(chatCooldownTimer);
+    chatCooldownTimer = active ? window.setTimeout(updateChatCooldown, Math.min(remaining, 250)) : null;
+  }
+
+  function startChatCooldown() {
+    chatCooldownUntil = Date.now() + CHAT_COOLDOWN_MS;
+    updateChatCooldown();
   }
 
   function nameColor(identity: string) {
@@ -227,6 +245,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     });
     elements.form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (Date.now() < chatCooldownUntil) {
+        showMessage(`CHAT READY IN ${Math.ceil((chatCooldownUntil - Date.now()) / 1000)}S`, "#ffdb84");
+        return;
+      }
       const message = elements.input.value.trim();
       if (!message) return;
       const bugCommand = /^\/bug(?:\s|$)/i.exec(message);
@@ -241,6 +263,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       }
       elements.input.value = "";
       elements.input.style.height = "28px";
+      startChatCooldown();
       if (bugCommand) showMessage("BUG REPORT SENT", "#c9f5c2");
     });
     elements.input.addEventListener("keydown", (event) => {
@@ -248,13 +271,23 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       event.preventDefault();
       elements.form.requestSubmit();
     });
-    elements.input.addEventListener("input", () => {
+    elements.input.addEventListener("beforeinput", (event) => {
+      if (event.inputType !== "insertLineBreak" && event.inputType !== "insertParagraph") return;
+      event.preventDefault();
+      elements.form.requestSubmit();
+    });
+    elements.input.addEventListener("input", (event) => {
+      if (event instanceof InputEvent && (event.inputType === "insertLineBreak" || event.inputType === "insertParagraph")) {
+        elements.input.value = elements.input.value.replace(/\n$/, "");
+        elements.form.requestSubmit();
+      }
       elements.input.style.height = "auto";
       elements.input.style.height = `${Math.min(elements.input.scrollHeight, 54)}px`;
     });
     elements.saveNameButton.addEventListener("click", saveDisplayName);
     updateVisibility();
     updateHeight();
+    updateChatCooldown();
     refresh();
   }
 

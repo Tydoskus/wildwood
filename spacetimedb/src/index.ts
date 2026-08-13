@@ -2267,8 +2267,9 @@ export const sendChatMessage = spacetimedb.reducer(
 
     const cooldown = ctx.db.chatCooldown.identity.find(ctx.sender);
     if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) {
-      if (bugCommand) throw new SenderError("Wait 3 seconds before sending a bug report.");
-      return;
+      const elapsed = ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch;
+      const remainingSeconds = Math.max(1, Math.ceil(Number(CHAT_COOLDOWN_MICROS - elapsed) / 1_000_000));
+      throw new SenderError(`Wait ${remainingSeconds} seconds before sending another chat message.`);
     }
     if (cooldown) ctx.db.chatCooldown.identity.update({ ...cooldown, lastSentAt: ctx.timestamp });
     else ctx.db.chatCooldown.insert({ identity: ctx.sender, lastSentAt: ctx.timestamp });
