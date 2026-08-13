@@ -29,7 +29,7 @@ import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
 import { createWorldRenderer } from "./game/runtime/world-renderer";
 import { createBossRenderer } from "./game/runtime/boss-renderer";
 import { createActorRenderer } from "./game/runtime/actor-renderer";
-import { DEFAULT_SKIN_TONE, drawStartingPlayer, loadPlayerAppearanceAssets, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
+import { DEFAULT_SKIN_TONE, drawStartingPlayer, loadPlayerAppearanceAssets, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
 import type {
   BossCone,
   DragonBossState,
@@ -122,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.334";
+  const GAME_VERSION = "0.335";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -130,6 +130,8 @@ import {
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
+  const PLAYER_THROW_SECONDS = .42;
+  const PLAYER_THROW_WINDUP_SECONDS = .12;
   const WORLD_HEALTH_BAR_HEIGHT = 15;
   const PROFILE_PORTRAIT_ZOOM = 1.03;
   const PROFILE_PORTRAIT_GRID = 8;
@@ -254,13 +256,17 @@ import {
   const profileCharacterCtx = requiredCanvasContext(profileCharacterCanvas);
   const previousPlayerSpriteBtn = requiredElement<HTMLButtonElement>("previousPlayerSpriteBtn");
   const nextPlayerSpriteBtn = requiredElement<HTMLButtonElement>("nextPlayerSpriteBtn");
-  const profileSkinToneControl = requiredElement<HTMLLabelElement>("profileSkinToneControl");
-  const profileSkinToneSelect = requiredElement<HTMLSelectElement>("profileSkinTone");
+  const profileSkinToneEdit = requiredElement<HTMLButtonElement>("profileSkinToneEdit");
+  const profileSkinToneControl = requiredElement<HTMLDivElement>("profileSkinToneControl");
   PLAYER_SKIN_TONE_NAMES.forEach((name, index) => {
-    const option = document.createElement("option");
-    option.value = String(index);
-    option.textContent = name;
-    profileSkinToneSelect.append(option);
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "profile-skin-tone-choice";
+    choice.dataset.skinTone = String(index);
+    choice.setAttribute("aria-label", name);
+    choice.title = name;
+    choice.style.backgroundColor = PLAYER_SKIN_TONES[index];
+    profileSkinToneControl.append(choice);
   });
   const playerProfileLoadingEl = requiredElement("playerProfileLoading");
   const profileOverviewTab = requiredElement("profileOverviewTab");
@@ -404,6 +410,7 @@ import {
   let activeSpeechBubbles = new Map();
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
+  let pendingPlayerThrow: { x: number; y: number; isBoss?: boolean } | null = null;
   let duelWasActive = false;
   let liveDuelPresentation: DuelPresentation | null = null;
   let lastLocalDuelId: bigint | null = null;
@@ -480,6 +487,7 @@ import {
     armor: 0,
     regen: 0,
     attackClock: 0,
+    throwClock: 0,
     hurtClock: 0,
     facing: 0,
     moving: false
@@ -819,6 +827,8 @@ import {
 
     player.hp = player.maxHp;
     player.attackClock = 0;
+    player.throwClock = 0;
+    pendingPlayerThrow = null;
     player.hurtClock = 0;
     player.facing = 0;
     player.moving = false;
@@ -1153,6 +1163,16 @@ import {
   }
 
   function fireAt(target: { x: number; y: number; isBoss?: boolean }) {
+    if (pendingPlayerThrow) return;
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const baseAngle = Math.atan2(dy, dx);
+    player.facing = baseAngle;
+    player.throwClock = PLAYER_THROW_SECONDS;
+    pendingPlayerThrow = target;
+  }
+
+  function launchPlayerStone(target: { x: number; y: number; isBoss?: boolean }) {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -2029,6 +2049,13 @@ import {
     }
 
     player.hurtClock = Math.max(0, player.hurtClock - dt);
+    const previousThrowClock = player.throwClock;
+    player.throwClock = Math.max(0, player.throwClock - dt);
+    if (pendingPlayerThrow && previousThrowClock > PLAYER_THROW_SECONDS - PLAYER_THROW_WINDUP_SECONDS && player.throwClock <= PLAYER_THROW_SECONDS - PLAYER_THROW_WINDUP_SECONDS) {
+      const target = pendingPlayerThrow;
+      pendingPlayerThrow = null;
+      launchPlayerStone(target);
+    }
     if (player.regen > 0 && player.hp > 0) {
       player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);
     }
@@ -3200,6 +3227,7 @@ import {
 
   function closePlayerProfile() {
     closeProfileNameEditor();
+    profileSkinToneControl.hidden = true;
     playerProfileEl.hidden = true;
     openProfileIdentity = "";
     openProfileData = null;
@@ -3212,31 +3240,37 @@ import {
     profileCharacterPreviewEl.dataset.identity = identity;
     previousPlayerSpriteBtn.hidden = true;
     nextPlayerSpriteBtn.hidden = true;
-    profileSkinToneControl.hidden = !ownProfile;
-    if (ownProfile) profileSkinToneSelect.value = String(coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE);
+    profileSkinToneEdit.hidden = !ownProfile;
+    profileSkinToneControl.hidden = true;
+    if (ownProfile) updateProfileSkinToneChoices(coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE);
     drawProfileCharacterPreview();
+  }
+
+  function updateProfileSkinToneChoices(value: number) {
+    profileSkinToneControl.querySelectorAll<HTMLButtonElement>(".profile-skin-tone-choice").forEach((choice) => {
+      choice.setAttribute("aria-pressed", String(Number(choice.dataset.skinTone) === value));
+    });
   }
 
   function drawProfileCharacterPreview() {
     if (playerProfileEl.hidden) return;
+    resizeProfileCharacterCanvas();
     const identity = profileCharacterPreviewEl.dataset.identity;
-    const width = profileCharacterCanvas.width;
-    const height = profileCharacterCanvas.height;
+    const width = Math.max(1, Math.round(profileCharacterCanvas.clientWidth));
+    const height = Math.max(1, Math.round(profileCharacterCanvas.clientHeight));
     const now = performance.now();
     profileCharacterCtx.clearRect(0, 0, width, height);
-    profileCharacterCtx.fillStyle = "#37783a";
+    profileCharacterCtx.fillStyle = "#31945b";
     profileCharacterCtx.fillRect(0, 0, width, height);
-    profileCharacterCtx.fillStyle = "rgba(203,239,117,.28)";
-    for (let x = -20; x < width + 24; x += 21) {
-      const drift = ((now * .028 + x * 1.7) % 82) - 20;
-      const baseX = x - drift;
-      const sway = Math.sin(now * .005 + x) * 3;
-      profileCharacterCtx.fillRect(Math.round(baseX + sway), 66, 2, 14);
-      profileCharacterCtx.fillRect(Math.round(baseX + sway - 3), 72, 2, 8);
-      profileCharacterCtx.fillRect(Math.round(baseX + sway + 3), 74, 2, 7);
+    for (let index = 0; index < 18; index += 1) {
+      const x = 8 + ((index * 67 + 19) % Math.max(1, width - 16));
+      const y = height + 7 - ((now * .025 + index * 19) % (height + 18));
+      profileCharacterCtx.fillStyle = index % 2 ? "#237b49" : "#267f4c";
+      profileCharacterCtx.fillRect(Math.floor(x - 1), Math.floor(y - 5), 2, 7);
+      profileCharacterCtx.fillRect(Math.floor(x - 5), Math.floor(y - 2), 2, 5);
+      profileCharacterCtx.fillRect(Math.floor(x + 3), Math.floor(y - 3), 2, 6);
+      if (index % 4 > 1) profileCharacterCtx.fillRect(Math.floor(x + 6), Math.floor(y), 2, 3);
     }
-    profileCharacterCtx.fillStyle = "rgba(20,66,30,.38)";
-    profileCharacterCtx.fillRect(0, 79, width, 9);
     profileCharacterCtx.imageSmoothingEnabled = false;
     drawStartingPlayer(profileCharacterCtx, playerAppearanceAssets, {
       x: width / 2,
@@ -3248,7 +3282,30 @@ import {
       feetItem: identity === coop?.localIdentity?.() ? inventory.equippedFeet : undefined,
       scale: .6,
     });
+    const vignette = profileCharacterCtx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .25, width / 2, height / 2, Math.max(width, height) * .72);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,0,.33)");
+    profileCharacterCtx.fillStyle = vignette;
+    profileCharacterCtx.fillRect(0, 0, width, height);
   }
+
+  function resizeProfileCharacterCanvas() {
+    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    const width = Math.max(1, Math.round(profileCharacterCanvas.clientWidth));
+    const height = Math.max(1, Math.round(profileCharacterCanvas.clientHeight));
+    const pixelWidth = Math.round(width * pixelRatio);
+    const pixelHeight = Math.round(height * pixelRatio);
+    if (profileCharacterCanvas.width === pixelWidth && profileCharacterCanvas.height === pixelHeight) return false;
+    profileCharacterCanvas.width = pixelWidth;
+    profileCharacterCanvas.height = pixelHeight;
+    profileCharacterCtx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    profileCharacterCtx.imageSmoothingEnabled = false;
+    return true;
+  }
+
+  new ResizeObserver(() => {
+    if (resizeProfileCharacterCanvas()) drawProfileCharacterPreview();
+  }).observe(profileCharacterCanvas);
 
   function selectProfileCharacter(_direction: -1 | 1) {
     // Character swaps are replaced by the modular appearance selector.
@@ -3959,14 +4016,24 @@ import {
   editPlayerNameBtn.addEventListener("click", openProfileNameEditor);
   previousPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(-1));
   nextPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(1));
-  profileSkinToneSelect.addEventListener("input", async () => {
+  profileSkinToneEdit.addEventListener("click", () => {
     if (openProfileIdentity !== coop?.localIdentity?.()) return;
-    const result = await coop?.setSkinTone?.(Number(profileSkinToneSelect.value));
+    profileSkinToneControl.hidden = !profileSkinToneControl.hidden;
+  });
+  profileSkinToneControl.addEventListener("click", async (event) => {
+    const choice = (event.target as Element).closest<HTMLButtonElement>(".profile-skin-tone-choice");
+    if (!choice || openProfileIdentity !== coop?.localIdentity?.()) return;
+    const skinTone = Number(choice.dataset.skinTone);
+    if (!Number.isInteger(skinTone)) return;
+    const result = await coop?.setSkinTone?.(skinTone);
     if (!result?.ok) {
       showMessage(result?.error || "SKIN TONE UPDATE FAILED", "#ff9b91");
-      profileSkinToneSelect.value = String(coop?.skinTone?.() ?? DEFAULT_SKIN_TONE);
+      updateProfileSkinToneChoices(coop?.skinTone?.() ?? DEFAULT_SKIN_TONE);
       return;
     }
+    updateProfileSkinToneChoices(skinTone);
+    profileSkinToneControl.hidden = true;
+    drawProfileCharacterPreview();
     showMessage("SKIN TONE UPDATED", "#72ef58");
   });
   profileNameEditorEl.addEventListener("click", (event) => {

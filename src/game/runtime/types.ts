@@ -23,6 +23,7 @@ export type PlayerState = Circle & {
   armor: number;
   regen: number;
   attackClock: number;
+  throwClock: number;
   hurtClock: number;
   facing: number;
   moving: boolean;

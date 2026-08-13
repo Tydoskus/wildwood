@@ -27,7 +27,7 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
-  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; identity?: string; id?: string; feetItem?: string }, alpha: number) => void;
+  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; feetItem?: string }, alpha: number) => void;
   localFeetItem: () => string;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
@@ -43,7 +43,7 @@ export function createActorRenderer(options: {
   const { ctx, camera } = options;
 
   function drawPlayerSprite(
-    actor: { x: number; y: number; facing: number; moving?: boolean; identity?: string; id?: string; feetItem?: string },
+    actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; feetItem?: string },
     alpha = 1,
   ) {
     options.drawPlayerAppearance(actor, alpha);
@@ -90,7 +90,7 @@ export function createActorRenderer(options: {
   function drawDuelCombatant(actor: DuelCombatant) {
     const x = Math.floor(actor.x - camera.x);
     const y = Math.floor(actor.y - camera.y);
-    options.drawShadow(x, y + 29, 54, actor.isLocal ? .21 : .17);
+    options.drawShadow(x, y + 29, 27, actor.isLocal ? .21 : .17);
     drawPlayerSprite({ ...actor, x, y }, actor.isLocal ? 1 : .88);
     options.drawStatus({
       x,
@@ -109,7 +109,7 @@ export function createActorRenderer(options: {
     const player = options.player;
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
-    options.drawShadow(x, y + 29, 54, .21);
+    options.drawShadow(x, y + 29, 27, .21);
     drawPlayerSprite({ ...player, x, y, identity, feetItem: options.localFeetItem() });
     options.drawStatus({
       x,
@@ -135,7 +135,7 @@ export function createActorRenderer(options: {
       const y = Math.floor(other.y - camera.y);
       if (x < -65 || y < -70 || x > width + 65 || y > height + 70) continue;
 
-      options.drawShadow(x, y + 29, 54, .16);
+      options.drawShadow(x, y + 29, 27, .16);
       drawPlayerSprite({ ...other, x, y }, .82);
       options.drawStatus({
         x,

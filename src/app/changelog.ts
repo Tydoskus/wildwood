@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.335": [
+    "Your profile preview now stays centered, crisp, and styled like Tutorial Forest.",
+    "Skin tones now open from a pencil as a compact color-square picker.",
+    "The held stone now winds up, launches, and bounces back to the hand.",
+    "Player shadows are now smaller and tighter.",
+  ],
   "0.334": [
     "Starter head and Basic Paper Hat now use the shared center anchor.",
   ],
