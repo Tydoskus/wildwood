@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.289": [
+    "Large regular enemies now have more space between their sprites, health bars, and reward labels",
+  ],
   "0.288": [
     "Player HUD and toolbar now use equal-height rows while still matching the minimap",
   ],

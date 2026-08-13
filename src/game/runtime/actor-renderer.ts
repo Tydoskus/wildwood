@@ -229,11 +229,12 @@ export function createActorRenderer(options: {
 
     const reward = REWARD_DATA[enemy.reward.type];
     const visualRadius = Math.max(enemy.r, spriteHeight / 2);
-    const rewardY = y + visualRadius + 10;
+    const labelClearance = Math.max(0, Math.min(14, (visualRadius - 18) * .55));
+    const rewardY = y + visualRadius + 10 + labelClearance;
     const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26));
     const barH = options.worldHealthBarHeight;
     const barX = Math.round(x - barW / 2);
-    const barY = Math.round(y - spriteHeight / 2 - 17);
+    const barY = Math.round(y - spriteHeight / 2 - 17 - labelClearance);
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))} HP`;
 
