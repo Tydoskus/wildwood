@@ -9,6 +9,7 @@
     --gold: #ffd85b;
     --red: #ff6767;
     --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
+    --player-name-font: var(--font-rounded);
     --text-outline-width: .08em;
     --text-shadow: .06em .10em 0 #000;
     --text-shadow-large: .06em .10em 0 #000;
@@ -98,7 +99,7 @@
 
   .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: flex; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 7px 9px; overflow: hidden; border-top: 0; border-left: 0; border-radius: 0 10px 0 0; }
   .player-hud-content { display: flex; flex: 1; flex-direction: column; justify-content: center; min-width: 0; }
-  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 7px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; cursor: pointer; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { position: relative; border-color: var(--green); cursor: pointer; }
@@ -108,7 +109,7 @@
   .profile-icon-picker-modal { width: var(--game-window-width); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
   .profile-icon-picker-modal h2 { margin: 0; color: var(--gold); font-size: clamp(17px, 4vw, 24px); }
   .profile-icon-choices { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; max-height: min(74vh, 480px); margin-top: 10px; overflow-y: auto; }
-  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background-color: #0d1411; background-image: url("../../assets/wildwood/profile-portraits-grid-v1.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; }
+  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid #000; border-radius: 6px; background-color: #fff; background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); background-repeat: no-repeat; background-size: 800% 800%; background-clip: padding-box; }
   .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
 
   #playerPower {
@@ -634,10 +635,10 @@
   #chatPanel:not(.is-large) .chat-line { display: none; }
   #chatPanel:not(.is-large) .chat-line:nth-last-child(-n + 2) { display: grid; }
   .chat-line { display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 6px; align-items: start; overflow-wrap: anywhere; }
-  .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: #0d1411 url("../../assets/wildwood/profile-portraits-grid-v1.png") no-repeat; background-size: 800% 800%; background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
+  .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid #000; border-radius: 4px; background: #fff url("../../assets/wildwood/profile-portraits-grid-v2.png") no-repeat; background-size: 800% 800%; background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; }
-  .chat-name { grid-column: 2; grid-row: 1; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .chat-name { grid-column: 2; grid-row: 1; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--player-name-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 19px; padding: 3px 11px; border-radius: 5px; background: rgba(255,255,255,.09); color: var(--text); font-size: 11.25px; line-height: 1.5; white-space: pre-wrap; }
   .chat-line.has-replay .chat-text { grid-column: 2 / 4; }
   .chat-line.has-replay { cursor: pointer; }
@@ -954,7 +955,7 @@
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
-  .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-size: clamp(12px, 2.9vw, 18px); line-height: 1.08; overflow-wrap: anywhere; }
+  .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-family: var(--player-name-font); font-size: clamp(12px, 2.9vw, 18px); line-height: 1.08; overflow-wrap: anywhere; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
   #playerProfilePower { margin-left: auto; color: var(--gold); font-size: 11px; white-space: nowrap; text-align: right; }
@@ -979,7 +980,7 @@
   .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 70px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .leaderboard-rows { display: grid; gap: 0; max-height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
   .leaderboard-row { display: grid; grid-template-columns: 29px 25px minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 35px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; }
-  canvas.leaderboard-profile-icon { position: static; inset: auto; display: block; width: 25px; height: 25px; padding: 0; border: 2px solid rgba(255,255,255,.25); border-radius: 4px; background: #0d1411; cursor: pointer; image-rendering: auto; }
+  canvas.leaderboard-profile-icon { position: static; inset: auto; display: block; width: 25px; height: 25px; padding: 0; border: 2px solid #000; border-radius: 4px; background: #fff; cursor: pointer; image-rendering: auto; }
   .leaderboard-row.is-local { background: rgba(67,160,62,.24); }
   .leaderboard-rank { color: var(--muted); font-size: 9px; text-align: center; }
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }

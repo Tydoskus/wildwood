@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.297": [
+    "Profile portraits now use white backgrounds and black outlines",
+    "Profile, chat, and overhead player/enemy names now share the same rounded name font",
+  ],
   "0.296": [
     "Dragon cone now gives an additional 0.4 seconds of warning before fireballs fire",
   ],
