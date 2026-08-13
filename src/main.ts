@@ -83,6 +83,20 @@ import {
 } from "./game/enemies";
 import { createChatController } from "./ui/chat";
 import { renderInventoryView, renderPlayerHud } from "./ui/hud";
+import {
+  renderLeaderboard as renderLeaderboardView,
+  setLeaderboardTab as setLeaderboardTabView,
+} from "./ui/leaderboard";
+import { formatPlayedTime, profilePresenceText, renderProfileStats } from "./ui/profile";
+import { renderUpdateNotice } from "./ui/overlays";
+import {
+  renderAccountStatus,
+  renderBooleanSetting,
+  renderConnectionStatus,
+  renderFullscreenSetting,
+  renderLatencyStatus,
+  renderMusicVolume,
+} from "./ui/settings";
 import { formatCompactNumber } from "./ui/number-format";
 import type { RemotePlayer, wildwoodCoop } from "./wildwood-coop";
 import {
@@ -2890,30 +2904,10 @@ import {
     updateLatencyStatus();
   }
 
-  function formatPlayedTime(seconds: number) {
-    const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
-    const days = Math.floor(wholeMinutes / 1440);
-    const hours = Math.floor(wholeMinutes % 1440 / 60);
-    const minutes = wholeMinutes % 60;
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-  }
-
   function isProfileOnline(identity: string) {
     if (identity === coop?.localIdentity?.()) return Boolean(coop?.isConnected?.());
     return Boolean(coop?.activePlayerMap?.(identity)) ||
       coop?.remotePlayers?.().some((other) => other.id === identity) === true;
-  }
-
-  function profilePresenceText(online: boolean, lastSeenAtMs: number) {
-    if (online) return "ONLINE";
-    if (!Number.isFinite(lastSeenAtMs) || lastSeenAtMs <= 0) return "LAST SEEN —";
-    const lastSeen = new Date(lastSeenAtMs);
-    const options: Intl.DateTimeFormatOptions = lastSeen.getFullYear() === new Date().getFullYear()
-      ? { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }
-      : { year: "numeric", month: "short", day: "numeric" };
-    return `LAST SEEN ${lastSeen.toLocaleString([], options).toUpperCase()}`;
   }
 
   function setProfileTab(tab: "overview" | "stats") {
@@ -2959,27 +2953,7 @@ import {
     profileOnlineEl.textContent = presenceText;
     profileOnlineEl.style.color = online ? "#72ef58" : "#b7c5b7";
 
-    const stats = [
-      ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
-      ["DAMAGE", Math.round(progress.damage).toLocaleString()],
-      ["ARMOR", `${Math.round(progress.armor).toLocaleString()} (${formatArmorReduction(progress.armor)} REDUCTION)`],
-      ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= MIN_ATTACK_INTERVAL + .0001 ? " (MAX)" : ""}`],
-      ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
-      ["REGEN", `${progress.regen.toFixed(1)}/s`],
-      ["MOVE SPEED", Math.round(progress.speed).toLocaleString()],
-      ["PROJECTILE SPEED", Math.round(progress.projectileSpeed).toLocaleString()],
-      ["PROJECTILES", String(progress.projectileCount)],
-    ];
-    profileStatGrid.replaceChildren();
-    for (const [label, value] of stats) {
-      const item = document.createElement("div");
-      const term = document.createElement("dt");
-      const detail = document.createElement("dd");
-      term.textContent = label;
-      detail.textContent = value;
-      item.append(term, detail);
-      profileStatGrid.append(item);
-    }
+    renderProfileStats(profile, profileStatGrid, formatArmorReduction, MIN_ATTACK_INTERVAL);
     playerProfileLoadingEl.hidden = true;
     editPlayerSaveBtn.hidden = !isDeveloperIdentity(coop?.localIdentity?.());
     profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
@@ -3044,98 +3018,36 @@ import {
   }
 
   function renderLeaderboard() {
-    const valueKey: "power" | "damage" | "maxHp" | "armor" | "regen" | "playedSeconds" = leaderboardStat === "health" ? "maxHp" : leaderboardStat === "time" ? "playedSeconds" : leaderboardStat;
-    const entries = (coop?.leaderboardEntries?.() ?? [])
-      .filter((entry) => Number.isFinite(entry[valueKey]))
-      .sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name))
-      .slice(0, 100);
-    const localIdentity = coop?.localIdentity?.() || "";
-    leaderboardRowsEl.replaceChildren();
-    entries.forEach((entry, index) => {
-      const row = document.createElement("li");
-      row.className = "leaderboard-row";
-      row.classList.toggle("is-local", entry.identity === localIdentity);
-
-      const rank = document.createElement("span");
-      rank.className = "leaderboard-rank";
-      rank.textContent = `#${index + 1}`;
-
-      const name = document.createElement("button");
-      name.className = "leaderboard-name";
-      name.type = "button";
-      if (isDeveloperIdentity(entry.identity)) {
-        const badge = document.createElement("span");
-        badge.className = "dev-badge";
-        badge.textContent = `${DEVELOPER_BADGE} `;
-        name.appendChild(badge);
-      }
-      name.append(document.createTextNode(entry.name));
-      if (entry.isGuest) {
-        const guest = document.createElement("span");
-        guest.className = "leaderboard-guest";
-        guest.textContent = " (guest)";
-        name.appendChild(guest);
-      }
-      name.addEventListener("click", () => {
-        closeLeaderboard();
-        void openPlayerProfile(entry.identity, entry.name);
-      });
-
-      const icon = document.createElement("canvas");
-      icon.className = "leaderboard-profile-icon";
-      icon.width = 64;
-      icon.height = 64;
-      icon.setAttribute("role", "button");
-      icon.setAttribute("tabindex", "0");
-      icon.setAttribute("aria-label", `View ${entry.name}'s profile`);
-      const openEntryProfile = (event: Event) => {
-        event.stopPropagation();
-        closeLeaderboard();
-        void openPlayerProfile(entry.identity, entry.name);
-      };
-      icon.addEventListener("click", openEntryProfile);
-      icon.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        openEntryProfile(event);
-      });
-      paintProfileIconCanvas(icon, coop?.profileIcon?.(entry.identity) ?? 0);
-
-      const value = document.createElement("span");
-      value.className = "leaderboard-value";
-      value.textContent = leaderboardStat === "time"
-        ? formatPlayedTime(entry.playedSeconds)
-        : leaderboardStat === "regen"
-        ? `${entry.regen < 1_000 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s`
-        : formatCompactNumber(entry[valueKey]);
-      row.append(rank, icon, name, value);
-      leaderboardRowsEl.appendChild(row);
-    });
-    leaderboardEmptyEl.hidden = entries.length > 0;
-    leaderboardRowsEl.hidden = entries.length === 0;
+    renderLeaderboardView(
+      { rows: leaderboardRowsEl, empty: leaderboardEmptyEl },
+      leaderboardStat,
+      coop?.leaderboardEntries?.() ?? [],
+      coop?.localIdentity?.() || "",
+      {
+        isDeveloper: isDeveloperIdentity,
+        paintProfileIcon: (canvas, identity) => paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0),
+        openProfile(identity, name) {
+          closeLeaderboard();
+          void openPlayerProfile(identity, name);
+        },
+      },
+    );
   }
 
   function setLeaderboardTab(tab: string) {
-    leaderboardStat = (["power", "damage", "health", "armor", "regen", "time"] as const).includes(tab as LeaderboardStat) ? tab as LeaderboardStat : "power";
-    const power = leaderboardStat === "power";
-    const damage = leaderboardStat === "damage";
-    const health = leaderboardStat === "health";
-    const armor = leaderboardStat === "armor";
-    const regen = leaderboardStat === "regen";
-    const time = leaderboardStat === "time";
-    leaderboardPowerTab.classList.toggle("is-active", power);
-    leaderboardDamageTab.classList.toggle("is-active", damage);
-    leaderboardHealthTab.classList.toggle("is-active", health);
-    leaderboardArmorTab.classList.toggle("is-active", armor);
-    leaderboardRegenTab.classList.toggle("is-active", regen);
-    leaderboardTimeTab.classList.toggle("is-active", time);
-    leaderboardPowerTab.setAttribute("aria-selected", String(power));
-    leaderboardDamageTab.setAttribute("aria-selected", String(damage));
-    leaderboardHealthTab.setAttribute("aria-selected", String(health));
-    leaderboardArmorTab.setAttribute("aria-selected", String(armor));
-    leaderboardRegenTab.setAttribute("aria-selected", String(regen));
-    leaderboardTimeTab.setAttribute("aria-selected", String(time));
-    leaderboardValueHeading.textContent = leaderboardStat === "health" ? "HEALTH" : leaderboardStat === "time" ? "TIME PLAYED" : leaderboardStat.toUpperCase();
+    leaderboardStat = setLeaderboardTabView({
+      tabs: {
+        power: leaderboardPowerTab,
+        damage: leaderboardDamageTab,
+        health: leaderboardHealthTab,
+        armor: leaderboardArmorTab,
+        regen: leaderboardRegenTab,
+        time: leaderboardTimeTab,
+      },
+      rows: leaderboardRowsEl,
+      empty: leaderboardEmptyEl,
+      valueHeading: leaderboardValueHeading,
+    }, tab);
     renderLeaderboard();
   }
 
@@ -3294,6 +3206,7 @@ import {
 
   function closeUpdateNotice() {
     updateNoticeEl.hidden = true;
+    try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); } catch {}
   }
 
   function showCurrentUpdateNotice() {
@@ -3302,24 +3215,11 @@ import {
     if (seenVersion === GAME_VERSION) return;
     const releases = recentReleaseNotes(10);
     if (!releases.length) return;
-    updateNoticeTitleEl.textContent = `v${GAME_VERSION}`;
-    updateNoticeItemsEl.replaceChildren();
-    for (const release of releases) {
-      const group = document.createElement("li");
-      group.className = "update-release";
-      const version = document.createElement("strong");
-      version.textContent = `v${release.version}`;
-      const notes = document.createElement("ul");
-      for (const note of release.notes) {
-        const item = document.createElement("li");
-        item.textContent = note;
-        notes.appendChild(item);
-      }
-      group.append(version, notes);
-      updateNoticeItemsEl.appendChild(group);
-    }
-    updateNoticeEl.hidden = false;
-    try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); } catch {}
+    renderUpdateNotice(
+      { overlay: updateNoticeEl, title: updateNoticeTitleEl, items: updateNoticeItemsEl },
+      GAME_VERSION,
+      releases,
+    );
   }
 
   function openProfileIconPicker() {
@@ -3517,43 +3417,25 @@ import {
   }
 
   function updateScreenShakeSetting() {
-    screenShakeToggle.textContent = screenShakeEnabled ? "ON" : "OFF";
-    screenShakeToggle.setAttribute("aria-pressed", String(screenShakeEnabled));
-    screenShakeToggle.classList.toggle("is-off", !screenShakeEnabled);
+    renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
   }
 
   function updateAttackRangeSetting() {
-    attackRangeToggle.textContent = attackRangeVisible ? "ON" : "OFF";
-    attackRangeToggle.setAttribute("aria-pressed", String(attackRangeVisible));
-    attackRangeToggle.classList.toggle("is-off", !attackRangeVisible);
+    renderBooleanSetting(attackRangeToggle, attackRangeVisible);
   }
 
   function updateLatencySetting() {
-    latencyToggle.textContent = latencyVisible ? "ON" : "OFF";
-    latencyToggle.setAttribute("aria-pressed", String(latencyVisible));
-    latencyToggle.classList.toggle("is-off", !latencyVisible);
+    renderBooleanSetting(latencyToggle, latencyVisible);
     updateLatencyStatus();
   }
 
   function updateLatencyStatus() {
-    latencyStatusEl.hidden = !latencyVisible;
-    if (!latencyVisible) return;
-    const latency = coop?.latencyMs?.();
-    const connected = Boolean(coop?.isConnected?.());
-    const rounded = typeof latency === "number" && Number.isFinite(latency) ? Math.round(latency) : null;
-    const displayedLatency = connected ? rounded : null;
-    const text = displayedLatency !== null ? `PING: ${displayedLatency}MS` : "PING: --";
-    if (latencyStatusEl.textContent !== text) latencyStatusEl.textContent = text;
-    latencyStatusEl.dataset.quality = displayedLatency === null
-      ? ""
-      : displayedLatency <= 80 ? "good" : displayedLatency <= 150 ? "fair" : "poor";
+    renderLatencyStatus(latencyStatusEl, latencyVisible, coop?.latencyMs?.(), Boolean(coop?.isConnected?.()));
   }
 
   function updateMusicVolume() {
-    const percent = Math.round(musicVolume * 100);
     mapMusic.setVolume(musicVolume);
-    if (musicVolumeInput) musicVolumeInput.value = String(percent);
-    if (musicVolumeValue) musicVolumeValue.textContent = `${percent}%`;
+    renderMusicVolume(musicVolumeInput, musicVolumeValue, musicVolume);
   }
 
   function ensureMusicPlayback() {
@@ -3564,10 +3446,7 @@ import {
     const root = document.documentElement;
     const supported = typeof root.requestFullscreen === "function" || typeof root.webkitRequestFullscreen === "function";
     const active = document.fullscreenElement || document.webkitFullscreenElement;
-    fullscreenToggle.disabled = !supported;
-    fullscreenToggle.textContent = supported
-      ? (active ? "EXIT" : "ENTER")
-      : "N/A";
+    renderFullscreenSetting(fullscreenToggle, supported, Boolean(active));
   }
 
   async function enterFullscreen() {
@@ -3593,25 +3472,15 @@ import {
   }
 
   function updateAutoAttackSetting() {
-    autoAttackBtn.setAttribute("aria-pressed", String(autoAttackEnabled));
-    autoAttackBtn.classList.toggle("is-off", !autoAttackEnabled);
+    renderBooleanSetting(autoAttackBtn, autoAttackEnabled);
   }
 
   function updateConnectionStatus() {
-    if (!connectionStatusEl) return;
-    const connected = Boolean(coop && coop.isConnected());
-    connectionStatusEl.textContent = connected ? "ONLINE" : "OFFLINE";
-    connectionStatusEl.classList.toggle("is-offline", !connected);
+    renderConnectionStatus(connectionStatusEl, Boolean(coop && coop.isConnected()));
   }
 
   function updateAccountStatus() {
-    if (!accountButton || !accountStatusEl) return;
-    const account = coop?.accountState?.() || { signedIn: false, notice: "" };
-    accountButton.textContent = account.signedIn ? "SIGN OUT" : "SIGN IN / CREATE";
-    const status = account.notice || (account.signedIn ? "SIGNED IN · ACCOUNT SAVE" : "GUEST · DEVICE SAVE");
-    accountStatusEl.textContent = status;
-    accountStatusEl.classList.toggle("is-signed-in", account.signedIn);
-    accountStatusEl.classList.toggle("is-error", /FAILED|WAIT|CHECK/.test(status));
+    renderAccountStatus(accountButton, accountStatusEl, coop?.accountState?.() || { signedIn: false, notice: "" });
   }
 
   settingsBtn.addEventListener("click", () => {
