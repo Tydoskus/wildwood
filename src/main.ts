@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.320";
+  const GAME_VERSION = "0.321";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -155,10 +155,15 @@ import {
   const ENEMY_WANDER_RADIUS = 72;
   const ENEMY_WANDER_SPEED_RATIO = .28;
 
+  let antiAliasingEnabled = true;
+  try { antiAliasingEnabled = localStorage.getItem(ANTI_ALIASING_ENABLED_KEY) !== "false"; } catch {}
+
   const canvas = requiredElement<HTMLCanvasElement>("game");
   const ctx = requiredCanvasContext(canvas, { alpha: false });
+  const textCanvas = requiredElement<HTMLCanvasElement>("textLayer");
+  const textCtx = requiredCanvasContext(textCanvas);
   ctx.imageSmoothingEnabled = false;
-  const { outlinedText, pixelCircle, roundRect } = createCanvasPrimitives(ctx);
+  const { outlinedText, fillFloatingText, pixelCircle, roundRect } = createCanvasPrimitives(ctx, textCtx, () => antiAliasingEnabled);
 
   const hpFill = requiredElement("hpFill");
   const hpText = requiredElement("hpText");
@@ -382,8 +387,6 @@ import {
   let screenShakeEnabled = true;
   let attackRangeVisible = true;
   try { attackRangeVisible = localStorage.getItem(ATTACK_RANGE_VISIBLE_KEY) !== "false"; } catch {}
-  let antiAliasingEnabled = true;
-  try { antiAliasingEnabled = localStorage.getItem(ANTI_ALIASING_ENABLED_KEY) !== "false"; } catch {}
   let latencyVisible = false;
   try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
@@ -703,6 +706,10 @@ import {
     canvas.height = Math.round(viewH * dpr);
     canvas.style.width = viewW + "px";
     canvas.style.height = viewH + "px";
+    textCanvas.width = Math.round(viewW * dpr);
+    textCanvas.height = Math.round(viewH * dpr);
+    textCanvas.style.width = viewW + "px";
+    textCanvas.style.height = viewH + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }
@@ -2686,7 +2693,7 @@ import {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     lines.forEach((line, index) => {
-      ctx.fillText(line, centerX, top + paddingY + lineHeight * (index + .5));
+      fillFloatingText(line, centerX, top + paddingY + lineHeight * (index + .5));
     });
     ctx.restore();
   }
@@ -2952,6 +2959,8 @@ import {
   }
 
   function render() {
+    textCtx.setTransform(1, 0, 0, 1, 0, 0);
+    textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
     const remotePlayers = coop ? coop.remotePlayers() : [];
     updateSpeechBubbles();
     if (replayMode) {

@@ -60,6 +60,8 @@
     background: #102819;
   }
 
+  #textLayer { pointer-events: none; background: transparent; image-rendering: auto; }
+
   #hud {
     position: fixed;
     inset: 0;

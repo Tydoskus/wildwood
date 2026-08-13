@@ -1,4 +1,20 @@
-export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
+export function createCanvasPrimitives(
+  ctx: CanvasRenderingContext2D,
+  textLayer?: CanvasRenderingContext2D,
+  smoothTextEnabled: () => boolean = () => false,
+) {
+  function textContext() {
+    return textLayer && smoothTextEnabled() ? textLayer : ctx;
+  }
+
+  function copyTextState(target: CanvasRenderingContext2D) {
+    target.setTransform(ctx.getTransform());
+    target.globalAlpha = ctx.globalAlpha;
+    target.font = ctx.font;
+    target.textAlign = ctx.textAlign;
+    target.textBaseline = ctx.textBaseline;
+    target.direction = ctx.direction;
+  }
   function pixelCircle(x: number, y: number, radius: number) {
     const step = 4;
     const radiusSquared = radius * radius;
@@ -31,28 +47,39 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
     fillColor: string,
     strokeWidth = ctx.lineWidth,
   ) {
-    ctx.save();
-    ctx.lineJoin = "round";
-    ctx.lineWidth = strokeWidth;
+    const target = textContext();
+    target.save();
+    copyTextState(target);
+    target.lineJoin = "round";
+    target.lineWidth = strokeWidth;
 
     // Shadow only the fill. Shadowing both stroke and fill produces two
     // overlapping silhouettes that look like a second outline on small text.
-    ctx.fillStyle = fillColor;
-    ctx.shadowColor = "rgba(0, 0, 0, .92)";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 2;
-    ctx.fillText(text, x, y);
+    target.fillStyle = fillColor;
+    target.shadowColor = "rgba(0, 0, 0, .92)";
+    target.shadowBlur = 0;
+    target.shadowOffsetX = 1;
+    target.shadowOffsetY = 2;
+    target.fillText(text, x, y);
 
-    ctx.shadowColor = "transparent";
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = "#000";
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = fillColor;
-    ctx.fillText(text, x, y);
-    ctx.restore();
+    target.shadowColor = "transparent";
+    target.shadowOffsetX = 0;
+    target.shadowOffsetY = 0;
+    target.strokeStyle = "#000";
+    target.strokeText(text, x, y);
+    target.fillStyle = fillColor;
+    target.fillText(text, x, y);
+    target.restore();
   }
 
-  return { outlinedText, pixelCircle, roundRect };
+  function fillFloatingText(text: string, x: number, y: number) {
+    const target = textContext();
+    target.save();
+    copyTextState(target);
+    target.fillStyle = ctx.fillStyle;
+    target.fillText(text, x, y);
+    target.restore();
+  }
+
+  return { outlinedText, fillFloatingText, pixelCircle, roundRect };
 }
