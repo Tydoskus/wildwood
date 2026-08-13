@@ -37,7 +37,7 @@ export function renderPlayerHud(
     }
   }
   elements.playerPower.textContent = `Power: ${formatCompactNumber(power)}`;
-  if (elements.coopStatus) elements.coopStatus.textContent = `PLAYERS ONLINE: ${playerCount}`;
+  if (elements.coopStatus) elements.coopStatus.textContent = `Players online: ${playerCount}`;
 }
 
 type InventoryViewState = {
