@@ -524,7 +524,7 @@
     position: fixed;
     left: 0;
     bottom: 0;
-    width: min(320px, calc(100vw - 12px));
+    width: min(320px, 50vw);
     padding: 3px 6px calc(5px + env(safe-area-inset-bottom, 0px));
     border-bottom: 0;
     border-left: 0;
@@ -902,6 +902,8 @@
   .duel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
   .duel-stat-name { color: var(--gold); font-weight: 900; }
+  #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; font-size: 13px; line-height: 1; }
+  .duel-replay-play-icon { display: block; width: 25px; height: 25px; background: center / contain no-repeat url("duel-replay-play-medallion-v1.png"); mix-blend-mode: screen; -webkit-text-stroke: 0; text-shadow: none; }
   .dragon-result-modal { width: var(--game-window-width); padding: 14px; border-color: rgba(255,101,90,.6); }
   #dragonResult { background: transparent; pointer-events: none; }
   #dragonResult .dragon-result-modal { pointer-events: auto; }
@@ -1229,7 +1231,7 @@
     .settings-button { width: 45px; height: 45px; border-radius: 9px; font-size: 25px; }
     .toolbar-icon { width: 28px; height: 28px; }
     #chatPanel {
-      width: min(300px, 100vw);
+      width: min(300px, 50vw);
       padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
     }
     #chatPanel.is-large { width: 100vw; border-right: 0; border-radius: 0; }

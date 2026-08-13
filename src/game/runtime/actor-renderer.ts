@@ -230,7 +230,7 @@ export function createActorRenderer(options: {
     const reward = REWARD_DATA[enemy.reward.type];
     const visualRadius = Math.max(enemy.r, spriteHeight / 2);
     const rewardY = y + visualRadius + 10;
-    const barW = Math.max(50, Math.min(86, (sprite?.size ?? enemy.r * 2) * 1.26));
+    const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26));
     const barH = options.worldHealthBarHeight;
     const barX = Math.round(x - barW / 2);
     const barY = Math.round(y - spriteHeight / 2 - 17);
@@ -247,16 +247,16 @@ export function createActorRenderer(options: {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(enemy.type, x, barY - 4, "#f5e9c4", 3);
+    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    options.outlinedText(enemy.type, x, barY - 4, "#f5e9c4", 2);
 
-    ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
-    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1.5);
+    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1);
 
-    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "top";
-    options.outlinedText(rewardLabel(enemy.reward), x, rewardY, reward.color, 3);
+    options.outlinedText(rewardLabel(enemy.reward), x, rewardY, reward.color, 2);
     ctx.restore();
   }
 
@@ -278,4 +278,3 @@ export function createActorRenderer(options: {
     drawProjectile,
   };
 }
-

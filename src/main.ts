@@ -130,7 +130,7 @@ import {
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
-  const WORLD_HEALTH_BAR_HEIGHT = 13;
+  const WORLD_HEALTH_BAR_HEIGHT = 15;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_HIT_BATCH_DELAY = .1;
@@ -2572,7 +2572,7 @@ import {
 
   function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
     const centerX = Math.round(x);
-    const barW = 87;
+    const barW = 94;
     const barH = WORLD_HEALTH_BAR_HEIGHT;
     const barX = centerX - Math.floor(barW / 2);
     const barY = Math.round(y - 54);
@@ -2592,10 +2592,10 @@ import {
     }
 
     ctx.save();
-    ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 1.5);
+    outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 1);
     ctx.restore();
 
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
@@ -2605,25 +2605,26 @@ import {
     if (!name) return;
     const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
     ctx.save();
-    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
     const nameWidth = ctx.measureText(name).width;
-    const powerWidth = powerLabel ? ctx.measureText(powerLabel).width : 0;
-    const textWidth = Math.max(nameWidth, powerWidth);
-    const textLeft = Math.round(centerX - textWidth / 2);
-    const nameBottom = powerLabel ? bottom - 16 : bottom;
+    const textLeft = Math.round(centerX - nameWidth / 2);
+    const nameBottom = powerLabel ? bottom - 18 : bottom;
     const developerPrefix = `${DEVELOPER_BADGE} `;
     if (name.startsWith(developerPrefix)) {
       const playerName = name.slice(developerPrefix.length);
       const prefixWidth = ctx.measureText(developerPrefix).width;
       ctx.textAlign = "left";
-      outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 2);
-      outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 2);
+      outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 1);
+      outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 1);
     } else {
-      ctx.textAlign = "left";
-      outlinedText(name, textLeft, nameBottom, color, 2);
+      ctx.textAlign = "center";
+      outlinedText(name, centerX, nameBottom, color, 1);
     }
-    if (powerLabel) outlinedText(powerLabel, textLeft, bottom, "#ffe05d", 2);
+    if (powerLabel) {
+      ctx.textAlign = "center";
+      outlinedText(powerLabel, centerX, bottom, "#ffe05d", 1);
+    }
     ctx.restore();
   }
 
