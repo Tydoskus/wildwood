@@ -22,9 +22,15 @@
 <body>
 <main>
   <h1>Sprite Aligner</h1>
-  <p>Reference stays fixed. Candidate overlays in green. Match each frame center and baseline.</p>
+  <p>Reference stays fixed. Candidate overlays in green. Frames play slowly; match each frame center and baseline.</p>
   <section class="controls">
-    <label>Candidate sheet<input id="file" type="file" accept="image/png" /></label>
+    <label>Built-in candidate<select id="candidateSelect">
+      <option value="assets/wildwood/player-foxfolk-spritesheet-v1.png">Foxfolk</option>
+      <option value="assets/wildwood/player-mushroomfolk-spritesheet-v1.png">Mushroomfolk</option>
+      <option value="assets/wildwood/player-newtfolk-spritesheet-v1.png">Newtfolk</option>
+      <option value="assets/wildwood/wildwood-player-spritesheet-flat-v1.png">Original player</option>
+    </select></label>
+    <label>Or local PNG<input id="file" type="file" accept="image/png" /></label>
     <label>Frame<select id="frame"></select></label>
     <label>X offset <span id="xValue" class="value">0</span><input id="x" type="range" min="-50" max="50" value="0" /></label>
     <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-50" max="50" value="0" /></label>
@@ -32,7 +38,7 @@
     <label>Zoom <span id="zoomValue" class="value">1×</span><input id="zoom" type="range" min="1" max="4" value="1" /></label>
   </section>
   <canvas id="canvas" width="680" height="680"></canvas>
-  <output id="result">Load a candidate sheet.</output>
+  <output id="result">Loading Foxfolk.</output>
   <button id="copy" type="button">copy offsets</button>
 </main>
 <script>
@@ -41,7 +47,7 @@
   const candidate = new Image();
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
-  const file = document.getElementById("file"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), opacity = document.getElementById("opacity"), zoom = document.getElementById("zoom"), result = document.getElementById("result");
+  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), opacity = document.getElementById("opacity"), zoom = document.getElementById("zoom"), result = document.getElementById("result");
   for (let row = 0; row < 4; row += 1) for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(row * 4 + column); option.textContent = `${["DOWN", "LEFT", "RIGHT", "UP"][row]} · walk ${column + 1}`; frame.append(option); }
   function value(id, value, suffix = "") { document.getElementById(id).textContent = `${value}${suffix}`; }
   function draw() {
@@ -52,12 +58,15 @@
     if (reference.complete) { ctx.globalAlpha = .75; ctx.drawImage(reference, sourceX, sourceY, cell, cell, left, top, size, size); }
     if (candidate.complete && candidate.naturalWidth) { ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = Number(opacity.value) / 100; ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + Number(x.value) * scale, top + Number(y.value) * scale, size, size); ctx.globalCompositeOperation = "source-over"; }
     ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-    result.textContent = candidate.complete && candidate.naturalWidth ? `frame ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Load a candidate sheet.";
+    result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${candidateSelect.options[candidateSelect.selectedIndex].text}\nframe ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Loading candidate sheet.";
   }
   file.addEventListener("change", () => { const selected = file.files[0]; if (selected) candidate.src = URL.createObjectURL(selected); });
+  candidateSelect.addEventListener("change", () => { candidate.src = candidateSelect.value; });
   candidate.addEventListener("load", draw); reference.addEventListener("load", draw);
   [frame, x, y, opacity, zoom].forEach((control) => control.addEventListener("input", draw));
   document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(result.textContent); });
+  candidate.src = candidateSelect.value;
+  window.setInterval(() => { frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; draw(); }, 650);
   draw();
 </script>
 </body>
