@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.275": [
+    "Duel replay buttons now have their own chat column and no longer overlap message timestamps",
+  ],
   "0.274": [
     "Enemies now collide with players instead of standing directly on top of them",
   ],

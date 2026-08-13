@@ -18,6 +18,9 @@
     });
   }
   const RELEASE_NOTES = {
+    "0.275": [
+      "Duel replay buttons now have their own chat column and no longer overlap message timestamps"
+    ],
     "0.274": [
       "Enemies now collide with players instead of standing directly on top of them"
     ],
@@ -1124,7 +1127,7 @@
   }
   (() => {
     var _b, _c;
-    const GAME_VERSION = "0.274";
+    const GAME_VERSION = "0.275";
     const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
     const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
     const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
