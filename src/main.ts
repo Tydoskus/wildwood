@@ -29,6 +29,9 @@ import { createCamera, snapCameraToPlayer as snapRuntimeCamera, updateCamera as 
 import { createCombatEffects } from "./game/runtime/combat-effects";
 import { requiredCanvasContext, requiredElement, requiredSelector } from "./game/runtime/dom";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
+import { createWorldRenderer } from "./game/runtime/world-renderer";
+import { createBossRenderer } from "./game/runtime/boss-renderer";
+import { createActorRenderer } from "./game/runtime/actor-renderer";
 import type {
   BossCone,
   DragonBossState,
@@ -574,6 +577,71 @@ import {
     updateLoadingDetail();
     finishStartup();
   });
+  const worldRenderer = createWorldRenderer({
+    ctx,
+    camera,
+    getViewport: () => ({ width: viewW, height: viewH }),
+    getMapId: () => currentMapId,
+    getGameTime: () => gameTime,
+    isArenaScene,
+    mapName: (mapId) => MAP_CONFIG[mapId].name,
+    activePortal,
+    portalIsUnlocked,
+    emptyDesertArch: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch,
+    tutorialMapId: TUTORIAL_FOREST_MAP_ID,
+    desertMapId: BEGINNER_DESERT_MAP_ID,
+    paths,
+    decor,
+    enemies,
+    player,
+    duelSpaceBackground,
+    treeSpritesheet,
+    treeSpriteBounds: () => treeSpriteBounds,
+    portalArch,
+    portalSwirl,
+    drawShadow: drawActorShadow,
+    outlinedText,
+    roundRect,
+  });
+  const { drawGround, drawTree, drawCactus, drawPortal, drawEmptyDesertArch, drawDecor, drawMinimap } = worldRenderer;
+  const bossRenderer = createBossRenderer({
+    ctx, camera, boss, spiderBoss, bossRain, spiderVenom,
+    dragonSpriteCanvas, spiderSpriteCanvas,
+    dragonReady: () => dragonSpriteReady,
+    spiderReady: () => spiderSpriteReady,
+    gameTime: () => gameTime,
+    pixelCircle, outlinedText, drawShadow: drawActorShadow,
+    hpLossFlashDuration: DRAGON_HP_LOSS_FLASH_DURATION,
+    spiderWebRange: SPIDER_WEB_RANGE,
+  });
+  const { drawBossTelegraphs, drawBoss, drawSpiderTelegraphs, drawSpiderBoss } = bossRenderer;
+  const actorRenderer = createActorRenderer({
+    ctx,
+    camera,
+    viewport: () => ({ width: viewW, height: viewH }),
+    gameTime: () => gameTime,
+    playerSprite,
+    enemySprites: ENEMY_SPRITES,
+    duelPlatformArt,
+    playerSpriteXOffsets: PLAYER_SPRITE_X_OFFSETS,
+    playerSpriteYOffsets: PLAYER_SPRITE_Y_OFFSETS,
+    player,
+    pixelCircle,
+    outlinedText,
+    drawShadow: drawActorShadow,
+    drawStatus: drawActorStatus,
+    drawSpeechBubble,
+    publicName: publicPlayerName,
+    worldHealthBarHeight: WORLD_HEALTH_BAR_HEIGHT,
+  });
+  const {
+    drawDuelArena: drawDuelArenaVisual,
+    drawDuelScene,
+    drawPlayer: drawPlayerActor,
+    drawRemotePlayers,
+    drawEnemy,
+    drawProjectile,
+  } = actorRenderer;
 
   function resize() {
     viewW = innerWidth;
@@ -2276,262 +2344,6 @@ import {
     updateHud();
   }
 
-  function drawGround() {
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (isArenaScene()) {
-      if (duelSpaceBackground.complete && duelSpaceBackground.naturalWidth > 0) {
-        ctx.fillStyle = "#050713";
-        ctx.fillRect(0, 0, visibleW, visibleH);
-        const rotateForPortrait = visibleH > visibleW;
-        const backgroundW = rotateForPortrait
-          ? duelSpaceBackground.naturalHeight
-          : duelSpaceBackground.naturalWidth;
-        const backgroundH = rotateForPortrait
-          ? duelSpaceBackground.naturalWidth
-          : duelSpaceBackground.naturalHeight;
-        const scale = Math.max(
-          visibleW / backgroundW,
-          visibleH / backgroundH,
-        );
-        const drawW = duelSpaceBackground.naturalWidth * scale;
-        const drawH = duelSpaceBackground.naturalHeight * scale;
-        ctx.save();
-        ctx.translate(visibleW / 2, visibleH / 2);
-        if (rotateForPortrait) ctx.rotate(Math.PI / 2);
-        ctx.drawImage(duelSpaceBackground, -drawW / 2, -drawH / 2, drawW, drawH);
-        ctx.restore();
-        return;
-      }
-      ctx.fillStyle = "#03050a";
-      ctx.fillRect(0, 0, visibleW, visibleH);
-      const spacing = 42;
-      for (let y = -spacing; y < visibleH + spacing; y += spacing) {
-        for (let x = -spacing; x < visibleW + spacing; x += spacing) {
-          const seed = ((Math.floor(x / spacing) * 73 + Math.floor(y / spacing) * 151) >>> 0);
-          if (seed % 5 !== 0) continue;
-          const size = seed % 17 === 0 ? 3 : 2;
-          ctx.fillStyle = seed % 11 === 0 ? "#b7c9ff" : "#eef3ff";
-          ctx.fillRect(x + (seed % 29), y + ((seed >>> 5) % 31), size, size);
-        }
-      }
-      return;
-    }
-    const desert = currentMapId === BEGINNER_DESERT_MAP_ID;
-    ctx.fillStyle = desert ? "#d9a95f" : "#31945b";
-    ctx.fillRect(0, 0, visibleW, visibleH);
-
-    for (const p of paths) {
-      const x = Math.floor(p.x - camera.x);
-      const y = Math.floor(p.y - camera.y);
-      ctx.fillStyle = desert ? "#c48b4b" : "#8b6551";
-      ctx.fillRect(x, y, p.w, p.h);
-      ctx.fillStyle = desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)";
-      for (let yy = y + 7; yy < y + p.h; yy += 18) {
-        for (let xx = x + ((yy / 18) % 2 ? 4 : 12); xx < x + p.w; xx += 24) {
-          ctx.fillRect(xx, yy, 2, 2);
-        }
-      }
-    }
-  }
-
-  function drawTree(o: TreeDecor) {
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    const x = Math.floor(o.x - camera.x);
-    const y = Math.floor(o.y - camera.y);
-    const drawSize = Math.round(154 * o.s);
-    const halfWidth = Math.ceil(drawSize / 2);
-    const cullPadding = drawSize + 32;
-    if (
-      x + halfWidth < -cullPadding ||
-      x - halfWidth > visibleW + cullPadding ||
-      y < -cullPadding ||
-      y - drawSize > visibleH + cullPadding
-    ) return;
-    if (!treeSpritesheet.complete || treeSpritesheet.naturalWidth <= 0) return;
-
-    const variant = o.variant % 16;
-    const source = treeSpriteBounds[variant];
-    if (!source) return;
-    const drawHeight = drawSize;
-    const drawWidth = Math.round(drawHeight * source.w / source.h);
-    const drawX = Math.round(x - drawWidth / 2);
-    const drawY = Math.round(y - drawHeight);
-    drawActorShadow(x, y - 4, Math.round(drawWidth * .52), .12);
-    ctx.drawImage(
-      treeSpritesheet,
-      source.x, source.y, source.w, source.h,
-      drawX, drawY, drawWidth, drawHeight,
-    );
-  }
-
-  function drawPortal() {
-    if (!portalArch.complete || portalArch.naturalWidth <= 0) return;
-    const portal = activePortal();
-    const x = Math.round(portal.x - camera.x);
-    const y = Math.round(portal.y - camera.y);
-    drawActorShadow(x, y - 4, Math.round(portal.width * .68), .14);
-    if (portalIsUnlocked() && portalSwirl.complete && portalSwirl.naturalWidth > 0) {
-      const frameStep = Math.floor(gameTime * 10) % 30;
-      const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
-      const cell = portalSwirl.naturalWidth / 4;
-      const portalWidth = Math.round(portal.width * .59 * 1.265);
-      const portalHeight = Math.round(portal.height * .75 * 1.265);
-      ctx.drawImage(
-        portalSwirl,
-        (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell,
-        Math.round(x - portalWidth / 2), Math.round(y - portalHeight - 5), portalWidth, portalHeight,
-      );
-    }
-    ctx.drawImage(
-      portalArch,
-      Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height,
-    );
-    if (portalIsUnlocked()) {
-      const destination = MAP_CONFIG[portal.destination].name;
-      const floatY = Math.sin(gameTime * 2.4) * 3;
-      ctx.save();
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(destination, x, Math.round(y - portal.height - 8 + floatY), "#f5e9c4", 4);
-      ctx.restore();
-    }
-  }
-
-  function drawEmptyDesertArch() {
-    if (currentMapId !== BEGINNER_DESERT_MAP_ID || !portalArch.complete || portalArch.naturalWidth <= 0) return;
-    const arch = MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch;
-    const x = Math.round(arch.x - camera.x);
-    const y = Math.round(arch.y - camera.y);
-    drawActorShadow(x, y - 4, Math.round(arch.width * .68), .14);
-    ctx.drawImage(
-      portalArch,
-      Math.round(x - arch.width / 2), Math.round(y - arch.height), arch.width, arch.height,
-    );
-  }
-
-  function drawCactus(o: CactusDecor) {
-    const x = Math.round(o.x - camera.x);
-    const y = Math.round(o.y - camera.y);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (x < -90 || y < -100 || x > visibleW + 90 || y > visibleH + 50) return;
-    const h = Math.round(68 * o.s);
-    const w = Math.max(10, Math.round(15 * o.s));
-    drawActorShadow(x, y - 2, Math.round(46 * o.s), .12);
-    ctx.fillStyle = "#245a36";
-    ctx.fillRect(x - w / 2 - 2, y - h, w + 4, h);
-    ctx.fillStyle = "#3f8050";
-    ctx.fillRect(x - w / 2, y - h, w - 2, h - 4);
-    ctx.fillStyle = "#70a961";
-    ctx.fillRect(x - w / 2 + 2, y - h + 4, 3, h - 10);
-    const armY = y - Math.round(h * .58);
-    const direction = o.variant % 2 ? -1 : 1;
-    ctx.fillStyle = "#245a36";
-    ctx.fillRect(x + direction * (w / 2 - 1), armY, direction * Math.round(19 * o.s), Math.round(10 * o.s));
-    ctx.fillRect(x + direction * Math.round(16 * o.s), armY - Math.round(18 * o.s), Math.round(10 * o.s), Math.round(27 * o.s));
-    ctx.fillStyle = "#3f8050";
-    ctx.fillRect(x + direction * Math.round(14 * o.s), armY - Math.round(16 * o.s), direction * Math.round(8 * o.s), Math.round(23 * o.s));
-  }
-
-  function drawDesertRock(o: RockDecor) {
-    const x = Math.round(o.x - camera.x);
-    const y = Math.round(o.y - camera.y);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (x < -60 || y < -60 || x > visibleW + 60 || y > visibleH + 40) return;
-    const w = Math.round(35 * o.s);
-    const h = Math.round(22 * o.s);
-    drawActorShadow(x, y, Math.round(w * 1.2), .11);
-    ctx.fillStyle = "#79543d";
-    ctx.beginPath();
-    ctx.moveTo(x - w / 2, y);
-    ctx.lineTo(x - w * .32, y - h * .72);
-    ctx.lineTo(x + w * .2, y - h);
-    ctx.lineTo(x + w / 2, y - h * .28);
-    ctx.lineTo(x + w * .38, y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#b77b4b";
-    ctx.beginPath();
-    ctx.moveTo(x - w * .32, y - h * .72);
-    ctx.lineTo(x + w * .2, y - h);
-    ctx.lineTo(x + w * .12, y - h * .45);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function drawDune(o: DuneDecor) {
-    const x = Math.round(o.x - camera.x);
-    const y = Math.round(o.y - camera.y);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (x + o.w / 2 < -40 || x - o.w / 2 > visibleW + 40 || y < -80 || y - o.h > visibleH + 40) return;
-    ctx.save();
-    ctx.fillStyle = o.variant % 2 ? "#c58b48" : "#c9934e";
-    ctx.beginPath();
-    ctx.ellipse(x, y, o.w / 2, o.h / 2, 0, Math.PI, TAU);
-    ctx.fill();
-    ctx.fillStyle = o.variant % 2 ? "#e3b66b" : "#e9bd72";
-    ctx.beginPath();
-    ctx.ellipse(x - o.w * .08, y - o.h * .08, o.w * .39, o.h * .25, 0, Math.PI, TAU);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(119,71,36,.22)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.ellipse(x, y, o.w * .38, o.h * .32, 0, Math.PI * 1.08, Math.PI * 1.88);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawDesertGrass(o: DesertGrassDecor) {
-    const x = Math.round(o.x - camera.x);
-    const y = Math.round(o.y - camera.y);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (x < -10 || y < -10 || x > visibleW + 10 || y > visibleH + 10) return;
-    ctx.fillStyle = o.variant % 2 ? "#8b7b3d" : "#a28a43";
-    ctx.fillRect(x - 1, y - 6, 2, 7);
-    ctx.fillRect(x - 5, y - 3, 2, 5);
-    ctx.fillRect(x + 3, y - 4, 2, 6);
-  }
-
-  function drawGrass(o: GrassDecor) {
-    const x = Math.floor(o.x - camera.x);
-    const y = Math.floor(o.y - camera.y);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (x < -8 || y < -8 || x > visibleW + 8 || y > visibleH + 8) return;
-    ctx.fillStyle = o.variant % 2 ? "#237b49" : "#267f4c";
-    ctx.fillRect(x - 1, y - 5, 2, 7);
-    ctx.fillRect(x - 5, y - 2, 2, 5);
-    ctx.fillRect(x + 3, y - 3, 2, 6);
-    if (o.variant > 1) ctx.fillRect(x + 6, y, 2, 3);
-  }
-
-  function drawPetal(o: PetalDecor) {
-    const x = Math.floor(o.x - camera.x);
-    const y = Math.floor(o.y - camera.y);
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    if (x < -8 || y < -8 || x > visibleW + 8 || y > visibleH + 8) return;
-    ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][o.variant % 3];
-    ctx.fillRect(x - 3, y - 1, 7, 3);
-    ctx.fillRect(x - 1, y - 3, 3, 7);
-    ctx.fillStyle = "rgba(255,255,255,.72)";
-    ctx.fillRect(x, y, 1, 1);
-  }
-
-  function drawDecor() {
-    for (const o of decor) if (o.type === "dune") drawDune(o);
-    for (const o of decor) if (o.type === "grass") drawGrass(o);
-    for (const o of decor) if (o.type === "petal") drawPetal(o);
-    for (const o of decor) if (o.type === "desertGrass") drawDesertGrass(o);
-    for (const o of decor) if (o.type === "rock") drawDesertRock(o);
-  }
-
   function drawActorShadow(x: number, y: number, width: number, alpha = .38) {
     const height = Math.max(8, Math.round(width * 33 / 86));
     ctx.save();
@@ -2551,79 +2363,6 @@ import {
       ctx.fill();
     }
     ctx.restore();
-  }
-
-  function drawDuelArena() {
-    if (!isArenaScene()) return;
-    const x = DUEL_ARENA.x - camera.x;
-    const y = DUEL_ARENA.y - camera.y;
-    const displayRadius = DUEL_ARENA.r * .75;
-    if (duelPlatformArt.complete && duelPlatformArt.naturalWidth > 0) {
-      const drawSize = displayRadius * 2.16;
-      ctx.drawImage(duelPlatformArt, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
-      return;
-    }
-    ctx.save();
-    ctx.fillStyle = "#697174";
-    ctx.beginPath();
-    ctx.arc(x, y, displayRadius, 0, TAU);
-    ctx.fill();
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = "#aeb8ba";
-    ctx.stroke();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(235,239,238,.46)";
-    ctx.setLineDash([10, 12]);
-    ctx.beginPath();
-    ctx.arc(x, y, displayRadius - 18, 0, TAU);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawDuelShots(shots: DuelScene["shots"]) {
-    for (const shot of shots) {
-      ctx.fillStyle = shot.color;
-      pixelCircle(shot.x - camera.x, shot.y - camera.y, 6);
-    }
-  }
-
-  function drawDuelCombatant(actor: DuelScene["challenger"]) {
-    const x = Math.floor(actor.x - camera.x);
-    const y = Math.floor(actor.y - camera.y);
-    drawActorShadow(x, y + 29, 54, actor.isLocal ? .21 : .17);
-
-    if (playerSprite.complete && playerSprite.naturalWidth > 0) {
-      const cellW = playerSprite.naturalWidth / 4;
-      const cellH = playerSprite.naturalHeight / 4;
-      const fx = Math.cos(actor.facing);
-      const fy = Math.sin(actor.facing);
-      const row = Math.abs(fx) > Math.abs(fy)
-        ? (fx < 0 ? 1 : 2)
-        : (fy < 0 ? 3 : 0);
-      const frame = 0;
-      const drawSize = 96;
-      const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
-      const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
-      ctx.save();
-      ctx.globalAlpha = actor.isLocal ? 1 : .88;
-      ctx.drawImage(
-        playerSprite,
-        frame * cellW, row * cellH, cellW, cellH,
-        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2 + offsetY), drawSize, drawSize
-      );
-      ctx.restore();
-    }
-
-    drawActorStatus({
-      x, y,
-      identity: actor.identity,
-      name: actor.name,
-      nameColor: actor.isLocal ? "#ffffff" : "#9eeeff",
-      hp: actor.hp,
-      maxHp: actor.maxHp,
-      power: null,
-      fillColor: actor.isLocal ? "#46cf5a" : "#55a9c6",
-    });
   }
 
   function drawAttackRange() {
@@ -2727,43 +2466,6 @@ import {
       Math.round(x), Math.round(bottom - size), size, size,
     );
     ctx.restore();
-  }
-
-  function drawPlayer() {
-    const x = Math.floor(player.x - camera.x);
-    const y = Math.floor(player.y - camera.y);
-    drawActorShadow(x, y + 29, 54, .21);
-
-    if (playerSprite.complete && playerSprite.naturalWidth > 0) {
-      const cellW = playerSprite.naturalWidth / 4;
-      const cellH = playerSprite.naturalHeight / 4;
-      const fx = Math.cos(player.facing);
-      const fy = Math.sin(player.facing);
-      const row = Math.abs(fx) > Math.abs(fy)
-        ? (fx < 0 ? 1 : 2)
-        : (fy < 0 ? 3 : 0);
-      const frame = player.moving ? Math.floor(gameTime * 10) % 4 : 0;
-      const drawSize = 96;
-      const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
-      const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
-      ctx.drawImage(
-        playerSprite,
-        frame * cellW, row * cellH, cellW, cellH,
-        Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2 + offsetY), drawSize, drawSize
-      );
-    }
-
-    drawActorStatus({
-      x, y,
-      identity: coop?.localIdentity?.(),
-      name: publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
-      nameColor: "#ffffff",
-      hp: player.hp,
-      maxHp: player.maxHp,
-      power: playerPower(player),
-      fillColor: "#46cf5a",
-    });
-    drawSpeechBubble(coop?.localIdentity?.(), x, y);
   }
 
   function updateSpeechBubbles() {
@@ -2921,323 +2623,6 @@ import {
     ));
   }
 
-  function drawRemotePlayers(remotePlayers: RemotePlayer[]) {
-    if (!coop) return;
-
-    for (const other of remotePlayers) {
-      const x = Math.floor(other.x - camera.x);
-      const y = Math.floor(other.y - camera.y);
-      const visibleW = viewW / camera.zoom;
-      const visibleH = viewH / camera.zoom;
-      if (x < -65 || y < -70 || x > visibleW + 65 || y > visibleH + 70) continue;
-      drawActorShadow(x, y + 29, 54, .16);
-
-      if (playerSprite.complete && playerSprite.naturalWidth > 0) {
-        const cellW = playerSprite.naturalWidth / 4;
-        const cellH = playerSprite.naturalHeight / 4;
-        const fx = Math.cos(other.facing);
-        const fy = Math.sin(other.facing);
-        const row = Math.abs(fx) > Math.abs(fy)
-          ? (fx < 0 ? 1 : 2)
-          : (fy < 0 ? 3 : 0);
-        const frame = other.moving ? Math.floor(gameTime * 10) % 4 : 0;
-        const drawSize = 96;
-        const offsetX = PLAYER_SPRITE_X_OFFSETS[row][frame] * drawSize / cellW;
-        const offsetY = PLAYER_SPRITE_Y_OFFSETS[row];
-        ctx.save();
-        ctx.globalAlpha = .82;
-        ctx.drawImage(
-          playerSprite,
-          frame * cellW, row * cellH, cellW, cellH,
-          Math.floor(x - drawSize / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT), Math.floor(y - drawSize / 2 + offsetY), drawSize, drawSize
-        );
-        ctx.restore();
-      }
-
-      drawActorStatus({
-        x, y,
-        identity: other.id,
-        name: publicPlayerName(other.id, other.name),
-        nameColor: "#9eeeff",
-        hp: other.hp,
-        maxHp: other.maxHp,
-        power: Number.isFinite(other.power) ? other.power : 0,
-        fillColor: "#55a9c6",
-      });
-      drawSpeechBubble(other.id, x, y);
-    }
-  }
-
-  function drawBossTelegraphs() {
-    if (boss.dead) return;
-
-    if (boss.cone) {
-      const x = boss.x - camera.x;
-      const y = boss.y - camera.y;
-      const cone = boss.cone;
-      ctx.save();
-      ctx.fillStyle = "rgba(255,52,42,.20)";
-      ctx.strokeStyle = "rgba(255,92,64,.92)";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.arc(x, y, BOSS_CONE_RANGE, cone.angle - BOSS_CONE_HALF_ANGLE, cone.angle + BOSS_CONE_HALF_ANGLE);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
-      const waveRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * progress;
-      const fireballCount = 9;
-      for (let i = 0; i < fireballCount; i++) {
-        const fraction = i / (fireballCount - 1);
-        const angle = cone.angle - BOSS_CONE_HALF_ANGLE + fraction * BOSS_CONE_HALF_ANGLE * 2;
-        const fireX = x + Math.cos(angle) * waveRadius;
-        const fireY = y + Math.sin(angle) * waveRadius;
-        ctx.fillStyle = "#a83218";
-        pixelCircle(fireX, fireY, 15);
-        ctx.fillStyle = "#ff6a28";
-        pixelCircle(fireX, fireY - 2, 11);
-        ctx.fillStyle = "#ffd05c";
-        pixelCircle(fireX, fireY - 4, 6);
-      }
-      ctx.restore();
-    }
-
-    for (const strike of bossRain) {
-      const x = strike.x - camera.x;
-      const y = strike.y - camera.y;
-      const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1);
-      const fallY = y - 150 * (1 - progress);
-
-      ctx.save();
-      ctx.strokeStyle = "rgba(255,70,54,.92)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(x, y, strike.r, 0, TAU);
-      ctx.stroke();
-      ctx.fillStyle = "#ff5b36";
-      pixelCircle(x, fallY, 9);
-      ctx.fillStyle = "#ffd05c";
-      pixelCircle(x, fallY, 5);
-      ctx.restore();
-    }
-  }
-
-  function drawBoss() {
-    if (boss.dead || !dragonSpriteReady) return;
-
-    const cellW = dragonSpriteCanvas.width / 4;
-    const frame = Math.floor(gameTime * 4) % 4;
-    const drawW = 300;
-    const drawH = 400;
-    const x = Math.floor(boss.x - camera.x);
-    const y = Math.floor(boss.y - camera.y);
-    drawActorShadow(x, y + 93, 188, .24);
-
-    ctx.drawImage(
-      dragonSpriteCanvas,
-      frame * cellW, 0, cellW, dragonSpriteCanvas.height,
-      Math.floor(x - drawW / 2), Math.floor(y - drawH / 2), drawW, drawH
-    );
-
-    const barW = 220;
-    const barH = 20;
-    const barX = x - Math.floor(barW / 2);
-    const barY = y - drawH / 2 - 20;
-    const hpRatio = clamp(boss.hp / boss.maxHp, 0, 1);
-
-    ctx.fillStyle = "rgba(0,0,0,.86)";
-    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#4d1d1d";
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = "#d8352d";
-    ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-    if (boss.hpLossFlashTimer > 0 && boss.hpLossFlashFrom > boss.hp) {
-      const flashFromRatio = clamp(boss.hpLossFlashFrom / boss.maxHp, hpRatio, 1);
-      const flashX = barX + Math.round(barW * hpRatio);
-      const flashRight = barX + Math.round(barW * flashFromRatio);
-      ctx.save();
-      ctx.globalAlpha = clamp(boss.hpLossFlashTimer / DRAGON_HP_LOSS_FLASH_DURATION, 0, 1);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(flashX, barY, Math.max(1, flashRight - flashX), barH);
-      ctx.restore();
-    }
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(boss.hp)))} / ${formatCompactNumber(Math.ceil(boss.maxHp))} HP`, x, barY + barH / 2, "#fff", 3);
-    ctx.textBaseline = "bottom";
-    outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 3);
-    outlinedText("+650 DAMAGE", x, barY - 5, "#ff655a", 3);
-    ctx.restore();
-  }
-
-  function drawSpiderTelegraphs() {
-    if (spiderBoss.dead) return;
-    const x = spiderBoss.x - camera.x;
-    const y = spiderBoss.y - camera.y;
-    if (spiderBoss.web) {
-      const progress = clamp(1 - spiderBoss.web.timer / spiderBoss.web.duration, 0, 1);
-      const radius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * progress;
-      ctx.save();
-      ctx.strokeStyle = "rgba(235,239,218,.9)";
-      ctx.lineWidth = 7;
-      ctx.setLineDash([13, 10]);
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, TAU);
-      ctx.stroke();
-      ctx.restore();
-    }
-    for (const pool of spiderVenom) {
-      const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1);
-      ctx.save();
-      ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`;
-      ctx.strokeStyle = "rgba(155,238,88,.95)";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(pool.x - camera.x, pool.y - camera.y, pool.r, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  function drawSpiderBoss() {
-    if (spiderBoss.dead || !spiderSpriteReady) return;
-    const cellW = spiderSpriteCanvas.width / 4;
-    const cellH = spiderSpriteCanvas.height / 2;
-    const frame = Math.floor(gameTime * 5) % 8;
-    const column = frame % 4;
-    const row = Math.floor(frame / 4);
-    const drawW = 310;
-    const drawH = 155;
-    const x = Math.floor(spiderBoss.x - camera.x);
-    const y = Math.floor(spiderBoss.y - camera.y);
-    drawActorShadow(x, y + 55, 220, .24);
-    ctx.drawImage(
-      spiderSpriteCanvas,
-      column * cellW, row * cellH, cellW, cellH,
-      Math.floor(x - drawW / 2), Math.floor(y - drawH / 2), drawW, drawH,
-    );
-
-    const barW = 250;
-    const barH = 22;
-    const barX = x - Math.floor(barW / 2);
-    const barY = y - drawH / 2 - 32;
-    const hpRatio = clamp(spiderBoss.hp / spiderBoss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.86)";
-    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#342027";
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = "#9f5c2f";
-    ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-    if (spiderBoss.hpLossFlashTimer > 0 && spiderBoss.hpLossFlashFrom > spiderBoss.hp) {
-      const fromRatio = clamp(spiderBoss.hpLossFlashFrom / spiderBoss.maxHp, hpRatio, 1);
-      ctx.save();
-      ctx.globalAlpha = clamp(spiderBoss.hpLossFlashTimer / DRAGON_HP_LOSS_FLASH_DURATION, 0, 1);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(barX + Math.round(barW * hpRatio), barY, Math.max(1, Math.round(barW * (fromRatio - hpRatio))), barH);
-      ctx.restore();
-    }
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(spiderBoss.hp)))} / ${formatCompactNumber(Math.ceil(spiderBoss.maxHp))} HP`, x, barY + barH / 2, "#fff", 3);
-    ctx.textBaseline = "bottom";
-    outlinedText("DESERT SPIDER", x, barY - 18, "#f5e9c4", 3);
-    outlinedText("+100K MAX HEALTH", x, barY - 5, "#6fe48e", 3);
-    ctx.restore();
-  }
-
-  function drawEnemy(e: EnemyState) {
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    const x = Math.floor(e.x - camera.x);
-    const y = Math.floor(e.y - camera.y);
-    const base = ENEMY_TYPES[e.type];
-    if (x < -80 || y < -80 || x > visibleW + 80 || y > visibleH + 80) return;
-
-    const sprite = ENEMY_SPRITES[e.type];
-    const layers = sprite?.layers;
-    const image = sprite?.image;
-    const spriteReady = layers
-      ? layers.every((layer) => layer.image.complete && layer.image.naturalWidth > 0)
-      : Boolean(image?.complete && image.naturalWidth > 0);
-    const spriteHeight = spriteReady && image
-      ? (sprite.height ?? sprite.size * image.naturalHeight / image.naturalWidth)
-      : e.r * 2;
-    const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? e.r * 2) * .9));
-    const shadowY = y + Math.max(10, Math.min(30, spriteHeight / 2 - 4));
-    drawActorShadow(x, shadowY, shadowWidth, .36);
-
-    ctx.save();
-    ctx.translate(x, y);
-    if (e.facingX < 0) ctx.scale(-1, 1);
-
-    if (spriteReady) {
-      ctx.globalAlpha = e.hurt > 0 ? .7 : 1;
-      if (sprite.layers) {
-        for (const layer of sprite.layers) {
-          ctx.drawImage(layer.image, layer.x, layer.y - 3, layer.w, layer.h);
-        }
-      } else if (image) {
-        ctx.drawImage(image, -sprite.size / 2, -spriteHeight / 2 - 3, sprite.size, spriteHeight);
-      }
-    } else {
-      ctx.fillStyle = base.outline;
-      pixelCircle(0, 0, e.r + 3);
-      ctx.fillStyle = e.hurt > 0 ? "#fff3d0" : base.color;
-      pixelCircle(0, 0, e.r);
-    }
-
-    ctx.restore();
-
-    const reward = REWARD_DATA[e.reward.type];
-    const visualRadius = Math.max(e.r, spriteHeight / 2);
-    const rewardY = y + visualRadius + 10;
-    const barW = Math.max(50, Math.min(86, (sprite?.size ?? e.r * 2) * 1.26));
-    const barH = WORLD_HEALTH_BAR_HEIGHT;
-    const barX = Math.round(x - barW / 2);
-    const barY = Math.round(y - spriteHeight / 2 - 17);
-    const hpRatio = clamp(e.hp / e.maxHp, 0, 1);
-    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(e.hp)))} / ${formatCompactNumber(Math.ceil(e.maxHp))} HP`;
-
-    ctx.fillStyle = "rgba(0,0,0,.86)";
-    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#472225";
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = e.hurt > 0 ? "#fff1b6" : "#55d568";
-    ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    outlinedText(e.type, x, barY - 4, "#f5e9c4", 3);
-
-    ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textBaseline = "middle";
-    outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 1.5);
-
-    const label = rewardLabel(e.reward);
-    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textBaseline = "top";
-    outlinedText(label, x, rewardY, reward.color, 3);
-    ctx.restore();
-  }
-
-  function drawProjectile(p: Projectile | EnemyShot, enemy = false) {
-    const x = Math.floor(p.x - camera.x);
-    const y = Math.floor(p.y - camera.y);
-    ctx.fillStyle = enemy ? "#d67cff" : "#5a250d";
-    pixelCircle(x, y, p.r + 2);
-    ctx.fillStyle = enemy ? "#f3c5ff" : "#ffe76a";
-    pixelCircle(x, y, p.r);
-  }
-
   function drawDepthSortedWorld(remotePlayers: RemotePlayer[]) {
     const layers: Array<{ depth: number; priority: number; draw: () => void }> = [];
     const visibleW = viewW / camera.zoom;
@@ -3283,64 +2668,17 @@ import {
         draw: () => drawRemotePlayers([remotePlayer]),
       });
     }
-    layers.push({ depth: player.y + 29, priority: 1, draw: drawPlayer });
+    layers.push({
+      depth: player.y + 29,
+      priority: 1,
+      draw: () => drawPlayerActor(
+        coop?.localIdentity?.(),
+        publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
+        playerPower(player),
+      ),
+    });
     layers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
     for (const layer of layers) layer.draw();
-  }
-
-  function drawMinimap(remotePlayers: RemotePlayer[]) {
-    const size = Math.min(180, Math.max(110, viewW * .17));
-    const x = viewW - size;
-    const y = 0;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(12,18,15,.82)";
-    ctx.strokeStyle = "rgba(255,255,255,.25)";
-    ctx.lineWidth = 2;
-    roundRect(x, y, size, size, 10);
-    ctx.fill();
-    ctx.stroke();
-    ctx.save();
-    ctx.font = '900 9px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    outlinedText(MAP_CONFIG[currentMapId].name, x + size / 2, y + 7, "#f5f5e9", 1.5);
-    ctx.restore();
-
-    const sx = size / WORLD.w;
-    const sy = size / WORLD.h;
-
-    ctx.save();
-    roundRect(x+5, y+5, size-10, size-10, 7);
-    ctx.clip();
-
-    ctx.fillStyle = currentMapId === BEGINNER_DESERT_MAP_ID ? "#d9a95f" : "#31945b";
-    ctx.fillRect(x+5, y+5, size-10, size-10);
-
-    ctx.fillStyle = currentMapId === BEGINNER_DESERT_MAP_ID ? "#c48b4b" : "#8b6551";
-    for (const p of paths) {
-      ctx.fillRect(x + p.x*sx, y + p.y*sy, p.w*sx, p.h*sy);
-    }
-
-    ctx.fillStyle = "#ff5d5d";
-    for (const e of enemies) {
-      const markerSize = ENEMY_TYPES[e.type].elite ? 5 : 3;
-      ctx.fillRect(x + e.x*sx - 1, y + e.y*sy - 1, markerSize, markerSize);
-    }
-
-    ctx.fillStyle = "#58e878";
-    for (const other of remotePlayers) {
-      ctx.fillRect(x + other.x*sx - 2, y + other.y*sy - 2, 5, 5);
-    }
-
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(x + player.x*sx - 2, y + player.y*sy - 2, 5, 5);
-
-    ctx.strokeStyle = "rgba(255,255,255,.52)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + camera.x*sx, y + camera.y*sy, (viewW / camera.zoom)*sx, (viewH / camera.zoom)*sy);
-    ctx.restore();
-    ctx.restore();
   }
 
   function duelCameraPosition() {
@@ -3461,10 +2799,8 @@ import {
     const floatY = Math.sin(performance.now() / 1000 * 1.2) * 7;
     ctx.save();
     ctx.translate(0, floatY);
-    drawDuelArena();
-    drawDuelShots(scene.shots);
-    drawDuelCombatant(scene.challenger);
-    drawDuelCombatant(scene.opponent);
+    drawDuelArenaVisual(true, DUEL_ARENA);
+    drawDuelScene(scene);
     effects.drawDamageNumbers(ctx, camera, outlinedText);
     ctx.restore();
     ctx.restore();
@@ -3498,7 +2834,7 @@ import {
     ctx.scale(camera.zoom, camera.zoom);
 
     drawGround();
-    drawDuelArena();
+    drawDuelArenaVisual(isArenaScene(), DUEL_ARENA);
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapId === TUTORIAL_FOREST_MAP_ID) drawBossTelegraphs();
     if (!isDueling() && currentMapId === BEGINNER_DESERT_MAP_ID) drawSpiderTelegraphs();
