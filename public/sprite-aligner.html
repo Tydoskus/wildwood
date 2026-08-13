@@ -3,110 +3,219 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Wildwood Sprite Aligner</title>
+<title>Wildwood Character Layer Aligner</title>
 <style>
   :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0c1710; color: #f3f5e9; }
   body { display: grid; place-items: start center; min-height: 100vh; margin: 0; padding: 20px; }
-  main { width: min(720px, 100%); }
+  main { width: min(760px, 100%); }
   h1 { margin: 0 0 6px; font-size: 20px; } p { margin: 0 0 16px; color: #b9c9ba; font-size: 13px; }
-  .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
   label { display: grid; gap: 5px; color: #cbdaca; font-size: 12px; }
   input, select, button { font: inherit; } input, select { box-sizing: border-box; width: 100%; }
   .value { color: #8cf278; font-variant-numeric: tabular-nums; }
-  canvas { display: block; width: min(100%, 680px); margin: auto; border: 2px solid #000; background: #18251a; image-rendering: pixelated; }
+  canvas { display: block; width: min(100%, 720px); margin: auto; border: 2px solid #000; background: #18251a; image-rendering: pixelated; outline: none; }
+  canvas:focus { border-color: #fff; }
   output { display: block; margin-top: 12px; padding: 9px; border: 1px solid #405a43; background: #101c12; color: #f8f8f8; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
   button { padding: 7px 10px; border: 1px solid #000; background: #fff; color: #111; cursor: pointer; }
-  @media (max-width: 520px) { .controls { grid-template-columns: 1fr; } }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  @media (max-width: 620px) { .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Sprite Aligner</h1>
-  <p>Built-in candidate animation with center guides. Arrow keys nudge offsets. Shift + arrow moves 5px.</p>
+  <h1>Character Layer Aligner</h1>
+  <p>Offline source tool. Click preview, then arrow keys nudge selected layer. Shift + arrow moves 5px.</p>
   <section class="controls">
-    <label>Built-in candidate<select id="candidateSelect">
-      <option value="assets/wildwood/player-foxfolk-spritesheet-outline-v1.png">Foxfolk</option>
-      <option value="assets/wildwood/player-mushroomfolk-spritesheet-outline-v1.png">Mushroomfolk</option>
-      <option value="assets/wildwood/player-newtfolk-spritesheet-outline-v1.png">Newtfolk</option>
-      <option value="assets/wildwood/wildwood-player-spritesheet-outline-v1.png">Original player</option>
-    </select></label>
-    <label>Or local PNG<input id="file" type="file" accept="image/png" /></label>
-    <label>Direction<select id="direction">
-      <option value="0">DOWN</option><option value="1">LEFT</option><option value="2">RIGHT</option><option value="3">UP</option>
-    </select></label>
-    <label>Frame<select id="frame"></select></label>
-    <label>Offset edit<select id="editScope">
-      <option value="frame">selected frame</option>
-      <option value="direction">direction · all 4 frames</option>
-    </select></label>
-    <label>X offset <span id="xValue" class="value">0</span><input id="x" type="range" min="-50" max="50" value="0" /></label>
-    <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-50" max="50" value="0" /></label>
-    <label>Zoom <span id="zoomValue" class="value">1×</span><input id="zoom" type="range" min="1" max="4" value="1" /></label>
-    <button id="playPause" type="button" aria-pressed="true">pause animation</button>
+    <label>Preset / offsets<select id="character"></select></label>
+    <label>Facing<select id="facing"><option value="right">RIGHT</option><option value="left">LEFT · mirrored</option></select></label>
+    <label>Skin tone<select id="skinTone"></select></label>
+    <label>Body source<select id="bodySource"></select></label>
+    <label>Expansion helmet<select id="helmetSource"></select></label>
+    <label>Expansion chest<select id="chestSource"></select></label>
+    <label>Back leg source<select id="backLegSource"></select></label>
+    <label>Front leg source<select id="frontLegSource"></select></label>
+    <label>Layer<select id="layer"></select></label>
+    <label>X from center <span id="xValue" class="value">0</span><input id="x" type="range" min="-100" max="100" value="0" /></label>
+    <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-100" max="100" value="0" /></label>
+    <label>Animation<select id="animation"><option value="idle">idle</option><option value="walk">walking</option></select></label>
+    <label>Walk frame<select id="frame"><option value="0">idle</option><option value="1">step 1</option><option value="2">step 2</option><option value="3">step 3</option></select></label>
+    <label>Projectile<select id="projectile"><option value="off">hidden</option><option value="on">show Shot.png</option></select></label>
   </section>
-  <canvas id="canvas" width="680" height="680" tabindex="0" aria-label="Sprite preview. Click, then use arrow keys to nudge offsets."></canvas>
-  <output id="result">Loading Foxfolk.</output>
-  <button id="copy" type="button">copy all character offsets</button>
+  <canvas id="canvas" width="720" height="480" tabindex="0" aria-label="Character preview. Click, then use arrow keys to nudge the selected layer."></canvas>
+  <output id="result">Loading character parts.</output>
+  <div class="buttons"><button id="playPause" type="button" aria-pressed="true">pause walk</button><button id="resetLayer" type="button">reset layer</button><button id="copy" type="button">copy character offsets</button></div>
 </main>
 <script>
-  const reference = new Image();
-  reference.src = "assets/wildwood/wildwood-player-spritesheet-flat-v1.png";
-  const candidate = new Image();
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), direction = document.getElementById("direction"), frame = document.getElementById("frame"), editScope = document.getElementById("editScope"), x = document.getElementById("x"), y = document.getElementById("y"), zoom = document.getElementById("zoom"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
+  const SOURCE_ROOT = "../art-source/vendor/2D Minimal Characters/PNG/character";
+  const CHARACTER_IDS = Array.from({ length: 8 }, (_, index) => `character_${index + 1}`);
+  const LAYERS = [
+    { id: "backLeg", label: "back leg", file: "Leg2.png", baseX: -8, anchorY: 171, anchor: "bottom", leg: -1 },
+    { id: "frontLeg", label: "front leg", file: "Leg.png", baseX: 8, anchorY: 171, anchor: "bottom", leg: 1 },
+    { id: "body", label: "base body · skin tint", file: "Body.png", anchorY: 157, anchor: "bottom", kind: "body", width: 41.4675, height: 45.315 },
+    { id: "chest", label: "expansion chest · over base body", anchorY: 157, anchor: "bottom" },
+    { id: "head", label: "base head · helmet anchor", file: "Head.png", anchorY: 104, anchor: "bottom", motion: "head", kind: "head", width: 61.75, height: 40 },
+    { id: "helmet", label: "expansion helmet · front of head", anchorY: 118, anchor: "bottom", motion: "head" },
+    { id: "hold", label: "held projectile · character 4 Shot.png", file: "Shot.png", baseX: 18, baseY: 112, character: "character_4" },
+  ];
+  const defaults = Object.fromEntries(LAYERS.map((part) => [part.id, part.id === "head" ? { x: 4, y: 15 } : part.id === "helmet" ? { x: 4, y: 26 } : part.id === "chest" ? { x: 0, y: 11 } : { x: 0, y: 0 }]));
+  const SKIN_TONES = [
+    ["porcelain", "#f9dfd0"], ["fair", "#f2c8ac"], ["light", "#e9b58f"], ["warm beige", "#d99e76"], ["golden", "#c88358"],
+    ["tan", "#ae6f48"], ["brown", "#8e5738"], ["deep brown", "#6d402a"], ["rich espresso", "#4f2d20"], ["deep umber", "#352017"],
+  ];
+  const HELMET_ROOT = "../art-source/vendor/2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/Helmet";
+  const CHEST_ROOT = "../art-source/vendor/2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/Chest";
+  const HELMET_FILES = "FA_Helmet_041_Dark.png FA_Helmet_041_Gold.png FA_Helmet_041_Gray.png FA_Helmet_041_Green.png FA_Helmet_042_Brown.png FA_Helmet_042_Gray.png FA_Helmet_042_Purple.png FA_Helmet_043_Brown.png FA_Helmet_043_Green.png FA_Helmet_043_Red.png FA_Helmet_044_Brown.png FA_Helmet_044_Dark.png FA_Helmet_044_White.png FA_Helmet_045_GoldBlue.png FA_Helmet_045_GoldRed.png FA_Helmet_045_Purple.png FA_Helmet_046_Gray.png FA_Helmet_046_Mint.png FA_Helmet_046_Red.png FA_Helmet_047_Silver.png FA_Helmet_047_White.png FA_Helmet_048_Dark.png FA_Helmet_048_Peacock.png FA_Helmet_048_Purple.png FA_Helmet_049_Bronze.png FA_Helmet_049_Gold.png FA_Helmet_049_Silver.png FA_Helmet_050_Green.png FA_Helmet_050_Purple.png FA_Helmet_050_Red.png FA_Helmet_051_Dark.png FA_Helmet_051_Gold.png FA_Helmet_051_Silver.png FA_Helmet_052_Dark.png FA_Helmet_052_Gold.png FA_Helmet_052_Gray.png FA_Helmet_053_Dark.png FA_Helmet_053_DarkGreen.png FA_Helmet_053_Purple.png FA_Helmet_054_BronzeWine.png FA_Helmet_054_GoldRed.png FA_Helmet_054_SilverWhite.png FA_Helmet_055_Brown.png FA_Helmet_055_Dark.png FA_Helmet_056_Dark.png FA_Helmet_056_Gray.png FA_Helmet_057_Brown.png FA_Helmet_057_DarkYellow.png FA_Helmet_058_Gold.png FA_Helmet_058_Silver.png FA_Helmet_059_Gold.png FA_Helmet_059_Silver.png FA_Helmet_060_Green.png FA_Helmet_060_Purple.png FA_Helmet_060_Red.png FA_Helmet_061_Blue.png FA_Helmet_061_Brown.png FA_Helmet_061_Gray.png FA_Helmet_062_Brown.png FA_Helmet_062_Gray.png FA_Helmet_062_Green.png FA_Helmet_063_Brown.png FA_Helmet_063_Gray.png FA_Helmet_065_Dark.png FA_Helmet_065_Gold.png FA_Helmet_065_Gray.png FA_Helmet_066_Gray.png FA_Helmet_066_Pink.png FA_Helmet_066_White.png FA_Helmet_067_GoldBlue.png FA_Helmet_067_GoldPurple.png FA_Helmet_067_GoldRed.png FA_Helmet_068_Blue.png FA_Helmet_068_Brown.png FA_Helmet_068_Orange.png FA_Helmet_069_Blue.png FA_Helmet_069_Gray.png FA_Helmet_069_White.png FA_Helmet_070_Green.png FA_Helmet_070_Yellow.png FA_Helmet_071_Brown.png FA_Helmet_071_Gray.png FA_Helmet_071_Red.png FA_Helmet_072_Gray.png FA_Helmet_072_Red.png FA_Helmet_072_Yellow.png FA_Helmet_073_Gold.png FA_Helmet_073_GrayGold.png FA_Helmet_073_Whte.png FA_Helmet_074_Brown.png FA_Helmet_074_Gray.png FA_Helmet_075_DarkRed.png FA_Helmet_075_DarkYellow.png FA_Helmet_075_Gray.png FA_Helmet_076_Brown.png FA_Helmet_076_Green.png FA_Helmet_077_Blue.png FA_Helmet_077_Brown.png FA_Helmet_077_Khaki.png FA_Helmet_078_Blue.png FA_Helmet_078_Gold.png FA_Helmet_078_Gray.png FA_Helmet_079_Gray.png FA_Helmet_079_Green.png FA_Helmet_079_Yellow.png FA_Helmet_080_Black.png FA_Helmet_080_Red.png FA_Helmet_64_Blue.png FA_Helmet_64_Brown.png FA_Helmet_64_Green.png".split(" ");
+  const CHEST_FILES = "FA_Chest_030_Gray.png FA_Chest_030_Green.png FA_Chest_030_Orange.png FA_Chest_031_Green.png FA_Chest_031_Mint.png FA_Chest_031_Red.png FA_Chest_032_Blue.png FA_Chest_032_Purple.png FA_Chest_032_Red.png FA_Chest_033_Blue.png FA_Chest_033_Brown.png FA_Chest_033_Dark.png FA_Chest_034_Brown.png FA_Chest_034_Dark.png FA_Chest_034_Purple.png FA_Chest_035_Brown.png FA_Chest_035_Dark.png FA_Chest_035_Green.png FA_Chest_036_BlueGray.png FA_Chest_036_Brown.png FA_Chest_036_DarkGray.png FA_Chest_037_DarkGray.png FA_Chest_037_Grey.png FA_Chest_037_Wine.png FA_Chest_038_Blue.png FA_Chest_038_Brown.png FA_Chest_038_Gray.png FA_Chest_039_Brown.png FA_Chest_039_Green.png FA_Chest_040_Blue.png FA_Chest_040_Brown.png FA_Chest_041_Blue.png FA_Chest_041_Red.png FA_Chest_041_White.png FA_Chest_042_Blue.png FA_Chest_042_Green.png FA_Chest_042_Purple.png FA_Chest_043_Blue.png FA_Chest_043_Green.png FA_Chest_043_Red.png FA_Chest_044_Brown.png FA_Chest_044_Red.png FA_Chest_044_White.png FA_Chest_045_BrownDark.png FA_Chest_045_Gray.png FA_Chest_045_Green.png FA_Chest_046_BlueGold.png FA_Chest_046_Gray.png FA_Chest_046_GreenGold.png FA_Chest_047_Brown.png FA_Chest_047_Light.png FA_Chest_048_Brown.png FA_Chest_048_Dark.png FA_Chest_048_Gray.png FA_Chest_049_DarkGold.png FA_Chest_049_Green.png FA_Chest_049_PuppleGold.png FA_Chest_050_Gold.png FA_Chest_050_Light.png FA_Chest_050_Red.png FA_Chest_051_Brown.png FA_Chest_051_Green.png FA_Chest_052_Orange.png FA_Chest_052_Purple.png FA_Chest_052_Red.png FA_Chest_053_Blue.png FA_Chest_053_Brown.png FA_Chest_053_Dark.png FA_Chest_054_Gray.png FA_Chest_054_Green.png FA_Chest_054_Whte.png FA_Chest_055_GrayBlue.png FA_Chest_055_GrayRed.png FA_Chest_055_GrayYellow.png FA_Chest_056_Brown.png FA_Chest_056_White.png FA_Chest_056_Yellow.png FA_Chest_057_Green.png FA_Chest_057_Purple.png FA_Chest_057_Yellow.png FA_Chest_058_Blue.png FA_Chest_058_Gray.png FA_Chest_058_Purple.png FA_Chest_059_Purple.png FA_Chest_059_WhiteGold.png FA_Chest_059_Yellow.png".split(" ");
+  const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+  const character = document.getElementById("character"), facing = document.getElementById("facing"), skinTone = document.getElementById("skinTone"), layer = document.getElementById("layer"), animation = document.getElementById("animation"), frame = document.getElementById("frame"), projectile = document.getElementById("projectile"), x = document.getElementById("x"), y = document.getElementById("y"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
+  const partSources = {
+    body: document.getElementById("bodySource"), backLeg: document.getElementById("backLegSource"), frontLeg: document.getElementById("frontLegSource"),
+  };
+  const helmetSource = document.getElementById("helmetSource");
+  const chestSource = document.getElementById("chestSource");
+  const images = new Map();
+  function defaultOffset(_characterId, partId) { return { ...defaults[partId] }; }
+  const offsets = Object.fromEntries(CHARACTER_IDS.map((id) => [id, Object.fromEntries(LAYERS.map((part) => [part.id, defaultOffset(id, part.id)]))]));
   let playing = true;
-  let characterName = candidateSelect.options[candidateSelect.selectedIndex].text;
-  const frameXOffsets = [[0, 14, 28, 41], [0, 16, 28, 34], [0, 16, 27, 40], [0, 14, 28, 41]];
-  const rowYOffsets = [-6, 2, 2, 4];
-  const centerXShift = -6;
-  const frameAdjustments = Array.from({ length: 16 }, () => ({ x: 0, y: 0 }));
-  for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(column); option.textContent = `walk ${column + 1}`; frame.append(option); }
-  function selectedFrameIndex() { return Number(direction.value) * 4 + Number(frame.value); }
-  function syncFrameControls() { const adjustment = frameAdjustments[selectedFrameIndex()]; x.value = adjustment.x; y.value = adjustment.y; }
-  function affectedAdjustments() { return editScope.value === "direction" ? frameAdjustments.slice(Number(direction.value) * 4, Number(direction.value) * 4 + 4) : [frameAdjustments[selectedFrameIndex()]]; }
-  function offsetTable() {
-    const rows = ["DOWN", "LEFT", "RIGHT", "UP"].map((name, row) => `  ${name.padEnd(5)} ${frameAdjustments.slice(row * 4, row * 4 + 4).map(({ x, y }) => `(${x}, ${y})`).join("  ")}`);
-    return `${characterName}\nsource-pixel offsets (x, y)\n${rows.join("\n")}`;
-  }
-  function setOffset(axis, value) {
-    if (editScope.value === "direction") {
-      const delta = value - frameAdjustments[selectedFrameIndex()][axis];
-      affectedAdjustments().forEach((adjustment) => { adjustment[axis] = Math.max(-50, Math.min(50, adjustment[axis] + delta)); });
-    } else frameAdjustments[selectedFrameIndex()][axis] = Math.max(-50, Math.min(50, value));
-    syncFrameControls(); draw();
-  }
-  function nudgeOffsets(dx, dy) { affectedAdjustments().forEach((adjustment) => { adjustment.x = Math.max(-50, Math.min(50, adjustment.x + dx)); adjustment.y = Math.max(-50, Math.min(50, adjustment.y + dy)); }); syncFrameControls(); draw(); }
-  function value(id, value, suffix = "") { document.getElementById(id).textContent = `${value}${suffix}`; }
-  function draw() {
-    value("xValue", x.value); value("yValue", y.value); value("zoomValue", zoom.value, "×");
-    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#162419"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scale = Number(zoom.value), size = 280 * scale, cell = reference.naturalWidth / 4, row = Number(direction.value), walkFrame = Number(frame.value), sourceX = walkFrame * cell, sourceY = row * cell, left = Math.round((canvas.width - size) / 2), top = Math.round((canvas.height - size) / 2), sourceScale = size / cell, rendererScale = size / 96;
-    ctx.imageSmoothingEnabled = false;
-    if (candidate.complete && candidate.naturalWidth) ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + (frameXOffsets[row][walkFrame] + Number(x.value)) * sourceScale + centerXShift * rendererScale, top + Number(y.value) * sourceScale + rowYOffsets[row] * rendererScale, size, size);
-    ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-    result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${characterName}\nframe ${direction.options[direction.selectedIndex].text} · ${frame.options[frame.selectedIndex].text}\nedit: ${editScope.options[editScope.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px\n\n${offsetTable()}` : "Loading candidate sheet.";
-  }
-  function resetAdjustments() { frameAdjustments.forEach((adjustment) => { adjustment.x = 0; adjustment.y = 0; }); syncFrameControls(); }
-  file.addEventListener("change", () => { const selected = file.files[0]; if (selected) { characterName = selected.name.replace(/\.png$/i, ""); resetAdjustments(); candidate.src = URL.createObjectURL(selected); } });
-  candidateSelect.addEventListener("change", () => { characterName = candidateSelect.options[candidateSelect.selectedIndex].text; resetAdjustments(); candidate.src = candidateSelect.value; });
-  candidate.addEventListener("load", draw); reference.addEventListener("load", draw);
-  [direction, frame].forEach((control) => control.addEventListener("input", () => { syncFrameControls(); draw(); }));
-  editScope.addEventListener("input", draw);
-  [x, y].forEach((control) => control.addEventListener("input", () => setOffset(control.id, Number(control.value))));
-  zoom.addEventListener("input", draw);
-  document.addEventListener("keydown", (event) => {
-    if (["INPUT", "SELECT", "BUTTON"].includes(document.activeElement.tagName)) return;
-    const amount = event.shiftKey ? 5 : 1;
-    const arrows = { ArrowLeft: [-amount, 0], ArrowRight: [amount, 0], ArrowUp: [0, -amount], ArrowDown: [0, amount] };
-    const nudge = arrows[event.key]; if (!nudge) return;
-    event.preventDefault(); nudgeOffsets(...nudge);
+
+  CHARACTER_IDS.forEach((id) => { const option = document.createElement("option"); option.value = id; option.textContent = id.replace("_", " "); character.append(option); });
+  SKIN_TONES.forEach(([name, color]) => { const option = document.createElement("option"); option.value = color; option.textContent = name; skinTone.append(option); });
+  const noHelmetOption = document.createElement("option"); noHelmetOption.value = ""; noHelmetOption.textContent = "none"; helmetSource.append(noHelmetOption);
+  HELMET_FILES.forEach((file) => { const option = document.createElement("option"); option.value = file; option.textContent = file.replace("FA_Helmet_", "").replace(/\.png$/, "").replace("_", " · "); helmetSource.append(option); });
+  Object.entries(partSources).forEach(([partId, select]) => {
+    if (partId === "body") { const option = document.createElement("option"); option.value = "base"; option.textContent = `base dynamic ${partId}`; select.append(option); }
+    CHARACTER_IDS.forEach((id) => { const option = document.createElement("option"); option.value = id; option.textContent = id.replace("_", " "); select.append(option); });
   });
-  document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(offsetTable()); });
-  candidate.src = candidateSelect.value;
-  playPause.addEventListener("click", () => { playing = !playing; playPause.textContent = playing ? "pause animation" : "play animation"; playPause.setAttribute("aria-pressed", String(playing)); });
-  window.setInterval(() => { if (!playing) return; frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; syncFrameControls(); draw(); }, 650);
-  draw();
+  character.value = "character_4";
+  Object.values(partSources).forEach((select) => { select.value = select === partSources.body ? "base" : "character_4"; });
+
+  function sourceFor(id, part) { return part.id === "helmet" ? `${HELMET_ROOT}/${helmetSource.value}` : part.id === "chest" ? `${CHEST_ROOT}/${chestSource.value}` : `${SOURCE_ROOT}/${id}/${part.file}`; }
+  function keyFor(id, part) { return sourceFor(id, part); }
+  function getImage(id, part) {
+    const key = keyFor(id, part); if (images.has(key)) return images.get(key);
+    const image = new Image(); image.src = sourceFor(id, part); image.addEventListener("load", draw); image.addEventListener("error", draw); images.set(key, image); return image;
+  }
+  function sourceCharacterFor(part) { return partSources[part.id]?.value ?? character.value; }
+  function isDynamicBase(part) { return part.id === "head" || Boolean(part.kind && sourceCharacterFor(part) === "base"); }
+  function sourceChoices() { return { ...Object.fromEntries(Object.entries(partSources).map(([partId, select]) => [partId, select.value || "none"])), helmet: helmetSource.value || "none", chest: chestSource.value || "none" }; }
+  function setPreset(id) { Object.values(partSources).forEach((select) => { select.value = id; }); }
+  function visibleLayers() { return LAYERS.filter((part) => !part.character || part.character === character.value); }
+  function selectedPart() { return visibleLayers().find((part) => part.id === layer.value); }
+  function populateLayers() {
+    const prior = layer.value; layer.replaceChildren();
+    visibleLayers().forEach((part) => { const option = document.createElement("option"); option.value = part.id; option.textContent = part.label; layer.append(option); });
+    layer.value = [...layer.options].some((option) => option.value === prior) ? prior : "body";
+    syncControls();
+  }
+  function selectedOffsets() { return offsets[character.value][layer.value]; }
+  function syncControls() { const current = selectedOffsets(); x.value = current.x; y.value = current.y; document.getElementById("xValue").textContent = current.x; document.getElementById("yValue").textContent = current.y; }
+  function walkOffset(part) {
+    const index = Number(frame.value);
+    const gait = {
+      backLeg: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 }, { x: 0, y: -3 }],
+      frontLeg: [{ x: 0, y: 0 }, { x: -1, y: -3 }, { x: -4, y: 0 }, { x: 2, y: 0 }],
+    };
+    if (part.id in gait) return animation.value === "idle" ? { x: 0, y: 0 } : gait[part.id][index];
+    if (part.motion === "head") return { x: 0, y: [0, -2, -3, -2][index] };
+    return { x: 0, y: 0 };
+  }
+  function basePosition(part, width, height) { return { x: 90 - width / 2 + (part.baseX ?? 0), y: part.anchor === "bottom" ? part.anchorY - height : part.baseY }; }
+  function roundedRect(x, y, width, height, radius) {
+    ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.lineTo(x + width - radius, y); ctx.quadraticCurveTo(x + width, y, x + width, y + radius); ctx.lineTo(x + width, y + height - radius); ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height); ctx.lineTo(x + radius, y + height); ctx.quadraticCurveTo(x, y + height, x, y + height - radius); ctx.lineTo(x, y + radius); ctx.quadraticCurveTo(x, y, x + radius, y); ctx.closePath();
+  }
+  function drawBaseBody(x, y, width, height, scale) {
+    ctx.save(); ctx.translate(x * scale, y * scale); ctx.scale(scale, scale);
+    const egg = (inset) => {
+      const left = inset, top = inset, eggWidth = width - inset * 2, eggHeight = height - inset * 2, middle = left + eggWidth / 2;
+      ctx.beginPath(); ctx.moveTo(middle, top);
+      ctx.bezierCurveTo(left + eggWidth * .78, top, left + eggWidth, top + eggHeight * .2, left + eggWidth, top + eggHeight * .56);
+      ctx.bezierCurveTo(left + eggWidth, top + eggHeight * .84, left + eggWidth * .74, top + eggHeight, middle, top + eggHeight);
+      ctx.bezierCurveTo(left + eggWidth * .26, top + eggHeight, left, top + eggHeight * .84, left, top + eggHeight * .56);
+      ctx.bezierCurveTo(left, top + eggHeight * .2, left + eggWidth * .22, top, middle, top); ctx.closePath();
+    };
+    ctx.fillStyle = "#000"; egg(0); ctx.fill();
+    ctx.fillStyle = skinTone.value; egg(3); ctx.fill(); ctx.restore();
+  }
+  function drawBaseHead(x, y, width, height, scale) {
+    ctx.save(); ctx.translate(x * scale, y * scale); ctx.scale(scale, scale);
+    const pill = (inset) => {
+      const pillWidth = width - inset * 2, pillHeight = height - inset * 2, radius = pillHeight / 2, left = inset, top = inset;
+      ctx.beginPath(); ctx.moveTo(left + radius, top); ctx.lineTo(left + pillWidth - radius, top);
+      ctx.arc(left + pillWidth - radius, top + radius, radius, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(left + radius, top + pillHeight); ctx.arc(left + radius, top + radius, radius, Math.PI / 2, Math.PI * 1.5); ctx.closePath();
+    };
+    ctx.fillStyle = "#000"; pill(0); ctx.fill();
+    ctx.fillStyle = skinTone.value; pill(3.5); ctx.fill();
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(width * .42, height * .51, 5.7, 0, Math.PI * 2); ctx.arc(width * .77, height * .51, 5.7, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  function drawPart(part) {
+    const current = offsets[character.value][part.id], motion = walkOffset(part), scale = 2, originX = 90, originY = 36;
+    if ((part.id === "helmet" && !helmetSource.value) || (part.id === "chest" && !chestSource.value)) return;
+    if (isDynamicBase(part)) {
+      const base = basePosition(part, part.width, part.height), drawX = originX + base.x + current.x + motion.x, drawY = originY + base.y + current.y + motion.y;
+      if (part.kind === "body") drawBaseBody(drawX, drawY, part.width, part.height, scale);
+      else drawBaseHead(drawX, drawY, part.width, part.height, scale);
+      return;
+    }
+    const image = getImage(sourceCharacterFor(part), part); if (!image.complete || !image.naturalWidth) return;
+    const base = basePosition(part, image.naturalWidth, image.naturalHeight);
+    ctx.drawImage(image, (originX + base.x + current.x + motion.x) * scale, (originY + base.y + current.y + motion.y) * scale, image.naturalWidth * scale, image.naturalHeight * scale);
+  }
+  function drawShot() {
+    if (projectile.value !== "on") return;
+    const held = LAYERS.find((part) => part.id === "hold"), image = getImage(character.value, held); if (!image.complete || !image.naturalWidth) return;
+    const current = offsets.character_4.hold, base = basePosition(held, image.naturalWidth, image.naturalHeight), phase = Number(frame.value), scale = 2, originX = 90, originY = 36;
+    ctx.drawImage(image, (originX + base.x + current.x + phase * 14) * scale, (originY + base.y + current.y) * scale, image.naturalWidth * scale, image.naturalHeight * scale);
+  }
+  function headAnchor() {
+    const head = LAYERS.find((part) => part.id === "head"), current = offsets[character.value].head, motion = walkOffset(head), scale = 2, originX = 90, originY = 36;
+    const image = isDynamicBase(head) ? null : getImage(sourceCharacterFor(head), head);
+    const headWidth = image?.naturalWidth || head.width, headHeight = image?.naturalHeight || head.height, base = basePosition(head, headWidth, headHeight);
+    let anchorX = (originX + 90 + current.x + motion.x) * scale;
+    if (facing.value === "left") anchorX = canvas.width - anchorX;
+    return { x: anchorX, y: (originY + base.y + current.y + motion.y) * scale };
+  }
+  function drawHeadAnchor() {
+    const anchor = headAnchor();
+    ctx.save(); ctx.strokeStyle = "#78f7ff"; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(anchor.x - 12, anchor.y); ctx.lineTo(anchor.x + 12, anchor.y); ctx.moveTo(anchor.x, anchor.y - 12); ctx.lineTo(anchor.x, anchor.y + 12); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle = "#78f7ff"; ctx.fillText("helmet base", anchor.x + 15, anchor.y - 8); ctx.restore();
+    return anchor;
+  }
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#162419"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    if (facing.value === "left") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+    visibleLayers().forEach(drawPart); drawShot(); ctx.restore();
+    const center = canvas.width / 2, ground = (36 + 170) * 2;
+    ctx.strokeStyle = "rgba(255,255,255,.38)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(center, 0); ctx.lineTo(center, canvas.height); ctx.moveTo(0, ground); ctx.lineTo(canvas.width, ground); ctx.stroke();
+    const helmetBase = drawHeadAnchor();
+    const current = selectedOffsets(), part = selectedPart();
+    result.textContent = `${character.value} · ${facing.value}\nskin: ${skinTone.options[skinTone.selectedIndex].text}\nselected: ${part?.label ?? layer.value}\noffset: x ${current.x}, y ${current.y}\nhelmet base: x ${Math.round(helmetBase.x / 2)}, y ${Math.round(helmetBase.y / 2)}\nwalk: ${frame.options[frame.selectedIndex].text}\n\n${JSON.stringify({ sources: sourceChoices(), skinTone: skinTone.value, offsets: offsets[character.value] }, null, 2)}`;
+  }
+  function clamp(value) { return Math.max(-100, Math.min(250, value)); }
+  function update(axis, value) { selectedOffsets()[axis] = clamp(value); syncControls(); draw(); }
+  character.addEventListener("input", () => { setPreset(character.value); populateLayers(); draw(); });
+  Object.values(partSources).forEach((select) => select.addEventListener("input", draw));
+  helmetSource.addEventListener("input", draw);
+  const noChestOption = document.createElement("option"); noChestOption.value = ""; noChestOption.textContent = "none"; chestSource.append(noChestOption);
+  CHEST_FILES.forEach((file) => { const option = document.createElement("option"); option.value = file; option.textContent = file.replace("FA_Chest_", "").replace(/\.png$/, "").replace("_", " · "); chestSource.append(option); });
+  chestSource.addEventListener("input", draw);
+  [facing, skinTone, frame, projectile].forEach((control) => control.addEventListener("input", draw));
+  animation.addEventListener("input", draw);
+  layer.addEventListener("input", () => { syncControls(); draw(); });
+  x.addEventListener("input", () => update("x", Number(x.value))); y.addEventListener("input", () => update("y", Number(y.value)));
+  canvas.addEventListener("keydown", (event) => { const amount = event.shiftKey ? 5 : 1, directions = { ArrowLeft: [-amount, 0], ArrowRight: [amount, 0], ArrowUp: [0, -amount], ArrowDown: [0, amount] }, nudge = directions[event.key]; if (!nudge) return; event.preventDefault(); update("x", selectedOffsets().x + nudge[0]); update("y", selectedOffsets().y + nudge[1]); });
+  playPause.addEventListener("click", () => { playing = !playing; playPause.textContent = playing ? "pause walk" : "play walk"; playPause.setAttribute("aria-pressed", String(playing)); });
+  document.getElementById("resetLayer").addEventListener("click", () => { const part = selectedPart(); offsets[character.value][part.id] = defaultOffset(character.value, part.id); syncControls(); draw(); });
+  document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(JSON.stringify({ character: character.value, sources: sourceChoices(), skinTone: skinTone.value, offsets: offsets[character.value] }, null, 2)); });
+  window.setInterval(() => {
+    if (!playing) return;
+    const firstFrame = animation.value === "idle" ? 0 : 1;
+    frame.value = String(Number(frame.value) >= 3 || Number(frame.value) < firstFrame ? firstFrame : Number(frame.value) + 1);
+    draw();
+  }, 500);
+  populateLayers(); draw();
 </script>
 </body>
 </html>

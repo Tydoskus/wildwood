@@ -11,9 +11,6 @@ import {
   ENEMY_HIT_MIN_MOVE_SPEED,
   ENEMY_HIT_SPEED_RECOVERY_SECONDS,
   PLAYER_KNOCKBACK_FORCE,
-  PLAYER_SPRITE_CENTER_X_SHIFT,
-  PLAYER_SPRITE_X_OFFSETS,
-  PLAYER_SPRITE_Y_OFFSETS,
   REGULAR_ENEMY_AGGRO_PADDING,
   RANGED_PROJECTILE_SPEED,
   TAU,
@@ -32,6 +29,7 @@ import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
 import { createWorldRenderer } from "./game/runtime/world-renderer";
 import { createBossRenderer } from "./game/runtime/boss-renderer";
 import { createActorRenderer } from "./game/runtime/actor-renderer";
+import { DEFAULT_SKIN_TONE, drawStartingPlayer, loadPlayerAppearanceAssets, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
 import type {
   BossCone,
   DragonBossState,
@@ -124,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.331";
+  const GAME_VERSION = "0.332";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -256,6 +254,14 @@ import {
   const profileCharacterCtx = requiredCanvasContext(profileCharacterCanvas);
   const previousPlayerSpriteBtn = requiredElement<HTMLButtonElement>("previousPlayerSpriteBtn");
   const nextPlayerSpriteBtn = requiredElement<HTMLButtonElement>("nextPlayerSpriteBtn");
+  const profileSkinToneControl = requiredElement<HTMLLabelElement>("profileSkinToneControl");
+  const profileSkinToneSelect = requiredElement<HTMLSelectElement>("profileSkinTone");
+  PLAYER_SKIN_TONE_NAMES.forEach((name, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = name;
+    profileSkinToneSelect.append(option);
+  });
   const playerProfileLoadingEl = requiredElement("playerProfileLoading");
   const profileOverviewTab = requiredElement("profileOverviewTab");
   const profileStatsTab = requiredElement("profileStatsTab");
@@ -557,32 +563,16 @@ import {
     encounter: null,
   };
 
-  const PLAYER_SPRITE_SOURCES = [
-    "assets/wildwood/wildwood-player-spritesheet-outline-v1.png",
-    "assets/wildwood/player-foxfolk-spritesheet-outline-v1.png",
-    "assets/wildwood/player-mushroomfolk-spritesheet-outline-v1.png",
-    "assets/wildwood/player-newtfolk-spritesheet-outline-v1.png",
-  ] as const;
-  const playerSprites = PLAYER_SPRITE_SOURCES.map(() => new Image());
-  const playerSprite = playerSprites[0];
   let playerSpriteReady = false;
   let settledPlayerSprites = 0;
   const markPlayerSpriteReady = () => {
     settledPlayerSprites += 1;
-    if (settledPlayerSprites < playerSprites.length) return;
+    if (settledPlayerSprites < 6) return;
     playerSpriteReady = true;
     updateLoadingDetail();
     finishStartup();
   };
-  playerSprites.forEach((sprite, index) => {
-    sprite.addEventListener("load", markPlayerSpriteReady, { once: true });
-    sprite.addEventListener("error", markPlayerSpriteReady, { once: true });
-    sprite.src = PLAYER_SPRITE_SOURCES[index];
-  });
-  function playerSpriteFor(identity?: string) {
-    const spriteIndex = Math.max(0, Math.min(playerSprites.length - 1, Math.floor(coop?.playerSprite?.(identity) ?? 0)));
-    return playerSprites[spriteIndex] ?? playerSprite;
-  }
+  const playerAppearanceAssets = loadPlayerAppearanceAssets(markPlayerSpriteReady);
   const profileIconSheet = new Image();
   profileIconSheet.addEventListener("load", () => {
     if (!leaderboardEl.hidden) renderLeaderboard();
@@ -709,11 +699,15 @@ import {
     camera,
     viewport: () => ({ width: viewW, height: viewH }),
     gameTime: () => gameTime,
-    playerSprite: playerSpriteFor,
+    drawPlayerAppearance: (actor, alpha) => drawStartingPlayer(ctx, playerAppearanceAssets, {
+      ...actor,
+      gameTime,
+      skinTone: coop?.skinTone?.(actor.identity ?? actor.id) ?? DEFAULT_SKIN_TONE,
+      alpha,
+    }),
+    localFeetItem: () => inventory.equippedFeet,
     enemySprites: ENEMY_SPRITES,
     duelPlatformArt,
-    playerSpriteXOffsets: PLAYER_SPRITE_X_OFFSETS,
-    playerSpriteYOffsets: PLAYER_SPRITE_Y_OFFSETS,
     player,
     pixelCircle,
     outlinedText,
@@ -1073,7 +1067,7 @@ import {
       ["LOADING CONNECTION", Boolean(coop?.isConnected?.()), 12],
       ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
       ["LOADING SAVED PROGRESS", progressLoaded, 60],
-      ["LOADING PLAYER SPRITE", playerSpriteReady, 78],
+      ["LOADING PLAYER APPEARANCE", playerSpriteReady, 78],
       ["LOADING WORLD ART", treeSpritesheetReady && portalArchSettled && portalSwirlSettled && duelSpaceBackgroundReady && duelPlatformArtReady, 90],
       ["LOADING PAGE ART", pageLoadComplete, 97],
       ["STARTING WILDWOOD", true, 100],
@@ -3216,8 +3210,10 @@ import {
 
   function updateProfileCharacterPreview(identity: string, ownProfile: boolean) {
     profileCharacterPreviewEl.dataset.identity = identity;
-    previousPlayerSpriteBtn.hidden = !ownProfile;
-    nextPlayerSpriteBtn.hidden = !ownProfile;
+    previousPlayerSpriteBtn.hidden = true;
+    nextPlayerSpriteBtn.hidden = true;
+    profileSkinToneControl.hidden = !ownProfile;
+    if (ownProfile) profileSkinToneSelect.value = String(coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE);
     drawProfileCharacterPreview();
   }
 
@@ -3227,7 +3223,6 @@ import {
     const width = profileCharacterCanvas.width;
     const height = profileCharacterCanvas.height;
     const now = performance.now();
-    const sprite = playerSpriteFor(identity);
     profileCharacterCtx.clearRect(0, 0, width, height);
     profileCharacterCtx.fillStyle = "#37783a";
     profileCharacterCtx.fillRect(0, 0, width, height);
@@ -3242,26 +3237,21 @@ import {
     }
     profileCharacterCtx.fillStyle = "rgba(20,66,30,.38)";
     profileCharacterCtx.fillRect(0, 79, width, 9);
-    if (!sprite.complete || sprite.naturalWidth <= 0) return;
-    const cellWidth = sprite.naturalWidth / 4;
-    const cellHeight = sprite.naturalHeight / 4;
-    const frame = Math.floor(now / 120) % 4;
-    const size = 84;
     profileCharacterCtx.imageSmoothingEnabled = false;
-    profileCharacterCtx.drawImage(
-      sprite,
-      frame * cellWidth, 0, cellWidth, cellHeight,
-      Math.round(width / 2 - size / 2), 3, size, size,
-    );
+    drawStartingPlayer(profileCharacterCtx, playerAppearanceAssets, {
+      x: width / 2,
+      y: 47,
+      facing: 0,
+      moving: true,
+      gameTime: now / 1000,
+      skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE,
+      feetItem: identity === coop?.localIdentity?.() ? inventory.equippedFeet : undefined,
+      scale: .6,
+    });
   }
 
-  function selectProfileCharacter(direction: -1 | 1) {
-    if (openProfileIdentity !== coop?.localIdentity?.()) return;
-    const current = Math.max(0, Math.min(playerSprites.length - 1, Math.floor(coop?.playerSprite?.() ?? 0)));
-    const next = (current + direction + playerSprites.length) % playerSprites.length;
-    void coop?.setPlayerSprite?.(next).then((result) => {
-      if (!result?.ok) showMessage(result?.error || "CHARACTER UPDATE FAILED", "#ff9b91");
-    });
+  function selectProfileCharacter(_direction: -1 | 1) {
+    // Character swaps are replaced by the modular appearance selector.
   }
 
   function renderPower(element: HTMLElement, value: string) {
@@ -3969,6 +3959,16 @@ import {
   editPlayerNameBtn.addEventListener("click", openProfileNameEditor);
   previousPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(-1));
   nextPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(1));
+  profileSkinToneSelect.addEventListener("input", async () => {
+    if (openProfileIdentity !== coop?.localIdentity?.()) return;
+    const result = await coop?.setSkinTone?.(Number(profileSkinToneSelect.value));
+    if (!result?.ok) {
+      showMessage(result?.error || "SKIN TONE UPDATE FAILED", "#ff9b91");
+      profileSkinToneSelect.value = String(coop?.skinTone?.() ?? DEFAULT_SKIN_TONE);
+      return;
+    }
+    showMessage("SKIN TONE UPDATED", "#72ef58");
+  });
   profileNameEditorEl.addEventListener("click", (event) => {
     if (event.target === profileNameEditorEl) closeProfileNameEditor();
   });

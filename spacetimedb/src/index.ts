@@ -120,6 +120,7 @@ const playerProfile = table(
     displayName: t.string(),
     profileIcon: t.u32().default(0),
     playerSprite: t.u32().default(0),
+    skinTone: t.u32().default(3),
   },
 );
 
@@ -1453,6 +1454,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       displayName: generatedDisplayName(ctx.sender),
       profileIcon: 0,
       playerSprite: 0,
+      skinTone: 3,
     });
   }
 
@@ -1898,9 +1900,9 @@ export const claimGuestAccount = spacetimedb.reducer(
     const preserveAccountName = Boolean(accountProfile && !isGeneratedDisplayName(accountProfile.displayName));
     const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName));
     if (transferGuestName && guestProfile && accountProfile) {
-      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite });
+      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone });
     } else if (transferGuestName && guestProfile) {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite });
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone });
     }
 
     // A freshly-created guest's generated name must never overwrite an existing
@@ -2038,7 +2040,7 @@ export const setDisplayName = spacetimedb.reducer(
     if (existing) {
       ctx.db.playerProfile.identity.update({ ...existing, displayName: normalized });
     } else {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized, profileIcon: 0, playerSprite: 0 });
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized, profileIcon: 0, playerSprite: 0, skinTone: 3 });
     }
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
@@ -2100,6 +2102,18 @@ export const setPlayerSprite = spacetimedb.reducer(
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.playerSprite === playerSprite) return;
     ctx.db.playerProfile.identity.update({ ...profile, playerSprite });
+  },
+);
+
+export const setSkinTone = spacetimedb.reducer(
+  { skinTone: t.u32() },
+  (ctx, { skinTone }) => {
+    requireControllingPlayer(ctx);
+    if (!Number.isInteger(skinTone) || skinTone > 9) throw new SenderError("Skin tone must be between 0 and 9.");
+    const profile = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (!profile) throw new SenderError("Player profile not found.");
+    if (profile.skinTone === skinTone) return;
+    ctx.db.playerProfile.identity.update({ ...profile, skinTone });
   },
 );
 

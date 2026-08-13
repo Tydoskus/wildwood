@@ -261,6 +261,7 @@ export const PlayerProfile = __t.object("PlayerProfile", {
   displayName: __t.string(),
   profileIcon: __t.u32(),
   playerSprite: __t.u32(),
+  skinTone: __t.u32(),
 });
 export type PlayerProfile = __Infer<typeof PlayerProfile>;
 

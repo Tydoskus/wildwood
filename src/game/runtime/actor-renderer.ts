@@ -1,4 +1,3 @@
-import { PLAYER_SPRITE_CENTER_X_SHIFT } from "../constants";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type LoadedEnemySprite } from "../enemies";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
@@ -28,11 +27,10 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
-  playerSprite: (identity?: string) => HTMLImageElement;
+  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; identity?: string; id?: string; feetItem?: string }, alpha: number) => void;
+  localFeetItem: () => string;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
-  playerSpriteXOffsets: readonly (readonly number[])[];
-  playerSpriteYOffsets: readonly number[];
   player: PlayerState;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -45,34 +43,10 @@ export function createActorRenderer(options: {
   const { ctx, camera } = options;
 
   function drawPlayerSprite(
-    actor: { x: number; y: number; facing: number; moving?: boolean; identity?: string; id?: string },
+    actor: { x: number; y: number; facing: number; moving?: boolean; identity?: string; id?: string; feetItem?: string },
     alpha = 1,
   ) {
-    const sprite = options.playerSprite(actor.identity ?? actor.id);
-    if (!sprite.complete || sprite.naturalWidth <= 0) return;
-
-    const cellW = sprite.naturalWidth / 4;
-    const cellH = sprite.naturalHeight / 4;
-    const fx = Math.cos(actor.facing);
-    const fy = Math.sin(actor.facing);
-    const row = Math.abs(fx) > Math.abs(fy)
-      ? (fx < 0 ? 1 : 2)
-      : (fy < 0 ? 3 : 0);
-    const frame = actor.moving ? Math.floor(options.gameTime() * 10) % 4 : 0;
-    const size = 96;
-    const offsetX = options.playerSpriteXOffsets[row][frame] * size / cellW;
-    const offsetY = options.playerSpriteYOffsets[row];
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(
-      sprite,
-      frame * cellW, row * cellH, cellW, cellH,
-      Math.floor(actor.x - size / 2 + offsetX + PLAYER_SPRITE_CENTER_X_SHIFT),
-      Math.floor(actor.y - size / 2 + offsetY),
-      size, size,
-    );
-    ctx.restore();
+    options.drawPlayerAppearance(actor, alpha);
   }
 
   function drawDuelArena(show: boolean, center: { x: number; y: number; r: number }) {
@@ -136,7 +110,7 @@ export function createActorRenderer(options: {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
     options.drawShadow(x, y + 29, 54, .21);
-    drawPlayerSprite({ ...player, x, y, identity });
+    drawPlayerSprite({ ...player, x, y, identity, feetItem: options.localFeetItem() });
     options.drawStatus({
       x,
       y,

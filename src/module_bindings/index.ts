@@ -56,6 +56,7 @@ import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
+import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
@@ -283,6 +284,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
+  __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),

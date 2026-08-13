@@ -228,6 +228,7 @@ const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const profileIcons = new Map<string, number>();
 const playerSprites = new Map<string, number>();
+const skinTones = new Map<string, number>();
 const profileIdentities = new Map<string, Identity>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
 const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
@@ -894,11 +895,13 @@ function upsertPlayer(row: {
   onChange?.();
 }
 
-function upsertProfile(row: { identity: Identity; displayName: string; profileIcon: number; playerSprite?: number }) {
+function upsertProfile(row: { identity: Identity; displayName: string; profileIcon: number; playerSprite?: number; skinTone?: number }) {
   const id = row.identity.toHexString();
   profiles.set(id, row.displayName);
   profileIcons.set(id, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
   playerSprites.set(id, Math.max(0, Math.min(3, Number(row.playerSprite) || 0)));
+  const requestedSkinTone = Number(row.skinTone);
+  skinTones.set(id, Number.isFinite(requestedSkinTone) ? Math.max(0, Math.min(9, Math.floor(requestedSkinTone))) : 3);
   profileIdentities.set(id, row.identity);
   if (id === localIdentity) {
     localDisplayName = row.displayName;
@@ -1372,6 +1375,7 @@ function clearRealtimeCaches() {
   profiles.clear();
   profileIcons.clear();
   playerSprites.clear();
+  skinTones.clear();
   profileIdentities.clear();
   leaderboardEntries.clear();
   accessAuditEntries.clear();
@@ -1902,6 +1906,9 @@ export const wildwoodCoop = {
   playerSprite(identity = localIdentity) {
     return playerSprites.get(identity) ?? 0;
   },
+  skinTone(identity = localIdentity) {
+    return skinTones.get(identity) ?? 3;
+  },
   localProfileReady() {
     return localProfileReady;
   },
@@ -2000,6 +2007,19 @@ export const wildwoodCoop = {
     } catch (error) {
       const message = reducerErrorMessage(error);
       handleReducerFailure("player-sprite update", error);
+      return { ok: false, error: message };
+    }
+  },
+  async setSkinTone(skinTone: number) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    const normalized = Math.max(0, Math.min(9, Math.floor(skinTone)));
+    try {
+      await connection.reducers.setSkinTone({ skinTone: normalized });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("skin-tone update", error);
       return { ok: false, error: message };
     }
   },

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.332": [
+    "Player appearance now uses modular dynamic skin, a held stone, Basic Paper Hat, and starter legs.",
+    "Trailblazer Boots now switch the player appearance to the boot-leg set.",
+    "Your player profile now includes a persistent skin-tone selector.",
+    "The offline layer aligner now compares modular body parts plus expansion helmets and chests.",
+  ],
   "0.331": [
     "Player character sheets now have crisp black silhouette outlines.",
     "Sprite Aligner can move a full four-frame direction, nudge with arrow keys, and copy its complete character offset table.",
