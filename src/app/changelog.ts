@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.282": [
+    "World Chat now uses one clear custom expand/minimize arrow",
+    "Replay play controls now sit directly on the game without button backgrounds",
+  ],
   "0.281": [
     "World Chat replay buttons now use the custom Wildwood play medallion",
     "World Chat expand and minimize control now uses custom pixel corner marks",

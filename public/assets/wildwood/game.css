@@ -573,12 +573,8 @@
     text-shadow: none;
   }
 
-  .chat-size-icon::before,
-  .chat-size-icon::after { position: absolute; width: 8px; height: 8px; border: 2px solid #fff; content: ""; filter: drop-shadow(1px 1px 0 #101914); }
-  .chat-size-icon::before { top: 0; right: 0; border-bottom: 0; border-left: 0; }
-  .chat-size-icon::after { bottom: 0; left: 0; border-top: 0; border-right: 0; }
-  #chatSizeToggle[aria-expanded="true"] .chat-size-icon::before { top: 3px; right: 3px; }
-  #chatSizeToggle[aria-expanded="true"] .chat-size-icon::after { bottom: 3px; left: 3px; }
+  .chat-size-icon::before { position: absolute; inset: 2px 1px; background: #fff; content: ""; clip-path: polygon(0 0, 100% 50%, 0 100%, 22% 50%); filter: drop-shadow(1px 1px 0 #101914); }
+  #chatSizeToggle[aria-expanded="true"] .chat-size-icon::before { transform: rotate(180deg); }
 
   #saveNameBtn,
   #chatForm button {
@@ -907,7 +903,7 @@
   .duel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
   .duel-stat-name { color: var(--gold); font-weight: 900; }
-  #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; font-size: 13px; line-height: 1; }
+  #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; border-color: transparent; background: transparent; font-size: 13px; line-height: 1; }
   .duel-replay-play-icon { display: block; width: 25px; height: 25px; background: center / contain no-repeat url("duel-replay-play-medallion-v1.png"); mix-blend-mode: screen; -webkit-text-stroke: 0; text-shadow: none; }
   .dragon-result-modal { width: var(--game-window-width); padding: 14px; border-color: rgba(255,101,90,.6); }
   #dragonResult { background: transparent; pointer-events: none; }
@@ -1021,7 +1017,7 @@
   body.is-replaying #duelReplay { display: block; background: transparent; pointer-events: none; }
   body.is-replaying #duelReplayHud { pointer-events: auto; z-index: 11; }
   .secondary-button { margin-left: 6px; background: linear-gradient(#6e797a, #41494a); }
-  .chat-replay { display: grid; place-items: center; width: 34px; min-width: 34px; max-width: 34px; height: 34px; min-height: 34px; max-height: 34px; margin: 0 0 0 5px; padding: 2px; border-width: 1px; border-radius: 5px; background: #304b52; line-height: 1; vertical-align: middle; }
+  .chat-replay { display: grid; place-items: center; width: 34px; min-width: 34px; max-width: 34px; height: 34px; min-height: 34px; max-height: 34px; margin: 0 0 0 5px; padding: 2px; border: 0; border-radius: 5px; background: transparent; line-height: 1; vertical-align: middle; }
   .chat-replay-icon { width: 29px; height: 29px; background: center / contain no-repeat url("duel-replay-play-medallion-v1.png"); mix-blend-mode: screen; -webkit-text-stroke: 0; text-shadow: none; }
 
   @media (max-width: 520px) {
