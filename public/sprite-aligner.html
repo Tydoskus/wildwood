@@ -22,7 +22,7 @@
 <body>
 <main>
   <h1>Sprite Aligner</h1>
-  <p>Reference stays fixed. Candidate overlays in green. Frames play slowly; match each frame center and baseline.</p>
+  <p>Built-in candidate animation with center guides. Pause on a frame, then tune offsets.</p>
   <section class="controls">
     <label>Built-in candidate<select id="candidateSelect">
       <option value="assets/wildwood/player-foxfolk-spritesheet-v1.png">Foxfolk</option>
@@ -34,8 +34,8 @@
     <label>Frame<select id="frame"></select></label>
     <label>X offset <span id="xValue" class="value">0</span><input id="x" type="range" min="-50" max="50" value="0" /></label>
     <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-50" max="50" value="0" /></label>
-    <label>Candidate opacity <span id="opacityValue" class="value">50%</span><input id="opacity" type="range" min="0" max="100" value="50" /></label>
     <label>Zoom <span id="zoomValue" class="value">1×</span><input id="zoom" type="range" min="1" max="4" value="1" /></label>
+    <button id="playPause" type="button" aria-pressed="true">pause animation</button>
   </section>
   <canvas id="canvas" width="680" height="680"></canvas>
   <output id="result">Loading Foxfolk.</output>
@@ -47,26 +47,27 @@
   const candidate = new Image();
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
-  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), opacity = document.getElementById("opacity"), zoom = document.getElementById("zoom"), result = document.getElementById("result");
+  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), zoom = document.getElementById("zoom"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
+  let playing = true;
   for (let row = 0; row < 4; row += 1) for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(row * 4 + column); option.textContent = `${["DOWN", "LEFT", "RIGHT", "UP"][row]} · walk ${column + 1}`; frame.append(option); }
   function value(id, value, suffix = "") { document.getElementById(id).textContent = `${value}${suffix}`; }
   function draw() {
-    value("xValue", x.value); value("yValue", y.value); value("opacityValue", opacity.value, "%"); value("zoomValue", zoom.value, "×");
+    value("xValue", x.value); value("yValue", y.value); value("zoomValue", zoom.value, "×");
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#162419"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     const scale = Number(zoom.value), size = 280 * scale, cell = reference.naturalWidth / 4, index = Number(frame.value), sourceX = index % 4 * cell, sourceY = Math.floor(index / 4) * cell, left = Math.round((canvas.width - size) / 2), top = Math.round((canvas.height - size) / 2);
     ctx.imageSmoothingEnabled = false;
-    if (reference.complete) { ctx.globalAlpha = .75; ctx.drawImage(reference, sourceX, sourceY, cell, cell, left, top, size, size); }
-    if (candidate.complete && candidate.naturalWidth) { ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = Number(opacity.value) / 100; ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + Number(x.value) * scale, top + Number(y.value) * scale, size, size); ctx.globalCompositeOperation = "source-over"; }
+    if (candidate.complete && candidate.naturalWidth) ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + Number(x.value) * scale, top + Number(y.value) * scale, size, size);
     ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
     result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${candidateSelect.options[candidateSelect.selectedIndex].text}\nframe ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Loading candidate sheet.";
   }
   file.addEventListener("change", () => { const selected = file.files[0]; if (selected) candidate.src = URL.createObjectURL(selected); });
   candidateSelect.addEventListener("change", () => { candidate.src = candidateSelect.value; });
   candidate.addEventListener("load", draw); reference.addEventListener("load", draw);
-  [frame, x, y, opacity, zoom].forEach((control) => control.addEventListener("input", draw));
+  [frame, x, y, zoom].forEach((control) => control.addEventListener("input", draw));
   document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(result.textContent); });
   candidate.src = candidateSelect.value;
-  window.setInterval(() => { frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; draw(); }, 650);
+  playPause.addEventListener("click", () => { playing = !playing; playPause.textContent = playing ? "pause animation" : "play animation"; playPause.setAttribute("aria-pressed", String(playing)); });
+  window.setInterval(() => { if (!playing) return; frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; draw(); }, 650);
   draw();
 </script>
 </body>
