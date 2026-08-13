@@ -17,7 +17,7 @@ export type EnemyDefinition = {
 const enemyTypes = {
   Bramble: {
     hp: 42, speed: 210, damage: 14, attackSpeed: 1, r: 14,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 14 },
+    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 28 },
   },
   Needle: {
     hp: 90, speed: 210, damage: 24, attackSpeed: 1, r: 10,
@@ -25,7 +25,7 @@ const enemyTypes = {
   },
   Mossback: {
     hp: 380, speed: 210, damage: 29, attackSpeed: 1, r: 22,
-    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 1 },
+    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 5 },
   },
   Spitter: {
     hp: 24, speed: 210, damage: 48, attackSpeed: 1, r: 15,
@@ -41,7 +41,7 @@ const enemyTypes = {
   },
   "King Slime": {
     hp: 920, speed: 190, damage: 143, attackSpeed: 1, r: 27,
-    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 176 },
+    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 352 },
     elite: true, aggro: 300,
   },
   "Dread Warden": {

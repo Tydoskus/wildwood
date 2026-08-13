@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.292": [
+    "Tutorial Forest Mossbacks now reward +5 armor",
+    "Tutorial Forest health-reward enemies now grant double health",
+  ],
   "0.291": [
     "Player HUD and toolbar now share one clean border treatment without a shadow seam",
   ],
