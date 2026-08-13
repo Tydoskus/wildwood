@@ -35,8 +35,6 @@ export function renderProfileStats(
     ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
     ["REGEN", `${progress.regen.toFixed(1)}/s`],
     ["MOVE SPEED", Math.round(progress.speed).toLocaleString()],
-    ["PROJECTILE SPEED", Math.round(progress.projectileSpeed).toLocaleString()],
-    ["PROJECTILES", String(progress.projectileCount)],
   ];
   statGrid.replaceChildren();
   for (const [label, value] of stats) {

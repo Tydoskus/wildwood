@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.280": [
+    "Player projectiles now always travel at 1,000 speed",
+    "Projectile speed and projectile count are hidden from player profile stats",
+  ],
   "0.279": [
     "First Dragon victory now unlocks Beginner Desert through a cinematic portal reveal",
     "The camera pans to the Forest portal while player input pauses, then play resumes",

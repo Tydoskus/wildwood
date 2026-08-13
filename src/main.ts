@@ -10,7 +10,6 @@ import {
   BOSS_RAIN_RANGE,
   ENEMY_HIT_MIN_MOVE_SPEED,
   ENEMY_HIT_SPEED_RECOVERY_SECONDS,
-  MAX_PROJECTILE_SPEED,
   PLAYER_KNOCKBACK_FORCE,
   PLAYER_SPRITE_CENTER_X_SHIFT,
   PLAYER_SPRITE_X_OFFSETS,
@@ -125,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.279";
+  const GAME_VERSION = "0.280";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -843,7 +842,7 @@ import {
     player.maxHp = number(source.maxHp, player.maxHp, 1, 1_000_000_000);
     player.damage = number(source.damage, player.damage, 1, 1000000);
     player.attackRate = number(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
-    player.projectileSpeed = number(source.projectileSpeed, player.projectileSpeed, BASE_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED);
+    player.projectileSpeed = BASE_PROJECTILE_SPEED;
     player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
     player.attackRange = BASE_ATTACK_RANGE;
     player.armor = number(source.armor, player.armor, 0, MAX_ARMOR);

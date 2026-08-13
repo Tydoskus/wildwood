@@ -7,6 +7,7 @@ export const PLAYER_SPAWN = { x: 360, y: 360 } as const;
 export const PLAYER_RADIUS = 17;
 export const PLAYER_BASE_HP = 100;
 export const PLAYER_SPEED = 180;
+export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
 export const MIN_ATTACK_INTERVAL = .32;
