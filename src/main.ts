@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.328";
+  const GAME_VERSION = "0.329";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -559,9 +559,9 @@ import {
 
   const PLAYER_SPRITE_SOURCES = [
     "assets/wildwood/wildwood-player-spritesheet-flat-v1.png",
-    "assets/wildwood/player-foxfolk-spritesheet-v1.png",
-    "assets/wildwood/player-mushroomfolk-spritesheet-v1.png",
-    "assets/wildwood/player-newtfolk-spritesheet-v1.png",
+    "assets/wildwood/player-foxfolk-spritesheet-v3.png",
+    "assets/wildwood/player-mushroomfolk-spritesheet-v3.png",
+    "assets/wildwood/player-newtfolk-spritesheet-v3.png",
   ] as const;
   const playerSprites = PLAYER_SPRITE_SOURCES.map(() => new Image());
   const playerSprite = playerSprites[0];

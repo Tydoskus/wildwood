@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.329": [
+    "Aligned every alternate character animation frame to the original sprite centers and ground baseline.",
+  ],
   "0.328": [
     "Game updates now show a clear handoff screen before the latest version loads",
     "Account sign-in keeps its loading state while your character opens",
@@ -304,6 +307,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
+  "0.329": "AUG 13, 2026",
   "0.328": "AUG 13, 2026",
 };
 
