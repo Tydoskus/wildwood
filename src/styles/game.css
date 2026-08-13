@@ -605,7 +605,10 @@
     height: 225px;
     max-height: 225px;
     overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
+  #chatPanel.is-large #chatMessages::-webkit-scrollbar { display: none; width: 0; height: 0; }
   #chatPanel.is-large { width: min(420px, calc(100vw - 12px)); }
   #chatPanel:not(.is-large) #chatForm { display: none; }
   #chatPanel:not(.is-large) .chat-line { display: none; }
