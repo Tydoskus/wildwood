@@ -1,5 +1,7 @@
+import { DEFAULT_ATTACK_RANGE, WORLD_HEIGHT, WORLD_WIDTH } from "../../shared/rules";
+
 export const TAU = Math.PI * 2;
-export const WORLD = { w: 4800, h: 4800 };
+export const WORLD = { w: WORLD_WIDTH, h: WORLD_HEIGHT };
 export const BOSS_ENEMY_SAFE_DISTANCE = 900;
 export const BOSS_AGGRO_RANGE = 1150;
 export const BOSS_CONE_RANGE = 760;
@@ -8,7 +10,7 @@ export const BOSS_RAIN_RANGE = 135;
 export const BASE_PROJECTILE_SPEED = 390;
 export const MAX_PROJECTILE_SPEED = BASE_PROJECTILE_SPEED * 7;
 export const PLAYER_KNOCKBACK_FORCE = 90;
-export const BASE_ATTACK_RANGE = 200;
+export const BASE_ATTACK_RANGE = DEFAULT_ATTACK_RANGE;
 export const ATTACK_RANGE_ZOOM_REFERENCE = 155;
 export const MIN_CAMERA_ZOOM = 0.5;
 export const ENEMY_SPEED_MULTIPLIER = 3;

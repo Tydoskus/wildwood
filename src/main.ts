@@ -60,6 +60,14 @@ import {
 import { createChatController } from "./ui/chat";
 import { renderInventoryView, renderPlayerHud } from "./ui/hud";
 import { formatCompactNumber } from "./ui/number-format";
+import {
+  BOOTS_SPEED_BONUS,
+  DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
+  MAX_ARMOR,
+  MIN_ATTACK_INTERVAL,
+  PLAYER_BASE_HP as BASE_PLAYER_HP,
+  PLAYER_SPEED as BASE_PLAYER_SPEED,
+} from "../shared/rules";
 
 (() => {
   "use strict";
@@ -69,13 +77,7 @@ import { formatCompactNumber } from "./ui/number-format";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
-  const BOOTS_SPEED_BONUS = 25;
-  const BASE_PLAYER_HP = 100;
-  const BASE_PLAYER_SPEED = 180;
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
-  const STARTING_ATTACK_INTERVAL = 1.56;
-  const MIN_ATTACK_INTERVAL = .32;
-  const MAX_ARMOR = 1_000_000_000_000;
   const WORLD_HEALTH_BAR_HEIGHT = 13;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;

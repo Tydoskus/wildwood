@@ -1,6 +1,25 @@
 import { DbConnection, tables, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
+import { createDuelCooldownStore } from "./coop/services/duel-cooldown-store";
+import {
+  copyProgress,
+  mergeProgress,
+  progressCovers,
+  sameProgressSave,
+  type PlayerProgress,
+  type ProgressSave,
+} from "./coop/services/progress";
+import { createProgressStore } from "./coop/services/progress-store";
+import {
+  BEGINNER_DESERT_MAP_ID,
+  NAME_ADJECTIVES,
+  NAME_CREATURES,
+  PROTOCOL_VERSION,
+  SPACETIME_AUTH_CLIENT_ID,
+  SPACETIME_AUTH_ISSUER,
+  TUTORIAL_FOREST_MAP_ID,
+} from "../shared/rules";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -41,22 +60,7 @@ export type ChatMessage = {
   sentAtMs: number;
 };
 
-export type PlayerProgress = {
-  maxHp: number;
-  damage: number;
-  attackRate: number;
-  projectileSpeed: number;
-  projectileCount: number;
-  attackRange: number;
-  armor: number;
-  regen: number;
-  speed: number;
-  bootsCollected: boolean;
-  inventoryJson: string;
-  equippedFeet: string;
-  introComplete: boolean;
-  desertUnlocked: boolean;
-};
+export type { PlayerProgress } from "./coop/services/progress";
 
 export type PlayerLifetime = {
   joinedAtMs: number;
@@ -119,8 +123,6 @@ export type DragonResult = {
   contributors: DragonContributor[];
   createdAtMs: number;
 };
-
-type ProgressSave = Omit<PlayerProgress, "introComplete" | "desertUnlocked"> & { enemyKills: number };
 
 export type DuelState = {
   id: bigint;
@@ -191,24 +193,12 @@ const NEARBY_MOVEMENT_HZ = 15;
 const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
-const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
-const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_INTERPOLATION_DELAY_MS = 100;
 const REMOTE_SAMPLE_LIMIT = 8;
-const PROTOCOL_VERSION = 30;
-const MAX_ARMOR = 1_000_000_000_000;
 const DUEL_COOLDOWN_MS = 120_000;
 const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
-const DEFAULT_ATTACK_RANGE = 200;
-const DEFAULT_ATTACK_INTERVAL = 1.56;
-const MIN_ATTACK_INTERVAL = .32;
-const ATTACK_BALANCE_VERSION = 1;
-const MIN_PROJECTILE_SPEED = 390;
-const MAX_PROJECTILE_SPEED = 2730;
-const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
-const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
 const runtime = window as WildwoodRuntime;
 const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -228,11 +218,11 @@ const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
 const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
 const authReturnUiKey = `${tokenKey}/spacetimeauth_return_ui_v1`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
-const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
-const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 const SPACETIME_AUTHORIZATION_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/auth`;
 const SPACETIME_AUTH_TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const SPACETIME_AUTH_SCOPE = "openid profile email";
+const duelCooldownStore = createDuelCooldownStore(localStorage, DUEL_COOLDOWN_KEY_PREFIX);
+const progressStore = createProgressStore(localStorage, pendingProgressKey);
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const profileIcons = new Map<string, number>();
@@ -315,18 +305,11 @@ function reducerErrorMessage(error: unknown) {
 
 function rememberDuelCooldown(until: number) {
   duelCooldownUntil = until;
-  if (!localIdentity) return;
-  try { localStorage.setItem(`${DUEL_COOLDOWN_KEY_PREFIX}${localIdentity}`, String(until)); } catch {}
+  duelCooldownStore.write(localIdentity, until);
 }
 
 function restoreDuelCooldown() {
-  if (!localIdentity) return;
-  try {
-    const saved = Number(localStorage.getItem(`${DUEL_COOLDOWN_KEY_PREFIX}${localIdentity}`));
-    duelCooldownUntil = Number.isFinite(saved) ? Math.max(0, saved) : 0;
-  } catch {
-    duelCooldownUntil = 0;
-  }
+  duelCooldownUntil = duelCooldownStore.read(localIdentity);
 }
 
 function touchServerActivity() {
@@ -751,99 +734,14 @@ async function restoreKnownAccount() {
   wildwoodCoop.connect();
 }
 
-function bounded(value: number, min: number, max: number, fallback: number) {
-  return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
-}
-
-function copyProgress(progress: ProgressSave): ProgressSave {
-  return {
-    maxHp: bounded(progress.maxHp, 1, 1_000_000_000, 100),
-    damage: bounded(progress.damage, 1, 1_000_000, 4),
-    attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
-    projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
-    projectileCount: Number.isInteger(progress.projectileCount)
-      ? Math.max(1, Math.min(20, progress.projectileCount))
-      : 1,
-    attackRange: DEFAULT_ATTACK_RANGE,
-    armor: bounded(progress.armor, 0, MAX_ARMOR, 0),
-    regen: bounded(progress.regen, 0, 1_000_000, 0),
-    speed: bounded(progress.speed, 1, 2_000, 180),
-    bootsCollected: progress.bootsCollected,
-    inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
-    equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
-    enemyKills: Number.isInteger(progress.enemyKills)
-      ? Math.max(0, Math.min(4_294_967_295, progress.enemyKills))
-      : 0,
-  };
-}
-
-function isProgressSave(value: unknown): value is ProgressSave {
-  if (!value || typeof value !== "object") return false;
-  const progress = value as Record<string, unknown>;
-  return [
-    progress.maxHp,
-    progress.damage,
-    progress.attackRate,
-    progress.projectileSpeed,
-    progress.attackRange,
-    progress.armor,
-    progress.regen,
-    progress.speed,
-  ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) &&
-    typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
-    typeof progress.equippedFeet === "string" &&
-    (progress.enemyKills === undefined || Number.isInteger(progress.enemyKills));
-}
-
-function pendingProgressStorageKey(identity: string) {
-  return `${pendingProgressKey}/${identity}`;
-}
-
 function readPendingProgress(identity: string): ProgressSave | null {
-  try {
-    const scopedKey = pendingProgressStorageKey(identity);
-    let serialized = localStorage.getItem(scopedKey);
-    if (!serialized) {
-      const legacy = localStorage.getItem(pendingProgressKey);
-      if (legacy) {
-        const legacyCandidate = JSON.parse(legacy) as { identity?: unknown } | null;
-        if (legacyCandidate?.identity === identity) {
-          serialized = legacy;
-          localStorage.setItem(scopedKey, legacy);
-          localStorage.removeItem(pendingProgressKey);
-        }
-      }
-    }
-    const candidate = JSON.parse(serialized || "null");
-    if (!candidate || typeof candidate !== "object") return null;
-    const pending = candidate as { identity?: unknown; balanceVersion?: unknown; progress?: unknown };
-    if (pending.identity !== identity || !isProgressSave(pending.progress)) return null;
-    const rawProgress = pending.progress as ProgressSave;
-    const progress = pending.balanceVersion === ATTACK_BALANCE_VERSION
-      ? copyProgress(rawProgress)
-      : copyProgress({
-          ...rawProgress,
-          attackRate: bounded(rawProgress.attackRate * 2, MIN_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL),
-        });
-    if (pending.balanceVersion !== ATTACK_BALANCE_VERSION) {
-      localStorage.setItem(scopedKey, JSON.stringify({ identity, balanceVersion: ATTACK_BALANCE_VERSION, progress }));
-    }
-    return progress;
-  } catch {
-    return null;
-  }
+  return progressStore.read(identity);
 }
 
 function persistPendingProgress(progress: ProgressSave) {
   pendingProgress = copyProgress(progress);
   if (!localIdentity) return;
-  try {
-    localStorage.setItem(pendingProgressStorageKey(localIdentity), JSON.stringify({
-      identity: localIdentity,
-      balanceVersion: ATTACK_BALANCE_VERSION,
-      progress: pendingProgress,
-    }));
-  } catch {}
+  pendingProgress = progressStore.write(localIdentity, pendingProgress);
 }
 
 function clearPendingProgress(identity = localIdentity) {
@@ -851,47 +749,7 @@ function clearPendingProgress(identity = localIdentity) {
     pendingProgress = null;
     progressSaveInFlightUntil = 0;
   }
-  try {
-    if (identity) localStorage.removeItem(pendingProgressStorageKey(identity));
-    const candidate = JSON.parse(localStorage.getItem(pendingProgressKey) || "null");
-    if (!candidate || candidate.identity === identity) localStorage.removeItem(pendingProgressKey);
-  } catch {}
-}
-
-function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
-  const epsilon = 0.0001;
-  return saved.maxHp >= pending.maxHp &&
-    saved.damage >= pending.damage &&
-    saved.attackRate <= pending.attackRate + epsilon &&
-    saved.projectileSpeed >= pending.projectileSpeed &&
-    saved.projectileCount >= pending.projectileCount &&
-    Math.abs(saved.attackRange - pending.attackRange) <= epsilon &&
-    saved.armor >= pending.armor &&
-    saved.regen >= pending.regen &&
-    saved.speed >= pending.speed &&
-    (!pending.bootsCollected || saved.bootsCollected) &&
-    saved.inventoryJson === pending.inventoryJson && saved.equippedFeet === pending.equippedFeet;
-}
-
-function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
-  return {
-    ...saved,
-    maxHp: Math.max(saved.maxHp, pending.maxHp),
-    damage: Math.max(saved.damage, pending.damage),
-    attackRate: Math.min(saved.attackRate, pending.attackRate),
-    projectileSpeed: Math.max(saved.projectileSpeed, pending.projectileSpeed),
-    projectileCount: Math.max(saved.projectileCount, pending.projectileCount),
-    armor: Math.max(saved.armor, pending.armor),
-    regen: Math.max(saved.regen, pending.regen),
-    speed: Math.max(saved.speed, pending.speed),
-    bootsCollected: saved.bootsCollected || pending.bootsCollected,
-    inventoryJson: pending.inventoryJson,
-    equippedFeet: pending.equippedFeet,
-  };
-}
-
-function sameProgressSave(a: ProgressSave, b: ProgressSave) {
-  return JSON.stringify(copyProgress(a)) === JSON.stringify(copyProgress(b));
+  progressStore.clear(identity);
 }
 
 function flushPendingProgressAsync(force = false): Promise<boolean> {

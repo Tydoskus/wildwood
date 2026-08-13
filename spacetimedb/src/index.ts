@@ -1,31 +1,39 @@
 import { schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
+import {
+  ATTACK_BALANCE_VERSION,
+  BEGINNER_DESERT_MAP_ID,
+  BOOTS_SPEED_BONUS,
+  DEFAULT_ATTACK_INTERVAL,
+  DEFAULT_ATTACK_RANGE,
+  MAP_IDS,
+  MAX_ARMOR,
+  MIN_ATTACK_INTERVAL,
+  NAME_ADJECTIVES,
+  NAME_CREATURES,
+  PLAYER_BASE_HP,
+  PLAYER_RADIUS,
+  PLAYER_SPAWN,
+  PLAYER_SPEED,
+  PROTOCOL_VERSION,
+  SPACETIME_AUTH_CLIENT_ID,
+  SPACETIME_AUTH_ISSUER,
+  TRAILBLAZER_BOOTS,
+  TUTORIAL_FOREST_MAP_ID,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+} from "../../shared/rules";
 
-const WORLD = { width: 4800, height: 4800 };
+const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
 const PLAYER_ZONE_SIZE = 600;
-const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
-const BEGINNER_DESERT_MAP_ID = "beginner_desert";
-const VALID_MAP_IDS = new Set([TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID]);
-const PLAYER_RADIUS = 17;
-const PLAYER_BASE_HP = 100;
-const PLAYER_SPEED = 180;
-const DEFAULT_ATTACK_RANGE = 200;
-const PROTOCOL_VERSION = 30;
-const MAX_ARMOR = 1_000_000_000_000;
-const ATTACK_BALANCE_VERSION = 1;
-const DEFAULT_ATTACK_INTERVAL = 1.56;
-const MIN_ATTACK_INTERVAL = .32;
-const TRAILBLAZER_BOOTS = "trailblazer_boots";
-const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
-const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
+const VALID_MAP_IDS = new Set<string>(MAP_IDS);
 const DEVELOPER_IDENTITY_HEX = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
 const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 // Maincloud database owner. CLI maintenance calls run as this identity, while
 // in-game developer actions run as DEVELOPER_IDENTITY above.
 const DATABASE_OWNER_IDENTITY_HEX = "c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
-const PLAYER_SPAWN = { x: 360, y: 360 };
 const MAP_PORTALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID },
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
@@ -35,7 +43,6 @@ const MAP_ARRIVALS = {
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
-const BOOTS_SPEED_BONUS = 25;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
 const CHAT_HISTORY_RETENTION_MICROS = 10_800_000_000n;
@@ -75,8 +82,6 @@ const SPIDER_RESPAWN_MICROS = 30_000_000n;
 const BOSS_REGEN_DELAY_MICROS = 180_000_000n;
 const BOSS_REGEN_FRACTION_PER_MAINTENANCE = .05;
 
-const NAME_ADJECTIVES = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
-const NAME_CREATURES = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
 
 const player = table(
   {

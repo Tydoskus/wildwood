@@ -22,9 +22,11 @@ Keep static definitions and pure calculations outside `main.ts`. Keep mutable co
 ## Required change rules
 
 - Change source files under `src/`; never edit generated browser bundles or SpacetimeDB bindings by hand.
-- Run `npm run build:client` before every player-facing commit.
+- Keep only runtime-loaded media under `public/assets/`; place original or unused vendor art under `art-source/`.
+- Run `npm run build:client` before every player-facing commit. Generated `dist/` files are never committed; GitHub Pages builds the same artifact in CI.
 - Run `npm run typecheck:coop`, strict checks for new modules, `node --check` on both bundles, and `git diff --check`.
-- Update all release/cache versions together: `src/main.ts`, `version.json`, and every version reference in `index.html`.
+- Run `npm run test:unit` when changing combat, inventory, duel replay, or progress persistence rules.
+- Use `npm run release -- <version>` for release/cache versions, then add the matching entry in `src/app/changelog.ts`.
 - For incompatible server changes, update both protocol constants, publish Maincloud, regenerate bindings when reducer/schema signatures change, then deploy the matching client.
 - Never publish production with destructive database flags.
 - Keep pending saves scoped to player identity. Never share browser-pending progress across guest and account identities.
@@ -40,7 +42,7 @@ Keep static definitions and pure calculations outside `main.ts`. Keep mutable co
 
 ### Next architectural work
 
-1. Split `src/wildwood-coop.ts` into connection/auth, progress persistence, player presence, chat, and duel services. It remains over 1,100 lines and owns unrelated lifecycles.
+1. Continue splitting `src/wildwood-coop.ts` into connection/auth, player presence, chat, and duel services. Progress rules, storage migration, and duel cooldown storage now live in `src/coop/services/`; connection lifecycle remains in the façade.
 2. Split `spacetimedb/src/index.ts` by table/reducer domain where the SpacetimeDB module toolchain permits it: identity/profile, presence, progression, chat, and duels.
 3. Replace duel lookup scans with indexed lookup tables or explicit participant indexes. Several reducers iterate the duel table to locate a participant.
 4. Remove `// @ts-nocheck` from `src/main.ts` incrementally. Add typed runtime state models first, then type combat and render boundaries.

@@ -6,9 +6,9 @@ export default defineConfig({
       entry: "src/main.ts",
       name: "WildwoodGame",
       formats: ["iife"],
-      fileName: () => "game.js",
+      fileName: () => "assets/wildwood/game.js",
     },
-    outDir: "assets/wildwood",
+    outDir: "dist",
     emptyOutDir: false,
     minify: false,
     rollupOptions: {

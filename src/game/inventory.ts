@@ -1,4 +1,6 @@
-export const TRAILBLAZER_BOOTS = "trailblazer_boots";
+import { TRAILBLAZER_BOOTS } from "../../shared/rules";
+
+export { TRAILBLAZER_BOOTS };
 
 export type InventoryState = {
   itemIds: string[];
