@@ -131,7 +131,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const frameStep = Math.floor(options.getGameTime() * 10) % 30;
       const frame = frameStep <= 15 ? frameStep : 30 - frameStep;
       const cell = options.portalSwirl.naturalWidth / 4;
-      const width = Math.round(portal.width * .59 * 1.265);
+      const width = Math.round(portal.width * .59 * 1.265 * 1.05);
       const height = Math.round(portal.height * .75 * 1.265);
       ctx.save();
       ctx.globalAlpha = portalIntensity;

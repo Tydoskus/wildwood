@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.300": [
+    "Dragon portal cutscene now triggers correctly after your first Dragon defeat",
+    "Profile portraits now center their crop correctly in every UI frame",
+    "Portal energy now fills the arch five percent wider",
+  ],
   "0.299": [
     "Profile portraits now use a precise 3% center crop, removing the inset-frame look",
   ],

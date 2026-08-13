@@ -5,6 +5,7 @@ const CHAT_DISPLAY_TTL_MS = 10_800_000;
 const CHAT_COOLDOWN_MS = 3_000;
 const PROFILE_PORTRAIT_ZOOM = 1.03;
 const PROFILE_PORTRAIT_POSITION_STEP = PROFILE_PORTRAIT_ZOOM / (8 * PROFILE_PORTRAIT_ZOOM - 1) * 100;
+const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (8 * PROFILE_PORTRAIT_ZOOM - 1) * 100;
 const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
 
 type ChatMessage = {
@@ -169,7 +170,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         activateMessage(event);
       });
       const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(message.sender) ?? 0)));
-      icon.style.backgroundPosition = `${(iconIndex % 8) * PROFILE_PORTRAIT_POSITION_STEP}% ${Math.floor(iconIndex / 8) * PROFILE_PORTRAIT_POSITION_STEP}%`;
+      icon.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + (iconIndex % 8) * PROFILE_PORTRAIT_POSITION_STEP}% ${PROFILE_PORTRAIT_POSITION_START + Math.floor(iconIndex / 8) * PROFILE_PORTRAIT_POSITION_STEP}%`;
       line.append(time, icon, name, text);
       if (isDuelMessage) {
         line.classList.add("has-replay");

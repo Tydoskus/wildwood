@@ -124,16 +124,17 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.299";
+  const GAME_VERSION = "0.300";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
-  const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v1";
+  const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const WORLD_HEALTH_BAR_HEIGHT = 15;
   const PROFILE_PORTRAIT_ZOOM = 1.03;
   const PROFILE_PORTRAIT_GRID = 8;
+  const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
   const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
   const DRAGON_HP_LOSS_FLASH_DURATION = .18;
   const DRAGON_CONE_WINDUP = .75;
@@ -813,9 +814,6 @@ import {
     if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
     const saved = coop.savedProgress();
     if (!saved) return;
-    if (saved.desertUnlocked) {
-      try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
-    }
     const lifetime = coop.playerProfile?.(progressIdentity)?.lifetime;
     if (lifetime) {
       totalKills = progressIdentity === lifetimeKillsIdentity
@@ -1322,7 +1320,6 @@ import {
     touchMove.active = false;
     cutsceneOverlayEl.hidden = false;
     document.body.classList.add("is-cutscene");
-    try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
   }
 
   function updatePortalCutscene(dt: number) {
@@ -1338,6 +1335,7 @@ import {
     portalCutsceneDestinationVisible = false;
     cutsceneOverlayEl.hidden = true;
     document.body.classList.remove("is-cutscene");
+    try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
     const result = queuedDragonResult;
     queuedDragonResult = null;
     if (result) showDragonResult(result);
@@ -2510,7 +2508,7 @@ import {
     const column = index % 8;
     const row = Math.floor(index / 8);
     const positionStep = PROFILE_PORTRAIT_ZOOM / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
-    element.style.backgroundPosition = `${column * positionStep}% ${row * positionStep}%`;
+    element.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + column * positionStep}% ${PROFILE_PORTRAIT_POSITION_START + row * positionStep}%`;
     element.dataset.profileIcon = String(index);
   }
 
