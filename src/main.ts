@@ -124,7 +124,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.322";
+  const GAME_VERSION = "0.323";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -1019,7 +1019,7 @@ import {
     showCurrentUpdateNotice();
   }
 
-  function showSigningIn() {
+  function showSigningIn(detail = "LOADING YOUR CHARACTER…") {
     if (!isSignInScreenReady()) {
       if (connectionPanel.hidden) showConnecting();
       return;
@@ -1037,7 +1037,7 @@ import {
     }
     if (signInFromStartBtn) signInFromStartBtn.hidden = true;
     if (continueGuestBtn) continueGuestBtn.hidden = true;
-    if (accountChoiceDetail) accountChoiceDetail.textContent = "LOADING YOUR CHARACTER…";
+    if (accountChoiceDetail) accountChoiceDetail.textContent = detail;
   }
 
   function updateLoadingDetail() {
@@ -3819,13 +3819,9 @@ import {
   signInFromStartBtn?.addEventListener("click", () => {
     const characterFound = Boolean(coop?.knownCharacter?.());
     accountSignInPending = true;
-    showAccountChoice();
-    accountChoiceDetail.textContent = characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…";
+    showSigningIn(characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…");
     void coop?.signIn?.().then((result) => {
-      if (result?.ok !== false) {
-        showConnecting();
-        return;
-      }
+      if (result?.ok !== false) return;
       accountSignInPending = false;
       showAccountChoice();
       accountChoiceDetail.textContent = characterFound
@@ -4035,10 +4031,10 @@ import {
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) syncDragonState();
       finishStartup();
       const account = coop?.accountState?.();
+      if (account?.signedIn) accountSignInPending = false;
       updateProtocolGate(account);
       if (account?.sessionConflict) showSessionConflict();
-      else if (account?.returningFromSignIn) showSigningIn();
-      else if (!hasStarted && account?.signedIn && !account?.hydrated) showConnecting();
+      else if (!hasStarted && (account?.returningFromSignIn || account?.authInProgress || accountSignInPending || (account?.signedIn && !account?.hydrated))) showSigningIn();
       else if (!hasStarted && !account?.signedIn && !account?.authInProgress) showAccountChoice();
       chat.refresh();
       updateDuelControls();
