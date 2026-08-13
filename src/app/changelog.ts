@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.330": [
+    "Sprite Aligner now previews the same frame anchors used in the game and tunes each frame separately.",
+  ],
   "0.329": [
     "Aligned every alternate character animation frame to the original sprite centers and ground baseline.",
   ],
@@ -307,6 +310,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
+  "0.330": "AUG 13, 2026",
   "0.329": "AUG 13, 2026",
   "0.328": "AUG 13, 2026",
 };

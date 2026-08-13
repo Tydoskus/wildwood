@@ -31,6 +31,9 @@
       <option value="assets/wildwood/wildwood-player-spritesheet-flat-v1.png">Original player</option>
     </select></label>
     <label>Or local PNG<input id="file" type="file" accept="image/png" /></label>
+    <label>Direction<select id="direction">
+      <option value="0">DOWN</option><option value="1">LEFT</option><option value="2">RIGHT</option><option value="3">UP</option>
+    </select></label>
     <label>Frame<select id="frame"></select></label>
     <label>X offset <span id="xValue" class="value">0</span><input id="x" type="range" min="-50" max="50" value="0" /></label>
     <label>Y offset <span id="yValue" class="value">0</span><input id="y" type="range" min="-50" max="50" value="0" /></label>
@@ -47,27 +50,36 @@
   const candidate = new Image();
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
-  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), zoom = document.getElementById("zoom"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
+  const file = document.getElementById("file"), candidateSelect = document.getElementById("candidateSelect"), direction = document.getElementById("direction"), frame = document.getElementById("frame"), x = document.getElementById("x"), y = document.getElementById("y"), zoom = document.getElementById("zoom"), result = document.getElementById("result"), playPause = document.getElementById("playPause");
   let playing = true;
-  for (let row = 0; row < 4; row += 1) for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(row * 4 + column); option.textContent = `${["DOWN", "LEFT", "RIGHT", "UP"][row]} · walk ${column + 1}`; frame.append(option); }
+  const frameXOffsets = [[0, 14, 28, 41], [0, 16, 28, 34], [0, 16, 27, 40], [0, 14, 28, 41]];
+  const rowYOffsets = [-6, 2, 2, 4];
+  const centerXShift = -6;
+  const frameAdjustments = Array.from({ length: 16 }, () => ({ x: 0, y: 0 }));
+  for (let column = 0; column < 4; column += 1) { const option = document.createElement("option"); option.value = String(column); option.textContent = `walk ${column + 1}`; frame.append(option); }
+  function selectedFrameIndex() { return Number(direction.value) * 4 + Number(frame.value); }
+  function syncFrameControls() { const adjustment = frameAdjustments[selectedFrameIndex()]; x.value = adjustment.x; y.value = adjustment.y; }
   function value(id, value, suffix = "") { document.getElementById(id).textContent = `${value}${suffix}`; }
   function draw() {
     value("xValue", x.value); value("yValue", y.value); value("zoomValue", zoom.value, "×");
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#162419"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scale = Number(zoom.value), size = 280 * scale, cell = reference.naturalWidth / 4, index = Number(frame.value), sourceX = index % 4 * cell, sourceY = Math.floor(index / 4) * cell, left = Math.round((canvas.width - size) / 2), top = Math.round((canvas.height - size) / 2);
+    const scale = Number(zoom.value), size = 280 * scale, cell = reference.naturalWidth / 4, row = Number(direction.value), walkFrame = Number(frame.value), sourceX = walkFrame * cell, sourceY = row * cell, left = Math.round((canvas.width - size) / 2), top = Math.round((canvas.height - size) / 2), sourceScale = size / cell, rendererScale = size / 96;
     ctx.imageSmoothingEnabled = false;
-    if (candidate.complete && candidate.naturalWidth) ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + Number(x.value) * scale, top + Number(y.value) * scale, size, size);
+    if (candidate.complete && candidate.naturalWidth) ctx.drawImage(candidate, sourceX, sourceY, candidate.naturalWidth / 4, candidate.naturalHeight / 4, left + (frameXOffsets[row][walkFrame] + Number(x.value)) * sourceScale + centerXShift * rendererScale, top + Number(y.value) * sourceScale + rowYOffsets[row] * rendererScale, size, size);
     ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-    result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${candidateSelect.options[candidateSelect.selectedIndex].text}\nframe ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Loading candidate sheet.";
+    result.textContent = candidate.complete && candidate.naturalWidth ? `candidate: ${candidateSelect.options[candidateSelect.selectedIndex].text}\nframe ${direction.options[direction.selectedIndex].text} · ${frame.options[frame.selectedIndex].text}\nsource offset: x ${x.value}px, y ${y.value}px\nrenderer adjustment at 96px: x ${(Number(x.value) * 96 / cell).toFixed(2)}px, y ${(Number(y.value) * 96 / cell).toFixed(2)}px` : "Loading candidate sheet.";
   }
-  file.addEventListener("change", () => { const selected = file.files[0]; if (selected) candidate.src = URL.createObjectURL(selected); });
-  candidateSelect.addEventListener("change", () => { candidate.src = candidateSelect.value; });
+  function resetAdjustments() { frameAdjustments.forEach((adjustment) => { adjustment.x = 0; adjustment.y = 0; }); syncFrameControls(); }
+  file.addEventListener("change", () => { const selected = file.files[0]; if (selected) { resetAdjustments(); candidate.src = URL.createObjectURL(selected); } });
+  candidateSelect.addEventListener("change", () => { resetAdjustments(); candidate.src = candidateSelect.value; });
   candidate.addEventListener("load", draw); reference.addEventListener("load", draw);
-  [frame, x, y, zoom].forEach((control) => control.addEventListener("input", draw));
+  [direction, frame].forEach((control) => control.addEventListener("input", () => { syncFrameControls(); draw(); }));
+  [x, y].forEach((control) => control.addEventListener("input", () => { frameAdjustments[selectedFrameIndex()][control.id] = Number(control.value); draw(); }));
+  zoom.addEventListener("input", draw);
   document.getElementById("copy").addEventListener("click", async () => { await navigator.clipboard.writeText(result.textContent); });
   candidate.src = candidateSelect.value;
   playPause.addEventListener("click", () => { playing = !playing; playPause.textContent = playing ? "pause animation" : "play animation"; playPause.setAttribute("aria-pressed", String(playing)); });
-  window.setInterval(() => { if (!playing) return; frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; draw(); }, 650);
+  window.setInterval(() => { if (!playing) return; frame.selectedIndex = (frame.selectedIndex + 1) % frame.options.length; syncFrameControls(); draw(); }, 650);
   draw();
 </script>
 </body>
