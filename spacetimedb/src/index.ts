@@ -92,7 +92,8 @@ const DRAGON_HIT_RANGE_TOLERANCE = 60;
 const DRAGON_RESPAWN_MICROS = 30_000_000n;
 const SPIDER_ID = 1;
 const SPIDER_MAX_HP = 150_000_000;
-const SPIDER_REWARD_HEALTH = 100_000;
+const SPIDER_REWARD_HEALTH = 200_000;
+const SPIDER_REWARD_DAMAGE = 75_000;
 const SPIDER_RADIUS = 125;
 const SPIDER_POSITION = { x: 4050, y: 4050 };
 const SPIDER_HIT_RANGE_TOLERANCE = 60;
@@ -1205,12 +1206,18 @@ function clearSpiderCombatRows(ctx: any) {
 function rewardSpiderContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
-  const next = { ...current, maxHp: current.maxHp + SPIDER_REWARD_HEALTH, snowlandsUnlocked: true };
+  const next = {
+    ...current,
+    damage: current.damage + SPIDER_REWARD_DAMAGE,
+    maxHp: current.maxHp + SPIDER_REWARD_HEALTH,
+    snowlandsUnlocked: true,
+  };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     ctx.db.player.identity.update({
       ...active,
+      damage: next.damage,
       hp: active.hp + SPIDER_REWARD_HEALTH,
       maxHp: next.maxHp,
       power: powerForProgress(next),

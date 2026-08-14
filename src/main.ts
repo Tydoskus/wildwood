@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.397";
+  const GAME_VERSION = "0.398";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -1521,8 +1521,9 @@ import {
       row.append(name, damage, percentage);
       dragonResultContributors.append(row);
     }
-    logPickup("+100K MAX HEALTH", "#6fe48e");
-    showMessage("+100K MAX HEALTH", "#6fe48e");
+    logPickup("+75K DAMAGE", "#ff655a");
+    logPickup("+200K MAX HEALTH", "#6fe48e");
+    showMessage("+75K DAMAGE · +200K MAX HEALTH", "#f5e9c4");
     dragonResultEl.hidden = false;
   }
 

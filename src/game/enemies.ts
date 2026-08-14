@@ -74,7 +74,7 @@ const enemyTypes = {
   },
   "Blight Oracle": {
     hp: 4_000_000, speed: 210, damage: 40_000, attackSpeed: .6, r: 29,
-    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 220 },
+    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 },
     elite: true, aggro: 300,
   },
 

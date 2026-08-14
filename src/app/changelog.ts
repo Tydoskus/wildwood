@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.398": [
+    "Desert Spider rewards now grant +75K Damage and +200K Max Health to every contributor, while Blight Oracle rewards now grant +320 Regen.",
+  ],
   "0.397": [
     "Frost Raider damage reduced by 50%, and enemy reward labels now show bonus fractions such as +1.05 damage.",
   ],

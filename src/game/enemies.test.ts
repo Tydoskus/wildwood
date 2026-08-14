@@ -8,7 +8,7 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 352 });
     expect(ENEMY_TYPES.Spitter.reward).toEqual({ type: "damage", amount: 1 });
     expect(ENEMY_TYPES["Dune Archer"].reward).toEqual({ type: "health", amount: 8_500 });
-    expect(ENEMY_TYPES["Blight Oracle"].reward).toEqual({ type: "regen", amount: 220 });
+    expect(ENEMY_TYPES["Blight Oracle"].reward).toEqual({ type: "regen", amount: 320 });
     expect(ENEMY_TYPES["Frost Raider"].reward).toEqual({ type: "damage", amount: 240_000 });
     expect(ENEMY_TYPES["Frost Raider"].damage).toBe(2_330_000);
     expect(ENEMY_TYPES["Aurora Oracle"].reward).toEqual({ type: "regen", amount: 161_000 });
