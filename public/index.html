@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.389" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.390" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -129,7 +129,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.389</div>
+        <div id="version">v0.390</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -189,13 +189,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.389</strong></div>
+        <div><strong id="updateNoticeTitle">v0.390</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.389</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.390</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -279,11 +279,11 @@
       <button id="profileSkinToneEdit" class="profile-skin-tone-edit" type="button" aria-label="Change skin tone" title="Change skin tone" hidden>✎</button>
       <div id="profileSkinToneControl" class="profile-skin-tone" role="group" aria-label="Skin tone" hidden></div>
     </div>
-    <div id="profileLeaderboardStats" class="profile-leaderboard-stats" aria-label="Top ten leaderboard stats" hidden></div>
     <button id="profileDuelBtn" class="profile-duel-button" type="button" hidden>DUEL</button>
     <button id="editPlayerSaveBtn" class="secondary-button profile-edit-button" type="button" hidden>EDIT SAVE</button>
     <div class="profile-tabs" role="tablist" aria-label="Player profile sections">
       <button id="profileStatsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileStatsPanel">STATS</button>
+      <button id="profileRankingTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileRankingPanel">RANKING</button>
       <button id="profileOverviewTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileOverviewPanel">INFO</button>
     </div>
     <div id="playerProfileLoading" class="profile-loading">LOADING PLAYER…</div>
@@ -297,6 +297,9 @@
     </section>
     <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
       <dl id="profileStatGrid" class="profile-grid profile-stat-grid"></dl>
+    </section>
+    <section id="profileRankingPanel" class="profile-panel profile-ranking-panel" role="tabpanel" aria-labelledby="profileRankingTab" hidden>
+      <div id="profileLeaderboardStats" class="profile-leaderboard-stats" aria-label="Top ten leaderboard stats" hidden></div>
     </section>
     <section id="profileEditPanel" class="profile-edit-panel" aria-label="Developer save editor" hidden>
       <div class="profile-edit-grid">
@@ -482,7 +485,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.389"></script>
-<script src="assets/wildwood/game.js?v=0.389"></script>
+<script src="assets/wildwood/coop-client.js?v=0.390"></script>
+<script src="assets/wildwood/game.js?v=0.390"></script>
 </body>
 </html>

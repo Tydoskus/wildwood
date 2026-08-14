@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.390": [
+    "Player profiles now have a dedicated Ranking tab, and today’s updates show the correct Aug 14 date.",
+  ],
   "0.389": [
     "Tech Tree now scrolls through future nodes and signals idle or claim-ready research from the toolbar.",
   ],
@@ -529,6 +532,7 @@ const RELEASE_DATES: Record<string, string> = {
 
 function releaseDay(version: string) {
   const numericVersion = Number(version);
+  if (numericVersion >= .376) return "2026-08-14";
   if (numericVersion >= .278) return "2026-08-13";
   if (numericVersion >= .261) return "2026-08-12";
   return null;
@@ -537,6 +541,7 @@ function releaseDay(version: string) {
 export function releaseDate(version: string) {
   if (RELEASE_DATES[version]) return RELEASE_DATES[version];
   const day = releaseDay(version);
+  if (day === "2026-08-14") return "AUG 14, 2026";
   if (day === "2026-08-13") return "AUG 13, 2026";
   if (day === "2026-08-12") return "AUG 12, 2026";
   return "";

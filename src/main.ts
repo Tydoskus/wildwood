@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.389";
+  const GAME_VERSION = "0.390";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -297,8 +297,10 @@ import {
   const playerProfileLoadingEl = requiredElement("playerProfileLoading");
   const profileOverviewTab = requiredElement("profileOverviewTab");
   const profileStatsTab = requiredElement("profileStatsTab");
+  const profileRankingTab = requiredElement("profileRankingTab");
   const profileOverviewPanel = requiredElement("profileOverviewPanel");
   const profileStatsPanel = requiredElement("profileStatsPanel");
+  const profileRankingPanel = requiredElement("profileRankingPanel");
   const profileJoinedEl = requiredElement("profileJoined");
   const profileTimePlayedEl = requiredElement("profileTimePlayed");
   const profileKillsEl = requiredElement("profileKills");
@@ -3369,14 +3371,19 @@ import {
       coop?.remotePlayers?.().some((other) => other.id === identity) === true;
   }
 
-  function setProfileTab(tab: "overview" | "stats") {
+  function setProfileTab(tab: "overview" | "stats" | "ranking") {
     const overview = tab === "overview";
+    const stats = tab === "stats";
+    const ranking = tab === "ranking";
     profileOverviewTab.classList.toggle("is-active", overview);
-    profileStatsTab.classList.toggle("is-active", !overview);
+    profileStatsTab.classList.toggle("is-active", stats);
+    profileRankingTab.classList.toggle("is-active", ranking);
     profileOverviewTab.setAttribute("aria-selected", String(overview));
-    profileStatsTab.setAttribute("aria-selected", String(!overview));
+    profileStatsTab.setAttribute("aria-selected", String(stats));
+    profileRankingTab.setAttribute("aria-selected", String(ranking));
     profileOverviewPanel.hidden = !overview;
-    profileStatsPanel.hidden = overview;
+    profileStatsPanel.hidden = !stats;
+    profileRankingPanel.hidden = !ranking;
   }
 
   function renderProfileLeaderboardStats(identity: string) {
@@ -3461,6 +3468,7 @@ import {
     editPlayerSaveBtn.hidden = !isDeveloperIdentity(coop?.localIdentity?.());
     profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
     profileStatsPanel.hidden = !profileStatsTab.classList.contains("is-active");
+    profileRankingPanel.hidden = !profileRankingTab.classList.contains("is-active");
   }
 
   async function openPlayerProfile(identity: string, fallbackName = "PLAYER") {
@@ -3486,6 +3494,7 @@ import {
     playerProfileLoadingEl.hidden = false;
     profileOverviewPanel.hidden = true;
     profileStatsPanel.hidden = true;
+    profileRankingPanel.hidden = true;
     setProfileTab("stats");
     profileStatsPanel.hidden = true;
     const cached = coop?.playerProfile?.(identity);
@@ -4655,6 +4664,7 @@ import {
   profileNameEditorForm.addEventListener("submit", (event) => void saveProfileName(event));
   profileOverviewTab.addEventListener("click", () => setProfileTab("overview"));
   profileStatsTab.addEventListener("click", () => setProfileTab("stats"));
+  profileRankingTab.addEventListener("click", () => setProfileTab("ranking"));
   editPlayerSaveBtn.addEventListener("click", beginPlayerSaveEdit);
   cancelPlayerSaveEditBtn.addEventListener("click", cancelPlayerSaveEdit);
   savePlayerSaveEditBtn.addEventListener("click", () => void savePlayerSaveEdit());
