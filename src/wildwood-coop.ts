@@ -1007,6 +1007,7 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     bootsCollected: row.bootsCollected,
     inventoryJson: row.inventoryJson,
     equippedHead: row.equippedHead,
+    equippedChest: row.equippedChest,
     equippedFeet: row.equippedFeet,
     introComplete: row.introComplete,
     desertUnlocked: row.desertUnlocked,

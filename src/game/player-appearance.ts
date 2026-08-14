@@ -1,4 +1,4 @@
-import { SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
+import { LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
 
 export const PLAYER_SKIN_TONES = [
   "#f9dfd0", "#f2c8ac", "#e9b58f", "#d99e76", "#c88358",
@@ -20,6 +20,7 @@ export type PlayerAppearanceAssets = {
   stone: HTMLImageElement;
   basicPaperHat: HTMLImageElement;
   superiorGoldenHelmet: HTMLImageElement;
+  legendaryWhiteGoldArmor: HTMLImageElement;
 };
 
 function image(source: string, settled: () => void) {
@@ -39,6 +40,7 @@ export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanc
     stone: image("assets/wildwood/player-parts/stone.png", settled),
     basicPaperHat: image("assets/wildwood/player-parts/basic-paper-hat.png", settled),
     superiorGoldenHelmet: image("assets/wildwood/player-parts/superior-golden-helmet.png", settled),
+    legendaryWhiteGoldArmor: image("assets/wildwood/player-parts/legendary-white-gold-armor.png", settled),
   };
 }
 
@@ -70,7 +72,7 @@ function drawPillHead(ctx: CanvasRenderingContext2D, width: number, height: numb
 export function drawStartingPlayer(
   ctx: CanvasRenderingContext2D,
   assets: PlayerAppearanceAssets,
-  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; feetItem?: string; alpha?: number; scale?: number },
+  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; alpha?: number; scale?: number },
 ) {
   const scale = options.scale ?? .6;
   const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
@@ -110,6 +112,7 @@ export function drawStartingPlayer(
   drawLayer(backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
+  if (options.chestItem === LEGENDARY_WHITE_GOLD_ARMOR) drawLayer(assets.legendaryWhiteGoldArmor, 90 - assets.legendaryWhiteGoldArmor.naturalWidth / 2, 157 - assets.legendaryWhiteGoldArmor.naturalHeight + 11);
   ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
   const headwear = options.headItem === SUPERIOR_GOLDEN_HELMET ? assets.superiorGoldenHelmet : assets.basicPaperHat;
   if (options.headItem !== "") drawLayer(headwear, 90 - headwear.naturalWidth / 2, 118 - headwear.naturalHeight + 26 + gait.head);

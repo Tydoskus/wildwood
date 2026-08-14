@@ -1,4 +1,4 @@
-import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../game/inventory";
+import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../game/inventory";
 import { formatCompactNumber } from "./number-format";
 
 type PlayerHudState = {
@@ -49,6 +49,7 @@ export function renderPlayerHud(
 type InventoryViewState = {
   itemIds: string[];
   equippedHead: string;
+  equippedChest: string;
   equippedFeet: string;
   selectedItemId: string;
 };
@@ -58,6 +59,7 @@ type InventoryElements = {
   detail: HTMLElement;
   count: HTMLElement;
   equippedHead: HTMLElement;
+  equippedChest: HTMLElement;
   equippedFeet: HTMLElement;
 };
 
@@ -75,7 +77,14 @@ function itemArt(itemId: string, hidden = true) {
   const aria = hidden ? ' aria-hidden="true"' : "";
   if (itemId === BASIC_PAPER_HAT) return `<span class="inventory-item-art basic-paper-hat-art"${aria}></span>`;
   if (itemId === SUPERIOR_GOLDEN_HELMET) return `<span class="inventory-item-art superior-golden-helmet-art"${aria}></span>`;
+  if (itemId === LEGENDARY_WHITE_GOLD_ARMOR) return `<span class="inventory-item-art legendary-white-gold-armor-art"${aria}></span>`;
   return '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
+}
+
+function equippedItem(inventory: InventoryViewState, slot: string) {
+  if (slot === "HEAD") return inventory.equippedHead;
+  if (slot === "CHEST") return inventory.equippedChest;
+  return inventory.equippedFeet;
 }
 
 export function renderInventoryView(
@@ -90,7 +99,7 @@ export function renderInventoryView(
 ) {
   elements.items.replaceChildren();
   const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
-  const equippedIds = new Set([inventory.equippedHead, inventory.equippedFeet].filter(Boolean));
+  const equippedIds = new Set([inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet].filter(Boolean));
   const bagItemIds = itemIds.filter((itemId) => !equippedIds.has(itemId));
   if (!inventory.selectedItemId && (bagItemIds[0] || itemIds[0])) inventory.selectedItemId = bagItemIds[0] || itemIds[0];
   elements.count.textContent = `${bagItemIds.length} / 16`;
@@ -98,6 +107,10 @@ export function renderInventoryView(
   elements.equippedHead.innerHTML = inventory.equippedHead
     ? itemArt(inventory.equippedHead, false)
     : "HEAD";
+  elements.equippedChest.classList.toggle("is-equipped", Boolean(inventory.equippedChest));
+  elements.equippedChest.innerHTML = inventory.equippedChest
+    ? itemArt(inventory.equippedChest, false)
+    : "CHEST";
   elements.equippedFeet.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
   elements.equippedFeet.textContent = inventory.equippedFeet === TRAILBLAZER_BOOTS ? "BOOTS" : "FEET";
 
@@ -126,14 +139,14 @@ export function renderInventoryView(
     return;
   }
   elements.detail.innerHTML =
-    `<div class="inventory-slot">${selected.slot} · ${(selected.slot === "HEAD" ? inventory.equippedHead : inventory.equippedFeet) === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
+    `<div class="inventory-slot">${selected.slot} · ${equippedItem(inventory, selected.slot) === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
     `<strong>${selected.name}</strong><p>${selected.description}</p>` +
     `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   const actionRow = document.createElement("div");
   actionRow.className = "inventory-actions";
   const equip = document.createElement("button");
   equip.type = "button";
-  const equipped = (selected.slot === "HEAD" ? inventory.equippedHead : inventory.equippedFeet) === selected.id;
+  const equipped = equippedItem(inventory, selected.slot) === selected.id;
   equip.textContent = equipped ? "UNEQUIP" : "EQUIP";
   equip.addEventListener("click", () => equipped ? actions.onUnequip(selected.id) : actions.onEquip(selected.id));
   const inspect = document.createElement("button");

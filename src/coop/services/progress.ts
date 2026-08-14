@@ -24,6 +24,7 @@ export type PlayerProgress = {
   bootsCollected: boolean;
   inventoryJson: string;
   equippedHead: string;
+  equippedChest: string;
   equippedFeet: string;
   introComplete: boolean;
   desertUnlocked: boolean;
@@ -51,6 +52,7 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
     bootsCollected: progress.bootsCollected,
     inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
     equippedHead: typeof progress.equippedHead === "string" ? progress.equippedHead : "",
+    equippedChest: typeof progress.equippedChest === "string" ? progress.equippedChest : "",
     equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
     enemyKills: Number.isInteger(progress.enemyKills)
       ? Math.max(0, Math.min(4_294_967_295, progress.enemyKills))
@@ -72,7 +74,7 @@ export function isProgressSave(value: unknown): value is ProgressSave {
     progress.speed,
   ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) &&
     typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
-    typeof progress.equippedHead === "string" && typeof progress.equippedFeet === "string" &&
+    typeof progress.equippedHead === "string" && typeof progress.equippedChest === "string" && typeof progress.equippedFeet === "string" &&
     (progress.enemyKills === undefined || Number.isInteger(progress.enemyKills));
 }
 
@@ -96,7 +98,7 @@ export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     saved.regen >= pending.regen &&
     saved.speed >= pending.speed &&
     (!pending.bootsCollected || saved.bootsCollected) &&
-    saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedFeet === pending.equippedFeet;
+    saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedChest === pending.equippedChest && saved.equippedFeet === pending.equippedFeet;
 }
 
 export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
@@ -113,6 +115,7 @@ export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): Pla
     bootsCollected: saved.bootsCollected || pending.bootsCollected,
     inventoryJson: pending.inventoryJson,
     equippedHead: pending.equippedHead,
+    equippedChest: pending.equippedChest,
     equippedFeet: pending.equippedFeet,
   };
 }

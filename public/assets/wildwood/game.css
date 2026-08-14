@@ -255,8 +255,10 @@
   .inventory-item-art { display: block; width: 100%; height: 100%; background: center / contain no-repeat; image-rendering: pixelated; }
   .basic-paper-hat-art { background-image: url("player-parts/basic-paper-hat.png"); }
   .superior-golden-helmet-art { background-image: url("player-parts/superior-golden-helmet.png"); }
+  .legendary-white-gold-armor-art { background-image: url("player-parts/legendary-white-gold-armor.png"); }
   .equipment-slot .basic-paper-hat-art { width: 30px; height: 27px; }
   .equipment-slot .superior-golden-helmet-art { width: 30px; height: 27px; }
+  .equipment-slot .legendary-white-gold-armor-art { width: 30px; height: 27px; }
 
   .boot-pixel-icon { display: flex; justify-content: center; gap: 3px; align-items: end; height: 22px; }
   .boot-pixel-icon i { position: relative; display: block; width: 8px; height: 15px; border: 2px solid #32190d; border-radius: 2px 2px 3px 3px; background: #d58b32; box-shadow: -2px 3px 0 #ffe47b; }
@@ -289,6 +291,7 @@
   .item-inspect-icon .boot-pixel-icon { transform: scale(1.65); }
   .item-inspect-icon .basic-paper-hat-art { width: 56px; height: 48px; }
   .item-inspect-icon .superior-golden-helmet-art { width: 56px; height: 48px; }
+  .item-inspect-icon .legendary-white-gold-armor-art { width: 56px; height: 48px; }
 
   @media (max-width: 460px) {
     :root { --game-window-width: min(360px, calc(100vw - 16px)); }
@@ -988,6 +991,17 @@
   .profile-skin-tone { position: absolute; z-index: 3; top: 32px; right: 6px; display: grid; grid-template-columns: repeat(5, 22px); gap: 4px; padding: 5px; border: 2px solid #000; border-radius: 5px; background: rgba(20,29,22,.96); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
   .profile-skin-tone-choice { width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.45); border-radius: 3px; box-shadow: none; }
   .profile-skin-tone-choice[aria-pressed="true"] { border-color: #000; box-shadow: 0 0 0 2px #fff; }
+  .profile-leaderboard-stats { display: flex; gap: 9px; align-items: center; min-width: 0; margin: 4px 1px 0; padding: 4px 6px; overflow-x: auto; border: 1px solid rgba(255,255,255,.13); border-radius: 5px; background: rgba(0,0,0,.18); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8px; line-height: 1.15; white-space: nowrap; scrollbar-width: none; }
+  .profile-leaderboard-stats[hidden] { display: none; }
+  .profile-leaderboard-stats::-webkit-scrollbar { display: none; }
+  .profile-leaderboard-stat { flex: 0 0 auto; font-weight: 900; }
+  .profile-leaderboard-heading { flex: 0 0 auto; color: var(--muted); font-weight: 900; }
+  .profile-leaderboard-value { color: #fff; }
+  .profile-leaderboard-power { color: #ffe05d; }
+  .profile-leaderboard-damage { color: #ff8b77; }
+  .profile-leaderboard-health, .profile-leaderboard-regen { color: #72ef58; }
+  .profile-leaderboard-armor { color: #c3cbcf; }
+  .profile-leaderboard-time { color: #bf9cff; }
   .profile-tabs { display: flex; gap: 7px; margin: 12px 0 8px; border-bottom: 2px solid rgba(255,255,255,.13); }
   .profile-tab { margin: 0 0 -2px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; border-radius: 5px 5px 0 0; background: transparent; color: var(--muted); font-size: 10px; }
   .profile-tab.is-active { border-bottom-color: var(--green); color: #fff; }

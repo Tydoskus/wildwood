@@ -19,6 +19,7 @@ export const ATTACK_BALANCE_VERSION = 1;
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const BASIC_PAPER_HAT = "basic_paper_hat";
 export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
+export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const BOOTS_SPEED_BONUS = 25;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";

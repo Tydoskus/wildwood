@@ -18,7 +18,7 @@ import {
 } from "./game/constants";
 import { circlesOverlap, clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { BASIC_PAPER_HAT, inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, serialiseInventory, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
+import { BASIC_PAPER_HAT, inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, LEGENDARY_WHITE_GOLD_ARMOR, serialiseInventory, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera, snapCameraToPlayer as snapRuntimeCamera, updateCamera as updateRuntimeCamera } from "./game/runtime/camera";
@@ -96,7 +96,7 @@ import {
   renderMusicVolume,
 } from "./ui/settings";
 import { formatCompactNumber } from "./ui/number-format";
-import type { RemotePlayer, wildwoodCoop } from "./wildwood-coop";
+import type { LeaderboardEntry, RemotePlayer, wildwoodCoop } from "./wildwood-coop";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -122,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.342";
+  const GAME_VERSION = "0.343";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -181,6 +181,7 @@ import {
   const inventoryDetailEl = requiredElement("inventoryDetail");
   const inventoryCountEl = requiredElement("inventoryCount");
   const equippedHeadSlot = requiredElement("equippedHeadSlot");
+  const equippedChestSlot = requiredElement("equippedChestSlot");
   const equippedFeetSlot = requiredElement("equippedFeetSlot");
   const itemInspectEl = requiredElement("itemInspect");
   const closeItemInspectBtn = requiredElement("closeItemInspectBtn");
@@ -255,6 +256,7 @@ import {
   const profileCharacterPreviewEl = requiredElement("profileCharacterPreview");
   const profileCharacterCanvas = requiredElement<HTMLCanvasElement>("profileCharacterCanvas");
   const profileCharacterCtx = requiredCanvasContext(profileCharacterCanvas);
+  const profileLeaderboardStatsEl = requiredElement("profileLeaderboardStats");
   const previousPlayerSpriteBtn = requiredElement<HTMLButtonElement>("previousPlayerSpriteBtn");
   const nextPlayerSpriteBtn = requiredElement<HTMLButtonElement>("nextPlayerSpriteBtn");
   const profileSkinToneEdit = requiredElement<HTMLButtonElement>("profileSkinToneEdit");
@@ -444,7 +446,7 @@ import {
     r: 18,
     collected: false
   };
-  const inventory: InventoryState & { selectedItemId: string } = { itemIds: [BASIC_PAPER_HAT], equippedHead: BASIC_PAPER_HAT, equippedFeet: "", selectedItemId: BASIC_PAPER_HAT };
+  const inventory: InventoryState & { selectedItemId: string } = { itemIds: [BASIC_PAPER_HAT], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: "", selectedItemId: BASIC_PAPER_HAT };
 
   let hasSavedProgress = false;
   let progressLoaded = false;
@@ -725,6 +727,7 @@ import {
       alpha,
     }),
     localHeadItem: () => inventory.equippedHead,
+    localChestItem: () => inventory.equippedChest,
     localFeetItem: () => inventory.equippedFeet,
     playerStone: playerAppearanceAssets.stone,
     enemySprites: ENEMY_SPRITES,
@@ -887,6 +890,7 @@ import {
       bootsCollected: bootsPickup.collected,
       inventoryJson: serialiseInventory(inventory),
       equippedHead: inventory.equippedHead,
+      equippedChest: inventory.equippedChest,
       equippedFeet: inventory.equippedFeet,
       enemyKills: totalKills,
     });
@@ -936,9 +940,10 @@ import {
     player.regen = number(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;
     player.hp = player.maxHp;
-    const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, bootsPickup.collected, isDeveloperIdentity(progressIdentity));
+    const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, source.equippedChest, bootsPickup.collected, isDeveloperIdentity(progressIdentity));
     inventory.itemIds = savedInventory.itemIds;
     inventory.equippedHead = savedInventory.equippedHead;
+    inventory.equippedChest = savedInventory.equippedChest;
     inventory.equippedFeet = savedInventory.equippedFeet;
     player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
     if (!inventory.selectedItemId && inventory.itemIds.length) inventory.selectedItemId = inventory.itemIds[0];
@@ -1150,7 +1155,7 @@ import {
 
     if (dx * dx + dy * dy <= reach * reach) {
       bootsPickup.collected = true;
-      inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET] : []), TRAILBLAZER_BOOTS];
+      inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR] : []), TRAILBLAZER_BOOTS];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
       player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
@@ -3168,6 +3173,45 @@ import {
     profileStatsPanel.hidden = overview;
   }
 
+  function renderProfileLeaderboardStats(identity: string) {
+    const entries = coop?.leaderboardEntries?.() ?? [];
+    const stats: Array<{ id: string; label: string; key: keyof LeaderboardEntry }> = [
+      { id: "power", label: "POWER", key: "power" },
+      { id: "damage", label: "DAMAGE", key: "damage" },
+      { id: "health", label: "HEALTH", key: "maxHp" },
+      { id: "armor", label: "ARMOR", key: "armor" },
+      { id: "regen", label: "REGEN", key: "regen" },
+      { id: "time", label: "TIME", key: "playedSeconds" },
+    ];
+    const badges: HTMLElement[] = [];
+    for (const stat of stats) {
+      const sorted = entries
+        .filter((entry) => Number.isFinite(entry[stat.key] as number))
+        .sort((a, b) => Number(b[stat.key]) - Number(a[stat.key]) || a.name.localeCompare(b.name));
+      const rank = sorted.findIndex((entry) => entry.identity === identity) + 1;
+      if (rank < 1 || rank > 10) continue;
+      const badge = document.createElement("span");
+      badge.className = `profile-leaderboard-stat profile-leaderboard-${stat.id}`;
+      const label = document.createElement("span");
+      label.className = "profile-leaderboard-label";
+      label.textContent = `${stat.label} `;
+      const rankLabel = document.createElement("span");
+      rankLabel.className = "profile-leaderboard-value";
+      rankLabel.textContent = `#${rank}`;
+      badge.append(label, rankLabel);
+      badges.push(badge);
+    }
+    if (badges.length) {
+      const heading = document.createElement("span");
+      heading.className = "profile-leaderboard-heading";
+      heading.textContent = "LEADERBOARD:";
+      profileLeaderboardStatsEl.replaceChildren(heading, ...badges);
+    } else {
+      profileLeaderboardStatsEl.replaceChildren();
+    }
+    profileLeaderboardStatsEl.hidden = badges.length === 0;
+  }
+
   function renderPlayerProfile(profile: PlayerProfile | null) {
     if (!profile || profile.identity !== openProfileIdentity) return;
     const { progress, lifetime } = profile;
@@ -3191,6 +3235,7 @@ import {
     playerProfileIcon.setAttribute("aria-label", ownProfile ? "Choose profile icon" : `${profile.name}'s profile icon`);
     editPlayerNameBtn.hidden = !ownProfile;
     updateProfileCharacterPreview(profile.identity, ownProfile);
+    renderProfileLeaderboardStats(profile.identity);
     renderPower(playerProfilePowerEl, formatCompactNumber(power));
     profileDuelBtn.hidden = ownProfile;
     profileDuelBtn.dataset.identity = ownProfile ? "" : profile.identity;
@@ -3305,6 +3350,7 @@ import {
       gameTime: now / 1000,
       skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE,
       headItem: identity === coop?.localIdentity?.() ? inventory.equippedHead : undefined,
+      chestItem: identity === coop?.localIdentity?.() ? inventory.equippedChest : undefined,
       feetItem: identity === coop?.localIdentity?.() ? inventory.equippedFeet : undefined,
       scale: .6,
     });
@@ -3700,9 +3746,9 @@ import {
   }
 
   function renderInventory() {
-    if (!inventoryItemsEl || !inventoryDetailEl || !inventoryCountEl || !equippedHeadSlot || !equippedFeetSlot) return;
+    if (!inventoryItemsEl || !inventoryDetailEl || !inventoryCountEl || !equippedHeadSlot || !equippedChestSlot || !equippedFeetSlot) return;
     renderInventoryView(
-      { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedHead: equippedHeadSlot, equippedFeet: equippedFeetSlot },
+      { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedHead: equippedHeadSlot, equippedChest: equippedChestSlot, equippedFeet: equippedFeetSlot },
       inventory,
       {
         onSelect(itemId) {
@@ -3713,6 +3759,7 @@ import {
           const item = itemDefinition(itemId);
           if (!item) return;
           if (item.slot === "HEAD") inventory.equippedHead = itemId;
+          else if (item.slot === "CHEST") inventory.equippedChest = itemId;
           else if (item.slot === "FEET") inventory.equippedFeet = itemId;
           else return;
           player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
@@ -3724,6 +3771,7 @@ import {
           const item = itemDefinition(itemId);
           if (!item) return;
           if (item.slot === "HEAD" && inventory.equippedHead === itemId) inventory.equippedHead = "";
+          else if (item.slot === "CHEST" && inventory.equippedChest === itemId) inventory.equippedChest = "";
           else if (item.slot === "FEET" && inventory.equippedFeet === itemId) inventory.equippedFeet = "";
           else return;
           player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
@@ -3741,7 +3789,8 @@ import {
   function openItemInspect(itemId: string) {
     const item = itemDefinition(itemId);
     if (!item) return;
-    itemInspectSlot.textContent = `${item.slot} · ${(item.slot === "HEAD" ? inventory.equippedHead : inventory.equippedFeet) === item.id ? "EQUIPPED" : "IN BAG"}`;
+    const equippedItem = item.slot === "HEAD" ? inventory.equippedHead : item.slot === "CHEST" ? inventory.equippedChest : inventory.equippedFeet;
+    itemInspectSlot.textContent = `${item.slot} · ${equippedItem === item.id ? "EQUIPPED" : "IN BAG"}`;
     itemInspectName.textContent = item.name;
     itemInspectDescription.textContent = item.description;
     itemInspectStats.textContent = item.stats.join(" · ");
@@ -3749,6 +3798,8 @@ import {
       ? '<span class="inventory-item-art basic-paper-hat-art" aria-hidden="true"></span>'
       : item.id === SUPERIOR_GOLDEN_HELMET
         ? '<span class="inventory-item-art superior-golden-helmet-art" aria-hidden="true"></span>'
+        : item.id === LEGENDARY_WHITE_GOLD_ARMOR
+          ? '<span class="inventory-item-art legendary-white-gold-armor-art" aria-hidden="true"></span>'
         : '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
     itemInspectEl.hidden = false;
   }
@@ -3971,6 +4022,12 @@ import {
   equippedHeadSlot?.addEventListener("click", () => {
     if (inventory.equippedHead) {
       inventory.selectedItemId = inventory.equippedHead;
+      renderInventory();
+    }
+  });
+  equippedChestSlot?.addEventListener("click", () => {
+    if (inventory.equippedChest) {
+      inventory.selectedItemId = inventory.equippedChest;
       renderInventory();
     }
   });
@@ -4290,8 +4347,9 @@ import {
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     totalKills = 0;
     bootsPickup.collected = false;
-    inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET] : [])];
+    inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR] : [])];
     inventory.equippedHead = BASIC_PAPER_HAT;
+    inventory.equippedChest = "";
     inventory.equippedFeet = "";
     inventory.selectedItemId = "";
     renderInventory();

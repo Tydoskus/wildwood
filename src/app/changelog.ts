@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.343": [
+    "Developer inventory now includes Legendary White Gold Armor, a no-stat chest cosmetic that can be equipped.",
+    "Player profiles now show one compact, color-coded leaderboard row for every stat ranked in the top 10.",
+  ],
   "0.342": [
     "Death now immediately stops screen shake.",
     "Developer inventory now includes the no-stat Superior Golden Helmet cosmetic.",

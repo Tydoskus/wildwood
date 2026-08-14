@@ -8,6 +8,7 @@ import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
+  LEGENDARY_WHITE_GOLD_ARMOR,
   MAP_IDS,
   MAX_ARMOR,
   MAX_PLAYER_STAT,
@@ -146,6 +147,7 @@ const playerProgress = table(
     equippedFeet: t.string().default(""),
     desertUnlocked: t.bool().default(false),
     equippedHead: t.string().default(BASIC_PAPER_HAT),
+    equippedChest: t.string().default(""),
   },
 );
 
@@ -600,6 +602,7 @@ function defaultPlayerProgress(identity: any) {
     bootsCollected: false,
     inventoryJson: "[]",
     equippedHead: BASIC_PAPER_HAT,
+    equippedChest: "",
     equippedFeet: "",
     introComplete: false,
     desertUnlocked: false,
@@ -905,7 +908,9 @@ function hasFreshProgress(progress: any) {
     progress.speed === defaultProgress.speed &&
     progress.bootsCollected === defaultProgress.bootsCollected &&
     progress.inventoryJson === defaultProgress.inventoryJson &&
+    progress.equippedHead === defaultProgress.equippedHead &&
     progress.equippedFeet === defaultProgress.equippedFeet &&
+    progress.equippedChest === defaultProgress.equippedChest &&
     progress.desertUnlocked === defaultProgress.desertUnlocked;
 }
 
@@ -925,6 +930,7 @@ function inventoryForProgress(progress: any) {
   return [
     BASIC_PAPER_HAT,
     ...(isDeveloperIdentity(progress.identity) ? [SUPERIOR_GOLDEN_HELMET] : []),
+    ...(isDeveloperIdentity(progress.identity) ? [LEGENDARY_WHITE_GOLD_ARMOR] : []),
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
   ];
 }
@@ -932,6 +938,11 @@ function inventoryForProgress(progress: any) {
 function equippedHeadForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
   return inventory.includes(progress.equippedHead) ? progress.equippedHead : "";
+}
+
+function equippedChestForProgress(progress: any) {
+  const inventory = inventoryForProgress(progress);
+  return inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
 }
 
 function equippedFeetForProgress(progress: any) {
@@ -1487,10 +1498,11 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     }
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const equippedHead = equippedHeadForProgress(existingProgress);
+    const equippedChest = equippedChestForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
-    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedFeet !== equippedFeet) {
+    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet) {
       const migratedProgress = {
         ...existingProgress,
         maxHp,
@@ -1498,6 +1510,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         speed,
         inventoryJson,
         equippedHead,
+        equippedChest,
         equippedFeet,
       };
       ctx.db.playerProgress.identity.update(migratedProgress);
@@ -2206,6 +2219,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     bootsCollected: t.bool(),
     inventoryJson: t.string(),
     equippedHead: t.string(),
+    equippedChest: t.string(),
     equippedFeet: t.string(),
     enemyKills: t.u32(),
   },
@@ -2232,6 +2246,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     const inventory = inventoryForProgress({ identity: ctx.sender, bootsCollected });
     const inventoryJson = JSON.stringify(inventory);
     const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : "";
+    const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
     const next = {
       identity: ctx.sender,
@@ -2247,6 +2262,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       bootsCollected,
       inventoryJson,
       equippedHead,
+      equippedChest,
       equippedFeet,
       introComplete: base.introComplete,
       desertUnlocked: base.desertUnlocked,
