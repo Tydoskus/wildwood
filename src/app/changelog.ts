@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.362": [
+    "Open game tabs now check for a new release every two minutes.",
+  ],
   "0.361": [
     "Enemy floating labels now appear slightly earlier as you approach.",
   ],
