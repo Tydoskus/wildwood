@@ -58,9 +58,11 @@ export type WorldRendererOptions = {
 export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
   const STATIC_TILE_SIZE = 640;
-  const STATIC_TILE_LIMIT = 12;
+  const STATIC_TILE_MIN_LIMIT = 12;
+  const STATIC_TILE_CACHE_PADDING = 4;
   const TREE_SHADOW_CANOPY_WIDTH_RATIO = .9;
   const staticTiles = new Map<string, HTMLCanvasElement>();
+  let staticTileLimit = STATIC_TILE_MIN_LIMIT;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
 
@@ -161,7 +163,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       }
     }
     staticTiles.set(key, tile);
-    while (staticTiles.size > STATIC_TILE_LIMIT) staticTiles.delete(staticTiles.keys().next().value!);
+    while (staticTiles.size > staticTileLimit) staticTiles.delete(staticTiles.keys().next().value!);
     return tile;
   }
 
@@ -175,6 +177,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const startY = Math.floor(camera.y / STATIC_TILE_SIZE) - 1;
     const endX = Math.floor((camera.x + visible.width) / STATIC_TILE_SIZE) + 1;
     const endY = Math.floor((camera.y + visible.height) / STATIC_TILE_SIZE) + 1;
+    // Keep every tile required by this camera view plus a small movement edge.
+    // A fixed limit below the visible count turns camera movement into an LRU
+    // rebuild loop, repeatedly redrawing the world tiles each frame.
+    staticTileLimit = Math.max(
+      STATIC_TILE_MIN_LIMIT,
+      (endX - startX + 1) * (endY - startY + 1) + STATIC_TILE_CACHE_PADDING,
+    );
     const snapTileEdge = (coordinate: number, offset: number) =>
       Math.round((coordinate - offset) * camera.zoom * options.getDevicePixelRatio()) /
       (camera.zoom * options.getDevicePixelRatio());
@@ -188,6 +197,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         ctx.drawImage(staticTile(tileX, tileY), left, top, right - left, bottom - top);
       }
     }
+    while (staticTiles.size > staticTileLimit) staticTiles.delete(staticTiles.keys().next().value!);
   }
 
   function invalidateStaticWorld() {

@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.390";
+  const GAME_VERSION = "0.391";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -4302,8 +4302,8 @@ import {
     }
     nextFrameAt += frameIntervalMs;
     if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
-    const frameStartedAt = performance.now();
-    const rawDt = (now - last) / 1000;
+    const frameDeltaMs = Math.max(0, now - last);
+    const rawDt = frameDeltaMs / 1000;
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
 
@@ -4316,7 +4316,7 @@ import {
     const renderStartedAt = performance.now();
     render();
     const renderMs = performance.now() - renderStartedAt;
-    performanceMonitor.record(performance.now() - frameStartedAt, updateMs, renderMs);
+    performanceMonitor.record(frameDeltaMs, updateMs, renderMs);
     if (!devPerformancePanel.hidden && now >= nextPerformancePanelUpdateAt) {
       nextPerformancePanelUpdateAt = now + 500;
       renderPerformancePanel();

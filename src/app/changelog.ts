@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.391": [
+    "Moving across maps now keeps visible world tiles cached, and the performance panel reports real frame cadence.",
+  ],
   "0.390": [
     "Player profiles now have a dedicated Ranking tab, and today’s updates show the correct Aug 14 date.",
   ],
