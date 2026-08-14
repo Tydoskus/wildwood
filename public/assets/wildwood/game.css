@@ -1112,7 +1112,7 @@
   .signin-update-notice header div { display: flex; flex: 1; align-items: baseline; min-width: 0; }
   .signin-update-notice header strong { color: var(--gold); font-size: 19px; font-weight: 500; }
   .signin-update-notice button { width: 27px; min-width: 27px; height: 27px; margin: 0; padding: 0; border-width: 2px; border-radius: 6px; background: linear-gradient(#6e797a, #41494a); font-size: 17px; line-height: 1; }
-  .signin-update-history { display: grid; gap: 8px; max-height: min(21vh, 165px); margin: 7px 0 0; padding: 0 4px 0 0; overflow-y: auto; color: #fff; font-size: 11px; line-height: 1.25; list-style: none; }
+  .signin-update-history { display: grid; gap: 14px; max-height: min(21vh, 165px); margin: 7px 0 0; padding: 0 4px 0 0; overflow-y: auto; color: #fff; font-size: 11px; line-height: 1.25; list-style: none; }
   .update-release { margin: 0; padding: 0; }
   .update-release-heading { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
   .update-release-heading strong { color: var(--gold); font-size: 13px; font-weight: 500; }
