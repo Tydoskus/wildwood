@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.357": [
+    "Duel replay loading now releases its one-time subscription after the replay arrives.",
+    "HUD, multiplayer rendering, chat bubbles, and canvas resolution now use less device memory and per-frame work.",
+  ],
   "0.356": [
     "Static tree, cactus, and snow-pine shadows now render from the nearby tile cache.",
     "Mobile rendering resolution cap is restored to 3x.",
