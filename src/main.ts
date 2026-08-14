@@ -127,10 +127,11 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.366";
+  const GAME_VERSION = "0.367";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
+  const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
@@ -202,6 +203,7 @@ import {
   const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
   const antiAliasingToggle = requiredElement<HTMLButtonElement>("antiAliasingToggle");
+  const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
   const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
   const latencyStatusEl = requiredElement("latencyStatus");
   const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
@@ -438,6 +440,7 @@ import {
   let hasStarted = false;
   let gameTime = 0;
   let last = performance.now();
+  let nextFrameAt = last;
   let totalKills = 0;
   let lifetimeKillsIdentity = "";
   let flash = 0;
@@ -445,6 +448,8 @@ import {
   let screenShakeEnabled = true;
   let attackRangeVisible = true;
   try { attackRangeVisible = localStorage.getItem(ATTACK_RANGE_VISIBLE_KEY) !== "false"; } catch {}
+  let lowPerformanceMode = false;
+  try { lowPerformanceMode = localStorage.getItem(LOW_PERFORMANCE_MODE_KEY) === "true"; } catch {}
   let latencyVisible = false;
   try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
@@ -4082,6 +4087,13 @@ import {
   }
 
   function loop(now: number) {
+    const frameIntervalMs = 1_000 / (lowPerformanceMode ? 30 : 60);
+    if (now < nextFrameAt) {
+      requestAnimationFrame(loop);
+      return;
+    }
+    nextFrameAt += frameIntervalMs;
+    if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
     const frameStartedAt = performance.now();
     const rawDt = (now - last) / 1000;
     last = now;
@@ -4125,6 +4137,7 @@ import {
     if (markIntro) coop?.beginAdventure?.();
     if (coop?.isConnected?.()) coop.syncPosition(player.x, player.y, player.facing, false, true);
     last = performance.now();
+    nextFrameAt = last;
     ensureMusicPlayback();
   }
 
@@ -4145,6 +4158,10 @@ import {
 
   function updateAntiAliasingSetting() {
     renderBooleanSetting(antiAliasingToggle, antiAliasingEnabled);
+  }
+
+  function updateLowPerformanceSetting() {
+    renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
   }
 
   function updateLatencySetting() {
@@ -4354,6 +4371,13 @@ import {
     updateAntiAliasingSetting();
   });
 
+  lowPerformanceToggle.addEventListener("click", () => {
+    lowPerformanceMode = !lowPerformanceMode;
+    try { localStorage.setItem(LOW_PERFORMANCE_MODE_KEY, String(lowPerformanceMode)); } catch {}
+    nextFrameAt = performance.now();
+    updateLowPerformanceSetting();
+  });
+
   latencyToggle.addEventListener("click", () => {
     latencyVisible = !latencyVisible;
     try { localStorage.setItem(LATENCY_VISIBLE_KEY, String(latencyVisible)); } catch {}
@@ -4550,6 +4574,7 @@ import {
   updateFullscreenSetting();
   updateAttackRangeSetting();
   updateAntiAliasingSetting();
+  updateLowPerformanceSetting();
   updateLatencySetting();
   updateMusicVolume();
   updateDuelControls();

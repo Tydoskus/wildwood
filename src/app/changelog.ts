@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.367": [
+    "Rendering is capped at 60 FPS, with an optional Low Performance setting for 30 FPS.",
+    "Sign-in update history now includes every release from the last two calendar days.",
+  ],
   "0.366": [
     "Player HUD health text now uses a crisp fixed black shadow and outline.",
     "Chat messages now use the game font.",
@@ -454,17 +458,34 @@ const RELEASE_DATES: Record<string, string> = {
   "0.328": "AUG 13, 2026",
 };
 
+function releaseDay(version: string) {
+  const numericVersion = Number(version);
+  if (numericVersion >= .278) return "2026-08-13";
+  if (numericVersion >= .261) return "2026-08-12";
+  return null;
+}
+
 export function releaseDate(version: string) {
-  return RELEASE_DATES[version] ?? "";
+  if (RELEASE_DATES[version]) return RELEASE_DATES[version];
+  const day = releaseDay(version);
+  if (day === "2026-08-13") return "AUG 13, 2026";
+  if (day === "2026-08-12") return "AUG 12, 2026";
+  return "";
 }
 
 export function releaseNotes(version: string) {
   return RELEASE_NOTES[version] ?? [];
 }
 
-export function recentReleaseNotes(limit = 10) {
+export function recentReleaseNotes(days = 2) {
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - Math.max(0, days - 1));
   return Object.entries(RELEASE_NOTES)
     .sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }))
-    .slice(0, Math.max(0, limit))
+    .filter(([version]) => {
+      const day = releaseDay(version);
+      return day !== null && new Date(`${day}T00:00:00`).getTime() >= cutoff.getTime();
+    })
     .map(([version, notes]) => ({ version, notes, date: releaseDate(version) }));
 }
