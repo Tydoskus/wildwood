@@ -83,15 +83,19 @@ export function renderInventoryView(
 ) {
   elements.items.replaceChildren();
   const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
-  if (!inventory.selectedItemId && itemIds.length) inventory.selectedItemId = itemIds[0];
-  elements.count.textContent = `${itemIds.length} / 16`;
+  const equippedIds = new Set([inventory.equippedHead, inventory.equippedFeet].filter(Boolean));
+  const bagItemIds = itemIds.filter((itemId) => !equippedIds.has(itemId));
+  if (!inventory.selectedItemId && (bagItemIds[0] || itemIds[0])) inventory.selectedItemId = bagItemIds[0] || itemIds[0];
+  elements.count.textContent = `${bagItemIds.length} / 16`;
   elements.equippedHead.classList.toggle("is-equipped", inventory.equippedHead === BASIC_PAPER_HAT);
-  elements.equippedHead.textContent = inventory.equippedHead === BASIC_PAPER_HAT ? "PAPER HAT" : "HEAD";
+  elements.equippedHead.innerHTML = inventory.equippedHead === BASIC_PAPER_HAT
+    ? '<span class="inventory-item-art basic-paper-hat-art" aria-label="Basic Paper Hat"></span>'
+    : "HEAD";
   elements.equippedFeet.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
   elements.equippedFeet.textContent = inventory.equippedFeet === TRAILBLAZER_BOOTS ? "BOOTS" : "FEET";
 
   for (let index = 0; index < 16; index += 1) {
-    const itemId = itemIds[index];
+    const itemId = bagItemIds[index];
     const button = document.createElement("button");
     button.type = "button";
     button.className = "inventory-item" + (itemId ? " is-filled" : "") +

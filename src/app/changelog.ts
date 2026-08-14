@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.339": [
+    "Equipped items now leave bag slots, and Basic Paper Hat appears on the HEAD equipment slot.",
+  ],
   "0.338": [
     "Basic Paper Hat is now a real no-stat head item with its own bag art and equip state.",
     "Equipment slots now stay text-only and no inventory or equipment controls shift when pressed.",

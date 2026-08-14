@@ -254,6 +254,7 @@
   .inventory-item.is-selected { border-color: #ffe47b; box-shadow: 0 0 0 1px rgba(255,228,123,.45); }
   .inventory-item-art { display: block; width: 100%; height: 100%; background: center / contain no-repeat; image-rendering: pixelated; }
   .basic-paper-hat-art { background-image: url("player-parts/basic-paper-hat.png"); }
+  .equipment-slot .basic-paper-hat-art { width: 30px; height: 27px; }
 
   .boot-pixel-icon { display: flex; justify-content: center; gap: 3px; align-items: end; height: 22px; }
   .boot-pixel-icon i { position: relative; display: block; width: 8px; height: 15px; border: 2px solid #32190d; border-radius: 2px 2px 3px 3px; background: #d58b32; box-shadow: -2px 3px 0 #ffe47b; }
