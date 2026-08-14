@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.366": [
+    "Player HUD health text now uses a crisp fixed black shadow and outline.",
+    "Chat messages now use the game font.",
+  ],
   "0.365": [
     "Windows now stay open when you tap outside them; centered Settings and Inventory each include an X close button.",
   ],
