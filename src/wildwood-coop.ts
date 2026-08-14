@@ -258,6 +258,7 @@ let mapSubscriptionGeneration = 0;
 let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
+const remotePlayerRenderBuffer: RemotePlayer[] = [];
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
@@ -1284,23 +1285,46 @@ function loadDuelReplay(id: bigint): Promise<DuelReplay | null> {
   const conn = connection;
   if (!conn) return Promise.resolve(null);
 
+  let resolveRequest!: (replay: DuelReplay | null) => void;
   const request = new Promise<DuelReplay | null>((resolve) => {
-    conn
-      .subscriptionBuilder()
-      .onApplied(() => {
-        const row = [...conn.db.duelReplay.iter()].find((replay) => replay.id === id);
-        if (row) upsertDuelReplay(row);
-        replayLoads.delete(id);
-        const replay = duelReplays.get(id);
-        resolve(replay ? { ...replay } : null);
-      })
-      .onError(() => {
-        replayLoads.delete(id);
-        resolve(null);
-      })
-      .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id))]);
+    resolveRequest = resolve;
   });
   replayLoads.set(id, request);
+
+  let subscription: { unsubscribe: () => void } | null = null;
+  let settled = false;
+  let unsubscribeAfterSubscribe = false;
+  const releaseSubscription = () => {
+    if (subscription) {
+      subscription.unsubscribe();
+      subscription = null;
+    } else {
+      // Keep this safe if a synchronous subscription implementation calls a
+      // callback before subscribe() returns its handle.
+      unsubscribeAfterSubscribe = true;
+    }
+  };
+  const finish = (replay: DuelReplay | null) => {
+    if (settled) return;
+    settled = true;
+    replayLoads.delete(id);
+    releaseSubscription();
+    resolveRequest(replay);
+  };
+
+  subscription = conn
+    .subscriptionBuilder()
+    .onApplied(() => {
+      const row = [...conn.db.duelReplay.iter()].find((replay) => replay.id === id);
+      if (row) upsertDuelReplay(row);
+      const replay = duelReplays.get(id);
+      finish(replay ? { ...replay } : null);
+    })
+    .onError(() => {
+      finish(null);
+    })
+    .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id))]);
+  if (unsubscribeAfterSubscribe) releaseSubscription();
   return request;
 }
 
@@ -2234,7 +2258,8 @@ export const wildwoodCoop = {
     }
   },
   remotePlayers(dt = 1 / 60) {
-    const result: RemotePlayer[] = [];
+    const result = remotePlayerRenderBuffer;
+    result.length = 0;
     const renderAt = performance.now() - REMOTE_INTERPOLATION_DELAY_MS;
 
     for (const player of players.values()) {

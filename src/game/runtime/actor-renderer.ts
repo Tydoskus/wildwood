@@ -129,31 +129,33 @@ export function createActorRenderer(options: {
     options.drawSpeechBubble(identity, x, y);
   }
 
-  function drawRemotePlayers(players: RemotePlayer[]) {
+  function drawRemotePlayer(other: RemotePlayer) {
     const viewport = options.viewport();
     const width = viewport.width / camera.zoom;
     const height = viewport.height / camera.zoom;
 
-    for (const other of players) {
-      const x = Math.floor(other.x - camera.x);
-      const y = Math.floor(other.y - camera.y);
-      if (x < -65 || y < -70 || x > width + 65 || y > height + 70) continue;
+    const x = Math.floor(other.x - camera.x);
+    const y = Math.floor(other.y - camera.y);
+    if (x < -65 || y < -70 || x > width + 65 || y > height + 70) return;
 
-      options.drawShadow(x, y + 29, 34, .16);
-      drawPlayerSprite({ ...other, x, y }, 1);
-      options.drawStatus({
-        x,
-        y,
-        identity: other.id,
-        name: options.publicName(other.id, other.name),
-        nameColor: "#9eeeff",
-        hp: other.hp,
-        maxHp: other.maxHp,
-        power: Number.isFinite(other.power) ? other.power : 0,
-        fillColor: "#55a9c6",
-      });
-      options.drawSpeechBubble(other.id, x, y);
-    }
+    options.drawShadow(x, y + 29, 34, .16);
+    drawPlayerSprite({ ...other, x, y }, 1);
+    options.drawStatus({
+      x,
+      y,
+      identity: other.id,
+      name: options.publicName(other.id, other.name),
+      nameColor: "#9eeeff",
+      hp: other.hp,
+      maxHp: other.maxHp,
+      power: Number.isFinite(other.power) ? other.power : 0,
+      fillColor: "#55a9c6",
+    });
+    options.drawSpeechBubble(other.id, x, y);
+  }
+
+  function drawRemotePlayers(players: RemotePlayer[]) {
+    for (const other of players) drawRemotePlayer(other);
   }
 
   function drawEnemy(enemy: EnemyState) {
@@ -262,6 +264,7 @@ export function createActorRenderer(options: {
     drawDuelArena,
     drawDuelScene,
     drawPlayer,
+    drawRemotePlayer,
     drawRemotePlayers,
     drawEnemy,
     drawProjectile,

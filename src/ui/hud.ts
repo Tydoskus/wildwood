@@ -23,27 +23,40 @@ export function renderPlayerHud(
   isDeveloper = false,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
-  elements.hpFill.style.width = `${(hpRatio * 100).toFixed(1)}%`;
-  elements.hpText.textContent = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))}`;
+  const hpWidth = `${(hpRatio * 100).toFixed(1)}%`;
+  if (elements.hpFill.style.width !== hpWidth) elements.hpFill.style.width = hpWidth;
+  const hpText = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))}`;
+  if (elements.hpText.textContent !== hpText) elements.hpText.textContent = hpText;
   if (elements.playerName) {
     const name = displayName || "WANDERER";
-    if (isDeveloper) {
-      const badge = document.createElement("span");
-      badge.className = "dev-badge";
-      badge.textContent = "[DEV] ";
-      elements.playerName.replaceChildren(badge, document.createTextNode(name));
-    } else {
-      elements.playerName.textContent = name;
+    const nameKey = `${isDeveloper ? "dev" : "player"}:${name}`;
+    if (elements.playerName.dataset.renderedName !== nameKey) {
+      if (isDeveloper) {
+        const badge = document.createElement("span");
+        badge.className = "dev-badge";
+        badge.textContent = "[DEV] ";
+        elements.playerName.replaceChildren(badge, document.createTextNode(name));
+      } else {
+        elements.playerName.textContent = name;
+      }
+      elements.playerName.dataset.renderedName = nameKey;
     }
   }
-  const powerLabel = document.createElement("span");
-  powerLabel.className = "power-label";
-  powerLabel.textContent = "Power:";
-  const powerValue = document.createElement("span");
-  powerValue.className = "power-value";
-  powerValue.textContent = formatCompactNumber(power);
-  elements.playerPower.replaceChildren(powerLabel, " ", powerValue);
-  if (elements.coopStatus) elements.coopStatus.textContent = `Players online: ${playerCount}`;
+  const powerText = formatCompactNumber(power);
+  if (elements.playerPower.dataset.renderedPower !== powerText) {
+    const powerLabel = document.createElement("span");
+    powerLabel.className = "power-label";
+    powerLabel.textContent = "Power:";
+    const powerValue = document.createElement("span");
+    powerValue.className = "power-value";
+    powerValue.textContent = powerText;
+    elements.playerPower.replaceChildren(powerLabel, " ", powerValue);
+    elements.playerPower.dataset.renderedPower = powerText;
+  }
+  if (elements.coopStatus) {
+    const status = `Players online: ${playerCount}`;
+    if (elements.coopStatus.textContent !== status) elements.coopStatus.textContent = status;
+  }
 }
 
 type InventoryViewState = {

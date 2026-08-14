@@ -122,6 +122,8 @@ import {
   type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
+  type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+  type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
   const GAME_VERSION = "0.356";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
@@ -367,6 +369,7 @@ import {
   const spawnSites: SpawnSite[] = [];
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
+  const depthLayers: DepthLayer[] = [];
   const bossRain: BossRainStrike[] = [];
   const spiderVenom: SpiderVenomPool[] = [];
   const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
@@ -422,7 +425,10 @@ import {
   let latencyVisible = false;
   try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
-  let activeSpeechBubbles = new Map();
+  const activeSpeechBubbles = new Map<string, { text: string; sentAtMs: number }>();
+  let renderedSpeechBubbleRevision = -1;
+  let nextSpeechBubbleExpiryAt = 0;
+  let nextHudUpdateAt = 0;
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
   let pendingPlayerThrow: { x: number; y: number; isBoss?: boolean } | null = null;
@@ -763,7 +769,7 @@ import {
     drawDuelArena: drawDuelArenaVisual,
     drawDuelScene,
     drawPlayer: drawPlayerActor,
-    drawRemotePlayers,
+    drawRemotePlayer,
     drawEnemy,
     drawProjectile,
   } = actorRenderer;
@@ -771,7 +777,10 @@ import {
   function resize() {
     viewW = innerWidth;
     viewH = innerHeight;
-    dpr = Math.min(devicePixelRatio || 1, 3);
+    // Two full-screen canvases are composited every frame. A DPR of three can
+    // turn a phone-sized viewport into tens of millions of pixels per frame.
+    // Two preserves crisp sprites while keeping the backing stores practical.
+    dpr = Math.min(devicePixelRatio || 1, 2);
     canvas.width = Math.round(viewW * dpr);
     canvas.height = Math.round(viewH * dpr);
     canvas.style.width = viewW + "px";
@@ -888,7 +897,7 @@ import {
     for (const site of spawnSites) spawnFromSite(site);
 
     showMessage(MAP_CONFIG[currentMapId].name, "#ffe769");
-    updateHud();
+    updateHud(true);
   }
 
   function saveProgress(immediate = false) {
@@ -2737,16 +2746,22 @@ import {
   }
 
   function updateSpeechBubbles() {
-    activeSpeechBubbles = new Map();
     const now = Date.now();
+    const revision = coop?.chatRevision?.() ?? -1;
+    if (revision === renderedSpeechBubbleRevision && now < nextSpeechBubbleExpiryAt) return;
+
+    activeSpeechBubbles.clear();
+    nextSpeechBubbleExpiryAt = Number.POSITIVE_INFINITY;
     const messages = coop?.chatMessages?.() ?? [];
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index];
       const age = now - message.sentAtMs;
       if (age < 0 || age >= SPEECH_BUBBLE_DURATION_MS) continue;
       if (message.senderName === "DUEL" || message.replayId > 0n || activeSpeechBubbles.has(message.sender)) continue;
-      activeSpeechBubbles.set(message.sender, { text: message.message, age });
+      activeSpeechBubbles.set(message.sender, { text: message.message, sentAtMs: message.sentAtMs });
+      nextSpeechBubbleExpiryAt = Math.min(nextSpeechBubbleExpiryAt, message.sentAtMs + SPEECH_BUBBLE_DURATION_MS);
     }
+    renderedSpeechBubbleRevision = revision;
   }
 
   function wrapSpeechBubbleText(text: string, maxWidth: number) {
@@ -2777,12 +2792,14 @@ import {
   }
 
   function drawSpeechBubble(identity: string | undefined, x: number, y: number) {
+    if (!identity) return;
     const bubble = activeSpeechBubbles.get(identity);
     if (!bubble) return;
+    const age = Date.now() - bubble.sentAtMs;
     const fadeStart = SPEECH_BUBBLE_DURATION_MS - SPEECH_BUBBLE_FADE_MS;
-    const opacity = bubble.age <= fadeStart
+    const opacity = age <= fadeStart
       ? 1
-      : clamp(1 - (bubble.age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
+      : clamp(1 - (age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
     const maxTextWidth = 190;
     const paddingX = 10;
     const paddingY = 7;
@@ -2902,13 +2919,21 @@ import {
   }
 
   function drawDepthSortedWorld(remotePlayers: RemotePlayer[], includePortal = true) {
-    const layers: Array<{ depth: number; priority: number; draw: () => void }> = [];
+    let layerCount = 0;
+    const queueLayer = (depth: number, priority: number, kind: DepthLayerKind, entity?: WorldDecor | EnemyState | RemotePlayer) => {
+      const layer = depthLayers[layerCount] ?? (depthLayers[layerCount] = { depth: 0, priority: 0, kind });
+      layer.depth = depth;
+      layer.priority = priority;
+      layer.kind = kind;
+      layer.entity = entity;
+      layerCount += 1;
+    };
     const visibleW = viewW / camera.zoom;
     const visibleH = viewH / camera.zoom;
     const treeCullPadding = 240;
     for (const tree of decor) {
       if (tree.type === "cactus") {
-        layers.push({ depth: tree.y, priority: 2, draw: () => drawCactus(tree) });
+        queueLayer(tree.y, 2, "cactus", tree);
         continue;
       }
       if (tree.type !== "tree") continue;
@@ -2920,42 +2945,50 @@ import {
         tree.y < camera.y - treeCullPadding ||
         tree.y - treeSize > camera.y + visibleH + treeCullPadding
       ) continue;
-      layers.push({ depth: tree.y, priority: 2, draw: () => drawTree(tree) });
+      queueLayer(tree.y, 2, "tree", tree);
     }
     for (const enemy of enemies) {
       if (enemy.dead) continue;
-      layers.push({ depth: enemy.y + enemy.r, priority: 1, draw: () => drawEnemy(enemy) });
+      queueLayer(enemy.y + enemy.r, 1, "enemy", enemy);
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !boss.dead) {
-      layers.push({ depth: boss.y + 93, priority: 1, draw: drawBoss });
+      queueLayer(boss.y + 93, 1, "dragon");
     }
     if (currentMapId === BEGINNER_DESERT_MAP_ID && !spiderBoss.dead) {
-      layers.push({ depth: spiderBoss.y + 55, priority: 1, draw: drawSpiderBoss });
+      queueLayer(spiderBoss.y + 55, 1, "spider");
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !bootsPickup.collected) {
-      layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
+      queueLayer(bootsPickup.y + bootsPickup.r, 1, "boots");
     }
-    if (includePortal) layers.push({ depth: activePortal().depth, priority: 2, draw: drawPortal });
+    if (includePortal) queueLayer(activePortal().depth, 2, "portal");
     const secondary = secondaryPortal();
-    if (secondary) layers.push({ depth: secondary.depth, priority: 2, draw: drawSecondaryPortal });
+    if (secondary) queueLayer(secondary.depth, 2, "secondaryPortal");
     for (const remotePlayer of remotePlayers) {
-      layers.push({
-        depth: remotePlayer.y + 29,
-        priority: 1,
-        draw: () => drawRemotePlayers([remotePlayer]),
-      });
+      queueLayer(remotePlayer.y + 29, 1, "remotePlayer", remotePlayer);
     }
-    layers.push({
-      depth: player.y + 29,
-      priority: 1,
-      draw: () => drawPlayerActor(
-        coop?.localIdentity?.(),
-        publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
-        playerPower(player),
-      ),
-    });
-    layers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
-    for (const layer of layers) layer.draw();
+    queueLayer(player.y + 29, 1, "player");
+    depthLayers.length = layerCount;
+    depthLayers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
+    for (const layer of depthLayers) {
+      switch (layer.kind) {
+        case "tree": drawTree(layer.entity as TreeDecor); break;
+        case "cactus": drawCactus(layer.entity as CactusDecor); break;
+        case "enemy": drawEnemy(layer.entity as EnemyState); break;
+        case "dragon": drawBoss(); break;
+        case "spider": drawSpiderBoss(); break;
+        case "boots": drawBootPickup(); break;
+        case "portal": drawPortal(); break;
+        case "secondaryPortal": drawSecondaryPortal(); break;
+        case "remotePlayer": drawRemotePlayer(layer.entity as RemotePlayer); break;
+        case "player":
+          drawPlayerActor(
+            coop?.localIdentity?.(),
+            publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
+            playerPower(player),
+          );
+          break;
+      }
+    }
   }
 
   function duelCameraPosition() {
@@ -3160,7 +3193,10 @@ import {
     textCtx.clearRect(Math.floor((x - 3) * dpr), 0, Math.ceil((size + 3) * dpr), Math.ceil((size + 3) * dpr));
   }
 
-  function updateHud() {
+  function updateHud(force = false) {
+    const now = performance.now();
+    if (!force && now < nextHudUpdateAt) return;
+    nextHudUpdateAt = now + 100;
     const remoteCount = coop && typeof coop.remotePlayerCount === "function"
       ? coop.remotePlayerCount()
       : coop
