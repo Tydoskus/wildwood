@@ -75,6 +75,32 @@ const enemyTypes = {
     color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 220 },
     elite: true, aggro: 300,
   },
+
+  // INTERMEDIATE SNOWLANDS ENEMIES
+  // Desert-to-snow uses the same archetype multipliers as forest-to-desert.
+  "Frost Raider": {
+    hp: 4_000_000_000, speed: 230, damage: 4_660_000, attackSpeed: .65, r: 21,
+    color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: 240_000 },
+  },
+  "Glacier Archer": {
+    hp: 3_680_000_000, speed: 215, damage: 11_150_000, attackSpeed: .55, r: 19,
+    color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 },
+    ranged: true,
+  },
+  "Rime Guard": {
+    hp: 17_790_000_000, speed: 205, damage: 35_300_000, attackSpeed: .55, r: 27,
+    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 4_500 },
+  },
+  "Whiteout Reaper": {
+    hp: 25_000_000_000, speed: 235, damage: 8_400_000, attackSpeed: .7, r: 34,
+    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: 300_000 },
+    ranged: true, elite: true, aggro: 340,
+  },
+  "Aurora Oracle": {
+    hp: 16_000_000_000, speed: 220, damage: 28_600_000, attackSpeed: .6, r: 32,
+    color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 },
+    elite: true, aggro: 340,
+  },
 } satisfies Record<string, EnemyDefinition>;
 
 export type EnemyKind = keyof typeof enemyTypes;
@@ -181,6 +207,11 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/head.png", x: -34, y: -56, w: 68, h: 57 },
     ],
   },
+  "Frost Raider": { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
+  "Glacier Archer": { src: "assets/wildwood/enemies/slime-orange.png", size: 50 },
+  "Rime Guard": { src: "assets/wildwood/enemies/slime-green-stone.png", size: 70 },
+  "Whiteout Reaper": { src: "assets/wildwood/enemies/slime-orange.png", size: 66 },
+  "Aurora Oracle": { src: "assets/wildwood/enemies/slime-green.png", size: 68 },
 };
 
 export const REWARD_DATA: Record<RewardType, { color: string }> = {

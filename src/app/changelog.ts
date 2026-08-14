@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.376": [
+    "Snowlands now has its own enemy tier with scaled rewards and combat values.",
+  ],
   "0.375": [
     "Profile presence display refinements.",
   ],

@@ -39,10 +39,10 @@ const DESERT_CAMPS = [
 ];
 
 const SNOW_CAMPS = [
-  { name: "Rimegate Trail", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Venom Guard"] as EnemyKind[] },
-  { name: "Glacier Crossing", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Dune Archer"] as EnemyKind[] },
-  { name: "Whiteout Hollow", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Wastes Reaper"] as EnemyKind[] },
-  { name: "Aurora Shelf", x: 2120, y: 3650, minRadius: 170, radius: 430, count: 6, types: ["Blight Oracle"] as EnemyKind[] },
+  { name: "Rimegate Trail", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Frost Raider"] as EnemyKind[] },
+  { name: "Glacier Crossing", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Glacier Archer"] as EnemyKind[] },
+  { name: "Whiteout Hollow", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Rime Guard"] as EnemyKind[] },
+  { name: "Aurora Shelf", x: 2120, y: 3650, minRadius: 170, radius: 430, count: 6, types: ["Aurora Oracle", "Aurora Oracle", "Aurora Oracle", "Whiteout Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
