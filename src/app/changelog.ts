@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.377": [
+    "Desert and Snowlands return portals now show their correct destinations.",
+  ],
   "0.376": [
     "Snowlands now has its own enemy tier with scaled rewards and combat values.",
   ],

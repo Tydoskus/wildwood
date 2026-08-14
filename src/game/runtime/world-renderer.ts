@@ -294,6 +294,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawPortal() {
+    drawPortalAt(options.activePortal());
+  }
+
+  function drawCutscenePortal() {
     drawPortalAt(options.cutscenePortal(), true);
   }
 
@@ -385,5 +389,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.strokeStyle = "rgba(255,255,255,.52)"; ctx.lineWidth = 1; ctx.strokeRect(x + camera.x * sx, y + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); ctx.restore(); ctx.restore();
   }
 
-  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawPortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }
