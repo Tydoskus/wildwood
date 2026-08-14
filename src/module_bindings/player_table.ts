@@ -28,4 +28,6 @@ export default __t.row({
   zoneY: __t.i32().name("zone_y"),
   mapId: __t.string().name("map_id"),
   controllerTabId: __t.string().name("controller_tab_id"),
+  headItem: __t.string().name("head_item"),
+  chestItem: __t.string().name("chest_item"),
 });

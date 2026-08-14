@@ -39,6 +39,8 @@ export type RemotePlayer = {
   hp: number;
   maxHp: number;
   feetItem: string;
+  headItem: string;
+  chestItem: string;
 };
 
 export type LocalPlayerState = {
@@ -838,6 +840,8 @@ function upsertPlayer(row: {
   power: number;
   speed: number;
   feetItem: string;
+  headItem: string;
+  chestItem: string;
   lastInputSequence: number;
   controllerTabId: string;
   mapId: string;
@@ -887,6 +891,8 @@ function upsertPlayer(row: {
     existing.maxHp = row.maxHp;
     existing.power = row.power;
     existing.feetItem = row.feetItem;
+    existing.headItem = row.headItem;
+    existing.chestItem = row.chestItem;
   } else {
     players.set(id, {
       id,
@@ -900,6 +906,8 @@ function upsertPlayer(row: {
       hp: row.hp,
       maxHp: row.maxHp,
       feetItem: row.feetItem,
+      headItem: row.headItem,
+      chestItem: row.chestItem,
       samples: [{ receivedAt: performance.now(), x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
     });
   }

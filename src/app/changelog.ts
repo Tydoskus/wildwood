@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.348": [
+    "Players now show their equipped head, chest, and feet cosmetics to everyone on the map.",
+  ],
   "0.347": [
     "Superior Golden Helmet is now Beta Tester Golden Helmet, a no-stat cosmetic for players active within the last 120 hours.",
   ],

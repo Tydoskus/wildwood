@@ -126,6 +126,8 @@ const player = table(
     zoneY: t.i32().default(0),
     mapId: t.string().default(TUTORIAL_FOREST_MAP_ID),
     controllerTabId: t.string().default(""),
+    headItem: t.string().default(BASIC_PAPER_HAT),
+    chestItem: t.string().default(""),
   },
 );
 
@@ -1569,6 +1571,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
   }
   const feetItem = equippedFeetForProgress(existingProgress);
+  const headItem = equippedHeadForProgress(existingProgress);
+  const chestItem = equippedChestForProgress(existingProgress);
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
@@ -1578,6 +1582,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         power: powerForProgress(existingProgress),
         moving: false,
         feetItem,
+        headItem,
+        chestItem,
         protocolVersion: session.protocolVersion,
         controllerTabId: normalizedTabId,
         lastInputAt: ctx.timestamp,
@@ -1601,6 +1607,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       lastInputAt: ctx.timestamp,
       lastInputSequence: 0,
       feetItem,
+      headItem,
+      chestItem,
     });
     return;
   }
@@ -1622,6 +1630,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     protocolVersion: session.protocolVersion,
     controllerTabId: normalizedTabId,
     feetItem,
+    headItem,
+    chestItem,
   });
   adjustOnlinePlayers(ctx, 1);
 }
@@ -1996,6 +2006,8 @@ export const claimGuestAccount = spacetimedb.reducer(
         speed: speedForBoots(nextProgress.equippedFeet === TRAILBLAZER_BOOTS),
         power: powerForProgress(nextProgress),
         feetItem: equippedFeetForProgress(nextProgress),
+        headItem: equippedHeadForProgress(nextProgress),
+        chestItem: equippedChestForProgress(nextProgress),
       });
     }
 
@@ -2331,6 +2343,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       power: powerForProgress(next),
       speed: next.speed,
       feetItem: next.equippedFeet,
+      headItem: next.equippedHead,
+      chestItem: next.equippedChest,
     });
   },
 );
@@ -2366,6 +2380,8 @@ export const resetPlayerProgress = spacetimedb.reducer(
       power: powerForProgress(next),
       speed: next.speed,
       feetItem: next.equippedFeet,
+      headItem: next.equippedHead,
+      chestItem: next.equippedChest,
     });
   },
 );

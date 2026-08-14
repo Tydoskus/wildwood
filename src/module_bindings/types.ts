@@ -211,6 +211,8 @@ export const Player = __t.object("Player", {
   zoneY: __t.i32(),
   mapId: __t.string(),
   controllerTabId: __t.string(),
+  headItem: __t.string(),
+  chestItem: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
 
