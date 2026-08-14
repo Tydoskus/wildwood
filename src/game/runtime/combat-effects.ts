@@ -95,7 +95,7 @@ export function createCombatEffects() {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.font = '900 24.7px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     for (const number of damageNumbers) {
       ctx.globalAlpha = clamp(number.life / number.maxLife, 0, 1);
       outlinedText(number.text, Math.floor(number.x - camera.x), Math.floor(number.y - camera.y), "#ff5a5a", 4);

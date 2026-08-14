@@ -128,7 +128,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.379";
+  const GAME_VERSION = "0.380";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -2950,7 +2950,7 @@ import {
     const barW = 94 * WORLD_HEALTH_BAR_SCALE;
     const barH = WORLD_HEALTH_BAR_HEIGHT;
     const barX = centerX - Math.floor(barW / 2);
-    const barY = Math.round(y - 54);
+    const barY = Math.round(y - 62);
     const hpRatio = clamp(hp / maxHp, 0, 1);
     const fillWidth = Math.round(barW * hpRatio);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`;
