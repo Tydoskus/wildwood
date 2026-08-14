@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.354": [
+    "Mobile player HUD now uses the same translucent background as fullscreen.",
+  ],
   "0.353": [
     "Mobile rendering resolution is now capped at 2.25x for a sharper image with the new static tile cache.",
   ],

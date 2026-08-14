@@ -1316,6 +1316,12 @@
     .card { padding: 6px 8px; }
     #pickupLog { bottom: 180px; }
     .topbar { top: 0; right: 7px; left: 0; }
+    .player-hud-card { gap: 6px; padding: 5px 6px; background: rgba(13,20,17,.62); }
+    .profile-icon-button { width: 38px; height: 38px; border-radius: 6px; }
+    .player-summary { min-width: min(250px, 50vw); gap: 8px; padding: 0 2px 3px; }
+    .bar { width: min(250px, 50vw); height: 17px; margin-bottom: 1px; }
+    #playerName, #playerPower { font-size: 11.25px; }
+    #hpText { font-size: 10px; }
     .settings-button { font-size: 25px; }
     .toolbar-icon { width: 28px; height: 28px; }
     #chatPanel {
