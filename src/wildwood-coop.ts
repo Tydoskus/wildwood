@@ -247,6 +247,7 @@ const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: I
 const bugReportEntries = new Map<string, BugReportEntry>();
 const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
+let localPresenceVisible = true;
 const profileProgress = new Map<string, PlayerProgress>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerMaps = new Map<string, string>();
@@ -849,6 +850,7 @@ function upsertPlayer(row: {
   feetItem: string;
   headItem: string;
   chestItem: string;
+  isVisible: boolean;
   lastInputSequence: number;
   controllerTabId: string;
   mapId: string;
@@ -856,6 +858,7 @@ function upsertPlayer(row: {
   const id = row.identity.toHexString();
   playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
   if (id === localIdentity) {
+    localPresenceVisible = row.isVisible;
     if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
       worldEntryBlocked = true;
       authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
@@ -1432,7 +1435,7 @@ function refreshMapPlayerSubscription(force = false) {
       console.error("Wildwood map player subscription error:", ctx.event);
       mapPlayerSubscription = previous;
     })
-    .subscribe([tables.player.where((row) => row.mapId.eq(currentMapId))]);
+    .subscribe([tables.player.where((row) => row.mapId.eq(currentMapId).and(row.isVisible.eq(true)))]);
   mapPlayerSubscription = next;
 }
 
@@ -1993,6 +1996,24 @@ export const wildwoodCoop = {
   isDeveloper(identity = localIdentity) {
     return isDeveloperIdentity(identity);
   },
+  developerPresenceVisible() {
+    return localPresenceVisible;
+  },
+  async setDeveloperPresence(visible: boolean) {
+    if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
+      return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
+    }
+    try {
+      await connection.reducers.setDeveloperPresence({ visible });
+      localPresenceVisible = visible;
+      onChange?.();
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("developer presence", error);
+      return { ok: false, error: message };
+    }
+  },
   accessAuditEntries() {
     return [...accessAuditEntries.values()].map(({ identityValue: _identityValue, ...entry }) => ({ ...entry }));
   },
@@ -2043,10 +2064,10 @@ export const wildwoodCoop = {
     if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
       return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
     }
-    const entry = accessAuditEntries.get(identity);
-    if (!entry) return { ok: false, error: "PLAYER IDENTITY NOT FOUND" };
+    const targetIdentity = profileIdentities.get(identity) ?? accessAuditEntries.get(identity)?.identityValue;
+    if (!targetIdentity) return { ok: false, error: "PLAYER IDENTITY NOT FOUND" };
     try {
-      await connection.reducers.devUpdatePlayerSave({ identity: entry.identityValue, ...update });
+      await connection.reducers.devUpdatePlayerSave({ identity: targetIdentity, ...update });
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);

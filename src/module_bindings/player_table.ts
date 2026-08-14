@@ -30,4 +30,5 @@ export default __t.row({
   controllerTabId: __t.string().name("controller_tab_id"),
   headItem: __t.string().name("head_item"),
   chestItem: __t.string().name("chest_item"),
+  isVisible: __t.bool().name("is_visible"),
 });

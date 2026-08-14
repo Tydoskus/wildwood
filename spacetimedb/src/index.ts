@@ -104,7 +104,7 @@ const player = table(
   {
     public: true,
     indexes: [
-      { accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const },
+      { accessor: "byMap", algorithm: "btree", columns: ["mapId", "isVisible"] as const },
       { accessor: "byZone", algorithm: "btree", columns: ["zoneX", "zoneY"] as const },
     ],
   },
@@ -128,6 +128,7 @@ const player = table(
     controllerTabId: t.string().default(""),
     headItem: t.string().default(BASIC_PAPER_HAT),
     chestItem: t.string().default(""),
+    isVisible: t.bool().default(true),
   },
 );
 
@@ -991,7 +992,9 @@ function sameIdentity(a: any, b: any) {
 
 function countOnlinePlayers(ctx: any) {
   let count = 0;
-  for (const _player of ctx.db.player.iter()) count += 1;
+  for (const current of ctx.db.player.iter() as Iterable<any>) {
+    if (current.isVisible) count += 1;
+  }
   return count;
 }
 
@@ -1037,7 +1040,7 @@ function removeIdentityPresence(ctx: any, identity: any) {
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) {
     ctx.db.player.identity.delete(identity);
-    adjustOnlinePlayers(ctx, -1);
+    if (activePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
   }
 }
 
@@ -1567,6 +1570,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   backfillKnownAccessAudit(ctx);
 
   const existing = ctx.db.player.identity.find(ctx.sender);
+  const visibleOnEntry = !isDeveloperIdentity(ctx.sender);
   if (!existing) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
   }
@@ -1584,10 +1588,12 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         feetItem,
         headItem,
         chestItem,
+        isVisible: visibleOnEntry,
         protocolVersion: session.protocolVersion,
         controllerTabId: normalizedTabId,
         lastInputAt: ctx.timestamp,
       });
+      if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
@@ -1609,7 +1615,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       feetItem,
       headItem,
       chestItem,
+      isVisible: visibleOnEntry,
     });
+    if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
     return;
   }
 
@@ -1632,8 +1640,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     feetItem,
     headItem,
     chestItem,
+    isVisible: visibleOnEntry,
   });
-  adjustOnlinePlayers(ctx, 1);
+  if (visibleOnEntry) adjustOnlinePlayers(ctx, 1);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -2067,7 +2076,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     const guestActivePlayer = ctx.db.player.identity.find(link.guest);
     if (guestActivePlayer) {
       ctx.db.player.identity.delete(link.guest);
-      adjustOnlinePlayers(ctx, -1);
+      if (guestActivePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
     }
     if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
     if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
@@ -2127,6 +2136,17 @@ export const setDisplayName = spacetimedb.reducer(
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
     touchPlayerAccessAudit(ctx, activePlayer.protocolVersion);
+  },
+);
+
+export const setDeveloperPresence = spacetimedb.reducer(
+  { visible: t.bool() },
+  (ctx, { visible }) => {
+    requireDeveloper(ctx);
+    const activePlayer = requireControllingPlayer(ctx);
+    if (activePlayer.isVisible === visible) return;
+    ctx.db.player.identity.update({ ...activePlayer, isVisible: visible });
+    adjustOnlinePlayers(ctx, visible ? 1 : -1);
   },
 );
 

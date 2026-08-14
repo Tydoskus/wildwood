@@ -1,5 +1,5 @@
 import { enforceLatestVersion } from "./app/version";
-import { recentReleaseNotes, releaseDate } from "./app/changelog";
+import { recentReleaseNotes } from "./app/changelog";
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "./app/developer";
 import {
   BASE_ATTACK_RANGE,
@@ -127,7 +127,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.367";
+  const GAME_VERSION = "0.368";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -324,16 +324,18 @@ import {
   const leaderboardEmptyEl = requiredElement("leaderboardEmpty");
   const closeLeaderboardBtn = requiredElement("closeLeaderboardBtn");
   const devAuditEl = requiredElement("devAudit");
-  const devAuditTab = requiredElement("devAuditTab");
+  const devControlsTab = requiredElement("devControlsTab");
   const devBugReportsTab = requiredElement("devBugReportsTab");
   const devCutscenesTab = requiredElement("devCutscenesTab");
   const devPerformanceTab = requiredElement("devPerformanceTab");
-  const devAuditPanel = requiredElement("devAuditPanel");
+  const devControlsPanel = requiredElement("devControlsPanel");
   const devBugReportsPanel = requiredElement("devBugReportsPanel");
   const devBugReportRowsEl = requiredElement("devBugReportRows");
   const devBugReportEmptyEl = requiredElement("devBugReportEmpty");
   const devCutscenesPanel = requiredElement("devCutscenesPanel");
   const devPerformancePanel = requiredElement("devPerformancePanel");
+  const devPresenceStatusEl = requiredElement("devPresenceStatus");
+  const devPresenceToggleBtn = requiredElement<HTMLButtonElement>("devPresenceToggle");
   const perfFpsEl = requiredElement("perfFps");
   const perfFrameP50El = requiredElement("perfFrameP50");
   const perfFrameP95El = requiredElement("perfFrameP95");
@@ -350,12 +352,9 @@ import {
   const perfMemoryEl = requiredElement("perfMemory");
   const perfSubscriptionsEl = requiredElement("perfSubscriptions");
   const triggerDragonCutsceneBtn = requiredElement("triggerDragonCutsceneBtn");
-  const devAuditRowsEl = requiredElement("devAuditRows");
-  const devAuditEmptyEl = requiredElement("devAuditEmpty");
   const closeDevAuditBtn = requiredElement("closeDevAuditBtn");
   const updateNoticeEl = requiredElement("updateNotice");
   const updateNoticeTitleEl = requiredElement("updateNoticeTitle");
-  const updateNoticeDateEl = requiredElement("updateNoticeDate");
   const updateNoticeItemsEl = requiredElement("updateNoticeItems");
   const closeUpdateNoticeBtn = requiredElement("closeUpdateNoticeBtn");
   const signinVersionEl = requiredElement("signinVersion");
@@ -3669,81 +3668,6 @@ import {
     leaderboardBtn.setAttribute("aria-expanded", "false");
   }
 
-  function renderDevAudit() {
-    const entries = (coop?.accessAuditEntries?.() ?? [])
-      .sort((a, b) => b.lastSeenAtMs - a.lastSeenAtMs || a.displayName.localeCompare(b.displayName));
-    devAuditRowsEl.replaceChildren();
-    for (const entry of entries) {
-      const row = document.createElement("div");
-      row.className = "dev-audit-row";
-
-      const account = document.createElement("div");
-      account.className = "dev-audit-account";
-      const accountName = document.createElement("strong");
-      renderDomPlayerName(accountName, entry.identity, entry.displayName);
-      const identity = document.createElement("small");
-      identity.textContent = `${entry.accountType.toUpperCase()} · ${entry.identity.slice(0, 10)}…${entry.identity.slice(-6)}`;
-      const firstSeen = document.createElement("small");
-      firstSeen.textContent = `FIRST · ${new Date(entry.firstSeenAtMs).toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" })}`;
-      account.append(accountName, identity, firstSeen);
-      const actions = document.createElement("div");
-      actions.className = "dev-audit-account-actions";
-      const open = document.createElement("button");
-      open.type = "button";
-      open.textContent = "OPEN / EDIT";
-      open.addEventListener("click", () => {
-        closeDevAudit();
-        void openPlayerProfile(entry.identity, entry.displayName);
-      });
-      const copy = document.createElement("button");
-      copy.type = "button";
-      copy.textContent = "COPY ID";
-      copy.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(entry.identity);
-          showMessage("IDENTITY COPIED", "#72ef58");
-        } catch {
-          showMessage("COPY FAILED", "#ff9b91");
-        }
-      });
-      actions.append(open, copy);
-      account.append(actions);
-
-      const lastSeen = document.createElement("div");
-      lastSeen.className = "dev-audit-last-seen";
-      lastSeen.textContent = new Date(entry.lastSeenAtMs).toLocaleString([], {
-        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-      });
-
-      const client = document.createElement("div");
-      client.className = "dev-audit-client";
-      client.textContent = `P${entry.lastProtocolVersion}`;
-
-      const editor = document.createElement("div");
-      editor.className = "dev-audit-editor";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.maxLength = 60;
-      input.value = entry.label;
-      input.placeholder = "DEVICE / NOTE";
-      input.setAttribute("aria-label", `Label for ${entry.displayName}`);
-      const save = document.createElement("button");
-      save.type = "button";
-      save.textContent = "SAVE";
-      save.addEventListener("click", async () => {
-        save.disabled = true;
-        const result = await coop?.setAccessAuditLabel?.(entry.identity, input.value);
-        save.disabled = false;
-        showMessage(result?.ok ? "AUDIT LABEL SAVED" : result?.error || "AUDIT UPDATE FAILED", result?.ok ? "#72ef58" : "#ff9b91");
-      });
-      editor.append(input, save);
-      row.append(account, lastSeen, client, editor);
-      devAuditRowsEl.appendChild(row);
-    }
-    devAuditEmptyEl.hidden = entries.length > 0;
-    devAuditRowsEl.hidden = entries.length === 0;
-  }
-
   function renderDevBugReports() {
     const entries = (coop?.bugReportEntries?.() ?? [])
       .sort((a, b) => b.reportedAtMs - a.reportedAtMs || Number(b.id - a.id));
@@ -3778,26 +3702,33 @@ import {
     devBugReportRowsEl.hidden = entries.length === 0;
   }
 
-  function setDevPanelTab(tab: "audit" | "bugs" | "cutscenes" | "performance") {
-    const audit = tab === "audit";
+  function setDevPanelTab(tab: "controls" | "bugs" | "cutscenes" | "performance") {
+    const controls = tab === "controls";
     const bugs = tab === "bugs";
     const cutscenes = tab === "cutscenes";
     const performance = tab === "performance";
-    devAuditTab.classList.toggle("is-active", audit);
-    devAuditTab.setAttribute("aria-selected", String(audit));
+    devControlsTab.classList.toggle("is-active", controls);
+    devControlsTab.setAttribute("aria-selected", String(controls));
     devBugReportsTab.classList.toggle("is-active", bugs);
     devBugReportsTab.setAttribute("aria-selected", String(bugs));
     devCutscenesTab.classList.toggle("is-active", cutscenes);
     devCutscenesTab.setAttribute("aria-selected", String(cutscenes));
     devPerformanceTab.classList.toggle("is-active", performance);
     devPerformanceTab.setAttribute("aria-selected", String(performance));
-    devAuditPanel.hidden = !audit;
+    devControlsPanel.hidden = !controls;
     devBugReportsPanel.hidden = !bugs;
     devCutscenesPanel.hidden = !cutscenes;
     devPerformancePanel.hidden = !performance;
-    if (audit) renderDevAudit();
+    if (controls) renderDevControls();
     if (bugs) renderDevBugReports();
     if (performance) renderPerformancePanel();
+  }
+
+  function renderDevControls() {
+    const visible = coop?.developerPresenceVisible?.() === true;
+    devPresenceStatusEl.textContent = visible ? "VISIBLE · COUNTED ONLINE" : "INVISIBLE · NOT COUNTED ONLINE";
+    devPresenceToggleBtn.textContent = visible ? "GO INVISIBLE" : "APPEAR ONLINE";
+    devPresenceToggleBtn.setAttribute("aria-pressed", String(visible));
   }
 
   function setPerformanceValue(element: HTMLElement, value: string) {
@@ -3834,7 +3765,7 @@ import {
     settingsPanel.hidden = true;
     inventoryPanel.hidden = true;
     closeLeaderboard();
-    setDevPanelTab("audit");
+    setDevPanelTab("controls");
   }
 
   function closeDevAudit() {
@@ -3901,9 +3832,8 @@ import {
     const releases = recentReleaseNotes(2);
     if (!releases.length) return;
     renderUpdateNotice(
-      { overlay: updateNoticeEl, title: updateNoticeTitleEl, date: updateNoticeDateEl, items: updateNoticeItemsEl },
+      { overlay: updateNoticeEl, title: updateNoticeTitleEl, items: updateNoticeItemsEl },
       GAME_VERSION,
-      releaseDate(GAME_VERSION),
       releases,
     );
   }
@@ -4272,10 +4202,18 @@ import {
   leaderboardTimeTab.addEventListener("click", () => setLeaderboardTab("time"));
   devAuditBtn.addEventListener("click", openDevAudit);
   closeDevAuditBtn.addEventListener("click", closeDevAudit);
-  devAuditTab.addEventListener("click", () => setDevPanelTab("audit"));
+  devControlsTab.addEventListener("click", () => setDevPanelTab("controls"));
   devBugReportsTab.addEventListener("click", () => setDevPanelTab("bugs"));
   devCutscenesTab.addEventListener("click", () => setDevPanelTab("cutscenes"));
   devPerformanceTab.addEventListener("click", () => setDevPanelTab("performance"));
+  devPresenceToggleBtn.addEventListener("click", async () => {
+    const visible = coop?.developerPresenceVisible?.() === true;
+    devPresenceToggleBtn.disabled = true;
+    const result = await coop?.setDeveloperPresence?.(!visible);
+    devPresenceToggleBtn.disabled = false;
+    renderDevControls();
+    showMessage(result?.ok ? (!visible ? "VISIBLE · NOW ONLINE" : "INVISIBLE · NOW OFFLINE") : result?.error || "PRESENCE UPDATE FAILED", result?.ok ? "#72ef58" : "#ff9b91");
+  });
   triggerDragonCutsceneBtn.addEventListener("click", () => {
     if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
     if (currentMapId !== TUTORIAL_FOREST_MAP_ID) {
@@ -4543,7 +4481,7 @@ import {
       }
       if (!leaderboardEl.hidden) renderLeaderboard();
         if (!devAuditEl.hidden) {
-          renderDevAudit();
+          renderDevControls();
           renderDevBugReports();
         }
       loadProgress();

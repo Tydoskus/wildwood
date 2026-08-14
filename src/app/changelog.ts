@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.368": [
+    "Sign-in update notes use clearer version text with right-aligned dates.",
+  ],
   "0.367": [
     "Rendering is capped at 60 FPS, with an optional Low Performance setting for 30 FPS.",
     "Sign-in update history now includes every release from the last two calendar days.",

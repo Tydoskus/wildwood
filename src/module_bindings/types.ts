@@ -213,6 +213,7 @@ export const Player = __t.object("Player", {
   controllerTabId: __t.string(),
   headItem: __t.string(),
   chestItem: __t.string(),
+  isVisible: __t.bool(),
 });
 export type Player = __Infer<typeof Player>;
 
