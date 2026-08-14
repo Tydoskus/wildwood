@@ -1,6 +1,15 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.346": [
+    "Intermediate Snowlands is now the canonical map ID; old Frostwind Expanse saves migrate on sign-in.",
+    "Entering Intermediate Snowlands now plays the centered portal activation cutscene once.",
+    "Developer tools now include a private terminal-style bug report queue with clear controls.",
+    "Profile previews show every viewed player's equipped cosmetics, and remote players render solid.",
+  ],
+  "0.345": [
+    "Frostwind Expanse has been renamed Intermediate Snowlands.",
+  ],
   "0.344": [
-    "Frostwind Expanse is open as Wildwood's third map through the second portal in Beginner Desert.",
+    "Intermediate Snowlands is open as Wildwood's third map through the second portal in Beginner Desert.",
     "The new winter region includes snow terrain, icy roads, snow pines, frosted ground cover, camps, and a snow minimap.",
   ],
   "0.343": [

@@ -1069,6 +1069,12 @@
   .dev-audit-editor button { min-width: 48px; height: 29px; margin: 0; padding: 3px 6px; border-width: 2px; border-radius: 5px; font-size: 8px; }
   .dev-audit-account-actions { display: flex; gap: 4px; margin-top: 4px; }
   .dev-audit-account-actions button { min-width: 50px; height: 25px; margin: 0; padding: 2px 6px; border-width: 2px; border-radius: 5px; font-size: 7px; }
+  .dev-bug-report-rows { max-height: min(68vh, 520px); overflow-y: auto; background: #09110d; border: 2px solid #000; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .dev-bug-report { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; padding: 8px; border-bottom: 1px solid #254132; color: #b8f4be; font-size: 9px; line-height: 1.45; }
+  .dev-bug-report:last-child { border-bottom: 0; }
+  .dev-bug-report-meta { color: #75a982; font-size: 7px; }
+  .dev-bug-report-message { margin-top: 3px; color: #fff; overflow-wrap: anywhere; }
+  .dev-bug-report-clear { align-self: start; min-width: 48px; height: 25px; margin: 0; padding: 2px 5px; border-color: #72ef58; color: #72ef58; background: #102517; font-size: 7px; }
   .profile-edit-button { display: block; margin: 7px 0 0 auto; padding: 6px 10px; font-size: 9px; }
   .profile-duel-button { display: block; min-width: 112px; margin: 7px auto 0; padding: 7px 12px; font-size: 10px; }
   .profile-duel-button.is-cooling-down { background: linear-gradient(#676f70, #454b4c); color: #d1d7d5; cursor: not-allowed; }

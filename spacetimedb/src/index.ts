@@ -8,7 +8,7 @@ import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
-  FROSTWIND_EXPANSE_MAP_ID,
+  INTERMEDIATE_SNOWLANDS_MAP_ID,
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAP_IDS,
   MAX_ARMOR,
@@ -34,6 +34,11 @@ import {
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
 const PLAYER_ZONE_SIZE = 600;
 const VALID_MAP_IDS = new Set<string>(MAP_IDS);
+const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
+
+function canonicalMapId(mapId: string) {
+  return mapId === LEGACY_FROSTWIND_EXPANSE_MAP_ID ? INTERMEDIATE_SNOWLANDS_MAP_ID : mapId;
+}
 const DEVELOPER_IDENTITY_HEX = "c200a2bd4fd89d5cc59811729734b7f92d6bf328eda8fc64963fa5f7760dcb13";
 const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 // Maincloud database owner. CLI maintenance calls run as this identity, while
@@ -44,14 +49,14 @@ const MAP_PORTALS = {
   [TUTORIAL_FOREST_MAP_ID]: [{ x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID }],
   [BEGINNER_DESERT_MAP_ID]: [
     { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
-    { x: 580, y: 617, destination: FROSTWIND_EXPANSE_MAP_ID },
+    { x: 580, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
   ],
-  [FROSTWIND_EXPANSE_MAP_ID]: [{ x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID }],
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: [{ x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
-  [FROSTWIND_EXPANSE_MAP_ID]: { x: 580, y: 770 },
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -570,6 +575,16 @@ export const devAccessAudit = spacetimedb.view(
   (ctx) => {
     if (!isDeveloperIdentity(ctx.sender)) return [];
     return Array.from(ctx.db.playerAccessAudit.byViewer.filter(ctx.sender));
+  },
+);
+
+// Reports are private at rest. This view is the developer-only live queue.
+export const devBugReports = spacetimedb.view(
+  { name: "dev_bug_reports", public: true },
+  t.array(bugReport.rowType),
+  (ctx) => {
+    if (!isDeveloperIdentity(ctx.sender)) return [];
+    return Array.from(ctx.db.bugReport.iter());
   },
 );
 
@@ -1538,6 +1553,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
         ...existing,
+        mapId: canonicalMapId(existing.mapId),
         ...playerZone(existing.x, existing.y),
         power: powerForProgress(existingProgress),
         moving: false,
@@ -1548,7 +1564,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       });
       return;
     }
-    const entryMapId = VALID_MAP_IDS.has(existing.mapId) ? existing.mapId : TUTORIAL_FOREST_MAP_ID;
+    const normalizedMapId = canonicalMapId(existing.mapId);
+    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
     const entryPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
     ctx.db.player.identity.update({
       ...existing,
@@ -2090,6 +2107,15 @@ export const devSetAccessAuditLabel = spacetimedb.reducer(
     const current = ctx.db.playerAccessAudit.identity.find(identity);
     if (!current) throw new SenderError("Access audit row not found.");
     ctx.db.playerAccessAudit.identity.update({ ...current, label: normalized });
+  },
+);
+
+export const devDeleteBugReport = spacetimedb.reducer(
+  { id: t.u64() },
+  (ctx, { id }) => {
+    requireDeveloper(ctx);
+    if (!ctx.db.bugReport.id.find(id)) throw new SenderError("Bug report not found.");
+    ctx.db.bugReport.id.delete(id);
   },
 );
 

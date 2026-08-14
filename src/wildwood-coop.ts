@@ -13,7 +13,7 @@ import {
 import { createProgressStore } from "./coop/services/progress-store";
 import {
   BEGINNER_DESERT_MAP_ID,
-  FROSTWIND_EXPANSE_MAP_ID,
+  INTERMEDIATE_SNOWLANDS_MAP_ID,
   NAME_ADJECTIVES,
   NAME_CREATURES,
   PROTOCOL_VERSION,
@@ -97,6 +97,15 @@ export type AccessAuditEntry = {
   accountType: string;
   lastProtocolVersion: number;
   label: string;
+};
+
+export type BugReportEntry = {
+  id: bigint;
+  reporter: string;
+  reporterName: string;
+  message: string;
+  protocolVersion: number;
+  reportedAtMs: number;
 };
 
 export type DragonBossState = {
@@ -233,6 +242,7 @@ const skinTones = new Map<string, number>();
 const profileIdentities = new Map<string, Identity>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
 const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
+const bugReportEntries = new Map<string, BugReportEntry>();
 const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
 const profileProgress = new Map<string, PlayerProgress>();
@@ -975,6 +985,23 @@ function removeAccessAudit(row: { identity: Identity }) {
   onChange?.();
 }
 
+function upsertBugReport(row: { id: bigint; reporter: Identity; reporterName: string; message: string; protocolVersion: number; reportedAt: { microsSinceUnixEpoch: bigint } }) {
+  bugReportEntries.set(row.id.toString(), {
+    id: row.id,
+    reporter: row.reporter.toHexString(),
+    reporterName: row.reporterName,
+    message: row.message,
+    protocolVersion: row.protocolVersion,
+    reportedAtMs: Number(row.reportedAt.microsSinceUnixEpoch / 1000n),
+  });
+  onChange?.();
+}
+
+function removeBugReport(row: { id: bigint }) {
+  bugReportEntries.delete(row.id.toString());
+  onChange?.();
+}
+
 function upsertPlayerAccountStatus(row: { identity: Identity; isGuest: boolean }) {
   guestAccounts.set(row.identity.toHexString(), row.isGuest);
   chatPresentationRevision += 1;
@@ -1599,6 +1626,9 @@ function connect() {
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (isCurrentConnection()) removeAccessAudit(row); });
+        conn.db.devBugReports.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertBugReport(row); });
+        conn.db.devBugReports.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertBugReport(row); });
+        conn.db.devBugReports.onDelete((_ctx, row) => { if (isCurrentConnection()) removeBugReport(row); });
         conn.db.playerAccountStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
         conn.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
         conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayerAccountStatus(row); });
@@ -1628,6 +1658,7 @@ function connect() {
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
           for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
           for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
+          for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
           for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
@@ -1653,7 +1684,7 @@ function connect() {
           tables.player.where((player) => player.identity.eq(identity)),
           tables.playerProfile,
           tables.leaderboardEntry,
-          ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit] : []),
+          ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus,
           tables.worldStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
@@ -1927,6 +1958,23 @@ export const wildwoodCoop = {
   accessAuditEntries() {
     return [...accessAuditEntries.values()].map(({ identityValue: _identityValue, ...entry }) => ({ ...entry }));
   },
+  bugReportEntries() {
+    return [...bugReportEntries.values()].map((entry) => ({ ...entry }));
+  },
+  async deleteBugReport(id: bigint) {
+    if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
+      return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
+    }
+    if (!bugReportEntries.has(id.toString())) return { ok: false, error: "BUG REPORT NOT FOUND" };
+    try {
+      await connection.reducers.devDeleteBugReport({ id });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("bug report delete", error);
+      return { ok: false, error: message };
+    }
+  },
   async setAccessAuditLabel(identity: string, label: string) {
     if (protocolBlocked || !connection || !isDeveloperIdentity(localIdentity)) {
       return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
@@ -2162,7 +2210,7 @@ export const wildwoodCoop = {
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
   },
   async changeMap(mapId: string) {
-    if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, FROSTWIND_EXPANSE_MAP_ID].includes(mapId)) return false;
+    if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)) return false;
     try {
       await connection.reducers.changeMap({ mapId });
       return true;

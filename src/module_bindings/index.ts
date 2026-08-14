@@ -42,6 +42,7 @@ import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
+import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
@@ -66,6 +67,7 @@ import TakeOverSessionReducer from "./take_over_session_reducer";
 // Import all table schema definitions
 import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
+import DevBugReportsRow from "./dev_bug_reports_table";
 import DragonBossRow from "./dragon_boss_table";
 import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
@@ -258,6 +260,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, DevAccessAuditRow),
+  devBugReports: __table({
+    name: 'dev_bug_reports',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, DevBugReportsRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -270,6 +279,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
+  __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),

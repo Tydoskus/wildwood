@@ -26,8 +26,8 @@ export type SpawnSite = {
 type Point = { x: number; y: number };
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
-export const FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
-export type MapId = typeof TUTORIAL_FOREST_MAP_ID | typeof BEGINNER_DESERT_MAP_ID | typeof FROSTWIND_EXPANSE_MAP_ID;
+export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
+export type MapId = typeof TUTORIAL_FOREST_MAP_ID | typeof BEGINNER_DESERT_MAP_ID | typeof INTERMEDIATE_SNOWLANDS_MAP_ID;
 
 const DESERT_CAMPS = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
@@ -127,7 +127,7 @@ function createSnowLayout() {
 
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
-  if (mapId === FROSTWIND_EXPANSE_MAP_ID) return createSnowLayout();
+  if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -200,7 +200,7 @@ export function loadTreeSpritesheet(onSettled?: () => void) {
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   const sites: SpawnSite[] = [];
-  const camps = mapId === BEGINNER_DESERT_MAP_ID ? DESERT_CAMPS : mapId === FROSTWIND_EXPANSE_MAP_ID ? SNOW_CAMPS : CAMPS;
+  const camps = mapId === BEGINNER_DESERT_MAP_ID ? DESERT_CAMPS : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID ? SNOW_CAMPS : CAMPS;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];

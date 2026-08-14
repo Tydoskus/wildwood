@@ -140,7 +140,7 @@ export function createActorRenderer(options: {
       if (x < -65 || y < -70 || x > width + 65 || y > height + 70) continue;
 
       options.drawShadow(x, y + 29, 34, .16);
-      drawPlayerSprite({ ...other, x, y }, .82);
+      drawPlayerSprite({ ...other, x, y }, 1);
       options.drawStatus({
         x,
         y,

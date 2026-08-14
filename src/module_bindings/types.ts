@@ -46,6 +46,9 @@ export type ChatMessage = __Infer<typeof ChatMessage>;
 export const DevAccessAudit = __t.object("DevAccessAudit", {});
 export type DevAccessAudit = __Infer<typeof DevAccessAudit>;
 
+export const DevBugReports = __t.object("DevBugReports", {});
+export type DevBugReports = __Infer<typeof DevBugReports>;
+
 export const DragonAttackWindow = __t.object("DragonAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

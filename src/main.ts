@@ -50,7 +50,7 @@ import type {
 } from "./game/runtime/types";
 import {
   BEGINNER_DESERT_MAP_ID,
-  FROSTWIND_EXPANSE_MAP_ID,
+  INTERMEDIATE_SNOWLANDS_MAP_ID,
   createSpawnSites,
   createWorldLayout,
   loadTreeSpritesheet,
@@ -123,13 +123,14 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.344";
+  const GAME_VERSION = "0.346";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
   const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
   const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
   const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
+  const SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-snowlands-portal-cutscene-v1";
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const PLAYER_THROW_SECONDS = .42;
   const PLAYER_THROW_WINDUP_SECONDS = .12;
@@ -315,8 +316,12 @@ import {
   const closeLeaderboardBtn = requiredElement("closeLeaderboardBtn");
   const devAuditEl = requiredElement("devAudit");
   const devAuditTab = requiredElement("devAuditTab");
+  const devBugReportsTab = requiredElement("devBugReportsTab");
   const devCutscenesTab = requiredElement("devCutscenesTab");
   const devAuditPanel = requiredElement("devAuditPanel");
+  const devBugReportsPanel = requiredElement("devBugReportsPanel");
+  const devBugReportRowsEl = requiredElement("devBugReportRows");
+  const devBugReportEmptyEl = requiredElement("devBugReportEmpty");
   const devCutscenesPanel = requiredElement("devCutscenesPanel");
   const triggerDragonCutsceneBtn = requiredElement("triggerDragonCutsceneBtn");
   const devAuditRowsEl = requiredElement("devAuditRows");
@@ -380,11 +385,11 @@ import {
     [BEGINNER_DESERT_MAP_ID]: {
       name: "BEGINNER DESERT",
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: FROSTWIND_EXPANSE_MAP_ID },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
       arrival: { x: 360, y: 770 },
     },
-    [FROSTWIND_EXPANSE_MAP_ID]: {
-      name: "FROSTWIND EXPANSE",
+    [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
+      name: "INTERMEDIATE SNOWLANDS",
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: BEGINNER_DESERT_MAP_ID },
       arrival: { x: 580, y: 770 },
     },
@@ -397,6 +402,7 @@ import {
   let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationOpacity = 0;
   let portalCutscenePreview = false;
+  let portalCutsceneMapId: MapId = TUTORIAL_FOREST_MAP_ID;
   let queuedDragonResult: DragonResult | null = null;
 
   let dpr = 1;
@@ -584,7 +590,7 @@ import {
   let settledPlayerSprites = 0;
   const markPlayerSpriteReady = () => {
     settledPlayerSprites += 1;
-    if (settledPlayerSprites < 7) return;
+    if (settledPlayerSprites < 8) return;
     playerSpriteReady = true;
     updateLoadingDetail();
     finishStartup();
@@ -698,7 +704,7 @@ import {
     portalDestinationOpacity: () => portalCutsceneDestinationOpacity,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,
-    snowMapId: FROSTWIND_EXPANSE_MAP_ID,
+    snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
     paths,
     decor,
     enemies,
@@ -1437,17 +1443,22 @@ import {
     try { return localStorage.getItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY) === "true"; } catch { return false; }
   }
 
-  function startDragonPortalCutscene(preview = false) {
-    const portal = MAP_CONFIG[TUTORIAL_FOREST_MAP_ID].portal;
+  function startMapPortalCutscene(mapId: MapId, preview = false) {
+    const portal = MAP_CONFIG[mapId].portal;
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, { width: viewW, height: viewH });
     portalCutsceneIntensity = 0;
     portalCutsceneBlackoutOpacity = 0;
     portalCutsceneDestinationOpacity = 0;
     portalCutscenePreview = preview;
+    portalCutsceneMapId = mapId;
     keys.clear();
     touchMove.active = false;
     cutsceneOverlayEl.hidden = false;
     document.body.classList.add("is-cutscene");
+  }
+
+  function startDragonPortalCutscene(preview = false) {
+    startMapPortalCutscene(TUTORIAL_FOREST_MAP_ID, preview);
   }
 
   function updatePortalCutscene(dt: number) {
@@ -1468,7 +1479,14 @@ import {
     const wasPreview = portalCutscenePreview;
     portalCutscenePreview = false;
     if (!wasPreview) {
-      try { localStorage.setItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY, "true"); } catch {}
+      try {
+        localStorage.setItem(
+          portalCutsceneMapId === INTERMEDIATE_SNOWLANDS_MAP_ID
+            ? SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY
+            : DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
+          "true",
+        );
+      } catch {}
     }
     const result = queuedDragonResult;
     queuedDragonResult = null;
@@ -2182,13 +2200,24 @@ import {
     spiderBoss.web = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
+    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) {
+      try {
+        if (localStorage.getItem(SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY) !== "true") {
+          requestAnimationFrame(() => {
+            if (running && currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !portalCutscene.active) {
+              startMapPortalCutscene(INTERMEDIATE_SNOWLANDS_MAP_ID);
+            }
+          });
+        }
+      } catch {}
+    }
   }
 
   function reconcileMapFromServer() {
     if (!running || mapTransitioning || isDueling()) return;
     const state = coop?.localState?.();
     if (!state || state.mapId === currentMapId) return;
-    if (state.mapId !== TUTORIAL_FOREST_MAP_ID && state.mapId !== BEGINNER_DESERT_MAP_ID && state.mapId !== FROSTWIND_EXPANSE_MAP_ID) return;
+    if (state.mapId !== TUTORIAL_FOREST_MAP_ID && state.mapId !== BEGINNER_DESERT_MAP_ID && state.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) return;
 
     mapTransitioning = true;
     fadeToWorld(() => {
@@ -3223,8 +3252,8 @@ import {
     const online = isProfileOnline(profile.identity);
     const mapName = profile.mapId === BEGINNER_DESERT_MAP_ID
       ? "BEGINNER DESERT"
-      : profile.mapId === FROSTWIND_EXPANSE_MAP_ID
-        ? "FROSTWIND EXPANSE"
+      : profile.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID
+        ? "INTERMEDIATE SNOWLANDS"
       : profile.mapId === TUTORIAL_FOREST_MAP_ID ? "TUTORIAL FOREST" : "";
     const presenceText = online && mapName
       ? `ONLINE - ${mapName}`
@@ -3328,6 +3357,7 @@ import {
     if (playerProfileEl.hidden) return;
     resizeProfileCharacterCanvas();
     const identity = profileCharacterPreviewEl.dataset.identity;
+    const previewProgress = openProfileData && openProfileData.identity === identity ? openProfileData.progress : null;
     const width = Math.max(1, Math.round(profileCharacterCanvas.clientWidth));
     const height = Math.max(1, Math.round(profileCharacterCanvas.clientHeight));
     const now = performance.now();
@@ -3355,9 +3385,9 @@ import {
       moving: true,
       gameTime: now / 1000,
       skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE,
-      headItem: identity === coop?.localIdentity?.() ? inventory.equippedHead : undefined,
-      chestItem: identity === coop?.localIdentity?.() ? inventory.equippedChest : undefined,
-      feetItem: identity === coop?.localIdentity?.() ? inventory.equippedFeet : undefined,
+      headItem: previewProgress?.equippedHead,
+      chestItem: previewProgress?.equippedChest,
+      feetItem: previewProgress?.equippedFeet,
       scale: .6,
     });
     const vignette = profileCharacterCtx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .25, width / 2, height / 2, Math.max(width, height) * .72);
@@ -3586,15 +3616,54 @@ import {
     devAuditRowsEl.hidden = entries.length === 0;
   }
 
-  function setDevPanelTab(tab: "audit" | "cutscenes") {
+  function renderDevBugReports() {
+    const entries = (coop?.bugReportEntries?.() ?? [])
+      .sort((a, b) => b.reportedAtMs - a.reportedAtMs || Number(b.id - a.id));
+    devBugReportRowsEl.replaceChildren();
+    for (const entry of entries) {
+      const row = document.createElement("div");
+      row.className = "dev-bug-report";
+      const content = document.createElement("div");
+      const meta = document.createElement("div");
+      meta.className = "dev-bug-report-meta";
+      meta.textContent = `[${new Date(entry.reportedAtMs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}] ${entry.reporterName} · P${entry.protocolVersion}`;
+      const message = document.createElement("div");
+      message.className = "dev-bug-report-message";
+      message.textContent = `> ${entry.message}`;
+      content.append(meta, message);
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "dev-bug-report-clear";
+      clear.textContent = "CLEAR";
+      clear.addEventListener("click", async () => {
+        clear.disabled = true;
+        const result = await coop?.deleteBugReport?.(entry.id);
+        if (!result?.ok) {
+          clear.disabled = false;
+          showMessage(result?.error || "BUG REPORT DELETE FAILED", "#ff9b91");
+        }
+      });
+      row.append(content, clear);
+      devBugReportRowsEl.appendChild(row);
+    }
+    devBugReportEmptyEl.hidden = entries.length > 0;
+    devBugReportRowsEl.hidden = entries.length === 0;
+  }
+
+  function setDevPanelTab(tab: "audit" | "bugs" | "cutscenes") {
     const audit = tab === "audit";
+    const bugs = tab === "bugs";
     devAuditTab.classList.toggle("is-active", audit);
     devAuditTab.setAttribute("aria-selected", String(audit));
-    devCutscenesTab.classList.toggle("is-active", !audit);
-    devCutscenesTab.setAttribute("aria-selected", String(!audit));
+    devBugReportsTab.classList.toggle("is-active", bugs);
+    devBugReportsTab.setAttribute("aria-selected", String(bugs));
+    devCutscenesTab.classList.toggle("is-active", !audit && !bugs);
+    devCutscenesTab.setAttribute("aria-selected", String(!audit && !bugs));
     devAuditPanel.hidden = !audit;
-    devCutscenesPanel.hidden = audit;
+    devBugReportsPanel.hidden = !bugs;
+    devCutscenesPanel.hidden = audit || bugs;
     if (audit) renderDevAudit();
+    if (bugs) renderDevBugReports();
   }
 
   function openDevAudit() {
@@ -4004,6 +4073,7 @@ import {
   devAuditBtn.addEventListener("click", openDevAudit);
   closeDevAuditBtn.addEventListener("click", closeDevAudit);
   devAuditTab.addEventListener("click", () => setDevPanelTab("audit"));
+  devBugReportsTab.addEventListener("click", () => setDevPanelTab("bugs"));
   devCutscenesTab.addEventListener("click", () => setDevPanelTab("cutscenes"));
   triggerDragonCutsceneBtn.addEventListener("click", () => {
     if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
@@ -4276,7 +4346,10 @@ import {
         if (profile) renderPlayerProfile(profile);
       }
       if (!leaderboardEl.hidden) renderLeaderboard();
-      if (!devAuditEl.hidden) renderDevAudit();
+        if (!devAuditEl.hidden) {
+          renderDevAudit();
+          renderDevBugReports();
+        }
       loadProgress();
       const nextSessionGeneration = coop?.sessionGeneration?.() || 0;
       if (nextSessionGeneration !== observedCoopSessionGeneration) {
