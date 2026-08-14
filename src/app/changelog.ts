@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.396": [
+    "Research timers now grow 40% per rank from each tech’s own starting time; deeper Tech Tree nodes begin with longer server timers.",
+  ],
   "0.395": [
     "Tech Tree nodes now keep their mobile-sized width on desktop, with more vertical room between each row.",
   ],

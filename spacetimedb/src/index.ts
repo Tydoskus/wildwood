@@ -1,7 +1,7 @@
 import { schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
-import { RESEARCH_DEFINITIONS, RESEARCH_IDS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
+import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
 import {
   ATTACK_BALANCE_VERSION,
   BASIC_PAPER_HAT,
@@ -675,10 +675,6 @@ function researchForPlayer(ctx: any, identity: any) {
   const next = defaultPlayerResearch(identity);
   ctx.db.playerResearch.insert(next);
   return next;
-}
-
-function completedResearchCount(research: Record<ResearchId, number>) {
-  return RESEARCH_IDS.reduce((total, id) => total + research[id], 0);
 }
 
 function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
@@ -2459,7 +2455,7 @@ export const startResearch = spacetimedb.reducer(
     const research = researchForPlayer(ctx, ctx.sender);
     assertResearchAvailable(research, researchId);
     const targetRank = research[researchId] + 1;
-    const durationMicros = BigInt(researchDurationMs(completedResearchCount(research))) * 1_000n;
+    const durationMicros = BigInt(researchDurationMs(researchId, research[researchId])) * 1_000n;
     ctx.db.activeResearch.insert({
       identity: ctx.sender,
       researchId,

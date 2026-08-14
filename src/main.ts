@@ -100,7 +100,7 @@ import {
 } from "./ui/settings";
 import { formatCompactNumber } from "./ui/number-format";
 import type { LeaderboardEntry, RemotePlayer, wildwoodCoop } from "./wildwood-coop";
-import { RESEARCH_DEFINITIONS, RESEARCH_IDS, researchDurationMs, type ResearchId } from "../shared/research";
+import { RESEARCH_DEFINITIONS, researchDurationMs, type ResearchId } from "../shared/research";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.395";
+  const GAME_VERSION = "0.396";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -3893,7 +3893,7 @@ import {
 
     const definition = RESEARCH_DEFINITIONS[selectedResearchId];
     const rank = ranks[selectedResearchId];
-    const duration = researchDurationMs(RESEARCH_IDS.reduce((total, id) => total + ranks[id], 0));
+    const duration = researchDurationMs(selectedResearchId, rank);
     const canStart = !active && rank < definition.maxRank && researchRequirementsMet(selectedResearchId, ranks);
     techTreeDetailContent.replaceChildren();
     const title = document.createElement("strong");
