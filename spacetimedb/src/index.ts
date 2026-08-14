@@ -141,9 +141,9 @@ const playerProgress = table(
     bootsCollected: t.bool(),
     introComplete: t.bool().default(false),
     inventoryJson: t.string().default("[]"),
-    equippedHead: t.string().default(BASIC_PAPER_HAT),
     equippedFeet: t.string().default(""),
     desertUnlocked: t.bool().default(false),
+    equippedHead: t.string().default(BASIC_PAPER_HAT),
   },
 );
 
