@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.356": [
+    "Static tree, cactus, and snow-pine shadows now render from the nearby tile cache.",
+    "Mobile rendering resolution cap is restored to 3x.",
+  ],
+  "0.355": [
+    "Mobile rendering resolution cap is restored to 3x.",
+  ],
   "0.354": [
     "Mobile player HUD now uses the same translucent background as fullscreen.",
   ],

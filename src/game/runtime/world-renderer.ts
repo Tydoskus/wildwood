@@ -43,6 +43,7 @@ export type WorldRendererOptions = {
   player: PlayerState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
+  actorShadowSprite: HTMLImageElement;
   treeSpriteBounds: () => TreeSpriteBounds[];
   portalArch: HTMLImageElement;
   portalSwirl: HTMLImageElement;
@@ -87,6 +88,21 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const originX = tileX * STATIC_TILE_SIZE;
     const originY = tileY * STATIC_TILE_SIZE;
     const colors = mapColors();
+    const drawStaticShadow = (x: number, y: number, width: number, alpha: number) => {
+      const height = Math.max(8, Math.round(width * 33 / 86));
+      if (x + width / 2 < 0 || x - width / 2 > STATIC_TILE_SIZE || y + height / 2 < 0 || y - height / 2 > STATIC_TILE_SIZE) return;
+      tileCtx.save();
+      tileCtx.globalAlpha = alpha;
+      if (options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0) {
+        tileCtx.drawImage(options.actorShadowSprite, Math.round(x - width / 2), Math.round(y - height / 2), Math.round(width), height);
+      } else {
+        tileCtx.fillStyle = "#102719";
+        tileCtx.beginPath();
+        tileCtx.ellipse(x, y, width / 2, height / 2, 0, 0, TAU);
+        tileCtx.fill();
+      }
+      tileCtx.restore();
+    };
     tileCtx.fillStyle = colors.ground;
     tileCtx.fillRect(0, 0, STATIC_TILE_SIZE, STATIC_TILE_SIZE);
     for (const path of options.paths) {
@@ -118,6 +134,26 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         tileCtx.fillStyle = "rgba(0,0,0,.11)"; tileCtx.beginPath(); tileCtx.ellipse(x, y + 2, w * .6, Math.max(3, w * .23), 0, 0, TAU); tileCtx.fill();
         tileCtx.fillStyle = "#79543d"; tileCtx.beginPath(); tileCtx.moveTo(x - w / 2, y); tileCtx.lineTo(x - w * .32, y - h * .72); tileCtx.lineTo(x + w * .2, y - h); tileCtx.lineTo(x + w / 2, y - h * .28); tileCtx.lineTo(x + w * .38, y); tileCtx.closePath(); tileCtx.fill();
         tileCtx.fillStyle = "#b77b4b"; tileCtx.beginPath(); tileCtx.moveTo(x - w * .32, y - h * .72); tileCtx.lineTo(x + w * .2, y - h); tileCtx.lineTo(x + w * .12, y - h * .45); tileCtx.closePath(); tileCtx.fill();
+      }
+    }
+    // Tall decor stays live for depth sorting. Its unchanging ground shadows
+    // render once in the static tile, underneath every player and enemy.
+    for (const decor of options.decor) {
+      const x = Math.round(decor.x - originX);
+      const y = Math.round(decor.y - originY);
+      if (decor.type === "tree") {
+        const source = options.treeSpriteBounds()[decor.variant % 16];
+        if (!source) continue;
+        const drawSize = Math.round(154 * decor.s);
+        const scale = drawSize / source.h;
+        const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
+        drawStaticShadow(shadowX, y, Math.max(12, Math.round(source.groundWidth * scale * 1.8)), .12);
+      } else if (decor.type === "cactus") {
+        drawStaticShadow(x, y - 2, Math.round(46 * decor.s), .12);
+      } else if (decor.type === "snowPine" && options.snowPine.naturalWidth > 0) {
+        const height = Math.round(185 * decor.s);
+        const width = Math.round(height * options.snowPine.naturalWidth / options.snowPine.naturalHeight);
+        drawStaticShadow(x, y - 3, Math.round(width * .75), .13);
       }
     }
     staticTiles.set(key, tile);
@@ -211,7 +247,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const scale = drawSize / source.h;
     const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
     const shadowWidth = Math.max(12, Math.round(source.groundWidth * scale * 1.8));
-    options.drawShadow(shadowX, y, shadowWidth, .12);
     ctx.drawImage(options.treeSpritesheet, source.x, source.y, source.w, source.h, Math.round(x - drawWidth / 2), Math.round(y - drawSize), drawWidth, drawSize);
   }
 
@@ -265,7 +300,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (x < -90 || y < -100 || x > visible.width + 90 || y > visible.height + 50) return;
     const h = Math.round(68 * cactus.s);
     const w = Math.max(10, Math.round(15 * cactus.s));
-    options.drawShadow(x, y - 2, Math.round(46 * cactus.s), .12);
     ctx.fillStyle = "#245a36"; ctx.fillRect(x - w / 2 - 2, y - h, w + 4, h);
     ctx.fillStyle = "#3f8050"; ctx.fillRect(x - w / 2, y - h, w - 2, h - 4);
     ctx.fillStyle = "#70a961"; ctx.fillRect(x - w / 2 + 2, y - h + 4, 3, h - 10);
@@ -299,7 +333,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (!options.snowPine.complete || options.snowPine.naturalWidth <= 0) return;
     const height = Math.round(185 * tree.s);
     const width = Math.round(height * options.snowPine.naturalWidth / options.snowPine.naturalHeight);
-    options.drawShadow(x, y - 3, Math.round(width * .75), .13);
     ctx.drawImage(options.snowPine, x - width / 2, y - height, width, height);
   }
 
