@@ -59,7 +59,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
   const STATIC_TILE_SIZE = 640;
   const STATIC_TILE_LIMIT = 12;
-  const TREE_SHADOW_WIDTH_SCALE = 2.8;
+  const TREE_SHADOW_CANOPY_WIDTH_RATIO = 1.12;
   const staticTiles = new Map<string, HTMLCanvasElement>();
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
@@ -149,8 +149,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         if (!source) continue;
         const drawSize = Math.round(154 * decor.s);
         const scale = drawSize / source.h;
+        const drawWidth = Math.round(drawSize * source.w / source.h);
         const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
-        drawStaticShadow(shadowX, y, Math.max(12, Math.round(source.groundWidth * scale * TREE_SHADOW_WIDTH_SCALE)), .12);
+        drawStaticShadow(shadowX, y, Math.max(24, Math.round(drawWidth * TREE_SHADOW_CANOPY_WIDTH_RATIO)), .14);
       } else if (decor.type === "cactus") {
         drawStaticShadow(x, y - 2, Math.round(46 * decor.s), .12);
       } else if (decor.type === "snowPine" && options.snowPine.naturalWidth > 0) {
@@ -254,9 +255,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const source = options.treeSpriteBounds()[tree.variant % 16];
     if (!source) return;
     const drawWidth = Math.round(drawSize * source.w / source.h);
-    const scale = drawSize / source.h;
-    const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
-    const shadowWidth = Math.max(12, Math.round(source.groundWidth * scale * 1.8));
     ctx.drawImage(options.treeSpritesheet, source.x, source.y, source.w, source.h, Math.round(x - drawWidth / 2), Math.round(y - drawSize), drawWidth, drawSize);
   }
 

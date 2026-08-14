@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.381": [
+    "Tutorial Forest tree shadows now use each tree's full canopy width for consistent grounded shade.",
+  ],
   "0.380": [
     "Damage popups are smaller, and player names with health bars sit higher above characters.",
   ],
