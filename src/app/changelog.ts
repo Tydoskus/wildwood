@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.389": [
+    "Tech Tree now scrolls through future nodes and signals idle or claim-ready research from the toolbar.",
+  ],
   "0.388": [
     "Tech Tree toolbar icon now uses a plain white node-outline layout.",
   ],

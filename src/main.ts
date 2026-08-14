@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.388";
+  const GAME_VERSION = "0.389";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -184,6 +184,7 @@ import {
   const settingsBtn = requiredElement("settingsBtn");
   const inventoryBtn = requiredElement("inventoryBtn");
   const techTreeBtn = requiredElement("techTreeBtn");
+  const techTreeNotice = requiredElement("techTreeNotice");
   const leaderboardBtn = requiredElement("leaderboardBtn");
   const devAuditBtn = requiredElement("devAuditBtn");
   const autoAttackBtn = requiredElement("autoAttackBtn");
@@ -3324,6 +3325,7 @@ import {
     if (!force && now < nextHudUpdateAt) return;
     nextHudUpdateAt = now + 100;
     applyVitalityResearch();
+    updateTechTreeNotice();
     const remoteCount = coop && typeof coop.remotePlayerCount === "function"
       ? coop.remotePlayerCount()
       : coop
@@ -3741,6 +3743,11 @@ import {
     return researchRanks().criticalChance * .01;
   }
 
+  function updateTechTreeNotice() {
+    const active = coop?.activeResearch?.() ?? null;
+    techTreeNotice.hidden = Boolean(active && active.completesAtMs > Date.now());
+  }
+
   function applyVitalityResearch() {
     if (isDueling()) return;
     const nextRank = researchRanks().vitality;
@@ -3792,7 +3799,7 @@ import {
       const rect = element.getBoundingClientRect();
       return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
     };
-    const paths: [string, string][] = [["foundations", "war"], ["war", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"], ["frontier-mastery", "critical-chance"]];
+    const paths: [string, string][] = [["foundations", "war"], ["foundations", "future-a"], ["war", "frontier-mastery"], ["future-a", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"], ["vitality", "critical-chance"], ["precision", "critical-chance"], ["critical-chance", "future-b"], ["future-b", "future-c"], ["future-b", "future-d"], ["future-c", "future-e"], ["future-d", "future-e"], ["future-e", "future-f"], ["future-e", "future-g"], ["future-f", "future-h"], ["future-g", "future-h"]];
     treeCtx.strokeStyle = "rgba(191, 198, 207, .52)";
     treeCtx.lineWidth = 3;
     for (const [from, to] of paths) {
@@ -3810,6 +3817,7 @@ import {
     const ranks = researchRanks();
     const active = coop?.activeResearch?.() ?? null;
     const activeRemaining = active ? active.completesAtMs - Date.now() : 0;
+    updateTechTreeNotice();
     techTreeActive.textContent = active
       ? activeRemaining > 0
         ? `${RESEARCH_DEFINITIONS[active.researchId].effect} · ${formatResearchTime(activeRemaining)} · SERVER TIMER`
@@ -4463,6 +4471,9 @@ import {
   addEventListener("resize", () => {
     if (!techTreeOverlay.hidden) drawTechTreeLinks();
   });
+  techTreeCanvas.parentElement?.addEventListener("scroll", () => {
+    if (!techTreeOverlay.hidden) drawTechTreeLinks();
+  }, { passive: true });
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
     button.addEventListener("click", () => {
       const researchId = techNodeResearch[button.dataset.techNode ?? ""];
