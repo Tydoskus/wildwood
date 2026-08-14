@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.351": [
+    "Ground paths and procedural map decor now render from a small nearby tile cache instead of redrawing every frame.",
+  ],
   "0.350": [
     "Beta Tester Golden Helmet now remains valid when equipped and updates correctly for nearby players.",
   ],

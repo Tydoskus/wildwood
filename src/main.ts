@@ -123,7 +123,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.350";
+  const GAME_VERSION = "0.351";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -719,7 +719,7 @@ import {
     outlinedText: outlinedWorldText,
     roundRect,
   });
-  const { drawGround, drawTree, drawCactus, drawPortal, drawSecondaryPortal, drawDecor, drawMinimap } = worldRenderer;
+  const { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawPortal, drawSecondaryPortal, drawDecor, drawMinimap } = worldRenderer;
   const bossRenderer = createBossRenderer({
     ctx, camera, boss, spiderBoss, bossRain, spiderVenom,
     dragonSpriteCanvas, spiderSpriteCanvas,
@@ -837,6 +837,7 @@ import {
     decor.splice(0, decor.length, ...layout.decor);
     paths.splice(0, paths.length, ...layout.paths);
     spawnSites.splice(0, spawnSites.length, ...createSpawnSites(boss, currentMapId));
+    invalidateStaticWorld();
   }
 
   function reset(preserveStats = false) {
@@ -3114,7 +3115,7 @@ import {
     ctx.translate(sx, sy);
     ctx.scale(camera.zoom, camera.zoom);
 
-    drawGround();
+    drawStaticWorld();
     drawDuelArenaVisual(isArenaScene(), DUEL_ARENA);
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapId === TUTORIAL_FOREST_MAP_ID) drawBossTelegraphs();

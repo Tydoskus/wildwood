@@ -54,8 +54,98 @@ export type WorldRendererOptions = {
 
 export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
+  const STATIC_TILE_SIZE = 640;
+  const STATIC_TILE_LIMIT = 12;
+  const staticTiles = new Map<string, HTMLCanvasElement>();
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
+
+  function mapColors() {
+    const desert = options.getMapId() === options.desertMapId;
+    const snow = options.getMapId() === options.snowMapId;
+    return {
+      ground: snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+    };
+  }
+
+  function staticTile(tileX: number, tileY: number) {
+    const key = `${options.getMapId()}:${tileX}:${tileY}`;
+    const cached = staticTiles.get(key);
+    if (cached) {
+      staticTiles.delete(key);
+      staticTiles.set(key, cached);
+      return cached;
+    }
+    const tile = document.createElement("canvas");
+    tile.width = STATIC_TILE_SIZE;
+    tile.height = STATIC_TILE_SIZE;
+    const tileCtx = tile.getContext("2d");
+    if (!tileCtx) return tile;
+    tileCtx.imageSmoothingEnabled = false;
+    const originX = tileX * STATIC_TILE_SIZE;
+    const originY = tileY * STATIC_TILE_SIZE;
+    const colors = mapColors();
+    tileCtx.fillStyle = colors.ground;
+    tileCtx.fillRect(0, 0, STATIC_TILE_SIZE, STATIC_TILE_SIZE);
+    for (const path of options.paths) {
+      tileCtx.fillStyle = colors.path;
+      tileCtx.fillRect(path.x - originX, path.y - originY, path.w, path.h);
+      tileCtx.fillStyle = colors.pathDetail;
+      for (let y = path.y + 7; y < path.y + path.h; y += 18) {
+        for (let x = path.x + ((y / 18) % 2 ? 4 : 12); x < path.x + path.w; x += 24) tileCtx.fillRect(x - originX, y - originY, 2, 2);
+      }
+    }
+    for (const decor of options.decor) {
+      const x = Math.round(decor.x - originX);
+      const y = Math.round(decor.y - originY);
+      if (x < -50 || y < -50 || x > STATIC_TILE_SIZE + 50 || y > STATIC_TILE_SIZE + 50) continue;
+      if (decor.type === "grass") {
+        tileCtx.fillStyle = decor.variant % 2 ? "#237b49" : "#267f4c";
+        tileCtx.fillRect(x - 1, y - 5, 2, 7); tileCtx.fillRect(x - 5, y - 2, 2, 5); tileCtx.fillRect(x + 3, y - 3, 2, 6); if (decor.variant > 1) tileCtx.fillRect(x + 6, y, 2, 3);
+      } else if (decor.type === "petal") {
+        tileCtx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][decor.variant % 3];
+        tileCtx.fillRect(x - 3, y - 1, 7, 3); tileCtx.fillRect(x - 1, y - 3, 3, 7); tileCtx.fillStyle = "rgba(255,255,255,.72)"; tileCtx.fillRect(x, y, 1, 1);
+      } else if (decor.type === "desertGrass") {
+        tileCtx.fillStyle = decor.variant % 2 ? "#8b7b3d" : "#a28a43";
+        tileCtx.fillRect(x - 1, y - 6, 2, 7); tileCtx.fillRect(x - 5, y - 3, 2, 5); tileCtx.fillRect(x + 3, y - 4, 2, 6);
+      } else if (decor.type === "snowTuft") {
+        tileCtx.fillStyle = decor.variant % 2 ? "rgba(255,255,255,.78)" : "rgba(221,242,255,.76)";
+        tileCtx.fillRect(x - 2, y - 1, 5, 2); tileCtx.fillRect(x, y - 3, 2, 5);
+      } else if (decor.type === "rock") {
+        const w = Math.round(35 * decor.s); const h = Math.round(22 * decor.s);
+        tileCtx.fillStyle = "rgba(0,0,0,.11)"; tileCtx.beginPath(); tileCtx.ellipse(x, y + 2, w * .6, Math.max(3, w * .23), 0, 0, TAU); tileCtx.fill();
+        tileCtx.fillStyle = "#79543d"; tileCtx.beginPath(); tileCtx.moveTo(x - w / 2, y); tileCtx.lineTo(x - w * .32, y - h * .72); tileCtx.lineTo(x + w * .2, y - h); tileCtx.lineTo(x + w / 2, y - h * .28); tileCtx.lineTo(x + w * .38, y); tileCtx.closePath(); tileCtx.fill();
+        tileCtx.fillStyle = "#b77b4b"; tileCtx.beginPath(); tileCtx.moveTo(x - w * .32, y - h * .72); tileCtx.lineTo(x + w * .2, y - h); tileCtx.lineTo(x + w * .12, y - h * .45); tileCtx.closePath(); tileCtx.fill();
+      }
+    }
+    staticTiles.set(key, tile);
+    while (staticTiles.size > STATIC_TILE_LIMIT) staticTiles.delete(staticTiles.keys().next().value!);
+    return tile;
+  }
+
+  function drawStaticWorld() {
+    if (options.isArenaScene()) {
+      drawGround();
+      return;
+    }
+    const visible = visibleSize();
+    const startX = Math.floor(camera.x / STATIC_TILE_SIZE) - 1;
+    const startY = Math.floor(camera.y / STATIC_TILE_SIZE) - 1;
+    const endX = Math.floor((camera.x + visible.width) / STATIC_TILE_SIZE) + 1;
+    const endY = Math.floor((camera.y + visible.height) / STATIC_TILE_SIZE) + 1;
+    for (let tileY = startY; tileY <= endY; tileY += 1) {
+      for (let tileX = startX; tileX <= endX; tileX += 1) {
+        if (tileX < 0 || tileY < 0 || tileX * STATIC_TILE_SIZE >= WORLD.w || tileY * STATIC_TILE_SIZE >= WORLD.h) continue;
+        ctx.drawImage(staticTile(tileX, tileY), Math.floor(tileX * STATIC_TILE_SIZE - camera.x), Math.floor(tileY * STATIC_TILE_SIZE - camera.y));
+      }
+    }
+  }
+
+  function invalidateStaticWorld() {
+    staticTiles.clear();
+  }
 
   function drawGround() {
     const visible = visibleSize();
@@ -233,11 +323,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDecor() {
-    for (const decor of options.decor) if (decor.type === "grass") drawGrass(decor);
-    for (const decor of options.decor) if (decor.type === "petal") drawPetal(decor);
-    for (const decor of options.decor) if (decor.type === "desertGrass") drawDesertGrass(decor);
-    for (const decor of options.decor) if (decor.type === "rock") drawRock(decor);
-    for (const decor of options.decor) if (decor.type === "snowTuft") drawSnowTuft(decor);
+    // Snow pines load asynchronously. Keep those few sprite-backed pieces
+    // live; every procedural ground detail is cached in static tiles.
     for (const decor of options.decor) if (decor.type === "snowPine") drawSnowPine(decor);
   }
 
@@ -256,5 +343,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.strokeStyle = "rgba(255,255,255,.52)"; ctx.lineWidth = 1; ctx.strokeRect(x + camera.x * sx, y + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); ctx.restore(); ctx.restore();
   }
 
-  return { drawGround, drawTree, drawCactus, drawPortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawPortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }
