@@ -8,7 +8,7 @@ import type { MapId, WorldDecor, WorldPath } from "../world";
 type Viewport = { width: number; height: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
 type EmptyArch = Omit<Portal, "destination">;
-type TreeSpriteBounds = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number };
+type TreeSpriteBounds = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type RoundRect = (x: number, y: number, width: number, height: number, radius: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -59,7 +59,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
   const STATIC_TILE_SIZE = 640;
   const STATIC_TILE_LIMIT = 12;
-  const TREE_SHADOW_CANOPY_WIDTH_RATIO = 1.12;
+  const TREE_SHADOW_CANOPY_WIDTH_RATIO = .9;
   const staticTiles = new Map<string, HTMLCanvasElement>();
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
@@ -149,9 +149,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         if (!source) continue;
         const drawSize = Math.round(154 * decor.s);
         const scale = drawSize / source.h;
-        const drawWidth = Math.round(drawSize * source.w / source.h);
         const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
-        drawStaticShadow(shadowX, y, Math.max(24, Math.round(drawWidth * TREE_SHADOW_CANOPY_WIDTH_RATIO)), .14);
+        const canopyWidth = source.canopyWidth * scale;
+        drawStaticShadow(shadowX, y, Math.max(24, Math.round(canopyWidth * TREE_SHADOW_CANOPY_WIDTH_RATIO)), .14);
       } else if (decor.type === "cactus") {
         drawStaticShadow(x, y - 2, Math.round(46 * decor.s), .12);
       } else if (decor.type === "snowPine" && options.snowPine.naturalWidth > 0) {

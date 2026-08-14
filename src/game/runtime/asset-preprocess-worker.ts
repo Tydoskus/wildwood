@@ -1,4 +1,4 @@
-type TreeSpriteBound = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number };
+type TreeSpriteBound = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number };
 
 type BoundsRequest = {
   type: "treeBounds";
@@ -36,7 +36,7 @@ function treeBounds(width: number, height: number, pixels: Uint8ClampedArray): T
         left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x + 1); bottom = Math.max(bottom, y + 1);
       }
     }
-    if (right <= left || bottom <= top) return { x: cellX, y: cellY, w: cellWidth, h: cellHeight, groundCenter: cellWidth / 2, groundWidth: cellWidth * .3 };
+    if (right <= left || bottom <= top) return { x: cellX, y: cellY, w: cellWidth, h: cellHeight, groundCenter: cellWidth / 2, groundWidth: cellWidth * .3, canopyWidth: cellWidth * .6 };
     let groundLeft = cellWidth, groundRight = 0;
     for (let y = Math.max(0, bottom - 3); y < bottom; y += 1) {
       for (let x = 0; x < cellWidth; x += 1) {
@@ -46,7 +46,16 @@ function treeBounds(width: number, height: number, pixels: Uint8ClampedArray): T
     }
     const groundWidth = groundRight > groundLeft ? groundRight - groundLeft : Math.max(8, (right - left) * .28);
     const groundCenter = groundRight > groundLeft ? (groundLeft + groundRight) / 2 - left : (right - left) / 2;
-    return { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top, groundCenter, groundWidth };
+    const canopyBottom = Math.round(top + (bottom - top) * .78);
+    let canopyLeft = cellWidth, canopyRight = 0;
+    for (let y = top; y < canopyBottom; y += 1) {
+      for (let x = 0; x < cellWidth; x += 1) {
+        if (pixels[((cellY + y) * width + cellX + x) * 4 + 3] < 8) continue;
+        canopyLeft = Math.min(canopyLeft, x); canopyRight = Math.max(canopyRight, x + 1);
+      }
+    }
+    const canopyWidth = canopyRight > canopyLeft ? canopyRight - canopyLeft : right - left;
+    return { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top, groundCenter, groundWidth, canopyWidth };
   });
 }
 

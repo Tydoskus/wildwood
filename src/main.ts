@@ -128,7 +128,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.381";
+  const GAME_VERSION = "0.382";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -551,7 +551,7 @@ import {
   const dragonSpriteCanvas = document.createElement("canvas");
   const dragonSpriteCtx = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
   let dragonSpriteReady = false;
-  type TreeSpriteBound = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number };
+  type TreeSpriteBound = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number };
   type PreprocessResult = { type: "removeGreen"; requestId: number; pixels: ArrayBuffer } | { type: "treeBounds"; requestId: number; bounds: TreeSpriteBound[] };
   const assetPreprocessWorker = typeof Worker === "undefined"
     ? null
@@ -725,7 +725,7 @@ import {
           bottom = Math.max(bottom, y + 1);
         }
       }
-      if (right <= left || bottom <= top) return { x: cellX, y: cellY, w: width, h: height, groundCenter: width / 2, groundWidth: width * .3 };
+      if (right <= left || bottom <= top) return { x: cellX, y: cellY, w: width, h: height, groundCenter: width / 2, groundWidth: width * .3, canopyWidth: width * .6 };
       let groundLeft = width;
       let groundRight = 0;
       for (let y = Math.max(0, bottom - 3); y < bottom; y += 1) {
@@ -737,7 +737,18 @@ import {
       }
       const groundWidth = groundRight > groundLeft ? groundRight - groundLeft : Math.max(8, (right - left) * .28);
       const groundCenter = groundRight > groundLeft ? (groundLeft + groundRight) / 2 - left : (right - left) / 2;
-      return { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top, groundCenter, groundWidth };
+      const canopyBottom = Math.round(top + (bottom - top) * .78);
+      let canopyLeft = width;
+      let canopyRight = 0;
+      for (let y = top; y < canopyBottom; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          if (pixels[(y * width + x) * 4 + 3] < 8) continue;
+          canopyLeft = Math.min(canopyLeft, x);
+          canopyRight = Math.max(canopyRight, x + 1);
+        }
+      }
+      const canopyWidth = canopyRight > canopyLeft ? canopyRight - canopyLeft : right - left;
+      return { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top, groundCenter, groundWidth, canopyWidth };
     });
   }
   const treeSpritesheet = loadTreeSpritesheet(() => {
