@@ -8,11 +8,7 @@ import {
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
   BOSS_RAIN_RANGE,
-  ENEMY_HIT_MIN_MOVE_SPEED,
-  ENEMY_HIT_SPEED_RECOVERY_SECONDS,
   PLAYER_KNOCKBACK_FORCE,
-  REGULAR_ENEMY_AGGRO_PADDING,
-  RANGED_PROJECTILE_SPEED,
   TAU,
   WORLD,
 } from "./game/constants";
@@ -26,11 +22,14 @@ import { createCombatEffects } from "./game/runtime/combat-effects";
 import { createPortalCutscene } from "./game/runtime/cutscene";
 import { requiredCanvasContext, requiredElement, requiredSelector } from "./game/runtime/dom";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
+import { createEnemySimulation } from "./game/runtime/enemy-simulation";
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
+import { createProfileCharacterPreview } from "./game/runtime/profile-character-preview";
 import { scheduleBackgroundTask, yieldToUser } from "./game/runtime/scheduler";
 import { createWorldRenderer } from "./game/runtime/world-renderer";
 import { createBossRenderer } from "./game/runtime/boss-renderer";
 import { createActorRenderer } from "./game/runtime/actor-renderer";
+import { createDepthWorldRenderer } from "./game/runtime/depth-world-renderer";
 import { DEFAULT_SKIN_TONE, drawStartingPlayer, loadPlayerAppearanceAssets, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
 import type {
   BossCone,
@@ -114,6 +113,9 @@ import {
 (() => {
   "use strict";
 
+  // Architecture boundary: keep this file as composition root. New systems
+  // belong in src/game, src/ui, or src/app and are only wired here.
+
   type PlayerProfile = NonNullable<ReturnType<typeof wildwoodCoop.playerProfile>>;
   type DragonResult = NonNullable<ReturnType<typeof wildwoodCoop.dragonResult>>;
   type SpiderResult = NonNullable<ReturnType<typeof wildwoodCoop.spiderResult>>;
@@ -126,10 +128,8 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
   type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
-  type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
-  type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.398";
+  const GAME_VERSION = "0.399";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -162,8 +162,6 @@ import {
   const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
   const SPEECH_BUBBLE_DURATION_MS = 6_000;
   const SPEECH_BUBBLE_FADE_MS = 1_250;
-  const ENEMY_WANDER_RADIUS = 72;
-  const ENEMY_WANDER_SPEED_RATIO = .28;
   const ENEMY_TEXT_CULL_MIN_DISTANCE = 600;
 
   let antiAliasingEnabled = true;
@@ -279,7 +277,6 @@ import {
   const editPlayerNameBtn = requiredElement<HTMLButtonElement>("editPlayerNameBtn");
   const profileCharacterPreviewEl = requiredElement("profileCharacterPreview");
   const profileCharacterCanvas = requiredElement<HTMLCanvasElement>("profileCharacterCanvas");
-  const profileCharacterCtx = requiredCanvasContext(profileCharacterCanvas);
   const profileLeaderboardStatsEl = requiredElement("profileLeaderboardStats");
   const previousPlayerSpriteBtn = requiredElement<HTMLButtonElement>("previousPlayerSpriteBtn");
   const nextPlayerSpriteBtn = requiredElement<HTMLButtonElement>("nextPlayerSpriteBtn");
@@ -410,7 +407,6 @@ import {
   const spawnSites: SpawnSite[] = [];
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
-  const depthLayers: DepthLayer[] = [];
   const bossRain: BossRainStrike[] = [];
   const spiderVenom: SpiderVenomPool[] = [];
   const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
@@ -560,6 +556,14 @@ import {
     facing: 0,
     moving: false
   };
+  const enemySimulation = createEnemySimulation(
+    enemies,
+    enemyShots,
+    player,
+    () => ({ width: viewW, height: viewH, zoom: camera.zoom }),
+    engageEnemy,
+    damagePlayer,
+  );
   let appliedVitalityResearchRank = 0;
 
   const dragonSprite = new Image();
@@ -682,6 +686,7 @@ import {
     finishStartup();
   };
   const playerAppearanceAssets = loadPlayerAppearanceAssets(markPlayerSpriteReady);
+  const profileCharacterPreview = createProfileCharacterPreview(profileCharacterCanvas, playerAppearanceAssets);
   const profileIconSheet = new Image();
   profileIconSheet.addEventListener("load", () => {
     if (!leaderboardEl.hidden) renderLeaderboard();
@@ -894,6 +899,33 @@ import {
     drawEnemy,
     drawProjectile,
   } = actorRenderer;
+  const { drawDepthSortedWorld } = createDepthWorldRenderer({
+    camera,
+    viewport: () => ({ width: viewW, height: viewH }),
+    decor,
+    enemies,
+    player,
+    boss,
+    spiderBoss,
+    bootsPickup,
+    currentMapId: () => currentMapId,
+    activePortal,
+    secondaryPortal,
+    drawTree,
+    drawCactus,
+    drawEnemy,
+    drawBoss,
+    drawSpiderBoss,
+    drawBootPickup,
+    drawPortal,
+    drawSecondaryPortal,
+    drawRemotePlayer,
+    drawPlayer: () => drawPlayerActor(
+      coop?.localIdentity?.(),
+      publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
+      playerPower(player),
+    ),
+  });
 
   function resize() {
     viewW = innerWidth;
@@ -2391,186 +2423,6 @@ import {
     player.y = boss.y + ny * minimumDistance;
   }
 
-  function updateEnemies(dt: number) {
-    for (const e of enemies) {
-      if (e.dead) continue;
-      const base = ENEMY_TYPES[e.type];
-      e.hurt = Math.max(0, e.hurt - dt);
-      e.attackClock -= dt;
-      e.moveSpeedRecovery = Math.min(ENEMY_HIT_SPEED_RECOVERY_SECONDS, e.moveSpeedRecovery + dt);
-      e.phase += dt * 3;
-      const moveSpeedProgress = e.moveSpeedRecovery / ENEMY_HIT_SPEED_RECOVERY_SECONDS;
-      const currentMoveSpeed = ENEMY_HIT_MIN_MOVE_SPEED + (e.speed - ENEMY_HIT_MIN_MOVE_SPEED) * moveSpeedProgress;
-
-      const toPlayerX = player.x - e.x;
-      const toPlayerY = player.y - e.y;
-      const playerDistance = Math.hypot(toPlayerX, toPlayerY) || 1;
-      const homeDistance = Math.hypot(e.x - e.homeX, e.y - e.homeY);
-
-      if (e.leashing && homeDistance < 10) e.leashing = false;
-      const aggroRadius = base.elite
-        ? e.aggroRadius
-        : Math.max(0, player.attackRange - REGULAR_ENEMY_AGGRO_PADDING);
-      if (!e.leashing && playerDistance < aggroRadius) {
-        engageEnemy(e);
-      }
-
-      const leashRange = e.type === "Dune Archer" ? Math.max(900, e.leashRange) : e.leashRange;
-      if (e.engaged && playerDistance > leashRange) {
-        e.engaged = false;
-        e.leashing = true;
-        e.attackClock = Math.max(e.attackClock, .5);
-      }
-
-      let targetX = e.x;
-      let targetY = e.y;
-      let targetDistance = 1;
-      let moveMode = 0;
-      let moveSpeedRatio = 1;
-
-      if (e.engaged) {
-        targetX = player.x;
-        targetY = player.y;
-        targetDistance = playerDistance;
-        moveMode = 1;
-        if (Math.abs(toPlayerX) > .5) e.facingX = toPlayerX < 0 ? -1 : 1;
-      } else {
-        moveSpeedRatio = ENEMY_WANDER_SPEED_RATIO;
-        if (e.leashing || homeDistance > ENEMY_WANDER_RADIUS) {
-          e.wandering = false;
-          targetX = e.homeX;
-          targetY = e.homeY;
-          moveMode = 1;
-          if (e.leashing) moveSpeedRatio = 1;
-        } else if (e.wandering) {
-          targetX = e.wanderTargetX;
-          targetY = e.wanderTargetY;
-          if (Math.hypot(targetX - e.x, targetY - e.y) < 8) {
-            e.wandering = false;
-            e.wanderWait = rand(2.2, 5.2);
-            targetX = e.x;
-            targetY = e.y;
-          } else {
-            moveMode = 1;
-          }
-        } else {
-          e.wanderWait -= dt;
-          if (e.wanderWait <= 0) {
-            const angle = Math.random() * TAU;
-            const distance = rand(22, ENEMY_WANDER_RADIUS);
-            e.wanderTargetX = e.homeX + Math.cos(angle) * distance;
-            e.wanderTargetY = e.homeY + Math.sin(angle) * distance;
-            e.wandering = true;
-            targetX = e.wanderTargetX;
-            targetY = e.wanderTargetY;
-            moveMode = 1;
-          }
-        }
-
-        targetDistance = Math.hypot(targetX - e.x, targetY - e.y) || 1;
-        if (moveMode && Math.abs(targetX - e.x) > .5) e.facingX = targetX < e.x ? -1 : 1;
-
-        if (homeDistance < 12 && e.hp < e.maxHp) {
-          e.hp = Math.min(e.maxHp, e.hp + e.maxHp * .16 * dt);
-        }
-      }
-
-      let dx = (targetX - e.x) / targetDistance;
-      let dy = (targetY - e.y) / targetDistance;
-
-      if (base.ranged && e.engaged) {
-        const preferred = 235;
-        let rangedMove = 0;
-        if (playerDistance > preferred + 25) rangedMove = 1;
-        if (playerDistance < preferred - 35) rangedMove = -1;
-
-        e.vx += (toPlayerX / playerDistance) * currentMoveSpeed * rangedMove * dt * 6;
-        e.vy += (toPlayerY / playerDistance) * currentMoveSpeed * rangedMove * dt * 6;
-
-        if (e.attackClock <= 0 && playerDistance < 390) {
-          enemyShots.push({
-            x: e.x,
-            y: e.y,
-            vx: toPlayerX / playerDistance * RANGED_PROJECTILE_SPEED,
-            vy: toPlayerY / playerDistance * RANGED_PROJECTILE_SPEED,
-            r: 6,
-            damage: e.damage,
-            life: 4
-          });
-          const rangedAttackInterval = 1 / Math.max(.01, base.attackSpeed);
-          e.attackClock = rand(rangedAttackInterval * .83, rangedAttackInterval * 1.17);
-        }
-      } else if (moveMode) {
-        e.vx += dx * currentMoveSpeed * moveSpeedRatio * dt * 7;
-        e.vy += dy * currentMoveSpeed * moveSpeedRatio * dt * 7;
-      }
-
-      e.vx *= Math.pow(.002, dt);
-      e.vy *= Math.pow(.002, dt);
-      e.x += e.vx * dt;
-      e.y += e.vy * dt;
-      e.x = clamp(e.x, e.r, WORLD.w - e.r);
-      e.y = clamp(e.y, e.r, WORLD.h - e.r);
-
-      if (e.engaged && e.attackClock <= 0 && circlesOverlap(player, e)) {
-        if (damagePlayer(e.damage)) {
-          e.attackClock = 1 / Math.max(.01, base.attackSpeed);
-          e.moveSpeedRecovery = 0;
-          e.vx = 0;
-          e.vy = 0;
-        }
-      }
-
-      // Keep enemies outside the player's collision circle while allowing
-      // sideways velocity to slide naturally around the player.
-      const collisionX = e.x - player.x;
-      const collisionY = e.y - player.y;
-      const minimumDistance = player.r + e.r;
-      const collisionDistanceSq = collisionX * collisionX + collisionY * collisionY;
-      if (collisionDistanceSq < minimumDistance * minimumDistance) {
-        const collisionDistance = Math.sqrt(collisionDistanceSq);
-        const nx = collisionDistance > .001 ? collisionX / collisionDistance : (e.facingX || 1);
-        const ny = collisionDistance > .001 ? collisionY / collisionDistance : 0;
-        e.x = clamp(player.x + nx * minimumDistance, e.r, WORLD.w - e.r);
-        e.y = clamp(player.y + ny * minimumDistance, e.r, WORLD.h - e.r);
-        const inwardSpeed = e.vx * nx + e.vy * ny;
-        if (inwardSpeed < 0) {
-          e.vx -= inwardSpeed * nx;
-          e.vy -= inwardSpeed * ny;
-        }
-      }
-    }
-
-    // Mild crowd separation.
-    for (let i = 0; i < enemies.length; i++) {
-      const a = enemies[i];
-      if (a.dead) continue;
-      for (let j = i + 1; j < enemies.length; j++) {
-        const b = enemies[j];
-        if (b.dead) continue;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const min = (a.r + b.r) * .72;
-        const d2 = dx * dx + dy * dy;
-
-        if (d2 > 0 && d2 < min * min) {
-          const d = Math.sqrt(d2);
-          const push = (min - d) * .5;
-          const nx = dx / d;
-          const ny = dy / d;
-          a.x -= nx * push;
-          a.y -= ny * push;
-          b.x += nx * push;
-          b.y += ny * push;
-        }
-      }
-    }
-
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      if (enemies[i].dead) enemies.splice(i, 1);
-    }
-  }
-
   function updateProjectiles(dt: number) {
     for (const p of projectiles) {
       const travelTime = Math.min(dt, p.life);
@@ -2723,7 +2575,7 @@ import {
     if (!isDueling()) {
       updatePortal(dt);
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBootPickup();
-      updateEnemies(dt);
+      enemySimulation.update(dt);
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) updateBoss(dt);
       if (currentMapId === BEGINNER_DESERT_MAP_ID) updateSpiderBoss(dt);
       updateProjectiles(dt);
@@ -3049,79 +2901,6 @@ import {
       stats.armor * 3 +
       stats.regen * 10,
     ));
-  }
-
-  function drawDepthSortedWorld(remotePlayers: RemotePlayer[], includePortal = true) {
-    let layerCount = 0;
-    const queueLayer = (depth: number, priority: number, kind: DepthLayerKind, entity?: WorldDecor | EnemyState | RemotePlayer) => {
-      const layer = depthLayers[layerCount] ?? (depthLayers[layerCount] = { depth: 0, priority: 0, kind });
-      layer.depth = depth;
-      layer.priority = priority;
-      layer.kind = kind;
-      layer.entity = entity;
-      layerCount += 1;
-    };
-    const visibleW = viewW / camera.zoom;
-    const visibleH = viewH / camera.zoom;
-    const treeCullPadding = 240;
-    for (const tree of decor) {
-      if (tree.type === "cactus") {
-        queueLayer(tree.y, 2, "cactus", tree);
-        continue;
-      }
-      if (tree.type !== "tree") continue;
-      const treeSize = Math.round(154 * tree.s);
-      const treeHalfWidth = treeSize / 2;
-      if (
-        tree.x + treeHalfWidth < camera.x - treeCullPadding ||
-        tree.x - treeHalfWidth > camera.x + visibleW + treeCullPadding ||
-        tree.y < camera.y - treeCullPadding ||
-        tree.y - treeSize > camera.y + visibleH + treeCullPadding
-      ) continue;
-      queueLayer(tree.y, 2, "tree", tree);
-    }
-    for (const enemy of enemies) {
-      if (enemy.dead) continue;
-      queueLayer(enemy.y + enemy.r, 1, "enemy", enemy);
-    }
-    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !boss.dead) {
-      queueLayer(boss.y + 93, 1, "dragon");
-    }
-    if (currentMapId === BEGINNER_DESERT_MAP_ID && !spiderBoss.dead) {
-      queueLayer(spiderBoss.y + 55, 1, "spider");
-    }
-    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !bootsPickup.collected) {
-      queueLayer(bootsPickup.y + bootsPickup.r, 1, "boots");
-    }
-    if (includePortal) queueLayer(activePortal().depth, 2, "portal");
-    const secondary = secondaryPortal();
-    if (secondary) queueLayer(secondary.depth, 2, "secondaryPortal");
-    for (const remotePlayer of remotePlayers) {
-      queueLayer(remotePlayer.y + 29, 1, "remotePlayer", remotePlayer);
-    }
-    queueLayer(player.y + 29, 1, "player");
-    depthLayers.length = layerCount;
-    depthLayers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
-    for (const layer of depthLayers) {
-      switch (layer.kind) {
-        case "tree": drawTree(layer.entity as TreeDecor); break;
-        case "cactus": drawCactus(layer.entity as CactusDecor); break;
-        case "enemy": drawEnemy(layer.entity as EnemyState); break;
-        case "dragon": drawBoss(); break;
-        case "spider": drawSpiderBoss(); break;
-        case "boots": drawBootPickup(); break;
-        case "portal": drawPortal(); break;
-        case "secondaryPortal": drawSecondaryPortal(); break;
-        case "remotePlayer": drawRemotePlayer(layer.entity as RemotePlayer); break;
-        case "player":
-          drawPlayerActor(
-            coop?.localIdentity?.(),
-            publicPlayerName(coop?.localIdentity?.(), coop?.localDisplayName?.()),
-            playerPower(player),
-          );
-          break;
-      }
-    }
   }
 
   function duelCameraPosition() {
@@ -3557,65 +3336,17 @@ import {
   }
 
   function drawProfileCharacterPreview() {
-    if (playerProfileEl.hidden) return;
-    resizeProfileCharacterCanvas();
     const identity = profileCharacterPreviewEl.dataset.identity;
     const previewProgress = openProfileData && openProfileData.identity === identity ? openProfileData.progress : null;
-    const width = Math.max(1, Math.round(profileCharacterCanvas.clientWidth));
-    const height = Math.max(1, Math.round(profileCharacterCanvas.clientHeight));
-    const now = performance.now();
-    profileCharacterCtx.clearRect(0, 0, width, height);
-    profileCharacterCtx.fillStyle = "#31945b";
-    profileCharacterCtx.fillRect(0, 0, width, height);
-    for (let index = 0; index < 18; index += 1) {
-      const random = (seed: number) => {
-        const value = Math.sin(seed * 12.9898) * 43758.5453;
-        return value - Math.floor(value);
-      };
-      const x = 8 + random(index + 1) * Math.max(1, width - 16);
-      const y = height + 7 - ((now * .025 + random(index + 29) * (height + 18)) % (height + 18));
-      profileCharacterCtx.fillStyle = index % 2 ? "#237b49" : "#267f4c";
-      profileCharacterCtx.fillRect(Math.floor(x - 1), Math.floor(y - 5), 2, 7);
-      profileCharacterCtx.fillRect(Math.floor(x - 5), Math.floor(y - 2), 2, 5);
-      profileCharacterCtx.fillRect(Math.floor(x + 3), Math.floor(y - 3), 2, 6);
-      if (index % 4 > 1) profileCharacterCtx.fillRect(Math.floor(x + 6), Math.floor(y), 2, 3);
-    }
-    profileCharacterCtx.imageSmoothingEnabled = false;
-    drawStartingPlayer(profileCharacterCtx, playerAppearanceAssets, {
-      x: width / 2,
-      y: 47,
-      facing: 0,
-      moving: true,
-      gameTime: now / 1000,
+    profileCharacterPreview.draw({
+      visible: !playerProfileEl.hidden,
+      progress: previewProgress,
       skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE,
-      headItem: previewProgress?.equippedHead,
-      chestItem: previewProgress?.equippedChest,
-      feetItem: previewProgress?.equippedFeet,
-      scale: .6,
     });
-    const vignette = profileCharacterCtx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .25, width / 2, height / 2, Math.max(width, height) * .72);
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,0,0,.33)");
-    profileCharacterCtx.fillStyle = vignette;
-    profileCharacterCtx.fillRect(0, 0, width, height);
-  }
-
-  function resizeProfileCharacterCanvas() {
-    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
-    const width = Math.max(1, Math.round(profileCharacterCanvas.clientWidth));
-    const height = Math.max(1, Math.round(profileCharacterCanvas.clientHeight));
-    const pixelWidth = Math.round(width * pixelRatio);
-    const pixelHeight = Math.round(height * pixelRatio);
-    if (profileCharacterCanvas.width === pixelWidth && profileCharacterCanvas.height === pixelHeight) return false;
-    profileCharacterCanvas.width = pixelWidth;
-    profileCharacterCanvas.height = pixelHeight;
-    profileCharacterCtx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    profileCharacterCtx.imageSmoothingEnabled = false;
-    return true;
   }
 
   new ResizeObserver(() => {
-    if (resizeProfileCharacterCanvas()) drawProfileCharacterPreview();
+    if (profileCharacterPreview.resize()) drawProfileCharacterPreview();
   }).observe(profileCharacterCanvas);
 
   function selectProfileCharacter(_direction: -1 | 1) {

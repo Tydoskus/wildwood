@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.399": [
+    "Idle offscreen enemies now simulate at 12 Hz while nearby or engaged enemies remain full-rate; offscreen enemies are culled before depth sorting.",
+  ],
   "0.398": [
     "Desert Spider rewards now grant +75K Damage and +200K Max Health to every contributor, while Blight Oracle rewards now grant +320 Regen.",
   ],

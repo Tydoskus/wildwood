@@ -74,6 +74,7 @@ export type EnemyState = Circle & {
   hurt: number;
   dead: boolean;
   phase: number;
+  idleUpdateElapsed: number;
 };
 
 export type BossCone = {

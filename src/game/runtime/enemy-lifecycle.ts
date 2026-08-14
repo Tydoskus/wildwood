@@ -44,6 +44,7 @@ export function createEnemyLifecycle(
       hurt: 0,
       dead: false,
       phase: Math.random() * TAU,
+      idleUpdateElapsed: 0,
     });
     site.alive = true;
     site.respawnAt = 0;
