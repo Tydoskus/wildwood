@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.388": [
+    "Tech Tree toolbar icon now uses a plain white node-outline layout.",
+  ],
   "0.387": [
     "Tech Tree now has a simpler empty-node toolbar icon.",
   ],
