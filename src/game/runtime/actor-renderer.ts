@@ -1,4 +1,4 @@
-import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type LoadedEnemySprite } from "../enemies";
+import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type LoadedEnemySprite } from "../enemies";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { RemotePlayer } from "../../wildwood-coop";
@@ -210,12 +210,21 @@ export function createActorRenderer(options: {
     if (!options.enemyTextVisible(enemy)) return;
 
     const reward = REWARD_DATA[enemy.reward.type];
-    const visualRadius = Math.max(enemy.r, spriteHeight / 2);
-    const rewardY = y + visualRadius + 10;
+    let spriteTop = -spriteHeight / 2 - 3;
+    let spriteBottom = spriteHeight / 2 - 3;
+    if (layers) {
+      spriteTop = Number.POSITIVE_INFINITY;
+      spriteBottom = Number.NEGATIVE_INFINITY;
+      for (const layer of layers) {
+        spriteTop = Math.min(spriteTop, layer.y - 3);
+        spriteBottom = Math.max(spriteBottom, layer.y - 3 + layer.h);
+      }
+    }
+    const rewardY = Math.round(y + spriteBottom + 13);
     const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26));
     const barH = options.worldHealthBarHeight;
     const barX = Math.round(x - barW / 2);
-    const barY = Math.round(y - spriteHeight / 2 - 17);
+    const barY = Math.round(y + spriteTop - 14);
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))} HP`;
 
@@ -239,7 +248,14 @@ export function createActorRenderer(options: {
 
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "top";
-    options.outlinedText(rewardLabel(enemy.reward), x, rewardY, reward.color, 2);
+    const rewardAmount = rewardAmountLabel(enemy.reward);
+    const rewardStat = rewardStatLabel(enemy.reward);
+    const rewardGap = 4;
+    const rewardWidth = ctx.measureText(rewardAmount).width + rewardGap + ctx.measureText(rewardStat).width;
+    const rewardLeft = Math.round(x - rewardWidth / 2);
+    ctx.textAlign = "left";
+    options.outlinedText(rewardAmount, rewardLeft, rewardY, "#ffffff", 2);
+    options.outlinedText(rewardStat, rewardLeft + ctx.measureText(rewardAmount).width + rewardGap, rewardY, reward.color, 2);
     ctx.restore();
   }
 

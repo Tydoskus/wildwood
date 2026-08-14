@@ -229,9 +229,17 @@ export function loadActorShadowSprite() {
 }
 
 export function rewardLabel(reward: EnemyDefinition["reward"]) {
-  if (reward.type === "damage") return `+${reward.amount} DAMAGE`;
-  if (reward.type === "health") return `+${reward.amount} MAX HEALTH`;
-  if (reward.type === "speed") return `+${reward.amount.toFixed(2)} ATK/SEC`;
-  if (reward.type === "armor") return `+${reward.amount} ARMOR`;
-  return `+${reward.amount} HP/SEC`;
+  return `${rewardAmountLabel(reward)} ${rewardStatLabel(reward)}`;
+}
+
+export function rewardAmountLabel(reward: EnemyDefinition["reward"]) {
+  return reward.type === "speed" ? `+${reward.amount.toFixed(2)}` : `+${reward.amount}`;
+}
+
+export function rewardStatLabel(reward: EnemyDefinition["reward"]) {
+  if (reward.type === "damage") return "DAMAGE";
+  if (reward.type === "health") return "MAX HEALTH";
+  if (reward.type === "speed") return "ATK/SEC";
+  if (reward.type === "armor") return "ARMOR";
+  return "HP/SEC";
 }

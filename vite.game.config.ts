@@ -1,6 +1,8 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // GitHub Pages serves this repository under /wildwood/, including worker bundles.
+  base: "/wildwood/",
   build: {
     lib: {
       entry: "src/main.ts",
