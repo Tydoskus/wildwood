@@ -123,7 +123,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.346";
+  const GAME_VERSION = "0.347";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -1169,7 +1169,7 @@ import {
 
     if (dx * dx + dy * dy <= reach * reach) {
       bootsPickup.collected = true;
-      inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR] : []), TRAILBLAZER_BOOTS];
+      inventory.itemIds = [...new Set([...inventory.itemIds, TRAILBLAZER_BOOTS])];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
       player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
@@ -4426,7 +4426,7 @@ import {
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     totalKills = 0;
     bootsPickup.collected = false;
-    inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR] : [])];
+    inventory.itemIds = [BASIC_PAPER_HAT, ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR)];
     inventory.equippedHead = BASIC_PAPER_HAT;
     inventory.equippedChest = "";
     inventory.equippedFeet = "";

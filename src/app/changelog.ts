@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.347": [
+    "Superior Golden Helmet is now Beta Tester Golden Helmet, a no-stat cosmetic for players active within the last 120 hours.",
+  ],
   "0.346": [
     "Intermediate Snowlands is now the canonical map ID; old Frostwind Expanse saves migrate on sign-in.",
     "Entering Intermediate Snowlands now plays the centered portal activation cutscene once.",

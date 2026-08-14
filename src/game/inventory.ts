@@ -19,9 +19,9 @@ export const ITEM_DEFINITIONS = {
   },
   [SUPERIOR_GOLDEN_HELMET]: {
     id: SUPERIOR_GOLDEN_HELMET,
-    name: "SUPERIOR GOLDEN HELMET",
+    name: "BETA TESTER GOLDEN HELMET",
     slot: "HEAD",
-    description: "A gleaming winged helmet reserved for Wildwood's developer.",
+    description: "A gleaming winged helmet for Wildwood beta testers.",
     stats: ["COSMETIC · NO STATS"],
   },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
@@ -47,7 +47,8 @@ export function itemDefinition(itemId: string) {
 export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
   const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
-  const headItems = [BASIC_PAPER_HAT, ...(ownsDeveloperCosmetics ? [SUPERIOR_GOLDEN_HELMET] : [])];
+  const hasBetaTesterGoldenHelmet = ownsDeveloperCosmetics || requested.includes(SUPERIOR_GOLDEN_HELMET);
+  const headItems = [BASIC_PAPER_HAT, ...(hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [])];
   const chestItems = ownsDeveloperCosmetics ? [LEGENDARY_WHITE_GOLD_ARMOR] : [];
   const items = [...headItems, ...chestItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : [])];
   return {

@@ -35,6 +35,7 @@ const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
 const PLAYER_ZONE_SIZE = 600;
 const VALID_MAP_IDS = new Set<string>(MAP_IDS);
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
+const BETA_TESTER_ACTIVITY_MICROS = 120n * 60n * 60n * 1_000_000n;
 
 function canonicalMapId(mapId: string) {
   return mapId === LEGACY_FROSTWIND_EXPANSE_MAP_ID ? INTERMEDIATE_SNOWLANDS_MAP_ID : mapId;
@@ -948,12 +949,23 @@ function contributedToLatestDragon(ctx: any, identity: any) {
 }
 
 function inventoryForProgress(progress: any) {
+  let hasBetaTesterGoldenHelmet = isDeveloperIdentity(progress.identity);
+  try {
+    hasBetaTesterGoldenHelmet ||= JSON.parse(progress.inventoryJson ?? "[]").includes(SUPERIOR_GOLDEN_HELMET);
+  } catch {}
   return [
     BASIC_PAPER_HAT,
-    ...(isDeveloperIdentity(progress.identity) ? [SUPERIOR_GOLDEN_HELMET] : []),
+    ...(hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : []),
     ...(isDeveloperIdentity(progress.identity) ? [LEGENDARY_WHITE_GOLD_ARMOR] : []),
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
   ];
+}
+
+function hasRecentPlayerActivity(ctx: any, identity: any) {
+  if (isDeveloperIdentity(identity)) return true;
+  const lifetime = ctx.db.playerLifetime.identity.find(identity);
+  if (!lifetime) return true;
+  return ctx.timestamp.microsSinceUnixEpoch - lifetime.sessionStartedAt.microsSinceUnixEpoch <= BETA_TESTER_ACTIVITY_MICROS;
 }
 
 function equippedHeadForProgress(progress: any) {
@@ -1504,9 +1516,15 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     });
   }
 
+  const lifetime = ensurePlayerLifetime(ctx);
+  const grantBetaTesterGoldenHelmet = hasRecentPlayerActivity(ctx, ctx.sender);
+
   let existingProgress: any = ctx.db.playerProgress.identity.find(ctx.sender);
   if (!existingProgress) {
     existingProgress = defaultPlayerProgress(ctx.sender);
+    if (grantBetaTesterGoldenHelmet) {
+      existingProgress.inventoryJson = JSON.stringify([...inventoryForProgress(existingProgress), SUPERIOR_GOLDEN_HELMET]);
+    }
     ctx.db.playerProgress.insert(existingProgress);
     markAttackBalanceCurrent(ctx);
   } else {
@@ -1520,7 +1538,10 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const equippedHead = equippedHeadForProgress(existingProgress);
     const equippedChest = equippedChestForProgress(existingProgress);
-    const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
+    const inventoryJson = JSON.stringify([
+      ...inventoryForProgress(existingProgress),
+      ...(grantBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : []),
+    ].filter((item, index, items) => items.indexOf(item) === index));
     const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet) {
@@ -1544,7 +1565,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   backfillKnownAccessAudit(ctx);
 
   const existing = ctx.db.player.identity.find(ctx.sender);
-  const lifetime = ensurePlayerLifetime(ctx);
   if (!existing) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
   }
@@ -2332,6 +2352,9 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const activePlayer = requireControllingPlayer(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
+    if (hasRecentPlayerActivity(ctx, ctx.sender)) {
+      next.inventoryJson = JSON.stringify([...inventoryForProgress(next), SUPERIOR_GOLDEN_HELMET]);
+    }
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
     const lifetime = ensurePlayerLifetime(ctx);
