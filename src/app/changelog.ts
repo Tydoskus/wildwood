@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.359": [
+    "Moving straight up or down now keeps your character facing the previous left or right direction.",
+  ],
   "0.358": [
     "Developer tools now include live frame timing, runtime counts, memory, and subscription diagnostics.",
     "Speech bubble text is cached between chat changes, while sprite cleanup and tree-bound analysis run outside frame-critical work.",
