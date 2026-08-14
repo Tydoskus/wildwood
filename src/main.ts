@@ -127,7 +127,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.364";
+  const GAME_VERSION = "0.365";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -183,7 +183,9 @@ import {
   const devAuditBtn = requiredElement("devAuditBtn");
   const autoAttackBtn = requiredElement("autoAttackBtn");
   const settingsPanel = requiredElement("settingsPanel");
+  const closeSettingsBtn = requiredElement("closeSettingsBtn");
   const inventoryPanel = requiredElement("inventoryPanel");
+  const closeInventoryBtn = requiredElement("closeInventoryBtn");
   const inventoryItemsEl = requiredElement("inventoryItems");
   const inventoryDetailEl = requiredElement("inventoryDetail");
   const inventoryCountEl = requiredElement("inventoryCount");
@@ -4223,6 +4225,10 @@ import {
     closeLeaderboard();
     closeDevAudit();
   });
+  closeSettingsBtn.addEventListener("click", () => {
+    settingsPanel.hidden = true;
+    settingsBtn.setAttribute("aria-expanded", "false");
+  });
 
   inventoryBtn.addEventListener("click", () => {
     const opening = inventoryPanel.hidden;
@@ -4234,12 +4240,13 @@ import {
     closeDevAudit();
     if (opening) renderInventory();
   });
+  closeInventoryBtn.addEventListener("click", () => {
+    inventoryPanel.hidden = true;
+    inventoryBtn.setAttribute("aria-expanded", "false");
+  });
 
   leaderboardBtn.addEventListener("click", openLeaderboard);
   closeLeaderboardBtn.addEventListener("click", closeLeaderboard);
-  leaderboardEl.addEventListener("click", (event) => {
-    if (event.target === leaderboardEl) closeLeaderboard();
-  });
   leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
   leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
   leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));
@@ -4262,9 +4269,6 @@ import {
     closeDevAudit();
     startDragonPortalCutscene(true);
   });
-  devAuditEl.addEventListener("click", (event) => {
-    if (event.target === devAuditEl) closeDevAudit();
-  });
 
   equippedFeetSlot?.addEventListener("click", () => {
     if (inventory.equippedFeet) {
@@ -4285,9 +4289,6 @@ import {
     }
   });
   closeItemInspectBtn?.addEventListener("click", closeItemInspect);
-  itemInspectEl?.addEventListener("click", (event) => {
-    if (event.target === itemInspectEl) closeItemInspect();
-  });
 
   accountButton?.addEventListener("click", () => {
     const account = coop?.accountState?.();
@@ -4364,9 +4365,6 @@ import {
     if (identity) void openPlayerProfile(identity, coop?.localDisplayName?.() || "PLAYER");
   });
   closePlayerProfileBtn.addEventListener("click", closePlayerProfile);
-  playerProfileEl.addEventListener("click", (event) => {
-    if (event.target === playerProfileEl) closePlayerProfile();
-  });
   editPlayerNameBtn.addEventListener("click", openProfileNameEditor);
   previousPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(-1));
   nextPlayerSpriteBtn.addEventListener("click", () => selectProfileCharacter(1));
@@ -4454,9 +4452,6 @@ import {
     if (openProfileIdentity === coop?.localIdentity?.()) openProfileIconPicker();
   });
   closeProfileIconPickerBtn.addEventListener("click", closeProfileIconPicker);
-  profileIconPickerEl.addEventListener("click", (event) => {
-    if (event.target === profileIconPickerEl) closeProfileIconPicker();
-  });
 
   closeDuelReplayBtn.addEventListener("click", () => {
     const closeReplay = () => {
@@ -4570,25 +4565,6 @@ import {
     pausedForUpgrade = false;
     bootUpgradeEl.hidden = true;
     last = performance.now();
-  });
-
-  document.addEventListener("pointerdown", (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const toolbar = settingsBtn.closest(".settings-wrap");
-    if (toolbar && !toolbar.contains(target)) {
-      settingsPanel.hidden = true;
-      inventoryPanel.hidden = true;
-      settingsBtn.setAttribute("aria-expanded", "false");
-      inventoryBtn.setAttribute("aria-expanded", "false");
-    }
-    if (!playerProfileEl.hidden && !playerProfileEl.querySelector(".modal")?.contains(target) && !profileNameEditorEl.contains(target)) closePlayerProfile();
-    if (!leaderboardEl.hidden && !leaderboardEl.querySelector(".modal")?.contains(target)) closeLeaderboard();
-    if (!devAuditEl.hidden && !devAuditEl.querySelector(".modal")?.contains(target)) closeDevAudit();
-    if (!dragonResultEl.hidden && !dragonResultEl.querySelector(".modal")?.contains(target)) closeDragonResult();
-    if (!duelResultEl.hidden && !duelResultEl.querySelector(".modal")?.contains(target)) leaveDuelResult();
-    if (!bootUpgradeEl.hidden && !bootUpgradeEl.querySelector(".modal")?.contains(target)) bootUpgradeClose.click();
-    if (!profileIconPickerEl.hidden && !profileIconPickerEl.querySelector(".modal")?.contains(target)) closeProfileIconPicker();
   });
 
   resetProgressBtn.addEventListener("click", () => {

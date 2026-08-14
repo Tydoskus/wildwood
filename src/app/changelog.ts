@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.365": [
+    "Windows now stay open when you tap outside them; centered Settings and Inventory each include an X close button.",
+  ],
   "0.364": [
     "Sign-in update notes are larger, show two recent releases, and place the release date beside the version.",
     "Default paper hats now persist to public appearance rows for new players.",

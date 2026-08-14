@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.364" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.365" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -37,7 +37,10 @@
       <button id="devAuditBtn" class="settings-button dev-audit-button" type="button" aria-label="Open access audit" aria-expanded="false" hidden><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Dev.png" alt="" aria-hidden="true"><span class="toolbar-label">DEV</span></button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Settings.png" alt="" aria-hidden="true"><span class="toolbar-label">SETTINGS</span></button>
       <div id="settingsPanel" class="settings-panel card" hidden>
-        <div class="settings-title">SETTINGS</div>
+        <div class="settings-panel-header">
+          <div class="settings-title">SETTINGS</div>
+          <button id="closeSettingsBtn" class="profile-close-button secondary-button" type="button" aria-label="Close settings">×</button>
+        </div>
         <div class="setting-row">
           <span>SERVER</span>
           <span id="connectionStatus" class="connection-status">CONNECTING</span>
@@ -83,7 +86,10 @@
         </div>
       </div>
       <div id="inventoryPanel" class="inventory-panel card" role="dialog" aria-label="Inventory" hidden>
-        <div class="settings-title">INVENTORY</div>
+        <div class="inventory-panel-header">
+          <div class="settings-title">INVENTORY</div>
+          <button id="closeInventoryBtn" class="profile-close-button secondary-button" type="button" aria-label="Close inventory">×</button>
+        </div>
         <div class="inventory-layout">
           <section class="equipment-section" aria-label="Equipped items">
             <div class="inventory-section-title">EQUIPPED</div>
@@ -118,7 +124,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.364</div>
+        <div id="version">v0.365</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -178,13 +184,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.364</strong><time id="updateNoticeDate" class="signin-update-date" datetime="2026-08-13">AUG 13, 2026</time></div>
+        <div><strong id="updateNoticeTitle">v0.365</strong><time id="updateNoticeDate" class="signin-update-date" datetime="2026-08-13">AUG 13, 2026</time></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.364</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.365</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -405,7 +411,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.364"></script>
-<script src="assets/wildwood/game.js?v=0.364"></script>
+<script src="assets/wildwood/coop-client.js?v=0.365"></script>
+<script src="assets/wildwood/game.js?v=0.365"></script>
 </body>
 </html>

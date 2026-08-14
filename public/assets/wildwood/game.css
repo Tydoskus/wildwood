@@ -180,15 +180,21 @@
   .settings-button:active { transform: none; box-shadow: inset 0 0 0 999px rgba(255,255,255,.14); }
 
   .settings-panel {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 10;
     width: 250px;
     padding: 10px;
     pointer-events: auto;
+    transform: translate(-50%, -50%);
   }
 
   .settings-panel[hidden] { display: none; }
+
+  .settings-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .settings-panel-header .settings-title { margin: 0; }
+  .settings-panel-header .profile-close-button { flex: 0 0 auto; }
 
   .inventory-panel {
     position: fixed;
@@ -206,6 +212,9 @@
 
   .inventory-panel[hidden] { display: none; }
 
+  .inventory-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .inventory-panel-header .settings-title { margin: 0; }
+  .inventory-panel-header .profile-close-button { flex: 0 0 auto; }
   .inventory-layout { display: grid; grid-template-columns: 156px minmax(0, 1fr); gap: 8px; }
   .inventory-section-title { margin-bottom: 6px; color: var(--gold); font-size: 10px; font-weight: 900; letter-spacing: .08em; }
   .inventory-section-title span { color: var(--muted); }
@@ -296,7 +305,7 @@
   @media (max-width: 460px) {
     :root { --game-window-width: min(360px, calc(100vw - 16px)); }
     .inventory-panel { max-height: calc(100vh - 66px); padding: 7px; overflow-y: auto; }
-    .inventory-panel .settings-title { margin-bottom: 5px; }
+    .inventory-panel-header, .settings-panel-header { margin-bottom: 5px; }
     .inventory-layout { grid-template-columns: 112px minmax(0, 1fr); gap: 5px; }
     .inventory-section-title { margin-bottom: 4px; font-size: 8px; }
     .equipment-section, .bag-section { padding: 4px; }
