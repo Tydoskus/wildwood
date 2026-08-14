@@ -1,6 +1,6 @@
-import { BASIC_PAPER_HAT, LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../../shared/rules";
+import { BASIC_PAPER_HAT, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../../shared/rules";
 
-export { BASIC_PAPER_HAT, LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS };
+export { BASIC_PAPER_HAT, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS };
 
 export type InventoryState = {
   itemIds: string[];
@@ -49,6 +49,13 @@ export const ITEM_DEFINITIONS = {
     description: "Leather boots built for crossing Wildwood faster.",
     stats: ["MOVE SPEED +25"],
   },
+  [STARTER_STONE]: {
+    id: STARTER_STONE,
+    name: "STARTER STONE",
+    slot: "HAND",
+    description: "Your trusty first throwing stone.",
+    stats: ["STARTER WEAPON · NO STATS"],
+  },
 } as const;
 
 export function itemDefinition(itemId: string): InventoryItemDefinition | undefined {
@@ -90,10 +97,13 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const requested = Array.isArray(itemIds) ? itemIds : [];
   const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
   const hasBetaTesterGoldenHelmet = ownsDeveloperCosmetics || requested.includes(SUPERIOR_GOLDEN_HELMET);
+  const stoneWasSaved = requested.includes(STARTER_STONE);
   const headItems = [BASIC_PAPER_HAT, ...(hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [])];
   const chestItems = ownsDeveloperCosmetics ? [LEGENDARY_WHITE_GOLD_ARMOR] : [];
-  const items = [...headItems, ...chestItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : [])];
+  const items = [...headItems, STARTER_STONE, ...chestItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : [])];
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");
+  const savedLeftHand = typeof equippedLeftHand === "string" && handItems.includes(equippedLeftHand) ? equippedLeftHand : "";
+  const savedRightHand = typeof equippedRightHand === "string" && handItems.includes(equippedRightHand) ? equippedRightHand : "";
   return {
     itemIds: items,
     equippedHead: typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : BASIC_PAPER_HAT,
@@ -101,8 +111,8 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS
       ? TRAILBLAZER_BOOTS
       : "",
-    equippedRightHand: typeof equippedRightHand === "string" && handItems.includes(equippedRightHand) ? equippedRightHand : "",
-    equippedLeftHand: typeof equippedLeftHand === "string" && handItems.includes(equippedLeftHand) ? equippedLeftHand : "",
+    equippedRightHand: savedRightHand || (!stoneWasSaved && !savedLeftHand ? STARTER_STONE : ""),
+    equippedLeftHand: savedRightHand ? "" : savedLeftHand,
   };
 }
 

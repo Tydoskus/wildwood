@@ -1,4 +1,4 @@
-import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type EquipmentSlot } from "../game/inventory";
+import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type EquipmentSlot } from "../game/inventory";
 import { formatCompactNumber } from "./number-format";
 
 type PlayerHudState = {
@@ -95,6 +95,7 @@ function itemArt(itemId: string, hidden = true) {
   if (itemId === BASIC_PAPER_HAT) return `<span class="inventory-item-art basic-paper-hat-art"${aria}></span>`;
   if (itemId === SUPERIOR_GOLDEN_HELMET) return `<span class="inventory-item-art superior-golden-helmet-art"${aria}></span>`;
   if (itemId === LEGENDARY_WHITE_GOLD_ARMOR) return `<span class="inventory-item-art legendary-white-gold-armor-art"${aria}></span>`;
+  if (itemId === STARTER_STONE) return `<span class="inventory-item-art starter-stone-art"${aria}></span>`;
   return '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
 }
 
@@ -145,9 +146,11 @@ export function renderInventoryView(
       button.addEventListener("click", () => actions.onSelect(itemId));
     } else {
       const canMoveSelectedToBag = Boolean(inventory.selectedItemId && equippedIds.has(inventory.selectedItemId));
-      button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}`);
-      button.disabled = !canMoveSelectedToBag;
-      if (canMoveSelectedToBag) button.addEventListener("click", () => actions.onMove(inventory.selectedItemId, "BAG"));
+      button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}: clear selection`);
+      button.addEventListener("click", () => {
+        if (canMoveSelectedToBag) actions.onMove(inventory.selectedItemId, "BAG");
+        else actions.onSelect("");
+      });
     }
     elements.items.appendChild(button);
   }

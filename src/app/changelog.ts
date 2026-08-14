@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.402": [
+    "Every player now starts with a Starter Stone in the right-hand inventory slot, and inventory selections clear from empty bag slots.",
+  ],
   "0.401": [
     "Fixed the startup controller order that could leave the game stuck on Connecting.",
   ],

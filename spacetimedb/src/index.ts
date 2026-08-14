@@ -26,6 +26,7 @@ import {
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
   SUPERIOR_GOLDEN_HELMET,
+  STARTER_STONE,
   TRAILBLAZER_BOOTS,
   TUTORIAL_FOREST_MAP_ID,
   WORLD_HEIGHT,
@@ -659,11 +660,11 @@ function defaultPlayerProgress(identity: any) {
     regen: 0,
     speed: PLAYER_SPEED,
     bootsCollected: false,
-    inventoryJson: "[]",
+    inventoryJson: JSON.stringify([STARTER_STONE]),
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
     equippedFeet: "",
-    equippedRightHand: "",
+    equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     introComplete: false,
     desertUnlocked: false,
@@ -1018,6 +1019,7 @@ function inventoryForProgress(progress: any) {
   } catch {}
   return [
     BASIC_PAPER_HAT,
+    STARTER_STONE,
     ...(hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : []),
     ...(isDeveloperIdentity(progress.identity) ? [LEGENDARY_WHITE_GOLD_ARMOR] : []),
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
@@ -1044,6 +1046,21 @@ function equippedChestForProgress(progress: any) {
 function equippedFeetForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
   return inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
+}
+
+function savedInventoryIncludes(progress: any, itemId: string) {
+  try { return JSON.parse(progress.inventoryJson ?? "[]").includes(itemId); } catch { return false; }
+}
+
+function equippedRightHandForProgress(progress: any) {
+  const inventory = inventoryForProgress(progress);
+  if (progress.equippedRightHand === STARTER_STONE && inventory.includes(STARTER_STONE)) return STARTER_STONE;
+  return savedInventoryIncludes(progress, STARTER_STONE) ? "" : STARTER_STONE;
+}
+
+function equippedLeftHandForProgress(progress: any) {
+  const inventory = inventoryForProgress(progress);
+  return progress.equippedLeftHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
 }
 
 function sameIdentity(a: any, b: any) {
@@ -1614,13 +1631,15 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const equippedHead = equippedHeadForProgress(existingProgress);
     const equippedChest = equippedChestForProgress(existingProgress);
+    const equippedRightHand = equippedRightHandForProgress(existingProgress);
+    const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify([
       ...inventoryForProgress(existingProgress),
       ...(grantBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : []),
     ].filter((item, index, items) => items.indexOf(item) === index));
     const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
-    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet) {
+    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand) {
       const migratedProgress = {
         ...existingProgress,
         maxHp,
@@ -1630,6 +1649,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         equippedHead,
         equippedChest,
         equippedFeet,
+        equippedRightHand,
+        equippedLeftHand,
       };
       ctx.db.playerProgress.identity.update(migratedProgress);
       existingProgress = migratedProgress;
@@ -2422,8 +2443,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
     const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
-    const equippedRightHand = "";
-    const equippedLeftHand = "";
+    const equippedRightHand = progress.equippedRightHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
+    const equippedLeftHand = !equippedRightHand && progress.equippedLeftHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
     const next = {
       identity: ctx.sender,
       maxHp: Math.max(base.maxHp, normalized.maxHp),

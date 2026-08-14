@@ -258,7 +258,7 @@
   .slot-legs { left: 50%; top: 113px; transform: translateX(-50%); }
   .slot-feet { left: 50%; top: 160px; transform: translateX(-50%); }
   .equipment-slot:active, .inventory-item:active { transform: none; }
-  .slot-head:active, .slot-feet:active { transform: translateX(-50%); }
+  .slot-head:active, .slot-chest:active, .slot-legs:active, .slot-feet:active { transform: translateX(-50%); }
 
   .bag-section { min-width: 0; padding: 7px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(0,0,0,.18); }
   .inventory-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
@@ -270,9 +270,11 @@
   .basic-paper-hat-art { background-image: url("player-parts/basic-paper-hat.png"); }
   .superior-golden-helmet-art { background-image: url("player-parts/superior-golden-helmet.png"); }
   .legendary-white-gold-armor-art { background-image: url("player-parts/legendary-white-gold-armor.png"); }
+  .starter-stone-art { background-image: url("player-parts/stone.png"); }
   .equipment-slot .basic-paper-hat-art { width: 30px; height: 27px; }
   .equipment-slot .superior-golden-helmet-art { width: 30px; height: 27px; }
   .equipment-slot .legendary-white-gold-armor-art { width: 30px; height: 27px; }
+  .equipment-slot .starter-stone-art { width: 26px; height: 26px; }
 
   .boot-pixel-icon { display: flex; justify-content: center; gap: 3px; align-items: end; height: 22px; }
   .boot-pixel-icon i { position: relative; display: block; width: 8px; height: 15px; border: 2px solid #32190d; border-radius: 2px 2px 3px 3px; background: #d58b32; box-shadow: -2px 3px 0 #ffe47b; }

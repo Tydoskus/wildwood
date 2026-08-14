@@ -1,25 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { BASIC_PAPER_HAT, inventoryFromSave, LEGENDARY_WHITE_GOLD_ARMOR, normaliseInventory, serialiseInventory, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
+import { BASIC_PAPER_HAT, inventoryFromSave, LEGENDARY_WHITE_GOLD_ARMOR, normaliseInventory, serialiseInventory, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
 
 describe("inventory rules", () => {
   it("rejects malformed inventory and restores a valid saved item", () => {
-    expect(inventoryFromSave("not json", TRAILBLAZER_BOOTS, undefined, undefined, false)).toEqual({ itemIds: [BASIC_PAPER_HAT], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: "", equippedRightHand: "", equippedLeftHand: "" });
-    expect(normaliseInventory([TRAILBLAZER_BOOTS], TRAILBLAZER_BOOTS, BASIC_PAPER_HAT, undefined, false)).toEqual({ itemIds: [BASIC_PAPER_HAT, TRAILBLAZER_BOOTS], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: TRAILBLAZER_BOOTS, equippedRightHand: "", equippedLeftHand: "" });
+    expect(inventoryFromSave("not json", TRAILBLAZER_BOOTS, undefined, undefined, false)).toEqual({ itemIds: [BASIC_PAPER_HAT, STARTER_STONE], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: "", equippedRightHand: STARTER_STONE, equippedLeftHand: "" });
+    expect(normaliseInventory([TRAILBLAZER_BOOTS], TRAILBLAZER_BOOTS, BASIC_PAPER_HAT, undefined, false)).toEqual({ itemIds: [BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: TRAILBLAZER_BOOTS, equippedRightHand: STARTER_STONE, equippedLeftHand: "" });
   });
 
   it("restores and serialises an earned boots item", () => {
     const inventory = inventoryFromSave("[]", TRAILBLAZER_BOOTS, BASIC_PAPER_HAT, "", true);
-    expect(inventory).toEqual({ itemIds: [BASIC_PAPER_HAT, TRAILBLAZER_BOOTS], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: TRAILBLAZER_BOOTS, equippedRightHand: "", equippedLeftHand: "" });
-    expect(serialiseInventory(inventory)).toBe(JSON.stringify([BASIC_PAPER_HAT, TRAILBLAZER_BOOTS]));
+    expect(inventory).toEqual({ itemIds: [BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS], equippedHead: BASIC_PAPER_HAT, equippedChest: "", equippedFeet: TRAILBLAZER_BOOTS, equippedRightHand: STARTER_STONE, equippedLeftHand: "" });
+    expect(serialiseInventory(inventory)).toBe(JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS]));
   });
 
   it("keeps the developer-only golden helmet cosmetic available and equipable", () => {
     expect(inventoryFromSave("[]", "", SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR, false, true)).toEqual({
-      itemIds: [BASIC_PAPER_HAT, SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR],
+      itemIds: [BASIC_PAPER_HAT, SUPERIOR_GOLDEN_HELMET, STARTER_STONE, LEGENDARY_WHITE_GOLD_ARMOR],
       equippedHead: SUPERIOR_GOLDEN_HELMET,
       equippedChest: LEGENDARY_WHITE_GOLD_ARMOR,
       equippedFeet: "",
-      equippedRightHand: "",
+      equippedRightHand: STARTER_STONE,
       equippedLeftHand: "",
     });
   });

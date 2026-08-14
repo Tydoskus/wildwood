@@ -87,7 +87,7 @@ export function drawStartingPlayer(
   const throwElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
   // When facing left, the mirrored stone sits behind the body and overlaps it
   // slightly, leaving only its outer half visible on the player's left.
-  let stoneX = facingLeft ? 30 : 18 - 33;
+  let stoneX = facingLeft ? 30 : 18 - 33 + 4;
   let stoneY = 112 + 4;
   let stoneVisible = true;
   if (throwElapsed > 0 && throwElapsed < .12) {
