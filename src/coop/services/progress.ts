@@ -22,6 +22,7 @@ export type PlayerProgress = {
   speed: number;
   bootsCollected: boolean;
   inventoryJson: string;
+  equippedHead: string;
   equippedFeet: string;
   introComplete: boolean;
   desertUnlocked: boolean;
@@ -48,6 +49,7 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
     speed: bounded(progress.speed, 1, 2_000, PLAYER_SPEED),
     bootsCollected: progress.bootsCollected,
     inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",
+    equippedHead: typeof progress.equippedHead === "string" ? progress.equippedHead : "",
     equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
     enemyKills: Number.isInteger(progress.enemyKills)
       ? Math.max(0, Math.min(4_294_967_295, progress.enemyKills))
@@ -69,7 +71,7 @@ export function isProgressSave(value: unknown): value is ProgressSave {
     progress.speed,
   ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) &&
     typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
-    typeof progress.equippedFeet === "string" &&
+    typeof progress.equippedHead === "string" && typeof progress.equippedFeet === "string" &&
     (progress.enemyKills === undefined || Number.isInteger(progress.enemyKills));
 }
 
@@ -93,7 +95,7 @@ export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     saved.regen >= pending.regen &&
     saved.speed >= pending.speed &&
     (!pending.bootsCollected || saved.bootsCollected) &&
-    saved.inventoryJson === pending.inventoryJson && saved.equippedFeet === pending.equippedFeet;
+    saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedFeet === pending.equippedFeet;
 }
 
 export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
@@ -109,6 +111,7 @@ export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): Pla
     speed: Math.max(saved.speed, pending.speed),
     bootsCollected: saved.bootsCollected || pending.bootsCollected,
     inventoryJson: pending.inventoryJson,
+    equippedHead: pending.equippedHead,
     equippedFeet: pending.equippedFeet,
   };
 }

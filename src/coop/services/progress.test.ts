@@ -14,7 +14,8 @@ const pending: ProgressSave = {
   regen: 1,
   speed: 200,
   bootsCollected: true,
-  inventoryJson: '["trailblazer_boots"]',
+  inventoryJson: '["basic_paper_hat","trailblazer_boots"]',
+  equippedHead: "basic_paper_hat",
   equippedFeet: "trailblazer_boots",
   enemyKills: 10,
 };

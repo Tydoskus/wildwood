@@ -1,4 +1,4 @@
-import { ITEM_DEFINITIONS, TRAILBLAZER_BOOTS } from "../game/inventory";
+import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, TRAILBLAZER_BOOTS } from "../game/inventory";
 import { formatCompactNumber } from "./number-format";
 
 type PlayerHudState = {
@@ -48,6 +48,7 @@ export function renderPlayerHud(
 
 type InventoryViewState = {
   itemIds: string[];
+  equippedHead: string;
   equippedFeet: string;
   selectedItemId: string;
 };
@@ -56,6 +57,7 @@ type InventoryElements = {
   items: HTMLElement;
   detail: HTMLElement;
   count: HTMLElement;
+  equippedHead: HTMLElement;
   equippedFeet: HTMLElement;
 };
 
@@ -83,10 +85,10 @@ export function renderInventoryView(
   const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
   if (!inventory.selectedItemId && itemIds.length) inventory.selectedItemId = itemIds[0];
   elements.count.textContent = `${itemIds.length} / 16`;
+  elements.equippedHead.classList.toggle("is-equipped", inventory.equippedHead === BASIC_PAPER_HAT);
+  elements.equippedHead.textContent = inventory.equippedHead === BASIC_PAPER_HAT ? "PAPER HAT" : "HEAD";
   elements.equippedFeet.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
-  elements.equippedFeet.innerHTML = inventory.equippedFeet === TRAILBLAZER_BOOTS
-    ? `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span><span>FEET</span>`
-    : "<span>FEET</span>";
+  elements.equippedFeet.textContent = inventory.equippedFeet === TRAILBLAZER_BOOTS ? "BOOTS" : "FEET";
 
   for (let index = 0; index < 16; index += 1) {
     const itemId = itemIds[index];
@@ -98,7 +100,11 @@ export function renderInventoryView(
       const item = itemsById[itemId];
       button.setAttribute("aria-label", item.name);
       button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
-      button.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
+      if (itemId === BASIC_PAPER_HAT) {
+        button.innerHTML = '<span class="inventory-item-art basic-paper-hat-art" aria-hidden="true"></span>';
+      } else {
+        button.innerHTML = '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
+      }
       button.addEventListener("click", () => actions.onSelect(itemId));
     } else {
       button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
@@ -113,14 +119,14 @@ export function renderInventoryView(
     return;
   }
   elements.detail.innerHTML =
-    `<div class="inventory-slot">${selected.slot} · ${inventory.equippedFeet === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
+    `<div class="inventory-slot">${selected.slot} · ${(selected.slot === "HEAD" ? inventory.equippedHead : inventory.equippedFeet) === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
     `<strong>${selected.name}</strong><p>${selected.description}</p>` +
     `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   const actionRow = document.createElement("div");
   actionRow.className = "inventory-actions";
   const equip = document.createElement("button");
   equip.type = "button";
-  const equipped = inventory.equippedFeet === selected.id;
+  const equipped = (selected.slot === "HEAD" ? inventory.equippedHead : inventory.equippedFeet) === selected.id;
   equip.textContent = equipped ? "UNEQUIP" : "EQUIP";
   equip.addEventListener("click", () => equipped ? actions.onUnequip(selected.id) : actions.onEquip(selected.id));
   const inspect = document.createElement("button");

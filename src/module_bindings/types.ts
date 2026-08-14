@@ -279,6 +279,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   bootsCollected: __t.bool(),
   introComplete: __t.bool(),
   inventoryJson: __t.string(),
+  equippedHead: __t.string(),
   equippedFeet: __t.string(),
   desertUnlocked: __t.bool(),
 });

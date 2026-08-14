@@ -27,7 +27,8 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
-  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; feetItem?: string }, alpha: number) => void;
+  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; feetItem?: string }, alpha: number) => void;
+  localHeadItem: () => string;
   localFeetItem: () => string;
   playerStone: HTMLImageElement;
   enemySprites: Record<string, LoadedEnemySprite>;
@@ -44,7 +45,7 @@ export function createActorRenderer(options: {
   const { ctx, camera } = options;
 
   function drawPlayerSprite(
-    actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; feetItem?: string },
+    actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; feetItem?: string },
     alpha = 1,
   ) {
     options.drawPlayerAppearance(actor, alpha);
@@ -111,7 +112,7 @@ export function createActorRenderer(options: {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
     options.drawShadow(x, y + 29, 34, .21);
-    drawPlayerSprite({ ...player, x, y, identity, feetItem: options.localFeetItem() });
+    drawPlayerSprite({ ...player, x, y, identity, headItem: options.localHeadItem(), feetItem: options.localFeetItem() });
     options.drawStatus({
       x,
       y,

@@ -18,7 +18,7 @@ import {
 } from "./game/constants";
 import { circlesOverlap, clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, serialiseInventory, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
+import { BASIC_PAPER_HAT, inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, serialiseInventory, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera, snapCameraToPlayer as snapRuntimeCamera, updateCamera as updateRuntimeCamera } from "./game/runtime/camera";
@@ -122,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.337";
+  const GAME_VERSION = "0.338";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -180,6 +180,7 @@ import {
   const inventoryItemsEl = requiredElement("inventoryItems");
   const inventoryDetailEl = requiredElement("inventoryDetail");
   const inventoryCountEl = requiredElement("inventoryCount");
+  const equippedHeadSlot = requiredElement("equippedHeadSlot");
   const equippedFeetSlot = requiredElement("equippedFeetSlot");
   const itemInspectEl = requiredElement("itemInspect");
   const closeItemInspectBtn = requiredElement("closeItemInspectBtn");
@@ -443,7 +444,7 @@ import {
     r: 18,
     collected: false
   };
-  const inventory: InventoryState & { selectedItemId: string } = { itemIds: [], equippedFeet: "", selectedItemId: "" };
+  const inventory: InventoryState & { selectedItemId: string } = { itemIds: [BASIC_PAPER_HAT], equippedHead: BASIC_PAPER_HAT, equippedFeet: "", selectedItemId: BASIC_PAPER_HAT };
 
   let hasSavedProgress = false;
   let progressLoaded = false;
@@ -723,6 +724,7 @@ import {
       skinTone: coop?.skinTone?.(actor.identity ?? actor.id) ?? DEFAULT_SKIN_TONE,
       alpha,
     }),
+    localHeadItem: () => inventory.equippedHead,
     localFeetItem: () => inventory.equippedFeet,
     playerStone: playerAppearanceAssets.stone,
     enemySprites: ENEMY_SPRITES,
@@ -883,6 +885,7 @@ import {
       speed: player.speed,
       bootsCollected: bootsPickup.collected,
       inventoryJson: serialiseInventory(inventory),
+      equippedHead: inventory.equippedHead,
       equippedFeet: inventory.equippedFeet,
       enemyKills: totalKills,
     });
@@ -932,8 +935,9 @@ import {
     player.regen = number(source.regen, player.regen, 0, 1000000);
     bootsPickup.collected = source.bootsCollected === true;
     player.hp = player.maxHp;
-    const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, bootsPickup.collected);
+    const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, bootsPickup.collected);
     inventory.itemIds = savedInventory.itemIds;
+    inventory.equippedHead = savedInventory.equippedHead;
     inventory.equippedFeet = savedInventory.equippedFeet;
     player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
     if (!inventory.selectedItemId && inventory.itemIds.length) inventory.selectedItemId = inventory.itemIds[0];
@@ -1145,7 +1149,7 @@ import {
 
     if (dx * dx + dy * dy <= reach * reach) {
       bootsPickup.collected = true;
-      inventory.itemIds = [TRAILBLAZER_BOOTS];
+      inventory.itemIds = [BASIC_PAPER_HAT, TRAILBLAZER_BOOTS];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
       player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
@@ -3294,6 +3298,7 @@ import {
       moving: true,
       gameTime: now / 1000,
       skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE,
+      headItem: identity === coop?.localIdentity?.() ? inventory.equippedHead : undefined,
       feetItem: identity === coop?.localIdentity?.() ? inventory.equippedFeet : undefined,
       scale: .6,
     });
@@ -3689,9 +3694,9 @@ import {
   }
 
   function renderInventory() {
-    if (!inventoryItemsEl || !inventoryDetailEl || !inventoryCountEl || !equippedFeetSlot) return;
+    if (!inventoryItemsEl || !inventoryDetailEl || !inventoryCountEl || !equippedHeadSlot || !equippedFeetSlot) return;
     renderInventoryView(
-      { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedFeet: equippedFeetSlot },
+      { items: inventoryItemsEl, detail: inventoryDetailEl, count: inventoryCountEl, equippedHead: equippedHeadSlot, equippedFeet: equippedFeetSlot },
       inventory,
       {
         onSelect(itemId) {
@@ -3699,17 +3704,23 @@ import {
           renderInventory();
         },
         onEquip(itemId) {
-          if (itemDefinition(itemId)?.slot !== "FEET") return;
-          inventory.equippedFeet = itemId;
-          player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
+          const item = itemDefinition(itemId);
+          if (!item) return;
+          if (item.slot === "HEAD") inventory.equippedHead = itemId;
+          else if (item.slot === "FEET") inventory.equippedFeet = itemId;
+          else return;
+          player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
           saveProgress();
           renderInventory();
           showMessage(`${itemDefinition(itemId)?.name ?? "ITEM"} EQUIPPED`, "#72ef58");
         },
         onUnequip(itemId) {
-          if (inventory.equippedFeet !== itemId) return;
-          inventory.equippedFeet = "";
-          player.speed = BASE_PLAYER_SPEED;
+          const item = itemDefinition(itemId);
+          if (!item) return;
+          if (item.slot === "HEAD" && inventory.equippedHead === itemId) inventory.equippedHead = "";
+          else if (item.slot === "FEET" && inventory.equippedFeet === itemId) inventory.equippedFeet = "";
+          else return;
+          player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
           saveProgress();
           renderInventory();
           showMessage(`${itemDefinition(itemId)?.name ?? "ITEM"} UNEQUIPPED`, "#ffe05d");
@@ -3724,11 +3735,13 @@ import {
   function openItemInspect(itemId: string) {
     const item = itemDefinition(itemId);
     if (!item) return;
-    itemInspectSlot.textContent = `${item.slot} · ${inventory.equippedFeet === item.id ? "EQUIPPED" : "IN BAG"}`;
+    itemInspectSlot.textContent = `${item.slot} · ${(item.slot === "HEAD" ? inventory.equippedHead : inventory.equippedFeet) === item.id ? "EQUIPPED" : "IN BAG"}`;
     itemInspectName.textContent = item.name;
     itemInspectDescription.textContent = item.description;
     itemInspectStats.textContent = item.stats.join(" · ");
-    itemInspectIcon.innerHTML = `<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>`;
+    itemInspectIcon.innerHTML = item.id === BASIC_PAPER_HAT
+      ? '<span class="inventory-item-art basic-paper-hat-art" aria-hidden="true"></span>'
+      : '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
     itemInspectEl.hidden = false;
   }
 
@@ -3942,6 +3955,12 @@ import {
   equippedFeetSlot?.addEventListener("click", () => {
     if (inventory.equippedFeet) {
       inventory.selectedItemId = inventory.equippedFeet;
+      renderInventory();
+    }
+  });
+  equippedHeadSlot?.addEventListener("click", () => {
+    if (inventory.equippedHead) {
+      inventory.selectedItemId = inventory.equippedHead;
       renderInventory();
     }
   });
@@ -4261,7 +4280,8 @@ import {
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     totalKills = 0;
     bootsPickup.collected = false;
-    inventory.itemIds = [];
+    inventory.itemIds = [BASIC_PAPER_HAT];
+    inventory.equippedHead = BASIC_PAPER_HAT;
     inventory.equippedFeet = "";
     inventory.selectedItemId = "";
     renderInventory();

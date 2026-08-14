@@ -1,4 +1,4 @@
-import { TRAILBLAZER_BOOTS } from "./inventory";
+import { BASIC_PAPER_HAT, TRAILBLAZER_BOOTS } from "./inventory";
 
 export const PLAYER_SKIN_TONES = [
   "#f9dfd0", "#f2c8ac", "#e9b58f", "#d99e76", "#c88358",
@@ -68,7 +68,7 @@ function drawPillHead(ctx: CanvasRenderingContext2D, width: number, height: numb
 export function drawStartingPlayer(
   ctx: CanvasRenderingContext2D,
   assets: PlayerAppearanceAssets,
-  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; feetItem?: string; alpha?: number; scale?: number },
+  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; feetItem?: string; alpha?: number; scale?: number },
 ) {
   const scale = options.scale ?? .6;
   const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
@@ -109,7 +109,7 @@ export function drawStartingPlayer(
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
   ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
-  drawLayer(assets.basicPaperHat, 90 - assets.basicPaperHat.naturalWidth / 2, 118 - assets.basicPaperHat.naturalHeight + 26 + gait.head);
+  if (options.headItem !== "") drawLayer(assets.basicPaperHat, 90 - assets.basicPaperHat.naturalWidth / 2, 118 - assets.basicPaperHat.naturalHeight + 26 + gait.head);
   if (stoneVisible) drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + stoneX, stoneY);
   ctx.restore();
 }

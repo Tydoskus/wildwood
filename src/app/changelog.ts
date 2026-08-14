@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.338": [
+    "Basic Paper Hat is now a real no-stat head item with its own bag art and equip state.",
+    "Equipment slots now stay text-only and no inventory or equipment controls shift when pressed.",
+    "Minimized chat now uses a half-transparent background.",
+  ],
   "0.337": [
     "Ten new alien skin colors are available, including green, blue, red, violet, and gold options.",
     "Profile DUEL is centered and profile stat descriptions are clearer.",

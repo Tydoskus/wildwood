@@ -22,6 +22,7 @@ export default {
   speed: __t.f32(),
   bootsCollected: __t.bool(),
   inventoryJson: __t.string(),
+  equippedHead: __t.string(),
   equippedFeet: __t.string(),
   enemyKills: __t.u32(),
 };
