@@ -791,6 +791,12 @@ function flushPendingProgressAsync(force = false): Promise<boolean> {
     })
     .finally(() => {
       progressSavePromise = null;
+      // Equipment changes must reach nearby players without waiting for the
+      // normal progress-save throttle or an earlier in-flight stat snapshot.
+      if (force && identity === localIdentity && pendingProgress && !sameProgressSave(pendingProgress, snapshot)) {
+        progressSaveInFlightUntil = 0;
+        flushPendingProgress(true);
+      }
     });
   return progressSavePromise;
 }
@@ -2122,10 +2128,10 @@ export const wildwoodCoop = {
     if (protocolBlocked || !connection) return;
     sendReducer("spider damage", () => connection?.reducers.damageSpiderBatch({ hits }));
   },
-  saveProgress(progress: ProgressSave) {
+  saveProgress(progress: ProgressSave, immediate = false) {
     persistPendingProgress(progress);
     progressSaveInFlightUntil = 0;
-    flushPendingProgress();
+    flushPendingProgress(immediate);
   },
   resetProgress() {
     if (protocolBlocked) return;

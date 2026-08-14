@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.349": [
+    "Equipping cosmetics now syncs immediately to nearby players.",
+    "Phone rendering is capped at 2x resolution to reduce heat and frame load.",
+  ],
   "0.348": [
     "Players now show their equipped head, chest, and feet cosmetics to everyone on the map.",
   ],

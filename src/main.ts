@@ -123,7 +123,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.348";
+  const GAME_VERSION = "0.349";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -770,7 +770,7 @@ import {
   function resize() {
     viewW = innerWidth;
     viewH = innerHeight;
-    dpr = Math.min(devicePixelRatio || 1, 3);
+    dpr = Math.min(devicePixelRatio || 1, matchMedia("(pointer: coarse)").matches ? 2 : 3);
     canvas.width = Math.round(viewW * dpr);
     canvas.height = Math.round(viewH * dpr);
     canvas.style.width = viewW + "px";
@@ -889,7 +889,7 @@ import {
     updateHud();
   }
 
-  function saveProgress() {
+  function saveProgress(immediate = false) {
     if (!coop || typeof coop.saveProgress !== "function") return;
     coop.saveProgress({
       maxHp: player.maxHp,
@@ -907,7 +907,7 @@ import {
       equippedChest: inventory.equippedChest,
       equippedFeet: inventory.equippedFeet,
       enemyKills: totalKills,
-    });
+    }, immediate);
   }
 
   function loadProgress() {
@@ -3838,7 +3838,7 @@ import {
           else if (item.slot === "FEET") inventory.equippedFeet = itemId;
           else return;
           player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
-          saveProgress();
+          saveProgress(true);
           renderInventory();
           showMessage(`${itemDefinition(itemId)?.name ?? "ITEM"} EQUIPPED`, "#72ef58");
         },
@@ -3850,7 +3850,7 @@ import {
           else if (item.slot === "FEET" && inventory.equippedFeet === itemId) inventory.equippedFeet = "";
           else return;
           player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
-          saveProgress();
+          saveProgress(true);
           renderInventory();
           showMessage(`${itemDefinition(itemId)?.name ?? "ITEM"} UNEQUIPPED`, "#ffe05d");
         },
