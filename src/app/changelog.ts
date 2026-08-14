@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.375": [
+    "Profile presence display refinements.",
+  ],
   "0.374": [
     "Profile display refinements.",
   ],

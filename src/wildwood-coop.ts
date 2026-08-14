@@ -856,8 +856,8 @@ function upsertPlayer(row: {
   mapId: string;
 }) {
   const id = row.identity.toHexString();
-  playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
   if (id === localIdentity) {
+    playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
     localPresenceVisible = row.isVisible;
     if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
       worldEntryBlocked = true;
@@ -879,6 +879,15 @@ function upsertPlayer(row: {
     onChange?.();
     return;
   }
+
+  if (!row.isVisible) {
+    playerMaps.delete(id);
+    players.delete(id);
+    onChange?.();
+    return;
+  }
+
+  playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
 
   if (row.mapId !== currentMapId) {
     players.delete(id);
@@ -1368,7 +1377,9 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
           if (row.identity.toHexString() === identity) upsertPlayerLifetime(row);
         }
         for (const row of conn.db.player.iter()) {
-          if (row.identity.toHexString() === identity) playerMaps.set(identity, row.mapId);
+          if (row.identity.toHexString() !== identity) continue;
+          if (row.isVisible) playerMaps.set(identity, row.mapId);
+          else playerMaps.delete(identity);
         }
         playerProfileLoads.delete(identity);
         resolve(cachedPlayerProfile(identity));
