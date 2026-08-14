@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.385": [
+    "Tech Tree now uses square neutral nodes and opens research details in its own window.",
+  ],
   "0.384": [
     "Added the Tech Tree: server-timed research unlocks permanent combat, reward, health, and range upgrades.",
   ],

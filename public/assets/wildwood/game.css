@@ -931,33 +931,40 @@
   #techTreeOverlay[hidden] { display: none; }
 
   #techTreeOverlay { z-index: 12; padding: 0; background: rgba(0,0,0,.78); }
-  .tech-tree-window { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: 100%; height: 100%; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, rgba(24,52,33,.68), rgba(3,8,5,.98) 70%); border: 2px solid #000; color: var(--text); text-align: left; }
-  .tech-tree-header { z-index: 2; display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); border-bottom: 2px solid rgba(126,188,137,.36); background: rgba(2,8,4,.92); }
+  .tech-tree-window { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); width: 100%; height: 100%; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, #252a30, #090b0e 70%); border: 2px solid #000; color: var(--text); text-align: left; }
+  .tech-tree-header { z-index: 2; display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); border-bottom: 2px solid rgba(202,207,214,.3); background: rgba(10,12,15,.94); }
   .tech-tree-header > div:first-child { min-width: 0; }
   .tech-tree-kicker { margin: 0 0 2px; color: var(--muted); font-size: 8px; letter-spacing: .12em; }
-  .tech-tree-header h2 { margin: 0; color: var(--gold); font-size: clamp(18px, 4vw, 29px); line-height: 1; }
-  .tech-tree-active { min-width: 0; margin-left: auto; color: #a9edaa; font-size: clamp(7px, 1.7vw, 10px); letter-spacing: .06em; text-align: right; }
+  .tech-tree-header h2 { margin: 0; color: #f4f5f7; font-size: clamp(18px, 4vw, 29px); line-height: 1; }
+  .tech-tree-active { min-width: 0; margin-left: auto; color: #c2c7ce; font-size: clamp(7px, 1.7vw, 10px); letter-spacing: .06em; text-align: right; }
   .tech-tree-header .profile-close-button { flex: 0 0 auto; margin: 0; }
   .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
-  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-template-rows: 1fr 1fr 1.15fr 1fr; min-width: 620px; min-height: 580px; height: 100%; padding: 22px clamp(30px, 9vw, 160px); }
-  .tech-tree-tier { display: flex; align-items: center; justify-content: center; gap: clamp(80px, 22vw, 320px); }
+  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-template-rows: 1fr 1fr 1.15fr 1fr; min-width: 420px; min-height: 580px; height: 100%; padding: 22px clamp(24px, 7vw, 112px); }
+  .tech-tree-tier { display: flex; align-items: center; justify-content: center; gap: clamp(56px, 16vw, 180px); }
   .tech-tree-tier-mid, .tech-tree-tier-bottom { justify-content: space-between; }
-  .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: clamp(130px, 17vw, 210px); min-height: 76px; margin: 0; padding: 9px; border: 2px solid rgba(156,198,162,.55); border-radius: 8px; background: linear-gradient(145deg, #17291b, #0a110c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
-  .tech-tree-node::before { position: absolute; inset: 4px; border: 1px solid rgba(175,234,180,.14); border-radius: 4px; content: ""; pointer-events: none; }
-  .tech-tree-node.is-available { border-color: var(--gold); background: linear-gradient(145deg, #413718, #151309); }
-  .tech-tree-node.is-active { border-color: #69e56f; background: linear-gradient(145deg, #16411d, #0c1b0e); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 18px rgba(105,229,111,.38); }
-  .tech-tree-node.is-complete { border-color: #d5b55a; background: linear-gradient(145deg, #4b3f17, #1b1708); }
+  .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: clamp(112px, 27vw, 136px); aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 8px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
+  .tech-tree-node::before { position: absolute; inset: 4px; border: 1px solid rgba(222,227,234,.16); border-radius: 4px; content: ""; pointer-events: none; }
+  .tech-tree-node.is-available { border-color: #c4cad1; background: linear-gradient(145deg, #3d444c, #171b20); }
+  .tech-tree-node.is-active { border-color: #f1f3f5; background: linear-gradient(145deg, #555d66, #20262c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 18px rgba(230,234,239,.28); }
+  .tech-tree-node.is-complete { border-color: #aeb5bd; background: linear-gradient(145deg, #424850, #1a1e23); }
   .tech-tree-node.is-locked { opacity: .56; }
-  .tech-tree-node-mastery { width: clamp(178px, 24vw, 282px); min-height: 92px; border-color: var(--gold); background: linear-gradient(145deg, #3d3517, #121006); }
+  .tech-tree-node-mastery { border-color: #929aa4; background: linear-gradient(145deg, #353b43, #15191e); }
   .tech-tree-node-tier { color: var(--muted); font-size: 7px; letter-spacing: .11em; }
-  .tech-tree-node strong { color: #fff6bf; font-size: clamp(10px, 1.65vw, 15px); line-height: 1.05; }
-  .tech-tree-node small { color: #aad6ad; font-size: 7px; letter-spacing: .045em; }
-  .tech-tree-node:hover, .tech-tree-node:focus-visible { border-color: var(--green); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 0 2px rgba(105,229,111,.22), 0 5px 0 rgba(0,0,0,.42); outline: 0; }
-  .tech-tree-detail { display: grid; gap: 3px; min-height: 58px; padding: 9px max(14px, env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); border-top: 2px solid rgba(126,188,137,.3); background: rgba(2,8,4,.94); }
-  .tech-tree-detail strong { color: var(--gold); font-size: 10px; }
-  .tech-tree-detail span { color: var(--muted); font-size: 8px; }
-  .tech-tree-action { justify-self: start; min-height: 28px; margin-top: 3px; font-size: 9px; }
+  .tech-tree-node strong { color: #f1f3f5; font-size: clamp(10px, 1.65vw, 15px); line-height: 1.05; }
+  .tech-tree-node small { color: #c0c6cd; font-size: 7px; letter-spacing: .045em; }
+  .tech-tree-node:hover, .tech-tree-node:focus-visible { border-color: #f1f3f5; box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 0 2px rgba(240,243,246,.22), 0 5px 0 rgba(0,0,0,.42); outline: 0; }
+  .tech-tree-detail { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.62); }
+  .tech-tree-detail[hidden] { display: none; }
+  .tech-tree-detail-card { display: grid; gap: 12px; width: min(100%, 360px); padding: 14px; border: 2px solid #8c949e; border-radius: 9px; background: linear-gradient(145deg, #30363d, #13171c); box-shadow: 0 10px 0 rgba(0,0,0,.45); }
+  .tech-tree-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .tech-tree-detail-header h3 { margin: 0; color: #f4f5f7; font-size: 14px; }
+  .tech-tree-detail-header .profile-close-button { margin: 0; }
+  .tech-tree-detail-content { display: grid; gap: 7px; }
+  .tech-tree-detail-content strong { color: #f4f5f7; font-size: 11px; }
+  .tech-tree-detail-content span { color: #c2c7ce; font-size: 8px; }
+  .tech-tree-action { justify-self: start; min-height: 28px; margin-top: 3px; border-color: #aeb5bd; background: #515963; color: #fff; font-size: 9px; }
+  .tech-tree-action:hover:not(:disabled), .tech-tree-action:focus-visible { border-color: #fff; background: #68727d; }
 
   #sceneFade {
     position: fixed;

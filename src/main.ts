@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.384";
+  const GAME_VERSION = "0.385";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -195,6 +195,8 @@ import {
   const techTreeActive = requiredElement("techTreeActive");
   const techTreeCanvas = requiredElement<HTMLCanvasElement>("techTreeCanvas");
   const techTreeDetail = requiredElement("techTreeDetail");
+  const techTreeDetailContent = requiredElement("techTreeDetailContent");
+  const closeTechTreeDetailBtn = requiredElement("closeTechTreeDetailBtn");
   const closeInventoryBtn = requiredElement("closeInventoryBtn");
   const inventoryItemsEl = requiredElement("inventoryItems");
   const inventoryDetailEl = requiredElement("inventoryDetail");
@@ -3787,7 +3789,7 @@ import {
       return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
     };
     const paths: [string, string][] = [["foundations", "war"], ["foundations", "foraging"], ["war", "frontier-mastery"], ["foraging", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"]];
-    treeCtx.strokeStyle = "rgba(176, 225, 164, .52)";
+    treeCtx.strokeStyle = "rgba(191, 198, 207, .52)";
     treeCtx.lineWidth = 3;
     for (const [from, to] of paths) {
       const start = center(from);
@@ -3829,14 +3831,14 @@ import {
     const rank = ranks[selectedResearchId];
     const duration = researchDurationMs(RESEARCH_IDS.reduce((total, id) => total + ranks[id], 0));
     const canStart = !active && rank < definition.maxRank && researchRequirementsMet(selectedResearchId, ranks);
-    techTreeDetail.replaceChildren();
+    techTreeDetailContent.replaceChildren();
     const title = document.createElement("strong");
     title.textContent = `${definition.icon} ${definition.title} · ${rank} / ${definition.maxRank}`;
     const description = document.createElement("span");
     description.textContent = definition.valuePerRank > 0
       ? `+${definition.valuePerRank}% ${definition.effect} PER RANK · NEXT RESEARCH: ${formatResearchTime(duration)}`
       : `${definition.effect} · REQUIRES ${researchRequirementText(selectedResearchId)}`;
-    techTreeDetail.append(title, description);
+    techTreeDetailContent.append(title, description);
     const action = document.createElement("button");
     action.className = "primary-button tech-tree-action";
     action.disabled = researchRequestPending ||
@@ -3846,7 +3848,7 @@ import {
       ? active.researchId === selectedResearchId && activeRemaining <= 0 ? "CLAIM RESEARCH" : "RESEARCH IN PROGRESS"
       : rank >= definition.maxRank ? "RESEARCH COMPLETE" : canStart ? "START RESEARCH" : `REQUIRES ${researchRequirementText(selectedResearchId)}`;
     action.addEventListener("click", () => { void triggerResearchAction(); });
-    techTreeDetail.append(action);
+    techTreeDetailContent.append(action);
     drawTechTreeLinks();
   }
 
@@ -3866,6 +3868,7 @@ import {
 
   function openTechTree() {
     techTreeOverlay.hidden = false;
+    techTreeDetail.hidden = true;
     techTreeBtn.setAttribute("aria-expanded", "true");
     settingsPanel.hidden = true;
     inventoryPanel.hidden = true;
@@ -3876,6 +3879,7 @@ import {
 
   function closeTechTree() {
     techTreeOverlay.hidden = true;
+    techTreeDetail.hidden = true;
     techTreeBtn.setAttribute("aria-expanded", "false");
   }
 
@@ -4415,6 +4419,7 @@ import {
   closeLeaderboardBtn.addEventListener("click", closeLeaderboard);
   techTreeBtn.addEventListener("click", openTechTree);
   closeTechTreeBtn.addEventListener("click", closeTechTree);
+  closeTechTreeDetailBtn.addEventListener("click", () => { techTreeDetail.hidden = true; });
   addEventListener("resize", () => {
     if (!techTreeOverlay.hidden) drawTechTreeLinks();
   });
@@ -4423,6 +4428,7 @@ import {
       const researchId = techNodeResearch[button.dataset.techNode ?? ""];
       if (!researchId) return;
       selectedResearchId = researchId;
+      techTreeDetail.hidden = false;
       renderTechTree();
     });
   }
