@@ -901,7 +901,7 @@ function upsertProfile(row: { identity: Identity; displayName: string; profileIc
   profileIcons.set(id, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
   playerSprites.set(id, Math.max(0, Math.min(3, Number(row.playerSprite) || 0)));
   const requestedSkinTone = Number(row.skinTone);
-  skinTones.set(id, Number.isFinite(requestedSkinTone) ? Math.max(0, Math.min(9, Math.floor(requestedSkinTone))) : 3);
+  skinTones.set(id, Number.isFinite(requestedSkinTone) ? Math.max(0, Math.min(19, Math.floor(requestedSkinTone))) : 3);
   profileIdentities.set(id, row.identity);
   if (id === localIdentity) {
     localDisplayName = row.displayName;
@@ -2013,7 +2013,7 @@ export const wildwoodCoop = {
   async setSkinTone(skinTone: number) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
-    const normalized = Math.max(0, Math.min(9, Math.floor(skinTone)));
+    const normalized = Math.max(0, Math.min(19, Math.floor(skinTone)));
     try {
       await connection.reducers.setSkinTone({ skinTone: normalized });
       return { ok: true };

@@ -46,7 +46,27 @@ export function createCanvasPrimitives(
     fillColor: string,
     strokeWidth = ctx.lineWidth,
   ) {
-    const target = textContext();
+    drawOutlinedText(textContext(), text, x, y, fillColor, strokeWidth);
+  }
+
+  function outlinedWorldText(
+    text: string,
+    x: number,
+    y: number,
+    fillColor: string,
+    strokeWidth = ctx.lineWidth,
+  ) {
+    drawOutlinedText(ctx, text, x, y, fillColor, strokeWidth);
+  }
+
+  function drawOutlinedText(
+    target: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    fillColor: string,
+    strokeWidth: number,
+  ) {
     target.save();
     copyTextState(target);
     target.lineJoin = "round";
@@ -80,5 +100,9 @@ export function createCanvasPrimitives(
     target.restore();
   }
 
-  return { outlinedText, fillFloatingText, pixelCircle, roundRect };
+  function fillWorldText(text: string, x: number, y: number) {
+    ctx.fillText(text, x, y);
+  }
+
+  return { outlinedText, outlinedWorldText, fillFloatingText, fillWorldText, pixelCircle, roundRect };
 }

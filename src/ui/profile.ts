@@ -30,8 +30,8 @@ export function renderProfileStats(
   const stats = [
     ["health", "MAX HP", Math.round(progress.maxHp).toLocaleString()],
     ["damage", "DAMAGE", Math.round(progress.damage).toLocaleString()],
-    ["armor", "ARMOR", `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} REDUCTION)`],
-    ["attack", "ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (MAX)" : ""}`],
+    ["armor", "ARMOR", `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} damage reduction)`],
+    ["attack", "ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`],
     ["range", "ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
     ["regen", "REGEN", `${progress.regen.toFixed(1)}/s`],
     ["speed", "MOVE SPEED", Math.round(progress.speed).toLocaleString()],

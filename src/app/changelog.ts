@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.337": [
+    "Ten new alien skin colors are available, including green, blue, red, violet, and gold options.",
+    "Profile DUEL is centered and profile stat descriptions are clearer.",
+    "World text now respects tree depth, so players, enemies, chat, and damage hide behind trees.",
+  ],
   "0.336": [
     "Player projectiles now use the held Stone art while keeping their launch, trail, and impact effects.",
     "Profile preview and portrait frames now use clean black outlines, with skin-tone color squares rendered correctly.",

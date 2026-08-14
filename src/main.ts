@@ -122,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.336";
+  const GAME_VERSION = "0.337";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -163,7 +163,7 @@ import {
   const textCanvas = requiredElement<HTMLCanvasElement>("textLayer");
   const textCtx = requiredCanvasContext(textCanvas);
   ctx.imageSmoothingEnabled = false;
-  const { outlinedText, fillFloatingText, pixelCircle, roundRect } = createCanvasPrimitives(ctx, textCtx);
+  const { outlinedWorldText, fillWorldText, pixelCircle, roundRect } = createCanvasPrimitives(ctx, textCtx);
 
   const hpFill = requiredElement("hpFill");
   const hpText = requiredElement("hpText");
@@ -697,7 +697,7 @@ import {
     portalArch,
     portalSwirl,
     drawShadow: drawActorShadow,
-    outlinedText,
+    outlinedText: outlinedWorldText,
     roundRect,
   });
   const { drawGround, drawTree, drawCactus, drawPortal, drawEmptyDesertArch, drawDecor, drawMinimap } = worldRenderer;
@@ -707,7 +707,7 @@ import {
     dragonReady: () => dragonSpriteReady,
     spiderReady: () => spiderSpriteReady,
     gameTime: () => gameTime,
-    pixelCircle, outlinedText, drawShadow: drawActorShadow,
+    pixelCircle, outlinedText: outlinedWorldText, drawShadow: drawActorShadow,
     hpLossFlashDuration: DRAGON_HP_LOSS_FLASH_DURATION,
     spiderWebRange: SPIDER_WEB_RANGE,
   });
@@ -729,7 +729,7 @@ import {
     duelPlatformArt,
     player,
     pixelCircle,
-    outlinedText,
+    outlinedText: outlinedWorldText,
     drawShadow: drawActorShadow,
     drawStatus: drawActorStatus,
     drawSpeechBubble,
@@ -2773,7 +2773,7 @@ import {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     lines.forEach((line, index) => {
-      fillFloatingText(line, centerX, top + paddingY + lineHeight * (index + .5));
+      fillWorldText(line, centerX, top + paddingY + lineHeight * (index + .5));
     });
     ctx.restore();
   }
@@ -2805,7 +2805,7 @@ import {
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    outlinedText(hpLabel, centerX, barY + barH / 2, "#ffffff", 2);
+    outlinedWorldText(hpLabel, centerX, barY + barH / 2, "#ffffff", 2);
     ctx.restore();
 
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
@@ -2827,15 +2827,15 @@ import {
       const playerName = name.slice(developerPrefix.length);
       const prefixWidth = ctx.measureText(developerPrefix).width;
       ctx.textAlign = "left";
-      outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 2);
-      outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 2);
+      outlinedWorldText(developerPrefix, textLeft, nameBottom, "#ffd85b", 2);
+      outlinedWorldText(playerName, textLeft + prefixWidth, nameBottom, color, 2);
     } else {
       ctx.textAlign = "center";
-      outlinedText(name, centerX, nameBottom, color, 2);
+      outlinedWorldText(name, centerX, nameBottom, color, 2);
     }
     if (powerLabel) {
       ctx.textAlign = "center";
-      outlinedText(powerLabel, centerX, bottom, "#ffe05d", 2);
+      outlinedWorldText(powerLabel, centerX, bottom, "#ffe05d", 2);
     }
     ctx.restore();
   }
@@ -3030,7 +3030,7 @@ import {
     ctx.translate(0, floatY);
     drawDuelArenaVisual(true, DUEL_ARENA);
     drawDuelScene(scene);
-    effects.drawDamageNumbers(ctx, camera, outlinedText);
+    effects.drawDamageNumbers(ctx, camera, outlinedWorldText);
     ctx.restore();
     ctx.restore();
     duelCountdownEl.textContent = String(scene.countdown || "");
@@ -3076,7 +3076,7 @@ import {
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
     const portalCutsceneActive = portalCutscene.active;
-    effects.drawDamageNumbers(ctx, camera, outlinedText);
+    effects.drawDamageNumbers(ctx, camera, outlinedWorldText);
     drawDepthSortedWorld(remotePlayers, !portalCutsceneActive);
     effects.drawParticles(ctx, camera);
 

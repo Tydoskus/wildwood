@@ -2109,7 +2109,7 @@ export const setSkinTone = spacetimedb.reducer(
   { skinTone: t.u32() },
   (ctx, { skinTone }) => {
     requireControllingPlayer(ctx);
-    if (!Number.isInteger(skinTone) || skinTone > 9) throw new SenderError("Skin tone must be between 0 and 9.");
+    if (!Number.isInteger(skinTone) || skinTone > 19) throw new SenderError("Skin tone must be between 0 and 19.");
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.skinTone === skinTone) return;
