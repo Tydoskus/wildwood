@@ -2295,6 +2295,10 @@ export const wildwoodCoop = {
     }
     return count;
   },
+  subscriptionCount() {
+    if (!connection?.isActive) return 0;
+    return 1 + Number(Boolean(mapPlayerSubscription)) + Number(Boolean(activePlayerProfileSubscription)) + replayLoads.size;
+  },
   onlinePlayerCount() {
     return onlinePlayerCount;
   },

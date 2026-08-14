@@ -26,6 +26,8 @@ import { createCombatEffects } from "./game/runtime/combat-effects";
 import { createPortalCutscene } from "./game/runtime/cutscene";
 import { requiredCanvasContext, requiredElement, requiredSelector } from "./game/runtime/dom";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
+import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
+import { scheduleBackgroundTask, yieldToUser } from "./game/runtime/scheduler";
 import { createWorldRenderer } from "./game/runtime/world-renderer";
 import { createBossRenderer } from "./game/runtime/boss-renderer";
 import { createActorRenderer } from "./game/runtime/actor-renderer";
@@ -125,7 +127,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.357";
+  const GAME_VERSION = "0.358";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -320,11 +322,28 @@ import {
   const devAuditTab = requiredElement("devAuditTab");
   const devBugReportsTab = requiredElement("devBugReportsTab");
   const devCutscenesTab = requiredElement("devCutscenesTab");
+  const devPerformanceTab = requiredElement("devPerformanceTab");
   const devAuditPanel = requiredElement("devAuditPanel");
   const devBugReportsPanel = requiredElement("devBugReportsPanel");
   const devBugReportRowsEl = requiredElement("devBugReportRows");
   const devBugReportEmptyEl = requiredElement("devBugReportEmpty");
   const devCutscenesPanel = requiredElement("devCutscenesPanel");
+  const devPerformancePanel = requiredElement("devPerformancePanel");
+  const perfFpsEl = requiredElement("perfFps");
+  const perfFrameP50El = requiredElement("perfFrameP50");
+  const perfFrameP95El = requiredElement("perfFrameP95");
+  const perfFrameWorstEl = requiredElement("perfFrameWorst");
+  const perfLongFramesEl = requiredElement("perfLongFrames");
+  const perfRenderMsEl = requiredElement("perfRenderMs");
+  const perfScriptMsEl = requiredElement("perfScriptMs");
+  const perfEnemiesEl = requiredElement("perfEnemies");
+  const perfProjectilesEl = requiredElement("perfProjectiles");
+  const perfParticlesEl = requiredElement("perfParticles");
+  const perfRemotePlayersEl = requiredElement("perfRemotePlayers");
+  const perfCanvasDprEl = requiredElement("perfCanvasDpr");
+  const perfCanvasSizeEl = requiredElement("perfCanvasSize");
+  const perfMemoryEl = requiredElement("perfMemory");
+  const perfSubscriptionsEl = requiredElement("perfSubscriptions");
   const triggerDragonCutsceneBtn = requiredElement("triggerDragonCutsceneBtn");
   const devAuditRowsEl = requiredElement("devAuditRows");
   const devAuditEmptyEl = requiredElement("devAuditEmpty");
@@ -361,6 +380,7 @@ import {
   const keys = new Set();
   const camera = createCamera();
   const effects = createCombatEffects();
+  const performanceMonitor = createPerformanceMonitor();
   const { particles, damageNumbers, spawnBurst, spawnDamageNumber } = effects;
   const projectiles: Projectile[] = [];
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
@@ -425,10 +445,11 @@ import {
   let latencyVisible = false;
   try { latencyVisible = localStorage.getItem(LATENCY_VISIBLE_KEY) === "true"; } catch {}
   let messageClock = 0;
-  const activeSpeechBubbles = new Map<string, { text: string; sentAtMs: number }>();
+  const activeSpeechBubbles = new Map<string, { text: string; sentAtMs: number; lines: string[]; textWidth: number }>();
   let renderedSpeechBubbleRevision = -1;
   let nextSpeechBubbleExpiryAt = 0;
   let nextHudUpdateAt = 0;
+  let nextPerformancePanelUpdateAt = 0;
   let pausedForUpgrade = false;
   let autoAttackEnabled = true;
   let pendingPlayerThrow: { x: number; y: number; isBoss?: boolean } | null = null;
@@ -518,20 +539,58 @@ import {
   const dragonSpriteCanvas = document.createElement("canvas");
   const dragonSpriteCtx = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
   let dragonSpriteReady = false;
+  type TreeSpriteBound = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number };
+  type PreprocessResult = { type: "removeGreen"; requestId: number; pixels: ArrayBuffer } | { type: "treeBounds"; requestId: number; bounds: TreeSpriteBound[] };
+  const assetPreprocessWorker = typeof Worker === "undefined"
+    ? null
+    : new Worker(new URL("./game/runtime/asset-preprocess-worker.ts", import.meta.url), { type: "module" });
+  let nextPreprocessRequestId = 1;
+  const preprocessRequests = new Map<number, (result: PreprocessResult) => void>();
+  assetPreprocessWorker?.addEventListener("message", ({ data }: MessageEvent<PreprocessResult>) => {
+    const complete = preprocessRequests.get(data.requestId);
+    if (!complete) return;
+    preprocessRequests.delete(data.requestId);
+    complete(data);
+  });
+
+  function removeSpriteGreen(
+    context: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    greenThreshold: number,
+    ratio: number,
+    complete: () => void,
+  ) {
+    const pixels = context.getImageData(0, 0, width, height);
+    if (!assetPreprocessWorker) {
+      for (let index = 0; index < pixels.data.length; index += 4) {
+        const red = pixels.data[index];
+        const green = pixels.data[index + 1];
+        const blue = pixels.data[index + 2];
+        if (green > greenThreshold && green > red * ratio && green > blue * ratio) pixels.data[index + 3] = 0;
+      }
+      context.putImageData(pixels, 0, 0);
+      complete();
+      return;
+    }
+    const requestId = nextPreprocessRequestId++;
+    preprocessRequests.set(requestId, (result) => {
+      if (result.type !== "removeGreen") return;
+      context.putImageData(new ImageData(new Uint8ClampedArray(result.pixels), width, height), 0, 0);
+      complete();
+    });
+    scheduleBackgroundTask(() => {
+      assetPreprocessWorker.postMessage({ type: "removeGreen", requestId, pixels: pixels.data.buffer, greenThreshold, ratio }, [pixels.data.buffer]);
+    });
+  }
 
   dragonSprite.addEventListener("load", () => {
     dragonSpriteCanvas.width = dragonSprite.naturalWidth;
     dragonSpriteCanvas.height = dragonSprite.naturalHeight;
     dragonSpriteCtx.drawImage(dragonSprite, 0, 0);
-    const pixels = dragonSpriteCtx.getImageData(0, 0, dragonSpriteCanvas.width, dragonSpriteCanvas.height);
-    for (let i = 0; i < pixels.data.length; i += 4) {
-      const red = pixels.data[i];
-      const green = pixels.data[i + 1];
-      const blue = pixels.data[i + 2];
-      if (green > 145 && green > red * 1.45 && green > blue * 1.45) pixels.data[i + 3] = 0;
-    }
-    dragonSpriteCtx.putImageData(pixels, 0, 0);
-    dragonSpriteReady = true;
+    removeSpriteGreen(dragonSpriteCtx, dragonSpriteCanvas.width, dragonSpriteCanvas.height, 145, 1.45, () => {
+      dragonSpriteReady = true;
+    });
   });
   dragonSprite.src = "assets/wildwood/dragon_boss_spritesheet.png";
 
@@ -543,15 +602,9 @@ import {
     spiderSpriteCanvas.width = spiderSprite.naturalWidth;
     spiderSpriteCanvas.height = spiderSprite.naturalHeight;
     spiderSpriteCtx.drawImage(spiderSprite, 0, 0);
-    const pixels = spiderSpriteCtx.getImageData(0, 0, spiderSpriteCanvas.width, spiderSpriteCanvas.height);
-    for (let index = 0; index < pixels.data.length; index += 4) {
-      const red = pixels.data[index];
-      const green = pixels.data[index + 1];
-      const blue = pixels.data[index + 2];
-      if (green > 135 && green > red * 1.35 && green > blue * 1.35) pixels.data[index + 3] = 0;
-    }
-    spiderSpriteCtx.putImageData(pixels, 0, 0);
-    spiderSpriteReady = true;
+    removeSpriteGreen(spiderSpriteCtx, spiderSpriteCanvas.width, spiderSpriteCanvas.height, 135, 1.35, () => {
+      spiderSpriteReady = true;
+    });
   });
   spiderSprite.src = "assets/wildwood/desert-spider-boss-spritesheet.png";
 
@@ -631,7 +684,7 @@ import {
   portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
   portalSwirl.src = "assets/wildwood/portal-swirl-spritesheet.png";
   let treeSpritesheetReady = false;
-  let treeSpriteBounds: Array<{ x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number }> = [];
+  let treeSpriteBounds: TreeSpriteBound[] = [];
   function measureTreeSpriteBounds() {
     const canvas = document.createElement("canvas");
     canvas.width = treeSpritesheet.naturalWidth;
@@ -676,10 +729,33 @@ import {
     });
   }
   const treeSpritesheet = loadTreeSpritesheet(() => {
-    if (treeSpritesheet.naturalWidth > 0) treeSpriteBounds = measureTreeSpriteBounds();
-    treeSpritesheetReady = true;
-    updateLoadingDetail();
-    finishStartup();
+    const finishTreeLoad = (bounds: TreeSpriteBound[] = []) => {
+      treeSpriteBounds = bounds;
+      treeSpritesheetReady = true;
+      updateLoadingDetail();
+      finishStartup();
+    };
+    if (treeSpritesheet.naturalWidth <= 0) {
+      finishTreeLoad();
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = treeSpritesheet.naturalWidth;
+    canvas.height = treeSpritesheet.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context || !assetPreprocessWorker) {
+      void yieldToUser().then(() => finishTreeLoad(measureTreeSpriteBounds()));
+      return;
+    }
+    context.drawImage(treeSpritesheet, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    const requestId = nextPreprocessRequestId++;
+    preprocessRequests.set(requestId, (result) => {
+      if (result.type === "treeBounds") finishTreeLoad(result.bounds);
+    });
+    scheduleBackgroundTask(() => {
+      assetPreprocessWorker.postMessage({ type: "treeBounds", requestId, width: canvas.width, height: canvas.height, pixels: pixels.data.buffer }, [pixels.data.buffer]);
+    });
   });
   const snowPine = new Image();
   snowPine.src = "assets/wildwood/snow-pine-tree-v1.png";
@@ -2753,14 +2829,19 @@ import {
     activeSpeechBubbles.clear();
     nextSpeechBubbleExpiryAt = Number.POSITIVE_INFINITY;
     const messages = coop?.chatMessages?.() ?? [];
+    ctx.save();
+    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index];
       const age = now - message.sentAtMs;
       if (age < 0 || age >= SPEECH_BUBBLE_DURATION_MS) continue;
       if (message.senderName === "DUEL" || message.replayId > 0n || activeSpeechBubbles.has(message.sender)) continue;
-      activeSpeechBubbles.set(message.sender, { text: message.message, sentAtMs: message.sentAtMs });
+      const lines = wrapSpeechBubbleText(message.message, 190);
+      const textWidth = Math.max(28, ...lines.map((line) => ctx.measureText(line).width));
+      activeSpeechBubbles.set(message.sender, { text: message.message, sentAtMs: message.sentAtMs, lines, textWidth });
       nextSpeechBubbleExpiryAt = Math.min(nextSpeechBubbleExpiryAt, message.sentAtMs + SPEECH_BUBBLE_DURATION_MS);
     }
+    ctx.restore();
     renderedSpeechBubbleRevision = revision;
   }
 
@@ -2800,17 +2881,14 @@ import {
     const opacity = age <= fadeStart
       ? 1
       : clamp(1 - (age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
-    const maxTextWidth = 190;
     const paddingX = 10;
     const paddingY = 7;
     const lineHeight = 15;
 
     ctx.save();
     ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    const lines = wrapSpeechBubbleText(bubble.text, maxTextWidth);
-    const textWidth = Math.max(28, ...lines.map((line) => ctx.measureText(line).width));
-    const width = Math.ceil(textWidth + paddingX * 2);
-    const height = lines.length * lineHeight + paddingY * 2;
+    const width = Math.ceil(bubble.textWidth + paddingX * 2);
+    const height = bubble.lines.length * lineHeight + paddingY * 2;
     const visibleWidth = viewW / camera.zoom;
     const centerX = clamp(x, width / 2 + 4, visibleWidth - width / 2 - 4);
     const bottom = Math.max(height + 8, y - 108);
@@ -2835,7 +2913,7 @@ import {
     ctx.fillStyle = "#20251f";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    lines.forEach((line, index) => {
+    bubble.lines.forEach((line, index) => {
       fillWorldText(line, centerX, top + paddingY + lineHeight * (index + .5));
     });
     ctx.restore();
@@ -3688,20 +3766,53 @@ import {
     devBugReportRowsEl.hidden = entries.length === 0;
   }
 
-  function setDevPanelTab(tab: "audit" | "bugs" | "cutscenes") {
+  function setDevPanelTab(tab: "audit" | "bugs" | "cutscenes" | "performance") {
     const audit = tab === "audit";
     const bugs = tab === "bugs";
+    const cutscenes = tab === "cutscenes";
+    const performance = tab === "performance";
     devAuditTab.classList.toggle("is-active", audit);
     devAuditTab.setAttribute("aria-selected", String(audit));
     devBugReportsTab.classList.toggle("is-active", bugs);
     devBugReportsTab.setAttribute("aria-selected", String(bugs));
-    devCutscenesTab.classList.toggle("is-active", !audit && !bugs);
-    devCutscenesTab.setAttribute("aria-selected", String(!audit && !bugs));
+    devCutscenesTab.classList.toggle("is-active", cutscenes);
+    devCutscenesTab.setAttribute("aria-selected", String(cutscenes));
+    devPerformanceTab.classList.toggle("is-active", performance);
+    devPerformanceTab.setAttribute("aria-selected", String(performance));
     devAuditPanel.hidden = !audit;
     devBugReportsPanel.hidden = !bugs;
-    devCutscenesPanel.hidden = audit || bugs;
+    devCutscenesPanel.hidden = !cutscenes;
+    devPerformancePanel.hidden = !performance;
     if (audit) renderDevAudit();
     if (bugs) renderDevBugReports();
+    if (performance) renderPerformancePanel();
+  }
+
+  function setPerformanceValue(element: HTMLElement, value: string) {
+    if (element.textContent !== value) element.textContent = value;
+  }
+
+  function renderPerformancePanel() {
+    if (devPerformancePanel.hidden) return;
+    const snapshot = performanceMonitor.snapshot();
+    const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+    const megabytes = memory ? `${(memory.usedJSHeapSize / 1_048_576).toFixed(1)} MB` : "UNAVAILABLE";
+    const subscriptionCount = coop?.subscriptionCount?.() ?? 0;
+    setPerformanceValue(perfFpsEl, `${snapshot.fps} FPS`);
+    setPerformanceValue(perfFrameP50El, `${snapshot.frameP50Ms.toFixed(1)} ms`);
+    setPerformanceValue(perfFrameP95El, `${snapshot.frameP95Ms.toFixed(1)} ms`);
+    setPerformanceValue(perfFrameWorstEl, `${snapshot.worstFrameMs.toFixed(1)} ms`);
+    setPerformanceValue(perfLongFramesEl, `${snapshot.longFrames} · ${snapshot.longestFrameMs.toFixed(0)} ms`);
+    setPerformanceValue(perfRenderMsEl, `${snapshot.renderMs.toFixed(1)} ms`);
+    setPerformanceValue(perfScriptMsEl, `${snapshot.updateMs.toFixed(1)} ms`);
+    setPerformanceValue(perfEnemiesEl, String(enemies.length));
+    setPerformanceValue(perfProjectilesEl, String(projectiles.length + enemyShots.length));
+    setPerformanceValue(perfParticlesEl, String(particles.length));
+    setPerformanceValue(perfRemotePlayersEl, String(coop?.remotePlayerCount?.() ?? 0));
+    setPerformanceValue(perfCanvasDprEl, `${dpr.toFixed(1)}×`);
+    setPerformanceValue(perfCanvasSizeEl, `${canvas.width}×${canvas.height}`);
+    setPerformanceValue(perfMemoryEl, megabytes);
+    setPerformanceValue(perfSubscriptionsEl, String(subscriptionCount));
   }
 
   function openDevAudit() {
@@ -3964,12 +4075,25 @@ import {
   }
 
   function loop(now: number) {
+    const frameStartedAt = performance.now();
     const rawDt = (now - last) / 1000;
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
 
-    if (running && !pausedForUpgrade && !coop?.accountState?.().sessionConflict) update(dt);
+    let updateMs = 0;
+    if (running && !pausedForUpgrade && !coop?.accountState?.().sessionConflict) {
+      const updateStartedAt = performance.now();
+      update(dt);
+      updateMs = performance.now() - updateStartedAt;
+    }
+    const renderStartedAt = performance.now();
     render();
+    const renderMs = performance.now() - renderStartedAt;
+    performanceMonitor.record(performance.now() - frameStartedAt, updateMs, renderMs);
+    if (!devPerformancePanel.hidden && now >= nextPerformancePanelUpdateAt) {
+      nextPerformancePanelUpdateAt = now + 500;
+      renderPerformancePanel();
+    }
     requestAnimationFrame(loop);
   }
 
@@ -4113,6 +4237,7 @@ import {
   devAuditTab.addEventListener("click", () => setDevPanelTab("audit"));
   devBugReportsTab.addEventListener("click", () => setDevPanelTab("bugs"));
   devCutscenesTab.addEventListener("click", () => setDevPanelTab("cutscenes"));
+  devPerformanceTab.addEventListener("click", () => setDevPanelTab("performance"));
   triggerDragonCutsceneBtn.addEventListener("click", () => {
     if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
     if (currentMapId !== TUTORIAL_FOREST_MAP_ID) {

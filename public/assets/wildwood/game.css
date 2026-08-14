@@ -1054,6 +1054,11 @@
   .dev-audit-tabs { display: flex; gap: 5px; margin: 3px 0 7px; }
   .dev-audit-tabs .profile-tab { flex: 1; }
   #devCutscenesPanel[hidden] { display: none; }
+  #devPerformancePanel[hidden] { display: none; }
+  .dev-performance-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 0; }
+  .dev-performance-stats > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 28px; padding: 4px 6px; border: 1px solid rgba(145,207,160,.2); border-radius: 4px; background: rgba(0,0,0,.22); }
+  .dev-performance-stats dt { min-width: 0; color: var(--muted); font-size: 7px; letter-spacing: .06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dev-performance-stats dd { margin: 0; color: #b8f4be; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; text-align: right; white-space: nowrap; }
   .dev-cutscene-trigger { width: 100%; min-height: 48px; margin: 8px 0 2px; border-color: rgba(255,216,91,.52); color: var(--gold); font-size: 10px; }
   .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
   .dev-audit-headings, .dev-audit-row { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(105px, .9fr) 62px minmax(150px, 1.4fr); gap: 8px; align-items: center; }

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.358": [
+    "Developer tools now include live frame timing, runtime counts, memory, and subscription diagnostics.",
+    "Speech bubble text is cached between chat changes, while sprite cleanup and tree-bound analysis run outside frame-critical work.",
+  ],
   "0.357": [
     "Duel replay loading now releases its one-time subscription after the replay arrives.",
     "HUD, multiplayer rendering, chat bubbles, and canvas resolution now use less device memory and per-frame work.",
