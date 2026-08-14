@@ -50,6 +50,7 @@ import type {
 } from "./game/runtime/types";
 import {
   BEGINNER_DESERT_MAP_ID,
+  FROSTWIND_EXPANSE_MAP_ID,
   createSpawnSites,
   createWorldLayout,
   loadTreeSpritesheet,
@@ -122,7 +123,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.343";
+  const GAME_VERSION = "0.344";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -379,8 +380,13 @@ import {
     [BEGINNER_DESERT_MAP_ID]: {
       name: "BEGINNER DESERT",
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
-      emptyArch: { x: 580, y: 680, width: 198, height: 198, depth: 680 },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: FROSTWIND_EXPANSE_MAP_ID },
       arrival: { x: 360, y: 770 },
+    },
+    [FROSTWIND_EXPANSE_MAP_ID]: {
+      name: "FROSTWIND EXPANSE",
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: BEGINNER_DESERT_MAP_ID },
+      arrival: { x: 580, y: 770 },
     },
   } as const;
   let currentMapId: MapId = TUTORIAL_FOREST_MAP_ID;
@@ -663,6 +669,8 @@ import {
     updateLoadingDetail();
     finishStartup();
   });
+  const snowPine = new Image();
+  snowPine.src = "assets/wildwood/snow-pine-tree-v1.png";
   let duelSpaceBackgroundReady = false;
   const duelSpaceBackground = loadDuelSpaceBackground(() => {
     duelSpaceBackgroundReady = true;
@@ -684,12 +692,13 @@ import {
     isArenaScene,
     mapName: (mapId) => MAP_CONFIG[mapId].name,
     activePortal,
+    secondaryPortal,
     portalIsUnlocked,
     portalRevealIntensity: () => portalCutsceneIntensity,
     portalDestinationOpacity: () => portalCutsceneDestinationOpacity,
-    emptyDesertArch: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,
+    snowMapId: FROSTWIND_EXPANSE_MAP_ID,
     paths,
     decor,
     enemies,
@@ -699,11 +708,12 @@ import {
     treeSpriteBounds: () => treeSpriteBounds,
     portalArch,
     portalSwirl,
+    snowPine,
     drawShadow: drawActorShadow,
     outlinedText: outlinedWorldText,
     roundRect,
   });
-  const { drawGround, drawTree, drawCactus, drawPortal, drawEmptyDesertArch, drawDecor, drawMinimap } = worldRenderer;
+  const { drawGround, drawTree, drawCactus, drawPortal, drawSecondaryPortal, drawDecor, drawMinimap } = worldRenderer;
   const bossRenderer = createBossRenderer({
     ctx, camera, boss, spiderBoss, bossRain, spiderVenom,
     dragonSpriteCanvas, spiderSpriteCanvas,
@@ -780,9 +790,9 @@ import {
     let closestEnemy: EnemyState | DragonBossState | SpiderBossState | null = null;
     let closestT = Infinity;
 
-    const mapBoss = currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : boss;
-    for (let index = -1; index < enemies.length; index++) {
-      const e = index < 0 ? mapBoss : enemies[index];
+    const mapBoss = currentMapId === TUTORIAL_FOREST_MAP_ID ? boss : currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : null;
+    for (let index = mapBoss ? -1 : 0; index < enemies.length; index++) {
+      const e = index < 0 ? mapBoss! : enemies[index];
       if (e.dead) continue;
 
       const ex = e.x - startX;
@@ -824,9 +834,7 @@ import {
   }
 
   function reset(preserveStats = false) {
-    const mapSpawn = currentMapId === BEGINNER_DESERT_MAP_ID
-      ? MAP_CONFIG[BEGINNER_DESERT_MAP_ID].arrival
-      : START_SPAWN;
+    const mapSpawn = currentMapId === TUTORIAL_FOREST_MAP_ID ? START_SPAWN : MAP_CONFIG[currentMapId].arrival;
     player.x = mapSpawn.x;
     player.y = mapSpawn.y;
 
@@ -1242,8 +1250,8 @@ import {
       }
     }
 
-    const mapBoss = currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : boss;
-    if (!mapBoss.dead) {
+    const mapBoss = currentMapId === TUTORIAL_FOREST_MAP_ID ? boss : currentMapId === BEGINNER_DESERT_MAP_ID ? spiderBoss : null;
+    if (mapBoss && !mapBoss.dead) {
       const centerDistance = Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y);
       const edgeDistance = Math.max(0, centerDistance - mapBoss.r);
       if (edgeDistance * edgeDistance < best) {
@@ -2088,26 +2096,22 @@ import {
     return MAP_CONFIG[currentMapId].portal;
   }
 
+  function secondaryPortal() {
+    return currentMapId === BEGINNER_DESERT_MAP_ID ? MAP_CONFIG[BEGINNER_DESERT_MAP_ID].secondaryPortal : null;
+  }
+
   function portalIsUnlocked() {
     return currentMapId !== TUTORIAL_FOREST_MAP_ID || Boolean(coop?.savedProgress?.()?.desertUnlocked);
   }
 
   function portalColliders() {
-    const portal = activePortal();
-    const colliders = [
-      { x: portal.x - portal.width * .32, y: portal.y - 52, r: 22 },
-      { x: portal.x + portal.width * .32, y: portal.y - 52, r: 22 },
-    ];
-    const emptyArch = currentMapId === BEGINNER_DESERT_MAP_ID
-      ? MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch
-      : null;
-    if (emptyArch) {
-      colliders.push(
-        { x: emptyArch.x - emptyArch.width * .32, y: emptyArch.y - 52, r: 22 },
-        { x: emptyArch.x + emptyArch.width * .32, y: emptyArch.y - 52, r: 22 },
-      );
-    }
-    return colliders;
+    return [activePortal(), secondaryPortal()].filter(Boolean).flatMap((portal) => {
+      const current = portal!;
+      return [
+        { x: current.x - current.width * .32, y: current.y - 52, r: 22 },
+        { x: current.x + current.width * .32, y: current.y - 52, r: 22 },
+      ];
+    });
   }
 
   function resolvePortalCollision() {
@@ -2130,10 +2134,11 @@ import {
   function updatePortal(dt: number) {
     portalCooldown = Math.max(0, portalCooldown - dt);
     if (mapTransitioning || portalCooldown > 0 || isDueling() || !portalIsUnlocked()) return;
-    const portal = activePortal();
-    const triggerX = portal.x;
-    const triggerY = portal.y - portal.height * .32;
-    if (Math.hypot(player.x - triggerX, player.y - triggerY) > 48) return;
+    const portal = [activePortal(), secondaryPortal()].filter(Boolean).find((candidate) => {
+      const current = candidate!;
+      return Math.hypot(player.x - current.x, player.y - (current.y - current.height * .32)) <= 48;
+    });
+    if (!portal) return;
 
     mapTransitioning = true;
     const destination = portal.destination;
@@ -2183,7 +2188,7 @@ import {
     if (!running || mapTransitioning || isDueling()) return;
     const state = coop?.localState?.();
     if (!state || state.mapId === currentMapId) return;
-    if (state.mapId !== TUTORIAL_FOREST_MAP_ID && state.mapId !== BEGINNER_DESERT_MAP_ID) return;
+    if (state.mapId !== TUTORIAL_FOREST_MAP_ID && state.mapId !== BEGINNER_DESERT_MAP_ID && state.mapId !== FROSTWIND_EXPANSE_MAP_ID) return;
 
     mapTransitioning = true;
     fadeToWorld(() => {
@@ -2900,9 +2905,8 @@ import {
       layers.push({ depth: bootsPickup.y + bootsPickup.r, priority: 1, draw: drawBootPickup });
     }
     if (includePortal) layers.push({ depth: activePortal().depth, priority: 2, draw: drawPortal });
-    if (currentMapId === BEGINNER_DESERT_MAP_ID) {
-      layers.push({ depth: MAP_CONFIG[BEGINNER_DESERT_MAP_ID].emptyArch.depth, priority: 2, draw: drawEmptyDesertArch });
-    }
+    const secondary = secondaryPortal();
+    if (secondary) layers.push({ depth: secondary.depth, priority: 2, draw: drawSecondaryPortal });
     for (const remotePlayer of remotePlayers) {
       layers.push({
         depth: remotePlayer.y + 29,
@@ -3219,6 +3223,8 @@ import {
     const online = isProfileOnline(profile.identity);
     const mapName = profile.mapId === BEGINNER_DESERT_MAP_ID
       ? "BEGINNER DESERT"
+      : profile.mapId === FROSTWIND_EXPANSE_MAP_ID
+        ? "FROSTWIND EXPANSE"
       : profile.mapId === TUTORIAL_FOREST_MAP_ID ? "TUTORIAL FOREST" : "";
     const presenceText = online && mapName
       ? `ONLINE - ${mapName}`

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.344": [
+    "Frostwind Expanse is open as Wildwood's third map through the second portal in Beginner Desert.",
+    "The new winter region includes snow terrain, icy roads, snow pines, frosted ground cover, camps, and a snow minimap.",
+  ],
   "0.343": [
     "Developer inventory now includes Legendary White Gold Armor, a no-stat chest cosmetic that can be equipped.",
     "Player profiles now show one compact, color-coded leaderboard row for every stat ranked in the top 10.",

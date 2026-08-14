@@ -9,7 +9,9 @@ export type WorldDecor =
   | { type: "petal"; x: number; y: number; variant: number }
   | { type: "cactus"; x: number; y: number; s: number; variant: number }
   | { type: "rock"; x: number; y: number; s: number; variant: number }
-  | { type: "desertGrass"; x: number; y: number; variant: number };
+  | { type: "desertGrass"; x: number; y: number; variant: number }
+  | { type: "snowPine"; x: number; y: number; s: number }
+  | { type: "snowTuft"; x: number; y: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -24,7 +26,8 @@ export type SpawnSite = {
 type Point = { x: number; y: number };
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
-export type MapId = typeof TUTORIAL_FOREST_MAP_ID | typeof BEGINNER_DESERT_MAP_ID;
+export const FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
+export type MapId = typeof TUTORIAL_FOREST_MAP_ID | typeof BEGINNER_DESERT_MAP_ID | typeof FROSTWIND_EXPANSE_MAP_ID;
 
 const DESERT_CAMPS = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
@@ -33,6 +36,13 @@ const DESERT_CAMPS = [
   { name: "Reaper Approach", x: 1740, y: 1420, minRadius: 0, radius: 0, count: 1, types: ["Wastes Reaper"] as EnemyKind[] },
   { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] as EnemyKind[] },
   { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard"] as EnemyKind[] },
+];
+
+const SNOW_CAMPS = [
+  { name: "Rimegate Trail", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Venom Guard"] as EnemyKind[] },
+  { name: "Glacier Crossing", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Dune Archer"] as EnemyKind[] },
+  { name: "Whiteout Hollow", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Wastes Reaper"] as EnemyKind[] },
+  { name: "Aurora Shelf", x: 2120, y: 3650, minRadius: 170, radius: 430, count: 6, types: ["Blight Oracle"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -90,8 +100,34 @@ function createDesertLayout() {
   return { decor, paths };
 }
 
+function createSnowLayout() {
+  const decor: WorldDecor[] = [];
+  const paths: WorldPath[] = [
+    { x: 300, y: 600, w: 3800, h: 150 },
+    { x: 970, y: 600, w: 150, h: 3150 },
+    { x: 1080, y: 2300, w: 2980, h: 150 },
+    { x: 2000, y: 2420, w: 150, h: 1250 },
+  ];
+  const isOnRoad = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  for (let index = 0; index < 58; index += 1) {
+    const x = 100 + seededUnit(index, 21) * (WORLD.w - 200);
+    const y = 100 + seededUnit(index, 22) * (WORLD.h - 200);
+    if (isOnRoad(x, y, 70) || Math.hypot(x - 360, y - 770) < 360) continue;
+    decor.push({ type: "snowPine", x: Math.round(x), y: Math.round(y), s: .62 + seededUnit(index, 23) * .48 });
+  }
+  for (let index = 0; index < 400; index += 1) {
+    const x = 26 + seededUnit(index, 24) * (WORLD.w - 52);
+    const y = 26 + seededUnit(index, 25) * (WORLD.h - 52);
+    if (!isOnRoad(x, y, 10)) decor.push({ type: "snowTuft", x: Math.round(x), y: Math.round(y), variant: index % 4 });
+  }
+  return { decor, paths };
+}
+
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
+  if (mapId === FROSTWIND_EXPANSE_MAP_ID) return createSnowLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -164,7 +200,7 @@ export function loadTreeSpritesheet(onSettled?: () => void) {
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   const sites: SpawnSite[] = [];
-  const camps = mapId === BEGINNER_DESERT_MAP_ID ? DESERT_CAMPS : CAMPS;
+  const camps = mapId === BEGINNER_DESERT_MAP_ID ? DESERT_CAMPS : mapId === FROSTWIND_EXPANSE_MAP_ID ? SNOW_CAMPS : CAMPS;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];

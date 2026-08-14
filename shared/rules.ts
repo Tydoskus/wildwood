@@ -24,7 +24,8 @@ export const BOOTS_SPEED_BONUS = 25;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
-export const MAP_IDS: readonly string[] = [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID];
+export const FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
+export const MAP_IDS: readonly string[] = [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, FROSTWIND_EXPANSE_MAP_ID];
 
 export const PROTOCOL_VERSION = 32;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";

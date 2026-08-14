@@ -13,6 +13,7 @@ import {
 import { createProgressStore } from "./coop/services/progress-store";
 import {
   BEGINNER_DESERT_MAP_ID,
+  FROSTWIND_EXPANSE_MAP_ID,
   NAME_ADJECTIVES,
   NAME_CREATURES,
   PROTOCOL_VERSION,
@@ -2161,7 +2162,7 @@ export const wildwoodCoop = {
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
   },
   async changeMap(mapId: string) {
-    if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID].includes(mapId)) return false;
+    if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, FROSTWIND_EXPANSE_MAP_ID].includes(mapId)) return false;
     try {
       await connection.reducers.changeMap({ mapId });
       return true;

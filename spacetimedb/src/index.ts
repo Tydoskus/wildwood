@@ -8,6 +8,7 @@ import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
+  FROSTWIND_EXPANSE_MAP_ID,
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAP_IDS,
   MAX_ARMOR,
@@ -40,12 +41,17 @@ const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 const DATABASE_OWNER_IDENTITY_HEX = "c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 const MAP_PORTALS = {
-  [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID },
-  [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
+  [TUTORIAL_FOREST_MAP_ID]: [{ x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID }],
+  [BEGINNER_DESERT_MAP_ID]: [
+    { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
+    { x: 580, y: 617, destination: FROSTWIND_EXPANSE_MAP_ID },
+  ],
+  [FROSTWIND_EXPANSE_MAP_ID]: [{ x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
+  [FROSTWIND_EXPANSE_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -1543,9 +1549,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       return;
     }
     const entryMapId = VALID_MAP_IDS.has(existing.mapId) ? existing.mapId : TUTORIAL_FOREST_MAP_ID;
-    const entryPosition = entryMapId === BEGINNER_DESERT_MAP_ID
-      ? MAP_ARRIVALS[BEGINNER_DESERT_MAP_ID]
-      : PLAYER_SPAWN;
+    const entryPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
     ctx.db.player.identity.update({
       ...existing,
       mapId: entryMapId,
@@ -2488,8 +2492,8 @@ export const changeMap = spacetimedb.reducer(
       if (!progress?.desertUnlocked) throw new SenderError("Defeat the Dragon before entering Beginner Desert.");
     }
 
-    const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS];
-    if (!sourcePortal || sourcePortal.destination !== mapId) throw new SenderError("Maps are not connected.");
+    const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);
+    if (!sourcePortal) throw new SenderError("Maps are not connected.");
     const portalDistance = Math.hypot(current.x - sourcePortal.x, current.y - sourcePortal.y);
     if (portalDistance > MAP_PORTAL_USE_RANGE) throw new SenderError("Move closer to the portal.");
 
