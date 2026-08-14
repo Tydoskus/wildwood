@@ -46,7 +46,7 @@ export function createCanvasPrimitives(
     fillColor: string,
     strokeWidth = ctx.lineWidth,
   ) {
-    drawOutlinedText(textContext(), text, x, y, fillColor, strokeWidth);
+    drawOutlinedText(textContext(), text, x, y, fillColor, strokeWidth, true);
   }
 
   function outlinedWorldText(
@@ -56,7 +56,7 @@ export function createCanvasPrimitives(
     fillColor: string,
     strokeWidth = ctx.lineWidth,
   ) {
-    drawOutlinedText(ctx, text, x, y, fillColor, strokeWidth);
+    drawOutlinedText(ctx, text, x, y, fillColor, strokeWidth, false);
   }
 
   function drawOutlinedText(
@@ -66,20 +66,23 @@ export function createCanvasPrimitives(
     y: number,
     fillColor: string,
     strokeWidth: number,
+    withShadow: boolean,
   ) {
     target.save();
     copyTextState(target);
     target.lineJoin = "round";
     target.lineWidth = strokeWidth;
 
-    // Shadow only the fill. Shadowing both stroke and fill produces two
-    // overlapping silhouettes that look like a second outline on small text.
-    target.fillStyle = fillColor;
-    target.shadowColor = "rgba(0, 0, 0, .92)";
-    target.shadowBlur = 0;
-    target.shadowOffsetX = 1;
-    target.shadowOffsetY = 2;
-    target.fillText(text, x, y);
+    if (withShadow) {
+      // Shadow only the fill. Shadowing both stroke and fill produces two
+      // overlapping silhouettes that look like a second outline on small text.
+      target.fillStyle = fillColor;
+      target.shadowColor = "rgba(0, 0, 0, .92)";
+      target.shadowBlur = 0;
+      target.shadowOffsetX = 1;
+      target.shadowOffsetY = 2;
+      target.fillText(text, x, y);
+    }
 
     target.shadowColor = "transparent";
     target.shadowOffsetX = 0;

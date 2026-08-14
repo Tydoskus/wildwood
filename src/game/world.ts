@@ -9,7 +9,6 @@ export type WorldDecor =
   | { type: "petal"; x: number; y: number; variant: number }
   | { type: "cactus"; x: number; y: number; s: number; variant: number }
   | { type: "rock"; x: number; y: number; s: number; variant: number }
-  | { type: "dune"; x: number; y: number; w: number; h: number; variant: number }
   | { type: "desertGrass"; x: number; y: number; variant: number };
 export type SpawnSite = {
   id: number;
@@ -52,20 +51,6 @@ function createDesertLayout() {
   const isOnRoad = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-
-  for (let index = 0; index < 24; index += 1) {
-    const x = 180 + seededUnit(index, 11) * (WORLD.w - 360);
-    const y = 180 + seededUnit(index, 12) * (WORLD.h - 360);
-    if (isOnRoad(x, y, 100) || Math.hypot(x - 360, y - 680) < 430) continue;
-    decor.push({
-      type: "dune",
-      x: Math.round(x),
-      y: Math.round(y),
-      w: Math.round(180 + seededUnit(index, 13) * 260),
-      h: Math.round(38 + seededUnit(index, 14) * 54),
-      variant: index % 3,
-    });
-  }
 
   for (let index = 0; index < 78; index += 1) {
     const x = 90 + seededUnit(index, 1) * (WORLD.w - 180);

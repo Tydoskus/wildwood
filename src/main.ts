@@ -115,14 +115,13 @@ import {
   type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
   type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
   type RockDecor = Extract<WorldDecor, { type: "rock" }>;
-  type DuneDecor = Extract<WorldDecor, { type: "dune" }>;
   type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
   type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
   type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.339";
+  const GAME_VERSION = "0.340";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -730,6 +729,7 @@ import {
     enemySprites: ENEMY_SPRITES,
     duelPlatformArt,
     player,
+    enemyTextVisible: (enemy) => distanceSquared(player, enemy) <= 520 * 520,
     pixelCircle,
     outlinedText: outlinedWorldText,
     drawShadow: drawActorShadow,
@@ -2818,14 +2818,14 @@ import {
 
   function drawPlayerIdentity(_identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) {
     if (!name) return;
-    const powerLabel = power === null ? "" : `Power: ${formatCompactNumber(power)}`;
+    const powerValue = power === null ? "" : formatCompactNumber(power);
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
     const nameWidth = ctx.measureText(name).width;
     const textLeft = Math.round(centerX - nameWidth / 2);
-    const nameBottom = powerLabel ? bottom - 18 : bottom;
+    const nameBottom = powerValue ? bottom - 18 : bottom;
     const developerPrefix = `${DEVELOPER_BADGE} `;
     if (name.startsWith(developerPrefix)) {
       const playerName = name.slice(developerPrefix.length);
@@ -2837,9 +2837,14 @@ import {
       ctx.textAlign = "center";
       outlinedWorldText(name, centerX, nameBottom, color, 2);
     }
-    if (powerLabel) {
-      ctx.textAlign = "center";
-      outlinedWorldText(powerLabel, centerX, bottom, "#ffe05d", 2);
+    if (powerValue) {
+      const powerName = "Power:";
+      const powerNameWidth = ctx.measureText(powerName).width;
+      const powerValueWidth = ctx.measureText(` ${powerValue}`).width;
+      const left = Math.round(centerX - (powerNameWidth + powerValueWidth) / 2);
+      ctx.textAlign = "left";
+      outlinedWorldText(powerName, left, bottom, "#ffe05d", 2);
+      outlinedWorldText(` ${powerValue}`, left + powerNameWidth, bottom, "#ffffff", 2);
     }
     ctx.restore();
   }

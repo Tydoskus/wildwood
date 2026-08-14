@@ -34,6 +34,7 @@ export function createActorRenderer(options: {
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
+  enemyTextVisible: (enemy: EnemyState) => boolean;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
   drawShadow: DrawShadow;
@@ -202,6 +203,8 @@ export function createActorRenderer(options: {
       options.pixelCircle(0, 0, enemy.r);
     }
     ctx.restore();
+
+    if (!options.enemyTextVisible(enemy)) return;
 
     const reward = REWARD_DATA[enemy.reward.type];
     const visualRadius = Math.max(enemy.r, spriteHeight / 2);

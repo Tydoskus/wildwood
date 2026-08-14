@@ -1,5 +1,6 @@
 import { TAU } from "../constants";
 import { clamp, rand, randi } from "../math";
+import { formatCompactNumber } from "../../ui/number-format";
 
 export type Particle = {
   x: number;
@@ -22,17 +23,6 @@ export type DamageNumber = {
 
 type CameraPosition = { x: number; y: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
-
-function formatDamage(amount: number) {
-  const units: ReadonlyArray<readonly [number, string]> = [[1e9, "b"], [1e6, "m"], [1e3, "k"]];
-  for (const [value, suffix] of units) {
-    if (amount < value) continue;
-    const scaled = amount / value;
-    const digits = scaled >= 100 ? 0 : 1;
-    return `${Number(scaled.toFixed(digits))}${suffix}`;
-  }
-  return String(Math.round(amount));
-}
 
 export function createCombatEffects() {
   const particles: Particle[] = [];
@@ -62,7 +52,7 @@ export function createCombatEffects() {
       y: y - 28,
       life: .72,
       maxLife: .72,
-      text: `-${formatDamage(amount)}`,
+      text: `-${formatCompactNumber(amount)}`,
     });
   }
 

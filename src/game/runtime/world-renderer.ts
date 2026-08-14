@@ -15,7 +15,6 @@ type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
 type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
 type RockDecor = Extract<WorldDecor, { type: "rock" }>;
-type DuneDecor = Extract<WorldDecor, { type: "dune" }>;
 type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
 type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
 type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
@@ -194,14 +193,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.fillStyle = "#b77b4b"; ctx.beginPath(); ctx.moveTo(x - w * .32, y - h * .72); ctx.lineTo(x + w * .2, y - h); ctx.lineTo(x + w * .12, y - h * .45); ctx.closePath(); ctx.fill();
   }
 
-  function drawDune(dune: DuneDecor) {
-    const visible = visibleSize(); const x = Math.round(dune.x - camera.x); const y = Math.round(dune.y - camera.y);
-    if (x + dune.w / 2 < -40 || x - dune.w / 2 > visible.width + 40 || y < -80 || y - dune.h > visible.height + 40) return;
-    ctx.save(); ctx.fillStyle = dune.variant % 2 ? "#c58b48" : "#c9934e"; ctx.beginPath(); ctx.ellipse(x, y, dune.w / 2, dune.h / 2, 0, Math.PI, TAU); ctx.fill();
-    ctx.fillStyle = dune.variant % 2 ? "#e3b66b" : "#e9bd72"; ctx.beginPath(); ctx.ellipse(x - dune.w * .08, y - dune.h * .08, dune.w * .39, dune.h * .25, 0, Math.PI, TAU); ctx.fill();
-    ctx.strokeStyle = "rgba(119,71,36,.22)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x, y, dune.w * .38, dune.h * .32, 0, Math.PI * 1.08, Math.PI * 1.88); ctx.stroke(); ctx.restore();
-  }
-
   function drawDesertGrass(grass: DesertGrassDecor) {
     const visible = visibleSize(); const x = Math.round(grass.x - camera.x); const y = Math.round(grass.y - camera.y);
     if (x < -10 || y < -10 || x > visible.width + 10 || y > visible.height + 10) return;
@@ -221,7 +212,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDecor() {
-    for (const decor of options.decor) if (decor.type === "dune") drawDune(decor);
     for (const decor of options.decor) if (decor.type === "grass") drawGrass(decor);
     for (const decor of options.decor) if (decor.type === "petal") drawPetal(decor);
     for (const decor of options.decor) if (decor.type === "desertGrass") drawDesertGrass(decor);
