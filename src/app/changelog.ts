@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.378": [
+    "Player and enemy health bars are slightly larger with cleaner centered health text.",
+    "Two-finger canvas zoom is blocked on mobile.",
+  ],
   "0.377": [
     "Desert and Snowlands return portals now show their correct destinations.",
   ],

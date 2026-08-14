@@ -271,9 +271,10 @@ export function createActorRenderer(options: {
       }
     }
     const rewardY = Math.round(y + spriteBottom + 13);
-    const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26));
+    const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26)) * 1.05;
     const barH = options.worldHealthBarHeight;
     const barX = Math.round(x - barW / 2);
+    const barCenterX = barX + barW / 2;
     const barY = Math.round(y + spriteTop - 14);
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))} HP`;
@@ -293,7 +294,7 @@ export function createActorRenderer(options: {
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
-    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 4);
+    options.outlinedText(hpLabel, barCenterX, barY + barH / 2, "#ffffff", 2);
 
     ctx.drawImage(labels.reward.canvas, Math.round(x - labels.reward.width / 2), Math.round(rewardY - labels.reward.anchorY), labels.reward.width, labels.reward.height);
     ctx.restore();

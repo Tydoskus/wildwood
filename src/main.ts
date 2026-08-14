@@ -128,7 +128,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.377";
+  const GAME_VERSION = "0.378";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -140,7 +140,8 @@ import {
   const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
   const PLAYER_THROW_SECONDS = .42;
   const PLAYER_THROW_WINDUP_SECONDS = .12;
-  const WORLD_HEALTH_BAR_HEIGHT = 15;
+  const WORLD_HEALTH_BAR_SCALE = 1.05;
+  const WORLD_HEALTH_BAR_HEIGHT = 15 * WORLD_HEALTH_BAR_SCALE;
   const PROFILE_PORTRAIT_ZOOM = 1.03;
   const PROFILE_PORTRAIT_GRID = 8;
   const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
@@ -2946,7 +2947,7 @@ import {
     ctx.save();
     ctx.globalAlpha = 1;
     const centerX = Math.round(x);
-    const barW = 94;
+    const barW = 94 * WORLD_HEALTH_BAR_SCALE;
     const barH = WORLD_HEALTH_BAR_HEIGHT;
     const barX = centerX - Math.floor(barW / 2);
     const barY = Math.round(y - 54);
@@ -2969,7 +2970,7 @@ import {
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    outlinedWorldText(hpLabel, centerX, barY + barH / 2, "#ffffff", 4);
+    outlinedWorldText(hpLabel, centerX, barY + barH / 2, "#ffffff", 2);
     ctx.restore();
 
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
@@ -4677,8 +4678,12 @@ import {
     }
   }
 
-  canvas.addEventListener("touchstart", beginTouch, {passive:false});
-  canvas.addEventListener("touchmove", moveTouch, {passive:false});
+  function preventCanvasPinchZoom(event: TouchEvent) {
+    if (event.touches.length > 1) event.preventDefault();
+  }
+
+  canvas.addEventListener("touchstart", (event) => { preventCanvasPinchZoom(event); beginTouch(event); }, {passive:false});
+  canvas.addEventListener("touchmove", (event) => { preventCanvasPinchZoom(event); moveTouch(event); }, {passive:false});
   canvas.addEventListener("touchend", endTouch, {passive:false});
   canvas.addEventListener("touchcancel", endTouch, {passive:false});
   canvas.addEventListener("click", (event) => {
