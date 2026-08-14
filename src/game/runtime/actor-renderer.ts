@@ -69,7 +69,7 @@ export function createActorRenderer(options: {
     labelCtx.textAlign = "left";
     labelCtx.textBaseline = baseline;
     labelCtx.lineJoin = "round";
-    labelCtx.lineWidth = 2;
+    labelCtx.lineWidth = 4;
     let x = paddingX;
     const y = baseline === "top" ? paddingY : height - paddingY;
     for (const segment of segments) {
@@ -293,7 +293,7 @@ export function createActorRenderer(options: {
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
-    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 2);
+    options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 4);
 
     ctx.drawImage(labels.reward.canvas, Math.round(x - labels.reward.width / 2), Math.round(rewardY - labels.reward.anchorY), labels.reward.width, labels.reward.height);
     ctx.restore();

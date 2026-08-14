@@ -128,7 +128,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.372";
+  const GAME_VERSION = "0.373";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -2969,7 +2969,7 @@ import {
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    outlinedWorldText(hpLabel, centerX, barY + barH / 2, "#ffffff", 2);
+    outlinedWorldText(hpLabel, centerX, barY + barH / 2, "#ffffff", 4);
     ctx.restore();
 
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
@@ -2991,11 +2991,11 @@ import {
       const playerName = name.slice(developerPrefix.length);
       const prefixWidth = ctx.measureText(developerPrefix).width;
       ctx.textAlign = "left";
-      outlinedWorldText(developerPrefix, textLeft, nameBottom, "#ffd85b", 2);
-      outlinedWorldText(playerName, textLeft + prefixWidth, nameBottom, color, 2);
+      outlinedWorldText(developerPrefix, textLeft, nameBottom, "#ffd85b", 4);
+      outlinedWorldText(playerName, textLeft + prefixWidth, nameBottom, color, 4);
     } else {
       ctx.textAlign = "center";
-      outlinedWorldText(name, centerX, nameBottom, color, 2);
+      outlinedWorldText(name, centerX, nameBottom, color, 4);
     }
     if (powerValue) {
       const powerName = "Power:";
@@ -3003,8 +3003,8 @@ import {
       const powerValueWidth = ctx.measureText(` ${powerValue}`).width;
       const left = Math.round(centerX - (powerNameWidth + powerValueWidth) / 2);
       ctx.textAlign = "left";
-      outlinedWorldText(powerName, left, bottom, "#ffe05d", 2);
-      outlinedWorldText(` ${powerValue}`, left + powerNameWidth, bottom, "#ffffff", 2);
+      outlinedWorldText(powerName, left, bottom, "#ffe05d", 4);
+      outlinedWorldText(` ${powerValue}`, left + powerNameWidth, bottom, "#ffffff", 4);
     }
     ctx.restore();
   }
@@ -3260,9 +3260,9 @@ import {
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
     const portalCutsceneActive = portalCutscene.active;
-    effects.drawDamageNumbers(ctx, camera, outlinedWorldText);
     drawDepthSortedWorld(remotePlayers, !portalCutsceneActive);
     effects.drawParticles(ctx, camera);
+    effects.drawDamageNumbers(ctx, camera, outlinedWorldText);
 
     ctx.restore();
 
