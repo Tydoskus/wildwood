@@ -1,4 +1,4 @@
-import type { PlayerProfileData } from "../wildwood-coop";
+import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
 
 export function formatPlayedTime(seconds: number) {
   const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
@@ -25,26 +25,38 @@ export function renderProfileStats(
   statGrid: HTMLElement,
   armorReduction: (armor: number) => string,
   minAttackInterval: number,
+  research?: PlayerResearch,
 ) {
   const { progress } = profile;
-  const stats = [
-    ["health", "MAX HP", Math.round(progress.maxHp).toLocaleString()],
-    ["damage", "DAMAGE", Math.round(progress.damage).toLocaleString()],
-    ["armor", "ARMOR", `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} damage reduction)`],
-    ["attack", "ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`],
-    ["range", "ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
-    ["regen", "REGEN", `${progress.regen.toFixed(1)}/s`],
-    ["speed", "MOVE SPEED", Math.round(progress.speed).toLocaleString()],
+  const techBonus = (rank: number, percentPerRank: number) => rank > 0
+    ? `TECH ×${(1 + rank * percentPerRank / 100).toFixed(2)} · +${rank * percentPerRank}%`
+    : undefined;
+  const stats: Array<{ kind: string; label: string; value: string; modifier?: string }> = [
+    { kind: "health", label: "MAX HP", value: Math.round(progress.maxHp).toLocaleString(), modifier: research ? techBonus(research.vitality, 2) : undefined },
+    { kind: "damage", label: "DAMAGE", value: Math.round(progress.damage).toLocaleString(), modifier: research ? techBonus(research.warcraft, 2) : undefined },
+    { kind: "armor", label: "ARMOR", value: `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} damage reduction)`, modifier: research ? techBonus(research.precision, 2) : undefined },
+    { kind: "attack", label: "ATTACK SPEED", value: `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}` },
+    { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString() },
+    { kind: "regen", label: "REGEN", value: `${progress.regen.toFixed(1)}/s` },
+    { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed).toLocaleString() },
   ];
+  if (research?.foraging) stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${research.foraging}%`, modifier: techBonus(research.foraging, 1) });
+  if (research?.criticalChance) stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${research.criticalChance}%`, modifier: "TECH BONUS" });
   statGrid.replaceChildren();
-  for (const [kind, label, value] of stats) {
+  for (const stat of stats) {
     const item = document.createElement("div");
-    item.className = `profile-stat-${kind}`;
+    item.className = `profile-stat-${stat.kind}`;
     const term = document.createElement("dt");
     const detail = document.createElement("dd");
-    term.textContent = label;
-    detail.textContent = value;
+    term.textContent = stat.label;
+    detail.textContent = stat.value;
     item.append(term, detail);
+    if (stat.modifier) {
+      const modifier = document.createElement("small");
+      modifier.className = "profile-stat-modifier";
+      modifier.textContent = stat.modifier;
+      item.append(modifier);
+    }
     statGrid.append(item);
   }
 }

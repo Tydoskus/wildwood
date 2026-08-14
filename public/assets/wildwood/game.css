@@ -942,9 +942,10 @@
   .tech-tree-header h2 { margin: 0; color: #f4f5f7; font-size: clamp(18px, 4vw, 29px); line-height: 1; }
   .tech-tree-active { min-width: 0; margin-left: auto; color: #c2c7ce; font-size: clamp(7px, 1.7vw, 10px); letter-spacing: .06em; text-align: right; }
   .tech-tree-header .profile-close-button { flex: 0 0 auto; margin: 0; }
-  .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .tech-tree-viewport::-webkit-scrollbar { display: none; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
-  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-template-rows: repeat(10, 1fr); min-width: 420px; min-height: 1420px; height: auto; padding: 22px clamp(24px, 7vw, 112px); }
+  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 140px; min-width: 420px; min-height: 4104px; height: auto; padding: 22px clamp(24px, 7vw, 112px); }
   .tech-tree-tier { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: clamp(56px, 16vw, 180px); }
   .tech-tree-tier-mid { justify-content: space-between; }
   .tech-tree-tier-bottom { justify-content: space-between; }
@@ -1054,11 +1055,11 @@
   .profile-skin-tone { position: absolute; z-index: 3; top: 32px; right: 6px; display: grid; grid-template-columns: repeat(5, 22px); gap: 4px; padding: 5px; border: 2px solid #000; border-radius: 5px; background: rgba(20,29,22,.96); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
   .profile-skin-tone-choice { width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.45); border-radius: 3px; box-shadow: none; }
   .profile-skin-tone-choice[aria-pressed="true"] { border-color: #000; box-shadow: 0 0 0 2px #fff; }
-  .profile-leaderboard-stats { display: flex; gap: 9px; align-items: center; min-width: 0; margin: 4px 1px 0; padding: 4px 6px; overflow-x: auto; border: 1px solid rgba(255,255,255,.13); border-radius: 5px; background: rgba(0,0,0,.18); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8px; line-height: 1.15; white-space: nowrap; scrollbar-width: none; }
+  .profile-leaderboard-stats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.13); border-radius: 5px; background: rgba(0,0,0,.18); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; line-height: 1.15; }
   .profile-leaderboard-stats[hidden] { display: none; }
   .profile-leaderboard-stats::-webkit-scrollbar { display: none; }
-  .profile-leaderboard-stat { flex: 0 0 auto; font-weight: 900; }
-  .profile-leaderboard-heading { flex: 0 0 auto; color: var(--muted); font-weight: 900; }
+  .profile-leaderboard-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 7px 8px; border-top: 1px solid rgba(255,255,255,.1); font-weight: 900; }
+  .profile-leaderboard-heading { padding: 7px 8px; color: var(--muted); font-weight: 900; }
   .profile-leaderboard-value { color: #fff; }
   .profile-leaderboard-power { color: #ffe05d; }
   .profile-leaderboard-damage { color: #ff8b77; }
@@ -1070,6 +1071,7 @@
   .profile-tab.is-active { border-bottom-color: var(--green); color: #fff; }
   .profile-loading { padding: 24px 8px; color: var(--muted); font-size: 11px; text-align: center; }
   .profile-panel[hidden], .profile-loading[hidden] { display: none; }
+  .player-profile-modal .profile-panel { min-height: 260px; }
   .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
   .profile-grid > div { min-width: 0; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
@@ -1079,12 +1081,14 @@
   .profile-stat-grid > div:last-child { border-bottom: 0; }
   .profile-stat-grid dt { font-size: 10px; letter-spacing: .04em; white-space: nowrap; }
   .profile-stat-grid dd { margin: 0; color: #fff; font-size: 10px; line-height: 1.15; text-align: right; white-space: nowrap; }
+  .profile-stat-modifier { grid-column: 1 / -1; color: #bfc6ce; font-size: 8px; letter-spacing: .04em; }
   .profile-stat-health dt, .profile-stat-regen dt { color: #72ef58; }
   .profile-stat-damage dt { color: #ff8b77; }
   .profile-stat-armor dt { color: #c3cbcf; }
   .profile-stat-attack dt { color: #ffe05d; }
   .profile-stat-range dt { color: #74d8ff; }
   .profile-stat-speed dt { color: #bf9cff; }
+  .profile-stat-stat-gain dt, .profile-stat-critical dt { color: #f3d36b; }
   #profileNameEditor { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 13px; background: transparent; }
   #profileNameEditor[hidden] { display: none; }
   .profile-name-editor-modal { width: min(290px, calc(100vw - 26px)); padding: 10px; text-align: left; }

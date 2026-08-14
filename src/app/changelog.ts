@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.393": [
+    "Tech Tree now has more future-node space for scrolling, while player stats show active Tech Tree bonuses.",
+  ],
   "0.392": [
     "Tech Tree connectors now scroll with their nodes across the full tree.",
   ],

@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.392";
+  const GAME_VERSION = "0.393";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -195,6 +195,7 @@ import {
   const closeTechTreeBtn = requiredElement("closeTechTreeBtn");
   const techTreeActive = requiredElement("techTreeActive");
   const techTreeCanvas = requiredElement<HTMLCanvasElement>("techTreeCanvas");
+  const techTreeMap = requiredElement("techTreeMap");
   const techTreeDetail = requiredElement("techTreeDetail");
   const techTreeDetailContent = requiredElement("techTreeDetailContent");
   const closeTechTreeDetailBtn = requiredElement("closeTechTreeDetailBtn");
@@ -3463,7 +3464,13 @@ import {
     profileOnlineEl.textContent = presenceText;
     profileOnlineEl.style.color = online ? "#72ef58" : "#b7c5b7";
 
-    renderProfileStats(profile, profileStatGrid, formatArmorReduction, MIN_ATTACK_INTERVAL);
+    renderProfileStats(
+      profile,
+      profileStatGrid,
+      formatArmorReduction,
+      MIN_ATTACK_INTERVAL,
+      profile.identity === coop?.localIdentity?.() ? coop?.research?.() : undefined,
+    );
     playerProfileLoadingEl.hidden = true;
     editPlayerSaveBtn.hidden = !isDeveloperIdentity(coop?.localIdentity?.());
     profileOverviewPanel.hidden = !profileOverviewTab.classList.contains("is-active");
@@ -3728,6 +3735,29 @@ import {
     precision: "precision",
     "critical-chance": "criticalChance",
   };
+  const futureTechTreePaths: [string, string][] = [];
+  let priorFutureNodes = ["future-h"];
+  const futureRowCounts = Array.from({ length: 19 }, (_, index) => index === 18 ? 1 : index % 2 === 0 ? 2 : 1);
+  let futureNodeNumber = 9;
+  for (const count of futureRowCounts) {
+    const tier = document.createElement("div");
+    tier.className = `tech-tree-tier${count === 2 ? " tech-tree-tier-bottom" : ""}`;
+    const nextFutureNodes: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const nodeId = `future-${futureNodeNumber++}`;
+      nextFutureNodes.push(nodeId);
+      const node = document.createElement("button");
+      node.className = "tech-tree-node tech-tree-node-placeholder";
+      node.type = "button";
+      node.disabled = true;
+      node.dataset.techNode = nodeId;
+      node.setAttribute("aria-label", "Future technology");
+      tier.append(node);
+    }
+    for (const from of priorFutureNodes) for (const to of nextFutureNodes) futureTechTreePaths.push([from, to]);
+    techTreeMap.append(tier);
+    priorFutureNodes = nextFutureNodes;
+  }
   let selectedResearchId: ResearchId = "warcraft";
   let researchRequestPending = false;
   let nextTechTreeRenderAt = 0;
@@ -3808,7 +3838,7 @@ import {
       const rect = element.getBoundingClientRect();
       return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
     };
-    const paths: [string, string][] = [["foundations", "war"], ["foundations", "future-a"], ["war", "frontier-mastery"], ["future-a", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"], ["vitality", "critical-chance"], ["precision", "critical-chance"], ["critical-chance", "future-b"], ["future-b", "future-c"], ["future-b", "future-d"], ["future-c", "future-e"], ["future-d", "future-e"], ["future-e", "future-f"], ["future-e", "future-g"], ["future-f", "future-h"], ["future-g", "future-h"]];
+    const paths: [string, string][] = [["foundations", "war"], ["foundations", "future-a"], ["war", "frontier-mastery"], ["future-a", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"], ["vitality", "critical-chance"], ["precision", "critical-chance"], ["critical-chance", "future-b"], ["future-b", "future-c"], ["future-b", "future-d"], ["future-c", "future-e"], ["future-d", "future-e"], ["future-e", "future-f"], ["future-e", "future-g"], ["future-f", "future-h"], ["future-g", "future-h"], ...futureTechTreePaths];
     treeCtx.strokeStyle = "rgba(191, 198, 207, .52)";
     treeCtx.lineWidth = 3;
     for (const [from, to] of paths) {
