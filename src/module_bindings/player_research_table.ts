@@ -17,4 +17,5 @@ export default __t.row({
   frontierMastery: __t.u32().name("frontier_mastery"),
   vitality: __t.u32(),
   precision: __t.u32(),
+  criticalChance: __t.u32().name("critical_chance"),
 });

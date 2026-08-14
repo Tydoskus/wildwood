@@ -179,6 +179,7 @@ const playerResearch = table(
     frontierMastery: t.u32().default(0),
     vitality: t.u32().default(0),
     precision: t.u32().default(0),
+    criticalChance: t.u32().default(0),
   },
 );
 
@@ -665,7 +666,7 @@ function defaultPlayerProgress(identity: any) {
 }
 
 function defaultPlayerResearch(identity: any) {
-  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
 }
 
 function researchForPlayer(ctx: any, identity: any) {

@@ -1,4 +1,4 @@
-export const RESEARCH_IDS = ["warcraft", "foraging", "frontierMastery", "vitality", "precision"] as const;
+export const RESEARCH_IDS = ["warcraft", "foraging", "frontierMastery", "vitality", "precision", "criticalChance"] as const;
 export type ResearchId = typeof RESEARCH_IDS[number];
 
 export type ResearchDefinition = {
@@ -12,10 +12,10 @@ export type ResearchDefinition = {
 };
 
 export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
-  warcraft: { id: "warcraft", title: "WARCRAFT", icon: "⚔", maxRank: 5, effect: "TOTAL DAMAGE", valuePerRank: 2 },
-  foraging: { id: "foraging", title: "FORAGING", icon: "✦", maxRank: 5, effect: "STAT REWARD GAIN", valuePerRank: 1 },
+  warcraft: { id: "warcraft", title: "WARCRAFT", icon: "⚔", maxRank: 5, effect: "TOTAL DAMAGE", valuePerRank: 2, prerequisites: { foraging: 1 } },
+  foraging: { id: "foraging", title: "FORAGING", icon: "✦", maxRank: 5, effect: "STAT GAIN", valuePerRank: 1 },
   frontierMastery: {
-    id: "frontierMastery", title: "FRONTIER MASTERY", icon: "✧", maxRank: 1, effect: "UNLOCKS TIER II", valuePerRank: 0,
+    id: "frontierMastery", title: "FRONTIER MASTERY", icon: "✧", maxRank: 1, effect: "TIER II ACCESS", valuePerRank: 0,
     prerequisites: { warcraft: 3, foraging: 3 },
   },
   vitality: {
@@ -23,7 +23,11 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
     prerequisites: { frontierMastery: 1 },
   },
   precision: {
-    id: "precision", title: "PRECISION", icon: "⌖", maxRank: 5, effect: "ATTACK RANGE", valuePerRank: 2,
+    id: "precision", title: "PRECISION", icon: "◈", maxRank: 5, effect: "ARMOR", valuePerRank: 2,
+    prerequisites: { frontierMastery: 1 },
+  },
+  criticalChance: {
+    id: "criticalChance", title: "CRITICAL CHANCE", icon: "✦", maxRank: 5, effect: "CRITICAL CHANCE", valuePerRank: 1,
     prerequisites: { frontierMastery: 1 },
   },
 };

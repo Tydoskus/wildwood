@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.385";
+  const GAME_VERSION = "0.386";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -1354,9 +1354,9 @@ import {
         vx,
         vy,
         r: 6,
-        damage: player.damage * researchDamageMultiplier(),
-        hitLife: effectiveAttackRange() / player.projectileSpeed * projectileLifeBonus,
-        life: (effectiveAttackRange() + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
+        damage: player.damage * researchDamageMultiplier() * (Math.random() < researchCriticalChance() ? 2 : 1),
+        hitLife: player.attackRange / player.projectileSpeed * projectileLifeBonus,
+        life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
         trail: 0
       });
     }
@@ -1369,7 +1369,7 @@ import {
     if (player.attackClock > 0) return;
 
     let target = null;
-    const attackRange = effectiveAttackRange();
+    const attackRange = player.attackRange;
     let best = attackRange * attackRange;
 
     for (const e of enemies) {
@@ -2003,7 +2003,7 @@ import {
   function damagePlayer(amount: number) {
     if (isDueling()) return false;
     if (player.hurtClock > 0) return false;
-    const dealt = damageAfterArmor(amount, player.armor);
+    const dealt = damageAfterArmor(amount, effectiveArmor());
     player.hp -= dealt;
     spawnDamageNumber(player.x, player.y, dealt);
     player.hurtClock = .1;
@@ -3710,19 +3710,19 @@ import {
   }
 
   const techNodeResearch: Record<string, ResearchId | null> = {
-    foundations: null,
+    foundations: "foraging",
     war: "warcraft",
-    foraging: "foraging",
     "frontier-mastery": "frontierMastery",
     vitality: "vitality",
     precision: "precision",
+    "critical-chance": "criticalChance",
   };
   let selectedResearchId: ResearchId = "warcraft";
   let researchRequestPending = false;
   let nextTechTreeRenderAt = 0;
 
   function researchRanks() {
-    return coop?.research?.() ?? { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+    return coop?.research?.() ?? { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
   }
 
   function researchDamageMultiplier() {
@@ -3733,8 +3733,12 @@ import {
     return 1 + researchRanks().foraging * .01;
   }
 
-  function effectiveAttackRange() {
-    return player.attackRange * (1 + researchRanks().precision * .02);
+  function effectiveArmor() {
+    return player.armor * (1 + researchRanks().precision * .02);
+  }
+
+  function researchCriticalChance() {
+    return researchRanks().criticalChance * .01;
   }
 
   function applyVitalityResearch() {
@@ -3767,7 +3771,7 @@ import {
   function researchRequirementText(researchId: ResearchId) {
     const requirements = Object.entries(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {});
     return requirements.length
-      ? requirements.map(([id, rank]) => `${RESEARCH_DEFINITIONS[id as ResearchId].title} ${rank}`).join(" + ")
+      ? requirements.map(([id, rank]) => `${RESEARCH_DEFINITIONS[id as ResearchId].effect} ${rank}`).join(" + ")
       : "FOUNDATIONS";
   }
 
@@ -3788,7 +3792,7 @@ import {
       const rect = element.getBoundingClientRect();
       return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
     };
-    const paths: [string, string][] = [["foundations", "war"], ["foundations", "foraging"], ["war", "frontier-mastery"], ["foraging", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"]];
+    const paths: [string, string][] = [["foundations", "war"], ["war", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"], ["frontier-mastery", "critical-chance"]];
     treeCtx.strokeStyle = "rgba(191, 198, 207, .52)";
     treeCtx.lineWidth = 3;
     for (const [from, to] of paths) {
@@ -3808,8 +3812,8 @@ import {
     const activeRemaining = active ? active.completesAtMs - Date.now() : 0;
     techTreeActive.textContent = active
       ? activeRemaining > 0
-        ? `${RESEARCH_DEFINITIONS[active.researchId].title} · ${formatResearchTime(activeRemaining)} · SERVER TIMER`
-        : `${RESEARCH_DEFINITIONS[active.researchId].title} COMPLETE · CLAIM RESEARCH`
+        ? `${RESEARCH_DEFINITIONS[active.researchId].effect} · ${formatResearchTime(activeRemaining)} · SERVER TIMER`
+        : `${RESEARCH_DEFINITIONS[active.researchId].effect} COMPLETE · CLAIM RESEARCH`
       : "NO RESEARCH ACTIVE";
 
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
@@ -3823,8 +3827,10 @@ import {
       button.classList.toggle("is-active", active?.researchId === researchId);
       button.classList.toggle("is-locked", !available && rank < definition.maxRank && active?.researchId !== researchId);
       button.setAttribute("aria-pressed", String(selectedResearchId === researchId));
+      const title = button.querySelector("strong");
+      if (title) title.textContent = definition.effect;
       const small = button.querySelector("small");
-      if (small) small.textContent = `${rank} / ${definition.maxRank} · +${definition.valuePerRank}% ${definition.effect}`;
+      if (small) small.textContent = `${rank} / ${definition.maxRank}`;
     }
 
     const definition = RESEARCH_DEFINITIONS[selectedResearchId];
@@ -3833,12 +3839,46 @@ import {
     const canStart = !active && rank < definition.maxRank && researchRequirementsMet(selectedResearchId, ranks);
     techTreeDetailContent.replaceChildren();
     const title = document.createElement("strong");
-    title.textContent = `${definition.icon} ${definition.title} · ${rank} / ${definition.maxRank}`;
+    title.textContent = `${definition.icon} ${definition.effect} · ${rank} / ${definition.maxRank}`;
     const description = document.createElement("span");
     description.textContent = definition.valuePerRank > 0
-      ? `+${definition.valuePerRank}% ${definition.effect} PER RANK · NEXT RESEARCH: ${formatResearchTime(duration)}`
-      : `${definition.effect} · REQUIRES ${researchRequirementText(selectedResearchId)}`;
+      ? `${definition.valuePerRank}% PER RANK`
+      : `REQUIRES ${researchRequirementText(selectedResearchId)}`;
     techTreeDetailContent.append(title, description);
+    if (definition.valuePerRank > 0) {
+      const effectValue = document.createElement("div");
+      effectValue.className = "tech-tree-effect-value";
+      effectValue.textContent = `+${definition.valuePerRank}%`;
+      techTreeDetailContent.append(effectValue);
+    }
+    const time = document.createElement("div");
+    time.className = "tech-tree-research-time";
+    const timeLabel = document.createElement("span");
+    timeLabel.textContent = active?.researchId === selectedResearchId && activeRemaining > 0 ? "RESEARCH REMAINING" : "NEXT RESEARCH";
+    const timeValue = document.createElement("strong");
+    timeValue.textContent = formatResearchTime(active?.researchId === selectedResearchId && activeRemaining > 0 ? activeRemaining : duration);
+    time.append(timeLabel, timeValue);
+    techTreeDetailContent.append(time);
+    if (active?.researchId === selectedResearchId && activeRemaining > 0) {
+      const totalDuration = Math.max(1, active.completesAtMs - active.startedAtMs);
+      const timer = document.createElement("div");
+      timer.className = "tech-tree-timer";
+      const label = document.createElement("span");
+      label.className = "tech-tree-timer-label";
+      label.textContent = "RESEARCH PROGRESS";
+      const track = document.createElement("div");
+      track.className = "tech-tree-timer-track";
+      track.setAttribute("role", "progressbar");
+      track.setAttribute("aria-valuemin", "0");
+      track.setAttribute("aria-valuemax", String(totalDuration));
+      track.setAttribute("aria-valuenow", String(Math.max(0, activeRemaining)));
+      const fill = document.createElement("div");
+      fill.className = "tech-tree-timer-fill";
+      fill.style.setProperty("--research-remaining", String(Math.max(0, Math.min(1, activeRemaining / totalDuration))));
+      track.append(fill);
+      timer.append(label, track);
+      techTreeDetailContent.append(timer);
+    }
     const action = document.createElement("button");
     action.className = "primary-button tech-tree-action";
     action.disabled = researchRequestPending ||

@@ -293,7 +293,7 @@ let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
-let localResearch: PlayerResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+let localResearch: PlayerResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
 let localActiveResearch: ActiveResearch | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
@@ -1091,13 +1091,14 @@ function upsertResearch(row: { identity: Identity } & PlayerResearch) {
     frontierMastery: row.frontierMastery,
     vitality: row.vitality,
     precision: row.precision,
+    criticalChance: row.criticalChance,
   };
   onChange?.();
 }
 
 function removeResearch(row: { identity: Identity }) {
   if (row.identity.toHexString() !== localIdentity) return;
-  localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+  localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
   onChange?.();
 }
 
@@ -1628,7 +1629,7 @@ function connect() {
       if (identityChanged) {
         localState = null;
         localProgress = null;
-        localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+        localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
         localActiveResearch = null;
       }
       lastSpeedSent = null;
@@ -1825,7 +1826,7 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       localProfileReady = false;
-      localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+      localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
       localActiveResearch = null;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);

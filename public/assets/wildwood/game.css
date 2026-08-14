@@ -940,11 +940,12 @@
   .tech-tree-header .profile-close-button { flex: 0 0 auto; margin: 0; }
   .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
-  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-template-rows: 1fr 1fr 1.15fr 1fr; min-width: 420px; min-height: 580px; height: 100%; padding: 22px clamp(24px, 7vw, 112px); }
+  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-template-rows: 1fr 1fr 1.15fr 1fr 1fr; min-width: 420px; min-height: 720px; height: 100%; padding: 22px clamp(24px, 7vw, 112px); }
   .tech-tree-tier { display: flex; align-items: center; justify-content: center; gap: clamp(56px, 16vw, 180px); }
-  .tech-tree-tier-mid, .tech-tree-tier-bottom { justify-content: space-between; }
-  .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: clamp(112px, 27vw, 136px); aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 8px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
-  .tech-tree-node::before { position: absolute; inset: 4px; border: 1px solid rgba(222,227,234,.16); border-radius: 4px; content: ""; pointer-events: none; }
+  .tech-tree-tier-mid { justify-content: center; }
+  .tech-tree-tier-bottom { justify-content: space-between; }
+  .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: clamp(112px, 27vw, 136px); aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 15px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
+  .tech-tree-node::before { position: absolute; inset: 4px; border: 1px solid rgba(222,227,234,.16); border-radius: 10px; content: ""; pointer-events: none; }
   .tech-tree-node.is-available { border-color: #c4cad1; background: linear-gradient(145deg, #3d444c, #171b20); }
   .tech-tree-node.is-active { border-color: #f1f3f5; background: linear-gradient(145deg, #555d66, #20262c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 18px rgba(230,234,239,.28); }
   .tech-tree-node.is-complete { border-color: #aeb5bd; background: linear-gradient(145deg, #424850, #1a1e23); }
@@ -960,9 +961,17 @@
   .tech-tree-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .tech-tree-detail-header h3 { margin: 0; color: #f4f5f7; font-size: 14px; }
   .tech-tree-detail-header .profile-close-button { margin: 0; }
-  .tech-tree-detail-content { display: grid; gap: 7px; }
-  .tech-tree-detail-content strong { color: #f4f5f7; font-size: 11px; }
-  .tech-tree-detail-content span { color: #c2c7ce; font-size: 8px; }
+  .tech-tree-detail-content { display: grid; gap: 9px; }
+  .tech-tree-detail-content strong { color: #f4f5f7; font-size: 16px; }
+  .tech-tree-detail-content span { color: #c2c7ce; font-size: 9px; }
+  .tech-tree-effect-value { color: #fff; font-size: 23px; line-height: 1; }
+  .tech-tree-research-time { display: grid; gap: 3px; padding: 9px; border: 1px solid #707883; background: rgba(0,0,0,.24); }
+  .tech-tree-research-time span { color: #c2c7ce; font-size: 8px; letter-spacing: .08em; }
+  .tech-tree-research-time strong { color: #fff; font-size: 21px; line-height: 1; }
+  .tech-tree-timer { display: grid; gap: 5px; }
+  .tech-tree-timer-label { color: #e9edf1; font-size: 10px; }
+  .tech-tree-timer-track { height: 13px; overflow: hidden; border: 2px solid #9ba3ad; background: #0d1013; }
+  .tech-tree-timer-fill { width: calc(var(--research-remaining) * 100%); height: 100%; background: #d9dde2; transition: width .7s linear; }
   .tech-tree-action { justify-self: start; min-height: 28px; margin-top: 3px; border-color: #aeb5bd; background: #515963; color: #fff; font-size: 9px; }
   .tech-tree-action:hover:not(:disabled), .tech-tree-action:focus-visible { border-color: #fff; background: #68727d; }
 
