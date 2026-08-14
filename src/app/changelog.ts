@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.352": [
+    "Mobile now uses the same player HUD proportions and text scale as fullscreen.",
+  ],
   "0.351": [
     "Ground paths and procedural map decor now render from a small nearby tile cache instead of redrawing every frame.",
   ],
