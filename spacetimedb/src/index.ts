@@ -1,6 +1,7 @@
 import { schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
+import { RESEARCH_DEFINITIONS, RESEARCH_IDS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
 import {
   ATTACK_BALANCE_VERSION,
   BASIC_PAPER_HAT,
@@ -164,6 +165,31 @@ const playerProgress = table(
     equippedHead: t.string().default(BASIC_PAPER_HAT),
     equippedChest: t.string().default(""),
     snowlandsUnlocked: t.bool().default(false),
+  },
+);
+
+// Research stays separate from stat-save rows. Timers and rank unlocks are
+// always created and claimed against the database clock.
+const playerResearch = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    warcraft: t.u32().default(0),
+    foraging: t.u32().default(0),
+    frontierMastery: t.u32().default(0),
+    vitality: t.u32().default(0),
+    precision: t.u32().default(0),
+  },
+);
+
+const activeResearch = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    researchId: t.string(),
+    targetRank: t.u32(),
+    startedAt: t.timestamp(),
+    completesAt: t.timestamp(),
   },
 );
 
@@ -543,6 +569,8 @@ const spacetimedb = schema({
   player,
   playerProfile,
   playerProgress,
+  playerResearch,
+  activeResearch,
   leaderboardEntry,
   playerAccountStatus,
   worldStatus,
@@ -634,6 +662,30 @@ function defaultPlayerProgress(identity: any) {
     desertUnlocked: false,
     snowlandsUnlocked: false,
   };
+}
+
+function defaultPlayerResearch(identity: any) {
+  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+}
+
+function researchForPlayer(ctx: any, identity: any) {
+  const existing = ctx.db.playerResearch.identity.find(identity);
+  if (existing) return existing;
+  const next = defaultPlayerResearch(identity);
+  ctx.db.playerResearch.insert(next);
+  return next;
+}
+
+function completedResearchCount(research: Record<ResearchId, number>) {
+  return RESEARCH_IDS.reduce((total, id) => total + research[id], 0);
+}
+
+function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
+  const definition = RESEARCH_DEFINITIONS[researchId];
+  if (research[researchId] >= definition.maxRank) throw new SenderError("Research already complete.");
+  for (const [requiredId, requiredRank] of Object.entries(definition.prerequisites ?? {})) {
+    if (research[requiredId as ResearchId] < requiredRank!) throw new SenderError("Research prerequisites not met.");
+  }
 }
 
 function ensurePlayerLifetime(ctx: any) {
@@ -1573,6 +1625,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     }
   }
 
+  researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
   touchPlayerAccessAudit(ctx, session.protocolVersion);
   backfillKnownAccessAudit(ctx);
@@ -1976,6 +2029,19 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
     else ctx.db.playerProgress.insert(nextProgress);
 
+    const guestResearch = ctx.db.playerResearch.identity.find(link.guest);
+    const accountResearch = ctx.db.playerResearch.identity.find(ctx.sender);
+    if (guestResearch) {
+      const nextResearch = { ...guestResearch, identity: ctx.sender };
+      if (accountResearch) ctx.db.playerResearch.identity.update(nextResearch);
+      else ctx.db.playerResearch.insert(nextResearch);
+    }
+    const guestActiveResearch = ctx.db.activeResearch.identity.find(link.guest);
+    const accountActiveResearch = ctx.db.activeResearch.identity.find(ctx.sender);
+    if (guestActiveResearch && !accountActiveResearch) {
+      ctx.db.activeResearch.insert({ ...guestActiveResearch, identity: ctx.sender });
+    }
+
     const guestLifetime = ctx.db.playerLifetime.identity.find(link.guest);
     const accountLifetime = ctx.db.playerLifetime.identity.find(ctx.sender);
     if (guestLifetime) {
@@ -2087,6 +2153,8 @@ export const claimGuestAccount = spacetimedb.reducer(
       if (guestActivePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
     }
     if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
+    if (guestResearch) ctx.db.playerResearch.identity.delete(link.guest);
+    if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);
     if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
     if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);
     const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
@@ -2381,6 +2449,48 @@ export const savePlayerProgress = spacetimedb.reducer(
   },
 );
 
+export const startResearch = spacetimedb.reducer(
+  { researchId: t.string() },
+  (ctx, { researchId }) => {
+    requireControllingPlayer(ctx);
+    if (!isResearchId(researchId)) throw new SenderError("Unknown research.");
+    if (ctx.db.activeResearch.identity.find(ctx.sender)) throw new SenderError("Research already in progress.");
+    const research = researchForPlayer(ctx, ctx.sender);
+    assertResearchAvailable(research, researchId);
+    const targetRank = research[researchId] + 1;
+    const durationMicros = BigInt(researchDurationMs(completedResearchCount(research))) * 1_000n;
+    ctx.db.activeResearch.insert({
+      identity: ctx.sender,
+      researchId,
+      targetRank,
+      startedAt: ctx.timestamp,
+      completesAt: new Timestamp(ctx.timestamp.microsSinceUnixEpoch + durationMicros),
+    });
+  },
+);
+
+export const claimResearch = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    requireControllingPlayer(ctx);
+    const active = ctx.db.activeResearch.identity.find(ctx.sender);
+    if (!active) throw new SenderError("No research to claim.");
+    if (ctx.timestamp.microsSinceUnixEpoch < active.completesAt.microsSinceUnixEpoch) throw new SenderError("Research is still in progress.");
+    if (!isResearchId(active.researchId)) {
+      ctx.db.activeResearch.identity.delete(ctx.sender);
+      throw new SenderError("Unknown research.");
+    }
+    const research = researchForPlayer(ctx, ctx.sender);
+    assertResearchAvailable(research, active.researchId);
+    if (active.targetRank !== research[active.researchId] + 1) {
+      ctx.db.activeResearch.identity.delete(ctx.sender);
+      throw new SenderError("Research rank changed. Start it again.");
+    }
+    ctx.db.playerResearch.identity.update({ ...research, [active.researchId]: active.targetRank });
+    ctx.db.activeResearch.identity.delete(ctx.sender);
+  },
+);
+
 export const beginAdventure = spacetimedb.reducer(
   {},
   (ctx) => {
@@ -2403,6 +2513,10 @@ export const resetPlayerProgress = spacetimedb.reducer(
     }
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    const research = ctx.db.playerResearch.identity.find(ctx.sender);
+    if (research) ctx.db.playerResearch.identity.delete(ctx.sender);
+    const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
+    if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({

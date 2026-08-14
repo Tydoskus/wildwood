@@ -17,6 +17,15 @@ export const AccountLink = __t.object("AccountLink", {
 });
 export type AccountLink = __Infer<typeof AccountLink>;
 
+export const ActiveResearch = __t.object("ActiveResearch", {
+  identity: __t.identity(),
+  researchId: __t.string(),
+  targetRank: __t.u32(),
+  startedAt: __t.timestamp(),
+  completesAt: __t.timestamp(),
+});
+export type ActiveResearch = __Infer<typeof ActiveResearch>;
+
 export const BugReport = __t.object("BugReport", {
   id: __t.u64(),
   reporter: __t.identity(),
@@ -292,6 +301,16 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   snowlandsUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
+
+export const PlayerResearch = __t.object("PlayerResearch", {
+  identity: __t.identity(),
+  warcraft: __t.u32(),
+  foraging: __t.u32(),
+  frontierMastery: __t.u32(),
+  vitality: __t.u32(),
+  precision: __t.u32(),
+});
+export type PlayerResearch = __Infer<typeof PlayerResearch>;
 
 export const PlayerSession = __t.object("PlayerSession", {
   connectionId: __t.connectionId(),

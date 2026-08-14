@@ -1,6 +1,7 @@
 import { DbConnection, tables, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
+import { isResearchId, type ResearchId } from "../shared/research";
 import { createDuelCooldownStore } from "./coop/services/duel-cooldown-store";
 import {
   copyProgress,
@@ -63,6 +64,9 @@ export type ChatMessage = {
 };
 
 export type { PlayerProgress } from "./coop/services/progress";
+
+export type PlayerResearch = Record<ResearchId, number>;
+export type ActiveResearch = { researchId: ResearchId; targetRank: number; startedAtMs: number; completesAtMs: number };
 
 export type PlayerLifetime = {
   joinedAtMs: number;
@@ -289,6 +293,8 @@ let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
+let localResearch: PlayerResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+let localActiveResearch: ActiveResearch | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
@@ -1077,6 +1083,41 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   onChange?.();
 }
 
+function upsertResearch(row: { identity: Identity } & PlayerResearch) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localResearch = {
+    warcraft: row.warcraft,
+    foraging: row.foraging,
+    frontierMastery: row.frontierMastery,
+    vitality: row.vitality,
+    precision: row.precision,
+  };
+  onChange?.();
+}
+
+function removeResearch(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+  onChange?.();
+}
+
+function upsertActiveResearch(row: { identity: Identity; researchId: string; targetRank: number; startedAt: { microsSinceUnixEpoch: bigint }; completesAt: { microsSinceUnixEpoch: bigint } }) {
+  if (row.identity.toHexString() !== localIdentity || !isResearchId(row.researchId)) return;
+  localActiveResearch = {
+    researchId: row.researchId,
+    targetRank: row.targetRank,
+    startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1_000n),
+    completesAtMs: Number(row.completesAt.microsSinceUnixEpoch / 1_000n),
+  };
+  onChange?.();
+}
+
+function removeActiveResearch(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localActiveResearch = null;
+  onChange?.();
+}
+
 function upsertPlayerLifetime(row: {
   identity: Identity;
   joinedAt: { microsSinceUnixEpoch: bigint };
@@ -1587,6 +1628,8 @@ function connect() {
       if (identityChanged) {
         localState = null;
         localProgress = null;
+        localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+        localActiveResearch = null;
       }
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
@@ -1689,6 +1732,12 @@ function connect() {
         conn.db.worldStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertWorldStatus(row); });
         conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
+        conn.db.playerResearch.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertResearch(row); });
+        conn.db.playerResearch.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertResearch(row); });
+        conn.db.playerResearch.onDelete((_ctx, row) => { if (isCurrentConnection()) removeResearch(row); });
+        conn.db.activeResearch.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertActiveResearch(row); });
+        conn.db.activeResearch.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertActiveResearch(row); });
+        conn.db.activeResearch.onDelete((_ctx, row) => { if (isCurrentConnection()) removeActiveResearch(row); });
         conn.db.playerLifetime.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
         conn.db.playerLifetime.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
         conn.db.dragonBoss.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
@@ -1715,6 +1764,8 @@ function connect() {
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
           for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
           for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
+          for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
+          for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
           for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
           for (const row of conn.db.player.iter()) upsertPlayer(row);
           for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
@@ -1741,6 +1792,8 @@ function connect() {
           tables.playerAccountStatus,
           tables.worldStatus,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
+          tables.playerResearch.where((research) => research.identity.eq(identity)),
+          tables.activeResearch.where((research) => research.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
           tables.dragonResult,
@@ -1772,6 +1825,8 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       localProfileReady = false;
+      localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+      localActiveResearch = null;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
@@ -2149,6 +2204,36 @@ export const wildwoodCoop = {
     if (!localProgress) return null;
     const progress = pendingProgress ? mergeProgress(localProgress, pendingProgress) : localProgress;
     return { ...progress };
+  },
+  research() {
+    return { ...localResearch };
+  },
+  activeResearch() {
+    return localActiveResearch ? { ...localActiveResearch } : null;
+  },
+  async startResearch(researchId: ResearchId) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.startResearch({ researchId });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("research start", error);
+      return { ok: false, error: message };
+    }
+  },
+  async claimResearch() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.claimResearch({});
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("research claim", error);
+      return { ok: false, error: message };
+    }
   },
   dragonBoss() {
     return sharedDragon ? { ...sharedDragon } : null;

@@ -100,6 +100,7 @@ import {
 } from "./ui/settings";
 import { formatCompactNumber } from "./ui/number-format";
 import type { LeaderboardEntry, RemotePlayer, wildwoodCoop } from "./wildwood-coop";
+import { RESEARCH_DEFINITIONS, RESEARCH_IDS, researchDurationMs, type ResearchId } from "../shared/research";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -128,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.383";
+  const GAME_VERSION = "0.384";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -182,12 +183,18 @@ import {
   const playerHudProfileIcon = requiredElement("playerHudProfileIcon");
   const settingsBtn = requiredElement("settingsBtn");
   const inventoryBtn = requiredElement("inventoryBtn");
+  const techTreeBtn = requiredElement("techTreeBtn");
   const leaderboardBtn = requiredElement("leaderboardBtn");
   const devAuditBtn = requiredElement("devAuditBtn");
   const autoAttackBtn = requiredElement("autoAttackBtn");
   const settingsPanel = requiredElement("settingsPanel");
   const closeSettingsBtn = requiredElement("closeSettingsBtn");
   const inventoryPanel = requiredElement("inventoryPanel");
+  const techTreeOverlay = requiredElement("techTreeOverlay");
+  const closeTechTreeBtn = requiredElement("closeTechTreeBtn");
+  const techTreeActive = requiredElement("techTreeActive");
+  const techTreeCanvas = requiredElement<HTMLCanvasElement>("techTreeCanvas");
+  const techTreeDetail = requiredElement("techTreeDetail");
   const closeInventoryBtn = requiredElement("closeInventoryBtn");
   const inventoryItemsEl = requiredElement("inventoryItems");
   const inventoryDetailEl = requiredElement("inventoryDetail");
@@ -546,6 +553,7 @@ import {
     facing: 0,
     moving: false
   };
+  let appliedVitalityResearchRank = 0;
 
   const dragonSprite = new Image();
   const dragonSpriteCanvas = document.createElement("canvas");
@@ -1066,6 +1074,7 @@ import {
     player.armor = number(source.armor, player.armor, 0, MAX_ARMOR);
     player.regen = number(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;
+    appliedVitalityResearchRank = researchRanks().vitality;
     player.hp = player.maxHp;
     const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, source.equippedChest, bootsPickup.collected, isDeveloperIdentity(progressIdentity));
     inventory.itemIds = savedInventory.itemIds;
@@ -1343,9 +1352,9 @@ import {
         vx,
         vy,
         r: 6,
-        damage: player.damage,
-        hitLife: player.attackRange / player.projectileSpeed * projectileLifeBonus,
-        life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
+        damage: player.damage * researchDamageMultiplier(),
+        hitLife: effectiveAttackRange() / player.projectileSpeed * projectileLifeBonus,
+        life: (effectiveAttackRange() + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
         trail: 0
       });
     }
@@ -1358,7 +1367,8 @@ import {
     if (player.attackClock > 0) return;
 
     let target = null;
-    let best = player.attackRange * player.attackRange;
+    const attackRange = effectiveAttackRange();
+    let best = attackRange * attackRange;
 
     for (const e of enemies) {
       if (e.dead) continue;
@@ -1388,27 +1398,28 @@ import {
   }
 
   function applyReward(reward: RuntimeReward, x: number, y: number) {
-    switch (reward.type) {
+    const enhancedReward = { ...reward, amount: reward.amount * researchRewardMultiplier() };
+    switch (enhancedReward.type) {
       case "damage":
-        player.damage += reward.amount;
+        player.damage += enhancedReward.amount;
         break;
       case "health":
-        player.maxHp += reward.amount;
-        player.hp = Math.min(player.maxHp, player.hp + reward.amount);
+        player.maxHp += enhancedReward.amount;
+        player.hp = Math.min(player.maxHp, player.hp + enhancedReward.amount);
         break;
       case "speed":
-        player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + reward.amount);
+        player.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / player.attackRate + enhancedReward.amount);
         break;
       case "armor":
-        player.armor += reward.amount;
+        player.armor += enhancedReward.amount;
         break;
       case "regen":
-        player.regen += reward.amount;
+        player.regen += enhancedReward.amount;
         break;
     }
 
-    const data = REWARD_DATA[reward.type];
-    logPickup(rewardLabel(reward), data.color);
+    const data = REWARD_DATA[enhancedReward.type];
+    logPickup(rewardLabel(enhancedReward), data.color);
     spawnBurst(x, y, ENEMY_DEATH_PARTICLE_COLOR, 16, 110);
     saveProgress();
   }
@@ -3310,6 +3321,7 @@ import {
     const now = performance.now();
     if (!force && now < nextHudUpdateAt) return;
     nextHudUpdateAt = now + 100;
+    applyVitalityResearch();
     const remoteCount = coop && typeof coop.remotePlayerCount === "function"
       ? coop.remotePlayerCount()
       : coop
@@ -3339,6 +3351,10 @@ import {
     updateConnectionStatus();
     updateAccountStatus();
     updateLatencyStatus();
+    if (!techTreeOverlay.hidden && now >= nextTechTreeRenderAt) {
+      nextTechTreeRenderAt = now + 1_000;
+      renderTechTree();
+    }
   }
 
   function isProfileOnline(identity: string) {
@@ -3681,6 +3697,7 @@ import {
 
   function openLeaderboard() {
     closeDevAudit();
+    closeTechTree();
     leaderboardEl.hidden = false;
     leaderboardBtn.setAttribute("aria-expanded", "true");
     settingsPanel.hidden = true;
@@ -3688,6 +3705,178 @@ import {
     settingsBtn.setAttribute("aria-expanded", "false");
     inventoryBtn.setAttribute("aria-expanded", "false");
     setLeaderboardTab(leaderboardStat);
+  }
+
+  const techNodeResearch: Record<string, ResearchId | null> = {
+    foundations: null,
+    war: "warcraft",
+    foraging: "foraging",
+    "frontier-mastery": "frontierMastery",
+    vitality: "vitality",
+    precision: "precision",
+  };
+  let selectedResearchId: ResearchId = "warcraft";
+  let researchRequestPending = false;
+  let nextTechTreeRenderAt = 0;
+
+  function researchRanks() {
+    return coop?.research?.() ?? { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0 };
+  }
+
+  function researchDamageMultiplier() {
+    return 1 + researchRanks().warcraft * .02;
+  }
+
+  function researchRewardMultiplier() {
+    return 1 + researchRanks().foraging * .01;
+  }
+
+  function effectiveAttackRange() {
+    return player.attackRange * (1 + researchRanks().precision * .02);
+  }
+
+  function applyVitalityResearch() {
+    if (isDueling()) return;
+    const nextRank = researchRanks().vitality;
+    if (nextRank === appliedVitalityResearchRank) return;
+    const previousMultiplier = 1 + appliedVitalityResearchRank * .02;
+    const nextMultiplier = 1 + nextRank * .02;
+    const hpRatio = player.maxHp > 0 ? player.hp / player.maxHp : 1;
+    player.maxHp = clamp(player.maxHp / previousMultiplier * nextMultiplier, 1, MAX_PLAYER_STAT);
+    player.hp = clamp(player.maxHp * hpRatio, 0, player.maxHp);
+    appliedVitalityResearchRank = nextRank;
+    saveProgress();
+  }
+
+  function formatResearchTime(milliseconds: number) {
+    const seconds = Math.max(0, Math.ceil(milliseconds / 1_000));
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
+
+  function researchRequirementsMet(researchId: ResearchId, ranks = researchRanks()) {
+    return Object.entries(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {})
+      .every(([id, rank]) => ranks[id as ResearchId] >= rank!);
+  }
+
+  function researchRequirementText(researchId: ResearchId) {
+    const requirements = Object.entries(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {});
+    return requirements.length
+      ? requirements.map(([id, rank]) => `${RESEARCH_DEFINITIONS[id as ResearchId].title} ${rank}`).join(" + ")
+      : "FOUNDATIONS";
+  }
+
+  function drawTechTreeLinks() {
+    const viewport = techTreeCanvas.parentElement;
+    if (!viewport) return;
+    const bounds = viewport.getBoundingClientRect();
+    const scale = Math.min(2, window.devicePixelRatio || 1);
+    techTreeCanvas.width = Math.max(1, Math.round(bounds.width * scale));
+    techTreeCanvas.height = Math.max(1, Math.round(bounds.height * scale));
+    const treeCtx = techTreeCanvas.getContext("2d");
+    if (!treeCtx) return;
+    treeCtx.setTransform(scale, 0, 0, scale, 0, 0);
+    treeCtx.clearRect(0, 0, bounds.width, bounds.height);
+    const center = (node: string) => {
+      const element = document.querySelector<HTMLButtonElement>(`[data-tech-node="${node}"]`);
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
+    };
+    const paths: [string, string][] = [["foundations", "war"], ["foundations", "foraging"], ["war", "frontier-mastery"], ["foraging", "frontier-mastery"], ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"]];
+    treeCtx.strokeStyle = "rgba(176, 225, 164, .52)";
+    treeCtx.lineWidth = 3;
+    for (const [from, to] of paths) {
+      const start = center(from);
+      const end = center(to);
+      if (!start || !end) continue;
+      treeCtx.beginPath();
+      treeCtx.moveTo(start.x, start.y);
+      treeCtx.lineTo(end.x, end.y);
+      treeCtx.stroke();
+    }
+  }
+
+  function renderTechTree() {
+    const ranks = researchRanks();
+    const active = coop?.activeResearch?.() ?? null;
+    const activeRemaining = active ? active.completesAtMs - Date.now() : 0;
+    techTreeActive.textContent = active
+      ? activeRemaining > 0
+        ? `${RESEARCH_DEFINITIONS[active.researchId].title} · ${formatResearchTime(activeRemaining)} · SERVER TIMER`
+        : `${RESEARCH_DEFINITIONS[active.researchId].title} COMPLETE · CLAIM RESEARCH`
+      : "NO RESEARCH ACTIVE";
+
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
+      const researchId = techNodeResearch[button.dataset.techNode ?? ""];
+      if (!researchId) continue;
+      const definition = RESEARCH_DEFINITIONS[researchId];
+      const rank = ranks[researchId];
+      const available = !active && rank < definition.maxRank && researchRequirementsMet(researchId, ranks);
+      button.classList.toggle("is-available", available);
+      button.classList.toggle("is-complete", rank >= definition.maxRank);
+      button.classList.toggle("is-active", active?.researchId === researchId);
+      button.classList.toggle("is-locked", !available && rank < definition.maxRank && active?.researchId !== researchId);
+      button.setAttribute("aria-pressed", String(selectedResearchId === researchId));
+      const small = button.querySelector("small");
+      if (small) small.textContent = `${rank} / ${definition.maxRank} · +${definition.valuePerRank}% ${definition.effect}`;
+    }
+
+    const definition = RESEARCH_DEFINITIONS[selectedResearchId];
+    const rank = ranks[selectedResearchId];
+    const duration = researchDurationMs(RESEARCH_IDS.reduce((total, id) => total + ranks[id], 0));
+    const canStart = !active && rank < definition.maxRank && researchRequirementsMet(selectedResearchId, ranks);
+    techTreeDetail.replaceChildren();
+    const title = document.createElement("strong");
+    title.textContent = `${definition.icon} ${definition.title} · ${rank} / ${definition.maxRank}`;
+    const description = document.createElement("span");
+    description.textContent = definition.valuePerRank > 0
+      ? `+${definition.valuePerRank}% ${definition.effect} PER RANK · NEXT RESEARCH: ${formatResearchTime(duration)}`
+      : `${definition.effect} · REQUIRES ${researchRequirementText(selectedResearchId)}`;
+    techTreeDetail.append(title, description);
+    const action = document.createElement("button");
+    action.className = "primary-button tech-tree-action";
+    action.disabled = researchRequestPending ||
+      Boolean(active && (active.researchId !== selectedResearchId || activeRemaining > 0)) ||
+      (!active && !canStart);
+    action.textContent = active
+      ? active.researchId === selectedResearchId && activeRemaining <= 0 ? "CLAIM RESEARCH" : "RESEARCH IN PROGRESS"
+      : rank >= definition.maxRank ? "RESEARCH COMPLETE" : canStart ? "START RESEARCH" : `REQUIRES ${researchRequirementText(selectedResearchId)}`;
+    action.addEventListener("click", () => { void triggerResearchAction(); });
+    techTreeDetail.append(action);
+    drawTechTreeLinks();
+  }
+
+  async function triggerResearchAction() {
+    const active = coop?.activeResearch?.() ?? null;
+    researchRequestPending = true;
+    renderTechTree();
+    const result = active
+      ? active.researchId === selectedResearchId && active.completesAtMs <= Date.now()
+        ? await coop?.claimResearch?.()
+        : { ok: false, error: "RESEARCH IN PROGRESS" }
+      : await coop?.startResearch?.(selectedResearchId);
+    researchRequestPending = false;
+    if (!result?.ok) showMessage(result?.error ?? "RESEARCH UNAVAILABLE", "#ff9b91");
+    renderTechTree();
+  }
+
+  function openTechTree() {
+    techTreeOverlay.hidden = false;
+    techTreeBtn.setAttribute("aria-expanded", "true");
+    settingsPanel.hidden = true;
+    inventoryPanel.hidden = true;
+    closeLeaderboard();
+    closeDevAudit();
+    renderTechTree();
+  }
+
+  function closeTechTree() {
+    techTreeOverlay.hidden = true;
+    techTreeBtn.setAttribute("aria-expanded", "false");
   }
 
   function closeLeaderboard() {
@@ -3792,6 +3981,7 @@ import {
     settingsPanel.hidden = true;
     inventoryPanel.hidden = true;
     closeLeaderboard();
+    closeTechTree();
     setDevPanelTab("controls");
   }
 
@@ -4198,6 +4388,7 @@ import {
     inventoryBtn.setAttribute("aria-expanded", "false");
     closeLeaderboard();
     closeDevAudit();
+    closeTechTree();
   });
   closeSettingsBtn.addEventListener("click", () => {
     settingsPanel.hidden = true;
@@ -4212,6 +4403,7 @@ import {
     settingsBtn.setAttribute("aria-expanded", "false");
     closeLeaderboard();
     closeDevAudit();
+    closeTechTree();
     if (opening) renderInventory();
   });
   closeInventoryBtn.addEventListener("click", () => {
@@ -4221,6 +4413,19 @@ import {
 
   leaderboardBtn.addEventListener("click", openLeaderboard);
   closeLeaderboardBtn.addEventListener("click", closeLeaderboard);
+  techTreeBtn.addEventListener("click", openTechTree);
+  closeTechTreeBtn.addEventListener("click", closeTechTree);
+  addEventListener("resize", () => {
+    if (!techTreeOverlay.hidden) drawTechTreeLinks();
+  });
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
+    button.addEventListener("click", () => {
+      const researchId = techNodeResearch[button.dataset.techNode ?? ""];
+      if (!researchId) return;
+      selectedResearchId = researchId;
+      renderTechTree();
+    });
+  }
   leaderboardPowerTab.addEventListener("click", () => setLeaderboardTab("power"));
   leaderboardDamageTab.addEventListener("click", () => setLeaderboardTab("damage"));
   leaderboardHealthTab.addEventListener("click", () => setLeaderboardTab("health"));

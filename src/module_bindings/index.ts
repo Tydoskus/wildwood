@@ -39,6 +39,7 @@ import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import ChangeMapReducer from "./change_map_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
+import ClaimResearchReducer from "./claim_research_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
@@ -60,12 +61,14 @@ import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
+import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import ActiveResearchRow from "./active_research_table";
 import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
 import DevBugReportsRow from "./dev_bug_reports_table";
@@ -79,6 +82,7 @@ import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
+import PlayerResearchRow from "./player_research_table";
 import SpiderBossRow from "./spider_boss_table";
 import SpiderResultRow from "./spider_result_table";
 import WorldStatusRow from "./world_status_table";
@@ -87,6 +91,17 @@ import WorldStatusRow from "./world_status_table";
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  activeResearch: __table({
+    name: 'active_research',
+    indexes: [
+      { accessor: 'identity', name: 'active_research_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'active_research_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, ActiveResearchRow),
   chatMessage: __table({
     name: 'chat_message',
     indexes: [
@@ -222,6 +237,17 @@ const tablesSchema = __schema({
       { name: 'player_progress_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerProgressRow),
+  playerResearch: __table({
+    name: 'player_research',
+    indexes: [
+      { accessor: 'identity', name: 'player_research_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_research_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerResearchRow),
   spiderBoss: __table({
     name: 'spider_boss',
     indexes: [
@@ -278,6 +304,7 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("change_map", ChangeMapReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
+  __reducerSchema("claim_research", ClaimResearchReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
@@ -299,6 +326,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
+  __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
 );

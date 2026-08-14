@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.384": [
+    "Added the Tech Tree: server-timed research unlocks permanent combat, reward, health, and range upgrades.",
+  ],
   "0.383": [
     "Enemy reward labels now use compact formatted numbers for large stat gains.",
   ],
