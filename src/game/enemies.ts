@@ -1,3 +1,5 @@
+import { formatCompactNumber } from "../ui/number-format";
+
 export type RewardType = "damage" | "health" | "speed" | "armor" | "regen";
 
 export type EnemyDefinition = {
@@ -264,7 +266,7 @@ export function rewardLabel(reward: EnemyDefinition["reward"]) {
 }
 
 export function rewardAmountLabel(reward: EnemyDefinition["reward"]) {
-  return reward.type === "speed" ? `+${reward.amount.toFixed(2)}` : `+${reward.amount}`;
+  return reward.type === "speed" ? `+${reward.amount.toFixed(2)}` : `+${formatCompactNumber(reward.amount)}`;
 }
 
 export function rewardStatLabel(reward: EnemyDefinition["reward"]) {

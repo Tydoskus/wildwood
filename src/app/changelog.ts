@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.383": [
+    "Enemy reward labels now use compact formatted numbers for large stat gains.",
+  ],
   "0.382": [
     "Tutorial Forest tree shadows now size from canopy bounds and sit slightly inside each canopy.",
   ],

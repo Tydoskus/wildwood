@@ -17,5 +17,7 @@ describe("enemy reward rules", () => {
   it("formats reward labels without changing their numeric value", () => {
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 ATK/SEC");
     expect(rewardLabel({ type: "armor", amount: 150 })).toBe("+150 ARMOR");
+    expect(rewardLabel({ type: "health", amount: 8_500 })).toBe("+8.50k MAX HEALTH");
+    expect(rewardLabel({ type: "damage", amount: 240_000 })).toBe("+240k DAMAGE");
   });
 });
