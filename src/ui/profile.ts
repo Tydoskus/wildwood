@@ -28,20 +28,20 @@ export function renderProfileStats(
   research?: PlayerResearch,
 ) {
   const { progress } = profile;
-  const techBonus = (rank: number, percentPerRank: number) => rank > 0
-    ? `TECH ×${(1 + rank * percentPerRank / 100).toFixed(2)} · +${rank * percentPerRank}%`
+  const techBonus = (base: number, rank: number, percentPerRank: number) => rank > 0
+    ? `BASE: ${Math.round(base).toLocaleString()} · +${rank * percentPerRank}%`
     : undefined;
   const stats: Array<{ kind: string; label: string; value: string; modifier?: string }> = [
-    { kind: "health", label: "MAX HP", value: Math.round(progress.maxHp).toLocaleString(), modifier: research ? techBonus(research.vitality, 2) : undefined },
-    { kind: "damage", label: "DAMAGE", value: Math.round(progress.damage).toLocaleString(), modifier: research ? techBonus(research.warcraft, 2) : undefined },
-    { kind: "armor", label: "ARMOR", value: `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} damage reduction)`, modifier: research ? techBonus(research.precision, 2) : undefined },
+    { kind: "health", label: "MAX HP", value: Math.round(progress.maxHp).toLocaleString(), modifier: research ? techBonus(progress.maxHp, research.vitality, 2) : undefined },
+    { kind: "damage", label: "DAMAGE", value: Math.round(progress.damage).toLocaleString(), modifier: research ? techBonus(progress.damage, research.warcraft, 2) : undefined },
+    { kind: "armor", label: "ARMOR", value: `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} damage reduction)`, modifier: research ? techBonus(progress.armor, research.precision, 2) : undefined },
     { kind: "attack", label: "ATTACK SPEED", value: `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}` },
     { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString() },
     { kind: "regen", label: "REGEN", value: `${progress.regen.toFixed(1)}/s` },
     { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed).toLocaleString() },
   ];
-  if (research?.foraging) stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${research.foraging}%`, modifier: techBonus(research.foraging, 1) });
-  if (research?.criticalChance) stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${research.criticalChance}%`, modifier: "TECH BONUS" });
+  if (research?.foraging) stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${research.foraging}%`, modifier: `BASE: 0% · +${research.foraging}%` });
+  if (research?.criticalChance) stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${research.criticalChance}%`, modifier: `BASE: 0% · +${research.criticalChance}%` });
   statGrid.replaceChildren();
   for (const stat of stats) {
     const item = document.createElement("div");

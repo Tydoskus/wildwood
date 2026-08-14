@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.393";
+  const GAME_VERSION = "0.394";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -352,6 +352,7 @@ import {
   const devPresenceStatusEl = requiredElement("devPresenceStatus");
   const devPresenceToggleBtn = requiredElement<HTMLButtonElement>("devPresenceToggle");
   const perfFpsEl = requiredElement("perfFps");
+  const perfWorkFpsEl = requiredElement("perfWorkFps");
   const perfFrameP50El = requiredElement("perfFrameP50");
   const perfFrameP95El = requiredElement("perfFrameP95");
   const perfFrameWorstEl = requiredElement("perfFrameWorst");
@@ -3225,7 +3226,17 @@ import {
   }
 
   function drawVignette() {
-    const g = ctx.createRadialGradient(viewW/2, viewH/2, Math.min(viewW,viewH)*.25, viewW/2, viewH/2, Math.max(viewW,viewH)*.72);
+    const playerScreenX = (player.x - camera.x) * camera.zoom;
+    const playerScreenY = (player.y - camera.y) * camera.zoom;
+    const farthestCorner = Math.max(
+      Math.hypot(playerScreenX, playerScreenY),
+      Math.hypot(viewW - playerScreenX, playerScreenY),
+      Math.hypot(playerScreenX, viewH - playerScreenY),
+      Math.hypot(viewW - playerScreenX, viewH - playerScreenY),
+    );
+    const attackRangeRadius = player.attackRange * camera.zoom;
+    const innerRadius = clamp(attackRangeRadius * 1.08, 56, farthestCorner * .72);
+    const g = ctx.createRadialGradient(playerScreenX, playerScreenY, innerRadius, playerScreenX, playerScreenY, farthestCorner);
     g.addColorStop(0, "rgba(0,0,0,0)");
     g.addColorStop(1, "rgba(0,0,0,.33)");
     ctx.fillStyle = g;
@@ -4049,6 +4060,7 @@ import {
     const megabytes = memory ? `${(memory.usedJSHeapSize / 1_048_576).toFixed(1)} MB` : "UNAVAILABLE";
     const subscriptionCount = coop?.subscriptionCount?.() ?? 0;
     setPerformanceValue(perfFpsEl, `${snapshot.fps} FPS`);
+    setPerformanceValue(perfWorkFpsEl, `${snapshot.workFps} FPS`);
     setPerformanceValue(perfFrameP50El, `${snapshot.frameP50Ms.toFixed(1)} ms`);
     setPerformanceValue(perfFrameP95El, `${snapshot.frameP95Ms.toFixed(1)} ms`);
     setPerformanceValue(perfFrameWorstEl, `${snapshot.worstFrameMs.toFixed(1)} ms`);
@@ -4336,6 +4348,7 @@ import {
     const rawDt = frameDeltaMs / 1000;
     last = now;
     const dt = Math.min(.035, Math.max(0, rawDt));
+    const workStartedAt = performance.now();
 
     let updateMs = 0;
     if (running && !pausedForUpgrade && !coop?.accountState?.().sessionConflict) {
@@ -4346,7 +4359,7 @@ import {
     const renderStartedAt = performance.now();
     render();
     const renderMs = performance.now() - renderStartedAt;
-    performanceMonitor.record(frameDeltaMs, updateMs, renderMs);
+    performanceMonitor.record(frameDeltaMs, updateMs, renderMs, performance.now() - workStartedAt);
     if (!devPerformancePanel.hidden && now >= nextPerformancePanelUpdateAt) {
       nextPerformancePanelUpdateAt = now + 500;
       renderPerformancePanel();

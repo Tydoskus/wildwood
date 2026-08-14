@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.394": [
+    "Screen vignette now begins near your attack range, the developer panel shows Work FPS alongside real FPS, and stat bonuses show their base value and percentage.",
+  ],
   "0.393": [
     "Tech Tree now has more future-node space for scrolling, while player stats show active Tech Tree bonuses.",
   ],
