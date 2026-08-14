@@ -3,6 +3,7 @@ import {
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
   MAX_ARMOR,
+  MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
   PLAYER_SPEED,
 } from "../../../shared/rules";
@@ -36,8 +37,8 @@ export function bounded(value: number, min: number, max: number, fallback: numbe
 
 export function copyProgress(progress: ProgressSave): ProgressSave {
   return {
-    maxHp: bounded(progress.maxHp, 1, 1_000_000_000, 100),
-    damage: bounded(progress.damage, 1, 1_000_000, 4),
+    maxHp: bounded(progress.maxHp, 1, MAX_PLAYER_STAT, 100),
+    damage: bounded(progress.damage, 1, MAX_PLAYER_STAT, 4),
     attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
     projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
     projectileCount: Number.isInteger(progress.projectileCount)
@@ -45,7 +46,7 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
       : 1,
     attackRange: DEFAULT_ATTACK_RANGE,
     armor: bounded(progress.armor, 0, MAX_ARMOR, 0),
-    regen: bounded(progress.regen, 0, 1_000_000, 0),
+    regen: bounded(progress.regen, 0, MAX_PLAYER_STAT, 0),
     speed: bounded(progress.speed, 1, 2_000, PLAYER_SPEED),
     bootsCollected: progress.bootsCollected,
     inventoryJson: typeof progress.inventoryJson === "string" ? progress.inventoryJson : "[]",

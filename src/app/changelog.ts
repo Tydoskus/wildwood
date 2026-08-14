@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.341": [
+    "Player health, damage, and regeneration can now progress to 1 trillion instead of stopping at the former lower caps.",
+  ],
   "0.340": [
     "Desert dunes have been removed, and enemy name, health, and reward labels now only draw nearby.",
     "Large damage numbers use compact three-digit formatting, and world text rendering is lighter near enemies.",

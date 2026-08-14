@@ -11,7 +11,10 @@ export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
 export const MIN_ATTACK_INTERVAL = .32;
-export const MAX_ARMOR = 1_000_000_000_000;
+// Progress stats use f32 storage; one trillion leaves ample headroom while still
+// retaining useful precision for the compact-number progression scale.
+export const MAX_PLAYER_STAT = 1_000_000_000_000;
+export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 1;
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const BASIC_PAPER_HAT = "basic_paper_hat";

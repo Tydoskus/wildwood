@@ -101,6 +101,7 @@ import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_ARMOR,
+  MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP as BASE_PLAYER_HP,
   PLAYER_SPEED as BASE_PLAYER_SPEED,
@@ -121,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.340";
+  const GAME_VERSION = "0.341";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -925,14 +926,14 @@ import {
     const number = (value: number, fallback: number, min: number, max: number) =>
       Number.isFinite(value) ? clamp(value, min, max) : fallback;
 
-    player.maxHp = number(source.maxHp, player.maxHp, 1, 1_000_000_000);
-    player.damage = number(source.damage, player.damage, 1, 1000000);
+    player.maxHp = number(source.maxHp, player.maxHp, 1, MAX_PLAYER_STAT);
+    player.damage = number(source.damage, player.damage, 1, MAX_PLAYER_STAT);
     player.attackRate = number(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
     player.projectileSpeed = BASE_PROJECTILE_SPEED;
     player.projectileCount = Math.floor(number(source.projectileCount, player.projectileCount, 1, 20));
     player.attackRange = BASE_ATTACK_RANGE;
     player.armor = number(source.armor, player.armor, 0, MAX_ARMOR);
-    player.regen = number(source.regen, player.regen, 0, 1000000);
+    player.regen = number(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;
     player.hp = player.maxHp;
     const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, bootsPickup.collected);

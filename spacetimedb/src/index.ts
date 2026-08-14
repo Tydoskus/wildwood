@@ -10,6 +10,7 @@ import {
   DEFAULT_ATTACK_RANGE,
   MAP_IDS,
   MAX_ARMOR,
+  MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
   NAME_ADJECTIVES,
   NAME_CREATURES,
@@ -2158,14 +2159,14 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
     };
     const nextProgress = {
       ...progress,
-      maxHp: bounded(update.maxHp, 1, 1_000_000_000, "Max HP"),
-      damage: bounded(update.damage, 1, 1_000_000, "Damage"),
+      maxHp: bounded(update.maxHp, 1, MAX_PLAYER_STAT, "Max HP"),
+      damage: bounded(update.damage, 1, MAX_PLAYER_STAT, "Damage"),
       attackRate: bounded(update.attackRate, .05, 10, "Attack rate"),
       projectileSpeed: PLAYER_PROJECTILE_SPEED,
       projectileCount: Math.max(1, Math.min(20, Math.floor(update.projectileCount))),
       attackRange: bounded(update.attackRange, 1, 5_000, "Attack range"),
       armor: bounded(update.armor, 0, MAX_ARMOR, "Armor"),
-      regen: bounded(update.regen, 0, 1_000_000, "Regen"),
+      regen: bounded(update.regen, 0, MAX_PLAYER_STAT, "Regen"),
       speed: bounded(update.speed, 1, 2_000, "Move speed"),
     };
     ctx.db.playerProfile.identity.update({ ...profile, displayName });
@@ -2210,15 +2211,15 @@ export const savePlayerProgress = spacetimedb.reducer(
     const bounded = (value: number, min: number, max: number, fallback: number) =>
       Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
     const normalized = {
-      maxHp: bounded(progress.maxHp, 1, 1_000_000_000, base.maxHp),
-      damage: bounded(progress.damage, 1, 1_000_000, base.damage),
+      maxHp: bounded(progress.maxHp, 1, MAX_PLAYER_STAT, base.maxHp),
+      damage: bounded(progress.damage, 1, MAX_PLAYER_STAT, base.damage),
       attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, base.attackRate),
       projectileSpeed: PLAYER_PROJECTILE_SPEED,
       projectileCount: Number.isInteger(progress.projectileCount)
         ? Math.max(1, Math.min(20, progress.projectileCount))
         : base.projectileCount,
       armor: bounded(progress.armor, 0, MAX_ARMOR, base.armor),
-      regen: bounded(progress.regen, 0, 1_000_000, base.regen),
+      regen: bounded(progress.regen, 0, MAX_PLAYER_STAT, base.regen),
       speed: bounded(progress.speed, 1, 2_000, base.speed),
       bootsCollected: progress.bootsCollected === true,
     };
