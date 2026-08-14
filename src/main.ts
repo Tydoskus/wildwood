@@ -183,7 +183,7 @@ import {
     accountState: () => coop?.accountState?.(),
     signIn: () => { void coop?.signIn?.(); },
     signOut: () => { coop?.signOut?.(); },
-    canPlayMusic: () => session.hasStarted() || session.isRunning(),
+    canPlayMusic: () => session?.hasStarted() || session?.isRunning() || false,
     onScreenShakeDisabled: () => { screenShake = 0; },
     onLowPerformanceChanged: () => { session.resetFrameSchedule(); },
     showMessage,
@@ -610,7 +610,7 @@ import {
     heldScene: () => heldDuelScene,
     duelResultHeld: () => playerController.isDuelResultHeld(),
     setRenderedDuelScene: (scene) => { renderedDuelScene = scene; },
-    setDuelCountdown: runtimeHud.setDuelCountdown,
+    setDuelCountdown: (countdown) => runtimeHud?.setDuelCountdown(countdown),
     drawProfileCharacterPreview: () => profileWindow.drawPreview(),
     updateSpeechBubbles,
     localIdentity: () => coop?.localIdentity?.(),
@@ -636,7 +636,7 @@ import {
   }
 
   function finishStartup() {
-    startupCoordinator.finishStartup();
+    startupCoordinator?.finishStartup();
   }
 
   function updateProtocolGate(accountState = coop?.accountState?.()) {
@@ -818,6 +818,7 @@ import {
     beginAdventure: () => { coop?.beginAdventure?.(); },
     startGame: () => startGame(false),
   });
+  finishStartup();
   startupCoordinator.startVersionPolling();
 
   function startGame(markIntro = true, restoreServerPosition = true) {

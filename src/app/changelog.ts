@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.401": [
+    "Fixed the startup controller order that could leave the game stuck on Connecting.",
+  ],
   "0.400": [
     "Added Move Speed research and two inventory hand slots for future left- and right-hand weapons.",
     "Returning after a long background pause now shows a reconnecting overlay while the game restores its session.",
