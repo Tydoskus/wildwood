@@ -124,10 +124,11 @@ import {
   type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
+  type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.370";
+  const GAME_VERSION = "0.372";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -352,6 +353,7 @@ import {
   const perfMemoryEl = requiredElement("perfMemory");
   const perfSubscriptionsEl = requiredElement("perfSubscriptions");
   const triggerDragonCutsceneBtn = requiredElement("triggerDragonCutsceneBtn");
+  const triggerSnowlandsCutsceneBtn = requiredElement("triggerSnowlandsCutsceneBtn");
   const closeDevAuditBtn = requiredElement("closeDevAuditBtn");
   const updateNoticeEl = requiredElement("updateNotice");
   const updateNoticeTitleEl = requiredElement("updateNoticeTitle");
@@ -429,8 +431,10 @@ import {
   let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationOpacity = 0;
   let portalCutscenePreview = false;
-  let portalCutsceneMapId: MapId = TUTORIAL_FOREST_MAP_ID;
+  let portalCutsceneSeenKey = DRAGON_PORTAL_CUTSCENE_SEEN_KEY;
+  let portalCutscenePortal: MapPortal = MAP_CONFIG[TUTORIAL_FOREST_MAP_ID].portal;
   let queuedDragonResult: DragonResult | null = null;
+  let queuedSpiderResult: SpiderResult | null = null;
 
   let dpr = 1;
   let viewW = innerWidth;
@@ -788,6 +792,7 @@ import {
     isArenaScene,
     mapName: (mapId) => MAP_CONFIG[mapId].name,
     activePortal,
+    cutscenePortal: () => portalCutscenePortal,
     secondaryPortal,
     portalIsUnlocked,
     portalRevealIntensity: () => portalCutsceneIntensity,
@@ -1432,8 +1437,7 @@ import {
   }
 
   function showSpiderResult(result: SpiderResult | null) {
-    if (!result || shownSpiderResultEncounter === result.encounter) return;
-    shownSpiderResultEncounter = result.encounter;
+    if (!result || shownSpiderResultEncounter === result.encounter || (portalCutscene.active && queuedSpiderResult?.encounter === result.encounter)) return;
     pendingSpiderResultEncounter = null;
     if (!running) return;
     const localContribution = result.contributors.find((entry) => entry.identity === coop?.localIdentity?.());
@@ -1459,6 +1463,14 @@ import {
       }, 6_000);
       return;
     }
+
+    if (currentMapId === BEGINNER_DESERT_MAP_ID && !hasSeenSnowlandsPortalCutscene()) {
+      queuedSpiderResult = result;
+      startSnowlandsPortalCutscene();
+      return;
+    }
+
+    shownSpiderResultEncounter = result.encounter;
 
     dragonResultTitle.textContent = "DESERT SPIDER DEFEATED";
     dragonResultTotal.textContent = `${Math.round(result.totalDamage).toLocaleString()} TOTAL DAMAGE`;
@@ -1539,14 +1551,18 @@ import {
     try { return localStorage.getItem(DRAGON_PORTAL_CUTSCENE_SEEN_KEY) === "true"; } catch { return false; }
   }
 
-  function startMapPortalCutscene(mapId: MapId, preview = false) {
-    const portal = MAP_CONFIG[mapId].portal;
+  function hasSeenSnowlandsPortalCutscene() {
+    try { return localStorage.getItem(SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY) === "true"; } catch { return false; }
+  }
+
+  function startMapPortalCutscene(mapId: MapId, preview = false, portal: MapPortal = MAP_CONFIG[mapId].portal, seenKey = DRAGON_PORTAL_CUTSCENE_SEEN_KEY) {
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, { width: viewW, height: viewH });
     portalCutsceneIntensity = 0;
     portalCutsceneBlackoutOpacity = 0;
     portalCutsceneDestinationOpacity = 0;
     portalCutscenePreview = preview;
-    portalCutsceneMapId = mapId;
+    portalCutscenePortal = portal;
+    portalCutsceneSeenKey = seenKey;
     keys.clear();
     touchMove.active = false;
     cutsceneOverlayEl.hidden = false;
@@ -1555,6 +1571,12 @@ import {
 
   function startDragonPortalCutscene(preview = false) {
     startMapPortalCutscene(TUTORIAL_FOREST_MAP_ID, preview);
+  }
+
+  function startSnowlandsPortalCutscene(preview = false) {
+    const portal = MAP_CONFIG[BEGINNER_DESERT_MAP_ID].secondaryPortal;
+    if (!portal) return;
+    startMapPortalCutscene(BEGINNER_DESERT_MAP_ID, preview, portal, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY);
   }
 
   function updatePortalCutscene(dt: number) {
@@ -1576,17 +1598,15 @@ import {
     portalCutscenePreview = false;
     if (!wasPreview) {
       try {
-        localStorage.setItem(
-          portalCutsceneMapId === INTERMEDIATE_SNOWLANDS_MAP_ID
-            ? SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY
-            : DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
-          "true",
-        );
+        localStorage.setItem(portalCutsceneSeenKey, "true");
       } catch {}
     }
     const result = queuedDragonResult;
     queuedDragonResult = null;
     if (result && !wasPreview) showDragonResult(result);
+    const spiderResult = queuedSpiderResult;
+    queuedSpiderResult = null;
+    if (spiderResult && !wasPreview) showSpiderResult(spiderResult);
     return false;
   }
 
@@ -2216,8 +2236,11 @@ import {
     return currentMapId === BEGINNER_DESERT_MAP_ID ? MAP_CONFIG[BEGINNER_DESERT_MAP_ID].secondaryPortal : null;
   }
 
-  function portalIsUnlocked() {
-    return currentMapId !== TUTORIAL_FOREST_MAP_ID || Boolean(coop?.savedProgress?.()?.desertUnlocked);
+  function portalIsUnlocked(portal: MapPortal) {
+    const progress = coop?.savedProgress?.();
+    if (portal.destination === BEGINNER_DESERT_MAP_ID) return Boolean(progress?.desertUnlocked);
+    if (portal.destination === INTERMEDIATE_SNOWLANDS_MAP_ID) return Boolean(progress?.snowlandsUnlocked);
+    return true;
   }
 
   function portalColliders() {
@@ -2249,12 +2272,12 @@ import {
 
   function updatePortal(dt: number) {
     portalCooldown = Math.max(0, portalCooldown - dt);
-    if (mapTransitioning || portalCooldown > 0 || isDueling() || !portalIsUnlocked()) return;
+    if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
     const portal = [activePortal(), secondaryPortal()].filter(Boolean).find((candidate) => {
       const current = candidate!;
       return Math.hypot(player.x - current.x, player.y - (current.y - current.height * .32)) <= 48;
     });
-    if (!portal) return;
+    if (!portal || !portalIsUnlocked(portal)) return;
 
     mapTransitioning = true;
     const destination = portal.destination;
@@ -2298,17 +2321,6 @@ import {
     spiderBoss.web = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
-    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) {
-      try {
-        if (localStorage.getItem(SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY) !== "true") {
-          requestAnimationFrame(() => {
-            if (running && currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !portalCutscene.active) {
-              startMapPortalCutscene(INTERMEDIATE_SNOWLANDS_MAP_ID);
-            }
-          });
-        }
-      } catch {}
-    }
   }
 
   function reconcileMapFromServer() {
@@ -4224,6 +4236,16 @@ import {
     if (portalCutscene.active) return;
     closeDevAudit();
     startDragonPortalCutscene(true);
+  });
+  triggerSnowlandsCutsceneBtn.addEventListener("click", () => {
+    if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
+    if (currentMapId !== BEGINNER_DESERT_MAP_ID) {
+      showMessage("SNOWLANDS CUTSCENE: BEGINNER DESERT ONLY", "#ff9b91");
+      return;
+    }
+    if (portalCutscene.active) return;
+    closeDevAudit();
+    startSnowlandsPortalCutscene(true);
   });
 
   equippedFeetSlot?.addEventListener("click", () => {

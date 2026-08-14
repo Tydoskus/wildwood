@@ -1057,6 +1057,7 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     equippedFeet: row.equippedFeet,
     introComplete: row.introComplete,
     desertUnlocked: row.desertUnlocked,
+    snowlandsUnlocked: row.snowlandsUnlocked,
   };
   profileProgress.set(id, progress);
   if (id !== localIdentity) return;

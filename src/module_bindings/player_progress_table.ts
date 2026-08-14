@@ -28,4 +28,5 @@ export default __t.row({
   desertUnlocked: __t.bool().name("desert_unlocked"),
   equippedHead: __t.string().name("equipped_head"),
   equippedChest: __t.string().name("equipped_chest"),
+  snowlandsUnlocked: __t.bool().name("snowlands_unlocked"),
 });

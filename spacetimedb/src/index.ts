@@ -163,6 +163,7 @@ const playerProgress = table(
     desertUnlocked: t.bool().default(false),
     equippedHead: t.string().default(BASIC_PAPER_HAT),
     equippedChest: t.string().default(""),
+    snowlandsUnlocked: t.bool().default(false),
   },
 );
 
@@ -631,6 +632,7 @@ function defaultPlayerProgress(identity: any) {
     equippedFeet: "",
     introComplete: false,
     desertUnlocked: false,
+    snowlandsUnlocked: false,
   };
 }
 
@@ -936,7 +938,8 @@ function hasFreshProgress(progress: any) {
     progress.equippedHead === defaultProgress.equippedHead &&
     progress.equippedFeet === defaultProgress.equippedFeet &&
     progress.equippedChest === defaultProgress.equippedChest &&
-    progress.desertUnlocked === defaultProgress.desertUnlocked;
+    progress.desertUnlocked === defaultProgress.desertUnlocked &&
+    progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked;
 }
 
 function contributedToLatestDragon(ctx: any, identity: any) {
@@ -1153,7 +1156,7 @@ function clearSpiderCombatRows(ctx: any) {
 function rewardSpiderContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
-  const next = { ...current, maxHp: current.maxHp + SPIDER_REWARD_HEALTH };
+  const next = { ...current, maxHp: current.maxHp + SPIDER_REWARD_HEALTH, snowlandsUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -1535,9 +1538,14 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   } else {
     existingProgress = migrateAttackBalance(ctx, existingProgress);
     const existingPlayer = ctx.db.player.identity.find(ctx.sender);
-    if (!existingProgress.desertUnlocked &&
-      (existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID || contributedToLatestDragon(ctx, ctx.sender))) {
-      existingProgress = { ...existingProgress, desertUnlocked: true };
+    if ((!existingProgress.desertUnlocked &&
+      (existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID || contributedToLatestDragon(ctx, ctx.sender))) ||
+      (!existingProgress.snowlandsUnlocked && existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID)) {
+      existingProgress = {
+        ...existingProgress,
+        desertUnlocked: existingProgress.desertUnlocked || existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID || existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID || contributedToLatestDragon(ctx, ctx.sender),
+        snowlandsUnlocked: existingProgress.snowlandsUnlocked || existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
+      };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
     const equippedFeet = equippedFeetForProgress(existingProgress);
@@ -2351,6 +2359,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       equippedFeet,
       introComplete: base.introComplete,
       desertUnlocked: base.desertUnlocked,
+      snowlandsUnlocked: base.snowlandsUnlocked,
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
@@ -2572,12 +2581,12 @@ export const changeMap = spacetimedb.reducer(
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
     const currentProgress = ctx.db.playerProgress.identity.find(ctx.sender);
-    if (current.mapId === BEGINNER_DESERT_MAP_ID && currentProgress && !currentProgress.desertUnlocked) {
-      ctx.db.playerProgress.identity.update({ ...currentProgress, desertUnlocked: true });
-    }
     if (mapId === BEGINNER_DESERT_MAP_ID) {
       const progress = ctx.db.playerProgress.identity.find(ctx.sender);
       if (!progress?.desertUnlocked) throw new SenderError("Defeat the Dragon before entering Beginner Desert.");
+    }
+    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !currentProgress?.snowlandsUnlocked) {
+      throw new SenderError("Defeat the Desert Spider before entering Intermediate Snowlands.");
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

@@ -28,9 +28,10 @@ export type PlayerProgress = {
   equippedFeet: string;
   introComplete: boolean;
   desertUnlocked: boolean;
+  snowlandsUnlocked: boolean;
 };
 
-export type ProgressSave = Omit<PlayerProgress, "introComplete" | "desertUnlocked"> & { enemyKills: number };
+export type ProgressSave = Omit<PlayerProgress, "introComplete" | "desertUnlocked" | "snowlandsUnlocked"> & { enemyKills: number };
 
 export function bounded(value: number, min: number, max: number, fallback: number) {
   return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;

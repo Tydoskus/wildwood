@@ -31,8 +31,9 @@ export type WorldRendererOptions = {
   isArenaScene: () => boolean;
   mapName: (mapId: MapId) => string;
   activePortal: () => Portal;
+  cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
-  portalIsUnlocked: () => boolean;
+  portalIsUnlocked: (portal: Portal) => boolean;
   portalRevealIntensity: () => number;
   portalDestinationOpacity: () => number;
   tutorialMapId: MapId;
@@ -265,7 +266,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     options.drawShadow(x, y - 4, Math.round(portal.width * .68), .14);
     const cutsceneIntensity = cutscene ? options.portalRevealIntensity() : -1;
     const cutsceneActive = cutsceneIntensity >= 0;
-    const portalIntensity = cutsceneActive ? cutsceneIntensity : options.portalIsUnlocked() ? 1 : 0;
+    const portalIntensity = cutsceneActive ? cutsceneIntensity : options.portalIsUnlocked(portal) ? 1 : 0;
     if (portalIntensity > 0 && options.portalSwirl.complete && options.portalSwirl.naturalWidth > 0) {
       // Ease through the sprite sequence instead of abruptly reversing at
       // either end. The swirl now settles into and out of each turn.
@@ -281,7 +282,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       ctx.restore();
     }
     ctx.drawImage(options.portalArch, Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height);
-    const destinationOpacity = cutsceneActive ? options.portalDestinationOpacity() : options.portalIsUnlocked() ? 1 : 0;
+    const destinationOpacity = cutsceneActive ? options.portalDestinationOpacity() : options.portalIsUnlocked(portal) ? 1 : 0;
     if (destinationOpacity <= 0) return;
     ctx.save();
     ctx.globalAlpha = destinationOpacity;
@@ -293,7 +294,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawPortal() {
-    drawPortalAt(options.activePortal(), true);
+    drawPortalAt(options.cutscenePortal(), true);
   }
 
   function drawSecondaryPortal() {

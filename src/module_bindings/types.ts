@@ -289,6 +289,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   desertUnlocked: __t.bool(),
   equippedHead: __t.string(),
   equippedChest: __t.string(),
+  snowlandsUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

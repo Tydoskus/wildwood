@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.372": [
+    "Intermediate Snowlands now unlocks from your first Desert Spider defeat.",
+  ],
+  "0.371": [
+    "The Snowlands portal activation now plays immediately after your first Desert Spider defeat.",
+  ],
   "0.370": [
     "Improved sign-in update history spacing and readability.",
     "Compact large-number displays now retain trailing zeroes.",
