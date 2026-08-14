@@ -25,6 +25,7 @@ export type WorldRendererOptions = {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   getViewport: () => Viewport;
+  getDevicePixelRatio: () => number;
   getMapId: () => MapId;
   getGameTime: () => number;
   isArenaScene: () => boolean;
@@ -171,10 +172,17 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const startY = Math.floor(camera.y / STATIC_TILE_SIZE) - 1;
     const endX = Math.floor((camera.x + visible.width) / STATIC_TILE_SIZE) + 1;
     const endY = Math.floor((camera.y + visible.height) / STATIC_TILE_SIZE) + 1;
+    const snapTileEdge = (coordinate: number, offset: number) =>
+      Math.round((coordinate - offset) * camera.zoom * options.getDevicePixelRatio()) /
+      (camera.zoom * options.getDevicePixelRatio());
     for (let tileY = startY; tileY <= endY; tileY += 1) {
       for (let tileX = startX; tileX <= endX; tileX += 1) {
         if (tileX < 0 || tileY < 0 || tileX * STATIC_TILE_SIZE >= WORLD.w || tileY * STATIC_TILE_SIZE >= WORLD.h) continue;
-        ctx.drawImage(staticTile(tileX, tileY), Math.floor(tileX * STATIC_TILE_SIZE - camera.x), Math.floor(tileY * STATIC_TILE_SIZE - camera.y));
+        const left = snapTileEdge(tileX * STATIC_TILE_SIZE, camera.x);
+        const top = snapTileEdge(tileY * STATIC_TILE_SIZE, camera.y);
+        const right = snapTileEdge((tileX + 1) * STATIC_TILE_SIZE, camera.x);
+        const bottom = snapTileEdge((tileY + 1) * STATIC_TILE_SIZE, camera.y);
+        ctx.drawImage(staticTile(tileX, tileY), left, top, right - left, bottom - top);
       }
     }
   }

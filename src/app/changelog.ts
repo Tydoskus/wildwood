@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.370": [
+    "Improved sign-in update history spacing and readability.",
+    "Compact large-number displays now retain trailing zeroes.",
+  ],
   "0.369": [
     "Added more space between recent version updates on sign-in.",
   ],
