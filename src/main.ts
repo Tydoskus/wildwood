@@ -128,7 +128,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.373";
+  const GAME_VERSION = "0.374";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -3330,7 +3330,9 @@ import {
   }
 
   function isProfileOnline(identity: string) {
-    if (identity === coop?.localIdentity?.()) return Boolean(coop?.isConnected?.());
+    if (identity === coop?.localIdentity?.()) {
+      return Boolean(coop?.isConnected?.()) && (!isDeveloperIdentity(identity) || coop?.developerPresenceVisible?.() === true);
+    }
     return Boolean(coop?.activePlayerMap?.(identity)) ||
       coop?.remotePlayers?.().some((other) => other.id === identity) === true;
   }
@@ -3389,12 +3391,15 @@ import {
     const { progress, lifetime } = profile;
     openProfileData = profile;
     const online = isProfileOnline(profile.identity);
+    const locallyInvisibleDeveloper = profile.identity === coop?.localIdentity?.() && isDeveloperIdentity(profile.identity) && coop?.developerPresenceVisible?.() !== true;
     const mapName = profile.mapId === BEGINNER_DESERT_MAP_ID
       ? "BEGINNER DESERT"
       : profile.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID
         ? "INTERMEDIATE SNOWLANDS"
       : profile.mapId === TUTORIAL_FOREST_MAP_ID ? "TUTORIAL FOREST" : "";
-    const presenceText = online && mapName
+    const presenceText = locallyInvisibleDeveloper
+      ? "INVISIBLE · NOT COUNTED ONLINE"
+      : online && mapName
       ? `ONLINE - ${mapName}`
       : profilePresenceText(online, lifetime.sessionStartedAtMs);
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;

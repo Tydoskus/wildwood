@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.374": [
+    "Profile display refinements.",
+  ],
   "0.373": [
     "World labels use stronger outlines, and damage popups are larger above combatants.",
   ],
