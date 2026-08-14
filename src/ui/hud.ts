@@ -1,4 +1,4 @@
-import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../game/inventory";
+import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type EquipmentSlot } from "../game/inventory";
 import { formatCompactNumber } from "./number-format";
 
 type PlayerHudState = {
@@ -64,6 +64,8 @@ type InventoryViewState = {
   equippedHead: string;
   equippedChest: string;
   equippedFeet: string;
+  equippedRightHand: string;
+  equippedLeftHand: string;
   selectedItemId: string;
 };
 
@@ -74,6 +76,8 @@ type InventoryElements = {
   equippedHead: HTMLElement;
   equippedChest: HTMLElement;
   equippedFeet: HTMLElement;
+  equippedRightHand: HTMLElement;
+  equippedLeftHand: HTMLElement;
 };
 
 type ItemDefinition = {
@@ -97,7 +101,14 @@ function itemArt(itemId: string, hidden = true) {
 function equippedItem(inventory: InventoryViewState, slot: string) {
   if (slot === "HEAD") return inventory.equippedHead;
   if (slot === "CHEST") return inventory.equippedChest;
-  return inventory.equippedFeet;
+  if (slot === "FEET") return inventory.equippedFeet;
+  if (slot === "RIGHT_HAND") return inventory.equippedRightHand;
+  return inventory.equippedLeftHand;
+}
+
+function renderEquipmentSlot(element: HTMLElement, itemId: string, label: string) {
+  element.classList.toggle("is-equipped", Boolean(itemId));
+  element.innerHTML = itemId ? itemArt(itemId, false) : label;
 }
 
 export function renderInventoryView(
@@ -105,27 +116,20 @@ export function renderInventoryView(
   inventory: InventoryViewState,
   actions: {
     onSelect: (itemId: string) => void;
-    onEquip: (itemId: string) => void;
-    onUnequip: (itemId: string) => void;
+    onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
     onInspect: (itemId: string) => void;
   },
 ) {
   elements.items.replaceChildren();
   const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
-  const equippedIds = new Set([inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet].filter(Boolean));
+  const equippedIds = new Set([inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet, inventory.equippedRightHand, inventory.equippedLeftHand].filter(Boolean));
   const bagItemIds = itemIds.filter((itemId) => !equippedIds.has(itemId));
-  if (!inventory.selectedItemId && (bagItemIds[0] || itemIds[0])) inventory.selectedItemId = bagItemIds[0] || itemIds[0];
   elements.count.textContent = `${bagItemIds.length} / 16`;
-  elements.equippedHead.classList.toggle("is-equipped", Boolean(inventory.equippedHead));
-  elements.equippedHead.innerHTML = inventory.equippedHead
-    ? itemArt(inventory.equippedHead, false)
-    : "HEAD";
-  elements.equippedChest.classList.toggle("is-equipped", Boolean(inventory.equippedChest));
-  elements.equippedChest.innerHTML = inventory.equippedChest
-    ? itemArt(inventory.equippedChest, false)
-    : "CHEST";
-  elements.equippedFeet.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
-  elements.equippedFeet.textContent = inventory.equippedFeet === TRAILBLAZER_BOOTS ? "BOOTS" : "FEET";
+  renderEquipmentSlot(elements.equippedHead, inventory.equippedHead, "HEAD");
+  renderEquipmentSlot(elements.equippedChest, inventory.equippedChest, "CHEST");
+  renderEquipmentSlot(elements.equippedRightHand, inventory.equippedRightHand, "RIGHT");
+  renderEquipmentSlot(elements.equippedLeftHand, inventory.equippedLeftHand, "LEFT");
+  renderEquipmentSlot(elements.equippedFeet, inventory.equippedFeet, "FEET");
 
   for (let index = 0; index < 16; index += 1) {
     const itemId = bagItemIds[index];
@@ -140,13 +144,15 @@ export function renderInventoryView(
       button.innerHTML = itemArt(itemId);
       button.addEventListener("click", () => actions.onSelect(itemId));
     } else {
-      button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
-      button.disabled = true;
+      const canMoveSelectedToBag = Boolean(inventory.selectedItemId && equippedIds.has(inventory.selectedItemId));
+      button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}`);
+      button.disabled = !canMoveSelectedToBag;
+      if (canMoveSelectedToBag) button.addEventListener("click", () => actions.onMove(inventory.selectedItemId, "BAG"));
     }
     elements.items.appendChild(button);
   }
 
-  const selected = itemsById[inventory.selectedItemId] ?? itemsById[itemIds[0]];
+  const selected = itemsById[inventory.selectedItemId];
   if (!selected) {
     elements.detail.textContent = "SELECT AN ITEM TO VIEW ITS STATS";
     return;
@@ -157,16 +163,13 @@ export function renderInventoryView(
     `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   const actionRow = document.createElement("div");
   actionRow.className = "inventory-actions";
-  const equip = document.createElement("button");
-  equip.type = "button";
-  const equipped = equippedItem(inventory, selected.slot) === selected.id;
-  equip.textContent = equipped ? "UNEQUIP" : "EQUIP";
-  equip.addEventListener("click", () => equipped ? actions.onUnequip(selected.id) : actions.onEquip(selected.id));
+  const moveHint = document.createElement("span");
+  moveHint.textContent = selected.slot === "HAND" ? "CLICK LEFT OR RIGHT HAND SLOT" : `CLICK ${selected.slot} SLOT`;
   const inspect = document.createElement("button");
   inspect.type = "button";
   inspect.className = "secondary-button";
   inspect.textContent = "INSPECT";
   inspect.addEventListener("click", () => actions.onInspect(selected.id));
-  actionRow.append(equip, inspect);
+  actionRow.append(moveHint, inspect);
   elements.detail.appendChild(actionRow);
 }

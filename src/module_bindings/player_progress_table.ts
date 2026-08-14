@@ -29,4 +29,6 @@ export default __t.row({
   equippedHead: __t.string().name("equipped_head"),
   equippedChest: __t.string().name("equipped_chest"),
   snowlandsUnlocked: __t.bool().name("snowlands_unlocked"),
+  equippedRightHand: __t.string().name("equipped_right_hand"),
+  equippedLeftHand: __t.string().name("equipped_left_hand"),
 });

@@ -83,8 +83,11 @@ export function drawStartingPlayer(
     head: [0, -2, -3, -2][idleFrame] ?? 0,
   };
   const boots = options.feetItem === TRAILBLAZER_BOOTS;
+  const facingLeft = Math.cos(options.facing) < 0;
   const throwElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
-  let stoneX = 18 - 33;
+  // When facing left, the mirrored stone sits behind the body and overlaps it
+  // slightly, leaving only its outer half visible on the player's left.
+  let stoneX = facingLeft ? 30 : 18 - 33;
   let stoneY = 112 + 4;
   let stoneVisible = true;
   if (throwElapsed > 0 && throwElapsed < .12) {
@@ -107,8 +110,10 @@ export function drawStartingPlayer(
   ctx.save();
   ctx.globalAlpha = options.alpha ?? 1;
   ctx.translate(Math.round(options.x), Math.round(options.y + 29));
-  if (Math.cos(options.facing) < 0) ctx.scale(-1, 1);
+  if (facingLeft) ctx.scale(-1, 1);
   ctx.scale(scale, scale); ctx.translate(-90, -171);
+  const drawHeldStone = () => drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + stoneX, stoneY);
+  if (facingLeft && stoneVisible) drawHeldStone();
   drawLayer(backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
@@ -116,6 +121,6 @@ export function drawStartingPlayer(
   ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
   const headwear = options.headItem === SUPERIOR_GOLDEN_HELMET ? assets.superiorGoldenHelmet : assets.basicPaperHat;
   if (options.headItem !== "") drawLayer(headwear, 90 - headwear.naturalWidth / 2, 118 - headwear.naturalHeight + 26 + gait.head);
-  if (stoneVisible) drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + stoneX, stoneY);
+  if (!facingLeft && stoneVisible) drawHeldStone();
   ctx.restore();
 }

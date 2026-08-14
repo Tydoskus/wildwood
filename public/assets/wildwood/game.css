@@ -252,7 +252,8 @@
   .equipment-slot.is-equipped { border-color: #d79935; color: #ffe47b; background: rgba(166,103,28,.2); }
 
   .slot-head { left: 50%; top: 0; transform: translateX(-50%); }
-  .slot-hands { left: 0; top: 57px; }
+  .slot-right-hand { left: 0; top: 57px; }
+  .slot-left-hand { right: 0; top: 57px; }
   .slot-chest { left: 50%; top: 57px; transform: translateX(-50%); }
   .slot-legs { left: 50%; top: 113px; transform: translateX(-50%); }
   .slot-feet { left: 50%; top: 160px; transform: translateX(-50%); }
@@ -318,7 +319,7 @@
     .equipment-slot { width: 36px; height: 36px; font-size: 6px; }
     .equipment-slot::before { width: 10px; height: 10px; margin-bottom: 1px; }
     .slot-head { top: 0; }
-    .slot-hands, .slot-chest { top: 42px; }
+    .slot-right-hand, .slot-left-hand, .slot-chest { top: 42px; }
     .slot-legs { top: 84px; }
     .slot-feet { top: 126px; }
     .inventory-items { gap: 3px; }
@@ -736,6 +737,24 @@
   }
 
   #gameUpdateGate[hidden] { display: none; }
+
+  #reconnectOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .62);
+    color: #fff;
+    font: 900 clamp(18px, 4vw, 28px) var(--font-rounded);
+    letter-spacing: .08em;
+    pointer-events: auto;
+  }
+
+  #reconnectOverlay[hidden] { display: none; }
+  .reconnect-ellipsis::after { content: "..."; display: inline-block; width: 0; overflow: hidden; vertical-align: bottom; animation: reconnect-ellipsis 1s steps(4, end) infinite; }
+
+  @keyframes reconnect-ellipsis { to { width: 1.15em; } }
 
   .modal.game-update-modal { width: min(430px, calc(100vw - 28px)); }
   .game-update-modal h2 { margin: 8px 0 3px; color: var(--gold); font-size: clamp(22px, 6vw, 30px); }

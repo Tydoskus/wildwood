@@ -1,0 +1,253 @@
+import { createActorRenderer, type ActorStatus } from "./actor-renderer";
+import { createBossRenderer } from "./boss-renderer";
+import type { Camera } from "./camera";
+import { createDepthWorldRenderer } from "./depth-world-renderer";
+import { createRenderController, type RenderController } from "./render-controller";
+import { createWorldRenderer } from "./world-renderer";
+import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
+import type { LoadedEnemySprite } from "../enemies";
+import type { MapId, WorldDecor, WorldPath } from "../world";
+import type { RemotePlayer } from "../../wildwood-coop";
+import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+
+type Viewport = { width: number; height: number; dpr: number };
+type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
+type BootsPickup = { x: number; y: number; r: number; collected: boolean };
+type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
+type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
+
+export type WorldRenderRuntimeOptions = {
+  ctx: CanvasRenderingContext2D;
+  camera: Camera;
+  viewport: () => Viewport;
+  currentMapId: () => MapId;
+  gameTime: () => number;
+  isArenaScene: () => boolean;
+  mapName: (mapId: MapId) => string;
+  tutorialMapId: MapId;
+  desertMapId: MapId;
+  snowMapId: MapId;
+  paths: WorldPath[];
+  decor: WorldDecor[];
+  enemies: EnemyState[];
+  player: PlayerState;
+  boss: DragonBossState;
+  spiderBoss: SpiderBossState;
+  bossRain: BossRainStrike[];
+  spiderVenom: SpiderVenomPool[];
+  activePortal: () => Portal;
+  cutscenePortal: () => Portal;
+  secondaryPortal: () => Portal | null;
+  portalIsUnlocked: (portal: Portal) => boolean;
+  portalRevealIntensity: () => number;
+  portalDestinationOpacity: () => number;
+  assets: {
+    duelSpaceBackground: HTMLImageElement;
+    treeSpritesheet: HTMLImageElement;
+    treeSpriteBounds: () => { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number }[];
+    portalArch: HTMLImageElement;
+    portalSwirl: HTMLImageElement;
+    snowPine: HTMLImageElement;
+    dragonSpriteCanvas: HTMLCanvasElement;
+    spiderSpriteCanvas: HTMLCanvasElement;
+    dragonReady: () => boolean;
+    spiderReady: () => boolean;
+    duelPlatformArt: HTMLImageElement;
+  };
+  actorShadowSprite: HTMLImageElement;
+  drawShadow: DrawShadow;
+  pixelCircle: (x: number, y: number, radius: number) => void;
+  outlinedText: OutlinedText;
+  fillText: (text: string, x: number, y: number, color: string) => void;
+  roundRect: (x: number, y: number, width: number, height: number, radius: number) => void;
+  bossHpLossFlashDuration: number;
+  spiderWebRange: number;
+  playerAppearanceAssets: PlayerAppearanceAssets;
+  skinTone: (identity: string | undefined) => number | undefined;
+  equippedItems: () => { head: string; chest: string; feet: string };
+  enemySprites: Record<string, LoadedEnemySprite>;
+  rewardMultiplier: () => number;
+  enemyTextVisible: (enemy: EnemyState) => boolean;
+  drawStatus: (status: ActorStatus) => void;
+  drawSpeechBubble: (identity: string | undefined, x: number, y: number) => void;
+  publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
+  playerPower: (player: PlayerState) => number;
+  worldHealthBarHeight: number;
+};
+
+export type FrameRendererOptions = {
+  textCtx: CanvasRenderingContext2D;
+  textCanvas: HTMLCanvasElement;
+  bootsPickup: BootsPickup;
+  remotePlayers: () => RemotePlayer[];
+  isDueling: () => boolean;
+  isArenaScene: () => boolean;
+  isReplayActive: () => boolean;
+  replayScene: () => DuelScene | null;
+  liveScene: () => DuelScene | null;
+  heldScene: () => DuelScene | null;
+  duelResultHeld: () => boolean;
+  setRenderedDuelScene: (scene: DuelScene | null) => void;
+  setDuelCountdown: (countdown: number) => void;
+  drawProfileCharacterPreview: () => void;
+  updateSpeechBubbles: () => void;
+  localIdentity: () => string | undefined;
+  localDisplayName: () => string | undefined;
+  drawParticles: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
+  drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera, outlinedText: OutlinedText) => void;
+  portalCutsceneActive: () => boolean;
+  portalBlackoutOpacity: () => number;
+  screenShake: () => number;
+  screenShakeEnabled: () => boolean;
+  attackRangeVisible: () => boolean;
+  flash: () => number;
+  projectiles: Projectile[];
+  enemyShots: EnemyShot[];
+};
+
+/** Wires the independent world, actor, boss, depth, and frame renderers. */
+export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
+  const world = createWorldRenderer({
+    ctx: options.ctx,
+    camera: options.camera,
+    getViewport: () => options.viewport(),
+    getDevicePixelRatio: () => options.viewport().dpr,
+    getMapId: options.currentMapId,
+    getGameTime: options.gameTime,
+    isArenaScene: options.isArenaScene,
+    mapName: options.mapName,
+    activePortal: options.activePortal,
+    cutscenePortal: options.cutscenePortal,
+    secondaryPortal: options.secondaryPortal,
+    portalIsUnlocked: options.portalIsUnlocked,
+    portalRevealIntensity: options.portalRevealIntensity,
+    portalDestinationOpacity: options.portalDestinationOpacity,
+    tutorialMapId: options.tutorialMapId,
+    desertMapId: options.desertMapId,
+    snowMapId: options.snowMapId,
+    paths: options.paths,
+    decor: options.decor,
+    enemies: options.enemies,
+    player: options.player,
+    actorShadowSprite: options.actorShadowSprite,
+    drawShadow: options.drawShadow,
+    outlinedText: options.outlinedText,
+    roundRect: options.roundRect,
+    ...options.assets,
+  });
+  const boss = createBossRenderer({
+    ctx: options.ctx, camera: options.camera, boss: options.boss, spiderBoss: options.spiderBoss,
+    bossRain: options.bossRain, spiderVenom: options.spiderVenom,
+    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas,
+    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady,
+    gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
+    drawShadow: options.drawShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
+  });
+  const actor = createActorRenderer({
+    ctx: options.ctx,
+    camera: options.camera,
+    viewport: () => options.viewport(),
+    gameTime: options.gameTime,
+    drawPlayerAppearance: (rendered, alpha) => drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
+      ...rendered,
+      gameTime: options.gameTime(),
+      skinTone: options.skinTone(rendered.identity ?? rendered.id) ?? DEFAULT_SKIN_TONE,
+      alpha,
+    }),
+    localHeadItem: () => options.equippedItems().head,
+    localChestItem: () => options.equippedItems().chest,
+    localFeetItem: () => options.equippedItems().feet,
+    playerStone: options.playerAppearanceAssets.stone,
+    enemySprites: options.enemySprites,
+    duelPlatformArt: options.assets.duelPlatformArt,
+    player: options.player,
+    rewardMultiplier: options.rewardMultiplier,
+    enemyTextVisible: options.enemyTextVisible,
+    pixelCircle: options.pixelCircle,
+    outlinedText: options.outlinedText,
+    drawShadow: options.drawShadow,
+    drawStatus: options.drawStatus,
+    drawSpeechBubble: options.drawSpeechBubble,
+    publicName: options.publicPlayerName,
+    worldHealthBarHeight: options.worldHealthBarHeight,
+  });
+
+  function createFrameRenderer(frame: FrameRendererOptions): RenderController {
+    let renderer: RenderController;
+    const depth = createDepthWorldRenderer({
+      camera: options.camera,
+      viewport: () => options.viewport(),
+      decor: options.decor,
+      enemies: options.enemies,
+      player: options.player,
+      boss: options.boss,
+      spiderBoss: options.spiderBoss,
+      bootsPickup: frame.bootsPickup,
+      currentMapId: options.currentMapId,
+      activePortal: options.activePortal,
+      secondaryPortal: options.secondaryPortal,
+      drawTree: world.drawTree,
+      drawCactus: world.drawCactus,
+      drawEnemy: actor.drawEnemy,
+      drawBoss: boss.drawBoss,
+      drawSpiderBoss: boss.drawSpiderBoss,
+      drawBootPickup: () => renderer.drawBootPickup(),
+      drawPortal: world.drawPortal,
+      drawSecondaryPortal: world.drawSecondaryPortal,
+      drawRemotePlayer: actor.drawRemotePlayer,
+      drawPlayer: () => actor.drawPlayer(
+        frame.localIdentity(),
+        options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
+        options.playerPower(options.player),
+      ),
+    });
+    renderer = createRenderController({
+      ctx: options.ctx,
+      textCtx: frame.textCtx,
+      textCanvas: frame.textCanvas,
+      camera: options.camera,
+      player: options.player,
+      bootsPickup: frame.bootsPickup,
+      viewport: options.viewport,
+      pixelCircle: options.pixelCircle,
+      remotePlayers: frame.remotePlayers,
+      isDueling: frame.isDueling,
+      isArenaScene: frame.isArenaScene,
+      isReplayActive: frame.isReplayActive,
+      replayScene: frame.replayScene,
+      liveScene: frame.liveScene,
+      heldScene: frame.heldScene,
+      duelResultHeld: frame.duelResultHeld,
+      setRenderedDuelScene: frame.setRenderedDuelScene,
+      setDuelCountdown: frame.setDuelCountdown,
+      drawProfileCharacterPreview: frame.drawProfileCharacterPreview,
+      updateSpeechBubbles: frame.updateSpeechBubbles,
+      drawGround: world.drawGround,
+      drawStaticWorld: world.drawStaticWorld,
+      drawDuelArena: actor.drawDuelArena,
+      drawDuelScene: actor.drawDuelScene,
+      drawDecor: world.drawDecor,
+      drawBossTelegraphs: boss.drawBossTelegraphs,
+      drawSpiderTelegraphs: boss.drawSpiderTelegraphs,
+      drawProjectile: actor.drawProjectile,
+      drawDepthSortedWorld: depth.drawDepthSortedWorld,
+      drawMinimap: world.drawMinimap,
+      drawCutscenePortal: world.drawCutscenePortal,
+      drawParticles: frame.drawParticles,
+      drawDamageNumbers: (ctx, camera) => frame.drawDamageNumbers(ctx, camera, options.outlinedText),
+      currentMapIsTutorial: () => options.currentMapId() === options.tutorialMapId,
+      currentMapIsDesert: () => options.currentMapId() === options.desertMapId,
+      portalCutsceneActive: frame.portalCutsceneActive,
+      portalBlackoutOpacity: frame.portalBlackoutOpacity,
+      screenShake: frame.screenShake,
+      screenShakeEnabled: frame.screenShakeEnabled,
+      attackRangeVisible: frame.attackRangeVisible,
+      flash: frame.flash,
+      projectiles: frame.projectiles,
+      enemyShots: frame.enemyShots,
+    });
+    return renderer;
+  }
+
+  return { ...world, ...boss, ...actor, createFrameRenderer };
+}

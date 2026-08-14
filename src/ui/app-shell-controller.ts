@@ -1,0 +1,199 @@
+import type { MapMusicController } from "../game/runtime/audio";
+import { requiredElement } from "../game/runtime/dom";
+import {
+  renderAccountStatus,
+  renderBooleanSetting,
+  renderConnectionStatus,
+  renderFullscreenSetting,
+  renderLatencyStatus,
+  renderMusicVolume,
+} from "./settings";
+
+type AccountState = { signedIn: boolean; notice: string };
+
+type AppShellDependencies = {
+  mapMusic: MapMusicController;
+  storageKeys: {
+    antiAliasing: string;
+    attackRange: string;
+    lowPerformance: string;
+    latency: string;
+    musicVolume: string;
+  };
+  connected: () => boolean;
+  latencyMs: () => number | null | undefined;
+  accountState: () => AccountState | undefined;
+  signIn: () => void;
+  signOut: () => void;
+  canPlayMusic: () => boolean;
+  onScreenShakeDisabled: () => void;
+  onLowPerformanceChanged: () => void;
+  showMessage: (message: string, color: string) => void;
+};
+
+/** Settings, audio lifecycle, fullscreen, and shell account/connection status. */
+export function createAppShellController(dependencies: AppShellDependencies) {
+  const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
+  const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
+  const antiAliasingToggle = requiredElement<HTMLButtonElement>("antiAliasingToggle");
+  const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
+  const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
+  const latencyStatus = requiredElement("latencyStatus");
+  const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
+  const musicVolumeValue = requiredElement("musicVolumeValue");
+  const fullscreenToggle = requiredElement<HTMLButtonElement>("fullscreenToggle");
+  const connectionStatus = requiredElement("connectionStatus");
+  const accountButton = requiredElement("accountButton");
+  const accountStatus = requiredElement("accountStatus");
+
+  let screenShakeEnabled = true;
+  let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
+  let antiAliasingEnabled = readBoolean(dependencies.storageKeys.antiAliasing, true);
+  let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
+  let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
+
+  function refreshSettings() {
+    renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
+    renderBooleanSetting(attackRangeToggle, attackRangeVisible);
+    renderBooleanSetting(antiAliasingToggle, antiAliasingEnabled);
+    renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
+    renderBooleanSetting(latencyToggle, latencyVisible);
+    renderLatencyStatus(latencyStatus, latencyVisible, dependencies.latencyMs(), dependencies.connected());
+    dependencies.mapMusic.setVolume(dependencies.mapMusic.volume);
+    renderMusicVolume(musicVolumeInput, musicVolumeValue, dependencies.mapMusic.volume);
+  }
+
+  function refreshStatus() {
+    renderConnectionStatus(connectionStatus, dependencies.connected());
+    renderAccountStatus(accountButton, accountStatus, dependencies.accountState() || { signedIn: false, notice: "" });
+    renderLatencyStatus(latencyStatus, latencyVisible, dependencies.latencyMs(), dependencies.connected());
+  }
+
+  function refreshFullscreen() {
+    const root = document.documentElement;
+    const supported = typeof root.requestFullscreen === "function" || typeof root.webkitRequestFullscreen === "function";
+    renderFullscreenSetting(fullscreenToggle, supported, Boolean(document.fullscreenElement || document.webkitFullscreenElement));
+  }
+
+  function ensureMusicPlaying() {
+    dependencies.mapMusic.ensurePlaying(dependencies.canPlayMusic());
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        await exitFullscreen();
+      } else {
+        await enterFullscreen();
+      }
+    } catch {
+      dependencies.showMessage("FULLSCREEN UNAVAILABLE", "#ff9b91");
+    }
+    refreshFullscreen();
+  }
+
+  screenShakeToggle.addEventListener("click", () => {
+    screenShakeEnabled = !screenShakeEnabled;
+    if (!screenShakeEnabled) dependencies.onScreenShakeDisabled();
+    refreshSettings();
+  });
+  attackRangeToggle.addEventListener("click", () => {
+    attackRangeVisible = !attackRangeVisible;
+    writeBoolean(dependencies.storageKeys.attackRange, attackRangeVisible);
+    refreshSettings();
+  });
+  antiAliasingToggle.addEventListener("click", () => {
+    antiAliasingEnabled = !antiAliasingEnabled;
+    writeBoolean(dependencies.storageKeys.antiAliasing, antiAliasingEnabled);
+    refreshSettings();
+  });
+  lowPerformanceToggle.addEventListener("click", () => {
+    lowPerformanceMode = !lowPerformanceMode;
+    writeBoolean(dependencies.storageKeys.lowPerformance, lowPerformanceMode);
+    dependencies.onLowPerformanceChanged();
+    refreshSettings();
+  });
+  latencyToggle.addEventListener("click", () => {
+    latencyVisible = !latencyVisible;
+    writeBoolean(dependencies.storageKeys.latency, latencyVisible);
+    refreshSettings();
+  });
+  musicVolumeInput.addEventListener("input", () => {
+    const volume = Math.min(1, Math.max(0, Number(musicVolumeInput.value) / 100));
+    dependencies.mapMusic.setVolume(volume);
+    writeString(dependencies.storageKeys.musicVolume, String(volume));
+    refreshSettings();
+    if (volume > 0) ensureMusicPlaying();
+  });
+  accountButton.addEventListener("click", () => {
+    if (dependencies.accountState()?.signedIn) dependencies.signOut();
+    else dependencies.signIn();
+  });
+  fullscreenToggle.addEventListener("click", () => { void toggleFullscreen(); });
+  document.addEventListener("fullscreenchange", refreshFullscreen);
+  document.addEventListener("webkitfullscreenchange", refreshFullscreen);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      dependencies.mapMusic.audio.pause();
+      return;
+    }
+    ensureMusicPlaying();
+  });
+  window.addEventListener("pagehide", () => dependencies.mapMusic.audio.pause());
+  document.addEventListener("pointerdown", ensureMusicPlaying, { capture: true });
+  document.addEventListener("keydown", ensureMusicPlaying, { capture: true });
+
+  refreshSettings();
+  refreshStatus();
+  refreshFullscreen();
+
+  return {
+    attackRangeVisible: () => attackRangeVisible,
+    antiAliasingEnabled: () => antiAliasingEnabled,
+    lowPerformanceMode: () => lowPerformanceMode,
+    screenShakeEnabled: () => screenShakeEnabled,
+    refreshFullscreen,
+    refreshSettings,
+    refreshStatus,
+    ensureMusicPlaying,
+  };
+}
+
+async function enterFullscreen() {
+  const root = document.documentElement;
+  if (typeof root.requestFullscreen === "function") {
+    try {
+      await root.requestFullscreen({ navigationUI: "hide" });
+    } catch (error) {
+      if (!(error instanceof Error) || error.name !== "TypeError") throw error;
+      await root.requestFullscreen();
+    }
+    return;
+  }
+  if (typeof root.webkitRequestFullscreen === "function") root.webkitRequestFullscreen();
+}
+
+async function exitFullscreen() {
+  if (typeof document.exitFullscreen === "function") {
+    await document.exitFullscreen();
+    return;
+  }
+  if (typeof document.webkitExitFullscreen === "function") document.webkitExitFullscreen();
+}
+
+function readBoolean(key: string, fallback: boolean) {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value === "true";
+  } catch {
+    return fallback;
+  }
+}
+
+function writeBoolean(key: string, value: boolean) {
+  writeString(key, String(value));
+}
+
+function writeString(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch {}
+}

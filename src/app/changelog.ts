@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.400": [
+    "Added Move Speed research and two inventory hand slots for future left- and right-hand weapons.",
+    "Returning after a long background pause now shows a reconnecting overlay while the game restores its session.",
+    "Improved account loading flow, profile and inventory interaction, and runtime structure.",
+  ],
   "0.399": [
     "Idle offscreen enemies now simulate at 12 Hz while nearby or engaged enemies remain full-rate; offscreen enemies are culled before depth sorting.",
   ],

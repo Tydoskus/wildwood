@@ -18,6 +18,8 @@ const pending: ProgressSave = {
   equippedHead: "basic_paper_hat",
   equippedChest: "",
   equippedFeet: "trailblazer_boots",
+  equippedRightHand: "",
+  equippedLeftHand: "",
   enemyKills: 10,
 };
 

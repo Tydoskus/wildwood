@@ -1,0 +1,230 @@
+import { createPortalCutscene } from "./cutscene";
+import type { Camera } from "./camera";
+import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { MapId, SpawnSite } from "../world";
+
+export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
+
+type MapConfig = Record<MapId, { portal: MapPortal; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
+
+export type MapController = {
+  activePortal: () => MapPortal;
+  secondaryPortal: () => MapPortal | null;
+  portalIsUnlocked: (portal: MapPortal) => boolean;
+  resolvePortalCollision: () => void;
+  updatePortal: (dt: number) => void;
+  loadMap: (mapId: MapId, x: number, y: number, facing?: number) => void;
+  reconcileMapFromServer: () => void;
+  startDragonPortalCutscene: (preview?: boolean) => void;
+  startSnowlandsPortalCutscene: (preview?: boolean) => void;
+  updatePortalCutscene: (dt: number) => boolean;
+  isCutsceneActive: () => boolean;
+  isMapTransitioning: () => boolean;
+  cutscenePortal: () => MapPortal;
+  portalRevealIntensity: () => number;
+  portalBlackoutOpacity: () => number;
+  portalDestinationOpacity: () => number;
+};
+
+/** Owns map travel, portal collisions, and cinematic portal state. */
+export function createMapController(options: {
+  mapConfig: MapConfig;
+  tutorialMapId: MapId;
+  desertMapId: MapId;
+  snowMapId: MapId;
+  dragonCutsceneSeenKey: string;
+  snowlandsCutsceneSeenKey: string;
+  getCurrentMapId: () => MapId;
+  setCurrentMapId: (mapId: MapId) => void;
+  player: PlayerState;
+  camera: Camera;
+  viewport: () => { width: number; height: number };
+  keys: { clear: () => void };
+  stopTouchMove: () => void;
+  cutsceneOverlay: HTMLElement;
+  isDueling: () => boolean;
+  running: () => boolean;
+  localMapState: () => { mapId: string; x: number; y: number; facing: number } | null | undefined;
+  changeMap: (mapId: MapId) => Promise<boolean | undefined> | boolean | undefined;
+  syncPosition: () => void;
+  fadeToWorld: (action: () => void) => void;
+  mapUnlocked: (mapId: MapId) => boolean;
+  syncMapMusic: () => void;
+  rebuildWorld: () => void;
+  spawnFromSite: (site: SpawnSite) => void;
+  enemies: EnemyState[];
+  spawnSites: SpawnSite[];
+  projectiles: Projectile[];
+  enemyShots: EnemyShot[];
+  particles: unknown[];
+  damageNumbers: unknown[];
+  bossRain: BossRainStrike[];
+  spiderVenom: SpiderVenomPool[];
+  boss: DragonBossState;
+  spiderBoss: SpiderBossState;
+  clearPendingBossHits: () => void;
+  showMapMessage: (mapId: MapId) => void;
+  onCutsceneFinished: (wasPreview: boolean) => void;
+}): MapController {
+  const {
+    mapConfig, tutorialMapId, desertMapId, snowMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey,
+    getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay,
+    isDueling, running, localMapState, changeMap, syncPosition, fadeToWorld, mapUnlocked, syncMapMusic,
+    rebuildWorld, spawnFromSite, enemies, spawnSites, projectiles, enemyShots, particles, damageNumbers,
+    bossRain, spiderVenom, boss, spiderBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
+  } = options;
+  const portalCutscene = createPortalCutscene();
+  let mapTransitioning = false;
+  let portalCooldown = 0;
+  let portalCutsceneIntensity = -1;
+  let portalCutsceneBlackoutOpacity = 0;
+  let portalCutsceneDestinationOpacity = 0;
+  let portalCutscenePreview = false;
+  let portalCutsceneSeenKey = dragonCutsceneSeenKey;
+  let portalCutscenePortal = mapConfig[tutorialMapId].portal;
+
+  function activePortal() { return mapConfig[getCurrentMapId()].portal; }
+  function secondaryPortal() { return getCurrentMapId() === desertMapId ? mapConfig[desertMapId].secondaryPortal ?? null : null; }
+  function portalIsUnlocked(portal: MapPortal) { return portal.destination === tutorialMapId || mapUnlocked(portal.destination); }
+
+  function portalColliders() {
+    return [activePortal(), secondaryPortal()].filter((portal): portal is MapPortal => portal !== null).flatMap((portal) => [
+      { x: portal.x - portal.width * .32, y: portal.y - 52, r: 22 },
+      { x: portal.x + portal.width * .32, y: portal.y - 52, r: 22 },
+    ]);
+  }
+
+  function resolvePortalCollision() {
+    const portal = activePortal();
+    for (const obstacle of portalColliders()) {
+      const dx = player.x - obstacle.x;
+      const dy = player.y - obstacle.y;
+      const minimumDistance = player.r + obstacle.r;
+      const distanceSquared = dx * dx + dy * dy;
+      if (distanceSquared >= minimumDistance * minimumDistance) continue;
+      const distance = Math.sqrt(distanceSquared);
+      const nx = distance > .001 ? dx / distance : (player.x < portal.x ? -1 : 1);
+      const ny = distance > .001 ? dy / distance : 0;
+      player.x = obstacle.x + nx * minimumDistance;
+      player.y = obstacle.y + ny * minimumDistance;
+    }
+  }
+
+  function loadMap(mapId: MapId, x: number, y: number, facing = 0) {
+    setCurrentMapId(mapId);
+    syncMapMusic();
+    player.x = x;
+    player.y = y;
+    player.facing = facing;
+    player.moving = false;
+    enemies.length = 0;
+    spawnSites.length = 0;
+    projectiles.length = 0;
+    enemyShots.length = 0;
+    particles.length = 0;
+    damageNumbers.length = 0;
+    clearPendingBossHits();
+    bossRain.length = 0;
+    boss.cone = null;
+    spiderVenom.length = 0;
+    spiderBoss.web = null;
+    rebuildWorld();
+    for (const site of spawnSites) spawnFromSite(site);
+  }
+
+  function updatePortal(dt: number) {
+    portalCooldown = Math.max(0, portalCooldown - dt);
+    if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
+    const portal = [activePortal(), secondaryPortal()].filter((candidate): candidate is MapPortal => candidate !== null).find((candidate) =>
+      Math.hypot(player.x - candidate.x, player.y - (candidate.y - candidate.height * .32)) <= 48,
+    );
+    if (!portal || !portalIsUnlocked(portal)) return;
+    mapTransitioning = true;
+    const destination = portal.destination;
+    void Promise.resolve(changeMap(destination)).then((changed) => {
+      if (!changed) { mapTransitioning = false; portalCooldown = 1; return; }
+      fadeToWorld(() => {
+        const arrival = mapConfig[destination].arrival;
+        loadMap(destination, arrival.x, arrival.y, Math.PI / 2);
+        portalCooldown = 1.5;
+        mapTransitioning = false;
+        showMapMessage(getCurrentMapId());
+        syncPosition();
+      });
+    });
+  }
+
+  function reconcileMapFromServer() {
+    if (!running() || mapTransitioning || isDueling()) return;
+    const state = localMapState();
+    if (!state || state.mapId === getCurrentMapId()) return;
+    if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId) return;
+    mapTransitioning = true;
+    fadeToWorld(() => {
+      loadMap(state.mapId as MapId, state.x, state.y, state.facing);
+      portalCooldown = 1.5;
+      mapTransitioning = false;
+      showMapMessage(getCurrentMapId());
+    });
+  }
+
+  function startMapPortalCutscene(mapId: MapId, preview = false, portal: MapPortal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
+    portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, viewport());
+    portalCutsceneIntensity = 0;
+    portalCutsceneBlackoutOpacity = 0;
+    portalCutsceneDestinationOpacity = 0;
+    portalCutscenePreview = preview;
+    portalCutscenePortal = portal;
+    portalCutsceneSeenKey = seenKey;
+    keys.clear();
+    stopTouchMove();
+    cutsceneOverlay.hidden = false;
+    document.body.classList.add("is-cutscene");
+  }
+
+  function startDragonPortalCutscene(preview = false) { startMapPortalCutscene(tutorialMapId, preview); }
+  function startSnowlandsPortalCutscene(preview = false) {
+    const portal = mapConfig[desertMapId].secondaryPortal;
+    if (portal) startMapPortalCutscene(desertMapId, preview, portal, snowlandsCutsceneSeenKey);
+  }
+
+  function updatePortalCutscene(dt: number) {
+    const frame = portalCutscene.update(dt);
+    camera.x = frame.camera.x;
+    camera.y = frame.camera.y;
+    camera.zoom = frame.camera.zoom;
+    portalCutsceneIntensity = frame.portalIntensity;
+    portalCutsceneBlackoutOpacity = frame.blackoutOpacity;
+    portalCutsceneDestinationOpacity = frame.destinationOpacity;
+    if (!frame.finished) return true;
+    portalCutsceneIntensity = -1;
+    portalCutsceneBlackoutOpacity = 0;
+    portalCutsceneDestinationOpacity = 0;
+    cutsceneOverlay.hidden = true;
+    document.body.classList.remove("is-cutscene");
+    const wasPreview = portalCutscenePreview;
+    portalCutscenePreview = false;
+    if (!wasPreview) { try { localStorage.setItem(portalCutsceneSeenKey, "true"); } catch {} }
+    onCutsceneFinished(wasPreview);
+    return false;
+  }
+
+  return {
+    activePortal,
+    secondaryPortal,
+    portalIsUnlocked,
+    resolvePortalCollision,
+    updatePortal,
+    loadMap,
+    reconcileMapFromServer,
+    startDragonPortalCutscene,
+    startSnowlandsPortalCutscene,
+    updatePortalCutscene,
+    isCutsceneActive: () => portalCutscene.active,
+    isMapTransitioning: () => mapTransitioning,
+    cutscenePortal: () => portalCutscenePortal,
+    portalRevealIntensity: () => portalCutsceneIntensity,
+    portalBlackoutOpacity: () => portalCutsceneBlackoutOpacity,
+    portalDestinationOpacity: () => portalCutsceneDestinationOpacity,
+  };
+}

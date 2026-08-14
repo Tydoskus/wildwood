@@ -293,7 +293,7 @@ let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
-let localResearch: PlayerResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+let localResearch: PlayerResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
 let localActiveResearch: ActiveResearch | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
@@ -306,6 +306,7 @@ let authNotice = "";
 let protocolBlocked = false;
 let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
+let wakeReconnectVisible = false;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
@@ -1070,6 +1071,8 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     equippedHead: row.equippedHead,
     equippedChest: row.equippedChest,
     equippedFeet: row.equippedFeet,
+    equippedRightHand: row.equippedRightHand ?? "",
+    equippedLeftHand: row.equippedLeftHand ?? "",
     introComplete: row.introComplete,
     desertUnlocked: row.desertUnlocked,
     snowlandsUnlocked: row.snowlandsUnlocked,
@@ -1083,22 +1086,23 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   onChange?.();
 }
 
-function upsertResearch(row: { identity: Identity } & PlayerResearch) {
+function upsertResearch(row: { identity: Identity } & Partial<PlayerResearch>) {
   if (row.identity.toHexString() !== localIdentity) return;
   localResearch = {
-    warcraft: row.warcraft,
-    foraging: row.foraging,
-    frontierMastery: row.frontierMastery,
-    vitality: row.vitality,
-    precision: row.precision,
-    criticalChance: row.criticalChance,
+    warcraft: row.warcraft ?? 0,
+    moveSpeed: row.moveSpeed ?? 0,
+    foraging: row.foraging ?? 0,
+    frontierMastery: row.frontierMastery ?? 0,
+    vitality: row.vitality ?? 0,
+    precision: row.precision ?? 0,
+    criticalChance: row.criticalChance ?? 0,
   };
   onChange?.();
 }
 
 function removeResearch(row: { identity: Identity }) {
   if (row.identity.toHexString() !== localIdentity) return;
-  localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+  localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
   onChange?.();
 }
 
@@ -1529,6 +1533,12 @@ function scheduleReconnect(delay = 500) {
   }, delay);
 }
 
+function setWakeReconnectVisible(visible: boolean) {
+  if (wakeReconnectVisible === visible) return;
+  wakeReconnectVisible = visible;
+  onChange?.();
+}
+
 function reconnectAfterWake(force = false) {
   if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
   const conn = connection;
@@ -1557,6 +1567,7 @@ function reconnectAfterWake(force = false) {
     .then(() => {
       if (connection === conn && generation === connectionGeneration) {
         touchServerActivity();
+        setWakeReconnectVisible(false);
         onChange?.();
       }
     })
@@ -1564,6 +1575,7 @@ function reconnectAfterWake(force = false) {
       if (connection === conn && generation === connectionGeneration) {
         if (/active in another tab/i.test(reducerErrorMessage(error))) {
           handleReducerFailure("session resume", error);
+          setWakeReconnectVisible(false);
           return;
         }
         connection = null;
@@ -1629,7 +1641,7 @@ function connect() {
       if (identityChanged) {
         localState = null;
         localProgress = null;
-        localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
         localActiveResearch = null;
       }
       lastSpeedSent = null;
@@ -1776,6 +1788,7 @@ function connect() {
           for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
+          setWakeReconnectVisible(false);
           refreshMapPlayerSubscription(true);
           sessionGeneration += 1;
           flushPendingProgress();
@@ -1826,7 +1839,7 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       localProfileReady = false;
-      localResearch = { warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+      localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
       localActiveResearch = null;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
@@ -1893,6 +1906,9 @@ export const wildwoodCoop = {
   },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);
+  },
+  isReconnectingAfterWake() {
+    return wakeReconnectVisible;
   },
   latencyMs() {
     return latencyMs;
@@ -2441,7 +2457,9 @@ document.addEventListener("visibilitychange", () => {
     return;
   }
   if (pageWasHidden) {
+    const hiddenFor = pageHiddenAt ? Date.now() - pageHiddenAt : 0;
     pageWasHidden = false;
+    if (hiddenFor >= 10_000) setWakeReconnectVisible(true);
     reconnectAfterWake();
   }
 });

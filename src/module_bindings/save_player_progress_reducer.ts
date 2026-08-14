@@ -26,4 +26,6 @@ export default {
   equippedChest: __t.string(),
   equippedFeet: __t.string(),
   enemyKills: __t.u32(),
+  equippedRightHand: __t.string(),
+  equippedLeftHand: __t.string(),
 };

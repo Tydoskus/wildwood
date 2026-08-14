@@ -6,20 +6,20 @@ This file records module boundaries, change rules, and known technical work. Rea
 
 | Module | Responsibility |
 | --- | --- |
-| `src/main.ts` | Runtime orchestration: mutable session state, game loop, combat updates, rendering order, input wiring, and screen transitions. |
+| `src/main.ts` | Composition root only. It wires controllers and must stay under 1,000 lines; new behavior belongs in a typed runtime or UI module. |
 | `src/game/constants.ts` | Shared gameplay and world constants. |
 | `src/game/enemies.ts` | Enemy definitions, camp definitions, reward labels, and enemy sprite loading. |
 | `src/game/world.ts` | World decoration, road layout, and enemy spawn-site generation. |
 | `src/game/duel.ts` | Duel constants and pure replay simulation helpers. |
 | `src/game/canvas.ts` | Reusable canvas path and pixel-shape primitives. |
 | `src/game/inventory.ts` | Inventory normalization, item definitions, and serialization. |
-| `src/game/runtime/` | Typed runtime systems: audio, camera, combat effects, enemy lifecycle, world/boss/actor rendering, cutscenes, DOM contracts, and shared runtime state models. |
-| `src/ui/` | UI renderers for HUD, inventory, profiles, leaderboard, and settings controls. |
+| `src/game/runtime/` | Typed runtime controllers for assets, bootstrap, canvas, combat, enemy simulation/LOD, map progression, persistence, player input, rendering, and game/duel/coop sessions. |
+| `src/ui/` | UI controllers and views for HUD, inventory, profiles, leaderboard, developer tools, overlays, startup, chat, and interaction bindings. |
 | `src/ui/hud.ts` | HUD and inventory DOM rendering. |
 | `src/ui/chat.ts` | Chat UI behavior. |
 | `src/wildwood-coop.ts` | SpacetimeDB connection, authentication, subscriptions, persistence, chat transport, and duel transport. |
 
-Keep static definitions and pure calculations outside `main.ts`. Keep mutable combat state together until a subsystem has an explicit input/output boundary; splitting individual functions that share hidden state creates harder coupling, not useful modularity.
+Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a composition root, not a feature destination. Add a runtime/UI controller with an explicit input/output boundary, then wire it from `main.ts`. Keep mutable combat state together until it has that boundary; splitting individual functions that share hidden state creates harder coupling, not useful modularity.
 
 ## Required change rules
 
@@ -58,4 +58,4 @@ Keep static definitions and pure calculations outside `main.ts`. Keep mutable co
 
 ## Current extraction result
 
-`src/main.ts` is strict TypeScript: no file-level suppression. Typed runtime systems now own audio, camera, combat effects, enemy lifecycle, world/boss/actor rendering, and cutscenes; UI modules own their DOM rendering. This reduced `main.ts` from 4,892 to 3,999 lines. Further extraction should follow explicit subsystem boundaries above rather than targeting line count alone.
+`src/main.ts` is strict TypeScript with no file-level suppression. Typed controllers now own assets, bootstrap, canvas, player/combat/enemy simulation, bosses/maps, persistence, rendering, duels, sessions, and UI windows. `main.ts` was reduced from 5,080 to 973 lines. Preserve the under-1,000-line composition-root boundary; do not add new game systems there.

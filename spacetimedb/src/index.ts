@@ -166,6 +166,8 @@ const playerProgress = table(
     equippedHead: t.string().default(BASIC_PAPER_HAT),
     equippedChest: t.string().default(""),
     snowlandsUnlocked: t.bool().default(false),
+    equippedRightHand: t.string().default(""),
+    equippedLeftHand: t.string().default(""),
   },
 );
 
@@ -181,6 +183,7 @@ const playerResearch = table(
     vitality: t.u32().default(0),
     precision: t.u32().default(0),
     criticalChance: t.u32().default(0),
+    moveSpeed: t.u32().default(0),
   },
 );
 
@@ -660,6 +663,8 @@ function defaultPlayerProgress(identity: any) {
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
     equippedFeet: "",
+    equippedRightHand: "",
+    equippedLeftHand: "",
     introComplete: false,
     desertUnlocked: false,
     snowlandsUnlocked: false,
@@ -667,7 +672,7 @@ function defaultPlayerProgress(identity: any) {
 }
 
 function defaultPlayerResearch(identity: any) {
-  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0, moveSpeed: 0 };
 }
 
 function researchForPlayer(ctx: any, identity: any) {
@@ -988,6 +993,8 @@ function hasFreshProgress(progress: any) {
     progress.equippedHead === defaultProgress.equippedHead &&
     progress.equippedFeet === defaultProgress.equippedFeet &&
     progress.equippedChest === defaultProgress.equippedChest &&
+    progress.equippedRightHand === defaultProgress.equippedRightHand &&
+    progress.equippedLeftHand === defaultProgress.equippedLeftHand &&
     progress.desertUnlocked === defaultProgress.desertUnlocked &&
     progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked;
 }
@@ -2384,6 +2391,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     equippedChest: t.string(),
     equippedFeet: t.string(),
     enemyKills: t.u32(),
+    equippedRightHand: t.string(),
+    equippedLeftHand: t.string(),
   },
   (ctx, progress) => {
     const activePlayer = requireControllingPlayer(ctx);
@@ -2413,6 +2422,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
     const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
+    const equippedRightHand = "";
+    const equippedLeftHand = "";
     const next = {
       identity: ctx.sender,
       maxHp: Math.max(base.maxHp, normalized.maxHp),
@@ -2429,6 +2440,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       equippedHead,
       equippedChest,
       equippedFeet,
+      equippedRightHand,
+      equippedLeftHand,
       introComplete: base.introComplete,
       desertUnlocked: base.desertUnlocked,
       snowlandsUnlocked: base.snowlandsUnlocked,

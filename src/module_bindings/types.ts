@@ -299,6 +299,8 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   equippedHead: __t.string(),
   equippedChest: __t.string(),
   snowlandsUnlocked: __t.bool(),
+  equippedRightHand: __t.string(),
+  equippedLeftHand: __t.string(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -310,6 +312,7 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   vitality: __t.u32(),
   precision: __t.u32(),
   criticalChance: __t.u32(),
+  moveSpeed: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 

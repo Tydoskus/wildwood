@@ -1,4 +1,4 @@
-export const RESEARCH_IDS = ["warcraft", "foraging", "frontierMastery", "vitality", "precision", "criticalChance"] as const;
+export const RESEARCH_IDS = ["warcraft", "moveSpeed", "foraging", "frontierMastery", "vitality", "precision", "criticalChance"] as const;
 export type ResearchId = typeof RESEARCH_IDS[number];
 
 export type ResearchDefinition = {
@@ -14,6 +14,7 @@ export type ResearchDefinition = {
 
 export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
   warcraft: { id: "warcraft", title: "WARCRAFT", icon: "⚔", maxRank: 5, effect: "TOTAL DAMAGE", valuePerRank: 2, durationStartMs: 30_000, prerequisites: { foraging: 1 } },
+  moveSpeed: { id: "moveSpeed", title: "MOVE SPEED", icon: "➜", maxRank: 5, effect: "MOVE SPEED", valuePerRank: 2, durationStartMs: 30_000, prerequisites: { foraging: 1 } },
   foraging: { id: "foraging", title: "FORAGING", icon: "✦", maxRank: 5, effect: "STAT GAIN", valuePerRank: 1, durationStartMs: 15_000 },
   frontierMastery: {
     id: "frontierMastery", title: "FRONTIER MASTERY", icon: "✧", maxRank: 1, effect: "TIER II ACCESS", valuePerRank: 0, durationStartMs: 180_000,

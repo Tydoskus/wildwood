@@ -6,13 +6,14 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.399" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.400" />
 </head>
 <body>
 <canvas id="game"></canvas>
 <canvas id="textLayer" aria-hidden="true"></canvas>
 <div id="sceneFade" aria-hidden="true" hidden></div>
 <div id="cutsceneOverlay" aria-hidden="true" hidden></div>
+<div id="reconnectOverlay" hidden role="status" aria-live="assertive"><span>RECONNECTING<span class="reconnect-ellipsis" aria-hidden="true"></span></span></div>
 
 <div id="hud">
   <div class="topbar">
@@ -101,7 +102,8 @@
             <div class="equipment-slots">
               <button id="equippedHeadSlot" class="equipment-slot slot-head" type="button" data-slot="head"><span>HEAD</span></button>
               <button id="equippedChestSlot" class="equipment-slot slot-chest" type="button" data-slot="chest"><span>CHEST</span></button>
-              <button class="equipment-slot slot-hands" type="button" data-slot="hands"><span>HANDS</span></button>
+              <button id="equippedRightHandSlot" class="equipment-slot slot-right-hand" type="button" data-slot="right-hand"><span>RIGHT</span></button>
+              <button id="equippedLeftHandSlot" class="equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>LEFT</span></button>
               <button class="equipment-slot slot-legs" type="button" data-slot="legs"><span>LEGS</span></button>
               <button id="equippedFeetSlot" class="equipment-slot slot-feet" type="button" data-slot="feet"><span>FEET</span></button>
             </div>
@@ -129,7 +131,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.399</div>
+        <div id="version">v0.400</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -189,13 +191,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.399</strong></div>
+        <div><strong id="updateNoticeTitle">v0.400</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.399</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.400</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -436,7 +438,7 @@
         </div>
         <div class="tech-tree-tier tech-tree-tier-mid">
           <button class="tech-tree-node" type="button" data-tech-node="war"><span class="tech-tree-node-tier">COMBAT</span><strong>TOTAL DAMAGE</strong><small>0 / 5</small></button>
-          <button class="tech-tree-node tech-tree-node-placeholder" type="button" data-tech-node="future-a" disabled aria-label="Future technology"></button>
+          <button class="tech-tree-node" type="button" data-tech-node="move-speed"><span class="tech-tree-node-tier">MOBILITY</span><strong>MOVE SPEED</strong><small>0 / 5</small></button>
         </div>
         <div class="tech-tree-tier tech-tree-tier-mastery">
           <button class="tech-tree-node tech-tree-node-mastery" type="button" data-tech-node="frontier-mastery"><span class="tech-tree-node-tier">MASTERY</span><strong>TIER II ACCESS</strong><small>0 / 1</small></button>
@@ -486,7 +488,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.399"></script>
-<script src="assets/wildwood/game.js?v=0.399"></script>
+<script src="assets/wildwood/coop-client.js?v=0.400"></script>
+<script src="assets/wildwood/game.js?v=0.400"></script>
 </body>
 </html>

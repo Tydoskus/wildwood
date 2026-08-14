@@ -6,12 +6,13 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 
 | Area | Location | Purpose |
 | --- | --- | --- |
-| Game runtime | `src/main.ts` | Runtime orchestration, mutable combat state, rendering order, input wiring, and screen transitions. |
-| Runtime rendering | `src/game/runtime/{world,boss,actor}-renderer.ts` | Canvas rendering for world scenery, bosses, and player/enemy/duel actors. |
-| UI views | `src/ui/{hud,profile,leaderboard,settings}.ts` | HUD, inventory, profile, leaderboard, and settings DOM rendering. |
+| Composition root | `src/main.ts` | Wires typed runtime and UI controllers. Keep new game behavior out of this file. |
+| Gameplay runtime | `src/game/runtime/{player,player-combat,enemy-simulation,boss,map,game-session}-controller.ts` | Player movement, combat, enemy LOD, bosses, portals, and frame/session lifecycle. |
+| Runtime rendering | `src/game/runtime/{world-render,canvas,render}-runtime.ts` | Canvas setup, viewport/DPR, render construction, and world draw ordering. |
+| UI views | `src/ui/*-controller.ts` | HUD, inventory, profile, leaderboard, developer, overlays, startup, and window behavior. |
 | Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
-| Runtime systems | `src/game/runtime/` | Strictly typed audio, camera, combat-effects, enemy-lifecycle, cutscenes, DOM, and browser contracts. |
-| UI modules | `src/ui/` | HUD, inventory, and chat rendering/interaction. |
+| Runtime systems | `src/game/runtime/` | Strictly typed audio, assets, bootstrap, camera, combat effects, persistence, rendering, input, session, and browser contracts. |
+| UI modules | `src/ui/` | UI controller/view modules, DOM element contracts, chat runtime, and interaction bindings. |
 | Multiplayer client | `src/wildwood-coop.ts` | SpacetimeDB connection, guest/account authentication, subscriptions, durable progress, chat, duels, and shared dragon state. |
 | Multiplayer services | `src/coop/services/` | Isolated progress rules/storage migration and duel cooldown persistence. |
 | Server module | `spacetimedb/src/index.ts` | Authoritative player/boss state, persistence, reducer validation, contribution accounting, account linking, chat, and duels. |
@@ -71,7 +72,7 @@ Open `http://127.0.0.1:8000`.
 
 Wildwood uses a release version to invalidate browser caches and direct stale tabs to reload. Every player-facing release must update all of these to the **same** value:
 
-- Run `npm run release -- <version>` to update `src/main.ts`, `public/version.json`, and every cache/display reference in `public/index.html` together.
+- Run `npm run release -- <version>` to update `src/game/runtime/game-settings.ts`, `public/version.json`, and every cache/display reference in `public/index.html` together.
 - Add release notes for that version in `src/app/changelog.ts`.
 
 Then run `npm run build:client` to verify the artifact. CI runs `npm run check:release` and rejects mismatched release references. Missing a `public/index.html` cache parameter can leave a browser running an old `coop-client.js` against a newer server protocol.

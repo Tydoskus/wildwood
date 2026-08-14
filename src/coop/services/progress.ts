@@ -26,6 +26,8 @@ export type PlayerProgress = {
   equippedHead: string;
   equippedChest: string;
   equippedFeet: string;
+  equippedRightHand: string;
+  equippedLeftHand: string;
   introComplete: boolean;
   desertUnlocked: boolean;
   snowlandsUnlocked: boolean;
@@ -55,6 +57,8 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
     equippedHead: typeof progress.equippedHead === "string" ? progress.equippedHead : "",
     equippedChest: typeof progress.equippedChest === "string" ? progress.equippedChest : "",
     equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
+    equippedRightHand: typeof progress.equippedRightHand === "string" ? progress.equippedRightHand : "",
+    equippedLeftHand: typeof progress.equippedLeftHand === "string" ? progress.equippedLeftHand : "",
     enemyKills: Number.isInteger(progress.enemyKills)
       ? Math.max(0, Math.min(4_294_967_295, progress.enemyKills))
       : 0,
@@ -76,6 +80,7 @@ export function isProgressSave(value: unknown): value is ProgressSave {
   ].every(Number.isFinite) && Number.isInteger(progress.projectileCount) &&
     typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
     typeof progress.equippedHead === "string" && typeof progress.equippedChest === "string" && typeof progress.equippedFeet === "string" &&
+    typeof progress.equippedRightHand === "string" && typeof progress.equippedLeftHand === "string" &&
     (progress.enemyKills === undefined || Number.isInteger(progress.enemyKills));
 }
 
@@ -99,7 +104,8 @@ export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     saved.regen >= pending.regen &&
     saved.speed >= pending.speed &&
     (!pending.bootsCollected || saved.bootsCollected) &&
-    saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedChest === pending.equippedChest && saved.equippedFeet === pending.equippedFeet;
+    saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedChest === pending.equippedChest && saved.equippedFeet === pending.equippedFeet &&
+    saved.equippedRightHand === pending.equippedRightHand && saved.equippedLeftHand === pending.equippedLeftHand;
 }
 
 export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
@@ -118,6 +124,8 @@ export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): Pla
     equippedHead: pending.equippedHead,
     equippedChest: pending.equippedChest,
     equippedFeet: pending.equippedFeet,
+    equippedRightHand: pending.equippedRightHand,
+    equippedLeftHand: pending.equippedLeftHand,
   };
 }
 
