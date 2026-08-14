@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.364": [
+    "Sign-in update notes are larger, show two recent releases, and place the release date beside the version.",
+    "Default paper hats now persist to public appearance rows for new players.",
+  ],
   "0.363": [
     "Display resolution is capped at 3x again, static enemy labels are cached for smoother crowded scenes, and skin-tone choices no longer close during profile refreshes.",
     "Remote players now reliably show their default paper hat, and music pauses when the app is backgrounded.",
@@ -436,6 +440,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
+  "0.364": "AUG 13, 2026",
   "0.331": "AUG 13, 2026",
   "0.330": "AUG 13, 2026",
   "0.329": "AUG 13, 2026",

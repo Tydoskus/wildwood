@@ -972,7 +972,7 @@ function hasRecentPlayerActivity(ctx: any, identity: any) {
 
 function equippedHeadForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
-  return inventory.includes(progress.equippedHead) ? progress.equippedHead : "";
+  return inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
 }
 
 function equippedChestForProgress(progress: any) {
@@ -2310,7 +2310,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       ...(hasRecentPlayerActivity(ctx, ctx.sender) ? [SUPERIOR_GOLDEN_HELMET] : []),
     ].filter((item, index, items) => items.indexOf(item) === index);
     const inventoryJson = JSON.stringify(inventory);
-    const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : "";
+    const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
     const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
     const next = {

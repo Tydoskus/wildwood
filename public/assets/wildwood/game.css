@@ -1094,12 +1094,11 @@
   .signin-update-notice { width: 100%; margin: 10px 0 12px; padding: 9px 10px; border: 2px solid rgba(255,216,91,.42); border-radius: 8px; background: rgba(0,0,0,.24); text-align: left; }
   .signin-update-notice[hidden] { display: none; }
   .signin-update-notice header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  .signin-update-notice header div { display: grid; gap: 2px; }
-  .signin-update-notice header span { color: var(--muted); font-size: 8px; letter-spacing: .08em; }
-  .signin-update-notice header strong { color: var(--gold); font-size: 14px; }
-  .signin-update-date { color: var(--muted); font-size: 8px; font-style: normal; letter-spacing: .06em; }
+  .signin-update-notice header div { display: flex; flex: 1; align-items: baseline; gap: 8px; min-width: 0; }
+  .signin-update-notice header strong { color: var(--gold); font-size: 16px; }
+  .signin-update-date { margin-left: auto; color: var(--muted); font-size: 10px; font-style: normal; letter-spacing: .06em; text-align: right; }
   .signin-update-notice button { width: 27px; min-width: 27px; height: 27px; margin: 0; padding: 0; border-width: 2px; border-radius: 6px; background: linear-gradient(#6e797a, #41494a); font-size: 17px; line-height: 1; }
-  .signin-update-history { display: grid; gap: 8px; max-height: min(21vh, 165px); margin: 7px 0 0; padding: 0 4px 0 0; overflow-y: auto; color: #fff; font-size: 9px; line-height: 1.25; list-style: none; }
+  .signin-update-history { display: grid; gap: 8px; max-height: min(21vh, 165px); margin: 7px 0 0; padding: 0 4px 0 0; overflow-y: auto; color: #fff; font-size: 11px; line-height: 1.25; list-style: none; }
   .update-release { margin: 0; padding: 0; }
   .update-release > strong { display: block; margin-bottom: 3px; color: var(--gold); font-size: 10px; }
   .update-release ul { display: grid; gap: 3px; margin: 0; padding-left: 17px; }
