@@ -127,7 +127,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.360";
+  const GAME_VERSION = "0.361";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -160,6 +160,7 @@ import {
   const SPEECH_BUBBLE_FADE_MS = 1_250;
   const ENEMY_WANDER_RADIUS = 72;
   const ENEMY_WANDER_SPEED_RATIO = .28;
+  const ENEMY_TEXT_CULL_MIN_DISTANCE = 600;
 
   let antiAliasingEnabled = true;
   try { antiAliasingEnabled = localStorage.getItem(ANTI_ALIASING_ENABLED_KEY) !== "false"; } catch {}
@@ -832,7 +833,11 @@ import {
     enemySprites: ENEMY_SPRITES,
     duelPlatformArt,
     player,
-    enemyTextVisible: (enemy) => distanceSquared(player, enemy) <= 520 * 520,
+    enemyTextVisible: (enemy) => {
+      const screenRadius = Math.hypot(viewW, viewH) / (2 * camera.zoom);
+      const cullDistance = Math.max(ENEMY_TEXT_CULL_MIN_DISTANCE, screenRadius + 80);
+      return distanceSquared(player, enemy) <= cullDistance * cullDistance;
+    },
     pixelCircle,
     outlinedText: outlinedWorldText,
     drawShadow: drawActorShadow,

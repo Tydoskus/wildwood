@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.361": [
+    "Enemy floating labels now appear slightly earlier as you approach.",
+  ],
   "0.360": [
     "Fixed the startup worker path on GitHub Pages.",
     "Enemy reward numbers are white, stat names are colored, and labels now clear each enemy's actual art bounds.",
