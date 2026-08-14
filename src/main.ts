@@ -18,7 +18,7 @@ import {
 } from "./game/constants";
 import { circlesOverlap, clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { BASIC_PAPER_HAT, inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, serialiseInventory, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
+import { BASIC_PAPER_HAT, inventoryFromSave, ITEM_DEFINITIONS, itemDefinition, serialiseInventory, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type InventoryState } from "./game/inventory";
 import { createCanvasPrimitives } from "./game/canvas";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera, snapCameraToPlayer as snapRuntimeCamera, updateCamera as updateRuntimeCamera } from "./game/runtime/camera";
@@ -122,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.341";
+  const GAME_VERSION = "0.342";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -576,7 +576,7 @@ import {
   let settledPlayerSprites = 0;
   const markPlayerSpriteReady = () => {
     settledPlayerSprites += 1;
-    if (settledPlayerSprites < 6) return;
+    if (settledPlayerSprites < 7) return;
     playerSpriteReady = true;
     updateLoadingDetail();
     finishStartup();
@@ -936,7 +936,7 @@ import {
     player.regen = number(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;
     player.hp = player.maxHp;
-    const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, bootsPickup.collected);
+    const savedInventory = inventoryFromSave(source.inventoryJson, source.equippedFeet, source.equippedHead, bootsPickup.collected, isDeveloperIdentity(progressIdentity));
     inventory.itemIds = savedInventory.itemIds;
     inventory.equippedHead = savedInventory.equippedHead;
     inventory.equippedFeet = savedInventory.equippedFeet;
@@ -1150,7 +1150,7 @@ import {
 
     if (dx * dx + dy * dy <= reach * reach) {
       bootsPickup.collected = true;
-      inventory.itemIds = [BASIC_PAPER_HAT, TRAILBLAZER_BOOTS];
+      inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET] : []), TRAILBLAZER_BOOTS];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
       player.speed = BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS;
@@ -3747,7 +3747,9 @@ import {
     itemInspectStats.textContent = item.stats.join(" · ");
     itemInspectIcon.innerHTML = item.id === BASIC_PAPER_HAT
       ? '<span class="inventory-item-art basic-paper-hat-art" aria-hidden="true"></span>'
-      : '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
+      : item.id === SUPERIOR_GOLDEN_HELMET
+        ? '<span class="inventory-item-art superior-golden-helmet-art" aria-hidden="true"></span>'
+        : '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
     itemInspectEl.hidden = false;
   }
 
@@ -3832,6 +3834,8 @@ import {
   }
 
   function endGame() {
+    screenShake = 0;
+    flash = 0;
     running = false;
     overEl.style.display = "grid";
   }
@@ -4286,7 +4290,7 @@ import {
     if (coop && typeof coop.resetProgress === "function") coop.resetProgress();
     totalKills = 0;
     bootsPickup.collected = false;
-    inventory.itemIds = [BASIC_PAPER_HAT];
+    inventory.itemIds = [BASIC_PAPER_HAT, ...(isDeveloperIdentity(coop?.localIdentity?.()) ? [SUPERIOR_GOLDEN_HELMET] : [])];
     inventory.equippedHead = BASIC_PAPER_HAT;
     inventory.equippedFeet = "";
     inventory.selectedItemId = "";

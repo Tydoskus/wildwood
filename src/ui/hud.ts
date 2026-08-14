@@ -1,4 +1,4 @@
-import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, TRAILBLAZER_BOOTS } from "../game/inventory";
+import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../game/inventory";
 import { formatCompactNumber } from "./number-format";
 
 type PlayerHudState = {
@@ -71,6 +71,13 @@ type ItemDefinition = {
 
 const itemsById = ITEM_DEFINITIONS as Record<string, ItemDefinition>;
 
+function itemArt(itemId: string, hidden = true) {
+  const aria = hidden ? ' aria-hidden="true"' : "";
+  if (itemId === BASIC_PAPER_HAT) return `<span class="inventory-item-art basic-paper-hat-art"${aria}></span>`;
+  if (itemId === SUPERIOR_GOLDEN_HELMET) return `<span class="inventory-item-art superior-golden-helmet-art"${aria}></span>`;
+  return '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
+}
+
 export function renderInventoryView(
   elements: InventoryElements,
   inventory: InventoryViewState,
@@ -87,9 +94,9 @@ export function renderInventoryView(
   const bagItemIds = itemIds.filter((itemId) => !equippedIds.has(itemId));
   if (!inventory.selectedItemId && (bagItemIds[0] || itemIds[0])) inventory.selectedItemId = bagItemIds[0] || itemIds[0];
   elements.count.textContent = `${bagItemIds.length} / 16`;
-  elements.equippedHead.classList.toggle("is-equipped", inventory.equippedHead === BASIC_PAPER_HAT);
-  elements.equippedHead.innerHTML = inventory.equippedHead === BASIC_PAPER_HAT
-    ? '<span class="inventory-item-art basic-paper-hat-art" aria-label="Basic Paper Hat"></span>'
+  elements.equippedHead.classList.toggle("is-equipped", Boolean(inventory.equippedHead));
+  elements.equippedHead.innerHTML = inventory.equippedHead
+    ? itemArt(inventory.equippedHead, false)
     : "HEAD";
   elements.equippedFeet.classList.toggle("is-equipped", inventory.equippedFeet === TRAILBLAZER_BOOTS);
   elements.equippedFeet.textContent = inventory.equippedFeet === TRAILBLAZER_BOOTS ? "BOOTS" : "FEET";
@@ -104,11 +111,7 @@ export function renderInventoryView(
       const item = itemsById[itemId];
       button.setAttribute("aria-label", item.name);
       button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
-      if (itemId === BASIC_PAPER_HAT) {
-        button.innerHTML = '<span class="inventory-item-art basic-paper-hat-art" aria-hidden="true"></span>';
-      } else {
-        button.innerHTML = '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
-      }
+      button.innerHTML = itemArt(itemId);
       button.addEventListener("click", () => actions.onSelect(itemId));
     } else {
       button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);

@@ -1,4 +1,4 @@
-import { BASIC_PAPER_HAT, TRAILBLAZER_BOOTS } from "./inventory";
+import { SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
 
 export const PLAYER_SKIN_TONES = [
   "#f9dfd0", "#f2c8ac", "#e9b58f", "#d99e76", "#c88358",
@@ -19,6 +19,7 @@ export type PlayerAppearanceAssets = {
   bootsBackLeg: HTMLImageElement;
   stone: HTMLImageElement;
   basicPaperHat: HTMLImageElement;
+  superiorGoldenHelmet: HTMLImageElement;
 };
 
 function image(source: string, settled: () => void) {
@@ -37,6 +38,7 @@ export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanc
     bootsBackLeg: image("assets/wildwood/player-parts/boots-leg-back.png", settled),
     stone: image("assets/wildwood/player-parts/stone.png", settled),
     basicPaperHat: image("assets/wildwood/player-parts/basic-paper-hat.png", settled),
+    superiorGoldenHelmet: image("assets/wildwood/player-parts/superior-golden-helmet.png", settled),
   };
 }
 
@@ -80,8 +82,8 @@ export function drawStartingPlayer(
   };
   const boots = options.feetItem === TRAILBLAZER_BOOTS;
   const throwElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
-  let stoneX = 18;
-  let stoneY = 112;
+  let stoneX = 18 - 33;
+  let stoneY = 112 + 4;
   let stoneVisible = true;
   if (throwElapsed > 0 && throwElapsed < .12) {
     const windup = throwElapsed / .12;
@@ -109,7 +111,8 @@ export function drawStartingPlayer(
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
   ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
-  if (options.headItem !== "") drawLayer(assets.basicPaperHat, 90 - assets.basicPaperHat.naturalWidth / 2, 118 - assets.basicPaperHat.naturalHeight + 26 + gait.head);
+  const headwear = options.headItem === SUPERIOR_GOLDEN_HELMET ? assets.superiorGoldenHelmet : assets.basicPaperHat;
+  if (options.headItem !== "") drawLayer(headwear, 90 - headwear.naturalWidth / 2, 118 - headwear.naturalHeight + 26 + gait.head);
   if (stoneVisible) drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + stoneX, stoneY);
   ctx.restore();
 }

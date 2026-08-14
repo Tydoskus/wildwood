@@ -22,6 +22,7 @@ import {
   PROTOCOL_VERSION,
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
+  SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   TUTORIAL_FOREST_MAP_ID,
   WORLD_HEIGHT,
@@ -921,7 +922,11 @@ function contributedToLatestDragon(ctx: any, identity: any) {
 }
 
 function inventoryForProgress(progress: any) {
-  return [BASIC_PAPER_HAT, ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : [])];
+  return [
+    BASIC_PAPER_HAT,
+    ...(isDeveloperIdentity(progress.identity) ? [SUPERIOR_GOLDEN_HELMET] : []),
+    ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
+  ];
 }
 
 function equippedHeadForProgress(progress: any) {
@@ -2224,7 +2229,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       bootsCollected: progress.bootsCollected === true,
     };
     const bootsCollected = base.bootsCollected || normalized.bootsCollected;
-    const inventory = [BASIC_PAPER_HAT, ...(bootsCollected ? [TRAILBLAZER_BOOTS] : [])];
+    const inventory = inventoryForProgress({ identity: ctx.sender, bootsCollected });
     const inventoryJson = JSON.stringify(inventory);
     const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.342": [
+    "Death now immediately stops screen shake.",
+    "Developer inventory now includes the no-stat Superior Golden Helmet cosmetic.",
+  ],
   "0.341": [
     "Player health, damage, and regeneration can now progress to 1 trillion instead of stopping at the former lower caps.",
   ],
