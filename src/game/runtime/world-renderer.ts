@@ -8,7 +8,7 @@ import type { MapId, WorldDecor, WorldPath } from "../world";
 type Viewport = { width: number; height: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
 type EmptyArch = Omit<Portal, "destination">;
-type TreeSpriteBounds = { x: number; y: number; w: number; h: number };
+type TreeSpriteBounds = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type RoundRect = (x: number, y: number, width: number, height: number, radius: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -114,7 +114,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const source = options.treeSpriteBounds()[tree.variant % 16];
     if (!source) return;
     const drawWidth = Math.round(drawSize * source.w / source.h);
-    options.drawShadow(x, y - 4, Math.round(drawWidth * .52), .12);
+    const scale = drawSize / source.h;
+    const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
+    const shadowWidth = Math.max(12, Math.round(source.groundWidth * scale * 1.8));
+    options.drawShadow(shadowX, y, shadowWidth, .12);
     ctx.drawImage(options.treeSpritesheet, source.x, source.y, source.w, source.h, Math.round(x - drawWidth / 2), Math.round(y - drawSize), drawWidth, drawSize);
   }
 

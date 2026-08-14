@@ -122,7 +122,7 @@ import {
   type ActorStatus = { x: number; y: number; identity?: string; name: string; nameColor: string; hp: number; maxHp: number; power: number | null; fillColor: string };
   type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
-  const GAME_VERSION = "0.335";
+  const GAME_VERSION = "0.336";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -265,7 +265,7 @@ import {
     choice.dataset.skinTone = String(index);
     choice.setAttribute("aria-label", name);
     choice.title = name;
-    choice.style.backgroundColor = PLAYER_SKIN_TONES[index];
+    choice.style.background = PLAYER_SKIN_TONES[index];
     profileSkinToneControl.append(choice);
   });
   const playerProfileLoadingEl = requiredElement("playerProfileLoading");
@@ -610,7 +610,7 @@ import {
   portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
   portalSwirl.src = "assets/wildwood/portal-swirl-spritesheet.png";
   let treeSpritesheetReady = false;
-  let treeSpriteBounds: Array<{ x: number; y: number; w: number; h: number }> = [];
+  let treeSpriteBounds: Array<{ x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number }> = [];
   function measureTreeSpriteBounds() {
     const canvas = document.createElement("canvas");
     canvas.width = treeSpritesheet.naturalWidth;
@@ -639,9 +639,19 @@ import {
           bottom = Math.max(bottom, y + 1);
         }
       }
-      return right > left && bottom > top
-        ? { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top }
-        : { x: cellX, y: cellY, w: width, h: height };
+      if (right <= left || bottom <= top) return { x: cellX, y: cellY, w: width, h: height, groundCenter: width / 2, groundWidth: width * .3 };
+      let groundLeft = width;
+      let groundRight = 0;
+      for (let y = Math.max(0, bottom - 3); y < bottom; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          if (pixels[(y * width + x) * 4 + 3] < 8) continue;
+          groundLeft = Math.min(groundLeft, x);
+          groundRight = Math.max(groundRight, x + 1);
+        }
+      }
+      const groundWidth = groundRight > groundLeft ? groundRight - groundLeft : Math.max(8, (right - left) * .28);
+      const groundCenter = groundRight > groundLeft ? (groundLeft + groundRight) / 2 - left : (right - left) / 2;
+      return { x: cellX + left, y: cellY + top, w: right - left, h: bottom - top, groundCenter, groundWidth };
     });
   }
   const treeSpritesheet = loadTreeSpritesheet(() => {
@@ -714,6 +724,7 @@ import {
       alpha,
     }),
     localFeetItem: () => inventory.equippedFeet,
+    playerStone: playerAppearanceAssets.stone,
     enemySprites: ENEMY_SPRITES,
     duelPlatformArt,
     player,
@@ -3065,9 +3076,9 @@ import {
     for (const p of projectiles) drawProjectile(p, false);
     for (const p of enemyShots) drawProjectile(p, true);
     const portalCutsceneActive = portalCutscene.active;
+    effects.drawDamageNumbers(ctx, camera, outlinedText);
     drawDepthSortedWorld(remotePlayers, !portalCutsceneActive);
     effects.drawParticles(ctx, camera);
-    effects.drawDamageNumbers(ctx, camera, outlinedText);
 
     ctx.restore();
 
@@ -3263,8 +3274,12 @@ import {
     profileCharacterCtx.fillStyle = "#31945b";
     profileCharacterCtx.fillRect(0, 0, width, height);
     for (let index = 0; index < 18; index += 1) {
-      const x = 8 + ((index * 67 + 19) % Math.max(1, width - 16));
-      const y = height + 7 - ((now * .025 + index * 19) % (height + 18));
+      const random = (seed: number) => {
+        const value = Math.sin(seed * 12.9898) * 43758.5453;
+        return value - Math.floor(value);
+      };
+      const x = 8 + random(index + 1) * Math.max(1, width - 16);
+      const y = height + 7 - ((now * .025 + random(index + 29) * (height + 18)) % (height + 18));
       profileCharacterCtx.fillStyle = index % 2 ? "#237b49" : "#267f4c";
       profileCharacterCtx.fillRect(Math.floor(x - 1), Math.floor(y - 5), 2, 7);
       profileCharacterCtx.fillRect(Math.floor(x - 5), Math.floor(y - 2), 2, 5);

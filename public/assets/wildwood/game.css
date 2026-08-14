@@ -105,7 +105,7 @@
   .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; cursor: pointer; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
-  .profile-window-icon.is-editable { position: relative; border-color: var(--green); cursor: pointer; }
+  .profile-window-icon.is-editable { position: relative; border-color: #000; cursor: pointer; }
   .profile-window-icon.is-editable::after { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; border: 2px solid #080a08; border-radius: 50%; background: var(--green); color: #0a120c; content: "✎"; font: 900 11px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
   #profileIconPicker { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px; background: transparent; }
   #profileIconPicker[hidden] { display: none; }
@@ -973,8 +973,8 @@
   .power-label { color: var(--gold); }
   .power-value { color: #fff; }
   .profile-close-button { width: 40px; min-width: 40px; height: 40px; margin: 0; padding: 0; font-size: 25px; line-height: 1; }
-  .profile-character-preview { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-content: center; align-items: center; min-height: 88px; margin: 5px 0 2px; overflow: visible; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: #31945b; }
-  canvas.profile-character-canvas { position: static; inset: auto; display: block; width: 100%; height: 88px; background: #31945b; image-rendering: pixelated; }
+  .profile-character-preview { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-content: center; align-items: center; min-height: 88px; margin: 5px 0 2px; overflow: visible; border: 2px solid #000; border-radius: 7px; outline: 1px solid #000; outline-offset: -3px; background: #31945b; }
+  canvas.profile-character-canvas { position: static; z-index: 0; inset: auto; display: block; width: 100%; height: 88px; border-radius: 5px; background: #31945b; image-rendering: pixelated; }
   .player-sprite-selector { display: grid; place-items: center; width: 23px; min-width: 23px; height: 31px; margin: 0 auto; padding: 0; border: 2px solid #000; border-radius: 4px; background: #fff; }
   .player-sprite-selector[hidden] { display: none; }
   .player-sprite-selector span { width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
@@ -995,9 +995,17 @@
   .profile-grid > div { min-width: 0; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
-  .profile-stat-grid { gap: 0; background: rgba(0,0,0,.2); }
-  .profile-stat-grid > div { border: 0; border-radius: 0; background: transparent; }
-  .profile-stat-grid dd { color: var(--gold); }
+  .profile-stat-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(0,0,0,.27); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .profile-stat-grid > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline; min-height: 25px; padding: 5px 8px; border: 0; border-bottom: 1px solid rgba(255,255,255,.1); border-radius: 0; background: transparent; }
+  .profile-stat-grid > div:last-child { border-bottom: 0; }
+  .profile-stat-grid dt { font-size: 10px; letter-spacing: .04em; white-space: nowrap; }
+  .profile-stat-grid dd { margin: 0; color: #fff; font-size: 10px; line-height: 1.15; text-align: right; white-space: nowrap; }
+  .profile-stat-health dt, .profile-stat-regen dt { color: #72ef58; }
+  .profile-stat-damage dt { color: #ff8b77; }
+  .profile-stat-armor dt { color: #c3cbcf; }
+  .profile-stat-attack dt { color: #ffe05d; }
+  .profile-stat-range dt { color: #74d8ff; }
+  .profile-stat-speed dt { color: #bf9cff; }
   #profileNameEditor { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 13px; background: transparent; }
   #profileNameEditor[hidden] { display: none; }
   .profile-name-editor-modal { width: min(290px, calc(100vw - 26px)); padding: 10px; text-align: left; }
@@ -1101,6 +1109,8 @@
     .player-profile-modal .profile-grid dt { font-size: 7px; }
     .player-profile-modal .profile-grid dd { margin-top: 2px; font-size: 10px; }
     .player-profile-modal .profile-stat-grid { gap: 0; }
+    .player-profile-modal .profile-stat-grid > div { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-height: 23px; padding: 4px 6px; }
+    .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .profile-edit-button { margin-top: 5px; padding: 4px 7px; font-size: 8px; }
     .modal.leaderboard-modal { padding: 9px; }
     .leaderboard-header { gap: 8px; }

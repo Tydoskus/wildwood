@@ -29,6 +29,7 @@ export function createActorRenderer(options: {
   gameTime: () => number;
   drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; feetItem?: string }, alpha: number) => void;
   localFeetItem: () => string;
+  playerStone: HTMLImageElement;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
@@ -90,7 +91,7 @@ export function createActorRenderer(options: {
   function drawDuelCombatant(actor: DuelCombatant) {
     const x = Math.floor(actor.x - camera.x);
     const y = Math.floor(actor.y - camera.y);
-    options.drawShadow(x, y + 29, 27, actor.isLocal ? .21 : .17);
+    options.drawShadow(x, y + 29, 34, actor.isLocal ? .21 : .17);
     drawPlayerSprite({ ...actor, x, y }, actor.isLocal ? 1 : .88);
     options.drawStatus({
       x,
@@ -109,7 +110,7 @@ export function createActorRenderer(options: {
     const player = options.player;
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
-    options.drawShadow(x, y + 29, 27, .21);
+    options.drawShadow(x, y + 29, 34, .21);
     drawPlayerSprite({ ...player, x, y, identity, feetItem: options.localFeetItem() });
     options.drawStatus({
       x,
@@ -135,7 +136,7 @@ export function createActorRenderer(options: {
       const y = Math.floor(other.y - camera.y);
       if (x < -65 || y < -70 || x > width + 65 || y > height + 70) continue;
 
-      options.drawShadow(x, y + 29, 27, .16);
+      options.drawShadow(x, y + 29, 34, .16);
       drawPlayerSprite({ ...other, x, y }, .82);
       options.drawStatus({
         x,
@@ -238,6 +239,14 @@ export function createActorRenderer(options: {
   function drawProjectile(projectile: Projectile | EnemyShot, enemy = false) {
     const x = Math.floor(projectile.x - camera.x);
     const y = Math.floor(projectile.y - camera.y);
+    if (!enemy && options.playerStone.complete && options.playerStone.naturalWidth > 0) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.atan2(projectile.vy, projectile.vx));
+      ctx.drawImage(options.playerStone, -options.playerStone.naturalWidth / 2, -options.playerStone.naturalHeight / 2);
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = enemy ? "#d67cff" : "#5a250d";
     options.pixelCircle(x, y, projectile.r + 2);
     ctx.fillStyle = enemy ? "#f3c5ff" : "#ffe76a";

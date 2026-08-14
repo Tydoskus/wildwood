@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.336": [
+    "Player projectiles now use the held Stone art while keeping their launch, trail, and impact effects.",
+    "Profile preview and portrait frames now use clean black outlines, with skin-tone color squares rendered correctly.",
+    "Tree shadows now follow each tree trunk, and floating damage stays behind trees.",
+    "Profile stats now use colored labels and aligned white terminal-style values.",
+  ],
   "0.335": [
     "Your profile preview now stays centered, crisp, and styled like Tutorial Forest.",
     "Skin tones now open from a pencil as a compact color-square picker.",

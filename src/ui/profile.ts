@@ -28,17 +28,18 @@ export function renderProfileStats(
 ) {
   const { progress } = profile;
   const stats = [
-    ["MAX HP", Math.round(progress.maxHp).toLocaleString()],
-    ["DAMAGE", Math.round(progress.damage).toLocaleString()],
-    ["ARMOR", `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} REDUCTION)`],
-    ["ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (MAX)" : ""}`],
-    ["ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
-    ["REGEN", `${progress.regen.toFixed(1)}/s`],
-    ["MOVE SPEED", Math.round(progress.speed).toLocaleString()],
+    ["health", "MAX HP", Math.round(progress.maxHp).toLocaleString()],
+    ["damage", "DAMAGE", Math.round(progress.damage).toLocaleString()],
+    ["armor", "ARMOR", `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} REDUCTION)`],
+    ["attack", "ATTACK SPEED", `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (MAX)" : ""}`],
+    ["range", "ATTACK RANGE", Math.round(progress.attackRange).toLocaleString()],
+    ["regen", "REGEN", `${progress.regen.toFixed(1)}/s`],
+    ["speed", "MOVE SPEED", Math.round(progress.speed).toLocaleString()],
   ];
   statGrid.replaceChildren();
-  for (const [label, value] of stats) {
+  for (const [kind, label, value] of stats) {
     const item = document.createElement("div");
+    item.className = `profile-stat-${kind}`;
     const term = document.createElement("dt");
     const detail = document.createElement("dd");
     term.textContent = label;
