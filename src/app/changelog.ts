@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.397": [
+    "Frost Raider damage reduced by 50%, and enemy reward labels now show bonus fractions such as +1.05 damage.",
+  ],
   "0.396": [
     "Research timers now grow 40% per rank from each tech’s own starting time; deeper Tech Tree nodes begin with longer server timers.",
   ],

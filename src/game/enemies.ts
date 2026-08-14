@@ -81,7 +81,7 @@ const enemyTypes = {
   // INTERMEDIATE SNOWLANDS ENEMIES
   // Desert-to-snow uses the same archetype multipliers as forest-to-desert.
   "Frost Raider": {
-    hp: 4_000_000_000, speed: 230, damage: 4_660_000, attackSpeed: .65, r: 21,
+    hp: 4_000_000_000, speed: 230, damage: 2_330_000, attackSpeed: .65, r: 21,
     color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: 240_000 },
   },
   "Glacier Archer": {
@@ -266,7 +266,9 @@ export function rewardLabel(reward: EnemyDefinition["reward"]) {
 }
 
 export function rewardAmountLabel(reward: EnemyDefinition["reward"]) {
-  return reward.type === "speed" ? `+${reward.amount.toFixed(2)}` : `+${formatCompactNumber(reward.amount)}`;
+  if (reward.type === "speed") return `+${reward.amount.toFixed(2)}`;
+  if (Math.abs(reward.amount) < 1_000 && !Number.isInteger(reward.amount)) return `+${reward.amount.toFixed(2)}`;
+  return `+${formatCompactNumber(reward.amount)}`;
 }
 
 export function rewardStatLabel(reward: EnemyDefinition["reward"]) {

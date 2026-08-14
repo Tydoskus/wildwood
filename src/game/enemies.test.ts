@@ -10,12 +10,14 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Dune Archer"].reward).toEqual({ type: "health", amount: 8_500 });
     expect(ENEMY_TYPES["Blight Oracle"].reward).toEqual({ type: "regen", amount: 220 });
     expect(ENEMY_TYPES["Frost Raider"].reward).toEqual({ type: "damage", amount: 240_000 });
+    expect(ENEMY_TYPES["Frost Raider"].damage).toBe(2_330_000);
     expect(ENEMY_TYPES["Aurora Oracle"].reward).toEqual({ type: "regen", amount: 161_000 });
     expect(ENEMY_TYPES["Rime Guard"].hp).toBeGreaterThan(ENEMY_TYPES["Venom Guard"].hp);
   });
 
   it("formats reward labels without changing their numeric value", () => {
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 ATK/SEC");
+    expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 DAMAGE");
     expect(rewardLabel({ type: "armor", amount: 150 })).toBe("+150 ARMOR");
     expect(rewardLabel({ type: "health", amount: 8_500 })).toBe("+8.50k MAX HEALTH");
     expect(rewardLabel({ type: "damage", amount: 240_000 })).toBe("+240k DAMAGE");

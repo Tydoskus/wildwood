@@ -38,6 +38,7 @@ export function createActorRenderer(options: {
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
+  rewardMultiplier: () => number;
   enemyTextVisible: (enemy: EnemyState) => boolean;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -83,7 +84,8 @@ export function createActorRenderer(options: {
   }
 
   function enemyLabels(type: string, reward: EnemyDefinition["reward"]) {
-    const cached = enemyLabelCache.get(type);
+    const cacheKey = `${type}:${reward.amount}`;
+    const cached = enemyLabelCache.get(cacheKey);
     if (cached) return cached;
     const labels = {
       name: createLabelBitmap([{ text: type, color: "#f5e9c4" }], "bottom"),
@@ -93,7 +95,7 @@ export function createActorRenderer(options: {
         { text: rewardStatLabel(reward), color: REWARD_DATA[reward.type].color },
       ], "top"),
     };
-    enemyLabelCache.set(type, labels);
+    enemyLabelCache.set(cacheKey, labels);
     return labels;
   }
 
@@ -289,7 +291,7 @@ export function createActorRenderer(options: {
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.textAlign = "center";
-    const labels = enemyLabels(enemy.type, enemy.reward);
+    const labels = enemyLabels(enemy.type, { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
     ctx.drawImage(labels.name.canvas, Math.round(x - labels.name.width / 2), Math.round(barY - 4 - labels.name.anchorY), labels.name.width, labels.name.height);
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';

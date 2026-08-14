@@ -129,7 +129,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.396";
+  const GAME_VERSION = "0.397";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -872,6 +872,7 @@ import {
     enemySprites: ENEMY_SPRITES,
     duelPlatformArt,
     player,
+    rewardMultiplier: researchRewardMultiplier,
     enemyTextVisible: (enemy) => {
       const screenRadius = Math.hypot(viewW, viewH) / (2 * camera.zoom);
       const cullDistance = Math.max(ENEMY_TEXT_CULL_MIN_DISTANCE, screenRadius + 80);
