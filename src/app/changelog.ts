@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.387": [
+    "Tech Tree now has a simpler empty-node toolbar icon.",
+  ],
   "0.386": [
     "Tech Tree now starts with Stat Gain, adds Armor and Critical Chance research, and has clearer research timers.",
   ],
