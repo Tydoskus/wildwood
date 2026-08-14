@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.350": [
+    "Beta Tester Golden Helmet now remains valid when equipped and updates correctly for nearby players.",
+  ],
   "0.349": [
     "Equipping cosmetics now syncs immediately to nearby players.",
     "Phone rendering is capped at 2x resolution to reduce heat and frame load.",

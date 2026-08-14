@@ -2305,7 +2305,10 @@ export const savePlayerProgress = spacetimedb.reducer(
       bootsCollected: progress.bootsCollected === true,
     };
     const bootsCollected = base.bootsCollected || normalized.bootsCollected;
-    const inventory = inventoryForProgress({ identity: ctx.sender, bootsCollected });
+    const inventory = [
+      ...inventoryForProgress({ identity: ctx.sender, bootsCollected, inventoryJson: base.inventoryJson }),
+      ...(hasRecentPlayerActivity(ctx, ctx.sender) ? [SUPERIOR_GOLDEN_HELMET] : []),
+    ].filter((item, index, items) => items.indexOf(item) === index);
     const inventoryJson = JSON.stringify(inventory);
     const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : "";
     const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
