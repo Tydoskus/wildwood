@@ -945,11 +945,11 @@
   .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .tech-tree-viewport::-webkit-scrollbar { display: none; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
-  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 140px; min-width: 420px; min-height: 4104px; height: auto; padding: 22px clamp(24px, 7vw, 112px); }
+  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 168px; min-width: 420px; min-height: 4104px; height: auto; padding: 22px clamp(24px, 7vw, 112px); }
   .tech-tree-tier { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: clamp(56px, 16vw, 180px); }
   .tech-tree-tier-mid { justify-content: space-between; }
   .tech-tree-tier-bottom { justify-content: space-between; }
-  .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: clamp(112px, 27vw, 136px); aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 15px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
+  .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: 112px; aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 15px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
   .tech-tree-node::before { position: absolute; inset: 4px; border: 1px solid rgba(222,227,234,.16); border-radius: 10px; content: ""; pointer-events: none; }
   .tech-tree-node.is-available { border-color: #c4cad1; background: linear-gradient(145deg, #3d444c, #171b20); }
   .tech-tree-node.is-active { border-color: #f1f3f5; background: linear-gradient(145deg, #555d66, #20262c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 18px rgba(230,234,239,.28); }

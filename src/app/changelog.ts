@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.395": [
+    "Tech Tree nodes now keep their mobile-sized width on desktop, with more vertical room between each row.",
+  ],
   "0.394": [
     "Screen vignette now begins near your attack range, the developer panel shows Work FPS alongside real FPS, and stat bonuses show their base value and percentage.",
   ],
