@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.379": [
+    "Archer hands now render over their bow grips, and Tutorial Forest tree shadows are much larger.",
+    "Developer badges now use lowercase text, and browser pinch zoom is blocked on desktop and mobile.",
+  ],
   "0.378": [
     "Player and enemy health bars are slightly larger with cleaner centered health text.",
     "Two-finger canvas zoom is blocked on mobile.",

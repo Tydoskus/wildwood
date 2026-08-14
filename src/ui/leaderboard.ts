@@ -77,7 +77,7 @@ export function renderLeaderboard(
     if (actions.isDeveloper(entry.identity)) {
       const badge = document.createElement("span");
       badge.className = "dev-badge";
-      badge.textContent = "[DEV] ";
+      badge.textContent = "[dev] ";
       name.appendChild(badge);
     }
     name.append(document.createTextNode(entry.name));

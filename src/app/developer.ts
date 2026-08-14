@@ -4,4 +4,4 @@ export function isDeveloperIdentity(identity?: string | null) {
   return identity?.replace(/^0x/i, "").toLowerCase() === DEVELOPER_IDENTITY;
 }
 
-export const DEVELOPER_BADGE = "[DEV]";
+export const DEVELOPER_BADGE = "[dev]";

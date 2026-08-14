@@ -34,7 +34,7 @@ export function renderPlayerHud(
       if (isDeveloper) {
         const badge = document.createElement("span");
         badge.className = "dev-badge";
-        badge.textContent = "[DEV] ";
+        badge.textContent = "[dev] ";
         elements.playerName.replaceChildren(badge, document.createTextNode(name));
       } else {
         elements.playerName.textContent = name;
