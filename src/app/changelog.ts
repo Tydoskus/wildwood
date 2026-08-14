@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.363": [
+    "Display resolution is capped at 3x again, static enemy labels are cached for smoother crowded scenes, and skin-tone choices no longer close during profile refreshes.",
+    "Remote players now reliably show their default paper hat, and music pauses when the app is backgrounded.",
+  ],
   "0.362": [
     "Open game tabs now check for a new release every two minutes.",
   ],

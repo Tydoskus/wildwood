@@ -127,7 +127,7 @@ import {
   type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
   type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
-  const GAME_VERSION = "0.362";
+  const GAME_VERSION = "0.363";
   const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
   const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
   const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -858,10 +858,7 @@ import {
   function resize() {
     viewW = innerWidth;
     viewH = innerHeight;
-    // Two full-screen canvases are composited every frame. A DPR of three can
-    // turn a phone-sized viewport into tens of millions of pixels per frame.
-    // Two preserves crisp sprites while keeping the backing stores practical.
-    dpr = Math.min(devicePixelRatio || 1, 2);
+    dpr = Math.min(devicePixelRatio || 1, 3);
     canvas.width = Math.round(viewW * dpr);
     canvas.height = Math.round(viewH * dpr);
     canvas.style.width = viewW + "px";
@@ -3461,11 +3458,12 @@ import {
   }
 
   function updateProfileCharacterPreview(identity: string, ownProfile: boolean) {
+    const profileChanged = profileCharacterPreviewEl.dataset.identity !== identity;
     profileCharacterPreviewEl.dataset.identity = identity;
     previousPlayerSpriteBtn.hidden = true;
     nextPlayerSpriteBtn.hidden = true;
     profileSkinToneEdit.hidden = !ownProfile;
-    profileSkinToneControl.hidden = true;
+    if (!ownProfile || profileChanged) profileSkinToneControl.hidden = true;
     if (ownProfile) updateProfileSkinToneChoices(coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE);
     drawProfileCharacterPreview();
   }
@@ -4164,6 +4162,15 @@ import {
   function ensureMusicPlayback() {
     mapMusic.ensurePlaying(hasStarted || running);
   }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      mapMusic.audio.pause();
+      return;
+    }
+    ensureMusicPlayback();
+  });
+  window.addEventListener("pagehide", () => mapMusic.audio.pause());
 
   function updateFullscreenSetting() {
     const root = document.documentElement;

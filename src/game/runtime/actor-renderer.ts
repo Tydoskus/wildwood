@@ -1,4 +1,5 @@
-import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type LoadedEnemySprite } from "../enemies";
+import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite } from "../enemies";
+import { BASIC_PAPER_HAT } from "../inventory";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { RemotePlayer } from "../../wildwood-coop";
@@ -9,6 +10,8 @@ type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
+type LabelBitmap = { canvas: HTMLCanvasElement; width: number; height: number; anchorY: number };
+type LabelSegment = { text: string; color: string };
 
 export type ActorStatus = {
   x: number;
@@ -45,6 +48,54 @@ export function createActorRenderer(options: {
   worldHealthBarHeight: number;
 }) {
   const { ctx, camera } = options;
+  const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
+  const enemyLabelFont = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+
+  function createLabelBitmap(segments: LabelSegment[], baseline: CanvasTextBaseline): LabelBitmap {
+    const scale = 3;
+    const paddingX = 5;
+    const paddingY = 3;
+    const canvas = document.createElement("canvas");
+    const labelCtx = canvas.getContext("2d");
+    if (!labelCtx) return { canvas, width: 0, height: 0, anchorY: 0 };
+    labelCtx.font = enemyLabelFont;
+    const textWidth = segments.reduce((width, segment) => width + labelCtx.measureText(segment.text).width, 0);
+    const width = Math.ceil(textWidth + paddingX * 2);
+    const height = 19;
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    labelCtx.setTransform(scale, 0, 0, scale, 0, 0);
+    labelCtx.font = enemyLabelFont;
+    labelCtx.textAlign = "left";
+    labelCtx.textBaseline = baseline;
+    labelCtx.lineJoin = "round";
+    labelCtx.lineWidth = 2;
+    let x = paddingX;
+    const y = baseline === "top" ? paddingY : height - paddingY;
+    for (const segment of segments) {
+      labelCtx.strokeStyle = "#000";
+      labelCtx.strokeText(segment.text, x, y);
+      labelCtx.fillStyle = segment.color;
+      labelCtx.fillText(segment.text, x, y);
+      x += labelCtx.measureText(segment.text).width;
+    }
+    return { canvas, width, height, anchorY: y };
+  }
+
+  function enemyLabels(type: string, reward: EnemyDefinition["reward"]) {
+    const cached = enemyLabelCache.get(type);
+    if (cached) return cached;
+    const labels = {
+      name: createLabelBitmap([{ text: type, color: "#f5e9c4" }], "bottom"),
+      reward: createLabelBitmap([
+        { text: rewardAmountLabel(reward), color: "#ffffff" },
+        { text: " ", color: "#ffffff" },
+        { text: rewardStatLabel(reward), color: REWARD_DATA[reward.type].color },
+      ], "top"),
+    };
+    enemyLabelCache.set(type, labels);
+    return labels;
+  }
 
   function drawPlayerSprite(
     actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string },
@@ -139,7 +190,7 @@ export function createActorRenderer(options: {
     if (x < -65 || y < -70 || x > width + 65 || y > height + 70) return;
 
     options.drawShadow(x, y + 29, 34, .16);
-    drawPlayerSprite({ ...other, x, y }, 1);
+    drawPlayerSprite({ ...other, x, y, headItem: other.headItem || BASIC_PAPER_HAT }, 1);
     options.drawStatus({
       x,
       y,
@@ -209,7 +260,6 @@ export function createActorRenderer(options: {
 
     if (!options.enemyTextVisible(enemy)) return;
 
-    const reward = REWARD_DATA[enemy.reward.type];
     let spriteTop = -spriteHeight / 2 - 3;
     let spriteBottom = spriteHeight / 2 - 3;
     if (layers) {
@@ -238,24 +288,14 @@ export function createActorRenderer(options: {
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(enemy.type, x, barY - 4, "#f5e9c4", 2);
+    const labels = enemyLabels(enemy.type, enemy.reward);
+    ctx.drawImage(labels.name.canvas, Math.round(x - labels.name.width / 2), Math.round(barY - 4 - labels.name.anchorY), labels.name.width, labels.name.height);
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
     options.outlinedText(hpLabel, x, barY + barH / 2, "#ffffff", 2);
 
-    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textBaseline = "top";
-    const rewardAmount = rewardAmountLabel(enemy.reward);
-    const rewardStat = rewardStatLabel(enemy.reward);
-    const rewardGap = 4;
-    const rewardWidth = ctx.measureText(rewardAmount).width + rewardGap + ctx.measureText(rewardStat).width;
-    const rewardLeft = Math.round(x - rewardWidth / 2);
-    ctx.textAlign = "left";
-    options.outlinedText(rewardAmount, rewardLeft, rewardY, "#ffffff", 2);
-    options.outlinedText(rewardStat, rewardLeft + ctx.measureText(rewardAmount).width + rewardGap, rewardY, reward.color, 2);
+    ctx.drawImage(labels.reward.canvas, Math.round(x - labels.reward.width / 2), Math.round(rewardY - labels.reward.anchorY), labels.reward.width, labels.reward.height);
     ctx.restore();
   }
 
