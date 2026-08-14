@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.392": [
+    "Tech Tree connectors now scroll with their nodes across the full tree.",
+  ],
   "0.391": [
     "Moving across maps now keeps visible world tiles cached, and the performance panel reports real frame cadence.",
   ],
