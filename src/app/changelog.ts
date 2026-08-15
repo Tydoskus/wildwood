@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.407": [
+    "Fixed rapid movement taps causing remote players to predict too far, then snap back.",
+  ],
   "0.406": [
     "Remote players now use server-timestamped interpolation, adaptive buffering, and brief capped prediction for smoother movement.",
     "Left-hand stones now correctly render behind the player while facing right.",

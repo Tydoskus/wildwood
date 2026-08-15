@@ -202,6 +202,7 @@ type RemotePlayerTarget = RemotePlayer & {
 
 type RemotePlayerSample = {
   timelineAt: number;
+  serverAtMs: number;
   x: number;
   y: number;
   facing: number;
@@ -271,7 +272,6 @@ let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
 const remotePlayerRenderBuffer: RemotePlayer[] = [];
-let serverToLocalTimelineOffsetMs: number | null = null;
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
@@ -852,21 +852,8 @@ function isGeneratedDisplayName(displayName: string) {
     /^\d{3}$/.test(suffix ?? "");
 }
 
-function localTimelineForServerTimestamp(serverTimestamp: { microsSinceUnixEpoch: bigint }, receivedAt: number) {
-  const serverAtMs = Number(serverTimestamp.microsSinceUnixEpoch / 1_000n);
-  const observedOffset = receivedAt - serverAtMs;
-  if (serverToLocalTimelineOffsetMs === null || Math.abs(observedOffset - serverToLocalTimelineOffsetMs) > 5_000) {
-    serverToLocalTimelineOffsetMs = observedOffset;
-  } else {
-    // New samples arriving late must not pull the shared timeline forward and
-    // create visible stutter. Fast correction downward tracks a cleaner path;
-    // slow upward correction handles a real clock/network shift.
-    const delta = observedOffset - serverToLocalTimelineOffsetMs;
-    serverToLocalTimelineOffsetMs += delta < 0
-      ? delta * .35
-      : Math.min(2, delta * .04);
-  }
-  return serverAtMs + serverToLocalTimelineOffsetMs;
+function serverTimestampMs(timestamp: { microsSinceUnixEpoch: bigint }) {
+  return Number(timestamp.microsSinceUnixEpoch / 1_000n);
 }
 
 function upsertPlayer(row: {
@@ -928,29 +915,41 @@ function upsertPlayer(row: {
   }
 
   const receivedAt = performance.now();
-  const timelineAt = localTimelineForServerTimestamp(row.lastInputAt, receivedAt);
+  const serverAtMs = serverTimestampMs(row.lastInputAt);
   const existing = players.get(id);
   if (existing) {
     const latest = existing.samples[existing.samples.length - 1];
-    const distance = Math.hypot(row.x - latest.x, row.y - latest.y);
-    const sample = {
-      timelineAt: Math.max(timelineAt, latest.timelineAt + .01),
-      x: row.x,
-      y: row.y,
-      facing: row.facing,
-      moving: row.moving,
-    };
-    // Portal changes clear players first. This protects against any other
-    // server correction being interpolated across half the map.
-    if (distance > REMOTE_SNAP_DISTANCE) {
-      existing.samples.length = 0;
-      existing.samples.push(sample);
-    } else {
-      const interval = sample.timelineAt - latest.timelineAt;
-      if (interval >= 16 && interval <= 1_000) {
-        existing.snapshotIntervalMs += (interval - existing.snapshotIntervalMs) * REMOTE_SNAPSHOT_INTERVAL_SMOOTHING;
+    if (serverAtMs >= latest.serverAtMs) {
+      const distance = Math.hypot(row.x - latest.x, row.y - latest.y);
+      const sample = {
+        // Server time orders snapshots. Arrival time drives the render clock so
+        // a player who stood still before this update cannot make the next input
+        // appear seconds in the future on a newly opened client.
+        // A subscription can deliver several server snapshots in one browser
+        // turn. Preserve their real server spacing instead of assigning almost
+        // identical local times, which would create an absurd inferred speed.
+        timelineAt: Math.max(
+          receivedAt,
+          latest.timelineAt + Math.max(1, Math.min(250, serverAtMs - latest.serverAtMs)),
+        ),
+        serverAtMs,
+        x: row.x,
+        y: row.y,
+        facing: row.facing,
+        moving: row.moving,
+      };
+      // Portal changes clear players first. This protects against any other
+      // server correction being interpolated across half the map.
+      if (distance > REMOTE_SNAP_DISTANCE) {
+        existing.samples.length = 0;
+        existing.samples.push(sample);
+      } else {
+        const interval = sample.timelineAt - latest.timelineAt;
+        if (interval >= 16 && interval <= 1_000) {
+          existing.snapshotIntervalMs += (interval - existing.snapshotIntervalMs) * REMOTE_SNAPSHOT_INTERVAL_SMOOTHING;
+        }
+        existing.samples.push(sample);
       }
-      existing.samples.push(sample);
     }
     while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
     existing.speed = row.speed;
@@ -977,7 +976,7 @@ function upsertPlayer(row: {
       headItem: row.headItem,
       chestItem: row.chestItem,
       snapshotIntervalMs: NEARBY_MOVEMENT_INTERVAL_MS,
-      samples: [{ timelineAt, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
+      samples: [{ timelineAt: receivedAt, serverAtMs, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
     });
   }
   onChange?.();
@@ -2470,14 +2469,17 @@ export const wildwoodCoop = {
       }
       const latest = samples[samples.length - 1];
 
-      if (renderAt > latest.timelineAt && samples.length > 1) {
+      if (renderAt > latest.timelineAt && latest.moving && samples.length > 1) {
         // Brief dead reckoning conceals a late packet. Never extrapolate long
         // enough to walk a remote player through a wall or past a correction.
         const previous = samples[samples.length - 2];
-        const span = Math.max(1, latest.timelineAt - previous.timelineAt);
         const aheadMs = Math.min(REMOTE_MAX_EXTRAPOLATION_MS, renderAt - latest.timelineAt);
-        player.x = latest.x + (latest.x - previous.x) / span * aheadMs;
-        player.y = latest.y + (latest.y - previous.y) / span * aheadMs;
+        const dx = latest.x - previous.x;
+        const dy = latest.y - previous.y;
+        const distance = Math.hypot(dx, dy);
+        const predictedDistance = Math.min(distance, player.speed * aheadMs / 1_000);
+        player.x = latest.x + (distance > 0 ? dx / distance * predictedDistance : 0);
+        player.y = latest.y + (distance > 0 ? dy / distance * predictedDistance : 0);
         player.facing = latest.facing;
         player.moving = latest.moving;
       } else {
