@@ -924,7 +924,10 @@ function upsertPlayer(row: {
   const existing = players.get(id);
   if (existing) {
     const latest = existing.samples[existing.samples.length - 1];
-    if (serverAtMs >= latest.serverAtMs) {
+    // Health, equipment, and profile updates re-send the player row without a
+    // movement timestamp change. They must refresh display data, but cannot
+    // become zero-distance movement samples or they disrupt interpolation.
+    if (serverAtMs > latest.serverAtMs) {
       const distance = Math.hypot(row.x - latest.x, row.y - latest.y);
       const sample = {
         // Server time orders snapshots. Arrival time drives the render clock so

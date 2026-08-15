@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.413": [
+    "Leaderboard now opens at full size with a loading spinner while its one-time server snapshot arrives.",
+    "Remote movement ignores health-only player updates, preventing duplicate movement samples and jerky nearby players.",
+    "World touch controls work outside open modal windows.",
+  ],
   "0.412": [
     "Fixed leaderboard snapshots so reopening always requests a fresh server ranking.",
   ],

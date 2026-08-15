@@ -8,6 +8,7 @@ export type LeaderboardControllerElements = {
   tabs: Record<LeaderboardStat, HTMLElement>;
   valueHeading: HTMLElement;
   rows: HTMLElement;
+  loading: HTMLElement;
   empty: HTMLElement;
 };
 
@@ -24,8 +25,16 @@ export type LeaderboardControllerHooks = {
 export function createLeaderboardController(elements: LeaderboardControllerElements, hooks: LeaderboardControllerHooks) {
   let stat: LeaderboardStat = "power";
   let snapshot: LeaderboardEntry[] = [];
+  let loading = false;
 
   function render() {
+    if (loading) {
+      elements.rows.hidden = true;
+      elements.empty.hidden = true;
+      elements.loading.hidden = false;
+      return;
+    }
+    elements.loading.hidden = true;
     renderLeaderboard({ rows: elements.rows, empty: elements.empty }, stat, snapshot, hooks.localIdentity(), {
       isDeveloper: hooks.isDeveloper,
       paintProfileIcon: hooks.paintProfileIcon,
@@ -51,9 +60,14 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     elements.overlay.hidden = false;
     elements.button.setAttribute("aria-expanded", "true");
     snapshot = [];
+    loading = true;
     select(stat);
-    snapshot = await hooks.loadSnapshot();
-    if (!elements.overlay.hidden) render();
+    try {
+      snapshot = await hooks.loadSnapshot();
+    } finally {
+      loading = false;
+      if (!elements.overlay.hidden) render();
+    }
   }
 
   function close() {
