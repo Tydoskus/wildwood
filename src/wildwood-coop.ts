@@ -286,6 +286,8 @@ let localIdentity = "";
 let lastPositionSentAt = 0;
 let lastPositionMoving = false;
 let nextPositionSequence = 0;
+let lastHpSent: number | null = null;
+let lastHpSentAt = 0;
 let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
 let reconnectTimer: number | null = null;
@@ -1692,6 +1694,8 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      lastHpSent = null;
+      lastHpSentAt = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
       if (identityChanged) {
@@ -1888,6 +1892,8 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      lastHpSent = null;
+      lastHpSentAt = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
@@ -1911,6 +1917,8 @@ function connect() {
       lastPositionSentAt = 0;
       lastPositionMoving = false;
       nextPositionSequence = 0;
+      lastHpSent = null;
+      lastHpSentAt = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
@@ -2445,6 +2453,14 @@ export const wildwoodCoop = {
     lastPositionMoving = moving;
     const sequence = ++nextPositionSequence;
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
+  },
+  syncHp(hp: number) {
+    if (protocolBlocked || !connection || !Number.isFinite(hp)) return;
+    const now = performance.now();
+    if (lastHpSent !== null && Math.abs(lastHpSent - hp) < .5 && now - lastHpSentAt < 1_000) return;
+    lastHpSent = hp;
+    lastHpSentAt = now;
+    sendReducer("health sync", () => connection?.reducers.syncPlayerHp({ hp }));
   },
   async changeMap(mapId: string) {
     if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)) return false;

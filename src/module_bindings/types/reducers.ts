@@ -35,6 +35,7 @@ import SetProfileIconReducer from "../set_profile_icon_reducer";
 import SetSkinToneReducer from "../set_skin_tone_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
 import StartResearchReducer from "../start_research_reducer";
+import SyncPlayerHpReducer from "../sync_player_hp_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 import TakeOverSessionReducer from "../take_over_session_reducer";
 
@@ -67,6 +68,7 @@ export type SetProfileIconParams = __Infer<typeof SetProfileIconReducer>;
 export type SetSkinToneParams = __Infer<typeof SetSkinToneReducer>;
 export type SetSpeedParams = __Infer<typeof SetSpeedReducer>;
 export type StartResearchParams = __Infer<typeof StartResearchReducer>;
+export type SyncPlayerHpParams = __Infer<typeof SyncPlayerHpReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;
 

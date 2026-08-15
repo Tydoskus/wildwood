@@ -587,6 +587,7 @@ import {
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
     syncPosition: (x, y, facing, moving, force, highFrequency) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency),
+    syncHp: (hp) => coop?.syncHp?.(hp),
     hasRemotePlayerInArea: (left, top, right, bottom) => coop?.hasRemotePlayerInArea?.(left, top, right, bottom) ?? false,
     autoAttack: (dt) => playerCombat.attackNearest(dt),
     isAutoAttackEnabled: () => Boolean(inventory.equippedRightHand || inventory.equippedLeftHand),

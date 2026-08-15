@@ -225,14 +225,14 @@
 
   .equipment-section {
     position: relative;
-    min-height: 236px;
+    min-height: 190px;
     padding: 7px;
     border: 1px solid rgba(255,255,255,.13);
     border-radius: 8px;
     background: rgba(0,0,0,.18);
   }
 
-  .equipment-slots { position: relative; min-height: 204px; }
+  .equipment-slots { position: relative; min-height: 158px; }
   .equipment-slot {
     position: absolute;
     display: grid;
@@ -255,10 +255,9 @@
   .slot-right-hand { left: 0; top: 57px; }
   .slot-left-hand { right: 0; top: 57px; }
   .slot-chest { left: 50%; top: 57px; transform: translateX(-50%); }
-  .slot-legs { left: 50%; top: 113px; transform: translateX(-50%); }
-  .slot-feet { left: 50%; top: 160px; transform: translateX(-50%); }
+  .slot-feet { left: 50%; top: 113px; transform: translateX(-50%); }
   .equipment-slot:active, .inventory-item:active { transform: none; }
-  .slot-head:active, .slot-chest:active, .slot-legs:active, .slot-feet:active { transform: translateX(-50%); }
+  .slot-head:active, .slot-chest:active, .slot-feet:active { transform: translateX(-50%); }
 
   .bag-section { min-width: 0; padding: 7px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(0,0,0,.18); }
   .inventory-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
@@ -317,13 +316,12 @@
     .inventory-section-title { margin-bottom: 4px; font-size: 8px; }
     .equipment-section, .bag-section { padding: 4px; }
     .equipment-section { min-height: 190px; }
-    .equipment-slots { min-height: 166px; }
+    .equipment-slots { min-height: 130px; }
     .equipment-slot { width: 36px; height: 36px; font-size: 6px; }
     .equipment-slot::before { width: 10px; height: 10px; margin-bottom: 1px; }
     .slot-head { top: 0; }
     .slot-right-hand, .slot-left-hand, .slot-chest { top: 42px; }
-    .slot-legs { top: 84px; }
-    .slot-feet { top: 126px; }
+    .slot-feet { top: 84px; }
     .inventory-items { gap: 3px; }
     .inventory-detail { min-height: 0; margin-top: 5px; padding: 6px; font-size: 8px; line-height: 1.25; }
     .inventory-detail strong { font-size: 10px; }

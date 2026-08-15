@@ -511,6 +511,17 @@ const maintenanceSchedule = table(
   },
 );
 
+const researchCompletionSchedule = table(
+  { scheduled: (): any => completeResearch },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    identity: t.identity(),
+    researchId: t.string(),
+    targetRank: t.u32(),
+  },
+);
+
 const dragonRespawnSchedule = table(
   { scheduled: (): any => respawnDragon },
   {
@@ -601,6 +612,7 @@ const spacetimedb = schema({
   dragonAttackWindow,
   dragonResult,
   maintenanceSchedule,
+  researchCompletionSchedule,
   dragonRespawnSchedule,
   spiderBoss,
   spiderContribution,
@@ -701,6 +713,39 @@ function activeResearchIsAvailable(research: Record<ResearchId, number>, active:
   if (research[researchId] >= definition.maxRank) return false;
   if (active.targetRank !== research[researchId] + 1) return false;
   return Object.entries(definition.prerequisites ?? {}).every(([requiredId, requiredRank]) => research[requiredId as ResearchId] >= Number(requiredRank));
+}
+
+function activeResearchCanComplete(research: Record<ResearchId, number>, active: any) {
+  if (activeResearchIsAvailable(research, active)) return true;
+  // Critical Chance timers begun before Prosperity replaced Tier II remain
+  // claimable once, so the release does not strand completed research.
+  return active.researchId === "criticalChance" &&
+    active.targetRank === research.criticalChance + 1 &&
+    Number((research as any).frontierMastery ?? 0) >= 1;
+}
+
+function completeActiveResearch(ctx: any, active: any) {
+  const research = researchForPlayer(ctx, active.identity);
+  if (!activeResearchCanComplete(research, active)) {
+    ctx.db.activeResearch.identity.delete(active.identity);
+    return false;
+  }
+  ctx.db.playerResearch.identity.update({ ...research, [active.researchId]: active.targetRank });
+  ctx.db.activeResearch.identity.delete(active.identity);
+  return true;
+}
+
+function ensureResearchCompletionSchedule(ctx: any, active: any) {
+  for (const scheduled of ctx.db.researchCompletionSchedule.iter() as Iterable<any>) {
+    if (sameIdentity(scheduled.identity, active.identity) && scheduled.researchId === active.researchId && scheduled.targetRank === active.targetRank) return;
+  }
+  ctx.db.researchCompletionSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(active.completesAt.microsSinceUnixEpoch),
+    identity: active.identity,
+    researchId: active.researchId,
+    targetRank: active.targetRank,
+  });
 }
 
 function ensurePlayerLifetime(ctx: any) {
@@ -1822,6 +1867,16 @@ export const runMaintenance = spacetimedb.reducer(
   },
 );
 
+export const completeResearch = spacetimedb.reducer(
+  { schedule: researchCompletionSchedule.rowType },
+  (ctx, { schedule }) => {
+    const active = ctx.db.activeResearch.identity.find(schedule.identity);
+    if (!active || active.researchId !== schedule.researchId || active.targetRank !== schedule.targetRank) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < active.completesAt.microsSinceUnixEpoch) return;
+    completeActiveResearch(ctx, active);
+  },
+);
+
 export const respawnDragon = spacetimedb.reducer(
   { schedule: dragonRespawnSchedule.rowType },
   (ctx, { schedule }) => {
@@ -2015,6 +2070,11 @@ export const registerProtocol = spacetimedb.reducer(
     const controller = ctx.db.playerController.identity.find(ctx.sender);
     if (current && ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
       ctx.db.player.identity.update({ ...current, protocolVersion });
+    }
+    const activeResearch = ctx.db.activeResearch.identity.find(ctx.sender);
+    if (activeResearch) {
+      if (ctx.timestamp.microsSinceUnixEpoch >= activeResearch.completesAt.microsSinceUnixEpoch) completeActiveResearch(ctx, activeResearch);
+      else ensureResearchCompletionSchedule(ctx, activeResearch);
     }
   },
 );
@@ -2514,13 +2574,15 @@ export const startResearch = spacetimedb.reducer(
     assertResearchAvailable(research, researchId);
     const targetRank = research[researchId] + 1;
     const durationMicros = BigInt(researchDurationMs(researchId, research[researchId])) * 1_000n;
+    const completesAtMicros = ctx.timestamp.microsSinceUnixEpoch + durationMicros;
     ctx.db.activeResearch.insert({
       identity: ctx.sender,
       researchId,
       targetRank,
       startedAt: ctx.timestamp,
-      completesAt: new Timestamp(ctx.timestamp.microsSinceUnixEpoch + durationMicros),
+      completesAt: new Timestamp(completesAtMicros),
     });
+    ensureResearchCompletionSchedule(ctx, { identity: ctx.sender, researchId, targetRank, completesAt: new Timestamp(completesAtMicros) });
   },
 );
 
@@ -2531,13 +2593,7 @@ export const claimResearch = spacetimedb.reducer(
     const active = ctx.db.activeResearch.identity.find(ctx.sender);
     if (!active) throw new SenderError("No research to claim.");
     if (ctx.timestamp.microsSinceUnixEpoch < active.completesAt.microsSinceUnixEpoch) throw new SenderError("Research is still in progress.");
-    const research = researchForPlayer(ctx, ctx.sender);
-    if (!activeResearchIsAvailable(research, active)) {
-      ctx.db.activeResearch.identity.delete(ctx.sender);
-      throw new SenderError("Research is no longer available. Start it again.");
-    }
-    ctx.db.playerResearch.identity.update({ ...research, [active.researchId]: active.targetRank });
-    ctx.db.activeResearch.identity.delete(ctx.sender);
+    if (!completeActiveResearch(ctx, active)) throw new SenderError("Research is no longer available. Start it again.");
   },
 );
 
@@ -2744,6 +2800,17 @@ export const syncPosition = spacetimedb.reducer(
       lastInputAt: ctx.timestamp,
       lastInputSequence: sequence,
     });
+  },
+);
+
+export const syncPlayerHp = spacetimedb.reducer(
+  { hp: t.f32() },
+  (ctx, { hp }) => {
+    const current = requireControllingPlayer(ctx);
+    if (!Number.isFinite(hp) || activeDuelFor(ctx, ctx.sender)) return;
+    const nextHp = Math.max(0, Math.min(current.maxHp, hp));
+    if (Math.abs(nextHp - current.hp) < .01) return;
+    ctx.db.player.identity.update({ ...current, hp: nextHp });
   },
 );
 

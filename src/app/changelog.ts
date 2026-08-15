@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.410": [
+    "Nearby players now sync current health to the server, so their overhead health bars reflect damage and regeneration.",
+    "Research now finalizes automatically at the server timer; completed legacy Critical Chance research is migrated and completed on reconnect.",
+    "Removed the unused LEGS equipment slot.",
+  ],
   "0.409": [
     "Snowlands balance updates reduce Frost Raider and Glacier Archer health, increase Rime Guard armor rewards, and raise the Whiteout Reaper damage reward.",
     "Snow pines now cast grounded shadows and depth-sort around players; enemy health bars show numeric values without an HP suffix.",

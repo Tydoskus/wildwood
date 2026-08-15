@@ -329,6 +329,15 @@ export const PlayerSession = __t.object("PlayerSession", {
 });
 export type PlayerSession = __Infer<typeof PlayerSession>;
 
+export const ResearchCompletionSchedule = __t.object("ResearchCompletionSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  identity: __t.identity(),
+  researchId: __t.string(),
+  targetRank: __t.u32(),
+});
+export type ResearchCompletionSchedule = __Infer<typeof ResearchCompletionSchedule>;
+
 export const SpiderAttackWindow = __t.object("SpiderAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

@@ -63,6 +63,7 @@ import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import StartResearchReducer from "./start_research_reducer";
+import SyncPlayerHpReducer from "./sync_player_hp_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
 
@@ -329,6 +330,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("start_research", StartResearchReducer),
+  __reducerSchema("sync_player_hp", SyncPlayerHpReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
 );

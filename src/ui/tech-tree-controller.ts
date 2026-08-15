@@ -143,7 +143,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     active.textContent = current
       ? activeRemaining > 0
         ? `${RESEARCH_DEFINITIONS[current.researchId].effect} · ${formatResearchTime(activeRemaining)} · SERVER TIMER`
-        : `${RESEARCH_DEFINITIONS[current.researchId].effect} COMPLETE · CLAIM RESEARCH`
+        : `${RESEARCH_DEFINITIONS[current.researchId].effect} · FINALIZING`
       : "NO RESEARCH ACTIVE";
 
     for (const node of document.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
@@ -211,11 +211,9 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     }
     const action = document.createElement("button");
     action.className = "primary-button tech-tree-action";
-    action.disabled = researchRequestPending ||
-      Boolean(current && (current.researchId !== selectedResearchId || activeRemaining > 0)) ||
-      (!current && !canStart);
+    action.disabled = researchRequestPending || Boolean(current) || (!current && !canStart);
     action.textContent = current
-      ? current.researchId === selectedResearchId && activeRemaining <= 0 ? "CLAIM RESEARCH" : "RESEARCH IN PROGRESS"
+      ? activeRemaining <= 0 ? "FINALIZING RESEARCH" : "RESEARCH IN PROGRESS"
       : rank >= definition.maxRank ? "RESEARCH COMPLETE" : canStart ? "START RESEARCH" : `REQUIRES ${requirementText(selectedResearchId)}`;
     action.addEventListener("click", () => { void triggerAction(); });
     detailContent.append(action);
@@ -226,11 +224,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     const current = hooks.activeResearch();
     researchRequestPending = true;
     render();
-    const result = current
-      ? current.researchId === selectedResearchId && current.completesAtMs <= hooks.nowMs()
-        ? await hooks.claimResearch()
-        : { ok: false, error: "RESEARCH IN PROGRESS" }
-      : await hooks.startResearch(selectedResearchId);
+    const result = current ? { ok: false, error: "RESEARCH IN PROGRESS" } : await hooks.startResearch(selectedResearchId);
     researchRequestPending = false;
     if (!result?.ok) hooks.showMessage(result?.error ?? "RESEARCH UNAVAILABLE", "#ff9b91");
     render();
