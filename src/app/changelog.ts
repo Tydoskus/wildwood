@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.403": [
+    "Equipped weapons now control auto attack, show on duel players, and visibly switch hands.",
+    "Profile stats now show final values with every bonus, including neutral +0% and ×1.00 rows.",
+  ],
   "0.402": [
     "Every player now starts with a Starter Stone in the right-hand inventory slot, and inventory selections clear from empty bag slots.",
   ],

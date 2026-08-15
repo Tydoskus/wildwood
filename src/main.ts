@@ -77,7 +77,7 @@ import {
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
     canvas, textCanvas, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
-    settingsBtn, inventoryBtn, autoAttackBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -136,7 +136,6 @@ import {
   let flash = 0;
   let screenShake = 0;
   let runtimeHud!: ReturnType<typeof createGameRuntimeHud>;
-  let autoAttackEnabled = true;
   let heldDuelScene: DuelScene | null = null;
   let renderedDuelScene: DuelScene | null = null;
   let session: ReturnType<typeof createGameSessionController>;
@@ -242,8 +241,9 @@ import {
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return;
       player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
+      const hasWeapon = Boolean(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
-      showMessage(destination === "BAG" ? "ITEM MOVED TO BAG" : "ITEM EQUIPPED", "#72ef58");
+      showMessage(hasWeapon ? "WEAPON EQUIPPED" : "WEAPON UNEQUIPPED", hasWeapon ? "#72ef58" : "#ff9b91");
     },
   });
   const renderInventory = inventoryController.render;
@@ -511,7 +511,12 @@ import {
     spiderWebRange: SPIDER_WEB_RANGE,
     playerAppearanceAssets,
     skinTone: (identity) => coop?.skinTone?.(identity),
-    equippedItems: () => ({ head: inventory.equippedHead, chest: inventory.equippedChest, feet: inventory.equippedFeet }),
+    equippedItems: () => ({ head: inventory.equippedHead, chest: inventory.equippedChest, feet: inventory.equippedFeet, rightHand: inventory.equippedRightHand, leftHand: inventory.equippedLeftHand }),
+    equipmentForIdentity: (identity) => {
+      if (identity === coop?.localIdentity?.()) return { headItem: inventory.equippedHead, chestItem: inventory.equippedChest, feetItem: inventory.equippedFeet, rightHandItem: inventory.equippedRightHand, leftHandItem: inventory.equippedLeftHand };
+      const remote = coop?.remotePlayers?.().find((player) => player.id === identity);
+      return remote ? { headItem: remote.headItem, chestItem: remote.chestItem, feetItem: remote.feetItem } : {};
+    },
     enemySprites: ENEMY_SPRITES,
     rewardMultiplier: researchRewardMultiplier,
     enemyTextVisible: (enemy) => {
@@ -583,7 +588,7 @@ import {
     syncPosition: (x, y, facing, moving, force, highFrequency) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency),
     hasRemotePlayerInArea: (left, top, right, bottom) => coop?.hasRemotePlayerInArea?.(left, top, right, bottom) ?? false,
     autoAttack: (dt) => playerCombat.attackNearest(dt),
-    isAutoAttackEnabled: () => autoAttackEnabled,
+    isAutoAttackEnabled: () => Boolean(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
     isDueling,
     localIdentity: () => coop?.localIdentity?.(),
@@ -682,7 +687,7 @@ import {
     },
     renderCharacter: (identity, progress, visible) => profileCharacterPreview.draw({ visible, progress, skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE }),
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
-    renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.identity === coop?.localIdentity?.() ? coop?.research?.() : undefined),
+    renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research),
     renderRankings: () => undefined, entries: () => coop?.leaderboardEntries?.() ?? [], formatPower: (progress) => formatCompactNumber(playerPower(progress)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0, requestDuel: async (identity) => coop?.requestDuel?.(identity),
@@ -881,7 +886,6 @@ import {
   inputEscapeHandler = createGameActionsRuntime({
     e: gameElements, inventory, renderInventory, logPickup, leaveDuelResult, closeUpdateNotice,
     closeCompetingWindows: () => { closeLeaderboard(); devPanel.close(); techTree.close(); },
-    toggleAutoAttack: () => { autoAttackEnabled = !autoAttackEnabled; return autoAttackEnabled; },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
     resetServerProgress: () => coop?.resetProgress?.(),
     clearProgressState: () => { progress.resetState(); newPlayerIntroShown = false; },

@@ -79,6 +79,7 @@ export type PlayerProfileData = {
   identity: string;
   name: string;
   progress: PlayerProgress;
+  research: PlayerResearch;
   lifetime: PlayerLifetime;
   mapId?: string;
 };
@@ -253,6 +254,7 @@ const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
 let localPresenceVisible = true;
 const profileProgress = new Map<string, PlayerProgress>();
+const profileResearch = new Map<string, PlayerResearch>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerMaps = new Map<string, string>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
@@ -1087,8 +1089,8 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
 }
 
 function upsertResearch(row: { identity: Identity } & Partial<PlayerResearch>) {
-  if (row.identity.toHexString() !== localIdentity) return;
-  localResearch = {
+  const identity = row.identity.toHexString();
+  const research = {
     warcraft: row.warcraft ?? 0,
     moveSpeed: row.moveSpeed ?? 0,
     foraging: row.foraging ?? 0,
@@ -1097,11 +1099,16 @@ function upsertResearch(row: { identity: Identity } & Partial<PlayerResearch>) {
     precision: row.precision ?? 0,
     criticalChance: row.criticalChance ?? 0,
   };
+  profileResearch.set(identity, research);
+  if (identity !== localIdentity) return;
+  localResearch = research;
   onChange?.();
 }
 
 function removeResearch(row: { identity: Identity }) {
-  if (row.identity.toHexString() !== localIdentity) return;
+  const identity = row.identity.toHexString();
+  profileResearch.delete(identity);
+  if (identity !== localIdentity) return;
   localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
   onChange?.();
 }
@@ -1395,6 +1402,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     identity,
     name: profiles.get(identity) ?? "PLAYER",
     progress: { ...progress },
+    research: { ...profileResearch.get(identity) ?? { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 } },
     lifetime: { ...lifetime },
     mapId: identity === localIdentity ? localState?.mapId : playerMaps.get(identity),
   };
@@ -1422,6 +1430,9 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         for (const row of conn.db.playerLifetime.iter()) {
           if (row.identity.toHexString() === identity) upsertPlayerLifetime(row);
         }
+        for (const row of conn.db.playerResearch.iter()) {
+          if (row.identity.toHexString() === identity) upsertResearch(row);
+        }
         for (const row of conn.db.player.iter()) {
           if (row.identity.toHexString() !== identity) continue;
           if (row.isVisible) playerMaps.set(identity, row.mapId);
@@ -1437,6 +1448,7 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
       .subscribe([
         tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
         tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
+        tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),
         tables.player.where((player) => player.identity.eq(dbIdentity)),
       ]);
   });
@@ -1448,6 +1460,7 @@ function releasePlayerProfile() {
   if (activePlayerProfileSubscription) activePlayerProfileSubscription.unsubscribe();
   if (activePlayerProfileIdentity && activePlayerProfileIdentity !== localIdentity) {
     profileProgress.delete(activePlayerProfileIdentity);
+    profileResearch.delete(activePlayerProfileIdentity);
     playerLifetimes.delete(activePlayerProfileIdentity);
     playerProfileLoads.delete(activePlayerProfileIdentity);
   }

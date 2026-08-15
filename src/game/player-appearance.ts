@@ -1,4 +1,4 @@
-import { LEGENDARY_WHITE_GOLD_ARMOR, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
+import { LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
 
 export const PLAYER_SKIN_TONES = [
   "#f9dfd0", "#f2c8ac", "#e9b58f", "#d99e76", "#c88358",
@@ -72,7 +72,7 @@ function drawPillHead(ctx: CanvasRenderingContext2D, width: number, height: numb
 export function drawStartingPlayer(
   ctx: CanvasRenderingContext2D,
   assets: PlayerAppearanceAssets,
-  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; alpha?: number; scale?: number },
+  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string; alpha?: number; scale?: number },
 ) {
   const scale = options.scale ?? .6;
   const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
@@ -85,11 +85,13 @@ export function drawStartingPlayer(
   const boots = options.feetItem === TRAILBLAZER_BOOTS;
   const facingLeft = Math.cos(options.facing) < 0;
   const throwElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
-  // When facing left, the mirrored stone sits behind the body and overlaps it
-  // slightly, leaving only its outer half visible on the player's left.
-  let stoneX = facingLeft ? 30 : 18 - 33 + 4;
+  const handStateKnown = options.rightHandItem !== undefined || options.leftHandItem !== undefined;
+  const stoneInRightHand = options.rightHandItem === STARTER_STONE || !handStateKnown;
+  const stoneInLeftHand = options.leftHandItem === STARTER_STONE;
+  // Mirroring the hand anchor makes the same item visibly change sides.
+  let stoneX = stoneInLeftHand ? (facingLeft ? 18 - 33 + 4 : 30) : (facingLeft ? 30 : 18 - 33 + 4);
   let stoneY = 112 + 4;
-  let stoneVisible = true;
+  let stoneVisible = stoneInRightHand || stoneInLeftHand;
   if (throwElapsed > 0 && throwElapsed < .12) {
     const windup = throwElapsed / .12;
     stoneX -= 11 * (1 - (1 - windup) * (1 - windup));

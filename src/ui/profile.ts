@@ -28,20 +28,24 @@ export function renderProfileStats(
   research?: PlayerResearch,
 ) {
   const { progress } = profile;
-  const techBonus = (base: number, rank: number, percentPerRank: number) => rank > 0
-    ? `BASE: ${Math.round(base).toLocaleString()} · +${rank * percentPerRank}%`
-    : undefined;
+  const ranks = research ?? profile.research ?? { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+  const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
+  const modifier = (base: number, rank = 0, percentPerRank = 0) => `BASE: ${Math.round(base).toLocaleString()} · +${rank * percentPerRank}% · ×${multiplier(rank, percentPerRank).toFixed(2)}`;
+  const healthMultiplier = multiplier(ranks.vitality, 2);
+  const damageMultiplier = multiplier(ranks.warcraft, 2);
+  const armorMultiplier = multiplier(ranks.precision, 2);
+  const speedMultiplier = multiplier(ranks.moveSpeed, 2);
   const stats: Array<{ kind: string; label: string; value: string; modifier?: string }> = [
-    { kind: "health", label: "MAX HP", value: Math.round(progress.maxHp).toLocaleString(), modifier: research ? techBonus(progress.maxHp, research.vitality, 2) : undefined },
-    { kind: "damage", label: "DAMAGE", value: Math.round(progress.damage).toLocaleString(), modifier: research ? techBonus(progress.damage, research.warcraft, 2) : undefined },
-    { kind: "armor", label: "ARMOR", value: `${Math.round(progress.armor).toLocaleString()} (${armorReduction(progress.armor)} damage reduction)`, modifier: research ? techBonus(progress.armor, research.precision, 2) : undefined },
-    { kind: "attack", label: "ATTACK SPEED", value: `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}` },
-    { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString() },
-    { kind: "regen", label: "REGEN", value: `${progress.regen.toFixed(1)}/s` },
-    { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed).toLocaleString() },
+    { kind: "health", label: "MAX HP", value: Math.round(progress.maxHp).toLocaleString(), modifier: modifier(progress.maxHp / healthMultiplier, ranks.vitality, 2) },
+    { kind: "damage", label: "DAMAGE", value: Math.round(progress.damage * damageMultiplier).toLocaleString(), modifier: modifier(progress.damage, ranks.warcraft, 2) },
+    { kind: "armor", label: "ARMOR", value: `${Math.round(progress.armor * armorMultiplier).toLocaleString()} (${armorReduction(progress.armor * armorMultiplier)} damage reduction)`, modifier: modifier(progress.armor, ranks.precision, 2) },
+    { kind: "attack", label: "ATTACK SPEED", value: `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: modifier(1 / progress.attackRate) },
+    { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString(), modifier: modifier(progress.attackRange) },
+    { kind: "regen", label: "REGEN", value: `${progress.regen.toFixed(1)}/s`, modifier: modifier(progress.regen) },
+    { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed * speedMultiplier).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
   ];
-  if (research?.foraging) stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${research.foraging}%`, modifier: `BASE: 0% · +${research.foraging}%` });
-  if (research?.criticalChance) stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${research.criticalChance}%`, modifier: `BASE: 0% · +${research.criticalChance}%` });
+  stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${ranks.foraging}%`, modifier: `BASE: 0% · +${ranks.foraging}% · ×${multiplier(ranks.foraging, 1).toFixed(2)}` });
+  stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${ranks.criticalChance}%`, modifier: `BASE: 0% · +${ranks.criticalChance}% · ×1.00` });
   statGrid.replaceChildren();
   for (const stat of stats) {
     const item = document.createElement("div");

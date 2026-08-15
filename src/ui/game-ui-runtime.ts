@@ -123,7 +123,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     elements: {
       settingsButton: e.settingsBtn, settingsPanel: e.settingsPanel, closeSettingsButton: e.closeSettingsBtn,
       inventoryButton: e.inventoryBtn, inventoryPanel: e.inventoryPanel, closeInventoryButton: e.closeInventoryBtn,
-      autoAttackButton: e.autoAttackBtn, resetProgressButton: e.resetProgressBtn, bootUpgrade: e.bootUpgradeEl,
+      resetProgressButton: e.resetProgressBtn, bootUpgrade: e.bootUpgradeEl,
       bootUpgradeClose: e.bootUpgradeClose, closeDuelResultButton: e.closeDuelResultBtn,
       closeDragonResultButton: e.closeDragonResultBtn, dragonResult: e.dragonResultEl,
       closeUpdateNoticeButton: e.closeUpdateNoticeBtn, closeDuelReplayButton: e.closeDuelReplayBtn,
@@ -132,7 +132,6 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     closeCompetingWindows: d.closeCompetingWindows,
     clearInventorySelection: d.inventoryController.clearSelection,
     renderInventory: d.renderInventory,
-    toggleAutoAttack: d.toggleAutoAttack,
     logPickup: d.logPickup,
     leaveDuelResult: d.leaveDuelResult,
     closeUpdateNotice: d.closeUpdateNotice,

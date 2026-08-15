@@ -30,10 +30,13 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
-  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string }, alpha: number) => void;
+  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string }, alpha: number) => void;
   localHeadItem: () => string;
   localChestItem: () => string;
   localFeetItem: () => string;
+  localRightHandItem: () => string;
+  localLeftHandItem: () => string;
+  equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
   playerStone: HTMLImageElement;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
@@ -100,7 +103,7 @@ export function createActorRenderer(options: {
   }
 
   function drawPlayerSprite(
-    actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string },
+    actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
     alpha = 1,
   ) {
     options.drawPlayerAppearance(actor, alpha);
@@ -148,7 +151,7 @@ export function createActorRenderer(options: {
     const x = Math.floor(actor.x - camera.x);
     const y = Math.floor(actor.y - camera.y);
     options.drawShadow(x, y + 29, 34, actor.isLocal ? .21 : .17);
-    drawPlayerSprite({ ...actor, x, y }, actor.isLocal ? 1 : .88);
+    drawPlayerSprite({ ...actor, ...options.equipmentForIdentity(actor.identity), x, y }, actor.isLocal ? 1 : .88);
     options.drawStatus({
       x,
       y,
@@ -167,7 +170,7 @@ export function createActorRenderer(options: {
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
     options.drawShadow(x, y + 29, 34, .21);
-    drawPlayerSprite({ ...player, x, y, identity, headItem: options.localHeadItem(), chestItem: options.localChestItem(), feetItem: options.localFeetItem() });
+    drawPlayerSprite({ ...player, x, y, identity, headItem: options.localHeadItem(), chestItem: options.localChestItem(), feetItem: options.localFeetItem(), rightHandItem: options.localRightHandItem(), leftHandItem: options.localLeftHandItem() });
     options.drawStatus({
       x,
       y,

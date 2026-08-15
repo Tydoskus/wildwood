@@ -12,7 +12,6 @@ type WindowActionsElements = {
   inventoryButton: HTMLElement;
   inventoryPanel: HTMLElement;
   closeInventoryButton: HTMLElement;
-  autoAttackButton: HTMLElement;
   resetProgressButton: HTMLElement;
   bootUpgrade: HTMLElement;
   bootUpgradeClose: HTMLElement;
@@ -44,7 +43,6 @@ type GameActionsDependencies = {
   closeCompetingWindows: () => void;
   clearInventorySelection: () => void;
   renderInventory: () => void;
-  toggleAutoAttack: () => boolean;
   logPickup: (message: string, color: string) => void;
   leaveDuelResult: () => void;
   closeUpdateNotice: () => void;
@@ -145,13 +143,6 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     }
   });
   elements.closeInventoryButton.addEventListener("click", closeInventory);
-
-  elements.autoAttackButton.addEventListener("click", () => {
-    const enabled = dependencies.toggleAutoAttack();
-    elements.autoAttackButton.setAttribute("aria-pressed", String(enabled));
-    elements.autoAttackButton.classList.toggle("is-off", !enabled);
-    dependencies.logPickup(enabled ? "AUTO ATTACK ENABLED" : "AUTO ATTACK DISABLED", enabled ? "#72ef58" : "#ff9b91");
-  });
 
   elements.closeDuelResultButton.addEventListener("click", dependencies.leaveDuelResult);
   elements.closeDragonResultButton.addEventListener("click", closeDragonResult);

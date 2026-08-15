@@ -64,7 +64,8 @@ export type WorldRenderRuntimeOptions = {
   spiderWebRange: number;
   playerAppearanceAssets: PlayerAppearanceAssets;
   skinTone: (identity: string | undefined) => number | undefined;
-  equippedItems: () => { head: string; chest: string; feet: string };
+  equippedItems: () => { head: string; chest: string; feet: string; rightHand: string; leftHand: string };
+  equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
   enemySprites: Record<string, LoadedEnemySprite>;
   rewardMultiplier: () => number;
   enemyTextVisible: (enemy: EnemyState) => boolean;
@@ -157,6 +158,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     localHeadItem: () => options.equippedItems().head,
     localChestItem: () => options.equippedItems().chest,
     localFeetItem: () => options.equippedItems().feet,
+    localRightHandItem: () => options.equippedItems().rightHand,
+    localLeftHandItem: () => options.equippedItems().leftHand,
+    equipmentForIdentity: options.equipmentForIdentity,
     playerStone: options.playerAppearanceAssets.stone,
     enemySprites: options.enemySprites,
     duelPlatformArt: options.assets.duelPlatformArt,
