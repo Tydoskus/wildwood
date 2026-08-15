@@ -176,8 +176,11 @@ export function createPlayerController(options: {
       const { width, height, zoom } = viewport();
       const visibleW = width / zoom;
       const visibleH = height / zoom;
-      const marginX = visibleW * .25;
-      const marginY = visibleH * .25;
+      // Start the higher-rate movement stream across a two-viewport area.
+      // Remote players receive enough samples to interpolate smoothly before
+      // either player reaches the other player's screen.
+      const marginX = visibleW * .5;
+      const marginY = visibleH * .5;
       const camera = cameraPosition();
       const highFrequency = hasRemotePlayerInArea(camera.x - marginX, camera.y - marginY, camera.x + visibleW + marginX, camera.y + visibleH + marginY);
       syncPosition(player.x, player.y, player.facing, player.moving, started, highFrequency);

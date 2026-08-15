@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.405": [
+    "Nearby player movement now switches to smooth high-rate updates from twice as far away.",
+  ],
   "0.404": [
     "Fixed duel-loss chat entries using the losing player's own portrait and profile link.",
     "Move Speed research now validates correctly on the server without unsupported-speed errors.",
