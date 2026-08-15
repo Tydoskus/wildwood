@@ -13,6 +13,7 @@ export type LeaderboardControllerElements = {
 
 export type LeaderboardControllerHooks = {
   entries: () => LeaderboardEntry[];
+  loadSnapshot: () => Promise<LeaderboardEntry[]>;
   localIdentity: () => string;
   isDeveloper: (identity: string) => boolean;
   paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => void;
@@ -22,9 +23,10 @@ export type LeaderboardControllerHooks = {
 
 export function createLeaderboardController(elements: LeaderboardControllerElements, hooks: LeaderboardControllerHooks) {
   let stat: LeaderboardStat = "power";
+  let snapshot: LeaderboardEntry[] = [];
 
   function render() {
-    renderLeaderboard({ rows: elements.rows, empty: elements.empty }, stat, hooks.entries(), hooks.localIdentity(), {
+    renderLeaderboard({ rows: elements.rows, empty: elements.empty }, stat, snapshot, hooks.localIdentity(), {
       isDeveloper: hooks.isDeveloper,
       paintProfileIcon: hooks.paintProfileIcon,
       openProfile(identity, name) {
@@ -44,11 +46,14 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     render();
   }
 
-  function open() {
+  async function open() {
     hooks.beforeOpen();
     elements.overlay.hidden = false;
     elements.button.setAttribute("aria-expanded", "true");
+    snapshot = [];
     select(stat);
+    snapshot = await hooks.loadSnapshot();
+    if (!elements.overlay.hidden) render();
   }
 
   function close() {
@@ -56,7 +61,7 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     elements.button.setAttribute("aria-expanded", "false");
   }
 
-  elements.button.addEventListener("click", open);
+  elements.button.addEventListener("click", () => { void open(); });
   elements.closeButton.addEventListener("click", close);
   for (const [name, tab] of Object.entries(elements.tabs) as Array<[LeaderboardStat, HTMLElement]>) {
     tab.addEventListener("click", () => select(name));

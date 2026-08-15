@@ -701,6 +701,7 @@ import {
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
     entries: () => coop?.leaderboardEntries?.() ?? [],
+    loadSnapshot: async () => coop?.loadLeaderboardSnapshot?.() ?? [],
     localIdentity: () => coop?.localIdentity?.() || "",
     isDeveloper: isDeveloperIdentity,
     paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0),
@@ -909,7 +910,7 @@ import {
       const profile = coop?.playerProfile?.(identity);
       if (profile) profileWindow.render(profile);
     },
-    refreshLeaderboard: () => { if (leaderboard.isOpen()) leaderboard.render(); },
+    refreshLeaderboard: () => undefined,
     refreshDevPanel: devPanel.refresh,
     loadProgress,
     observedSessionGeneration: () => observedCoopSessionGeneration,

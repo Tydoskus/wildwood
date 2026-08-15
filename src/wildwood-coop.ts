@@ -265,6 +265,8 @@ const profileResearch = new Map<string, PlayerResearch>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerMaps = new Map<string, string>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
+let leaderboardSnapshotSubscription: { unsubscribe: () => void } | null = null;
+let leaderboardSnapshotLoad: Promise<LeaderboardEntry[]> | null = null;
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
 let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
@@ -1005,7 +1007,7 @@ function upsertProfile(row: { identity: Identity; displayName: string; profileIc
   onChange?.();
 }
 
-function upsertLeaderboardEntry(row: {
+function leaderboardEntryFromRow(row: {
   identity: Identity;
   displayName: string;
   power: number;
@@ -1015,9 +1017,9 @@ function upsertLeaderboardEntry(row: {
   regen: number;
   playedMicros: bigint;
   isGuest: boolean;
-}) {
+}): LeaderboardEntry {
   const identity = row.identity.toHexString();
-  leaderboardEntries.set(identity, {
+  return {
     identity,
     name: row.displayName,
     power: row.power,
@@ -1027,13 +1029,7 @@ function upsertLeaderboardEntry(row: {
     regen: row.regen,
     playedSeconds: Number(row.playedMicros) / 1_000_000,
     isGuest: row.isGuest,
-  });
-  onChange?.();
-}
-
-function removeLeaderboardEntry(row: { identity: Identity }) {
-  leaderboardEntries.delete(row.identity.toHexString());
-  onChange?.();
+  };
 }
 
 function upsertAccessAudit(row: {
@@ -1439,6 +1435,53 @@ function loadDuelReplay(id: bigint): Promise<DuelReplay | null> {
   return request;
 }
 
+function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
+  if (leaderboardSnapshotLoad) return leaderboardSnapshotLoad;
+  const conn = connection;
+  if (!conn) return Promise.resolve([]);
+
+  const request = new Promise<LeaderboardEntry[]>((resolve) => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    let settled = false;
+    let unsubscribeAfterSubscribe = false;
+    const release = () => {
+      if (subscription) {
+        const current = subscription;
+        current.unsubscribe();
+        subscription = null;
+        if (leaderboardSnapshotSubscription === current) leaderboardSnapshotSubscription = null;
+      } else {
+        unsubscribeAfterSubscribe = true;
+      }
+    };
+    const finish = (entries: LeaderboardEntry[]) => {
+      if (settled) return;
+      settled = true;
+      leaderboardSnapshotLoad = null;
+      release();
+      resolve(entries);
+    };
+
+    subscription = conn
+      .subscriptionBuilder()
+      .onApplied(() => {
+        if (connection !== conn) return finish([]);
+        leaderboardEntries.clear();
+        for (const row of conn.db.leaderboardEntry.iter()) {
+          const entry = leaderboardEntryFromRow(row);
+          leaderboardEntries.set(entry.identity, entry);
+        }
+        finish([...leaderboardEntries.values()]);
+      })
+      .onError(() => finish([]))
+      .subscribe([tables.leaderboardEntry]);
+    leaderboardSnapshotSubscription = subscription;
+    if (unsubscribeAfterSubscribe) release();
+  });
+  leaderboardSnapshotLoad = request;
+  return request;
+}
+
 function cachedPlayerProfile(identity: string): PlayerProfileData | null {
   const progress = profileProgress.get(identity);
   const lifetime = playerLifetimes.get(identity);
@@ -1558,6 +1601,9 @@ function refreshMapPlayerSubscription(force = false) {
 function clearRealtimeCaches() {
   releasePlayerProfile();
   releaseMapPlayerSubscription();
+  leaderboardSnapshotSubscription?.unsubscribe();
+  leaderboardSnapshotSubscription = null;
+  leaderboardSnapshotLoad = null;
   players.clear();
   profiles.clear();
   profileIcons.clear();
@@ -1789,9 +1835,6 @@ function connect() {
         conn.db.player.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayer(row); });
         conn.db.playerProfile.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProfile(row); });
-        conn.db.leaderboardEntry.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
-        conn.db.leaderboardEntry.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertLeaderboardEntry(row); });
-        conn.db.leaderboardEntry.onDelete((_ctx, row) => { if (isCurrentConnection()) removeLeaderboardEntry(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (isCurrentConnection()) removeAccessAudit(row); });
@@ -1831,7 +1874,6 @@ function connect() {
         .onApplied(() => {
           if (!isCurrentConnection()) return;
           for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
-          for (const row of conn.db.leaderboardEntry.iter()) upsertLeaderboardEntry(row);
           for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
           for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
           for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
@@ -1861,7 +1903,6 @@ function connect() {
         .subscribe([
           tables.player.where((player) => player.identity.eq(identity)),
           tables.playerProfile,
-          tables.leaderboardEntry,
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus,
           tables.worldStatus,
@@ -2141,6 +2182,7 @@ export const wildwoodCoop = {
       isGuest: guestAccounts.get(entry.identity) ?? entry.isGuest,
     }));
   },
+  loadLeaderboardSnapshot,
   isDeveloper(identity = localIdentity) {
     return isDeveloperIdentity(identity);
   },

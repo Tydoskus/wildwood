@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.411": [
+    "Leaderboards now load one server snapshot when opened, then stay fixed until reopened instead of rebuilding during combat updates.",
+  ],
   "0.410": [
     "Nearby players now sync current health to the server, so their overhead health bars reflect damage and regeneration.",
     "Research now finalizes automatically at the server timer; completed legacy Critical Chance research is migrated and completed on reconnect.",
