@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.412": [
+    "Fixed leaderboard snapshots so reopening always requests a fresh server ranking.",
+  ],
   "0.411": [
     "Leaderboards now load one server snapshot when opened, then stay fixed until reopened instead of rebuilding during combat updates.",
   ],

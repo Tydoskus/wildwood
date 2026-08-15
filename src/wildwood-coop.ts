@@ -1440,9 +1440,9 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
   const conn = connection;
   if (!conn) return Promise.resolve([]);
 
+  let settled = false;
   const request = new Promise<LeaderboardEntry[]>((resolve) => {
     let subscription: { unsubscribe: () => void } | null = null;
-    let settled = false;
     let unsubscribeAfterSubscribe = false;
     const release = () => {
       if (subscription) {
@@ -1479,6 +1479,7 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
     if (unsubscribeAfterSubscribe) release();
   });
   leaderboardSnapshotLoad = request;
+  if (settled) leaderboardSnapshotLoad = null;
   return request;
 }
 
