@@ -115,7 +115,11 @@ export function drawStartingPlayer(
   if (facingLeft) ctx.scale(-1, 1);
   ctx.scale(scale, scale); ctx.translate(-90, -171);
   const drawHeldStone = () => drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + stoneX, stoneY);
-  if (facingLeft && stoneVisible) drawHeldStone();
+  // The off-side hand belongs behind the body. Handedness must invert that
+  // depth rule as the character turns, otherwise a left-hand weapon appears
+  // in front while facing right.
+  const stoneBehindBody = stoneInLeftHand ? !facingLeft : facingLeft;
+  if (stoneBehindBody && stoneVisible) drawHeldStone();
   drawLayer(backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
@@ -123,6 +127,6 @@ export function drawStartingPlayer(
   ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
   const headwear = options.headItem === SUPERIOR_GOLDEN_HELMET ? assets.superiorGoldenHelmet : assets.basicPaperHat;
   if (options.headItem !== "") drawLayer(headwear, 90 - headwear.naturalWidth / 2, 118 - headwear.naturalHeight + 26 + gait.head);
-  if (!facingLeft && stoneVisible) drawHeldStone();
+  if (!stoneBehindBody && stoneVisible) drawHeldStone();
   ctx.restore();
 }

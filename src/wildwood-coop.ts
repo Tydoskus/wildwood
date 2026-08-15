@@ -197,10 +197,11 @@ export type DuelReplay = {
 
 type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
+  snapshotIntervalMs: number;
 };
 
 type RemotePlayerSample = {
-  receivedAt: number;
+  timelineAt: number;
   x: number;
   y: number;
   facing: number;
@@ -213,7 +214,11 @@ const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
-const REMOTE_INTERPOLATION_DELAY_MS = 100;
+const REMOTE_MIN_INTERPOLATION_DELAY_MS = 120;
+const REMOTE_MAX_INTERPOLATION_DELAY_MS = 180;
+const REMOTE_MAX_EXTRAPOLATION_MS = 100;
+const REMOTE_SNAPSHOT_INTERVAL_SMOOTHING = .2;
+const REMOTE_SNAP_DISTANCE = 260;
 const REMOTE_SAMPLE_LIMIT = 8;
 const DUEL_COOLDOWN_MS = 120_000;
 const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
@@ -266,6 +271,7 @@ let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
 const remotePlayerRenderBuffer: RemotePlayer[] = [];
+let serverToLocalTimelineOffsetMs: number | null = null;
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
@@ -846,6 +852,23 @@ function isGeneratedDisplayName(displayName: string) {
     /^\d{3}$/.test(suffix ?? "");
 }
 
+function localTimelineForServerTimestamp(serverTimestamp: { microsSinceUnixEpoch: bigint }, receivedAt: number) {
+  const serverAtMs = Number(serverTimestamp.microsSinceUnixEpoch / 1_000n);
+  const observedOffset = receivedAt - serverAtMs;
+  if (serverToLocalTimelineOffsetMs === null || Math.abs(observedOffset - serverToLocalTimelineOffsetMs) > 5_000) {
+    serverToLocalTimelineOffsetMs = observedOffset;
+  } else {
+    // New samples arriving late must not pull the shared timeline forward and
+    // create visible stutter. Fast correction downward tracks a cleaner path;
+    // slow upward correction handles a real clock/network shift.
+    const delta = observedOffset - serverToLocalTimelineOffsetMs;
+    serverToLocalTimelineOffsetMs += delta < 0
+      ? delta * .35
+      : Math.min(2, delta * .04);
+  }
+  return serverAtMs + serverToLocalTimelineOffsetMs;
+}
+
 function upsertPlayer(row: {
   identity: Identity;
   x: number;
@@ -860,6 +883,7 @@ function upsertPlayer(row: {
   headItem: string;
   chestItem: string;
   isVisible: boolean;
+  lastInputAt: { microsSinceUnixEpoch: bigint };
   lastInputSequence: number;
   controllerTabId: string;
   mapId: string;
@@ -903,15 +927,31 @@ function upsertPlayer(row: {
     return;
   }
 
+  const receivedAt = performance.now();
+  const timelineAt = localTimelineForServerTimestamp(row.lastInputAt, receivedAt);
   const existing = players.get(id);
   if (existing) {
-    existing.samples.push({
-      receivedAt: performance.now(),
+    const latest = existing.samples[existing.samples.length - 1];
+    const distance = Math.hypot(row.x - latest.x, row.y - latest.y);
+    const sample = {
+      timelineAt: Math.max(timelineAt, latest.timelineAt + .01),
       x: row.x,
       y: row.y,
       facing: row.facing,
       moving: row.moving,
-    });
+    };
+    // Portal changes clear players first. This protects against any other
+    // server correction being interpolated across half the map.
+    if (distance > REMOTE_SNAP_DISTANCE) {
+      existing.samples.length = 0;
+      existing.samples.push(sample);
+    } else {
+      const interval = sample.timelineAt - latest.timelineAt;
+      if (interval >= 16 && interval <= 1_000) {
+        existing.snapshotIntervalMs += (interval - existing.snapshotIntervalMs) * REMOTE_SNAPSHOT_INTERVAL_SMOOTHING;
+      }
+      existing.samples.push(sample);
+    }
     while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
     existing.speed = row.speed;
     existing.moving = row.moving;
@@ -936,7 +976,8 @@ function upsertPlayer(row: {
       feetItem: row.feetItem,
       headItem: row.headItem,
       chestItem: row.chestItem,
-      samples: [{ receivedAt: performance.now(), x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
+      snapshotIntervalMs: NEARBY_MOVEMENT_INTERVAL_MS,
+      samples: [{ timelineAt, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
     });
   }
   onChange?.();
@@ -2408,29 +2449,48 @@ export const wildwoodCoop = {
   remotePlayers(dt = 1 / 60) {
     const result = remotePlayerRenderBuffer;
     result.length = 0;
-    const renderAt = performance.now() - REMOTE_INTERPOLATION_DELAY_MS;
+    const now = performance.now();
 
     for (const player of players.values()) {
       if (player.id === localIdentity) continue;
       const samples = player.samples;
+      const interpolationDelay = Math.max(
+        REMOTE_MIN_INTERPOLATION_DELAY_MS,
+        Math.min(REMOTE_MAX_INTERPOLATION_DELAY_MS, player.snapshotIntervalMs * 2),
+      );
+      const renderAt = now - interpolationDelay;
       let before = samples[0];
       let after = samples[samples.length - 1];
       for (let index = 1; index < samples.length; index += 1) {
-        if (samples[index].receivedAt >= renderAt) {
+        if (samples[index].timelineAt >= renderAt) {
           before = samples[index - 1];
           after = samples[index];
           break;
         }
       }
-      const span = Math.max(1, after.receivedAt - before.receivedAt);
-      const alpha = Math.max(0, Math.min(1, (renderAt - before.receivedAt) / span));
-      player.x = before.x + (after.x - before.x) * alpha;
-      player.y = before.y + (after.y - before.y) * alpha;
-      player.facing = before.facing + Math.atan2(
-        Math.sin(after.facing - before.facing),
-        Math.cos(after.facing - before.facing),
-      ) * alpha;
-      player.moving = alpha < 1 ? before.moving : after.moving;
+      const latest = samples[samples.length - 1];
+
+      if (renderAt > latest.timelineAt && samples.length > 1) {
+        // Brief dead reckoning conceals a late packet. Never extrapolate long
+        // enough to walk a remote player through a wall or past a correction.
+        const previous = samples[samples.length - 2];
+        const span = Math.max(1, latest.timelineAt - previous.timelineAt);
+        const aheadMs = Math.min(REMOTE_MAX_EXTRAPOLATION_MS, renderAt - latest.timelineAt);
+        player.x = latest.x + (latest.x - previous.x) / span * aheadMs;
+        player.y = latest.y + (latest.y - previous.y) / span * aheadMs;
+        player.facing = latest.facing;
+        player.moving = latest.moving;
+      } else {
+        const span = Math.max(1, after.timelineAt - before.timelineAt);
+        const alpha = Math.max(0, Math.min(1, (renderAt - before.timelineAt) / span));
+        player.x = before.x + (after.x - before.x) * alpha;
+        player.y = before.y + (after.y - before.y) * alpha;
+        player.facing = before.facing + Math.atan2(
+          Math.sin(after.facing - before.facing),
+          Math.cos(after.facing - before.facing),
+        ) * alpha;
+        player.moving = alpha < 1 ? before.moving : after.moving;
+      }
       result.push(player);
     }
 

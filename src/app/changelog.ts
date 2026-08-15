@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.406": [
+    "Remote players now use server-timestamped interpolation, adaptive buffering, and brief capped prediction for smoother movement.",
+    "Left-hand stones now correctly render behind the player while facing right.",
+  ],
   "0.405": [
     "Nearby player movement now switches to smooth high-rate updates from twice as far away.",
   ],
