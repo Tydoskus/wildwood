@@ -198,7 +198,6 @@ export type DuelReplay = {
 
 type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
-  snapshotIntervalMs: number;
 };
 
 type RemotePlayerSample = {
@@ -210,16 +209,17 @@ type RemotePlayerSample = {
   moving: boolean;
 };
 
-const NEARBY_MOVEMENT_HZ = 15;
+const NEARBY_MOVEMENT_HZ = 20;
 const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
+const MAP_PLAYER_ZONE_SIZE = 600;
+const MAP_PLAYER_ZONE_RADIUS = 1;
+const HP_SYNC_MIN_INTERVAL_MS = 125;
+const HP_SYNC_IDLE_INTERVAL_MS = 1_000;
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
-const REMOTE_MIN_INTERPOLATION_DELAY_MS = 120;
-const REMOTE_MAX_INTERPOLATION_DELAY_MS = 180;
-const REMOTE_MAX_EXTRAPOLATION_MS = 100;
-const REMOTE_SNAPSHOT_INTERVAL_SMOOTHING = .2;
+const REMOTE_INTERPOLATION_DELAY_MS = 175;
 const REMOTE_SNAP_DISTANCE = 260;
 const REMOTE_SAMPLE_LIMIT = 8;
 const DUEL_COOLDOWN_MS = 120_000;
@@ -269,8 +269,10 @@ let leaderboardSnapshotSubscription: { unsubscribe: () => void } | null = null;
 let leaderboardSnapshotLoad: Promise<LeaderboardEntry[]> | null = null;
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
+let cancelActivePlayerProfileLoad: (() => void) | null = null;
 let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
 let mapSubscriptionGeneration = 0;
+let mapSubscriptionAreaKey = "";
 let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
@@ -952,10 +954,6 @@ function upsertPlayer(row: {
         existing.samples.length = 0;
         existing.samples.push(sample);
       } else {
-        const interval = sample.timelineAt - latest.timelineAt;
-        if (interval >= 16 && interval <= 1_000) {
-          existing.snapshotIntervalMs += (interval - existing.snapshotIntervalMs) * REMOTE_SNAPSHOT_INTERVAL_SMOOTHING;
-        }
         existing.samples.push(sample);
       }
     }
@@ -983,7 +981,6 @@ function upsertPlayer(row: {
       feetItem: row.feetItem,
       headItem: row.headItem,
       chestItem: row.chestItem,
-      snapshotIntervalMs: NEARBY_MOVEMENT_INTERVAL_MS,
       samples: [{ timelineAt: receivedAt, serverAtMs, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
     });
   }
@@ -1512,7 +1509,17 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
   releasePlayerProfile();
   activePlayerProfileIdentity = identity;
 
+  let settled = false;
   const request = new Promise<PlayerProfileData | null>((resolve) => {
+    const finish = (profile: PlayerProfileData | null) => {
+      if (settled) return;
+      settled = true;
+      playerProfileLoads.delete(identity);
+      if (cancelActivePlayerProfileLoad === cancel) cancelActivePlayerProfileLoad = null;
+      resolve(profile);
+    };
+    const cancel = () => finish(null);
+    cancelActivePlayerProfileLoad = cancel;
     activePlayerProfileSubscription = conn
       .subscriptionBuilder()
       .onApplied(() => {
@@ -1530,12 +1537,10 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
           if (row.isVisible) playerMaps.set(identity, row.mapId);
           else playerMaps.delete(identity);
         }
-        playerProfileLoads.delete(identity);
-        resolve(cachedPlayerProfile(identity));
+        finish(cachedPlayerProfile(identity));
       })
       .onError(() => {
-        playerProfileLoads.delete(identity);
-        resolve(null);
+        finish(null);
       })
       .subscribe([
         tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
@@ -1545,11 +1550,14 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
       ]);
   });
   playerProfileLoads.set(identity, request);
+  if (settled) playerProfileLoads.delete(identity);
   return request;
 }
 
 function releasePlayerProfile() {
   if (activePlayerProfileSubscription) activePlayerProfileSubscription.unsubscribe();
+  cancelActivePlayerProfileLoad?.();
+  cancelActivePlayerProfileLoad = null;
   if (activePlayerProfileIdentity && activePlayerProfileIdentity !== localIdentity) {
     profileProgress.delete(activePlayerProfileIdentity);
     profileResearch.delete(activePlayerProfileIdentity);
@@ -1576,15 +1584,31 @@ function releaseMapPlayerSubscription() {
   mapSubscriptionGeneration += 1;
   mapPlayerSubscription?.unsubscribe();
   mapPlayerSubscription = null;
+  mapSubscriptionAreaKey = "";
 }
 
 function refreshMapPlayerSubscription(force = false) {
   const conn = connection;
   if (!conn?.isActive || !hydrationReady) return;
-  if (!force && mapPlayerSubscription) return;
+  const centerX = Math.floor((localState?.x ?? 0) / MAP_PLAYER_ZONE_SIZE);
+  const centerY = Math.floor((localState?.y ?? 0) / MAP_PLAYER_ZONE_SIZE);
+  const areaKey = `${currentMapId}:${centerX}:${centerY}`;
+  if (!force && mapPlayerSubscription && mapSubscriptionAreaKey === areaKey) return;
 
   const previous = mapPlayerSubscription;
+  const previousAreaKey = mapSubscriptionAreaKey;
   const generation = ++mapSubscriptionGeneration;
+  mapSubscriptionAreaKey = areaKey;
+  const nearbyZones = [];
+  for (let offsetX = -MAP_PLAYER_ZONE_RADIUS; offsetX <= MAP_PLAYER_ZONE_RADIUS; offsetX += 1) {
+    for (let offsetY = -MAP_PLAYER_ZONE_RADIUS; offsetY <= MAP_PLAYER_ZONE_RADIUS; offsetY += 1) {
+      nearbyZones.push(tables.player.where((row) => row
+        .mapId.eq(currentMapId)
+        .and(row.isVisible.eq(true))
+        .and(row.zoneX.eq(centerX + offsetX))
+        .and(row.zoneY.eq(centerY + offsetY))));
+    }
+  }
 
   const next = conn
     .subscriptionBuilder()
@@ -1597,8 +1621,9 @@ function refreshMapPlayerSubscription(force = false) {
       if (connection !== conn || generation !== mapSubscriptionGeneration) return;
       console.error("Wildwood map player subscription error:", ctx.event);
       mapPlayerSubscription = previous;
+      mapSubscriptionAreaKey = previousAreaKey;
     })
-    .subscribe([tables.player.where((row) => row.mapId.eq(currentMapId).and(row.isVisible.eq(true)))]);
+    .subscribe(nearbyZones);
   mapPlayerSubscription = next;
 }
 
@@ -2500,10 +2525,14 @@ export const wildwoodCoop = {
     const sequence = ++nextPositionSequence;
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
   },
-  syncHp(hp: number) {
-    if (protocolBlocked || !connection || !Number.isFinite(hp)) return;
+  syncHp(hp: number, hasNearbyRemotePlayer = false) {
+    if (protocolBlocked || !connection || !hasNearbyRemotePlayer || !Number.isFinite(hp)) return;
     const now = performance.now();
-    if (lastHpSent !== null && Math.abs(lastHpSent - hp) < .5 && now - lastHpSentAt < 1_000) return;
+    const elapsed = now - lastHpSentAt;
+    // High regeneration can change HP by more than .5 every frame. Keep the
+    // remote bar responsive without turning it into a 60 Hz server stream.
+    if (lastHpSent !== null && elapsed < HP_SYNC_MIN_INTERVAL_MS) return;
+    if (lastHpSent !== null && Math.abs(lastHpSent - hp) < .5 && elapsed < HP_SYNC_IDLE_INTERVAL_MS) return;
     lastHpSent = hp;
     lastHpSentAt = now;
     sendReducer("health sync", () => connection?.reducers.syncPlayerHp({ hp }));
@@ -2518,7 +2547,7 @@ export const wildwoodCoop = {
       return false;
     }
   },
-  remotePlayers(dt = 1 / 60) {
+  remotePlayers() {
     const result = remotePlayerRenderBuffer;
     result.length = 0;
     const now = performance.now();
@@ -2526,11 +2555,7 @@ export const wildwoodCoop = {
     for (const player of players.values()) {
       if (player.id === localIdentity) continue;
       const samples = player.samples;
-      const interpolationDelay = Math.max(
-        REMOTE_MIN_INTERPOLATION_DELAY_MS,
-        Math.min(REMOTE_MAX_INTERPOLATION_DELAY_MS, player.snapshotIntervalMs * 2),
-      );
-      const renderAt = now - interpolationDelay;
+      const renderAt = now - REMOTE_INTERPOLATION_DELAY_MS;
       let before = samples[0];
       let after = samples[samples.length - 1];
       for (let index = 1; index < samples.length; index += 1) {
@@ -2542,30 +2567,15 @@ export const wildwoodCoop = {
       }
       const latest = samples[samples.length - 1];
 
-      if (renderAt > latest.timelineAt && latest.moving && samples.length > 1) {
-        // Brief dead reckoning conceals a late packet. Never extrapolate long
-        // enough to walk a remote player through a wall or past a correction.
-        const previous = samples[samples.length - 2];
-        const aheadMs = Math.min(REMOTE_MAX_EXTRAPOLATION_MS, renderAt - latest.timelineAt);
-        const dx = latest.x - previous.x;
-        const dy = latest.y - previous.y;
-        const distance = Math.hypot(dx, dy);
-        const predictedDistance = Math.min(distance, player.speed * aheadMs / 1_000);
-        player.x = latest.x + (distance > 0 ? dx / distance * predictedDistance : 0);
-        player.y = latest.y + (distance > 0 ? dy / distance * predictedDistance : 0);
-        player.facing = latest.facing;
-        player.moving = latest.moving;
-      } else {
-        const span = Math.max(1, after.timelineAt - before.timelineAt);
-        const alpha = Math.max(0, Math.min(1, (renderAt - before.timelineAt) / span));
-        player.x = before.x + (after.x - before.x) * alpha;
-        player.y = before.y + (after.y - before.y) * alpha;
-        player.facing = before.facing + Math.atan2(
-          Math.sin(after.facing - before.facing),
-          Math.cos(after.facing - before.facing),
-        ) * alpha;
-        player.moving = alpha < 1 ? before.moving : after.moving;
-      }
+      const span = Math.max(1, after.timelineAt - before.timelineAt);
+      const alpha = Math.max(0, Math.min(1, (renderAt - before.timelineAt) / span));
+      player.x = before.x + (after.x - before.x) * alpha;
+      player.y = before.y + (after.y - before.y) * alpha;
+      player.facing = before.facing + Math.atan2(
+        Math.sin(after.facing - before.facing),
+        Math.cos(after.facing - before.facing),
+      ) * alpha;
+      player.moving = alpha < 1 ? before.moving : after.moving;
       result.push(player);
     }
 

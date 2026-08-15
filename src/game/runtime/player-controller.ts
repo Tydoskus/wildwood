@@ -50,7 +50,7 @@ export function createPlayerController(options: {
   syncSpeed: (speed: number) => void;
   movementSpeedMultiplier: () => number;
   syncPosition: (x: number, y: number, facing: number, moving: boolean, force: boolean, highFrequency?: boolean) => void;
-  syncHp: (hp: number) => void;
+  syncHp: (hp: number, hasNearbyRemotePlayer: boolean) => void;
   hasRemotePlayerInArea: (left: number, top: number, right: number, bottom: number) => boolean;
   autoAttack: (dt: number) => void;
   isAutoAttackEnabled: () => boolean;
@@ -173,6 +173,7 @@ export function createPlayerController(options: {
     if (isDesertMap()) resolveSpiderCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
+    let hasNearbyRemotePlayer = false;
     if (connected) {
       const { width, height, zoom } = viewport();
       const visibleW = width / zoom;
@@ -183,12 +184,12 @@ export function createPlayerController(options: {
       const marginX = visibleW * .5;
       const marginY = visibleH * .5;
       const camera = cameraPosition();
-      const highFrequency = hasRemotePlayerInArea(camera.x - marginX, camera.y - marginY, camera.x + visibleW + marginX, camera.y + visibleH + marginY);
-      syncPosition(player.x, player.y, player.facing, player.moving, started, highFrequency);
+      hasNearbyRemotePlayer = hasRemotePlayerInArea(camera.x - marginX, camera.y - marginY, camera.x + visibleW + marginX, camera.y + visibleH + marginY);
+      syncPosition(player.x, player.y, player.facing, player.moving, started, hasNearbyRemotePlayer);
     }
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);
-    if (connected) syncHp(player.hp);
+    if (connected) syncHp(player.hp, hasNearbyRemotePlayer);
     if (isAutoAttackEnabled()) autoAttack(dt);
   }
 

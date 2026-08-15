@@ -58,6 +58,12 @@ export type DevAccessAudit = __Infer<typeof DevAccessAudit>;
 export const DevBugReports = __t.object("DevBugReports", {});
 export type DevBugReports = __Infer<typeof DevBugReports>;
 
+export const DeveloperPresencePreference = __t.object("DeveloperPresencePreference", {
+  identity: __t.identity(),
+  visible: __t.bool(),
+});
+export type DeveloperPresencePreference = __Infer<typeof DeveloperPresencePreference>;
+
 export const DragonAttackWindow = __t.object("DragonAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

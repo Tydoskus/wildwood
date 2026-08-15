@@ -1133,8 +1133,8 @@
   .leaderboard-tabs { margin: 9px 0 8px; }
   .leaderboard-tabs .profile-tab { padding: 6px 10px; }
   .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 70px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
-  .leaderboard-rows { display: grid; gap: 0; height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
-  .leaderboard-loading, .leaderboard-modal > .profile-loading { display: grid; place-items: center; height: min(64vh, 470px); margin: 0; padding: 0; background: rgba(0,0,0,.22); }
+  .leaderboard-rows { display: grid; gap: 0; max-height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
+  .leaderboard-loading { display: grid; place-items: center; height: min(64vh, 470px); margin: 0; padding: 0; background: rgba(0,0,0,.22); }
   .leaderboard-loading[hidden] { display: none; }
   .leaderboard-spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,.22); border-top-color: var(--gold); border-radius: 50%; animation: leaderboard-spin .65s linear infinite; }
   @keyframes leaderboard-spin { to { transform: rotate(1turn); } }
@@ -1253,8 +1253,8 @@
     .leaderboard-tabs { margin: 4px 0 3px; }
     .leaderboard-tabs .profile-tab { padding: 3px 8px; font-size: 9px; }
     .leaderboard-column-headings { padding: 0 7px 2px 35px; font-size: 7px; }
-    .leaderboard-rows { gap: 0; height: min(45vh, 329px); padding: 0; }
-    .leaderboard-loading, .leaderboard-modal > .profile-loading { height: min(45vh, 329px); }
+    .leaderboard-rows { gap: 0; max-height: min(45vh, 329px); padding: 0; }
+    .leaderboard-loading { height: min(45vh, 329px); }
     .leaderboard-row { min-height: 25px; padding: 0 7px; }
     .leaderboard-rank { font-size: 8px; }
     .leaderboard-name, .leaderboard-value { font-size: 9px; }

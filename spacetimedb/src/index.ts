@@ -277,6 +277,16 @@ const playerBalanceVersion = table(
   },
 );
 
+// Developers keep their presence choice across disconnects and devices. The
+// active player row is deliberately ephemeral, so it cannot hold this setting.
+const developerPresencePreference = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    visible: t.bool().default(false),
+  },
+);
+
 // Persistent sign-in history. Private storage prevents account activity from
 // becoming public player data. The viewer index powers the developer-only view
 // without scanning private rows.
@@ -597,6 +607,7 @@ const spacetimedb = schema({
   playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
+  developerPresencePreference,
   playerAccessAudit,
   playerSession,
   playerController,
@@ -1720,7 +1731,13 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   backfillKnownAccessAudit(ctx);
 
   const existing = ctx.db.player.identity.find(ctx.sender);
-  const visibleOnEntry = !isDeveloperIdentity(ctx.sender);
+  const presencePreference = ctx.db.developerPresencePreference.identity.find(ctx.sender);
+  const visibleOnEntry = isDeveloperIdentity(ctx.sender)
+    ? presencePreference?.visible ?? existing?.isVisible ?? false
+    : true;
+  if (isDeveloperIdentity(ctx.sender) && !presencePreference) {
+    ctx.db.developerPresencePreference.insert({ identity: ctx.sender, visible: visibleOnEntry });
+  }
   if (!existing) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
   }
@@ -2325,6 +2342,9 @@ export const setDeveloperPresence = spacetimedb.reducer(
   (ctx, { visible }) => {
     requireDeveloper(ctx);
     const activePlayer = requireControllingPlayer(ctx);
+    const preference = ctx.db.developerPresencePreference.identity.find(ctx.sender);
+    if (preference) ctx.db.developerPresencePreference.identity.update({ ...preference, visible });
+    else ctx.db.developerPresencePreference.insert({ identity: ctx.sender, visible });
     if (activePlayer.isVisible === visible) return;
     ctx.db.player.identity.update({ ...activePlayer, isVisible: visible });
     adjustOnlinePlayers(ctx, visible ? 1 : -1);

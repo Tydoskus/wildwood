@@ -587,7 +587,7 @@ import {
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
     syncPosition: (x, y, facing, moving, force, highFrequency) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency),
-    syncHp: (hp) => coop?.syncHp?.(hp),
+    syncHp: (hp, hasNearbyRemotePlayer) => coop?.syncHp?.(hp, hasNearbyRemotePlayer),
     hasRemotePlayerInArea: (left, top, right, bottom) => coop?.hasRemotePlayerInArea?.(left, top, right, bottom) ?? false,
     autoAttack: (dt) => playerCombat.attackNearest(dt),
     isAutoAttackEnabled: () => Boolean(inventory.equippedRightHand || inventory.equippedLeftHand),
@@ -801,6 +801,23 @@ import {
     onLeaveDuelResult: () => { duelResultEl.hidden = true; playerController.finishDuelResult(); },
   });
 
+  let reconnectOverlayPausedGame = false;
+  function refreshReconnectOverlay() {
+    const reconnecting = Boolean(coop?.isReconnectingAfterWake?.());
+    reconnectOverlayEl.hidden = !reconnecting;
+    if (reconnecting) {
+      if (session.isRunning() && !session.isPaused()) {
+        session.setPaused(true);
+        reconnectOverlayPausedGame = true;
+      }
+      return;
+    }
+    if (!reconnectOverlayPausedGame) return;
+    reconnectOverlayPausedGame = false;
+    session.setPaused(false);
+    session.refreshFrameClock();
+  }
+
   startupCoordinator = createStartupCoordinator({
     version: GAME_VERSION,
     gameUpdateGate: gameUpdateGateEl,
@@ -942,10 +959,10 @@ import {
     refreshChat: chatRuntime.refresh,
     updateDuelControls,
     refreshAppStatus: appShell.refreshStatus,
-    refreshReconnectOverlay: () => { reconnectOverlayEl.hidden = !coop?.isReconnectingAfterWake?.(); },
+    refreshReconnectOverlay,
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
-  reconnectOverlayEl.hidden = !coop?.isReconnectingAfterWake?.();
+  refreshReconnectOverlay();
   updateDuelControls();
   appShell.refreshSettings();
   appShell.refreshFullscreen();

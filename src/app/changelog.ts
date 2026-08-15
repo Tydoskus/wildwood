@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.414": [
+    "Nearby players now use a 20 Hz confirmed-snapshot buffer with no forward prediction, removing small movement rubberbands.",
+    "Health updates now run only near other players and are capped at eight per second; distant players are excluded from map subscriptions.",
+    "Reconnect screens pause world simulation, developer visibility persists across sessions, and cancelled profile requests settle cleanly.",
+  ],
   "0.413": [
     "Leaderboard now opens at full size with a loading spinner while its one-time server snapshot arrives.",
     "Remote movement ignores health-only player updates, preventing duplicate movement samples and jerky nearby players.",
