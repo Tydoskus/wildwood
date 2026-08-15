@@ -18,6 +18,7 @@ type ChatMessage = {
 
 type CoopClient = {
   localDisplayName?: () => string;
+  localIdentity?: () => string | undefined;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
   chatRevision?: () => number;
@@ -96,22 +97,23 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
   }
 
-  function duelPresentation(message: ChatMessage, localName: string | undefined) {
+  function duelPresentation(message: ChatMessage, localName: string | undefined, localIdentity: string | undefined) {
     const match = /^(.+?) beat (.+?) in a duel\.$/.exec(message.message);
     if (!match || !localName) return null;
     const [, winner, loser] = match;
-    if (loser === localName) return { name: loser, text: `${loser} lost to ${winner} in a duel.` };
+    if (loser === localName) return { name: loser, identity: localIdentity, text: `${loser} lost to ${winner} in a duel.` };
     return null;
   }
 
-  function displayNameFor(message: ChatMessage, localName: string | undefined) {
+  function displayNameFor(message: ChatMessage, localName: string | undefined, localIdentity: string | undefined) {
     if (message.replayId === 0n) return message.senderName;
-    return duelPresentation(message, localName)?.name ?? (message.senderName || "DUEL");
+    return duelPresentation(message, localName, localIdentity)?.name ?? (message.senderName || "DUEL");
   }
 
   function refresh() {
     const coop = getCoop();
     const localName = coop?.localDisplayName?.();
+    const localIdentity = coop?.localIdentity?.();
 
     const now = Date.now();
     const revision = coop?.chatRevision?.() ?? -1;
@@ -129,8 +131,9 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     nextExpiryAt = allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
     elements.messages.replaceChildren();
     for (const message of messages) {
-      const duel = message.replayId > 0n ? duelPresentation(message, localName) : null;
-      const displayName = displayNameFor(message, localName);
+      const duel = message.replayId > 0n ? duelPresentation(message, localName, localIdentity) : null;
+      const displayName = displayNameFor(message, localName, localIdentity);
+      const displayIdentity = duel?.identity ?? message.sender;
       const line = document.createElement("div");
       line.className = "chat-line";
       const isDuelMessage = message.replayId > 0n;
@@ -139,9 +142,9 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       time.textContent = new Date(message.sentAtMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const name = document.createElement("span");
       name.className = "chat-name";
-      name.style.color = nameColor(message.sender);
-      const guestSuffix = coop?.isGuest?.(message.sender) ? " (guest)" : "";
-      if (isDeveloperIdentity(message.sender)) {
+      name.style.color = nameColor(displayIdentity);
+      const guestSuffix = coop?.isGuest?.(displayIdentity) ? " (guest)" : "";
+      if (isDeveloperIdentity(displayIdentity)) {
         const badge = document.createElement("span");
         badge.className = "dev-badge";
         badge.textContent = `${DEVELOPER_BADGE} `;
@@ -153,7 +156,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       name.setAttribute("aria-label", `View ${displayName}'s profile`);
       const openPlayer = (event: Event) => {
         event.stopPropagation();
-        onOpenPlayer?.(message.sender, displayName);
+        onOpenPlayer?.(displayIdentity, displayName);
       };
       const openReplay = (event: Event) => {
         event.stopPropagation();
@@ -179,7 +182,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         event.preventDefault();
         openPlayer(event);
       });
-      const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(message.sender) ?? 0)));
+      const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(displayIdentity) ?? 0)));
       icon.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + (iconIndex % 8) * PROFILE_PORTRAIT_POSITION_STEP}% ${PROFILE_PORTRAIT_POSITION_START + Math.floor(iconIndex / 8) * PROFILE_PORTRAIT_POSITION_STEP}%`;
       line.append(time, icon, name, text);
       if (isDuelMessage) {

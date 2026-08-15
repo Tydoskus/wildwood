@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.404": [
+    "Fixed duel-loss chat entries using the losing player's own portrait and profile link.",
+    "Move Speed research now validates correctly on the server without unsupported-speed errors.",
+  ],
   "0.403": [
     "Equipped weapons now control auto attack, show on duel players, and visibly switch hands.",
     "Profile stats now show final values with every bonus, including neutral +0% and ×1.00 rows.",

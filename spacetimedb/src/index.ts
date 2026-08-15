@@ -2764,9 +2764,17 @@ export const setSpeed = spacetimedb.reducer(
   (ctx, { speed }) => {
     const current = requireControllingPlayer(ctx);
 
-    const validSpeed = [PLAYER_SPEED, PLAYER_SPEED + BOOTS_SPEED_BONUS]
-      .some((allowed) => Math.abs(speed - allowed) < 0.01);
-    if (!validSpeed) throw new SenderError("Unsupported player speed");
+    // Speed remains server-authoritative. Move Speed research is a legitimate
+    // client-side movement multiplier, so validate its exact server record
+    // instead of treating every researched speed as a malformed packet.
+    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const research = ctx.db.playerResearch.identity.find(ctx.sender);
+    const bootsEquipped = progress
+      ? equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS
+      : current.feetItem === TRAILBLAZER_BOOTS;
+    const moveSpeedRank = research?.moveSpeed ?? 0;
+    const expectedSpeed = speedForBoots(bootsEquipped) * (1 + moveSpeedRank * 0.02);
+    if (Math.abs(speed - expectedSpeed) >= 0.01) throw new SenderError("Unsupported player speed");
 
     ctx.db.player.identity.update({
       ...current,
