@@ -262,6 +262,7 @@ export const PlayerLifetime = __t.object("PlayerLifetime", {
   playedMicros: __t.u64(),
   sessionStartedAt: __t.timestamp(),
   enemyKills: __t.u64(),
+  deathCount: __t.u64(),
 });
 export type PlayerLifetime = __Infer<typeof PlayerLifetime>;
 
@@ -313,6 +314,7 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   precision: __t.u32(),
   criticalChance: __t.u32(),
   moveSpeed: __t.u32(),
+  prosperity: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 

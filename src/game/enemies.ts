@@ -81,21 +81,21 @@ const enemyTypes = {
   // INTERMEDIATE SNOWLANDS ENEMIES
   // Desert-to-snow uses the same archetype multipliers as forest-to-desert.
   "Frost Raider": {
-    hp: 4_000_000_000, speed: 230, damage: 2_330_000, attackSpeed: .65, r: 21,
+    hp: 2_700_000_000, speed: 230, damage: 2_330_000, attackSpeed: .65, r: 21,
     color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: 240_000 },
   },
   "Glacier Archer": {
-    hp: 3_680_000_000, speed: 215, damage: 11_150_000, attackSpeed: .55, r: 19,
+    hp: 2_280_000_000, speed: 215, damage: 11_150_000, attackSpeed: .55, r: 19,
     color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 },
     ranged: true,
   },
   "Rime Guard": {
     hp: 17_790_000_000, speed: 205, damage: 35_300_000, attackSpeed: .55, r: 27,
-    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 4_500 },
+    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 14_000 },
   },
   "Whiteout Reaper": {
     hp: 25_000_000_000, speed: 235, damage: 8_400_000, attackSpeed: .7, r: 34,
-    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: 300_000 },
+    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: 3_150_000 },
     ranged: true, elite: true, aggro: 340,
   },
   "Aurora Oracle": {

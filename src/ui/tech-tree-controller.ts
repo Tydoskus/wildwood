@@ -36,7 +36,7 @@ const techNodeResearch: Record<string, ResearchId | null> = {
   foundations: "foraging",
   war: "warcraft",
   "move-speed": "moveSpeed",
-  "frontier-mastery": "frontierMastery",
+  prosperity: "prosperity",
   vitality: "vitality",
   precision: "precision",
   "critical-chance": "criticalChance",
@@ -111,8 +111,8 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
     };
     const paths: [string, string][] = [
-      ["foundations", "war"], ["foundations", "future-a"], ["war", "frontier-mastery"], ["future-a", "frontier-mastery"],
-      ["frontier-mastery", "vitality"], ["frontier-mastery", "precision"], ["vitality", "critical-chance"], ["precision", "critical-chance"],
+      ["foundations", "war"], ["foundations", "move-speed"], ["war", "vitality"], ["war", "precision"],
+      ["vitality", "prosperity"], ["precision", "prosperity"], ["prosperity", "critical-chance"],
       ["critical-chance", "future-b"], ["future-b", "future-c"], ["future-b", "future-d"], ["future-c", "future-e"],
       ["future-d", "future-e"], ["future-e", "future-f"], ["future-e", "future-g"], ["future-f", "future-h"],
       ["future-g", "future-h"], ...futureTechTreePaths,

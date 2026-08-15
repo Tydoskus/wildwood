@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.409": [
+    "Snowlands balance updates reduce Frost Raider and Glacier Archer health, increase Rime Guard armor rewards, and raise the Whiteout Reaper damage reward.",
+    "Snow pines now cast grounded shadows and depth-sort around players; enemy health bars show numeric values without an HP suffix.",
+    "Tech Tree replaces the Tier II gate with a fresh five-rank Prosperity Stat Gain research, and research rank labels are twice as large.",
+    "Player deaths now record in the server-backed lifetime stats table for future profile displays.",
+  ],
   "0.408": [
     "Spider rewards now update your overhead Max Health and Power labels immediately when the confirmed result arrives.",
     "Remote movement keeps a stable receive-time timeline while using server timestamps to order batched snapshots.",

@@ -10,7 +10,11 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Dune Archer"].reward).toEqual({ type: "health", amount: 8_500 });
     expect(ENEMY_TYPES["Blight Oracle"].reward).toEqual({ type: "regen", amount: 320 });
     expect(ENEMY_TYPES["Frost Raider"].reward).toEqual({ type: "damage", amount: 240_000 });
+    expect(ENEMY_TYPES["Frost Raider"].hp).toBe(2_700_000_000);
     expect(ENEMY_TYPES["Frost Raider"].damage).toBe(2_330_000);
+    expect(ENEMY_TYPES["Glacier Archer"].hp).toBe(2_280_000_000);
+    expect(ENEMY_TYPES["Whiteout Reaper"].reward).toEqual({ type: "damage", amount: 3_150_000 });
+    expect(ENEMY_TYPES["Rime Guard"].reward).toEqual({ type: "armor", amount: 14_000 });
     expect(ENEMY_TYPES["Aurora Oracle"].reward).toEqual({ type: "regen", amount: 161_000 });
     expect(ENEMY_TYPES["Rime Guard"].hp).toBeGreaterThan(ENEMY_TYPES["Venom Guard"].hp);
   });

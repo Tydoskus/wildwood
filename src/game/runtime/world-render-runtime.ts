@@ -192,6 +192,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       secondaryPortal: options.secondaryPortal,
       drawTree: world.drawTree,
       drawCactus: world.drawCactus,
+      drawSnowPine: world.drawSnowPine,
       drawEnemy: actor.drawEnemy,
       drawBoss: boss.drawBoss,
       drawSpiderBoss: boss.drawSpiderBoss,

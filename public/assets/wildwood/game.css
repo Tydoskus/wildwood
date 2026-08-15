@@ -981,7 +981,7 @@
   .tech-tree-node-mastery { border-color: #929aa4; background: linear-gradient(145deg, #353b43, #15191e); }
   .tech-tree-node-tier { color: var(--muted); font-size: 7px; letter-spacing: .11em; }
   .tech-tree-node strong { color: #f1f3f5; font-size: clamp(10px, 1.65vw, 15px); line-height: 1.05; }
-  .tech-tree-node small { color: #c0c6cd; font-size: 7px; letter-spacing: .045em; }
+  .tech-tree-node small { color: #c0c6cd; font-size: 14px; letter-spacing: .045em; }
   .tech-tree-node:hover, .tech-tree-node:focus-visible { border-color: #f1f3f5; box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 0 2px rgba(240,243,246,.22), 0 5px 0 rgba(0,0,0,.42); outline: 0; }
   .tech-tree-detail { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.62); }
   .tech-tree-detail[hidden] { display: none; }

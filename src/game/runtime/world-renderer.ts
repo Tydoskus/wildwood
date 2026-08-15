@@ -61,6 +61,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const STATIC_TILE_MIN_LIMIT = 12;
   const STATIC_TILE_CACHE_PADDING = 4;
   const TREE_SHADOW_CANOPY_WIDTH_RATIO = .9;
+  const SNOW_PINE_GROUND_OFFSET_RATIO = .09;
   const staticTiles = new Map<string, HTMLCanvasElement>();
   let staticTileLimit = STATIC_TILE_MIN_LIMIT;
   const viewport = () => options.getViewport();
@@ -159,7 +160,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       } else if (decor.type === "snowPine" && options.snowPine.naturalWidth > 0) {
         const height = Math.round(185 * decor.s);
         const width = Math.round(height * options.snowPine.naturalWidth / options.snowPine.naturalHeight);
-        drawStaticShadow(x, y - 3, Math.round(width * .75), .13);
+        drawStaticShadow(x, y - Math.round(height * SNOW_PINE_GROUND_OFFSET_RATIO), Math.round(width * .75), .13);
       }
     }
     staticTiles.set(key, tile);
@@ -377,11 +378,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][petal.variant % 3]; ctx.fillRect(x - 3, y - 1, 7, 3); ctx.fillRect(x - 1, y - 3, 3, 7); ctx.fillStyle = "rgba(255,255,255,.72)"; ctx.fillRect(x, y, 1, 1);
   }
 
-  function drawDecor() {
-    // Snow pines load asynchronously. Keep those few sprite-backed pieces
-    // live; every procedural ground detail is cached in static tiles.
-    for (const decor of options.decor) if (decor.type === "snowPine") drawSnowPine(decor);
-  }
+  function drawDecor() {}
 
   function drawMinimap(remotePlayers: RemotePlayer[]) {
     const view = viewport(); const size = Math.min(126, Math.max(118, view.width * .17)); const x = view.width - size; const y = 0;
@@ -398,5 +395,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.strokeStyle = "rgba(255,255,255,.52)"; ctx.lineWidth = 1; ctx.strokeRect(x + camera.x * sx, y + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); ctx.restore(); ctx.restore();
   }
 
-  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }

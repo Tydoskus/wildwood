@@ -185,6 +185,7 @@ const playerResearch = table(
     precision: t.u32().default(0),
     criticalChance: t.u32().default(0),
     moveSpeed: t.u32().default(0),
+    prosperity: t.u32().default(0),
   },
 );
 
@@ -256,6 +257,7 @@ const playerLifetime = table(
     playedMicros: t.u64().default(0n),
     sessionStartedAt: t.timestamp(),
     enemyKills: t.u64().default(0n),
+    deathCount: t.u64().default(0n),
   },
 );
 
@@ -673,7 +675,7 @@ function defaultPlayerProgress(identity: any) {
 }
 
 function defaultPlayerResearch(identity: any) {
-  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0, moveSpeed: 0 };
+  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0, moveSpeed: 0, prosperity: 0 };
 }
 
 function researchForPlayer(ctx: any, identity: any) {
@@ -692,6 +694,15 @@ function assertResearchAvailable(research: Record<ResearchId, number>, researchI
   }
 }
 
+function activeResearchIsAvailable(research: Record<ResearchId, number>, active: any) {
+  const researchId = String(active.researchId);
+  if (!isResearchId(researchId)) return false;
+  const definition = RESEARCH_DEFINITIONS[researchId];
+  if (research[researchId] >= definition.maxRank) return false;
+  if (active.targetRank !== research[researchId] + 1) return false;
+  return Object.entries(definition.prerequisites ?? {}).every(([requiredId, requiredRank]) => research[requiredId as ResearchId] >= Number(requiredRank));
+}
+
 function ensurePlayerLifetime(ctx: any) {
   const current = ctx.db.playerLifetime.identity.find(ctx.sender);
   if (current) return current;
@@ -701,6 +712,7 @@ function ensurePlayerLifetime(ctx: any) {
     playedMicros: 0n,
     sessionStartedAt: ctx.timestamp,
     enemyKills: 0n,
+    deathCount: 0n,
   };
   ctx.db.playerLifetime.insert(next);
   return next;
@@ -2085,6 +2097,7 @@ export const claimGuestAccount = spacetimedb.reducer(
         playedMicros: (accountLifetime?.playedMicros ?? 0n) + guestLifetime.playedMicros,
         sessionStartedAt: ctx.timestamp,
         enemyKills: (accountLifetime?.enemyKills ?? 0n) + guestLifetime.enemyKills,
+        deathCount: (accountLifetime?.deathCount ?? 0n) + guestLifetime.deathCount,
       };
       if (accountLifetime) ctx.db.playerLifetime.identity.update(nextLifetime);
       else ctx.db.playerLifetime.insert(nextLifetime);
@@ -2492,8 +2505,12 @@ export const startResearch = spacetimedb.reducer(
   (ctx, { researchId }) => {
     requireControllingPlayer(ctx);
     if (!isResearchId(researchId)) throw new SenderError("Unknown research.");
-    if (ctx.db.activeResearch.identity.find(ctx.sender)) throw new SenderError("Research already in progress.");
     const research = researchForPlayer(ctx, ctx.sender);
+    const active = ctx.db.activeResearch.identity.find(ctx.sender);
+    if (active) {
+      if (activeResearchIsAvailable(research, active)) throw new SenderError("Research already in progress.");
+      ctx.db.activeResearch.identity.delete(ctx.sender);
+    }
     assertResearchAvailable(research, researchId);
     const targetRank = research[researchId] + 1;
     const durationMicros = BigInt(researchDurationMs(researchId, research[researchId])) * 1_000n;
@@ -2514,18 +2531,22 @@ export const claimResearch = spacetimedb.reducer(
     const active = ctx.db.activeResearch.identity.find(ctx.sender);
     if (!active) throw new SenderError("No research to claim.");
     if (ctx.timestamp.microsSinceUnixEpoch < active.completesAt.microsSinceUnixEpoch) throw new SenderError("Research is still in progress.");
-    if (!isResearchId(active.researchId)) {
-      ctx.db.activeResearch.identity.delete(ctx.sender);
-      throw new SenderError("Unknown research.");
-    }
     const research = researchForPlayer(ctx, ctx.sender);
-    assertResearchAvailable(research, active.researchId);
-    if (active.targetRank !== research[active.researchId] + 1) {
+    if (!activeResearchIsAvailable(research, active)) {
       ctx.db.activeResearch.identity.delete(ctx.sender);
-      throw new SenderError("Research rank changed. Start it again.");
+      throw new SenderError("Research is no longer available. Start it again.");
     }
     ctx.db.playerResearch.identity.update({ ...research, [active.researchId]: active.targetRank });
     ctx.db.activeResearch.identity.delete(ctx.sender);
+  },
+);
+
+export const recordPlayerDeath = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    requireControllingPlayer(ctx);
+    const lifetime = ensurePlayerLifetime(ctx);
+    ctx.db.playerLifetime.identity.update({ ...lifetime, deathCount: lifetime.deathCount + 1n });
   },
 );
 

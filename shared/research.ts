@@ -1,4 +1,4 @@
-export const RESEARCH_IDS = ["warcraft", "moveSpeed", "foraging", "frontierMastery", "vitality", "precision", "criticalChance"] as const;
+export const RESEARCH_IDS = ["warcraft", "moveSpeed", "foraging", "vitality", "precision", "prosperity", "criticalChance"] as const;
 export type ResearchId = typeof RESEARCH_IDS[number];
 
 export type ResearchDefinition = {
@@ -16,21 +16,21 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
   warcraft: { id: "warcraft", title: "WARCRAFT", icon: "⚔", maxRank: 5, effect: "TOTAL DAMAGE", valuePerRank: 2, durationStartMs: 30_000, prerequisites: { foraging: 1 } },
   moveSpeed: { id: "moveSpeed", title: "MOVE SPEED", icon: "➜", maxRank: 5, effect: "MOVE SPEED", valuePerRank: 2, durationStartMs: 30_000, prerequisites: { foraging: 1 } },
   foraging: { id: "foraging", title: "FORAGING", icon: "✦", maxRank: 5, effect: "STAT GAIN", valuePerRank: 1, durationStartMs: 15_000 },
-  frontierMastery: {
-    id: "frontierMastery", title: "FRONTIER MASTERY", icon: "✧", maxRank: 1, effect: "TIER II ACCESS", valuePerRank: 0, durationStartMs: 180_000,
-    prerequisites: { warcraft: 3, foraging: 3 },
+  prosperity: {
+    id: "prosperity", title: "PROSPERITY", icon: "✧", maxRank: 5, effect: "STAT GAIN", valuePerRank: 2, durationStartMs: 30_000,
+    prerequisites: { vitality: 3, precision: 3 },
   },
   vitality: {
     id: "vitality", title: "VITALITY", icon: "♥", maxRank: 5, effect: "MAX HEALTH", valuePerRank: 2, durationStartMs: 3_600_000,
-    prerequisites: { frontierMastery: 1 },
+    prerequisites: { warcraft: 3, foraging: 3 },
   },
   precision: {
     id: "precision", title: "PRECISION", icon: "◈", maxRank: 5, effect: "ARMOR", valuePerRank: 2, durationStartMs: 5_400_000,
-    prerequisites: { frontierMastery: 1 },
+    prerequisites: { warcraft: 3, foraging: 3 },
   },
   criticalChance: {
     id: "criticalChance", title: "CRITICAL CHANCE", icon: "✦", maxRank: 5, effect: "CRITICAL CHANCE", valuePerRank: 1, durationStartMs: 43_200_000,
-    prerequisites: { frontierMastery: 1 },
+    prerequisites: { prosperity: 5 },
   },
 };
 

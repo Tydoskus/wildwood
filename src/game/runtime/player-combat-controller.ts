@@ -53,6 +53,7 @@ export function createPlayerCombatController(options: {
   saveProgress: () => void;
   setHitFlash: () => void;
   addScreenShake: (amount: number) => void;
+  recordDeath: () => void;
   endGame: () => void;
 }): PlayerCombatController {
   const {
@@ -60,7 +61,7 @@ export function createPlayerCombatController(options: {
     isTutorialMap, isDesertMap, engageEnemy, researchDamageMultiplier, researchCriticalChance,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, getGameTime,
     incrementKills, damageDragon, damageSpider, syncBossAttackPosition, spawnBurst,
-    spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, endGame,
+    spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   let pendingPlayerThrow: AttackTarget | null = null;
   let pendingDragonHits = 0;
@@ -171,7 +172,7 @@ export function createPlayerCombatController(options: {
     setHitFlash();
     addScreenShake(7);
     spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
-    if (player.hp <= 0) { player.hp = 0; breakEnemyLeashes(); endGame(); }
+    if (player.hp <= 0) { player.hp = 0; breakEnemyLeashes(); recordDeath(); endGame(); }
     return true;
   }
 

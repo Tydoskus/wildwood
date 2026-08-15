@@ -11,9 +11,10 @@ import type { DragonBossState, EnemyState, PlayerState, SpiderBossState } from "
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
 type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
+type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "tree" | "cactus" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+type DepthLayerKind = "tree" | "cactus" | "snowPine" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
 /**
@@ -34,6 +35,7 @@ export function createDepthWorldRenderer(options: {
   secondaryPortal: () => Portal | null | undefined;
   drawTree: (tree: TreeDecor) => void;
   drawCactus: (cactus: CactusDecor) => void;
+  drawSnowPine: (tree: SnowPineDecor) => void;
   drawEnemy: (enemy: EnemyState) => void;
   drawBoss: () => void;
   drawSpiderBoss: () => void;
@@ -63,6 +65,18 @@ export function createDepthWorldRenderer(options: {
     for (const tree of options.decor) {
       if (tree.type === "cactus") {
         queueLayer(tree.y, 2, "cactus", tree);
+        continue;
+      }
+      if (tree.type === "snowPine") {
+        const treeHeight = Math.round(185 * tree.s);
+        const treeWidth = treeHeight * .8;
+        if (
+          tree.x + treeWidth / 2 < camera.x - treeCullPadding ||
+          tree.x - treeWidth / 2 > camera.x + visibleW + treeCullPadding ||
+          tree.y < camera.y - treeCullPadding ||
+          tree.y - treeHeight > camera.y + visibleH + treeCullPadding
+        ) continue;
+        queueLayer(tree.y, 2, "snowPine", tree);
         continue;
       }
       if (tree.type !== "tree") continue;
@@ -110,6 +124,7 @@ export function createDepthWorldRenderer(options: {
       switch (layer.kind) {
         case "tree": options.drawTree(layer.entity as TreeDecor); break;
         case "cactus": options.drawCactus(layer.entity as CactusDecor); break;
+        case "snowPine": options.drawSnowPine(layer.entity as SnowPineDecor); break;
         case "enemy": options.drawEnemy(layer.entity as EnemyState); break;
         case "dragon": options.drawBoss(); break;
         case "spider": options.drawSpiderBoss(); break;

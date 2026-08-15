@@ -340,6 +340,7 @@ import {
     saveProgress,
     setHitFlash: () => { flash = .22; },
     addScreenShake: (amount) => { screenShake = Math.max(screenShake, amount); },
+    recordDeath: () => { void coop?.recordPlayerDeath?.(); },
     endGame,
   });
 
@@ -695,7 +696,7 @@ import {
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
 
-  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: "warcraft" | "foraging" | "frontierMastery" | "vitality" | "precision" | "criticalChance") => coop?.startResearch?.(id), claimResearch: async () => coop?.claimResearch?.(), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
+  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: "warcraft" | "foraging" | "prosperity" | "vitality" | "precision" | "criticalChance") => coop?.startResearch?.(id), claimResearch: async () => coop?.claimResearch?.(), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
     entries: () => coop?.leaderboardEntries?.() ?? [],

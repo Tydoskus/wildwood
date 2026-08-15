@@ -21,6 +21,7 @@ import DevSetAccessAuditLabelReducer from "../dev_set_access_audit_label_reducer
 import DevUpdatePlayerSaveReducer from "../dev_update_player_save_reducer";
 import EnterWorldReducer from "../enter_world_reducer";
 import PulseDuelReducer from "../pulse_duel_reducer";
+import RecordPlayerDeathReducer from "../record_player_death_reducer";
 import RegisterProtocolReducer from "../register_protocol_reducer";
 import RequestDuelReducer from "../request_duel_reducer";
 import ResetPlayerProgressReducer from "../reset_player_progress_reducer";
@@ -52,6 +53,7 @@ export type DevSetAccessAuditLabelParams = __Infer<typeof DevSetAccessAuditLabel
 export type DevUpdatePlayerSaveParams = __Infer<typeof DevUpdatePlayerSaveReducer>;
 export type EnterWorldParams = __Infer<typeof EnterWorldReducer>;
 export type PulseDuelParams = __Infer<typeof PulseDuelReducer>;
+export type RecordPlayerDeathParams = __Infer<typeof RecordPlayerDeathReducer>;
 export type RegisterProtocolParams = __Infer<typeof RegisterProtocolReducer>;
 export type RequestDuelParams = __Infer<typeof RequestDuelReducer>;
 export type ResetPlayerProgressParams = __Infer<typeof ResetPlayerProgressReducer>;

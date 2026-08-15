@@ -28,7 +28,7 @@ export function renderProfileStats(
   research?: PlayerResearch,
 ) {
   const { progress } = profile;
-  const ranks = research ?? profile.research ?? { warcraft: 0, moveSpeed: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0 };
+  const ranks = research ?? profile.research ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, prosperity: 0 };
   const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
   const modifier = (base: number, rank = 0, percentPerRank = 0) => `BASE: ${Math.round(base).toLocaleString()} · +${rank * percentPerRank}% · ×${multiplier(rank, percentPerRank).toFixed(2)}`;
   const healthMultiplier = multiplier(ranks.vitality, 2);
@@ -44,7 +44,8 @@ export function renderProfileStats(
     { kind: "regen", label: "REGEN", value: `${progress.regen.toFixed(1)}/s`, modifier: modifier(progress.regen) },
     { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed * speedMultiplier).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
   ];
-  stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${ranks.foraging}%`, modifier: `BASE: 0% · +${ranks.foraging}% · ×${multiplier(ranks.foraging, 1).toFixed(2)}` });
+  const statGain = ranks.foraging + ranks.prosperity * 2;
+  stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${statGain}%`, modifier: `BASE: 0% · +${statGain}% · ×${multiplier(statGain, 1).toFixed(2)}` });
   stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${ranks.criticalChance}%`, modifier: `BASE: 0% · +${ranks.criticalChance}% · ×1.00` });
   statGrid.replaceChildren();
   for (const stat of stats) {

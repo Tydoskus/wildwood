@@ -5,7 +5,7 @@ export type ResearchRanks = {
   warcraft: number;
   moveSpeed: number;
   foraging: number;
-  frontierMastery: number;
+  prosperity: number;
   vitality: number;
   precision: number;
   criticalChance: number;
@@ -23,7 +23,7 @@ const EMPTY_RANKS: ResearchRanks = {
   warcraft: 0,
   moveSpeed: 0,
   foraging: 0,
-  frontierMastery: 0,
+  prosperity: 0,
   vitality: 0,
   precision: 0,
   criticalChance: 0,
@@ -38,7 +38,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     ranks,
     damageMultiplier: () => 1 + ranks().warcraft * .02,
     movementSpeedMultiplier: () => 1 + ranks().moveSpeed * .02,
-    rewardMultiplier: () => 1 + ranks().foraging * .01,
+    rewardMultiplier: () => 1 + ranks().foraging * .01 + ranks().prosperity * .02,
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     criticalChance: () => ranks().criticalChance * .01,
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },

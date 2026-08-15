@@ -19,4 +19,5 @@ export default __t.row({
   precision: __t.u32(),
   criticalChance: __t.u32().name("critical_chance"),
   moveSpeed: __t.u32().name("move_speed"),
+  prosperity: __t.u32(),
 });

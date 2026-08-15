@@ -49,6 +49,7 @@ import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer"
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
+import RecordPlayerDeathReducer from "./record_player_death_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
@@ -314,6 +315,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
+  __reducerSchema("record_player_death", RecordPlayerDeathReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),

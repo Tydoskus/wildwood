@@ -282,7 +282,7 @@ export function createActorRenderer(options: {
     const barCenterX = barX + barW / 2;
     const barY = Math.round(y + spriteTop - 14);
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
-    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))} HP`;
+    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
 
     ctx.fillStyle = "rgba(0,0,0,.86)";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
