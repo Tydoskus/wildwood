@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.408": [
+    "Spider rewards now update your overhead Max Health and Power labels immediately when the confirmed result arrives.",
+    "Remote movement keeps a stable receive-time timeline while using server timestamps to order batched snapshots.",
+  ],
   "0.407": [
     "Fixed rapid movement taps causing remote players to predict too far, then snap back.",
   ],

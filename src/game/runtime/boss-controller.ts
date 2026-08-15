@@ -6,6 +6,7 @@ import {
   TAU,
   WORLD,
 } from "../constants";
+import { SPIDER_REWARD_DAMAGE, SPIDER_REWARD_HEALTH } from "../../../shared/rules";
 import { clamp, rand } from "../math";
 import type {
   BossRainStrike,
@@ -113,6 +114,7 @@ export function createBossController(options: {
   let queuedDragonResult: BossResult | null = null;
   let queuedSpiderResult: BossResult | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
+  const locallyRewardedSpiderEncounters = new Set<string>();
 
   function resetBoss() {
     const shared = getDragonBoss();
@@ -214,6 +216,16 @@ export function createBossController(options: {
     }
     shownSpiderResultEncounter = result.encounter;
     renderResult(result, "DESERT SPIDER DEFEATED");
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedSpiderEncounters.has(encounterKey)) {
+      // The authoritative reward arrives through the server result. Mirror it
+      // into the active runtime now so the overhead HP and Power labels change
+      // in the same frame as the reward notice, not after a later save sync.
+      locallyRewardedSpiderEncounters.add(encounterKey);
+      player.damage += SPIDER_REWARD_DAMAGE;
+      player.maxHp += SPIDER_REWARD_HEALTH;
+      player.hp = Math.min(player.maxHp, player.hp + SPIDER_REWARD_HEALTH);
+    }
     logPickup("+75K DAMAGE", "#ff655a");
     logPickup("+200K MAX HEALTH", "#6fe48e");
     showMessage("+75K DAMAGE · +200K MAX HEALTH", "#f5e9c4");

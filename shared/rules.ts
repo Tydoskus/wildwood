@@ -22,6 +22,8 @@ export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
 export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const STARTER_STONE = "starter_stone";
 export const BOOTS_SPEED_BONUS = 25;
+export const SPIDER_REWARD_DAMAGE = 75_000;
+export const SPIDER_REWARD_HEALTH = 200_000;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
