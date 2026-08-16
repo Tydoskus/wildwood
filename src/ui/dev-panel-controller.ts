@@ -1,5 +1,6 @@
 import { requiredElement } from "../game/runtime/dom";
 import type { PerformanceSnapshot } from "../game/runtime/performance-monitor";
+import { VIRTUAL_PLAYER_COUNT_OPTIONS } from "../../shared/virtual-player-load-test";
 
 type DevPanelTab = "controls" | "bugs" | "cutscenes" | "performance";
 
@@ -23,10 +24,22 @@ type DevPanelMetrics = {
   subscriptions: number;
 };
 
+type VirtualPlayerLoadTestState = {
+  phase: "idle" | "starting" | "running" | "stopping";
+  requested: number;
+  connected: number;
+  failures: number;
+  movementHz: number;
+  saveIntervalMs: number;
+};
+
 type DevPanelDependencies = {
   isDeveloper: () => boolean;
   getPresenceVisible: () => boolean;
   setPresenceVisible: (visible: boolean) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
+  getVirtualPlayerLoadTest: () => VirtualPlayerLoadTestState;
+  startVirtualPlayers: (count: number) => Promise<{ ok?: boolean; error?: string; connected?: number; requested?: number } | undefined> | undefined;
+  stopVirtualPlayers: () => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   getBugReports: () => BugReportEntry[];
   deleteBugReport: (id: bigint) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   getMetrics: () => DevPanelMetrics;
@@ -53,6 +66,16 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   };
   const presenceStatus = requiredElement("devPresenceStatus");
   const presenceToggle = requiredElement<HTMLButtonElement>("devPresenceToggle");
+  const virtualPlayerStatus = requiredElement("devVirtualPlayerStatus");
+  const virtualPlayerCount = requiredElement<HTMLSelectElement>("devVirtualPlayerCount");
+  const virtualPlayerToggle = requiredElement<HTMLButtonElement>("devVirtualPlayerToggle");
+  virtualPlayerCount.replaceChildren(...VIRTUAL_PLAYER_COUNT_OPTIONS.map((count) => {
+    const option = document.createElement("option");
+    option.value = String(count);
+    option.textContent = String(count);
+    option.selected = count === 10;
+    return option;
+  }));
   const bugRows = requiredElement("devBugReportRows");
   const bugEmpty = requiredElement("devBugReportEmpty");
   const performanceValues = {
@@ -91,6 +114,20 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     presenceStatus.textContent = visible ? "VISIBLE · COUNTED ONLINE" : "INVISIBLE · NOT COUNTED ONLINE";
     presenceToggle.textContent = visible ? "GO INVISIBLE" : "APPEAR ONLINE";
     presenceToggle.setAttribute("aria-pressed", String(visible));
+
+    const loadTest = dependencies.getVirtualPlayerLoadTest();
+    if (loadTest.phase === "idle") virtualPlayerStatus.textContent = "OFF · REAL CLIENT TRAFFIC";
+    else if (loadTest.phase === "stopping") virtualPlayerStatus.textContent = "STOPPING · ERASING TEST DATA";
+    else {
+      const failures = loadTest.failures ? ` · ${loadTest.failures} FAILED` : "";
+      const movementPerSecond = loadTest.connected * loadTest.movementHz;
+      const savesPerSecond = loadTest.connected * 1_000 / loadTest.saveIntervalMs;
+      virtualPlayerStatus.textContent = `${loadTest.connected}/${loadTest.requested} · ${movementPerSecond} MOVE/S · ${savesPerSecond.toFixed(1)} SAVE/S${failures}`;
+    }
+    virtualPlayerCount.disabled = loadTest.phase !== "idle";
+    virtualPlayerToggle.disabled = loadTest.phase === "stopping";
+    virtualPlayerToggle.textContent = loadTest.phase === "idle" ? "START TEST" : loadTest.phase === "stopping" ? "STOPPING…" : "STOP + ERASE";
+    virtualPlayerToggle.setAttribute("aria-pressed", String(loadTest.phase !== "idle"));
   }
 
   function renderBugReports() {
@@ -182,6 +219,31 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     renderControls();
     dependencies.showMessage(
       result?.ok ? (!visible ? "VISIBLE · NOW ONLINE" : "INVISIBLE · NOW OFFLINE") : result?.error || "PRESENCE UPDATE FAILED",
+      result?.ok ? "#72ef58" : "#ff9b91",
+    );
+  });
+  virtualPlayerToggle.addEventListener("click", async () => {
+    const current = dependencies.getVirtualPlayerLoadTest();
+    if (current.phase === "stopping") return;
+    if (current.phase !== "idle") {
+      const pending = dependencies.stopVirtualPlayers();
+      renderControls();
+      const result = await pending;
+      renderControls();
+      dependencies.showMessage(
+        result?.ok ? "VIRTUAL PLAYERS STOPPED · TEST DATA ERASED" : result?.error || "VIRTUAL PLAYER CLEANUP FAILED",
+        result?.ok ? "#72ef58" : "#ff9b91",
+      );
+      return;
+    }
+
+    const count = Number(virtualPlayerCount.value);
+    const pending = dependencies.startVirtualPlayers(count);
+    renderControls();
+    const result = await pending;
+    renderControls();
+    dependencies.showMessage(
+      result?.ok ? `${result.connected ?? count}/${result.requested ?? count} VIRTUAL PLAYERS RUNNING` : result?.error || "VIRTUAL PLAYER START FAILED",
       result?.ok ? "#72ef58" : "#ff9b91",
     );
   });

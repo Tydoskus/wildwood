@@ -1270,6 +1270,12 @@
   .dev-presence-control strong { color: var(--cream); font-size: 9px; }
   .dev-presence-control small { color: var(--muted); font-size: 7px; }
   .dev-presence-control button { flex: 0 0 auto; min-height: 32px; font-size: 8px; }
+  .dev-load-test-control { flex-wrap: wrap; margin-top: 8px; }
+  .dev-load-test-control > :first-child { min-width: 150px; }
+  .dev-presence-control > .dev-load-test-actions { display: flex; grid-auto-flow: column; align-items: center; justify-content: flex-end; gap: 6px; }
+  .dev-load-test-actions label { color: var(--muted); font-size: 7px; letter-spacing: .08em; }
+  .dev-load-test-actions select { min-width: 48px; min-height: 32px; padding: 0 6px; border: 1px solid rgba(145,207,160,.32); border-radius: 4px; color: var(--cream); background: #111a13; font: inherit; font-size: 8px; }
+  .dev-load-test-actions select:disabled { opacity: .5; }
   .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
   .dev-audit-headings, .dev-audit-row { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(105px, .9fr) 62px minmax(150px, 1.4fr); gap: 8px; align-items: center; }
   .dev-audit-headings { padding: 0 7px 4px; color: var(--muted); font-size: 7px; }

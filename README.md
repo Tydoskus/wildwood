@@ -101,6 +101,7 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Guests receive a locally stored SpacetimeDB token and save progress to that guest identity.
 - Signed-in players use SpacetimeAuth and can migrate a guest save once through the short-lived account-link flow.
 - OAuth state, PKCE verifier, and guest-link transaction live in `sessionStorage`; never move them to shared `localStorage`.
+- Forced updates write a one-use, version-bound `sessionStorage` handoff only for an actively running game. It restores the same account or guest session after reload without changing normal sign-in behavior.
 - Before leaving for SpacetimeAuth, await the guest save reducer and account-link reducer. Page lifecycle events are not a durable save acknowledgement.
 - On authenticated reconnect, claim the guest save before installing subscriptions. Subscribing first can hydrate default account rows and make them appear authoritative.
 - Do not overwrite an existing authenticated save during migration. The server rejects that case intentionally.

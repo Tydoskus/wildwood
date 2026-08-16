@@ -2,6 +2,7 @@ import { schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
 import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
+import { VIRTUAL_PLAYER_LIMIT } from "../../shared/virtual-player-load-test";
 import {
   ATTACK_BALANCE_VERSION,
   BASIC_PAPER_HAT,
@@ -383,6 +384,21 @@ const playerController = table(
   },
 );
 
+// Developer load-test clients use real anonymous websocket connections and
+// normal player reducers. This private tag makes every row they create
+// disposable and keeps simulated progress out of permanent rankings.
+const virtualPlayer = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    owner: t.identity(),
+    mapId: t.string(),
+    spawnX: t.f64(),
+    spawnY: t.f64(),
+    createdAt: t.timestamp(),
+  },
+);
+
 const chatCooldown = table(
   { public: false },
   {
@@ -695,6 +711,7 @@ const spacetimedb = schema({
   playerAccessAudit,
   playerSession,
   playerController,
+  virtualPlayer,
   chatCooldown,
   duelRequestCooldown,
   accountLink,
@@ -1016,6 +1033,7 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
 }
 
 function persistWorldLocation(ctx: any, activePlayer: any) {
+  if (ctx.db.virtualPlayer.identity.find(activePlayer.identity)) return;
   const current = ctx.db.playerLastLocation.identity.find(activePlayer.identity);
   const next = {
     identity: activePlayer.identity,
@@ -1066,6 +1084,7 @@ function syncSenderAccountStatus(ctx: any) {
 function refreshLeaderboard(ctx: any) {
   const candidates: any[] = [];
   for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+    if (ctx.db.virtualPlayer.identity.find(progress.identity)) continue;
     const profile = ctx.db.playerProfile.identity.find(progress.identity);
     if (!profile) continue;
     const current = ctx.db.leaderboardEntry.identity.find(progress.identity);
@@ -1215,6 +1234,10 @@ function isDatabaseOwnerIdentity(identity: any) {
   return identity?.toHexString?.().replace(/^0x/i, "").toLowerCase() === DATABASE_OWNER_IDENTITY_HEX;
 }
 
+function isVirtualPlayer(ctx: any, identity: any) {
+  return Boolean(ctx.db.virtualPlayer.identity.find(identity));
+}
+
 function syncPlayerMovementDemand(ctx: any, target: any, hiddenObserver: any) {
   const current = ctx.db.playerMovementDemand.identity.find(target.identity);
   // At minimum zoom one camera spans most of this 4,800-unit map. Same-map
@@ -1259,6 +1282,7 @@ function requireDeveloper(ctx: any) {
 }
 
 function touchPlayerAccessAudit(ctx: any, protocolVersion: number) {
+  if (isVirtualPlayer(ctx, ctx.sender)) return;
   const profile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!profile) return;
   const current = ctx.db.playerAccessAudit.identity.find(ctx.sender);
@@ -1279,6 +1303,7 @@ function touchPlayerAccessAudit(ctx: any, protocolVersion: number) {
 function backfillKnownAccessAudit(ctx: any) {
   if (!isDeveloperIdentity(ctx.sender)) return;
   for (const lifetime of ctx.db.playerLifetime.iter() as Iterable<any>) {
+    if (isVirtualPlayer(ctx, lifetime.identity)) continue;
     if (ctx.db.playerAccessAudit.identity.find(lifetime.identity)) continue;
     const profile = ctx.db.playerProfile.identity.find(lifetime.identity);
     if (!profile) continue;
@@ -1463,6 +1488,83 @@ function removeIdentityPresence(ctx: any, identity: any) {
     if (activePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
     if (!activePlayer.isVisible && isDeveloperIdentity(activePlayer.identity)) refreshPlayerMovementDemands(ctx);
   }
+}
+
+/** Erases every durable and realtime row owned by one simulated client. */
+function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true) {
+  if (!isVirtualPlayer(ctx, identity)) return false;
+
+  const activePlayer = ctx.db.player.identity.find(identity);
+  if (activePlayer) ctx.db.player.identity.delete(identity);
+  if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
+  if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
+  if (ctx.db.playerProfile.identity.find(identity)) ctx.db.playerProfile.identity.delete(identity);
+  if (ctx.db.playerProgress.identity.find(identity)) ctx.db.playerProgress.identity.delete(identity);
+  if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
+  if (ctx.db.playerResearch.identity.find(identity)) ctx.db.playerResearch.identity.delete(identity);
+  if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
+  removeResearchCompletionSchedules(ctx, identity);
+  if (ctx.db.playerAccountStatus.identity.find(identity)) ctx.db.playerAccountStatus.identity.delete(identity);
+  if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
+  if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
+  if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
+  if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
+  if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
+  if (ctx.db.duelRequestCooldown.identity.find(identity)) ctx.db.duelRequestCooldown.identity.delete(identity);
+  if (ctx.db.dragonContribution.identity.find(identity)) ctx.db.dragonContribution.identity.delete(identity);
+  if (ctx.db.dragonAttackWindow.identity.find(identity)) ctx.db.dragonAttackWindow.identity.delete(identity);
+  if (ctx.db.spiderContribution.identity.find(identity)) ctx.db.spiderContribution.identity.delete(identity);
+  if (ctx.db.spiderAttackWindow.identity.find(identity)) ctx.db.spiderAttackWindow.identity.delete(identity);
+  if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
+
+  for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
+    ctx.db.playerSession.connectionId.delete(session.connectionId);
+  }
+  if (ctx.db.playerController.identity.find(identity)) ctx.db.playerController.identity.delete(identity);
+
+  const linkCodes: string[] = [];
+  for (const link of ctx.db.accountLink.iter() as Iterable<any>) {
+    if (sameIdentity(link.guest, identity)) linkCodes.push(link.code);
+  }
+  for (const code of linkCodes) ctx.db.accountLink.code.delete(code);
+
+  const reportIds: bigint[] = [];
+  for (const report of ctx.db.bugReport.byReporter.filter(identity) as Iterable<any>) reportIds.push(report.id);
+  for (const id of reportIds) ctx.db.bugReport.id.delete(id);
+
+  ctx.db.virtualPlayer.identity.delete(identity);
+  if (adjustPresence && activePlayer?.isVisible) adjustOnlinePlayers(ctx, -1);
+  return Boolean(activePlayer?.isVisible);
+}
+
+function clearVirtualPlayersForOwner(ctx: any, owner: any) {
+  const identities = [...ctx.db.virtualPlayer.iter() as Iterable<any>]
+    .filter((registration: any) => sameIdentity(registration.owner, owner))
+    .map((registration: any) => registration.identity);
+  if (!identities.length) return false;
+  for (const identity of identities) removeVirtualPlayerData(ctx, identity, false);
+  reconcileOnlinePlayers(ctx);
+  refreshLeaderboard(ctx);
+  return true;
+}
+
+function clearOrphanVirtualPlayers(ctx: any) {
+  const orphaned: any[] = [];
+  for (const registration of ctx.db.virtualPlayer.iter() as Iterable<any>) {
+    const ownerActive = Boolean(
+      ctx.db.player.identity.find(registration.owner) &&
+      ctx.db.playerController.identity.find(registration.owner)
+    );
+    let hasSession = false;
+    for (const _session of ctx.db.playerSession.byIdentity.filter(registration.identity) as Iterable<any>) {
+      hasSession = true;
+      break;
+    }
+    if (!ownerActive || !hasSession) orphaned.push(registration.identity);
+  }
+  if (!orphaned.length) return;
+  for (const identity of orphaned) removeVirtualPlayerData(ctx, identity, false);
+  reconcileOnlinePlayers(ctx);
 }
 
 function clearOrphanPresence(ctx: any) {
@@ -1939,6 +2041,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   if (!ctx.connectionId) return;
   const normalizedTabId = tabId.trim();
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(normalizedTabId)) throw new SenderError("Invalid Wildwood tab session.");
+  const virtualRegistration = ctx.db.virtualPlayer.identity.find(ctx.sender);
 
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (controller && !sameConnection(controller.connectionId, ctx.connectionId)) {
@@ -2094,7 +2197,14 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     return;
   }
 
-  const savedLocation = savedWorldLocation(ctx, ctx.sender, existingProgress);
+  const savedLocation = virtualRegistration
+    ? {
+      mapId: VALID_MAP_IDS.has(virtualRegistration.mapId) ? virtualRegistration.mapId : TUTORIAL_FOREST_MAP_ID,
+      x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, virtualRegistration.spawnX)),
+      y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, virtualRegistration.spawnY)),
+      facing: 0,
+    }
+    : savedWorldLocation(ctx, ctx.sender, existingProgress);
   const insertedPlayer = {
     identity: ctx.sender,
     x: savedLocation.x,
@@ -2150,10 +2260,14 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   if (session.enteredWorld) touchPlayerAccessAudit(ctx, session.protocolVersion);
   ctx.db.playerSession.connectionId.delete(ctx.connectionId);
 
+  const remainingSessions = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>];
   const controller = ctx.db.playerController.identity.find(ctx.sender);
+  if (isVirtualPlayer(ctx, ctx.sender) && remainingSessions.length === 0) {
+    removeVirtualPlayerData(ctx, ctx.sender);
+    return;
+  }
   if (!controller || !sameConnection(controller.connectionId, ctx.connectionId)) return;
 
-  const remainingSessions = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>];
   const replacement = remainingSessions.find((candidate: any) => candidate.enteredWorld);
   if (replacement) {
     ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: replacement.connectionId });
@@ -2172,6 +2286,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   }
   ctx.db.playerController.identity.delete(ctx.sender);
 
+  if (isDeveloperIdentity(ctx.sender)) clearVirtualPlayersForOwner(ctx, ctx.sender);
   finishLifetimeSession(ctx, ctx.sender);
   removeIdentityPresence(ctx, ctx.sender);
 });
@@ -2188,6 +2303,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
+    clearOrphanVirtualPlayers(ctx);
     reconcileOnlinePlayers(ctx);
     refreshPlayerMovementDemands(ctx);
     runPendingModuleMigrations(ctx);
@@ -2687,6 +2803,55 @@ export const setDeveloperPresence = spacetimedb.reducer(
   },
 );
 
+export const devAuthorizeVirtualPlayer = spacetimedb.reducer(
+  { identity: t.identity(), mapId: t.string(), x: t.f64(), y: t.f64() },
+  (ctx, { identity, mapId, x, y }) => {
+    requireDeveloper(ctx);
+    if (sameIdentity(identity, ctx.sender)) throw new SenderError("Developer cannot become a virtual player.");
+    if (!VALID_MAP_IDS.has(mapId)) throw new SenderError("Unsupported virtual-player map.");
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Virtual-player position must be finite.");
+
+    const existing = ctx.db.virtualPlayer.identity.find(identity);
+    if (!existing) {
+      let activeCount = 0;
+      for (const _registration of ctx.db.virtualPlayer.iter()) activeCount += 1;
+      if (activeCount >= VIRTUAL_PLAYER_LIMIT) throw new SenderError(`Virtual-player limit is ${VIRTUAL_PLAYER_LIMIT}.`);
+
+      let connected = false;
+      for (const _session of ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>) {
+        connected = true;
+        break;
+      }
+      if (!connected) throw new SenderError("Virtual-player client is not connected.");
+      if (
+        ctx.db.player.identity.find(identity) ||
+        ctx.db.playerProfile.identity.find(identity) ||
+        ctx.db.playerProgress.identity.find(identity) ||
+        ctx.db.playerLifetime.identity.find(identity)
+      ) throw new SenderError("Virtual-player identity must be new.");
+    }
+
+    const registration = {
+      identity,
+      owner: ctx.sender,
+      mapId,
+      spawnX: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x)),
+      spawnY: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y)),
+      createdAt: existing?.createdAt ?? ctx.timestamp,
+    };
+    if (existing) ctx.db.virtualPlayer.identity.update(registration);
+    else ctx.db.virtualPlayer.insert(registration);
+  },
+);
+
+export const devClearVirtualPlayers = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    requireDeveloper(ctx);
+    clearVirtualPlayersForOwner(ctx, ctx.sender);
+  },
+);
+
 export const devSetAccessAuditLabel = spacetimedb.reducer(
   { identity: t.identity(), label: t.string() },
   (ctx, { identity, label }) => {
@@ -3043,6 +3208,9 @@ export const requestDuel = spacetimedb.reducer(
   (ctx, { opponent }) => {
     const challenger = requireControllingPlayer(ctx);
     if (sameIdentity(opponent, ctx.sender)) throw new SenderError("You cannot duel yourself.");
+    if (isVirtualPlayer(ctx, opponent) || isVirtualPlayer(ctx, ctx.sender)) {
+      throw new SenderError("Virtual test players cannot duel.");
+    }
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your current duel first.");
 
     const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);

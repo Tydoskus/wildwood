@@ -60,6 +60,9 @@ export function createGameUiRuntime(d: Record<string, any>) {
   });
   devPanel = createDevPanelController({
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), getPresenceVisible: () => coop?.developerPresenceVisible?.() === true, setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible), getBugReports: () => coop?.bugReportEntries?.() ?? [], deleteBugReport: (id: bigint) => coop?.deleteBugReport?.(id), getMetrics: d.getMetrics,
+    getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: 15, saveIntervalMs: 2_500 },
+    startVirtualPlayers: (count: number) => coop?.startVirtualPlayers?.(count),
+    stopVirtualPlayers: () => coop?.stopVirtualPlayers?.(),
     closeCompetingWindows: () => { e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; closeLeaderboard(); techTree.close(); }, showMessage: d.showMessage,
   });
   const runtimeHud = createRuntimeHudController({
@@ -101,6 +104,9 @@ export function createDevPanel(d: Record<string, any>) {
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()),
     getPresenceVisible: () => coop?.developerPresenceVisible?.() === true,
     setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible),
+    getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: 15, saveIntervalMs: 2_500 },
+    startVirtualPlayers: (count: number) => coop?.startVirtualPlayers?.(count),
+    stopVirtualPlayers: () => coop?.stopVirtualPlayers?.(),
     getBugReports: () => coop?.bugReportEntries?.() ?? [],
     deleteBugReport: (id: bigint) => coop?.deleteBugReport?.(id),
     getMetrics: d.getMetrics,

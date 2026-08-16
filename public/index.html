@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.419" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.420" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -141,7 +141,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.419</div>
+        <div id="version">v0.420</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -201,13 +201,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.419</strong></div>
+        <div><strong id="updateNoticeTitle">v0.420</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.419</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.420</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -388,13 +388,24 @@
       <button id="devPerformanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Performance</button>
     </div>
     <section id="devControlsPanel" role="tabpanel" aria-labelledby="devControlsTab">
-      <p class="dev-audit-help">SESSION · FUTURE DEV CONTROLS LIVE HERE</p>
+      <p class="dev-audit-help">SESSION · SERVER-SAFE DEVELOPER CONTROLS</p>
       <div class="dev-presence-control">
         <div>
           <strong>PLAYER PRESENCE</strong>
           <small id="devPresenceStatus">INVISIBLE · NOT COUNTED ONLINE</small>
         </div>
         <button id="devPresenceToggle" class="secondary-button" type="button">APPEAR ONLINE</button>
+      </div>
+      <div class="dev-presence-control dev-load-test-control">
+        <div>
+          <strong>VIRTUAL PLAYER LOAD</strong>
+          <small id="devVirtualPlayerStatus" aria-live="polite">OFF · REAL CLIENT TRAFFIC</small>
+        </div>
+        <div class="dev-load-test-actions">
+          <label for="devVirtualPlayerCount">BOTS</label>
+          <select id="devVirtualPlayerCount" aria-label="Virtual player count"></select>
+          <button id="devVirtualPlayerToggle" class="secondary-button" type="button">START TEST</button>
+        </div>
       </div>
     </section>
     <section id="devBugReportsPanel" role="tabpanel" aria-labelledby="devBugReportsTab" hidden>
@@ -499,7 +510,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.419"></script>
-<script src="assets/wildwood/game.js?v=0.419"></script>
+<script src="assets/wildwood/coop-client.js?v=0.420"></script>
+<script src="assets/wildwood/game.js?v=0.420"></script>
 </body>
 </html>

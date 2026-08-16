@@ -75,6 +75,27 @@ flowchart LR
 
 Scheduled workflows require a repair path. A missing callback, account transfer, timer rebalance, reset, or deploy must converge through maintenance without a client claim button.
 
+## Virtual-player load tests
+
+```mermaid
+flowchart LR
+  Dev["Authenticated developer"] --> Authorize["authorize fresh bot identity"]
+  Browser["Anonymous bot websocket"] --> Protocol["register protocol + enter world"]
+  Authorize --> Protocol
+  Protocol --> Subs["core + nearby + minimap subscriptions"]
+  Protocol --> Move["sync_position · 15 Hz"]
+  Protocol --> Save["save_player_progress · ~2.5 s"]
+  Move --> Hot["normal player rows + subscriber fanout"]
+  Save --> Durable["tagged pretend progress"]
+  Stop["stop / disconnect / orphan repair"] --> Cleanup["one server cleanup path"]
+  Cleanup --> Erase["presence + profile + progress + lifetime + ranking deleted"]
+```
+
+- Bots must use real connections and normal reducers. Server-side row animation does not measure websocket ingress, reducer acknowledgement, or per-client subscription fanout.
+- Authorization accepts only a connected, fresh anonymous identity and caps the test at 50 bots.
+- `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
+- Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
+
 ## Server authority boundary
 
 Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Regular enemies and most stat rewards are still client-simulated; `save_player_progress` therefore remains a low-trust boundary. Before a large public beta, replace arbitrary stat snapshots with server-issued reward/inventory reducers and add movement-distance validation.

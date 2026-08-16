@@ -52,6 +52,8 @@ Detailed remote state uses one rectangular camera-zone query backed by the `play
 
 Optional latency display measures and smooths acknowledgement time from normal reducer calls. It does not create a ping reducer, timer, heartbeat, or additional server traffic.
 
+Developer Tools → Controls starts 5, 10, 25, or 50 virtual players. Each bot is a real anonymous websocket client in the developer's browser: it registers the live protocol, enters the current map, installs the normal core/nearby/minimap subscriptions, sends 15 Hz movement, and submits a jittered save about every 2.5 seconds. This intentionally creates clustered-player fanout and can be expensive at 25-50 bots. The private `virtual_player` tag excludes bots from access history and leaderboard refreshes. Stop, socket disconnect, and maintenance all converge on the same cleanup function, which deletes every simulated profile, save, lifetime, research, presence, marker, session, and ranking row.
+
 Opening a websocket does not create a character or public presence. Protocol registration may hydrate the login UI, but only `enter_world` creates missing profile/progress rows and the public player row after guest/sign-in choice or successful automatic sign-in.
 
 Player lifetime metadata records join date, accumulated play time, enemy kills, and deaths. Own progress/lifetime rows hydrate with the main subscription. Other-player progress/lifetime rows use a single temporary identity-filtered subscription while that profile window is open; closing, switching, disconnecting, or timing out settles and unsubscribes the request.

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.420": [
+    "Active account and guest sessions now resume automatically after a forced game update instead of stopping at the sign-in screen.",
+    "Developer Tools can launch disposable virtual players that use real connections, movement, subscriptions, and progress saves for server load testing.",
+    "Virtual-player data stays out of rankings and is erased when the test stops, its owner disconnects, or server maintenance finds an orphaned test.",
+  ],
   "0.419": [
     "A new glowing 2× Respawn button beneath the minimap grants 15-second regular-enemy respawns for 30 minutes after a rewarded ad.",
     "Browsers use a 30-second black ad timer, earned boost time survives refreshes and app backgrounding, and native apps have a typed iOS/Android rewarded-ad bridge.",

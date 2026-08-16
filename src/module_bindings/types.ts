@@ -449,6 +449,16 @@ export const SpiderResult = __t.object("SpiderResult", {
 });
 export type SpiderResult = __Infer<typeof SpiderResult>;
 
+export const VirtualPlayer = __t.object("VirtualPlayer", {
+  identity: __t.identity(),
+  owner: __t.identity(),
+  mapId: __t.string(),
+  spawnX: __t.f64(),
+  spawnY: __t.f64(),
+  createdAt: __t.timestamp(),
+});
+export type VirtualPlayer = __Infer<typeof VirtualPlayer>;
+
 export const WorldStatus = __t.object("WorldStatus", {
   id: __t.u32(),
   onlinePlayers: __t.u32(),

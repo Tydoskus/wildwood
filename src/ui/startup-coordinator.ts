@@ -4,6 +4,7 @@ type AccountState = {
   signedIn?: boolean;
   authInProgress?: boolean;
   returningFromSignIn?: boolean;
+  guestSessionApproved?: boolean;
   sessionConflict?: boolean;
   updating?: boolean;
 };
@@ -32,13 +33,17 @@ type StartupCoordinatorDependencies = {
   startupKind: () => "new" | "returning" | null;
   beginAdventure: () => void;
   startGame: () => void;
+  prepareUpdateReload: (latestVersion: string) => void;
 };
 
 /** Coordinates startup readiness, account protocol gating, and version polling. */
 export function createStartupCoordinator(dependencies: StartupCoordinatorDependencies) {
   let updateReloadPending = false;
 
-  function showGameUpdating() {
+  function showGameUpdating(latestVersion = "") {
+    if (latestVersion && (dependencies.hasStarted() || dependencies.isRunning())) {
+      dependencies.prepareUpdateReload(latestVersion);
+    }
     updateReloadPending = true;
     dependencies.gameUpdateGate.hidden = false;
   }
@@ -56,7 +61,7 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
     }
     if (dependencies.hasStarted() || dependencies.isRunning()) return;
     if (!account?.signedIn && !account?.authInProgress && !account?.returningFromSignIn
-      && !dependencies.guestContinuationChosen() && isSignInScreenReady()) {
+      && !account?.guestSessionApproved && !dependencies.guestContinuationChosen() && isSignInScreenReady()) {
       dependencies.showAccountChoice();
       return;
     }

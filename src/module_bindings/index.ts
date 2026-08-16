@@ -42,6 +42,8 @@ import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
+import DevAuthorizeVirtualPlayerReducer from "./dev_authorize_virtual_player_reducer";
+import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
 import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
@@ -330,6 +332,8 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
+  __reducerSchema("dev_authorize_virtual_player", DevAuthorizeVirtualPlayerReducer),
+  __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),
   __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),

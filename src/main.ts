@@ -99,10 +99,6 @@ import {
 
   let startupCoordinator!: ReturnType<typeof createStartupCoordinator>;
 
-  function showGameUpdating() {
-    startupCoordinator.showGameUpdating();
-  }
-
   const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID);
 
   function syncMapMusic() {
@@ -278,7 +274,7 @@ import {
       const account = coop?.accountState?.();
       if (!session.hasStarted() && account?.sessionConflict) startup.showSessionConflict();
       else if (!session.hasStarted() && account?.returningFromSignIn) startup.showSigningIn();
-      else if (!session.hasStarted() && !account?.signedIn && !account?.authInProgress) startup.showAccountChoice();
+      else if (!session.hasStarted() && !account?.signedIn && !account?.authInProgress && !account?.guestSessionApproved) startup.showAccountChoice();
     }, { once: true });
   }
 
@@ -908,6 +904,7 @@ import {
     startupKind: progress.startupKind,
     beginAdventure: () => { coop?.beginAdventure?.(); },
     startGame: () => startGame(false),
+    prepareUpdateReload: (latestVersion) => { coop?.prepareUpdateReload?.(latestVersion); },
   });
   finishStartup();
   startupCoordinator.startVersionPolling();
@@ -1021,7 +1018,7 @@ import {
       && account?.signedIn === true
       && progress.startupKind() !== "new",
     showLoading: startup.showLoading,
-    shouldShowAccountChoice: (account) => !session.hasStarted() && !account?.signedIn && !account?.authInProgress,
+    shouldShowAccountChoice: (account) => !session.hasStarted() && !account?.signedIn && !account?.authInProgress && !account?.guestSessionApproved,
     showAccountChoice: startup.showAccountChoice,
     refreshChat: chatRuntime.refresh,
     updateDuelControls,

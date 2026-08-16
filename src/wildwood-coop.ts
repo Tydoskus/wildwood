@@ -1,6 +1,7 @@
 import { DbConnection, tables, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
+import { GAME_VERSION } from "./game/runtime/game-settings";
 import { isResearchId, type ResearchId } from "../shared/research";
 import { createDuelCooldownStore } from "./coop/services/duel-cooldown-store";
 import {
@@ -12,6 +13,12 @@ import {
   type ProgressSave,
 } from "./coop/services/progress";
 import { createProgressStore } from "./coop/services/progress-store";
+import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
+import {
+  createUpdateResumeStore,
+  inferLegacyUpdateResumeMode,
+  type UpdateResumeMode,
+} from "./coop/services/update-resume-store";
 import {
   adaptiveRemoteRenderAt,
   appendRemoteTimelineSample,
@@ -26,6 +33,7 @@ import {
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   NAME_ADJECTIVES,
   NAME_CREATURES,
+  PLAYER_SPAWN,
   PROTOCOL_VERSION,
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
@@ -291,12 +299,46 @@ const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
 const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
 const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
 const authReturnUiKey = `${tokenKey}/spacetimeauth_return_ui_v1`;
+const updateResumeKey = `${tokenKey}/forced_update_resume_v1`;
+const updateResumeConsumedKey = `${updateResumeKey}/consumed_version`;
+const authTabKey = `${accountMigrationPendingKey}/tab_id`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
 const SPACETIME_AUTHORIZATION_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/auth`;
 const SPACETIME_AUTH_TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const SPACETIME_AUTH_SCOPE = "openid profile email";
 const duelCooldownStore = createDuelCooldownStore(localStorage, DUEL_COOLDOWN_KEY_PREFIX);
 const progressStore = createProgressStore(localStorage, pendingProgressKey);
+const updateResumeStore = createUpdateResumeStore(sessionStorage, updateResumeKey);
+
+function consumeUpdateResumeMode(): UpdateResumeMode | null {
+  const requestedVersion = new URL(window.location.href).searchParams.get("v") ?? "";
+  const explicitMode = updateResumeStore.consume(requestedVersion);
+  if (requestedVersion !== GAME_VERSION) return null;
+
+  try {
+    const consumedVersion = sessionStorage.getItem(updateResumeConsumedKey) ?? "";
+    if (explicitMode) {
+      sessionStorage.setItem(updateResumeConsumedKey, requestedVersion);
+      return explicitMode;
+    }
+
+    // Clients predating the explicit handoff still leave a per-tab world ID.
+    // Consume it once so the first deployment of this feature also resumes.
+    const legacyMode = inferLegacyUpdateResumeMode({
+      requestedVersion,
+      currentVersion: GAME_VERSION,
+      hadPlayableTab: Boolean(sessionStorage.getItem(authTabKey)),
+      hasAccountToken: Boolean(localStorage.getItem(accountTokenKey)),
+      consumedVersion,
+    });
+    if (legacyMode) sessionStorage.setItem(updateResumeConsumedKey, requestedVersion);
+    return legacyMode;
+  } catch {
+    return explicitMode;
+  }
+}
+
+const updateResumeMode = consumeUpdateResumeMode();
 const players = new Map<string, RemotePlayerTarget>();
 const profiles = new Map<string, string>();
 const profileIcons = new Map<string, number>();
@@ -357,7 +399,7 @@ let connectionGeneration = 0;
 let sessionGeneration = 0;
 let hydrationReady = false;
 let connectedSignedIn = false;
-let guestSessionExplicit = false;
+let guestSessionExplicit = updateResumeMode === "guest";
 let pageWasHidden = false;
 let pageHiddenAt = 0;
 let lastServerActivityAt = performance.now();
@@ -398,7 +440,10 @@ let accountReturnPending = accountCallbackPending && (() => {
 })();
 // Persisted credentials identify a known character, but entering that account
 // always requires the player to press SIGN IN for this page session.
-let accountSessionApproved = accountReturnPending;
+// One version-bound forced-update handoff is the only exception.
+let accountSessionApproved = accountReturnPending || updateResumeMode === "account";
+let updateResumePending = updateResumeMode !== null;
+let lastPlayableSessionMode: UpdateResumeMode | null = null;
 
 /** Coalesces table hydration into one UI refresh instead of one per row. */
 function onChange() {
@@ -422,6 +467,27 @@ function batchChanges(action: () => void) {
   }
 }
 
+const virtualPlayerLoadTest = createVirtualPlayerLoadTest({
+  host,
+  databaseName,
+  spawnContext: () => ({
+    mapId: currentMapId,
+    x: localState?.x ?? PLAYER_SPAWN.x,
+    y: localState?.y ?? PLAYER_SPAWN.y,
+  }),
+  authorize: async (identity, mapId, x, y) => {
+    const conn = connection;
+    if (!conn?.isActive || !isDeveloperIdentity(localIdentity)) throw new Error("DEVELOPER CONNECTION REQUIRED");
+    await conn.reducers.devAuthorizeVirtualPlayer({ identity, mapId, x, y });
+  },
+  clearServerPlayers: async () => {
+    const conn = connection;
+    if (!conn?.isActive || !isDeveloperIdentity(localIdentity)) throw new Error("DEVELOPER CONNECTION REQUIRED");
+    await conn.reducers.devClearVirtualPlayers({});
+  },
+  onStateChange: onChange,
+});
+
 function reducerErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -444,6 +510,11 @@ function recordLatency(startedAt: number) {
   latencyMs = latencyMs === null
     ? sample
     : latencyMs + (sample - latencyMs) * LATENCY_SMOOTHING;
+}
+
+function storeUpdateResumeIntent(version: string) {
+  if (!lastPlayableSessionMode) return;
+  updateResumeStore.write(version, lastPlayableSessionMode);
 }
 
 function handleReducerFailure(action: string, error: unknown) {
@@ -499,6 +570,7 @@ function requestWorldEntry(): Promise<boolean> {
       if (connection !== conn || generation !== connectionGeneration) return false;
       worldEntryBlocked = false;
       worldEntryGeneration = generation;
+      lastPlayableSessionMode = connectedSignedIn ? "account" : "guest";
       flushPendingProgress(true);
       onChange?.();
       return true;
@@ -666,12 +738,11 @@ function clearAccountReturnPending() {
 }
 
 function authTabId() {
-  const key = `${accountMigrationPendingKey}/tab_id`;
   try {
-    const existing = sessionStorage.getItem(key);
+    const existing = sessionStorage.getItem(authTabKey);
     if (existing) return existing;
     const created = randomUrlSafe(12);
-    sessionStorage.setItem(key, created);
+    sessionStorage.setItem(authTabKey, created);
     return created;
   } catch {
     return "current-tab";
@@ -844,12 +915,28 @@ async function startAccountSignIn() {
 
 async function restoreKnownAccount() {
   await completeAccountCallback();
-  if (!accountToken() && hasKnownAccount()) {
+  const token = accountToken();
+  if (!token && hasKnownAccount() && !guestSessionExplicit) {
+    if (updateResumeMode === "account") {
+      authNotice = "REOPENING SIGN-IN";
+      onChange?.();
+      try {
+        await startAccountSignIn();
+      } catch (error) {
+        updateResumePending = false;
+        accountSessionApproved = false;
+        clearAccountReturnPending();
+        authNotice = "SIGN-IN FAILED · TRY AGAIN";
+        console.warn("Wildwood update sign-in failed:", error);
+        onChange?.();
+      }
+      return;
+    }
     authNotice = "SIGN-IN REQUIRED";
     onChange?.();
     return;
   }
-  if (accountToken() && hasKnownAccount() && !accountSessionApproved) {
+  if (token && hasKnownAccount() && !accountSessionApproved) {
     authNotice = "SIGN-IN REQUIRED";
     onChange?.();
     return;
@@ -1110,6 +1197,21 @@ function upsertProfile(row: { identity: Identity; displayName: string; profileIc
   }
   const player = players.get(id);
   if (player) player.name = row.displayName;
+  chatPresentationRevision += 1;
+  onChange?.();
+}
+
+function removeProfile(row: { identity: Identity }) {
+  const id = row.identity.toHexString();
+  profiles.delete(id);
+  profileIcons.delete(id);
+  playerSprites.delete(id);
+  skinTones.delete(id);
+  profileIdentities.delete(id);
+  if (id === localIdentity) {
+    localDisplayName = "";
+    localProfileReady = false;
+  }
   chatPresentationRevision += 1;
   onChange?.();
 }
@@ -2139,6 +2241,7 @@ function connect() {
         conn.db.playerMapMarker.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeMapPlayerMarker(row); });
         conn.db.playerProfile.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
+        conn.db.playerProfile.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeProfile(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeAccessAudit(row); });
@@ -2198,6 +2301,7 @@ function connect() {
             for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
             for (const row of conn.db.duel.iter()) upsertDuel(row);
             hydrationReady = true;
+            updateResumePending = false;
             setWakeReconnectVisible(false);
             setReconnectAfterServerUpdateVisible(false);
             refreshMapPlayerSubscription(true);
@@ -2240,6 +2344,7 @@ function connect() {
     })
     .onDisconnect((_ctx, error) => {
       if (generation !== connectionGeneration) return;
+      virtualPlayerLoadTest.disconnectLocal();
       const hadActiveGame = hydrationReady;
       connecting = false;
       connection = null;
@@ -2339,14 +2444,30 @@ export const wildwoodCoop = {
   latencyMs() {
     return latencyMs;
   },
+  prepareUpdateReload(version: string) {
+    storeUpdateResumeIntent(version);
+  },
+  virtualPlayerLoadTestState() {
+    return virtualPlayerLoadTest.state();
+  },
+  async startVirtualPlayers(count: number) {
+    if (protocolBlocked || !connection?.isActive || !isDeveloperIdentity(localIdentity)) {
+      return { ok: false, error: "DEVELOPER CONNECTION REQUIRED" };
+    }
+    return virtualPlayerLoadTest.start(count);
+  },
+  async stopVirtualPlayers() {
+    return virtualPlayerLoadTest.stop(Boolean(connection?.isActive && isDeveloperIdentity(localIdentity)));
+  },
   accountState() {
     const signedIn = Boolean(connection?.isActive && connectedSignedIn);
     return {
       signedIn,
       knownAccount: hasKnownAccount(),
       signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
+      guestSessionApproved: guestSessionExplicit,
       authInProgress: accountCallbackPending,
-      returningFromSignIn: accountReturnPending,
+      returningFromSignIn: accountReturnPending || updateResumePending,
       hydrated: hydrationReady,
       updating: protocolBlocked || serverUpdateVisible,
       sessionConflict: worldEntryBlocked,
@@ -2449,6 +2570,7 @@ export const wildwoodCoop = {
     }
   },
   signOut() {
+    virtualPlayerLoadTest.disconnectLocal();
     try {
       localStorage.removeItem(accountTokenKey);
       localStorage.removeItem(knownAccountKey);
@@ -2905,6 +3027,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) reconnectAfterWake(true);
 });
+window.addEventListener("pagehide", () => virtualPlayerLoadTest.disconnectLocal());
 window.addEventListener("online", () => reconnectAfterWake());
 window.addEventListener("focus", () => reconnectAfterWake());
 window.setInterval(() => {
