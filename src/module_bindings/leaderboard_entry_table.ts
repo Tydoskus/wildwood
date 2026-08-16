@@ -17,8 +17,8 @@ export default __t.row({
   maxHp: __t.f32().name("max_hp"),
   isGuest: __t.bool().name("is_guest"),
   power: __t.u32(),
-  profileIcon: __t.u32().name("profile_icon"),
   armor: __t.f32(),
   regen: __t.f32(),
   playedMicros: __t.u64().name("played_micros"),
+  profileIcon: __t.u32().name("profile_icon"),
 });

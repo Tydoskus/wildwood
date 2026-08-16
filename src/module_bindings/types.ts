@@ -46,10 +46,10 @@ export const ChatMessage = __t.object("ChatMessage", {
   id: __t.u64(),
   sender: __t.identity(),
   senderName: __t.string(),
-  senderIsGuest: __t.bool(),
   message: __t.string(),
   sentAt: __t.timestamp(),
   replayId: __t.u64(),
+  senderIsGuest: __t.bool(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
@@ -217,10 +217,10 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   maxHp: __t.f32(),
   isGuest: __t.bool(),
   power: __t.u32(),
-  profileIcon: __t.u32(),
   armor: __t.f32(),
   regen: __t.f32(),
   playedMicros: __t.u64(),
+  profileIcon: __t.u32(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 

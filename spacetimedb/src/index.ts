@@ -329,10 +329,10 @@ const leaderboardEntry = table(
     maxHp: t.f32(),
     isGuest: t.bool(),
     power: t.u32().default(0),
-    profileIcon: t.u32().default(0),
     armor: t.f32().default(0),
     regen: t.f32().default(0),
     playedMicros: t.u64().default(0n),
+    profileIcon: t.u32().default(0),
   },
 );
 
@@ -544,10 +544,10 @@ const chatMessage = table(
     id: t.u64().primaryKey().autoInc(),
     sender: t.identity(),
     senderName: t.string(),
-    senderIsGuest: t.bool().default(false),
     message: t.string(),
     sentAt: t.timestamp(),
     replayId: t.u64().default(0n),
+    senderIsGuest: t.bool().default(false),
   },
 );
 
