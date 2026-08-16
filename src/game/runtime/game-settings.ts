@@ -1,8 +1,9 @@
-export const GAME_VERSION = "0.420";
+export const GAME_VERSION = "0.421";
 export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
+export const FPS_VISIBLE_KEY = "wildwood-fps-visible-v1";
 export const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
 export const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
 export const REWARDED_RESPAWN_BOOST_EXPIRES_KEY = "wildwood-rewarded-respawn-boost-expires-v1";

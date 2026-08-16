@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.421": [
+    "Remote players now show only name and power; removing live HP bars and HP uploads cuts an unnecessary realtime server lane.",
+    "Developer load tests now accept 1–3,000 virtual players and enforce the limit with a constant-time owner counter instead of repeated full-table recounts.",
+    "A persistent FPS Display setting shows Game FPS and Work FPS directly beneath the toolbar.",
+  ],
   "0.420": [
     "Active account and guest sessions now resume automatically after a forced game update instead of stopping at the sign-in screen.",
     "Developer Tools can launch disposable virtual players that use real connections, movement, subscriptions, and progress saves for server load testing.",

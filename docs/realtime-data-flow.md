@@ -14,9 +14,6 @@ flowchart LR
   MotionCache --> Interpolation["adaptive interpolation + bounded prediction"]
   Interpolation --> Frame["render frame"]
 
-  Input -->|"changed HP; nearby observer only; max 8 Hz"| HpReducer["sync_player_hp"]
-  HpReducer --> PlayerRow
-
   PlayerRow -->|"at most 1 Hz + start/stop"| MarkerRow["player_map_marker"]
   MarkerRow -->|"one map-wide lightweight subscription"| Minimap["minimap dots"]
 
@@ -32,11 +29,11 @@ flowchart LR
 
 ### Lane rules
 
-- `player` is hot state: position, current HP, appearance summary, and presence. Frame code reads its caches directly. Movement or HP updates must not run the application-wide UI refresh path.
+- `player` is hot state: position, appearance summary, and presence. Frame code reads its caches directly. Movement updates must not run the application-wide UI refresh path.
 - `player_map_marker` is cheap, map-wide minimap state. It contains no combat data and updates at most once per second, plus movement start/stop and map changes.
 - Detailed remote players use one rectangular map/visibility/zone query derived from actual camera bounds. Never add one subscription per player or one query per zone.
-- An invisible developer cannot appear in another client's visible-player query. Private `player_movement_demand` rows and the identity-scoped `local_movement_demand` view request smooth movement and HP without revealing the observer. Demand is a 20-second visible-tab lease; a cheap stationary heartbeat renews it, while background tabs expire automatically.
-- Health-only updates retain the last movement timestamp. Client interpolation must ignore them as motion samples while still copying HP.
+- An invisible developer cannot appear in another client's visible-player query. Private `player_movement_demand` rows and the identity-scoped `local_movement_demand` view request smooth movement without revealing the observer. Demand is a 20-second visible-tab lease; a cheap stationary heartbeat renews it, while background tabs expire automatically.
+- Remote players render name and power only. Health remains local simulation state and never enters the realtime player row.
 - Normal progress mutations persist locally immediately, then coalesce into one server save. Anything that snapshots equipment, such as a duel, must drain pending progress first.
 
 ## Connection state
@@ -92,7 +89,7 @@ flowchart LR
 ```
 
 - Bots must use real connections and normal reducers. Server-side row animation does not measure websocket ingress, reducer acknowledgement, or per-client subscription fanout.
-- Authorization accepts only a connected, fresh anonymous identity and caps the test at 50 bots.
+- Authorization accepts only a connected, fresh anonymous identity and caps the test at 3,000 bots. An owner counter enforces that limit in O(1) per bot; never recount the full bot table during startup.
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 

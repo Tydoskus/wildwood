@@ -56,8 +56,6 @@ export type RemotePlayer = {
   speed: number;
   facing: number;
   moving: boolean;
-  hp: number;
-  maxHp: number;
   feetItem: string;
   headItem: string;
   chestItem: string;
@@ -271,8 +269,6 @@ const MAP_PLAYER_ZONE_RADIUS = 2;
 const MAP_PLAYER_PREFETCH_ZONES = 1;
 const MAX_MAP_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_PLAYER_ZONE_SIZE);
 const MAX_MAP_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_PLAYER_ZONE_SIZE);
-const HP_SYNC_MIN_INTERVAL_MS = 125;
-const HP_SYNC_IDLE_INTERVAL_MS = 1_000;
 const MOVEMENT_OBSERVER_HEARTBEAT_MS = 10_000;
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
@@ -389,8 +385,6 @@ let lastPositionSentAt = 0;
 let lastPositionMoving = false;
 let nearbyMovementUntil = 0;
 let nextPositionSequence = 0;
-let lastHpSent: number | null = null;
-let lastHpSentAt = 0;
 let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
 let reconnectTimer: number | null = null;
@@ -1045,8 +1039,6 @@ function upsertPlayer(row: {
   y: number;
   facing: number;
   moving: boolean;
-  hp: number;
-  maxHp: number;
   power: number;
   speed: number;
   feetItem: string;
@@ -1115,7 +1107,7 @@ function upsertPlayer(row: {
   const existing = players.get(id);
   if (existing) {
     const latest = existing.samples[existing.samples.length - 1];
-    // Health, equipment, and profile updates re-send the player row without a
+    // Equipment and profile updates re-send the player row without a
     // movement timestamp change. They must refresh display data, but cannot
     // become zero-distance movement samples or they disrupt interpolation.
     if (serverAtMs > latest.serverAtMs) {
@@ -1153,8 +1145,6 @@ function upsertPlayer(row: {
     while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
     existing.speed = row.speed;
     existing.moving = row.moving;
-    existing.hp = row.hp;
-    existing.maxHp = row.maxHp;
     existing.power = row.power;
     existing.feetItem = row.feetItem;
     existing.headItem = row.headItem;
@@ -1169,8 +1159,6 @@ function upsertPlayer(row: {
       speed: row.speed,
       facing: row.facing,
       moving: row.moving,
-      hp: row.hp,
-      maxHp: row.maxHp,
       feetItem: row.feetItem,
       headItem: row.headItem,
       chestItem: row.chestItem,
@@ -1307,9 +1295,6 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
 function upsertLocalMovementDemand(row: { identity: Identity }) {
   if (row.identity.toHexString() === localIdentity && !serverMovementDemand) {
     serverMovementDemand = true;
-    // Server HP may be intentionally stale after solo play. Send one current
-    // snapshot when a hidden observer begins watching, then only real changes.
-    lastHpSent = null;
   }
 }
 
@@ -2136,8 +2121,6 @@ function connect() {
       lastPositionMoving = false;
       nearbyMovementUntil = 0;
       nextPositionSequence = 0;
-      lastHpSent = null;
-      lastHpSentAt = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
       if (identityChanged) {
@@ -2354,8 +2337,6 @@ function connect() {
       lastPositionMoving = false;
       nearbyMovementUntil = 0;
       nextPositionSequence = 0;
-      lastHpSent = null;
-      lastHpSentAt = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
@@ -2384,8 +2365,6 @@ function connect() {
       lastPositionMoving = false;
       nearbyMovementUntil = 0;
       nextPositionSequence = 0;
-      lastHpSent = null;
-      lastHpSentAt = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
       lastSpeedSent = null;
@@ -2937,20 +2916,6 @@ export const wildwoodCoop = {
     lastPositionMoving = moving;
     const sequence = ++nextPositionSequence;
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
-  },
-  syncHp(hp: number, hasNearbyRemotePlayer = false) {
-    if (protocolBlocked || !connection || (!hasNearbyRemotePlayer && !serverMovementDemand) || !Number.isFinite(hp)) return;
-    const now = performance.now();
-    const elapsed = now - lastHpSentAt;
-    const hpDelta = lastHpSent === null ? Number.POSITIVE_INFINITY : Math.abs(lastHpSent - hp);
-    // High regeneration can change HP by more than .5 every frame. Keep the
-    // remote bar responsive without turning it into a 60 Hz server stream.
-    if (hpDelta < .01) return;
-    if (lastHpSent !== null && elapsed < HP_SYNC_MIN_INTERVAL_MS) return;
-    if (lastHpSent !== null && hpDelta < .5 && elapsed < HP_SYNC_IDLE_INTERVAL_MS) return;
-    lastHpSent = hp;
-    lastHpSentAt = now;
-    sendReducer("health sync", () => connection?.reducers.syncPlayerHp({ hp }));
   },
   async changeMap(mapId: string) {
     if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)) return false;

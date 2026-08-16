@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.420" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.421" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -41,6 +41,7 @@
       <button id="leaderboardBtn" class="settings-button leaderboard-button" type="button" aria-label="Open leaderboard" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Hero.png" alt="" aria-hidden="true"><span class="toolbar-label">LEADERBOARD</span></button>
       <button id="devAuditBtn" class="settings-button dev-audit-button" type="button" aria-label="Open access audit" aria-expanded="false" hidden><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Dev.png" alt="" aria-hidden="true"><span class="toolbar-label">DEV</span></button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Settings.png" alt="" aria-hidden="true"><span class="toolbar-label">SETTINGS</span></button>
+      <div id="fpsStatus" class="fps-status" aria-live="off" hidden><span id="gameFpsStatus">GAME FPS: --</span><span id="workFpsStatus">WORK FPS: --</span></div>
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-panel-header">
           <div class="settings-title">SETTINGS</div>
@@ -69,6 +70,10 @@
         <div class="setting-row">
           <span>LOW PERFORMANCE</span>
           <button id="lowPerformanceToggle" class="setting-toggle" type="button" aria-pressed="false">OFF</button>
+        </div>
+        <div class="setting-row">
+          <span>FPS DISPLAY</span>
+          <button id="fpsToggle" class="setting-toggle" type="button" aria-pressed="false">OFF</button>
         </div>
         <div class="setting-row setting-volume">
           <label for="musicVolume">MUSIC</label>
@@ -141,7 +146,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.420</div>
+        <div id="version">v0.421</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -201,13 +206,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.420</strong></div>
+        <div><strong id="updateNoticeTitle">v0.421</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.420</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.421</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -403,7 +408,7 @@
         </div>
         <div class="dev-load-test-actions">
           <label for="devVirtualPlayerCount">BOTS</label>
-          <select id="devVirtualPlayerCount" aria-label="Virtual player count"></select>
+          <input id="devVirtualPlayerCount" type="number" min="1" max="3000" step="1" value="10" inputmode="numeric" aria-label="Virtual player count, 1 to 3000" />
           <button id="devVirtualPlayerToggle" class="secondary-button" type="button">START TEST</button>
         </div>
       </div>
@@ -510,7 +515,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.420"></script>
-<script src="assets/wildwood/game.js?v=0.420"></script>
+<script src="assets/wildwood/coop-client.js?v=0.421"></script>
+<script src="assets/wildwood/game.js?v=0.421"></script>
 </body>
 </html>

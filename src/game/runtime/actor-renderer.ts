@@ -47,6 +47,7 @@ export function createActorRenderer(options: {
   outlinedText: OutlinedText;
   drawShadow: DrawShadow;
   drawStatus: (status: ActorStatus) => void;
+  drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) => void;
   drawSpeechBubble: (identity: string | undefined, x: number, y: number) => void;
   publicName: (identity: string | undefined, name: string | undefined) => string;
   worldHealthBarHeight: number;
@@ -196,17 +197,14 @@ export function createActorRenderer(options: {
 
     options.drawShadow(x, y + 29, 34, .16);
     drawPlayerSprite({ ...other, x, y, headItem: other.headItem || BASIC_PAPER_HAT }, 1);
-    options.drawStatus({
+    options.drawIdentity(
+      other.id,
+      options.publicName(other.id, other.name),
+      Number.isFinite(other.power) ? other.power : 0,
       x,
-      y,
-      identity: other.id,
-      name: options.publicName(other.id, other.name),
-      nameColor: "#9eeeff",
-      hp: other.hp,
-      maxHp: other.maxHp,
-      power: Number.isFinite(other.power) ? other.power : 0,
-      fillColor: "#55a9c6",
-    });
+      Math.round(y - 49),
+      "#9eeeff",
+    );
     options.drawSpeechBubble(other.id, x, y);
   }
 

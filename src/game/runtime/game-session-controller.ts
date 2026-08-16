@@ -50,6 +50,8 @@ type SessionDependencies = {
   recordPerformance: (frameMs: number, updateMs: number, renderMs: number, workMs: number) => void;
   renderPerformancePanel: () => void;
   performancePanelVisible: () => boolean;
+  renderFpsDisplay: () => void;
+  fpsDisplayVisible: () => boolean;
   fadeElement: HTMLElement;
   onLeaveDuelResult: () => void;
 };
@@ -117,9 +119,10 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.render();
     const renderMs = performance.now() - renderStartedAt;
     dependencies.recordPerformance(frameDeltaMs, updateMs, renderMs, performance.now() - workStartedAt);
-    if (dependencies.performancePanelVisible() && now >= nextPerformancePanelUpdateAt) {
+    if ((dependencies.performancePanelVisible() || dependencies.fpsDisplayVisible()) && now >= nextPerformancePanelUpdateAt) {
       nextPerformancePanelUpdateAt = now + 500;
-      dependencies.renderPerformancePanel();
+      if (dependencies.performancePanelVisible()) dependencies.renderPerformancePanel();
+      if (dependencies.fpsDisplayVisible()) dependencies.renderFpsDisplay();
     }
     requestAnimationFrame(loop);
   }

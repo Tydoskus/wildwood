@@ -1,9 +1,9 @@
 import { DbConnection, tables } from "../../module_bindings";
 import type { Identity } from "spacetimedb";
 import {
-  VIRTUAL_PLAYER_COUNT_OPTIONS,
   VIRTUAL_PLAYER_MOVEMENT_HZ,
   VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
+  normalizeVirtualPlayerCount,
 } from "../../../shared/virtual-player-load-test";
 import {
   BASIC_PAPER_HAT,
@@ -18,8 +18,6 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../../../shared/rules";
-
-export { VIRTUAL_PLAYER_COUNT_OPTIONS } from "../../../shared/virtual-player-load-test";
 
 const MOVEMENT_HZ = VIRTUAL_PLAYER_MOVEMENT_HZ;
 const MOVEMENT_INTERVAL_MS = 1_000 / MOVEMENT_HZ;
@@ -398,9 +396,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
 
   async function start(count: number) {
     if (phase !== "idle") return { ok: false, error: "VIRTUAL PLAYERS ALREADY ACTIVE" };
-    const normalizedCount = VIRTUAL_PLAYER_COUNT_OPTIONS.includes(count as (typeof VIRTUAL_PLAYER_COUNT_OPTIONS)[number])
-      ? count
-      : VIRTUAL_PLAYER_COUNT_OPTIONS[0];
+    const normalizedCount = normalizeVirtualPlayerCount(count);
     phase = "starting";
     requested = normalizedCount;
     connected = 0;

@@ -252,5 +252,5 @@ export function createPlayerIdentityRenderer(options: {
     return Math.min(0xffffffff, Math.round(stats.damage * attackSpeedMultiplier + stats.maxHp + stats.armor * 3 + stats.regen * 10));
   }
 
-  return { publicPlayerName, renderDomPlayerName, applyProfileIcon, paintProfileIconCanvas, updateSpeechBubbles, drawSpeechBubble, drawActorStatus, playerPower };
+  return { publicPlayerName, renderDomPlayerName, applyProfileIcon, paintProfileIconCanvas, updateSpeechBubbles, drawSpeechBubble, drawActorStatus, drawPlayerIdentity, playerPower };
 }

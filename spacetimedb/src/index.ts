@@ -119,6 +119,8 @@ const player = table(
     x: t.f64(),
     y: t.f64(),
     facing: t.f64(),
+    // Physical compatibility columns only. Current HP is local simulation
+    // state; no reducer updates these values and clients ignore them.
     hp: t.f32(),
     maxHp: t.f32(),
     speed: t.f32(),
@@ -138,8 +140,8 @@ const player = table(
   },
 );
 
-// Lightweight all-map position feed for minimap dots. Keep combat/health data
-// in the nearby player stream; markers update only once per second.
+// Lightweight all-map position feed for minimap dots. Detailed appearance and
+// movement stay in the nearby player stream; markers update once per second.
 const playerMapMarker = table(
   { public: true, indexes: [{ accessor: "byMap", algorithm: "btree", columns: ["mapId", "isVisible"] as const }] },
   {
@@ -388,7 +390,10 @@ const playerController = table(
 // normal player reducers. This private tag makes every row they create
 // disposable and keeps simulated progress out of permanent rankings.
 const virtualPlayer = table(
-  { public: false },
+  {
+    public: false,
+    indexes: [{ accessor: "byOwner", algorithm: "btree", columns: ["owner"] as const }],
+  },
   {
     identity: t.identity().primaryKey(),
     owner: t.identity(),
@@ -396,6 +401,16 @@ const virtualPlayer = table(
     spawnX: t.f64(),
     spawnY: t.f64(),
     createdAt: t.timestamp(),
+  },
+);
+
+// O(1) authorization limit. Recounting every existing bot for every new bot
+// makes a 3,000-client test perform roughly 4.5 million registration scans.
+const virtualPlayerLoad = table(
+  { public: false },
+  {
+    owner: t.identity().primaryKey(),
+    activeCount: t.u32(),
   },
 );
 
@@ -712,6 +727,7 @@ const spacetimedb = schema({
   playerSession,
   playerController,
   virtualPlayer,
+  virtualPlayerLoad,
   chatCooldown,
   duelRequestCooldown,
   accountLink,
@@ -1490,9 +1506,34 @@ function removeIdentityPresence(ctx: any, identity: any) {
   }
 }
 
+function adjustVirtualPlayerCount(ctx: any, owner: any, change: number) {
+  const current = ctx.db.virtualPlayerLoad.owner.find(owner);
+  const activeCount = Math.max(0, (current?.activeCount ?? 0) + change);
+  if (activeCount === 0) {
+    if (current) ctx.db.virtualPlayerLoad.owner.delete(owner);
+    return;
+  }
+  const next = { owner, activeCount };
+  if (current) ctx.db.virtualPlayerLoad.owner.update(next);
+  else ctx.db.virtualPlayerLoad.insert(next);
+}
+
+function virtualPlayerCountForOwner(ctx: any, owner: any) {
+  const current = ctx.db.virtualPlayerLoad.owner.find(owner);
+  if (current) return current.activeCount;
+
+  // One indexed recount repairs deployments created before the counter table.
+  // Every later authorization is a primary-key lookup plus one increment.
+  let activeCount = 0;
+  for (const _registration of ctx.db.virtualPlayer.byOwner.filter(owner) as Iterable<any>) activeCount += 1;
+  if (activeCount > 0) ctx.db.virtualPlayerLoad.insert({ owner, activeCount });
+  return activeCount;
+}
+
 /** Erases every durable and realtime row owned by one simulated client. */
-function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true) {
-  if (!isVirtualPlayer(ctx, identity)) return false;
+function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true, adjustOwnerCount = true) {
+  const registration = ctx.db.virtualPlayer.identity.find(identity);
+  if (!registration) return false;
 
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) ctx.db.player.identity.delete(identity);
@@ -1533,16 +1574,20 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true)
   for (const id of reportIds) ctx.db.bugReport.id.delete(id);
 
   ctx.db.virtualPlayer.identity.delete(identity);
+  if (adjustOwnerCount) adjustVirtualPlayerCount(ctx, registration.owner, -1);
   if (adjustPresence && activePlayer?.isVisible) adjustOnlinePlayers(ctx, -1);
   return Boolean(activePlayer?.isVisible);
 }
 
 function clearVirtualPlayersForOwner(ctx: any, owner: any) {
-  const identities = [...ctx.db.virtualPlayer.iter() as Iterable<any>]
-    .filter((registration: any) => sameIdentity(registration.owner, owner))
+  const identities = [...ctx.db.virtualPlayer.byOwner.filter(owner) as Iterable<any>]
     .map((registration: any) => registration.identity);
-  if (!identities.length) return false;
-  for (const identity of identities) removeVirtualPlayerData(ctx, identity, false);
+  if (!identities.length) {
+    if (ctx.db.virtualPlayerLoad.owner.find(owner)) ctx.db.virtualPlayerLoad.owner.delete(owner);
+    return false;
+  }
+  for (const identity of identities) removeVirtualPlayerData(ctx, identity, false, false);
+  if (ctx.db.virtualPlayerLoad.owner.find(owner)) ctx.db.virtualPlayerLoad.owner.delete(owner);
   reconcileOnlinePlayers(ctx);
   refreshLeaderboard(ctx);
   return true;
@@ -1687,9 +1732,6 @@ function rewardSpiderContributor(ctx: any, identity: any) {
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      damage: next.damage,
-      hp: active.hp + SPIDER_REWARD_HEALTH,
-      maxHp: next.maxHp,
       power: powerForProgress(next),
     });
   }
@@ -1812,7 +1854,7 @@ function insertDuelAnnouncement(ctx: any, winner: any, winnerName: string, loser
   insertChatMessage(ctx, winner, winnerName, `${winnerName} beat ${loserName} in a duel.`, replayId);
 }
 
-function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: number) {
+function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
   const current = ctx.db.player.identity.find(identity);
   if (!current) return;
   const next = {
@@ -1820,28 +1862,11 @@ function returnDuelPlayer(ctx: any, identity: any, x: number, y: number, maxHp: 
     x,
     y,
     ...playerZone(x, y),
-    hp: maxHp,
-    maxHp,
     moving: false,
     lastInputAt: ctx.timestamp,
   };
   ctx.db.player.identity.update(next);
   syncPlayerMapMarker(ctx, next, true);
-}
-
-function syncDuelPlayerHealth(ctx: any, current: any) {
-  const challenger = ctx.db.player.identity.find(current.challenger);
-  if (challenger) {
-    const next = {
-      ...challenger,
-      hp: current.challengerHp,
-      maxHp: current.challengerMaxHp,
-      moving: false,
-      lastInputAt: ctx.timestamp,
-    };
-    ctx.db.player.identity.update(next);
-    syncPlayerMapMarker(ctx, next);
-  }
 }
 
 function finishDuel(ctx: any, current: any) {
@@ -1850,7 +1875,6 @@ function finishDuel(ctx: any, current: any) {
     current.challenger,
     current.challengerOriginX,
     current.challengerOriginY,
-    current.challengerMaxHp,
   );
   const challengerName = ctx.db.playerProfile.identity.find(current.challenger)?.displayName ?? "PLAYER";
   const opponentName = ctx.db.playerProfile.identity.find(current.opponent)?.displayName ?? "PLAYER";
@@ -2005,7 +2029,6 @@ function resolveDuel(ctx: any, current: any) {
       status: "finishing",
       endsAtMicros: ctx.timestamp.microsSinceUnixEpoch + DUEL_FINISH_HOLD_MICROS,
     };
-    syncDuelPlayerHealth(ctx, finishing);
     ctx.db.duel.id.update(finishing);
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,
@@ -2013,7 +2036,6 @@ function resolveDuel(ctx: any, current: any) {
       duelId: finishing.id,
     });
   } else {
-    syncDuelPlayerHealth(ctx, next);
     ctx.db.duel.id.update(next);
   }
 }
@@ -2212,6 +2234,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     ...playerZone(savedLocation.x, savedLocation.y),
     mapId: savedLocation.mapId,
     facing: savedLocation.facing,
+    // Required by the legacy physical schema. These are never synchronized.
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
     power: powerForProgress(existingProgress),
@@ -2652,8 +2675,6 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (activePlayer) {
       ctx.db.player.identity.update({
         ...activePlayer,
-        hp: nextProgress.maxHp,
-        maxHp: nextProgress.maxHp,
         speed: speedForBoots(nextProgress.equippedFeet === TRAILBLAZER_BOOTS),
         power: powerForProgress(nextProgress),
         feetItem: equippedFeetForProgress(nextProgress),
@@ -2812,9 +2833,9 @@ export const devAuthorizeVirtualPlayer = spacetimedb.reducer(
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Virtual-player position must be finite.");
 
     const existing = ctx.db.virtualPlayer.identity.find(identity);
+    if (existing && !sameIdentity(existing.owner, ctx.sender)) throw new SenderError("Virtual player belongs to another test.");
     if (!existing) {
-      let activeCount = 0;
-      for (const _registration of ctx.db.virtualPlayer.iter()) activeCount += 1;
+      const activeCount = virtualPlayerCountForOwner(ctx, ctx.sender);
       if (activeCount >= VIRTUAL_PLAYER_LIMIT) throw new SenderError(`Virtual-player limit is ${VIRTUAL_PLAYER_LIMIT}.`);
 
       let connected = false;
@@ -2840,7 +2861,10 @@ export const devAuthorizeVirtualPlayer = spacetimedb.reducer(
       createdAt: existing?.createdAt ?? ctx.timestamp,
     };
     if (existing) ctx.db.virtualPlayer.identity.update(registration);
-    else ctx.db.virtualPlayer.insert(registration);
+    else {
+      ctx.db.virtualPlayer.insert(registration);
+      adjustVirtualPlayerCount(ctx, ctx.sender, 1);
+    }
   },
 );
 
@@ -2977,8 +3001,6 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
     if (active) {
       ctx.db.player.identity.update({
         ...active,
-        hp: Math.min(active.hp, nextProgress.maxHp),
-        maxHp: nextProgress.maxHp,
         speed: nextProgress.speed,
         power: powerForProgress(nextProgress),
       });
@@ -3068,13 +3090,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     if (boundedKills > lifetime.enemyKills) {
       ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: boundedKills });
     }
-    const maxHpIncrease = Math.max(0, next.maxHp - activePlayer.maxHp);
     ctx.db.player.identity.update({
       ...activePlayer,
-      // Saving stats/equipment must not heal combat damage. A Max HP reward
-      // grants only its increase, matching the client-side reward behavior.
-      hp: Math.min(next.maxHp, Math.max(0, activePlayer.hp + maxHpIncrease)),
-      maxHp: next.maxHp,
       power: powerForProgress(next),
       speed: next.speed,
       feetItem: next.equippedFeet,
@@ -3151,8 +3168,6 @@ export const resetPlayerProgress = spacetimedb.reducer(
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({
       ...activePlayer,
-      hp: next.maxHp,
-      maxHp: next.maxHp,
       power: powerForProgress(next),
       speed: next.speed,
       feetItem: next.equippedFeet,
@@ -3291,8 +3306,6 @@ export const requestDuel = spacetimedb.reducer(
       x: DUEL_ARENA.challenger.x,
       y: DUEL_ARENA.challenger.y,
       ...playerZone(DUEL_ARENA.challenger.x, DUEL_ARENA.challenger.y),
-      hp: challengerProgress.maxHp,
-      maxHp: challengerProgress.maxHp,
       moving: false,
       lastInputAt: ctx.timestamp,
     };
@@ -3352,18 +3365,6 @@ export const syncPosition = spacetimedb.reducer(
     } else {
       expireExistingPlayerMovementDemand(ctx, nextPlayer);
     }
-  },
-);
-
-export const syncPlayerHp = spacetimedb.reducer(
-  { hp: t.f32() },
-  (ctx, { hp }) => {
-    const current = requireControllingPlayer(ctx);
-    expireExistingPlayerMovementDemand(ctx, current);
-    if (!Number.isFinite(hp) || activeDuelFor(ctx, ctx.sender)) return;
-    const nextHp = Math.max(0, Math.min(current.maxHp, hp));
-    if (Math.abs(nextHp - current.hp) < .01) return;
-    ctx.db.player.identity.update({ ...current, hp: nextHp });
   },
 );
 

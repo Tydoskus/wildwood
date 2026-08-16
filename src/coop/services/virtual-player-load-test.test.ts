@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules";
+import { normalizeVirtualPlayerCount } from "../../../shared/virtual-player-load-test";
 import { advanceVirtualPlayerMotion } from "./virtual-player-load-test";
+
+describe("virtual-player count", () => {
+  it("accepts any whole count from 1 through 3000", () => {
+    expect(normalizeVirtualPlayerCount(1)).toBe(1);
+    expect(normalizeVirtualPlayerCount(137)).toBe(137);
+    expect(normalizeVirtualPlayerCount(3_000)).toBe(3_000);
+  });
+
+  it("clamps invalid and out-of-range counts", () => {
+    expect(normalizeVirtualPlayerCount(0)).toBe(1);
+    expect(normalizeVirtualPlayerCount(3_001)).toBe(3_000);
+    expect(normalizeVirtualPlayerCount(12.9)).toBe(12);
+    expect(normalizeVirtualPlayerCount(Number.NaN)).toBe(10);
+  });
+});
 
 describe("virtual-player random walk", () => {
   it("turns and moves using bounded elapsed time", () => {

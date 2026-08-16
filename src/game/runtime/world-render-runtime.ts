@@ -70,6 +70,7 @@ export type WorldRenderRuntimeOptions = {
   rewardMultiplier: () => number;
   enemyTextVisible: (enemy: EnemyState) => boolean;
   drawStatus: (status: ActorStatus) => void;
+  drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) => void;
   drawSpeechBubble: (identity: string | undefined, x: number, y: number) => void;
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;
@@ -172,6 +173,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     outlinedText: options.outlinedText,
     drawShadow: options.drawShadow,
     drawStatus: options.drawStatus,
+    drawIdentity: options.drawIdentity,
     drawSpeechBubble: options.drawSpeechBubble,
     publicName: options.publicPlayerName,
     worldHealthBarHeight: options.worldHealthBarHeight,

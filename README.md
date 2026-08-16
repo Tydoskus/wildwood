@@ -24,7 +24,7 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 
 GitHub Pages builds the client and deploys only `dist/` after every push to `main`. Source files and repository documentation never ship as site files.
 
-See `ENGINEERING.md` for module boundaries and backlog. See `docs/realtime-data-flow.md` for movement, HP, minimap, save, reconnect, and research flow diagrams. See `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
+See `ENGINEERING.md` for module boundaries and backlog. See `docs/realtime-data-flow.md` for movement, minimap, save, reconnect, and research flow diagrams. See `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
 
 ## Local development
 

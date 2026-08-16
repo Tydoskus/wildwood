@@ -1,6 +1,9 @@
 import { requiredElement } from "../game/runtime/dom";
 import type { PerformanceSnapshot } from "../game/runtime/performance-monitor";
-import { VIRTUAL_PLAYER_COUNT_OPTIONS } from "../../shared/virtual-player-load-test";
+import {
+  VIRTUAL_PLAYER_DEFAULT,
+  normalizeVirtualPlayerCount,
+} from "../../shared/virtual-player-load-test";
 
 type DevPanelTab = "controls" | "bugs" | "cutscenes" | "performance";
 
@@ -67,15 +70,9 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const presenceStatus = requiredElement("devPresenceStatus");
   const presenceToggle = requiredElement<HTMLButtonElement>("devPresenceToggle");
   const virtualPlayerStatus = requiredElement("devVirtualPlayerStatus");
-  const virtualPlayerCount = requiredElement<HTMLSelectElement>("devVirtualPlayerCount");
+  const virtualPlayerCount = requiredElement<HTMLInputElement>("devVirtualPlayerCount");
   const virtualPlayerToggle = requiredElement<HTMLButtonElement>("devVirtualPlayerToggle");
-  virtualPlayerCount.replaceChildren(...VIRTUAL_PLAYER_COUNT_OPTIONS.map((count) => {
-    const option = document.createElement("option");
-    option.value = String(count);
-    option.textContent = String(count);
-    option.selected = count === 10;
-    return option;
-  }));
+  virtualPlayerCount.value = String(VIRTUAL_PLAYER_DEFAULT);
   const bugRows = requiredElement("devBugReportRows");
   const bugEmpty = requiredElement("devBugReportEmpty");
   const performanceValues = {
@@ -237,7 +234,8 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
       return;
     }
 
-    const count = Number(virtualPlayerCount.value);
+    const count = normalizeVirtualPlayerCount(Number(virtualPlayerCount.value));
+    virtualPlayerCount.value = String(count);
     const pending = dependencies.startVirtualPlayers(count);
     renderControls();
     const result = await pending;

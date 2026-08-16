@@ -51,7 +51,6 @@ export function createPlayerController(options: {
   syncSpeed: (speed: number) => void;
   movementSpeedMultiplier: () => number;
   syncPosition: (x: number, y: number, facing: number, moving: boolean, force: boolean, highFrequency?: boolean, interestArea?: PlayerInterestArea) => void;
-  syncHp: (hp: number, hasNearbyRemotePlayer: boolean) => void;
   hasRemotePlayerInArea: (left: number, top: number, right: number, bottom: number) => boolean;
   autoAttack: (dt: number) => void;
   isAutoAttackEnabled: () => boolean;
@@ -73,7 +72,7 @@ export function createPlayerController(options: {
     tutorialMapId, getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
     resolveDragonCollision, resolveSpiderCollision, applyDragonConePush, isTutorialMap, isDesertMap,
-    viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, syncPosition, syncHp, hasRemotePlayerInArea, autoAttack, isAutoAttackEnabled,
+    viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, syncPosition, hasRemotePlayerInArea, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
   } = options;
@@ -195,7 +194,6 @@ export function createPlayerController(options: {
     }
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);
-    if (connected) syncHp(player.hp, hasNearbyRemotePlayer);
     if (isAutoAttackEnabled()) autoAttack(dt);
   }
 

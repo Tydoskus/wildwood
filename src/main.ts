@@ -22,7 +22,7 @@ import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-ren
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_SCALE } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_SCALE } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -216,6 +216,7 @@ import {
     storageKeys: {
       antiAliasing: ANTI_ALIASING_ENABLED_KEY,
       attackRange: ATTACK_RANGE_VISIBLE_KEY,
+      fps: FPS_VISIBLE_KEY,
       lowPerformance: LOW_PERFORMANCE_MODE_KEY,
       latency: LATENCY_VISIBLE_KEY,
       musicVolume: MUSIC_VOLUME_KEY,
@@ -419,6 +420,7 @@ import {
     updateSpeechBubbles,
     drawSpeechBubble,
     drawActorStatus,
+    drawPlayerIdentity,
     playerPower,
   } = playerIdentityRenderer;
 
@@ -573,6 +575,7 @@ import {
       return distanceSquared(player, enemy) <= cullDistance * cullDistance;
     },
     drawStatus: drawActorStatus,
+    drawIdentity: drawPlayerIdentity,
     drawSpeechBubble,
     publicPlayerName,
     playerPower,
@@ -633,7 +636,6 @@ import {
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
     syncPosition: (x, y, facing, moving, force, highFrequency, interestArea) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency, interestArea),
-    syncHp: (hp, hasNearbyRemotePlayer) => coop?.syncHp?.(hp, hasNearbyRemotePlayer),
     hasRemotePlayerInArea: (left, top, right, bottom) => coop?.hasRemotePlayerInArea?.(left, top, right, bottom) ?? false,
     autoAttack: (dt) => playerCombat.attackNearest(dt),
     isAutoAttackEnabled: () => Boolean(inventory.equippedRightHand || inventory.equippedLeftHand),
@@ -867,6 +869,11 @@ import {
     updateMessage: runtimeHud.updateMessage,
     render: () => renderController.render(), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
+    renderFpsDisplay: () => {
+      const performance = performanceMonitor.snapshot();
+      appShell.renderFps(performance.fps, performance.workFps);
+    },
+    fpsDisplayVisible: appShell.fpsVisible,
     fadeElement: sceneFadeEl,
     onLeaveDuelResult: () => { duelResultEl.hidden = true; playerController.finishDuelResult(); },
   });
