@@ -106,6 +106,11 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
       facing: isChallenger ? 0 : Math.PI,
       isLocal: identity === localId,
+      headItem: isChallenger ? duel.challengerHeadItem : duel.opponentHeadItem,
+      chestItem: isChallenger ? duel.challengerChestItem : duel.opponentChestItem,
+      feetItem: isChallenger ? duel.challengerFeetItem : duel.opponentFeetItem,
+      rightHandItem: isChallenger ? duel.challengerRightHandItem : duel.opponentRightHandItem,
+      leftHandItem: isChallenger ? duel.challengerLeftHandItem : duel.opponentLeftHandItem,
     });
     return {
       challenger: actor(duel.challenger, true),
@@ -154,6 +159,11 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
       facing: isChallenger ? 0 : Math.PI,
       isLocal: false,
+      headItem: "",
+      chestItem: "",
+      feetItem: "",
+      rightHandItem: "",
+      leftHandItem: "",
     });
     hooks.setReplayTitle(countdown > 0
       ? `${replay.challengerName} VS ${replay.opponentName}`

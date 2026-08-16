@@ -44,6 +44,12 @@ export type RemotePlayer = {
   chestItem: string;
 };
 
+export type MapPlayerMarker = {
+  id: string;
+  x: number;
+  y: number;
+};
+
 export type LocalPlayerState = {
   x: number;
   y: number;
@@ -164,6 +170,16 @@ export type DuelState = {
   opponentAttackRate: number;
   opponentRegen: number;
   opponentAttacks: number;
+  challengerHeadItem: string;
+  challengerChestItem: string;
+  challengerFeetItem: string;
+  challengerRightHandItem: string;
+  challengerLeftHandItem: string;
+  opponentHeadItem: string;
+  opponentChestItem: string;
+  opponentFeetItem: string;
+  opponentRightHandItem: string;
+  opponentLeftHandItem: string;
 };
 
 export type DuelReplay = {
@@ -267,16 +283,20 @@ const playerMaps = new Map<string, string>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
 let leaderboardSnapshotSubscription: { unsubscribe: () => void } | null = null;
 let leaderboardSnapshotLoad: Promise<LeaderboardEntry[]> | null = null;
+let cancelLeaderboardSnapshotLoad: (() => void) | null = null;
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
 let cancelActivePlayerProfileLoad: (() => void) | null = null;
 let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
 let mapSubscriptionGeneration = 0;
 let mapSubscriptionAreaKey = "";
+let mapMarkerSubscription: { unsubscribe: () => void } | null = null;
+let mapMarkerSubscriptionGeneration = 0;
 let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
 const remotePlayerRenderBuffer: RemotePlayer[] = [];
+const mapPlayerMarkers = new Map<string, MapPlayerMarker>();
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
@@ -308,7 +328,7 @@ let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
-let localResearch: PlayerResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, prosperity: 0 };
+let localResearch: PlayerResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
 let localActiveResearch: ActiveResearch | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
@@ -901,8 +921,12 @@ function upsertPlayer(row: {
       lastInputSequence: row.lastInputSequence,
       mapId: currentMapId,
     };
-    if (mapChanged) players.clear();
+    if (mapChanged) {
+      players.clear();
+      mapPlayerMarkers.clear();
+    }
     refreshMapPlayerSubscription(mapChanged);
+    refreshMapMarkerSubscription(mapChanged);
     onChange?.();
     return;
   }
@@ -1137,6 +1161,7 @@ function upsertResearch(row: { identity: Identity } & Partial<PlayerResearch>) {
     vitality: row.vitality ?? 0,
     precision: row.precision ?? 0,
     criticalChance: row.criticalChance ?? 0,
+    criticalDamage: row.criticalDamage ?? 0,
   };
   profileResearch.set(identity, research);
   if (identity !== localIdentity) return;
@@ -1148,7 +1173,7 @@ function removeResearch(row: { identity: Identity }) {
   const identity = row.identity.toHexString();
   profileResearch.delete(identity);
   if (identity !== localIdentity) return;
-  localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, prosperity: 0 };
+  localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
   onChange?.();
 }
 
@@ -1323,6 +1348,16 @@ function upsertDuel(row: {
   opponentAttackRate: number;
   opponentRegen: number;
   opponentAttacks: number;
+  challengerHeadItem: string;
+  challengerChestItem: string;
+  challengerFeetItem: string;
+  challengerRightHandItem: string;
+  challengerLeftHandItem: string;
+  opponentHeadItem: string;
+  opponentChestItem: string;
+  opponentFeetItem: string;
+  opponentRightHandItem: string;
+  opponentLeftHandItem: string;
 }) {
   duels.set(row.id, {
     id: row.id,
@@ -1347,6 +1382,16 @@ function upsertDuel(row: {
     opponentAttackRate: row.opponentAttackRate,
     opponentRegen: row.opponentRegen,
     opponentAttacks: row.opponentAttacks,
+    challengerHeadItem: row.challengerHeadItem,
+    challengerChestItem: row.challengerChestItem,
+    challengerFeetItem: row.challengerFeetItem,
+    challengerRightHandItem: row.challengerRightHandItem,
+    challengerLeftHandItem: row.challengerLeftHandItem,
+    opponentHeadItem: row.opponentHeadItem,
+    opponentChestItem: row.opponentChestItem,
+    opponentFeetItem: row.opponentFeetItem,
+    opponentRightHandItem: row.opponentRightHandItem,
+    opponentLeftHandItem: row.opponentLeftHandItem,
   });
   onChange?.();
 }
@@ -1458,9 +1503,11 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
       if (settled) return;
       settled = true;
       leaderboardSnapshotLoad = null;
+      cancelLeaderboardSnapshotLoad = null;
       release();
       resolve(entries);
     };
+    cancelLeaderboardSnapshotLoad = () => finish([]);
 
     subscription = conn
       .subscriptionBuilder()
@@ -1471,6 +1518,7 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
           const entry = leaderboardEntryFromRow(row);
           leaderboardEntries.set(entry.identity, entry);
         }
+        onChange?.();
         finish([...leaderboardEntries.values()]);
       })
       .onError(() => finish([]))
@@ -1491,7 +1539,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     identity,
     name: profiles.get(identity) ?? "PLAYER",
     progress: { ...progress },
-    research: { ...profileResearch.get(identity) ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, prosperity: 0 } },
+    research: { ...profileResearch.get(identity) ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 } },
     lifetime: { ...lifetime },
     mapId: identity === localIdentity ? localState?.mapId : playerMaps.get(identity),
   };
@@ -1587,6 +1635,51 @@ function releaseMapPlayerSubscription() {
   mapSubscriptionAreaKey = "";
 }
 
+function upsertMapPlayerMarker(row: { identity: Identity; x: number; y: number; mapId: string; isVisible: boolean }) {
+  const id = row.identity.toHexString();
+  if (id === localIdentity || !row.isVisible || row.mapId !== currentMapId) {
+    mapPlayerMarkers.delete(id);
+    return;
+  }
+  mapPlayerMarkers.set(id, { id, x: row.x, y: row.y });
+}
+
+function removeMapPlayerMarker(row: { identity: Identity }) {
+  mapPlayerMarkers.delete(row.identity.toHexString());
+}
+
+function releaseMapMarkerSubscription() {
+  mapMarkerSubscriptionGeneration += 1;
+  mapMarkerSubscription?.unsubscribe();
+  mapMarkerSubscription = null;
+}
+
+function refreshMapMarkerSubscription(force = false) {
+  const conn = connection;
+  if (!conn?.isActive || !hydrationReady) return;
+  if (!force && mapMarkerSubscription) return;
+
+  const previous = mapMarkerSubscription;
+  const generation = ++mapMarkerSubscriptionGeneration;
+  const mapId = currentMapId;
+  const next = conn
+    .subscriptionBuilder()
+    .onApplied(() => {
+      if (connection !== conn || generation !== mapMarkerSubscriptionGeneration) return;
+      previous?.unsubscribe();
+      mapPlayerMarkers.clear();
+      for (const row of conn.db.playerMapMarker.iter()) upsertMapPlayerMarker(row);
+      onChange?.();
+    })
+    .onError((ctx) => {
+      if (connection !== conn || generation !== mapMarkerSubscriptionGeneration) return;
+      console.error("Wildwood map marker subscription error:", ctx.event);
+      mapMarkerSubscription = previous;
+    })
+    .subscribe([tables.playerMapMarker.where((marker) => marker.mapId.eq(mapId).and(marker.isVisible.eq(true)))]);
+  mapMarkerSubscription = next;
+}
+
 function refreshMapPlayerSubscription(force = false) {
   const conn = connection;
   if (!conn?.isActive || !hydrationReady) return;
@@ -1630,10 +1723,14 @@ function refreshMapPlayerSubscription(force = false) {
 function clearRealtimeCaches() {
   releasePlayerProfile();
   releaseMapPlayerSubscription();
+  releaseMapMarkerSubscription();
+  cancelLeaderboardSnapshotLoad?.();
   leaderboardSnapshotSubscription?.unsubscribe();
   leaderboardSnapshotSubscription = null;
   leaderboardSnapshotLoad = null;
+  cancelLeaderboardSnapshotLoad = null;
   players.clear();
+  mapPlayerMarkers.clear();
   profiles.clear();
   profileIcons.clear();
   playerSprites.clear();
@@ -1776,7 +1873,7 @@ function connect() {
       if (identityChanged) {
         localState = null;
         localProgress = null;
-        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, prosperity: 0 };
+        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
         localActiveResearch = null;
       }
       lastSpeedSent = null;
@@ -1862,6 +1959,9 @@ function connect() {
         conn.db.player.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayer(row); });
         conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayer(row); });
         conn.db.player.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayer(row); });
+        conn.db.playerMapMarker.onInsert((_ctx, row) => { if (isCurrentConnection()) { upsertMapPlayerMarker(row); onChange?.(); } });
+        conn.db.playerMapMarker.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) { upsertMapPlayerMarker(row); onChange?.(); } });
+        conn.db.playerMapMarker.onDelete((_ctx, row) => { if (isCurrentConnection()) { removeMapPlayerMarker(row); onChange?.(); } });
         conn.db.playerProfile.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProfile(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
@@ -1921,6 +2021,8 @@ function connect() {
           hydrationReady = true;
           setWakeReconnectVisible(false);
           refreshMapPlayerSubscription(true);
+          refreshMapMarkerSubscription(true);
+          void loadLeaderboardSnapshot();
           sessionGeneration += 1;
           flushPendingProgress();
           onChange?.();
@@ -1971,7 +2073,7 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       localProfileReady = false;
-        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, prosperity: 0 };
+        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
       localActiveResearch = null;
       clearRealtimeCaches();
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
@@ -2588,9 +2690,12 @@ export const wildwoodCoop = {
     }
     return count;
   },
+  mapPlayerMarkers() {
+    return [...mapPlayerMarkers.values()];
+  },
   subscriptionCount() {
     if (!connection?.isActive) return 0;
-    return 1 + Number(Boolean(mapPlayerSubscription)) + Number(Boolean(activePlayerProfileSubscription)) + replayLoads.size;
+    return 1 + Number(Boolean(mapPlayerSubscription)) + Number(Boolean(mapMarkerSubscription)) + Number(Boolean(activePlayerProfileSubscription)) + replayLoads.size;
   },
   onlinePlayerCount() {
     return onlinePlayerCount;

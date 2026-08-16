@@ -19,6 +19,7 @@ export type DamageNumber = {
   life: number;
   maxLife: number;
   text: string;
+  critical: boolean;
 };
 
 type CameraPosition = { x: number; y: number };
@@ -45,7 +46,7 @@ export function createCombatEffects() {
     }
   }
 
-  function spawnDamageNumber(x: number, y: number, amount: number) {
+  function spawnDamageNumber(x: number, y: number, amount: number, critical = false) {
     if (!Number.isFinite(amount) || amount <= 0) return;
     damageNumbers.push({
       x: x + rand(-10, 10),
@@ -53,6 +54,7 @@ export function createCombatEffects() {
       life: .72,
       maxLife: .72,
       text: `-${formatCompactNumber(amount)}`,
+      critical,
     });
   }
 
@@ -95,10 +97,12 @@ export function createCombatEffects() {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.font = '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     for (const number of damageNumbers) {
       ctx.globalAlpha = clamp(number.life / number.maxLife, 0, 1);
-      outlinedText(number.text, Math.floor(number.x - camera.x), Math.floor(number.y - camera.y), "#ff5a5a", 4);
+      ctx.font = number.critical
+        ? '900 22px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
+        : '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      outlinedText(number.text, Math.floor(number.x - camera.x), Math.floor(number.y - camera.y), number.critical ? "#ffe36b" : "#ff5a5a", 4);
     }
     ctx.restore();
   }

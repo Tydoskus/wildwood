@@ -56,6 +56,7 @@ import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber } from "./ui/number-format";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
+import type { ResearchId } from "../shared/research";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -298,6 +299,7 @@ import {
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
     effectiveArmor,
     criticalChance: researchCriticalChance,
+    criticalDamageMultiplier: researchCriticalDamageMultiplier,
     applyVitality: applyVitalityResearch,
   } = research;
   progress = createProgressController({
@@ -325,6 +327,7 @@ import {
     engageEnemy,
     researchDamageMultiplier,
     researchCriticalChance,
+    researchCriticalDamageMultiplier,
     researchRewardMultiplier,
     minAttackInterval: MIN_ATTACK_INTERVAL,
     effectiveArmor,
@@ -356,6 +359,7 @@ import {
     profileIconSheet,
     antiAliasingEnabled: () => appShell.antiAliasingEnabled(),
     isDeveloper: isDeveloperIdentity,
+    isLocallyInvisible: (identity) => identity === coop?.localIdentity?.() && isDeveloperIdentity(identity) && coop?.developerPresenceVisible?.() === false,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
     profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0,
     chatRevision: () => coop?.chatRevision?.() ?? -1,
@@ -609,6 +613,7 @@ import {
     textCanvas,
     bootsPickup,
     remotePlayers: () => coop?.remotePlayers?.() ?? [],
+    mapPlayerMarkers: () => coop?.mapPlayerMarkers?.() ?? [],
     isDueling,
     isArenaScene,
     isReplayActive: () => duelRuntime.isReplayActive(),
@@ -697,7 +702,7 @@ import {
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
 
-  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: "warcraft" | "foraging" | "prosperity" | "vitality" | "precision" | "criticalChance") => coop?.startResearch?.(id), claimResearch: async () => coop?.claimResearch?.(), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
+  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), claimResearch: async () => coop?.claimResearch?.(), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
     entries: () => coop?.leaderboardEntries?.() ?? [],

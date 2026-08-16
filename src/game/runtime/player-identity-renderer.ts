@@ -26,6 +26,7 @@ export function createPlayerIdentityRenderer(options: {
   profileIconSheet: HTMLImageElement;
   antiAliasingEnabled: () => boolean;
   isDeveloper: (identity: string | undefined) => boolean;
+  isLocallyInvisible: (identity: string | undefined) => boolean;
   isGuest: (identity: string | undefined) => boolean;
   profileIcon: (identity: string | undefined) => number;
   chatRevision: () => number;
@@ -201,6 +202,14 @@ export function createPlayerIdentityRenderer(options: {
     ctx.textBaseline = "middle";
     options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`, centerX, barY + barH / 2, "#ffffff", 2);
     ctx.restore();
+    if (options.isLocallyInvisible(identity)) {
+      ctx.save();
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      options.outlinedText("Invisible", centerX, barY - 39, "#c9a6ff", 4);
+      ctx.restore();
+    }
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
     ctx.restore();
   }

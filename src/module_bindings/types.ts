@@ -141,6 +141,16 @@ export const Duel = __t.object("Duel", {
   opponentDamageDealt: __t.f32(),
   opponentRegened: __t.f32(),
   opponentBlocked: __t.f32(),
+  challengerHeadItem: __t.string(),
+  challengerChestItem: __t.string(),
+  challengerFeetItem: __t.string(),
+  challengerRightHandItem: __t.string(),
+  challengerLeftHandItem: __t.string(),
+  opponentHeadItem: __t.string(),
+  opponentChestItem: __t.string(),
+  opponentFeetItem: __t.string(),
+  opponentRightHandItem: __t.string(),
+  opponentLeftHandItem: __t.string(),
 });
 export type Duel = __Infer<typeof Duel>;
 
@@ -272,6 +282,16 @@ export const PlayerLifetime = __t.object("PlayerLifetime", {
 });
 export type PlayerLifetime = __Infer<typeof PlayerLifetime>;
 
+export const PlayerMapMarker = __t.object("PlayerMapMarker", {
+  identity: __t.identity(),
+  x: __t.f64(),
+  y: __t.f64(),
+  mapId: __t.string(),
+  isVisible: __t.bool(),
+  updatedAt: __t.timestamp(),
+});
+export type PlayerMapMarker = __Infer<typeof PlayerMapMarker>;
+
 export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
   identity: __t.identity(),
   changedAt: __t.timestamp(),
@@ -321,6 +341,7 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   criticalChance: __t.u32(),
   moveSpeed: __t.u32(),
   prosperity: __t.u32(),
+  criticalDamage: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 
@@ -341,6 +362,7 @@ export const ResearchCompletionSchedule = __t.object("ResearchCompletionSchedule
   identity: __t.identity(),
   researchId: __t.string(),
   targetRank: __t.u32(),
+  completesAtMicros: __t.u64(),
 });
 export type ResearchCompletionSchedule = __Infer<typeof ResearchCompletionSchedule>;
 

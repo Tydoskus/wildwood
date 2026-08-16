@@ -9,6 +9,7 @@ export type ResearchRanks = {
   vitality: number;
   precision: number;
   criticalChance: number;
+  criticalDamage: number;
 };
 
 type ResearchControllerOptions = {
@@ -27,6 +28,7 @@ const EMPTY_RANKS: ResearchRanks = {
   vitality: 0,
   precision: 0,
   criticalChance: 0,
+  criticalDamage: 0,
 };
 
 export function createResearchController(options: ResearchControllerOptions) {
@@ -41,6 +43,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     rewardMultiplier: () => 1 + ranks().foraging * .01 + ranks().prosperity * .02,
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     criticalChance: () => ranks().criticalChance * .01,
+    criticalDamageMultiplier: () => 1.05 + ranks().criticalDamage * .05,
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },
     applyVitality() {
       if (options.isDueling()) return;

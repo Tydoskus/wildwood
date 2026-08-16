@@ -82,6 +82,7 @@ import LeaderboardEntryRow from "./leaderboard_entry_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
+import PlayerMapMarkerRow from "./player_map_marker_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
@@ -217,6 +218,21 @@ const tablesSchema = __schema({
       { name: 'player_lifetime_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerLifetimeRow),
+  playerMapMarker: __table({
+    name: 'player_map_marker',
+    indexes: [
+      { accessor: 'identity', name: 'player_map_marker_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'byMap', name: 'player_map_marker_map_id_is_visible_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+        'isVisible',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_map_marker_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerMapMarkerRow),
   playerProfile: __table({
     name: 'player_profile',
     indexes: [

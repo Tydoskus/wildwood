@@ -1,6 +1,6 @@
 import { clamp } from "../math";
 import { DUEL_ARENA } from "../duel";
-import type { RemotePlayer } from "../../wildwood-coop";
+import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DuelScene, EnemyShot, PlayerState, Projectile } from "./types";
 
@@ -22,6 +22,7 @@ export function createRenderController(options: {
   viewport: () => { width: number; height: number; dpr: number };
   pixelCircle: (x: number, y: number, radius: number) => void;
   remotePlayers: () => RemotePlayer[];
+  mapPlayerMarkers: () => MapPlayerMarker[];
   isDueling: () => boolean;
   isArenaScene: () => boolean;
   isReplayActive: () => boolean;
@@ -42,7 +43,7 @@ export function createRenderController(options: {
   drawSpiderTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
-  drawMinimap: (remotePlayers: RemotePlayer[]) => void;
+  drawMinimap: (players: MapPlayerMarker[]) => void;
   drawCutscenePortal: () => void;
   drawParticles: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
   drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
@@ -58,7 +59,7 @@ export function createRenderController(options: {
   enemyShots: EnemyShot[];
 }): RenderController {
   const {
-    ctx, textCtx, textCanvas, camera, player, bootsPickup, viewport, pixelCircle, remotePlayers,
+    ctx, textCtx, textCanvas, camera, player, bootsPickup, viewport, pixelCircle, remotePlayers, mapPlayerMarkers,
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
@@ -184,7 +185,7 @@ export function createRenderController(options: {
     drawParticles(ctx, camera);
     drawDamageNumbers(ctx, camera);
     ctx.restore();
-    if (!isDueling() && !cutscene) { drawMinimap(remotes); clearFloatingTextFromMinimap(); }
+    if (!isDueling() && !cutscene) { drawMinimap(mapPlayerMarkers()); clearFloatingTextFromMinimap(); }
     if (flash() > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash() * .75})`;
       ctx.fillRect(0, 0, width, height);

@@ -33,6 +33,7 @@ export type Projectile = Circle & {
   vx: number;
   vy: number;
   damage: number;
+  critical: boolean;
   /** Time remaining for collision checks; visual tail can continue after it expires. */
   hitLife?: number;
   life: number;
@@ -148,6 +149,11 @@ export type DuelCombatant = Position & {
   maxHp: number;
   facing: number;
   isLocal: boolean;
+  headItem: string;
+  chestItem: string;
+  feetItem: string;
+  rightHandItem: string;
+  leftHandItem: string;
 };
 
 export type DuelShot = Position & {
@@ -198,6 +204,16 @@ export type RuntimeDuelState = {
   opponentAttackRate: number;
   opponentRegen: number;
   opponentAttacks: number;
+  challengerHeadItem: string;
+  challengerChestItem: string;
+  challengerFeetItem: string;
+  challengerRightHandItem: string;
+  challengerLeftHandItem: string;
+  opponentHeadItem: string;
+  opponentChestItem: string;
+  opponentFeetItem: string;
+  opponentRightHandItem: string;
+  opponentLeftHandItem: string;
 };
 
 export type RuntimeDuelReplay = {

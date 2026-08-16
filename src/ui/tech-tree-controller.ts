@@ -40,6 +40,7 @@ const techNodeResearch: Record<string, ResearchId | null> = {
   vitality: "vitality",
   precision: "precision",
   "critical-chance": "criticalChance",
+  "critical-damage": "criticalDamage",
 };
 
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
@@ -113,7 +114,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     const paths: [string, string][] = [
       ["foundations", "war"], ["foundations", "move-speed"], ["war", "vitality"], ["war", "precision"],
       ["vitality", "prosperity"], ["precision", "prosperity"], ["prosperity", "critical-chance"],
-      ["critical-chance", "future-b"], ["future-b", "future-c"], ["future-b", "future-d"], ["future-c", "future-e"],
+      ["critical-chance", "critical-damage"], ["critical-damage", "future-c"], ["critical-damage", "future-d"], ["future-c", "future-e"],
       ["future-d", "future-e"], ["future-e", "future-f"], ["future-e", "future-g"], ["future-f", "future-h"],
       ["future-g", "future-h"], ...futureTechTreePaths,
     ];

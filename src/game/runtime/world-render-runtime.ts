@@ -7,7 +7,7 @@ import { createWorldRenderer } from "./world-renderer";
 import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
-import type { RemotePlayer } from "../../wildwood-coop";
+import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -81,6 +81,7 @@ export type FrameRendererOptions = {
   textCanvas: HTMLCanvasElement;
   bootsPickup: BootsPickup;
   remotePlayers: () => RemotePlayer[];
+  mapPlayerMarkers: () => MapPlayerMarker[];
   isDueling: () => boolean;
   isArenaScene: () => boolean;
   isReplayActive: () => boolean;
@@ -216,6 +217,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       viewport: options.viewport,
       pixelCircle: options.pixelCircle,
       remotePlayers: frame.remotePlayers,
+      mapPlayerMarkers: frame.mapPlayerMarkers,
       isDueling: frame.isDueling,
       isArenaScene: frame.isArenaScene,
       isReplayActive: frame.isReplayActive,

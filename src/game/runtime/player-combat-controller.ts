@@ -38,6 +38,7 @@ export function createPlayerCombatController(options: {
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchCriticalChance: () => number;
+  researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
   minAttackInterval: number;
   effectiveArmor: () => number;
@@ -48,7 +49,7 @@ export function createPlayerCombatController(options: {
   damageSpider: (hits: number) => void;
   syncBossAttackPosition: () => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
-  spawnDamageNumber: (x: number, y: number, amount: number) => void;
+  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
   logPickup: (text: string, color: string) => void;
   saveProgress: () => void;
   setHitFlash: () => void;
@@ -58,7 +59,7 @@ export function createPlayerCombatController(options: {
 }): PlayerCombatController {
   const {
     player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss,
-    isTutorialMap, isDesertMap, engageEnemy, researchDamageMultiplier, researchCriticalChance,
+    isTutorialMap, isDesertMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, getGameTime,
     incrementKills, damageDragon, damageSpider, syncBossAttackPosition, spawnBurst,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
@@ -85,13 +86,15 @@ export function createPlayerCombatController(options: {
     for (let index = 0; index < player.projectileCount; index++) {
       const angle = baseAngle + (index - (player.projectileCount - 1) / 2) * .13;
       const projectileLifeBonus = 1.25;
+      const critical = Math.random() < researchCriticalChance();
       projectiles.push({
         x: player.x + Math.cos(angle) * 20,
         y: player.y + Math.sin(angle) * 20,
         vx: Math.cos(angle) * player.projectileSpeed,
         vy: Math.sin(angle) * player.projectileSpeed,
         r: 6,
-        damage: player.damage * researchDamageMultiplier() * (Math.random() < researchCriticalChance() ? 2 : 1),
+        damage: player.damage * researchDamageMultiplier() * (critical ? researchCriticalDamageMultiplier() : 1),
+        critical,
         hitLife: player.attackRange / player.projectileSpeed * projectileLifeBonus,
         life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
         trail: 0,
@@ -228,7 +231,7 @@ export function createPlayerCombatController(options: {
         projectile.x = startX + (endX - startX) * hit.t;
         projectile.y = startY + (endY - startY) * hit.t;
         const target = hit.enemy;
-        spawnDamageNumber(target.x, target.y, projectile.damage);
+        spawnDamageNumber(target.x, target.y, projectile.damage, projectile.critical);
         target.hurt = .12;
         projectile.life = 0;
         if (target.isBoss) {

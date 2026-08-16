@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.415": [
+    "Minimap player dots use one lightweight map-wide feed while full health and movement data stays limited to nearby players.",
+    "Profiles load one leaderboard snapshot on spawn; reconnecting snapshot/profile requests now settle cleanly, and research timers recover from reset or account-link edge cases.",
+    "Duels snapshot both combatants' equipped items. Critical hits are now yellow, 10% larger, start at ×1.05, and unlock a connected four-rank Critical Damage node.",
+  ],
   "0.414": [
     "Nearby players now use a 20 Hz confirmed-snapshot buffer with no forward prediction, removing small movement rubberbands.",
     "Health updates now run only near other players and are capped at eight per second; distant players are excluded from map subscriptions.",

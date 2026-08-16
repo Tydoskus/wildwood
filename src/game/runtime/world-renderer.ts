@@ -1,6 +1,6 @@
 import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
-import type { RemotePlayer } from "../../wildwood-coop";
+import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { EnemyState, PlayerState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
@@ -380,7 +380,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawDecor() {}
 
-  function drawMinimap(remotePlayers: RemotePlayer[]) {
+  function drawMinimap(remotePlayers: MapPlayerMarker[]) {
     const view = viewport(); const size = Math.min(126, Math.max(118, view.width * .17)); const x = view.width - size; const y = 0;
     ctx.save(); ctx.fillStyle = "rgba(12,18,15,.82)"; ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2; options.roundRect(x, y, size, size, 10); ctx.fill(); ctx.stroke();
     const sx = size / WORLD.w; const sy = size / WORLD.h;
