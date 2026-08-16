@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.417": [
+    "Server disconnects now use the normal GAME UPDATING screen; once the server socket returns, it switches to RECONNECTING until player data is ready.",
+  ],
   "0.416": [
     "A live server disconnect now freezes the game and shows GAME UPDATING · RECONNECTING until the new session fully hydrates, instead of leaving a playable-looking zero-player world.",
   ],

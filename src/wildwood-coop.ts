@@ -342,7 +342,8 @@ let protocolBlocked = false;
 let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
 let wakeReconnectVisible = false;
-let disconnectReconnectVisible = false;
+let serverUpdateVisible = false;
+let reconnectAfterServerUpdateVisible = false;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
@@ -1770,9 +1771,15 @@ function setWakeReconnectVisible(visible: boolean) {
   onChange?.();
 }
 
-function setDisconnectReconnectVisible(visible: boolean) {
-  if (disconnectReconnectVisible === visible) return;
-  disconnectReconnectVisible = visible;
+function setServerUpdateVisible(visible: boolean) {
+  if (serverUpdateVisible === visible) return;
+  serverUpdateVisible = visible;
+  onChange?.();
+}
+
+function setReconnectAfterServerUpdateVisible(visible: boolean) {
+  if (reconnectAfterServerUpdateVisible === visible) return;
+  reconnectAfterServerUpdateVisible = visible;
   onChange?.();
 }
 
@@ -1852,6 +1859,7 @@ function connect() {
       }
       connection = conn;
       connecting = false;
+      setServerUpdateVisible(false);
       hydrationReady = false;
       connectedSignedIn = signedIn;
       touchServerActivity();
@@ -2027,7 +2035,7 @@ function connect() {
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
           setWakeReconnectVisible(false);
-          setDisconnectReconnectVisible(false);
+          setReconnectAfterServerUpdateVisible(false);
           refreshMapPlayerSubscription(true);
           refreshMapMarkerSubscription(true);
           void loadLeaderboardSnapshot();
@@ -2085,7 +2093,10 @@ function connect() {
         localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
       localActiveResearch = null;
       clearRealtimeCaches();
-      if (hadActiveGame) setDisconnectReconnectVisible(true);
+      if (hadActiveGame) {
+        setServerUpdateVisible(true);
+        setReconnectAfterServerUpdateVisible(true);
+      }
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
@@ -2154,7 +2165,7 @@ export const wildwoodCoop = {
     return Boolean(connection?.isActive && hydrationReady);
   },
   isReconnectingAfterWake() {
-    return wakeReconnectVisible || disconnectReconnectVisible;
+    return wakeReconnectVisible || reconnectAfterServerUpdateVisible;
   },
   latencyMs() {
     return latencyMs;
@@ -2168,7 +2179,7 @@ export const wildwoodCoop = {
       authInProgress: accountCallbackPending,
       returningFromSignIn: accountReturnPending,
       hydrated: hydrationReady,
-      updating: protocolBlocked,
+      updating: protocolBlocked || serverUpdateVisible,
       sessionConflict: worldEntryBlocked,
       notice: authNotice,
     };

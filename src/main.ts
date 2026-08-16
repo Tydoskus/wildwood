@@ -809,7 +809,8 @@ import {
   let reconnectOverlayPausedGame = false;
   function refreshReconnectOverlay() {
     const reconnecting = Boolean(coop?.isReconnectingAfterWake?.());
-    reconnectOverlayEl.hidden = !reconnecting;
+    const waitingForServer = Boolean(coop?.accountState?.().updating);
+    reconnectOverlayEl.hidden = !reconnecting || waitingForServer;
     if (reconnecting) {
       if (session.isRunning() && !session.isPaused()) {
         session.setPaused(true);
