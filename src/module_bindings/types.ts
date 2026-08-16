@@ -46,6 +46,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   id: __t.u64(),
   sender: __t.identity(),
   senderName: __t.string(),
+  senderIsGuest: __t.bool(),
   message: __t.string(),
   sentAt: __t.timestamp(),
   replayId: __t.u64(),
@@ -216,6 +217,7 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   maxHp: __t.f32(),
   isGuest: __t.bool(),
   power: __t.u32(),
+  profileIcon: __t.u32(),
   armor: __t.f32(),
   regen: __t.f32(),
   playedMicros: __t.u64(),
@@ -238,11 +240,24 @@ export const MaintenanceSchedule = __t.object("MaintenanceSchedule", {
 });
 export type MaintenanceSchedule = __Infer<typeof MaintenanceSchedule>;
 
+export const MapFrameSchedule = __t.object("MapFrameSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type MapFrameSchedule = __Infer<typeof MapFrameSchedule>;
+
 export const ModuleMigrationState = __t.object("ModuleMigrationState", {
   id: __t.u32(),
   version: __t.u32(),
 });
 export type ModuleMigrationState = __Infer<typeof ModuleMigrationState>;
+
+export const MotionFrameSchedule = __t.object("MotionFrameSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  previousTickMicros: __t.u64(),
+});
+export type MotionFrameSchedule = __Infer<typeof MotionFrameSchedule>;
 
 export const Player = __t.object("Player", {
   identity: __t.identity(),
@@ -317,6 +332,14 @@ export const PlayerLifetime = __t.object("PlayerLifetime", {
 });
 export type PlayerLifetime = __Infer<typeof PlayerLifetime>;
 
+export const PlayerMapFrame = __t.object("PlayerMapFrame", {
+  mapId: __t.string(),
+  emittedAt: __t.timestamp(),
+  playerCount: __t.u32(),
+  payload: __t.byteArray(),
+});
+export type PlayerMapFrame = __Infer<typeof PlayerMapFrame>;
+
 export const PlayerMapMarker = __t.object("PlayerMapMarker", {
   identity: __t.identity(),
   x: __t.f64(),
@@ -326,6 +349,47 @@ export const PlayerMapMarker = __t.object("PlayerMapMarker", {
   updatedAt: __t.timestamp(),
 });
 export type PlayerMapMarker = __Infer<typeof PlayerMapMarker>;
+
+export const PlayerMotion = __t.object("PlayerMotion", {
+  networkId: __t.u32(),
+  identity: __t.identity(),
+  x: __t.f64(),
+  y: __t.f64(),
+  facing: __t.f64(),
+  moving: __t.bool(),
+  lastInputAt: __t.timestamp(),
+  lastInputSequence: __t.u32(),
+  inputIntervalMicros: __t.u64(),
+  zoneX: __t.i32(),
+  zoneY: __t.i32(),
+  mapId: __t.string(),
+});
+export type PlayerMotion = __Infer<typeof PlayerMotion>;
+
+export const PlayerMotionFrame = __t.object("PlayerMotionFrame", {
+  mapId: __t.string(),
+  zoneX: __t.i32(),
+  zoneY: __t.i32(),
+  emittedAt: __t.timestamp(),
+  playerCount: __t.u32(),
+  payload: __t.byteArray(),
+});
+export type PlayerMotionFrame = __Infer<typeof PlayerMotionFrame>;
+
+export const PlayerMotionIdentity = __t.object("PlayerMotionIdentity", {
+  networkId: __t.u32(),
+  identity: __t.identity(),
+  mapId: __t.string(),
+  isVisible: __t.bool(),
+  zoneX: __t.i32(),
+  zoneY: __t.i32(),
+  displayName: __t.string(),
+  profileIcon: __t.u32(),
+  playerSprite: __t.u32(),
+  skinTone: __t.u32(),
+  isGuest: __t.bool(),
+});
+export type PlayerMotionIdentity = __Infer<typeof PlayerMotionIdentity>;
 
 export const PlayerMovementDemand = __t.object("PlayerMovementDemand", {
   identity: __t.identity(),

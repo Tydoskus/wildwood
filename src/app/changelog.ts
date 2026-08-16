@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.423": [
+    "Multiplayer movement now uses compact shared position frames, sharply reducing repeated server transactions and subscriber fanout as player counts grow.",
+    "Two-player sessions keep immediate smooth updates, while larger groups share one 10 Hz zone stream and a lightweight 1 Hz map-wide minimap snapshot.",
+    "Player identity and profile data now travel on cold snapshot paths, and virtual-player cleanup removes stale movement, minimap, profile, and ranking state.",
+  ],
   "0.422": [
     "Virtual-player startup now uses a private run ticket claimed through each bot's own confirmed connection, removing the cross-connection authorization race.",
     "Bots now wait for reducers and initial subscriptions before launching the next client, retry transient failures three times, and slow the ramp automatically under load.",

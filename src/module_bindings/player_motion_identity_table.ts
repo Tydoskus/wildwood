@@ -11,14 +11,15 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  identity: __t.identity().primaryKey(),
+  networkId: __t.u32().primaryKey().name("network_id"),
+  identity: __t.identity(),
+  mapId: __t.string().name("map_id"),
+  isVisible: __t.bool().name("is_visible"),
+  zoneX: __t.i32().name("zone_x"),
+  zoneY: __t.i32().name("zone_y"),
   displayName: __t.string().name("display_name"),
-  damage: __t.f32(),
-  maxHp: __t.f32().name("max_hp"),
-  isGuest: __t.bool().name("is_guest"),
-  power: __t.u32(),
   profileIcon: __t.u32().name("profile_icon"),
-  armor: __t.f32(),
-  regen: __t.f32(),
-  playedMicros: __t.u64().name("played_micros"),
+  playerSprite: __t.u32().name("player_sprite"),
+  skinTone: __t.u32().name("skin_tone"),
+  isGuest: __t.bool().name("is_guest"),
 });

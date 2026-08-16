@@ -1,6 +1,10 @@
 import { recentReleaseNotes } from "../app/changelog";
 import { isDeveloperIdentity } from "../app/developer";
 import type { ResearchId } from "../../shared/research";
+import {
+  VIRTUAL_PLAYER_MOVEMENT_HZ,
+  VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
+} from "../../shared/virtual-player-load-test";
 import { createAppShellController } from "./app-shell-controller";
 import { createDevPanelController } from "./dev-panel-controller";
 import { createGameActionsController } from "./game-actions-controller";
@@ -60,7 +64,7 @@ export function createGameUiRuntime(d: Record<string, any>) {
   });
   devPanel = createDevPanelController({
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), getPresenceVisible: () => coop?.developerPresenceVisible?.() === true, setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible), getBugReports: () => coop?.bugReportEntries?.() ?? [], deleteBugReport: (id: bigint) => coop?.deleteBugReport?.(id), getMetrics: d.getMetrics,
-    getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: 15, saveIntervalMs: 2_500 },
+    getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: VIRTUAL_PLAYER_MOVEMENT_HZ, saveIntervalMs: VIRTUAL_PLAYER_SAVE_INTERVAL_MS },
     startVirtualPlayers: (count: number) => coop?.startVirtualPlayers?.(count),
     stopVirtualPlayers: () => coop?.stopVirtualPlayers?.(),
     closeCompetingWindows: () => { e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; closeLeaderboard(); techTree.close(); }, showMessage: d.showMessage,
@@ -104,7 +108,7 @@ export function createDevPanel(d: Record<string, any>) {
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()),
     getPresenceVisible: () => coop?.developerPresenceVisible?.() === true,
     setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible),
-    getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: 15, saveIntervalMs: 2_500 },
+    getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: VIRTUAL_PLAYER_MOVEMENT_HZ, saveIntervalMs: VIRTUAL_PLAYER_SAVE_INTERVAL_MS },
     startVirtualPlayers: (count: number) => coop?.startVirtualPlayers?.(count),
     stopVirtualPlayers: () => coop?.stopVirtualPlayers?.(),
     getBugReports: () => coop?.bugReportEntries?.() ?? [],

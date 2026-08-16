@@ -84,7 +84,10 @@ import LocalMovementDemandRow from "./local_movement_demand_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
+import PlayerMapFrameRow from "./player_map_frame_table";
 import PlayerMapMarkerRow from "./player_map_marker_table";
+import PlayerMotionFrameRow from "./player_motion_frame_table";
+import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
@@ -218,6 +221,14 @@ const tablesSchema = __schema({
       { name: 'player_lifetime_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerLifetimeRow),
+  playerMapFrame: __table({
+    name: 'player_map_frame',
+    indexes: [
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, PlayerMapFrameRow),
   playerMapMarker: __table({
     name: 'player_map_marker',
     indexes: [
@@ -233,6 +244,35 @@ const tablesSchema = __schema({
       { name: 'player_map_marker_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerMapMarkerRow),
+  playerMotionFrame: __table({
+    name: 'player_motion_frame',
+    indexes: [
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, PlayerMotionFrameRow),
+  playerMotionIdentity: __table({
+    name: 'player_motion_identity',
+    indexes: [
+      { accessor: 'identity', name: 'player_motion_identity_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'byMapZone', name: 'player_motion_identity_map_id_is_visible_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+        'isVisible',
+        'zoneX',
+        'zoneY',
+      ] },
+      { accessor: 'networkId', name: 'player_motion_identity_network_id_idx_btree', algorithm: 'btree', columns: [
+        'networkId',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_motion_identity_identity_key', constraint: 'unique', columns: ['identity'] },
+      { name: 'player_motion_identity_network_id_key', constraint: 'unique', columns: ['networkId'] },
+    ],
+  }, PlayerMotionIdentityRow),
   playerProfile: __table({
     name: 'player_profile',
     indexes: [

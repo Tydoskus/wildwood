@@ -18,7 +18,7 @@ describe("adaptive remote interpolation", () => {
     expect(clock.delayMs).toBeGreaterThan(400);
   });
 
-  it("returns smoothly to a responsive delay for a 15 Hz stream", () => {
+  it("returns smoothly to a responsive delay for a high-rate stream", () => {
     const clock = createRemoteInterpolationClock(0);
     observeRemoteSample(clock, 333, 333);
     for (let now = 16; now <= 500; now += 16) adaptiveRemoteRenderAt(clock, now);

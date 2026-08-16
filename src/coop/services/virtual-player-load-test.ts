@@ -229,13 +229,28 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         removeSubscription(bot, next);
         onSettled?.(false);
       })
-      .subscribe([tables.player.where((row) => row
-        .mapId.eq(mapId)
-        .and(row.isVisible.eq(true))
-        .and(row.zoneX.gte(minZoneX))
-        .and(row.zoneX.lte(maxZoneX))
-        .and(row.zoneY.gte(minZoneY))
-        .and(row.zoneY.lte(maxZoneY)))]) as Subscription;
+      .subscribe([
+        tables.player.where((row) => row
+          .mapId.eq(mapId)
+          .and(row.isVisible.eq(true))
+          .and(row.zoneX.gte(minZoneX))
+          .and(row.zoneX.lte(maxZoneX))
+          .and(row.zoneY.gte(minZoneY))
+          .and(row.zoneY.lte(maxZoneY))),
+        tables.playerMotionFrame.where((row) => row
+          .mapId.eq(mapId)
+          .and(row.zoneX.gte(minZoneX))
+          .and(row.zoneX.lte(maxZoneX))
+          .and(row.zoneY.gte(minZoneY))
+          .and(row.zoneY.lte(maxZoneY))),
+        tables.playerMotionIdentity.where((row) => row
+          .mapId.eq(mapId)
+          .and(row.isVisible.eq(true))
+          .and(row.zoneX.gte(minZoneX))
+          .and(row.zoneX.lte(maxZoneX))
+          .and(row.zoneY.gte(minZoneY))
+          .and(row.zoneY.lte(maxZoneY))),
+      ]) as Subscription;
     bot.nearbySubscription = next;
     bot.subscriptions.push(next);
   }
@@ -267,8 +282,9 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         .onError(() => fail())
         .subscribe([
           tables.player.where((row) => row.identity.eq(identity)),
-          tables.playerProfile,
-          tables.playerAccountStatus,
+          tables.playerMotionIdentity.where((row) => row.identity.eq(identity)),
+          tables.playerProfile.where((row) => row.identity.eq(identity)),
+          tables.playerAccountStatus.where((row) => row.identity.eq(identity)),
           tables.worldStatus,
           tables.localMovementDemand,
           tables.playerProgress.where((row) => row.identity.eq(identity)),
@@ -288,7 +304,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         .onApplied(ready)
         .onError(() => fail())
         .subscribe([
-          tables.playerMapMarker.where((row) => row.mapId.eq(mapId).and(row.isVisible.eq(true))),
+          tables.playerMapFrame.where((row) => row.mapId.eq(mapId)),
         ]) as Subscription;
       bot.subscriptions.push(markers);
       installNearbySubscription(bot, mapId, true, (applied) => applied ? ready() : fail());

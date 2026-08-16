@@ -29,6 +29,10 @@ import {
   type RemoteInterpolationClock,
 } from "./coop/services/remote-interpolation";
 import {
+  PLAYER_MOTION_FRAME_HZ,
+  decodePlayerMotionFrame,
+} from "../shared/player-motion-frame";
+import {
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   NAME_ADJECTIVES,
@@ -242,6 +246,7 @@ export type DuelReplay = {
 type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
   interpolationClock: RemoteInterpolationClock;
+  lastInputSequence: number;
 };
 
 type RemotePlayerSample = {
@@ -257,7 +262,7 @@ type RemotePlayerSample = {
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
 type MapZoneBounds = { mapId: string; minZoneX: number; maxZoneX: number; minZoneY: number; maxZoneY: number };
 
-const NEARBY_MOVEMENT_HZ = 15;
+const NEARBY_MOVEMENT_HZ = PLAYER_MOTION_FRAME_HZ;
 const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
@@ -341,6 +346,8 @@ const profileIcons = new Map<string, number>();
 const playerSprites = new Map<string, number>();
 const skinTones = new Map<string, number>();
 const profileIdentities = new Map<string, Identity>();
+const motionIdentities = new Map<number, string>();
+const activeMotionIdentities = new Set<string>();
 const leaderboardEntries = new Map<string, LeaderboardEntry>();
 const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
 const bugReportEntries = new Map<string, BugReportEntry>();
@@ -381,6 +388,7 @@ let latestDragonResult: DragonResult | null = null;
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
+let localMotionNetworkId: number | null = null;
 let lastPositionSentAt = 0;
 let lastPositionMoving = false;
 let nearbyMovementUntil = 0;
@@ -1034,6 +1042,34 @@ function serverTimestampMs(timestamp: { microsSinceUnixEpoch: bigint }) {
   return Number(timestamp.microsSinceUnixEpoch / 1_000n);
 }
 
+function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<RemotePlayerSample, "timelineAt">) {
+  const latest = existing.samples[existing.samples.length - 1];
+  if (!latest || sample.serverAtMs <= latest.serverAtMs) return;
+
+  const movementRestarted = !latest.moving && sample.moving;
+  if (!movementRestarted) {
+    observeRemoteSample(
+      existing.interpolationClock,
+      sample.serverAtMs - latest.serverAtMs,
+      sample.receivedAt - latest.receivedAt,
+    );
+  }
+  const distance = Math.hypot(sample.x - latest.x, sample.y - latest.y);
+  if (movementRestarted) {
+    existing.samples.length = 0;
+    existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
+    existing.interpolationClock = createRestartRemoteInterpolationClock(sample.receivedAt);
+  } else if (distance > REMOTE_SNAP_DISTANCE) {
+    existing.samples.length = 0;
+    existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
+    existing.interpolationClock = createRemoteInterpolationClock(sample.receivedAt);
+  } else {
+    appendRemoteTimelineSample(existing.samples, sample);
+  }
+  while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
+  existing.moving = sample.moving;
+}
+
 function upsertPlayer(row: {
   identity: Identity;
   x: number;
@@ -1065,18 +1101,21 @@ function upsertPlayer(row: {
     }
     const mapChanged = currentMapId !== nextMapId;
     currentMapId = nextMapId;
+    const acceptServerPosition = firstLocalState || mapChanged || row.lastInputSequence >= (localState?.lastInputSequence ?? 0);
     localState = {
-      x: row.x,
-      y: row.y,
-      facing: row.facing,
+      x: acceptServerPosition ? row.x : localState?.x ?? row.x,
+      y: acceptServerPosition ? row.y : localState?.y ?? row.y,
+      facing: acceptServerPosition ? row.facing : localState?.facing ?? row.facing,
       speed: row.speed,
-      moving: row.moving,
-      lastInputSequence: row.lastInputSequence,
+      moving: acceptServerPosition ? row.moving : localState?.moving ?? row.moving,
+      lastInputSequence: Math.max(row.lastInputSequence, localState?.lastInputSequence ?? 0),
       mapId: currentMapId,
     };
     if (mapChanged) {
       players.clear();
       mapPlayerMarkers.clear();
+      motionIdentities.clear();
+      activeMotionIdentities.clear();
     }
     refreshMapPlayerSubscription(mapChanged);
     refreshMapMarkerSubscription(mapChanged);
@@ -1107,45 +1146,26 @@ function upsertPlayer(row: {
   const serverAtMs = serverTimestampMs(row.lastInputAt);
   const existing = players.get(id);
   if (existing) {
-    const latest = existing.samples[existing.samples.length - 1];
     // Equipment and profile updates re-send the player row without a
-    // movement timestamp change. They must refresh display data, but cannot
-    // become zero-distance movement samples or they disrupt interpolation.
-    if (serverAtMs > latest.serverAtMs) {
-      const movementRestarted = !latest.moving && row.moving;
-      if (!movementRestarted) {
-        observeRemoteSample(
-          existing.interpolationClock,
-          serverAtMs - latest.serverAtMs,
-          receivedAt - latest.receivedAt,
-        );
+    // movement sequence change. They refresh display data without injecting a
+    // stale coordinate into interpolation.
+    if (row.lastInputSequence > existing.lastInputSequence) {
+      // A moving->moving static update is only a zone-membership checkpoint;
+      // its coordinate will arrive in the next aggregate frame. Adding both
+      // would create a zero-distance sample and visible micro-pause.
+      if (!row.moving || row.moving !== existing.moving) {
+        appendRemoteMotionSample(existing, {
+          serverAtMs,
+          receivedAt,
+          x: row.x,
+          y: row.y,
+          facing: row.facing,
+          moving: row.moving,
+        });
       }
-      const distance = Math.hypot(row.x - latest.x, row.y - latest.y);
-      const sample = {
-        serverAtMs,
-        receivedAt,
-        x: row.x,
-        y: row.y,
-        facing: row.facing,
-        moving: row.moving,
-      };
-      // Portal changes clear players first. This protects against any other
-      // server correction being interpolated across half the map.
-      if (movementRestarted) {
-        existing.samples.length = 0;
-        existing.samples.push({ ...sample, timelineAt: receivedAt });
-        existing.interpolationClock = createRestartRemoteInterpolationClock(receivedAt);
-      } else if (distance > REMOTE_SNAP_DISTANCE) {
-        existing.samples.length = 0;
-        existing.samples.push({ ...sample, timelineAt: receivedAt });
-        existing.interpolationClock = createRemoteInterpolationClock(receivedAt);
-      } else {
-        appendRemoteTimelineSample(existing.samples, sample);
-      }
+      existing.lastInputSequence = row.lastInputSequence;
     }
-    while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
     existing.speed = row.speed;
-    existing.moving = row.moving;
     existing.power = row.power;
     existing.feetItem = row.feetItem;
     existing.headItem = row.headItem;
@@ -1165,6 +1185,7 @@ function upsertPlayer(row: {
       chestItem: row.chestItem,
       samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
       interpolationClock: createRemoteInterpolationClock(receivedAt),
+      lastInputSequence: row.lastInputSequence,
     });
     onChange();
   }
@@ -1192,11 +1213,15 @@ function upsertProfile(row: { identity: Identity; displayName: string; profileIc
 
 function removeProfile(row: { identity: Identity }) {
   const id = row.identity.toHexString();
+  // Active-map presence carries the same presentation fields. Releasing a
+  // temporary profile subscription must not erase an actor still on screen.
+  if (activeMotionIdentities.has(id)) return;
   profiles.delete(id);
   profileIcons.delete(id);
   playerSprites.delete(id);
   skinTones.delete(id);
-  profileIdentities.delete(id);
+  // Keep the SDK Identity handle for later identity-filtered profile reloads.
+  // It is session-bounded and cleared with every realtime cache reset.
   if (id === localIdentity) {
     localDisplayName = "";
     localProfileReady = false;
@@ -1208,6 +1233,7 @@ function removeProfile(row: { identity: Identity }) {
 function leaderboardEntryFromRow(row: {
   identity: Identity;
   displayName: string;
+  profileIcon: number;
   power: number;
   damage: number;
   maxHp: number;
@@ -1282,9 +1308,107 @@ function upsertPlayerAccountStatus(row: { identity: Identity; isGuest: boolean }
 }
 
 function removePlayerAccountStatus(row: { identity: Identity }) {
-  guestAccounts.delete(row.identity.toHexString());
+  const identity = row.identity.toHexString();
+  if (activeMotionIdentities.has(identity)) return;
+  guestAccounts.delete(identity);
   chatPresentationRevision += 1;
   onChange?.();
+}
+
+function upsertMotionIdentity(row: {
+  networkId: number;
+  identity: Identity;
+  mapId: string;
+  isVisible: boolean;
+  zoneX: number;
+  zoneY: number;
+  displayName: string;
+  profileIcon: number;
+  playerSprite: number;
+  skinTone: number;
+  isGuest: boolean;
+}) {
+  const identity = row.identity.toHexString();
+  if (identity === localIdentity) localMotionNetworkId = row.networkId;
+  if (identity !== localIdentity && (!row.isVisible || row.mapId !== currentMapId)) {
+    removeMotionIdentity(row);
+    return;
+  }
+  for (const [networkId, mappedIdentity] of motionIdentities) {
+    if (mappedIdentity === identity && networkId !== row.networkId) motionIdentities.delete(networkId);
+  }
+  motionIdentities.set(row.networkId, identity);
+  activeMotionIdentities.add(identity);
+  batchChanges(() => {
+    upsertProfile(row);
+    upsertPlayerAccountStatus(row);
+    if (row.isVisible && row.mapId === currentMapId) playerMaps.set(identity, row.mapId);
+    else playerMaps.delete(identity);
+  });
+}
+
+function removeMotionIdentity(row: { networkId: number; identity: Identity }) {
+  const identity = row.identity.toHexString();
+  if (identity === localIdentity && localMotionNetworkId === row.networkId) localMotionNetworkId = null;
+  if (motionIdentities.get(row.networkId) === identity) motionIdentities.delete(row.networkId);
+  activeMotionIdentities.delete(identity);
+  const playerRemoved = players.delete(identity);
+  const markerRemoved = mapPlayerMarkers.delete(identity) || mapPlayerMarkers.delete(`network:${row.networkId}`);
+  const mapRemoved = playerMaps.delete(identity);
+  if (playerRemoved || markerRemoved || mapRemoved) onChange?.();
+}
+
+function upsertPlayerMotionFrame(row: {
+  mapId: string;
+  emittedAt: { microsSinceUnixEpoch: bigint };
+  playerCount: number;
+  payload: Uint8Array;
+}) {
+  if (row.mapId !== currentMapId) return;
+  let samples;
+  try {
+    samples = decodePlayerMotionFrame(row.payload, row.playerCount);
+  } catch (error) {
+    console.warn("Ignored malformed Wildwood movement frame:", error);
+    return;
+  }
+  const receivedAt = performance.now();
+  const serverAtMs = serverTimestampMs(row.emittedAt);
+  for (const sample of samples) {
+    const identity = motionIdentities.get(sample.networkId);
+    if (!identity || identity === localIdentity) continue;
+    const existing = players.get(identity);
+    if (!existing) continue;
+    appendRemoteMotionSample(existing, {
+      serverAtMs,
+      receivedAt,
+      x: sample.x,
+      y: sample.y,
+      facing: sample.facing,
+      moving: sample.moving,
+    });
+  }
+}
+
+function upsertPlayerMapFrame(row: {
+  mapId: string;
+  playerCount: number;
+  payload: Uint8Array;
+}) {
+  if (row.mapId !== currentMapId) return;
+  let samples;
+  try {
+    samples = decodePlayerMotionFrame(row.payload, row.playerCount);
+  } catch (error) {
+    console.warn("Ignored malformed Wildwood minimap frame:", error);
+    return;
+  }
+  mapPlayerMarkers.clear();
+  for (const sample of samples) {
+    if (sample.networkId === localMotionNetworkId) continue;
+    const markerId = motionIdentities.get(sample.networkId) ?? `network:${sample.networkId}`;
+    mapPlayerMarkers.set(markerId, { id: markerId, x: sample.x, y: sample.y });
+  }
 }
 
 function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
@@ -1496,14 +1620,19 @@ function upsertChatMessage(row: {
   id: bigint;
   sender: Identity;
   senderName: string;
+  senderIsGuest: boolean;
   message: string;
   replayId: bigint;
   sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
+  const sender = row.sender.toHexString();
+  profileIdentities.set(sender, row.sender);
+  if (!profiles.has(sender)) profiles.set(sender, row.senderName);
+  if (!guestAccounts.has(sender)) guestAccounts.set(sender, row.senderIsGuest);
   chatMessages.push({
     id: row.id,
-    sender: row.sender.toHexString(),
+    sender,
     senderName: row.senderName,
     message: row.message,
     replayId: row.replayId,
@@ -1726,6 +1855,10 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
         for (const row of conn.db.leaderboardEntry.iter()) {
           const entry = leaderboardEntryFromRow(row);
           leaderboardEntries.set(entry.identity, entry);
+          profileIdentities.set(entry.identity, row.identity);
+          profiles.set(entry.identity, entry.name);
+          profileIcons.set(entry.identity, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
+          guestAccounts.set(entry.identity, entry.isGuest);
         }
         onChange?.();
         finish([...leaderboardEntries.values()]);
@@ -1760,7 +1893,7 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
   const loading = playerProfileLoads.get(identity);
   if (loading) return loading;
   const conn = connection;
-  const dbIdentity = profileIdentities.get(identity);
+  const dbIdentity = profileIdentities.get(identity) ?? accessAuditEntries.get(identity)?.identityValue;
   if (!conn || !dbIdentity) return Promise.resolve(null);
 
   releasePlayerProfile();
@@ -1792,6 +1925,12 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         for (const row of conn.db.playerResearch.iter()) {
           if (row.identity.toHexString() === identity) upsertResearch(row);
         }
+        for (const row of conn.db.playerProfile.iter()) {
+          if (row.identity.toHexString() === identity) upsertProfile(row);
+        }
+        for (const row of conn.db.playerAccountStatus.iter()) {
+          if (row.identity.toHexString() === identity) upsertPlayerAccountStatus(row);
+        }
         for (const row of conn.db.player.iter()) {
           if (row.identity.toHexString() !== identity) continue;
           if (row.isVisible) playerMaps.set(identity, row.mapId);
@@ -1803,6 +1942,8 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         finish(null);
       })
       .subscribe([
+        tables.playerProfile.where((profile) => profile.identity.eq(dbIdentity)),
+        tables.playerAccountStatus.where((status) => status.identity.eq(dbIdentity)),
         tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
         tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
         tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),
@@ -1854,19 +1995,6 @@ function releaseMapPlayerSubscription() {
   mapPlayerInterestBounds = null;
 }
 
-function upsertMapPlayerMarker(row: { identity: Identity; x: number; y: number; mapId: string; isVisible: boolean }) {
-  const id = row.identity.toHexString();
-  if (id === localIdentity || !row.isVisible || row.mapId !== currentMapId) {
-    mapPlayerMarkers.delete(id);
-    return;
-  }
-  mapPlayerMarkers.set(id, { id, x: row.x, y: row.y });
-}
-
-function removeMapPlayerMarker(row: { identity: Identity }) {
-  mapPlayerMarkers.delete(row.identity.toHexString());
-}
-
 function releaseMapMarkerSubscription() {
   mapMarkerSubscriptionGeneration += 1;
   mapMarkerSubscription?.unsubscribe();
@@ -1886,15 +2014,15 @@ function refreshMapMarkerSubscription(force = false) {
     .onApplied(() => {
       if (connection !== conn || generation !== mapMarkerSubscriptionGeneration) return;
       previous?.unsubscribe();
-      mapPlayerMarkers.clear();
-      for (const row of conn.db.playerMapMarker.iter()) upsertMapPlayerMarker(row);
     })
     .onError((ctx) => {
       if (connection !== conn || generation !== mapMarkerSubscriptionGeneration) return;
       console.error("Wildwood map marker subscription error:", ctx.event);
       mapMarkerSubscription = previous;
     })
-    .subscribe([tables.playerMapMarker.where((marker) => marker.mapId.eq(mapId).and(marker.isVisible.eq(true)))]);
+    .subscribe([
+      tables.playerMapFrame.where((frame) => frame.mapId.eq(mapId)),
+    ]);
   mapMarkerSubscription = next;
 }
 
@@ -1941,12 +2069,26 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
     .and(row.zoneX.lte(bounds.maxZoneX))
     .and(row.zoneY.gte(bounds.minZoneY))
     .and(row.zoneY.lte(bounds.maxZoneY)));
+  const nearbyMotionFrames = tables.playerMotionFrame.where((row) => row
+    .mapId.eq(currentMapId)
+    .and(row.zoneX.gte(bounds.minZoneX))
+    .and(row.zoneX.lte(bounds.maxZoneX))
+    .and(row.zoneY.gte(bounds.minZoneY))
+    .and(row.zoneY.lte(bounds.maxZoneY)));
+  const nearbyMotionIdentities = tables.playerMotionIdentity.where((row) => row
+    .mapId.eq(currentMapId)
+    .and(row.isVisible.eq(true))
+    .and(row.zoneX.gte(bounds.minZoneX))
+    .and(row.zoneX.lte(bounds.maxZoneX))
+    .and(row.zoneY.gte(bounds.minZoneY))
+    .and(row.zoneY.lte(bounds.maxZoneY)));
 
   const next = conn
     .subscriptionBuilder()
     .onApplied(() => {
       if (connection !== conn || generation !== mapSubscriptionGeneration) return;
       previous?.unsubscribe();
+      for (const row of conn.db.playerMotionIdentity.iter()) upsertMotionIdentity(row);
       for (const row of conn.db.player.iter()) upsertPlayer(row);
     })
     .onError((ctx) => {
@@ -1955,7 +2097,7 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
       mapPlayerSubscription = previous;
       mapSubscriptionAreaKey = previousAreaKey;
     })
-    .subscribe([nearbyPlayers]);
+    .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities]);
   mapPlayerSubscription = next;
 }
 
@@ -1975,6 +2117,9 @@ function clearRealtimeCaches() {
   playerSprites.clear();
   skinTones.clear();
   profileIdentities.clear();
+  motionIdentities.clear();
+  activeMotionIdentities.clear();
+  localMotionNetworkId = null;
   leaderboardEntries.clear();
   accessAuditEntries.clear();
   guestAccounts.clear();
@@ -2218,11 +2363,13 @@ function connect() {
         conn.db.player.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayer(row); });
         conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertPlayer(row); });
         conn.db.player.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removePlayer(row); });
-        // The frame renderer reads marker state directly. Keep this 1 Hz/map
-        // data lane out of the application-wide UI notification path.
-        conn.db.playerMapMarker.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMapPlayerMarker(row); });
-        conn.db.playerMapMarker.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMapPlayerMarker(row); });
-        conn.db.playerMapMarker.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeMapPlayerMarker(row); });
+        // Event tables never enter the SDK cache. Frame handlers update render
+        // buffers directly and deliberately skip application-wide UI fanout.
+        conn.db.playerMotionFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMotionFrame(row); });
+        conn.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMapFrame(row); });
+        conn.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
+        conn.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
+        conn.db.playerMotionIdentity.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeMotionIdentity(row); });
         conn.db.playerProfile.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeProfile(row); });
@@ -2277,6 +2424,7 @@ function connect() {
             for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
             for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
             for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
+            for (const row of conn.db.playerMotionIdentity.iter()) upsertMotionIdentity(row);
             for (const row of conn.db.player.iter()) upsertPlayer(row);
             for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
             for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
@@ -2303,9 +2451,10 @@ function connect() {
         })
         .subscribe([
           tables.player.where((player) => player.identity.eq(identity)),
-          tables.playerProfile,
+          tables.playerMotionIdentity.where((presence) => presence.identity.eq(identity)),
+          tables.playerProfile.where((profile) => profile.identity.eq(identity)),
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
-          tables.playerAccountStatus,
+          tables.playerAccountStatus.where((status) => status.identity.eq(identity)),
           tables.worldStatus,
           tables.localMovementDemand,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
@@ -2916,6 +3065,13 @@ export const wildwoodCoop = {
     lastPositionSentAt = now;
     lastPositionMoving = moving;
     const sequence = ++nextPositionSequence;
+    if (localState) {
+      localState.x = x;
+      localState.y = y;
+      localState.facing = facing;
+      localState.moving = moving;
+      localState.lastInputSequence = sequence;
+    }
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
   },
   async changeMap(mapId: string) {

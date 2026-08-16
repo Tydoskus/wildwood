@@ -11,11 +11,10 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  id: __t.u64().primaryKey(),
-  sender: __t.identity(),
-  senderName: __t.string().name("sender_name"),
-  senderIsGuest: __t.bool().name("sender_is_guest"),
-  message: __t.string(),
-  sentAt: __t.timestamp().name("sent_at"),
-  replayId: __t.u64().name("replay_id"),
+  mapId: __t.string().name("map_id"),
+  zoneX: __t.i32().name("zone_x"),
+  zoneY: __t.i32().name("zone_y"),
+  emittedAt: __t.timestamp().name("emitted_at"),
+  playerCount: __t.u32().name("player_count"),
+  payload: __t.byteArray(),
 });

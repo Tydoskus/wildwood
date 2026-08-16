@@ -7,31 +7,41 @@ Use this map before changing multiplayer state. Wildwood separates fast gameplay
 ```mermaid
 flowchart LR
   Input["Local input + simulation"] --> PositionGate["Movement rate gate"]
-  PositionGate -->|"15 Hz: visible player or private dev demand"| PositionReducer["sync_position"]
+  PositionGate -->|"10 Hz: visible player or private dev demand"| PositionReducer["sync_position"]
   PositionGate -->|"3 Hz: isolated"| PositionReducer
-  PositionReducer --> PlayerRow["player row"]
-  PlayerRow -->|"one camera-zone subscription"| MotionCache["remote sample buffers"]
+  PositionReducer --> PrivateMotion["private player_motion row"]
+  PrivateMotion -->|"2 players: direct compact event"| ZoneBatch["compact player_motion_frame per occupied zone"]
+  PrivateMotion -->|"3+ players: one 10 Hz shared scheduler"| ZoneBatch
+  ZoneBatch -->|"one camera-area subscription"| MotionCache["decode by network id into remote sample buffers"]
   MotionCache --> Interpolation["adaptive interpolation + bounded prediction"]
   Interpolation --> Frame["render frame"]
 
-  PlayerRow -->|"at most 1 Hz + start/stop"| MarkerRow["player_map_marker"]
-  MarkerRow -->|"one map-wide lightweight subscription"| Minimap["minimap dots"]
+  PositionReducer -->|"start / stop / zone boundary only"| PlayerRow["cold public player row"]
+  PrivateMotion -->|"one 1 Hz shared scheduler"| MapBatch["compact player_map_frame per map"]
+  MapBatch -->|"one map subscription"| Minimap["minimap dots"]
+
+  Presence["player_motion_identity"] -->|"camera zones + own row"| IdentityCache["network id + name + appearance"]
+  IdentityCache --> MotionCache
+  IdentityCache --> Minimap
 
   Rewards["Rewards / inventory"] --> Pending["identity-scoped local pending save"]
   Pending -->|"normal: coalesced every 2.5 s"| ProgressReducer["save_player_progress"]
   Pending -->|"equipment / duel / page exit: ordered flush"| ProgressReducer
   ProgressReducer --> ProgressRow["player_progress"]
 
-  PlayerRow -. "hot rows never trigger global UI fanout" .-> UiSignal["application UI change signal"]
+  ZoneBatch -. "hot frames never trigger global UI fanout" .-> UiSignal["application UI change signal"]
   ProgressRow --> UiSignal
   UiSignal --> Windows["HUD / profiles / tech / leaderboard"]
 ```
 
 ### Lane rules
 
-- `player` is hot state: position, appearance summary, and presence. Frame code reads its caches directly. Movement updates must not run the application-wide UI refresh path.
-- `player_map_marker` is cheap, map-wide minimap state. It contains no combat data and updates at most once per second, plus movement start/stop and map changes.
-- Detailed remote players use one rectangular map/visibility/zone query derived from actual camera bounds. Never add one subscription per player or one query per zone.
+- `player_motion` is private current motion. Each sender still owns its input reducer, but those writes have no public subscription fanout.
+- `player_motion_frame` is an insert-only event table. Two-player maps use a direct compact-event fast path, avoiding extra scheduler transactions at normal population. At three or more players, a single 10 Hz scheduler scans motion once, packs all changed movers by zone, and inserts at most one 11-byte-per-player payload per occupied zone. Low-rate streams restart the scheduler only when input arrives; stalled/background senders cannot keep it spinning. Event rows fire callbacks and are never retained in client caches.
+- `player` is cold presentation/interest state. It updates on movement start, stop, idle correction, zone crossing, equipment/stat presentation changes, teleports, and lifecycle changes—not every movement input.
+- `player_motion_identity` maps compact network IDs to identity, name, account kind, and appearance. Clients subscribe to their own row plus camera zones; distant minimap dots use network ID directly and do not require map-wide profile hydration. Base hydration subscribes only to the local durable profile, never every historical profile/account row.
+- `player_map_frame` is one compact 1 Hz snapshot per shared map. It preserves distant minimap dots without N separately updated marker rows or map-wide identity subscriptions.
+- Detailed remote players use one subscription containing a rectangular player query and matching zone-frame query derived from actual camera bounds. Never add one subscription per player or one query per zone.
 - An invisible developer cannot appear in another client's visible-player query. Private `player_movement_demand` rows and the identity-scoped `local_movement_demand` view request smooth movement without revealing the observer. Demand is a 20-second visible-tab lease; a cheap stationary heartbeat renews it, while background tabs expire automatically.
 - Remote players render name and power only. Health remains local simulation state and never enters the realtime player row.
 - Normal progress mutations persist locally immediately, then coalesce into one server save. Anything that snapshots equipment, such as a duel, must drain pending progress first.
@@ -79,10 +89,10 @@ flowchart LR
   Dev["Authenticated developer"] --> Authorize["authorize fresh bot identity"]
   Browser["Anonymous bot websocket"] --> Protocol["register protocol + enter world"]
   Authorize --> Protocol
-  Protocol --> Subs["core + nearby + minimap subscriptions"]
-  Protocol --> Move["sync_position · 15 Hz"]
+  Protocol --> Subs["core + nearby-frame + map-frame subscriptions"]
+  Protocol --> Move["sync_position · 10 Hz"]
   Protocol --> Save["save_player_progress · ~2.5 s"]
-  Move --> Hot["normal player rows + subscriber fanout"]
+  Move --> Hot["private motion rows + shared aggregate frames"]
   Save --> Durable["tagged pretend progress"]
   Stop["stop / disconnect / orphan repair"] --> Cleanup["one server cleanup path"]
   Cleanup --> Erase["presence + profile + progress + lifetime + ranking deleted"]
@@ -94,13 +104,19 @@ flowchart LR
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 
+## Why aggregation changes scaling
+
+With `N` clustered movers, direct public row updates create roughly `movement Hz × N × N` subscriber deliveries. Aggregate frames create roughly `frame Hz × N` frame deliveries, while each payload contains `N × 11` compact bytes. This removes per-row transaction metadata and repeated identity/profile strings from the hot lane. Total position bytes still grow with viewers × visible actors; camera-zone interest keeps that set bounded in normal play.
+
+The 1 Hz minimap remains intentionally map-wide. At extreme synthetic counts, its payload is still viewers × map population. If real maps approach thousands of concurrent players, replace exact far-player dots with capped samples, density cells, or party/friend-only markers.
+
 ## Server authority boundary
 
-Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Regular enemies and most stat rewards are still client-simulated; `save_player_progress` therefore remains a low-trust boundary. Before a large public beta, replace arbitrary stat snapshots with server-issued reward/inventory reducers and add movement-distance validation.
+Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Movement coordinates remain client-trusted by current product choice; this refactor changes replication cost, not movement authority. Regular enemies and most stat rewards are also client-simulated, so `save_player_progress` remains a low-trust boundary. Before a large public beta, replace arbitrary stat snapshots with server-issued reward/inventory reducers and add movement-distance validation.
 
 ## Change checklist
 
-1. Decide lane: per-frame cache, lightweight marker, UI state, snapshot, or durable progress.
+1. Decide lane: private input, aggregate frame, cold presence, UI state, snapshot, or durable progress.
 2. Keep hot rows out of `onChange` and avoid adding fields that do not need hot cadence.
 3. Query only needed identities/maps/zones. Count both subscription handles and queries inside each handle.
 4. For scheduled state, add cleanup, idempotence, and maintenance reconciliation.
