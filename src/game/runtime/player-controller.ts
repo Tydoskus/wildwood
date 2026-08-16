@@ -5,6 +5,7 @@ import type { DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, D
 
 type LocalState = { x: number; y: number; facing?: number };
 type DuelPresentation = { state: { challengerHp: number; opponentHp: number } };
+type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
 
 export type PlayerController = {
   rebuildWorld: () => void;
@@ -49,7 +50,7 @@ export function createPlayerController(options: {
   isConnected: () => boolean;
   syncSpeed: (speed: number) => void;
   movementSpeedMultiplier: () => number;
-  syncPosition: (x: number, y: number, facing: number, moving: boolean, force: boolean, highFrequency?: boolean) => void;
+  syncPosition: (x: number, y: number, facing: number, moving: boolean, force: boolean, highFrequency?: boolean, interestArea?: PlayerInterestArea) => void;
   syncHp: (hp: number, hasNearbyRemotePlayer: boolean) => void;
   hasRemotePlayerInArea: (left: number, top: number, right: number, bottom: number) => boolean;
   autoAttack: (dt: number) => void;
@@ -185,7 +186,12 @@ export function createPlayerController(options: {
       const marginY = visibleH * .5;
       const camera = cameraPosition();
       hasNearbyRemotePlayer = hasRemotePlayerInArea(camera.x - marginX, camera.y - marginY, camera.x + visibleW + marginX, camera.y + visibleH + marginY);
-      syncPosition(player.x, player.y, player.facing, player.moving, started, hasNearbyRemotePlayer);
+      syncPosition(player.x, player.y, player.facing, player.moving, started, hasNearbyRemotePlayer, {
+        left: camera.x,
+        top: camera.y,
+        right: camera.x + visibleW,
+        bottom: camera.y + visibleH,
+      });
     }
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);

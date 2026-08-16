@@ -39,7 +39,6 @@ import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import ChangeMapReducer from "./change_map_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
-import ClaimResearchReducer from "./claim_research_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
@@ -79,6 +78,7 @@ import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
 import DuelReplayRow from "./duel_replay_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
+import LocalMovementDemandRow from "./local_movement_demand_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
@@ -183,11 +183,9 @@ const tablesSchema = __schema({
       { accessor: 'identity', name: 'player_identity_idx_btree', algorithm: 'btree', columns: [
         'identity',
       ] },
-      { accessor: 'byMap', name: 'player_map_id_is_visible_idx_btree', algorithm: 'btree', columns: [
+      { accessor: 'byMapZone', name: 'player_map_id_is_visible_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
         'mapId',
         'isVisible',
-      ] },
-      { accessor: 'byZone', name: 'player_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
         'zoneX',
         'zoneY',
       ] },
@@ -313,6 +311,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, DevBugReportsRow),
+  localMovementDemand: __table({
+    name: 'local_movement_demand',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, LocalMovementDemandRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -322,7 +327,6 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("change_map", ChangeMapReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
-  __reducerSchema("claim_research", ClaimResearchReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),

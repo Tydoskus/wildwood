@@ -86,7 +86,10 @@ export function createPlayerCombatController(options: {
     for (let index = 0; index < player.projectileCount; index++) {
       const angle = baseAngle + (index - (player.projectileCount - 1) / 2) * .13;
       const projectileLifeBonus = 1.25;
-      const critical = Math.random() < researchCriticalChance();
+      // Shared bosses validate aggregate hits on the server and do not accept
+      // client-authored crit rolls. Keep boss numbers honest; regular enemies
+      // remain client-simulated and use the full critical system.
+      const critical = !target.isBoss && Math.random() < researchCriticalChance();
       projectiles.push({
         x: player.x + Math.cos(angle) * 20,
         y: player.y + Math.sin(angle) * 20,

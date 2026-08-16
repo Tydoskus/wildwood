@@ -30,7 +30,7 @@ export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const MAP_IDS: readonly string[] = [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID];
 
-export const PROTOCOL_VERSION = 38;
+export const PROTOCOL_VERSION = 39;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

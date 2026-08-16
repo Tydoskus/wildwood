@@ -36,7 +36,7 @@ import {
 } from "../../shared/rules";
 
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
-const PLAYER_ZONE_SIZE = 600;
+const PLAYER_ZONE_SIZE = 1_000;
 const VALID_MAP_IDS = new Set<string>(MAP_IDS);
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 const BETA_TESTER_ACTIVITY_MICROS = 120n * 60n * 60n * 1_000_000n;
@@ -72,6 +72,8 @@ const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MAP_MARKER_INTERVAL_MICROS = 1_000_000n;
+const MOVEMENT_OBSERVER_ACTIVE_MICROS = 20_000_000n;
+const MODULE_MIGRATION_VERSION = 1;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 4;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -108,8 +110,7 @@ const player = table(
   {
     public: true,
     indexes: [
-      { accessor: "byMap", algorithm: "btree", columns: ["mapId", "isVisible"] as const },
-      { accessor: "byZone", algorithm: "btree", columns: ["zoneX", "zoneY"] as const },
+      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "isVisible", "zoneX", "zoneY"] as const },
     ],
   },
   {
@@ -187,14 +188,30 @@ const playerProgress = table(
   },
 );
 
+// Reconnect coordinates are private. Keeping them outside public profile
+// progress prevents offline or invisible players from leaking exact locations.
+const playerLastLocation = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    mapId: t.string().default(TUTORIAL_FOREST_MAP_ID),
+    x: t.f64().default(PLAYER_SPAWN.x),
+    y: t.f64().default(PLAYER_SPAWN.y),
+    facing: t.f64().default(0),
+  },
+);
+
 // Research stays separate from stat-save rows. Timers and rank unlocks are
-// always created and claimed against the database clock.
+// always created and completed against the database clock.
 const playerResearch = table(
   { public: true },
   {
     identity: t.identity().primaryKey(),
     warcraft: t.u32().default(0),
     foraging: t.u32().default(0),
+    // Migration-only storage shim. Maincloud cannot remove a populated column
+    // without deleting player data. No game path reads this retired rank, and
+    // world entry/one-time maintenance force every legacy value to zero.
     frontierMastery: t.u32().default(0),
     vitality: t.u32().default(0),
     precision: t.u32().default(0),
@@ -216,8 +233,8 @@ const activeResearch = table(
   },
 );
 
-// Compact public ranking snapshot. Full player progress remains private to the
-// owner's subscription and identity-scoped profile views.
+// Compact public ranking snapshot. Clients load it only when rankings are
+// needed, keeping it outside the hot gameplay subscription.
 const leaderboardEntry = table(
   { public: true },
   {
@@ -262,6 +279,14 @@ const leaderboardRefreshState = table(
   },
 );
 
+const moduleMigrationState = table(
+  { public: false },
+  {
+    id: t.u32().primaryKey(),
+    version: t.u32(),
+  },
+);
+
 // Public profile metadata is queried one identity at a time by the client.
 // Combat progress remains out of the global subscription and is also loaded
 // only for the profile currently being viewed.
@@ -300,6 +325,15 @@ const developerPresencePreference = table(
   {
     identity: t.identity().primaryKey(),
     visible: t.bool().default(false),
+  },
+);
+
+// Private interest signal for visible players currently watched by an
+// invisible developer. Public clients can read only their identity-scoped view.
+const playerMovementDemand = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
   },
 );
 
@@ -492,6 +526,16 @@ const duelReplay = table(
     createdAt: t.timestamp(),
     challengerIdentity: t.string().default(""),
     opponentIdentity: t.string().default(""),
+    challengerHeadItem: t.string().default(""),
+    challengerChestItem: t.string().default(""),
+    challengerFeetItem: t.string().default(""),
+    challengerRightHandItem: t.string().default(""),
+    challengerLeftHandItem: t.string().default(""),
+    opponentHeadItem: t.string().default(""),
+    opponentChestItem: t.string().default(""),
+    opponentFeetItem: t.string().default(""),
+    opponentRightHandItem: t.string().default(""),
+    opponentLeftHandItem: t.string().default(""),
   },
 );
 
@@ -556,6 +600,15 @@ const researchCompletionSchedule = table(
     researchId: t.string(),
     targetRank: t.u32(),
     completesAtMicros: t.u64().default(0n),
+  },
+);
+
+const duelResolutionSchedule = table(
+  { scheduled: (): any => resolveScheduledDuel },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    duelId: t.u64(),
   },
 );
 
@@ -626,16 +679,19 @@ const spacetimedb = schema({
   playerMapMarker,
   playerProfile,
   playerProgress,
+  playerLastLocation,
   playerResearch,
   activeResearch,
   leaderboardEntry,
   playerAccountStatus,
   worldStatus,
   leaderboardRefreshState,
+  moduleMigrationState,
   playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
   developerPresencePreference,
+  playerMovementDemand,
   playerAccessAudit,
   playerSession,
   playerController,
@@ -652,6 +708,7 @@ const spacetimedb = schema({
   dragonResult,
   maintenanceSchedule,
   researchCompletionSchedule,
+  duelResolutionSchedule,
   dragonRespawnSchedule,
   spiderBoss,
   spiderContribution,
@@ -677,6 +734,15 @@ export const devBugReports = spacetimedb.view(
   (ctx) => {
     if (!isDeveloperIdentity(ctx.sender)) return [];
     return Array.from(ctx.db.bugReport.iter());
+  },
+);
+
+export const localMovementDemand = spacetimedb.view(
+  { name: "local_movement_demand", public: true },
+  t.array(playerMovementDemand.rowType),
+  (ctx) => {
+    const row = ctx.db.playerMovementDemand.identity.find(ctx.sender);
+    return row ? [row] : [];
   },
 );
 
@@ -731,10 +797,26 @@ function defaultPlayerResearch(identity: any) {
 
 function researchForPlayer(ctx: any, identity: any) {
   const existing = ctx.db.playerResearch.identity.find(identity);
-  if (existing) return existing;
+  if (existing) {
+    if (existing.frontierMastery === 0) return existing;
+    const wiped = { ...existing, frontierMastery: 0 };
+    ctx.db.playerResearch.identity.update(wiped);
+    return wiped;
+  }
   const next = defaultPlayerResearch(identity);
   ctx.db.playerResearch.insert(next);
   return next;
+}
+
+function runPendingModuleMigrations(ctx: any) {
+  const state = ctx.db.moduleMigrationState.id.find(0);
+  if ((state?.version ?? 0) >= MODULE_MIGRATION_VERSION) return;
+  for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
+    if (research.frontierMastery !== 0) ctx.db.playerResearch.identity.update({ ...research, frontierMastery: 0 });
+  }
+  const next = { id: 0, version: MODULE_MIGRATION_VERSION };
+  if (state) ctx.db.moduleMigrationState.id.update(next);
+  else ctx.db.moduleMigrationState.insert(next);
 }
 
 function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
@@ -774,6 +856,7 @@ function completeActiveResearch(ctx: any, active: any) {
   }
   ctx.db.playerResearch.identity.update({ ...research, [active.researchId]: active.targetRank });
   ctx.db.activeResearch.identity.delete(active.identity);
+  removeResearchCompletionSchedules(ctx, active.identity);
   return true;
 }
 
@@ -792,6 +875,36 @@ function ensureResearchCompletionSchedule(ctx: any, active: any) {
     targetRank: active.targetRank,
     completesAtMicros,
   });
+}
+
+/**
+ * Repairs missing schedules and rebases legacy timers only toward the current,
+ * shorter curve. Maintenance calls this for offline players; registration is
+ * merely a fast path, never the only recovery mechanism.
+ */
+function reconcileActiveResearch(ctx: any, active: any) {
+  const research = researchForPlayer(ctx, active.identity);
+  if (!activeResearchCanComplete(research, active)) {
+    completeActiveResearch(ctx, active);
+    return { active: null, completed: false };
+  }
+  const researchId = active.researchId as ResearchId;
+  const expectedCompletesAtMicros = active.startedAt.microsSinceUnixEpoch +
+    BigInt(researchDurationMs(researchId, active.targetRank - 1)) * 1_000n;
+  const storedCompletesAtMicros = active.completesAt.microsSinceUnixEpoch;
+  const completesAtMicros = storedCompletesAtMicros < expectedCompletesAtMicros
+    ? storedCompletesAtMicros
+    : expectedCompletesAtMicros;
+  const nextActive = completesAtMicros === storedCompletesAtMicros
+    ? active
+    : { ...active, completesAt: new Timestamp(completesAtMicros) };
+
+  if (ctx.timestamp.microsSinceUnixEpoch >= completesAtMicros) {
+    return { active: null, completed: completeActiveResearch(ctx, nextActive) };
+  }
+  if (nextActive !== active) ctx.db.activeResearch.identity.update(nextActive);
+  ensureResearchCompletionSchedule(ctx, nextActive);
+  return { active: nextActive, completed: false };
 }
 
 function ensurePlayerLifetime(ctx: any) {
@@ -857,11 +970,70 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
   )));
 }
 
+function researchedDamage(ctx: any, identity: any, damage: number) {
+  const rank = ctx.db.playerResearch.identity.find(identity)?.warcraft ?? 0;
+  return damage * (1 + rank * .02);
+}
+
+function researchedArmor(ctx: any, identity: any, armor: number) {
+  const rank = ctx.db.playerResearch.identity.find(identity)?.precision ?? 0;
+  return armor * (1 + rank * .02);
+}
+
+function duelDamage(ctx: any, identity: any, damage: number) {
+  const research = ctx.db.playerResearch.identity.find(identity);
+  const baseDamage = damage * (1 + (research?.warcraft ?? 0) * .02);
+  const criticalChance = (research?.criticalChance ?? 0) * .01;
+  const criticalMultiplier = 1.05 + (research?.criticalDamage ?? 0) * .05;
+  // Duel simulation is deterministic. Fold random criticals into expected
+  // damage so the server snapshot still honors both critical technologies.
+  return baseDamage * (1 + criticalChance * (criticalMultiplier - 1));
+}
+
 function playerZone(x: number, y: number) {
   return {
     zoneX: Math.floor(x / PLAYER_ZONE_SIZE),
     zoneY: Math.floor(y / PLAYER_ZONE_SIZE),
   };
+}
+
+function savedWorldLocation(ctx: any, identity: any, progress: any) {
+  const saved = ctx.db.playerLastLocation.identity.find(identity);
+  const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
+  const mapId = requestedMap === INTERMEDIATE_SNOWLANDS_MAP_ID && !progress.snowlandsUnlocked
+    ? progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID
+    : requestedMap === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked
+      ? TUTORIAL_FOREST_MAP_ID
+      : requestedMap;
+  const fallback = mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+  const x = Number.isFinite(saved?.x)
+    ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, saved.x))
+    : fallback.x;
+  const y = Number.isFinite(saved?.y)
+    ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, saved.y))
+    : fallback.y;
+  return { mapId, x, y, facing: Number.isFinite(saved?.facing) ? saved.facing : 0 };
+}
+
+function persistWorldLocation(ctx: any, activePlayer: any) {
+  const current = ctx.db.playerLastLocation.identity.find(activePlayer.identity);
+  const next = {
+    identity: activePlayer.identity,
+    mapId: activePlayer.mapId,
+    x: activePlayer.x,
+    y: activePlayer.y,
+    facing: activePlayer.facing,
+  };
+  if (
+    !current ||
+    current.mapId !== next.mapId ||
+    current.x !== next.x ||
+    current.y !== next.y ||
+    current.facing !== next.facing
+  ) {
+    if (current) ctx.db.playerLastLocation.identity.update(next);
+    else ctx.db.playerLastLocation.insert(next);
+  }
 }
 
 function syncPlayerMapMarker(ctx: any, activePlayer: any, force = false) {
@@ -1041,6 +1213,42 @@ function isDeveloperIdentity(identity: any) {
 
 function isDatabaseOwnerIdentity(identity: any) {
   return identity?.toHexString?.().replace(/^0x/i, "").toLowerCase() === DATABASE_OWNER_IDENTITY_HEX;
+}
+
+function syncPlayerMovementDemand(ctx: any, target: any, hiddenObserver: any) {
+  const current = ctx.db.playerMovementDemand.identity.find(target.identity);
+  // At minimum zoom one camera spans most of this 4,800-unit map. Same-map
+  // demand avoids blind edge bands without leaking the observer's coordinates.
+  const demanded = Boolean(target?.isVisible && hiddenObserver && hiddenObserver.mapId === target.mapId);
+  if (demanded && !current) ctx.db.playerMovementDemand.insert({ identity: target.identity });
+  else if (!demanded && current) ctx.db.playerMovementDemand.identity.delete(target.identity);
+}
+
+function expireExistingPlayerMovementDemand(ctx: any, target: any) {
+  // Ordinary gameplay pays no observer lookup unless this identity actually
+  // has a lease. Global refreshes own lease creation and map changes.
+  if (!ctx.db.playerMovementDemand.identity.find(target.identity)) return;
+  syncPlayerMovementDemand(ctx, target, activeHiddenMovementObserver(ctx));
+}
+
+function activeHiddenMovementObserver(ctx: any) {
+  const developer = ctx.db.player.identity.find(DEVELOPER_IDENTITY);
+  if (!developer || developer.isVisible) return null;
+  const activityAge = ctx.timestamp.microsSinceUnixEpoch - developer.lastInputAt.microsSinceUnixEpoch;
+  return activityAge >= 0n && activityAge <= MOVEMENT_OBSERVER_ACTIVE_MICROS ? developer : null;
+}
+
+/** Single-pass repair; one fixed developer identity avoids O(players²) scans. */
+function refreshPlayerMovementDemands(ctx: any) {
+  const hiddenObserver = activeHiddenMovementObserver(ctx);
+  const activeIdentities = new Set<string>();
+  for (const target of ctx.db.player.iter() as Iterable<any>) {
+    activeIdentities.add(target.identity.toHexString());
+    syncPlayerMovementDemand(ctx, target, hiddenObserver);
+  }
+  for (const demand of ctx.db.playerMovementDemand.iter() as Iterable<any>) {
+    if (!activeIdentities.has(demand.identity.toHexString())) ctx.db.playerMovementDemand.identity.delete(demand.identity);
+  }
 }
 
 function requireDeveloper(ctx: any) {
@@ -1230,18 +1438,30 @@ function activeDuelFor(ctx: any, identity: any) {
 
 function removeIdentityPresence(ctx: any, identity: any) {
   const currentDuel = activeDuelFor(ctx, identity);
+  let disconnectedDuelOrigin: { x: number; y: number } | null = null;
   if (currentDuel) {
     if (currentDuel.status === "finishing") {
       finishDuel(ctx, currentDuel);
     } else {
+      disconnectedDuelOrigin = {
+        x: currentDuel.challengerOriginX,
+        y: currentDuel.challengerOriginY,
+      };
       ctx.db.duel.id.delete(currentDuel.id);
     }
   }
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) {
+    // Duel actors live outside world bounds. A disconnect must save their
+    // pre-duel origin, not clamp arena coordinates into a map corner.
+    persistWorldLocation(ctx, disconnectedDuelOrigin
+      ? { ...activePlayer, ...disconnectedDuelOrigin }
+      : activePlayer);
     ctx.db.player.identity.delete(identity);
     if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
+    if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
     if (activePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
+    if (!activePlayer.isVisible && isDeveloperIdentity(activePlayer.identity)) refreshPlayerMovementDemands(ctx);
   }
 }
 
@@ -1566,6 +1786,16 @@ function finishDuel(ctx: any, current: any) {
     opponentRegened: current.opponentRegened,
     opponentBlocked: current.opponentBlocked,
     createdAt: ctx.timestamp,
+    challengerHeadItem: current.challengerHeadItem,
+    challengerChestItem: current.challengerChestItem,
+    challengerFeetItem: current.challengerFeetItem,
+    challengerRightHandItem: current.challengerRightHandItem,
+    challengerLeftHandItem: current.challengerLeftHandItem,
+    opponentHeadItem: current.opponentHeadItem,
+    opponentChestItem: current.opponentChestItem,
+    opponentFeetItem: current.opponentFeetItem,
+    opponentRightHandItem: current.opponentRightHandItem,
+    opponentLeftHandItem: current.opponentLeftHandItem,
   });
 
   if (challengerWon) {
@@ -1585,13 +1815,14 @@ function resolveDuel(ctx: any, current: any) {
   }
   if (current.status === "countdown") {
     if (ctx.timestamp.microsSinceUnixEpoch < current.startsAtMicros) return;
-    ctx.db.duel.id.update({
+    // Continue directly into simulation. Scheduled resolution may be the first
+    // server wake-up when the challenger backgrounds during the countdown.
+    current = {
       ...current,
       status: "active",
       startedAt: ctx.timestamp,
       lastResolvedAt: new Timestamp(current.startsAtMicros),
-    });
-    return;
+    };
   }
   const resolutionMicros = current.endsAtMicros < ctx.timestamp.microsSinceUnixEpoch
     ? current.endsAtMicros
@@ -1674,6 +1905,11 @@ function resolveDuel(ctx: any, current: any) {
     };
     syncDuelPlayerHealth(ctx, finishing);
     ctx.db.duel.id.update(finishing);
+    ctx.db.duelResolutionSchedule.insert({
+      scheduledId: 0n,
+      scheduledAt: ScheduleAt.time(finishing.endsAtMicros),
+      duelId: finishing.id,
+    });
   } else {
     syncDuelPlayerHealth(ctx, next);
     ctx.db.duel.id.update(next);
@@ -1822,18 +2058,25 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       });
       syncPlayerMapMarker(ctx, ctx.db.player.identity.find(ctx.sender), true);
       if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
+      refreshPlayerMovementDemands(ctx);
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
     const entryMapId = VALID_MAP_IDS.has(normalizedMapId) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
-    const entryPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
+    const fallbackPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
+    const entryPosition = VALID_MAP_IDS.has(normalizedMapId)
+      ? {
+        x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, existing.x)),
+        y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, existing.y)),
+      }
+      : fallbackPosition;
     ctx.db.player.identity.update({
       ...existing,
       mapId: entryMapId,
       x: entryPosition.x,
       y: entryPosition.y,
       ...playerZone(entryPosition.x, entryPosition.y),
-      facing: 0,
+      facing: Number.isFinite(existing.facing) ? existing.facing : 0,
       moving: false,
       power: powerForProgress(existingProgress),
       protocolVersion: session.protocolVersion,
@@ -1847,16 +2090,18 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     });
     syncPlayerMapMarker(ctx, ctx.db.player.identity.find(ctx.sender), true);
     if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
+    refreshPlayerMovementDemands(ctx);
     return;
   }
 
+  const savedLocation = savedWorldLocation(ctx, ctx.sender, existingProgress);
   const insertedPlayer = {
     identity: ctx.sender,
-    x: PLAYER_SPAWN.x,
-    y: PLAYER_SPAWN.y,
-    ...playerZone(PLAYER_SPAWN.x, PLAYER_SPAWN.y),
-    mapId: TUTORIAL_FOREST_MAP_ID,
-    facing: 0,
+    x: savedLocation.x,
+    y: savedLocation.y,
+    ...playerZone(savedLocation.x, savedLocation.y),
+    mapId: savedLocation.mapId,
+    facing: savedLocation.facing,
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
     power: powerForProgress(existingProgress),
@@ -1874,6 +2119,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   ctx.db.player.insert(insertedPlayer);
   syncPlayerMapMarker(ctx, insertedPlayer, true);
   if (visibleOnEntry) adjustOnlinePlayers(ctx, 1);
+  refreshPlayerMovementDemands(ctx);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -1943,6 +2189,9 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
     reconcileOnlinePlayers(ctx);
+    refreshPlayerMovementDemands(ctx);
+    runPendingModuleMigrations(ctx);
+    for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     refreshLeaderboardIfDue(ctx);
     regenerateIdleBosses(ctx);
   },
@@ -1953,8 +2202,15 @@ export const completeResearch = spacetimedb.reducer(
   (ctx, { schedule }) => {
     const active = ctx.db.activeResearch.identity.find(schedule.identity);
     if (!active || active.researchId !== schedule.researchId || active.targetRank !== schedule.targetRank) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < active.completesAt.microsSinceUnixEpoch) return;
-    completeActiveResearch(ctx, active);
+    reconcileActiveResearch(ctx, active);
+  },
+);
+
+export const resolveScheduledDuel = spacetimedb.reducer(
+  { schedule: duelResolutionSchedule.rowType },
+  (ctx, { schedule }) => {
+    const current = ctx.db.duel.id.find(schedule.duelId);
+    if (current) resolveDuel(ctx, current);
   },
 );
 
@@ -2036,7 +2292,7 @@ function applyDragonDamage(ctx: any, requestedHits: number) {
     ctx.db.dragonAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(dragon.hp, Math.max(1, progress.damage) * acceptedHits);
+  const damage = Math.min(dragon.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
   const currentContribution = ctx.db.dragonContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === dragon.encounter;
   const displayName = continuingContribution
@@ -2110,7 +2366,7 @@ function applySpiderDamage(ctx: any, requestedHits: number) {
     ctx.db.spiderAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(spider.hp, Math.max(1, progress.damage) * acceptedHits);
+  const damage = Math.min(spider.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
   const currentContribution = ctx.db.spiderContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === spider.encounter;
   const displayName = continuingContribution
@@ -2153,10 +2409,7 @@ export const registerProtocol = spacetimedb.reducer(
       ctx.db.player.identity.update({ ...current, protocolVersion });
     }
     const activeResearch = ctx.db.activeResearch.identity.find(ctx.sender);
-    if (activeResearch) {
-      if (ctx.timestamp.microsSinceUnixEpoch >= activeResearch.completesAt.microsSinceUnixEpoch) completeActiveResearch(ctx, activeResearch);
-      else ensureResearchCompletionSchedule(ctx, activeResearch);
-    }
+    if (activeResearch) reconcileActiveResearch(ctx, activeResearch);
   },
 );
 
@@ -2214,10 +2467,18 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
     else ctx.db.playerProgress.insert(nextProgress);
 
+    const guestLocation = ctx.db.playerLastLocation.identity.find(link.guest);
+    const accountLocation = ctx.db.playerLastLocation.identity.find(ctx.sender);
+    if (guestLocation) {
+      const nextLocation = { ...guestLocation, identity: ctx.sender };
+      if (accountLocation) ctx.db.playerLastLocation.identity.update(nextLocation);
+      else ctx.db.playerLastLocation.insert(nextLocation);
+    }
+
     const guestResearch = ctx.db.playerResearch.identity.find(link.guest);
     const accountResearch = ctx.db.playerResearch.identity.find(ctx.sender);
     if (guestResearch) {
-      const nextResearch = { ...guestResearch, identity: ctx.sender };
+      const nextResearch = { ...guestResearch, identity: ctx.sender, frontierMastery: 0 };
       if (accountResearch) ctx.db.playerResearch.identity.update(nextResearch);
       else ctx.db.playerResearch.insert(nextResearch);
     }
@@ -2343,7 +2604,10 @@ export const claimGuestAccount = spacetimedb.reducer(
       ctx.db.player.identity.delete(link.guest);
       if (guestActivePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
     }
+    if (ctx.db.playerMapMarker.identity.find(link.guest)) ctx.db.playerMapMarker.identity.delete(link.guest);
+    if (ctx.db.playerMovementDemand.identity.find(link.guest)) ctx.db.playerMovementDemand.identity.delete(link.guest);
     if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
+    if (guestLocation) ctx.db.playerLastLocation.identity.delete(link.guest);
     if (guestResearch) ctx.db.playerResearch.identity.delete(link.guest);
     if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);
     if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
@@ -2415,10 +2679,11 @@ export const setDeveloperPresence = spacetimedb.reducer(
     if (preference) ctx.db.developerPresencePreference.identity.update({ ...preference, visible });
     else ctx.db.developerPresencePreference.insert({ identity: ctx.sender, visible });
     if (activePlayer.isVisible === visible) return;
-    const nextPlayer = { ...activePlayer, isVisible: visible };
+    const nextPlayer = { ...activePlayer, isVisible: visible, lastInputAt: ctx.timestamp };
     ctx.db.player.identity.update(nextPlayer);
     syncPlayerMapMarker(ctx, nextPlayer, true);
     adjustOnlinePlayers(ctx, visible ? 1 : -1);
+    refreshPlayerMovementDemands(ctx);
   },
 );
 
@@ -2638,9 +2903,12 @@ export const savePlayerProgress = spacetimedb.reducer(
     if (boundedKills > lifetime.enemyKills) {
       ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: boundedKills });
     }
+    const maxHpIncrease = Math.max(0, next.maxHp - activePlayer.maxHp);
     ctx.db.player.identity.update({
       ...activePlayer,
-      hp: next.maxHp,
+      // Saving stats/equipment must not heal combat damage. A Max HP reward
+      // grants only its increase, matching the client-side reward behavior.
+      hp: Math.min(next.maxHp, Math.max(0, activePlayer.hp + maxHpIncrease)),
       maxHp: next.maxHp,
       power: powerForProgress(next),
       speed: next.speed,
@@ -2675,17 +2943,6 @@ export const startResearch = spacetimedb.reducer(
       completesAt: new Timestamp(completesAtMicros),
     });
     ensureResearchCompletionSchedule(ctx, { identity: ctx.sender, researchId, targetRank, completesAt: new Timestamp(completesAtMicros) });
-  },
-);
-
-export const claimResearch = spacetimedb.reducer(
-  {},
-  (ctx) => {
-    requireControllingPlayer(ctx);
-    const active = ctx.db.activeResearch.identity.find(ctx.sender);
-    if (!active) throw new SenderError("No research to claim.");
-    if (ctx.timestamp.microsSinceUnixEpoch < active.completesAt.microsSinceUnixEpoch) throw new SenderError("Research is still in progress.");
-    if (!completeActiveResearch(ctx, active)) throw new SenderError("Research is no longer available. Start it again.");
   },
 );
 
@@ -2808,7 +3065,10 @@ export const requestDuel = spacetimedb.reducer(
     const endsAtMicros = startsAtMicros + DUEL_DURATION_MICROS;
     const challengerRightHandItem = equippedRightHandForProgress(challengerProgress);
     const opponentRightHandItem = equippedRightHandForProgress(opponentProgress);
-    ctx.db.duel.insert({
+    const challengerLeftHandItem = challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress);
+    const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
+    const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;
+    const insertedDuel = ctx.db.duel.insert({
       id: 0n,
       challenger: ctx.sender,
       opponent,
@@ -2824,9 +3084,9 @@ export const requestDuel = spacetimedb.reducer(
       opponentOriginY: 0,
       challengerHp: challengerProgress.maxHp,
       challengerMaxHp: challengerProgress.maxHp,
-      challengerDamage: challengerProgress.damage,
-      challengerArmor: challengerProgress.armor,
-      challengerAttackRate: challengerProgress.attackRate,
+      challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
+      challengerArmor: researchedArmor(ctx, ctx.sender, challengerProgress.armor),
+      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? challengerProgress.attackRate : inactiveAttackRate,
       challengerRegen: challengerProgress.regen,
       challengerAttacks: 0,
       challengerDamageDealt: 0,
@@ -2834,9 +3094,9 @@ export const requestDuel = spacetimedb.reducer(
       challengerBlocked: 0,
       opponentHp: opponentProgress.maxHp,
       opponentMaxHp: opponentProgress.maxHp,
-      opponentDamage: opponentProgress.damage,
-      opponentArmor: opponentProgress.armor,
-      opponentAttackRate: opponentProgress.attackRate,
+      opponentDamage: duelDamage(ctx, opponent, opponentProgress.damage),
+      opponentArmor: researchedArmor(ctx, opponent, opponentProgress.armor),
+      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? opponentProgress.attackRate : inactiveAttackRate,
       opponentRegen: opponentProgress.regen,
       opponentAttacks: 0,
       opponentDamageDealt: 0,
@@ -2846,12 +3106,17 @@ export const requestDuel = spacetimedb.reducer(
       challengerChestItem: equippedChestForProgress(challengerProgress),
       challengerFeetItem: equippedFeetForProgress(challengerProgress),
       challengerRightHandItem,
-      challengerLeftHandItem: challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress),
+      challengerLeftHandItem,
       opponentHeadItem: equippedHeadForProgress(opponentProgress),
       opponentChestItem: equippedChestForProgress(opponentProgress),
       opponentFeetItem: equippedFeetForProgress(opponentProgress),
       opponentRightHandItem,
-      opponentLeftHandItem: opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress),
+      opponentLeftHandItem,
+    });
+    ctx.db.duelResolutionSchedule.insert({
+      scheduledId: 0n,
+      scheduledAt: ScheduleAt.time(endsAtMicros),
+      duelId: insertedDuel.id,
     });
     const nextChallenger = {
       ...challenger,
@@ -2897,6 +3162,7 @@ export const syncPosition = spacetimedb.reducer(
 
     const clampedX = Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x));
     const clampedY = Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y));
+    const hiddenDeveloperWasActive = isDeveloperIdentity(current.identity) && !current.isVisible && Boolean(activeHiddenMovementObserver(ctx));
     const nextPlayer = {
       ...current,
       x: clampedX,
@@ -2908,7 +3174,16 @@ export const syncPosition = spacetimedb.reducer(
       lastInputSequence: sequence,
     };
     ctx.db.player.identity.update(nextPlayer);
-    syncPlayerMapMarker(ctx, nextPlayer);
+    // Start/stop packets bypass the movement timer. Mirror them immediately so
+    // a short movement never leaves the 1 Hz minimap dot at an old position.
+    syncPlayerMapMarker(ctx, nextPlayer, current.moving !== moving);
+    if (isDeveloperIdentity(nextPlayer.identity) && !nextPlayer.isVisible) {
+      // Only a lease transition scans players. Ordinary 15 Hz developer motion
+      // merely renews lastInputAt and keeps this path O(1).
+      if (!hiddenDeveloperWasActive) refreshPlayerMovementDemands(ctx);
+    } else {
+      expireExistingPlayerMovementDemand(ctx, nextPlayer);
+    }
   },
 );
 
@@ -2916,6 +3191,7 @@ export const syncPlayerHp = spacetimedb.reducer(
   { hp: t.f32() },
   (ctx, { hp }) => {
     const current = requireControllingPlayer(ctx);
+    expireExistingPlayerMovementDemand(ctx, current);
     if (!Number.isFinite(hp) || activeDuelFor(ctx, ctx.sender)) return;
     const nextHp = Math.max(0, Math.min(current.maxHp, hp));
     if (Math.abs(nextHp - current.hp) < .01) return;
@@ -2955,6 +3231,7 @@ export const changeMap = spacetimedb.reducer(
     };
     ctx.db.player.identity.update(nextPlayer);
     syncPlayerMapMarker(ctx, nextPlayer, true);
+    refreshPlayerMovementDemands(ctx);
   },
 );
 

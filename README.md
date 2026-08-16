@@ -24,7 +24,7 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 
 GitHub Pages builds the client and deploys only `dist/` after every push to `main`. Source files and repository documentation never ship as site files.
 
-See `ENGINEERING.md` for module boundaries, required change rules, and the prioritized technical backlog.
+See `ENGINEERING.md` for module boundaries and backlog. See `docs/realtime-data-flow.md` for movement, HP, minimap, save, reconnect, and research flow diagrams.
 
 ## Local development
 
@@ -83,10 +83,7 @@ Regular enemy balance lives in `src/game/enemies.ts`. Each displayed enemy name 
 
 ## Server and protocol changes
 
-The browser client and server both define `PROTOCOL_VERSION`:
-
-- `src/wildwood-coop.ts`
-- `spacetimedb/src/index.ts`
+Browser and server import one `PROTOCOL_VERSION` from `shared/rules.ts`.
 
 When a server reducer, schema, or protocol behavior requires old clients to stop, increment both values in the same change. Then:
 

@@ -26,7 +26,6 @@ export type TechTreeControllerHooks = {
   researchRanks: () => ResearchRanks;
   activeResearch: () => ActiveResearch | null;
   startResearch: (researchId: ResearchId) => Promise<ResearchResult>;
-  claimResearch: () => Promise<ResearchResult>;
   showMessage: (message: string, color: string) => void;
   beforeOpen: () => void;
   nowMs: () => number;

@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.418": [
+    "Remote movement now uses camera-aware subscriptions, adaptive buffering, and a private observer signal so nearby players stay smooth even while the developer is invisible.",
+    "Nearby health stays live without idle HP traffic; enemy reward saves now batch instead of sending a full progress row per kill.",
+    "Research completes automatically, repairs missing schedules, shortens legacy overlong timers, and cleanly removes the retired Tier II path.",
+    "Reconnects preserve map position, pause behind the correct update screen, and settle profile, ranking, and replay loads safely.",
+    "Duels now snapshot equipped items and researched combat bonuses, finish server-side if a browser backgrounds, and keep equipment in replays.",
+    "Android chat now uses a bundled rounded font matching the polished iOS look.",
+  ],
   "0.417": [
     "Server disconnects now use the normal GAME UPDATING screen; once the server socket returns, it switches to RECONNECTING until player data is ready.",
   ],

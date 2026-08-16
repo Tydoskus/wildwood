@@ -1,3 +1,11 @@
+  @font-face {
+    font-family: "Wildwood Chat";
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url("fonts/nunito-latin-v32.woff2") format("woff2");
+  }
+
   :root {
     color-scheme: dark;
     --panel: rgba(13, 20, 17, .90);
@@ -9,6 +17,7 @@
     --gold: #ffd85b;
     --red: #ff6767;
     --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
+    --chat-font: "Arial Rounded MT Bold", "Arial Rounded MT", "Wildwood Chat", Arial, sans-serif;
     --player-name-font: var(--font-rounded);
     --profile-portrait-sheet-size: 824%;
     --text-outline-width: .08em;
@@ -574,6 +583,7 @@
     border-left: 0;
     border-radius: 0 10px 0 0;
     cursor: default;
+    font-family: var(--chat-font);
     pointer-events: auto;
     z-index: 6;
   }
@@ -670,8 +680,8 @@
   .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid #000; border-radius: 4px; background: #fff url("../../assets/wildwood/profile-portraits-grid-v2.png") no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; }
-  .chat-name { grid-column: 2; grid-row: 1; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--player-name-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-  .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 19px; padding: 3px 11px; border-radius: 5px; background: rgba(255,255,255,.09); color: var(--text); font-family: var(--font-rounded); font-size: 11.25px; line-height: 1.5; white-space: pre-wrap; }
+  .chat-name { grid-column: 2; grid-row: 1; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--chat-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 19px; padding: 3px 11px; border-radius: 5px; background: rgba(255,255,255,.09); color: var(--text); font-family: var(--chat-font); font-size: 11.25px; line-height: 1.5; white-space: pre-wrap; }
   .chat-line.has-replay .chat-text { grid-column: 2 / 4; }
   .chat-line.has-replay { cursor: pointer; }
   #chatForm { gap: 5px; }
@@ -693,6 +703,7 @@
     min-height: 28px;
     max-height: 54px;
     resize: none;
+    font-family: var(--chat-font);
     line-height: 1.25;
     padding: 4px 6px;
     cursor: text;

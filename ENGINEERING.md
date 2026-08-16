@@ -2,6 +2,8 @@
 
 This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior.
 
+Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`.
+
 ## Client structure
 
 | Module | Responsibility |
@@ -32,22 +34,23 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 - For incompatible server changes, update both protocol constants, publish Maincloud, regenerate bindings when reducer/schema signatures change, then deploy the matching client.
 - Never publish production with destructive database flags.
 - Keep pending saves scoped to player identity. Never share browser-pending progress across guest and account identities.
+- Never reuse `player_research.frontier_mastery`. It is a zeroed, migration-only column retained because Maincloud cannot remove it non-destructively; no client or gameplay rule may read it.
 
 ## Prioritized improvement backlog
 
 ### Must address before a large public beta
 
 1. **Make progression server-authoritative.** `savePlayerProgress` currently accepts client-supplied upgraded stats up to broad limits. A modified client can grant itself health, damage, armor, regeneration, or boots. Replace arbitrary stat saves with server reducers for verified rewards, inventory grants, and boss/enemy completion.
-2. **Add area-of-interest subscriptions.** Every client still subscribes to every active player and receives movement updates globally. Sector or cell subscriptions remain the main bandwidth/cost requirement before high concurrency.
-3. **Enforce progress privacy on the server.** `player_progress` is public and the official client requests only its own row. A client-side filter is not a security boundary. Verify SpacetimeDB row-access support for the deployed version and expose only owner progress.
-4. **Load-test movement and reconnect storms.** Test 25, 50, and 100 clients with movement, reconnects, chat, and duel requests. Record reducer rate, egress, CPU, errors, and recovery time before raising the player cap.
+2. **Validate movement distance server-side.** Sequence and world bounds are enforced, but a modified client can still jump between arbitrary in-bounds coordinates. Add a server-clocked movement budget that accommodates network bursts and boss knockback.
+3. **Enforce progress privacy on the server.** `player_progress`, `player_research`, and `player_lifetime` are public tables even though the official client requests identity-scoped rows. Client filters are not access control. Replace direct table exposure with owner/profile views.
+4. **Load-test movement and reconnect storms.** Test 25, 50, and 100 clients with movement, reconnects, chat, research completion, and duel requests. Record reducer rate, egress, CPU, errors, and recovery time before raising the player cap.
 
 ### Next architectural work
 
 1. Continue splitting `src/wildwood-coop.ts` into connection/auth, player presence, chat, and duel services. Progress rules, storage migration, and duel cooldown storage now live in `src/coop/services/`; connection lifecycle remains in the façade.
 2. Split `spacetimedb/src/index.ts` by table/reducer domain where the SpacetimeDB module toolchain permits it: identity/profile, presence, progression, chat, and duels.
-3. Replace duel lookup scans with indexed lookup tables or explicit participant indexes. Several reducers iterate the duel table to locate a participant.
-4. Add automated tests for reset/account migration, identity-scoped pending saves, projectile collision, and dragon hitbox range.
+3. Split the base subscription into explicit gameplay and account/UI ownership modules while preserving one hydration boundary and the SDK initial-callback suppression rule.
+4. Add automated tests for reset/account migration, identity-scoped pending saves, scheduled research repair, subscription cancellation, projectile collision, and boss hitbox range.
 
 ### Quality improvements
 

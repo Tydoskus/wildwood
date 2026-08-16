@@ -183,6 +183,16 @@ export const DuelReplay = __t.object("DuelReplay", {
   createdAt: __t.timestamp(),
   challengerIdentity: __t.string(),
   opponentIdentity: __t.string(),
+  challengerHeadItem: __t.string(),
+  challengerChestItem: __t.string(),
+  challengerFeetItem: __t.string(),
+  challengerRightHandItem: __t.string(),
+  challengerLeftHandItem: __t.string(),
+  opponentHeadItem: __t.string(),
+  opponentChestItem: __t.string(),
+  opponentFeetItem: __t.string(),
+  opponentRightHandItem: __t.string(),
+  opponentLeftHandItem: __t.string(),
 });
 export type DuelReplay = __Infer<typeof DuelReplay>;
 
@@ -191,6 +201,13 @@ export const DuelRequestCooldown = __t.object("DuelRequestCooldown", {
   requestedAt: __t.timestamp(),
 });
 export type DuelRequestCooldown = __Infer<typeof DuelRequestCooldown>;
+
+export const DuelResolutionSchedule = __t.object("DuelResolutionSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  duelId: __t.u64(),
+});
+export type DuelResolutionSchedule = __Infer<typeof DuelResolutionSchedule>;
 
 export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   identity: __t.identity(),
@@ -212,11 +229,20 @@ export const LeaderboardRefreshState = __t.object("LeaderboardRefreshState", {
 });
 export type LeaderboardRefreshState = __Infer<typeof LeaderboardRefreshState>;
 
+export const LocalMovementDemand = __t.object("LocalMovementDemand", {});
+export type LocalMovementDemand = __Infer<typeof LocalMovementDemand>;
+
 export const MaintenanceSchedule = __t.object("MaintenanceSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
 });
 export type MaintenanceSchedule = __Infer<typeof MaintenanceSchedule>;
+
+export const ModuleMigrationState = __t.object("ModuleMigrationState", {
+  id: __t.u32(),
+  version: __t.u32(),
+});
+export type ModuleMigrationState = __Infer<typeof ModuleMigrationState>;
 
 export const Player = __t.object("Player", {
   identity: __t.identity(),
@@ -272,6 +298,15 @@ export const PlayerController = __t.object("PlayerController", {
 });
 export type PlayerController = __Infer<typeof PlayerController>;
 
+export const PlayerLastLocation = __t.object("PlayerLastLocation", {
+  identity: __t.identity(),
+  mapId: __t.string(),
+  x: __t.f64(),
+  y: __t.f64(),
+  facing: __t.f64(),
+});
+export type PlayerLastLocation = __Infer<typeof PlayerLastLocation>;
+
 export const PlayerLifetime = __t.object("PlayerLifetime", {
   identity: __t.identity(),
   joinedAt: __t.timestamp(),
@@ -291,6 +326,11 @@ export const PlayerMapMarker = __t.object("PlayerMapMarker", {
   updatedAt: __t.timestamp(),
 });
 export type PlayerMapMarker = __Infer<typeof PlayerMapMarker>;
+
+export const PlayerMovementDemand = __t.object("PlayerMovementDemand", {
+  identity: __t.identity(),
+});
+export type PlayerMovementDemand = __Infer<typeof PlayerMovementDemand>;
 
 export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
   identity: __t.identity(),

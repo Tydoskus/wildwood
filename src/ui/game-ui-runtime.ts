@@ -50,7 +50,7 @@ export function createGameUiRuntime(d: Record<string, any>) {
   let devPanel: ReturnType<typeof createDevPanelController>;
   const closeLeaderboard = () => leaderboard.close();
   techTree = createTechTreeController({ button: e.techTreeBtn, notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
-    researchRanks: d.researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), claimResearch: async () => coop?.claimResearch?.(), showMessage: d.showMessage,
+    researchRanks: d.researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), showMessage: d.showMessage,
     beforeOpen: () => { e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); }, nowMs: () => Date.now(),
   });
   leaderboard = createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, {
@@ -90,7 +90,7 @@ export function createGameRuntimeHud(d: Record<string, any>) {
 export function createTechTreePanel(d: Record<string, any>) {
   const e = d.e;
   return createTechTreeController({ button: e.techTreeBtn, notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
-    researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, claimResearch: d.claimResearch, showMessage: d.showMessage, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
+    researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, showMessage: d.showMessage, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
   });
 }
 

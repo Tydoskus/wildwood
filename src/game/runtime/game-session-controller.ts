@@ -11,6 +11,7 @@ type SessionDependencies = {
   viewport: () => { width: number; height: number };
   tutorialMapId: MapId;
   desertMapId: MapId;
+  validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
   serverMapId: () => MapId | undefined;
@@ -128,7 +129,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.hideGameOver();
     paused = false;
     const serverMapId = dependencies.serverMapId();
-    if (serverMapId === dependencies.tutorialMapId || serverMapId === dependencies.desertMapId) dependencies.setMapId(serverMapId);
+    if (serverMapId && dependencies.validMapIds.includes(serverMapId)) dependencies.setMapId(serverMapId);
     dependencies.mapMusicSync();
     dependencies.resetPlayer(hasStarted);
     const serverState = dependencies.serverPlayerState();

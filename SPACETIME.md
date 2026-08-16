@@ -46,12 +46,20 @@ Migration order is strict: acknowledge pending guest progress, create the privat
 
 `player_session` is private and keyed by SpacetimeDB connection ID. `player_controller` assigns one live connection per identity to authoritative movement, duels, and dragon attacks. Extra tabs may subscribe without owning the player. Controller disconnect transfers ownership when another session exists; final disconnect removes public presence and resolves duel cleanup.
 
-Movement uploads use an adaptive rate. A client sends at 30 Hz when another player is inside its viewport plus a 25% margin on every edge, allowing the rate to increase before either player becomes visible. Isolated movement sends at 5 Hz. Movement start, movement stop, and forced combat/session synchronization bypass the timer.
+Movement uploads use an adaptive rate. A client sends at 15 Hz while another visible player is within the two-viewport interest area; a two-second hold prevents boundary flapping. Isolated movement sends at 3 Hz. An identity-scoped private demand signal keeps movement and HP smooth when an invisible developer observes the same map. That demand expires after 20 seconds without visible-tab activity, preventing a backgrounded developer session from holding other clients at the expensive rate. Movement start, movement stop, and forced combat/session synchronization bypass the timer.
+
+Detailed remote state uses one rectangular camera-zone query backed by the `player.by_map_zone` index. A separate lightweight map-wide marker feed supplies distant minimap dots at no more than 1 Hz. Current HP uploads run only when a visible nearby player or private developer observer exists and are capped at 8 Hz.
 
 Optional latency display measures and smooths acknowledgement time from normal reducer calls. It does not create a ping reducer, timer, heartbeat, or additional server traffic.
 
 Opening a websocket does not create a character or public presence. Protocol registration may hydrate the login UI, but only `enter_world` creates missing profile/progress rows and the public player row after guest/sign-in choice or successful automatic sign-in.
 
-Player lifetime metadata records join date, accumulated play time, and enemy kills. Own progress/lifetime rows hydrate with the main subscription. Other-player progress/lifetime rows use a single temporary identity-filtered subscription while that profile window is open; closing or switching profiles unsubscribes it.
+Player lifetime metadata records join date, accumulated play time, enemy kills, and deaths. Own progress/lifetime rows hydrate with the main subscription. Other-player progress/lifetime rows use a single temporary identity-filtered subscription while that profile window is open; closing, switching, disconnecting, or timing out settles and unsubscribes the request.
 
 Long tab resumes use a single `resume_session` reducer probe. Healthy short resumes keep the websocket. Scheduled maintenance removes transient orphan presence without deleting durable profiles or progress.
+
+Research completion is schedule-driven and idempotently repaired by minute maintenance. Timer reductions shorten legacy active deadlines but never lengthen them. Removed/invalid nodes are deleted cleanly; players never need a claim reducer.
+
+`player_research.frontier_mastery` remains only as a zeroed physical migration column because deleting it would require destructive database replacement. Tier II is absent from shared research IDs, client bindings consumption, UI, prerequisites, and completion logic; never reuse that column.
+
+See `docs/realtime-data-flow.md` for full data-lane and reconnect diagrams.

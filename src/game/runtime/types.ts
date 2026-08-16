@@ -244,6 +244,16 @@ export type RuntimeDuelReplay = {
   opponentDamageDealt: number;
   opponentRegened: number;
   opponentBlocked: number;
+  challengerHeadItem: string;
+  challengerChestItem: string;
+  challengerFeetItem: string;
+  challengerRightHandItem: string;
+  challengerLeftHandItem: string;
+  opponentHeadItem: string;
+  opponentChestItem: string;
+  opponentFeetItem: string;
+  opponentRightHandItem: string;
+  opponentLeftHandItem: string;
 };
 
 export type RuntimeReward = { type: RewardType; amount: number };

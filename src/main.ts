@@ -590,7 +590,7 @@ import {
     isConnected: () => Boolean(coop?.isConnected?.()),
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
-    syncPosition: (x, y, facing, moving, force, highFrequency) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency),
+    syncPosition: (x, y, facing, moving, force, highFrequency, interestArea) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency, interestArea),
     syncHp: (hp, hasNearbyRemotePlayer) => coop?.syncHp?.(hp, hasNearbyRemotePlayer),
     hasRemotePlayerInArea: (left, top, right, bottom) => coop?.hasRemotePlayerInArea?.(left, top, right, bottom) ?? false,
     autoAttack: (dt) => playerCombat.attackNearest(dt),
@@ -702,7 +702,7 @@ import {
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
 
-  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), claimResearch: async () => coop?.claimResearch?.(), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
+  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
     entries: () => coop?.leaderboardEntries?.() ?? [],
@@ -776,6 +776,7 @@ import {
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID,
+    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
@@ -811,7 +812,10 @@ import {
     const reconnecting = Boolean(coop?.isReconnectingAfterWake?.());
     const waitingForServer = Boolean(coop?.accountState?.().updating);
     reconnectOverlayEl.hidden = !reconnecting || waitingForServer;
-    if (reconnecting) {
+    // Both full GAME UPDATING and compact RECONNECTING gates freeze simulation.
+    // Protocol rejection can raise only the former, so checking reconnecting
+    // alone would leave gameplay running invisibly behind the update screen.
+    if (reconnecting || waitingForServer) {
       if (session.isRunning() && !session.isPaused()) {
         session.setPaused(true);
         reconnectOverlayPausedGame = true;

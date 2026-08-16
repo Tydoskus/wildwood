@@ -13,6 +13,15 @@ import {
 } from "./coop/services/progress";
 import { createProgressStore } from "./coop/services/progress-store";
 import {
+  adaptiveRemoteRenderAt,
+  appendRemoteTimelineSample,
+  createRemoteInterpolationClock,
+  createRestartRemoteInterpolationClock,
+  observeRemoteSample,
+  remoteMotionAt,
+  type RemoteInterpolationClock,
+} from "./coop/services/remote-interpolation";
+import {
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   NAME_ADJECTIVES,
@@ -21,6 +30,8 @@ import {
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
   TUTORIAL_FOREST_MAP_ID,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
 } from "../shared/rules";
 
 type WildwoodRuntime = Window & {
@@ -210,34 +221,56 @@ export type DuelReplay = {
   opponentDamageDealt: number;
   opponentRegened: number;
   opponentBlocked: number;
+  challengerHeadItem: string;
+  challengerChestItem: string;
+  challengerFeetItem: string;
+  challengerRightHandItem: string;
+  challengerLeftHandItem: string;
+  opponentHeadItem: string;
+  opponentChestItem: string;
+  opponentFeetItem: string;
+  opponentRightHandItem: string;
+  opponentLeftHandItem: string;
 };
 
 type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
+  interpolationClock: RemoteInterpolationClock;
 };
 
 type RemotePlayerSample = {
   timelineAt: number;
   serverAtMs: number;
+  receivedAt: number;
   x: number;
   y: number;
   facing: number;
   moving: boolean;
 };
 
-const NEARBY_MOVEMENT_HZ = 20;
+type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
+type MapZoneBounds = { mapId: string; minZoneX: number; maxZoneX: number; minZoneY: number; maxZoneY: number };
+
+const NEARBY_MOVEMENT_HZ = 15;
 const DISTANT_MOVEMENT_HZ = 3;
 const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
 const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
-const MAP_PLAYER_ZONE_SIZE = 600;
-const MAP_PLAYER_ZONE_RADIUS = 1;
+const NEARBY_MOVEMENT_HOLD_MS = 2_000;
+// Detailed-player subscriptions follow actual camera bounds. This radius is
+// only the startup fallback before the first rendered frame supplies them.
+const MAP_PLAYER_ZONE_SIZE = 1_000;
+const MAP_PLAYER_ZONE_RADIUS = 2;
+const MAP_PLAYER_PREFETCH_ZONES = 1;
+const MAX_MAP_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_PLAYER_ZONE_SIZE);
+const MAX_MAP_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_PLAYER_ZONE_SIZE);
 const HP_SYNC_MIN_INTERVAL_MS = 125;
 const HP_SYNC_IDLE_INTERVAL_MS = 1_000;
+const MOVEMENT_OBSERVER_HEARTBEAT_MS = 10_000;
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
-const REMOTE_INTERPOLATION_DELAY_MS = 175;
 const REMOTE_SNAP_DISTANCE = 260;
 const REMOTE_SAMPLE_LIMIT = 8;
+const SUBSCRIPTION_LOAD_TIMEOUT_MS = 10_000;
 const DUEL_COOLDOWN_MS = 120_000;
 const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
 
@@ -276,6 +309,7 @@ const bugReportEntries = new Map<string, BugReportEntry>();
 const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
 let localPresenceVisible = true;
+let serverMovementDemand = false;
 const profileProgress = new Map<string, PlayerProgress>();
 const profileResearch = new Map<string, PlayerResearch>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
@@ -290,6 +324,7 @@ let cancelActivePlayerProfileLoad: (() => void) | null = null;
 let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
 let mapSubscriptionGeneration = 0;
 let mapSubscriptionAreaKey = "";
+let mapPlayerInterestBounds: MapZoneBounds | null = null;
 let mapMarkerSubscription: { unsubscribe: () => void } | null = null;
 let mapMarkerSubscriptionGeneration = 0;
 let currentMapId = TUTORIAL_FOREST_MAP_ID;
@@ -300,6 +335,7 @@ const mapPlayerMarkers = new Map<string, MapPlayerMarker>();
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
+const cancelReplayLoads = new Map<bigint, () => void>();
 let sharedDragon: DragonBossState | null = null;
 let sharedSpider: SpiderBossState | null = null;
 let latestSpiderResult: SpiderResult | null = null;
@@ -309,6 +345,7 @@ let connection: DbConnection | null = null;
 let localIdentity = "";
 let lastPositionSentAt = 0;
 let lastPositionMoving = false;
+let nearbyMovementUntil = 0;
 let nextPositionSequence = 0;
 let lastHpSent: number | null = null;
 let lastHpSentAt = 0;
@@ -333,7 +370,9 @@ let localActiveResearch: ActiveResearch | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
-let onChange: (() => void) | null = null;
+let changeListener: (() => void) | null = null;
+let changeBatchDepth = 0;
+let batchedChangePending = false;
 let pendingProgress: ProgressSave | null = null;
 let progressSaveInFlightUntil = 0;
 let progressSavePromise: Promise<boolean> | null = null;
@@ -360,6 +399,28 @@ let accountReturnPending = accountCallbackPending && (() => {
 // Persisted credentials identify a known character, but entering that account
 // always requires the player to press SIGN IN for this page session.
 let accountSessionApproved = accountReturnPending;
+
+/** Coalesces table hydration into one UI refresh instead of one per row. */
+function onChange() {
+  if (changeBatchDepth > 0) {
+    batchedChangePending = true;
+    return;
+  }
+  changeListener?.();
+}
+
+function batchChanges(action: () => void) {
+  changeBatchDepth += 1;
+  try {
+    action();
+  } finally {
+    changeBatchDepth -= 1;
+    if (changeBatchDepth === 0 && batchedChangePending) {
+      batchedChangePending = false;
+      changeListener?.();
+    }
+  }
+}
 
 function reducerErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -815,7 +876,13 @@ function clearPendingProgress(identity = localIdentity) {
 }
 
 function flushPendingProgressAsync(force = false): Promise<boolean> {
-  if (progressSavePromise) return progressSavePromise;
+  if (progressSavePromise) {
+    // A forced equipment save must run after the older snapshot, even when a
+    // normal throttled save is already awaiting its server acknowledgement.
+    return force
+      ? progressSavePromise.then(() => pendingProgress ? flushPendingProgressAsync(true) : true)
+      : progressSavePromise;
+  }
   if (protocolBlocked || worldEntryBlocked || !connection || !pendingProgress) return Promise.resolve(!pendingProgress);
   if (worldEntryGeneration !== connectionGeneration) return Promise.resolve(false);
   if (!force && Date.now() < progressSaveInFlightUntil) return Promise.resolve(false);
@@ -906,14 +973,18 @@ function upsertPlayer(row: {
 }) {
   const id = row.identity.toHexString();
   if (id === localIdentity) {
-    playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
+    const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
+    const firstLocalState = localState === null;
+    const presenceChanged = localPresenceVisible !== row.isVisible;
+    const conflictBefore = worldEntryBlocked;
+    playerMaps.set(id, nextMapId);
     localPresenceVisible = row.isVisible;
     if (worldEntryGeneration === connectionGeneration && row.controllerTabId && row.controllerTabId !== authTabId()) {
       worldEntryBlocked = true;
       authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
     }
-    const mapChanged = currentMapId !== row.mapId;
-    currentMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
+    const mapChanged = currentMapId !== nextMapId;
+    currentMapId = nextMapId;
     localState = {
       x: row.x,
       y: row.y,
@@ -929,21 +1000,26 @@ function upsertPlayer(row: {
     }
     refreshMapPlayerSubscription(mapChanged);
     refreshMapMarkerSubscription(mapChanged);
-    onChange?.();
+    // Position acknowledgements are hot data consumed directly by gameplay.
+    // Only control-plane changes need the expensive application/UI fanout.
+    if (firstLocalState || mapChanged || presenceChanged || conflictBefore !== worldEntryBlocked) onChange();
     return;
   }
 
   if (!row.isVisible) {
-    playerMaps.delete(id);
-    players.delete(id);
-    onChange?.();
+    const mapRemoved = playerMaps.delete(id);
+    const playerRemoved = players.delete(id);
+    if (mapRemoved || playerRemoved || activePlayerProfileIdentity === id) onChange();
     return;
   }
 
-  playerMaps.set(id, row.mapId || TUTORIAL_FOREST_MAP_ID);
+  const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
+  const previousMapId = playerMaps.get(id);
+  playerMaps.set(id, nextMapId);
 
-  if (row.mapId !== currentMapId) {
-    players.delete(id);
+  if (nextMapId !== currentMapId) {
+    const removed = players.delete(id);
+    if (removed || (previousMapId !== nextMapId && activePlayerProfileIdentity === id)) onChange();
     return;
   }
 
@@ -956,19 +1032,18 @@ function upsertPlayer(row: {
     // movement timestamp change. They must refresh display data, but cannot
     // become zero-distance movement samples or they disrupt interpolation.
     if (serverAtMs > latest.serverAtMs) {
+      const movementRestarted = !latest.moving && row.moving;
+      if (!movementRestarted) {
+        observeRemoteSample(
+          existing.interpolationClock,
+          serverAtMs - latest.serverAtMs,
+          receivedAt - latest.receivedAt,
+        );
+      }
       const distance = Math.hypot(row.x - latest.x, row.y - latest.y);
       const sample = {
-        // Server time orders snapshots. Arrival time drives the render clock so
-        // a player who stood still before this update cannot make the next input
-        // appear seconds in the future on a newly opened client.
-        // A subscription can deliver several server snapshots in one browser
-        // turn. Preserve their real server spacing instead of assigning almost
-        // identical local times, which would create an absurd inferred speed.
-        timelineAt: Math.max(
-          receivedAt,
-          latest.timelineAt + Math.max(1, Math.min(250, serverAtMs - latest.serverAtMs)),
-        ),
         serverAtMs,
+        receivedAt,
         x: row.x,
         y: row.y,
         facing: row.facing,
@@ -976,11 +1051,16 @@ function upsertPlayer(row: {
       };
       // Portal changes clear players first. This protects against any other
       // server correction being interpolated across half the map.
-      if (distance > REMOTE_SNAP_DISTANCE) {
+      if (movementRestarted) {
         existing.samples.length = 0;
-        existing.samples.push(sample);
+        existing.samples.push({ ...sample, timelineAt: receivedAt });
+        existing.interpolationClock = createRestartRemoteInterpolationClock(receivedAt);
+      } else if (distance > REMOTE_SNAP_DISTANCE) {
+        existing.samples.length = 0;
+        existing.samples.push({ ...sample, timelineAt: receivedAt });
+        existing.interpolationClock = createRemoteInterpolationClock(receivedAt);
       } else {
-        existing.samples.push(sample);
+        appendRemoteTimelineSample(existing.samples, sample);
       }
     }
     while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
@@ -1007,10 +1087,11 @@ function upsertPlayer(row: {
       feetItem: row.feetItem,
       headItem: row.headItem,
       chestItem: row.chestItem,
-      samples: [{ timelineAt: receivedAt, serverAtMs, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
+      samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
+      interpolationClock: createRemoteInterpolationClock(receivedAt),
     });
+    onChange();
   }
-  onChange?.();
 }
 
 function upsertProfile(row: { identity: Identity; displayName: string; profileIcon: number; playerSprite?: number; skinTone?: number }) {
@@ -1121,6 +1202,19 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   onChange?.();
 }
 
+function upsertLocalMovementDemand(row: { identity: Identity }) {
+  if (row.identity.toHexString() === localIdentity && !serverMovementDemand) {
+    serverMovementDemand = true;
+    // Server HP may be intentionally stale after solo play. Send one current
+    // snapshot when a hidden observer begins watching, then only real changes.
+    lastHpSent = null;
+  }
+}
+
+function removeLocalMovementDemand(row: { identity: Identity }) {
+  if (row.identity.toHexString() === localIdentity) serverMovementDemand = false;
+}
+
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
   const id = row.identity.toHexString();
   const progress = {
@@ -1145,7 +1239,10 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     snowlandsUnlocked: row.snowlandsUnlocked,
   };
   profileProgress.set(id, progress);
-  if (id !== localIdentity) return;
+  if (id !== localIdentity) {
+    if (id === activePlayerProfileIdentity) onChange();
+    return;
+  }
   localProgress = progress;
   completeAccountReturnWhenReady();
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
@@ -1166,7 +1263,10 @@ function upsertResearch(row: { identity: Identity } & Partial<PlayerResearch>) {
     criticalDamage: row.criticalDamage ?? 0,
   };
   profileResearch.set(identity, research);
-  if (identity !== localIdentity) return;
+  if (identity !== localIdentity) {
+    if (identity === activePlayerProfileIdentity) onChange();
+    return;
+  }
   localResearch = research;
   onChange?.();
 }
@@ -1427,6 +1527,16 @@ function upsertDuelReplay(row: any) {
     opponentDamageDealt: row.opponentDamageDealt,
     opponentRegened: row.opponentRegened,
     opponentBlocked: row.opponentBlocked,
+    challengerHeadItem: row.challengerHeadItem,
+    challengerChestItem: row.challengerChestItem,
+    challengerFeetItem: row.challengerFeetItem,
+    challengerRightHandItem: row.challengerRightHandItem,
+    challengerLeftHandItem: row.challengerLeftHandItem,
+    opponentHeadItem: row.opponentHeadItem,
+    opponentChestItem: row.opponentChestItem,
+    opponentFeetItem: row.opponentFeetItem,
+    opponentRightHandItem: row.opponentRightHandItem,
+    opponentLeftHandItem: row.opponentLeftHandItem,
   });
   onChange?.();
 }
@@ -1448,6 +1558,7 @@ function loadDuelReplay(id: bigint): Promise<DuelReplay | null> {
   let subscription: { unsubscribe: () => void } | null = null;
   let settled = false;
   let unsubscribeAfterSubscribe = false;
+  let timeoutId: number | null = null;
   const releaseSubscription = () => {
     if (subscription) {
       subscription.unsubscribe();
@@ -1461,14 +1572,19 @@ function loadDuelReplay(id: bigint): Promise<DuelReplay | null> {
   const finish = (replay: DuelReplay | null) => {
     if (settled) return;
     settled = true;
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
     replayLoads.delete(id);
+    cancelReplayLoads.delete(id);
     releaseSubscription();
     resolveRequest(replay);
   };
+  cancelReplayLoads.set(id, () => finish(null));
+  timeoutId = window.setTimeout(() => finish(null), SUBSCRIPTION_LOAD_TIMEOUT_MS);
 
   subscription = conn
     .subscriptionBuilder()
     .onApplied(() => {
+      if (connection !== conn) return finish(null);
       const row = [...conn.db.duelReplay.iter()].find((replay) => replay.id === id);
       if (row) upsertDuelReplay(row);
       const replay = duelReplays.get(id);
@@ -1491,6 +1607,7 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
   const request = new Promise<LeaderboardEntry[]>((resolve) => {
     let subscription: { unsubscribe: () => void } | null = null;
     let unsubscribeAfterSubscribe = false;
+    let timeoutId: number | null = null;
     const release = () => {
       if (subscription) {
         const current = subscription;
@@ -1504,12 +1621,14 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
     const finish = (entries: LeaderboardEntry[]) => {
       if (settled) return;
       settled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
       leaderboardSnapshotLoad = null;
       cancelLeaderboardSnapshotLoad = null;
       release();
       resolve(entries);
     };
     cancelLeaderboardSnapshotLoad = () => finish([]);
+    timeoutId = window.setTimeout(() => finish([]), SUBSCRIPTION_LOAD_TIMEOUT_MS);
 
     subscription = conn
       .subscriptionBuilder()
@@ -1561,9 +1680,11 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
 
   let settled = false;
   const request = new Promise<PlayerProfileData | null>((resolve) => {
+    let timeoutId: number | null = null;
     const finish = (profile: PlayerProfileData | null) => {
       if (settled) return;
       settled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
       playerProfileLoads.delete(identity);
       if (cancelActivePlayerProfileLoad === cancel) cancelActivePlayerProfileLoad = null;
       resolve(profile);
@@ -1573,6 +1694,7 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
     activePlayerProfileSubscription = conn
       .subscriptionBuilder()
       .onApplied(() => {
+        if (connection !== conn || activePlayerProfileIdentity !== identity) return finish(null);
         for (const row of conn.db.playerProgress.iter()) {
           if (row.identity.toHexString() === identity) upsertProgress(row);
         }
@@ -1598,6 +1720,12 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),
         tables.player.where((player) => player.identity.eq(dbIdentity)),
       ]);
+    if (!settled) {
+      timeoutId = window.setTimeout(() => {
+        if (activePlayerProfileIdentity === identity) releasePlayerProfile();
+        else finish(null);
+      }, SUBSCRIPTION_LOAD_TIMEOUT_MS);
+    }
   });
   playerProfileLoads.set(identity, request);
   if (settled) playerProfileLoads.delete(identity);
@@ -1625,9 +1753,9 @@ function removeDuel(row: { id: bigint }) {
 
 function removePlayer(row: { identity: Identity }) {
   const identity = row.identity.toHexString();
-  players.delete(identity);
-  playerMaps.delete(identity);
-  onChange?.();
+  const playerRemoved = players.delete(identity);
+  const mapRemoved = playerMaps.delete(identity);
+  if (playerRemoved || mapRemoved || activePlayerProfileIdentity === identity) onChange();
 }
 
 function releaseMapPlayerSubscription() {
@@ -1635,6 +1763,7 @@ function releaseMapPlayerSubscription() {
   mapPlayerSubscription?.unsubscribe();
   mapPlayerSubscription = null;
   mapSubscriptionAreaKey = "";
+  mapPlayerInterestBounds = null;
 }
 
 function upsertMapPlayerMarker(row: { identity: Identity; x: number; y: number; mapId: string; isVisible: boolean }) {
@@ -1671,7 +1800,6 @@ function refreshMapMarkerSubscription(force = false) {
       previous?.unsubscribe();
       mapPlayerMarkers.clear();
       for (const row of conn.db.playerMapMarker.iter()) upsertMapPlayerMarker(row);
-      onChange?.();
     })
     .onError((ctx) => {
       if (connection !== conn || generation !== mapMarkerSubscriptionGeneration) return;
@@ -1682,28 +1810,49 @@ function refreshMapMarkerSubscription(force = false) {
   mapMarkerSubscription = next;
 }
 
-function refreshMapPlayerSubscription(force = false) {
+function refreshMapPlayerSubscription(force = false, interestArea?: PlayerInterestArea) {
   const conn = connection;
   if (!conn?.isActive || !hydrationReady) return;
   const centerX = Math.floor((localState?.x ?? 0) / MAP_PLAYER_ZONE_SIZE);
   const centerY = Math.floor((localState?.y ?? 0) / MAP_PLAYER_ZONE_SIZE);
-  const areaKey = `${currentMapId}:${centerX}:${centerY}`;
+  if (interestArea && [interestArea.left, interestArea.top, interestArea.right, interestArea.bottom].every(Number.isFinite)) {
+    const left = Math.min(interestArea.left, interestArea.right);
+    const right = Math.max(interestArea.left, interestArea.right);
+    const top = Math.min(interestArea.top, interestArea.bottom);
+    const bottom = Math.max(interestArea.top, interestArea.bottom);
+    mapPlayerInterestBounds = {
+      mapId: currentMapId,
+      minZoneX: Math.max(0, Math.floor(left / MAP_PLAYER_ZONE_SIZE) - MAP_PLAYER_PREFETCH_ZONES),
+      maxZoneX: Math.min(MAX_MAP_ZONE_X, Math.floor(right / MAP_PLAYER_ZONE_SIZE) + MAP_PLAYER_PREFETCH_ZONES),
+      minZoneY: Math.max(0, Math.floor(top / MAP_PLAYER_ZONE_SIZE) - MAP_PLAYER_PREFETCH_ZONES),
+      maxZoneY: Math.min(MAX_MAP_ZONE_Y, Math.floor(bottom / MAP_PLAYER_ZONE_SIZE) + MAP_PLAYER_PREFETCH_ZONES),
+    };
+  }
+  const bounds = mapPlayerInterestBounds?.mapId === currentMapId
+    ? mapPlayerInterestBounds
+    : {
+      mapId: currentMapId,
+      minZoneX: Math.max(0, centerX - MAP_PLAYER_ZONE_RADIUS),
+      maxZoneX: Math.min(MAX_MAP_ZONE_X, centerX + MAP_PLAYER_ZONE_RADIUS),
+      minZoneY: Math.max(0, centerY - MAP_PLAYER_ZONE_RADIUS),
+      maxZoneY: Math.min(MAX_MAP_ZONE_Y, centerY + MAP_PLAYER_ZONE_RADIUS),
+    };
+  const areaKey = `${bounds.mapId}:${bounds.minZoneX}:${bounds.maxZoneX}:${bounds.minZoneY}:${bounds.maxZoneY}`;
   if (!force && mapPlayerSubscription && mapSubscriptionAreaKey === areaKey) return;
 
   const previous = mapPlayerSubscription;
   const previousAreaKey = mapSubscriptionAreaKey;
   const generation = ++mapSubscriptionGeneration;
   mapSubscriptionAreaKey = areaKey;
-  const nearbyZones = [];
-  for (let offsetX = -MAP_PLAYER_ZONE_RADIUS; offsetX <= MAP_PLAYER_ZONE_RADIUS; offsetX += 1) {
-    for (let offsetY = -MAP_PLAYER_ZONE_RADIUS; offsetY <= MAP_PLAYER_ZONE_RADIUS; offsetY += 1) {
-      nearbyZones.push(tables.player.where((row) => row
-        .mapId.eq(currentMapId)
-        .and(row.isVisible.eq(true))
-        .and(row.zoneX.eq(centerX + offsetX))
-        .and(row.zoneY.eq(centerY + offsetY))));
-    }
-  }
+  // One rectangular query replaces per-player/per-zone subscriptions. Server
+  // index starts with map/visibility, then narrows camera-derived zone bounds.
+  const nearbyPlayers = tables.player.where((row) => row
+    .mapId.eq(currentMapId)
+    .and(row.isVisible.eq(true))
+    .and(row.zoneX.gte(bounds.minZoneX))
+    .and(row.zoneX.lte(bounds.maxZoneX))
+    .and(row.zoneY.gte(bounds.minZoneY))
+    .and(row.zoneY.lte(bounds.maxZoneY)));
 
   const next = conn
     .subscriptionBuilder()
@@ -1718,7 +1867,7 @@ function refreshMapPlayerSubscription(force = false) {
       mapPlayerSubscription = previous;
       mapSubscriptionAreaKey = previousAreaKey;
     })
-    .subscribe(nearbyZones);
+    .subscribe([nearbyPlayers]);
   mapPlayerSubscription = next;
 }
 
@@ -1742,6 +1891,7 @@ function clearRealtimeCaches() {
   accessAuditEntries.clear();
   guestAccounts.clear();
   onlinePlayerCount = 0;
+  serverMovementDemand = false;
   profileProgress.clear();
   playerLifetimes.clear();
   playerMaps.clear();
@@ -1749,6 +1899,8 @@ function clearRealtimeCaches() {
   chatMessages.length = 0;
   chatPresentationRevision += 1;
   duels.clear();
+  for (const cancel of [...cancelReplayLoads.values()]) cancel();
+  cancelReplayLoads.clear();
   duelReplays.clear();
   replayLoads.clear();
   sharedDragon = null;
@@ -1880,6 +2032,7 @@ function connect() {
       progressSaveInFlightUntil = 0;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
+      nearbyMovementUntil = 0;
       nextPositionSequence = 0;
       lastHpSent = null;
       lastHpSentAt = 0;
@@ -1971,77 +2124,90 @@ function connect() {
           return;
         }
 
-        conn.db.player.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayer(row); });
-        conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayer(row); });
-        conn.db.player.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayer(row); });
-        conn.db.playerMapMarker.onInsert((_ctx, row) => { if (isCurrentConnection()) { upsertMapPlayerMarker(row); onChange?.(); } });
-        conn.db.playerMapMarker.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) { upsertMapPlayerMarker(row); onChange?.(); } });
-        conn.db.playerMapMarker.onDelete((_ctx, row) => { if (isCurrentConnection()) { removeMapPlayerMarker(row); onChange?.(); } });
-        conn.db.playerProfile.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProfile(row); });
-        conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProfile(row); });
-        conn.db.devAccessAudit.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
-        conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertAccessAudit(row); });
-        conn.db.devAccessAudit.onDelete((_ctx, row) => { if (isCurrentConnection()) removeAccessAudit(row); });
-        conn.db.devBugReports.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertBugReport(row); });
-        conn.db.devBugReports.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertBugReport(row); });
-        conn.db.devBugReports.onDelete((_ctx, row) => { if (isCurrentConnection()) removeBugReport(row); });
-        conn.db.playerAccountStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
-        conn.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerAccountStatus(row); });
-        conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (isCurrentConnection()) removePlayerAccountStatus(row); });
-        conn.db.worldStatus.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertWorldStatus(row); });
-        conn.db.worldStatus.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertWorldStatus(row); });
-        conn.db.playerProgress.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertProgress(row); });
-        conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertProgress(row); });
-        conn.db.playerResearch.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertResearch(row); });
-        conn.db.playerResearch.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertResearch(row); });
-        conn.db.playerResearch.onDelete((_ctx, row) => { if (isCurrentConnection()) removeResearch(row); });
-        conn.db.activeResearch.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertActiveResearch(row); });
-        conn.db.activeResearch.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertActiveResearch(row); });
-        conn.db.activeResearch.onDelete((_ctx, row) => { if (isCurrentConnection()) removeActiveResearch(row); });
-        conn.db.playerLifetime.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
-        conn.db.playerLifetime.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertPlayerLifetime(row); });
-        conn.db.dragonBoss.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
-        conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDragonBoss(row); });
-        conn.db.dragonResult.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDragonResult(row); });
-        conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDragonResult(row); });
-        conn.db.spiderBoss.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertSpiderBoss(row); });
-        conn.db.spiderBoss.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertSpiderBoss(row); });
-        conn.db.spiderResult.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertSpiderResult(row); });
-        conn.db.spiderResult.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertSpiderResult(row); });
-        conn.db.chatMessage.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertChatMessage(row); });
-        conn.db.duel.onInsert((_ctx, row) => { if (isCurrentConnection()) upsertDuel(row); });
-        conn.db.duel.onUpdate((_ctx, _oldRow, row) => { if (isCurrentConnection()) upsertDuel(row); });
-        conn.db.duel.onDelete((_ctx, row) => { if (isCurrentConnection()) removeDuel(row); });
+        // SpacetimeDB fires an initial subscription's row callbacks after its
+        // onApplied callback. Hydrate once from the cache, then ignore that
+        // duplicate callback batch before accepting live row events.
+        let baseSubscriptionHydrating = true;
+        const shouldHandleTableEvent = () => isCurrentConnection() && !baseSubscriptionHydrating;
+        conn.db.player.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayer(row); });
+        conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertPlayer(row); });
+        conn.db.player.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removePlayer(row); });
+        // The frame renderer reads marker state directly. Keep this 1 Hz/map
+        // data lane out of the application-wide UI notification path.
+        conn.db.playerMapMarker.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMapPlayerMarker(row); });
+        conn.db.playerMapMarker.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMapPlayerMarker(row); });
+        conn.db.playerMapMarker.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeMapPlayerMarker(row); });
+        conn.db.playerProfile.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
+        conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
+        conn.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
+        conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
+        conn.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeAccessAudit(row); });
+        conn.db.devBugReports.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertBugReport(row); });
+        conn.db.devBugReports.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertBugReport(row); });
+        conn.db.devBugReports.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeBugReport(row); });
+        conn.db.playerAccountStatus.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerAccountStatus(row); });
+        conn.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertPlayerAccountStatus(row); });
+        conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removePlayerAccountStatus(row); });
+        conn.db.worldStatus.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertWorldStatus(row); });
+        conn.db.worldStatus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertWorldStatus(row); });
+        conn.db.localMovementDemand.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertLocalMovementDemand(row); });
+        conn.db.localMovementDemand.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeLocalMovementDemand(row); });
+        conn.db.playerProgress.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProgress(row); });
+        conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProgress(row); });
+        conn.db.playerResearch.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertResearch(row); });
+        conn.db.playerResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertResearch(row); });
+        conn.db.playerResearch.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeResearch(row); });
+        conn.db.activeResearch.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertActiveResearch(row); });
+        conn.db.activeResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertActiveResearch(row); });
+        conn.db.activeResearch.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeActiveResearch(row); });
+        conn.db.playerLifetime.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerLifetime(row); });
+        conn.db.playerLifetime.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertPlayerLifetime(row); });
+        conn.db.dragonBoss.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDragonBoss(row); });
+        conn.db.dragonBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDragonBoss(row); });
+        conn.db.dragonResult.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDragonResult(row); });
+        conn.db.dragonResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDragonResult(row); });
+        conn.db.spiderBoss.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertSpiderBoss(row); });
+        conn.db.spiderBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertSpiderBoss(row); });
+        conn.db.spiderResult.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertSpiderResult(row); });
+        conn.db.spiderResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertSpiderResult(row); });
+        conn.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertChatMessage(row); });
+        conn.db.duel.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDuel(row); });
+        conn.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDuel(row); });
+        conn.db.duel.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeDuel(row); });
 
         conn
         .subscriptionBuilder()
         .onApplied(() => {
           if (!isCurrentConnection()) return;
-          for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
-          for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
-          for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
-          for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
-          for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
-          for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
-          for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
-          for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
-          for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
-          for (const row of conn.db.player.iter()) upsertPlayer(row);
-          for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
-          for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
-          for (const row of conn.db.spiderBoss.iter()) upsertSpiderBoss(row);
-          for (const row of conn.db.spiderResult.iter()) upsertSpiderResult(row);
-          for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
-          for (const row of conn.db.duel.iter()) upsertDuel(row);
-          hydrationReady = true;
-          setWakeReconnectVisible(false);
-          setReconnectAfterServerUpdateVisible(false);
-          refreshMapPlayerSubscription(true);
-          refreshMapMarkerSubscription(true);
+          batchChanges(() => {
+            for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
+            for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
+            for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
+            for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
+            for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
+            for (const row of conn.db.localMovementDemand.iter()) upsertLocalMovementDemand(row);
+            for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
+            for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
+            for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
+            for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
+            for (const row of conn.db.player.iter()) upsertPlayer(row);
+            for (const row of conn.db.dragonBoss.iter()) upsertDragonBoss(row);
+            for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
+            for (const row of conn.db.spiderBoss.iter()) upsertSpiderBoss(row);
+            for (const row of conn.db.spiderResult.iter()) upsertSpiderResult(row);
+            for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
+            for (const row of conn.db.duel.iter()) upsertDuel(row);
+            hydrationReady = true;
+            setWakeReconnectVisible(false);
+            setReconnectAfterServerUpdateVisible(false);
+            refreshMapPlayerSubscription(true);
+            refreshMapMarkerSubscription(true);
+            sessionGeneration += 1;
+            onChange();
+          });
+          queueMicrotask(() => { baseSubscriptionHydrating = false; });
           void loadLeaderboardSnapshot();
-          sessionGeneration += 1;
           flushPendingProgress();
-          onChange?.();
         })
         .onError((ctx) => {
           if (!isCurrentConnection()) return;
@@ -2053,6 +2219,7 @@ function connect() {
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus,
           tables.worldStatus,
+          tables.localMovementDemand,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerResearch.where((research) => research.identity.eq(identity)),
           tables.activeResearch.where((research) => research.identity.eq(identity)),
@@ -2080,6 +2247,7 @@ function connect() {
       connectedSignedIn = false;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
+      nearbyMovementUntil = 0;
       nextPositionSequence = 0;
       lastHpSent = null;
       lastHpSentAt = 0;
@@ -2109,6 +2277,7 @@ function connect() {
       connectedSignedIn = false;
       lastPositionSentAt = 0;
       lastPositionMoving = false;
+      nearbyMovementUntil = 0;
       nextPositionSequence = 0;
       lastHpSent = null;
       lastHpSentAt = 0;
@@ -2159,7 +2328,7 @@ export const wildwoodCoop = {
   databaseName,
   connect,
   setOnChange(callback: (() => void) | null) {
-    onChange = callback;
+    changeListener = callback;
   },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);
@@ -2498,18 +2667,6 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
-  async claimResearch() {
-    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
-    if (!connection) return { ok: false, error: "NOT CONNECTED" };
-    try {
-      await connection.reducers.claimResearch({});
-      return { ok: true };
-    } catch (error) {
-      const message = reducerErrorMessage(error);
-      handleReducerFailure("research claim", error);
-      return { ok: false, error: message };
-    }
-  },
   async recordPlayerDeath() {
     if (protocolBlocked || !connection) return;
     try {
@@ -2555,8 +2712,12 @@ export const wildwoodCoop = {
   },
   saveProgress(progress: ProgressSave, immediate = false) {
     persistPendingProgress(progress);
-    progressSaveInFlightUntil = 0;
-    flushPendingProgress(immediate);
+    // Normal reward saves coalesce behind the periodic flush. Immediate saves
+    // are reserved for equipment and lifecycle boundaries where ordering matters.
+    if (immediate) {
+      progressSaveInFlightUntil = 0;
+      flushPendingProgress(true);
+    }
   },
   resetProgress() {
     if (protocolBlocked) return;
@@ -2606,7 +2767,12 @@ export const wildwoodCoop = {
     const opponent = profileIdentities.get(opponentIdentity);
     if (!opponent) return { ok: false, error: "PLAYER PROFILE UNAVAILABLE" };
     try {
-      await connection.reducers.requestDuel({ opponent });
+      // Equipment/stat changes must commit before the server freezes a duel
+      // snapshot, otherwise rapid equip -> duel can use the previous loadout.
+      if (!await drainPendingProgress()) return { ok: false, error: "SAVE STILL SYNCING · TRY AGAIN" };
+      const conn = connection;
+      if (!conn) return { ok: false, error: "NOT CONNECTED" };
+      await conn.reducers.requestDuel({ opponent });
       rememberDuelCooldown(Date.now() + DUEL_COOLDOWN_MS);
       return { ok: true };
     } catch (error) {
@@ -2634,12 +2800,14 @@ export const wildwoodCoop = {
     lastSpeedSent = speed;
     sendReducer("speed sync", () => connection?.reducers.setSpeed({ speed }));
   },
-  syncPosition(x: number, y: number, facing: number, moving = false, force = false, highFrequency = false) {
+  syncPosition(x: number, y: number, facing: number, moving = false, force = false, highFrequency = false, interestArea?: PlayerInterestArea) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
-    refreshMapPlayerSubscription();
+    refreshMapPlayerSubscription(false, interestArea);
     const now = performance.now();
+    if (highFrequency) nearbyMovementUntil = now + NEARBY_MOVEMENT_HOLD_MS;
+    const useNearbyRate = highFrequency || serverMovementDemand || now < nearbyMovementUntil;
     const movingChanged = moving !== lastPositionMoving;
-    const movementIntervalMs = highFrequency ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;
+    const movementIntervalMs = useNearbyRate ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;
     if (!force && !movingChanged && !moving) return;
     if (!force && !movingChanged && now - lastPositionSentAt < movementIntervalMs) return;
 
@@ -2649,13 +2817,15 @@ export const wildwoodCoop = {
     sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
   },
   syncHp(hp: number, hasNearbyRemotePlayer = false) {
-    if (protocolBlocked || !connection || !hasNearbyRemotePlayer || !Number.isFinite(hp)) return;
+    if (protocolBlocked || !connection || (!hasNearbyRemotePlayer && !serverMovementDemand) || !Number.isFinite(hp)) return;
     const now = performance.now();
     const elapsed = now - lastHpSentAt;
+    const hpDelta = lastHpSent === null ? Number.POSITIVE_INFINITY : Math.abs(lastHpSent - hp);
     // High regeneration can change HP by more than .5 every frame. Keep the
     // remote bar responsive without turning it into a 60 Hz server stream.
+    if (hpDelta < .01) return;
     if (lastHpSent !== null && elapsed < HP_SYNC_MIN_INTERVAL_MS) return;
-    if (lastHpSent !== null && Math.abs(lastHpSent - hp) < .5 && elapsed < HP_SYNC_IDLE_INTERVAL_MS) return;
+    if (lastHpSent !== null && hpDelta < .5 && elapsed < HP_SYNC_IDLE_INTERVAL_MS) return;
     lastHpSent = hp;
     lastHpSentAt = now;
     sendReducer("health sync", () => connection?.reducers.syncPlayerHp({ hp }));
@@ -2678,27 +2848,12 @@ export const wildwoodCoop = {
     for (const player of players.values()) {
       if (player.id === localIdentity) continue;
       const samples = player.samples;
-      const renderAt = now - REMOTE_INTERPOLATION_DELAY_MS;
-      let before = samples[0];
-      let after = samples[samples.length - 1];
-      for (let index = 1; index < samples.length; index += 1) {
-        if (samples[index].timelineAt >= renderAt) {
-          before = samples[index - 1];
-          after = samples[index];
-          break;
-        }
-      }
-      const latest = samples[samples.length - 1];
-
-      const span = Math.max(1, after.timelineAt - before.timelineAt);
-      const alpha = Math.max(0, Math.min(1, (renderAt - before.timelineAt) / span));
-      player.x = before.x + (after.x - before.x) * alpha;
-      player.y = before.y + (after.y - before.y) * alpha;
-      player.facing = before.facing + Math.atan2(
-        Math.sin(after.facing - before.facing),
-        Math.cos(after.facing - before.facing),
-      ) * alpha;
-      player.moving = alpha < 1 ? before.moving : after.moving;
+      const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
+      const motion = remoteMotionAt(samples, renderAt, player.speed);
+      player.x = motion.x;
+      player.y = motion.y;
+      player.facing = motion.facing;
+      player.moving = motion.moving;
       result.push(player);
     }
 
@@ -2755,6 +2910,19 @@ window.addEventListener("focus", () => reconnectAfterWake());
 window.setInterval(() => {
   if (!document.hidden && navigator.onLine && !connection?.isActive && !connecting) scheduleReconnect(100);
 }, 5_000);
+// Invisible developer observation is a short lease, not a permanent server
+// cost. A stationary visible tab renews it; moving tabs already send often.
+window.setInterval(() => {
+  if (
+    document.hidden ||
+    !connection?.isActive ||
+    !isDeveloperIdentity(localIdentity) ||
+    localPresenceVisible ||
+    !localState ||
+    performance.now() - lastPositionSentAt < MOVEMENT_OBSERVER_HEARTBEAT_MS
+  ) return;
+  wildwoodCoop.syncPosition(localState.x, localState.y, localState.facing, false, true);
+}, MOVEMENT_OBSERVER_HEARTBEAT_MS / 2);
 window.addEventListener("storage", (event) => {
   if (event.oldValue === event.newValue) return;
   if (event.key === accountTokenKey) {
