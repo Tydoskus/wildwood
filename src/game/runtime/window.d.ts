@@ -1,4 +1,5 @@
 import type { wildwoodCoop } from "../../wildwood-coop";
+import type { WildwoodNativeBridge } from "../../app/native-ads";
 
 declare global {
   interface Document {
@@ -12,6 +13,8 @@ declare global {
 
   interface Window {
     wildwoodCoop?: typeof wildwoodCoop;
+    /** Injected by the iOS/Android wrapper before game startup. */
+    wildwoodNative?: WildwoodNativeBridge;
   }
 }
 

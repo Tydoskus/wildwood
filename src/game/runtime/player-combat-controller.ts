@@ -43,7 +43,7 @@ export function createPlayerCombatController(options: {
   minAttackInterval: number;
   effectiveArmor: () => number;
   isDueling: () => boolean;
-  getGameTime: () => number;
+  scheduleEnemyRespawn: (site: SpawnSite) => void;
   incrementKills: () => void;
   damageDragon: (hits: number) => void;
   damageSpider: (hits: number) => void;
@@ -60,7 +60,7 @@ export function createPlayerCombatController(options: {
   const {
     player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss,
     isTutorialMap, isDesertMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
-    researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, getGameTime,
+    researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
     incrementKills, damageDragon, damageSpider, syncBossAttackPosition, spawnBurst,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
@@ -154,7 +154,7 @@ export function createPlayerCombatController(options: {
     enemy.dead = true;
     incrementKills();
     const site = spawnSites[enemy.siteId];
-    if (site) { site.alive = false; site.respawnAt = getGameTime() + 30; }
+    if (site) scheduleEnemyRespawn(site);
     const base = ENEMY_TYPES[enemy.type];
     applyReward(enemy.reward, enemy.x, enemy.y);
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);

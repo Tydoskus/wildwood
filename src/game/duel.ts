@@ -57,12 +57,6 @@ type DuelTimelineLimits = {
   opponentAttacks?: number;
 };
 
-export function duelStatLine(subject: string, attacks: number, damage: number, regen: number, blocked: number) {
-  return `<div class="duel-stat-row"><span class="duel-stat-name">${subject}</span><br>` +
-    `ATTACKED ${attacks} TIMES<br>DID ${Math.round(damage)} DMG<br>` +
-    `REGENERATED ${Math.round(regen)} HP<br>BLOCKED ${Math.round(blocked)} DMG</div>`;
-}
-
 /**
  * Reconstructs every projectile visible at this exact server-timed moment.
  * Used by both live duels and their replays so the same attacks appear.

@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.418" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.419" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -14,6 +14,10 @@
 <div id="sceneFade" aria-hidden="true" hidden></div>
 <div id="cutsceneOverlay" aria-hidden="true" hidden></div>
 <div id="reconnectOverlay" hidden role="status" aria-live="assertive"><span>RECONNECTING<span class="reconnect-ellipsis" aria-hidden="true"></span></span></div>
+<div id="browserRewardedAd" role="dialog" aria-modal="true" aria-labelledby="browserRewardedAdLabel" hidden>
+  <div id="browserRewardedAdLabel" class="browser-rewarded-ad-label">AD</div>
+  <div id="browserRewardedAdTimer" class="browser-rewarded-ad-timer" aria-live="polite">0:30</div>
+</div>
 
 <div id="hud">
   <div class="topbar">
@@ -123,13 +127,21 @@
   </div>
   <div id="message"></div>
   <div id="pickupLog"></div>
+  <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
+    <span class="respawn-ad-play" aria-hidden="true">▶</span>
+    <span class="respawn-ad-copy">
+      <strong>2× RESPAWN</strong>
+      <span id="enemyRespawnAdStatus">WATCH AD</span>
+    </span>
+  </button>
+  <div id="enemyRespawnBoostStatus" class="respawn-boost-status" role="timer" hidden>2x respawn: <span id="enemyRespawnBoostTimer">30:00</span>m</div>
   <div id="chatPanel" class="card">
     <div class="chat-header">
       <span>WORLD CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.418</div>
+        <div id="version">v0.419</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -189,13 +201,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.418</strong></div>
+        <div><strong id="updateNoticeTitle">v0.419</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.418</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.419</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -487,7 +499,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.418"></script>
-<script src="assets/wildwood/game.js?v=0.418"></script>
+<script src="assets/wildwood/coop-client.js?v=0.419"></script>
+<script src="assets/wildwood/game.js?v=0.419"></script>
 </body>
 </html>

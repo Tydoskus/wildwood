@@ -484,6 +484,77 @@
     transition: opacity .15s;
   }
 
+  .respawn-ad-button {
+    position: absolute;
+    top: calc(var(--hud-map-size) + 7px);
+    right: 4px;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: calc(var(--hud-map-size) - 8px);
+    min-height: 42px;
+    margin: 0;
+    padding: 3px 1px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #ffe36b;
+    font: 900 10px/1 var(--font-rounded);
+    letter-spacing: .045em;
+    filter: drop-shadow(0 0 3px rgba(255, 219, 73, .95)) drop-shadow(0 0 8px rgba(255, 153, 33, .72));
+    animation: respawn-ad-glow 1.55s ease-in-out infinite;
+    isolation: isolate;
+  }
+
+  .respawn-ad-button[hidden] { display: none; }
+  .respawn-ad-button:active { transform: translateY(1px) scale(.98); }
+  .respawn-ad-button:disabled { cursor: default; }
+  .respawn-ad-button[data-state="checking"],
+  .respawn-ad-button[data-state="waiting"],
+  .respawn-ad-button[data-state="showing"] { opacity: .68; animation: none; }
+
+  .respawn-ad-play {
+    display: grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    padding-left: 2px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    font: 900 10px/1 Arial, sans-serif;
+    -webkit-text-stroke: 0;
+    text-shadow: 0 0 5px currentColor;
+  }
+
+  .respawn-ad-copy { display: grid; justify-items: start; gap: 3px; white-space: nowrap; }
+  .respawn-ad-copy strong { font-size: 10px; line-height: 1; }
+  .respawn-ad-copy > span { color: #fff; font-size: 7px; line-height: 1; letter-spacing: .09em; }
+
+  .respawn-boost-status {
+    position: absolute;
+    top: calc(var(--hud-map-size) + 12px);
+    right: 4px;
+    z-index: 4;
+    width: calc(var(--hud-map-size) - 8px);
+    color: #72ef58;
+    font: 900 9px/1.2 var(--font-rounded);
+    letter-spacing: .025em;
+    text-align: center;
+    text-shadow: 0 0 4px rgba(114, 239, 88, .88), 1px 2px 0 #000;
+    pointer-events: none;
+  }
+
+  .respawn-boost-status[hidden] { display: none; }
+  .respawn-boost-status span { font-variant-numeric: tabular-nums; }
+
+  @keyframes respawn-ad-glow {
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(255, 219, 73, .72)) drop-shadow(0 0 6px rgba(255, 153, 33, .52)); transform: scale(.98); }
+    50% { filter: drop-shadow(0 0 5px rgba(255, 239, 128, 1)) drop-shadow(0 0 12px rgba(255, 153, 33, .9)); transform: scale(1.025); }
+  }
+
   #duelControls {
     position: absolute;
     top: calc(100% + 8px);
@@ -766,6 +837,27 @@
   .reconnect-ellipsis::after { content: "..."; display: inline-block; width: 0; overflow: hidden; vertical-align: bottom; animation: reconnect-ellipsis 1s steps(4, end) infinite; }
 
   @keyframes reconnect-ellipsis { to { width: 1.15em; } }
+
+  #browserRewardedAd {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 12px;
+    background: #000;
+    color: #fff;
+    pointer-events: auto;
+  }
+
+  #browserRewardedAd[hidden] { display: none; }
+  .browser-rewarded-ad-label { font-size: 15px; font-weight: 900; letter-spacing: .22em; }
+  .browser-rewarded-ad-timer { min-width: 4ch; font: 900 clamp(38px, 12vw, 76px)/1 var(--font-rounded); font-variant-numeric: tabular-nums; text-align: center; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .respawn-ad-button { animation: none; }
+  }
 
   .modal.game-update-modal { width: min(430px, calc(100vw - 28px)); }
   .game-update-modal h2 { margin: 8px 0 3px; color: var(--gold); font-size: clamp(22px, 6vw, 30px); }

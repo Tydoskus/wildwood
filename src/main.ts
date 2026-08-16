@@ -22,13 +22,14 @@ import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-ren
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_SCALE } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_SCALE } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
 import { createPlayerCombatController, type PlayerCombatController } from "./game/runtime/player-combat-controller";
 import { createPlayerInputController } from "./game/runtime/player-input-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
+import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
 import { createResearchController } from "./game/runtime/research-controller";
 import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
 import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
@@ -51,6 +52,7 @@ import { createTechTreeController } from "./ui/tech-tree-controller";
 import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
+import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
@@ -78,6 +80,7 @@ import {
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
     canvas, textCanvas, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
+    enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
@@ -141,6 +144,49 @@ import {
   let renderedDuelScene: DuelScene | null = null;
   let session: ReturnType<typeof createGameSessionController>;
   let duelRuntime!: ReturnType<typeof createDuelRuntime>;
+  const gameplayPauseReasons = new Set<string>();
+
+  function applyGameplayPauseState() {
+    if (!session?.isRunning()) return;
+    const shouldPause = gameplayPauseReasons.size > 0;
+    if (session.isPaused() === shouldPause) return;
+    session.setPaused(shouldPause);
+    if (!shouldPause) session.refreshFrameClock();
+  }
+
+  function setGameplayPause(reason: string, active: boolean) {
+    if (active) gameplayPauseReasons.add(reason);
+    else gameplayPauseReasons.delete(reason);
+    applyGameplayPauseState();
+  }
+
+  function readRespawnBoostExpiry() {
+    try {
+      const expiresAt = Number(localStorage.getItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY));
+      if (Number.isFinite(expiresAt) && expiresAt > Date.now()) return expiresAt;
+      localStorage.removeItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY);
+    } catch {}
+    return 0;
+  }
+
+  const regularEnemyRespawnBoost = createRegularEnemyRespawnBoost(
+    spawnSites,
+    () => session.gameTime(),
+    Date.now,
+    readRespawnBoostExpiry(),
+  );
+
+  function activateRewardedRespawnBoost() {
+    const activated = regularEnemyRespawnBoost.activate();
+    if (!activated) return false;
+    try { localStorage.setItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY, String(regularEnemyRespawnBoost.activeUntilMs())); } catch {}
+    return true;
+  }
+
+  function clearExpiredRespawnBoost() {
+    try { localStorage.removeItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY); } catch {}
+  }
+
   const duelSession = createDuelSessionController({
     activeDuel: () => duelRuntime.activeDuel(),
     isDueling: () => duelRuntime.isDueling(),
@@ -183,7 +229,7 @@ import {
     accountState: () => coop?.accountState?.(),
     signIn: () => { void coop?.signIn?.(); },
     signOut: () => { coop?.signOut?.(); },
-    canPlayMusic: () => session?.hasStarted() || session?.isRunning() || false,
+    canPlayMusic: () => (session?.hasStarted() || session?.isRunning() || false) && !gameplayPauseReasons.has("rewarded-ad"),
     onScreenShakeDisabled: () => { screenShake = 0; },
     onLowPerformanceChanged: () => { session.resetFrameSchedule(); },
     showMessage,
@@ -260,8 +306,8 @@ import {
     },
     saveProgress: () => saveProgress(),
     renderInventory,
-    pause: () => session.pause(),
-    resume: () => session.setPaused(false),
+    pause: () => setGameplayPause("boot-upgrade", true),
+    resume: () => setGameplayPause("boot-upgrade", false),
     bootUpgrade: bootUpgradeEl,
     bootUpgradeClose,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
@@ -332,7 +378,7 @@ import {
     minAttackInterval: MIN_ATTACK_INTERVAL,
     effectiveArmor,
     isDueling,
-    getGameTime: () => session.gameTime(),
+    scheduleEnemyRespawn: regularEnemyRespawnBoost.schedule,
     incrementKills: () => { totalKills += 1; },
     damageDragon: (hits) => coop?.damageDragon?.(hits),
     damageSpider: (hits) => coop?.damageSpider?.(hits),
@@ -753,6 +799,28 @@ import {
     tickTechTree: techTree.tick, refreshAppStatus: appShell.refreshStatus, updateProfileDuelButton: profileWindow.updateDuelButton,
   });
 
+  const rewardedRespawnAd = createRewardedRespawnAdController({
+    button: enemyRespawnAdBtn,
+    status: enemyRespawnAdStatus,
+    activeStatus: enemyRespawnBoostStatus,
+    activeTimer: enemyRespawnBoostTimer,
+    browserAd: browserRewardedAd,
+    browserAdTimer: browserRewardedAdTimer,
+  }, {
+    getNativeBridge: () => window.wildwoodNative,
+    activateBoost: activateRewardedRespawnBoost,
+    isBoostActive: regularEnemyRespawnBoost.isActive,
+    boostRemainingMs: regularEnemyRespawnBoost.remainingMs,
+    onBoostExpired: clearExpiredRespawnBoost,
+    setAdPlaybackActive: (active) => {
+      setGameplayPause("rewarded-ad", active);
+      if (active) mapMusic.audio.pause();
+      else appShell.ensureMusicPlaying();
+    },
+    showMessage,
+  });
+  rewardedRespawnAd.init();
+
   function closeUpdateNotice() {
     overlays.closeUpdateNotice();
   }
@@ -807,25 +875,13 @@ import {
     onLeaveDuelResult: () => { duelResultEl.hidden = true; playerController.finishDuelResult(); },
   });
 
-  let reconnectOverlayPausedGame = false;
   function refreshReconnectOverlay() {
     const reconnecting = Boolean(coop?.isReconnectingAfterWake?.());
     const waitingForServer = Boolean(coop?.accountState?.().updating);
     reconnectOverlayEl.hidden = !reconnecting || waitingForServer;
-    // Both full GAME UPDATING and compact RECONNECTING gates freeze simulation.
-    // Protocol rejection can raise only the former, so checking reconnecting
-    // alone would leave gameplay running invisibly behind the update screen.
-    if (reconnecting || waitingForServer) {
-      if (session.isRunning() && !session.isPaused()) {
-        session.setPaused(true);
-        reconnectOverlayPausedGame = true;
-      }
-      return;
-    }
-    if (!reconnectOverlayPausedGame) return;
-    reconnectOverlayPausedGame = false;
-    session.setPaused(false);
-    session.refreshFrameClock();
+    // Pause reasons compose: ending an ad, reward window, or reconnect cannot
+    // accidentally resume gameplay while another blocking surface remains.
+    setGameplayPause("connection-gate", reconnecting || waitingForServer);
   }
 
   startupCoordinator = createStartupCoordinator({
@@ -858,6 +914,7 @@ import {
 
   function startGame(markIntro = true, restoreServerPosition = true) {
     session.start(markIntro, restoreServerPosition);
+    applyGameplayPauseState();
   }
 
   function endGame() {
@@ -922,7 +979,7 @@ import {
     setTotalKills: (value: number) => { totalKills = value; },
     setBootsCollected: (collected: boolean) => { bootsPickup.collected = collected; },
     clearPlayerInput: playerInput.clear,
-    resetGame: () => { session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
+    resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
     stopGame: session.stop, startConnecting: startup.showConnecting, hideGameOver: startup.hideGameOver,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
     leaderboard, closeLeaderboard, devPanel, profileWindow,

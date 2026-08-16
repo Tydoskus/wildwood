@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.419": [
+    "A new glowing 2× Respawn button beneath the minimap grants 15-second regular-enemy respawns for 30 minutes after a rewarded ad.",
+    "Browsers use a 30-second black ad timer, earned boost time survives refreshes and app backgrounding, and native apps have a typed iOS/Android rewarded-ad bridge.",
+    "Duel victory and defeat overviews now compact-format attacks, damage, regeneration, and blocked damage.",
+  ],
   "0.418": [
     "Remote movement now uses camera-aware subscriptions, adaptive buffering, and a private observer signal so nearby players stay smooth even while the developer is invisible.",
     "Nearby health stays live without idle HP traffic; enemy reward saves now batch instead of sending a full progress row per kill.",

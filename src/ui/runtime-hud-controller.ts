@@ -1,5 +1,5 @@
-import { duelStatLine } from "../game/duel";
 import type { PlayerState, RuntimeDuelReplay, RuntimeDuelState } from "../game/runtime/types";
+import { createDuelResultStatRow } from "./duel-result";
 import { renderPlayerHud } from "./hud";
 
 type RuntimeHudElements = {
@@ -92,9 +92,10 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       : { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
     const won = replay.winnerName === localName;
     elements.duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : won ? "YOU WON" : "YOU LOST";
-    elements.duelResultStats.innerHTML =
-      duelStatLine("YOU", self.attacks, self.damage, self.regen, self.blocked) +
-      duelStatLine(other.name, other.attacks, other.damage, other.regen, other.blocked);
+    elements.duelResultStats.replaceChildren(
+      createDuelResultStatRow("YOU", self),
+      createDuelResultStatRow(other.name, other),
+    );
     elements.duelResult.hidden = false;
     elements.duelResult.dataset.replayId = String(replay.id);
     elements.watchDuelReplay.hidden = false;
@@ -102,7 +103,10 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
 
   function showDuelResultUnavailable() {
     elements.duelResultTitle.textContent = "DUEL COMPLETE";
-    elements.duelResultStats.innerHTML = '<div class="duel-stat-row">RESULT DETAILS UNAVAILABLE</div>';
+    const unavailable = document.createElement("div");
+    unavailable.className = "duel-stat-row";
+    unavailable.textContent = "RESULT DETAILS UNAVAILABLE";
+    elements.duelResultStats.replaceChildren(unavailable);
     elements.duelResult.hidden = false;
     elements.duelResult.dataset.replayId = "0";
     elements.watchDuelReplay.hidden = true;
