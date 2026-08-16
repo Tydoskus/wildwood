@@ -342,6 +342,7 @@ let protocolBlocked = false;
 let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
 let wakeReconnectVisible = false;
+let disconnectReconnectVisible = false;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
@@ -1769,6 +1770,12 @@ function setWakeReconnectVisible(visible: boolean) {
   onChange?.();
 }
 
+function setDisconnectReconnectVisible(visible: boolean) {
+  if (disconnectReconnectVisible === visible) return;
+  disconnectReconnectVisible = visible;
+  onChange?.();
+}
+
 function reconnectAfterWake(force = false) {
   if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
   const conn = connection;
@@ -2020,6 +2027,7 @@ function connect() {
           for (const row of conn.db.duel.iter()) upsertDuel(row);
           hydrationReady = true;
           setWakeReconnectVisible(false);
+          setDisconnectReconnectVisible(false);
           refreshMapPlayerSubscription(true);
           refreshMapMarkerSubscription(true);
           void loadLeaderboardSnapshot();
@@ -2057,6 +2065,7 @@ function connect() {
     })
     .onDisconnect((_ctx, error) => {
       if (generation !== connectionGeneration) return;
+      const hadActiveGame = hydrationReady;
       connecting = false;
       connection = null;
       hydrationReady = false;
@@ -2076,6 +2085,7 @@ function connect() {
         localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
       localActiveResearch = null;
       clearRealtimeCaches();
+      if (hadActiveGame) setDisconnectReconnectVisible(true);
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
@@ -2144,7 +2154,7 @@ export const wildwoodCoop = {
     return Boolean(connection?.isActive && hydrationReady);
   },
   isReconnectingAfterWake() {
-    return wakeReconnectVisible;
+    return wakeReconnectVisible || disconnectReconnectVisible;
   },
   latencyMs() {
     return latencyMs;

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.416": [
+    "A live server disconnect now freezes the game and shows GAME UPDATING · RECONNECTING until the new session fully hydrates, instead of leaving a playable-looking zero-player world.",
+  ],
   "0.415": [
     "Minimap player dots use one lightweight map-wide feed while full health and movement data stays limited to nearby players.",
     "Profiles load one leaderboard snapshot on spawn; reconnecting snapshot/profile requests now settle cleanly, and research timers recover from reset or account-link edge cases.",
