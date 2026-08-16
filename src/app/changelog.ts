@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.422": [
+    "Virtual-player startup now uses a private run ticket claimed through each bot's own confirmed connection, removing the cross-connection authorization race.",
+    "Bots now wait for reducers and initial subscriptions before launching the next client, retry transient failures three times, and slow the ramp automatically under load.",
+    "Active virtual players still send full movement, saves, and subscription traffic, while stop, disconnect, and maintenance cleanup remain automatic.",
+  ],
   "0.421": [
     "Remote players now show only name and power; removing live HP bars and HP uploads cuts an unnecessary realtime server lane.",
     "Developer load tests now accept 1–3,000 virtual players and enforce the limit with a constant-time owner counter instead of repeated full-table recounts.",

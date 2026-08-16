@@ -465,6 +465,14 @@ export const VirtualPlayerLoad = __t.object("VirtualPlayerLoad", {
 });
 export type VirtualPlayerLoad = __Infer<typeof VirtualPlayerLoad>;
 
+export const VirtualPlayerRun = __t.object("VirtualPlayerRun", {
+  owner: __t.identity(),
+  ticket: __t.string(),
+  maxCount: __t.u32(),
+  expiresAtMicros: __t.u64(),
+});
+export type VirtualPlayerRun = __Infer<typeof VirtualPlayerRun>;
+
 export const WorldStatus = __t.object("WorldStatus", {
   id: __t.u32(),
   onlinePlayers: __t.u32(),

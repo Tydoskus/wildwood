@@ -469,10 +469,11 @@ const virtualPlayerLoadTest = createVirtualPlayerLoadTest({
     x: localState?.x ?? PLAYER_SPAWN.x,
     y: localState?.y ?? PLAYER_SPAWN.y,
   }),
-  authorize: async (identity, mapId, x, y) => {
+  ownerIdentity: () => connection?.identity,
+  beginServerRun: async (ticket, maxCount) => {
     const conn = connection;
     if (!conn?.isActive || !isDeveloperIdentity(localIdentity)) throw new Error("DEVELOPER CONNECTION REQUIRED");
-    await conn.reducers.devAuthorizeVirtualPlayer({ identity, mapId, x, y });
+    await conn.reducers.devBeginVirtualPlayerLoadTest({ ticket, maxCount });
   },
   clearServerPlayers: async () => {
     const conn = connection;

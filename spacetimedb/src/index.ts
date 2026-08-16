@@ -2,7 +2,7 @@ import { schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
 import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
-import { VIRTUAL_PLAYER_LIMIT } from "../../shared/virtual-player-load-test";
+import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
 import {
   ATTACK_BALANCE_VERSION,
   BASIC_PAPER_HAT,
@@ -74,6 +74,7 @@ const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MAP_MARKER_INTERVAL_MICROS = 1_000_000n;
 const MOVEMENT_OBSERVER_ACTIVE_MICROS = 20_000_000n;
+const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const MODULE_MIGRATION_VERSION = 1;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 4;
@@ -414,6 +415,19 @@ const virtualPlayerLoad = table(
   },
 );
 
+// Developer creates one private capability before a load test. Bots consume it
+// from their own websocket, so authorization cannot race another connection's
+// lifecycle row under heavy load.
+const virtualPlayerRun = table(
+  { public: false },
+  {
+    owner: t.identity().primaryKey(),
+    ticket: t.string(),
+    maxCount: t.u32(),
+    expiresAtMicros: t.u64(),
+  },
+);
+
 const chatCooldown = table(
   { public: false },
   {
@@ -728,6 +742,7 @@ const spacetimedb = schema({
   playerController,
   virtualPlayer,
   virtualPlayerLoad,
+  virtualPlayerRun,
   chatCooldown,
   duelRequestCooldown,
   accountLink,
@@ -1580,6 +1595,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
 }
 
 function clearVirtualPlayersForOwner(ctx: any, owner: any) {
+  if (ctx.db.virtualPlayerRun.owner.find(owner)) ctx.db.virtualPlayerRun.owner.delete(owner);
   const identities = [...ctx.db.virtualPlayer.byOwner.filter(owner) as Iterable<any>]
     .map((registration: any) => registration.identity);
   if (!identities.length) {
@@ -1591,6 +1607,18 @@ function clearVirtualPlayersForOwner(ctx: any, owner: any) {
   reconcileOnlinePlayers(ctx);
   refreshLeaderboard(ctx);
   return true;
+}
+
+function clearExpiredVirtualPlayerRuns(ctx: any) {
+  for (const run of [...ctx.db.virtualPlayerRun.iter()] as Iterable<any>) {
+    const ownerActive = Boolean(
+      ctx.db.player.identity.find(run.owner) &&
+      ctx.db.playerController.identity.find(run.owner)
+    );
+    if (!ownerActive || ctx.timestamp.microsSinceUnixEpoch >= run.expiresAtMicros) {
+      ctx.db.virtualPlayerRun.owner.delete(run.owner);
+    }
+  }
 }
 
 function clearOrphanVirtualPlayers(ctx: any) {
@@ -2327,6 +2355,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
     clearOrphanVirtualPlayers(ctx);
+    clearExpiredVirtualPlayerRuns(ctx);
     reconcileOnlinePlayers(ctx);
     refreshPlayerMovementDemands(ctx);
     runPendingModuleMigrations(ctx);
@@ -2824,37 +2853,65 @@ export const setDeveloperPresence = spacetimedb.reducer(
   },
 );
 
-export const devAuthorizeVirtualPlayer = spacetimedb.reducer(
-  { identity: t.identity(), mapId: t.string(), x: t.f64(), y: t.f64() },
-  (ctx, { identity, mapId, x, y }) => {
+export const devBeginVirtualPlayerLoadTest = spacetimedb.reducer(
+  { ticket: t.string(), maxCount: t.u32() },
+  (ctx, { ticket, maxCount }) => {
     requireDeveloper(ctx);
-    if (sameIdentity(identity, ctx.sender)) throw new SenderError("Developer cannot become a virtual player.");
+    requireControllingPlayer(ctx);
+    if (!isVirtualPlayerTicket(ticket)) throw new SenderError("Invalid virtual-player ticket.");
+    if (maxCount < 1 || maxCount > VIRTUAL_PLAYER_LIMIT) {
+      throw new SenderError(`Virtual-player count must be between 1 and ${VIRTUAL_PLAYER_LIMIT}.`);
+    }
+
+    clearVirtualPlayersForOwner(ctx, ctx.sender);
+    ctx.db.virtualPlayerRun.insert({
+      owner: ctx.sender,
+      ticket,
+      maxCount,
+      expiresAtMicros: ctx.timestamp.microsSinceUnixEpoch + VIRTUAL_PLAYER_RUN_LIFETIME_MICROS,
+    });
+  },
+);
+
+export const joinVirtualPlayerLoadTest = spacetimedb.reducer(
+  { owner: t.identity(), ticket: t.string(), mapId: t.string(), x: t.f64(), y: t.f64() },
+  (ctx, { owner, ticket, mapId, x, y }) => {
+    const session = requireSupportedSessionProtocol(ctx);
+    if (sameIdentity(ctx.sender, owner) || isDeveloperIdentity(ctx.sender)) {
+      throw new SenderError("Developer cannot become a virtual player.");
+    }
+    if (session.enteredWorld) throw new SenderError("Virtual-player identity must be fresh.");
     if (!VALID_MAP_IDS.has(mapId)) throw new SenderError("Unsupported virtual-player map.");
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Virtual-player position must be finite.");
 
-    const existing = ctx.db.virtualPlayer.identity.find(identity);
-    if (existing && !sameIdentity(existing.owner, ctx.sender)) throw new SenderError("Virtual player belongs to another test.");
-    if (!existing) {
-      const activeCount = virtualPlayerCountForOwner(ctx, ctx.sender);
-      if (activeCount >= VIRTUAL_PLAYER_LIMIT) throw new SenderError(`Virtual-player limit is ${VIRTUAL_PLAYER_LIMIT}.`);
+    const run = ctx.db.virtualPlayerRun.owner.find(owner);
+    if (
+      !run ||
+      !isDeveloperIdentity(owner) ||
+      run.ticket !== ticket ||
+      ctx.timestamp.microsSinceUnixEpoch >= run.expiresAtMicros ||
+      !ctx.db.player.identity.find(owner) ||
+      !ctx.db.playerController.identity.find(owner)
+    ) throw new SenderError("Virtual-player test is no longer active.");
 
-      let connected = false;
-      for (const _session of ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>) {
-        connected = true;
-        break;
+    const existing = ctx.db.virtualPlayer.identity.find(ctx.sender);
+    if (existing && !sameIdentity(existing.owner, owner)) throw new SenderError("Virtual player belongs to another test.");
+    if (!existing) {
+      const activeCount = virtualPlayerCountForOwner(ctx, owner);
+      if (activeCount >= run.maxCount || activeCount >= VIRTUAL_PLAYER_LIMIT) {
+        throw new SenderError(`Virtual-player limit is ${Math.min(run.maxCount, VIRTUAL_PLAYER_LIMIT)}.`);
       }
-      if (!connected) throw new SenderError("Virtual-player client is not connected.");
       if (
-        ctx.db.player.identity.find(identity) ||
-        ctx.db.playerProfile.identity.find(identity) ||
-        ctx.db.playerProgress.identity.find(identity) ||
-        ctx.db.playerLifetime.identity.find(identity)
+        ctx.db.player.identity.find(ctx.sender) ||
+        ctx.db.playerProfile.identity.find(ctx.sender) ||
+        ctx.db.playerProgress.identity.find(ctx.sender) ||
+        ctx.db.playerLifetime.identity.find(ctx.sender)
       ) throw new SenderError("Virtual-player identity must be new.");
     }
 
     const registration = {
-      identity,
-      owner: ctx.sender,
+      identity: ctx.sender,
+      owner,
       mapId,
       spawnX: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x)),
       spawnY: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y)),
@@ -2863,7 +2920,7 @@ export const devAuthorizeVirtualPlayer = spacetimedb.reducer(
     if (existing) ctx.db.virtualPlayer.identity.update(registration);
     else {
       ctx.db.virtualPlayer.insert(registration);
-      adjustVirtualPlayerCount(ctx, ctx.sender, 1);
+      adjustVirtualPlayerCount(ctx, owner, 1);
     }
   },
 );

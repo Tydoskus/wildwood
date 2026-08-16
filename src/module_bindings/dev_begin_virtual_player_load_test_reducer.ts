@@ -11,8 +11,6 @@ import {
 } from "spacetimedb";
 
 export default {
-  identity: __t.identity(),
-  mapId: __t.string(),
-  x: __t.f64(),
-  y: __t.f64(),
+  ticket: __t.string(),
+  maxCount: __t.u32(),
 };

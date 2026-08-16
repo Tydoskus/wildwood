@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules";
-import { normalizeVirtualPlayerCount } from "../../../shared/virtual-player-load-test";
-import { advanceVirtualPlayerMotion } from "./virtual-player-load-test";
+import {
+  VIRTUAL_PLAYER_TICKET_HEX_LENGTH,
+  isVirtualPlayerTicket,
+  normalizeVirtualPlayerCount,
+} from "../../../shared/virtual-player-load-test";
+import {
+  advanceVirtualPlayerMotion,
+  virtualPlayerRampDelayMs,
+  virtualPlayerTicketFromBytes,
+} from "./virtual-player-load-test";
 
 describe("virtual-player count", () => {
   it("accepts any whole count from 1 through 3000", () => {
@@ -15,6 +23,26 @@ describe("virtual-player count", () => {
     expect(normalizeVirtualPlayerCount(3_001)).toBe(3_000);
     expect(normalizeVirtualPlayerCount(12.9)).toBe(12);
     expect(normalizeVirtualPlayerCount(Number.NaN)).toBe(10);
+  });
+});
+
+describe("virtual-player startup", () => {
+  it("encodes a fixed-size private capability", () => {
+    const ticket = virtualPlayerTicketFromBytes(Uint8Array.from({ length: 24 }, (_, index) => index));
+    expect(ticket).toHaveLength(VIRTUAL_PLAYER_TICKET_HEX_LENGTH);
+    expect(ticket.startsWith("00010203")).toBe(true);
+    expect(isVirtualPlayerTicket(ticket)).toBe(true);
+    expect(isVirtualPlayerTicket(ticket.toUpperCase())).toBe(false);
+    expect(() => virtualPlayerTicketFromBytes(new Uint8Array(23))).toThrow();
+  });
+
+  it("slows the sequential ramp for latency and repeated failures", () => {
+    expect(virtualPlayerRampDelayMs(100, 0)).toBe(75);
+    expect(virtualPlayerRampDelayMs(2_000, 0)).toBe(700);
+    expect(virtualPlayerRampDelayMs(100, 1)).toBe(250);
+    expect(virtualPlayerRampDelayMs(100, 2)).toBe(500);
+    expect(virtualPlayerRampDelayMs(100, 5)).toBe(2_000);
+    expect(virtualPlayerRampDelayMs(Number.NaN, Number.NaN)).toBe(75);
   });
 });
 

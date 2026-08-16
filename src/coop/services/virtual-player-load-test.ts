@@ -3,6 +3,7 @@ import type { Identity } from "spacetimedb";
 import {
   VIRTUAL_PLAYER_MOVEMENT_HZ,
   VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
+  VIRTUAL_PLAYER_TICKET_BYTES,
   normalizeVirtualPlayerCount,
 } from "../../../shared/virtual-player-load-test";
 import {
@@ -27,7 +28,11 @@ const MAP_ZONE_RADIUS = 2;
 const MAX_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_ZONE_SIZE);
 const MAX_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_ZONE_SIZE);
 const CONNECT_TIMEOUT_MS = 12_000;
-const SPAWN_RAMP_MS = 35;
+const SUBSCRIPTION_READY_TIMEOUT_MS = 8_000;
+const BOOTSTRAP_MAX_ATTEMPTS = 3;
+const BOOTSTRAP_RETRY_BASE_MS = 250;
+const SPAWN_RAMP_MIN_MS = 75;
+const SPAWN_RAMP_MAX_MS = 750;
 
 export type VirtualPlayerLoadTestPhase = "idle" | "starting" | "running" | "stopping";
 
@@ -68,10 +73,26 @@ type VirtualPlayerLoadTestDependencies = {
   host: string;
   databaseName: string;
   spawnContext: () => { mapId: string; x: number; y: number };
-  authorize: (identity: Identity, mapId: string, x: number, y: number) => Promise<void>;
+  ownerIdentity: () => Identity | undefined;
+  beginServerRun: (ticket: string, maxCount: number) => Promise<void>;
   clearServerPlayers: () => Promise<void>;
   onStateChange: () => void;
 };
+
+export function virtualPlayerTicketFromBytes(bytes: Uint8Array) {
+  if (bytes.length !== VIRTUAL_PLAYER_TICKET_BYTES) throw new Error("Unexpected virtual-player ticket length");
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+export function virtualPlayerRampDelayMs(bootstrapMs: number, consecutiveFailures: number) {
+  const safeBootstrapMs = Number.isFinite(bootstrapMs) ? Math.max(0, bootstrapMs) : 0;
+  const safeFailures = Number.isFinite(consecutiveFailures) ? Math.max(0, Math.floor(consecutiveFailures)) : 0;
+  const latencyDelay = Math.max(SPAWN_RAMP_MIN_MS, Math.min(SPAWN_RAMP_MAX_MS, Math.round(safeBootstrapMs * .35)));
+  const failureDelay = safeFailures > 0
+    ? Math.min(2_000, BOOTSTRAP_RETRY_BASE_MS * (2 ** Math.min(3, safeFailures - 1)))
+    : 0;
+  return Math.max(latencyDelay, failureDelay);
+}
 
 /** Pure random-walk step shared by runtime and boundary tests. */
 export function advanceVirtualPlayerMotion(
@@ -104,6 +125,16 @@ export function advanceVirtualPlayerMotion(
   }
 
   return { x, y, facing, moving, nextTurnAt };
+}
+
+function createVirtualPlayerTicket() {
+  const bytes = new Uint8Array(VIRTUAL_PLAYER_TICKET_BYTES);
+  globalThis.crypto.getRandomValues(bytes);
+  return virtualPlayerTicketFromBytes(bytes);
+}
+
+function waitForLoadTestRamp(delayMs: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
 }
 
 /**
@@ -166,9 +197,12 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     try { subscription.unsubscribe(); } catch {}
   }
 
-  function installNearbySubscription(bot: VirtualBot, mapId: string, force = false) {
+  function installNearbySubscription(bot: VirtualBot, mapId: string, force = false, onSettled?: (ready: boolean) => void) {
     const conn = bot.connection;
-    if (!conn?.isActive) return;
+    if (!conn?.isActive) {
+      onSettled?.(false);
+      return;
+    }
     const zoneX = Math.floor(bot.x / MAP_ZONE_SIZE);
     const zoneY = Math.floor(bot.y / MAP_ZONE_SIZE);
     const minZoneX = Math.max(0, zoneX - MAP_ZONE_RADIUS);
@@ -176,7 +210,10 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     const minZoneY = Math.max(0, zoneY - MAP_ZONE_RADIUS);
     const maxZoneY = Math.min(MAX_ZONE_Y, zoneY + MAP_ZONE_RADIUS);
     const zoneKey = `${mapId}:${minZoneX}:${maxZoneX}:${minZoneY}:${maxZoneY}`;
-    if (!force && bot.zoneKey === zoneKey) return;
+    if (!force && bot.zoneKey === zoneKey) {
+      onSettled?.(true);
+      return;
+    }
     bot.zoneKey = zoneKey;
 
     const previous = bot.nearbySubscription;
@@ -185,10 +222,12 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       .onApplied(() => {
         if (bot.nearbySubscription !== next) return;
         removeSubscription(bot, previous);
+        onSettled?.(true);
       })
       .onError(() => {
         if (bot.nearbySubscription === next) bot.nearbySubscription = previous;
         removeSubscription(bot, next);
+        onSettled?.(false);
       })
       .subscribe([tables.player.where((row) => row
         .mapId.eq(mapId)
@@ -203,45 +242,75 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
 
   function installSubscriptions(bot: VirtualBot, identity: Identity, mapId: string) {
     const conn = bot.connection;
-    if (!conn) return;
-    const core = conn.subscriptionBuilder().subscribe([
-      tables.player.where((row) => row.identity.eq(identity)),
-      tables.playerProfile,
-      tables.playerAccountStatus,
-      tables.worldStatus,
-      tables.localMovementDemand,
-      tables.playerProgress.where((row) => row.identity.eq(identity)),
-      tables.playerResearch.where((row) => row.identity.eq(identity)),
-      tables.activeResearch.where((row) => row.identity.eq(identity)),
-      tables.playerLifetime.where((row) => row.identity.eq(identity)),
-      tables.dragonBoss,
-      tables.dragonResult,
-      tables.spiderBoss,
-      tables.spiderResult,
-      tables.chatMessage,
-      tables.duel.where((row) => row.challenger.eq(identity)),
-    ]) as Subscription;
-    bot.subscriptions.push(core);
+    if (!conn) return Promise.reject(new Error("Virtual-player connection closed"));
+    return new Promise<void>((resolve, reject) => {
+      let remaining = 4;
+      let settled = false;
+      const timeout = window.setTimeout(() => fail(new Error("Virtual-player subscriptions timed out")), SUBSCRIPTION_READY_TIMEOUT_MS);
+      function ready() {
+        if (settled) return;
+        remaining -= 1;
+        if (remaining > 0) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        resolve();
+      }
+      function fail(error = new Error("Virtual-player subscription failed")) {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        reject(error);
+      }
 
-    const markers = conn.subscriptionBuilder().subscribe([
-      tables.playerMapMarker.where((row) => row.mapId.eq(mapId).and(row.isVisible.eq(true))),
-    ]) as Subscription;
-    bot.subscriptions.push(markers);
-    installNearbySubscription(bot, mapId, true);
+      const core = conn.subscriptionBuilder()
+        .onApplied(ready)
+        .onError(() => fail())
+        .subscribe([
+          tables.player.where((row) => row.identity.eq(identity)),
+          tables.playerProfile,
+          tables.playerAccountStatus,
+          tables.worldStatus,
+          tables.localMovementDemand,
+          tables.playerProgress.where((row) => row.identity.eq(identity)),
+          tables.playerResearch.where((row) => row.identity.eq(identity)),
+          tables.activeResearch.where((row) => row.identity.eq(identity)),
+          tables.playerLifetime.where((row) => row.identity.eq(identity)),
+          tables.dragonBoss,
+          tables.dragonResult,
+          tables.spiderBoss,
+          tables.spiderResult,
+          tables.chatMessage,
+          tables.duel.where((row) => row.challenger.eq(identity)),
+        ]) as Subscription;
+      bot.subscriptions.push(core);
 
-    // Real clients load one ranking snapshot after spawn, then release it.
-    let leaderboard: Subscription | null = null;
-    leaderboard = conn.subscriptionBuilder()
-      .onApplied(() => queueMicrotask(() => {
-        removeSubscription(bot, leaderboard);
-        leaderboard = null;
-      }))
-      .onError(() => {
-        removeSubscription(bot, leaderboard);
-        leaderboard = null;
-      })
-      .subscribe([tables.leaderboardEntry]) as Subscription;
-    bot.subscriptions.push(leaderboard);
+      const markers = conn.subscriptionBuilder()
+        .onApplied(ready)
+        .onError(() => fail())
+        .subscribe([
+          tables.playerMapMarker.where((row) => row.mapId.eq(mapId).and(row.isVisible.eq(true))),
+        ]) as Subscription;
+      bot.subscriptions.push(markers);
+      installNearbySubscription(bot, mapId, true, (applied) => applied ? ready() : fail());
+
+      // Real clients load one ranking snapshot after spawn, then release it.
+      let leaderboard: Subscription | null = null;
+      leaderboard = conn.subscriptionBuilder()
+        .onApplied(() => {
+          ready();
+          queueMicrotask(() => {
+            removeSubscription(bot, leaderboard);
+            leaderboard = null;
+          });
+        })
+        .onError(() => {
+          removeSubscription(bot, leaderboard);
+          leaderboard = null;
+          fail();
+        })
+        .subscribe([tables.leaderboardEntry]) as Subscription;
+      bot.subscriptions.push(leaderboard);
+    });
   }
 
   function disconnectBot(bot: VirtualBot) {
@@ -255,7 +324,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     }
   }
 
-  function failBot(bot: VirtualBot, runGeneration: number) {
+  function markBotFailed(bot: VirtualBot, runGeneration: number) {
     if (generation !== runGeneration || (phase !== "starting" && phase !== "running")) {
       disconnectBot(bot);
       return;
@@ -289,7 +358,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           facing: bot.facing,
           moving: bot.moving,
           sequence,
-        }).catch(() => failBot(bot, runGeneration));
+        }).catch(() => markBotFailed(bot, runGeneration));
 
         if (now < bot.nextSaveAt) continue;
         bot.nextSaveAt = now + SAVE_INTERVAL_MS * (.75 + Math.random() * .5);
@@ -312,15 +381,17 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           enemyKills: bot.enemyKills,
           equippedRightHand: STARTER_STONE,
           equippedLeftHand: "",
-        }).catch(() => failBot(bot, runGeneration));
+        }).catch(() => markBotFailed(bot, runGeneration));
       }
     }, MOVEMENT_INTERVAL_MS);
   }
 
-  function connectBot(bot: VirtualBot, runGeneration: number, mapId: string) {
+  function connectBotAttempt(bot: VirtualBot, runGeneration: number, mapId: string, owner: Identity, ticket: string) {
     return new Promise<boolean>((resolve) => {
       let settled = false;
       let timeout = 0;
+      let attemptConnection: DbConnection | null = null;
+      let attemptReady = false;
       const finish = (ready: boolean) => {
         if (settled) return;
         settled = true;
@@ -328,12 +399,12 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         resolve(ready);
       };
       timeout = window.setTimeout(() => {
-        failBot(bot, runGeneration);
         finish(false);
+        if (bot.connection === attemptConnection) disconnectBot(bot);
       }, CONNECT_TIMEOUT_MS);
 
       try {
-        bot.connection = DbConnection.builder()
+        attemptConnection = DbConnection.builder()
           .withUri(dependencies.host)
           .withDatabaseName(dependencies.databaseName)
           .onConnect((conn, identity) => {
@@ -347,7 +418,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
               try {
                 await conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
-                await dependencies.authorize(identity, mapId, bot.x, bot.y);
+                await conn.reducers.joinVirtualPlayerLoadTest({ owner, ticket, mapId, x: bot.x, y: bot.y });
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
                 await conn.reducers.enterWorld({ tabId: `load-test-${runGeneration}-${bot.index}` });
                 await Promise.all([
@@ -356,47 +427,92 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
                   conn.reducers.beginAdventure({}),
                 ]);
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
-                installSubscriptions(bot, identity, mapId);
+                await installSubscriptions(bot, identity, mapId);
+                if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
+                attemptReady = true;
                 bot.ready = true;
                 connected += 1;
                 notify();
                 finish(true);
               } catch {
-                failBot(bot, runGeneration);
                 finish(false);
+                if (bot.connection === attemptConnection) disconnectBot(bot);
               }
             })();
           })
           .onDisconnect(() => {
+            if (bot.connection !== attemptConnection) {
+              // An intentional stop clears bot.connection before the SDK emits
+              // disconnect. Settle an in-flight bootstrap immediately instead
+              // of leaving Start waiting for its 12-second timeout.
+              if (!settled) finish(false);
+              return;
+            }
             bot.connection = null;
             bot.subscriptions = [];
             bot.nearbySubscription = null;
-            if (bot.ready) {
+            if (!settled) {
+              bot.ready = false;
+              finish(false);
+              return;
+            }
+            if (attemptReady && bot.ready) {
               bot.ready = false;
               connected = Math.max(0, connected - 1);
             }
-            if (!bot.failed && (phase === "starting" || phase === "running")) {
+            if (attemptReady && !bot.failed && generation === runGeneration && (phase === "starting" || phase === "running")) {
               bot.failed = true;
               failures += 1;
+              notify();
             }
-            notify();
-            finish(false);
           })
           .onConnectError(() => {
-            failBot(bot, runGeneration);
             finish(false);
+            if (bot.connection === attemptConnection) disconnectBot(bot);
           })
           .build();
+        bot.connection = attemptConnection;
       } catch {
-        failBot(bot, runGeneration);
         finish(false);
+        if (bot.connection === attemptConnection) disconnectBot(bot);
       }
     });
+  }
+
+  async function connectBotWithRetry(bot: VirtualBot, runGeneration: number, mapId: string, owner: Identity, ticket: string) {
+    let totalBootstrapMs = 0;
+    for (let attempt = 0; attempt < BOOTSTRAP_MAX_ATTEMPTS; attempt += 1) {
+      if (generation !== runGeneration) return { ready: false, bootstrapMs: totalBootstrapMs };
+      bot.identity = null;
+      bot.sequence = 0;
+      bot.zoneKey = "";
+      bot.nearbySubscription = null;
+      const startedAt = performance.now();
+      const ready = await connectBotAttempt(bot, runGeneration, mapId, owner, ticket);
+      totalBootstrapMs += performance.now() - startedAt;
+      if (ready) return { ready: true, bootstrapMs: totalBootstrapMs };
+      if (generation !== runGeneration) return { ready: false, bootstrapMs: totalBootstrapMs };
+      if (attempt + 1 < BOOTSTRAP_MAX_ATTEMPTS) {
+        await waitForLoadTestRamp(BOOTSTRAP_RETRY_BASE_MS * (2 ** attempt));
+      }
+    }
+
+    if (!bot.failed) {
+      bot.failed = true;
+      failures += 1;
+      notify();
+    }
+    return { ready: false, bootstrapMs: totalBootstrapMs };
   }
 
   async function start(count: number) {
     if (phase !== "idle") return { ok: false, error: "VIRTUAL PLAYERS ALREADY ACTIVE" };
     const normalizedCount = normalizeVirtualPlayerCount(count);
+    const owner = dependencies.ownerIdentity();
+    if (!owner) return { ok: false, error: "DEVELOPER CONNECTION REQUIRED" };
+    let ticket = "";
+    try { ticket = createVirtualPlayerTicket(); }
+    catch { return { ok: false, error: "SECURE LOAD-TEST TICKET UNAVAILABLE" }; }
     phase = "starting";
     requested = normalizedCount;
     connected = 0;
@@ -406,24 +522,27 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     notify();
 
     try {
-      await dependencies.clearServerPlayers();
+      await dependencies.beginServerRun(ticket, normalizedCount);
     } catch (error) {
       phase = "idle";
       requested = 0;
       notify();
-      return { ok: false, error: error instanceof Error ? error.message : "VIRTUAL PLAYER CLEANUP FAILED" };
+      return { ok: false, error: error instanceof Error ? error.message : "VIRTUAL PLAYER TEST SETUP FAILED" };
     }
     if (generation !== runGeneration) return { ok: false, error: "VIRTUAL PLAYER START CANCELLED" };
 
     bots = Array.from({ length: normalizedCount }, (_, index) => createBot(spawn, index, normalizedCount));
     startTimers(runGeneration, spawn.mapId);
-    const pending: Promise<boolean>[] = [];
-    for (const bot of bots) {
+    let consecutiveFailures = 0;
+    for (let index = 0; index < bots.length; index += 1) {
       if (generation !== runGeneration) break;
-      pending.push(connectBot(bot, runGeneration, spawn.mapId));
-      await new Promise((resolve) => window.setTimeout(resolve, SPAWN_RAMP_MS));
+      const result = await connectBotWithRetry(bots[index], runGeneration, spawn.mapId, owner, ticket);
+      if (generation !== runGeneration) break;
+      consecutiveFailures = result.ready ? 0 : consecutiveFailures + 1;
+      if (index + 1 < bots.length) {
+        await waitForLoadTestRamp(virtualPlayerRampDelayMs(result.bootstrapMs, consecutiveFailures));
+      }
     }
-    await Promise.all(pending);
     if (generation !== runGeneration) return { ok: false, error: "VIRTUAL PLAYER START CANCELLED" };
 
     phase = connected > 0 ? "running" : "idle";
