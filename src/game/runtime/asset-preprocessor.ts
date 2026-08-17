@@ -2,6 +2,7 @@ import { loadDuelPlatformArt, loadDuelSpaceBackground } from "../duel";
 import { requiredCanvasContext } from "./dom";
 import { scheduleBackgroundTask, yieldToUser } from "./scheduler";
 import { loadTreeSpritesheet } from "../world";
+import { keepLargestFrameComponents, removeGreenPixels } from "./sprite-pixels";
 
 export type TreeSpriteBound = {
   x: number;
@@ -38,15 +39,12 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     greenThreshold: number,
     ratio: number,
     complete: () => void,
+    frameColumns = 0,
   ) {
     const pixels = context.getImageData(0, 0, width, height);
     if (!worker) {
-      for (let index = 0; index < pixels.data.length; index += 4) {
-        const red = pixels.data[index];
-        const green = pixels.data[index + 1];
-        const blue = pixels.data[index + 2];
-        if (green > greenThreshold && green > red * ratio && green > blue * ratio) pixels.data[index + 3] = 0;
-      }
+      removeGreenPixels(pixels.data, greenThreshold, ratio);
+      if (frameColumns > 1) keepLargestFrameComponents(pixels.data, width, height, frameColumns);
       context.putImageData(pixels, 0, 0);
       complete();
       return;
@@ -58,7 +56,16 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       complete();
     });
     scheduleBackgroundTask(() => {
-      worker.postMessage({ type: "removeGreen", requestId, pixels: pixels.data.buffer, greenThreshold, ratio }, [pixels.data.buffer]);
+      worker.postMessage({
+        type: "removeGreen",
+        requestId,
+        pixels: pixels.data.buffer,
+        width,
+        height,
+        greenThreshold,
+        ratio,
+        frameColumns,
+      }, [pixels.data.buffer]);
     });
   }
 
@@ -92,13 +99,15 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
 
   const frostclawSprite = new Image();
   const frostclawSpriteCanvas = document.createElement("canvas");
-  const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas);
+  const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas, { willReadFrequently: true });
   let frostclawReady = false;
   frostclawSprite.addEventListener("load", () => {
     frostclawSpriteCanvas.width = frostclawSprite.naturalWidth;
     frostclawSpriteCanvas.height = frostclawSprite.naturalHeight;
     frostclawSpriteContext.drawImage(frostclawSprite, 0, 0);
-    frostclawReady = true;
+    removeGreen(frostclawSpriteContext, frostclawSpriteCanvas.width, frostclawSpriteCanvas.height, 145, 1.45, () => {
+      frostclawReady = true;
+    }, 4);
   });
   frostclawSprite.src = "assets/wildwood/frostclaw-boss-spritesheet.png";
 

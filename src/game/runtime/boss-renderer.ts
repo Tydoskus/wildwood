@@ -158,7 +158,7 @@ export function createBossRenderer(options: {
     const y = Math.floor(frostclawBoss.y - camera.y);
     const frame = frostclawBoss.roar ? 2 : frostclawBoss.rift ? 1 : options.frostclawIcefalls.length ? 3 : Math.floor(options.gameTime() * 3.5) % 4;
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
-    options.drawShadow(x, y + 105, 215, .27);
+    options.drawShadow(x, y + 205, 215, .27);
     ctx.save(); ctx.translate(x, y + 2); ctx.scale(pulse, pulse);
     ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH); ctx.restore();
     const barW = 270; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 34; const ratio = clamp(frostclawBoss.hp / frostclawBoss.maxHp, 0, 1);

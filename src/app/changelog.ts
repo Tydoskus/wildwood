@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.429": [
+    "Frostclaw now uses crisp flat-shaded white pixel art, clean animation-frame seams, and a grounded shadow beneath his feet.",
+  ],
   "0.428": [
     "Frostclaw now guards the Intermediate Snowlands with Glacial Roar knockback, targeted Icefall, and three-lane Rift Claws attacks; defeating the third boss grants +15M damage, +50M max health, and +75K armor.",
     "Tiny pixel-art boss and portal indicators now mark key locations on every minimap, including locked portals and defeated bosses.",
