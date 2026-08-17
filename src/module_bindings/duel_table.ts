@@ -54,4 +54,6 @@ export default __t.row({
   opponentFeetItem: __t.string().name("opponent_feet_item"),
   opponentRightHandItem: __t.string().name("opponent_right_hand_item"),
   opponentLeftHandItem: __t.string().name("opponent_left_hand_item"),
+  challengerName: __t.string().name("challenger_name"),
+  opponentName: __t.string().name("opponent_name"),
 });

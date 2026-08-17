@@ -99,7 +99,8 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       identity,
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
-      name: identity === localId ? (hooks.localDisplayName() || "PLAYER") : remoteName(identity),
+      name: (isChallenger ? duel.challengerName : duel.opponentName)
+        || (identity === localId ? (hooks.localDisplayName() || "PLAYER") : remoteName(identity)),
       hp: duel.status === "finishing"
         ? isChallenger ? duel.challengerHp : duel.opponentHp
         : isChallenger ? presentation.state.challengerHp : presentation.state.opponentHp,

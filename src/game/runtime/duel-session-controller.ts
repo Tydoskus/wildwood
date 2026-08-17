@@ -70,7 +70,8 @@ export function createDuelSessionController(hooks: {
   function duelOpponentName(duel: RuntimeDuelState) {
     const opponentId = duel.challenger === hooks.localIdentity() ? duel.opponent : duel.challenger;
     const opponent = hooks.remotePlayers().find((other) => other.id === opponentId);
-    const name = opponent?.name || hooks.playerDisplayName(opponentId) || "OPPONENT";
+    const frozenName = duel.challenger === hooks.localIdentity() ? duel.opponentName : duel.challengerName;
+    const name = frozenName || opponent?.name || hooks.playerDisplayName(opponentId) || "OPPONENT";
     return hooks.publicPlayerName(opponentId, name);
   }
 

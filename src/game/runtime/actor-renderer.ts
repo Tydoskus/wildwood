@@ -152,7 +152,7 @@ export function createActorRenderer(options: {
     const x = Math.floor(actor.x - camera.x);
     const y = Math.floor(actor.y - camera.y);
     options.drawShadow(x, y + 29, 34, actor.isLocal ? .21 : .17);
-    drawPlayerSprite({ ...options.equipmentForIdentity(actor.identity), ...actor, x, y }, actor.isLocal ? 1 : .88);
+    drawPlayerSprite({ ...options.equipmentForIdentity(actor.identity), ...actor, x, y }, 1);
     options.drawStatus({
       x,
       y,

@@ -185,6 +185,8 @@ export type DuelState = {
   id: bigint;
   challenger: string;
   opponent: string;
+  challengerName: string;
+  opponentName: string;
   status: string;
   createdAtMs: number;
   startsAtMs: number;
@@ -1710,6 +1712,8 @@ function upsertDuel(row: {
   id: bigint;
   challenger: Identity;
   opponent: Identity;
+  challengerName: string;
+  opponentName: string;
   status: string;
   createdAt: { microsSinceUnixEpoch: bigint };
   startedAt: { microsSinceUnixEpoch: bigint };
@@ -1744,6 +1748,8 @@ function upsertDuel(row: {
     id: row.id,
     challenger: row.challenger.toHexString(),
     opponent: row.opponent.toHexString(),
+    challengerName: row.challengerName,
+    opponentName: row.opponentName,
     status: row.status,
     createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n),
     startsAtMs: Number(row.startsAtMicros / 1000n),

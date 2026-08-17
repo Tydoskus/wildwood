@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.434": [
+    "Live duels now carry both frozen player names, keeping arena nameplates and the duel HUD correct after nearby profile subscriptions change.",
+    "Live and replay duel combatants now render fully opaque instead of using translucent remote-player styling.",
+  ],
   "0.433": [
     "Profile stats now scroll inside the existing profile window height with the scrollbar hidden, preventing the Stats tab from stretching the window.",
   ],

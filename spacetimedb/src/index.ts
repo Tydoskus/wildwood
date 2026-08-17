@@ -657,6 +657,8 @@ const duel = table(
     opponentFeetItem: t.string().default(""),
     opponentRightHandItem: t.string().default(""),
     opponentLeftHandItem: t.string().default(""),
+    challengerName: t.string().default(""),
+    opponentName: t.string().default(""),
   },
 );
 
@@ -2424,8 +2426,8 @@ function finishDuel(ctx: any, current: any) {
     current.challengerOriginX,
     current.challengerOriginY,
   );
-  const challengerName = ctx.db.playerProfile.identity.find(current.challenger)?.displayName ?? "PLAYER";
-  const opponentName = ctx.db.playerProfile.identity.find(current.opponent)?.displayName ?? "PLAYER";
+  const challengerName = current.challengerName || ctx.db.playerProfile.identity.find(current.challenger)?.displayName || "PLAYER";
+  const opponentName = current.opponentName || ctx.db.playerProfile.identity.find(current.opponent)?.displayName || "PLAYER";
   const challengerWon = current.challengerHp > current.opponentHp;
   const opponentWon = current.opponentHp > current.challengerHp;
   const winnerName = challengerWon ? challengerName : opponentWon ? opponentName : "DRAW";
@@ -4051,8 +4053,9 @@ export const requestDuel = spacetimedb.reducer(
 
     const challengerProgress = ctx.db.playerProgress.identity.find(ctx.sender);
     const opponentProgress = ctx.db.playerProgress.identity.find(opponent);
+    const challengerProfile = ctx.db.playerProfile.identity.find(ctx.sender);
     const opponentProfile = ctx.db.playerProfile.identity.find(opponent);
-    if (!challengerProgress || !opponentProgress || !opponentProfile) throw new SenderError("Player profile unavailable.");
+    if (!challengerProgress || !opponentProgress || !challengerProfile || !opponentProfile) throw new SenderError("Player profile unavailable.");
     if (cooldown) ctx.db.duelRequestCooldown.identity.update({ ...cooldown, requestedAt: ctx.timestamp });
     else ctx.db.duelRequestCooldown.insert({ identity: ctx.sender, requestedAt: ctx.timestamp });
 
@@ -4107,6 +4110,8 @@ export const requestDuel = spacetimedb.reducer(
       opponentFeetItem: equippedFeetForProgress(opponentProgress),
       opponentRightHandItem,
       opponentLeftHandItem,
+      challengerName: challengerProfile.displayName,
+      opponentName: opponentProfile.displayName,
     });
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,

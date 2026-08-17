@@ -153,6 +153,8 @@ export const Duel = __t.object("Duel", {
   opponentFeetItem: __t.string(),
   opponentRightHandItem: __t.string(),
   opponentLeftHandItem: __t.string(),
+  challengerName: __t.string(),
+  opponentName: __t.string(),
 });
 export type Duel = __Infer<typeof Duel>;
 

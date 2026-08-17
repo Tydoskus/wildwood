@@ -214,6 +214,8 @@ export type RuntimeDuelState = {
   id: bigint;
   challenger: string;
   opponent: string;
+  challengerName: string;
+  opponentName: string;
   status: string;
   createdAtMs: number;
   startsAtMs: number;
