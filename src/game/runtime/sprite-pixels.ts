@@ -76,3 +76,60 @@ export function keepLargestFrameComponents(
     }
   }
 }
+
+/** Aligns atlas frames to a stable lower-body anchor so animation poses do not drift. */
+export function centerFramesOnGround(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  frameColumns: number,
+  anchorHeightRatio = .2,
+) {
+  if (!Number.isInteger(frameColumns) || frameColumns < 2 || width % frameColumns !== 0) return [];
+  const frameWidth = width / frameColumns;
+  const targetCenter = (frameWidth - 1) / 2;
+  const anchorTop = Math.floor(height * (1 - anchorHeightRatio));
+  const offsets: number[] = [];
+
+  for (let frame = 0; frame < frameColumns; frame += 1) {
+    const frameX = frame * frameWidth;
+    let left = frameWidth;
+    let right = -1;
+    const measure = (top: number) => {
+      for (let y = top; y < height; y += 1) {
+        for (let x = 0; x < frameWidth; x += 1) {
+          if (pixels[(y * width + frameX + x) * 4 + 3] === 0) continue;
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+        }
+      }
+    };
+    measure(anchorTop);
+    if (right < left) measure(0);
+    const offset = right < left ? 0 : Math.round(targetCenter - (left + right) / 2);
+    offsets.push(offset);
+    if (offset === 0) continue;
+
+    const aligned = new Uint8ClampedArray(frameWidth * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < frameWidth; x += 1) {
+        const source = (y * width + frameX + x) * 4;
+        if (pixels[source + 3] === 0) continue;
+        const targetX = x + offset;
+        if (targetX < 0 || targetX >= frameWidth) continue;
+        const target = (y * frameWidth + targetX) * 4;
+        aligned[target] = pixels[source];
+        aligned[target + 1] = pixels[source + 1];
+        aligned[target + 2] = pixels[source + 2];
+        aligned[target + 3] = pixels[source + 3];
+      }
+    }
+    for (let y = 0; y < height; y += 1) {
+      const sourceStart = y * frameWidth * 4;
+      const targetStart = (y * width + frameX) * 4;
+      pixels.set(aligned.subarray(sourceStart, sourceStart + frameWidth * 4), targetStart);
+    }
+  }
+
+  return offsets;
+}

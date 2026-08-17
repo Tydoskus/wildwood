@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.430": [
+    "Frostclaw animation frames now share a stable ground anchor, eliminating sideways drift while aligning his sprite, shadow, and nameplate with the collision position.",
+  ],
   "0.429": [
     "Frostclaw now uses crisp flat-shaded white pixel art, clean animation-frame seams, and a grounded shadow beneath his feet.",
   ],

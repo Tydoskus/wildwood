@@ -1,4 +1,4 @@
-import { keepLargestFrameComponents, removeGreenPixels } from "./sprite-pixels";
+import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels } from "./sprite-pixels";
 
 type TreeSpriteBound = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number };
 
@@ -72,6 +72,9 @@ workerScope.onmessage = ({ data }) => {
   }
   const pixels = new Uint8ClampedArray(data.pixels);
   removeGreenPixels(pixels, data.greenThreshold, data.ratio);
-  if (data.frameColumns > 1) keepLargestFrameComponents(pixels, data.width, data.height, data.frameColumns);
+  if (data.frameColumns > 1) {
+    keepLargestFrameComponents(pixels, data.width, data.height, data.frameColumns);
+    centerFramesOnGround(pixels, data.width, data.height, data.frameColumns);
+  }
   workerScope.postMessage({ type: "removeGreen", requestId: data.requestId, pixels: pixels.buffer }, [pixels.buffer as ArrayBuffer]);
 };

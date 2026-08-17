@@ -1,4 +1,12 @@
-import { BOSS_CONE_HALF_ANGLE, BOSS_CONE_RANGE, FROSTCLAW_RIFT_RANGE, FROSTCLAW_ROAR_RANGE, TAU } from "../constants";
+import {
+  BOSS_CONE_HALF_ANGLE,
+  BOSS_CONE_RANGE,
+  FROSTCLAW_RIFT_RANGE,
+  FROSTCLAW_ROAR_RANGE,
+  FROSTCLAW_SPRITE_GROUND_OFFSET,
+  FROSTCLAW_SPRITE_Y_OFFSET,
+  TAU,
+} from "../constants";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { Camera } from "./camera";
@@ -156,12 +164,13 @@ export function createBossRenderer(options: {
     const drawH = 440;
     const x = Math.floor(frostclawBoss.x - camera.x);
     const y = Math.floor(frostclawBoss.y - camera.y);
+    const visualY = y + FROSTCLAW_SPRITE_Y_OFFSET;
     const frame = frostclawBoss.roar ? 2 : frostclawBoss.rift ? 1 : options.frostclawIcefalls.length ? 3 : Math.floor(options.gameTime() * 3.5) % 4;
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
-    options.drawShadow(x, y + 205, 215, .27);
-    ctx.save(); ctx.translate(x, y + 2); ctx.scale(pulse, pulse);
+    options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, 215, .27);
+    ctx.save(); ctx.translate(x, visualY + 2); ctx.scale(pulse, pulse);
     ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH); ctx.restore();
-    const barW = 270; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 34; const ratio = clamp(frostclawBoss.hp / frostclawBoss.maxHp, 0, 1);
+    const barW = 270; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34; const ratio = clamp(frostclawBoss.hp / frostclawBoss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#17364b"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#42c9f5"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (frostclawBoss.hpLossFlashTimer > 0 && frostclawBoss.hpLossFlashFrom > frostclawBoss.hp) { const fromRatio = clamp(frostclawBoss.hpLossFlashFrom / frostclawBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(frostclawBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
     ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, barY + barH / 2, "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText("+15M DAMAGE", x, barY - 30, "#ff655a", 4); options.outlinedText("+50M MAX HEALTH", x, barY - 17, "#6fe48e", 4); options.outlinedText("+75K ARMOR", x, barY - 4, "#d3dbe0", 4); ctx.restore();

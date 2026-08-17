@@ -6,6 +6,7 @@ import {
   type MapId,
   type WorldDecor,
 } from "../world";
+import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET } from "../constants";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, PlayerState, SpiderBossState } from "./types";
 
@@ -112,7 +113,7 @@ export function createDepthWorldRenderer(options: {
       queueLayer(options.spiderBoss.y + 55, 1, "spider");
     }
     if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !options.frostclawBoss.dead) {
-      queueLayer(options.frostclawBoss.y + 105, 1, "frostclaw");
+      queueLayer(options.frostclawBoss.y + FROSTCLAW_SPRITE_Y_OFFSET + FROSTCLAW_SPRITE_GROUND_OFFSET, 1, "frostclaw");
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.bootsPickup.collected) {
       queueLayer(options.bootsPickup.y + options.bootsPickup.r, 1, "boots");
