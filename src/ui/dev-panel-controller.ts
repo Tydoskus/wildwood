@@ -1,6 +1,7 @@
 import { requiredElement } from "../game/runtime/dom";
 import type { PerformanceSnapshot } from "../game/runtime/performance-monitor";
 import {
+  BROWSER_VIRTUAL_PLAYER_LIMIT,
   VIRTUAL_PLAYER_DEFAULT,
   normalizeVirtualPlayerCount,
 } from "../../shared/virtual-player-load-test";
@@ -72,6 +73,8 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const virtualPlayerStatus = requiredElement("devVirtualPlayerStatus");
   const virtualPlayerCount = requiredElement<HTMLInputElement>("devVirtualPlayerCount");
   const virtualPlayerToggle = requiredElement<HTMLButtonElement>("devVirtualPlayerToggle");
+  virtualPlayerCount.max = String(BROWSER_VIRTUAL_PLAYER_LIMIT);
+  virtualPlayerCount.setAttribute("aria-label", `Browser virtual player count, 1 to ${BROWSER_VIRTUAL_PLAYER_LIMIT}`);
   virtualPlayerCount.value = String(VIRTUAL_PLAYER_DEFAULT);
   const bugRows = requiredElement("devBugReportRows");
   const bugEmpty = requiredElement("devBugReportEmpty");
@@ -113,7 +116,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     presenceToggle.setAttribute("aria-pressed", String(visible));
 
     const loadTest = dependencies.getVirtualPlayerLoadTest();
-    if (loadTest.phase === "idle") virtualPlayerStatus.textContent = "OFF · REAL CLIENT TRAFFIC";
+    if (loadTest.phase === "idle") virtualPlayerStatus.textContent = `OFF · BROWSER MAX ${BROWSER_VIRTUAL_PLAYER_LIMIT} · CLI FOR LARGE TESTS`;
     else if (loadTest.phase === "stopping") virtualPlayerStatus.textContent = "STOPPING · ERASING TEST DATA";
     else {
       const failures = loadTest.failures ? ` · ${loadTest.failures} FAILED` : "";
@@ -235,6 +238,10 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     }
 
     const count = normalizeVirtualPlayerCount(Number(virtualPlayerCount.value));
+    if (count > BROWSER_VIRTUAL_PLAYER_LIMIT) {
+      dependencies.showMessage(`BROWSER LIMIT ${BROWSER_VIRTUAL_PLAYER_LIMIT} · USE npm run loadtest:virtual`, "#ffdb84");
+      return;
+    }
     virtualPlayerCount.value = String(count);
     const pending = dependencies.startVirtualPlayers(count);
     renderControls();

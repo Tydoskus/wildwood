@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.431": [
+    "Large virtual-player tests now use a sharded Node runner with movement-only, realistic, and dense-zone modes, avoiding Chromium's roughly 255-WebSocket ceiling while the browser smoke test stays safely capped at 200.",
+    "Realtime frame publishing now tracks tiny per-map population rows and range-scans only movement changed since the previous tick instead of repeatedly scanning every motion and identity row.",
+    "Minimap frames stay exact through 256 visible players, then spatially aggregate into a bounded 16×16 marker grid so map-wide bandwidth no longer grows quadratically with full player count.",
+  ],
   "0.430": [
     "Frostclaw animation frames now share a stable ground anchor, eliminating sideways drift while aligning his sprite, shadow, and nameplate with the collision position.",
   ],

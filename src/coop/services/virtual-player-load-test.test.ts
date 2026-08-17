@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules";
 import {
+  BROWSER_VIRTUAL_PLAYER_LIMIT,
   VIRTUAL_PLAYER_TICKET_HEX_LENGTH,
   isVirtualPlayerTicket,
   normalizeVirtualPlayerCount,
@@ -25,6 +26,11 @@ describe("virtual-player count", () => {
     expect(normalizeVirtualPlayerCount(3_001)).toBe(3_000);
     expect(normalizeVirtualPlayerCount(12.9)).toBe(12);
     expect(normalizeVirtualPlayerCount(Number.NaN)).toBe(10);
+  });
+
+  it("keeps the in-browser harness below Chromium's socket ceiling", () => {
+    expect(BROWSER_VIRTUAL_PLAYER_LIMIT).toBe(200);
+    expect(BROWSER_VIRTUAL_PLAYER_LIMIT).toBeLessThan(255);
   });
 });
 

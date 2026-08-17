@@ -413,6 +413,7 @@ export const PlayerMotion = __t.object("PlayerMotion", {
   mapId: __t.string(),
   dx: __t.f32(),
   dy: __t.f32(),
+  isVisible: __t.bool(),
 });
 export type PlayerMotion = __Infer<typeof PlayerMotion>;
 
@@ -440,6 +441,13 @@ export const PlayerMotionIdentity = __t.object("PlayerMotionIdentity", {
   isGuest: __t.bool(),
 });
 export type PlayerMotionIdentity = __Infer<typeof PlayerMotionIdentity>;
+
+export const PlayerMotionMapState = __t.object("PlayerMotionMapState", {
+  mapId: __t.string(),
+  playerCount: __t.u32(),
+  visibleCount: __t.u32(),
+});
+export type PlayerMotionMapState = __Infer<typeof PlayerMotionMapState>;
 
 export const PlayerMovementDemand = __t.object("PlayerMovementDemand", {
   identity: __t.identity(),

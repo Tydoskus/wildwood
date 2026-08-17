@@ -1,4 +1,4 @@
-import { schema, SenderError, table, t } from "spacetimedb/server";
+import { Range, schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
 import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
@@ -7,6 +7,7 @@ import { legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
   PLAYER_MAP_FRAME_HZ,
   PLAYER_MOTION_FRAME_HZ,
+  compactPlayerMapSamples,
   encodePlayerMotionFrame,
   type PlayerMotionSample,
 } from "../../shared/player-motion-frame";
@@ -86,7 +87,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 2;
+const MODULE_MIGRATION_VERSION = 3;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 6;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -188,7 +189,7 @@ const playerMotion = table(
     y: t.f64(),
     facing: t.f64(),
     moving: t.bool(),
-    lastInputAt: t.timestamp(),
+    lastInputAt: t.timestamp().index("btree"),
     lastInputSequence: t.u32(),
     inputIntervalMicros: t.u64(),
     zoneX: t.i32(),
@@ -196,6 +197,18 @@ const playerMotion = table(
     mapId: t.string(),
     dx: t.f32().default(0),
     dy: t.f32().default(0),
+    isVisible: t.bool().default(true),
+  },
+);
+
+// Small private control plane for realtime publishers. Maintaining one row per
+// populated map avoids recounting every motion row at 10 Hz.
+const playerMotionMapState = table(
+  { public: false },
+  {
+    mapId: t.string().primaryKey(),
+    playerCount: t.u32(),
+    visibleCount: t.u32(),
   },
 );
 
@@ -900,6 +913,7 @@ const spacetimedb = schema({
   player,
   playerMapMarker,
   playerMotion,
+  playerMotionMapState,
   playerMotionIdentity,
   playerMotionFrame,
   playerMapFrame,
@@ -1058,6 +1072,7 @@ function runPendingModuleMigrations(ctx: any) {
       ctx.db.playerMovementDemand.identity.delete(demand.identity);
     }
   }
+  if (currentVersion < 3) rebuildPlayerMotionMapState(ctx);
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -1260,14 +1275,45 @@ function playerWithMotion(ctx: any, activePlayer: any) {
   };
 }
 
+function adjustPlayerMotionMapState(ctx: any, mapId: string, playerDelta: number, visibleDelta: number) {
+  const current = ctx.db.playerMotionMapState.mapId.find(mapId);
+  const playerCount = Math.max(0, (current?.playerCount ?? 0) + playerDelta);
+  const visibleCount = Math.max(0, Math.min(playerCount, (current?.visibleCount ?? 0) + visibleDelta));
+  if (playerCount === 0) {
+    if (current) ctx.db.playerMotionMapState.mapId.delete(mapId);
+    return;
+  }
+  const next = { mapId, playerCount, visibleCount };
+  if (current) ctx.db.playerMotionMapState.mapId.update(next);
+  else ctx.db.playerMotionMapState.insert(next);
+}
+
+function rebuildPlayerMotionMapState(ctx: any) {
+  for (const state of [...ctx.db.playerMotionMapState.iter()] as any[]) {
+    ctx.db.playerMotionMapState.mapId.delete(state.mapId);
+  }
+  const counts = new Map<string, { playerCount: number; visibleCount: number }>();
+  for (const motion of [...ctx.db.playerMotion.iter()] as any[]) {
+    const mapping = ctx.db.playerMotionIdentity.networkId.find(motion.networkId);
+    const player = ctx.db.player.identity.find(motion.identity);
+    const isVisible = mapping?.isVisible ?? player?.isVisible ?? motion.isVisible;
+    if (motion.isVisible !== isVisible) {
+      ctx.db.playerMotion.networkId.update({ ...motion, isVisible });
+    }
+    const current = counts.get(motion.mapId) ?? { playerCount: 0, visibleCount: 0 };
+    current.playerCount += 1;
+    if (isVisible) current.visibleCount += 1;
+    counts.set(motion.mapId, current);
+  }
+  for (const [mapId, count] of counts) {
+    ctx.db.playerMotionMapState.insert({ mapId, ...count });
+  }
+}
+
 function syncPlayerMotion(ctx: any, activePlayer: any) {
   const current = ctx.db.playerMotion.identity.find(activePlayer.identity);
-  let inputIntervalMicros = current?.inputIntervalMicros ?? 0n;
-  if (current && activePlayer.lastInputSequence > current.lastInputSequence) {
-    const interval = activePlayer.lastInputAt.microsSinceUnixEpoch - current.lastInputAt.microsSinceUnixEpoch;
-    inputIntervalMicros = interval > 0n ? interval : 0n;
-  }
   const moving = Boolean(activePlayer.moving);
+  const isVisible = activePlayer.isVisible !== false;
   const next = {
     networkId: current?.networkId ?? 0,
     identity: activePlayer.identity,
@@ -1277,16 +1323,27 @@ function syncPlayerMotion(ctx: any, activePlayer: any) {
     moving,
     lastInputAt: activePlayer.lastInputAt,
     lastInputSequence: activePlayer.lastInputSequence,
-    inputIntervalMicros,
+    // Physical compatibility column. No current client or publisher reads it.
+    inputIntervalMicros: 0n,
     zoneX: activePlayer.zoneX,
     zoneY: activePlayer.zoneY,
     mapId: activePlayer.mapId,
     dx: moving && Number.isFinite(activePlayer.dx) ? Math.max(-1, Math.min(1, activePlayer.dx)) : 0,
     dy: moving && Number.isFinite(activePlayer.dy) ? Math.max(-1, Math.min(1, activePlayer.dy)) : 0,
+    isVisible,
   };
-  return current
+  const stored = current
     ? ctx.db.playerMotion.networkId.update(next)
     : ctx.db.playerMotion.insert(next);
+  if (!current) {
+    adjustPlayerMotionMapState(ctx, next.mapId, 1, isVisible ? 1 : 0);
+  } else if (current.mapId !== next.mapId) {
+    adjustPlayerMotionMapState(ctx, current.mapId, -1, current.isVisible ? -1 : 0);
+    adjustPlayerMotionMapState(ctx, next.mapId, 1, isVisible ? 1 : 0);
+  } else if (current.isVisible !== isVisible) {
+    adjustPlayerMotionMapState(ctx, next.mapId, 0, isVisible ? 1 : -1);
+  }
+  return stored;
 }
 
 function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
@@ -1332,16 +1389,17 @@ function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
 
 function removePlayerRealtimeState(ctx: any, identity: any) {
   const motion = ctx.db.playerMotion.identity.find(identity);
-  if (motion) ctx.db.playerMotion.networkId.delete(motion.networkId);
+  if (motion) {
+    ctx.db.playerMotion.networkId.delete(motion.networkId);
+    adjustPlayerMotionMapState(ctx, motion.mapId, -1, motion.isVisible ? -1 : 0);
+  }
   const mapping = ctx.db.playerMotionIdentity.identity.find(identity);
   if (mapping) ctx.db.playerMotionIdentity.networkId.delete(mapping.networkId);
 }
 
 function sharedMapCounts(ctx: any) {
   const counts = new Map<string, number>();
-  for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
-    counts.set(motion.mapId, (counts.get(motion.mapId) ?? 0) + 1);
-  }
+  for (const state of ctx.db.playerMotionMapState.iter() as Iterable<any>) counts.set(state.mapId, state.playerCount);
   return counts;
 }
 
@@ -1353,7 +1411,7 @@ function hasSharedMap(ctx: any) {
 function hasMovingBatchedMap(ctx: any) {
   const counts = sharedMapCounts(ctx);
   for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
-    if (motion.moving && (counts.get(motion.mapId) ?? 0) > DIRECT_MOTION_PLAYER_LIMIT) return true;
+    if (motion.moving && motion.isVisible && (counts.get(motion.mapId) ?? 0) > DIRECT_MOTION_PLAYER_LIMIT) return true;
   }
   return false;
 }
@@ -1364,21 +1422,14 @@ function activeMotionSchedule(ctx: any) {
 }
 
 function boundedMapPopulation(ctx: any, mapId: string) {
-  let count = 0;
-  for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
-    if (motion.mapId !== mapId) continue;
-    count += 1;
-    if (count > DIRECT_MOTION_PLAYER_LIMIT) break;
-  }
-  return count;
+  return ctx.db.playerMotionMapState.mapId.find(mapId)?.playerCount ?? 0;
 }
 
 function publishOrScheduleMotion(ctx: any, motion: any, isVisible: boolean) {
-  if (!motion.moving || activeMotionSchedule(ctx)) return;
+  if (!motion.moving || !isVisible || activeMotionSchedule(ctx)) return;
   const population = boundedMapPopulation(ctx, motion.mapId);
   if (population < 2) return;
   if (population <= DIRECT_MOTION_PLAYER_LIMIT) {
-    if (!isVisible) return;
     const sample = motionSample(motion);
     ctx.db.playerMotionFrame.insert({
       mapId: motion.mapId,
@@ -1665,6 +1716,13 @@ function isDatabaseOwnerIdentity(identity: any) {
 
 function isVirtualPlayer(ctx: any, identity: any) {
   return Boolean(ctx.db.virtualPlayer.identity.find(identity));
+}
+
+function requireDeveloperSession(ctx: any) {
+  requireSupportedSessionProtocol(ctx);
+  if (!isDeveloperIdentity(ctx.sender) || !hasSpacetimeAuthAccount(ctx)) {
+    throw new SenderError("Developer access required.");
+  }
 }
 
 function requireDeveloper(ctx: any) {
@@ -2759,6 +2817,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureSpiderBoss(ctx);
   ensureFrostclawBoss(ctx);
   ensureWorldStatus(ctx);
+  runPendingModuleMigrations(ctx);
 
   if (!ctx.connectionId) return;
   const existingSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
@@ -2843,20 +2902,18 @@ export const publishMotionFrames = spacetimedb.reducer(
   { schedule: motionFrameSchedule.rowType },
   (ctx, { schedule }) => {
     const mapCounts = sharedMapCounts(ctx);
-    const visibleNetworkIds = new Set<number>();
-    for (const mapping of ctx.db.playerMotionIdentity.iter() as Iterable<any>) {
-      if (mapping.isVisible) visibleNetworkIds.add(mapping.networkId);
-    }
-
     const zones = new Map<string, { mapId: string; zoneX: number; zoneY: number; samples: PlayerMotionSample[] }>();
-    for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
+    const changedSinceLastTick = new Range(
+      { tag: "excluded", value: new Timestamp(schedule.previousTickMicros) },
+      { tag: "included", value: ctx.timestamp },
+    );
+    for (const motion of ctx.db.playerMotion.lastInputAt.filter(changedSinceLastTick) as Iterable<any>) {
       const mapPopulation = mapCounts.get(motion.mapId) ?? 0;
       const sharedMap = mapPopulation > 1;
       if (
         !motion.moving ||
-        motion.lastInputAt.microsSinceUnixEpoch <= schedule.previousTickMicros ||
         !sharedMap ||
-        !visibleNetworkIds.has(motion.networkId)
+        !motion.isVisible
       ) continue;
       const key = `${motion.mapId}:${motion.zoneX}:${motion.zoneY}`;
       const zone = zones.get(key) ?? {
@@ -2904,27 +2961,23 @@ export const publishMapFrames = spacetimedb.reducer(
         break;
       }
     }
-    const visibleNetworkIds = new Set<number>();
-    for (const mapping of ctx.db.playerMotionIdentity.iter() as Iterable<any>) {
-      if (mapping.isVisible) visibleNetworkIds.add(mapping.networkId);
-    }
-
     const maps = new Map<string, PlayerMotionSample[]>();
     // Emit one final single-player/empty-visible snapshot before stopping so
     // clients clear dots belonging to players who just left or hid.
     for (const [mapId, count] of mapCounts) if (count > 0) maps.set(mapId, []);
     for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
-      if (!visibleNetworkIds.has(motion.networkId)) continue;
+      if (!motion.isVisible) continue;
       const samples = maps.get(motion.mapId) ?? [];
       samples.push(motionSample(motion));
       maps.set(motion.mapId, samples);
     }
     for (const [mapId, samples] of maps) {
+      const compacted = compactPlayerMapSamples(samples, WORLD.width, WORLD.height);
       ctx.db.playerMapFrame.insert({
         mapId,
         emittedAt: ctx.timestamp,
-        playerCount: samples.length,
-        payload: encodePlayerMotionFrame(samples),
+        playerCount: compacted.length,
+        payload: encodePlayerMotionFrame(compacted),
       });
     }
 
@@ -3541,8 +3594,12 @@ export const setDeveloperPresence = spacetimedb.reducer(
 export const devBeginVirtualPlayerLoadTest = spacetimedb.reducer(
   { ticket: t.string(), maxCount: t.u32() },
   (ctx, { ticket, maxCount }) => {
-    requireDeveloper(ctx);
-    requireControllingPlayer(ctx);
+    // The external Node load generator authenticates as the developer without
+    // taking player control away from the open game tab.
+    requireDeveloperSession(ctx);
+    if (!ctx.db.player.identity.find(ctx.sender) || !ctx.db.playerController.identity.find(ctx.sender)) {
+      throw new SenderError("Keep the developer game session open during a virtual-player test.");
+    }
     if (!isVirtualPlayerTicket(ticket)) throw new SenderError("Invalid virtual-player ticket.");
     if (maxCount < 1 || maxCount > VIRTUAL_PLAYER_LIMIT) {
       throw new SenderError(`Virtual-player count must be between 1 and ${VIRTUAL_PLAYER_LIMIT}.`);
@@ -3613,7 +3670,7 @@ export const joinVirtualPlayerLoadTest = spacetimedb.reducer(
 export const devClearVirtualPlayers = spacetimedb.reducer(
   {},
   (ctx) => {
-    requireDeveloper(ctx);
+    requireDeveloperSession(ctx);
     clearVirtualPlayersForOwner(ctx, ctx.sender);
   },
 );

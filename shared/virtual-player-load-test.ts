@@ -3,6 +3,9 @@
 export const VIRTUAL_PLAYER_MIN = 1;
 export const VIRTUAL_PLAYER_LIMIT = 3_000;
 export const VIRTUAL_PLAYER_DEFAULT = 10;
+// Chromium limits same-group WebSockets to roughly 255. Leave room for the
+// game, devtools, and reconnects; larger tests belong in the Node runner.
+export const BROWSER_VIRTUAL_PLAYER_LIMIT = 200;
 // Expected steady moving ingress after sparse state-change + heartbeat gating.
 export const VIRTUAL_PLAYER_MOVEMENT_HZ = 1;
 export const VIRTUAL_PLAYER_SAVE_INTERVAL_MS = 2_500;

@@ -1,6 +1,7 @@
 import { DbConnection, tables } from "../../module_bindings";
 import type { Identity } from "spacetimedb";
 import {
+  BROWSER_VIRTUAL_PLAYER_LIMIT,
   VIRTUAL_PLAYER_MOVEMENT_HZ,
   VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
   VIRTUAL_PLAYER_TICKET_BYTES,
@@ -549,6 +550,9 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
   async function start(count: number) {
     if (phase !== "idle") return { ok: false, error: "VIRTUAL PLAYERS ALREADY ACTIVE" };
     const normalizedCount = normalizeVirtualPlayerCount(count);
+    if (normalizedCount > BROWSER_VIRTUAL_PLAYER_LIMIT) {
+      return { ok: false, error: `BROWSER TEST LIMIT ${BROWSER_VIRTUAL_PLAYER_LIMIT} · USE npm run loadtest:virtual` };
+    }
     const owner = dependencies.ownerIdentity();
     if (!owner) return { ok: false, error: "DEVELOPER CONNECTION REQUIRED" };
     let ticket = "";

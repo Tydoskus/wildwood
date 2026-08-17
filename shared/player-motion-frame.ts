@@ -12,6 +12,10 @@ export const PLAYER_MOTION_FRAME_HZ = 10;
 export const PLAYER_MAP_FRAME_HZ = 1;
 export const PLAYER_MOTION_SAMPLE_BYTES = 11;
 export const PLAYER_POSITION_SCALE = 10;
+// The minimap is roughly 120 CSS pixels wide and draws five-pixel player dots.
+// More than a 16x16 grid of exact markers is visually redundant, so large maps
+// transmit one centroid per occupied cell instead of one sample per player.
+export const PLAYER_MAP_FRAME_MAX_SAMPLES = 256;
 
 const UINT16_MAX = 0xffff;
 const UINT32_MAX = 0xffffffff;
@@ -25,9 +29,69 @@ export type PlayerMotionSample = {
   moving: boolean;
 };
 
+type MapSampleBucket = {
+  key: number;
+  networkId: number;
+  x: number;
+  y: number;
+  count: number;
+};
+
 function boundedInteger(value: number, maximum: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(maximum, Math.round(value)));
+}
+
+/**
+ * Keeps exact minimap markers at normal populations and spatially aggregates
+ * large maps into a bounded grid. Runtime movement frames remain exact.
+ */
+export function compactPlayerMapSamples(
+  samples: readonly PlayerMotionSample[],
+  worldWidth: number,
+  worldHeight: number,
+  maximum = PLAYER_MAP_FRAME_MAX_SAMPLES,
+): readonly PlayerMotionSample[] {
+  const limit = Number.isFinite(maximum) ? Math.max(1, Math.floor(maximum)) : PLAYER_MAP_FRAME_MAX_SAMPLES;
+  if (samples.length <= limit) return samples;
+  if (!(worldWidth > 0) || !(worldHeight > 0)) return samples.slice(0, limit);
+
+  const aspect = worldWidth / worldHeight;
+  const columns = Math.max(1, Math.min(limit, Math.floor(Math.sqrt(limit * aspect))));
+  const rows = Math.max(1, Math.floor(limit / columns));
+  const buckets = new Map<number, MapSampleBucket>();
+
+  for (const sample of samples) {
+    const column = Math.max(0, Math.min(columns - 1, Math.floor(sample.x / worldWidth * columns)));
+    const row = Math.max(0, Math.min(rows - 1, Math.floor(sample.y / worldHeight * rows)));
+    const key = row * columns + column;
+    const bucket = buckets.get(key);
+    if (!bucket) {
+      buckets.set(key, {
+        key,
+        networkId: sample.networkId,
+        x: sample.x,
+        y: sample.y,
+        count: 1,
+      });
+      continue;
+    }
+    bucket.networkId = Math.min(bucket.networkId, sample.networkId);
+    bucket.x += sample.x;
+    bucket.y += sample.y;
+    bucket.count += 1;
+  }
+
+  return [...buckets.values()]
+    .sort((a, b) => a.key - b.key)
+    .map((bucket) => ({
+      networkId: bucket.networkId,
+      x: bucket.x / bucket.count,
+      y: bucket.y / bucket.count,
+      dx: 0,
+      dy: 0,
+      moving: false,
+    }));
 }
 
 export function encodePlayerMotionFrame(samples: readonly PlayerMotionSample[]) {

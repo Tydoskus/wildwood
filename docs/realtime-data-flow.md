@@ -89,7 +89,9 @@ Scheduled workflows require a repair path. A missing callback, account transfer,
 ```mermaid
 flowchart LR
   Dev["Authenticated developer"] --> Authorize["authorize fresh bot identity"]
-  Browser["Anonymous bot websocket"] --> Protocol["register protocol + enter world"]
+  Coordinator["Node coordinator · account token"] --> Authorize
+  Workers["1–15 Node worker processes"] --> Browser["Anonymous bot websockets · max 200/process"]
+  Browser --> Protocol["register protocol + enter world"]
   Authorize --> Protocol
   Protocol --> Subs["core + nearby-frame + map-frame subscriptions"]
   Protocol --> Move["update_movement_state · changes + ~1 Hz heartbeat"]
@@ -102,7 +104,9 @@ flowchart LR
 
 - Bots must use real connections and normal reducers. Server-side row animation does not measure websocket ingress, reducer acknowledgement, or per-client subscription fanout.
 - Authorization accepts only a connected, fresh anonymous identity and caps the test at 3,000 bots. An owner counter enforces that limit in O(1) per bot; never recount the full bot table during startup.
-- A developer creates one private random capability per run. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Startup uses a bounded 16-client pool, waits for each client's reducers and normal join subscriptions, and backs off on latency or transient failures before counting a bot as failed. Bots do not load the on-demand leaderboard during startup.
+- The browser harness is capped at 200 connections because Chromium limits same-group WebSockets to roughly 255. Large tests use `npm run loadtest:virtual`; automatic sharding keeps at most 200 sockets in each Node process.
+- A developer creates one private random capability per run. Node workers receive that capability but never the developer token. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Bots do not load the on-demand leaderboard during startup.
+- Test modes separate costs: `movement` has no subscriptions or saves, `realistic` uses normal subscriptions and saves, and `dense` deliberately concentrates full clients into one zone with rapid steering.
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 
@@ -119,7 +123,7 @@ With `N` clustered movers, direct public row updates create roughly `movement Hz
 
 Direction transitions add traffic only when they carry new information. Touch steering may legitimately rise to 3–6/s, or 8–10/s during tight turns. Camera-zone interest still bounds viewer × actor delivery cost.
 
-The 1 Hz minimap remains intentionally map-wide. At extreme synthetic counts, its payload is still viewers × map population. If real maps approach thousands of concurrent players, replace exact far-player dots with capped samples, density cells, or party/friend-only markers.
+The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible players. Above that threshold, the server emits at most 256 spatial centroids. At 3,000 viewers the compact payload is therefore bounded near 8.45 MB/s before protocol overhead instead of 99 MB/s. Runtime zone movement remains exact.
 
 ## Server authority boundary
 
