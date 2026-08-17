@@ -27,7 +27,7 @@ describe("enemy simulation LOD", () => {
     const far = idleEnemyAt(3_000, 3_000);
     const player = playerAt(100, 100);
     const simulation = createEnemySimulation(
-      [near, far], [], player, () => ({ width: 320, height: 600, zoom: 1 }), () => {}, () => false,
+      [near, far], () => {}, player, () => ({ width: 320, height: 600, zoom: 1 }), () => {}, () => false,
     );
 
     simulation.update(1 / 60);
@@ -35,5 +35,18 @@ describe("enemy simulation LOD", () => {
     expect(near.phase).toBeCloseTo(.05);
     expect(far.phase).toBe(0);
     expect(far.idleUpdateElapsed).toBeCloseTo(1 / 60);
+  });
+
+  it("separates overlapping enemies across a grid-cell boundary", () => {
+    const left = idleEnemyAt(127, 200);
+    const right = idleEnemyAt(130, 200);
+    right.siteId = 2;
+    const simulation = createEnemySimulation(
+      [left, right], () => {}, playerAt(300, 300), () => ({ width: 600, height: 600, zoom: 1 }), () => {}, () => false,
+    );
+
+    simulation.update(1 / 60);
+
+    expect(Math.hypot(right.x - left.x, right.y - left.y)).toBeCloseTo((left.r + right.r) * .72);
   });
 });

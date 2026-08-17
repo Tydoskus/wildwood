@@ -8,12 +8,14 @@ import {
 } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
 import { circlesOverlap, clamp, rand } from "../math";
-import type { EnemyShot, EnemyState, PlayerState } from "./types";
+import { createSpatialGrid } from "./spatial-grid";
+import type { EnemyState, PlayerState } from "./types";
 
 const WANDER_RADIUS = 72;
 const WANDER_SPEED_RATIO = .28;
 const IDLE_UPDATE_INTERVAL = 1 / 12;
 const FULL_SIMULATION_MARGIN = 220;
+const CROWD_GRID_CELL_SIZE = 128;
 
 type Viewport = { width: number; height: number; zoom: number };
 type DamagePlayer = (amount: number) => boolean;
@@ -29,13 +31,14 @@ export type EnemySimulation = {
  */
 export function createEnemySimulation(
   enemies: EnemyState[],
-  enemyShots: EnemyShot[],
+  spawnEnemyShot: (x: number, y: number, vx: number, vy: number, radius: number, damage: number, life: number) => void,
   player: PlayerState,
   getViewport: () => Viewport,
   engageEnemy: EngageEnemy,
   damagePlayer: DamagePlayer,
 ): EnemySimulation {
   const fullRateEnemies: EnemyState[] = [];
+  const crowdGrid = createSpatialGrid<EnemyState>(CROWD_GRID_CELL_SIZE, WORLD.w, WORLD.h);
 
   function update(dt: number) {
     const viewport = getViewport();
@@ -148,15 +151,15 @@ export function createEnemySimulation(
         enemy.vy += (toPlayerY / playerDistance) * currentMoveSpeed * rangedMove * simulationDt * 6;
 
         if (enemy.attackClock <= 0 && playerDistance < 390) {
-          enemyShots.push({
-            x: enemy.x,
-            y: enemy.y,
-            vx: toPlayerX / playerDistance * RANGED_PROJECTILE_SPEED,
-            vy: toPlayerY / playerDistance * RANGED_PROJECTILE_SPEED,
-            r: 6,
-            damage: enemy.damage,
-            life: 4,
-          });
+          spawnEnemyShot(
+            enemy.x,
+            enemy.y,
+            toPlayerX / playerDistance * RANGED_PROJECTILE_SPEED,
+            toPlayerY / playerDistance * RANGED_PROJECTILE_SPEED,
+            6,
+            enemy.damage,
+            4,
+          );
           const rangedAttackInterval = 1 / Math.max(.01, base.attackSpeed);
           enemy.attackClock = rand(rangedAttackInterval * .83, rangedAttackInterval * 1.17);
         }
@@ -182,7 +185,8 @@ export function createEnemySimulation(
       keepOutsidePlayer(enemy, player);
     }
 
-    separateCrowd(fullRateEnemies);
+    crowdGrid.rebuild(fullRateEnemies);
+    crowdGrid.forEachNeighborPair(separateCrowdPair);
     for (let index = enemies.length - 1; index >= 0; index--) {
       if (enemies[index].dead) enemies.splice(index, 1);
     }
@@ -210,26 +214,19 @@ function keepOutsidePlayer(enemy: EnemyState, player: PlayerState) {
   }
 }
 
-function separateCrowd(enemies: EnemyState[]) {
-  // Only full-rate (nearby or engaged) enemies reach this O(n²) pass.
-  for (let i = 0; i < enemies.length; i++) {
-    const a = enemies[i];
-    for (let j = i + 1; j < enemies.length; j++) {
-      const b = enemies[j];
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const minimumDistance = (a.r + b.r) * .72;
-      const distanceSquared = dx * dx + dy * dy;
-      if (distanceSquared <= 0 || distanceSquared >= minimumDistance * minimumDistance) continue;
+function separateCrowdPair(a: EnemyState, b: EnemyState) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const minimumDistance = (a.r + b.r) * .72;
+  const distanceSquared = dx * dx + dy * dy;
+  if (distanceSquared <= 0 || distanceSquared >= minimumDistance * minimumDistance) return;
 
-      const distance = Math.sqrt(distanceSquared);
-      const push = (minimumDistance - distance) * .5;
-      const nx = dx / distance;
-      const ny = dy / distance;
-      a.x -= nx * push;
-      a.y -= ny * push;
-      b.x += nx * push;
-      b.y += ny * push;
-    }
-  }
+  const distance = Math.sqrt(distanceSquared);
+  const push = (minimumDistance - distance) * .5;
+  const nx = dx / distance;
+  const ny = dy / distance;
+  a.x -= nx * push;
+  a.y -= ny * push;
+  b.x += nx * push;
+  b.y += ny * push;
 }

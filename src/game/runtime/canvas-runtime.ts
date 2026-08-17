@@ -3,16 +3,13 @@ import { requiredCanvasContext } from "./dom";
 
 export function createCanvasRuntime({
   canvas,
-  textCanvas,
   getActorShadowSprite,
 }: {
   canvas: HTMLCanvasElement;
-  textCanvas: HTMLCanvasElement;
   getActorShadowSprite: () => HTMLImageElement | null;
 }) {
   const ctx = requiredCanvasContext(canvas, { alpha: false });
-  const textCtx = requiredCanvasContext(textCanvas);
-  const primitives = createCanvasPrimitives(ctx, textCtx);
+  const primitives = createCanvasPrimitives(ctx);
   let dpr = 1;
   let width = innerWidth;
   let height = innerHeight;
@@ -25,10 +22,6 @@ export function createCanvasRuntime({
     canvas.height = Math.round(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    textCanvas.width = Math.round(width * dpr);
-    textCanvas.height = Math.round(height * dpr);
-    textCanvas.style.width = `${width}px`;
-    textCanvas.style.height = `${height}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }
@@ -54,7 +47,6 @@ export function createCanvasRuntime({
 
   return {
     ctx,
-    textCtx,
     ...primitives,
     resize,
     dpr: () => dpr,

@@ -1,9 +1,10 @@
-import { PLAYER_KNOCKBACK_FORCE } from "../constants";
+import { PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
 import { damageAfterArmor } from "../combat";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap, distanceSquared } from "../math";
-import type { Particle } from "./combat-effects";
-import type { BossTarget, DragonBossState, EnemyShot, EnemyState, FrostclawBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState } from "./types";
+import type { ProjectileStore } from "./projectile-store";
+import { createSpatialGrid } from "./spatial-grid";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, PlayerState, RuntimeReward, SpiderBossState } from "./types";
 import type { SpawnSite } from "../world";
 
 const PLAYER_THROW_SECONDS = .42;
@@ -13,6 +14,7 @@ const DRAGON_HIT_BATCH_DELAY = .1;
 const SPIDER_HIT_BATCH_DELAY = .1;
 const FROSTCLAW_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
+const TARGET_GRID_CELL_SIZE = 160;
 
 type AttackTarget = { x: number; y: number; isBoss?: boolean };
 
@@ -29,9 +31,7 @@ export function createPlayerCombatController(options: {
   player: PlayerState;
   enemies: EnemyState[];
   spawnSites: SpawnSite[];
-  projectiles: Projectile[];
-  enemyShots: EnemyShot[];
-  particles: Particle[];
+  projectileStore: ProjectileStore;
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
@@ -52,6 +52,7 @@ export function createPlayerCombatController(options: {
   damageSpider: (hits: number) => void;
   damageFrostclaw: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
+  spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
   logPickup: (text: string, color: string) => void;
   saveProgress: () => void;
@@ -61,12 +62,16 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss, frostclawBoss,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss,
     isTutorialMap, isDesertMap, isSnowMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, damageDragon, damageSpider, damageFrostclaw, spawnBurst,
+    incrementKills, damageDragon, damageSpider, damageFrostclaw, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
+  const { projectiles, enemyShots } = projectileStore;
+  const targetGrid = createSpatialGrid<EnemyState>(TARGET_GRID_CELL_SIZE, WORLD.w, WORLD.h);
+  const targetCandidates: EnemyState[] = [];
+  let maxEnemyRadius = 0;
   let pendingPlayerThrow: AttackTarget | null = null;
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
@@ -94,18 +99,17 @@ export function createPlayerCombatController(options: {
       // client-authored crit rolls. Keep boss numbers honest; regular enemies
       // remain client-simulated and use the full critical system.
       const critical = !target.isBoss && Math.random() < researchCriticalChance();
-      projectiles.push({
-        x: player.x + Math.cos(angle) * 20,
-        y: player.y + Math.sin(angle) * 20,
-        vx: Math.cos(angle) * player.projectileSpeed,
-        vy: Math.sin(angle) * player.projectileSpeed,
-        r: 6,
-        damage: player.damage * researchDamageMultiplier() * (critical ? researchCriticalDamageMultiplier() : 1),
-        critical,
-        hitLife: player.attackRange / player.projectileSpeed * projectileLifeBonus,
-        life: (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus,
-        trail: 0,
-      });
+      const projectile = projectileStore.acquirePlayerProjectile();
+      projectile.x = player.x + Math.cos(angle) * 20;
+      projectile.y = player.y + Math.sin(angle) * 20;
+      projectile.vx = Math.cos(angle) * player.projectileSpeed;
+      projectile.vy = Math.sin(angle) * player.projectileSpeed;
+      projectile.r = 6;
+      projectile.damage = player.damage * researchDamageMultiplier() * (critical ? researchCriticalDamageMultiplier() : 1);
+      projectile.critical = critical;
+      projectile.hitLife = player.attackRange / player.projectileSpeed * projectileLifeBonus;
+      projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
+      projectile.trail = 0;
     }
     spawnBurst(player.x + dx / distance * 17, player.y + dy / distance * 17, "#ffe36b", 4, 38);
   }
@@ -124,8 +128,15 @@ export function createPlayerCombatController(options: {
     if (player.attackClock > 0) return;
     let target: EnemyState | BossTarget | null = null;
     let best = player.attackRange * player.attackRange;
-    for (const enemy of enemies) {
-      if (enemy.dead) continue;
+    rebuildTargetGrid();
+    targetGrid.queryBounds(
+      player.x - player.attackRange,
+      player.y - player.attackRange,
+      player.x + player.attackRange,
+      player.y + player.attackRange,
+      targetCandidates,
+    );
+    for (const enemy of targetCandidates) {
       const distance = distanceSquared(player, enemy);
       if (distance < best) { best = distance; target = enemy; }
     }
@@ -195,8 +206,16 @@ export function createPlayerCombatController(options: {
     let closest: EnemyState | BossTarget | null = null;
     let closestT = Infinity;
     const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : isSnowMap() ? frostclawBoss : null;
-    for (let index = mapBoss ? -1 : 0; index < enemies.length; index++) {
-      const target = index < 0 ? mapBoss! : enemies[index];
+    const padding = radius + maxEnemyRadius;
+    targetGrid.queryBounds(
+      Math.min(startX, endX) - padding,
+      Math.min(startY, endY) - padding,
+      Math.max(startX, endX) + padding,
+      Math.max(startY, endY) + padding,
+      targetCandidates,
+    );
+    if (mapBoss && !mapBoss.dead) targetCandidates.push(mapBoss as unknown as EnemyState);
+    for (const target of targetCandidates as Array<EnemyState | BossTarget>) {
       if (target.dead) continue;
       const ex = target.x - startX;
       const ey = target.y - startY;
@@ -221,8 +240,19 @@ export function createPlayerCombatController(options: {
     return closest ? { enemy: closest, t: closestT } : null;
   }
 
+  function rebuildTargetGrid() {
+    targetGrid.clear();
+    maxEnemyRadius = 0;
+    for (const enemy of enemies) {
+      if (enemy.dead) continue;
+      targetGrid.insert(enemy);
+      maxEnemyRadius = Math.max(maxEnemyRadius, enemy.r);
+    }
+  }
+
   function updateProjectiles(dt: number) {
     advanceThrow(dt);
+    if (projectiles.length > 0) rebuildTargetGrid();
     for (const projectile of projectiles) {
       const travelTime = Math.min(dt, projectile.life);
       const startX = projectile.x;
@@ -267,10 +297,10 @@ export function createPlayerCombatController(options: {
       } else { projectile.x = endX; projectile.y = endY; }
       if (projectile.trail <= 0) {
         projectile.trail = .035;
-        particles.push({ x: projectile.x, y: projectile.y, vx: 0, vy: 0, life: .16, maxLife: .16, size: 3, color: "#ffd957" });
+        spawnParticle(projectile.x, projectile.y, 0, 0, .16, .16, 3, "#ffd957");
       }
     }
-    for (let index = projectiles.length - 1; index >= 0; index--) if (projectiles[index].life <= 0) projectiles.splice(index, 1);
+    projectileStore.compactPlayerProjectiles();
     if (isTutorialMap() && pendingDragonHits > 0) {
       dragonHitBatchTimer -= dt;
       if (dragonHitBatchTimer <= 0) { damageDragon(pendingDragonHits); pendingDragonHits = 0; dragonHitBatchTimer = 0; }
@@ -289,7 +319,7 @@ export function createPlayerCombatController(options: {
       shot.y += shot.vy * dt;
       if (circlesOverlap(shot, player)) { damagePlayer(shot.damage); shot.life = 0; }
     }
-    for (let index = enemyShots.length - 1; index >= 0; index--) if (enemyShots[index].life <= 0) enemyShots.splice(index, 1);
+    projectileStore.compactEnemyShots();
   }
 
   return {

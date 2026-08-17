@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.435": [
+    "Enemy separation, attack targeting, and projectile collision now use spatial grids, while static decor is pre-sorted and offscreen players and cacti are removed before depth sorting.",
+    "Static world tiles now paint in a background worker with a safe fallback; the minimap refreshes at 8 Hz and world text reuses cached rasterized labels instead of rebuilding every frame.",
+    "Particles, damage numbers, player projectiles, and enemy shots now reuse bounded pools, preventing combat bursts from creating unbounded client work.",
+  ],
   "0.434": [
     "Live duels now carry both frozen player names, keeping arena nameplates and the duel HUD correct after nearby profile subscriptions change.",
     "Live and replay duel combatants now render fully opaque instead of using translucent remote-player styling.",

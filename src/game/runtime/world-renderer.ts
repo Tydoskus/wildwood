@@ -4,13 +4,18 @@ import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
+import {
+  paintStaticTile,
+  paintStaticTilePlaceholder,
+  type StaticTileScene,
+  type StaticTileTreeBounds,
+} from "./static-tile-painter";
 
 type Viewport = { width: number; height: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
 type EmptyArch = Omit<Portal, "destination">;
-type TreeSpriteBounds = { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number };
+type TreeSpriteBounds = StaticTileTreeBounds;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
-type RoundRect = (x: number, y: number, width: number, height: number, radius: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
 type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
@@ -55,7 +60,6 @@ export type WorldRendererOptions = {
   snowPine: HTMLImageElement;
   drawShadow: DrawShadow;
   outlinedText: OutlinedText;
-  roundRect: RoundRect;
 };
 
 export function createWorldRenderer(options: WorldRendererOptions) {
@@ -63,9 +67,32 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const STATIC_TILE_SIZE = 640;
   const STATIC_TILE_MIN_LIMIT = 12;
   const STATIC_TILE_CACHE_PADDING = 4;
-  const TREE_SHADOW_CANOPY_WIDTH_RATIO = .9;
-  const SNOW_PINE_GROUND_OFFSET_RATIO = .09;
-  const staticTiles = new Map<string, HTMLCanvasElement>();
+  const MINIMAP_FRAME_INTERVAL_MS = 125;
+  type CachedStaticTile = HTMLCanvasElement | ImageBitmap;
+  type StaticTileWorkerResult =
+    | { type: "tile"; generation: number; key: string; bitmap: ImageBitmap }
+    | { type: "error"; generation: number; key: string }
+    | { type: "unsupported" };
+  const staticTiles = new Map<string, CachedStaticTile>();
+  const pendingStaticTiles = new Set<string>();
+  const staticTilePlaceholders = new Map<string, HTMLCanvasElement>();
+  const minimapCanvas = document.createElement("canvas");
+  const minimapCtx = minimapCanvas.getContext("2d");
+  const staticTileWorker = (() => {
+    if (typeof Worker === "undefined") return null;
+    try {
+      return new Worker(new URL("./static-tile-worker.ts", import.meta.url), { type: "module" });
+    } catch {
+      return null;
+    }
+  })();
+  let staticTileWorkerEnabled = Boolean(staticTileWorker);
+  let staticTileGeneration = 0;
+  let configuredWorkerGeneration = -1;
+  let sceneGeneration = -1;
+  let cachedStaticScene: StaticTileScene | null = null;
+  let minimapCacheKey = "";
+  let nextMinimapFrameAt = 0;
   let staticTileLimit = STATIC_TILE_MIN_LIMIT;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
@@ -80,7 +107,93 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     };
   }
 
-  function staticTile(tileX: number, tileY: number) {
+  function staticScene() {
+    if (cachedStaticScene && sceneGeneration === staticTileGeneration) return cachedStaticScene;
+    cachedStaticScene = {
+      tileSize: STATIC_TILE_SIZE,
+      colors: mapColors(),
+      paths: options.paths,
+      decor: options.decor,
+      treeBounds: options.treeSpriteBounds(),
+      snowPineAspect: options.snowPine.naturalWidth > 0
+        ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
+        : 0,
+    };
+    sceneGeneration = staticTileGeneration;
+    return cachedStaticScene;
+  }
+
+  function closeStaticTile(tile: CachedStaticTile) {
+    if (typeof ImageBitmap !== "undefined" && tile instanceof ImageBitmap) tile.close();
+  }
+
+  function trimStaticTiles() {
+    while (staticTiles.size > staticTileLimit) {
+      const oldestKey = staticTiles.keys().next().value;
+      if (oldestKey === undefined) break;
+      const oldest = staticTiles.get(oldestKey);
+      staticTiles.delete(oldestKey);
+      if (oldest) closeStaticTile(oldest);
+    }
+  }
+
+  function cacheStaticTile(key: string, tile: CachedStaticTile) {
+    const previous = staticTiles.get(key);
+    if (previous && previous !== tile) closeStaticTile(previous);
+    staticTiles.delete(key);
+    staticTiles.set(key, tile);
+    trimStaticTiles();
+  }
+
+  function disableStaticTileWorker() {
+    if (!staticTileWorkerEnabled) return;
+    staticTileWorkerEnabled = false;
+    staticTileWorker?.terminate();
+    pendingStaticTiles.clear();
+    staticTilePlaceholders.clear();
+  }
+
+  staticTileWorker?.addEventListener("message", ({ data }: MessageEvent<StaticTileWorkerResult>) => {
+    if (data.type === "unsupported") {
+      disableStaticTileWorker();
+      return;
+    }
+    if (data.type === "error") {
+      if (data.generation === staticTileGeneration) pendingStaticTiles.delete(data.key);
+      disableStaticTileWorker();
+      return;
+    }
+    if (data.generation !== staticTileGeneration) {
+      data.bitmap.close();
+      return;
+    }
+    pendingStaticTiles.delete(data.key);
+    staticTilePlaceholders.delete(data.key);
+    cacheStaticTile(data.key, data.bitmap);
+  });
+  staticTileWorker?.addEventListener("error", disableStaticTileWorker);
+  if (!options.actorShadowSprite.complete) options.actorShadowSprite.addEventListener("load", invalidateStaticWorld, { once: true });
+  if (!options.snowPine.complete) options.snowPine.addEventListener("load", invalidateStaticWorld, { once: true });
+
+  function configureStaticTileWorker(scene: StaticTileScene) {
+    if (!staticTileWorkerEnabled || !staticTileWorker || configuredWorkerGeneration === staticTileGeneration) return;
+    staticTileWorker.postMessage({
+      type: "configure",
+      generation: staticTileGeneration,
+      scene,
+      shadowUrl: options.actorShadowSprite.currentSrc || options.actorShadowSprite.src,
+    });
+    configuredWorkerGeneration = staticTileGeneration;
+  }
+
+  function createTileCanvas() {
+    const tile = document.createElement("canvas");
+    tile.width = STATIC_TILE_SIZE;
+    tile.height = STATIC_TILE_SIZE;
+    return tile;
+  }
+
+  function staticTile(tileX: number, tileY: number): CachedStaticTile {
     const key = `${options.getMapId()}:${tileX}:${tileY}`;
     const cached = staticTiles.get(key);
     if (cached) {
@@ -88,86 +201,30 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       staticTiles.set(key, cached);
       return cached;
     }
-    const tile = document.createElement("canvas");
-    tile.width = STATIC_TILE_SIZE;
-    tile.height = STATIC_TILE_SIZE;
-    const tileCtx = tile.getContext("2d");
-    if (!tileCtx) return tile;
-    tileCtx.imageSmoothingEnabled = false;
-    const originX = tileX * STATIC_TILE_SIZE;
-    const originY = tileY * STATIC_TILE_SIZE;
-    const colors = mapColors();
-    const drawStaticShadow = (x: number, y: number, width: number, alpha: number) => {
-      const height = Math.max(8, Math.round(width * 33 / 86));
-      if (x + width / 2 < 0 || x - width / 2 > STATIC_TILE_SIZE || y + height / 2 < 0 || y - height / 2 > STATIC_TILE_SIZE) return;
-      tileCtx.save();
-      tileCtx.globalAlpha = alpha;
-      if (options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0) {
-        tileCtx.drawImage(options.actorShadowSprite, Math.round(x - width / 2), Math.round(y - height / 2), Math.round(width), height);
-      } else {
-        tileCtx.fillStyle = "#102719";
-        tileCtx.beginPath();
-        tileCtx.ellipse(x, y, width / 2, height / 2, 0, 0, TAU);
-        tileCtx.fill();
+    const scene = staticScene();
+    if (staticTileWorkerEnabled && staticTileWorker) {
+      configureStaticTileWorker(scene);
+      if (!pendingStaticTiles.has(key)) {
+        pendingStaticTiles.add(key);
+        staticTileWorker.postMessage({ type: "paint", generation: staticTileGeneration, key, tileX, tileY });
       }
-      tileCtx.restore();
-    };
-    tileCtx.fillStyle = colors.ground;
-    tileCtx.fillRect(0, 0, STATIC_TILE_SIZE, STATIC_TILE_SIZE);
-    for (const path of options.paths) {
-      tileCtx.fillStyle = colors.path;
-      tileCtx.fillRect(path.x - originX, path.y - originY, path.w, path.h);
-      tileCtx.fillStyle = colors.pathDetail;
-      for (let y = path.y + 7; y < path.y + path.h; y += 18) {
-        for (let x = path.x + ((y / 18) % 2 ? 4 : 12); x < path.x + path.w; x += 24) tileCtx.fillRect(x - originX, y - originY, 2, 2);
-      }
+      const existingPlaceholder = staticTilePlaceholders.get(key);
+      if (existingPlaceholder) return existingPlaceholder;
+      const placeholder = createTileCanvas();
+      const placeholderContext = placeholder.getContext("2d");
+      if (placeholderContext) paintStaticTilePlaceholder(placeholderContext, scene, tileX, tileY);
+      staticTilePlaceholders.set(key, placeholder);
+      return placeholder;
     }
-    for (const decor of options.decor) {
-      const x = Math.round(decor.x - originX);
-      const y = Math.round(decor.y - originY);
-      if (x < -50 || y < -50 || x > STATIC_TILE_SIZE + 50 || y > STATIC_TILE_SIZE + 50) continue;
-      if (decor.type === "grass") {
-        tileCtx.fillStyle = decor.variant % 2 ? "#237b49" : "#267f4c";
-        tileCtx.fillRect(x - 1, y - 5, 2, 7); tileCtx.fillRect(x - 5, y - 2, 2, 5); tileCtx.fillRect(x + 3, y - 3, 2, 6); if (decor.variant > 1) tileCtx.fillRect(x + 6, y, 2, 3);
-      } else if (decor.type === "petal") {
-        tileCtx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][decor.variant % 3];
-        tileCtx.fillRect(x - 3, y - 1, 7, 3); tileCtx.fillRect(x - 1, y - 3, 3, 7); tileCtx.fillStyle = "rgba(255,255,255,.72)"; tileCtx.fillRect(x, y, 1, 1);
-      } else if (decor.type === "desertGrass") {
-        tileCtx.fillStyle = decor.variant % 2 ? "#8b7b3d" : "#a28a43";
-        tileCtx.fillRect(x - 1, y - 6, 2, 7); tileCtx.fillRect(x - 5, y - 3, 2, 5); tileCtx.fillRect(x + 3, y - 4, 2, 6);
-      } else if (decor.type === "snowTuft") {
-        tileCtx.fillStyle = decor.variant % 2 ? "rgba(255,255,255,.78)" : "rgba(221,242,255,.76)";
-        tileCtx.fillRect(x - 2, y - 1, 5, 2); tileCtx.fillRect(x, y - 3, 2, 5);
-      } else if (decor.type === "rock") {
-        const w = Math.round(35 * decor.s); const h = Math.round(22 * decor.s);
-        tileCtx.fillStyle = "rgba(0,0,0,.11)"; tileCtx.beginPath(); tileCtx.ellipse(x, y + 2, w * .6, Math.max(3, w * .23), 0, 0, TAU); tileCtx.fill();
-        tileCtx.fillStyle = "#79543d"; tileCtx.beginPath(); tileCtx.moveTo(x - w / 2, y); tileCtx.lineTo(x - w * .32, y - h * .72); tileCtx.lineTo(x + w * .2, y - h); tileCtx.lineTo(x + w / 2, y - h * .28); tileCtx.lineTo(x + w * .38, y); tileCtx.closePath(); tileCtx.fill();
-        tileCtx.fillStyle = "#b77b4b"; tileCtx.beginPath(); tileCtx.moveTo(x - w * .32, y - h * .72); tileCtx.lineTo(x + w * .2, y - h); tileCtx.lineTo(x + w * .12, y - h * .45); tileCtx.closePath(); tileCtx.fill();
-      }
+    const tile = createTileCanvas();
+    const tileContext = tile.getContext("2d");
+    if (tileContext) {
+      const shadow = options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0
+        ? options.actorShadowSprite
+        : undefined;
+      paintStaticTile(tileContext, scene, tileX, tileY, shadow);
     }
-    // Tall decor stays live for depth sorting. Its unchanging ground shadows
-    // render once in the static tile, underneath every player and enemy.
-    for (const decor of options.decor) {
-      const x = Math.round(decor.x - originX);
-      const y = Math.round(decor.y - originY);
-      if (decor.type === "tree") {
-        const source = options.treeSpriteBounds()[decor.variant % 16];
-        if (!source) continue;
-        const drawSize = Math.round(154 * decor.s);
-        const scale = drawSize / source.h;
-        const shadowX = Math.round(x + (source.groundCenter - source.w / 2) * scale);
-        const canopyWidth = source.canopyWidth * scale;
-        drawStaticShadow(shadowX, y, Math.max(24, Math.round(canopyWidth * TREE_SHADOW_CANOPY_WIDTH_RATIO)), .14);
-      } else if (decor.type === "cactus") {
-        drawStaticShadow(x, y - 2, Math.round(46 * decor.s), .12);
-      } else if (decor.type === "snowPine" && options.snowPine.naturalWidth > 0) {
-        const height = Math.round(185 * decor.s);
-        const width = Math.round(height * options.snowPine.naturalWidth / options.snowPine.naturalHeight);
-        drawStaticShadow(x, y - Math.round(height * SNOW_PINE_GROUND_OFFSET_RATIO), Math.round(width * .75), .13);
-      }
-    }
-    staticTiles.set(key, tile);
-    while (staticTiles.size > staticTileLimit) staticTiles.delete(staticTiles.keys().next().value!);
+    cacheStaticTile(key, tile);
     return tile;
   }
 
@@ -201,11 +258,20 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         ctx.drawImage(staticTile(tileX, tileY), left, top, right - left, bottom - top);
       }
     }
-    while (staticTiles.size > staticTileLimit) staticTiles.delete(staticTiles.keys().next().value!);
+    trimStaticTiles();
   }
 
   function invalidateStaticWorld() {
+    for (const tile of staticTiles.values()) closeStaticTile(tile);
     staticTiles.clear();
+    pendingStaticTiles.clear();
+    staticTilePlaceholders.clear();
+    staticTileGeneration += 1;
+    configuredWorkerGeneration = -1;
+    sceneGeneration = -1;
+    cachedStaticScene = null;
+    minimapCacheKey = "";
+    nextMinimapFrameAt = 0;
   }
 
   function drawGround() {
@@ -383,24 +449,48 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawDecor() {}
 
-  function drawMinimap(remotePlayers: MapPlayerMarker[]) {
-    const view = viewport(); const size = Math.min(126, Math.max(118, view.width * .17)); const x = view.width - size; const y = 0;
-    ctx.save(); ctx.fillStyle = "rgba(12,18,15,.82)"; ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2; options.roundRect(x, y, size, size, 10); ctx.fill(); ctx.stroke();
-    const innerX = x + 5; const innerY = y + 5; const innerSize = size - 10; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
-    ctx.save(); options.roundRect(x + 5, y + 5, size - 10, size - 10, 7); ctx.clip();
+  function minimapRoundedRect(target: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+    const corner = Math.min(radius, width / 2, height / 2);
+    target.beginPath();
+    target.moveTo(x + corner, y);
+    target.arcTo(x + width, y, x + width, y + height, corner);
+    target.arcTo(x + width, y + height, x, y + height, corner);
+    target.arcTo(x, y + height, x, y, corner);
+    target.arcTo(x, y, x + width, y, corner);
+    target.closePath();
+  }
+
+  function renderMinimapFrame(remotePlayers: MapPlayerMarker[], size: number, view: Viewport) {
+    if (!minimapCtx) return;
+    const dpr = options.getDevicePixelRatio();
+    const cacheKey = `${options.getMapId()}:${size}:${dpr}`;
+    const pixelSize = Math.round(size * dpr);
+    if (minimapCanvas.width !== pixelSize || minimapCanvas.height !== pixelSize) {
+      minimapCanvas.width = pixelSize;
+      minimapCanvas.height = pixelSize;
+    } else {
+      minimapCtx.setTransform(1, 0, 0, 1, 0, 0);
+      minimapCtx.clearRect(0, 0, pixelSize, pixelSize);
+    }
+    minimapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    minimapCtx.imageSmoothingEnabled = false;
+    const draw = minimapCtx;
+    draw.save(); draw.fillStyle = "rgba(12,18,15,.82)"; draw.strokeStyle = "rgba(255,255,255,.25)"; draw.lineWidth = 2; minimapRoundedRect(draw, 0, 0, size, size, 10); draw.fill(); draw.stroke();
+    const innerX = 5; const innerY = 5; const innerSize = size - 10; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
+    draw.save(); minimapRoundedRect(draw, 5, 5, size - 10, size - 10, 7); draw.clip();
     const desert = options.getMapId() === options.desertMapId;
     const snow = options.getMapId() === options.snowMapId;
-    ctx.fillStyle = snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b"; ctx.fillRect(innerX, innerY, innerSize, innerSize);
-    ctx.fillStyle = snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551"; for (const path of options.paths) ctx.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
-    ctx.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) { const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3; ctx.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker); }
+    draw.fillStyle = snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b"; draw.fillRect(innerX, innerY, innerSize, innerSize);
+    draw.fillStyle = snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551"; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
+    draw.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) { const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3; draw.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker); }
 
     const drawPortalMarker = (portal: Portal) => {
       const px = Math.round(innerX + portal.x * sx); const py = Math.round(innerY + portal.y * sy);
       const unlocked = options.portalIsUnlocked(portal);
-      ctx.fillStyle = "#132433"; ctx.fillRect(px - 4, py - 5, 9, 8);
-      ctx.fillStyle = unlocked ? "#d8fbff" : "#89949b"; ctx.fillRect(px - 3, py - 5, 7, 2); ctx.fillRect(px - 4, py - 3, 2, 6); ctx.fillRect(px + 3, py - 3, 2, 6);
-      ctx.fillStyle = unlocked ? "#5fe3ff" : "#3f4a50"; ctx.fillRect(px - 2, py - 3, 5, 6);
-      if (unlocked) { ctx.fillStyle = "#efffff"; ctx.fillRect(px, py - 2, 1, 4); }
+      draw.fillStyle = "#132433"; draw.fillRect(px - 4, py - 5, 9, 8);
+      draw.fillStyle = unlocked ? "#d8fbff" : "#89949b"; draw.fillRect(px - 3, py - 5, 7, 2); draw.fillRect(px - 4, py - 3, 2, 6); draw.fillRect(px + 3, py - 3, 2, 6);
+      draw.fillStyle = unlocked ? "#5fe3ff" : "#3f4a50"; draw.fillRect(px - 2, py - 3, 5, 6);
+      if (unlocked) { draw.fillStyle = "#efffff"; draw.fillRect(px, py - 2, 1, 4); }
     };
     drawPortalMarker(options.activePortal());
     const secondary = options.secondaryPortal();
@@ -412,15 +502,28 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         ? { state: options.spiderBoss, color: "#e9ac4e" }
         : { state: options.frostclawBoss, color: "#67dcff" };
     const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
-    ctx.globalAlpha = mapBoss.state.dead ? .46 : 1;
-    ctx.fillStyle = "#101820"; ctx.fillRect(bx - 5, by - 4, 11, 9);
-    ctx.fillStyle = mapBoss.color; ctx.fillRect(bx - 4, by - 3, 9, 6); ctx.fillRect(bx - 3, by - 5, 2, 2); ctx.fillRect(bx + 2, by - 5, 2, 2); ctx.fillRect(bx - 3, by + 3, 2, 2); ctx.fillRect(bx + 2, by + 3, 2, 2);
-    ctx.fillStyle = "#fff"; ctx.fillRect(bx - 2, by - 1, 2, 2); ctx.fillRect(bx + 2, by - 1, 2, 2);
-    ctx.globalAlpha = 1;
+    draw.globalAlpha = mapBoss.state.dead ? .46 : 1;
+    draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
+    draw.fillStyle = mapBoss.color; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
+    draw.fillStyle = "#fff"; draw.fillRect(bx - 2, by - 1, 2, 2); draw.fillRect(bx + 2, by - 1, 2, 2);
+    draw.globalAlpha = 1;
 
-    ctx.fillStyle = "#58e878"; for (const player of remotePlayers) ctx.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);
-    ctx.fillStyle = "#fff"; ctx.fillRect(innerX + options.player.x * sx - 2, innerY + options.player.y * sy - 2, 5, 5);
-    ctx.strokeStyle = "rgba(255,255,255,.52)"; ctx.lineWidth = 1; ctx.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); ctx.restore(); ctx.restore();
+    draw.fillStyle = "#58e878"; for (const player of remotePlayers) draw.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);
+    draw.fillStyle = "#fff"; draw.fillRect(innerX + options.player.x * sx - 2, innerY + options.player.y * sy - 2, 5, 5);
+    draw.strokeStyle = "rgba(255,255,255,.52)"; draw.lineWidth = 1; draw.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); draw.restore(); draw.restore();
+    minimapCacheKey = cacheKey;
+  }
+
+  function drawMinimap(remotePlayers: MapPlayerMarker[]) {
+    const view = viewport();
+    const size = Math.round(Math.min(126, Math.max(118, view.width * .17)));
+    const cacheKey = `${options.getMapId()}:${size}:${options.getDevicePixelRatio()}`;
+    const now = performance.now();
+    if (cacheKey !== minimapCacheKey || now >= nextMinimapFrameAt) {
+      renderMinimapFrame(remotePlayers, size, view);
+      nextMinimapFrameAt = now + MINIMAP_FRAME_INTERVAL_MS;
+    }
+    if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, view.width - size, 0, size, size);
   }
 
   return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };

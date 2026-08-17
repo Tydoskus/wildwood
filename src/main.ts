@@ -79,7 +79,7 @@ import {
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, textCanvas, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
+    canvas, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
@@ -91,8 +91,8 @@ import {
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
-  const canvasRuntime = createCanvasRuntime({ canvas, textCanvas, getActorShadowSprite: () => actorShadowSprite });
-  const { ctx, textCtx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
+  const canvasRuntime = createCanvasRuntime({ canvas, getActorShadowSprite: () => actorShadowSprite });
+  const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
 
   const coop = window.wildwoodCoop || null;
   const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, seenVersionKey: SEEN_VERSION_KEY, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });
@@ -108,7 +108,7 @@ import {
   const camera = createCamera();
   const effects = createCombatEffects();
   const performanceMonitor = createPerformanceMonitor();
-  const { particles, damageNumbers, spawnBurst, spawnDamageNumber } = effects;
+  const { particles, damageNumbers, spawnParticle, spawnBurst, spawnDamageNumber } = effects;
   const bootstrap = createGameBootstrap();
   const {
     boss,
@@ -124,6 +124,7 @@ import {
     paths,
     player,
     projectiles,
+    projectileStore,
     spawnSites,
     spiderBoss,
     spiderVenom,
@@ -324,7 +325,7 @@ import {
   let playerCombat: PlayerCombatController;
   const enemySimulation = createEnemySimulation(
     enemies,
-    enemyShots,
+    projectileStore.spawnEnemyShot,
     player,
     () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     engageEnemy,
@@ -366,7 +367,7 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss, frostclawBoss,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss,
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
@@ -384,6 +385,7 @@ import {
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
     damageFrostclaw: (hits) => coop?.damageFrostclaw?.(hits, player.x, player.y),
     spawnBurst,
+    spawnParticle,
     spawnDamageNumber,
     logPickup,
     saveProgress,
@@ -462,10 +464,7 @@ import {
     spawnFromSite,
     enemies,
     spawnSites,
-    projectiles,
-    enemyShots,
-    particles,
-    damageNumbers,
+    clearTransientCombat: () => { projectileStore.clear(); effects.clear(); },
     bossRain,
     spiderVenom,
     frostclawIcefalls,
@@ -569,7 +568,6 @@ import {
     pixelCircle,
     outlinedText: outlinedWorldText,
     fillText: fillWorldText,
-    roundRect,
     bossHpLossFlashDuration: BOSS_HP_LOSS_FLASH_DURATION,
     spiderWebRange: SPIDER_WEB_RANGE,
     playerAppearanceAssets,
@@ -607,7 +605,7 @@ import {
     loadReplay: async (replayId) => coop?.loadDuelReplay
       ? await coop.loadDuelReplay(replayId)
       : coop?.duelReplay?.(replayId),
-    clearDamageNumbers: () => { damageNumbers.length = 0; },
+    clearDamageNumbers: effects.clearDamageNumbers,
     showMessage,
     fadeToWorld: (onBlack) => session.fadeToWorld(onBlack),
     isDuelResultHeld: () => playerController.isDuelResultHeld(),
@@ -619,7 +617,8 @@ import {
     duelCountdown: duelCountdownEl,
   });
   playerController = createPlayerController({
-    player, boss, enemies, spawnSites, decor, paths, projectiles, enemyShots, particles, damageNumbers,
+    player, boss, enemies, spawnSites, decor, paths,
+    clearTransientCombat: () => { projectileStore.clear(); effects.clear(); },
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     getCurrentMapId: () => currentMapId,
     mapSpawn: (mapId) => mapId === TUTORIAL_FOREST_MAP_ID ? START_SPAWN : MAP_CONFIG[mapId].arrival,
@@ -669,8 +668,6 @@ import {
     showDuelResultUnavailable,
   });
   const renderController = worldRenderRuntime.createFrameRenderer({
-    textCtx,
-    textCanvas,
     bootsPickup,
     remotePlayers: () => coop?.remotePlayers?.() ?? [],
     mapPlayerMarkers: () => coop?.mapPlayerMarkers?.() ?? [],
@@ -879,7 +876,7 @@ import {
     updatePlayer: playerController.update, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
     updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
-    clearDuelCombat: () => { projectiles.length = 0; playerCombat.clearPendingBossHits(); enemyShots.length = 0; },
+    clearDuelCombat: () => { projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
     updateVisuals: (dt) => { flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt); },
     updateMessage: runtimeHud.updateMessage,

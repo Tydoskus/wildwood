@@ -63,7 +63,6 @@ export type WorldRenderRuntimeOptions = {
   pixelCircle: (x: number, y: number, radius: number) => void;
   outlinedText: OutlinedText;
   fillText: (text: string, x: number, y: number, color: string) => void;
-  roundRect: (x: number, y: number, width: number, height: number, radius: number) => void;
   bossHpLossFlashDuration: number;
   spiderWebRange: number;
   playerAppearanceAssets: PlayerAppearanceAssets;
@@ -82,8 +81,6 @@ export type WorldRenderRuntimeOptions = {
 };
 
 export type FrameRendererOptions = {
-  textCtx: CanvasRenderingContext2D;
-  textCanvas: HTMLCanvasElement;
   bootsPickup: BootsPickup;
   remotePlayers: () => RemotePlayer[];
   mapPlayerMarkers: () => MapPlayerMarker[];
@@ -114,6 +111,7 @@ export type FrameRendererOptions = {
 
 /** Wires the independent world, actor, boss, depth, and frame renderers. */
 export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
+  let invalidateDepthOrder = () => {};
   const world = createWorldRenderer({
     ctx: options.ctx,
     camera: options.camera,
@@ -142,7 +140,6 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
-    roundRect: options.roundRect,
     ...options.assets,
   });
   const boss = createBossRenderer({
@@ -218,10 +215,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         options.playerPower(options.player),
       ),
     });
+    invalidateDepthOrder = depth.invalidateDepthOrder;
     renderer = createRenderController({
       ctx: options.ctx,
-      textCtx: frame.textCtx,
-      textCanvas: frame.textCanvas,
       camera: options.camera,
       player: options.player,
       bootsPickup: frame.bootsPickup,
@@ -269,5 +265,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     return renderer;
   }
 
-  return { ...world, ...boss, ...actor, createFrameRenderer };
+  function invalidateStaticWorld() {
+    world.invalidateStaticWorld();
+    invalidateDepthOrder();
+  }
+
+  return { ...world, ...boss, ...actor, createFrameRenderer, invalidateStaticWorld };
 }

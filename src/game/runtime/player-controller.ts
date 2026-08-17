@@ -2,7 +2,7 @@ import { WORLD } from "../constants";
 import { clamp } from "../math";
 import { createSpawnSites, createWorldLayout, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import type { Movement, MovementInputSource } from "./player-input-controller";
-import type { DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, DuelScene, RuntimeDuelReplay, RuntimeDuelState } from "./types";
+import type { DragonBossState, EnemyState, PlayerState, DuelScene, RuntimeDuelReplay, RuntimeDuelState } from "./types";
 
 type LocalState = { x: number; y: number; facing?: number };
 type DuelPresentation = { state: { challengerHp: number; opponentHp: number } };
@@ -25,10 +25,7 @@ export function createPlayerController(options: {
   spawnSites: SpawnSite[];
   decor: WorldDecor[];
   paths: WorldPath[];
-  projectiles: Projectile[];
-  enemyShots: EnemyShot[];
-  particles: unknown[];
-  damageNumbers: unknown[];
+  clearTransientCombat: () => void;
   tutorialMapId: MapId;
   getCurrentMapId: () => MapId;
   mapSpawn: (mapId: MapId) => { x: number; y: number };
@@ -71,7 +68,7 @@ export function createPlayerController(options: {
   showDuelResultUnavailable: () => void;
 }): PlayerController {
   const {
-    player, boss, enemies, spawnSites, decor, paths, projectiles, enemyShots, particles, damageNumbers,
+    player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     tutorialMapId, getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
     resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap,
@@ -106,10 +103,7 @@ export function createPlayerController(options: {
     player.facing = 0;
     player.moving = false;
     enemies.length = 0;
-    projectiles.length = 0;
-    enemyShots.length = 0;
-    particles.length = 0;
-    damageNumbers.length = 0;
+    clearTransientCombat();
     clearPlayerCombat();
     resetBosses();
     rebuildWorld();

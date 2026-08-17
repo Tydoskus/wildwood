@@ -1,18 +1,98 @@
-export function createCanvasPrimitives(
-  ctx: CanvasRenderingContext2D,
-  textLayer?: CanvasRenderingContext2D,
-) {
-  function textContext() {
-    return textLayer ?? ctx;
+type TextSprite = {
+  canvas: HTMLCanvasElement;
+  logicalWidth: number;
+  logicalHeight: number;
+  textWidth: number;
+  ascent: number;
+  padding: number;
+  pixels: number;
+};
+
+export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
+  const TEXT_CACHE_LIMIT = 256;
+  const TEXT_CACHE_PIXEL_LIMIT = 4_000_000;
+  const textSprites = new Map<string, TextSprite>();
+  let cachedTextPixels = 0;
+
+  function textSprite(text: string, fillColor: string, strokeWidth: number | null) {
+    const scale = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    const key = `${scale}\u0000${ctx.font}\u0000${ctx.direction}\u0000${fillColor}\u0000${strokeWidth ?? "fill"}\u0000${text}`;
+    const cached = textSprites.get(key);
+    if (cached) {
+      textSprites.delete(key);
+      textSprites.set(key, cached);
+      return cached;
+    }
+
+    const metrics = ctx.measureText(text);
+    const fontSize = Number.parseFloat(ctx.font.match(/([\d.]+)px/)?.[1] ?? "16");
+    const textWidth = Math.max(1, Math.ceil(metrics.width));
+    const ascent = Math.max(1, Math.ceil(metrics.actualBoundingBoxAscent || fontSize * .8));
+    const descent = Math.max(1, Math.ceil(metrics.actualBoundingBoxDescent || fontSize * .2));
+    const padding = Math.ceil((strokeWidth ?? 0) / 2) + 2;
+    const logicalWidth = textWidth + padding * 2;
+    const logicalHeight = ascent + descent + padding * 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(logicalWidth * scale);
+    canvas.height = Math.ceil(logicalHeight * scale);
+    const target = canvas.getContext("2d");
+    if (target) {
+      target.scale(scale, scale);
+      target.font = ctx.font;
+      target.direction = ctx.direction;
+      target.textAlign = "left";
+      target.textBaseline = "alphabetic";
+      target.lineJoin = "round";
+      if (strokeWidth !== null) {
+        target.lineWidth = strokeWidth;
+        target.strokeStyle = "#000";
+        target.strokeText(text, padding, padding + ascent);
+      }
+      target.fillStyle = fillColor;
+      target.fillText(text, padding, padding + ascent);
+    }
+    const sprite = { canvas, logicalWidth, logicalHeight, textWidth, ascent, padding, pixels: canvas.width * canvas.height };
+    textSprites.set(key, sprite);
+    cachedTextPixels += sprite.pixels;
+    while (textSprites.size > TEXT_CACHE_LIMIT || cachedTextPixels > TEXT_CACHE_PIXEL_LIMIT) {
+      const oldestKey = textSprites.keys().next().value;
+      if (oldestKey === undefined) break;
+      const oldest = textSprites.get(oldestKey);
+      textSprites.delete(oldestKey);
+      if (oldest) cachedTextPixels -= oldest.pixels;
+    }
+    return sprite;
   }
 
-  function copyTextState(target: CanvasRenderingContext2D) {
-    target.setTransform(ctx.getTransform());
-    target.globalAlpha = ctx.globalAlpha;
-    target.font = ctx.font;
-    target.textAlign = ctx.textAlign;
-    target.textBaseline = ctx.textBaseline;
-    target.direction = ctx.direction;
+  function drawTextSprite(sprite: TextSprite, x: number, y: number) {
+    const direction = ctx.direction;
+    const align = ctx.textAlign === "start"
+      ? direction === "rtl" ? "right" : "left"
+      : ctx.textAlign === "end"
+        ? direction === "rtl" ? "left" : "right"
+        : ctx.textAlign;
+    const anchorX = align === "center"
+      ? sprite.padding + sprite.textWidth / 2
+      : align === "right"
+        ? sprite.padding + sprite.textWidth
+        : sprite.padding;
+    const anchorY = ctx.textBaseline === "middle"
+      ? sprite.logicalHeight / 2
+      : ctx.textBaseline === "top" || ctx.textBaseline === "hanging"
+        ? sprite.padding
+        : ctx.textBaseline === "bottom" || ctx.textBaseline === "ideographic"
+          ? sprite.logicalHeight - sprite.padding
+          : sprite.padding + sprite.ascent;
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(
+      sprite.canvas,
+      x - anchorX,
+      y - anchorY,
+      sprite.logicalWidth,
+      sprite.logicalHeight,
+    );
+    ctx.imageSmoothingEnabled = smoothing;
   }
   function pixelCircle(x: number, y: number, radius: number) {
     const step = 4;
@@ -39,16 +119,6 @@ export function createCanvasPrimitives(
     ctx.closePath();
   }
 
-  function outlinedText(
-    text: string,
-    x: number,
-    y: number,
-    fillColor: string,
-    strokeWidth = ctx.lineWidth,
-  ) {
-    drawOutlinedText(textContext(), text, x, y, fillColor, strokeWidth, true);
-  }
-
   function outlinedWorldText(
     text: string,
     x: number,
@@ -56,56 +126,20 @@ export function createCanvasPrimitives(
     fillColor: string,
     strokeWidth = ctx.lineWidth,
   ) {
-    drawOutlinedText(ctx, text, x, y, fillColor, strokeWidth, false);
+    drawTextSprite(textSprite(text, fillColor, strokeWidth), x, y);
   }
 
-  function drawOutlinedText(
-    target: CanvasRenderingContext2D,
-    text: string,
-    x: number,
-    y: number,
-    fillColor: string,
-    strokeWidth: number,
-    withShadow: boolean,
-  ) {
-    target.save();
-    copyTextState(target);
-    target.lineJoin = "round";
-    target.lineWidth = strokeWidth;
-
-    if (withShadow) {
-      // Shadow only the fill. Shadowing both stroke and fill produces two
-      // overlapping silhouettes that look like a second outline on small text.
-      target.fillStyle = fillColor;
-      target.shadowColor = "rgba(0, 0, 0, .92)";
-      target.shadowBlur = 0;
-      target.shadowOffsetX = 1;
-      target.shadowOffsetY = 2;
-      target.fillText(text, x, y);
+  function drawFilledText(text: string, x: number, y: number) {
+    if (typeof ctx.fillStyle !== "string") {
+      ctx.fillText(text, x, y);
+      return;
     }
-
-    target.shadowColor = "transparent";
-    target.shadowOffsetX = 0;
-    target.shadowOffsetY = 0;
-    target.strokeStyle = "#000";
-    target.strokeText(text, x, y);
-    target.fillStyle = fillColor;
-    target.fillText(text, x, y);
-    target.restore();
-  }
-
-  function fillFloatingText(text: string, x: number, y: number) {
-    const target = textContext();
-    target.save();
-    copyTextState(target);
-    target.fillStyle = ctx.fillStyle;
-    target.fillText(text, x, y);
-    target.restore();
+    drawTextSprite(textSprite(text, ctx.fillStyle, null), x, y);
   }
 
   function fillWorldText(text: string, x: number, y: number) {
-    ctx.fillText(text, x, y);
+    drawFilledText(text, x, y);
   }
 
-  return { outlinedText, outlinedWorldText, fillFloatingText, fillWorldText, pixelCircle, roundRect };
+  return { outlinedWorldText, fillWorldText, pixelCircle, roundRect };
 }

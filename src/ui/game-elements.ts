@@ -17,7 +17,7 @@ export function createGameElements(skinTones: SkinToneOptions) {
   });
 
   return {
-    canvas: requiredElement<HTMLCanvasElement>("game"), textCanvas: requiredElement<HTMLCanvasElement>("textLayer"),
+    canvas: requiredElement<HTMLCanvasElement>("game"),
     hpFill: requiredElement("hpFill"), hpText: requiredElement("hpText"), playerNameEl: requiredElement("playerName"), playerPowerEl: requiredElement("playerPower"), playerHudProfileIcon: requiredElement<HTMLButtonElement>("playerHudProfileIcon"), coopStatusEl: requiredElement("coopStatus"), messageEl: requiredElement("message"), pickupLog: requiredElement("pickupLog"),
     enemyRespawnAdBtn: requiredElement<HTMLButtonElement>("enemyRespawnAdBtn"), enemyRespawnAdStatus: requiredElement("enemyRespawnAdStatus"), enemyRespawnBoostStatus: requiredElement("enemyRespawnBoostStatus"), enemyRespawnBoostTimer: requiredElement("enemyRespawnBoostTimer"), browserRewardedAd: requiredElement("browserRewardedAd"), browserRewardedAdTimer: requiredElement("browserRewardedAdTimer"),
     settingsBtn: requiredElement("settingsBtn"), inventoryBtn: requiredElement("inventoryBtn"), settingsPanel: requiredElement("settingsPanel"), closeSettingsBtn: requiredElement("closeSettingsBtn"), inventoryPanel: requiredElement("inventoryPanel"), closeInventoryBtn: requiredElement("closeInventoryBtn"), resetProgressBtn: requiredElement("resetProgressBtn"), bootUpgradeEl: requiredElement("bootUpgrade"), bootUpgradeClose: requiredElement("bootUpgradeClose"), joystickEl: requiredElement("joystick"), stickEl: requiredElement("stick"),

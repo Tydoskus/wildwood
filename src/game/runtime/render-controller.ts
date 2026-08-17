@@ -14,8 +14,6 @@ export type RenderController = {
 /** Owns frame rendering order. Main supplies scene and UI boundaries. */
 export function createRenderController(options: {
   ctx: CanvasRenderingContext2D;
-  textCtx: CanvasRenderingContext2D;
-  textCanvas: HTMLCanvasElement;
   camera: Camera;
   player: PlayerState;
   bootsPickup: BootsPickup;
@@ -61,7 +59,7 @@ export function createRenderController(options: {
   enemyShots: EnemyShot[];
 }): RenderController {
   const {
-    ctx, textCtx, textCanvas, camera, player, bootsPickup, viewport, pixelCircle, remotePlayers, mapPlayerMarkers,
+    ctx, camera, player, bootsPickup, viewport, pixelCircle, remotePlayers, mapPlayerMarkers,
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
@@ -148,18 +146,8 @@ export function createRenderController(options: {
     drawVignette();
   }
 
-  function clearFloatingTextFromMinimap() {
-    const { width, dpr } = viewport();
-    const size = Math.min(126, Math.max(118, width * .17));
-    const x = width - size;
-    textCtx.setTransform(1, 0, 0, 1, 0, 0);
-    textCtx.clearRect(Math.floor((x - 3) * dpr), 0, Math.ceil((size + 3) * dpr), Math.ceil((size + 3) * dpr));
-  }
-
   function render() {
     const { width, height } = viewport();
-    textCtx.setTransform(1, 0, 0, 1, 0, 0);
-    textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
     drawProfileCharacterPreview();
     const remotes = remotePlayers();
     updateSpeechBubbles();
@@ -188,7 +176,7 @@ export function createRenderController(options: {
     drawParticles(ctx, camera);
     drawDamageNumbers(ctx, camera);
     ctx.restore();
-    if (!isDueling() && !cutscene) { drawMinimap(mapPlayerMarkers()); clearFloatingTextFromMinimap(); }
+    if (!isDueling() && !cutscene) drawMinimap(mapPlayerMarkers());
     if (flash() > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash() * .75})`;
       ctx.fillRect(0, 0, width, height);

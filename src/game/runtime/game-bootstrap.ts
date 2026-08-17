@@ -6,20 +6,21 @@ import { BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   PLAYER_BASE_HP,
   PLAYER_SPEED,
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
+import { createProjectileStore } from "./projectile-store";
 
 export type BootstrapInventory = InventoryState & { selectedItemId: string };
 
 /** Immutable map rules plus mutable game entities allocated once per session. */
 export function createGameBootstrap() {
-  const projectiles: Projectile[] = [];
-  const enemyShots: EnemyShot[] = [];
+  const projectileStore = createProjectileStore();
+  const { projectiles, enemyShots } = projectileStore;
   const enemies: EnemyState[] = [];
   const spawnSites: SpawnSite[] = [];
   const decor: WorldDecor[] = [];
@@ -146,6 +147,7 @@ export function createGameBootstrap() {
     paths,
     player,
     projectiles,
+    projectileStore,
     spawnSites,
     spiderBoss,
     spiderVenom,

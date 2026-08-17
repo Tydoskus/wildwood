@@ -1,6 +1,6 @@
 import { createPortalCutscene } from "./cutscene";
 import type { Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -54,10 +54,7 @@ export function createMapController(options: {
   spawnFromSite: (site: SpawnSite) => void;
   enemies: EnemyState[];
   spawnSites: SpawnSite[];
-  projectiles: Projectile[];
-  enemyShots: EnemyShot[];
-  particles: unknown[];
-  damageNumbers: unknown[];
+  clearTransientCombat: () => void;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -72,7 +69,7 @@ export function createMapController(options: {
     mapConfig, tutorialMapId, desertMapId, snowMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey,
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, fadeToWorld, mapUnlocked, syncMapMusic,
-    rebuildWorld, spawnFromSite, enemies, spawnSites, projectiles, enemyShots, particles, damageNumbers,
+    rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
     bossRain, spiderVenom, frostclawIcefalls, boss, spiderBoss, frostclawBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
@@ -121,10 +118,7 @@ export function createMapController(options: {
     player.moving = false;
     enemies.length = 0;
     spawnSites.length = 0;
-    projectiles.length = 0;
-    enemyShots.length = 0;
-    particles.length = 0;
-    damageNumbers.length = 0;
+    clearTransientCombat();
     clearPendingBossHits();
     bossRain.length = 0;
     boss.cone = null;
