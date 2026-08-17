@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.438": [
+    "The sign-in sound icon is larger and now floats cleanly without a border or background.",
+  ],
   "0.437": [
     "Sign-in and loading screens now use an illustrated Wildwood battle scene showing the portal, monsters, and stat gains.",
   ],

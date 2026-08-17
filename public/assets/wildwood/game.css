@@ -843,17 +843,16 @@
     width: 42px;
     height: 42px;
     margin: 0;
-    padding: 8px;
-    border: 2px solid rgba(255,255,255,.28);
-    border-radius: 8px;
-    background: rgba(31,42,35,.82);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--text);
-    box-shadow: 0 2px 0 #000;
+    box-shadow: none;
     -webkit-text-stroke: 0;
     text-shadow: none;
   }
 
-  .signin-mute-button svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .signin-mute-button svg { display: block; width: 24.2px; height: 24.2px; overflow: visible; }
   .signin-sound-speaker { fill: currentColor; }
   .signin-sound-waves, .signin-sound-muted { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
   .signin-sound-muted { display: none; }
