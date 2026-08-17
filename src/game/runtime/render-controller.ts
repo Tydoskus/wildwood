@@ -33,7 +33,7 @@ export function createRenderController(options: {
   drawProfileCharacterPreview: () => void;
   updateSpeechBubbles: () => void;
   drawGround: () => void;
-  drawStaticWorld: () => void;
+  drawStaticWorld: (offsetX?: number, offsetY?: number) => void;
   drawDuelArena: (active: boolean, arena: typeof DUEL_ARENA) => void;
   drawDuelScene: (scene: DuelScene) => void;
   drawDecor: () => void;
@@ -148,6 +148,7 @@ export function createRenderController(options: {
 
   function render() {
     const { width, height } = viewport();
+    ctx.clearRect(0, 0, width, height);
     drawProfileCharacterPreview();
     const remotes = remotePlayers();
     updateSpeechBubbles();
@@ -160,9 +161,11 @@ export function createRenderController(options: {
     setRenderedDuelScene(null);
     ctx.save();
     const shake = screenShake();
-    if (screenShakeEnabled() && shake > .2) ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
+    const shakeX = screenShakeEnabled() && shake > .2 ? (Math.random() * 2 - 1) * shake : 0;
+    const shakeY = screenShakeEnabled() && shake > .2 ? (Math.random() * 2 - 1) * shake : 0;
+    if (shakeX !== 0 || shakeY !== 0) ctx.translate(shakeX, shakeY);
     ctx.scale(camera.zoom, camera.zoom);
-    drawStaticWorld();
+    drawStaticWorld(shakeX, shakeY);
     drawDuelArena(isArenaScene(), DUEL_ARENA);
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapIsTutorial()) drawBossTelegraphs();

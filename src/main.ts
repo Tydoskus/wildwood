@@ -10,7 +10,6 @@ import { moveInventoryItem, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
-import { requiredElement } from "./game/runtime/dom";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
 import { createEnemySimulation } from "./game/runtime/enemy-simulation";
 import { createCoopSessionController } from "./game/runtime/coop-session-controller";
@@ -32,6 +31,7 @@ import { createPlayerController, type PlayerController } from "./game/runtime/pl
 import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
 import { createResearchController } from "./game/runtime/research-controller";
 import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
+import { createPixiStaticWorldLayer } from "./game/runtime/pixi-static-world-layer";
 import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
 import type { DuelScene } from "./game/runtime/types";
 import {
@@ -51,6 +51,7 @@ import { formatPlayedTime, profilePresenceText, renderProfileStats } from "./ui/
 import { createTechTreeController } from "./ui/tech-tree-controller";
 import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
+import { createDeathScreenController } from "./ui/death-screen-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
@@ -69,7 +70,7 @@ import {
   PLAYER_SPEED as BASE_PLAYER_SPEED,
 } from "../shared/rules";
 
-(() => {
+(async () => {
   "use strict";
 
   // Architecture boundary: keep this file as composition root. New systems
@@ -79,7 +80,7 @@ import {
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
+    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
@@ -93,13 +94,20 @@ import {
   let actorShadowSprite!: HTMLImageElement;
   const canvasRuntime = createCanvasRuntime({ canvas, getActorShadowSprite: () => actorShadowSprite });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
+  const staticWorldLayer = await createPixiStaticWorldLayer(canvas);
 
   const coop = window.wildwoodCoop || null;
   const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, seenVersionKey: SEEN_VERSION_KEY, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });
 
   let startupCoordinator!: ReturnType<typeof createStartupCoordinator>;
 
-  const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID);
+  const deathScreen = createDeathScreenController({
+    screen: gameOverEl,
+    countdown: deathCountdownEl,
+    onRespawn: () => startGame(false, false),
+  });
+
+  const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID);
 
   function syncMapMusic() {
     mapMusic.syncMap(currentMapId);
@@ -229,7 +237,7 @@ import {
     accountState: () => coop?.accountState?.(),
     signIn: () => { void coop?.signIn?.(); },
     signOut: () => { coop?.signOut?.(); },
-    canPlayMusic: () => (session?.hasStarted() || session?.isRunning() || false) && !gameplayPauseReasons.has("rewarded-ad"),
+    canPlayMusic: () => !gameplayPauseReasons.has("rewarded-ad"),
     onScreenShakeDisabled: () => { screenShake = 0; },
     onLowPerformanceChanged: () => { session.resetFrameSchedule(); },
     showMessage,
@@ -592,6 +600,7 @@ import {
     publicPlayerName,
     playerPower,
     worldHealthBarHeight: WORLD_HEALTH_BAR_HEIGHT,
+    staticWorldLayer,
   });
   const { invalidateStaticWorld } = worldRenderRuntime;
   duelRuntime = createDuelRuntime({
@@ -862,7 +871,7 @@ import {
     connected: () => Boolean(coop?.isConnected?.()),
     accountInConflict: () => Boolean(coop?.accountState?.().sessionConflict),
     lowPerformanceMode: appShell.lowPerformanceMode, ensureMusicPlaying: appShell.ensureMusicPlaying,
-    hideStart: startup.hideStart, hideGameOver: startup.hideGameOver, showGameOver: startup.showGameOver,
+    hideStart: startup.hideStart, hideGameOver: deathScreen.hide, showGameOver: deathScreen.show,
     beginAdventure: () => { coop?.beginAdventure?.(); },
     syncStoppedPosition: () => { coop?.correctMovementPosition?.(player.x, player.y, true); },
     resetPlayer: (preserveStats) => {
@@ -997,7 +1006,7 @@ import {
     setBootsCollected: (collected: boolean) => { bootsPickup.collected = collected; },
     clearPlayerInput: playerInput.clear,
     resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
-    stopGame: session.stop, startConnecting: startup.showConnecting, hideGameOver: startup.hideGameOver,
+    stopGame: session.stop, startConnecting: startup.showConnecting, hideGameOver: deathScreen.hide,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
     leaderboard, closeLeaderboard, devPanel, profileWindow,
   }).handleInputEscape;
@@ -1057,8 +1066,6 @@ import {
   updateProtocolGate();
 
   startGameRuntime({
-    restartButton: requiredElement<HTMLButtonElement>("restartBtn"),
-    startGame,
     accountState: () => coop?.accountState?.(),
     showSigningIn: startup.showSigningIn,
     showAccountChoice: startup.showAccountChoice,

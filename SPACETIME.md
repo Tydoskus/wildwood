@@ -2,15 +2,19 @@
 
 ## Local development
 
-Run SpacetimeDB and the static site in separate terminals:
+On macOS, double-click `Run Wildwood Local.command` in the repository root. It starts the database and web server in separate Terminal windows, publishes the local module, regenerates client bindings, builds the browser client, and opens the game.
+
+Or run SpacetimeDB and the built static site manually in separate terminals:
 
 ```sh
 spacetime start
-spacetime publish wildwood-coop --module-path spacetimedb --server local
-python3 -m http.server 8000
+npm run spacetime:publish:local
+npm run spacetime:generate
+npm run build:client
+npm run serve:dist
 ```
 
-Open `http://127.0.0.1:8000/index.html`.
+Open `http://127.0.0.1:8000/`.
 
 Local databases do not appear in the SpacetimeDB account dashboard.
 

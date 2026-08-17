@@ -4,6 +4,7 @@ import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
+import type { StaticWorldLayer, StaticWorldTileFrame } from "./pixi-static-world-layer";
 import {
   paintStaticTile,
   paintStaticTilePlaceholder,
@@ -60,6 +61,7 @@ export type WorldRendererOptions = {
   snowPine: HTMLImageElement;
   drawShadow: DrawShadow;
   outlinedText: OutlinedText;
+  staticWorldLayer?: StaticWorldLayer | null;
 };
 
 export function createWorldRenderer(options: WorldRendererOptions) {
@@ -228,8 +230,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return tile;
   }
 
-  function drawStaticWorld() {
+  function drawStaticWorld(offsetX = 0, offsetY = 0) {
     if (options.isArenaScene()) {
+      options.staticWorldLayer?.hide();
       drawGround();
       return;
     }
@@ -248,6 +251,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const snapTileEdge = (coordinate: number, offset: number) =>
       Math.round((coordinate - offset) * camera.zoom * options.getDevicePixelRatio()) /
       (camera.zoom * options.getDevicePixelRatio());
+    const gpuTiles: StaticWorldTileFrame[] = [];
+    const useGpu = Boolean(options.staticWorldLayer?.active());
     for (let tileY = startY; tileY <= endY; tileY += 1) {
       for (let tileX = startX; tileX <= endX; tileX += 1) {
         if (tileX < 0 || tileY < 0 || tileX * STATIC_TILE_SIZE >= WORLD.w || tileY * STATIC_TILE_SIZE >= WORLD.h) continue;
@@ -255,13 +260,37 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         const top = snapTileEdge(tileY * STATIC_TILE_SIZE, camera.y);
         const right = snapTileEdge((tileX + 1) * STATIC_TILE_SIZE, camera.x);
         const bottom = snapTileEdge((tileY + 1) * STATIC_TILE_SIZE, camera.y);
-        ctx.drawImage(staticTile(tileX, tileY), left, top, right - left, bottom - top);
+        const key = `${options.getMapId()}:${tileX}:${tileY}`;
+        const source = staticTile(tileX, tileY);
+        if (useGpu) {
+          gpuTiles.push({ key, source, left, top, width: right - left, height: bottom - top });
+        } else {
+          ctx.drawImage(source, left, top, right - left, bottom - top);
+        }
+      }
+    }
+    if (useGpu) {
+      const view = viewport();
+      const rendered = options.staticWorldLayer?.render({
+        backgroundColor: mapColors().ground,
+        width: view.width,
+        height: view.height,
+        dpr: options.getDevicePixelRatio(),
+        zoom: camera.zoom,
+        offsetX,
+        offsetY,
+        tiles: gpuTiles,
+      });
+      if (!rendered) {
+        for (const tile of gpuTiles) ctx.drawImage(tile.source, tile.left, tile.top, tile.width, tile.height);
       }
     }
     trimStaticTiles();
   }
 
   function invalidateStaticWorld() {
+    // Release Pixi textures before closing the ImageBitmap sources they use.
+    options.staticWorldLayer?.invalidate();
     for (const tile of staticTiles.values()) closeStaticTile(tile);
     staticTiles.clear();
     pendingStaticTiles.clear();

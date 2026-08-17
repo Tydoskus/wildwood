@@ -8,7 +8,9 @@ export function createCanvasRuntime({
   canvas: HTMLCanvasElement;
   getActorShadowSprite: () => HTMLImageElement | null;
 }) {
-  const ctx = requiredCanvasContext(canvas, { alpha: false });
+  // Alpha keeps the dynamic Canvas2D renderer compositable over the Pixi
+  // static-world canvas. The complete Canvas path still paints every pixel.
+  const ctx = requiredCanvasContext(canvas, { alpha: true });
   const primitives = createCanvasPrimitives(ctx);
   let dpr = 1;
   let width = innerWidth;

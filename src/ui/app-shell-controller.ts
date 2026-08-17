@@ -46,6 +46,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const latencyStatus = requiredElement("latencyStatus");
   const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
   const musicVolumeValue = requiredElement("musicVolumeValue");
+  const signInMuteButton = requiredElement<HTMLButtonElement>("signInMuteButton");
   const fullscreenToggle = requiredElement<HTMLButtonElement>("fullscreenToggle");
   const connectionStatus = requiredElement("connectionStatus");
   const accountButton = requiredElement("accountButton");
@@ -57,6 +58,15 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
   let fpsVisible = readBoolean(dependencies.storageKeys.fps, false);
   let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
+  let lastAudibleMusicVolume = dependencies.mapMusic.volume > 0 ? dependencies.mapMusic.volume : .35;
+
+  function renderSignInMuteButton() {
+    const muted = dependencies.mapMusic.volume <= 0;
+    const label = muted ? "Unmute music" : "Mute music";
+    signInMuteButton.setAttribute("aria-pressed", String(muted));
+    signInMuteButton.setAttribute("aria-label", label);
+    signInMuteButton.title = label;
+  }
 
   function refreshSettings() {
     renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
@@ -69,6 +79,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderLatencyStatus(latencyStatus, latencyVisible, dependencies.latencyMs(), dependencies.connected());
     dependencies.mapMusic.setVolume(dependencies.mapMusic.volume);
     renderMusicVolume(musicVolumeInput, musicVolumeValue, dependencies.mapMusic.volume);
+    renderSignInMuteButton();
   }
 
   function refreshStatus() {
@@ -131,12 +142,27 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     writeBoolean(dependencies.storageKeys.latency, latencyVisible);
     refreshSettings();
   });
-  musicVolumeInput.addEventListener("input", () => {
+  const applyMusicVolume = () => {
     const volume = Math.min(1, Math.max(0, Number(musicVolumeInput.value) / 100));
     dependencies.mapMusic.setVolume(volume);
     writeString(dependencies.storageKeys.musicVolume, String(volume));
-    refreshSettings();
+    if (volume > 0) lastAudibleMusicVolume = volume;
+    // Do not rewrite the range input through the full settings renderer while
+    // iOS is actively dragging its native thumb.
+    renderMusicVolume(musicVolumeInput, musicVolumeValue, volume);
+    renderSignInMuteButton();
     if (volume > 0) ensureMusicPlaying();
+  };
+  musicVolumeInput.addEventListener("input", applyMusicVolume);
+  musicVolumeInput.addEventListener("change", applyMusicVolume);
+  signInMuteButton.addEventListener("click", () => {
+    const nextVolume = dependencies.mapMusic.volume > 0 ? 0 : lastAudibleMusicVolume;
+    if (dependencies.mapMusic.volume > 0) lastAudibleMusicVolume = dependencies.mapMusic.volume;
+    dependencies.mapMusic.setVolume(nextVolume);
+    writeString(dependencies.storageKeys.musicVolume, String(nextVolume));
+    renderMusicVolume(musicVolumeInput, musicVolumeValue, nextVolume);
+    renderSignInMuteButton();
+    if (nextVolume > 0) ensureMusicPlaying();
   });
   accountButton.addEventListener("click", () => {
     if (dependencies.accountState()?.signedIn) dependencies.signOut();
@@ -153,8 +179,14 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     ensureMusicPlaying();
   });
   window.addEventListener("pagehide", () => dependencies.mapMusic.audio.pause());
-  document.addEventListener("pointerdown", ensureMusicPlaying, { capture: true });
-  document.addEventListener("keydown", ensureMusicPlaying, { capture: true });
+  document.addEventListener("pointerdown", (event) => {
+    if (event.target instanceof Element && event.target.closest("#signInMuteButton")) return;
+    ensureMusicPlaying();
+  }, { capture: true });
+  document.addEventListener("keydown", (event) => {
+    if (event.target instanceof Element && event.target.closest("#signInMuteButton")) return;
+    ensureMusicPlaying();
+  }, { capture: true });
 
   refreshSettings();
   refreshStatus();

@@ -31,7 +31,6 @@ type StartupDependencies = {
 /** Startup, account choice, sign-in, session conflict, and new-player UI flow. */
 export function createStartupController(dependencies: StartupDependencies) {
   const start = requiredElement("start");
-  const gameOver = requiredElement("gameOver");
   const connectionPanel = requiredElement("connectionPanel");
   const sessionTakeoverButton = requiredElement<HTMLButtonElement>("sessionTakeoverBtn");
   const sessionTakeoverNote = requiredElement("sessionTakeoverNote");
@@ -226,14 +225,12 @@ export function createStartupController(dependencies: StartupDependencies) {
 
   return {
     clearSignInPending: () => { signInPending = false; },
-    hideGameOver: () => { gameOver.style.display = "none"; },
     hideStart: () => { start.style.display = "none"; },
     isLoadingSequenceComplete: () => loadingSequenceComplete,
     isSignInPending: () => signInPending,
     refreshLoading,
     showAccountChoice,
     showConnecting,
-    showGameOver: () => { gameOver.style.display = "grid"; },
     showLoading,
     showNewPlayerIntro,
     showSessionConflict,

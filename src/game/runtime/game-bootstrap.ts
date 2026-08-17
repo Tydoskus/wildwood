@@ -174,8 +174,6 @@ export function createGameBootstrapAssets(options: {
 
 /** Runs one-time client startup after controllers have been composed. */
 export function startGameRuntime(options: {
-  restartButton: HTMLButtonElement;
-  startGame: (markIntro: boolean, restoreServerPosition: boolean) => void;
   accountState: () => { returningFromSignIn?: boolean; signInRequired?: boolean; signedIn?: boolean; knownAccount?: boolean; authInProgress?: boolean } | undefined;
   showSigningIn: () => void;
   showAccountChoice: () => void;
@@ -188,7 +186,6 @@ export function startGameRuntime(options: {
   render: () => void;
   loop: FrameRequestCallback;
 }) {
-  options.restartButton.addEventListener("click", () => options.startGame(false, false));
   const account = options.accountState();
   if (account?.returningFromSignIn) options.showSigningIn();
   else if (account?.signInRequired) options.showAccountChoice();

@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.436": [
+    "The sign-in screen now plays Light Ambient 4 and has a quick mute or unmute button in the top-right corner.",
+    "Intermediate Snowlands now plays Ambient 10, and music volume works reliably through the Web Audio path used by iOS.",
+    "Static world tiles now use a PixiJS WebGL layer when available, with an automatic Canvas fallback for compatibility.",
+    "The death screen now counts down and returns players to spawn automatically after five seconds.",
+    "Duel chat announcements show the displayed player's power, and replay rows open only from expanded chat.",
+  ],
   "0.435": [
     "Enemy separation, attack targeting, and projectile collision now use spatial grids, while static decor is pre-sorted and offscreen players and cacti are removed before depth sorting.",
     "Static world tiles now paint in a background worker with a safe fallback; the minimap refreshes at 8 Hz and world text reuses cached rasterized labels instead of rebuilding every frame.",
@@ -714,6 +721,7 @@ const RELEASE_DATES: Record<string, string> = {
 
 function releaseDay(version: string) {
   const numericVersion = Number(version);
+  if (numericVersion >= .436) return "2026-08-17";
   if (numericVersion >= .419) return "2026-08-16";
   if (numericVersion >= .409) return "2026-08-15";
   if (numericVersion >= .376) return "2026-08-14";
@@ -725,6 +733,7 @@ function releaseDay(version: string) {
 export function releaseDate(version: string) {
   if (RELEASE_DATES[version]) return RELEASE_DATES[version];
   const day = releaseDay(version);
+  if (day === "2026-08-17") return "AUG 17, 2026";
   if (day === "2026-08-16") return "AUG 16, 2026";
   if (day === "2026-08-15") return "AUG 15, 2026";
   if (day === "2026-08-14") return "AUG 14, 2026";

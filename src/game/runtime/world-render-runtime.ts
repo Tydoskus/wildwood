@@ -9,6 +9,7 @@ import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { StaticWorldLayer } from "./pixi-static-world-layer";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -78,6 +79,7 @@ export type WorldRenderRuntimeOptions = {
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;
   worldHealthBarHeight: number;
+  staticWorldLayer?: StaticWorldLayer | null;
 };
 
 export type FrameRendererOptions = {
@@ -140,6 +142,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
+    staticWorldLayer: options.staticWorldLayer,
     ...options.assets,
   });
   const boss = createBossRenderer({

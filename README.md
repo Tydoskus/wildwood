@@ -8,7 +8,7 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 | --- | --- | --- |
 | Composition root | `src/main.ts` | Wires typed runtime and UI controllers. Keep new game behavior out of this file. |
 | Gameplay runtime | `src/game/runtime/{player,player-combat,enemy-simulation,boss,map,game-session}-controller.ts` | Player movement, combat, enemy LOD, bosses, portals, and frame/session lifecycle. |
-| Runtime rendering | `src/game/runtime/{world-render,canvas,render}-runtime.ts` | Canvas setup, viewport/DPR, render construction, and world draw ordering. |
+| Runtime rendering | `src/game/runtime/{world-renderer,canvas-runtime,render-controller,pixi-static-world-layer}.ts` | PixiJS WebGL-first static world, Pixi Canvas fallback, transparent Canvas2D dynamic overlay, viewport/DPR, and world draw ordering. Use `?renderer=canvas` to force the compatibility renderer. |
 | UI views | `src/ui/*-controller.ts` | HUD, inventory, profile, leaderboard, developer, overlays, startup, and window behavior. |
 | Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
 | Runtime systems | `src/game/runtime/` | Strictly typed audio, assets, bootstrap, camera, combat effects, persistence, rendering, input, session, and browser contracts. |
@@ -33,6 +33,8 @@ Install dependencies once:
 ```sh
 npm ci
 ```
+
+On macOS, double-click `Run Wildwood Local.command` for the complete local stack. It opens the database in a second Terminal window, publishes and builds current code, starts the web server, then opens the game. Press Control-C in both Terminal windows when finished.
 
 For a complete local stack, run these in separate terminals:
 

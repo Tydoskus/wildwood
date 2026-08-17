@@ -1,4 +1,6 @@
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
+import type { PlayerPowerStats } from "../../shared/player-power";
+import { duelReplayIsInteractive, presentedChatPower } from "./chat-presentation";
 import { formatCompactNumber } from "./number-format";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
@@ -23,6 +25,8 @@ type CoopClient = {
   localIdentity?: () => string | undefined;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
+  playerProfile?: (identity?: string) => { progress: PlayerPowerStats } | null;
+  savedProgress?: () => PlayerPowerStats | null;
   chatRevision?: () => number;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
@@ -136,6 +140,17 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const duel = message.replayId > 0n ? duelPresentation(message, localName, localIdentity) : null;
       const displayName = displayNameFor(message, localName, localIdentity);
       const displayIdentity = duel?.identity ?? message.sender;
+      const displayedProfile = duel && displayIdentity !== message.sender
+        ? coop?.playerProfile?.(displayIdentity)
+        : null;
+      const displayedStats = displayedProfile?.progress
+        ?? (duel && displayIdentity === localIdentity ? coop?.savedProgress?.() ?? null : null);
+      const displayedPower = presentedChatPower(
+        message.powerLevel,
+        message.sender,
+        displayIdentity,
+        displayedStats,
+      );
       const line = document.createElement("div");
       line.className = "chat-line";
       const isDuelMessage = message.replayId > 0n;
@@ -156,17 +171,17 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       }
       nameCore.append(document.createTextNode(`${displayName}${guestSuffix}`));
       name.appendChild(nameCore);
-      if (!isDuelMessage && message.powerLevel > 0) {
+      if (displayedPower > 0) {
         const power = document.createElement("span");
         power.className = "chat-power";
-        power.setAttribute("aria-label", `Power ${formatCompactNumber(message.powerLevel)}`);
+        power.setAttribute("aria-label", `Power ${formatCompactNumber(displayedPower)}`);
         const powerIcon = document.createElement("img");
         powerIcon.className = "power-icon chat-power-icon";
         powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
         powerIcon.alt = "";
         powerIcon.setAttribute("aria-hidden", "true");
         const powerValue = document.createElement("span");
-        powerValue.textContent = formatCompactNumber(message.powerLevel);
+        powerValue.textContent = formatCompactNumber(displayedPower);
         power.append(powerIcon, powerValue);
         name.appendChild(power);
       }
@@ -204,7 +219,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(displayIdentity) ?? 0)));
       icon.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + (iconIndex % 8) * PROFILE_PORTRAIT_POSITION_STEP}% ${PROFILE_PORTRAIT_POSITION_START + Math.floor(iconIndex / 8) * PROFILE_PORTRAIT_POSITION_STEP}%`;
       line.append(time, icon, name, text);
-      if (isDuelMessage) {
+      if (duelReplayIsInteractive(message.replayId, large)) {
         line.classList.add("has-replay");
         line.setAttribute("role", "button");
         line.setAttribute("tabindex", "0");

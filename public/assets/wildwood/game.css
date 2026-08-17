@@ -69,12 +69,17 @@
     background: #102819;
   }
 
+  #gameGpu { z-index: 0; pointer-events: none; }
+  #game { z-index: 1; }
+  body.has-gpu-world #game { background: transparent; }
+
   #hud {
     position: fixed;
     inset: 0;
     pointer-events: none;
     color: var(--text);
     text-shadow: var(--text-shadow);
+    z-index: 2;
   }
 
   .topbar {
@@ -473,7 +478,6 @@
     font-weight: 900;
     line-height: 1;
     letter-spacing: .04em;
-    transform: translateY(-1px);
     -webkit-text-stroke: 1px #000;
     paint-order: stroke fill;
     text-shadow: 1px 2px 0 #000;
@@ -820,6 +824,35 @@
 
   #start { background: #000; }
 
+  .signin-mute-button {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    margin: 0;
+    padding: 8px;
+    border: 2px solid rgba(255,255,255,.28);
+    border-radius: 8px;
+    background: rgba(31,42,35,.82);
+    color: var(--text);
+    box-shadow: 0 2px 0 #000;
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+  }
+
+  .signin-mute-button svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .signin-sound-speaker { fill: currentColor; }
+  .signin-sound-waves, .signin-sound-muted { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .signin-sound-muted { display: none; }
+  .signin-mute-button[aria-pressed="true"] { color: var(--muted); }
+  .signin-mute-button[aria-pressed="true"] .signin-sound-waves { display: none; }
+  .signin-mute-button[aria-pressed="true"] .signin-sound-muted { display: block; }
+  .signin-mute-button:active { transform: translateY(2px); }
+
   #gameUpdateGate {
     position: fixed;
     inset: 0;
@@ -881,7 +914,46 @@
     to { transform: translateX(300%); }
   }
 
-  #gameOver { display: none; }
+  #gameOver {
+    z-index: 80;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: #000;
+    color: #f02d3d;
+    pointer-events: auto;
+  }
+
+  #gameOver[hidden] { display: none; }
+
+  .death-screen {
+    display: grid;
+    place-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    color: #f02d3d;
+    text-align: center;
+  }
+
+  .death-screen h1 {
+    margin: 0;
+    color: #f02d3d;
+    font-size: clamp(48px, 14vw, 112px);
+    line-height: .9;
+    letter-spacing: -.03em;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+  }
+
+  .death-countdown {
+    margin: 0;
+    color: #f02d3d;
+    font-size: clamp(12px, 3.5vw, 20px);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .06em;
+    text-shadow: none;
+  }
 
   #connectionPanel[hidden], #accountChoicePanel[hidden], #newPlayerPanel[hidden] { display: none; }
 
@@ -1399,8 +1471,6 @@
     max-width: none;
     border-color: rgba(255,218,94,.52);
   }
-
-  #gameOver .modal { width: var(--game-window-width); }
 
   .boots-icon {
     display: flex;
