@@ -3911,11 +3911,15 @@ export const syncPosition = spacetimedb.reducer(
 );
 
 export const changeMap = spacetimedb.reducer(
-  { mapId: t.string() },
-  (ctx, { mapId }) => {
+  { mapId: t.string(), x: t.f64(), y: t.f64() },
+  (ctx, { mapId, x, y }) => {
     const current = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Portal position must be finite.");
+    if (x < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y < PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
+      throw new SenderError("Portal position is outside the world.");
+    }
     const currentProgress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (mapId === BEGINNER_DESERT_MAP_ID) {
       const progress = ctx.db.playerProgress.identity.find(ctx.sender);
@@ -3927,7 +3931,10 @@ export const changeMap = spacetimedb.reducer(
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);
     if (!sourcePortal) throw new SenderError("Maps are not connected.");
-    const portalDistance = Math.hypot(current.x - sourcePortal.x, current.y - sourcePortal.y);
+    // Movement is client-authoritative. Validate the coordinate from this
+    // discrete portal action instead of a potentially one-heartbeat-old
+    // player_motion sample, then move to the destination atomically.
+    const portalDistance = Math.hypot(x - sourcePortal.x, y - sourcePortal.y);
     if (portalDistance > MAP_PORTAL_USE_RANGE) throw new SenderError("Move closer to the portal.");
 
     const arrival = MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];

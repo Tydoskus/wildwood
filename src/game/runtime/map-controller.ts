@@ -45,7 +45,7 @@ export function createMapController(options: {
   isDueling: () => boolean;
   running: () => boolean;
   localMapState: () => { mapId: string; x: number; y: number; facing: number } | null | undefined;
-  changeMap: (mapId: MapId) => Promise<boolean | undefined> | boolean | undefined;
+  changeMap: (mapId: MapId, x: number, y: number) => Promise<boolean | undefined> | boolean | undefined;
   syncStoppedPosition: () => void;
   fadeToWorld: (action: () => void) => void;
   mapUnlocked: (mapId: MapId) => boolean;
@@ -141,7 +141,7 @@ export function createMapController(options: {
     if (!portal || !portalIsUnlocked(portal)) return;
     mapTransitioning = true;
     const destination = portal.destination;
-    void Promise.resolve(changeMap(destination)).then((changed) => {
+    void Promise.resolve(changeMap(destination, player.x, player.y)).then((changed) => {
       if (!changed) { mapTransitioning = false; portalCooldown = 1; return; }
       fadeToWorld(() => {
         const arrival = mapConfig[destination].arrival;

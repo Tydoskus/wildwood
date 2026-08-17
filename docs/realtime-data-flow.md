@@ -123,7 +123,7 @@ The 1 Hz minimap remains intentionally map-wide. At extreme synthetic counts, it
 
 ## Server authority boundary
 
-Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Movement stays deliberately client-authoritative. Server performs only finite-value and world-bound sanity checks; it never simulates movement, replays inputs, validates speed/distance, or runs shared player physics.
+Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Movement stays deliberately client-authoritative. Discrete portal use carries the current client-authoritative `x/y` in the map-change transaction so validation never depends on a one-heartbeat-old motion sample. Server performs only finite-value and world-bound movement sanity checks; it never simulates movement, replays inputs, validates speed/distance, or runs shared player physics.
 
 ## Change checklist
 

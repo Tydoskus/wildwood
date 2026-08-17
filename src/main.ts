@@ -442,7 +442,7 @@ import {
     isDueling,
     running: () => session.isRunning(),
     localMapState: () => coop?.localState?.(),
-    changeMap: (mapId) => coop?.changeMap?.(mapId),
+    changeMap: (mapId, x, y) => coop?.changeMap?.(mapId, x, y),
     syncStoppedPosition: () => coop?.correctMovementPosition?.(player.x, player.y, true),
     fadeToWorld,
     mapUnlocked: (mapId) => mapId === BEGINNER_DESERT_MAP_ID

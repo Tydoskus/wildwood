@@ -3061,10 +3061,17 @@ export const wildwoodCoop = {
       : { dx: lastSentMovement.dx, dy: lastSentMovement.dy };
     wildwoodCoop.syncMovementState(x, y, vector.dx, vector.dy, "keyboard", true);
   },
-  async changeMap(mapId: string) {
-    if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)) return false;
+  async changeMap(mapId: string, x: number, y: number) {
+    if (
+      protocolBlocked ||
+      worldEntryBlocked ||
+      !connection ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)
+    ) return false;
     try {
-      await connection.reducers.changeMap({ mapId });
+      await connection.reducers.changeMap({ mapId, x, y });
       return true;
     } catch (error) {
       handleReducerFailure("map change", error);

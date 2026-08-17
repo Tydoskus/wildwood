@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.426": [
+    "Portals now submit the exact client-authoritative trigger position with the map change, removing false move-closer errors and delayed transitions caused by sparse movement heartbeats.",
+  ],
   "0.425": [
     "Virtual-player load tests now start through a bounded 16-client pool with acknowledgement-aware backoff, making large tests much faster while still exercising burst joins safely.",
     "Virtual players no longer fetch the full on-demand leaderboard during startup, matching normal player joins and removing an obsolete source of server work.",

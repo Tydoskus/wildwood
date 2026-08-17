@@ -12,4 +12,6 @@ import {
 
 export default {
   mapId: __t.string(),
+  x: __t.f64(),
+  y: __t.f64(),
 };
