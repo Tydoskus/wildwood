@@ -1,4 +1,4 @@
-import { DbConnection, tables, type ErrorContext } from "./module_bindings";
+import { DbConnection, tables, type ErrorContext, type SubscriptionHandle } from "./module_bindings";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
 import { GAME_VERSION } from "./game/runtime/game-settings";
@@ -38,6 +38,10 @@ import {
   type MovementInputKind,
   type SentMovementState,
 } from "./coop/services/sparse-movement";
+import {
+  startAfterSubscriptionEnds,
+  unsubscribeIfActive,
+} from "./coop/services/subscription-handoff";
 import {
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
@@ -373,11 +377,12 @@ let cancelLeaderboardSnapshotLoad: (() => void) | null = null;
 let activePlayerProfileIdentity = "";
 let activePlayerProfileSubscription: { unsubscribe: () => void } | null = null;
 let cancelActivePlayerProfileLoad: (() => void) | null = null;
-let mapPlayerSubscription: { unsubscribe: () => void } | null = null;
+let mapPlayerSubscription: SubscriptionHandle | null = null;
 let mapSubscriptionGeneration = 0;
 let mapSubscriptionAreaKey = "";
 let mapPlayerInterestBounds: MapZoneBounds | null = null;
-let mapMarkerSubscription: { unsubscribe: () => void } | null = null;
+let mapPlayerSubscriptionTransitioning = false;
+let mapMarkerSubscription: SubscriptionHandle | null = null;
 let mapMarkerSubscriptionGeneration = 0;
 let currentMapId = TUTORIAL_FOREST_MAP_ID;
 const chatMessages: ChatMessage[] = [];
@@ -397,6 +402,7 @@ let latestFrostclawResult: FrostclawResult | null = null;
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
+let localDbIdentity: Identity | null = null;
 let localMotionNetworkId: number | null = null;
 let lastSentMovement: SentMovementState | null = null;
 let nextPositionSequence = 0;
@@ -2047,10 +2053,11 @@ function removePlayer(row: { identity: Identity }) {
 
 function releaseMapPlayerSubscription() {
   mapSubscriptionGeneration += 1;
-  mapPlayerSubscription?.unsubscribe();
+  unsubscribeIfActive(mapPlayerSubscription);
   mapPlayerSubscription = null;
   mapSubscriptionAreaKey = "";
   mapPlayerInterestBounds = null;
+  mapPlayerSubscriptionTransitioning = false;
 }
 
 function releaseMapMarkerSubscription() {
@@ -2084,9 +2091,38 @@ function refreshMapMarkerSubscription(force = false) {
   mapMarkerSubscription = next;
 }
 
+function reconcileMapPlayerSubscription(conn: DbConnection) {
+  const motionRows = [...conn.db.playerMotionIdentity.iter()];
+  const playerRows = [...conn.db.player.iter()];
+  const currentNetworkIds = new Set(motionRows.map((row) => row.networkId));
+  const currentPlayerIds = new Set(playerRows.map((row) => row.identity.toHexString()));
+
+  batchChanges(() => {
+    let removed = false;
+    for (const [networkId, identity] of motionIdentities) {
+      if (currentNetworkIds.has(networkId)) continue;
+      motionIdentities.delete(networkId);
+      activeMotionIdentities.delete(identity);
+      playerMaps.delete(identity);
+      if (!currentPlayerIds.has(identity)) players.delete(identity);
+      removed = true;
+    }
+    for (const identity of players.keys()) {
+      if (identity === localIdentity || currentPlayerIds.has(identity)) continue;
+      players.delete(identity);
+      playerMaps.delete(identity);
+      removed = true;
+    }
+    for (const row of motionRows) upsertMotionIdentity(row);
+    for (const row of playerRows) upsertPlayer(row);
+    if (removed) onChange();
+  });
+}
+
 function refreshMapPlayerSubscription(force = false, interestArea?: PlayerInterestArea) {
   const conn = connection;
-  if (!conn?.isActive || !hydrationReady) return;
+  const selfIdentity = localDbIdentity;
+  if (!conn?.isActive || !hydrationReady || !selfIdentity) return;
   const centerX = Math.floor((localState?.x ?? 0) / MAP_PLAYER_ZONE_SIZE);
   const centerY = Math.floor((localState?.y ?? 0) / MAP_PLAYER_ZONE_SIZE);
   if (interestArea && [interestArea.left, interestArea.top, interestArea.right, interestArea.bottom].every(Number.isFinite)) {
@@ -2112,17 +2148,20 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
       maxZoneY: Math.min(MAX_MAP_ZONE_Y, centerY + MAP_PLAYER_ZONE_RADIUS),
     };
   const areaKey = `${bounds.mapId}:${bounds.minZoneX}:${bounds.maxZoneX}:${bounds.minZoneY}:${bounds.maxZoneY}`;
+  if (mapPlayerSubscriptionTransitioning) return;
   if (!force && mapPlayerSubscription && mapSubscriptionAreaKey === areaKey) return;
 
   const previous = mapPlayerSubscription;
   const previousAreaKey = mapSubscriptionAreaKey;
   const generation = ++mapSubscriptionGeneration;
   mapSubscriptionAreaKey = areaKey;
+  mapPlayerSubscriptionTransitioning = true;
   // One rectangular query replaces per-player/per-zone subscriptions. Server
   // index starts with map/visibility, then narrows camera-derived zone bounds.
   const nearbyPlayers = tables.player.where((row) => row
     .mapId.eq(currentMapId)
     .and(row.isVisible.eq(true))
+    .and(row.identity.ne(selfIdentity))
     .and(row.zoneX.gte(bounds.minZoneX))
     .and(row.zoneX.lte(bounds.maxZoneX))
     .and(row.zoneY.gte(bounds.minZoneY))
@@ -2136,27 +2175,55 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
   const nearbyMotionIdentities = tables.playerMotionIdentity.where((row) => row
     .mapId.eq(currentMapId)
     .and(row.isVisible.eq(true))
+    .and(row.identity.ne(selfIdentity))
     .and(row.zoneX.gte(bounds.minZoneX))
     .and(row.zoneX.lte(bounds.maxZoneX))
     .and(row.zoneY.gte(bounds.minZoneY))
     .and(row.zoneY.lte(bounds.maxZoneY)));
 
-  const next = conn
-    .subscriptionBuilder()
-    .onApplied(() => {
+  let next: SubscriptionHandle | null = null;
+  const subscribeNext = () => {
+    if (connection !== conn || generation !== mapSubscriptionGeneration || !conn.isActive) return;
+    if (mapPlayerSubscription === previous) mapPlayerSubscription = null;
+    try {
+      next = conn
+        .subscriptionBuilder()
+        .onApplied(() => {
+          if (connection !== conn || generation !== mapSubscriptionGeneration || mapPlayerSubscription !== next) {
+            unsubscribeIfActive(next);
+            return;
+          }
+          reconcileMapPlayerSubscription(conn);
+          mapPlayerSubscriptionTransitioning = false;
+          // The camera may have crossed another zone while this ordered handoff
+          // was in flight. Wait until SDK row callbacks finish, then catch up.
+          queueMicrotask(() => refreshMapPlayerSubscription(false));
+        })
+        .onError((ctx) => {
+          if (connection !== conn || generation !== mapSubscriptionGeneration) return;
+          console.error("Wildwood map player subscription error:", ctx.event);
+          mapPlayerSubscription = null;
+          mapSubscriptionAreaKey = "";
+          mapPlayerSubscriptionTransitioning = false;
+          window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
+        })
+        .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities]);
+      mapPlayerSubscription = next;
+    } catch (error) {
       if (connection !== conn || generation !== mapSubscriptionGeneration) return;
-      previous?.unsubscribe();
-      for (const row of conn.db.playerMotionIdentity.iter()) upsertMotionIdentity(row);
-      for (const row of conn.db.player.iter()) upsertPlayer(row);
-    })
-    .onError((ctx) => {
-      if (connection !== conn || generation !== mapSubscriptionGeneration) return;
-      console.error("Wildwood map player subscription error:", ctx.event);
-      mapPlayerSubscription = previous;
-      mapSubscriptionAreaKey = previousAreaKey;
-    })
-    .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities]);
-  mapPlayerSubscription = next;
+      console.error("Wildwood map player subscription error:", error);
+      mapPlayerSubscription = null;
+      mapSubscriptionAreaKey = "";
+      mapPlayerSubscriptionTransitioning = false;
+    }
+  };
+  startAfterSubscriptionEnds(previous, subscribeNext, (error) => {
+    if (connection !== conn || generation !== mapSubscriptionGeneration) return;
+    console.error("Wildwood map player subscription handoff error:", error);
+    mapPlayerSubscription = previous;
+    mapSubscriptionAreaKey = previousAreaKey;
+    mapPlayerSubscriptionTransitioning = false;
+  });
 }
 
 function clearRealtimeCaches() {
@@ -2318,6 +2385,7 @@ function connect() {
       const connectedIdentity = identity.toHexString();
       const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
       localIdentity = connectedIdentity;
+      localDbIdentity = identity;
       restoreDuelCooldown();
       localProfileReady = false;
       localDisplayName = signedIn ? rememberedAccountCharacter() : rememberedGuestCharacter();
@@ -2420,14 +2488,18 @@ function connect() {
         const shouldHandleTableEvent = () => isCurrentConnection() && !baseSubscriptionHydrating;
         conn.db.player.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayer(row); });
         conn.db.player.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertPlayer(row); });
-        conn.db.player.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removePlayer(row); });
+        conn.db.player.onDelete((_ctx, row) => {
+          if (shouldHandleTableEvent() && !mapPlayerSubscriptionTransitioning) removePlayer(row);
+        });
         // Event tables never enter the SDK cache. Frame handlers update render
         // buffers directly and deliberately skip application-wide UI fanout.
         conn.db.playerMotionFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMotionFrame(row); });
         conn.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMapFrame(row); });
         conn.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
         conn.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
-        conn.db.playerMotionIdentity.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeMotionIdentity(row); });
+        conn.db.playerMotionIdentity.onDelete((_ctx, row) => {
+          if (shouldHandleTableEvent() && !mapPlayerSubscriptionTransitioning) removeMotionIdentity(row);
+        });
         conn.db.playerProfile.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeProfile(row); });
@@ -2543,6 +2615,7 @@ function connect() {
       const hadActiveGame = hydrationReady;
       connecting = false;
       connection = null;
+      localDbIdentity = null;
       hydrationReady = false;
       connectedSignedIn = false;
       lastSentMovement = null;
@@ -2569,6 +2642,7 @@ function connect() {
       if (generation !== connectionGeneration) return;
       connecting = false;
       connection = null;
+      localDbIdentity = null;
       hydrationReady = false;
       connectedSignedIn = false;
       lastSentMovement = null;

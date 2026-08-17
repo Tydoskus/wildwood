@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.432": [
+    "Nearby-player subscriptions now retire each old query before starting its replacement, preventing SpacetimeDB client-cache reference warnings during sustained movement and large realistic load tests.",
+    "Virtual-player shutdown now closes each socket directly instead of racing redundant unsubscribe messages against disconnect, keeping intentional test cleanup out of protocol-error telemetry.",
+    "Frostclaw rewards now grant +72M damage and +270M max health while retaining the existing +75K armor reward.",
+  ],
   "0.431": [
     "Large virtual-player tests now use a sharded Node runner with movement-only, realistic, and dense-zone modes, avoiding Chromium's roughly 255-WebSocket ceiling while the browser smoke test stays safely capped at 200.",
     "Realtime frame publishing now tracks tiny per-map population rows and range-scans only movement changed since the previous tick instead of repeatedly scanning every motion and identity row.",

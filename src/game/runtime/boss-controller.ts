@@ -305,10 +305,10 @@ export function createBossController(options: {
       player.hp = Math.min(player.maxHp, player.hp + FROSTCLAW_REWARD_HEALTH);
       player.armor += FROSTCLAW_REWARD_ARMOR;
     }
-    logPickup("+15M DAMAGE", "#ff655a");
-    logPickup("+50M MAX HEALTH", "#6fe48e");
+    logPickup("+72M DAMAGE", "#ff655a");
+    logPickup("+270M MAX HEALTH", "#6fe48e");
     logPickup("+75K ARMOR", "#d3dbe0");
-    showMessage("+15M DAMAGE · +50M MAX HEALTH · +75K ARMOR", "#dff7ff");
+    showMessage("+72M DAMAGE · +270M MAX HEALTH · +75K ARMOR", "#dff7ff");
   }
 
   function killBoss() {

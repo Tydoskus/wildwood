@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "./game-bootstrap";
 import { createBossController } from "./boss-controller";
+import {
+  FROSTCLAW_REWARD_ARMOR,
+  FROSTCLAW_REWARD_DAMAGE,
+  FROSTCLAW_REWARD_HEALTH,
+} from "../../../shared/rules";
 
 function createFrostclawHarness() {
   const state = createGameBootstrap();
@@ -52,6 +57,12 @@ function createFrostclawHarness() {
 }
 
 describe("Frostclaw boss", () => {
+  it("grants the current third-boss reward without changing armor", () => {
+    expect(FROSTCLAW_REWARD_DAMAGE).toBe(72_000_000);
+    expect(FROSTCLAW_REWARD_HEALTH).toBe(270_000_000);
+    expect(FROSTCLAW_REWARD_ARMOR).toBe(75_000);
+  });
+
   it("cycles roar, icefall, and rift as three distinct attacks", () => {
     const { controller, frostclawBoss, frostclawIcefalls } = createFrostclawHarness();
 

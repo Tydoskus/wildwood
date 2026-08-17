@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Identity } from "spacetimedb";
 import { DbConnection, tables } from "../src/module_bindings";
-import type { DbConnection as DbConnectionType } from "../src/module_bindings";
+import type { DbConnection as DbConnectionType, SubscriptionHandle } from "../src/module_bindings";
 import {
   BASIC_PAPER_HAT,
   DEFAULT_ATTACK_INTERVAL,
@@ -31,6 +31,10 @@ import {
   type SentMovementState,
 } from "../src/coop/services/sparse-movement";
 import {
+  startAfterSubscriptionEnds,
+  unsubscribeIfActive,
+} from "../src/coop/services/subscription-handoff";
+import {
   VIRTUAL_PLAYER_LOAD_MODES,
   isVirtualPlayerLoadMode,
   virtualPlayerLoadProfile,
@@ -49,8 +53,6 @@ const MAP_ZONE_SIZE = 1_000;
 const MAP_ZONE_RADIUS = 2;
 const MAX_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_ZONE_SIZE);
 const MAX_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_ZONE_SIZE);
-
-type Subscription = { unsubscribe: () => void };
 
 type CoordinatorConfig = {
   count: number;
@@ -92,8 +94,9 @@ type WorkerEvent = WorkerSnapshot | {
 type LoadBot = {
   index: number;
   connection: DbConnectionType | null;
-  subscriptions: Subscription[];
-  nearbySubscription: Subscription | null;
+  subscriptions: SubscriptionHandle[];
+  nearbySubscription: SubscriptionHandle | null;
+  identity: Identity | null;
   zoneKey: string;
   nearbyRefreshPending: boolean;
   x: number;
@@ -425,6 +428,8 @@ function subscriptionError(context: { event?: unknown }) {
 function installNearbySubscription(bot: LoadBot, config: WorkerStart, initial: boolean) {
   const connection = bot.connection;
   if (!connection?.isActive) return Promise.reject(new Error("Bot connection closed"));
+  const identity = bot.identity;
+  if (!identity) return Promise.reject(new Error("Bot identity unavailable"));
   const zoneX = Math.floor(bot.x / MAP_ZONE_SIZE);
   const zoneY = Math.floor(bot.y / MAP_ZONE_SIZE);
   const minZoneX = Math.max(0, zoneX - MAP_ZONE_RADIUS);
@@ -437,52 +442,77 @@ function installNearbySubscription(bot: LoadBot, config: WorkerStart, initial: b
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;
-    let next: Subscription | null = null;
+    let next: SubscriptionHandle | null = null;
     const timeout = setTimeout(() => finish(new Error("Nearby subscription timed out")), SUBSCRIPTION_TIMEOUT_MS);
+    const removeTracked = (subscription: SubscriptionHandle | null) => {
+      if (!subscription) return;
+      const index = bot.subscriptions.indexOf(subscription);
+      if (index >= 0) bot.subscriptions.splice(index, 1);
+    };
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       if (error) {
-        next?.unsubscribe();
+        unsubscribeIfActive(next);
+        removeTracked(next);
+        if (bot.nearbySubscription === next) bot.nearbySubscription = null;
         reject(error);
         return;
       }
-      previous?.unsubscribe();
-      if (previous) {
-        const previousIndex = bot.subscriptions.indexOf(previous);
-        if (previousIndex >= 0) bot.subscriptions.splice(previousIndex, 1);
-      }
       bot.zoneKey = zoneKey;
       bot.nearbySubscription = next;
-      if (next && !bot.subscriptions.includes(next)) bot.subscriptions.push(next);
       resolve();
     };
-    next = connection.subscriptionBuilder()
-      .onApplied(() => finish())
-      .onError((context) => finish(subscriptionError(context)))
-      .subscribe([
-        tables.player.where((row) => row
-          .mapId.eq(config.mapId)
-          .and(row.isVisible.eq(true))
-          .and(row.zoneX.gte(minZoneX))
-          .and(row.zoneX.lte(maxZoneX))
-          .and(row.zoneY.gte(minZoneY))
-          .and(row.zoneY.lte(maxZoneY))),
-        tables.playerMotionFrame.where((row) => row
-          .mapId.eq(config.mapId)
-          .and(row.zoneX.gte(minZoneX))
-          .and(row.zoneX.lte(maxZoneX))
-          .and(row.zoneY.gte(minZoneY))
-          .and(row.zoneY.lte(maxZoneY))),
-        tables.playerMotionIdentity.where((row) => row
-          .mapId.eq(config.mapId)
-          .and(row.isVisible.eq(true))
-          .and(row.zoneX.gte(minZoneX))
-          .and(row.zoneX.lte(maxZoneX))
-          .and(row.zoneY.gte(minZoneY))
-          .and(row.zoneY.lte(maxZoneY))),
-      ]) as Subscription;
+    const subscribeNext = () => {
+      removeTracked(previous);
+      if (bot.nearbySubscription === previous) bot.nearbySubscription = null;
+      if (settled) return;
+      if (bot.stopping || bot.connection !== connection || !connection.isActive) {
+        finish(new Error("Bot connection closed during subscription handoff"));
+        return;
+      }
+      try {
+        next = connection.subscriptionBuilder()
+          .onApplied(() => {
+            if (settled) {
+              unsubscribeIfActive(next);
+              return;
+            }
+            finish();
+          })
+          .onError((context) => finish(subscriptionError(context)))
+          .subscribe([
+            tables.player.where((row) => row
+              .mapId.eq(config.mapId)
+              .and(row.isVisible.eq(true))
+              .and(row.identity.ne(identity))
+              .and(row.zoneX.gte(minZoneX))
+              .and(row.zoneX.lte(maxZoneX))
+              .and(row.zoneY.gte(minZoneY))
+              .and(row.zoneY.lte(maxZoneY))),
+            tables.playerMotionFrame.where((row) => row
+              .mapId.eq(config.mapId)
+              .and(row.zoneX.gte(minZoneX))
+              .and(row.zoneX.lte(maxZoneX))
+              .and(row.zoneY.gte(minZoneY))
+              .and(row.zoneY.lte(maxZoneY))),
+            tables.playerMotionIdentity.where((row) => row
+              .mapId.eq(config.mapId)
+              .and(row.isVisible.eq(true))
+              .and(row.identity.ne(identity))
+              .and(row.zoneX.gte(minZoneX))
+              .and(row.zoneX.lte(maxZoneX))
+              .and(row.zoneY.gte(minZoneY))
+              .and(row.zoneY.lte(maxZoneY))),
+          ]);
+        bot.nearbySubscription = next;
+        bot.subscriptions.push(next);
+      } catch (error) {
+        finish(new Error(errorMessage(error)));
+      }
+    };
+    startAfterSubscriptionEnds(previous, subscribeNext, (error) => finish(new Error(errorMessage(error))));
   });
 }
 
@@ -525,11 +555,11 @@ function installFullSubscriptions(bot: LoadBot, identity: Identity, config: Work
         tables.frostclawResult,
         tables.chatMessage,
         tables.duel.where((row) => row.challenger.eq(identity)),
-      ]) as Subscription;
+      ]);
     const markers = connection.subscriptionBuilder()
       .onApplied(ready)
       .onError((context) => finish(subscriptionError(context)))
-      .subscribe([tables.playerMapFrame.where((row) => row.mapId.eq(config.mapId))]) as Subscription;
+      .subscribe([tables.playerMapFrame.where((row) => row.mapId.eq(config.mapId))]);
     bot.subscriptions.push(core, markers);
     void installNearbySubscription(bot, config, true).then(ready, finish);
   });
@@ -542,6 +572,7 @@ function createBot(index: number, mode: VirtualPlayerLoadMode, count: number): L
     connection: null,
     subscriptions: [],
     nearbySubscription: null,
+    identity: null,
     zoneKey: "",
     nearbyRefreshPending: false,
     x: position.x,
@@ -561,11 +592,9 @@ function createBot(index: number, mode: VirtualPlayerLoadMode, count: number): L
 function disconnectBot(bot: LoadBot) {
   bot.stopping = true;
   bot.ready = false;
-  for (const subscription of bot.subscriptions) {
-    try { subscription.unsubscribe(); } catch {}
-  }
   bot.subscriptions = [];
   bot.nearbySubscription = null;
+  bot.identity = null;
   const connection = bot.connection;
   bot.connection = null;
   try { connection?.disconnect(); } catch {}
@@ -593,6 +622,7 @@ function connectBot(bot: LoadBot, config: WorkerStart, owner: Identity, counters
       onConnect: (connected, identity) => {
         connection = connected;
         bot.connection = connected;
+        bot.identity = identity;
         bot.stopping = false;
         void (async () => {
           try {

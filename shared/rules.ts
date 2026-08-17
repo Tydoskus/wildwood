@@ -25,8 +25,8 @@ export const STARTER_STONE = "starter_stone";
 export const BOOTS_SPEED_BONUS = 25;
 export const SPIDER_REWARD_DAMAGE = 75_000;
 export const SPIDER_REWARD_HEALTH = 200_000;
-export const FROSTCLAW_REWARD_DAMAGE = 15_000_000;
-export const FROSTCLAW_REWARD_HEALTH = 50_000_000;
+export const FROSTCLAW_REWARD_DAMAGE = 72_000_000;
+export const FROSTCLAW_REWARD_HEALTH = 270_000_000;
 export const FROSTCLAW_REWARD_ARMOR = 75_000;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";

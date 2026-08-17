@@ -107,6 +107,7 @@ flowchart LR
 - The browser harness is capped at 200 connections because Chromium limits same-group WebSockets to roughly 255. Large tests use `npm run loadtest:virtual`; automatic sharding keeps at most 200 sockets in each Node process.
 - A developer creates one private random capability per run. Node workers receive that capability but never the developer token. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Bots do not load the on-demand leaderboard during startup.
 - Test modes separate costs: `movement` has no subscriptions or saves, `realistic` uses normal subscriptions and saves, and `dense` deliberately concentrates full clients into one zone with rapid steering.
+- Nearby-query replacements wait for the old unsubscribe acknowledgement before starting the new query set. This avoids overlapping moving result sets and TypeScript SDK cache-reference races. Socket shutdown does not send redundant per-query unsubscribes immediately before disconnect.
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 

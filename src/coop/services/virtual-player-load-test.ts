@@ -1,4 +1,5 @@
 import { DbConnection, tables } from "../../module_bindings";
+import type { SubscriptionHandle } from "../../module_bindings";
 import type { Identity } from "spacetimedb";
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
@@ -25,6 +26,10 @@ import {
   normalizeMovementVector,
   type SentMovementState,
 } from "./sparse-movement";
+import {
+  startAfterSubscriptionEnds,
+  unsubscribeIfActive,
+} from "./subscription-handoff";
 
 const MOVEMENT_HZ = VIRTUAL_PLAYER_MOVEMENT_HZ;
 const LOCAL_SIMULATION_HZ = 10;
@@ -61,12 +66,10 @@ export type VirtualPlayerMotion = {
   nextTurnAt: number;
 };
 
-type Subscription = { unsubscribe: () => void };
-
 type VirtualBot = VirtualPlayerMotion & {
   index: number;
   connection: DbConnection | null;
-  subscriptions: Subscription[];
+  subscriptions: SubscriptionHandle[];
   identity: Identity | null;
   sequence: number;
   lastSentMovement: SentMovementState | null;
@@ -75,7 +78,8 @@ type VirtualBot = VirtualPlayerMotion & {
   nextSaveAt: number;
   enemyKills: number;
   zoneKey: string;
-  nearbySubscription: Subscription | null;
+  nearbySubscription: SubscriptionHandle | null;
+  nearbyRefreshPending: boolean;
 };
 
 type VirtualPlayerLoadTestDependencies = {
@@ -215,19 +219,20 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       enemyKills: 0,
       zoneKey: "",
       nearbySubscription: null,
+      nearbyRefreshPending: false,
     };
   }
 
-  function removeSubscription(bot: VirtualBot, subscription: Subscription | null) {
+  function untrackSubscription(bot: VirtualBot, subscription: SubscriptionHandle | null) {
     if (!subscription) return;
     const index = bot.subscriptions.indexOf(subscription);
     if (index >= 0) bot.subscriptions.splice(index, 1);
-    try { subscription.unsubscribe(); } catch {}
   }
 
   function installNearbySubscription(bot: VirtualBot, mapId: string, force = false, onSettled?: (ready: boolean) => void) {
     const conn = bot.connection;
-    if (!conn?.isActive) {
+    const identity = bot.identity;
+    if (!conn?.isActive || !identity) {
       onSettled?.(false);
       return;
     }
@@ -242,45 +247,69 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       onSettled?.(true);
       return;
     }
-    bot.zoneKey = zoneKey;
+    if (bot.nearbyRefreshPending) return;
+    bot.nearbyRefreshPending = true;
 
     const previous = bot.nearbySubscription;
-    let next: Subscription | null = null;
-    next = conn.subscriptionBuilder()
-      .onApplied(() => {
-        if (bot.nearbySubscription !== next) return;
-        removeSubscription(bot, previous);
-        onSettled?.(true);
-      })
-      .onError(() => {
-        if (bot.nearbySubscription === next) bot.nearbySubscription = previous;
-        removeSubscription(bot, next);
-        onSettled?.(false);
-      })
-      .subscribe([
-        tables.player.where((row) => row
-          .mapId.eq(mapId)
-          .and(row.isVisible.eq(true))
-          .and(row.zoneX.gte(minZoneX))
-          .and(row.zoneX.lte(maxZoneX))
-          .and(row.zoneY.gte(minZoneY))
-          .and(row.zoneY.lte(maxZoneY))),
-        tables.playerMotionFrame.where((row) => row
-          .mapId.eq(mapId)
-          .and(row.zoneX.gte(minZoneX))
-          .and(row.zoneX.lte(maxZoneX))
-          .and(row.zoneY.gte(minZoneY))
-          .and(row.zoneY.lte(maxZoneY))),
-        tables.playerMotionIdentity.where((row) => row
-          .mapId.eq(mapId)
-          .and(row.isVisible.eq(true))
-          .and(row.zoneX.gte(minZoneX))
-          .and(row.zoneX.lte(maxZoneX))
-          .and(row.zoneY.gte(minZoneY))
-          .and(row.zoneY.lte(maxZoneY))),
-      ]) as Subscription;
-    bot.nearbySubscription = next;
-    bot.subscriptions.push(next);
+    let next: SubscriptionHandle | null = null;
+    const settle = (ready: boolean) => {
+      bot.nearbyRefreshPending = false;
+      onSettled?.(ready);
+    };
+    const subscribeNext = () => {
+      untrackSubscription(bot, previous);
+      if (bot.nearbySubscription === previous) bot.nearbySubscription = null;
+      if (bot.connection !== conn || !conn.isActive || bot.failed) {
+        settle(false);
+        return;
+      }
+      try {
+        next = conn.subscriptionBuilder()
+          .onApplied(() => {
+            if (bot.connection !== conn || bot.nearbySubscription !== next) {
+              unsubscribeIfActive(next);
+              return;
+            }
+            bot.zoneKey = zoneKey;
+            settle(true);
+          })
+          .onError(() => {
+            untrackSubscription(bot, next);
+            if (bot.nearbySubscription === next) bot.nearbySubscription = null;
+            bot.zoneKey = "";
+            settle(false);
+          })
+          .subscribe([
+            tables.player.where((row) => row
+              .mapId.eq(mapId)
+              .and(row.isVisible.eq(true))
+              .and(row.identity.ne(identity))
+              .and(row.zoneX.gte(minZoneX))
+              .and(row.zoneX.lte(maxZoneX))
+              .and(row.zoneY.gte(minZoneY))
+              .and(row.zoneY.lte(maxZoneY))),
+            tables.playerMotionFrame.where((row) => row
+              .mapId.eq(mapId)
+              .and(row.zoneX.gte(minZoneX))
+              .and(row.zoneX.lte(maxZoneX))
+              .and(row.zoneY.gte(minZoneY))
+              .and(row.zoneY.lte(maxZoneY))),
+            tables.playerMotionIdentity.where((row) => row
+              .mapId.eq(mapId)
+              .and(row.isVisible.eq(true))
+              .and(row.identity.ne(identity))
+              .and(row.zoneX.gte(minZoneX))
+              .and(row.zoneX.lte(maxZoneX))
+              .and(row.zoneY.gte(minZoneY))
+              .and(row.zoneY.lte(maxZoneY))),
+          ]);
+        bot.nearbySubscription = next;
+        bot.subscriptions.push(next);
+      } catch {
+        settle(false);
+      }
+    };
+    startAfterSubscriptionEnds(previous, subscribeNext, () => settle(false));
   }
 
   function installSubscriptions(bot: VirtualBot, identity: Identity, mapId: string) {
@@ -326,7 +355,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           tables.frostclawResult,
           tables.chatMessage,
           tables.duel.where((row) => row.challenger.eq(identity)),
-        ]) as Subscription;
+        ]);
       bot.subscriptions.push(core);
 
       const markers = conn.subscriptionBuilder()
@@ -334,7 +363,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         .onError(() => fail())
         .subscribe([
           tables.playerMapFrame.where((row) => row.mapId.eq(mapId)),
-        ]) as Subscription;
+        ]);
       bot.subscriptions.push(markers);
       installNearbySubscription(bot, mapId, true, (applied) => applied ? ready() : fail());
     });
@@ -342,8 +371,9 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
 
   function disconnectBot(bot: VirtualBot) {
     bot.ready = false;
-    for (const subscription of [...bot.subscriptions]) removeSubscription(bot, subscription);
+    bot.subscriptions = [];
     bot.nearbySubscription = null;
+    bot.nearbyRefreshPending = false;
     const conn = bot.connection;
     bot.connection = null;
     if (conn) {
@@ -492,6 +522,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
             bot.connection = null;
             bot.subscriptions = [];
             bot.nearbySubscription = null;
+            bot.nearbyRefreshPending = false;
             if (!settled) {
               bot.ready = false;
               finish(false);
@@ -529,6 +560,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       bot.lastSentMovement = null;
       bot.zoneKey = "";
       bot.nearbySubscription = null;
+      bot.nearbyRefreshPending = false;
       const startedAt = performance.now();
       const ready = await connectBotAttempt(bot, runGeneration, mapId, owner, ticket);
       totalBootstrapMs += performance.now() - startedAt;
