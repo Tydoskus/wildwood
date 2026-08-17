@@ -165,7 +165,7 @@ export function createRenderController(options: {
     const shakeY = screenShakeEnabled() && shake > .2 ? (Math.random() * 2 - 1) * shake : 0;
     if (shakeX !== 0 || shakeY !== 0) ctx.translate(shakeX, shakeY);
     ctx.scale(camera.zoom, camera.zoom);
-    drawStaticWorld(shakeX, shakeY);
+    drawStaticWorld();
     drawDuelArena(isArenaScene(), DUEL_ARENA);
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapIsTutorial()) drawBossTelegraphs();

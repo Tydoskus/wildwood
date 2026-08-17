@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.439": [
+    "The game now uses one lightweight Canvas renderer while keeping worker-built world tiles, reducing the client download substantially.",
+    "Floating player and enemy health text is now vertically centered inside HP bars.",
+  ],
   "0.438": [
     "The sign-in sound icon is larger and now floats cleanly without a border or background.",
   ],

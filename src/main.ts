@@ -21,7 +21,7 @@ import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-ren
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_SCALE } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -31,7 +31,6 @@ import { createPlayerController, type PlayerController } from "./game/runtime/pl
 import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
 import { createResearchController } from "./game/runtime/research-controller";
 import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
-import { createPixiStaticWorldLayer } from "./game/runtime/pixi-static-world-layer";
 import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
 import type { DuelScene } from "./game/runtime/types";
 import {
@@ -70,7 +69,7 @@ import {
   PLAYER_SPEED as BASE_PLAYER_SPEED,
 } from "../shared/rules";
 
-(async () => {
+(() => {
   "use strict";
 
   // Architecture boundary: keep this file as composition root. New systems
@@ -94,8 +93,6 @@ import {
   let actorShadowSprite!: HTMLImageElement;
   const canvasRuntime = createCanvasRuntime({ canvas, getActorShadowSprite: () => actorShadowSprite });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
-  const staticWorldLayer = await createPixiStaticWorldLayer(canvas);
-
   const coop = window.wildwoodCoop || null;
   const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, seenVersionKey: SEEN_VERSION_KEY, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });
 
@@ -600,7 +597,6 @@ import {
     publicPlayerName,
     playerPower,
     worldHealthBarHeight: WORLD_HEALTH_BAR_HEIGHT,
-    staticWorldLayer,
   });
   const { invalidateStaticWorld } = worldRenderRuntime;
   duelRuntime = createDuelRuntime({

@@ -69,10 +69,6 @@
     background: #102819;
   }
 
-  #gameGpu { z-index: 0; pointer-events: none; }
-  #game { z-index: 1; }
-  body.has-gpu-world #game { background: transparent; }
-
   #hud {
     position: fixed;
     inset: 0;

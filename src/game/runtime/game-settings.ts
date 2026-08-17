@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.438";
+export const GAME_VERSION = "0.439";
 export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -10,7 +10,8 @@ export const REWARDED_RESPAWN_BOOST_EXPIRES_KEY = "wildwood-rewarded-respawn-boo
 export const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
 export const SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-snowlands-portal-cutscene-v1";
 export const WORLD_HEALTH_BAR_SCALE = 1.05;
-export const WORLD_HEALTH_BAR_HEIGHT = 15 * WORLD_HEALTH_BAR_SCALE;
+// Pixel-aligned height keeps floating HP text centered and crisp.
+export const WORLD_HEALTH_BAR_HEIGHT = Math.round(15 * WORLD_HEALTH_BAR_SCALE);
 export const ENEMY_DEATH_PARTICLE_COLOR = "#e53935";
 export const NETWORK_NEAR_SCREEN_MARGIN_RATIO = .25;
 export const ENEMY_TEXT_CULL_MIN_DISTANCE = 600;
