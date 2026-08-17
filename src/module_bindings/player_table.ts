@@ -31,4 +31,7 @@ export default __t.row({
   headItem: __t.string().name("head_item"),
   chestItem: __t.string().name("chest_item"),
   isVisible: __t.bool().name("is_visible"),
+  dx: __t.f32(),
+  dy: __t.f32(),
+  powerLevel: __t.f64().name("power_level"),
 });

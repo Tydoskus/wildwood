@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.424": [
+    "Movement now sends keyboard changes, meaningful touch steering, and one-second corrections instead of continuous position updates; idle players send no movement traffic.",
+    "Remote players extrapolate from compact direction vectors and smoothly absorb each client-authoritative position correction.",
+    "Power now keeps increasing beyond 4.29 billion, and scalable health, damage, armor, and regeneration stats support values through undecillion while movement and attack speed caps remain unchanged.",
+    "Movement-frame subscriptions now use map and zone indexes, and virtual-player tests exercise the same sparse movement path through 3,000 clients.",
+  ],
   "0.423": [
     "Multiplayer movement now uses compact shared position frames, sharply reducing repeated server transactions and subscriber fanout as player counts grow.",
     "Two-player sessions keep immediate smooth updates, while larger groups share one 10 Hz zone stream and a lightweight 1 Hz map-wide minimap snapshot.",
@@ -663,6 +669,8 @@ const RELEASE_DATES: Record<string, string> = {
 
 function releaseDay(version: string) {
   const numericVersion = Number(version);
+  if (numericVersion >= .419) return "2026-08-16";
+  if (numericVersion >= .409) return "2026-08-15";
   if (numericVersion >= .376) return "2026-08-14";
   if (numericVersion >= .278) return "2026-08-13";
   if (numericVersion >= .261) return "2026-08-12";
@@ -672,6 +680,8 @@ function releaseDay(version: string) {
 export function releaseDate(version: string) {
   if (RELEASE_DATES[version]) return RELEASE_DATES[version];
   const day = releaseDay(version);
+  if (day === "2026-08-16") return "AUG 16, 2026";
+  if (day === "2026-08-15") return "AUG 15, 2026";
   if (day === "2026-08-14") return "AUG 14, 2026";
   if (day === "2026-08-13") return "AUG 13, 2026";
   if (day === "2026-08-12") return "AUG 12, 2026";

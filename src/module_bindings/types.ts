@@ -221,6 +221,7 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   regen: __t.f32(),
   playedMicros: __t.u64(),
   profileIcon: __t.u32(),
+  powerLevel: __t.f64(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 
@@ -280,6 +281,9 @@ export const Player = __t.object("Player", {
   headItem: __t.string(),
   chestItem: __t.string(),
   isVisible: __t.bool(),
+  dx: __t.f32(),
+  dy: __t.f32(),
+  powerLevel: __t.f64(),
 });
 export type Player = __Infer<typeof Player>;
 
@@ -363,6 +367,8 @@ export const PlayerMotion = __t.object("PlayerMotion", {
   zoneX: __t.i32(),
   zoneY: __t.i32(),
   mapId: __t.string(),
+  dx: __t.f32(),
+  dy: __t.f32(),
 });
 export type PlayerMotion = __Infer<typeof PlayerMotion>;
 

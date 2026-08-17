@@ -21,4 +21,5 @@ export default __t.row({
   regen: __t.f32(),
   playedMicros: __t.u64().name("played_micros"),
   profileIcon: __t.u32().name("profile_icon"),
+  powerLevel: __t.f64().name("power_level"),
 });

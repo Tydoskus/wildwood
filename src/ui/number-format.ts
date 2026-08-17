@@ -1,4 +1,4 @@
-const COMPACT_UNITS = ["", "k", "m", "b", "t"] as const;
+const COMPACT_UNITS = ["", "k", "m", "b", "t", "qd", "qn", "sx", "sp", "oc", "no", "dc", "ud"] as const;
 
 /** Formats compact values as three significant digits: 841, 5.00m, 28.1k. */
 export function formatCompactNumber(value: number): string {

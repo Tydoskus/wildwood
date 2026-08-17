@@ -47,7 +47,6 @@ export function createPlayerCombatController(options: {
   incrementKills: () => void;
   damageDragon: (hits: number) => void;
   damageSpider: (hits: number) => void;
-  syncBossAttackPosition: () => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
   logPickup: (text: string, color: string) => void;
@@ -61,7 +60,7 @@ export function createPlayerCombatController(options: {
     player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss,
     isTutorialMap, isDesertMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, damageDragon, damageSpider, syncBossAttackPosition, spawnBurst,
+    incrementKills, damageDragon, damageSpider, spawnBurst,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   let pendingPlayerThrow: AttackTarget | null = null;
@@ -82,7 +81,6 @@ export function createPlayerCombatController(options: {
     const dy = target.y - player.y;
     const distance = Math.hypot(dx, dy) || 1;
     const baseAngle = Math.atan2(dy, dx);
-    if (target.isBoss) syncBossAttackPosition();
     for (let index = 0; index < player.projectileCount; index++) {
       const angle = baseAngle + (index - (player.projectileCount - 1) / 2) * .13;
       const projectileLifeBonus = 1.25;

@@ -41,7 +41,9 @@ import ChangeMapReducer from "./change_map_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
+import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
+import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
 import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
 import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
@@ -67,6 +69,7 @@ import SetSpeedReducer from "./set_speed_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
+import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
 // Import all procedure arg schemas
 
@@ -224,6 +227,9 @@ const tablesSchema = __schema({
   playerMapFrame: __table({
     name: 'player_map_frame',
     indexes: [
+      { accessor: 'byMap', name: 'player_map_frame_map_id_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+      ] },
     ],
     constraints: [
     ],
@@ -247,6 +253,11 @@ const tablesSchema = __schema({
   playerMotionFrame: __table({
     name: 'player_motion_frame',
     indexes: [
+      { accessor: 'byMapZone', name: 'player_motion_frame_map_id_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+        'zoneX',
+        'zoneY',
+      ] },
     ],
     constraints: [
     ],
@@ -371,7 +382,9 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
+  __reducerSchema("damage_dragon_from_position", DamageDragonFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
+  __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),
   __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),
   __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
@@ -397,6 +410,7 @@ const reducersSchema = __reducers(
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
+  __reducerSchema("update_movement_state", UpdateMovementStateReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

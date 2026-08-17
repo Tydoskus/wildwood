@@ -29,9 +29,14 @@ import {
   type RemoteInterpolationClock,
 } from "./coop/services/remote-interpolation";
 import {
-  PLAYER_MOTION_FRAME_HZ,
   decodePlayerMotionFrame,
 } from "../shared/player-motion-frame";
+import {
+  movementUpdateReason,
+  normalizeMovementVector,
+  type MovementInputKind,
+  type SentMovementState,
+} from "./coop/services/sparse-movement";
 import {
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
@@ -255,6 +260,8 @@ type RemotePlayerSample = {
   receivedAt: number;
   x: number;
   y: number;
+  dx: number;
+  dy: number;
   facing: number;
   moving: boolean;
 };
@@ -262,11 +269,6 @@ type RemotePlayerSample = {
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
 type MapZoneBounds = { mapId: string; minZoneX: number; maxZoneX: number; minZoneY: number; maxZoneY: number };
 
-const NEARBY_MOVEMENT_HZ = PLAYER_MOTION_FRAME_HZ;
-const DISTANT_MOVEMENT_HZ = 3;
-const NEARBY_MOVEMENT_INTERVAL_MS = 1000 / NEARBY_MOVEMENT_HZ;
-const DISTANT_MOVEMENT_INTERVAL_MS = 1000 / DISTANT_MOVEMENT_HZ;
-const NEARBY_MOVEMENT_HOLD_MS = 2_000;
 // Detailed-player subscriptions follow actual camera bounds. This radius is
 // only the startup fallback before the first rendered frame supplies them.
 const MAP_PLAYER_ZONE_SIZE = 1_000;
@@ -274,7 +276,6 @@ const MAP_PLAYER_ZONE_RADIUS = 2;
 const MAP_PLAYER_PREFETCH_ZONES = 1;
 const MAX_MAP_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_PLAYER_ZONE_SIZE);
 const MAX_MAP_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_PLAYER_ZONE_SIZE);
-const MOVEMENT_OBSERVER_HEARTBEAT_MS = 10_000;
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_SNAP_DISTANCE = 260;
@@ -354,7 +355,6 @@ const bugReportEntries = new Map<string, BugReportEntry>();
 const guestAccounts = new Map<string, boolean>();
 let onlinePlayerCount = 0;
 let localPresenceVisible = true;
-let serverMovementDemand = false;
 const profileProgress = new Map<string, PlayerProgress>();
 const profileResearch = new Map<string, PlayerResearch>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
@@ -389,9 +389,7 @@ let latestDragonResult: DragonResult | null = null;
 let connection: DbConnection | null = null;
 let localIdentity = "";
 let localMotionNetworkId: number | null = null;
-let lastPositionSentAt = 0;
-let lastPositionMoving = false;
-let nearbyMovementUntil = 0;
+let lastSentMovement: SentMovementState | null = null;
 let nextPositionSequence = 0;
 let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
@@ -1039,7 +1037,7 @@ function isGeneratedDisplayName(displayName: string) {
 }
 
 function serverTimestampMs(timestamp: { microsSinceUnixEpoch: bigint }) {
-  return Number(timestamp.microsSinceUnixEpoch / 1_000n);
+  return Number(timestamp.microsSinceUnixEpoch) / 1_000;
 }
 
 function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<RemotePlayerSample, "timelineAt">) {
@@ -1075,8 +1073,11 @@ function upsertPlayer(row: {
   x: number;
   y: number;
   facing: number;
+  dx: number;
+  dy: number;
   moving: boolean;
   power: number;
+  powerLevel: number;
   speed: number;
   feetItem: string;
   headItem: string;
@@ -1159,6 +1160,8 @@ function upsertPlayer(row: {
           receivedAt,
           x: row.x,
           y: row.y,
+          dx: row.dx,
+          dy: row.dy,
           facing: row.facing,
           moving: row.moving,
         });
@@ -1166,7 +1169,7 @@ function upsertPlayer(row: {
       existing.lastInputSequence = row.lastInputSequence;
     }
     existing.speed = row.speed;
-    existing.power = row.power;
+    existing.power = row.powerLevel;
     existing.feetItem = row.feetItem;
     existing.headItem = row.headItem;
     existing.chestItem = row.chestItem;
@@ -1174,7 +1177,7 @@ function upsertPlayer(row: {
     players.set(id, {
       id,
       name: profiles.get(id) ?? generatedDisplayName(id),
-      power: row.power,
+      power: row.powerLevel,
       x: row.x,
       y: row.y,
       speed: row.speed,
@@ -1183,7 +1186,7 @@ function upsertPlayer(row: {
       feetItem: row.feetItem,
       headItem: row.headItem,
       chestItem: row.chestItem,
-      samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, facing: row.facing, moving: row.moving }],
+      samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, dx: row.dx, dy: row.dy, facing: row.facing, moving: row.moving }],
       interpolationClock: createRemoteInterpolationClock(receivedAt),
       lastInputSequence: row.lastInputSequence,
     });
@@ -1235,6 +1238,7 @@ function leaderboardEntryFromRow(row: {
   displayName: string;
   profileIcon: number;
   power: number;
+  powerLevel: number;
   damage: number;
   maxHp: number;
   armor: number;
@@ -1246,7 +1250,7 @@ function leaderboardEntryFromRow(row: {
   return {
     identity,
     name: row.displayName,
-    power: row.power,
+    power: row.powerLevel,
     damage: row.damage,
     maxHp: row.maxHp,
     armor: row.armor,
@@ -1384,7 +1388,9 @@ function upsertPlayerMotionFrame(row: {
       receivedAt,
       x: sample.x,
       y: sample.y,
-      facing: sample.facing,
+      dx: sample.dx,
+      dy: sample.dy,
+      facing: sample.dx < 0 ? Math.PI : sample.dx > 0 ? 0 : existing.facing,
       moving: sample.moving,
     });
   }
@@ -1415,16 +1421,6 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   if (row.id !== 0) return;
   onlinePlayerCount = Math.max(0, row.onlinePlayers);
   onChange?.();
-}
-
-function upsertLocalMovementDemand(row: { identity: Identity }) {
-  if (row.identity.toHexString() === localIdentity && !serverMovementDemand) {
-    serverMovementDemand = true;
-  }
-}
-
-function removeLocalMovementDemand(row: { identity: Identity }) {
-  if (row.identity.toHexString() === localIdentity) serverMovementDemand = false;
 }
 
 function upsertProgress(row: { identity: Identity } & PlayerProgress) {
@@ -2124,7 +2120,6 @@ function clearRealtimeCaches() {
   accessAuditEntries.clear();
   guestAccounts.clear();
   onlinePlayerCount = 0;
-  serverMovementDemand = false;
   profileProgress.clear();
   playerLifetimes.clear();
   playerMaps.clear();
@@ -2263,9 +2258,7 @@ function connect() {
       localDisplayName = signedIn ? rememberedAccountCharacter() : rememberedGuestCharacter();
       pendingProgress = readPendingProgress(localIdentity);
       progressSaveInFlightUntil = 0;
-      lastPositionSentAt = 0;
-      lastPositionMoving = false;
-      nearbyMovementUntil = 0;
+      lastSentMovement = null;
       nextPositionSequence = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
@@ -2384,8 +2377,6 @@ function connect() {
         conn.db.playerAccountStatus.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removePlayerAccountStatus(row); });
         conn.db.worldStatus.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertWorldStatus(row); });
         conn.db.worldStatus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertWorldStatus(row); });
-        conn.db.localMovementDemand.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertLocalMovementDemand(row); });
-        conn.db.localMovementDemand.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeLocalMovementDemand(row); });
         conn.db.playerProgress.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProgress(row); });
         conn.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProgress(row); });
         conn.db.playerResearch.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertResearch(row); });
@@ -2419,7 +2410,6 @@ function connect() {
             for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
             for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
             for (const row of conn.db.worldStatus.iter()) upsertWorldStatus(row);
-            for (const row of conn.db.localMovementDemand.iter()) upsertLocalMovementDemand(row);
             for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
             for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
             for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
@@ -2456,7 +2446,6 @@ function connect() {
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus.where((status) => status.identity.eq(identity)),
           tables.worldStatus,
-          tables.localMovementDemand,
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerResearch.where((research) => research.identity.eq(identity)),
           tables.activeResearch.where((research) => research.identity.eq(identity)),
@@ -2483,9 +2472,7 @@ function connect() {
       connection = null;
       hydrationReady = false;
       connectedSignedIn = false;
-      lastPositionSentAt = 0;
-      lastPositionMoving = false;
-      nearbyMovementUntil = 0;
+      lastSentMovement = null;
       nextPositionSequence = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
@@ -2511,9 +2498,7 @@ function connect() {
       connection = null;
       hydrationReady = false;
       connectedSignedIn = false;
-      lastPositionSentAt = 0;
-      lastPositionMoving = false;
-      nearbyMovementUntil = 0;
+      lastSentMovement = null;
       nextPositionSequence = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
@@ -2953,13 +2938,13 @@ export const wildwoodCoop = {
   },
   loadPlayerProfile,
   releasePlayerProfile,
-  damageDragon(hits = 1) {
-    if (protocolBlocked || !connection) return;
-    sendReducer("dragon damage", () => connection?.reducers.damageDragonBatch({ hits }));
+  damageDragon(hits = 1, x = localState?.x ?? Number.NaN, y = localState?.y ?? Number.NaN) {
+    if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    sendReducer("dragon damage", () => connection?.reducers.damageDragonFromPosition({ hits, x, y }));
   },
-  damageSpider(hits = 1) {
-    if (protocolBlocked || !connection) return;
-    sendReducer("spider damage", () => connection?.reducers.damageSpiderBatch({ hits }));
+  damageSpider(hits = 1, x = localState?.x ?? Number.NaN, y = localState?.y ?? Number.NaN) {
+    if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    sendReducer("spider damage", () => connection?.reducers.damageSpiderFromPosition({ hits, x, y }));
   },
   saveProgress(progress: ProgressSave, immediate = false) {
     persistPendingProgress(progress);
@@ -3051,28 +3036,30 @@ export const wildwoodCoop = {
     lastSpeedSent = speed;
     sendReducer("speed sync", () => connection?.reducers.setSpeed({ speed }));
   },
-  syncPosition(x: number, y: number, facing: number, moving = false, force = false, highFrequency = false, interestArea?: PlayerInterestArea) {
-    if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) return;
+  syncMovementState(x: number, y: number, dx: number, dy: number, inputKind: MovementInputKind = "keyboard", force = false, interestArea?: PlayerInterestArea) {
+    if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
     refreshMapPlayerSubscription(false, interestArea);
     const now = performance.now();
-    if (highFrequency) nearbyMovementUntil = now + NEARBY_MOVEMENT_HOLD_MS;
-    const useNearbyRate = highFrequency || serverMovementDemand || now < nearbyMovementUntil;
-    const movingChanged = moving !== lastPositionMoving;
-    const movementIntervalMs = useNearbyRate ? NEARBY_MOVEMENT_INTERVAL_MS : DISTANT_MOVEMENT_INTERVAL_MS;
-    if (!force && !movingChanged && !moving) return;
-    if (!force && !movingChanged && now - lastPositionSentAt < movementIntervalMs) return;
+    const vector = normalizeMovementVector(dx, dy);
+    if (!movementUpdateReason({ now, vector, inputKind, lastSent: lastSentMovement, force })) return;
 
-    lastPositionSentAt = now;
-    lastPositionMoving = moving;
+    lastSentMovement = { ...vector, sentAt: now };
     const sequence = ++nextPositionSequence;
     if (localState) {
       localState.x = x;
       localState.y = y;
-      localState.facing = facing;
-      localState.moving = moving;
+      if (vector.dx < 0) localState.facing = Math.PI;
+      else if (vector.dx > 0) localState.facing = 0;
+      localState.moving = vector.moving;
       localState.lastInputSequence = sequence;
     }
-    sendReducer("position sync", () => connection?.reducers.syncPosition({ x, y, facing, moving, sequence }));
+    sendReducer("movement state", () => connection?.reducers.updateMovementState({ x, y, dx: vector.dx, dy: vector.dy, sequence }));
+  },
+  correctMovementPosition(x: number, y: number, stop = false) {
+    const vector = stop || !lastSentMovement
+      ? { dx: 0, dy: 0 }
+      : { dx: lastSentMovement.dx, dy: lastSentMovement.dy };
+    wildwoodCoop.syncMovementState(x, y, vector.dx, vector.dy, "keyboard", true);
   },
   async changeMap(mapId: string) {
     if (protocolBlocked || worldEntryBlocked || !connection || ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)) return false;
@@ -3155,19 +3142,6 @@ window.addEventListener("focus", () => reconnectAfterWake());
 window.setInterval(() => {
   if (!document.hidden && navigator.onLine && !connection?.isActive && !connecting) scheduleReconnect(100);
 }, 5_000);
-// Invisible developer observation is a short lease, not a permanent server
-// cost. A stationary visible tab renews it; moving tabs already send often.
-window.setInterval(() => {
-  if (
-    document.hidden ||
-    !connection?.isActive ||
-    !isDeveloperIdentity(localIdentity) ||
-    localPresenceVisible ||
-    !localState ||
-    performance.now() - lastPositionSentAt < MOVEMENT_OBSERVER_HEARTBEAT_MS
-  ) return;
-  wildwoodCoop.syncPosition(localState.x, localState.y, localState.facing, false, true);
-}, MOVEMENT_OBSERVER_HEARTBEAT_MS / 2);
 window.addEventListener("storage", (event) => {
   if (event.oldValue === event.newValue) return;
   if (event.key === accountTokenKey) {

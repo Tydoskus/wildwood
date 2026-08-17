@@ -4,13 +4,15 @@ const DEFAULT_DELAY_MS = 175;
 const MIN_DELAY_MS = 125;
 const MAX_DELAY_MS = 450;
 const MIN_SAMPLE_INTERVAL_MS = 35;
-const MAX_SAMPLE_INTERVAL_MS = 500;
-const MAX_EXTRAPOLATION_MS = 200;
+const MAX_SAMPLE_INTERVAL_MS = 1_200;
+const MAX_EXTRAPOLATION_MS = 1_500;
 
 export type RemoteMotionSample = {
   timelineAt: number;
   x: number;
   y: number;
+  dx: number;
+  dy: number;
   facing: number;
   moving: boolean;
 };
@@ -108,10 +110,9 @@ export function adaptiveRemoteRenderAt(clock: RemoteInterpolationClock, now: num
 }
 
 /**
- * Samples buffered movement at a stable render time. A short speed-capped
- * extrapolation bridges the first slow packet after a sender drops from its
- * nearby rate to its cheap distant rate; authoritative samples still win as
- * soon as they arrive.
+ * Samples buffered movement at a stable render time. Authoritative positions
+ * interpolate corrections between sparse packets; the latest transmitted
+ * vector carries motion through the one-second heartbeat interval.
  */
 export function remoteMotionAt(
   samples: readonly RemoteMotionSample[],
@@ -120,23 +121,20 @@ export function remoteMotionAt(
 ): RemoteMotionTransform {
   const first = samples[0];
   const latest = samples[samples.length - 1];
-  if (!first || !latest) return { x: 0, y: 0, facing: 0, moving: false };
+  if (!first || !latest) return { x: 0, y: 0, dx: 0, dy: 0, facing: 0, moving: false };
 
   if (renderAt >= latest.timelineAt) {
-    const previous = samples.length > 1 ? samples[samples.length - 2] : null;
-    if (!latest.moving || !previous || latest.timelineAt <= previous.timelineAt) {
-      return { x: latest.x, y: latest.y, facing: latest.facing, moving: latest.moving };
+    if (!latest.moving) {
+      return { x: latest.x, y: latest.y, dx: 0, dy: 0, facing: latest.facing, moving: false };
     }
-    const sampleSeconds = (latest.timelineAt - previous.timelineAt) / 1_000;
-    const dx = latest.x - previous.x;
-    const dy = latest.y - previous.y;
-    const measuredSpeed = Math.hypot(dx, dy) / sampleSeconds;
-    const allowedSpeed = Math.max(0, maxSpeed) * 1.15;
-    const speedScale = measuredSpeed > allowedSpeed && measuredSpeed > 0 ? allowedSpeed / measuredSpeed : 1;
+    const directionLength = Math.hypot(latest.dx, latest.dy);
+    const directionScale = directionLength > 1 ? 1 / directionLength : 1;
     const aheadSeconds = Math.min(MAX_EXTRAPOLATION_MS, renderAt - latest.timelineAt) / 1_000;
     return {
-      x: latest.x + dx / sampleSeconds * speedScale * aheadSeconds,
-      y: latest.y + dy / sampleSeconds * speedScale * aheadSeconds,
+      x: latest.x + latest.dx * directionScale * Math.max(0, maxSpeed) * aheadSeconds,
+      y: latest.y + latest.dy * directionScale * Math.max(0, maxSpeed) * aheadSeconds,
+      dx: latest.dx,
+      dy: latest.dy,
       facing: latest.facing,
       moving: true,
     };
@@ -156,6 +154,8 @@ export function remoteMotionAt(
   return {
     x: before.x + (after.x - before.x) * alpha,
     y: before.y + (after.y - before.y) * alpha,
+    dx: before.dx + (after.dx - before.dx) * alpha,
+    dy: before.dy + (after.dy - before.dy) * alpha,
     facing: before.facing + Math.atan2(
       Math.sin(after.facing - before.facing),
       Math.cos(after.facing - before.facing),

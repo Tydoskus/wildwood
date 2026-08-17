@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ATTACK_BALANCE_VERSION, DEFAULT_ATTACK_RANGE, MIN_ATTACK_INTERVAL } from "../../../shared/rules";
+import { ATTACK_BALANCE_VERSION, DEFAULT_ATTACK_RANGE, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL } from "../../../shared/rules";
 import { createProgressStore } from "./progress-store";
 import { copyProgress, mergeProgress, migrateProgressSave, progressCovers, type PlayerProgress, type ProgressSave } from "./progress";
 
@@ -41,6 +41,25 @@ describe("progress persistence rules", () => {
       projectileCount: 20,
       attackRange: DEFAULT_ATTACK_RANGE,
       enemyKills: 0,
+    });
+  });
+
+  it("preserves undecillion combat stats while retaining speed caps", () => {
+    expect(copyProgress({
+      ...pending,
+      maxHp: 1e36,
+      damage: 1e36,
+      armor: 1e36,
+      regen: 1e36,
+      attackRate: 0,
+      speed: 20_000,
+    })).toMatchObject({
+      maxHp: MAX_PLAYER_STAT,
+      damage: MAX_PLAYER_STAT,
+      armor: MAX_PLAYER_STAT,
+      regen: MAX_PLAYER_STAT,
+      attackRate: MIN_ATTACK_INTERVAL,
+      speed: 2_000,
     });
   });
 

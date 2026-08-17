@@ -1,6 +1,7 @@
 import { WORLD } from "../constants";
 import { clamp } from "../math";
 import { createSpawnSites, createWorldLayout, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
+import type { Movement, MovementInputSource } from "./player-input-controller";
 import type { DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, DuelScene, RuntimeDuelReplay, RuntimeDuelState } from "./types";
 
 type LocalState = { x: number; y: number; facing?: number };
@@ -37,7 +38,7 @@ export function createPlayerController(options: {
   clearPlayerCombat: () => void;
   resetBosses: () => void;
   onResetUI: () => void;
-  movement: () => { x: number; y: number };
+  movement: () => Movement;
   isMapTransitioning: () => boolean;
   resolvePortalCollision: () => void;
   resolveDragonCollision: () => void;
@@ -50,8 +51,7 @@ export function createPlayerController(options: {
   isConnected: () => boolean;
   syncSpeed: (speed: number) => void;
   movementSpeedMultiplier: () => number;
-  syncPosition: (x: number, y: number, facing: number, moving: boolean, force: boolean, highFrequency?: boolean, interestArea?: PlayerInterestArea) => void;
-  hasRemotePlayerInArea: (left: number, top: number, right: number, bottom: number) => boolean;
+  syncMovementState: (x: number, y: number, dx: number, dy: number, inputSource: Exclude<MovementInputSource, "none">, force: boolean, interestArea?: PlayerInterestArea) => void;
   autoAttack: (dt: number) => void;
   isAutoAttackEnabled: () => boolean;
   activeDuel: () => RuntimeDuelState | null;
@@ -72,7 +72,7 @@ export function createPlayerController(options: {
     tutorialMapId, getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
     resolveDragonCollision, resolveSpiderCollision, applyDragonConePush, isTutorialMap, isDesertMap,
-    viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, syncPosition, hasRemotePlayerInArea, autoAttack, isAutoAttackEnabled,
+    viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
   } = options;
@@ -157,7 +157,7 @@ export function createPlayerController(options: {
     movementSyncActive = connected;
     const movementSpeed = player.speed * movementSpeedMultiplier();
     if (connected) syncSpeed(movementSpeed);
-    let { x: mx, y: my } = movement();
+    let { x: mx, y: my, source } = movement();
     const length = Math.hypot(mx, my);
     player.moving = length > 0;
     if (player.moving) {
@@ -173,19 +173,12 @@ export function createPlayerController(options: {
     if (isDesertMap()) resolveSpiderCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
-    let hasNearbyRemotePlayer = false;
     if (connected) {
       const { width, height, zoom } = viewport();
       const visibleW = width / zoom;
       const visibleH = height / zoom;
-      // Start the higher-rate movement stream across a two-viewport area.
-      // Remote players receive enough samples to interpolate smoothly before
-      // either player reaches the other player's screen.
-      const marginX = visibleW * .5;
-      const marginY = visibleH * .5;
       const camera = cameraPosition();
-      hasNearbyRemotePlayer = hasRemotePlayerInArea(camera.x - marginX, camera.y - marginY, camera.x + visibleW + marginX, camera.y + visibleH + marginY);
-      syncPosition(player.x, player.y, player.facing, player.moving, started, hasNearbyRemotePlayer, {
+      syncMovementState(player.x, player.y, player.moving ? mx : 0, player.moving ? my : 0, source === "touch" ? "touch" : "keyboard", started, {
         left: camera.x,
         top: camera.y,
         right: camera.x + visibleW,

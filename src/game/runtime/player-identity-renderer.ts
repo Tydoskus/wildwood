@@ -1,4 +1,4 @@
-import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "../../../shared/rules";
+import { playerPowerForStats } from "../../../shared/player-power";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { ChatMessage } from "../../wildwood-coop";
 import { clamp } from "../math";
@@ -248,8 +248,7 @@ export function createPlayerIdentityRenderer(options: {
   }
 
   function playerPower(stats: Pick<PlayerState, "attackRate" | "damage" | "maxHp" | "armor" | "regen">) {
-    const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
-    return Math.min(0xffffffff, Math.round(stats.damage * attackSpeedMultiplier + stats.maxHp + stats.armor * 3 + stats.regen * 10));
+    return playerPowerForStats(stats);
   }
 
   return { publicPlayerName, renderDomPlayerName, applyProfileIcon, paintProfileIconCanvas, updateSpeechBubbles, drawSpeechBubble, drawActorStatus, drawPlayerIdentity, playerPower };

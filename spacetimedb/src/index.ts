@@ -3,6 +3,7 @@ import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
 import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
+import { legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
   PLAYER_MAP_FRAME_HZ,
   PLAYER_MOTION_FRAME_HZ,
@@ -80,12 +81,9 @@ const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
-const HIGH_RATE_INPUT_INTERVAL_MICROS = 200_000n;
-const HIGH_RATE_INPUT_LEASE_MICROS = 500_000n;
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
-const MOVEMENT_OBSERVER_ACTIVE_MICROS = 20_000_000n;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 1;
+const MODULE_MIGRATION_VERSION = 2;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 5;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -149,6 +147,9 @@ const player = table(
     headItem: t.string().default(BASIC_PAPER_HAT),
     chestItem: t.string().default(""),
     isVisible: t.bool().default(true),
+    dx: t.f32().default(0),
+    dy: t.f32().default(0),
+    powerLevel: t.f64().default(95),
   },
 );
 
@@ -184,6 +185,8 @@ const playerMotion = table(
     zoneX: t.i32(),
     zoneY: t.i32(),
     mapId: t.string(),
+    dx: t.f32().default(0),
+    dy: t.f32().default(0),
   },
 );
 
@@ -214,7 +217,13 @@ const playerMotionIdentity = table(
 // Insert-only event rows are never retained in client caches. One event carries
 // every changed player in a zone for this server frame.
 const playerMotionFrame = table(
-  { public: true, event: true },
+  {
+    public: true,
+    event: true,
+    indexes: [
+      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "zoneX", "zoneY"] as const },
+    ],
+  },
   {
     mapId: t.string(),
     zoneX: t.i32(),
@@ -227,7 +236,11 @@ const playerMotionFrame = table(
 
 // One 1 Hz compact map snapshot replaces N individually updated minimap rows.
 const playerMapFrame = table(
-  { public: true, event: true },
+  {
+    public: true,
+    event: true,
+    indexes: [{ accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const }],
+  },
   {
     mapId: t.string(),
     emittedAt: t.timestamp(),
@@ -333,6 +346,7 @@ const leaderboardEntry = table(
     regen: t.f32().default(0),
     playedMicros: t.u64().default(0n),
     profileIcon: t.u32().default(0),
+    powerLevel: t.f64().default(0),
   },
 );
 
@@ -964,9 +978,17 @@ function researchForPlayer(ctx: any, identity: any) {
 
 function runPendingModuleMigrations(ctx: any) {
   const state = ctx.db.moduleMigrationState.id.find(0);
-  if ((state?.version ?? 0) >= MODULE_MIGRATION_VERSION) return;
-  for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
-    if (research.frontierMastery !== 0) ctx.db.playerResearch.identity.update({ ...research, frontierMastery: 0 });
+  const currentVersion = state?.version ?? 0;
+  if (currentVersion >= MODULE_MIGRATION_VERSION) return;
+  if (currentVersion < 1) {
+    for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
+      if (research.frontierMastery !== 0) ctx.db.playerResearch.identity.update({ ...research, frontierMastery: 0 });
+    }
+  }
+  if (currentVersion < 2) {
+    for (const demand of [...ctx.db.playerMovementDemand.iter()] as any[]) {
+      ctx.db.playerMovementDemand.identity.delete(demand.identity);
+    }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
@@ -1115,13 +1137,12 @@ function migrateAttackBalance(ctx: any, progress: any) {
 }
 
 function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
-  const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, progress.attackRate);
-  return Math.min(0xffffffff, Math.max(0, Math.round(
-    progress.damage * attackSpeedMultiplier +
-    progress.maxHp +
-    progress.armor * 3 +
-    progress.regen * 10,
-  )));
+  return playerPowerForStats(progress);
+}
+
+function powerFieldsForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
+  const powerLevel = powerForProgress(progress);
+  return { power: legacyU32Power(powerLevel), powerLevel };
 }
 
 function researchedDamage(ctx: any, identity: any, damage: number) {
@@ -1161,6 +1182,8 @@ function playerWithMotion(ctx: any, activePlayer: any) {
     y: motion.y,
     facing: motion.facing,
     moving: motion.moving,
+    dx: motion.dx,
+    dy: motion.dy,
     lastInputAt: motion.lastInputAt,
     lastInputSequence: motion.lastInputSequence,
     zoneX: motion.zoneX,
@@ -1176,19 +1199,22 @@ function syncPlayerMotion(ctx: any, activePlayer: any) {
     const interval = activePlayer.lastInputAt.microsSinceUnixEpoch - current.lastInputAt.microsSinceUnixEpoch;
     inputIntervalMicros = interval > 0n ? interval : 0n;
   }
+  const moving = Boolean(activePlayer.moving);
   const next = {
     networkId: current?.networkId ?? 0,
     identity: activePlayer.identity,
     x: activePlayer.x,
     y: activePlayer.y,
     facing: activePlayer.facing,
-    moving: activePlayer.moving,
+    moving,
     lastInputAt: activePlayer.lastInputAt,
     lastInputSequence: activePlayer.lastInputSequence,
     inputIntervalMicros,
     zoneX: activePlayer.zoneX,
     zoneY: activePlayer.zoneY,
     mapId: activePlayer.mapId,
+    dx: moving && Number.isFinite(activePlayer.dx) ? Math.max(-1, Math.min(1, activePlayer.dx)) : 0,
+    dy: moving && Number.isFinite(activePlayer.dy) ? Math.max(-1, Math.min(1, activePlayer.dy)) : 0,
   };
   return current
     ? ctx.db.playerMotion.networkId.update(next)
@@ -1335,7 +1361,8 @@ function motionSample(motion: any): PlayerMotionSample {
     networkId: motion.networkId,
     x: motion.x,
     y: motion.y,
-    facing: motion.facing,
+    dx: motion.dx,
+    dy: motion.dy,
     moving: motion.moving,
   };
 }
@@ -1465,7 +1492,8 @@ function refreshLeaderboard(ctx: any) {
     const next = {
       identity: candidate.identity,
       displayName: candidate.displayName,
-      power: candidate.power,
+      power: legacyU32Power(candidate.power),
+      powerLevel: candidate.power,
       profileIcon: candidate.profileIcon,
       damage: candidate.damage,
       maxHp: candidate.maxHp,
@@ -1479,6 +1507,7 @@ function refreshLeaderboard(ctx: any) {
     else if (
       current.displayName !== next.displayName ||
       current.power !== next.power ||
+      current.powerLevel !== next.powerLevel ||
       current.profileIcon !== next.profileIcon ||
       current.damage !== next.damage ||
       current.maxHp !== next.maxHp ||
@@ -1568,42 +1597,6 @@ function isDatabaseOwnerIdentity(identity: any) {
 
 function isVirtualPlayer(ctx: any, identity: any) {
   return Boolean(ctx.db.virtualPlayer.identity.find(identity));
-}
-
-function syncPlayerMovementDemand(ctx: any, target: any, hiddenObserver: any) {
-  const current = ctx.db.playerMovementDemand.identity.find(target.identity);
-  // At minimum zoom one camera spans most of this 4,800-unit map. Same-map
-  // demand avoids blind edge bands without leaking the observer's coordinates.
-  const demanded = Boolean(target?.isVisible && hiddenObserver && hiddenObserver.mapId === target.mapId);
-  if (demanded && !current) ctx.db.playerMovementDemand.insert({ identity: target.identity });
-  else if (!demanded && current) ctx.db.playerMovementDemand.identity.delete(target.identity);
-}
-
-function expireExistingPlayerMovementDemand(ctx: any, target: any) {
-  // Ordinary gameplay pays no observer lookup unless this identity actually
-  // has a lease. Global refreshes own lease creation and map changes.
-  if (!ctx.db.playerMovementDemand.identity.find(target.identity)) return;
-  syncPlayerMovementDemand(ctx, target, activeHiddenMovementObserver(ctx));
-}
-
-function activeHiddenMovementObserver(ctx: any) {
-  const developer = playerWithMotion(ctx, ctx.db.player.identity.find(DEVELOPER_IDENTITY));
-  if (!developer || developer.isVisible) return null;
-  const activityAge = ctx.timestamp.microsSinceUnixEpoch - developer.lastInputAt.microsSinceUnixEpoch;
-  return activityAge >= 0n && activityAge <= MOVEMENT_OBSERVER_ACTIVE_MICROS ? developer : null;
-}
-
-/** Single-pass repair; one fixed developer identity avoids O(players²) scans. */
-function refreshPlayerMovementDemands(ctx: any) {
-  const hiddenObserver = activeHiddenMovementObserver(ctx);
-  const activeIdentities = new Set<string>();
-  for (const target of ctx.db.player.iter() as Iterable<any>) {
-    activeIdentities.add(target.identity.toHexString());
-    syncPlayerMovementDemand(ctx, target, hiddenObserver);
-  }
-  for (const demand of ctx.db.playerMovementDemand.iter() as Iterable<any>) {
-    if (!activeIdentities.has(demand.identity.toHexString())) ctx.db.playerMovementDemand.identity.delete(demand.identity);
-  }
 }
 
 function requireDeveloper(ctx: any) {
@@ -1818,7 +1811,6 @@ function removeIdentityPresence(ctx: any, identity: any) {
     if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
     if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
     if (activePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
-    if (!activePlayer.isVisible && isDeveloperIdentity(activePlayer.identity)) refreshPlayerMovementDemands(ctx);
   }
   removePlayerRealtimeState(ctx, identity);
 }
@@ -2077,7 +2069,7 @@ function rewardSpiderContributor(ctx: any, identity: any) {
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      power: powerForProgress(next),
+      ...powerFieldsForProgress(next),
     });
   }
 }
@@ -2131,7 +2123,7 @@ function rewardDragonContributor(ctx: any, identity: any) {
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      power: powerForProgress(next),
+      ...powerFieldsForProgress(next),
     });
   }
 }
@@ -2520,7 +2512,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         ...existing,
         mapId: canonicalMapId(existing.mapId),
         ...playerZone(existing.x, existing.y),
-        power: powerForProgress(existingProgress),
+        ...powerFieldsForProgress(existingProgress),
         moving: false,
         feetItem,
         headItem,
@@ -2536,7 +2528,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       syncPlayerMapMarker(ctx, currentPlayer, true);
       ensureRealtimeFrameSchedules(ctx);
       if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
-      refreshPlayerMovementDemands(ctx);
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
@@ -2556,7 +2547,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       ...playerZone(entryPosition.x, entryPosition.y),
       facing: Number.isFinite(existing.facing) ? existing.facing : 0,
       moving: false,
-      power: powerForProgress(existingProgress),
+      ...powerFieldsForProgress(existingProgress),
       protocolVersion: session.protocolVersion,
       controllerTabId: normalizedTabId,
       lastInputAt: ctx.timestamp,
@@ -2572,7 +2563,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     syncPlayerMapMarker(ctx, currentPlayer, true);
     ensureRealtimeFrameSchedules(ctx);
     if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
-    refreshPlayerMovementDemands(ctx);
     return;
   }
 
@@ -2594,7 +2584,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     // Required by the legacy physical schema. These are never synchronized.
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
-    power: powerForProgress(existingProgress),
+    ...powerFieldsForProgress(existingProgress),
     speed: speedForBoots(feetItem === TRAILBLAZER_BOOTS),
     moving: false,
     lastInputAt: ctx.timestamp,
@@ -2612,7 +2602,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   syncPlayerMapMarker(ctx, insertedPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
   if (visibleOnEntry) adjustOnlinePlayers(ctx, 1);
-  refreshPlayerMovementDemands(ctx);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -2693,7 +2682,6 @@ export const runMaintenance = spacetimedb.reducer(
     clearOrphanVirtualPlayers(ctx);
     clearExpiredVirtualPlayerRuns(ctx);
     reconcileOnlinePlayers(ctx);
-    refreshPlayerMovementDemands(ctx);
     runPendingModuleMigrations(ctx);
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     refreshLeaderboardIfDue(ctx);
@@ -2711,21 +2699,9 @@ export const publishMotionFrames = spacetimedb.reducer(
     }
 
     const zones = new Map<string, { mapId: string; zoneX: number; zoneY: number; samples: PlayerMotionSample[] }>();
-    let continuePublishing = false;
     for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
       const mapPopulation = mapCounts.get(motion.mapId) ?? 0;
       const sharedMap = mapPopulation > 1;
-      const inputAge = ctx.timestamp.microsSinceUnixEpoch - motion.lastInputAt.microsSinceUnixEpoch;
-      if (
-        motion.moving &&
-        mapPopulation > DIRECT_MOTION_PLAYER_LIMIT &&
-        motion.inputIntervalMicros > 0n &&
-        motion.inputIntervalMicros <= HIGH_RATE_INPUT_INTERVAL_MICROS &&
-        inputAge >= 0n &&
-        inputAge <= HIGH_RATE_INPUT_LEASE_MICROS
-      ) {
-        continuePublishing = true;
-      }
       if (
         !motion.moving ||
         motion.lastInputAt.microsSinceUnixEpoch <= schedule.previousTickMicros ||
@@ -2754,7 +2730,10 @@ export const publishMotionFrames = spacetimedb.reducer(
       });
     }
 
-    if (continuePublishing) {
+    // One trailing tick detects the end of a burst. Sustained steering keeps
+    // the shared lane at 10 Hz; a sparse heartbeat costs one empty follow-up
+    // scan instead of a continuously leased scheduler.
+    if (zones.size > 0) {
       ctx.db.motionFrameSchedule.insert({
         scheduledId: 0n,
         scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_FRAME_INTERVAL_MICROS),
@@ -2861,7 +2840,7 @@ export const respawnSpider = spacetimedb.reducer(
   },
 );
 
-function applyDragonDamage(ctx: any, requestedHits: number) {
+function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== TUTORIAL_FOREST_MAP_ID) return;
@@ -2870,10 +2849,12 @@ function applyDragonDamage(ctx: any, requestedHits: number) {
   const dragon = ensureDragonBoss(ctx);
   if (!dragon.alive || dragon.hp <= 0) return;
 
-  const centerDistance = Math.hypot(
-    activePlayer.x - DRAGON_POSITION.x,
-    activePlayer.y - DRAGON_POSITION.y,
-  );
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - DRAGON_POSITION.x, actionY - DRAGON_POSITION.y);
   if (centerDistance - DRAGON_RADIUS > progress.attackRange + DRAGON_HIT_RANGE_TOLERANCE) return;
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
@@ -2935,7 +2916,12 @@ export const damageDragonBatch = spacetimedb.reducer(
   (ctx, { hits }) => applyDragonDamage(ctx, hits),
 );
 
-function applySpiderDamage(ctx: any, requestedHits: number) {
+export const damageDragonFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyDragonDamage(ctx, hits, { x, y }),
+);
+
+function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== BEGINNER_DESERT_MAP_ID) return;
@@ -2944,10 +2930,12 @@ function applySpiderDamage(ctx: any, requestedHits: number) {
   const spider = ensureSpiderBoss(ctx);
   if (!spider.alive || spider.hp <= 0) return;
 
-  const centerDistance = Math.hypot(
-    activePlayer.x - SPIDER_POSITION.x,
-    activePlayer.y - SPIDER_POSITION.y,
-  );
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - SPIDER_POSITION.x, actionY - SPIDER_POSITION.y);
   if (centerDistance - SPIDER_RADIUS > progress.attackRange + SPIDER_HIT_RANGE_TOLERANCE) return;
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
@@ -3004,6 +2992,11 @@ function applySpiderDamage(ctx: any, requestedHits: number) {
 export const damageSpiderBatch = spacetimedb.reducer(
   { hits: t.u32() },
   (ctx, { hits }) => applySpiderDamage(ctx, hits),
+);
+
+export const damageSpiderFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applySpiderDamage(ctx, hits, { x, y }),
 );
 
 export const registerProtocol = spacetimedb.reducer(
@@ -3148,7 +3141,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       ctx.db.player.identity.update({
         ...activePlayer,
         speed: speedForBoots(nextProgress.equippedFeet === TRAILBLAZER_BOOTS),
-        power: powerForProgress(nextProgress),
+        ...powerFieldsForProgress(nextProgress),
         feetItem: equippedFeetForProgress(nextProgress),
         headItem: equippedHeadForProgress(nextProgress),
         chestItem: equippedChestForProgress(nextProgress),
@@ -3169,7 +3162,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       const nextLeaderboardEntry = {
         identity: ctx.sender,
         displayName: finalDisplayName,
-        power: powerForProgress(nextProgress),
+        ...powerFieldsForProgress(nextProgress),
         profileIcon: ctx.db.playerProfile.identity.find(ctx.sender)?.profileIcon ?? 0,
         damage: nextProgress.damage,
         maxHp: nextProgress.maxHp,
@@ -3301,7 +3294,6 @@ export const setDeveloperPresence = spacetimedb.reducer(
     syncPlayerMapMarker(ctx, nextPlayer, true);
     ensureRealtimeFrameSchedules(ctx);
     adjustOnlinePlayers(ctx, visible ? 1 : -1);
-    refreshPlayerMovementDemands(ctx);
   },
 );
 
@@ -3516,7 +3508,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       ctx.db.player.identity.update({
         ...active,
         speed: nextProgress.speed,
-        power: powerForProgress(nextProgress),
+        ...powerFieldsForProgress(nextProgress),
       });
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, active));
     }
@@ -3606,7 +3598,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: boundedKills });
     }
     const presentation = {
-      power: powerForProgress(next),
+      ...powerFieldsForProgress(next),
       speed: next.speed,
       feetItem: next.equippedFeet,
       headItem: next.equippedHead,
@@ -3614,6 +3606,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (
       activePlayer.power !== presentation.power ||
+      activePlayer.powerLevel !== presentation.powerLevel ||
       activePlayer.speed !== presentation.speed ||
       activePlayer.feetItem !== presentation.feetItem ||
       activePlayer.headItem !== presentation.headItem ||
@@ -3689,7 +3682,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({
       ...activePlayer,
-      power: powerForProgress(next),
+      ...powerFieldsForProgress(next),
       speed: next.speed,
       feetItem: next.equippedFeet,
       headItem: next.equippedHead,
@@ -3855,51 +3848,65 @@ export const pulseDuel = spacetimedb.reducer(
   },
 );
 
+function applyMovementState(ctx: any, x: number, y: number, dx: number, dy: number, sequence: number) {
+  const current = requireControllingPlayer(ctx);
+  if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
+  if (![x, y, dx, dy].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
+
+  const clampedX = Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x));
+  const clampedY = Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y));
+  const boundedDx = Math.max(-1, Math.min(1, dx));
+  const boundedDy = Math.max(-1, Math.min(1, dy));
+  const moving = boundedDx !== 0 || boundedDy !== 0;
+  const facing = boundedDx < 0 ? Math.PI : boundedDx > 0 ? 0 : current.facing;
+  const nextPlayer = {
+    ...current,
+    x: clampedX,
+    y: clampedY,
+    ...playerZone(clampedX, clampedY),
+    facing,
+    moving,
+    dx: moving ? boundedDx : 0,
+    dy: moving ? boundedDy : 0,
+    lastInputAt: ctx.timestamp,
+    lastInputSequence: sequence,
+  };
+  const nextMotion = syncPlayerMotion(ctx, nextPlayer);
+
+  // Cold player rows carry presentation and zone membership. Publish only
+  // start/stop endpoints, idle corrections, or zone crossings. Direction and
+  // continuous coordinates travel in compact aggregate events.
+  const staticStateChanged =
+    current.moving !== moving ||
+    current.zoneX !== nextPlayer.zoneX ||
+    current.zoneY !== nextPlayer.zoneY ||
+    !moving;
+  if (staticStateChanged) {
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, nextPlayer);
+  }
+  publishOrScheduleMotion(ctx, nextMotion, nextPlayer.isVisible);
+}
+
+export const updateMovementState = spacetimedb.reducer(
+  { x: t.f64(), y: t.f64(), dx: t.f32(), dy: t.f32(), sequence: t.u32() },
+  (ctx, { x, y, dx, dy, sequence }) => applyMovementState(ctx, x, y, dx, dy, sequence),
+);
+
+// Rollout bridge for pre-0.424 clients. Current clients never call this path.
 export const syncPosition = spacetimedb.reducer(
   { x: t.f64(), y: t.f64(), facing: t.f64(), moving: t.bool(), sequence: t.u32() },
   (ctx, { x, y, facing, moving, sequence }) => {
-    const current = requireControllingPlayer(ctx);
-    if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
-
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(facing)) {
-      throw new SenderError("Position sync values must be finite");
-    }
-
-    const clampedX = Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x));
-    const clampedY = Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y));
-    const hiddenDeveloperWasActive = isDeveloperIdentity(current.identity) && !current.isVisible && Boolean(activeHiddenMovementObserver(ctx));
-    const nextPlayer = {
-      ...current,
-      x: clampedX,
-      y: clampedY,
-      ...playerZone(clampedX, clampedY),
-      facing,
-      moving,
-      lastInputAt: ctx.timestamp,
-      lastInputSequence: sequence,
-    };
-    const nextMotion = syncPlayerMotion(ctx, nextPlayer);
-
-    // Cold player rows carry presentation and zone membership. Publish only
-    // start/stop endpoints, idle corrections, or zone crossings; continuous
-    // coordinates travel in one compact aggregate event per server frame.
-    const staticStateChanged =
-      current.moving !== moving ||
-      current.zoneX !== nextPlayer.zoneX ||
-      current.zoneY !== nextPlayer.zoneY ||
-      !moving;
-    if (staticStateChanged) {
-      ctx.db.player.identity.update(nextPlayer);
-      syncPlayerMotionIdentity(ctx, nextPlayer);
-    }
-    publishOrScheduleMotion(ctx, nextMotion, nextPlayer.isVisible);
-    if (isDeveloperIdentity(nextPlayer.identity) && !nextPlayer.isVisible) {
-      // Only a lease transition scans players. Ordinary developer motion
-      // merely renews lastInputAt and keeps this path O(1).
-      if (!hiddenDeveloperWasActive) refreshPlayerMovementDemands(ctx);
-    } else {
-      expireExistingPlayerMovementDemand(ctx, nextPlayer);
-    }
+    if (!Number.isFinite(facing)) throw new SenderError("Movement state values must be finite");
+    const horizontal = Math.cos(facing);
+    applyMovementState(
+      ctx,
+      x,
+      y,
+      moving && Math.abs(horizontal) >= 1e-6 ? horizontal : 0,
+      moving ? Math.sin(facing) : 0,
+      sequence,
+    );
   },
 );
 
@@ -3938,7 +3945,6 @@ export const changeMap = spacetimedb.reducer(
     syncPlayerMotionIdentity(ctx, nextPlayer);
     syncPlayerMapMarker(ctx, nextPlayer, true);
     ensureRealtimeFrameSchedules(ctx);
-    refreshPlayerMovementDemands(ctx);
   },
 );
 

@@ -34,32 +34,33 @@ describe("adaptive remote interpolation", () => {
 
   it("bridges the first distant-rate gap without an unbounded prediction", () => {
     const samples = [
-      { timelineAt: -50, x: 0, y: 0, facing: 0, moving: true },
-      { timelineAt: 0, x: 9, y: 0, facing: 0, moving: true },
+      { timelineAt: -50, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+      { timelineAt: 0, x: 9, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
     ];
     expect(remoteMotionAt(samples, 125, 180).x).toBeCloseTo(31.5);
-    expect(remoteMotionAt(samples, 500, 180).x).toBeCloseTo(45);
+    expect(remoteMotionAt(samples, 500, 180).x).toBeCloseTo(99);
+    expect(remoteMotionAt(samples, 2_000, 180).x).toBeCloseTo(279);
   });
 
   it("never predicts beyond a confirmed stop", () => {
     const samples = [
-      { timelineAt: 0, x: 0, y: 0, facing: 0, moving: true },
-      { timelineAt: 50, x: 9, y: 0, facing: 0, moving: false },
+      { timelineAt: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+      { timelineAt: 50, x: 9, y: 0, dx: 0, dy: 0, facing: 0, moving: false },
     ];
     expect(remoteMotionAt(samples, 200, 180)).toMatchObject({ x: 9, y: 0, moving: false });
   });
 
-  it("caps malformed sample velocity to the player's allowed speed", () => {
+  it("bounds malformed vectors to the player's speed", () => {
     const samples = [
-      { timelineAt: 0, x: 0, y: 0, facing: 0, moving: true },
-      { timelineAt: 50, x: 1_000, y: 0, facing: 0, moving: true },
+      { timelineAt: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+      { timelineAt: 50, x: 1_000, y: 0, dx: 4, dy: 0, facing: 0, moving: true },
     ];
-    expect(remoteMotionAt(samples, 250, 100).x).toBeCloseTo(1_023);
+    expect(remoteMotionAt(samples, 250, 100).x).toBeCloseTo(1_020);
   });
 
   it("rebases burst-delivered rows behind arrival time instead of into the future", () => {
     const samples: TimestampedRemoteMotionSample[] = [
-      { timelineAt: 1_000, serverAtMs: 0, receivedAt: 1_000, x: 0, y: 0, facing: 0, moving: true },
+      { timelineAt: 1_000, serverAtMs: 0, receivedAt: 1_000, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
     ];
     for (let index = 1; index <= 8; index += 1) {
       appendRemoteTimelineSample(samples, {
@@ -67,6 +68,8 @@ describe("adaptive remote interpolation", () => {
         receivedAt: 1_000,
         x: index * 10,
         y: 0,
+        dx: 1,
+        dy: 0,
         facing: 0,
         moving: true,
       });
@@ -74,6 +77,15 @@ describe("adaptive remote interpolation", () => {
     expect(samples[samples.length - 1]?.timelineAt).toBe(1_000);
     expect(samples[0].timelineAt).toBe(464);
     expect(remoteMotionAt(samples, 875, 180).x).toBeGreaterThan(50);
+  });
+
+  it("blends heartbeat corrections across the buffered interval", () => {
+    const samples = [
+      { timelineAt: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+      { timelineAt: 1_000, x: 182, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+    ];
+    expect(remoteMotionAt(samples, 500, 180).x).toBeCloseTo(91);
+    expect(remoteMotionAt(samples, 800, 180).x).toBeCloseTo(145.6);
   });
 
   it("drops a distant-rate delay when movement restarts", () => {

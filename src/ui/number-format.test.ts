@@ -7,5 +7,7 @@ describe("compact number formatting", () => {
     expect(formatCompactNumber(5_000_000)).toBe("5.00m");
     expect(formatCompactNumber(28_100)).toBe("28.1k");
     expect(formatCompactNumber(100_000)).toBe("100k");
+    expect(formatCompactNumber(1e33)).toBe("1.00dc");
+    expect(formatCompactNumber(1e36)).toBe("1.00ud");
   });
 });

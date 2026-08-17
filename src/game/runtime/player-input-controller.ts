@@ -1,4 +1,5 @@
-type Movement = { x: number; y: number };
+export type MovementInputSource = "keyboard" | "touch" | "none";
+export type Movement = { x: number; y: number; source: MovementInputSource };
 
 export type PlayerInputController = {
   movement: () => Movement;
@@ -102,10 +103,17 @@ export function createPlayerInputController(options: {
   canvas.addEventListener("click", (event) => onTapPlayer(event.clientX, event.clientY));
 
   return {
-    movement: () => ({
-      x: (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + touch.x,
-      y: (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) + touch.y,
-    }),
+    movement: () => {
+      const left = keys.has("KeyA") || keys.has("ArrowLeft");
+      const right = keys.has("KeyD") || keys.has("ArrowRight");
+      const up = keys.has("KeyW") || keys.has("ArrowUp");
+      const down = keys.has("KeyS") || keys.has("ArrowDown");
+      return {
+        x: (right ? 1 : 0) - (left ? 1 : 0) + touch.x,
+        y: (down ? 1 : 0) - (up ? 1 : 0) + touch.y,
+        source: touch.active ? "touch" : left || right || up || down ? "keyboard" : "none",
+      };
+    },
     clear,
     stopTouchMove,
     keys,

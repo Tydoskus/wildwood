@@ -24,7 +24,7 @@ type SessionDependencies = {
   hideGameOver: () => void;
   showGameOver: () => void;
   beginAdventure: () => void;
-  syncPosition: () => void;
+  syncStoppedPosition: () => void;
   resetPlayer: (preserveStats: boolean) => void;
   mapMusicSync: () => void;
   isDueling: () => boolean;
@@ -145,7 +145,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     hasStarted = true;
     running = true;
     if (markIntro) dependencies.beginAdventure();
-    if (dependencies.connected()) dependencies.syncPosition();
+    if (dependencies.connected()) dependencies.syncStoppedPosition();
     lastFrameAt = performance.now();
     nextFrameAt = lastFrameAt;
     dependencies.ensureMusicPlaying();

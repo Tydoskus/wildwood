@@ -19,9 +19,15 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../../../shared/rules";
+import {
+  movementUpdateReason,
+  normalizeMovementVector,
+  type SentMovementState,
+} from "./sparse-movement";
 
 const MOVEMENT_HZ = VIRTUAL_PLAYER_MOVEMENT_HZ;
-const MOVEMENT_INTERVAL_MS = 1_000 / MOVEMENT_HZ;
+const LOCAL_SIMULATION_HZ = 10;
+const MOVEMENT_INTERVAL_MS = 1_000 / LOCAL_SIMULATION_HZ;
 const SAVE_INTERVAL_MS = VIRTUAL_PLAYER_SAVE_INTERVAL_MS;
 const MAP_ZONE_SIZE = 1_000;
 const MAP_ZONE_RADIUS = 2;
@@ -61,6 +67,7 @@ type VirtualBot = VirtualPlayerMotion & {
   subscriptions: Subscription[];
   identity: Identity | null;
   sequence: number;
+  lastSentMovement: SentMovementState | null;
   ready: boolean;
   failed: boolean;
   nextSaveAt: number;
@@ -176,6 +183,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       subscriptions: [],
       identity: null,
       sequence: 0,
+      lastSentMovement: null,
       ready: false,
       failed: false,
       x: spawn.x,
@@ -286,7 +294,6 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           tables.playerProfile.where((row) => row.identity.eq(identity)),
           tables.playerAccountStatus.where((row) => row.identity.eq(identity)),
           tables.worldStatus,
-          tables.localMovementDemand,
           tables.playerProgress.where((row) => row.identity.eq(identity)),
           tables.playerResearch.where((row) => row.identity.eq(identity)),
           tables.activeResearch.where((row) => row.identity.eq(identity)),
@@ -367,14 +374,21 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         if (!bot.ready || bot.failed || !conn?.isActive) continue;
         Object.assign(bot, advanceVirtualPlayerMotion(bot, elapsedSeconds, now));
         installNearbySubscription(bot, mapId);
-        const sequence = ++bot.sequence;
-        void conn.reducers.syncPosition({
-          x: bot.x,
-          y: bot.y,
-          facing: bot.facing,
-          moving: bot.moving,
-          sequence,
-        }).catch(() => markBotFailed(bot, runGeneration));
+        const vector = normalizeMovementVector(
+          bot.moving ? Math.cos(bot.facing) : 0,
+          bot.moving ? Math.sin(bot.facing) : 0,
+        );
+        if (movementUpdateReason({ now, vector, inputKind: "keyboard", lastSent: bot.lastSentMovement })) {
+          bot.lastSentMovement = { ...vector, sentAt: now };
+          const sequence = ++bot.sequence;
+          void conn.reducers.updateMovementState({
+            x: bot.x,
+            y: bot.y,
+            dx: vector.dx,
+            dy: vector.dy,
+            sequence,
+          }).catch(() => markBotFailed(bot, runGeneration));
+        }
 
         if (now < bot.nextSaveAt) continue;
         bot.nextSaveAt = now + SAVE_INTERVAL_MS * (.75 + Math.random() * .5);
@@ -501,6 +515,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       if (generation !== runGeneration) return { ready: false, bootstrapMs: totalBootstrapMs };
       bot.identity = null;
       bot.sequence = 0;
+      bot.lastSentMovement = null;
       bot.zoneKey = "";
       bot.nearbySubscription = null;
       const startedAt = performance.now();

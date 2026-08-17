@@ -46,7 +46,7 @@ export function createMapController(options: {
   running: () => boolean;
   localMapState: () => { mapId: string; x: number; y: number; facing: number } | null | undefined;
   changeMap: (mapId: MapId) => Promise<boolean | undefined> | boolean | undefined;
-  syncPosition: () => void;
+  syncStoppedPosition: () => void;
   fadeToWorld: (action: () => void) => void;
   mapUnlocked: (mapId: MapId) => boolean;
   syncMapMusic: () => void;
@@ -69,7 +69,7 @@ export function createMapController(options: {
   const {
     mapConfig, tutorialMapId, desertMapId, snowMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey,
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay,
-    isDueling, running, localMapState, changeMap, syncPosition, fadeToWorld, mapUnlocked, syncMapMusic,
+    isDueling, running, localMapState, changeMap, syncStoppedPosition, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, projectiles, enemyShots, particles, damageNumbers,
     bossRain, spiderVenom, boss, spiderBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
   } = options;
@@ -149,7 +149,7 @@ export function createMapController(options: {
         portalCooldown = 1.5;
         mapTransitioning = false;
         showMapMessage(getCurrentMapId());
-        syncPosition();
+        syncStoppedPosition();
       });
     });
   }

@@ -11,9 +11,10 @@ export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
 export const MIN_ATTACK_INTERVAL = .32;
-// Progress stats use f32 storage; one trillion leaves ample headroom while still
-// retaining useful precision for the compact-number progression scale.
-export const MAX_PLAYER_STAT = 1_000_000_000_000;
+// Scalable combat stats use f32 storage. One undecillion stays below f32's
+// finite limit with room for research and power multipliers. Movement and
+// attack speed retain their separate gameplay caps.
+export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 1;
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
@@ -30,7 +31,7 @@ export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const MAP_IDS: readonly string[] = [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID];
 
-export const PROTOCOL_VERSION = 42;
+export const PROTOCOL_VERSION = 43;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

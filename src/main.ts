@@ -377,9 +377,8 @@ import {
     isDueling,
     scheduleEnemyRespawn: regularEnemyRespawnBoost.schedule,
     incrementKills: () => { totalKills += 1; },
-    damageDragon: (hits) => coop?.damageDragon?.(hits),
-    damageSpider: (hits) => coop?.damageSpider?.(hits),
-    syncBossAttackPosition: () => coop?.syncPosition?.(player.x, player.y, player.facing, player.moving, true),
+    damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
+    damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
     spawnBurst,
     spawnDamageNumber,
     logPickup,
@@ -444,7 +443,7 @@ import {
     running: () => session.isRunning(),
     localMapState: () => coop?.localState?.(),
     changeMap: (mapId) => coop?.changeMap?.(mapId),
-    syncPosition: () => coop?.syncPosition?.(player.x, player.y, player.facing, false, true),
+    syncStoppedPosition: () => coop?.correctMovementPosition?.(player.x, player.y, true),
     fadeToWorld,
     mapUnlocked: (mapId) => mapId === BEGINNER_DESERT_MAP_ID
       ? Boolean(coop?.savedProgress?.()?.desertUnlocked)
@@ -635,8 +634,7 @@ import {
     isConnected: () => Boolean(coop?.isConnected?.()),
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
-    syncPosition: (x, y, facing, moving, force, highFrequency, interestArea) => coop?.syncPosition?.(x, y, facing, moving, force, highFrequency, interestArea),
-    hasRemotePlayerInArea: (left, top, right, bottom) => coop?.hasRemotePlayerInArea?.(left, top, right, bottom) ?? false,
+    syncMovementState: (x, y, dx, dy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, dx, dy, inputSource, force, interestArea),
     autoAttack: (dt) => playerCombat.attackNearest(dt),
     isAutoAttackEnabled: () => Boolean(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
@@ -851,7 +849,7 @@ import {
     lowPerformanceMode: appShell.lowPerformanceMode, ensureMusicPlaying: appShell.ensureMusicPlaying,
     hideStart: startup.hideStart, hideGameOver: startup.hideGameOver, showGameOver: startup.showGameOver,
     beginAdventure: () => { coop?.beginAdventure?.(); },
-    syncPosition: () => { coop?.syncPosition?.(player.x, player.y, player.facing, false, true); },
+    syncStoppedPosition: () => { coop?.correctMovementPosition?.(player.x, player.y, true); },
     resetPlayer: (preserveStats) => {
       worldProgression.hideBootUpgrade();
       playerController.reset(preserveStats, progress.hasSavedProgress());
@@ -1007,7 +1005,8 @@ import {
     running: session.isRunning,
     syncPlayerState: () => {
       coop?.syncSpeed?.(player.speed * researchMovementSpeedMultiplier());
-      coop?.syncPosition?.(player.x, player.y, player.facing, player.moving, true);
+      const movement = playerInput.movement();
+      coop?.syncMovementState?.(player.x, player.y, movement.x, movement.y, movement.source === "touch" ? "touch" : "keyboard", true);
     },
     reconcileMap: mapController.reconcileMapFromServer,
     syncBossState: () => {
