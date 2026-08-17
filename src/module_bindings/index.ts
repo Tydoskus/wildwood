@@ -42,6 +42,7 @@ import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reducer";
+import DamageFrostclawFromPositionReducer from "./damage_frostclaw_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
@@ -82,6 +83,8 @@ import DragonBossRow from "./dragon_boss_table";
 import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
 import DuelReplayRow from "./duel_replay_table";
+import FrostclawBossRow from "./frostclaw_boss_table";
+import FrostclawResultRow from "./frostclaw_result_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
 import LocalMovementDemandRow from "./local_movement_demand_table";
 import PlayerRow from "./player_table";
@@ -174,6 +177,28 @@ const tablesSchema = __schema({
       { name: 'duel_replay_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DuelReplayRow),
+  frostclawBoss: __table({
+    name: 'frostclaw_boss',
+    indexes: [
+      { accessor: 'id', name: 'frostclaw_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'frostclaw_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FrostclawBossRow),
+  frostclawResult: __table({
+    name: 'frostclaw_result',
+    indexes: [
+      { accessor: 'id', name: 'frostclaw_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'frostclaw_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FrostclawResultRow),
   leaderboardEntry: __table({
     name: 'leaderboard_entry',
     indexes: [
@@ -383,6 +408,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_dragon_from_position", DamageDragonFromPositionReducer),
+  __reducerSchema("damage_frostclaw_from_position", DamageFrostclawFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),

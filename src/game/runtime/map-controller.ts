@@ -1,6 +1,6 @@
 import { createPortalCutscene } from "./cutscene";
 import type { Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -60,8 +60,10 @@ export function createMapController(options: {
   damageNumbers: unknown[];
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
+  frostclawIcefalls: FrostclawIcefall[];
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
+  frostclawBoss: FrostclawBossState;
   clearPendingBossHits: () => void;
   showMapMessage: (mapId: MapId) => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
@@ -71,7 +73,7 @@ export function createMapController(options: {
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, projectiles, enemyShots, particles, damageNumbers,
-    bossRain, spiderVenom, boss, spiderBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, boss, spiderBoss, frostclawBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -128,6 +130,10 @@ export function createMapController(options: {
     boss.cone = null;
     spiderVenom.length = 0;
     spiderBoss.web = null;
+    frostclawIcefalls.length = 0;
+    frostclawBoss.roar = null;
+    frostclawBoss.rift = null;
+    frostclawBoss.pushTimer = 0;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }

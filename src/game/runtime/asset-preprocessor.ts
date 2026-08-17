@@ -90,6 +90,18 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   });
   spiderSprite.src = "assets/wildwood/desert-spider-boss-spritesheet.png";
 
+  const frostclawSprite = new Image();
+  const frostclawSpriteCanvas = document.createElement("canvas");
+  const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas);
+  let frostclawReady = false;
+  frostclawSprite.addEventListener("load", () => {
+    frostclawSpriteCanvas.width = frostclawSprite.naturalWidth;
+    frostclawSpriteCanvas.height = frostclawSprite.naturalHeight;
+    frostclawSpriteContext.drawImage(frostclawSprite, 0, 0);
+    frostclawReady = true;
+  });
+  frostclawSprite.src = "assets/wildwood/frostclaw-boss-spritesheet.png";
+
   let portalArchReady = false;
   const portalArch = new Image();
   const settlePortalArch = () => {
@@ -161,6 +173,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     duelSpaceBackground,
     portalArch,
     portalSwirl,
+    frostclawReady: () => frostclawReady,
+    frostclawSpriteCanvas,
     snowPine,
     spiderReady: () => spiderReady,
     spiderSpriteCanvas,

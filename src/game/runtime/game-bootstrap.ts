@@ -6,7 +6,7 @@ import { BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   PLAYER_BASE_HP,
@@ -26,6 +26,7 @@ export function createGameBootstrap() {
   const paths: WorldPath[] = [];
   const bossRain: BossRainStrike[] = [];
   const spiderVenom: SpiderVenomPool[] = [];
+  const frostclawIcefalls: FrostclawIcefall[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: {
@@ -99,6 +100,27 @@ export function createGameBootstrap() {
     web: null,
     encounter: null,
   };
+  const frostclawBoss: FrostclawBossState = {
+    isBoss: true,
+    bossKind: "frostclaw",
+    x: 4050,
+    y: 4050,
+    r: 150,
+    maxHp: 750_000_000_000,
+    hp: 750_000_000_000,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: 750_000_000_000,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "roar",
+    roar: null,
+    rift: null,
+    pushAngle: 0,
+    pushTimer: 0,
+    encounter: null,
+  };
   const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
     itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
@@ -117,6 +139,8 @@ export function createGameBootstrap() {
     decor,
     enemies,
     enemyShots,
+    frostclawBoss,
+    frostclawIcefalls,
     inventory,
     mapConfig,
     paths,

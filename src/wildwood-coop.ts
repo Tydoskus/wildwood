@@ -14,6 +14,7 @@ import {
 } from "./coop/services/progress";
 import { createProgressStore } from "./coop/services/progress-store";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
+import { resolvePlayerPresenceMap } from "./coop/services/profile-presence";
 import {
   createUpdateResumeStore,
   inferLegacyUpdateResumeMode,
@@ -159,6 +160,8 @@ export type DragonBossState = {
 
 export type SpiderBossState = DragonBossState;
 export type SpiderResult = DragonResult;
+export type FrostclawBossState = DragonBossState;
+export type FrostclawResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;
@@ -360,6 +363,9 @@ const profileProgress = new Map<string, PlayerProgress>();
 const profileResearch = new Map<string, PlayerResearch>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerMaps = new Map<string, string>();
+// Full player rows subscribed for an open profile must stay independent from
+// current-map motion membership. Leaving our render zone is not going offline.
+const profilePlayerMaps = new Map<string, string>();
 const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
 let leaderboardSnapshotSubscription: { unsubscribe: () => void } | null = null;
 let leaderboardSnapshotLoad: Promise<LeaderboardEntry[]> | null = null;
@@ -386,6 +392,8 @@ let sharedDragon: DragonBossState | null = null;
 let sharedSpider: SpiderBossState | null = null;
 let latestSpiderResult: SpiderResult | null = null;
 let latestDragonResult: DragonResult | null = null;
+let sharedFrostclaw: FrostclawBossState | null = null;
+let latestFrostclawResult: FrostclawResult | null = null;
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -1130,6 +1138,7 @@ function upsertPlayer(row: {
   }
 
   if (!row.isVisible) {
+    profilePlayerMaps.delete(id);
     const mapRemoved = playerMaps.delete(id);
     const playerRemoved = players.delete(id);
     if (mapRemoved || playerRemoved || activePlayerProfileIdentity === id) onChange();
@@ -1137,6 +1146,7 @@ function upsertPlayer(row: {
   }
 
   const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
+  if (activePlayerProfileIdentity === id) profilePlayerMaps.set(id, nextMapId);
   const previousMapId = playerMaps.get(id);
   playerMaps.set(id, nextMapId);
 
@@ -1557,6 +1567,22 @@ function upsertSpiderBoss(row: {
   };
 }
 
+function upsertFrostclawBoss(row: {
+  encounter: bigint;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  respawnAtMicros: bigint;
+}) {
+  sharedFrostclaw = {
+    encounter: row.encounter,
+    hp: row.hp,
+    maxHp: row.maxHp,
+    alive: row.alive,
+    respawnAtMs: Number(row.respawnAtMicros / 1000n),
+  };
+}
+
 function upsertDragonResult(row: {
   encounter: bigint;
   totalDamage: number;
@@ -1607,6 +1633,35 @@ function upsertSpiderResult(row: {
     }
   } catch {}
   latestSpiderResult = {
+    encounter: row.encounter,
+    totalDamage: row.totalDamage,
+    contributors,
+    createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1_000n),
+  };
+  onChange?.();
+}
+
+function upsertFrostclawResult(row: {
+  encounter: bigint;
+  totalDamage: number;
+  contributorsJson: string;
+  createdAt: { microsSinceUnixEpoch: bigint };
+}) {
+  let contributors: DragonContributor[] = [];
+  try {
+    const parsed = JSON.parse(row.contributorsJson);
+    if (Array.isArray(parsed)) {
+      contributors = parsed
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => ({
+          identity: typeof entry.identity === "string" ? entry.identity : "",
+          name: typeof entry.name === "string" ? entry.name : "PLAYER",
+          damage: Number(entry.damage) || 0,
+          percentage: Number(entry.percentage) || 0,
+        }));
+    }
+  } catch {}
+  latestFrostclawResult = {
     encounter: row.encounter,
     totalDamage: row.totalDamage,
     contributors,
@@ -1884,7 +1939,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     progress: { ...progress },
     research: { ...profileResearch.get(identity) ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 } },
     lifetime: { ...lifetime },
-    mapId: identity === localIdentity ? localState?.mapId : playerMaps.get(identity),
+    mapId: resolvePlayerPresenceMap(identity, localIdentity, localState?.mapId, profilePlayerMaps, playerMaps) ?? undefined,
   };
 }
 
@@ -1934,8 +1989,8 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         }
         for (const row of conn.db.player.iter()) {
           if (row.identity.toHexString() !== identity) continue;
-          if (row.isVisible) playerMaps.set(identity, row.mapId);
-          else playerMaps.delete(identity);
+          if (row.isVisible) profilePlayerMaps.set(identity, row.mapId);
+          else profilePlayerMaps.delete(identity);
         }
         finish(cachedPlayerProfile(identity));
       })
@@ -1970,6 +2025,7 @@ function releasePlayerProfile() {
     profileProgress.delete(activePlayerProfileIdentity);
     profileResearch.delete(activePlayerProfileIdentity);
     playerLifetimes.delete(activePlayerProfileIdentity);
+    profilePlayerMaps.delete(activePlayerProfileIdentity);
     playerProfileLoads.delete(activePlayerProfileIdentity);
   }
   activePlayerProfileSubscription = null;
@@ -1985,7 +2041,8 @@ function removePlayer(row: { identity: Identity }) {
   const identity = row.identity.toHexString();
   const playerRemoved = players.delete(identity);
   const mapRemoved = playerMaps.delete(identity);
-  if (playerRemoved || mapRemoved || activePlayerProfileIdentity === identity) onChange();
+  const profileMapRemoved = profilePlayerMaps.delete(identity);
+  if (playerRemoved || mapRemoved || profileMapRemoved || activePlayerProfileIdentity === identity) onChange();
 }
 
 function releaseMapPlayerSubscription() {
@@ -2128,6 +2185,7 @@ function clearRealtimeCaches() {
   profileProgress.clear();
   playerLifetimes.clear();
   playerMaps.clear();
+  profilePlayerMaps.clear();
   playerProfileLoads.clear();
   chatMessages.length = 0;
   chatPresentationRevision += 1;
@@ -2140,6 +2198,8 @@ function clearRealtimeCaches() {
   latestDragonResult = null;
   sharedSpider = null;
   latestSpiderResult = null;
+  sharedFrostclaw = null;
+  latestFrostclawResult = null;
 }
 
 function scheduleReconnect(delay = 500) {
@@ -2400,6 +2460,10 @@ function connect() {
         conn.db.spiderBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertSpiderBoss(row); });
         conn.db.spiderResult.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertSpiderResult(row); });
         conn.db.spiderResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertSpiderResult(row); });
+        conn.db.frostclawBoss.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertFrostclawBoss(row); });
+        conn.db.frostclawBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertFrostclawBoss(row); });
+        conn.db.frostclawResult.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertFrostclawResult(row); });
+        conn.db.frostclawResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertFrostclawResult(row); });
         conn.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertChatMessage(row); });
         conn.db.duel.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDuel(row); });
         conn.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDuel(row); });
@@ -2425,6 +2489,8 @@ function connect() {
             for (const row of conn.db.dragonResult.iter()) upsertDragonResult(row);
             for (const row of conn.db.spiderBoss.iter()) upsertSpiderBoss(row);
             for (const row of conn.db.spiderResult.iter()) upsertSpiderResult(row);
+            for (const row of conn.db.frostclawBoss.iter()) upsertFrostclawBoss(row);
+            for (const row of conn.db.frostclawResult.iter()) upsertFrostclawResult(row);
             for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
             for (const row of conn.db.duel.iter()) upsertDuel(row);
             hydrationReady = true;
@@ -2459,6 +2525,8 @@ function connect() {
           tables.dragonResult,
           tables.spiderBoss,
           tables.spiderResult,
+          tables.frostclawBoss,
+          tables.frostclawResult,
           tables.chatMessage,
           tables.duel.where((duel) => duel.challenger.eq(identity)),
         ]);
@@ -2932,6 +3000,14 @@ export const wildwoodCoop = {
       ? { ...latestSpiderResult, contributors: latestSpiderResult.contributors.map((entry) => ({ ...entry })) }
       : null;
   },
+  frostclawBoss() {
+    return sharedFrostclaw ? { ...sharedFrostclaw } : null;
+  },
+  frostclawResult() {
+    return latestFrostclawResult
+      ? { ...latestFrostclawResult, contributors: latestFrostclawResult.contributors.map((entry) => ({ ...entry })) }
+      : null;
+  },
   playerProfile(identity = localIdentity) {
     const profile = cachedPlayerProfile(identity);
     return profile
@@ -2939,7 +3015,7 @@ export const wildwoodCoop = {
       : null;
   },
   activePlayerMap(identity = localIdentity) {
-    return identity === localIdentity ? localState?.mapId ?? null : playerMaps.get(identity) ?? null;
+    return resolvePlayerPresenceMap(identity, localIdentity, localState?.mapId, profilePlayerMaps, playerMaps);
   },
   loadPlayerProfile,
   releasePlayerProfile,
@@ -2950,6 +3026,10 @@ export const wildwoodCoop = {
   damageSpider(hits = 1, x = localState?.x ?? Number.NaN, y = localState?.y ?? Number.NaN) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
     sendReducer("spider damage", () => connection?.reducers.damageSpiderFromPosition({ hits, x, y }));
+  },
+  damageFrostclaw(hits = 1, x = localState?.x ?? Number.NaN, y = localState?.y ?? Number.NaN) {
+    if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    sendReducer("frostclaw damage", () => connection?.reducers.damageFrostclawFromPosition({ hits, x, y }));
   },
   saveProgress(progress: ProgressSave, immediate = false) {
     persistPendingProgress(progress);

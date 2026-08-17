@@ -3,7 +3,7 @@ import { damageAfterArmor } from "../combat";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap, distanceSquared } from "../math";
 import type { Particle } from "./combat-effects";
-import type { BossTarget, DragonBossState, EnemyShot, EnemyState, PlayerState, Projectile, RuntimeReward, SpiderBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyShot, EnemyState, FrostclawBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState } from "./types";
 import type { SpawnSite } from "../world";
 
 const PLAYER_THROW_SECONDS = .42;
@@ -11,6 +11,7 @@ const PLAYER_THROW_WINDUP_SECONDS = .12;
 const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
 const DRAGON_HIT_BATCH_DELAY = .1;
 const SPIDER_HIT_BATCH_DELAY = .1;
+const FROSTCLAW_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type AttackTarget = { x: number; y: number; isBoss?: boolean };
@@ -33,8 +34,10 @@ export function createPlayerCombatController(options: {
   particles: Particle[];
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
+  frostclawBoss: FrostclawBossState;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
+  isSnowMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchCriticalChance: () => number;
@@ -47,6 +50,7 @@ export function createPlayerCombatController(options: {
   incrementKills: () => void;
   damageDragon: (hits: number) => void;
   damageSpider: (hits: number) => void;
+  damageFrostclaw: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
   logPickup: (text: string, color: string) => void;
@@ -57,10 +61,10 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss,
-    isTutorialMap, isDesertMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss, frostclawBoss,
+    isTutorialMap, isDesertMap, isSnowMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, damageDragon, damageSpider, spawnBurst,
+    incrementKills, damageDragon, damageSpider, damageFrostclaw, spawnBurst,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   let pendingPlayerThrow: AttackTarget | null = null;
@@ -68,6 +72,8 @@ export function createPlayerCombatController(options: {
   let dragonHitBatchTimer = 0;
   let pendingSpiderHits = 0;
   let spiderHitBatchTimer = 0;
+  let pendingFrostclawHits = 0;
+  let frostclawHitBatchTimer = 0;
 
   function fireAt(target: AttackTarget) {
     if (pendingPlayerThrow) return;
@@ -123,7 +129,7 @@ export function createPlayerCombatController(options: {
       const distance = distanceSquared(player, enemy);
       if (distance < best) { best = distance; target = enemy; }
     }
-    const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : null;
+    const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : isSnowMap() ? frostclawBoss : null;
     if (mapBoss && !mapBoss.dead) {
       const edgeDistance = Math.max(0, Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y) - mapBoss.r);
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
@@ -188,7 +194,7 @@ export function createPlayerCombatController(options: {
     const invLength = 1 / Math.sqrt(lengthSq);
     let closest: EnemyState | BossTarget | null = null;
     let closestT = Infinity;
-    const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : null;
+    const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : isSnowMap() ? frostclawBoss : null;
     for (let index = mapBoss ? -1 : 0; index < enemies.length; index++) {
       const target = index < 0 ? mapBoss! : enemies[index];
       if (target.dead) continue;
@@ -236,8 +242,16 @@ export function createPlayerCombatController(options: {
         target.hurt = .12;
         projectile.life = 0;
         if (target.isBoss) {
-          if ("bossKind" in target && target.bossKind === "spider") { pendingSpiderHits += 1; spiderHitBatchTimer = SPIDER_HIT_BATCH_DELAY; }
-          else { pendingDragonHits += 1; dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY; }
+          if ("bossKind" in target && target.bossKind === "spider") {
+            pendingSpiderHits += 1;
+            spiderHitBatchTimer = SPIDER_HIT_BATCH_DELAY;
+          } else if ("bossKind" in target && target.bossKind === "frostclaw") {
+            pendingFrostclawHits += 1;
+            frostclawHitBatchTimer = FROSTCLAW_HIT_BATCH_DELAY;
+          } else {
+            pendingDragonHits += 1;
+            dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
+          }
         } else {
           engageEnemy(target);
           target.hp -= projectile.damage;
@@ -265,6 +279,10 @@ export function createPlayerCombatController(options: {
       spiderHitBatchTimer -= dt;
       if (spiderHitBatchTimer <= 0) { damageSpider(pendingSpiderHits); pendingSpiderHits = 0; spiderHitBatchTimer = 0; }
     }
+    if (isSnowMap() && pendingFrostclawHits > 0) {
+      frostclawHitBatchTimer -= dt;
+      if (frostclawHitBatchTimer <= 0) { damageFrostclaw(pendingFrostclawHits); pendingFrostclawHits = 0; frostclawHitBatchTimer = 0; }
+    }
     for (const shot of enemyShots) {
       shot.life -= dt;
       shot.x += shot.vx * dt;
@@ -278,7 +296,14 @@ export function createPlayerCombatController(options: {
     attackNearest,
     updateProjectiles,
     damagePlayer,
-    clearPendingBossHits: () => { pendingDragonHits = 0; dragonHitBatchTimer = 0; pendingSpiderHits = 0; spiderHitBatchTimer = 0; },
+    clearPendingBossHits: () => {
+      pendingDragonHits = 0;
+      dragonHitBatchTimer = 0;
+      pendingSpiderHits = 0;
+      spiderHitBatchTimer = 0;
+      pendingFrostclawHits = 0;
+      frostclawHitBatchTimer = 0;
+    },
     clearPendingThrow: () => { pendingPlayerThrow = null; },
   };
 }

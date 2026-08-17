@@ -43,9 +43,12 @@ export function createPlayerController(options: {
   resolvePortalCollision: () => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
+  resolveFrostclawCollision: () => void;
   applyDragonConePush: (dt: number) => void;
+  applyFrostclawPush: (dt: number) => void;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
+  isSnowMap: () => boolean;
   viewport: () => { width: number; height: number; zoom: number };
   cameraPosition: () => { x: number; y: number };
   isConnected: () => boolean;
@@ -71,7 +74,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, projectiles, enemyShots, particles, damageNumbers,
     tutorialMapId, getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, applyDragonConePush, isTutorialMap, isDesertMap,
+    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -168,9 +171,11 @@ export function createPlayerController(options: {
       if (Math.abs(mx) > .1) player.facing = Math.atan2(my, mx);
     }
     applyDragonConePush(dt);
+    applyFrostclawPush(dt);
     resolvePortalCollision();
     if (isTutorialMap()) resolveDragonCollision();
     if (isDesertMap()) resolveSpiderCollision();
+    if (isSnowMap()) resolveFrostclawCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
     if (connected) {

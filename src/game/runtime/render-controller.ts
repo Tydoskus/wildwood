@@ -41,6 +41,7 @@ export function createRenderController(options: {
   drawDecor: () => void;
   drawBossTelegraphs: () => void;
   drawSpiderTelegraphs: () => void;
+  drawFrostclawTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
   drawMinimap: (players: MapPlayerMarker[]) => void;
@@ -49,6 +50,7 @@ export function createRenderController(options: {
   drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
   currentMapIsTutorial: () => boolean;
   currentMapIsDesert: () => boolean;
+  currentMapIsSnow: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   screenShake: () => number;
@@ -63,8 +65,8 @@ export function createRenderController(options: {
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
-    drawSpiderTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
-    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, portalCutsceneActive,
+    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
+    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, portalCutsceneActive,
     portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots,
   } = options;
 
@@ -177,6 +179,7 @@ export function createRenderController(options: {
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapIsTutorial()) drawBossTelegraphs();
     if (!isDueling() && currentMapIsDesert()) drawSpiderTelegraphs();
+    if (!isDueling() && currentMapIsSnow()) drawFrostclawTelegraphs();
     drawAttackRange();
     for (const projectile of projectiles) drawProjectile(projectile, false);
     for (const shot of enemyShots) drawProjectile(shot, true);

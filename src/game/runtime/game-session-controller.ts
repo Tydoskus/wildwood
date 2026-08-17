@@ -11,6 +11,7 @@ type SessionDependencies = {
   viewport: () => { width: number; height: number };
   tutorialMapId: MapId;
   desertMapId: MapId;
+  snowMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -31,6 +32,7 @@ type SessionDependencies = {
   activeDuel: () => RuntimeDuel;
   syncDragon: () => void;
   syncSpider: () => void;
+  syncFrostclaw: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -39,6 +41,7 @@ type SessionDependencies = {
   updateEnemies: (dt: number) => void;
   updateDragon: (dt: number) => void;
   updateSpider: (dt: number) => void;
+  updateFrostclaw: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -70,6 +73,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   function update(dt: number) {
     if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.syncDragon();
     if (dependencies.getMapId() === dependencies.desertMapId) dependencies.syncSpider();
+    if (dependencies.getMapId() === dependencies.snowMapId) dependencies.syncFrostclaw();
     gameTime += dt;
     dependencies.updateVisuals(dt);
     dependencies.updateMessage(dt);
@@ -87,6 +91,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       dependencies.updateEnemies(dt);
       if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.updateDragon(dt);
       if (dependencies.getMapId() === dependencies.desertMapId) dependencies.updateSpider(dt);
+      if (dependencies.getMapId() === dependencies.snowMapId) dependencies.updateFrostclaw(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

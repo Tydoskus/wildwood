@@ -8,7 +8,7 @@ import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } fr
 import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
-import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -33,8 +33,10 @@ export type WorldRenderRuntimeOptions = {
   player: PlayerState;
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
+  frostclawBoss: FrostclawBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
+  frostclawIcefalls: FrostclawIcefall[];
   activePortal: () => Portal;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
@@ -50,8 +52,10 @@ export type WorldRenderRuntimeOptions = {
     snowPine: HTMLImageElement;
     dragonSpriteCanvas: HTMLCanvasElement;
     spiderSpriteCanvas: HTMLCanvasElement;
+    frostclawSpriteCanvas: HTMLCanvasElement;
     dragonReady: () => boolean;
     spiderReady: () => boolean;
+    frostclawReady: () => boolean;
     duelPlatformArt: HTMLImageElement;
   };
   actorShadowSprite: HTMLImageElement;
@@ -132,6 +136,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     decor: options.decor,
     enemies: options.enemies,
     player: options.player,
+    boss: options.boss,
+    spiderBoss: options.spiderBoss,
+    frostclawBoss: options.frostclawBoss,
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
@@ -139,10 +146,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ...options.assets,
   });
   const boss = createBossRenderer({
-    ctx: options.ctx, camera: options.camera, boss: options.boss, spiderBoss: options.spiderBoss,
-    bossRain: options.bossRain, spiderVenom: options.spiderVenom,
-    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas,
-    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady,
+    ctx: options.ctx, camera: options.camera, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss,
+    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls,
+    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas,
+    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: options.drawShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
   });
@@ -189,6 +196,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       player: options.player,
       boss: options.boss,
       spiderBoss: options.spiderBoss,
+      frostclawBoss: options.frostclawBoss,
       bootsPickup: frame.bootsPickup,
       currentMapId: options.currentMapId,
       activePortal: options.activePortal,
@@ -199,6 +207,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawEnemy: actor.drawEnemy,
       drawBoss: boss.drawBoss,
       drawSpiderBoss: boss.drawSpiderBoss,
+      drawFrostclawBoss: boss.drawFrostclawBoss,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -238,6 +247,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawDecor: world.drawDecor,
       drawBossTelegraphs: boss.drawBossTelegraphs,
       drawSpiderTelegraphs: boss.drawSpiderTelegraphs,
+      drawFrostclawTelegraphs: boss.drawFrostclawTelegraphs,
       drawProjectile: actor.drawProjectile,
       drawDepthSortedWorld: depth.drawDepthSortedWorld,
       drawMinimap: world.drawMinimap,
@@ -246,6 +256,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawDamageNumbers: (ctx, camera) => frame.drawDamageNumbers(ctx, camera, options.outlinedText),
       currentMapIsTutorial: () => options.currentMapId() === options.tutorialMapId,
       currentMapIsDesert: () => options.currentMapId() === options.desertMapId,
+      currentMapIsSnow: () => options.currentMapId() === options.snowMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
       screenShake: frame.screenShake,

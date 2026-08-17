@@ -3,14 +3,26 @@ import {
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
   BOSS_RAIN_RANGE,
+  FROSTCLAW_AGGRO_RANGE,
+  FROSTCLAW_RIFT_HALF_ANGLE,
+  FROSTCLAW_RIFT_RANGE,
+  FROSTCLAW_ROAR_RANGE,
   TAU,
   WORLD,
 } from "../constants";
-import { SPIDER_REWARD_DAMAGE, SPIDER_REWARD_HEALTH } from "../../../shared/rules";
+import {
+  FROSTCLAW_REWARD_ARMOR,
+  FROSTCLAW_REWARD_DAMAGE,
+  FROSTCLAW_REWARD_HEALTH,
+  SPIDER_REWARD_DAMAGE,
+  SPIDER_REWARD_HEALTH,
+} from "../../../shared/rules";
 import { clamp, rand } from "../math";
 import type {
   BossRainStrike,
   DragonBossState,
+  FrostclawBossState,
+  FrostclawIcefall,
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
@@ -27,6 +39,16 @@ const SPIDER_VENOM_DAMAGE = 1_100_000;
 const SPIDER_CONTACT_DAMAGE = 1_000_000;
 const DRAGON_CONTACT_DAMAGE = 1000;
 const DRAGON_CONTACT_DAMAGE_COOLDOWN = .75;
+const FROSTCLAW_ROAR_WINDUP = .85;
+const FROSTCLAW_ROAR_DURATION = .95;
+const FROSTCLAW_RIFT_WINDUP = .7;
+const FROSTCLAW_RIFT_DURATION = 1.05;
+const FROSTCLAW_ROAR_DAMAGE = 28_000_000;
+const FROSTCLAW_ICEFALL_DAMAGE = 40_000_000;
+const FROSTCLAW_RIFT_DAMAGE = 52_000_000;
+const FROSTCLAW_CONTACT_DAMAGE = 45_000_000;
+const FROSTCLAW_PUSH_DURATION = .55;
+const FROSTCLAW_PUSH_SPEED = 860;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -54,13 +76,18 @@ type NoticeElements = {
 export type BossController = {
   resetBoss: () => void;
   resetSpiderBoss: () => void;
+  resetFrostclawBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
+  syncFrostclawState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
+  updateFrostclawBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
+  resolveFrostclawCollision: () => void;
   applyDragonConePush: (dt: number) => void;
+  applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
 };
 
@@ -71,13 +98,17 @@ export type BossController = {
 export function createBossController(options: {
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
+  frostclawBoss: FrostclawBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
+  frostclawIcefalls: FrostclawIcefall[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
+  getFrostclawBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
+  getFrostclawResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   running: () => boolean;
   currentMapIsDesert: () => boolean;
@@ -95,8 +126,8 @@ export function createBossController(options: {
   saveProgress: () => void;
 }): BossController {
   const {
-    boss, spiderBoss, bossRain, spiderVenom, player, elements,
-    getDragonBoss, getSpiderBoss, getDragonResult, getSpiderResult,
+    boss, spiderBoss, frostclawBoss, bossRain, spiderVenom, frostclawIcefalls, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getDragonResult, getSpiderResult, getFrostclawResult,
     localIdentity, running, currentMapIsDesert, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene,
@@ -113,8 +144,13 @@ export function createBossController(options: {
   let shownSpiderResultEncounter: bigint | null = null;
   let queuedDragonResult: BossResult | null = null;
   let queuedSpiderResult: BossResult | null = null;
+  let observedFrostclawEncounter: bigint | null = null;
+  let frostclawWasAlive: boolean | null = null;
+  let pendingFrostclawResultEncounter: bigint | null = null;
+  let shownFrostclawResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
+  const locallyRewardedFrostclawEncounters = new Set<string>();
 
   function resetBoss() {
     const shared = getDragonBoss();
@@ -149,6 +185,26 @@ export function createBossController(options: {
     spiderBoss.nextAttack = "web";
     spiderBoss.web = null;
     spiderVenom.length = 0;
+  }
+
+  function resetFrostclawBoss() {
+    const shared = getFrostclawBoss();
+    if (shared) {
+      frostclawBoss.encounter = shared.encounter;
+      frostclawBoss.hp = shared.hp;
+      frostclawBoss.maxHp = shared.maxHp;
+      frostclawBoss.dead = !shared.alive;
+    }
+    frostclawBoss.hurt = 0;
+    frostclawBoss.hpLossFlashFrom = frostclawBoss.hp;
+    frostclawBoss.hpLossFlashTimer = 0;
+    frostclawBoss.contactDamageClock = 0;
+    frostclawBoss.attackClock = 3;
+    frostclawBoss.nextAttack = "roar";
+    frostclawBoss.roar = null;
+    frostclawBoss.rift = null;
+    frostclawBoss.pushTimer = 0;
+    frostclawIcefalls.length = 0;
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -231,6 +287,30 @@ export function createBossController(options: {
     showMessage("+75K DAMAGE · +200K MAX HEALTH", "#f5e9c4");
   }
 
+  function showFrostclawResult(result: BossResult | null | undefined) {
+    if (!result || shownFrostclawResultEncounter === result.encounter) return;
+    pendingFrostclawResultEncounter = null;
+    shownFrostclawResultEncounter = result.encounter;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      showWorldResult(result, "FROSTCLAW DEFEATED");
+      return;
+    }
+    renderResult(result, "FROSTCLAW DEFEATED");
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedFrostclawEncounters.has(encounterKey)) {
+      locallyRewardedFrostclawEncounters.add(encounterKey);
+      player.damage += FROSTCLAW_REWARD_DAMAGE;
+      player.maxHp += FROSTCLAW_REWARD_HEALTH;
+      player.hp = Math.min(player.maxHp, player.hp + FROSTCLAW_REWARD_HEALTH);
+      player.armor += FROSTCLAW_REWARD_ARMOR;
+    }
+    logPickup("+15M DAMAGE", "#ff655a");
+    logPickup("+50M MAX HEALTH", "#6fe48e");
+    logPickup("+75K ARMOR", "#d3dbe0");
+    showMessage("+15M DAMAGE · +50M MAX HEALTH · +75K ARMOR", "#dff7ff");
+  }
+
   function killBoss() {
     if (boss.dead) return;
     boss.dead = true;
@@ -311,6 +391,56 @@ export function createBossController(options: {
     if (pendingSpiderResultEncounter !== null) {
       const result = getSpiderResult();
       if (result?.encounter === pendingSpiderResultEncounter) showSpiderResult(result);
+    }
+  }
+
+  function syncFrostclawState() {
+    const shared = getFrostclawBoss();
+    if (!shared) return;
+    const initialized = observedFrostclawEncounter !== null;
+    const encounterChanged = initialized && observedFrostclawEncounter !== shared.encounter;
+    const previousHp = frostclawBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedFrostclawEncounter = shared.encounter;
+      frostclawWasAlive = shared.alive;
+      frostclawBoss.dead = !shared.alive;
+      frostclawBoss.attackClock = 3;
+      frostclawBoss.nextAttack = "roar";
+      frostclawBoss.roar = null;
+      frostclawBoss.rift = null;
+      frostclawBoss.pushTimer = 0;
+      frostclawIcefalls.length = 0;
+      frostclawBoss.hpLossFlashFrom = shared.hp;
+      frostclawBoss.hpLossFlashTimer = 0;
+    } else if (frostclawWasAlive && !shared.alive) {
+      frostclawWasAlive = false;
+      frostclawBoss.dead = true;
+      frostclawBoss.roar = null;
+      frostclawBoss.rift = null;
+      frostclawBoss.pushTimer = 0;
+      frostclawIcefalls.length = 0;
+      pendingFrostclawResultEncounter = shared.encounter;
+      spawnBurst(frostclawBoss.x, frostclawBoss.y, "#8eeeff", 76, 260);
+    } else if (!frostclawWasAlive && shared.alive) {
+      frostclawWasAlive = true;
+      frostclawBoss.dead = false;
+      frostclawBoss.attackClock = 3;
+      frostclawBoss.nextAttack = "roar";
+    } else if (shared.alive && shared.hp < previousHp) {
+      frostclawBoss.hpLossFlashFrom = frostclawBoss.hpLossFlashTimer > 0
+        ? Math.max(frostclawBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      frostclawBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      frostclawBoss.hpLossFlashFrom = shared.hp;
+      frostclawBoss.hpLossFlashTimer = 0;
+    }
+    frostclawBoss.encounter = shared.encounter;
+    frostclawBoss.maxHp = shared.maxHp;
+    frostclawBoss.hp = shared.hp;
+    if (pendingFrostclawResultEncounter !== null) {
+      const result = getFrostclawResult();
+      if (result?.encounter === pendingFrostclawResultEncounter) showFrostclawResult(result);
     }
   }
 
@@ -481,7 +611,138 @@ export function createBossController(options: {
     }
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState, damage: number, cooldown: number) {
+  function startFrostclawRoar() {
+    frostclawBoss.roar = {
+      windup: FROSTCLAW_ROAR_WINDUP,
+      timer: FROSTCLAW_ROAR_DURATION,
+      duration: FROSTCLAW_ROAR_DURATION,
+      hitPlayer: false,
+    };
+    frostclawBoss.nextAttack = "icefall";
+  }
+
+  function startFrostclawIcefall() {
+    for (let index = 0; index < 9; index += 1) {
+      const angle = index * TAU / 9 + rand(-.32, .32);
+      const radius = index === 0 ? 0 : rand(42, 185);
+      const timer = .8 + index * .13;
+      frostclawIcefalls.push({
+        x: clamp(player.x + Math.cos(angle) * radius, 70, WORLD.w - 70),
+        y: clamp(player.y + Math.sin(angle) * radius, 70, WORLD.h - 70),
+        r: 66,
+        timer,
+        maxTimer: timer,
+      });
+    }
+    frostclawBoss.attackClock = 4.8;
+    frostclawBoss.nextAttack = "rift";
+  }
+
+  function startFrostclawRift() {
+    frostclawBoss.rift = {
+      angle: Math.atan2(player.y - frostclawBoss.y, player.x - frostclawBoss.x),
+      windup: FROSTCLAW_RIFT_WINDUP,
+      timer: FROSTCLAW_RIFT_DURATION,
+      duration: FROSTCLAW_RIFT_DURATION,
+      hitPlayer: false,
+    };
+    frostclawBoss.nextAttack = "roar";
+  }
+
+  function updateFrostclawBoss(dt: number) {
+    frostclawBoss.hpLossFlashTimer = Math.max(0, frostclawBoss.hpLossFlashTimer - dt);
+    frostclawBoss.contactDamageClock = Math.max(0, frostclawBoss.contactDamageClock - dt);
+    if (frostclawBoss.dead) return;
+    frostclawBoss.hurt = Math.max(0, frostclawBoss.hurt - dt);
+
+    for (let index = frostclawIcefalls.length - 1; index >= 0; index -= 1) {
+      const strike = frostclawIcefalls[index];
+      strike.timer -= dt;
+      if (strike.timer > 0) continue;
+      const dx = player.x - strike.x;
+      const dy = player.y - strike.y;
+      if (dx * dx + dy * dy <= strike.r * strike.r) damagePlayer(FROSTCLAW_ICEFALL_DAMAGE);
+      spawnBurst(strike.x, strike.y, "#a9f5ff", 28, 190);
+      frostclawIcefalls.splice(index, 1);
+    }
+
+    if (frostclawBoss.roar) {
+      const roar = frostclawBoss.roar;
+      if (roar.windup > 0) {
+        roar.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - roar.timer / roar.duration, 0, 1);
+      roar.timer -= dt;
+      const progress = clamp(1 - roar.timer / roar.duration, 0, 1);
+      const minRadius = frostclawBoss.r + (FROSTCLAW_ROAR_RANGE - frostclawBoss.r) * previousProgress;
+      const maxRadius = frostclawBoss.r + (FROSTCLAW_ROAR_RANGE - frostclawBoss.r) * progress;
+      if (!roar.hitPlayer) {
+        const dx = player.x - frostclawBoss.x;
+        const dy = player.y - frostclawBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        if (distance >= minRadius - 38 && distance <= maxRadius + 38) {
+          roar.hitPlayer = true;
+          damagePlayer(FROSTCLAW_ROAR_DAMAGE);
+          frostclawBoss.pushAngle = Math.atan2(dy, dx);
+          frostclawBoss.pushTimer = FROSTCLAW_PUSH_DURATION;
+          spawnBurst(player.x, player.y, "#d8fbff", 24, 210);
+        }
+      }
+      if (roar.timer <= 0) {
+        frostclawBoss.roar = null;
+        frostclawBoss.attackClock = 2.6;
+      }
+      return;
+    }
+
+    if (frostclawBoss.rift) {
+      const rift = frostclawBoss.rift;
+      if (rift.windup > 0) {
+        rift.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - rift.timer / rift.duration, 0, 1);
+      rift.timer -= dt;
+      const progress = clamp(1 - rift.timer / rift.duration, 0, 1);
+      const minRadius = frostclawBoss.r + (FROSTCLAW_RIFT_RANGE - frostclawBoss.r) * previousProgress;
+      const maxRadius = frostclawBoss.r + (FROSTCLAW_RIFT_RANGE - frostclawBoss.r) * progress;
+      if (!rift.hitPlayer) {
+        const dx = player.x - frostclawBoss.x;
+        const dy = player.y - frostclawBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const playerAngle = Math.atan2(dy, dx);
+        const inRift = [-.28, 0, .28].some((offset) => {
+          const angleDelta = Math.atan2(
+            Math.sin(playerAngle - rift.angle - offset),
+            Math.cos(playerAngle - rift.angle - offset),
+          );
+          return Math.abs(angleDelta) <= FROSTCLAW_RIFT_HALF_ANGLE + 24 / distance;
+        });
+        if (inRift && distance >= minRadius - 32 && distance <= maxRadius + 32) {
+          rift.hitPlayer = true;
+          damagePlayer(FROSTCLAW_RIFT_DAMAGE);
+          spawnBurst(player.x, player.y, "#71dfff", 26, 220);
+        }
+      }
+      if (rift.timer <= 0) {
+        frostclawBoss.rift = null;
+        frostclawBoss.attackClock = 2.9;
+      }
+      return;
+    }
+
+    frostclawBoss.attackClock -= dt;
+    if (frostclawBoss.attackClock > 0) return;
+    const dx = player.x - frostclawBoss.x;
+    const dy = player.y - frostclawBoss.y;
+    if (dx * dx + dy * dy > FROSTCLAW_AGGRO_RANGE * FROSTCLAW_AGGRO_RANGE) return;
+    if (frostclawBoss.nextAttack === "roar") startFrostclawRoar();
+    else if (frostclawBoss.nextAttack === "icefall") startFrostclawIcefall();
+    else startFrostclawRift();
+  }
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -503,16 +764,30 @@ export function createBossController(options: {
     player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
   }
 
+  function applyFrostclawPush(dt: number) {
+    if (frostclawBoss.pushTimer <= 0) return;
+    const strength = clamp(frostclawBoss.pushTimer / FROSTCLAW_PUSH_DURATION, 0, 1);
+    const distance = FROSTCLAW_PUSH_SPEED * (.45 + strength * .55) * dt;
+    player.x = clamp(player.x + Math.cos(frostclawBoss.pushAngle) * distance, player.r, WORLD.w - player.r);
+    player.y = clamp(player.y + Math.sin(frostclawBoss.pushAngle) * distance, player.r, WORLD.h - player.r);
+    frostclawBoss.pushTimer = Math.max(0, frostclawBoss.pushTimer - dt);
+  }
+
   return {
     resetBoss,
     resetSpiderBoss,
+    resetFrostclawBoss,
     syncDragonState,
     syncSpiderState,
+    syncFrostclawState,
     updateBoss,
     updateSpiderBoss,
+    updateFrostclawBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
+    resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
     applyDragonConePush,
+    applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {
       const dragon = queuedDragonResult;
       queuedDragonResult = null;

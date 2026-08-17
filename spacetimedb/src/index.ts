@@ -17,6 +17,9 @@ import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
+  FROSTCLAW_REWARD_ARMOR,
+  FROSTCLAW_REWARD_DAMAGE,
+  FROSTCLAW_REWARD_HEALTH,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAP_IDS,
@@ -112,6 +115,12 @@ const SPIDER_RADIUS = 125;
 const SPIDER_POSITION = { x: 4050, y: 4050 };
 const SPIDER_HIT_RANGE_TOLERANCE = 60;
 const SPIDER_RESPAWN_MICROS = 30_000_000n;
+const FROSTCLAW_ID = 1;
+const FROSTCLAW_MAX_HP = 750_000_000_000;
+const FROSTCLAW_RADIUS = 150;
+const FROSTCLAW_POSITION = { x: 4050, y: 4050 };
+const FROSTCLAW_HIT_RANGE_TOLERANCE = 60;
+const FROSTCLAW_RESPAWN_MICROS = 30_000_000n;
 const BOSS_REGEN_DELAY_MICROS = 180_000_000n;
 const BOSS_REGEN_FRACTION_PER_MAINTENANCE = .05;
 
@@ -834,6 +843,59 @@ const spiderRespawnSchedule = table(
   },
 );
 
+const frostclawBoss = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32(),
+    alive: t.bool(),
+    respawnAtMicros: t.u64(),
+    lastDamageAtMicros: t.u64().default(0n),
+  },
+);
+
+const frostclawContribution = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    displayName: t.string(),
+    damage: t.f32(),
+  },
+);
+
+const frostclawAttackWindow = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    startedAtMicros: t.u64(),
+    hits: t.u32(),
+  },
+);
+
+const frostclawResult = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32(),
+    contributorsJson: t.string(),
+    createdAt: t.timestamp(),
+  },
+);
+
+const frostclawRespawnSchedule = table(
+  { scheduled: (): any => respawnFrostclaw },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
   player,
   playerMapMarker,
@@ -884,6 +946,11 @@ const spacetimedb = schema({
   spiderAttackWindow,
   spiderResult,
   spiderRespawnSchedule,
+  frostclawBoss,
+  frostclawContribution,
+  frostclawAttackWindow,
+  frostclawResult,
+  frostclawRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1867,6 +1934,8 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.dragonAttackWindow.identity.find(identity)) ctx.db.dragonAttackWindow.identity.delete(identity);
   if (ctx.db.spiderContribution.identity.find(identity)) ctx.db.spiderContribution.identity.delete(identity);
   if (ctx.db.spiderAttackWindow.identity.find(identity)) ctx.db.spiderAttackWindow.identity.delete(identity);
+  if (ctx.db.frostclawContribution.identity.find(identity)) ctx.db.frostclawContribution.identity.delete(identity);
+  if (ctx.db.frostclawAttackWindow.identity.find(identity)) ctx.db.frostclawAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -1964,7 +2033,10 @@ function clearOrphanPresence(ctx: any) {
   for (const activePlayer of ctx.db.player.iter() as Iterable<any>) {
     if (!ctx.db.playerController.identity.find(activePlayer.identity)) orphanIdentities.push(activePlayer.identity);
   }
-  for (const identity of orphanIdentities) removeIdentityPresence(ctx, identity);
+  for (const identity of orphanIdentities) {
+    finishLifetimeSession(ctx, identity);
+    removeIdentityPresence(ctx, identity);
+  }
 }
 
 function clearOrphanRealtimeState(ctx: any) {
@@ -2031,6 +2103,20 @@ function ensureSpiderBoss(ctx: any) {
   });
 }
 
+function ensureFrostclawBoss(ctx: any) {
+  const existing = ctx.db.frostclawBoss.id.find(FROSTCLAW_ID);
+  if (existing) return existing;
+  return ctx.db.frostclawBoss.insert({
+    id: FROSTCLAW_ID,
+    encounter: 1n,
+    hp: FROSTCLAW_MAX_HP,
+    maxHp: FROSTCLAW_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
+
 function regenerateIdleBosses(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
@@ -2047,6 +2133,7 @@ function regenerateIdleBosses(ctx: any) {
   };
   regenerate(ensureDragonBoss(ctx), (next) => ctx.db.dragonBoss.id.update(next));
   regenerate(ensureSpiderBoss(ctx), (next) => ctx.db.spiderBoss.id.update(next));
+  regenerate(ensureFrostclawBoss(ctx), (next) => ctx.db.frostclawBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -2105,6 +2192,65 @@ function finishSpiderEncounter(ctx: any, spider: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: spider.encounter,
+  });
+}
+
+function clearFrostclawCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.frostclawContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.frostclawAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.frostclawContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.frostclawAttackWindow.identity.delete(identity);
+}
+
+function rewardFrostclawContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const next = {
+    ...current,
+    damage: current.damage + FROSTCLAW_REWARD_DAMAGE,
+    maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH,
+    armor: current.armor + FROSTCLAW_REWARD_ARMOR,
+  };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    ctx.db.player.identity.update({
+      ...active,
+      ...powerFieldsForProgress(next),
+    });
+  }
+}
+
+function finishFrostclawEncounter(ctx: any, frostclaw: any) {
+  const contributions = [...ctx.db.frostclawContribution.iter()]
+    .filter((row: any) => row.encounter === frostclaw.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: FROSTCLAW_ID,
+    encounter: frostclaw.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.frostclawResult.id.find(FROSTCLAW_ID)) ctx.db.frostclawResult.id.update(result);
+  else ctx.db.frostclawResult.insert(result);
+
+  for (const row of contributions) rewardFrostclawContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + FROSTCLAW_RESPAWN_MICROS;
+  ctx.db.frostclawBoss.id.update({ ...frostclaw, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.frostclawRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: frostclaw.encounter,
   });
 }
 
@@ -2611,6 +2757,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
   ensureDragonBoss(ctx);
   ensureSpiderBoss(ctx);
+  ensureFrostclawBoss(ctx);
   ensureWorldStatus(ctx);
 
   if (!ctx.connectionId) return;
@@ -2843,6 +2990,24 @@ export const respawnSpider = spacetimedb.reducer(
   },
 );
 
+export const respawnFrostclaw = spacetimedb.reducer(
+  { schedule: frostclawRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const frostclaw = ensureFrostclawBoss(ctx);
+    if (frostclaw.alive || frostclaw.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < frostclaw.respawnAtMicros) return;
+    clearFrostclawCombatRows(ctx);
+    ctx.db.frostclawBoss.id.update({
+      ...frostclaw,
+      encounter: frostclaw.encounter + 1n,
+      hp: frostclaw.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+
 function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
@@ -3000,6 +3165,79 @@ export const damageSpiderBatch = spacetimedb.reducer(
 export const damageSpiderFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
   (ctx, { hits, x, y }) => applySpiderDamage(ctx, hits, { x, y }),
+);
+
+function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const frostclaw = ensureFrostclawBoss(ctx);
+  if (!frostclaw.alive || frostclaw.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - FROSTCLAW_POSITION.x, actionY - FROSTCLAW_POSITION.y);
+  if (centerDistance - FROSTCLAW_RADIUS > progress.attackRange + FROSTCLAW_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(progress.attackRate * 1_000_000)));
+  const currentWindow = ctx.db.frostclawAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== frostclaw.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: frostclaw.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.frostclawAttackWindow.identity.update(nextWindow);
+    else ctx.db.frostclawAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.frostclawAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(frostclaw.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.frostclawContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === frostclaw.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: frostclaw.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.frostclawContribution.identity.update(nextContribution);
+  else ctx.db.frostclawContribution.insert(nextContribution);
+
+  const nextFrostclaw = {
+    ...frostclaw,
+    hp: Math.max(0, frostclaw.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextFrostclaw.hp <= 0) finishFrostclawEncounter(ctx, nextFrostclaw);
+  else ctx.db.frostclawBoss.id.update(nextFrostclaw);
+}
+
+export const damageFrostclawFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyFrostclawDamage(ctx, hits, { x, y }),
 );
 
 export const registerProtocol = spacetimedb.reducer(

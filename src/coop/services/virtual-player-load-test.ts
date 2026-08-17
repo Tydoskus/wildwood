@@ -321,6 +321,8 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           tables.dragonResult,
           tables.spiderBoss,
           tables.spiderResult,
+          tables.frostclawBoss,
+          tables.frostclawResult,
           tables.chatMessage,
           tables.duel.where((row) => row.challenger.eq(identity)),
         ]) as Subscription;

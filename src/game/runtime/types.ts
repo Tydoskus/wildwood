@@ -103,6 +103,26 @@ export type SpiderVenomPool = Circle & {
   maxTimer: number;
 };
 
+export type FrostclawIcefall = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
+export type FrostclawRoar = {
+  windup: number;
+  timer: number;
+  duration: number;
+  hitPlayer: boolean;
+};
+
+export type FrostclawRift = {
+  angle: number;
+  windup: number;
+  timer: number;
+  duration: number;
+  hitPlayer: boolean;
+};
+
 type BossStateBase = Circle & {
   isBoss: true;
   maxHp: number;
@@ -128,7 +148,16 @@ export type SpiderBossState = BossStateBase & {
   web: SpiderWeb | null;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState;
+export type FrostclawBossState = BossStateBase & {
+  bossKind: "frostclaw";
+  nextAttack: "roar" | "icefall" | "rift";
+  roar: FrostclawRoar | null;
+  rift: FrostclawRift | null;
+  pushAngle: number;
+  pushTimer: number;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState;
 export type CombatTarget = EnemyState | BossTarget;
 
 export type DuelPresentation = {

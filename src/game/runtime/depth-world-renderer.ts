@@ -1,12 +1,13 @@
 import type { RemotePlayer } from "../../wildwood-coop";
 import {
   BEGINNER_DESERT_MAP_ID,
+  INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   type MapId,
   type WorldDecor,
 } from "../world";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, PlayerState, SpiderBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, PlayerState, SpiderBossState } from "./types";
 
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
@@ -14,7 +15,7 @@ type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "tree" | "cactus" | "snowPine" | "enemy" | "dragon" | "spider" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+type DepthLayerKind = "tree" | "cactus" | "snowPine" | "enemy" | "dragon" | "spider" | "frostclaw" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
 
 /**
@@ -29,6 +30,7 @@ export function createDepthWorldRenderer(options: {
   player: PlayerState;
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
+  frostclawBoss: FrostclawBossState;
   bootsPickup: BootsPickup;
   currentMapId: () => MapId;
   activePortal: () => Portal;
@@ -39,6 +41,7 @@ export function createDepthWorldRenderer(options: {
   drawEnemy: (enemy: EnemyState) => void;
   drawBoss: () => void;
   drawSpiderBoss: () => void;
+  drawFrostclawBoss: () => void;
   drawBootPickup: () => void;
   drawPortal: () => void;
   drawSecondaryPortal: () => void;
@@ -108,6 +111,9 @@ export function createDepthWorldRenderer(options: {
     if (currentMapId === BEGINNER_DESERT_MAP_ID && !options.spiderBoss.dead) {
       queueLayer(options.spiderBoss.y + 55, 1, "spider");
     }
+    if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !options.frostclawBoss.dead) {
+      queueLayer(options.frostclawBoss.y + 105, 1, "frostclaw");
+    }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.bootsPickup.collected) {
       queueLayer(options.bootsPickup.y + options.bootsPickup.r, 1, "boots");
     }
@@ -128,6 +134,7 @@ export function createDepthWorldRenderer(options: {
         case "enemy": options.drawEnemy(layer.entity as EnemyState); break;
         case "dragon": options.drawBoss(); break;
         case "spider": options.drawSpiderBoss(); break;
+        case "frostclaw": options.drawFrostclawBoss(); break;
         case "boots": options.drawBootPickup(); break;
         case "portal": options.drawPortal(); break;
         case "secondaryPortal": options.drawSecondaryPortal(); break;

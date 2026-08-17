@@ -2,7 +2,7 @@ import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
-import type { EnemyState, PlayerState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 
 type Viewport = { width: number; height: number };
@@ -43,6 +43,9 @@ export type WorldRendererOptions = {
   decor: WorldDecor[];
   enemies: EnemyState[];
   player: PlayerState;
+  boss: DragonBossState;
+  spiderBoss: SpiderBossState;
+  frostclawBoss: FrostclawBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   actorShadowSprite: HTMLImageElement;
@@ -383,16 +386,41 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   function drawMinimap(remotePlayers: MapPlayerMarker[]) {
     const view = viewport(); const size = Math.min(126, Math.max(118, view.width * .17)); const x = view.width - size; const y = 0;
     ctx.save(); ctx.fillStyle = "rgba(12,18,15,.82)"; ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2; options.roundRect(x, y, size, size, 10); ctx.fill(); ctx.stroke();
-    const sx = size / WORLD.w; const sy = size / WORLD.h;
+    const innerX = x + 5; const innerY = y + 5; const innerSize = size - 10; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
     ctx.save(); options.roundRect(x + 5, y + 5, size - 10, size - 10, 7); ctx.clip();
     const desert = options.getMapId() === options.desertMapId;
     const snow = options.getMapId() === options.snowMapId;
-    ctx.fillStyle = snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b"; ctx.fillRect(x + 5, y + 5, size - 10, size - 10);
-    ctx.fillStyle = snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551"; for (const path of options.paths) ctx.fillRect(x + path.x * sx, y + path.y * sy, path.w * sx, path.h * sy);
-    ctx.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) { const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3; ctx.fillRect(x + enemy.x * sx - 1, y + enemy.y * sy - 1, marker, marker); }
-    ctx.fillStyle = "#58e878"; for (const player of remotePlayers) ctx.fillRect(x + player.x * sx - 2, y + player.y * sy - 2, 5, 5);
-    ctx.fillStyle = "#fff"; ctx.fillRect(x + options.player.x * sx - 2, y + options.player.y * sy - 2, 5, 5);
-    ctx.strokeStyle = "rgba(255,255,255,.52)"; ctx.lineWidth = 1; ctx.strokeRect(x + camera.x * sx, y + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); ctx.restore(); ctx.restore();
+    ctx.fillStyle = snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b"; ctx.fillRect(innerX, innerY, innerSize, innerSize);
+    ctx.fillStyle = snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551"; for (const path of options.paths) ctx.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
+    ctx.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) { const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3; ctx.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker); }
+
+    const drawPortalMarker = (portal: Portal) => {
+      const px = Math.round(innerX + portal.x * sx); const py = Math.round(innerY + portal.y * sy);
+      const unlocked = options.portalIsUnlocked(portal);
+      ctx.fillStyle = "#132433"; ctx.fillRect(px - 4, py - 5, 9, 8);
+      ctx.fillStyle = unlocked ? "#d8fbff" : "#89949b"; ctx.fillRect(px - 3, py - 5, 7, 2); ctx.fillRect(px - 4, py - 3, 2, 6); ctx.fillRect(px + 3, py - 3, 2, 6);
+      ctx.fillStyle = unlocked ? "#5fe3ff" : "#3f4a50"; ctx.fillRect(px - 2, py - 3, 5, 6);
+      if (unlocked) { ctx.fillStyle = "#efffff"; ctx.fillRect(px, py - 2, 1, 4); }
+    };
+    drawPortalMarker(options.activePortal());
+    const secondary = options.secondaryPortal();
+    if (secondary) drawPortalMarker(secondary);
+
+    const mapBoss = options.getMapId() === options.tutorialMapId
+      ? { state: options.boss, color: "#ff6b52" }
+      : desert
+        ? { state: options.spiderBoss, color: "#e9ac4e" }
+        : { state: options.frostclawBoss, color: "#67dcff" };
+    const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
+    ctx.globalAlpha = mapBoss.state.dead ? .46 : 1;
+    ctx.fillStyle = "#101820"; ctx.fillRect(bx - 5, by - 4, 11, 9);
+    ctx.fillStyle = mapBoss.color; ctx.fillRect(bx - 4, by - 3, 9, 6); ctx.fillRect(bx - 3, by - 5, 2, 2); ctx.fillRect(bx + 2, by - 5, 2, 2); ctx.fillRect(bx - 3, by + 3, 2, 2); ctx.fillRect(bx + 2, by + 3, 2, 2);
+    ctx.fillStyle = "#fff"; ctx.fillRect(bx - 2, by - 1, 2, 2); ctx.fillRect(bx + 2, by - 1, 2, 2);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = "#58e878"; for (const player of remotePlayers) ctx.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);
+    ctx.fillStyle = "#fff"; ctx.fillRect(innerX + options.player.x * sx - 2, innerY + options.player.y * sy - 2, 5, 5);
+    ctx.strokeStyle = "rgba(255,255,255,.52)"; ctx.lineWidth = 1; ctx.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); ctx.restore(); ctx.restore();
   }
 
   return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.428": [
+    "Frostclaw now guards the Intermediate Snowlands with Glacial Roar knockback, targeted Icefall, and three-lane Rift Claws attacks; defeating the third boss grants +15M damage, +50M max health, and +75K armor.",
+    "Tiny pixel-art boss and portal indicators now mark key locations on every minimap, including locked portals and defeated bosses.",
+    "The Tech Tree notification now disappears when every research node is maxed and no research can be started.",
+    "Player profiles now keep cross-map online presence separate from nearby rendering and record accurate last-seen time during orphan cleanup.",
+  ],
   "0.427": [
     "A transparent crossed-swords battle icon now replaces the Power label above players and in the HUD, while chat shows each sender's power beside their username.",
     "Virtual-player tests now stop the whole client pool on the first server protocol cutover, preventing stale startup retries and misleading disconnect storms during a release.",

@@ -211,6 +211,49 @@ export const DuelResolutionSchedule = __t.object("DuelResolutionSchedule", {
 });
 export type DuelResolutionSchedule = __Infer<typeof DuelResolutionSchedule>;
 
+export const FrostclawAttackWindow = __t.object("FrostclawAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type FrostclawAttackWindow = __Infer<typeof FrostclawAttackWindow>;
+
+export const FrostclawBoss = __t.object("FrostclawBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type FrostclawBoss = __Infer<typeof FrostclawBoss>;
+
+export const FrostclawContribution = __t.object("FrostclawContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type FrostclawContribution = __Infer<typeof FrostclawContribution>;
+
+export const FrostclawRespawnSchedule = __t.object("FrostclawRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type FrostclawRespawnSchedule = __Infer<typeof FrostclawRespawnSchedule>;
+
+export const FrostclawResult = __t.object("FrostclawResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type FrostclawResult = __Infer<typeof FrostclawResult>;
+
 export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   identity: __t.identity(),
   displayName: __t.string(),

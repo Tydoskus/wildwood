@@ -117,6 +117,8 @@ import {
     decor,
     enemies,
     enemyShots,
+    frostclawBoss,
+    frostclawIcefalls,
     inventory,
     mapConfig: MAP_CONFIG,
     paths,
@@ -364,9 +366,10 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss,
+    player, enemies, spawnSites, projectiles, enemyShots, particles, boss, spiderBoss, frostclawBoss,
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
+    isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
     engageEnemy,
     researchDamageMultiplier,
     researchCriticalChance,
@@ -379,6 +382,7 @@ import {
     incrementKills: () => { totalKills += 1; },
     damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
+    damageFrostclaw: (hits) => coop?.damageFrostclaw?.(hits, player.x, player.y),
     spawnBurst,
     spawnDamageNumber,
     logPickup,
@@ -464,8 +468,10 @@ import {
     damageNumbers,
     bossRain,
     spiderVenom,
+    frostclawIcefalls,
     boss,
     spiderBoss,
+    frostclawBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     showMapMessage: (mapId) => showMessage(MAP_CONFIG[mapId].name, "#ffe769"),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
@@ -475,13 +481,17 @@ import {
   const bossController = createBossController({
     boss,
     spiderBoss,
+    frostclawBoss,
     bossRain,
     spiderVenom,
+    frostclawIcefalls,
     player,
     getDragonBoss: () => coop?.dragonBoss?.(),
     getSpiderBoss: () => coop?.spiderBoss?.(),
+    getFrostclawBoss: () => coop?.frostclawBoss?.(),
     getDragonResult: () => coop?.dragonResult?.(),
     getSpiderResult: () => coop?.spiderResult?.(),
+    getFrostclawResult: () => coop?.frostclawResult?.(),
     localIdentity: () => coop?.localIdentity?.(),
     running: () => session.isRunning(),
     currentMapIsDesert: () => currentMapId === BEGINNER_DESERT_MAP_ID,
@@ -543,8 +553,10 @@ import {
     player,
     boss,
     spiderBoss,
+    frostclawBoss,
     bossRain,
     spiderVenom,
+    frostclawIcefalls,
     activePortal,
     cutscenePortal: () => mapController.cutscenePortal(),
     secondaryPortal,
@@ -615,7 +627,7 @@ import {
     invalidateStaticWorld,
     spawnFromSite,
     clearPlayerCombat: () => { playerCombat.clearPendingThrow(); playerCombat.clearPendingBossHits(); },
-    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); },
+    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); },
     onResetUI: () => {
       session.resetGameTime();
       flash = 0;
@@ -629,9 +641,12 @@ import {
     resolvePortalCollision: () => mapController.resolvePortalCollision(),
     resolveDragonCollision: () => bossController.resolveDragonCollision(),
     resolveSpiderCollision: () => bossController.resolveSpiderCollision(),
+    resolveFrostclawCollision: () => bossController.resolveFrostclawCollision(),
     applyDragonConePush: (dt) => bossController.applyDragonConePush(dt),
+    applyFrostclawPush: (dt) => bossController.applyFrostclawPush(dt),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
+    isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
     viewport: () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     cameraPosition: () => camera,
     isConnected: () => Boolean(coop?.isConnected?.()),
@@ -842,7 +857,7 @@ import {
 
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
-    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID,
+    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
     validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
     serverMapId: () => coop?.localState?.()?.mapId,
@@ -859,10 +874,10 @@ import {
     },
     mapMusicSync: syncMapMusic,
     isDueling, activeDuel,
-    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState,
+    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     updatePlayer: playerController.update, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
-    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss,
+    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { projectiles.length = 0; playerCombat.clearPendingBossHits(); enemyShots.length = 0; },
     updateEffects: effects.update, updateHud: () => updateHud(),
@@ -1014,6 +1029,8 @@ import {
     reconcileMap: mapController.reconcileMapFromServer,
     syncBossState: () => {
       if (currentMapId === TUTORIAL_FOREST_MAP_ID) bossController.syncDragonState();
+      if (currentMapId === BEGINNER_DESERT_MAP_ID) bossController.syncSpiderState();
+      if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID) bossController.syncFrostclawState();
     },
     finishStartup,
     clearSignInPending: startup.clearSignInPending,

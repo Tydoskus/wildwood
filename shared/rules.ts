@@ -25,13 +25,16 @@ export const STARTER_STONE = "starter_stone";
 export const BOOTS_SPEED_BONUS = 25;
 export const SPIDER_REWARD_DAMAGE = 75_000;
 export const SPIDER_REWARD_HEALTH = 200_000;
+export const FROSTCLAW_REWARD_DAMAGE = 15_000_000;
+export const FROSTCLAW_REWARD_HEALTH = 50_000_000;
+export const FROSTCLAW_REWARD_ARMOR = 75_000;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const MAP_IDS: readonly string[] = [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID];
 
-export const PROTOCOL_VERSION = 45;
+export const PROTOCOL_VERSION = 46;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

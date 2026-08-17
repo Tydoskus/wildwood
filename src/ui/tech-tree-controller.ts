@@ -31,6 +31,16 @@ export type TechTreeControllerHooks = {
   nowMs: () => number;
 };
 
+export function researchIsAvailable(researchId: ResearchId, ranks: ResearchRanks) {
+  const definition = RESEARCH_DEFINITIONS[researchId];
+  return ranks[researchId] < definition.maxRank &&
+    Object.entries(definition.prerequisites ?? {}).every(([id, rank]) => ranks[id as ResearchId] >= rank!);
+}
+
+export function hasAvailableResearch(ranks: ResearchRanks) {
+  return Object.values(RESEARCH_DEFINITIONS).some((definition) => researchIsAvailable(definition.id, ranks));
+}
+
 const techNodeResearch: Record<string, ResearchId | null> = {
   foundations: "foraging",
   war: "warcraft",
@@ -132,7 +142,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
 
   function updateNotice() {
     const current = hooks.activeResearch();
-    notice.hidden = Boolean(current && current.completesAtMs > hooks.nowMs());
+    notice.hidden = Boolean(current) || !hasAvailableResearch(hooks.researchRanks());
   }
 
   function render() {
