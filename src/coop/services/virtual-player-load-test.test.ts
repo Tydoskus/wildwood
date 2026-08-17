@@ -8,6 +8,7 @@ import {
 import {
   advanceVirtualPlayerMotion,
   virtualPlayerRampDelayMs,
+  virtualPlayerStartupConcurrency,
   virtualPlayerTicketFromBytes,
 } from "./virtual-player-load-test";
 
@@ -36,13 +37,21 @@ describe("virtual-player startup", () => {
     expect(() => virtualPlayerTicketFromBytes(new Uint8Array(23))).toThrow();
   });
 
-  it("slows the sequential ramp for latency and repeated failures", () => {
+  it("slows each startup worker for latency and repeated failures", () => {
     expect(virtualPlayerRampDelayMs(100, 0)).toBe(75);
     expect(virtualPlayerRampDelayMs(2_000, 0)).toBe(700);
     expect(virtualPlayerRampDelayMs(100, 1)).toBe(250);
     expect(virtualPlayerRampDelayMs(100, 2)).toBe(500);
     expect(virtualPlayerRampDelayMs(100, 5)).toBe(2_000);
     expect(virtualPlayerRampDelayMs(Number.NaN, Number.NaN)).toBe(75);
+  });
+
+  it("uses a bounded parallel bootstrap pool", () => {
+    expect(virtualPlayerStartupConcurrency(1)).toBe(1);
+    expect(virtualPlayerStartupConcurrency(8)).toBe(8);
+    expect(virtualPlayerStartupConcurrency(100)).toBe(16);
+    expect(virtualPlayerStartupConcurrency(3_000)).toBe(16);
+    expect(virtualPlayerStartupConcurrency(Number.NaN)).toBe(1);
   });
 });
 

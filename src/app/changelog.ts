@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.425": [
+    "Virtual-player load tests now start through a bounded 16-client pool with acknowledgement-aware backoff, making large tests much faster while still exercising burst joins safely.",
+    "Virtual players no longer fetch the full on-demand leaderboard during startup, matching normal player joins and removing an obsolete source of server work.",
+  ],
   "0.424": [
     "Movement now sends keyboard changes, meaningful touch steering, and one-second corrections instead of continuous position updates; idle players send no movement traffic.",
     "Remote players extrapolate from compact direction vectors and smoothly absorb each client-authoritative position correction.",

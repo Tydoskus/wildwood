@@ -37,6 +37,7 @@ const CONNECT_TIMEOUT_MS = 12_000;
 const SUBSCRIPTION_READY_TIMEOUT_MS = 8_000;
 const BOOTSTRAP_MAX_ATTEMPTS = 3;
 const BOOTSTRAP_RETRY_BASE_MS = 250;
+const MAX_CONCURRENT_BOOTSTRAPS = 16;
 const SPAWN_RAMP_MIN_MS = 75;
 const SPAWN_RAMP_MAX_MS = 750;
 
@@ -99,6 +100,11 @@ export function virtualPlayerRampDelayMs(bootstrapMs: number, consecutiveFailure
     ? Math.min(2_000, BOOTSTRAP_RETRY_BASE_MS * (2 ** Math.min(3, safeFailures - 1)))
     : 0;
   return Math.max(latencyDelay, failureDelay);
+}
+
+export function virtualPlayerStartupConcurrency(count: number) {
+  const safeCount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+  return Math.min(MAX_CONCURRENT_BOOTSTRAPS, safeCount);
 }
 
 /** Pure random-walk step shared by runtime and boundary tests. */
@@ -267,7 +273,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     const conn = bot.connection;
     if (!conn) return Promise.reject(new Error("Virtual-player connection closed"));
     return new Promise<void>((resolve, reject) => {
-      let remaining = 4;
+      let remaining = 3;
       let settled = false;
       const timeout = window.setTimeout(() => fail(new Error("Virtual-player subscriptions timed out")), SUBSCRIPTION_READY_TIMEOUT_MS);
       function ready() {
@@ -315,24 +321,6 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         ]) as Subscription;
       bot.subscriptions.push(markers);
       installNearbySubscription(bot, mapId, true, (applied) => applied ? ready() : fail());
-
-      // Real clients load one ranking snapshot after spawn, then release it.
-      let leaderboard: Subscription | null = null;
-      leaderboard = conn.subscriptionBuilder()
-        .onApplied(() => {
-          ready();
-          queueMicrotask(() => {
-            removeSubscription(bot, leaderboard);
-            leaderboard = null;
-          });
-        })
-        .onError(() => {
-          removeSubscription(bot, leaderboard);
-          leaderboard = null;
-          fail();
-        })
-        .subscribe([tables.leaderboardEntry]) as Subscription;
-      bot.subscriptions.push(leaderboard);
     });
   }
 
@@ -564,16 +552,25 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
 
     bots = Array.from({ length: normalizedCount }, (_, index) => createBot(spawn, index, normalizedCount));
     startTimers(runGeneration, spawn.mapId);
+    let nextBotIndex = 0;
     let consecutiveFailures = 0;
-    for (let index = 0; index < bots.length; index += 1) {
-      if (generation !== runGeneration) break;
-      const result = await connectBotWithRetry(bots[index], runGeneration, spawn.mapId, owner, ticket);
-      if (generation !== runGeneration) break;
-      consecutiveFailures = result.ready ? 0 : consecutiveFailures + 1;
-      if (index + 1 < bots.length) {
-        await waitForLoadTestRamp(virtualPlayerRampDelayMs(result.bootstrapMs, consecutiveFailures));
+    const spawnWorker = async () => {
+      while (generation === runGeneration) {
+        const index = nextBotIndex;
+        if (index >= bots.length) return;
+        nextBotIndex += 1;
+        const result = await connectBotWithRetry(bots[index], runGeneration, spawn.mapId, owner, ticket);
+        if (generation !== runGeneration) return;
+        consecutiveFailures = result.ready ? 0 : consecutiveFailures + 1;
+        if (nextBotIndex < bots.length) {
+          await waitForLoadTestRamp(virtualPlayerRampDelayMs(result.bootstrapMs, consecutiveFailures));
+        }
       }
-    }
+    };
+    await Promise.all(Array.from(
+      { length: virtualPlayerStartupConcurrency(bots.length) },
+      () => spawnWorker(),
+    ));
     if (generation !== runGeneration) return { ok: false, error: "VIRTUAL PLAYER START CANCELLED" };
 
     phase = connected > 0 ? "running" : "idle";

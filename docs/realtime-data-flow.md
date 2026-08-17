@@ -102,7 +102,7 @@ flowchart LR
 
 - Bots must use real connections and normal reducers. Server-side row animation does not measure websocket ingress, reducer acknowledgement, or per-client subscription fanout.
 - Authorization accepts only a connected, fresh anonymous identity and caps the test at 3,000 bots. An owner counter enforces that limit in O(1) per bot; never recount the full bot table during startup.
-- A developer creates one private random capability per run. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Startup is sequential, acknowledgement-aware, and retries transient failures before counting a bot as failed.
+- A developer creates one private random capability per run. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Startup uses a bounded 16-client pool, waits for each client's reducers and normal join subscriptions, and backs off on latency or transient failures before counting a bot as failed. Bots do not load the on-demand leaderboard during startup.
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 
