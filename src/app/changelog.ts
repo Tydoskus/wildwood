@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.433": [
+    "Profile stats now scroll inside the existing profile window height with the scrollbar hidden, preventing the Stats tab from stretching the window.",
+  ],
   "0.432": [
     "Nearby-player subscriptions now retire each old query before starting its replacement, preventing SpacetimeDB client-cache reference warnings during sustained movement and large realistic load tests.",
     "Virtual-player shutdown now closes each socket directly instead of racing redundant unsubscribe messages against disconnect, keeping intentional test cleanup out of protocol-error telemetry.",
