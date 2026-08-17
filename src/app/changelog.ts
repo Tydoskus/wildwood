@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.437": [
+    "Sign-in and loading screens now use an illustrated Wildwood battle scene showing the portal, monsters, and stat gains.",
+  ],
   "0.436": [
     "The sign-in screen now plays Light Ambient 4 and has a quick mute or unmute button in the top-right corner.",
     "Intermediate Snowlands now plays Ambient 10, and music volume works reliably through the Web Audio path used by iOS.",
