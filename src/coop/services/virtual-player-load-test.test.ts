@@ -7,6 +7,7 @@ import {
 } from "../../../shared/virtual-player-load-test";
 import {
   advanceVirtualPlayerMotion,
+  isVirtualPlayerProtocolMismatch,
   virtualPlayerRampDelayMs,
   virtualPlayerStartupConcurrency,
   virtualPlayerTicketFromBytes,
@@ -28,6 +29,12 @@ describe("virtual-player count", () => {
 });
 
 describe("virtual-player startup", () => {
+  it("recognizes a server protocol cutover", () => {
+    expect(isVirtualPlayerProtocolMismatch(new Error("Wildwood updated. Refresh to continue."))).toBe(true);
+    expect(isVirtualPlayerProtocolMismatch("WILDWOOD UPDATED. REFRESH TO CONTINUE.")).toBe(true);
+    expect(isVirtualPlayerProtocolMismatch(new Error("Connection timed out"))).toBe(false);
+  });
+
   it("encodes a fixed-size private capability", () => {
     const ticket = virtualPlayerTicketFromBytes(Uint8Array.from({ length: 24 }, (_, index) => index));
     expect(ticket).toHaveLength(VIRTUAL_PLAYER_TICKET_HEX_LENGTH);

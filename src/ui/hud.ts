@@ -44,13 +44,14 @@ export function renderPlayerHud(
   }
   const powerText = formatCompactNumber(power);
   if (elements.playerPower.dataset.renderedPower !== powerText) {
-    const powerLabel = document.createElement("span");
-    powerLabel.className = "power-label";
-    powerLabel.textContent = "Power:";
+    const powerIcon = document.createElement("img");
+    powerIcon.className = "power-icon power-icon-hud";
+    powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
+    powerIcon.alt = "Power";
     const powerValue = document.createElement("span");
     powerValue.className = "power-value";
     powerValue.textContent = powerText;
-    elements.playerPower.replaceChildren(powerLabel, " ", powerValue);
+    elements.playerPower.replaceChildren(powerIcon, powerValue);
     elements.playerPower.dataset.renderedPower = powerText;
   }
   if (elements.coopStatus) {

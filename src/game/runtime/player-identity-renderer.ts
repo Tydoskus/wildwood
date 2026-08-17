@@ -24,6 +24,7 @@ export function createPlayerIdentityRenderer(options: {
   camera: Camera;
   viewport: () => { width: number; height: number };
   profileIconSheet: HTMLImageElement;
+  powerIcon: HTMLImageElement;
   antiAliasingEnabled: () => boolean;
   isDeveloper: (identity: string | undefined) => boolean;
   isLocallyInvisible: (identity: string | undefined) => boolean;
@@ -236,13 +237,17 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText(name, centerX, nameBottom, color, 4);
     }
     if (powerValue) {
-      const powerName = "Power:";
-      const powerNameWidth = ctx.measureText(powerName).width;
-      const powerValueWidth = ctx.measureText(` ${powerValue}`).width;
-      const left = Math.round(centerX - (powerNameWidth + powerValueWidth) / 2);
+      const hasPowerIcon = options.powerIcon.complete && options.powerIcon.naturalWidth > 0;
+      const iconSize = hasPowerIcon ? 16 : 0;
+      const iconGap = hasPowerIcon ? 3 : 0;
+      const powerValueWidth = ctx.measureText(powerValue).width;
+      const left = Math.round(centerX - (iconSize + iconGap + powerValueWidth) / 2);
+      if (hasPowerIcon) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(options.powerIcon, left, Math.round(bottom - iconSize), iconSize, iconSize);
+      }
       ctx.textAlign = "left";
-      options.outlinedText(powerName, left, bottom, "#ffe05d", 4);
-      options.outlinedText(` ${powerValue}`, left + powerNameWidth, bottom, "#ffffff", 4);
+      options.outlinedText(powerValue, left + iconSize + iconGap, bottom, "#ffffff", 4);
     }
     ctx.restore();
   }

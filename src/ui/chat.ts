@@ -1,4 +1,5 @@
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
+import { formatCompactNumber } from "./number-format";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 10_800_000;
@@ -13,6 +14,7 @@ type ChatMessage = {
   senderName: string;
   message: string;
   replayId: bigint;
+  powerLevel: number;
   sentAtMs: number;
 };
 
@@ -143,14 +145,31 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const name = document.createElement("span");
       name.className = "chat-name";
       name.style.color = nameColor(displayIdentity);
+      const nameCore = document.createElement("span");
+      nameCore.className = "chat-name-core";
       const guestSuffix = coop?.isGuest?.(displayIdentity) ? " (guest)" : "";
       if (isDeveloperIdentity(displayIdentity)) {
         const badge = document.createElement("span");
         badge.className = "dev-badge";
         badge.textContent = `${DEVELOPER_BADGE} `;
-        name.appendChild(badge);
+        nameCore.appendChild(badge);
       }
-      name.append(document.createTextNode(`${displayName}${guestSuffix}`));
+      nameCore.append(document.createTextNode(`${displayName}${guestSuffix}`));
+      name.appendChild(nameCore);
+      if (!isDuelMessage && message.powerLevel > 0) {
+        const power = document.createElement("span");
+        power.className = "chat-power";
+        power.setAttribute("aria-label", `Power ${formatCompactNumber(message.powerLevel)}`);
+        const powerIcon = document.createElement("img");
+        powerIcon.className = "power-icon chat-power-icon";
+        powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
+        powerIcon.alt = "";
+        powerIcon.setAttribute("aria-hidden", "true");
+        const powerValue = document.createElement("span");
+        powerValue.textContent = formatCompactNumber(message.powerLevel);
+        power.append(powerIcon, powerValue);
+        name.appendChild(power);
+      }
       name.setAttribute("role", "button");
       name.setAttribute("tabindex", "0");
       name.setAttribute("aria-label", `View ${displayName}'s profile`);

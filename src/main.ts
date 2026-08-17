@@ -394,11 +394,14 @@ import {
     if (leaderboard.isOpen()) leaderboard.render();
   });
   profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v2.png";
+  const powerIcon = new Image();
+  powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
   const playerIdentityRenderer = createPlayerIdentityRenderer({
     ctx,
     camera,
     viewport: canvasRuntime.viewport,
     profileIconSheet,
+    powerIcon,
     antiAliasingEnabled: () => appShell.antiAliasingEnabled(),
     isDeveloper: isDeveloperIdentity,
     isLocallyInvisible: (identity) => identity === coop?.localIdentity?.() && isDeveloperIdentity(identity) && coop?.developerPresenceVisible?.() === false,

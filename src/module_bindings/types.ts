@@ -50,6 +50,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   sentAt: __t.timestamp(),
   replayId: __t.u64(),
   senderIsGuest: __t.bool(),
+  powerLevel: __t.f32(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 

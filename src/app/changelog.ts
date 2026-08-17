@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.427": [
+    "A transparent crossed-swords battle icon now replaces the Power label above players and in the HUD, while chat shows each sender's power beside their username.",
+    "Virtual-player tests now stop the whole client pool on the first server protocol cutover, preventing stale startup retries and misleading disconnect storms during a release.",
+  ],
   "0.426": [
     "Portals now submit the exact client-authoritative trigger position with the map change, removing false move-closer errors and delayed transitions caused by sparse movement heartbeats.",
   ],

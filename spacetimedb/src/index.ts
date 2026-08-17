@@ -562,6 +562,7 @@ const chatMessage = table(
     sentAt: t.timestamp(),
     replayId: t.u64().default(0n),
     senderIsGuest: t.bool().default(false),
+    powerLevel: t.f32().default(0),
   },
 );
 
@@ -2176,6 +2177,7 @@ function trimChatHistory(ctx: any) {
 }
 
 function insertChatMessage(ctx: any, sender: any, senderName: string, message: string, replayId = 0n) {
+  const progress = ctx.db.playerProgress.identity.find(sender);
   ctx.db.chatMessage.insert({
     id: 0n,
     sender,
@@ -2184,6 +2186,7 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
     message,
     replayId,
     sentAt: ctx.timestamp,
+    powerLevel: progress ? powerForProgress(progress) : 0,
   });
   trimChatHistory(ctx);
 }

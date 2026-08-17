@@ -18,4 +18,5 @@ export default __t.row({
   sentAt: __t.timestamp().name("sent_at"),
   replayId: __t.u64().name("replay_id"),
   senderIsGuest: __t.bool().name("sender_is_guest"),
+  powerLevel: __t.f32().name("power_level"),
 });

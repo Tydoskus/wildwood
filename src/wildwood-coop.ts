@@ -92,6 +92,7 @@ export type ChatMessage = {
   senderName: string;
   message: string;
   replayId: bigint;
+  powerLevel: number;
   sentAtMs: number;
 };
 
@@ -486,6 +487,7 @@ const virtualPlayerLoadTest = createVirtualPlayerLoadTest({
     if (!conn?.isActive || !isDeveloperIdentity(localIdentity)) throw new Error("DEVELOPER CONNECTION REQUIRED");
     await conn.reducers.devClearVirtualPlayers({});
   },
+  onProtocolMismatch: (error) => handleReducerFailure("virtual-player protocol", error),
   onStateChange: onChange,
 });
 
@@ -536,6 +538,7 @@ function handleReducerFailure(action: string, error: unknown) {
   // freshly loaded client can submit it safely.
   protocolBlocked = true;
   progressSaveInFlightUntil = Number.POSITIVE_INFINITY;
+  virtualPlayerLoadTest.disconnectLocal();
   authNotice = "GAME UPDATING · WAITING FOR DEPLOY";
   onChange?.();
 }
@@ -1619,6 +1622,7 @@ function upsertChatMessage(row: {
   senderIsGuest: boolean;
   message: string;
   replayId: bigint;
+  powerLevel: number;
   sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
@@ -1632,6 +1636,7 @@ function upsertChatMessage(row: {
     senderName: row.senderName,
     message: row.message,
     replayId: row.replayId,
+    powerLevel: Number(row.powerLevel) || 0,
     sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n),
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));

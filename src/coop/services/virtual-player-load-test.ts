@@ -84,8 +84,14 @@ type VirtualPlayerLoadTestDependencies = {
   ownerIdentity: () => Identity | undefined;
   beginServerRun: (ticket: string, maxCount: number) => Promise<void>;
   clearServerPlayers: () => Promise<void>;
+  onProtocolMismatch: (error: unknown) => void;
   onStateChange: () => void;
 };
+
+export function isVirtualPlayerProtocolMismatch(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /wildwood updated\. refresh to continue\./i.test(message);
+}
 
 export function virtualPlayerTicketFromBytes(bytes: Uint8Array) {
   if (bytes.length !== VIRTUAL_PLAYER_TICKET_BYTES) throw new Error("Unexpected virtual-player ticket length");
@@ -163,6 +169,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
   let bots: VirtualBot[] = [];
   let movementTimer: number | null = null;
   let lastMovementAt = performance.now();
+  let protocolMismatchReported = false;
 
   function state(): VirtualPlayerLoadTestState {
     return { phase, requested, connected, failures, movementHz: MOVEMENT_HZ, saveIntervalMs: SAVE_INTERVAL_MS };
@@ -170,6 +177,12 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
 
   function notify() {
     dependencies.onStateChange();
+  }
+
+  function reportProtocolMismatch(error: unknown) {
+    if (protocolMismatchReported || !isVirtualPlayerProtocolMismatch(error)) return;
+    protocolMismatchReported = true;
+    dependencies.onProtocolMismatch(error);
   }
 
   function spawnPoint(origin: { x: number; y: number }, index: number, count: number) {
@@ -375,7 +388,10 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
             dx: vector.dx,
             dy: vector.dy,
             sequence,
-          }).catch(() => markBotFailed(bot, runGeneration));
+          }).catch((error) => {
+            reportProtocolMismatch(error);
+            markBotFailed(bot, runGeneration);
+          });
         }
 
         if (now < bot.nextSaveAt) continue;
@@ -399,7 +415,10 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           enemyKills: bot.enemyKills,
           equippedRightHand: STARTER_STONE,
           equippedLeftHand: "",
-        }).catch(() => markBotFailed(bot, runGeneration));
+        }).catch((error) => {
+          reportProtocolMismatch(error);
+          markBotFailed(bot, runGeneration);
+        });
       }
     }, MOVEMENT_INTERVAL_MS);
   }
@@ -452,7 +471,8 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
                 connected += 1;
                 notify();
                 finish(true);
-              } catch {
+              } catch (error) {
+                reportProtocolMismatch(error);
                 finish(false);
                 if (bot.connection === attemptConnection) disconnectBot(bot);
               }
@@ -536,6 +556,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     requested = normalizedCount;
     connected = 0;
     failures = 0;
+    protocolMismatchReported = false;
     const runGeneration = ++generation;
     const spawn = dependencies.spawnContext();
     notify();
@@ -543,6 +564,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     try {
       await dependencies.beginServerRun(ticket, normalizedCount);
     } catch (error) {
+      reportProtocolMismatch(error);
       phase = "idle";
       requested = 0;
       notify();
