@@ -83,6 +83,10 @@ export function paintStaticTile(
     } else if (decor.type === "snowTuft") {
       context.fillStyle = decor.variant % 2 ? "rgba(255,255,255,.78)" : "rgba(221,242,255,.76)";
       context.fillRect(x - 2, y - 1, 5, 2); context.fillRect(x, y - 3, 2, 5);
+    } else if (decor.type === "lavaEmber") {
+      context.fillStyle = decor.variant % 2 ? "rgba(255,243,126,.82)" : "rgba(190,63,31,.52)";
+      context.fillRect(x - 2, y - 1, 5, 2);
+      if (decor.variant > 1) context.fillRect(x, y - 3, 2, 5);
     } else if (decor.type === "rock") {
       const width = Math.round(35 * decor.s);
       const height = Math.round(22 * decor.s);
@@ -127,6 +131,10 @@ export function paintStaticTile(
       const height = Math.round(185 * decor.s);
       const width = Math.round(height * scene.snowPineAspect);
       drawStaticShadow(x, y - Math.round(height * SNOW_PINE_GROUND_OFFSET_RATIO), Math.round(width * .75), .13);
+    } else if (decor.type === "lavaRock") {
+      drawStaticShadow(x, y - 3, Math.round(125 * decor.s), .14);
+    } else if (decor.type === "charredTree") {
+      drawStaticShadow(x, y - 3, Math.round(55 * decor.s), .13);
     }
   }
 }

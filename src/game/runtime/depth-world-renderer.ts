@@ -14,7 +14,9 @@ type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
 type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
-type TallDecor = TreeDecor | CactusDecor | SnowPineDecor;
+type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
+type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
+type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | LavaRockDecor | CharredTreeDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
 type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
@@ -40,6 +42,8 @@ export function createDepthWorldRenderer(options: {
   drawTree: (tree: TreeDecor) => void;
   drawCactus: (cactus: CactusDecor) => void;
   drawSnowPine: (tree: SnowPineDecor) => void;
+  drawLavaRock: (rock: LavaRockDecor) => void;
+  drawCharredTree: (tree: CharredTreeDecor) => void;
   drawEnemy: (enemy: EnemyState) => void;
   drawBoss: () => void;
   drawSpiderBoss: () => void;
@@ -62,7 +66,7 @@ export function createDepthWorldRenderer(options: {
   function sortedStaticDecor() {
     if (!staticDepthDirty) return staticDepthDecor;
     staticDepthDecor = options.decor
-      .filter((decor): decor is TallDecor => decor.type === "tree" || decor.type === "cactus" || decor.type === "snowPine")
+      .filter((decor): decor is TallDecor => decor.type === "tree" || decor.type === "cactus" || decor.type === "snowPine" || decor.type === "lavaRock" || decor.type === "charredTree")
       .sort((a, b) => a.y - b.y);
     staticDepthDirty = false;
     return staticDepthDecor;
@@ -107,13 +111,22 @@ export function createDepthWorldRenderer(options: {
           item.y < camera.y - cullPadding ||
           item.y - height > endY + cullPadding
         ) continue;
-      } else {
+      } else if (item.type === "tree") {
         const size = Math.round(154 * item.s);
         if (
           item.x + size / 2 < camera.x - cullPadding ||
           item.x - size / 2 > camera.x + visibleW + cullPadding ||
           item.y < camera.y - cullPadding ||
           item.y - size > endY + cullPadding
+        ) continue;
+      } else {
+        const height = Math.round((item.type === "lavaRock" ? 85 : 150) * item.s);
+        const width = Math.round((item.type === "lavaRock" ? 150 : 90) * item.s);
+        if (
+          item.x + width / 2 < camera.x - cullPadding ||
+          item.x - width / 2 > camera.x + visibleW + cullPadding ||
+          item.y < camera.y - cullPadding ||
+          item.y - height > endY + cullPadding
         ) continue;
       }
       visibleStaticDecor.push(item);
@@ -123,7 +136,9 @@ export function createDepthWorldRenderer(options: {
   function drawStaticDecor(item: TallDecor) {
     if (item.type === "tree") options.drawTree(item);
     else if (item.type === "cactus") options.drawCactus(item);
-    else options.drawSnowPine(item);
+    else if (item.type === "snowPine") options.drawSnowPine(item);
+    else if (item.type === "lavaRock") options.drawLavaRock(item);
+    else options.drawCharredTree(item);
   }
 
   function drawDynamicLayer(layer: DepthLayer) {

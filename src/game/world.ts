@@ -11,7 +11,11 @@ export type WorldDecor =
   | { type: "rock"; x: number; y: number; s: number; variant: number }
   | { type: "desertGrass"; x: number; y: number; variant: number }
   | { type: "snowPine"; x: number; y: number; s: number }
-  | { type: "snowTuft"; x: number; y: number; variant: number };
+  | { type: "snowTuft"; x: number; y: number; variant: number }
+  | { type: "lavaPool"; x: number; y: number; s: number; variant: number }
+  | { type: "lavaRock"; x: number; y: number; s: number; variant: number }
+  | { type: "charredTree"; x: number; y: number; s: number; variant: number }
+  | { type: "lavaEmber"; x: number; y: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -27,7 +31,12 @@ type Point = { x: number; y: number };
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
-export type MapId = typeof TUTORIAL_FOREST_MAP_ID | typeof BEGINNER_DESERT_MAP_ID | typeof INTERMEDIATE_SNOWLANDS_MAP_ID;
+export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
+export type MapId =
+  | typeof TUTORIAL_FOREST_MAP_ID
+  | typeof BEGINNER_DESERT_MAP_ID
+  | typeof INTERMEDIATE_SNOWLANDS_MAP_ID
+  | typeof ADVANCED_LAVA_WASTES_MAP_ID;
 
 const DESERT_CAMPS = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
@@ -43,6 +52,14 @@ const SNOW_CAMPS = [
   { name: "Glacier Crossing", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Glacier Archer"] as EnemyKind[] },
   { name: "Whiteout Hollow", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Rime Guard"] as EnemyKind[] },
   { name: "Aurora Shelf", x: 2120, y: 3650, minRadius: 170, radius: 430, count: 6, types: ["Aurora Oracle", "Aurora Oracle", "Aurora Oracle", "Whiteout Reaper"] as EnemyKind[] },
+];
+
+const LAVA_CAMPS = [
+  { name: "Searing Approach", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Ember Raider"] as EnemyKind[] },
+  { name: "Magma Causeway", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Cinder Archer"] as EnemyKind[] },
+  { name: "Obsidian Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Magma Guard"] as EnemyKind[] },
+  { name: "Ashen Shelf", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Ash Reaper"] as EnemyKind[] },
+  { name: "Inferno Caldera", x: 3900, y: 3960, minRadius: 170, radius: 420, count: 6, types: ["Inferno Oracle", "Inferno Oracle", "Ash Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -125,9 +142,68 @@ function createSnowLayout() {
   return { decor, paths };
 }
 
+function createLavaLayout() {
+  const decor: WorldDecor[] = [];
+  const paths: WorldPath[] = [
+    { x: 300, y: 600, w: 3800, h: 150 },
+    { x: 980, y: 600, w: 150, h: 3160 },
+    { x: 1090, y: 2300, w: 2970, h: 150 },
+    { x: 2000, y: 2420, w: 150, h: 1250 },
+    { x: 2980, y: 700, w: 150, h: 1420 },
+  ];
+  const isOnRoad = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 380;
+
+  for (let index = 0; index < 24; index += 1) {
+    const x = 180 + seededUnit(index, 31) * (WORLD.w - 360);
+    const y = 180 + seededUnit(index, 32) * (WORLD.h - 360);
+    if (isOnRoad(x, y, 150) || isNearArrival(x, y)) continue;
+    decor.push({
+      type: "lavaPool",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .62 + seededUnit(index, 33) * .68,
+      variant: index % 3,
+    });
+  }
+  for (let index = 0; index < 72; index += 1) {
+    const x = 90 + seededUnit(index, 34) * (WORLD.w - 180);
+    const y = 90 + seededUnit(index, 35) * (WORLD.h - 180);
+    if (isOnRoad(x, y, 60) || isNearArrival(x, y)) continue;
+    decor.push({
+      type: "lavaRock",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .48 + seededUnit(index, 36) * .62,
+      variant: index % 3,
+    });
+  }
+  for (let index = 0; index < 48; index += 1) {
+    const x = 100 + seededUnit(index, 37) * (WORLD.w - 200);
+    const y = 100 + seededUnit(index, 38) * (WORLD.h - 200);
+    if (isOnRoad(x, y, 80) || isNearArrival(x, y)) continue;
+    decor.push({
+      type: "charredTree",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .72 + seededUnit(index, 39) * .62,
+      variant: index % 3,
+    });
+  }
+  for (let index = 0; index < 360; index += 1) {
+    const x = 25 + seededUnit(index, 40) * (WORLD.w - 50);
+    const y = 25 + seededUnit(index, 41) * (WORLD.h - 50);
+    if (!isOnRoad(x, y, 8)) decor.push({ type: "lavaEmber", x: Math.round(x), y: Math.round(y), variant: index % 4 });
+  }
+  return { decor, paths };
+}
+
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
+  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID) return createLavaLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -200,7 +276,13 @@ export function loadTreeSpritesheet(onSettled?: () => void) {
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   const sites: SpawnSite[] = [];
-  const camps = mapId === BEGINNER_DESERT_MAP_ID ? DESERT_CAMPS : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID ? SNOW_CAMPS : CAMPS;
+  const camps = mapId === BEGINNER_DESERT_MAP_ID
+    ? DESERT_CAMPS
+    : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID
+      ? SNOW_CAMPS
+      : mapId === ADVANCED_LAVA_WASTES_MAP_ID
+        ? LAVA_CAMPS
+        : CAMPS;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];

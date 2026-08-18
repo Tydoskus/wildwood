@@ -103,6 +103,32 @@ const enemyTypes = {
     color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 },
     elite: true, aggro: 340,
   },
+
+  // ADVANCED LAVA WASTES ENEMIES
+  // Snow-to-lava continues each archetype's desert-to-snow multiplier.
+  "Ember Raider": {
+    hp: 6_075_000_000_000, speed: 240, damage: 271_445_000, attackSpeed: .65, r: 23,
+    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 },
+  },
+  "Cinder Archer": {
+    hp: 5_776_000_000_000, speed: 225, damage: 4_972_900_000, attackSpeed: .55, r: 21,
+    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 },
+    ranged: true,
+  },
+  "Magma Guard": {
+    hp: 121_725_000_000_000, speed: 215, damage: 38_940_000_000, attackSpeed: .55, r: 30,
+    color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 },
+  },
+  "Ash Reaper": {
+    hp: 125_000_000_000_000, speed: 245, damage: 1_470_000_000, attackSpeed: .7, r: 37,
+    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 },
+    ranged: true, elite: true, aggro: 380,
+  },
+  "Inferno Oracle": {
+    hp: 64_000_000_000_000, speed: 230, damage: 20_449_000_000, attackSpeed: .6, r: 35,
+    color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 },
+    elite: true, aggro: 380,
+  },
 } satisfies Record<string, EnemyDefinition>;
 
 export type EnemyKind = keyof typeof enemyTypes;
@@ -214,6 +240,11 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
   "Rime Guard": { src: "assets/wildwood/enemies/slime-green-stone.png", size: 70 },
   "Whiteout Reaper": { src: "assets/wildwood/enemies/slime-orange.png", size: 66 },
   "Aurora Oracle": { src: "assets/wildwood/enemies/slime-green.png", size: 68 },
+  "Ember Raider": { src: "assets/wildwood/enemies/slime-orange.png", size: 58 },
+  "Cinder Archer": { src: "assets/wildwood/enemies/slime-orange.png", size: 54 },
+  "Magma Guard": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 78 },
+  "Ash Reaper": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 92 },
+  "Inferno Oracle": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 84 },
 };
 
 export const REWARD_DATA: Record<RewardType, { color: string }> = {

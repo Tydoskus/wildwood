@@ -50,6 +50,7 @@ import {
   unsubscribeIfActive,
 } from "./coop/services/subscription-handoff";
 import {
+  ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   NAME_ADJECTIVES,
@@ -1474,7 +1475,7 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   onChange?.();
 }
 
-function upsertProgress(row: { identity: Identity } & PlayerProgress) {
+function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lavaUnlocked"> & { lavaUnlocked?: boolean }) {
   const id = row.identity.toHexString();
   const progress = {
     maxHp: row.maxHp,
@@ -1496,6 +1497,7 @@ function upsertProgress(row: { identity: Identity } & PlayerProgress) {
     introComplete: row.introComplete,
     desertUnlocked: row.desertUnlocked,
     snowlandsUnlocked: row.snowlandsUnlocked,
+    lavaUnlocked: row.lavaUnlocked ?? false,
   };
   profileProgress.set(id, progress);
   if (id !== localIdentity) {
@@ -3290,7 +3292,7 @@ export const wildwoodCoop = {
       !connection ||
       !Number.isFinite(x) ||
       !Number.isFinite(y) ||
-      ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID].includes(mapId)
+      ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID].includes(mapId)
     ) return false;
     try {
       await connection.reducers.changeMap({ mapId, x, y });

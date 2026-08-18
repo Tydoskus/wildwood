@@ -7,7 +7,7 @@ import {
   FROSTCLAW_REWARD_HEALTH,
 } from "../../../shared/rules";
 
-function createFrostclawHarness() {
+function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossController>[0]> = {}) {
   const state = createGameBootstrap();
   state.player.x = state.frostclawBoss.x + 300;
   state.player.y = state.frostclawBoss.y;
@@ -33,11 +33,14 @@ function createFrostclawHarness() {
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
+    currentMapIsSnow: () => true,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
+    hasSeenLavaPortalCutscene: () => true,
     startDragonPortalCutscene: () => undefined,
     startSnowlandsPortalCutscene: () => undefined,
+    startLavaPortalCutscene: () => undefined,
     elements: {
       result: ignoredElement,
       resultTitle: ignoredElement,
@@ -52,6 +55,7 @@ function createFrostclawHarness() {
     logPickup: () => undefined,
     showMessage: () => undefined,
     saveProgress: () => undefined,
+    ...overrides,
   });
   return { ...state, controller, damagePlayer };
 }
@@ -96,5 +100,45 @@ describe("Frostclaw boss", () => {
     controller.applyFrostclawPush(.25);
     const after = Math.hypot(player.x - frostclawBoss.x, player.y - frostclawBoss.y);
     expect(after).toBeGreaterThan(before + 100);
+  });
+
+  it("reveals the Lava Wastes portal after a local Frostclaw contribution", () => {
+    let shared = { encounter: 7n, hp: 750_000_000_000, maxHp: 750_000_000_000, alive: true };
+    const startLavaPortalCutscene = vi.fn();
+    const { controller } = createFrostclawHarness({
+      getFrostclawBoss: () => shared,
+      getFrostclawResult: () => ({
+        encounter: 7n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      hasSeenLavaPortalCutscene: () => false,
+      startLavaPortalCutscene,
+    });
+
+    controller.syncFrostclawState();
+    shared = { ...shared, hp: 0, alive: false };
+    controller.syncFrostclawState();
+
+    expect(startLavaPortalCutscene).toHaveBeenCalledOnce();
+  });
+
+  it("reveals the portal for an earlier Frostclaw winner after rollout", () => {
+    const shared = { encounter: 8n, hp: 0, maxHp: 750_000_000_000, alive: false };
+    const startLavaPortalCutscene = vi.fn();
+    const { controller } = createFrostclawHarness({
+      getFrostclawBoss: () => shared,
+      getFrostclawResult: () => ({
+        encounter: 8n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      hasSeenLavaPortalCutscene: () => false,
+      startLavaPortalCutscene,
+    });
+
+    controller.syncFrostclawState();
+
+    expect(startLavaPortalCutscene).toHaveBeenCalledOnce();
   });
 });

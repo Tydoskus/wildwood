@@ -21,7 +21,7 @@ import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-ren
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -34,6 +34,7 @@ import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
 import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
 import type { DuelScene } from "./game/runtime/types";
 import {
+  ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
@@ -90,7 +91,7 @@ import {
     playerProfileEl, playerProfileNameEl, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileLeaderboardStatsEl, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileRankingTab, profileOverviewPanel, profileStatsPanel, profileRankingPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
     leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
-    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
+    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
   const canvasRuntime = createCanvasRuntime({ canvas, getActorShadowSprite: () => actorShadowSprite });
@@ -106,7 +107,7 @@ import {
     onRespawn: () => startGame(false, false),
   });
 
-  const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID);
+  const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID);
 
   function syncMapMusic() {
     mapMusic.syncMap(currentMapId);
@@ -141,6 +142,10 @@ import {
   const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
   const { spawnFromSite, engageEnemy, updateRespawns } = enemyLifecycle;
   let currentMapId: MapId = TUTORIAL_FOREST_MAP_ID;
+
+  function mapNameForPresence(mapId: string | undefined) {
+    return mapId && mapId in MAP_CONFIG ? MAP_CONFIG[mapId as MapId].name : "";
+  }
 
   let totalKills = 0;
   let flash = 0;
@@ -320,6 +325,7 @@ import {
     bootUpgradeClose,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
+    lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
   });
   let inputEscapeHandler = () => false;
   const playerInput = createPlayerInputController({
@@ -455,8 +461,10 @@ import {
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,
     snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
+    lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
+    lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
     getCurrentMapId: () => currentMapId,
     setCurrentMapId: (mapId) => { currentMapId = mapId; },
     player,
@@ -475,6 +483,8 @@ import {
       ? Boolean(coop?.savedProgress?.()?.desertUnlocked)
       : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID
         ? Boolean(coop?.savedProgress?.()?.snowlandsUnlocked)
+        : mapId === ADVANCED_LAVA_WASTES_MAP_ID
+          ? Boolean(coop?.savedProgress?.()?.lavaUnlocked)
         : true,
     syncMapMusic,
     rebuildWorld: () => playerController.rebuildWorld(),
@@ -492,7 +502,7 @@ import {
     showMapMessage: (mapId) => showMessage(MAP_CONFIG[mapId].name, "#ffe769"),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
-  const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene } = mapController;
+  const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene } = mapController;
 
   const bossController = createBossController({
     boss,
@@ -511,11 +521,14 @@ import {
     localIdentity: () => coop?.localIdentity?.(),
     running: () => session.isRunning(),
     currentMapIsDesert: () => currentMapId === BEGINNER_DESERT_MAP_ID,
+    currentMapIsSnow: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     hasSeenDragonPortalCutscene: worldProgression.hasSeenDragonPortalCutscene,
     hasSeenSnowlandsPortalCutscene: worldProgression.hasSeenSnowlandsPortalCutscene,
+    hasSeenLavaPortalCutscene: worldProgression.hasSeenLavaPortalCutscene,
     startDragonPortalCutscene,
     startSnowlandsPortalCutscene,
+    startLavaPortalCutscene,
     elements: {
       result: dragonResultEl,
       resultTitle: dragonResultTitle,
@@ -563,6 +576,7 @@ import {
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,
     snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
+    lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
     paths,
     decor,
     enemies,
@@ -763,7 +777,7 @@ import {
       ? Boolean(coop?.isConnected?.()) && (!isDeveloperIdentity(identity) || coop?.developerPresenceVisible?.() === true)
       : Boolean(coop?.activePlayerMap?.(identity)) || coop?.remotePlayers?.().some((other) => other.id === identity) === true,
     presenceText: (profile, online) => {
-      const mapName = profile.mapId === BEGINNER_DESERT_MAP_ID ? "BEGINNER DESERT" : profile.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID ? "INTERMEDIATE SNOWLANDS" : profile.mapId === TUTORIAL_FOREST_MAP_ID ? "TUTORIAL FOREST" : "";
+      const mapName = mapNameForPresence(profile.mapId);
       return online && mapName ? `ONLINE - ${mapName}` : profilePresenceText(online, profile.lifetime.sessionStartedAtMs);
     },
     renderCharacter: (identity, progress, visible) => profileCharacterPreview.draw({ visible, progress, skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE }),
@@ -873,7 +887,7 @@ import {
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
-    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID],
+    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
@@ -961,6 +975,7 @@ import {
   bindGameInteractionListeners({
     triggerDragonCutscene: triggerDragonCutsceneBtn,
     triggerSnowlandsCutscene: triggerSnowlandsCutsceneBtn,
+    triggerLavaCutscene: triggerLavaCutsceneBtn,
     hpText,
     watchDuelReplay: watchDuelReplayBtn,
     playerHudProfile: playerHudProfileIcon,
@@ -985,6 +1000,16 @@ import {
       if (mapController.isCutsceneActive()) return;
       devPanel.close();
       startSnowlandsPortalCutscene(true);
+    },
+    onLavaCutscene: () => {
+      if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
+      if (currentMapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) {
+        showMessage("LAVA CUTSCENE: INTERMEDIATE SNOWLANDS ONLY", "#ff9b91");
+        return;
+      }
+      if (mapController.isCutsceneActive()) return;
+      devPanel.close();
+      startLavaPortalCutscene(true);
     },
     onOpenOwnProfile: () => {
       const identity = coop?.localIdentity?.();

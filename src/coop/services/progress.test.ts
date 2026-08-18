@@ -23,7 +23,7 @@ const pending: ProgressSave = {
   enemyKills: 10,
 };
 
-const saved: PlayerProgress = { ...pending, introComplete: true, desertUnlocked: false, snowlandsUnlocked: false };
+const saved: PlayerProgress = { ...pending, introComplete: true, desertUnlocked: false, snowlandsUnlocked: false, lavaUnlocked: false };
 
 function memoryStorage() {
   const values = new Map<string, string>();

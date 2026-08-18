@@ -2,7 +2,7 @@ import { WORLD } from "../constants";
 import { BASIC_PAPER_HAT, STARTER_STONE, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
-import { BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { updateCamera } from "./camera";
@@ -44,6 +44,12 @@ export function createGameBootstrap() {
     [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
       name: "INTERMEDIATE SNOWLANDS",
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: BEGINNER_DESERT_MAP_ID },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
+      arrival: { x: 580, y: 770 },
+    },
+    [ADVANCED_LAVA_WASTES_MAP_ID]: {
+      name: "ADVANCED LAVA WASTES",
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
       arrival: { x: 580, y: 770 },
     },
   } as const;

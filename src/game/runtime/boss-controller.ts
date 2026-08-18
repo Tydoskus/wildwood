@@ -113,11 +113,14 @@ export function createBossController(options: {
   localIdentity: () => string | undefined;
   running: () => boolean;
   currentMapIsDesert: () => boolean;
+  currentMapIsSnow: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
+  hasSeenLavaPortalCutscene: () => boolean;
   startDragonPortalCutscene: () => void;
   startSnowlandsPortalCutscene: () => void;
+  startLavaPortalCutscene: () => void;
   elements: NoticeElements;
   renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
@@ -129,9 +132,9 @@ export function createBossController(options: {
   const {
     boss, spiderBoss, frostclawBoss, bossRain, spiderVenom, frostclawIcefalls, player, elements,
     getDragonBoss, getSpiderBoss, getFrostclawBoss, getDragonResult, getSpiderResult, getFrostclawResult,
-    localIdentity, running, currentMapIsDesert, portalCutsceneActive,
-    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene,
-    startDragonPortalCutscene, startSnowlandsPortalCutscene,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, portalCutsceneActive,
+    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene,
+    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
   } = options;
   let dragonWorldNoticeTimer: number | null = null;
@@ -145,6 +148,7 @@ export function createBossController(options: {
   let shownSpiderResultEncounter: bigint | null = null;
   let queuedDragonResult: BossResult | null = null;
   let queuedSpiderResult: BossResult | null = null;
+  let queuedFrostclawResult: BossResult | null = null;
   let observedFrostclawEncounter: bigint | null = null;
   let frostclawWasAlive: boolean | null = null;
   let pendingFrostclawResultEncounter: bigint | null = null;
@@ -289,14 +293,19 @@ export function createBossController(options: {
   }
 
   function showFrostclawResult(result: BossResult | null | undefined) {
-    if (!result || shownFrostclawResultEncounter === result.encounter) return;
+    if (!result || shownFrostclawResultEncounter === result.encounter || (portalCutsceneActive() && queuedFrostclawResult?.encounter === result.encounter)) return;
     pendingFrostclawResultEncounter = null;
-    shownFrostclawResultEncounter = result.encounter;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (!localContribution) {
       showWorldResult(result, "FROSTCLAW DEFEATED");
       return;
     }
+    if (currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
+      queuedFrostclawResult = result;
+      startLavaPortalCutscene();
+      return;
+    }
+    shownFrostclawResultEncounter = result.encounter;
     renderResult(result, "FROSTCLAW DEFEATED");
     const encounterKey = String(result.encounter);
     if (!locallyRewardedFrostclawEncounters.has(encounterKey)) {
@@ -439,6 +448,12 @@ export function createBossController(options: {
     frostclawBoss.encounter = shared.encounter;
     frostclawBoss.maxHp = shared.maxHp;
     frostclawBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
+      const result = getFrostclawResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        showFrostclawResult(result);
+      }
+    }
     if (pendingFrostclawResultEncounter !== null) {
       const result = getFrostclawResult();
       if (result?.encounter === pendingFrostclawResultEncounter) showFrostclawResult(result);
@@ -796,6 +811,9 @@ export function createBossController(options: {
       const spider = queuedSpiderResult;
       queuedSpiderResult = null;
       if (spider && !wasPreview) showSpiderResult(spider);
+      const frostclaw = queuedFrostclawResult;
+      queuedFrostclawResult = null;
+      if (frostclaw && !wasPreview) showFrostclawResult(frostclaw);
     },
   };
 }

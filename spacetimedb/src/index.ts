@@ -17,6 +17,7 @@ import {
 } from "../../shared/player-motion-frame";
 import {
   ATTACK_BALANCE_VERSION,
+  ADVANCED_LAVA_WASTES_MAP_ID,
   BASIC_PAPER_HAT,
   BEGINNER_DESERT_MAP_ID,
   BOOTS_SPEED_BONUS,
@@ -72,12 +73,17 @@ const MAP_PORTALS = {
     { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
     { x: 580, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
   ],
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: [{ x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID }],
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: [
+    { x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID },
+    { x: 580, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID },
+  ],
+  [ADVANCED_LAVA_WASTES_MAP_ID]: [{ x: 360, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { x: 580, y: 770 },
+  [ADVANCED_LAVA_WASTES_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -315,6 +321,7 @@ const playerProgress = table(
     snowlandsUnlocked: t.bool().default(false),
     equippedRightHand: t.string().default(""),
     equippedLeftHand: t.string().default(""),
+    lavaUnlocked: t.bool().default(false),
   },
 );
 
@@ -1056,6 +1063,7 @@ function defaultPlayerProgress(identity: any) {
     introComplete: false,
     desertUnlocked: false,
     snowlandsUnlocked: false,
+    lavaUnlocked: false,
   };
 }
 
@@ -1509,11 +1517,16 @@ function motionSample(motion: any): PlayerMotionSample {
 function savedWorldLocation(ctx: any, identity: any, progress: any) {
   const saved = ctx.db.playerLastLocation.identity.find(identity);
   const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
-  const mapId = requestedMap === INTERMEDIATE_SNOWLANDS_MAP_ID && !progress.snowlandsUnlocked
-    ? progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID
-    : requestedMap === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked
-      ? TUTORIAL_FOREST_MAP_ID
-      : requestedMap;
+  let mapId = requestedMap;
+  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !progress.lavaUnlocked) {
+    mapId = progress.snowlandsUnlocked
+      ? INTERMEDIATE_SNOWLANDS_MAP_ID
+      : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
+  if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !progress.snowlandsUnlocked) {
+    mapId = progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
+  if (mapId === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked) mapId = TUTORIAL_FOREST_MAP_ID;
   const fallback = mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
   const x = Number.isFinite(saved?.x)
     ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, saved.x))
@@ -1827,11 +1840,11 @@ function hasFreshProgress(progress: any) {
     progress.equippedRightHand === defaultProgress.equippedRightHand &&
     progress.equippedLeftHand === defaultProgress.equippedLeftHand &&
     progress.desertUnlocked === defaultProgress.desertUnlocked &&
-    progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked;
+    progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked &&
+    progress.lavaUnlocked === defaultProgress.lavaUnlocked;
 }
 
-function contributedToLatestDragon(ctx: any, identity: any) {
-  const latest = ctx.db.dragonResult.id.find(DRAGON_ID);
+function resultIncludesContributor(latest: any, identity: any) {
   if (!latest) return false;
   try {
     const contributors = JSON.parse(latest.contributorsJson);
@@ -1840,6 +1853,14 @@ function contributedToLatestDragon(ctx: any, identity: any) {
   } catch {
     return false;
   }
+}
+
+function contributedToLatestDragon(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.dragonResult.id.find(DRAGON_ID), identity);
+}
+
+function contributedToLatestFrostclaw(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.frostclawResult.id.find(FROSTCLAW_ID), identity);
 }
 
 function inventoryForProgress(progress: any) {
@@ -2304,6 +2325,7 @@ function rewardFrostclawContributor(ctx: any, identity: any) {
     damage: current.damage + FROSTCLAW_REWARD_DAMAGE,
     maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH,
     armor: current.armor + FROSTCLAW_REWARD_ARMOR,
+    lavaUnlocked: true,
   };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
@@ -2698,13 +2720,19 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   } else {
     existingProgress = migrateAttackBalance(ctx, existingProgress);
     const existingPlayer = ctx.db.player.identity.find(ctx.sender);
-    if ((!existingProgress.desertUnlocked &&
-      (existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID || contributedToLatestDragon(ctx, ctx.sender))) ||
-      (!existingProgress.snowlandsUnlocked && existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID)) {
+    const latestDragonContributor = contributedToLatestDragon(ctx, ctx.sender);
+    const latestFrostclawContributor = contributedToLatestFrostclaw(ctx, ctx.sender);
+    const isInDesert = existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID;
+    const isInSnowlands = existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID;
+    const isInLavaWastes = existingPlayer?.mapId === ADVANCED_LAVA_WASTES_MAP_ID;
+    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || latestDragonContributor || latestFrostclawContributor)) ||
+      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || latestFrostclawContributor)) ||
+      (!existingProgress.lavaUnlocked && (isInLavaWastes || latestFrostclawContributor))) {
       existingProgress = {
         ...existingProgress,
-        desertUnlocked: existingProgress.desertUnlocked || existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID || existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID || contributedToLatestDragon(ctx, ctx.sender),
-        snowlandsUnlocked: existingProgress.snowlandsUnlocked || existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
+        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || latestDragonContributor || latestFrostclawContributor,
+        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || latestFrostclawContributor,
+        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || latestFrostclawContributor,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -3942,6 +3970,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       introComplete: base.introComplete,
       desertUnlocked: base.desertUnlocked,
       snowlandsUnlocked: base.snowlandsUnlocked,
+      lavaUnlocked: base.lavaUnlocked,
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
@@ -4266,6 +4295,32 @@ export const syncPosition = spacetimedb.reducer(
   },
 );
 
+function transitionPlayerMap(
+  ctx: any,
+  current: any,
+  mapId: string,
+  arrival: { x: number; y: number },
+  facing = current.facing,
+) {
+  const nextPlayer = {
+    ...current,
+    mapId,
+    x: arrival.x,
+    y: arrival.y,
+    ...playerZone(arrival.x, arrival.y),
+    facing: Number.isFinite(facing) ? facing : 0,
+    moving: false,
+    dx: 0,
+    dy: 0,
+    lastInputAt: ctx.timestamp,
+  };
+  ctx.db.player.identity.update(nextPlayer);
+  syncPlayerMotion(ctx, nextPlayer);
+  syncPlayerMotionIdentity(ctx, nextPlayer);
+  syncPlayerMapMarker(ctx, nextPlayer, true);
+  ensureRealtimeFrameSchedules(ctx);
+}
+
 export const changeMap = spacetimedb.reducer(
   { mapId: t.string(), x: t.f64(), y: t.f64() },
   (ctx, { mapId, x, y }) => {
@@ -4284,6 +4339,9 @@ export const changeMap = spacetimedb.reducer(
     if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !currentProgress?.snowlandsUnlocked) {
       throw new SenderError("Defeat the Desert Spider before entering Intermediate Snowlands.");
     }
+    if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !currentProgress?.lavaUnlocked) {
+      throw new SenderError("Defeat Frostclaw before entering Advanced Lava Wastes.");
+    }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);
     if (!sourcePortal) throw new SenderError("Maps are not connected.");
@@ -4294,20 +4352,7 @@ export const changeMap = spacetimedb.reducer(
     if (portalDistance > MAP_PORTAL_USE_RANGE) throw new SenderError("Move closer to the portal.");
 
     const arrival = MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
-    const nextPlayer = {
-      ...current,
-      mapId,
-      x: arrival.x,
-      y: arrival.y,
-      ...playerZone(arrival.x, arrival.y),
-      moving: false,
-      lastInputAt: ctx.timestamp,
-    };
-    ctx.db.player.identity.update(nextPlayer);
-    syncPlayerMotion(ctx, nextPlayer);
-    syncPlayerMotionIdentity(ctx, nextPlayer);
-    syncPlayerMapMarker(ctx, nextPlayer, true);
-    ensureRealtimeFrameSchedules(ctx);
+    transitionPlayerMap(ctx, current, mapId, arrival);
   },
 );
 

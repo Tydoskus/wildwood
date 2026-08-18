@@ -177,6 +177,29 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   });
   const snowPine = new Image();
   snowPine.src = "assets/wildwood/snow-pine-tree-v1.png";
+  let settledLavaAssets = 0;
+  const lavaAssetSources = [
+    "assets/wildwood/lava/lava-pool-1.png",
+    "assets/wildwood/lava/lava-pool-2.png",
+    "assets/wildwood/lava/lava-pool-3.png",
+    "assets/wildwood/lava/lava-rock-1.png",
+    "assets/wildwood/lava/lava-rock-2.png",
+    "assets/wildwood/lava/lava-rock-3.png",
+    "assets/wildwood/lava/charred-tree-1.png",
+    "assets/wildwood/lava/charred-tree-2.png",
+    "assets/wildwood/lava/charred-tree-3.png",
+  ];
+  const lavaAssets = lavaAssetSources.map((source) => {
+    const image = new Image();
+    const settle = () => {
+      settledLavaAssets += 1;
+      onWorldAssetReady();
+    };
+    image.addEventListener("load", settle, { once: true });
+    image.addEventListener("error", settle, { once: true });
+    image.src = source;
+    return image;
+  });
 
   return {
     dragonReady: () => dragonReady,
@@ -187,12 +210,15 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     portalSwirl,
     frostclawReady: () => frostclawReady,
     frostclawSpriteCanvas,
+    charredTrees: lavaAssets.slice(6),
+    lavaPools: lavaAssets.slice(0, 3),
+    lavaRocks: lavaAssets.slice(3, 6),
     snowPine,
     spiderReady: () => spiderReady,
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
     treeSpritesheet,
-    worldArtReady: () => treeReady && portalArchReady && portalSwirlReady && duelSpaceReady && duelPlatformReady,
+    worldArtReady: () => treeReady && portalArchReady && portalSwirlReady && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
   };
 }
 

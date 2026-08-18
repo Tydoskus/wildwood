@@ -23,6 +23,9 @@ type RockDecor = Extract<WorldDecor, { type: "rock" }>;
 type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type SnowTuftDecor = Extract<WorldDecor, { type: "snowTuft" }>;
+type LavaPoolDecor = Extract<WorldDecor, { type: "lavaPool" }>;
+type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
+type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
 type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
 
@@ -44,6 +47,7 @@ export type WorldRendererOptions = {
   tutorialMapId: MapId;
   desertMapId: MapId;
   snowMapId: MapId;
+  lavaMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -58,6 +62,9 @@ export type WorldRendererOptions = {
   portalArch: HTMLImageElement;
   portalSwirl: HTMLImageElement;
   snowPine: HTMLImageElement;
+  lavaPools: HTMLImageElement[];
+  lavaRocks: HTMLImageElement[];
+  charredTrees: HTMLImageElement[];
   drawShadow: DrawShadow;
   outlinedText: OutlinedText;
 };
@@ -100,10 +107,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   function mapColors() {
     const desert = options.getMapId() === options.desertMapId;
     const snow = options.getMapId() === options.snowMapId;
+    const lava = options.getMapId() === options.lavaMapId;
     return {
-      ground: snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+      ground: lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
     };
   }
 
@@ -307,16 +315,15 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       }
       return;
     }
-    const desert = options.getMapId() === options.desertMapId;
-    const snow = options.getMapId() === options.snowMapId;
-    ctx.fillStyle = snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b";
+    const colors = mapColors();
+    ctx.fillStyle = colors.ground;
     ctx.fillRect(0, 0, visible.width, visible.height);
     for (const path of options.paths) {
       const x = Math.floor(path.x - camera.x);
       const y = Math.floor(path.y - camera.y);
-      ctx.fillStyle = snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551";
+      ctx.fillStyle = colors.path;
       ctx.fillRect(x, y, path.w, path.h);
-      ctx.fillStyle = snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)";
+      ctx.fillStyle = colors.pathDetail;
       for (let yy = y + 7; yy < y + path.h; yy += 18) {
         for (let xx = x + ((yy / 18) % 2 ? 4 : 12); xx < x + path.w; xx += 24) ctx.fillRect(xx, yy, 2, 2);
       }
@@ -428,6 +435,45 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.drawImage(options.snowPine, x - width / 2, y - height, width, height);
   }
 
+  function drawLavaPool(pool: LavaPoolDecor) {
+    const image = options.lavaPools[pool.variant % options.lavaPools.length];
+    if (!image?.complete || image.naturalWidth <= 0) return;
+    const visible = visibleSize();
+    const x = Math.round(pool.x - camera.x);
+    const y = Math.round(pool.y - camera.y);
+    const width = Math.round(300 * pool.s);
+    const height = Math.round(width * image.naturalHeight / image.naturalWidth);
+    if (x + width / 2 < -40 || x - width / 2 > visible.width + 40 || y + height / 2 < -40 || y - height / 2 > visible.height + 40) return;
+    ctx.save();
+    ctx.globalAlpha = .94;
+    ctx.drawImage(image, x - width / 2, y - height / 2, width, height);
+    ctx.restore();
+  }
+
+  function drawLavaRock(rock: LavaRockDecor) {
+    const image = options.lavaRocks[rock.variant % options.lavaRocks.length];
+    if (!image?.complete || image.naturalWidth <= 0) return;
+    const visible = visibleSize();
+    const x = Math.round(rock.x - camera.x);
+    const y = Math.round(rock.y - camera.y);
+    const width = Math.round(150 * rock.s);
+    const height = Math.round(width * image.naturalHeight / image.naturalWidth);
+    if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return;
+    ctx.drawImage(image, x - width / 2, y - height, width, height);
+  }
+
+  function drawCharredTree(tree: CharredTreeDecor) {
+    const image = options.charredTrees[tree.variant % options.charredTrees.length];
+    if (!image?.complete || image.naturalWidth <= 0) return;
+    const visible = visibleSize();
+    const x = Math.round(tree.x - camera.x);
+    const y = Math.round(tree.y - camera.y);
+    const height = Math.round(150 * tree.s);
+    const width = Math.round(height * image.naturalWidth / image.naturalHeight);
+    if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return;
+    ctx.drawImage(image, x - width / 2, y - height, width, height);
+  }
+
   function drawSnowTuft(tuft: SnowTuftDecor) {
     const visible = visibleSize(); const x = Math.round(tuft.x - camera.x); const y = Math.round(tuft.y - camera.y);
     if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
@@ -447,7 +493,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][petal.variant % 3]; ctx.fillRect(x - 3, y - 1, 7, 3); ctx.fillRect(x - 1, y - 3, 3, 7); ctx.fillStyle = "rgba(255,255,255,.72)"; ctx.fillRect(x, y, 1, 1);
   }
 
-  function drawDecor() {}
+  function drawDecor() {
+    if (options.getMapId() !== options.lavaMapId) return;
+    for (const item of options.decor) if (item.type === "lavaPool") drawLavaPool(item);
+  }
 
   function minimapRoundedRect(target: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
     const corner = Math.min(radius, width / 2, height / 2);
@@ -480,8 +529,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     draw.save(); minimapRoundedRect(draw, 5, 5, size - 10, size - 10, 7); draw.clip();
     const desert = options.getMapId() === options.desertMapId;
     const snow = options.getMapId() === options.snowMapId;
-    draw.fillStyle = snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b"; draw.fillRect(innerX, innerY, innerSize, innerSize);
-    draw.fillStyle = snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551"; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
+    const colors = mapColors();
+    draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
+    draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
     draw.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) { const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3; draw.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker); }
 
     const drawPortalMarker = (portal: Portal) => {
@@ -500,13 +550,17 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       ? { state: options.boss, color: "#ff6b52" }
       : desert
         ? { state: options.spiderBoss, color: "#e9ac4e" }
-        : { state: options.frostclawBoss, color: "#67dcff" };
-    const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
-    draw.globalAlpha = mapBoss.state.dead ? .46 : 1;
-    draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
-    draw.fillStyle = mapBoss.color; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
-    draw.fillStyle = "#fff"; draw.fillRect(bx - 2, by - 1, 2, 2); draw.fillRect(bx + 2, by - 1, 2, 2);
-    draw.globalAlpha = 1;
+        : snow
+          ? { state: options.frostclawBoss, color: "#67dcff" }
+          : null;
+    if (mapBoss) {
+      const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
+      draw.globalAlpha = mapBoss.state.dead ? .46 : 1;
+      draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
+      draw.fillStyle = mapBoss.color; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
+      draw.fillStyle = "#fff"; draw.fillRect(bx - 2, by - 1, 2, 2); draw.fillRect(bx + 2, by - 1, 2, 2);
+      draw.globalAlpha = 1;
+    }
 
     draw.fillStyle = "#58e878"; for (const player of remotePlayers) draw.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);
     draw.fillStyle = "#fff"; draw.fillRect(innerX + options.player.x * sx - 2, innerY + options.player.y * sy - 2, 5, 5);
@@ -526,5 +580,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, view.width - size, 0, size, size);
   }
 
-  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawLavaRock, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }

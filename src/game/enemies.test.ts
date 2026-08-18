@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ENEMY_TYPES, rewardLabel } from "./enemies";
 
 describe("enemy reward rules", () => {
-  it("keeps starter, desert, and Snowlands reward values intentional", () => {
+  it("keeps starter through Lava Wastes reward values intentional", () => {
     expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 28 });
     expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 5 });
     expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 352 });
@@ -17,6 +17,15 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Rime Guard"].reward).toEqual({ type: "armor", amount: 14_000 });
     expect(ENEMY_TYPES["Aurora Oracle"].reward).toEqual({ type: "regen", amount: 161_000 });
     expect(ENEMY_TYPES["Rime Guard"].hp).toBeGreaterThan(ENEMY_TYPES["Venom Guard"].hp);
+    expect(ENEMY_TYPES["Ember Raider"]).toMatchObject({
+      hp: 6_075_000_000_000,
+      damage: 271_445_000,
+      reward: { type: "damage", amount: 48_000_000 },
+    });
+    expect(ENEMY_TYPES["Cinder Archer"].hp).toBeGreaterThan(ENEMY_TYPES["Glacier Archer"].hp);
+    expect(ENEMY_TYPES["Magma Guard"].reward).toEqual({ type: "armor", amount: 1_307_000 });
+    expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 });
+    expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 });
   });
 
   it("formats reward labels without changing their numeric value", () => {

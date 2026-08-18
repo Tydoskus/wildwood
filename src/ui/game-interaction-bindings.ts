@@ -2,6 +2,7 @@
 export function bindGameInteractionListeners(options: {
   triggerDragonCutscene: HTMLElement;
   triggerSnowlandsCutscene: HTMLElement;
+  triggerLavaCutscene: HTMLElement;
   hpText: HTMLElement;
   watchDuelReplay: HTMLElement;
   playerHudProfile: HTMLElement;
@@ -9,6 +10,7 @@ export function bindGameInteractionListeners(options: {
   closeProfileIconPicker: HTMLElement;
   onDragonCutscene: () => void;
   onSnowlandsCutscene: () => void;
+  onLavaCutscene: () => void;
   onOpenOwnProfile: () => void;
   replayId: () => bigint;
   onWatchReplay: (replayId: bigint) => void;
@@ -18,6 +20,7 @@ export function bindGameInteractionListeners(options: {
 }) {
   options.triggerDragonCutscene.addEventListener("click", options.onDragonCutscene);
   options.triggerSnowlandsCutscene.addEventListener("click", options.onSnowlandsCutscene);
+  options.triggerLavaCutscene.addEventListener("click", options.onLavaCutscene);
   options.hpText.closest(".card")?.addEventListener("click", options.onOpenOwnProfile);
   options.watchDuelReplay.addEventListener("click", () => {
     const replayId = options.replayId();

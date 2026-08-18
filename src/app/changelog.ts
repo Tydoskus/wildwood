@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.445": [
+    "Advanced Lava Wastes is now open beyond Snowlands, with molten pools, volcanic rocks, charred trees, and five new enemy tiers using the existing stat-scaling curve.",
+    "Defeating Frostclaw now unlocks a server-validated Snowlands portal and reveal cutscene, with bidirectional travel between Snowlands and Lava Wastes.",
+  ],
   "0.444": [
     "Nearby players now update headwear, armor, boots, and both hands after equipment changes, including bare-head and empty-hand states, without expanding movement frames.",
     "The leaderboard is taller again, landing halfway between its original and compact heights on desktop and mobile.",

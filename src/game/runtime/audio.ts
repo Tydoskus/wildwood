@@ -9,8 +9,8 @@ type WebkitAudioWindow = Window & typeof globalThis & {
   webkitAudioContext?: typeof AudioContext;
 };
 
-export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: MapId) {
-  return mapId === desertMapId
+export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: MapId, lavaMapId: MapId) {
+  return mapId === desertMapId || mapId === lavaMapId
     ? DESERT_MUSIC_SOURCE
     : mapId === snowMapId
       ? SNOW_MUSIC_SOURCE
@@ -29,6 +29,7 @@ export function createMapMusicController(
   storageKey: string,
   desertMapId: MapId,
   snowMapId: MapId,
+  lavaMapId: MapId,
 ): MapMusicController {
   const audio = new Audio(SIGN_IN_MUSIC_SOURCE);
   audio.loop = true;
@@ -76,7 +77,7 @@ export function createMapMusicController(
   }
 
   function syncMap(mapId: MapId) {
-    const nextSource = musicSourceForMap(mapId, desertMapId, snowMapId);
+    const nextSource = musicSourceForMap(mapId, desertMapId, snowMapId, lavaMapId);
     if (audio.getAttribute("src") === nextSource) return;
     const shouldResume = !audio.paused;
     audio.src = nextSource;

@@ -28,6 +28,7 @@ export type WorldRenderRuntimeOptions = {
   tutorialMapId: MapId;
   desertMapId: MapId;
   snowMapId: MapId;
+  lavaMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -51,6 +52,9 @@ export type WorldRenderRuntimeOptions = {
     portalArch: HTMLImageElement;
     portalSwirl: HTMLImageElement;
     snowPine: HTMLImageElement;
+    lavaPools: HTMLImageElement[];
+    lavaRocks: HTMLImageElement[];
+    charredTrees: HTMLImageElement[];
     dragonSpriteCanvas: HTMLCanvasElement;
     spiderSpriteCanvas: HTMLCanvasElement;
     frostclawSpriteCanvas: HTMLCanvasElement;
@@ -131,6 +135,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     tutorialMapId: options.tutorialMapId,
     desertMapId: options.desertMapId,
     snowMapId: options.snowMapId,
+    lavaMapId: options.lavaMapId,
     paths: options.paths,
     decor: options.decor,
     enemies: options.enemies,
@@ -202,6 +207,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawTree: world.drawTree,
       drawCactus: world.drawCactus,
       drawSnowPine: world.drawSnowPine,
+      drawLavaRock: world.drawLavaRock,
+      drawCharredTree: world.drawCharredTree,
       drawEnemy: actor.drawEnemy,
       drawBoss: boss.drawBoss,
       drawSpiderBoss: boss.drawSpiderBoss,

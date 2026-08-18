@@ -31,4 +31,5 @@ export default __t.row({
   snowlandsUnlocked: __t.bool().name("snowlands_unlocked"),
   equippedRightHand: __t.string().name("equipped_right_hand"),
   equippedLeftHand: __t.string().name("equipped_left_hand"),
+  lavaUnlocked: __t.bool().name("lava_unlocked"),
 });

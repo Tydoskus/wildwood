@@ -502,6 +502,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   snowlandsUnlocked: __t.bool(),
   equippedRightHand: __t.string(),
   equippedLeftHand: __t.string(),
+  lavaUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
