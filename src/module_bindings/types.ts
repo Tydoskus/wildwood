@@ -528,11 +528,11 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   frontierMastery: __t.u32(),
   vitality: __t.u32(),
   precision: __t.u32(),
-  regeneration: __t.u32(),
   criticalChance: __t.u32(),
   moveSpeed: __t.u32(),
   prosperity: __t.u32(),
   criticalDamage: __t.u32(),
+  regeneration: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 

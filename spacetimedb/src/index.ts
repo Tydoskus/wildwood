@@ -379,11 +379,11 @@ const playerResearch = table(
     frontierMastery: t.u32().default(0),
     vitality: t.u32().default(0),
     precision: t.u32().default(0),
-    regeneration: t.u32().default(0),
     criticalChance: t.u32().default(0),
     moveSpeed: t.u32().default(0),
     prosperity: t.u32().default(0),
     criticalDamage: t.u32().default(0),
+    regeneration: t.u32().default(0),
   },
 );
 
