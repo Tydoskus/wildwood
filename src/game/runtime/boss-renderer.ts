@@ -10,6 +10,7 @@ import {
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { Camera } from "./camera";
+import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, SpiderBossState, SpiderVenomPool } from "./types";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
@@ -56,7 +57,7 @@ export function createBossRenderer(options: {
     const barW = 220; const barH = 20; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 20; const ratio = clamp(boss.hp / boss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.86)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#4d1d1d"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#d8352d"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (boss.hpLossFlashTimer > 0 && boss.hpLossFlashFrom > boss.hp) { const flashRight = barX + Math.round(barW * clamp(boss.hpLossFlashFrom / boss.maxHp, ratio, 1)); ctx.save(); ctx.globalAlpha = clamp(boss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, flashRight - (barX + Math.round(barW * ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(boss.hp)))} / ${formatCompactNumber(Math.ceil(boss.maxHp))}`, x, barY + barH / 2, "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 4); options.outlinedText("+650 DAMAGE", x, barY - 5, "#ff655a", 4); ctx.restore();
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(boss.hp)))} / ${formatCompactNumber(Math.ceil(boss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 4); options.outlinedText("+650 DAMAGE", x, barY - 5, "#ff655a", 4); ctx.restore();
   }
   function drawSpiderTelegraphs() {
     if (spiderBoss.dead) return; const x = spiderBoss.x - camera.x; const y = spiderBoss.y - camera.y;
@@ -69,7 +70,7 @@ export function createBossRenderer(options: {
     const barW = 250; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 32; const ratio = clamp(spiderBoss.hp / spiderBoss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.86)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#342027"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#9f5c2f"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (spiderBoss.hpLossFlashTimer > 0 && spiderBoss.hpLossFlashFrom > spiderBoss.hp) { const fromRatio = clamp(spiderBoss.hpLossFlashFrom / spiderBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(spiderBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(spiderBoss.hp)))} / ${formatCompactNumber(Math.ceil(spiderBoss.maxHp))}`, x, barY + barH / 2, "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DESERT SPIDER", x, barY - 30, "#f5e9c4", 4); options.outlinedText("+75K DAMAGE", x, barY - 17, "#ff655a", 4); options.outlinedText("+200K MAX HEALTH", x, barY - 5, "#6fe48e", 4); ctx.restore();
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(spiderBoss.hp)))} / ${formatCompactNumber(Math.ceil(spiderBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DESERT SPIDER", x, barY - 30, "#f5e9c4", 4); options.outlinedText("+75K DAMAGE", x, barY - 17, "#ff655a", 4); options.outlinedText("+200K MAX HEALTH", x, barY - 5, "#6fe48e", 4); ctx.restore();
   }
 
   function drawFrostclawTelegraphs() {
@@ -173,7 +174,7 @@ export function createBossRenderer(options: {
     const barW = 270; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34; const ratio = clamp(frostclawBoss.hp / frostclawBoss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#17364b"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#42c9f5"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (frostclawBoss.hpLossFlashTimer > 0 && frostclawBoss.hpLossFlashFrom > frostclawBoss.hp) { const fromRatio = clamp(frostclawBoss.hpLossFlashFrom / frostclawBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(frostclawBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, barY + barH / 2, "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText("+72M DAMAGE", x, barY - 30, "#ff655a", 4); options.outlinedText("+270M MAX HEALTH", x, barY - 17, "#6fe48e", 4); options.outlinedText("+75K ARMOR", x, barY - 4, "#d3dbe0", 4); ctx.restore();
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText("+72M DAMAGE", x, barY - 30, "#ff655a", 4); options.outlinedText("+270M MAX HEALTH", x, barY - 17, "#6fe48e", 4); options.outlinedText("+75K ARMOR", x, barY - 4, "#d3dbe0", 4); ctx.restore();
   }
   return { drawBossTelegraphs, drawBoss, drawSpiderTelegraphs, drawSpiderBoss, drawFrostclawTelegraphs, drawFrostclawBoss };
 }

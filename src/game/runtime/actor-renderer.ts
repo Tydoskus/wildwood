@@ -5,6 +5,7 @@ import { formatCompactNumber } from "../../ui/number-format";
 import type { RemotePlayer } from "../../wildwood-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
+import { healthBarTextY } from "./health-bar-layout";
 import type { DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 
 type Viewport = { width: number; height: number };
@@ -300,7 +301,7 @@ export function createActorRenderer(options: {
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
-    options.outlinedText(hpLabel, barCenterX, barY + barH / 2, "#ffffff", 2);
+    options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
 
     ctx.drawImage(labels.reward.canvas, Math.round(x - labels.reward.width / 2), Math.round(rewardY - labels.reward.anchorY), labels.reward.width, labels.reward.height);
     ctx.restore();

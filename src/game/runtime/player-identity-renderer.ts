@@ -10,6 +10,7 @@ import type { ChatMessage } from "../../wildwood-coop";
 import { clamp } from "../math";
 import type { Camera } from "./camera";
 import type { ActorStatus } from "./actor-renderer";
+import { healthBarTextY } from "./health-bar-layout";
 import type { PlayerState } from "./types";
 
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -210,7 +211,7 @@ export function createPlayerIdentityRenderer(options: {
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`, centerX, barY + barH / 2, "#ffffff", 2);
+    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`, centerX, healthBarTextY(barY, barH), "#ffffff", 2);
     ctx.restore();
     if (options.isLocallyInvisible(identity)) {
       ctx.save();

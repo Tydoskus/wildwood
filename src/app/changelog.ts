@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.443": [
+    "Floating player, enemy, and boss health numbers now sit optically centered inside their bars on mobile.",
+  ],
   "0.442": [
     "Sign-in controls now stay fixed when update notes close, the Wildwood logo floats more visibly, the leaderboard is 40% shorter, and the death title is 30% smaller.",
     "Floating health text is visually centered, overhead gender symbols keep their intended proportions, and screen shake no longer exposes cached world-tile seams.",
