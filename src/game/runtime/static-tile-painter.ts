@@ -131,10 +131,6 @@ export function paintStaticTile(
       const height = Math.round(185 * decor.s);
       const width = Math.round(height * scene.snowPineAspect);
       drawStaticShadow(x, y - Math.round(height * SNOW_PINE_GROUND_OFFSET_RATIO), Math.round(width * .75), .13);
-    } else if (decor.type === "lavaRock") {
-      drawStaticShadow(x, y - 3, Math.round(125 * decor.s), .14);
-    } else if (decor.type === "charredTree") {
-      drawStaticShadow(x, y - 3, Math.round(55 * decor.s), .13);
     }
   }
 }

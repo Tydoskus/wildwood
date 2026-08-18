@@ -18,6 +18,9 @@ describe("Advanced Lava Wastes", () => {
     expect(first.decor.some((item) => item.type === "lavaRock")).toBe(true);
     expect(first.decor.some((item) => item.type === "charredTree")).toBe(true);
     expect(first.decor.some((item) => item.type === "lavaEmber")).toBe(true);
+    expect(first.decor
+      .filter((item) => item.type === "charredTree")
+      .every((item) => item.variant === 0 || item.variant === 1)).toBe(true);
   });
 
   it("spawns only lava-tier enemies", () => {

@@ -187,7 +187,6 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     "assets/wildwood/lava/lava-rock-3.png",
     "assets/wildwood/lava/charred-tree-1.png",
     "assets/wildwood/lava/charred-tree-2.png",
-    "assets/wildwood/lava/charred-tree-3.png",
   ];
   const lavaAssets = lavaAssetSources.map((source) => {
     const image = new Image();

@@ -19,10 +19,14 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Rime Guard"].hp).toBeGreaterThan(ENEMY_TYPES["Venom Guard"].hp);
     expect(ENEMY_TYPES["Ember Raider"]).toMatchObject({
       hp: 6_075_000_000_000,
-      damage: 271_445_000,
+      damage: 2_714_450_000,
       reward: { type: "damage", amount: 48_000_000 },
     });
     expect(ENEMY_TYPES["Cinder Archer"].hp).toBeGreaterThan(ENEMY_TYPES["Glacier Archer"].hp);
+    expect(ENEMY_TYPES["Cinder Archer"].damage).toBe(49_729_000_000);
+    expect(ENEMY_TYPES["Magma Guard"].damage).toBe(389_400_000_000);
+    expect(ENEMY_TYPES["Ash Reaper"].damage).toBe(14_700_000_000);
+    expect(ENEMY_TYPES["Inferno Oracle"].damage).toBe(204_490_000_000);
     expect(ENEMY_TYPES["Magma Guard"].reward).toEqual({ type: "armor", amount: 1_307_000 });
     expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 });
     expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 });

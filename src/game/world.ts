@@ -189,7 +189,7 @@ function createLavaLayout() {
       x: Math.round(x),
       y: Math.round(y),
       s: .72 + seededUnit(index, 39) * .62,
-      variant: index % 3,
+      variant: index % 2,
     });
   }
   for (let index = 0; index < 360; index += 1) {

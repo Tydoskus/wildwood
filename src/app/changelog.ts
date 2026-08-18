@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.446": [
+    "Lava Wastes enemies now deal ten times more damage for a sharper advanced-map challenge.",
+    "Lava rocks and charred trees no longer cast ground shadows, and the short wide charred stump variant has been removed.",
+  ],
   "0.445": [
     "Advanced Lava Wastes is now open beyond Snowlands, with molten pools, volcanic rocks, charred trees, and five new enemy tiers using the existing stat-scaling curve.",
     "Defeating Frostclaw now unlocks a server-validated Snowlands portal and reveal cutscene, with bidirectional travel between Snowlands and Lava Wastes.",
