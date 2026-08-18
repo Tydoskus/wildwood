@@ -5,6 +5,8 @@ type ProfilePreviewProgress = {
   equippedHead?: string;
   equippedChest?: string;
   equippedFeet?: string;
+  equippedRightHand?: string;
+  equippedLeftHand?: string;
 } | null;
 
 type DrawProfileCharacterPreviewOptions = {
@@ -66,6 +68,8 @@ export function createProfileCharacterPreview(
       headItem: progress?.equippedHead,
       chestItem: progress?.equippedChest,
       feetItem: progress?.equippedFeet,
+      rightHandItem: progress?.equippedRightHand,
+      leftHandItem: progress?.equippedLeftHand,
       scale: .6,
     });
     const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .25, width / 2, height / 2, Math.max(width, height) * .72);

@@ -164,6 +164,10 @@ const player = table(
     dx: t.f32().default(0),
     dy: t.f32().default(0),
     powerLevel: t.f64().default(95),
+    // Cold presentation fields. Appended defaults keep existing rows
+    // migration-safe without expanding the hot aggregate movement frames.
+    rightHandItem: t.string().default(""),
+    leftHandItem: t.string().default(""),
   },
 );
 
@@ -1861,6 +1865,7 @@ function hasRecentPlayerActivity(ctx: any, identity: any) {
 
 function equippedHeadForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
+  if (progress.equippedHead === "") return "";
   return inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
 }
 
@@ -1887,6 +1892,17 @@ function equippedRightHandForProgress(progress: any) {
 function equippedLeftHandForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
   return progress.equippedLeftHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
+}
+
+function equipmentPresentationForProgress(progress: any) {
+  const rightHandItem = equippedRightHandForProgress(progress);
+  return {
+    feetItem: equippedFeetForProgress(progress),
+    headItem: equippedHeadForProgress(progress),
+    chestItem: equippedChestForProgress(progress),
+    rightHandItem,
+    leftHandItem: rightHandItem ? "" : equippedLeftHandForProgress(progress),
+  };
 }
 
 function sameIdentity(a: any, b: any) {
@@ -2737,9 +2753,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   if (!existing) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
   }
-  const feetItem = equippedFeetForProgress(existingProgress);
-  const headItem = equippedHeadForProgress(existingProgress);
-  const chestItem = equippedChestForProgress(existingProgress);
+  const equipmentPresentation = equipmentPresentationForProgress(existingProgress);
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       ctx.db.player.identity.update({
@@ -2748,9 +2762,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         ...playerZone(existing.x, existing.y),
         ...powerFieldsForProgress(existingProgress),
         moving: false,
-        feetItem,
-        headItem,
-        chestItem,
+        ...equipmentPresentation,
         isVisible: visibleOnEntry,
         protocolVersion: session.protocolVersion,
         controllerTabId: normalizedTabId,
@@ -2786,9 +2798,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       controllerTabId: normalizedTabId,
       lastInputAt: ctx.timestamp,
       lastInputSequence: 0,
-      feetItem,
-      headItem,
-      chestItem,
+      ...equipmentPresentation,
       isVisible: visibleOnEntry,
     });
     const currentPlayer = ctx.db.player.identity.find(ctx.sender);
@@ -2819,15 +2829,13 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
     ...powerFieldsForProgress(existingProgress),
-    speed: speedForBoots(feetItem === TRAILBLAZER_BOOTS),
+    speed: speedForBoots(equipmentPresentation.feetItem === TRAILBLAZER_BOOTS),
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
     protocolVersion: session.protocolVersion,
     controllerTabId: normalizedTabId,
-    feetItem,
-    headItem,
-    chestItem,
+    ...equipmentPresentation,
     isVisible: visibleOnEntry,
   };
   ctx.db.player.insert(insertedPlayer);
@@ -3467,9 +3475,7 @@ export const claimGuestAccount = spacetimedb.reducer(
         ...activePlayer,
         speed: speedForBoots(nextProgress.equippedFeet === TRAILBLAZER_BOOTS),
         ...powerFieldsForProgress(nextProgress),
-        feetItem: equippedFeetForProgress(nextProgress),
-        headItem: equippedHeadForProgress(nextProgress),
-        chestItem: equippedChestForProgress(nextProgress),
+        ...equipmentPresentationForProgress(nextProgress),
       });
     }
 
@@ -3908,7 +3914,9 @@ export const savePlayerProgress = spacetimedb.reducer(
       ...(hasRecentPlayerActivity(ctx, ctx.sender) ? [SUPERIOR_GOLDEN_HELMET] : []),
     ].filter((item, index, items) => items.indexOf(item) === index);
     const inventoryJson = JSON.stringify(inventory);
-    const equippedHead = inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
+    const equippedHead = progress.equippedHead === ""
+      ? ""
+      : inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
     const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
     const equippedRightHand = progress.equippedRightHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
@@ -3945,9 +3953,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     const presentation = {
       ...powerFieldsForProgress(next),
       speed: next.speed,
-      feetItem: next.equippedFeet,
-      headItem: next.equippedHead,
-      chestItem: next.equippedChest,
+      ...equipmentPresentationForProgress(next),
     };
     if (
       activePlayer.power !== presentation.power ||
@@ -3955,7 +3961,9 @@ export const savePlayerProgress = spacetimedb.reducer(
       activePlayer.speed !== presentation.speed ||
       activePlayer.feetItem !== presentation.feetItem ||
       activePlayer.headItem !== presentation.headItem ||
-      activePlayer.chestItem !== presentation.chestItem
+      activePlayer.chestItem !== presentation.chestItem ||
+      activePlayer.rightHandItem !== presentation.rightHandItem ||
+      activePlayer.leftHandItem !== presentation.leftHandItem
     ) ctx.db.player.identity.update({ ...activePlayer, ...presentation });
   },
 );
@@ -4029,9 +4037,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
       ...activePlayer,
       ...powerFieldsForProgress(next),
       speed: next.speed,
-      feetItem: next.equippedFeet,
-      headItem: next.equippedHead,
-      chestItem: next.equippedChest,
+      ...equipmentPresentationForProgress(next),
     });
   },
 );

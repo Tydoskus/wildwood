@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASIC_PAPER_HAT, inventoryFromSave, LEGENDARY_WHITE_GOLD_ARMOR, normaliseInventory, serialiseInventory, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
+import { BASIC_PAPER_HAT, inventoryFromSave, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
 
 describe("inventory rules", () => {
   it("rejects malformed inventory and restores a valid saved item", () => {
@@ -22,5 +22,55 @@ describe("inventory rules", () => {
       equippedRightHand: STARTER_STONE,
       equippedLeftHand: "",
     });
+  });
+
+  it("preserves intentional empty head and hand slots", () => {
+    expect(inventoryFromSave(
+      JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE]),
+      "",
+      "",
+      "",
+      false,
+      false,
+      "",
+      "",
+    )).toEqual({
+      itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
+      equippedHead: "",
+      equippedChest: "",
+      equippedFeet: "",
+      equippedRightHand: "",
+      equippedLeftHand: "",
+    });
+  });
+
+  it("round-trips hat removal and a right-to-left weapon switch", () => {
+    const inventory = normaliseInventory(
+      [BASIC_PAPER_HAT, STARTER_STONE],
+      "",
+      BASIC_PAPER_HAT,
+      "",
+      false,
+      false,
+      STARTER_STONE,
+      "",
+    );
+
+    expect(moveInventoryItem(inventory, BASIC_PAPER_HAT, "BAG")).toBe(true);
+    expect(moveInventoryItem(inventory, STARTER_STONE, "LEFT_HAND")).toBe(true);
+    expect(inventory.equippedHead).toBe("");
+    expect(inventory.equippedRightHand).toBe("");
+    expect(inventory.equippedLeftHand).toBe(STARTER_STONE);
+
+    expect(inventoryFromSave(
+      serialiseInventory(inventory),
+      inventory.equippedFeet,
+      inventory.equippedHead,
+      inventory.equippedChest,
+      false,
+      false,
+      inventory.equippedRightHand,
+      inventory.equippedLeftHand,
+    )).toEqual(inventory);
   });
 });

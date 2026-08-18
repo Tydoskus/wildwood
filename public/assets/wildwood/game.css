@@ -1347,7 +1347,7 @@
   .profile-name-editor-controls { display: flex; gap: 5px; }
   #profileNameInput { flex: 1; width: 0; }
   #savePlayerNameBtn { min-width: 0; margin: 0; padding: 4px 8px; border-width: 1px; border-radius: 5px; font-size: 11px; line-height: 1; text-transform: none; }
-  .modal.leaderboard-modal { --leaderboard-body-height: min(31.2vh, 230px); width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.leaderboard-modal { --leaderboard-body-height: min(47.6vh, 350px); width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   #leaderboardTitle { color: #fff; }
@@ -1478,7 +1478,7 @@
     .player-profile-modal .profile-stat-grid > div { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-height: 23px; padding: 4px 6px; }
     .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .profile-edit-button { margin-top: 5px; padding: 4px 7px; font-size: 8px; }
-    .modal.leaderboard-modal { --leaderboard-body-height: min(18vh, 145px); padding: 9px; }
+    .modal.leaderboard-modal { --leaderboard-body-height: min(31.5vh, 237px); padding: 9px; }
     .leaderboard-header { gap: 8px; }
     .leaderboard-header h2 { font-size: 18px; }
     .leaderboard-modal .profile-close-button { width: 31px; min-width: 31px; height: 31px; font-size: 20px; }

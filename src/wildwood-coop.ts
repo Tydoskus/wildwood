@@ -19,6 +19,7 @@ import {
   type ProgressSave,
 } from "./coop/services/progress";
 import { createProgressStore } from "./coop/services/progress-store";
+import { remoteEquipmentFromRow, type RemoteEquipment } from "./coop/services/remote-equipment";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
 import { resolvePlayerPresenceMap } from "./coop/services/profile-presence";
 import {
@@ -67,7 +68,7 @@ type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_DB_NAME?: string;
 };
 
-export type RemotePlayer = {
+export type RemotePlayer = RemoteEquipment & {
   id: string;
   name: string;
   power: number;
@@ -76,9 +77,6 @@ export type RemotePlayer = {
   speed: number;
   facing: number;
   moving: boolean;
-  feetItem: string;
-  headItem: string;
-  chestItem: string;
 };
 
 export type MapPlayerMarker = {
@@ -1119,7 +1117,7 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
   existing.moving = sample.moving;
 }
 
-function upsertPlayer(row: {
+function upsertPlayer(row: RemoteEquipment & {
   identity: Identity;
   x: number;
   y: number;
@@ -1130,9 +1128,6 @@ function upsertPlayer(row: {
   power: number;
   powerLevel: number;
   speed: number;
-  feetItem: string;
-  headItem: string;
-  chestItem: string;
   isVisible: boolean;
   lastInputAt: { microsSinceUnixEpoch: bigint };
   lastInputSequence: number;
@@ -1199,6 +1194,7 @@ function upsertPlayer(row: {
   const receivedAt = performance.now();
   const serverAtMs = serverTimestampMs(row.lastInputAt);
   const existing = players.get(id);
+  const equipment = remoteEquipmentFromRow(row);
   if (existing) {
     // Equipment and profile updates re-send the player row without a
     // movement sequence change. They refresh display data without injecting a
@@ -1223,9 +1219,7 @@ function upsertPlayer(row: {
     }
     existing.speed = row.speed;
     existing.power = row.powerLevel;
-    existing.feetItem = row.feetItem;
-    existing.headItem = row.headItem;
-    existing.chestItem = row.chestItem;
+    Object.assign(existing, equipment);
   } else {
     players.set(id, {
       id,
@@ -1236,9 +1230,7 @@ function upsertPlayer(row: {
       speed: row.speed,
       facing: row.facing,
       moving: row.moving,
-      feetItem: row.feetItem,
-      headItem: row.headItem,
-      chestItem: row.chestItem,
+      ...equipment,
       samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, dx: row.dx, dy: row.dy, facing: row.facing, moving: row.moving }],
       interpolationClock: createRemoteInterpolationClock(receivedAt),
       lastInputSequence: row.lastInputSequence,

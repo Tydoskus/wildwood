@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.444": [
+    "Nearby players now update headwear, armor, boots, and both hands after equipment changes, including bare-head and empty-hand states, without expanding movement frames.",
+    "The leaderboard is taller again, landing halfway between its original and compact heights on desktop and mobile.",
+  ],
   "0.443": [
     "Floating player, enemy, and boss health numbers now sit optically centered inside their bars on mobile.",
   ],

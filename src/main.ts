@@ -593,7 +593,7 @@ import {
     equipmentForIdentity: (identity) => {
       if (identity === coop?.localIdentity?.()) return { headItem: inventory.equippedHead, chestItem: inventory.equippedChest, feetItem: inventory.equippedFeet, rightHandItem: inventory.equippedRightHand, leftHandItem: inventory.equippedLeftHand };
       const remote = coop?.remotePlayers?.().find((player) => player.id === identity);
-      return remote ? { headItem: remote.headItem, chestItem: remote.chestItem, feetItem: remote.feetItem } : {};
+      return remote ? { headItem: remote.headItem, chestItem: remote.chestItem, feetItem: remote.feetItem, rightHandItem: remote.rightHandItem, leftHandItem: remote.leftHandItem } : {};
     },
     enemySprites: ENEMY_SPRITES,
     rewardMultiplier: researchRewardMultiplier,

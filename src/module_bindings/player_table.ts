@@ -34,4 +34,6 @@ export default __t.row({
   dx: __t.f32(),
   dy: __t.f32(),
   powerLevel: __t.f64().name("power_level"),
+  rightHandItem: __t.string().name("right_hand_item"),
+  leftHandItem: __t.string().name("left_hand_item"),
 });

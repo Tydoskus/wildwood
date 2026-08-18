@@ -106,7 +106,9 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedRightHand = typeof equippedRightHand === "string" && handItems.includes(equippedRightHand) ? equippedRightHand : "";
   return {
     itemIds: items,
-    equippedHead: typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : BASIC_PAPER_HAT,
+    equippedHead: equippedHead === ""
+      ? ""
+      : typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : BASIC_PAPER_HAT,
     equippedChest: typeof equippedChest === "string" && chestItems.includes(equippedChest) ? equippedChest : "",
     equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS
       ? TRAILBLAZER_BOOTS

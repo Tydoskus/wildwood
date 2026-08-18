@@ -336,6 +336,8 @@ export const Player = __t.object("Player", {
   dx: __t.f32(),
   dy: __t.f32(),
   powerLevel: __t.f64(),
+  rightHandItem: __t.string(),
+  leftHandItem: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
 

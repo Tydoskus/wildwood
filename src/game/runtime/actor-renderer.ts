@@ -1,5 +1,4 @@
 import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite } from "../enemies";
-import { BASIC_PAPER_HAT } from "../inventory";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { RemotePlayer } from "../../wildwood-coop";
@@ -200,7 +199,7 @@ export function createActorRenderer(options: {
     if (x < -65 || y < -70 || x > width + 65 || y > height + 70) return;
 
     options.drawShadow(x, y + 29, 34, .16);
-    drawPlayerSprite({ ...other, x, y, headItem: other.headItem || BASIC_PAPER_HAT }, 1);
+    drawPlayerSprite({ ...other, x, y }, 1);
     options.drawIdentity(
       other.id,
       options.publicName(other.id, other.name),
