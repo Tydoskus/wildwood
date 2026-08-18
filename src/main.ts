@@ -894,7 +894,9 @@ import {
     connected: () => Boolean(coop?.isConnected?.()),
     accountInConflict: () => Boolean(coop?.accountState?.().sessionConflict),
     lowPerformanceMode: appShell.lowPerformanceMode, ensureMusicPlaying: appShell.ensureMusicPlaying,
-    hideStart: startup.hideStart, hideGameOver: deathScreen.hide, showGameOver: deathScreen.show,
+    hideStart: startup.hideStart,
+    hideGameOver: deathScreen.hide,
+    showGameOver: () => { mapMusic.playDeathSound(); deathScreen.show(); },
     beginAdventure: () => { coop?.beginAdventure?.(); },
     syncStoppedPosition: () => { coop?.correctMovementPosition?.(player.x, player.y, true); },
     resetPlayer: (preserveStats) => {

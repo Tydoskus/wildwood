@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.447": [
+    "Advanced Lava Wastes now plays the looping Night Ambient 5 soundtrack.",
+    "Player death now plays the dedicated Death sting through the existing music volume and mute control.",
+    "Lava Wastes enemy damage has been tripled again, reaching thirty times its original launch tuning.",
+  ],
   "0.446": [
     "Lava Wastes enemies now deal ten times more damage for a sharper advanced-map challenge.",
     "Lava rocks and charred trees no longer cast ground shadows, and the short wide charred stump variant has been removed.",

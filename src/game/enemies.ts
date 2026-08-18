@@ -106,27 +106,27 @@ const enemyTypes = {
 
   // ADVANCED LAVA WASTES ENEMIES
   // Snow-to-lava continues each archetype's desert-to-snow multiplier.
-  // Damage is intentionally 10x the original Lava Wastes launch tuning.
+  // Damage is intentionally 30x the original Lava Wastes launch tuning.
   "Ember Raider": {
-    hp: 6_075_000_000_000, speed: 240, damage: 2_714_450_000, attackSpeed: .65, r: 23,
+    hp: 6_075_000_000_000, speed: 240, damage: 8_143_350_000, attackSpeed: .65, r: 23,
     color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 },
   },
   "Cinder Archer": {
-    hp: 5_776_000_000_000, speed: 225, damage: 49_729_000_000, attackSpeed: .55, r: 21,
+    hp: 5_776_000_000_000, speed: 225, damage: 149_187_000_000, attackSpeed: .55, r: 21,
     color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 },
     ranged: true,
   },
   "Magma Guard": {
-    hp: 121_725_000_000_000, speed: 215, damage: 389_400_000_000, attackSpeed: .55, r: 30,
+    hp: 121_725_000_000_000, speed: 215, damage: 1_168_200_000_000, attackSpeed: .55, r: 30,
     color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 },
   },
   "Ash Reaper": {
-    hp: 125_000_000_000_000, speed: 245, damage: 14_700_000_000, attackSpeed: .7, r: 37,
+    hp: 125_000_000_000_000, speed: 245, damage: 44_100_000_000, attackSpeed: .7, r: 37,
     color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 },
     ranged: true, elite: true, aggro: 380,
   },
   "Inferno Oracle": {
-    hp: 64_000_000_000_000, speed: 230, damage: 204_490_000_000, attackSpeed: .6, r: 35,
+    hp: 64_000_000_000_000, speed: 230, damage: 613_470_000_000, attackSpeed: .6, r: 35,
     color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 },
     elite: true, aggro: 380,
   },
