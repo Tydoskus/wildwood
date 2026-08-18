@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ENEMY_TYPES, rewardLabel } from "./enemies";
 
 describe("enemy reward rules", () => {
-  it("keeps starter through Lava Wastes reward values intentional", () => {
+  it("keeps starter through Lava Lake reward values intentional", () => {
     expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 28 });
     expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 5 });
     expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 352 });

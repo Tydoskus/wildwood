@@ -23,7 +23,7 @@ describe("map music", () => {
     expect(musicSourceForMap(BEGINNER_DESERT_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/desert.mp3");
   });
 
-  it("uses Night Ambient 5 for Lava Wastes", () => {
+  it("uses Night Ambient 5 for Lava Lake", () => {
     expect(musicSourceForMap(ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/lava.mp3");
   });
 

@@ -33,6 +33,12 @@ export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
+export const MAP_DISPLAY_NAMES = {
+  [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
+  [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: "Intermediate Snowlands",
+  [ADVANCED_LAVA_WASTES_MAP_ID]: "Advanced Lava Lake",
+} as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
   BEGINNER_DESERT_MAP_ID,

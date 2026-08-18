@@ -986,7 +986,7 @@ import {
     onDragonCutscene: () => {
       if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
       if (currentMapId !== TUTORIAL_FOREST_MAP_ID) {
-        showMessage("DRAGON CUTSCENE: TUTORIAL FOREST ONLY", "#ff9b91");
+        showMessage("Dragon cutscene: Tutorial Forest only", "#ff9b91");
         return;
       }
       if (mapController.isCutsceneActive()) return;
@@ -996,7 +996,7 @@ import {
     onSnowlandsCutscene: () => {
       if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
       if (currentMapId !== BEGINNER_DESERT_MAP_ID) {
-        showMessage("SNOWLANDS CUTSCENE: BEGINNER DESERT ONLY", "#ff9b91");
+        showMessage("Snowlands cutscene: Beginner Desert only", "#ff9b91");
         return;
       }
       if (mapController.isCutsceneActive()) return;
@@ -1006,7 +1006,7 @@ import {
     onLavaCutscene: () => {
       if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
       if (currentMapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) {
-        showMessage("LAVA CUTSCENE: INTERMEDIATE SNOWLANDS ONLY", "#ff9b91");
+        showMessage("Lava cutscene: Intermediate Snowlands only", "#ff9b91");
         return;
       }
       if (mapController.isCutsceneActive()) return;

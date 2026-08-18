@@ -28,6 +28,7 @@ import {
   FROSTCLAW_REWARD_HEALTH,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   LEGENDARY_WHITE_GOLD_ARMOR,
+  MAP_DISPLAY_NAMES,
   MAP_IDS,
   MAX_ARMOR,
   MAX_PLAYER_STAT,
@@ -4340,7 +4341,7 @@ export const changeMap = spacetimedb.reducer(
       throw new SenderError("Defeat the Desert Spider before entering Intermediate Snowlands.");
     }
     if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !currentProgress?.lavaUnlocked) {
-      throw new SenderError("Defeat Frostclaw before entering Advanced Lava Wastes.");
+      throw new SenderError(`Defeat Frostclaw before entering ${MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID]}.`);
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

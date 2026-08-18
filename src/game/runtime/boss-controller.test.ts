@@ -102,7 +102,7 @@ describe("Frostclaw boss", () => {
     expect(after).toBeGreaterThan(before + 100);
   });
 
-  it("reveals the Lava Wastes portal after a local Frostclaw contribution", () => {
+  it("reveals the Lava Lake portal after a local Frostclaw contribution", () => {
     let shared = { encounter: 7n, hp: 750_000_000_000, maxHp: 750_000_000_000, alive: true };
     const startLavaPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({

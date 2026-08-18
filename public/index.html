@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.447" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.448" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -43,7 +43,7 @@
       <div id="fpsStatus" class="fps-status" aria-live="off" hidden><span id="gameFpsStatus">GAME FPS: --</span><span id="workFpsStatus">WORK FPS: --</span></div>
       <div id="settingsPanel" class="settings-panel card" hidden>
         <div class="settings-panel-header">
-          <div class="settings-title window-title">SETTINGS</div>
+          <div class="settings-title window-title">Settings</div>
           <button id="closeSettingsBtn" class="profile-close-button secondary-button" type="button" aria-label="Close settings">×</button>
         </div>
         <div class="setting-row">
@@ -100,7 +100,7 @@
       </div>
       <div id="inventoryPanel" class="inventory-panel card" role="dialog" aria-label="Inventory" hidden>
         <div class="inventory-panel-header">
-          <div class="settings-title window-title">INVENTORY</div>
+          <div class="settings-title window-title">Inventory</div>
           <button id="closeInventoryBtn" class="profile-close-button secondary-button" type="button" aria-label="Close inventory">×</button>
         </div>
         <div class="inventory-layout">
@@ -145,7 +145,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.447</div>
+        <div id="version">v0.448</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -212,13 +212,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.447</strong></div>
+        <div><strong id="updateNoticeTitle">v0.448</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.447</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.448</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -242,7 +242,7 @@
         <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
       </span>
     </h1>
-    <h2 class="window-title">GAME UPDATING</h2>
+    <h2 class="window-title">Game Updating</h2>
     <p>SERVER UPDATE IN PROGRESS</p>
     <div class="update-wait-track" aria-hidden="true"><span></span></div>
     <p class="loading-detail">RECONNECTING WHEN NEW VERSION IS READY</p>
@@ -251,14 +251,14 @@
 
 <div id="gameOver" role="status" aria-live="assertive" aria-atomic="true" hidden>
   <div class="death-screen">
-    <h1>you died</h1>
+    <h1>You Died</h1>
     <p id="deathCountdown" class="death-countdown" role="timer">returning to spawn in 5</p>
   </div>
 </div>
 
 <div id="duelResult" hidden>
   <div class="modal duel-modal" role="dialog" aria-modal="true">
-    <h2 id="duelResultTitle" class="window-title">DUEL COMPLETE</h2>
+    <h2 id="duelResultTitle" class="window-title">Duel Complete</h2>
     <div id="duelResultStats" class="duel-stats"></div>
     <button id="watchDuelReplayBtn" type="button"><span class="duel-replay-play-icon" aria-hidden="true"></span><span>WATCH REPLAY</span></button>
     <button id="closeDuelResultBtn" class="secondary-button" type="button">CONTINUE</button>
@@ -267,7 +267,7 @@
 
 <div id="dragonResult" hidden>
   <div class="modal dragon-result-modal" role="dialog" aria-modal="true" aria-labelledby="dragonResultTitle">
-    <h2 id="dragonResultTitle" class="window-title">DRAGON DEFEATED</h2>
+    <h2 id="dragonResultTitle" class="window-title">Dragon Defeated</h2>
     <p id="dragonResultTotal" class="dragon-result-total">1,000,000 TOTAL DAMAGE</p>
     <div id="dragonResultContributors" class="dragon-result-contributors"></div>
     <button id="closeDragonResultBtn" type="button">CONTINUE</button>
@@ -371,7 +371,7 @@
 <div id="profileIconPicker" hidden>
   <div class="modal profile-icon-picker-modal" role="dialog" aria-modal="true" aria-labelledby="profileIconPickerTitle">
     <header class="leaderboard-header">
-      <h2 id="profileIconPickerTitle" class="window-title">CHOOSE PROFILE ICON</h2>
+      <h2 id="profileIconPickerTitle" class="window-title">Choose Profile Icon</h2>
       <button id="closeProfileIconPickerBtn" class="profile-close-button secondary-button" type="button" aria-label="Close profile icon picker">×</button>
     </header>
     <div id="profileIconChoices" class="profile-icon-choices"></div>
@@ -381,7 +381,7 @@
 <div id="leaderboard" hidden>
   <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
     <header class="leaderboard-header">
-      <h2 id="leaderboardTitle" class="window-title">LEADERBOARD</h2>
+      <h2 id="leaderboardTitle" class="window-title">Leaderboard</h2>
       <button id="closeLeaderboardBtn" class="profile-close-button secondary-button" type="button" aria-label="Close leaderboard">×</button>
     </header>
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
@@ -402,7 +402,7 @@
 <div id="devAudit" hidden>
   <div class="modal dev-audit-modal" role="dialog" aria-modal="true" aria-labelledby="devAuditTitle">
     <header class="leaderboard-header">
-      <h2 id="devAuditTitle" class="window-title">DEVELOPER TOOLS</h2>
+      <h2 id="devAuditTitle" class="window-title">Developer Tools</h2>
       <button id="closeDevAuditBtn" class="profile-close-button secondary-button" type="button" aria-label="Close access audit">×</button>
     </header>
     <div class="dev-audit-tabs" role="tablist" aria-label="Developer tools">
@@ -472,7 +472,7 @@
     <header class="tech-tree-header">
       <div>
         <p class="tech-tree-kicker">ADVENTURER PROGRESSION</p>
-        <h2 id="techTreeTitle" class="window-title">TECH TREE</h2>
+        <h2 id="techTreeTitle" class="window-title">Tech Tree</h2>
       </div>
       <div id="techTreeActive" class="tech-tree-active" aria-live="polite">NO RESEARCH ACTIVE</div>
       <button id="closeTechTreeBtn" class="profile-close-button secondary-button" type="button" aria-label="Close tech tree">×</button>
@@ -519,7 +519,7 @@
     <section id="techTreeDetail" class="tech-tree-detail" role="dialog" aria-modal="true" aria-labelledby="techTreeDetailTitle" hidden>
       <div class="tech-tree-detail-card">
         <header class="tech-tree-detail-header">
-          <h3 id="techTreeDetailTitle" class="window-title">RESEARCH</h3>
+          <h3 id="techTreeDetailTitle" class="window-title">Research</h3>
           <button id="closeTechTreeDetailBtn" class="profile-close-button secondary-button" type="button" aria-label="Close research details">×</button>
         </header>
         <div id="techTreeDetailContent" class="tech-tree-detail-content" aria-live="polite"></div>
@@ -530,12 +530,12 @@
 
 <div id="duelReplay" hidden>
   <div id="duelReplayHud">
-    <span id="duelReplayTitle">DUEL REPLAY · OBSERVER</span>
+    <span id="duelReplayTitle">Duel Replay · Observer</span>
     <button id="closeDuelReplayBtn" class="secondary-button" type="button">EXIT REPLAY</button>
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.447"></script>
-<script src="assets/wildwood/game.js?v=0.447"></script>
+<script src="assets/wildwood/coop-client.js?v=0.448"></script>
+<script src="assets/wildwood/game.js?v=0.448"></script>
 </body>
 </html>

@@ -104,9 +104,9 @@ const enemyTypes = {
     elite: true, aggro: 340,
   },
 
-  // ADVANCED LAVA WASTES ENEMIES
+  // ADVANCED LAVA LAKE ENEMIES
   // Snow-to-lava continues each archetype's desert-to-snow multiplier.
-  // Damage is intentionally 30x the original Lava Wastes launch tuning.
+  // Damage is intentionally 30x the original Lava Lake launch tuning.
   "Ember Raider": {
     hp: 6_075_000_000_000, speed: 240, damage: 8_143_350_000, attackSpeed: .65, r: 23,
     color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 },

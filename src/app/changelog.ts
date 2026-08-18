@@ -1,16 +1,19 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.448": [
+    "Advanced Lava Lake is the new display name, while every map label and window heading now uses consistent Title Case.",
+  ],
   "0.447": [
-    "Advanced Lava Wastes now plays the looping Night Ambient 5 soundtrack.",
+    "Advanced Lava Lake now plays the looping Night Ambient 5 soundtrack.",
     "Player death now plays the dedicated Death sting through the existing music volume and mute control.",
-    "Lava Wastes enemy damage has been tripled again, reaching thirty times its original launch tuning.",
+    "Lava Lake enemy damage has been tripled again, reaching thirty times its original launch tuning.",
   ],
   "0.446": [
-    "Lava Wastes enemies now deal ten times more damage for a sharper advanced-map challenge.",
+    "Lava Lake enemies now deal ten times more damage for a sharper advanced-map challenge.",
     "Lava rocks and charred trees no longer cast ground shadows, and the short wide charred stump variant has been removed.",
   ],
   "0.445": [
-    "Advanced Lava Wastes is now open beyond Snowlands, with molten pools, volcanic rocks, charred trees, and five new enemy tiers using the existing stat-scaling curve.",
-    "Defeating Frostclaw now unlocks a server-validated Snowlands portal and reveal cutscene, with bidirectional travel between Snowlands and Lava Wastes.",
+    "Advanced Lava Lake is now open beyond Snowlands, with molten pools, volcanic rocks, charred trees, and five new enemy tiers using the existing stat-scaling curve.",
+    "Defeating Frostclaw now unlocks a server-validated Snowlands portal and reveal cutscene, with bidirectional travel between Snowlands and Lava Lake.",
   ],
   "0.444": [
     "Nearby players now update headwear, armor, boots, and both hands after equipment changes, including bare-head and empty-hand states, without expanding movement frames.",

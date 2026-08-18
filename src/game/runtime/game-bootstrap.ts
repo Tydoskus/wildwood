@@ -9,6 +9,7 @@ import { updateCamera } from "./camera";
 import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
+  MAP_DISPLAY_NAMES,
   PLAYER_BASE_HP,
   PLAYER_SPEED,
 } from "../../../shared/rules";
@@ -31,24 +32,24 @@ export function createGameBootstrap() {
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: {
-      name: "TUTORIAL FOREST",
+      name: MAP_DISPLAY_NAMES[TUTORIAL_FOREST_MAP_ID],
       portal: { x: 190, y: 448, width: 198, height: 198, depth: 448, destination: BEGINNER_DESERT_MAP_ID },
       arrival: { x: 190, y: 540 },
     },
     [BEGINNER_DESERT_MAP_ID]: {
-      name: "BEGINNER DESERT",
+      name: MAP_DISPLAY_NAMES[BEGINNER_DESERT_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
       arrival: { x: 360, y: 770 },
     },
     [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
-      name: "INTERMEDIATE SNOWLANDS",
+      name: MAP_DISPLAY_NAMES[INTERMEDIATE_SNOWLANDS_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: BEGINNER_DESERT_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
       arrival: { x: 580, y: 770 },
     },
     [ADVANCED_LAVA_WASTES_MAP_ID]: {
-      name: "ADVANCED LAVA WASTES",
+      name: MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
       arrival: { x: 580, y: 770 },
     },

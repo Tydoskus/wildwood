@@ -94,7 +94,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       ? { name: replay.opponentName, gender: replay.opponentGender, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked }
       : { name: replay.challengerName, gender: replay.challengerGender, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
     const won = replay.winnerName === localName;
-    elements.duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : won ? "YOU WON" : "YOU LOST";
+    elements.duelResultTitle.textContent = replay.winnerName === "DRAW" ? "Duel Draw" : won ? "You Won" : "You Lost";
     elements.duelResultStats.replaceChildren(
       createDuelResultStatRow("YOU", self),
       createDuelResultStatRow(other.name, other, other.gender),
@@ -105,7 +105,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   }
 
   function showDuelResultUnavailable() {
-    elements.duelResultTitle.textContent = "DUEL COMPLETE";
+    elements.duelResultTitle.textContent = "Duel Complete";
     const unavailable = document.createElement("div");
     unavailable.className = "duel-stat-row";
     unavailable.textContent = "RESULT DETAILS UNAVAILABLE";

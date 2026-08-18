@@ -276,7 +276,7 @@ export function createBossController(options: {
       return;
     }
     shownSpiderResultEncounter = result.encounter;
-    renderResult(result, "DESERT SPIDER DEFEATED");
+    renderResult(result, "Desert Spider Defeated");
     const encounterKey = String(result.encounter);
     if (!locallyRewardedSpiderEncounters.has(encounterKey)) {
       // The authoritative reward arrives through the server result. Mirror it
@@ -306,7 +306,7 @@ export function createBossController(options: {
       return;
     }
     shownFrostclawResultEncounter = result.encounter;
-    renderResult(result, "FROSTCLAW DEFEATED");
+    renderResult(result, "Frostclaw Defeated");
     const encounterKey = String(result.encounter);
     if (!locallyRewardedFrostclawEncounters.has(encounterKey)) {
       locallyRewardedFrostclawEncounters.add(encounterKey);
@@ -352,7 +352,7 @@ export function createBossController(options: {
       elements.worldNotice.style.animation = "";
       return;
     }
-    renderResult(result, "DRAGON DEFEATED", true);
+    renderResult(result, "Dragon Defeated", true);
     const encounterKey = String(result.encounter);
     if (!locallyRewardedDragonEncounters.has(encounterKey)) {
       locallyRewardedDragonEncounters.add(encounterKey);
