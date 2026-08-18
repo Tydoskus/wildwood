@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.449": [
+    "The Tech Tree now includes Regen research and four full progression stages, giving every existing technology three additional tiers to pursue.",
+    "Nearby players now visibly throw their real server-confirmed attacks at shared bosses without inventing attacks for idle or background players.",
+  ],
   "0.448": [
     "Advanced Lava Lake is the new display name, while every map label and window heading now uses consistent Title Case.",
   ],

@@ -2,7 +2,7 @@ import { DbConnection, tables, type ErrorContext, type SubscriptionHandle } from
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
 import { GAME_VERSION } from "./game/runtime/game-settings";
-import { isResearchId, type ResearchId } from "../shared/research";
+import { createEmptyResearchRanks, isResearchId, type ResearchId } from "../shared/research";
 import {
   PLAYER_GENDER_UNSET,
   isSelectedPlayerGender,
@@ -21,6 +21,12 @@ import {
 import { createProgressStore } from "./coop/services/progress-store";
 import { remoteEquipmentFromRow, type RemoteEquipment } from "./coop/services/remote-equipment";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
+import {
+  createRemoteBossAttackState,
+  remoteBossAttackFrame,
+  type RemoteBossAttackState,
+  type RemoteBossAttackVisual,
+} from "./coop/services/remote-boss-attack";
 import { resolvePlayerPresenceMap } from "./coop/services/profile-presence";
 import {
   createUpdateResumeStore,
@@ -78,6 +84,8 @@ export type RemotePlayer = RemoteEquipment & {
   speed: number;
   facing: number;
   moving: boolean;
+  throwClock?: number;
+  bossAttack?: RemoteBossAttackVisual;
 };
 
 export type MapPlayerMarker = {
@@ -275,6 +283,7 @@ type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
   interpolationClock: RemoteInterpolationClock;
   lastInputSequence: number;
+  bossAttackState?: RemoteBossAttackState;
 };
 
 type RemotePlayerSample = {
@@ -439,7 +448,7 @@ let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
-let localResearch: PlayerResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
+let localResearch: PlayerResearch = createEmptyResearchRanks();
 let localActiveResearch: ActiveResearch | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
@@ -1469,6 +1478,31 @@ function upsertPlayerMapFrame(row: {
   }
 }
 
+function upsertBossAttackFrame(row: {
+  mapId: string;
+  networkId: number;
+  attackerX: number;
+  attackerY: number;
+  targetX: number;
+  targetY: number;
+  targetRadius: number;
+  hits: number;
+}) {
+  if (row.mapId !== currentMapId) return;
+  const identity = motionIdentities.get(row.networkId);
+  if (!identity || identity === localIdentity) return;
+  const player = players.get(identity);
+  if (!player) return;
+  player.bossAttackState = createRemoteBossAttackState({
+    attackerX: row.attackerX,
+    attackerY: row.attackerY,
+    targetX: row.targetX,
+    targetY: row.targetY,
+    targetRadius: row.targetRadius,
+    hits: row.hits,
+  }, performance.now());
+}
+
 function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   if (row.id !== 0) return;
   onlinePlayerCount = Math.max(0, row.onlinePlayers);
@@ -1520,6 +1554,7 @@ function upsertResearch(row: { identity: Identity } & Partial<PlayerResearch>) {
     prosperity: row.prosperity ?? 0,
     vitality: row.vitality ?? 0,
     precision: row.precision ?? 0,
+    regeneration: row.regeneration ?? 0,
     criticalChance: row.criticalChance ?? 0,
     criticalDamage: row.criticalDamage ?? 0,
   };
@@ -1536,7 +1571,7 @@ function removeResearch(row: { identity: Identity }) {
   const identity = row.identity.toHexString();
   profileResearch.delete(identity);
   if (identity !== localIdentity) return;
-  localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
+  localResearch = createEmptyResearchRanks();
   onChange?.();
 }
 
@@ -1980,7 +2015,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     name: profiles.get(identity) ?? "PLAYER",
     gender: playerGenders.get(identity) ?? PLAYER_GENDER_UNSET,
     progress: { ...progress },
-    research: { ...profileResearch.get(identity) ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 } },
+    research: { ...profileResearch.get(identity) ?? createEmptyResearchRanks() },
     lifetime: { ...lifetime },
     mapId: resolvePlayerPresenceMap(identity, localIdentity, localState?.mapId, profilePlayerMaps, playerMaps) ?? undefined,
   };
@@ -2217,6 +2252,12 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
     .and(row.zoneX.lte(bounds.maxZoneX))
     .and(row.zoneY.gte(bounds.minZoneY))
     .and(row.zoneY.lte(bounds.maxZoneY)));
+  const nearbyBossAttacks = tables.bossAttackFrame.where((row) => row
+    .mapId.eq(currentMapId)
+    .and(row.zoneX.gte(bounds.minZoneX))
+    .and(row.zoneX.lte(bounds.maxZoneX))
+    .and(row.zoneY.gte(bounds.minZoneY))
+    .and(row.zoneY.lte(bounds.maxZoneY)));
 
   let next: SubscriptionHandle | null = null;
   const subscribeNext = () => {
@@ -2244,7 +2285,7 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
           mapPlayerSubscriptionTransitioning = false;
           window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
         })
-        .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities]);
+        .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities, nearbyBossAttacks]);
       mapPlayerSubscription = next;
     } catch (error) {
       if (connection !== conn || generation !== mapSubscriptionGeneration) return;
@@ -2436,7 +2477,7 @@ function connect() {
       if (identityChanged) {
         localState = null;
         localProgress = null;
-        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
+      localResearch = createEmptyResearchRanks();
         localActiveResearch = null;
       }
       lastSpeedSent = null;
@@ -2533,6 +2574,7 @@ function connect() {
         // buffers directly and deliberately skip application-wide UI fanout.
         conn.db.playerMotionFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMotionFrame(row); });
         conn.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMapFrame(row); });
+        conn.db.bossAttackFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertBossAttackFrame(row); });
         conn.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
         conn.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
         conn.db.playerMotionIdentity.onDelete((_ctx, row) => {
@@ -2665,7 +2707,7 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       localProfileReady = false;
-        localResearch = { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
+      localResearch = createEmptyResearchRanks();
       localActiveResearch = null;
       clearRealtimeCaches();
       if (hadActiveGame) {
@@ -3316,6 +3358,16 @@ export const wildwoodCoop = {
       player.y = motion.y;
       player.facing = motion.facing;
       player.moving = motion.moving;
+      const bossAttack = remoteBossAttackFrame(player.bossAttackState, now);
+      if (bossAttack) {
+        player.facing = bossAttack.facing;
+        player.throwClock = bossAttack.throwClock;
+        player.bossAttack = bossAttack.visual;
+      } else {
+        player.bossAttackState = undefined;
+        player.throwClock = undefined;
+        player.bossAttack = undefined;
+      }
       result.push(player);
     }
 

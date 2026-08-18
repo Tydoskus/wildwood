@@ -1,4 +1,5 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
+import { createEmptyResearchRanks } from "../../shared/research";
 import { formatCompactNumber } from "./number-format";
 
 export function formatPlayedTime(seconds: number) {
@@ -29,7 +30,7 @@ export function renderProfileStats(
   research?: PlayerResearch,
 ) {
   const { progress } = profile;
-  const ranks = research ?? profile.research ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 };
+  const ranks = research ?? profile.research ?? createEmptyResearchRanks();
   const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const modifier = (base: number, rank = 0, percentPerRank = 0) => `BASE: ${statValue(base)} · +${rank * percentPerRank}% · ×${multiplier(rank, percentPerRank).toFixed(2)}`;
@@ -37,13 +38,14 @@ export function renderProfileStats(
   const damageMultiplier = multiplier(ranks.warcraft, 2);
   const armorMultiplier = multiplier(ranks.precision, 2);
   const speedMultiplier = multiplier(ranks.moveSpeed, 2);
+  const regenMultiplier = multiplier(ranks.regeneration, 2);
   const stats: Array<{ kind: string; label: string; value: string; modifier?: string }> = [
     { kind: "health", label: "MAX HP", value: statValue(progress.maxHp), modifier: modifier(progress.maxHp / healthMultiplier, ranks.vitality, 2) },
     { kind: "damage", label: "DAMAGE", value: statValue(progress.damage * damageMultiplier), modifier: modifier(progress.damage, ranks.warcraft, 2) },
     { kind: "armor", label: "ARMOR", value: `${statValue(progress.armor * armorMultiplier)} (${armorReduction(progress.armor * armorMultiplier)} damage reduction)`, modifier: modifier(progress.armor, ranks.precision, 2) },
     { kind: "attack", label: "ATTACK SPEED", value: `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: modifier(1 / progress.attackRate) },
     { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString(), modifier: modifier(progress.attackRange) },
-    { kind: "regen", label: "REGEN", value: `${progress.regen >= 1_000_000 ? formatCompactNumber(progress.regen) : progress.regen.toFixed(1)}/s`, modifier: modifier(progress.regen) },
+    { kind: "regen", label: "REGEN", value: `${progress.regen * regenMultiplier >= 1_000_000 ? formatCompactNumber(progress.regen * regenMultiplier) : (progress.regen * regenMultiplier).toFixed(1)}/s`, modifier: modifier(progress.regen, ranks.regeneration, 2) },
     { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed * speedMultiplier).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
   ];
   const statGain = ranks.foraging + ranks.prosperity * 2;

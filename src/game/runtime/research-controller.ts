@@ -1,16 +1,8 @@
 import { clamp } from "../math";
 import type { PlayerState } from "./types";
+import { createEmptyResearchRanks, type ResearchRanks } from "../../../shared/research";
 
-export type ResearchRanks = {
-  warcraft: number;
-  moveSpeed: number;
-  foraging: number;
-  prosperity: number;
-  vitality: number;
-  precision: number;
-  criticalChance: number;
-  criticalDamage: number;
-};
+export type { ResearchRanks } from "../../../shared/research";
 
 type ResearchControllerOptions = {
   player: PlayerState;
@@ -20,16 +12,7 @@ type ResearchControllerOptions = {
   saveProgress: () => void;
 };
 
-const EMPTY_RANKS: ResearchRanks = {
-  warcraft: 0,
-  moveSpeed: 0,
-  foraging: 0,
-  prosperity: 0,
-  vitality: 0,
-  precision: 0,
-  criticalChance: 0,
-  criticalDamage: 0,
-};
+const EMPTY_RANKS = createEmptyResearchRanks();
 
 export function createResearchController(options: ResearchControllerOptions) {
   let appliedVitalityRank = 0;
@@ -42,6 +25,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     movementSpeedMultiplier: () => 1 + ranks().moveSpeed * .02,
     rewardMultiplier: () => 1 + ranks().foraging * .01 + ranks().prosperity * .02,
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
+    regenerationMultiplier: () => 1 + ranks().regeneration * .02,
     criticalChance: () => ranks().criticalChance * .01,
     criticalDamageMultiplier: () => 1.05 + ranks().criticalDamage * .05,
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },

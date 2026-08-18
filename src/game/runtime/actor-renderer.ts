@@ -198,6 +198,36 @@ export function createActorRenderer(options: {
     const y = Math.floor(other.y - camera.y);
     if (x < -65 || y < -70 || x > width + 65 || y > height + 70) return;
 
+    const attack = other.bossAttack;
+    if (attack && attack.projectileProgress > 0 && attack.projectileProgress < 1) {
+      const dx = attack.targetX - other.x;
+      const dy = attack.targetY - other.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const ux = dx / distance;
+      const uy = dy / distance;
+      const startX = other.x + ux * 20;
+      const startY = other.y + uy * 20;
+      const endX = attack.targetX - ux * attack.targetRadius * .72;
+      const endY = attack.targetY - uy * attack.targetRadius * .72;
+      const progress = attack.projectileProgress * (2 - attack.projectileProgress);
+      const projectileX = startX + (endX - startX) * progress - camera.x;
+      const projectileY = startY + (endY - startY) * progress - camera.y;
+      const visibleHits = Math.min(5, attack.hits);
+      ctx.save();
+      ctx.translate(projectileX, projectileY);
+      ctx.rotate(Math.atan2(dy, dx));
+      for (let index = 0; index < visibleHits; index += 1) {
+        const offset = (index - (visibleHits - 1) / 2) * 9;
+        if (options.playerStone.complete && options.playerStone.naturalWidth > 0) {
+          ctx.drawImage(options.playerStone, -options.playerStone.naturalWidth / 2, offset - options.playerStone.naturalHeight / 2);
+        } else {
+          ctx.fillStyle = "#ffe76a";
+          options.pixelCircle(0, offset, 6);
+        }
+      }
+      ctx.restore();
+    }
+
     options.drawShadow(x, y + 29, 34, .16);
     drawPlayerSprite({ ...other, x, y }, 1);
     options.drawIdentity(

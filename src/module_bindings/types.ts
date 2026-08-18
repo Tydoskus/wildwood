@@ -26,6 +26,21 @@ export const ActiveResearch = __t.object("ActiveResearch", {
 });
 export type ActiveResearch = __Infer<typeof ActiveResearch>;
 
+export const BossAttackFrame = __t.object("BossAttackFrame", {
+  mapId: __t.string(),
+  zoneX: __t.i32(),
+  zoneY: __t.i32(),
+  networkId: __t.u32(),
+  attackerX: __t.f64(),
+  attackerY: __t.f64(),
+  targetX: __t.f64(),
+  targetY: __t.f64(),
+  targetRadius: __t.f32(),
+  hits: __t.u32(),
+  emittedAt: __t.timestamp(),
+});
+export type BossAttackFrame = __Infer<typeof BossAttackFrame>;
+
 export const BugReport = __t.object("BugReport", {
   id: __t.u64(),
   reporter: __t.identity(),
@@ -513,6 +528,7 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   frontierMastery: __t.u32(),
   vitality: __t.u32(),
   precision: __t.u32(),
+  regeneration: __t.u32(),
   criticalChance: __t.u32(),
   moveSpeed: __t.u32(),
   prosperity: __t.u32(),

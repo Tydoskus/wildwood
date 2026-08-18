@@ -18,6 +18,16 @@ describe("hasAvailableResearch", () => {
     expect(researchIsAvailable("criticalDamage", ranks())).toBe(false);
   });
 
+  it("does not let a player skip an unfinished technology between stages", () => {
+    const firstStage = ranks(Object.fromEntries(
+      RESEARCH_IDS.map((id) => [id, RESEARCH_DEFINITIONS[id].ranksPerStage]),
+    ) as ResearchRanks);
+    firstStage.moveSpeed -= 1;
+    expect(researchIsAvailable("foraging", firstStage)).toBe(false);
+    firstStage.moveSpeed += 1;
+    expect(researchIsAvailable("foraging", firstStage)).toBe(true);
+  });
+
   it("clears once every research is maxed", () => {
     const complete = ranks(Object.fromEntries(
       RESEARCH_IDS.map((id) => [id, RESEARCH_DEFINITIONS[id].maxRank]),

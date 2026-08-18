@@ -77,6 +77,7 @@ import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
 // Import all table schema definitions
 import ActiveResearchRow from "./active_research_table";
+import BossAttackFrameRow from "./boss_attack_frame_table";
 import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
 import DevBugReportsRow from "./dev_bug_reports_table";
@@ -117,6 +118,19 @@ const tablesSchema = __schema({
       { name: 'active_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, ActiveResearchRow),
+  bossAttackFrame: __table({
+    name: 'boss_attack_frame',
+    indexes: [
+      { accessor: 'byMapZone', name: 'boss_attack_frame_map_id_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+        'zoneX',
+        'zoneY',
+      ] },
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, BossAttackFrameRow),
   chatMessage: __table({
     name: 'chat_message',
     indexes: [

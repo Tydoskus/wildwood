@@ -1,7 +1,7 @@
 import { Range, schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
-import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId } from "../../shared/research";
+import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, researchPrerequisitesForNextRank, type ResearchId } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
 import { legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
@@ -287,6 +287,32 @@ const playerMapFrame = table(
   },
 );
 
+// Exact accepted boss attacks fan out as cacheless, zone-filtered events.
+// Clients build short throw/projectile visuals locally instead of syncing
+// animation state or predicting attacks from nearby idle players.
+const bossAttackFrame = table(
+  {
+    public: true,
+    event: true,
+    indexes: [
+      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "zoneX", "zoneY"] as const },
+    ],
+  },
+  {
+    mapId: t.string(),
+    zoneX: t.i32(),
+    zoneY: t.i32(),
+    networkId: t.u32(),
+    attackerX: t.f64(),
+    attackerY: t.f64(),
+    targetX: t.f64(),
+    targetY: t.f64(),
+    targetRadius: t.f32(),
+    hits: t.u32(),
+    emittedAt: t.timestamp(),
+  },
+);
+
 const playerProfile = table(
   { public: true },
   {
@@ -353,6 +379,7 @@ const playerResearch = table(
     frontierMastery: t.u32().default(0),
     vitality: t.u32().default(0),
     precision: t.u32().default(0),
+    regeneration: t.u32().default(0),
     criticalChance: t.u32().default(0),
     moveSpeed: t.u32().default(0),
     prosperity: t.u32().default(0),
@@ -943,6 +970,7 @@ const spacetimedb = schema({
   playerMotionIdentity,
   playerMotionFrame,
   playerMapFrame,
+  bossAttackFrame,
   playerProfile,
   playerProgress,
   playerLastLocation,
@@ -1069,7 +1097,7 @@ function defaultPlayerProgress(identity: any) {
 }
 
 function defaultPlayerResearch(identity: any) {
-  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, moveSpeed: 0, prosperity: 0 };
+  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, regeneration: 0, criticalChance: 0, criticalDamage: 0, moveSpeed: 0, prosperity: 0 };
 }
 
 function researchForPlayer(ctx: any, identity: any) {
@@ -1108,7 +1136,7 @@ function runPendingModuleMigrations(ctx: any) {
 function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
   const definition = RESEARCH_DEFINITIONS[researchId];
   if (research[researchId] >= definition.maxRank) throw new SenderError("Research already complete.");
-  for (const [requiredId, requiredRank] of Object.entries(definition.prerequisites ?? {})) {
+  for (const [requiredId, requiredRank] of Object.entries(researchPrerequisitesForNextRank(researchId, research[researchId]))) {
     if (research[requiredId as ResearchId] < requiredRank!) throw new SenderError("Research prerequisites not met.");
   }
 }
@@ -1119,7 +1147,8 @@ function activeResearchIsAvailable(research: Record<ResearchId, number>, active:
   const definition = RESEARCH_DEFINITIONS[researchId];
   if (research[researchId] >= definition.maxRank) return false;
   if (active.targetRank !== research[researchId] + 1) return false;
-  return Object.entries(definition.prerequisites ?? {}).every(([requiredId, requiredRank]) => research[requiredId as ResearchId] >= Number(requiredRank));
+  return Object.entries(researchPrerequisitesForNextRank(researchId, research[researchId]))
+    .every(([requiredId, requiredRank]) => research[requiredId as ResearchId] >= Number(requiredRank));
 }
 
 function activeResearchCanComplete(research: Record<ResearchId, number>, active: any) {
@@ -1265,6 +1294,11 @@ function researchedArmor(ctx: any, identity: any, armor: number) {
   return armor * (1 + rank * .02);
 }
 
+function researchedRegen(ctx: any, identity: any, regen: number) {
+  const rank = ctx.db.playerResearch.identity.find(identity)?.regeneration ?? 0;
+  return regen * (1 + rank * .02);
+}
+
 function duelDamage(ctx: any, identity: any, damage: number) {
   const research = ctx.db.playerResearch.identity.find(identity);
   const baseDamage = damage * (1 + (research?.warcraft ?? 0) * .02);
@@ -1280,6 +1314,33 @@ function playerZone(x: number, y: number) {
     zoneX: Math.floor(x / PLAYER_ZONE_SIZE),
     zoneY: Math.floor(y / PLAYER_ZONE_SIZE),
   };
+}
+
+function publishBossAttack(
+  ctx: any,
+  activePlayer: any,
+  attackerX: number,
+  attackerY: number,
+  target: { x: number; y: number },
+  targetRadius: number,
+  hits: number,
+) {
+  if (boundedMapPopulation(ctx, activePlayer.mapId) < 2) return;
+  const motion = ctx.db.playerMotion.identity.find(ctx.sender);
+  if (!motion?.isVisible) return;
+  const zone = playerZone(attackerX, attackerY);
+  ctx.db.bossAttackFrame.insert({
+    mapId: activePlayer.mapId,
+    ...zone,
+    networkId: motion.networkId,
+    attackerX,
+    attackerY,
+    targetX: target.x,
+    targetY: target.y,
+    targetRadius,
+    hits,
+    emittedAt: ctx.timestamp,
+  });
 }
 
 function playerWithMotion(ctx: any, activePlayer: any) {
@@ -3183,6 +3244,7 @@ function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x
   };
   if (currentContribution) ctx.db.dragonContribution.identity.update(nextContribution);
   else ctx.db.dragonContribution.insert(nextContribution);
+  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, DRAGON_POSITION, DRAGON_RADIUS, acceptedHits);
 
   const nextDragon = {
     ...dragon,
@@ -3264,6 +3326,7 @@ function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x
   };
   if (currentContribution) ctx.db.spiderContribution.identity.update(nextContribution);
   else ctx.db.spiderContribution.insert(nextContribution);
+  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, SPIDER_POSITION, SPIDER_RADIUS, acceptedHits);
 
   const nextSpider = {
     ...spider,
@@ -3342,6 +3405,7 @@ function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: 
   };
   if (currentContribution) ctx.db.frostclawContribution.identity.update(nextContribution);
   else ctx.db.frostclawContribution.insert(nextContribution);
+  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, FROSTCLAW_POSITION, FROSTCLAW_RADIUS, acceptedHits);
 
   const nextFrostclaw = {
     ...frostclaw,
@@ -4166,7 +4230,7 @@ export const requestDuel = spacetimedb.reducer(
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
       challengerArmor: researchedArmor(ctx, ctx.sender, challengerProgress.armor),
       challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? challengerProgress.attackRate : inactiveAttackRate,
-      challengerRegen: challengerProgress.regen,
+      challengerRegen: researchedRegen(ctx, ctx.sender, challengerProgress.regen),
       challengerAttacks: 0,
       challengerDamageDealt: 0,
       challengerRegened: 0,
@@ -4176,7 +4240,7 @@ export const requestDuel = spacetimedb.reducer(
       opponentDamage: duelDamage(ctx, opponent, opponentProgress.damage),
       opponentArmor: researchedArmor(ctx, opponent, opponentProgress.armor),
       opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? opponentProgress.attackRate : inactiveAttackRate,
-      opponentRegen: opponentProgress.regen,
+      opponentRegen: researchedRegen(ctx, opponent, opponentProgress.regen),
       opponentAttacks: 0,
       opponentDamageDealt: 0,
       opponentRegened: 0,
