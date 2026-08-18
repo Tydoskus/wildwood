@@ -7,6 +7,7 @@ import {
   researchDurationMs,
   researchIsAvailable,
   researchPrerequisitesForNextRank,
+  shouldBackfillLegacyRegeneration,
   type ResearchId,
 } from "./research";
 
@@ -66,6 +67,19 @@ describe("research timer curve", () => {
     expect(RESEARCH_DEFINITIONS.vitality.prerequisites).toEqual({ foraging: 3, warcraft: 3 });
     expect(RESEARCH_DEFINITIONS.precision.prerequisites).toEqual({ foraging: 3, warcraft: 3 });
     expect(RESEARCH_DEFINITIONS.prosperity.prerequisites).toEqual({ vitality: 3, precision: 3 });
+  });
+
+  it("recognizes only players who completed the tree before Regen existed", () => {
+    const ranks = createEmptyResearchRanks();
+    for (const id of RESEARCH_IDS) ranks[id] = RESEARCH_DEFINITIONS[id].ranksPerStage;
+    ranks.regeneration = 0;
+    expect(shouldBackfillLegacyRegeneration(ranks)).toBe(true);
+
+    ranks.criticalDamage = 3;
+    expect(shouldBackfillLegacyRegeneration(ranks)).toBe(false);
+    ranks.criticalDamage = 4;
+    ranks.regeneration = 5;
+    expect(shouldBackfillLegacyRegeneration(ranks)).toBe(false);
   });
 
   it("keeps every same-stage prerequisite valid, reachable, and acyclic", () => {

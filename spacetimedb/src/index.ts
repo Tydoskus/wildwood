@@ -1,7 +1,14 @@
 import { Range, schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor } from "./combat";
-import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, researchPrerequisitesForNextRank, type ResearchId } from "../../shared/research";
+import {
+  RESEARCH_DEFINITIONS,
+  isResearchId,
+  researchDurationMs,
+  researchPrerequisitesForNextRank,
+  shouldBackfillLegacyRegeneration,
+  type ResearchId,
+} from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
 import { legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
@@ -98,7 +105,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 3;
+const MODULE_MIGRATION_VERSION = 4;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 7;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1128,6 +1135,16 @@ function runPendingModuleMigrations(ctx: any) {
     }
   }
   if (currentVersion < 3) rebuildPlayerMotionMapState(ctx);
+  if (currentVersion < 4) {
+    for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
+      if (shouldBackfillLegacyRegeneration(research)) {
+        ctx.db.playerResearch.identity.update({
+          ...research,
+          regeneration: RESEARCH_DEFINITIONS.regeneration.ranksPerStage,
+        });
+      }
+    }
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);

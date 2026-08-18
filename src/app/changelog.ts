@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.450": [
+    "The Tech Tree is compact again: one node per upgrade, cumulative rank totals, and the same long research grind without repeated Stage sections.",
+    "Players who completed the original tree keep Critical Damage rank 4 and receive the first five Regen ranks, reopening continued research immediately.",
+  ],
   "0.449": [
     "The Tech Tree now includes Regen research and four full progression stages, giving every existing technology three additional tiers to pursue.",
     "Nearby players now visibly throw their real server-confirmed attacks at shared bosses without inventing attacks for idle or background players.",

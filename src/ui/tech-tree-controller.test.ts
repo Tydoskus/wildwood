@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { RESEARCH_DEFINITIONS, RESEARCH_IDS } from "../../shared/research";
-import { hasAvailableResearch, researchIsAvailable, type ResearchRanks } from "./tech-tree-controller";
+import {
+  hasAvailableResearch,
+  researchIsAvailable,
+  researchProgressLabel,
+  type ResearchRanks,
+} from "./tech-tree-controller";
 
 function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
   return {
@@ -10,6 +15,10 @@ function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
 }
 
 describe("hasAvailableResearch", () => {
+  it("shows saved ranks cumulatively instead of resetting each loop", () => {
+    expect(researchProgressLabel("criticalDamage", 4)).toBe("4 / 16");
+  });
+
   it("reports an immediately researchable node", () => {
     expect(hasAvailableResearch(ranks())).toBe(true);
   });
@@ -18,7 +27,7 @@ describe("hasAvailableResearch", () => {
     expect(researchIsAvailable("criticalDamage", ranks())).toBe(false);
   });
 
-  it("does not let a player skip an unfinished technology between stages", () => {
+  it("does not let a player skip an unfinished technology between loops", () => {
     const firstStage = ranks(Object.fromEntries(
       RESEARCH_IDS.map((id) => [id, RESEARCH_DEFINITIONS[id].ranksPerStage]),
     ) as ResearchRanks);

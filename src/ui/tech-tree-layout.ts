@@ -1,9 +1,8 @@
-import { RESEARCH_STAGE_COUNT, type ResearchId } from "../../shared/research";
+import type { ResearchId } from "../../shared/research";
 
 export type TechTreeNode = {
   id: string;
   researchId: ResearchId;
-  stageIndex: number;
   category: string;
 };
 
@@ -13,7 +12,7 @@ export type TechTreeLayout = {
   paths: Array<[string, string]>;
 };
 
-const STAGE_ROWS: Array<Array<{ researchId: ResearchId; category: string }>> = [
+const TECH_TREE_ROWS: Array<Array<{ researchId: ResearchId; category: string }>> = [
   [{ researchId: "foraging", category: "FOUNDATION" }],
   [
     { researchId: "warcraft", category: "COMBAT" },
@@ -31,41 +30,28 @@ const STAGE_ROWS: Array<Array<{ researchId: ResearchId; category: string }>> = [
   [{ researchId: "criticalDamage", category: "OFFENSE" }],
 ];
 
-function nodeId(stageIndex: number, researchId: ResearchId) {
-  return `stage-${stageIndex + 1}-${researchId}`;
+function nodeId(researchId: ResearchId) {
+  return `tech-${researchId}`;
 }
 
-export function createTechTreeLayout(stageCount = RESEARCH_STAGE_COUNT): TechTreeLayout {
-  const rows: TechTreeNode[][] = [];
+export function createTechTreeLayout(): TechTreeLayout {
+  const rows = TECH_TREE_ROWS.map((row) => row.map(({ researchId, category }) => ({
+    id: nodeId(researchId),
+    researchId,
+    category,
+  })));
   const paths: Array<[string, string]> = [];
-
-  for (let stageIndex = 0; stageIndex < stageCount; stageIndex += 1) {
-    const stageRows = STAGE_ROWS.map((row) => row.map(({ researchId, category }) => ({
-      id: nodeId(stageIndex, researchId),
-      researchId,
-      stageIndex,
-      category: `STAGE ${stageIndex + 1} · ${category}`,
-    })));
-    rows.push(...stageRows);
-
-    const path = (from: ResearchId, to: ResearchId) => paths.push([nodeId(stageIndex, from), nodeId(stageIndex, to)]);
-    path("foraging", "warcraft");
-    path("foraging", "moveSpeed");
-    path("warcraft", "vitality");
-    path("warcraft", "precision");
-    path("vitality", "regeneration");
-    path("precision", "regeneration");
-    path("vitality", "prosperity");
-    path("precision", "prosperity");
-    path("prosperity", "criticalChance");
-    path("criticalChance", "criticalDamage");
-    if (stageIndex > 0) {
-      paths.push([
-        nodeId(stageIndex - 1, "criticalDamage"),
-        nodeId(stageIndex, "foraging"),
-      ]);
-    }
-  }
+  const path = (from: ResearchId, to: ResearchId) => paths.push([nodeId(from), nodeId(to)]);
+  path("foraging", "warcraft");
+  path("foraging", "moveSpeed");
+  path("warcraft", "vitality");
+  path("warcraft", "precision");
+  path("vitality", "regeneration");
+  path("precision", "regeneration");
+  path("vitality", "prosperity");
+  path("precision", "prosperity");
+  path("prosperity", "criticalChance");
+  path("criticalChance", "criticalDamage");
 
   return { rows, nodes: rows.flat(), paths };
 }

@@ -3,8 +3,6 @@ import {
   researchDurationMs,
   researchIsAvailable as sharedResearchIsAvailable,
   researchPrerequisitesForNextRank,
-  researchStageEndRank,
-  researchStageStartRank,
   type ResearchId,
   type ResearchRanks as SharedResearchRanks,
 } from "../../shared/research";
@@ -50,6 +48,10 @@ export function hasAvailableResearch(ranks: ResearchRanks) {
   return Object.values(RESEARCH_DEFINITIONS).some((definition) => researchIsAvailable(definition.id, ranks));
 }
 
+export function researchProgressLabel(researchId: ResearchId, rank: number) {
+  return `${rank} / ${RESEARCH_DEFINITIONS[researchId].maxRank}`;
+}
+
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
   const { button, notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
   const layout = createTechTreeLayout();
@@ -66,14 +68,14 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       node.className = "tech-tree-node";
       node.type = "button";
       node.dataset.techNode = layoutNode.id;
-      node.setAttribute("aria-label", `${definition.effect}, stage ${layoutNode.stageIndex + 1}`);
+      node.setAttribute("aria-label", definition.effect);
       const category = document.createElement("span");
       category.className = "tech-tree-node-tier";
       category.textContent = layoutNode.category;
       const title = document.createElement("strong");
       title.textContent = definition.effect;
       const progress = document.createElement("small");
-      progress.textContent = `0 / ${definition.ranksPerStage}`;
+      progress.textContent = researchProgressLabel(layoutNode.researchId, 0);
       node.append(category, title, progress);
       tier.append(node);
     }
@@ -93,18 +95,11 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     return `${hours}h ${minutes % 60}m`;
   }
 
-  function stageProgress(node: TechTreeNode, ranks: ResearchRanks) {
+  function techProgress(node: TechTreeNode, ranks: ResearchRanks) {
     const rank = ranks[node.researchId];
-    const start = researchStageStartRank(node.researchId, node.stageIndex);
-    const end = researchStageEndRank(node.researchId, node.stageIndex);
     return {
       rank,
-      start,
-      end,
-      localRank: Math.max(0, Math.min(end - start, rank - start)),
-      isFuture: rank < start,
-      isComplete: rank >= end,
-      isCurrent: rank >= start && rank < end,
+      isComplete: rank >= RESEARCH_DEFINITIONS[node.researchId].maxRank,
     };
   }
 
@@ -112,14 +107,11 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     const completedRanks = ranks[researchId];
     const requirements = Object.entries(researchPrerequisitesForNextRank(researchId, completedRanks))
       .filter(([id, rank]) => ranks[id as ResearchId] < Number(rank));
-    if (!requirements.length) return "FOUNDATIONS";
-    return requirements.map(([id, rank]) => {
-      const requiredId = id as ResearchId;
-      const perStage = RESEARCH_DEFINITIONS[requiredId].ranksPerStage;
-      const requiredStage = Math.max(0, Math.ceil(Number(rank) / perStage) - 1);
-      const localRank = Number(rank) - researchStageStartRank(requiredId, requiredStage);
-      return `${RESEARCH_DEFINITIONS[requiredId].effect} S${requiredStage + 1} ${localRank}`;
-    }).join(" + ");
+    if (!requirements.length) return "AVAILABLE";
+    if (requirements.length > 3) return "FINISH ALL UPGRADES";
+    return requirements
+      .map(([id, rank]) => `${RESEARCH_DEFINITIONS[id as ResearchId].effect} ${rank}`)
+      .join(" + ");
   }
 
   function drawLinks() {
@@ -169,33 +161,28 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     for (const element of map.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
       const node = nodesById.get(element.dataset.techNode ?? "");
       if (!node) continue;
-      const definition = RESEARCH_DEFINITIONS[node.researchId];
-      const progress = stageProgress(node, ranks);
-      const activeInStage = current?.researchId === node.researchId &&
-        current.targetRank > progress.start &&
-        current.targetRank <= progress.end;
-      const available = !current && progress.isCurrent && researchIsAvailable(node.researchId, ranks);
+      const progress = techProgress(node, ranks);
+      const activeOnNode = current?.researchId === node.researchId;
+      const available = !current && !progress.isComplete && researchIsAvailable(node.researchId, ranks);
       element.classList.toggle("is-available", available);
       element.classList.toggle("is-complete", progress.isComplete);
-      element.classList.toggle("is-active", activeInStage);
-      element.classList.toggle("is-locked", !available && !progress.isComplete && !activeInStage);
+      element.classList.toggle("is-active", activeOnNode);
+      element.classList.toggle("is-locked", !available && !progress.isComplete && !activeOnNode);
       element.setAttribute("aria-pressed", String(selectedNodeId === node.id));
       const small = element.querySelector("small");
-      if (small) small.textContent = `${progress.localRank} / ${definition.ranksPerStage}`;
+      if (small) small.textContent = researchProgressLabel(node.researchId, progress.rank);
     }
 
     const selected = nodesById.get(selectedNodeId) ?? layout.nodes[0];
     if (!selected) return;
     const definition = RESEARCH_DEFINITIONS[selected.researchId];
-    const progress = stageProgress(selected, ranks);
-    const selectedActive = current?.researchId === selected.researchId &&
-      current.targetRank > progress.start &&
-      current.targetRank <= progress.end;
+    const progress = techProgress(selected, ranks);
+    const selectedActive = current?.researchId === selected.researchId;
     const duration = researchDurationMs(selected.researchId, progress.rank);
-    const canStart = !current && progress.isCurrent && researchIsAvailable(selected.researchId, ranks);
+    const canStart = !current && !progress.isComplete && researchIsAvailable(selected.researchId, ranks);
     detailContent.replaceChildren();
     const title = document.createElement("strong");
-    title.textContent = `${definition.icon} ${definition.effect} · STAGE ${selected.stageIndex + 1} · ${progress.localRank} / ${definition.ranksPerStage}`;
+    title.textContent = `${definition.icon} ${definition.effect} · ${researchProgressLabel(selected.researchId, progress.rank)}`;
     const description = document.createElement("span");
     description.textContent = `${definition.valuePerRank}% PER RANK`;
     detailContent.append(title, description);
@@ -204,7 +191,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     effectValue.textContent = `+${definition.valuePerRank}%`;
     detailContent.append(effectValue);
 
-    if (progress.isCurrent) {
+    if (!progress.isComplete) {
       const time = document.createElement("div");
       time.className = "tech-tree-research-time";
       const timeLabel = document.createElement("span");
@@ -239,10 +226,9 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     action.disabled = researchRequestPending || Boolean(current) || !canStart;
     action.textContent = current
       ? activeRemaining <= 0 ? "FINALIZING RESEARCH" : "RESEARCH IN PROGRESS"
-      : progress.isFuture ? `COMPLETE STAGE ${selected.stageIndex} FIRST`
-        : progress.isComplete ? "STAGE COMPLETE"
-          : canStart ? "START RESEARCH"
-            : `REQUIRES ${requirementText(selected.researchId, ranks)}`;
+      : progress.isComplete ? "MAXED"
+        : canStart ? "START RESEARCH"
+          : `REQUIRES ${requirementText(selected.researchId, ranks)}`;
     action.addEventListener("click", () => { void triggerAction(); });
     detailContent.append(action);
     drawLinks();
@@ -262,15 +248,12 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
 
   function currentNode(ranks: ResearchRanks, current: ActiveResearch | null) {
     if (current) {
-      const activeNode = layout.nodes.find((node) => node.researchId === current.researchId &&
-        current.targetRank > researchStageStartRank(node.researchId, node.stageIndex) &&
-        current.targetRank <= researchStageEndRank(node.researchId, node.stageIndex));
+      const activeNode = layout.nodes.find((node) => node.researchId === current.researchId);
       if (activeNode) return activeNode;
     }
-    return layout.nodes.find((node) => {
-      const progress = stageProgress(node, ranks);
-      return progress.isCurrent && researchIsAvailable(node.researchId, ranks);
-    }) ?? layout.nodes.find((node) => !stageProgress(node, ranks).isComplete) ?? layout.nodes[layout.nodes.length - 1];
+    return layout.nodes.find((node) => researchIsAvailable(node.researchId, ranks))
+      ?? layout.nodes.find((node) => !techProgress(node, ranks).isComplete)
+      ?? layout.nodes[layout.nodes.length - 1];
   }
 
   function open() {

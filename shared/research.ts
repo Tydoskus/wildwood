@@ -73,6 +73,24 @@ export function createEmptyResearchRanks(): ResearchRanks {
   return Object.fromEntries(RESEARCH_IDS.map((id) => [id, 0])) as ResearchRanks;
 }
 
+const LEGACY_COMPLETE_RANKS: Partial<Record<ResearchId, number>> = {
+  warcraft: 5,
+  moveSpeed: 5,
+  foraging: 5,
+  vitality: 5,
+  precision: 5,
+  prosperity: 5,
+  criticalChance: 5,
+  criticalDamage: 4,
+};
+
+/** Preserves completion for players who maxed the tree before Regen existed. */
+export function shouldBackfillLegacyRegeneration(ranks: ResearchRanks) {
+  if (ranks.regeneration >= RESEARCH_DEFINITIONS.regeneration.ranksPerStage) return false;
+  return Object.entries(LEGACY_COMPLETE_RANKS)
+    .every(([id, requiredRank]) => ranks[id as ResearchId] >= Number(requiredRank));
+}
+
 export function researchStageStartRank(researchId: ResearchId, stageIndex: number) {
   return RESEARCH_DEFINITIONS[researchId].ranksPerStage * stageIndex;
 }
