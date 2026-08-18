@@ -22,4 +22,5 @@ export default __t.row({
   playerSprite: __t.u32().name("player_sprite"),
   skinTone: __t.u32().name("skin_tone"),
   isGuest: __t.bool().name("is_guest"),
+  gender: __t.u8(),
 });

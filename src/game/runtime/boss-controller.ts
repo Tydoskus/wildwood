@@ -18,6 +18,7 @@ import {
   SPIDER_REWARD_HEALTH,
 } from "../../../shared/rules";
 import { clamp, rand } from "../math";
+import type { PlayerGender } from "../../../shared/player-gender";
 import type {
   BossRainStrike,
   DragonBossState,
@@ -61,7 +62,7 @@ type SharedBossState = {
 type BossResult = {
   encounter: bigint;
   totalDamage: number;
-  contributors: Array<{ identity: string; name: string; damage: number; percentage: number }>;
+  contributors: Array<{ identity: string; name: string; gender: PlayerGender; damage: number; percentage: number }>;
 };
 
 type NoticeElements = {
@@ -118,7 +119,7 @@ export function createBossController(options: {
   startDragonPortalCutscene: () => void;
   startSnowlandsPortalCutscene: () => void;
   elements: NoticeElements;
-  renderPlayerName: (element: HTMLElement, identity: string, name: string) => void;
+  renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
   damagePlayer: (amount: number) => boolean;
   logPickup: (text: string, color: string) => void;
@@ -215,7 +216,7 @@ export function createBossController(options: {
       const row = document.createElement("div");
       row.className = "dragon-world-notice-row";
       const name = document.createElement("span");
-      renderPlayerName(name, contributor.identity, contributor.name);
+      renderPlayerName(name, contributor.identity, contributor.name, contributor.gender);
       const percentage = document.createElement("span");
       percentage.textContent = `${Math.round(contributor.percentage)}%`;
       row.append(name, percentage);
@@ -238,7 +239,7 @@ export function createBossController(options: {
       row.className = "dragon-result-row";
       const name = document.createElement("span");
       name.className = "dragon-result-name";
-      renderPlayerName(name, contributor.identity, contributor.name);
+      renderPlayerName(name, contributor.identity, contributor.name, contributor.gender);
       const damage = document.createElement("span");
       damage.className = "dragon-result-damage";
       damage.textContent = Math.round(contributor.damage).toLocaleString();

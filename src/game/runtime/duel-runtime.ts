@@ -1,5 +1,6 @@
-import { createDuelPresentation } from "./duel-presentation";
+import { createDuelPresentation, type DuelReplayTitle } from "./duel-presentation";
 import type { RuntimeDuelReplay, RuntimeDuelState } from "./types";
+import { appendPlayerGenderIcon } from "../../ui/player-gender";
 
 export function createDuelRuntime(hooks: {
   activeDuel: () => RuntimeDuelState | null;
@@ -21,6 +22,19 @@ export function createDuelRuntime(hooks: {
   duelReplay: HTMLElement;
   duelCountdown: HTMLElement;
 }) {
+  function renderReplayTitle(title: DuelReplayTitle) {
+    const challenger = document.createElement("span");
+    challenger.className = "duel-replay-player-name";
+    challenger.append(document.createTextNode(title.challengerName));
+    appendPlayerGenderIcon(challenger, title.challengerGender);
+    const opponent = document.createElement("span");
+    opponent.className = "duel-replay-player-name";
+    opponent.append(document.createTextNode(title.opponentName));
+    appendPlayerGenderIcon(opponent, title.opponentGender);
+    hooks.replayTitle.replaceChildren(challenger, " VS ", opponent);
+    if (title.detail) hooks.replayTitle.append(` · ${title.detail}`);
+  }
+
   const presentation = createDuelPresentation({
     activeDuel: hooks.activeDuel,
     localIdentity: hooks.localIdentity,
@@ -29,7 +43,7 @@ export function createDuelRuntime(hooks: {
     playerDisplayName: hooks.playerDisplayName,
     pulseDuel: hooks.pulseDuel,
     spawnDamageNumber: hooks.spawnDamageNumber,
-    setReplayTitle: (title) => { hooks.replayTitle.textContent = title; },
+    setReplayTitle: renderReplayTitle,
     now: hooks.now,
     nowMs: hooks.nowMs,
   });

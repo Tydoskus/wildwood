@@ -1,5 +1,11 @@
 import { playerPowerForStats } from "../../../shared/player-power";
+import {
+  PLAYER_GENDER_FEMALE,
+  PLAYER_GENDER_MALE,
+  type PlayerGender,
+} from "../../../shared/player-gender";
 import { formatCompactNumber } from "../../ui/number-format";
+import { appendPlayerGenderIcon } from "../../ui/player-gender";
 import type { ChatMessage } from "../../wildwood-coop";
 import { clamp } from "../math";
 import type { Camera } from "./camera";
@@ -25,11 +31,13 @@ export function createPlayerIdentityRenderer(options: {
   viewport: () => { width: number; height: number };
   profileIconSheet: HTMLImageElement;
   powerIcon: HTMLImageElement;
+  genderIcons: Record<typeof PLAYER_GENDER_MALE | typeof PLAYER_GENDER_FEMALE, HTMLImageElement>;
   antiAliasingEnabled: () => boolean;
   isDeveloper: (identity: string | undefined) => boolean;
   isLocallyInvisible: (identity: string | undefined) => boolean;
   isGuest: (identity: string | undefined) => boolean;
   profileIcon: (identity: string | undefined) => number;
+  playerGender: (identity: string | undefined) => PlayerGender;
   chatRevision: () => number;
   chatMessages: () => ChatMessage[];
   outlinedText: OutlinedText;
@@ -47,7 +55,7 @@ export function createPlayerIdentityRenderer(options: {
     return options.isDeveloper(identity) ? `${DEVELOPER_BADGE} ${guestName}` : guestName;
   }
 
-  function renderDomPlayerName(element: HTMLElement, identity: string | undefined, name: string | undefined) {
+  function renderDomPlayerName(element: HTMLElement, identity: string | undefined, name: string | undefined, gender = options.playerGender(identity)) {
     const baseName = name || "PLAYER";
     element.replaceChildren();
     if (options.isDeveloper(identity)) {
@@ -57,6 +65,7 @@ export function createPlayerIdentityRenderer(options: {
       element.appendChild(badge);
     }
     element.append(document.createTextNode(baseName));
+    appendPlayerGenderIcon(element, gender);
     if (options.isGuest(identity)) element.append(document.createTextNode(" (guest)"));
   }
 
@@ -178,7 +187,7 @@ export function createPlayerIdentityRenderer(options: {
     ctx.restore();
   }
 
-  function drawActorStatus({ x, y, identity, name, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
+  function drawActorStatus({ x, y, identity, name, gender, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
     const ctx = options.ctx;
     ctx.save();
     const centerX = Math.round(x);
@@ -211,11 +220,11 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText("Invisible", centerX, barY - 39, "#c9a6ff", 4);
       ctx.restore();
     }
-    drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor);
+    drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor, gender);
     ctx.restore();
   }
 
-  function drawPlayerIdentity(_identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) {
+  function drawPlayerIdentity(identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, explicitGender?: PlayerGender) {
     if (!name) return;
     const ctx = options.ctx;
     const powerValue = power === null ? "" : formatCompactNumber(power);
@@ -223,7 +232,15 @@ export function createPlayerIdentityRenderer(options: {
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
     const nameWidth = ctx.measureText(name).width;
-    const textLeft = Math.round(centerX - nameWidth / 2);
+    const gender = explicitGender ?? options.playerGender(identity);
+    const genderIcon = gender === PLAYER_GENDER_MALE || gender === PLAYER_GENDER_FEMALE
+      ? options.genderIcons[gender]
+      : null;
+    const hasGenderIcon = Boolean(genderIcon?.complete && genderIcon.naturalWidth > 0);
+    const genderIconSize = hasGenderIcon ? 15 : 0;
+    const genderIconGap = hasGenderIcon ? 3 : 0;
+    const labelWidth = nameWidth + genderIconGap + genderIconSize;
+    const textLeft = Math.round(centerX - labelWidth / 2);
     const nameBottom = powerValue ? bottom - 18 : bottom;
     const developerPrefix = `${DEVELOPER_BADGE} `;
     if (name.startsWith(developerPrefix)) {
@@ -233,8 +250,12 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 4);
       options.outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 4);
     } else {
-      ctx.textAlign = "center";
-      options.outlinedText(name, centerX, nameBottom, color, 4);
+      ctx.textAlign = "left";
+      options.outlinedText(name, textLeft, nameBottom, color, 4);
+    }
+    if (hasGenderIcon && genderIcon) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(genderIcon, Math.round(textLeft + nameWidth + genderIconGap), Math.round(nameBottom - genderIconSize), genderIconSize, genderIconSize);
     }
     if (powerValue) {
       const hasPowerIcon = options.powerIcon.complete && options.powerIcon.naturalWidth > 0;

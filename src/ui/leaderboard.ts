@@ -1,5 +1,6 @@
 import { formatCompactNumber } from "./number-format";
 import type { LeaderboardEntry } from "../wildwood-coop";
+import { appendPlayerGenderIcon } from "./player-gender";
 
 export type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
 
@@ -80,7 +81,11 @@ export function renderLeaderboard(
       badge.textContent = "[dev] ";
       name.appendChild(badge);
     }
-    name.append(document.createTextNode(entry.name));
+    const nameText = document.createElement("span");
+    nameText.className = "leaderboard-name-text";
+    nameText.textContent = entry.name;
+    name.append(nameText);
+    appendPlayerGenderIcon(name, entry.gender);
     if (entry.isGuest) {
       const guest = document.createElement("span");
       guest.className = "leaderboard-guest";

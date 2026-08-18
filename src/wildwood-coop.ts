@@ -3,6 +3,12 @@ import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
 import { GAME_VERSION } from "./game/runtime/game-settings";
 import { isResearchId, type ResearchId } from "../shared/research";
+import {
+  PLAYER_GENDER_UNSET,
+  isSelectedPlayerGender,
+  normalizePlayerGender,
+  type PlayerGender,
+} from "../shared/player-gender";
 import { createDuelCooldownStore } from "./coop/services/duel-cooldown-store";
 import {
   copyProgress,
@@ -98,6 +104,7 @@ export type ChatMessage = {
   message: string;
   replayId: bigint;
   powerLevel: number;
+  senderGender: PlayerGender;
   sentAtMs: number;
 };
 
@@ -117,6 +124,7 @@ export type PlayerLifetime = {
 export type PlayerProfileData = {
   identity: string;
   name: string;
+  gender: PlayerGender;
   progress: PlayerProgress;
   research: PlayerResearch;
   lifetime: PlayerLifetime;
@@ -126,6 +134,7 @@ export type PlayerProfileData = {
 export type LeaderboardEntry = {
   identity: string;
   name: string;
+  gender: PlayerGender;
   power: number;
   damage: number;
   maxHp: number;
@@ -170,6 +179,7 @@ export type FrostclawResult = DragonResult;
 export type DragonContributor = {
   identity: string;
   name: string;
+  gender: PlayerGender;
   damage: number;
   percentage: number;
 };
@@ -187,6 +197,8 @@ export type DuelState = {
   opponent: string;
   challengerName: string;
   opponentName: string;
+  challengerGender: PlayerGender;
+  opponentGender: PlayerGender;
   status: string;
   createdAtMs: number;
   startsAtMs: number;
@@ -224,6 +236,8 @@ export type DuelReplay = {
   opponentIdentity: string;
   challengerName: string;
   opponentName: string;
+  challengerGender: PlayerGender;
+  opponentGender: PlayerGender;
   winnerName: string;
   durationSeconds: number;
   challengerMaxHp: number;
@@ -309,6 +323,7 @@ const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
 const authRetryKey = `${tokenKey}/spacetimeauth_401_retry_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
 const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
+const knownAccountGenderKey = `${tokenKey}/spacetimeauth_character_gender_v1`;
 const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
 const authReturnUiKey = `${tokenKey}/spacetimeauth_return_ui_v1`;
 const updateResumeKey = `${tokenKey}/forced_update_resume_v1`;
@@ -356,6 +371,7 @@ const profiles = new Map<string, string>();
 const profileIcons = new Map<string, number>();
 const playerSprites = new Map<string, number>();
 const skinTones = new Map<string, number>();
+const playerGenders = new Map<string, PlayerGender>();
 const profileIdentities = new Map<string, Identity>();
 const motionIdentities = new Map<number, string>();
 const activeMotionIdentities = new Set<string>();
@@ -727,6 +743,22 @@ function rememberAccountCharacter(displayName: string) {
   if (!displayName) return;
   try {
     localStorage.setItem(knownAccountCharacterKey, displayName);
+  } catch {}
+}
+
+function rememberedAccountGender() {
+  try {
+    return normalizePlayerGender(localStorage.getItem(knownAccountGenderKey));
+  } catch {
+    return PLAYER_GENDER_UNSET;
+  }
+}
+
+function rememberConfirmedGender(gender: PlayerGender) {
+  if (!isSelectedPlayerGender(gender)) return;
+  if (!(connection?.isActive ? connectedSignedIn : Boolean(accountToken()))) return;
+  try {
+    localStorage.setItem(knownAccountGenderKey, String(gender));
   } catch {}
 }
 
@@ -1215,18 +1247,20 @@ function upsertPlayer(row: {
   }
 }
 
-function upsertProfile(row: { identity: Identity; displayName: string; profileIcon: number; playerSprite?: number; skinTone?: number }) {
+function upsertProfile(row: { identity: Identity; displayName: string; profileIcon: number; playerSprite?: number; skinTone?: number; gender?: number }) {
   const id = row.identity.toHexString();
   profiles.set(id, row.displayName);
   profileIcons.set(id, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
   playerSprites.set(id, Math.max(0, Math.min(3, Number(row.playerSprite) || 0)));
   const requestedSkinTone = Number(row.skinTone);
   skinTones.set(id, Number.isFinite(requestedSkinTone) ? Math.max(0, Math.min(19, Math.floor(requestedSkinTone))) : 3);
+  playerGenders.set(id, normalizePlayerGender(row.gender));
   profileIdentities.set(id, row.identity);
   if (id === localIdentity) {
     localDisplayName = row.displayName;
     localProfileReady = true;
     rememberConfirmedCharacter(row.displayName);
+    rememberConfirmedGender(normalizePlayerGender(row.gender));
     completeAccountReturnWhenReady();
   }
   const player = players.get(id);
@@ -1244,6 +1278,7 @@ function removeProfile(row: { identity: Identity }) {
   profileIcons.delete(id);
   playerSprites.delete(id);
   skinTones.delete(id);
+  playerGenders.delete(id);
   // Keep the SDK Identity handle for later identity-filtered profile reloads.
   // It is session-bounded and cleared with every realtime cache reset.
   if (id === localIdentity) {
@@ -1266,11 +1301,13 @@ function leaderboardEntryFromRow(row: {
   regen: number;
   playedMicros: bigint;
   isGuest: boolean;
+  gender: number;
 }): LeaderboardEntry {
   const identity = row.identity.toHexString();
   return {
     identity,
     name: row.displayName,
+    gender: normalizePlayerGender(row.gender),
     power: row.powerLevel,
     damage: row.damage,
     maxHp: row.maxHp,
@@ -1352,6 +1389,7 @@ function upsertMotionIdentity(row: {
   playerSprite: number;
   skinTone: number;
   isGuest: boolean;
+  gender: number;
 }) {
   const identity = row.identity.toHexString();
   if (identity === localIdentity) localMotionNetworkId = row.networkId;
@@ -1591,26 +1629,35 @@ function upsertFrostclawBoss(row: {
   };
 }
 
+function bossContributorsFromJson(contributorsJson: string): DragonContributor[] {
+  try {
+    const parsed = JSON.parse(contributorsJson);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry) => entry && typeof entry === "object")
+      .map((entry) => {
+        const identity = typeof entry.identity === "string" ? entry.identity : "";
+        const gender = normalizePlayerGender(entry.gender);
+        return {
+          identity,
+          name: typeof entry.name === "string" ? entry.name : "PLAYER",
+          gender,
+          damage: Number(entry.damage) || 0,
+          percentage: Number(entry.percentage) || 0,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 function upsertDragonResult(row: {
   encounter: bigint;
   totalDamage: number;
   contributorsJson: string;
   createdAt: { microsSinceUnixEpoch: bigint };
 }) {
-  let contributors: DragonContributor[] = [];
-  try {
-    const parsed = JSON.parse(row.contributorsJson);
-    if (Array.isArray(parsed)) {
-      contributors = parsed
-        .filter((entry) => entry && typeof entry === "object")
-        .map((entry) => ({
-          identity: typeof entry.identity === "string" ? entry.identity : "",
-          name: typeof entry.name === "string" ? entry.name : "PLAYER",
-          damage: Number.isFinite(entry.damage) ? entry.damage : 0,
-          percentage: Number.isFinite(entry.percentage) ? entry.percentage : 0,
-        }));
-    }
-  } catch {}
+  const contributors = bossContributorsFromJson(row.contributorsJson);
   latestDragonResult = {
     encounter: row.encounter,
     totalDamage: row.totalDamage,
@@ -1626,20 +1673,7 @@ function upsertSpiderResult(row: {
   contributorsJson: string;
   createdAt: { microsSinceUnixEpoch: bigint };
 }) {
-  let contributors: DragonContributor[] = [];
-  try {
-    const parsed = JSON.parse(row.contributorsJson);
-    if (Array.isArray(parsed)) {
-      contributors = parsed
-        .filter((entry) => entry && typeof entry === "object")
-        .map((entry) => ({
-          identity: typeof entry.identity === "string" ? entry.identity : "",
-          name: typeof entry.name === "string" ? entry.name : "PLAYER",
-          damage: Number(entry.damage) || 0,
-          percentage: Number(entry.percentage) || 0,
-        }));
-    }
-  } catch {}
+  const contributors = bossContributorsFromJson(row.contributorsJson);
   latestSpiderResult = {
     encounter: row.encounter,
     totalDamage: row.totalDamage,
@@ -1655,20 +1689,7 @@ function upsertFrostclawResult(row: {
   contributorsJson: string;
   createdAt: { microsSinceUnixEpoch: bigint };
 }) {
-  let contributors: DragonContributor[] = [];
-  try {
-    const parsed = JSON.parse(row.contributorsJson);
-    if (Array.isArray(parsed)) {
-      contributors = parsed
-        .filter((entry) => entry && typeof entry === "object")
-        .map((entry) => ({
-          identity: typeof entry.identity === "string" ? entry.identity : "",
-          name: typeof entry.name === "string" ? entry.name : "PLAYER",
-          damage: Number(entry.damage) || 0,
-          percentage: Number(entry.percentage) || 0,
-        }));
-    }
-  } catch {}
+  const contributors = bossContributorsFromJson(row.contributorsJson);
   latestFrostclawResult = {
     encounter: row.encounter,
     totalDamage: row.totalDamage,
@@ -1686,6 +1707,7 @@ function upsertChatMessage(row: {
   message: string;
   replayId: bigint;
   powerLevel: number;
+  senderGender: number;
   sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
@@ -1700,6 +1722,7 @@ function upsertChatMessage(row: {
     message: row.message,
     replayId: row.replayId,
     powerLevel: Number(row.powerLevel) || 0,
+    senderGender: normalizePlayerGender(row.senderGender),
     sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n),
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -1714,6 +1737,8 @@ function upsertDuel(row: {
   opponent: Identity;
   challengerName: string;
   opponentName: string;
+  challengerGender: number;
+  opponentGender: number;
   status: string;
   createdAt: { microsSinceUnixEpoch: bigint };
   startedAt: { microsSinceUnixEpoch: bigint };
@@ -1744,12 +1769,18 @@ function upsertDuel(row: {
   opponentRightHandItem: string;
   opponentLeftHandItem: string;
 }) {
+  const challenger = row.challenger.toHexString();
+  const opponent = row.opponent.toHexString();
+  const challengerGender = normalizePlayerGender(row.challengerGender);
+  const opponentGender = normalizePlayerGender(row.opponentGender);
   duels.set(row.id, {
     id: row.id,
-    challenger: row.challenger.toHexString(),
-    opponent: row.opponent.toHexString(),
+    challenger,
+    opponent,
     challengerName: row.challengerName,
     opponentName: row.opponentName,
+    challengerGender,
+    opponentGender,
     status: row.status,
     createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n),
     startsAtMs: Number(row.startsAtMicros / 1000n),
@@ -1784,12 +1815,16 @@ function upsertDuel(row: {
 }
 
 function upsertDuelReplay(row: any) {
+  const challengerGender = normalizePlayerGender(row.challengerGender);
+  const opponentGender = normalizePlayerGender(row.opponentGender);
   duelReplays.set(row.id, {
     id: row.id,
     challengerIdentity: row.challengerIdentity,
     opponentIdentity: row.opponentIdentity,
     challengerName: row.challengerName,
     opponentName: row.opponentName,
+    challengerGender,
+    opponentGender,
     winnerName: row.winnerName,
     durationSeconds: row.durationSeconds,
     challengerMaxHp: row.challengerMaxHp,
@@ -1926,6 +1961,7 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
           profileIdentities.set(entry.identity, row.identity);
           profiles.set(entry.identity, entry.name);
           profileIcons.set(entry.identity, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
+          playerGenders.set(entry.identity, entry.gender);
           guestAccounts.set(entry.identity, entry.isGuest);
         }
         onChange?.();
@@ -1948,6 +1984,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
   return {
     identity,
     name: profiles.get(identity) ?? "PLAYER",
+    gender: playerGenders.get(identity) ?? PLAYER_GENDER_UNSET,
     progress: { ...progress },
     research: { ...profileResearch.get(identity) ?? { warcraft: 0, moveSpeed: 0, foraging: 0, vitality: 0, precision: 0, criticalChance: 0, criticalDamage: 0, prosperity: 0 } },
     lifetime: { ...lifetime },
@@ -2247,6 +2284,7 @@ function clearRealtimeCaches() {
   profileIcons.clear();
   playerSprites.clear();
   skinTones.clear();
+  playerGenders.clear();
   profileIdentities.clear();
   motionIdentities.clear();
   activeMotionIdentities.clear();
@@ -2751,6 +2789,12 @@ export const wildwoodCoop = {
     const rememberedCharacter = signedIn ? accountCharacter : rememberedGuestCharacter();
     return currentCharacter || rememberedCharacter;
   },
+  knownCharacterGender() {
+    const signedIn = connection?.isActive ? connectedSignedIn : Boolean(accountToken());
+    if (!signedIn && hasKnownAccount()) return rememberedAccountGender();
+    const currentGender = localProfileReady ? playerGenders.get(localIdentity) : undefined;
+    return currentGender ?? rememberedAccountGender();
+  },
   async signIn() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (connection?.isActive && connectedSignedIn) return { ok: true };
@@ -2883,6 +2927,9 @@ export const wildwoodCoop = {
   skinTone(identity = localIdentity) {
     return skinTones.get(identity) ?? 3;
   },
+  playerGender(identity = localIdentity) {
+    return playerGenders.get(identity) ?? PLAYER_GENDER_UNSET;
+  },
   localProfileReady() {
     return localProfileReady;
   },
@@ -3004,6 +3051,24 @@ export const wildwoodCoop = {
     } catch (error) {
       const message = reducerErrorMessage(error);
       handleReducerFailure("profile icon update", error);
+      return { ok: false, error: message };
+    }
+  },
+  async setGender(gender: number) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    const normalized = normalizePlayerGender(gender);
+    if (!isSelectedPlayerGender(normalized)) return { ok: false, error: "CHOOSE MALE OR FEMALE" };
+    try {
+      await connection.reducers.setGender({ gender: normalized });
+      playerGenders.set(localIdentity, normalized);
+      rememberConfirmedGender(normalized);
+      chatPresentationRevision += 1;
+      onChange?.();
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("gender update", error);
       return { ok: false, error: message };
     }
   },

@@ -1,4 +1,5 @@
 import type { EnemyDefinition, EnemyKind, RewardType } from "../enemies";
+import type { PlayerGender } from "../../../shared/player-gender";
 
 /** Shared position used by collision, projectiles, and world actors. */
 export type Position = {
@@ -174,6 +175,7 @@ export type DuelReturnState = Position & {
 export type DuelCombatant = Position & {
   identity?: string;
   name: string;
+  gender: PlayerGender;
   hp: number;
   maxHp: number;
   facing: number;
@@ -216,6 +218,8 @@ export type RuntimeDuelState = {
   opponent: string;
   challengerName: string;
   opponentName: string;
+  challengerGender: PlayerGender;
+  opponentGender: PlayerGender;
   status: string;
   createdAtMs: number;
   startsAtMs: number;
@@ -253,6 +257,8 @@ export type RuntimeDuelReplay = {
   opponentIdentity: string;
   challengerName: string;
   opponentName: string;
+  challengerGender: PlayerGender;
+  opponentGender: PlayerGender;
   winnerName: string;
   durationSeconds: number;
   challengerMaxHp: number;

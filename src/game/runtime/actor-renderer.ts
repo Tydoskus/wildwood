@@ -3,6 +3,7 @@ import { BASIC_PAPER_HAT } from "../inventory";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { RemotePlayer } from "../../wildwood-coop";
+import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import type { DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 
@@ -18,6 +19,7 @@ export type ActorStatus = {
   y: number;
   identity?: string;
   name: string;
+  gender?: PlayerGender;
   nameColor: string;
   hp: number;
   maxHp: number;
@@ -47,7 +49,7 @@ export function createActorRenderer(options: {
   outlinedText: OutlinedText;
   drawShadow: DrawShadow;
   drawStatus: (status: ActorStatus) => void;
-  drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) => void;
+  drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, gender?: PlayerGender) => void;
   drawSpeechBubble: (identity: string | undefined, x: number, y: number) => void;
   publicName: (identity: string | undefined, name: string | undefined) => string;
   worldHealthBarHeight: number;
@@ -158,6 +160,7 @@ export function createActorRenderer(options: {
       y,
       identity: actor.identity,
       name: actor.name,
+      gender: actor.gender,
       nameColor: actor.isLocal ? "#ffffff" : "#9eeeff",
       hp: actor.hp,
       maxHp: actor.maxHp,

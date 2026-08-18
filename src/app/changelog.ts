@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.440": [
+    "Player profiles now include persistent male and female symbol choices, shown beside player names throughout the HUD, world, chat, profiles, rankings, boss results, duels, replays, and sign-in.",
+  ],
   "0.439": [
     "The game now uses one lightweight Canvas renderer while keeping worker-built world tiles, reducing the client download substantially.",
     "Floating player and enemy health text is now vertically centered inside HP bars.",

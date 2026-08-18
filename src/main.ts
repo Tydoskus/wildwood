@@ -57,8 +57,10 @@ import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber } from "./ui/number-format";
+import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
+import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -244,6 +246,7 @@ import {
     accountState: () => coop?.accountState?.(),
     connected: () => Boolean(coop?.isConnected?.()),
     knownCharacter: () => coop?.knownCharacter?.() ?? "",
+    knownCharacterGender: () => coop?.knownCharacterGender?.() ?? 0,
     defaultPlayerName: () => coop?.localDisplayName?.() ?? "WANDERER",
     isSignInScreenReady,
     getLoadingStages: () => [
@@ -407,17 +410,26 @@ import {
   profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v2.png";
   const powerIcon = new Image();
   powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
+  const maleGenderIcon = new Image();
+  maleGenderIcon.src = playerGenderIconPath(PLAYER_GENDER_MALE);
+  const femaleGenderIcon = new Image();
+  femaleGenderIcon.src = playerGenderIconPath(PLAYER_GENDER_FEMALE);
   const playerIdentityRenderer = createPlayerIdentityRenderer({
     ctx,
     camera,
     viewport: canvasRuntime.viewport,
     profileIconSheet,
     powerIcon,
+    genderIcons: {
+      [PLAYER_GENDER_MALE]: maleGenderIcon,
+      [PLAYER_GENDER_FEMALE]: femaleGenderIcon,
+    },
     antiAliasingEnabled: () => appShell.antiAliasingEnabled(),
     isDeveloper: isDeveloperIdentity,
     isLocallyInvisible: (identity) => identity === coop?.localIdentity?.() && isDeveloperIdentity(identity) && coop?.developerPresenceVisible?.() === false,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
     profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0,
+    playerGender: (identity) => coop?.playerGender?.(identity) ?? 0,
     chatRevision: () => coop?.chatRevision?.() ?? -1,
     chatMessages: () => coop?.chatMessages?.() ?? [],
     outlinedText: outlinedWorldText,
@@ -740,7 +752,7 @@ import {
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, rankingTab: profileRankingTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel, rankingPanel: profileRankingPanel, leaderboardStats: profileLeaderboardStatsEl,
     joined: profileJoinedEl, timePlayed: profileTimePlayedEl, kills: profileKillsEl, online: profileOnlineEl, statGrid: profileStatGrid,
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
-    skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn,
+    skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn, developerEdit: profileEditPanel, developerEditButton: editPlayerSaveBtn,
     editNameInput: profileEditName, editMaxHp: profileEditMaxHp, editDamage: profileEditDamage, editAttackRate: profileEditAttackRate, editArmor: profileEditArmor, editRegen: profileEditRegen, editSpeed: profileEditSpeed, editAttackRange: profileEditAttackRange, editProjectileSpeed: profileEditProjectileSpeed, editProjectileCount: profileEditProjectileCount,
     cancelDeveloperEdit: cancelPlayerSaveEditBtn, saveDeveloperEdit: savePlayerSaveEditBtn,
@@ -756,6 +768,7 @@ import {
     },
     renderCharacter: (identity, progress, visible) => profileCharacterPreview.draw({ visible, progress, skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE }),
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
+    playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research),
     renderRankings: () => undefined, entries: () => coop?.leaderboardEntries?.() ?? [], formatPower: (progress) => formatCompactNumber(playerPower(progress)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },

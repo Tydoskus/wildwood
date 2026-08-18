@@ -35,6 +35,7 @@ import SavePlayerProgressReducer from "../save_player_progress_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
 import SetDeveloperPresenceReducer from "../set_developer_presence_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
+import SetGenderReducer from "../set_gender_reducer";
 import SetPlayerSpriteReducer from "../set_player_sprite_reducer";
 import SetProfileIconReducer from "../set_profile_icon_reducer";
 import SetSkinToneReducer from "../set_skin_tone_reducer";
@@ -73,6 +74,7 @@ export type SavePlayerProgressParams = __Infer<typeof SavePlayerProgressReducer>
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
 export type SetDeveloperPresenceParams = __Infer<typeof SetDeveloperPresenceReducer>;
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
+export type SetGenderParams = __Infer<typeof SetGenderReducer>;
 export type SetPlayerSpriteParams = __Infer<typeof SetPlayerSpriteReducer>;
 export type SetProfileIconParams = __Infer<typeof SetProfileIconReducer>;
 export type SetSkinToneParams = __Infer<typeof SetSkinToneReducer>;

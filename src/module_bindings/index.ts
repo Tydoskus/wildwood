@@ -63,6 +63,7 @@ import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
+import SetGenderReducer from "./set_gender_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
@@ -429,6 +430,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
+  __reducerSchema("set_gender", SetGenderReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),

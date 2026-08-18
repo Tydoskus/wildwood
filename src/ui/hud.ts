@@ -1,5 +1,7 @@
 import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type EquipmentSlot } from "../game/inventory";
 import { formatCompactNumber } from "./number-format";
+import { appendPlayerGenderIcon } from "./player-gender";
+import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
 
 type PlayerHudState = {
   hp: number;
@@ -21,6 +23,7 @@ export function renderPlayerHud(
   playerCount: number,
   power: number,
   isDeveloper = false,
+  gender: PlayerGender = PLAYER_GENDER_UNSET,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
   const hpWidth = `${(hpRatio * 100).toFixed(1)}%`;
@@ -29,16 +32,20 @@ export function renderPlayerHud(
   if (elements.hpText.textContent !== hpText) elements.hpText.textContent = hpText;
   if (elements.playerName) {
     const name = displayName || "WANDERER";
-    const nameKey = `${isDeveloper ? "dev" : "player"}:${name}`;
+    const nameKey = `${isDeveloper ? "dev" : "player"}:${name}:${gender}`;
     if (elements.playerName.dataset.renderedName !== nameKey) {
+      const nameText = document.createElement("span");
+      nameText.className = "player-hud-name-text";
+      nameText.textContent = name;
       if (isDeveloper) {
         const badge = document.createElement("span");
         badge.className = "dev-badge";
         badge.textContent = "[dev] ";
-        elements.playerName.replaceChildren(badge, document.createTextNode(name));
+        elements.playerName.replaceChildren(badge, nameText);
       } else {
-        elements.playerName.textContent = name;
+        elements.playerName.replaceChildren(nameText);
       }
+      appendPlayerGenderIcon(elements.playerName, gender);
       elements.playerName.dataset.renderedName = nameKey;
     }
   }

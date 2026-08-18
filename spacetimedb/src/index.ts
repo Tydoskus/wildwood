@@ -5,6 +5,10 @@ import { RESEARCH_DEFINITIONS, isResearchId, researchDurationMs, type ResearchId
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
 import { legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
+  PLAYER_GENDER_UNSET,
+  isSelectedPlayerGender,
+} from "../../shared/player-gender";
+import {
   PLAYER_MAP_FRAME_HZ,
   PLAYER_MOTION_FRAME_HZ,
   compactPlayerMapSamples,
@@ -89,7 +93,7 @@ const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const MODULE_MIGRATION_VERSION = 3;
 const LEADERBOARD_LIMIT = 100;
-const LEADERBOARD_REFRESH_VERSION = 6;
+const LEADERBOARD_REFRESH_VERSION = 7;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
 // Beta support: let players correct names freely. Re-enable after account-link
@@ -233,6 +237,7 @@ const playerMotionIdentity = table(
     playerSprite: t.u32(),
     skinTone: t.u32(),
     isGuest: t.bool(),
+    gender: t.u8().default(PLAYER_GENDER_UNSET),
   },
 );
 
@@ -279,6 +284,7 @@ const playerProfile = table(
     profileIcon: t.u32().default(0),
     playerSprite: t.u32().default(0),
     skinTone: t.u32().default(3),
+    gender: t.u8().default(PLAYER_GENDER_UNSET),
   },
 );
 
@@ -369,6 +375,7 @@ const leaderboardEntry = table(
     playedMicros: t.u64().default(0n),
     profileIcon: t.u32().default(0),
     powerLevel: t.f64().default(0),
+    gender: t.u8().default(PLAYER_GENDER_UNSET),
   },
 );
 
@@ -585,6 +592,7 @@ const chatMessage = table(
     replayId: t.u64().default(0n),
     senderIsGuest: t.bool().default(false),
     powerLevel: t.f32().default(0),
+    senderGender: t.u8().default(PLAYER_GENDER_UNSET),
   },
 );
 
@@ -659,6 +667,8 @@ const duel = table(
     opponentLeftHandItem: t.string().default(""),
     challengerName: t.string().default(""),
     opponentName: t.string().default(""),
+    challengerGender: t.u8().default(PLAYER_GENDER_UNSET),
+    opponentGender: t.u8().default(PLAYER_GENDER_UNSET),
   },
 );
 
@@ -703,6 +713,8 @@ const duelReplay = table(
     opponentFeetItem: t.string().default(""),
     opponentRightHandItem: t.string().default(""),
     opponentLeftHandItem: t.string().default(""),
+    challengerGender: t.u8().default(PLAYER_GENDER_UNSET),
+    opponentGender: t.u8().default(PLAYER_GENDER_UNSET),
   },
 );
 
@@ -1366,6 +1378,7 @@ function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
     playerSprite: profile.playerSprite,
     skinTone: profile.skinTone,
     isGuest: ctx.db.playerAccountStatus.identity.find(activePlayer.identity)?.isGuest ?? false,
+    gender: profile.gender,
   };
   if (!current) {
     ctx.db.playerMotionIdentity.insert(next);
@@ -1385,7 +1398,8 @@ function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
     current.profileIcon !== next.profileIcon ||
     current.playerSprite !== next.playerSprite ||
     current.skinTone !== next.skinTone ||
-    current.isGuest !== next.isGuest
+    current.isGuest !== next.isGuest ||
+    current.gender !== next.gender
   ) ctx.db.playerMotionIdentity.networkId.update(next);
 }
 
@@ -1576,6 +1590,7 @@ function refreshLeaderboard(ctx: any) {
       displayName: profile.displayName,
       power: powerForProgress(progress),
       profileIcon: profile.profileIcon,
+      gender: profile.gender,
       damage: progress.damage,
       maxHp: progress.maxHp,
       armor: progress.armor,
@@ -1616,6 +1631,7 @@ function refreshLeaderboard(ctx: any) {
       power: legacyU32Power(candidate.power),
       powerLevel: candidate.power,
       profileIcon: candidate.profileIcon,
+      gender: candidate.gender,
       damage: candidate.damage,
       maxHp: candidate.maxHp,
       armor: candidate.armor,
@@ -1630,6 +1646,7 @@ function refreshLeaderboard(ctx: any) {
       current.power !== next.power ||
       current.powerLevel !== next.powerLevel ||
       current.profileIcon !== next.profileIcon ||
+      current.gender !== next.gender ||
       current.damage !== next.damage ||
       current.maxHp !== next.maxHp ||
       current.armor !== next.armor ||
@@ -2230,6 +2247,7 @@ function finishSpiderEncounter(ctx: any, spider: any) {
   const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
     identity: row.identity.toHexString(),
     name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
     damage: row.damage,
     percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
   })));
@@ -2289,6 +2307,7 @@ function finishFrostclawEncounter(ctx: any, frostclaw: any) {
   const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
     identity: row.identity.toHexString(),
     name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
     damage: row.damage,
     percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
   })));
@@ -2343,6 +2362,7 @@ function finishDragonEncounter(ctx: any, dragon: any) {
   const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
     identity: row.identity.toHexString(),
     name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
     damage: row.damage,
     percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
   })));
@@ -2384,6 +2404,7 @@ function trimChatHistory(ctx: any) {
 
 function insertChatMessage(ctx: any, sender: any, senderName: string, message: string, replayId = 0n) {
   const progress = ctx.db.playerProgress.identity.find(sender);
+  const profile = ctx.db.playerProfile.identity.find(sender);
   ctx.db.chatMessage.insert({
     id: 0n,
     sender,
@@ -2393,6 +2414,7 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
     replayId,
     sentAt: ctx.timestamp,
     powerLevel: progress ? powerForProgress(progress) : 0,
+    senderGender: profile?.gender ?? PLAYER_GENDER_UNSET,
   });
   trimChatHistory(ctx);
 }
@@ -2472,6 +2494,8 @@ function finishDuel(ctx: any, current: any) {
     opponentFeetItem: current.opponentFeetItem,
     opponentRightHandItem: current.opponentRightHandItem,
     opponentLeftHandItem: current.opponentLeftHandItem,
+    challengerGender: current.challengerGender,
+    opponentGender: current.opponentGender,
   });
 
   if (challengerWon) {
@@ -2640,6 +2664,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       profileIcon: 0,
       playerSprite: 0,
       skinTone: 3,
+      gender: PLAYER_GENDER_UNSET,
     });
   }
 
@@ -3415,9 +3440,13 @@ export const claimGuestAccount = spacetimedb.reducer(
     const preserveAccountName = Boolean(accountProfile && !isGeneratedDisplayName(accountProfile.displayName));
     const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName));
     if (transferGuestName && guestProfile && accountProfile) {
-      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone });
+      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
     } else if (transferGuestName && guestProfile) {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone });
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
+    } else if (guestProfile?.gender && accountProfile?.gender === PLAYER_GENDER_UNSET) {
+      ctx.db.playerProfile.identity.update({ ...accountProfile, gender: guestProfile.gender });
+    } else if (guestProfile?.gender && !accountProfile) {
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: generatedDisplayName(ctx.sender), profileIcon: 0, playerSprite: 0, skinTone: 3, gender: guestProfile.gender });
     }
 
     // A freshly-created guest's generated name must never overwrite an existing
@@ -3460,6 +3489,7 @@ export const claimGuestAccount = spacetimedb.reducer(
         displayName: finalDisplayName,
         ...powerFieldsForProgress(nextProgress),
         profileIcon: ctx.db.playerProfile.identity.find(ctx.sender)?.profileIcon ?? 0,
+        gender: ctx.db.playerProfile.identity.find(ctx.sender)?.gender ?? PLAYER_GENDER_UNSET,
         damage: nextProgress.damage,
         maxHp: nextProgress.maxHp,
         armor: nextProgress.armor,
@@ -3563,7 +3593,7 @@ export const setDisplayName = spacetimedb.reducer(
     if (existing) {
       ctx.db.playerProfile.identity.update({ ...existing, displayName: normalized });
     } else {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized, profileIcon: 0, playerSprite: 0, skinTone: 3 });
+      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized, profileIcon: 0, playerSprite: 0, skinTone: 3, gender: PLAYER_GENDER_UNSET });
     }
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
@@ -3730,6 +3760,21 @@ export const setProfileIcon = spacetimedb.reducer(
     ctx.db.playerProfile.identity.update({ ...profile, profileIcon });
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, profileIcon });
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
+  },
+);
+
+export const setGender = spacetimedb.reducer(
+  { gender: t.u8() },
+  (ctx, { gender }) => {
+    requireControllingPlayer(ctx);
+    if (!isSelectedPlayerGender(gender)) throw new SenderError("Gender must be male or female.");
+    const profile = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (!profile) throw new SenderError("Player profile not found.");
+    if (profile.gender === gender) return;
+    ctx.db.playerProfile.identity.update({ ...profile, gender });
+    const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
+    if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, gender });
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
   },
 );
@@ -4112,6 +4157,8 @@ export const requestDuel = spacetimedb.reducer(
       opponentLeftHandItem,
       challengerName: challengerProfile.displayName,
       opponentName: opponentProfile.displayName,
+      challengerGender: challengerProfile.gender,
+      opponentGender: opponentProfile.gender,
     });
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,

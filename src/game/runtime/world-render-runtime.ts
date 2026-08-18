@@ -8,6 +8,7 @@ import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } fr
 import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
+import type { PlayerGender } from "../../../shared/player-gender";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -73,7 +74,7 @@ export type WorldRenderRuntimeOptions = {
   rewardMultiplier: () => number;
   enemyTextVisible: (enemy: EnemyState) => boolean;
   drawStatus: (status: ActorStatus) => void;
-  drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string) => void;
+  drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, gender?: PlayerGender) => void;
   drawSpeechBubble: (identity: string | undefined, x: number, y: number) => void;
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;

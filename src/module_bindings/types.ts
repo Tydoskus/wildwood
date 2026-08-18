@@ -51,6 +51,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   replayId: __t.u64(),
   senderIsGuest: __t.bool(),
   powerLevel: __t.f32(),
+  senderGender: __t.u8(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
@@ -155,6 +156,8 @@ export const Duel = __t.object("Duel", {
   opponentLeftHandItem: __t.string(),
   challengerName: __t.string(),
   opponentName: __t.string(),
+  challengerGender: __t.u8(),
+  opponentGender: __t.u8(),
 });
 export type Duel = __Infer<typeof Duel>;
 
@@ -197,6 +200,8 @@ export const DuelReplay = __t.object("DuelReplay", {
   opponentFeetItem: __t.string(),
   opponentRightHandItem: __t.string(),
   opponentLeftHandItem: __t.string(),
+  challengerGender: __t.u8(),
+  opponentGender: __t.u8(),
 });
 export type DuelReplay = __Infer<typeof DuelReplay>;
 
@@ -268,6 +273,7 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   playedMicros: __t.u64(),
   profileIcon: __t.u32(),
   powerLevel: __t.f64(),
+  gender: __t.u8(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 
@@ -441,6 +447,7 @@ export const PlayerMotionIdentity = __t.object("PlayerMotionIdentity", {
   playerSprite: __t.u32(),
   skinTone: __t.u32(),
   isGuest: __t.bool(),
+  gender: __t.u8(),
 });
 export type PlayerMotionIdentity = __Infer<typeof PlayerMotionIdentity>;
 
@@ -468,6 +475,7 @@ export const PlayerProfile = __t.object("PlayerProfile", {
   profileIcon: __t.u32(),
   playerSprite: __t.u32(),
   skinTone: __t.u32(),
+  gender: __t.u8(),
 });
 export type PlayerProfile = __Infer<typeof PlayerProfile>;
 

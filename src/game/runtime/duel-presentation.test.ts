@@ -9,6 +9,8 @@ const duel: RuntimeDuelState = {
   opponent: "opponent-id",
   challengerName: "Skittle",
   opponentName: "Uncletaco",
+  challengerGender: 1,
+  opponentGender: 2,
   status: "active",
   createdAtMs: 0,
   startsAtMs: 0,
@@ -56,8 +58,8 @@ describe("live duel identity presentation", () => {
     });
 
     expect(presentation.liveScene()).toMatchObject({
-      challenger: { name: "Skittle" },
-      opponent: { name: "Uncletaco" },
+      challenger: { name: "Skittle", gender: 1 },
+      opponent: { name: "Uncletaco", gender: 2 },
     });
   });
 

@@ -1,4 +1,6 @@
 import { formatCompactNumber } from "./number-format";
+import { appendPlayerGenderIcon } from "./player-gender";
+import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
 
 export type DuelResultStatSummary = {
   attacks: number;
@@ -17,12 +19,13 @@ export function duelResultStatLines(stats: DuelResultStatSummary) {
 }
 
 /** Builds duel summary DOM without interpolating player names into HTML. */
-export function createDuelResultStatRow(subject: string, stats: DuelResultStatSummary) {
+export function createDuelResultStatRow(subject: string, stats: DuelResultStatSummary, gender: PlayerGender = PLAYER_GENDER_UNSET) {
   const row = document.createElement("div");
   row.className = "duel-stat-row";
   const name = document.createElement("span");
   name.className = "duel-stat-name";
   name.textContent = subject;
+  appendPlayerGenderIcon(name, gender);
   row.append(name, document.createElement("br"));
   const lines = duelResultStatLines(stats);
   lines.forEach((line, index) => {

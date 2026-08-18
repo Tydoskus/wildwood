@@ -635,6 +635,9 @@
   #latencyStatus[data-quality="poor"] { color: #ff8f86; }
 
   #playerName {
+    display: flex;
+    align-items: center;
+    gap: 3px;
     min-width: 0;
     max-width: 230px;
     min-height: 12px;
@@ -645,6 +648,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  .player-gender-icon { display: inline-block; flex: 0 0 auto; width: 1.12em; height: 1.12em; object-fit: contain; vertical-align: -.16em; filter: drop-shadow(0 1px 0 rgba(0,0,0,.45)); pointer-events: none; user-select: none; }
+  .player-hud-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .topbar > .card,
   .player-hud-card {
@@ -760,7 +766,8 @@
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; }
   .chat-name { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--chat-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; white-space: nowrap; cursor: pointer; }
-  .chat-name-core { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-name-core { display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .chat-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chat-power { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; color: #fff; font-variant-numeric: tabular-nums; }
   .chat-power-icon { width: 13px; height: 13px; }
   .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 19px; padding: 3px 11px; border-radius: 5px; background: rgba(255,255,255,.09); color: var(--text); font-family: var(--chat-font); font-size: 11.25px; line-height: 1.5; white-space: pre-wrap; }
@@ -1222,7 +1229,7 @@
   .duel-modal h2 { margin: 0; color: #eef1ee; font-size: clamp(22px, 6vw, 34px); }
   .duel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
-  .duel-stat-name { color: var(--gold); font-weight: 900; }
+  .duel-stat-name, .duel-status-name { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); font-weight: 900; }
   #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; border-color: transparent; background: transparent; font-size: 13px; line-height: 1; }
   .duel-replay-play-icon { display: block; width: 25px; height: 25px; background: center / contain no-repeat url("duel-replay-play-medallion-v1.png"); mix-blend-mode: screen; -webkit-text-stroke: 0; text-shadow: none; }
   .dragon-result-modal { width: var(--game-window-width); padding: 14px; border-color: rgba(255,101,90,.6); }
@@ -1253,7 +1260,7 @@
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
   .player-profile-name-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
-  .player-profile-header h2 { min-width: 0; margin: 0; color: var(--text); font-family: var(--player-name-font); font-size: clamp(12px, 2.9vw, 18px); line-height: 1.08; overflow-wrap: anywhere; }
+  .player-profile-header h2 { display: flex; align-items: center; gap: 3px; min-width: 0; margin: 0; color: var(--text); font-family: var(--player-name-font); font-size: clamp(12px, 2.9vw, 18px); line-height: 1.08; overflow-wrap: anywhere; }
   .profile-name-edit { display: grid; flex: 0 0 auto; place-items: center; width: 19px; min-width: 19px; height: 19px; margin: 0; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 4px; background: transparent; color: var(--green); font: 900 12px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
@@ -1275,6 +1282,14 @@
   .profile-skin-tone { position: absolute; z-index: 3; top: 32px; right: 6px; display: grid; grid-template-columns: repeat(5, 22px); gap: 4px; padding: 5px; border: 2px solid #000; border-radius: 5px; background: rgba(20,29,22,.96); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
   .profile-skin-tone-choice { width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.45); border-radius: 3px; box-shadow: none; }
   .profile-skin-tone-choice[aria-pressed="true"] { border-color: #000; box-shadow: 0 0 0 2px #fff; }
+  .profile-gender-setting { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; margin: 5px 0 2px; padding: 5px 7px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.22); }
+  .profile-gender-setting[hidden] { display: none; }
+  .profile-gender-label { color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; }
+  .profile-gender-choices { display: flex; gap: 7px; }
+  .profile-gender-choice { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 82px; min-height: 42px; margin: 0; padding: 4px 8px; border: 2px solid rgba(255,255,255,.3); border-radius: 7px; background: rgba(255,255,255,.08); color: #fff; font-size: 9px; }
+  .profile-gender-choice img { width: 25px; height: 29px; object-fit: contain; pointer-events: none; }
+  .profile-gender-choice[aria-pressed="true"] { border-color: var(--green); background: rgba(78,205,82,.2); box-shadow: 0 0 0 1px #000, 0 0 8px rgba(78,205,82,.3); }
+  .profile-gender-choice:disabled { opacity: .58; }
   .profile-leaderboard-stats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.13); border-radius: 5px; background: rgba(0,0,0,.18); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; line-height: 1.15; }
   .profile-leaderboard-stats[hidden] { display: none; }
   .profile-leaderboard-stats::-webkit-scrollbar { display: none; }
@@ -1336,7 +1351,8 @@
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }
   .leaderboard-row:nth-child(2) .leaderboard-rank { color: #dce6e8; }
   .leaderboard-row:nth-child(3) .leaderboard-rank { color: #e4a96a; }
-  .leaderboard-name { min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; color: #fff; font-size: 10px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .leaderboard-name { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; color: #fff; font-size: 10px; text-align: left; white-space: nowrap; cursor: pointer; }
+  .leaderboard-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .leaderboard-name:hover, .leaderboard-name:focus-visible { color: var(--green); }
   .leaderboard-name:active { transform: none; }
   .leaderboard-guest { color: var(--muted); font-size: .82em; }
@@ -1412,6 +1428,7 @@
   #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }
   #duelReplay[hidden] { display: none; }
   #duelReplayHud { position: fixed; top: 12px; left: 50%; display: flex; align-items: center; gap: 10px; transform: translateX(-50%); color: #eef1ee; font: 900 11px var(--font-rounded); letter-spacing: .08em; white-space: nowrap; }
+  .duel-replay-player-name { display: inline-flex; align-items: center; gap: 3px; }
   #duelReplayHud button { margin: 0; padding: 7px 10px; border-width: 2px; border-radius: 7px; font-size: 11px; }
   body.is-replaying #hud { display: none; }
   body.is-replaying #duelReplay { display: block; background: transparent; pointer-events: none; }

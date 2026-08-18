@@ -1,6 +1,8 @@
 import type { PlayerState, RuntimeDuelReplay, RuntimeDuelState } from "../game/runtime/types";
 import { createDuelResultStatRow } from "./duel-result";
 import { renderPlayerHud } from "./hud";
+import { appendPlayerGenderIcon } from "./player-gender";
+import type { PlayerGender } from "../../shared/player-gender";
 
 type RuntimeHudElements = {
   message: HTMLElement;
@@ -30,6 +32,7 @@ type RuntimeHudDependencies = {
   localDisplayName: () => string;
   localIdentity: () => string | undefined;
   isGuest: (identity: string | undefined) => boolean;
+  playerGender: (identity: string | undefined) => PlayerGender;
   remotePlayerCount: () => number;
   onlinePlayerCount: () => number | null;
   connected: () => boolean;
@@ -85,16 +88,16 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     const localName = dependencies.localDisplayName() || "PLAYER";
     const selfIsChallenger = replay.challengerName === localName;
     const self = selfIsChallenger
-      ? { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked }
-      : { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked };
+      ? { name: replay.challengerName, gender: replay.challengerGender, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked }
+      : { name: replay.opponentName, gender: replay.opponentGender, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked };
     const other = selfIsChallenger
-      ? { name: replay.opponentName, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked }
-      : { name: replay.challengerName, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
+      ? { name: replay.opponentName, gender: replay.opponentGender, attacks: replay.opponentAttacks, damage: replay.opponentDamageDealt, regen: replay.opponentRegened, blocked: replay.opponentBlocked }
+      : { name: replay.challengerName, gender: replay.challengerGender, attacks: replay.challengerAttacks, damage: replay.challengerDamageDealt, regen: replay.challengerRegened, blocked: replay.challengerBlocked };
     const won = replay.winnerName === localName;
     elements.duelResultTitle.textContent = replay.winnerName === "DRAW" ? "DUEL DRAW" : won ? "YOU WON" : "YOU LOST";
     elements.duelResultStats.replaceChildren(
       createDuelResultStatRow("YOU", self),
-      createDuelResultStatRow(other.name, other),
+      createDuelResultStatRow(other.name, other, other.gender),
     );
     elements.duelResult.hidden = false;
     elements.duelResult.dataset.replayId = String(replay.id);
@@ -131,7 +134,12 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     elements.duelCountdown.hidden = true;
     if (duel?.status === "active") {
       const remaining = Math.max(0, Math.ceil((duel.endsAtMs - Date.now()) / 1000));
-      elements.duelStatus.textContent = `DUEL · ${dependencies.duelOpponentName(duel)} · ${remaining}s`;
+      const opponentIsChallenger = duel.opponent === dependencies.localIdentity();
+      const opponentName = document.createElement("span");
+      opponentName.className = "duel-status-name";
+      opponentName.append(document.createTextNode(dependencies.duelOpponentName(duel)));
+      appendPlayerGenderIcon(opponentName, opponentIsChallenger ? duel.challengerGender : duel.opponentGender);
+      elements.duelStatus.replaceChildren("DUEL · ", opponentName, ` · ${remaining}s`);
       elements.duelControls.hidden = false;
       return;
     }
@@ -171,6 +179,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       playerCount,
       dependencies.playerPower(dependencies.player),
       developer,
+      dependencies.playerGender(identity),
     );
     updateDuelControls();
     dependencies.refreshAppStatus();

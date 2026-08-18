@@ -9,8 +9,17 @@ import {
   replayState,
 } from "../duel";
 import type { DuelPresentation, DuelScene, ReplayMode, RuntimeDuelReplay, RuntimeDuelState } from "./types";
+import type { PlayerGender } from "../../../shared/player-gender";
 
 type RemotePlayer = { id: string; name: string };
+
+export type DuelReplayTitle = {
+  challengerName: string;
+  challengerGender: PlayerGender;
+  opponentName: string;
+  opponentGender: PlayerGender;
+  detail?: string;
+};
 
 export type DuelPresentationHooks = {
   activeDuel: () => RuntimeDuelState | null;
@@ -20,7 +29,7 @@ export type DuelPresentationHooks = {
   playerDisplayName: (identity: string) => string | undefined;
   pulseDuel: () => void;
   spawnDamageNumber: (x: number, y: number, damage: number) => void;
-  setReplayTitle: (title: string) => void;
+  setReplayTitle: (title: DuelReplayTitle) => void;
   now: () => number;
   nowMs: () => number;
 };
@@ -101,6 +110,7 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       y: DUEL_COMBAT_Y,
       name: (isChallenger ? duel.challengerName : duel.opponentName)
         || (identity === localId ? (hooks.localDisplayName() || "PLAYER") : remoteName(identity)),
+      gender: isChallenger ? duel.challengerGender : duel.opponentGender,
       hp: duel.status === "finishing"
         ? isChallenger ? duel.challengerHp : duel.opponentHp
         : isChallenger ? presentation.state.challengerHp : presentation.state.opponentHp,
@@ -133,7 +143,12 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
         opponentHp: replay.opponentMaxHp,
       },
     };
-    hooks.setReplayTitle(`${replay.challengerName} VS ${replay.opponentName}`);
+    hooks.setReplayTitle({
+      challengerName: replay.challengerName,
+      challengerGender: replay.challengerGender,
+      opponentName: replay.opponentName,
+      opponentGender: replay.opponentGender,
+    });
   }
 
   function replayScene() {
@@ -156,6 +171,7 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
       y: DUEL_COMBAT_Y,
       name: isChallenger ? replay.challengerName : replay.opponentName,
+      gender: isChallenger ? replay.challengerGender : replay.opponentGender,
       hp: isChallenger ? state.challengerHp : state.opponentHp,
       maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
       facing: isChallenger ? 0 : Math.PI,
@@ -166,9 +182,13 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       rightHandItem: isChallenger ? replay.challengerRightHandItem : replay.opponentRightHandItem,
       leftHandItem: isChallenger ? replay.challengerLeftHandItem : replay.opponentLeftHandItem,
     });
-    hooks.setReplayTitle(countdown > 0
-      ? `${replay.challengerName} VS ${replay.opponentName}`
-      : `${replay.challengerName} VS ${replay.opponentName} · ${elapsed.toFixed(1)} / ${replay.durationSeconds.toFixed(1)}s`);
+    hooks.setReplayTitle({
+      challengerName: replay.challengerName,
+      challengerGender: replay.challengerGender,
+      opponentName: replay.opponentName,
+      opponentGender: replay.opponentGender,
+      detail: countdown > 0 ? undefined : `${elapsed.toFixed(1)} / ${replay.durationSeconds.toFixed(1)}s`,
+    });
     return {
       challenger: actor(true),
       opponent: actor(false),

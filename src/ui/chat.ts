@@ -2,6 +2,8 @@ import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
 import type { PlayerPowerStats } from "../../shared/player-power";
 import { duelReplayIsInteractive, presentedChatPower } from "./chat-presentation";
 import { formatCompactNumber } from "./number-format";
+import { appendPlayerGenderIcon } from "./player-gender";
+import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 10_800_000;
@@ -17,6 +19,7 @@ type ChatMessage = {
   message: string;
   replayId: bigint;
   powerLevel: number;
+  senderGender: PlayerGender;
   sentAtMs: number;
 };
 
@@ -25,6 +28,7 @@ type CoopClient = {
   localIdentity?: () => string | undefined;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
+  playerGender?: (identity: string) => PlayerGender;
   playerProfile?: (identity?: string) => { progress: PlayerPowerStats } | null;
   savedProgress?: () => PlayerPowerStats | null;
   chatRevision?: () => number;
@@ -140,6 +144,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const duel = message.replayId > 0n ? duelPresentation(message, localName, localIdentity) : null;
       const displayName = displayNameFor(message, localName, localIdentity);
       const displayIdentity = duel?.identity ?? message.sender;
+      const cachedGender = normalizePlayerGender(coop?.playerGender?.(displayIdentity));
+      const displayedGender = cachedGender !== PLAYER_GENDER_UNSET
+        ? cachedGender
+        : displayIdentity === message.sender ? message.senderGender : PLAYER_GENDER_UNSET;
       const displayedProfile = duel && displayIdentity !== message.sender
         ? coop?.playerProfile?.(displayIdentity)
         : null;
@@ -162,14 +170,18 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       name.style.color = nameColor(displayIdentity);
       const nameCore = document.createElement("span");
       nameCore.className = "chat-name-core";
-      const guestSuffix = coop?.isGuest?.(displayIdentity) ? " (guest)" : "";
       if (isDeveloperIdentity(displayIdentity)) {
         const badge = document.createElement("span");
         badge.className = "dev-badge";
         badge.textContent = `${DEVELOPER_BADGE} `;
         nameCore.appendChild(badge);
       }
-      nameCore.append(document.createTextNode(`${displayName}${guestSuffix}`));
+      const nameText = document.createElement("span");
+      nameText.className = "chat-name-text";
+      nameText.textContent = displayName;
+      nameCore.append(nameText);
+      appendPlayerGenderIcon(nameCore, displayedGender);
+      if (coop?.isGuest?.(displayIdentity)) nameCore.append(document.createTextNode(" (guest)"));
       name.appendChild(nameCore);
       if (displayedPower > 0) {
         const power = document.createElement("span");

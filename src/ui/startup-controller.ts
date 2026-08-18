@@ -1,4 +1,6 @@
 import { requiredElement } from "../game/runtime/dom";
+import { appendPlayerGenderIcon } from "./player-gender";
+import type { PlayerGender } from "../../shared/player-gender";
 
 type AccountState = {
   signedIn?: boolean;
@@ -15,6 +17,7 @@ type StartupDependencies = {
   accountState: () => AccountState | undefined;
   connected: () => boolean;
   knownCharacter: () => string;
+  knownCharacterGender: () => PlayerGender;
   defaultPlayerName: () => string;
   isSignInScreenReady: () => boolean;
   getLoadingStages: () => LoadingStage[];
@@ -91,6 +94,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     const name = dependencies.knownCharacter().trim();
     const characterFound = Boolean(name);
     accountCharacterName.textContent = characterFound ? name : "none";
+    if (characterFound) appendPlayerGenderIcon(accountCharacterName, dependencies.knownCharacterGender());
     accountCharacter.classList.toggle("is-empty", !characterFound);
     signInButton.hidden = false;
     signInButton.textContent = characterFound || knownAccount ? "SIGN IN" : "REGISTER";
