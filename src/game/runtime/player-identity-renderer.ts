@@ -263,12 +263,12 @@ export function createPlayerIdentityRenderer(options: {
       const iconGap = hasPowerIcon ? 3 : 0;
       const powerValueWidth = ctx.measureText(powerValue).width;
       const left = Math.round(centerX - (iconSize + iconGap + powerValueWidth) / 2);
+      ctx.textAlign = "left";
+      options.outlinedText(powerValue, left, bottom, "#ffffff", 4);
       if (hasPowerIcon) {
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(options.powerIcon, left, Math.round(bottom - iconSize), iconSize, iconSize);
+        ctx.drawImage(options.powerIcon, Math.round(left + powerValueWidth + iconGap), Math.round(bottom - iconSize), iconSize, iconSize);
       }
-      ctx.textAlign = "left";
-      options.outlinedText(powerValue, left + iconSize + iconGap, bottom, "#ffffff", 4);
     }
     ctx.restore();
   }

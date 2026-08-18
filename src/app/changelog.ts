@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.441": [
+    "A new candy-style crossed-swords icon now follows Power values, while HUD Power sits directly beside the player name for faster mobile scanning.",
+    "Profiles now use a compact gender picker above the player preview, window titles display in lowercase, and leaderboard and sign-in presentation is steadier and cleaner.",
+  ],
   "0.440": [
     "Player profiles now include persistent male and female symbol choices, shown beside player names throughout the HUD, world, chat, profiles, rankings, boss results, duels, replays, and sign-in.",
   ],

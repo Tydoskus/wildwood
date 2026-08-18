@@ -189,12 +189,12 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         power.setAttribute("aria-label", `Power ${formatCompactNumber(displayedPower)}`);
         const powerIcon = document.createElement("img");
         powerIcon.className = "power-icon chat-power-icon";
-        powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
+        powerIcon.src = "assets/wildwood/icons/Icon_Battle_Candy_v1.png";
         powerIcon.alt = "";
         powerIcon.setAttribute("aria-hidden", "true");
         const powerValue = document.createElement("span");
         powerValue.textContent = formatCompactNumber(displayedPower);
-        power.append(powerIcon, powerValue);
+        power.append(powerValue, powerIcon);
         name.appendChild(power);
       }
       name.setAttribute("role", "button");

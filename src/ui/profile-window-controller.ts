@@ -1,5 +1,6 @@
 import type { LeaderboardEntry, PlayerProfileData } from "../wildwood-coop";
-import { isSelectedPlayerGender, type PlayerGender } from "../../shared/player-gender";
+import { isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
+import { appendPlayerGenderIcon } from "./player-gender";
 
 export type ProfileTab = "overview" | "stats" | "ranking";
 type Profile = PlayerProfileData;
@@ -10,7 +11,7 @@ export function createProfileWindowController(elements: {
   overviewTab: HTMLElement; statsTab: HTMLElement; rankingTab: HTMLElement; overviewPanel: HTMLElement; statsPanel: HTMLElement; rankingPanel: HTMLElement; leaderboardStats: HTMLElement;
   joined: HTMLElement; timePlayed: HTMLElement; kills: HTMLElement; online: HTMLElement; statGrid: HTMLElement;
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
-  skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderChoices: HTMLElement;
+  skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
   duel: HTMLButtonElement; developerEdit: HTMLElement; developerEditButton: HTMLElement;
   editNameInput: HTMLInputElement; editMaxHp: HTMLInputElement; editDamage: HTMLInputElement; editAttackRate: HTMLInputElement; editArmor: HTMLInputElement; editRegen: HTMLInputElement; editSpeed: HTMLInputElement; editAttackRange: HTMLInputElement; editProjectileSpeed: HTMLInputElement; editProjectileCount: HTMLInputElement;
   cancelDeveloperEdit: HTMLElement; saveDeveloperEdit: HTMLButtonElement;
@@ -70,6 +71,22 @@ export function createProfileWindowController(elements: {
     elements.genderChoices.querySelectorAll<HTMLButtonElement>(".profile-gender-choice").forEach((choice) => {
       choice.setAttribute("aria-pressed", String(Number(choice.dataset.gender) === value));
     });
+    elements.genderValue.replaceChildren();
+    if (!isSelectedPlayerGender(value)) {
+      elements.genderValue.textContent = "choose";
+      return;
+    }
+    const icon = appendPlayerGenderIcon(elements.genderValue, value);
+    if (icon) {
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+    }
+    elements.genderValue.append(document.createTextNode(playerGenderLabel(value).toLowerCase()));
+  }
+
+  function closeGenderChoices() {
+    elements.genderChoices.hidden = true;
+    elements.genderEdit.setAttribute("aria-expanded", "false");
   }
 
   function drawPreview() {
@@ -109,6 +126,7 @@ export function createProfileWindowController(elements: {
     elements.editName.hidden = !own;
     elements.genderSetting.hidden = !own;
     if (own) updateGenderChoices(profile.gender);
+    else closeGenderChoices();
     updatePreview(profile.identity, own);
     renderRankings(profile.identity);
     renderPower(api.formatPower(profile.progress));
@@ -131,14 +149,14 @@ export function createProfileWindowController(elements: {
     identity = nextIdentity; profileData = null; elements.developerEdit.hidden = true; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity; updateDuelButton();
     elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity));
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "ONLINE" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
-    api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; if (own) updateGenderChoices(api.playerGender(nextIdentity));
+    api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
     updatePreview(nextIdentity, own); renderPower("—"); elements.loading.hidden = false; elements.overviewPanel.hidden = true; elements.statsPanel.hidden = true; elements.rankingPanel.hidden = true; selectTab("stats"); elements.statsPanel.hidden = true;
     const cached = api.profile(nextIdentity); if (cached) { render(cached); return; }
     const loaded = await api.loadProfile(nextIdentity); if (nextIdentity !== identity) return; if (loaded) render(loaded); else elements.loading.textContent = "PLAYER DATA UNAVAILABLE";
   }
 
   function close() {
-    closeNameEditor(); elements.skinChoices.hidden = true; elements.window.hidden = true; identity = ""; profileData = null; elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
+    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.window.hidden = true; identity = ""; profileData = null; elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
   }
 
   function openNameEditor() {
@@ -171,8 +189,15 @@ export function createProfileWindowController(elements: {
 
   elements.overviewTab.addEventListener("click", () => selectTab("overview")); elements.statsTab.addEventListener("click", () => selectTab("stats")); elements.rankingTab.addEventListener("click", () => selectTab("ranking"));
   elements.close.addEventListener("click", close); elements.editName.addEventListener("click", openNameEditor); elements.nameEditor.addEventListener("click", (event) => { if (event.target === elements.nameEditor) closeNameEditor(); }); elements.nameForm.addEventListener("submit", (event) => void saveName(event));
-  elements.skinEdit.addEventListener("click", () => { if (identity === api.localIdentity()) elements.skinChoices.hidden = !elements.skinChoices.hidden; });
+  elements.skinEdit.addEventListener("click", () => { if (identity !== api.localIdentity()) return; closeGenderChoices(); elements.skinChoices.hidden = !elements.skinChoices.hidden; });
   elements.skinChoices.addEventListener("click", async (event) => { const choice = (event.target as Element).closest<HTMLButtonElement>(".profile-skin-tone-choice"); if (!choice || identity !== api.localIdentity()) return; const value = Number(choice.dataset.skinTone); if (!Number.isInteger(value)) return; const result = await api.setSkinTone(value); if (!result?.ok) { api.showMessage(result?.error || "SKIN TONE UPDATE FAILED", "#ff9b91"); updateSkinChoices(api.skinTone()); return; } updateSkinChoices(value); elements.skinChoices.hidden = true; drawPreview(); api.showMessage("SKIN TONE UPDATED", "#72ef58"); });
+  elements.genderEdit.addEventListener("click", () => {
+    if (identity !== api.localIdentity()) return;
+    elements.skinChoices.hidden = true;
+    const willOpen = elements.genderChoices.hidden;
+    elements.genderChoices.hidden = !willOpen;
+    elements.genderEdit.setAttribute("aria-expanded", String(willOpen));
+  });
   elements.genderChoices.addEventListener("click", async (event) => {
     const choice = (event.target as Element).closest<HTMLButtonElement>(".profile-gender-choice");
     if (!choice || identity !== api.localIdentity()) return;
@@ -184,6 +209,7 @@ export function createProfileWindowController(elements: {
     choices.forEach((button) => { button.disabled = false; });
     if (!result?.ok) { api.showMessage(result?.error || "GENDER UPDATE FAILED", "#ff9b91"); updateGenderChoices(api.playerGender()); return; }
     updateGenderChoices(gender);
+    closeGenderChoices();
     if (profileData) profileData = { ...profileData, gender };
     api.renderName(elements.name, identity, profileData?.name || api.localDisplayName() || "PLAYER", gender);
     api.showMessage("GENDER UPDATED", "#72ef58");

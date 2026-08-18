@@ -409,7 +409,7 @@ import {
   });
   profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v2.png";
   const powerIcon = new Image();
-  powerIcon.src = "assets/wildwood/icons/Icon_Battle.png";
+  powerIcon.src = "assets/wildwood/icons/Icon_Battle_Candy_v1.png";
   const maleGenderIcon = new Image();
   maleGenderIcon.src = playerGenderIconPath(PLAYER_GENDER_MALE);
   const femaleGenderIcon = new Image();
@@ -752,7 +752,7 @@ import {
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, rankingTab: profileRankingTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel, rankingPanel: profileRankingPanel, leaderboardStats: profileLeaderboardStatsEl,
     joined: profileJoinedEl, timePlayed: profileTimePlayedEl, kills: profileKillsEl, online: profileOnlineEl, statGrid: profileStatGrid,
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
-    skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderChoices: gameElements.profileGenderChoices,
+    skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn, developerEdit: profileEditPanel, developerEditButton: editPlayerSaveBtn,
     editNameInput: profileEditName, editMaxHp: profileEditMaxHp, editDamage: profileEditDamage, editAttackRate: profileEditAttackRate, editArmor: profileEditArmor, editRegen: profileEditRegen, editSpeed: profileEditSpeed, editAttackRange: profileEditAttackRange, editProjectileSpeed: profileEditProjectileSpeed, editProjectileCount: profileEditProjectileCount,
     cancelDeveloperEdit: cancelPlayerSaveEditBtn, saveDeveloperEdit: savePlayerSaveEditBtn,
