@@ -11,6 +11,11 @@ export type RenderController = {
   drawBootPickup: () => void;
 };
 
+export function snapToDevicePixel(value: number, pixelRatio: number) {
+  const scale = Number.isFinite(pixelRatio) ? Math.max(1, pixelRatio) : 1;
+  return Math.round(value * scale) / scale;
+}
+
 /** Owns frame rendering order. Main supplies scene and UI boundaries. */
 export function createRenderController(options: {
   ctx: CanvasRenderingContext2D;
@@ -147,7 +152,7 @@ export function createRenderController(options: {
   }
 
   function render() {
-    const { width, height } = viewport();
+    const { width, height, dpr } = viewport();
     ctx.clearRect(0, 0, width, height);
     drawProfileCharacterPreview();
     const remotes = remotePlayers();
@@ -161,8 +166,8 @@ export function createRenderController(options: {
     setRenderedDuelScene(null);
     ctx.save();
     const shake = screenShake();
-    const shakeX = screenShakeEnabled() && shake > .2 ? (Math.random() * 2 - 1) * shake : 0;
-    const shakeY = screenShakeEnabled() && shake > .2 ? (Math.random() * 2 - 1) * shake : 0;
+    const shakeX = screenShakeEnabled() && shake > .2 ? snapToDevicePixel((Math.random() * 2 - 1) * shake, dpr) : 0;
+    const shakeY = screenShakeEnabled() && shake > .2 ? snapToDevicePixel((Math.random() * 2 - 1) * shake, dpr) : 0;
     if (shakeX !== 0 || shakeY !== 0) ctx.translate(shakeX, shakeY);
     ctx.scale(camera.zoom, camera.zoom);
     drawStaticWorld();

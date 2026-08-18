@@ -236,10 +236,13 @@ export function createPlayerIdentityRenderer(options: {
     const genderIcon = gender === PLAYER_GENDER_MALE || gender === PLAYER_GENDER_FEMALE
       ? options.genderIcons[gender]
       : null;
-    const hasGenderIcon = Boolean(genderIcon?.complete && genderIcon.naturalWidth > 0);
-    const genderIconSize = hasGenderIcon ? 15 : 0;
+    const hasGenderIcon = Boolean(genderIcon?.complete && genderIcon.naturalWidth > 0 && genderIcon.naturalHeight > 0);
+    const genderIconHeight = hasGenderIcon ? 15 : 0;
+    const genderIconWidth = hasGenderIcon && genderIcon
+      ? genderIconHeight * genderIcon.naturalWidth / genderIcon.naturalHeight
+      : 0;
     const genderIconGap = hasGenderIcon ? 3 : 0;
-    const labelWidth = nameWidth + genderIconGap + genderIconSize;
+    const labelWidth = nameWidth + genderIconGap + genderIconWidth;
     const textLeft = Math.round(centerX - labelWidth / 2);
     const nameBottom = powerValue ? bottom - 18 : bottom;
     const developerPrefix = `${DEVELOPER_BADGE} `;
@@ -255,7 +258,13 @@ export function createPlayerIdentityRenderer(options: {
     }
     if (hasGenderIcon && genderIcon) {
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(genderIcon, Math.round(textLeft + nameWidth + genderIconGap), Math.round(nameBottom - genderIconSize), genderIconSize, genderIconSize);
+      ctx.drawImage(
+        genderIcon,
+        Math.round(textLeft + nameWidth + genderIconGap),
+        Math.round(nameBottom - genderIconHeight),
+        Math.round(genderIconWidth),
+        genderIconHeight,
+      );
     }
     if (powerValue) {
       const hasPowerIcon = options.powerIcon.complete && options.powerIcon.naturalWidth > 0;

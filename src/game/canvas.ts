@@ -27,8 +27,13 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
     const metrics = ctx.measureText(text);
     const fontSize = Number.parseFloat(ctx.font.match(/([\d.]+)px/)?.[1] ?? "16");
     const textWidth = Math.max(1, Math.ceil(metrics.width));
-    const ascent = Math.max(1, Math.ceil(metrics.actualBoundingBoxAscent || fontSize * .8));
-    const descent = Math.max(1, Math.ceil(metrics.actualBoundingBoxDescent || fontSize * .2));
+    const measuredAscent = metrics.actualBoundingBoxAscent;
+    const measuredDescent = metrics.actualBoundingBoxDescent;
+    const ascent = Math.max(1, Math.ceil(Number.isFinite(measuredAscent) ? measuredAscent : fontSize * .8));
+    // Digits commonly have a legitimate zero descent. Treating zero as a
+    // missing metric adds fake space below the glyph and shifts centered HP
+    // text upward inside its bar.
+    const descent = Math.max(0, Math.ceil(Number.isFinite(measuredDescent) ? measuredDescent : fontSize * .2));
     const padding = Math.ceil((strokeWidth ?? 0) / 2) + 2;
     const logicalWidth = textWidth + padding * 2;
     const logicalHeight = ascent + descent + padding * 2;

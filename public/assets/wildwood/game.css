@@ -952,7 +952,7 @@
   .death-screen h1 {
     margin: 0;
     color: #f02d3d;
-    font-size: clamp(48px, 14vw, 112px);
+    font-size: clamp(34px, 9.8vw, 78px);
     line-height: .9;
     letter-spacing: -.03em;
     text-shadow: none;
@@ -1006,11 +1006,11 @@
     transform: translateY(-50%);
   }
 
-  #accountChoicePanel .wildwood-wordmark-title { animation: signin-logo-float 4s ease-in-out infinite; }
+  #accountChoicePanel .wildwood-wordmark-title { animation: signin-logo-float 3.2s ease-in-out infinite; }
 
   @keyframes signin-logo-float {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px); }
+    50% { transform: translateY(-8px); }
   }
 
   .welcome-wordmark-title {
@@ -1347,18 +1347,18 @@
   .profile-name-editor-controls { display: flex; gap: 5px; }
   #profileNameInput { flex: 1; width: 0; }
   #savePlayerNameBtn { min-width: 0; margin: 0; padding: 4px 8px; border-width: 1px; border-radius: 5px; font-size: 11px; line-height: 1; text-transform: none; }
-  .modal.leaderboard-modal { width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.leaderboard-modal { --leaderboard-body-height: min(31.2vh, 230px); width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   #leaderboardTitle { color: #fff; }
   .leaderboard-tabs { margin: 9px 0 8px; }
   .leaderboard-tabs .profile-tab { padding: 6px 10px; }
   .leaderboard-column-headings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 0 9px 5px 70px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
-  .leaderboard-rows { display: grid; align-content: start; gap: 0; height: min(64vh, 470px); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
+  .leaderboard-rows { display: grid; align-content: start; gap: 0; height: var(--leaderboard-body-height); margin: 0; padding: 0; overflow-y: auto; background: rgba(0,0,0,.22); list-style: none; }
   .leaderboard-rows[hidden] { display: none; }
-  .leaderboard-loading { display: grid; place-items: center; height: min(64vh, 470px); margin: 0; padding: 0; background: rgba(0,0,0,.22); }
+  .leaderboard-loading { display: grid; place-items: center; height: var(--leaderboard-body-height); margin: 0; padding: 0; background: rgba(0,0,0,.22); }
   .leaderboard-loading[hidden] { display: none; }
-  .leaderboard-modal > #leaderboardEmpty { display: grid; place-items: center; height: min(64vh, 470px); padding: 0; background: rgba(0,0,0,.22); }
+  .leaderboard-modal > #leaderboardEmpty { display: grid; place-items: center; height: var(--leaderboard-body-height); padding: 0; background: rgba(0,0,0,.22); }
   .leaderboard-modal > #leaderboardEmpty[hidden] { display: none; }
   .leaderboard-spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,.22); border-top-color: var(--gold); border-radius: 50%; animation: leaderboard-spin .65s linear infinite; }
   @keyframes leaderboard-spin { to { transform: rotate(1turn); } }
@@ -1478,16 +1478,14 @@
     .player-profile-modal .profile-stat-grid > div { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-height: 23px; padding: 4px 6px; }
     .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .profile-edit-button { margin-top: 5px; padding: 4px 7px; font-size: 8px; }
-    .modal.leaderboard-modal { padding: 9px; }
+    .modal.leaderboard-modal { --leaderboard-body-height: min(18vh, 145px); padding: 9px; }
     .leaderboard-header { gap: 8px; }
     .leaderboard-header h2 { font-size: 18px; }
     .leaderboard-modal .profile-close-button { width: 31px; min-width: 31px; height: 31px; font-size: 20px; }
     .leaderboard-tabs { margin: 4px 0 3px; }
     .leaderboard-tabs .profile-tab { padding: 3px 8px; font-size: 9px; }
     .leaderboard-column-headings { padding: 0 7px 2px 35px; font-size: 7px; }
-    .leaderboard-rows { gap: 0; height: min(45vh, 329px); padding: 0; }
-    .leaderboard-loading { height: min(45vh, 329px); }
-    .leaderboard-modal > #leaderboardEmpty { height: min(45vh, 329px); }
+    .leaderboard-rows { gap: 0; padding: 0; }
     .leaderboard-row { min-height: 25px; padding: 0 7px; }
     .leaderboard-rank { font-size: 8px; }
     .leaderboard-name, .leaderboard-value { font-size: 9px; }
@@ -1571,6 +1569,11 @@
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  #accountChoicePanel {
+    height: min(586px, calc(100dvh - 24px));
+    overflow-y: auto;
   }
 
   h1 {
