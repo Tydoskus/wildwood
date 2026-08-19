@@ -1,8 +1,13 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.452": [
+    "Rock remains every player's unchanged starter weapon; Bow is a separate developer-only inventory item with larger mobile-readable art and arrow visuals.",
+    "Inventory and inspection sprites render correctly again, selected items toggle off, and tapping free window space clears selection while valid equipment slots still equip.",
+    "The Tech Tree is compact again with one node per upgrade, cumulative saved ranks, and the same long research depth.",
+  ],
   "0.451": [
     "The full 36-node Tech Tree is restored with cumulative rank bands, mobile-sized spacing on every screen, and no rank-reset presentation.",
     "One rank in each predecessor now permanently unlocks the next technology, so every unlocked upgrade can be researched through its full grind.",
-    "The Starter Bow now replaces the Rock with the selected FA_WP_Main_Bow_011_Brown art, visible arrows, automatic save migration, and developer inventory access.",
+    "The selected FA_WP_Main_Bow_011_Brown art and visible arrow presentation were added through the modular equipment system.",
     "Equipment now uses shared gameplay and client presentation registries, while mobile-first design and testing are explicit project requirements.",
   ],
   "0.450": [

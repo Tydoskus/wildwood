@@ -28,6 +28,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 ## Required change rules
 
 - Mobile is the primary product target. Validate narrow portrait touch layout, readability, safe areas, lifecycle behavior, and low-end-device performance before desktop compatibility. Desktop must preserve mobile-sized content spacing.
+- Project owner owns all visual and play-feel acceptance testing. Agents should run automated structural, logic, build, protocol, migration, and asset-path checks, then identify visual changes for owner review instead of performing extended visual QA unless explicitly requested.
 - Change source files under `src/`; never edit generated browser bundles or SpacetimeDB bindings by hand.
 - Keep only runtime-loaded media under `public/assets/`; place original or unused vendor art under `art-source/`.
 - Run `npm run build:client` before every player-facing commit. Generated `dist/` files are never committed; GitHub Pages builds the same artifact in CI.

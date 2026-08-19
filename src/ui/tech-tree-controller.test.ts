@@ -16,9 +16,7 @@ function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
 
 describe("hasAvailableResearch", () => {
   it("shows saved ranks cumulatively instead of resetting each loop", () => {
-    expect(researchProgressLabel(4, 4)).toBe("4 / 4");
-    expect(researchProgressLabel(4, 8)).toBe("4 / 8");
-    expect(researchProgressLabel(9, 8)).toBe("8 / 8");
+    expect(researchProgressLabel("criticalDamage", 4)).toBe("4 / 16");
   });
 
   it("reports an immediately researchable node", () => {

@@ -24,4 +24,10 @@ Desktop should remain functional with keyboard, mouse, common viewport sizes, an
 3. Larger phone and tablet.
 4. Desktop compatibility viewports.
 
+## QA ownership
+
+- Project owner performs all visual appearance and play-feel acceptance testing, including final checks on physical mobile devices.
+- Coding agents run automated logic, type, build, migration, protocol, and asset-path checks by default. Do not spend release time on extended visual testing unless project owner explicitly requests it.
+- Handoffs must call out visual or play-feel changes that still need project-owner review; automated checks never claim visual approval.
+
 Document exceptions beside the feature. Include reason, mobile impact, and removal condition.

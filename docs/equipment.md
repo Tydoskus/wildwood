@@ -22,3 +22,5 @@ Mobile-first rule: validate equipment silhouettes, tap targets, inventory densit
 6. Test ownership, slot compatibility, persistence, world rendering, remote-player rendering, and mobile-size inventory readability.
 
 Weapons declare attack mode and projectile kind in shared catalog. Renderer maps projectile kind to visuals; future server combat behavior can consume same definition without trusting client presentation data.
+
+Current ownership contract: Rock (`starter_stone`) remains unchanged starter gear for every player. Bow (`starter_bow`) is a separate weapon granted only to developer identity until an explicit progression source is designed.

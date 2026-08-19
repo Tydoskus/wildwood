@@ -5,15 +5,16 @@ import {
   DEVELOPER_ITEM_IDS,
   isWeaponItem,
   itemFitsEquipmentSlot,
-  LEGACY_STARTER_STONE,
   STARTER_BOW,
+  STARTER_STONE,
   STARTER_ITEM_IDS,
 } from "./items";
 
 describe("equipment catalog", () => {
-  it("grants the Bow and basic hat through the starter catalog", () => {
-    expect(STARTER_ITEM_IDS).toEqual([BASIC_PAPER_HAT, STARTER_BOW]);
-    expect(DEVELOPER_ITEM_IDS).not.toContain(STARTER_BOW);
+  it("keeps the Rock as starter gear and grants the Bow only through developer inventory", () => {
+    expect(STARTER_ITEM_IDS).toEqual([BASIC_PAPER_HAT, STARTER_STONE]);
+    expect(DEVELOPER_ITEM_IDS).toContain(STARTER_BOW);
+    expect(STARTER_ITEM_IDS).not.toContain(STARTER_BOW);
   });
 
   it("declares the Bow as a two-hand-slot-compatible ranged weapon", () => {
@@ -23,7 +24,9 @@ describe("equipment catalog", () => {
     expect(itemFitsEquipmentSlot(STARTER_BOW, "HEAD")).toBe(false);
   });
 
-  it("canonicalizes retired Rock saves to the Bow", () => {
-    expect(canonicalItemId(LEGACY_STARTER_STONE)).toBe(STARTER_BOW);
+  it("keeps Rock and Bow as separate weapon IDs", () => {
+    expect(canonicalItemId(STARTER_STONE)).toBe(STARTER_STONE);
+    expect(canonicalItemId(STARTER_BOW)).toBe(STARTER_BOW);
+    expect(isWeaponItem(STARTER_STONE)).toBe(true);
   });
 });

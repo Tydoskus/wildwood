@@ -1,4 +1,4 @@
-import { BASIC_PAPER_HAT, STARTER_BOW } from "./inventory";
+import { BASIC_PAPER_HAT, STARTER_STONE } from "./inventory";
 import { ITEM_PRESENTATIONS, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
 
 export const PLAYER_SKIN_TONES = [
@@ -32,19 +32,26 @@ function image(source: string, settled: () => void) {
 }
 
 export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanceAssets {
+  const expectedAssetCount = 2 + Object.values(ITEM_PRESENTATIONS).reduce((count, presentation) =>
+    count + (presentation.world?.kind === "LEGS" ? 2 : presentation.world ? 1 : 0), 0);
+  let settledAssetCount = 0;
+  const markAssetSettled = () => {
+    settledAssetCount += 1;
+    if (settledAssetCount >= expectedAssetCount) settled();
+  };
   const equipment: PlayerAppearanceAssets["equipment"] = {};
   for (const [itemId, presentation] of Object.entries(ITEM_PRESENTATIONS)) {
     if (!presentation.world) continue;
     equipment[itemId] = presentation.world.kind === "LEGS"
       ? {
-        frontLeg: image(presentation.world.frontSource, settled),
-        backLeg: image(presentation.world.backSource, settled),
+        frontLeg: image(presentation.world.frontSource, markAssetSettled),
+        backLeg: image(presentation.world.backSource, markAssetSettled),
       }
-      : { sprite: image(presentation.world.source, settled) };
+      : { sprite: image(presentation.world.source, markAssetSettled) };
   }
   return {
-    basicFrontLeg: image("assets/wildwood/player-parts/basic-leg-front.png", settled),
-    basicBackLeg: image("assets/wildwood/player-parts/basic-leg-back.png", settled),
+    basicFrontLeg: image("assets/wildwood/player-parts/basic-leg-front.png", markAssetSettled),
+    basicBackLeg: image("assets/wildwood/player-parts/basic-leg-back.png", markAssetSettled),
     equipment,
   };
 }
@@ -90,7 +97,7 @@ export function drawStartingPlayer(
   const facingLeft = Math.cos(options.facing) < 0;
   const attackElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
   const handStateKnown = options.rightHandItem !== undefined || options.leftHandItem !== undefined;
-  const heldItem = options.rightHandItem || options.leftHandItem || (!handStateKnown ? STARTER_BOW : "");
+  const heldItem = options.rightHandItem || options.leftHandItem || (!handStateKnown ? STARTER_STONE : "");
   const heldInLeftHand = Boolean(heldItem && options.leftHandItem === heldItem);
   const heldPresentation = itemPresentation(heldItem)?.world;
   const heldSpritePresentation = heldPresentation?.kind === "SPRITE" && heldPresentation.layer === "HAND"
@@ -99,7 +106,20 @@ export function drawStartingPlayer(
   // Mirroring the hand anchor makes the same item visibly change sides.
   let heldX = heldInLeftHand ? (facingLeft ? -11 : 30) : (facingLeft ? 30 : -11);
   let heldY = heldSpritePresentation?.top ?? 116;
-  if (attackElapsed > 0 && attackElapsed < .12) {
+  let heldVisible = true;
+  if (heldSpritePresentation?.handAction === "THROW") {
+    if (attackElapsed > 0 && attackElapsed < .12) {
+      const windup = attackElapsed / .12;
+      heldX -= 11 * (1 - (1 - windup) * (1 - windup));
+      heldY += 2 * windup;
+    } else if (attackElapsed >= .12 && attackElapsed < .20) {
+      heldVisible = false;
+    } else if (attackElapsed >= .20 && attackElapsed < .42) {
+      const reload = (attackElapsed - .20) / .22;
+      heldX += 14 * (1 - reload);
+      heldY -= Math.sin(reload * Math.PI) * 5;
+    }
+  } else if (attackElapsed > 0 && attackElapsed < .12) {
     const windup = attackElapsed / .12;
     heldX -= 6 * (1 - (1 - windup) * (1 - windup));
     heldY += 2 * windup;
@@ -134,7 +154,7 @@ export function drawStartingPlayer(
   if (facingLeft) ctx.scale(-1, 1);
   ctx.scale(scale, scale); ctx.translate(-90, -171);
   const drawHeldItem = () => {
-    if (!heldItem || !heldSpritePresentation) return;
+    if (!heldItem || !heldSpritePresentation || !heldVisible) return;
     const asset = assets.equipment[heldItem]?.sprite;
     if (!asset) return;
     const width = heldSpritePresentation.width ?? asset.naturalWidth;

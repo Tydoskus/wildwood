@@ -548,10 +548,7 @@ import {
   });
 
   let playerSpriteReady = false;
-  let settledPlayerSprites = 0;
   const markPlayerSpriteReady = () => {
-    settledPlayerSprites += 1;
-    if (settledPlayerSprites < 8) return;
     playerSpriteReady = true;
     startup.refreshLoading();
     finishStartup();

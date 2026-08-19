@@ -2,6 +2,7 @@ import {
   BASIC_PAPER_HAT,
   LEGENDARY_WHITE_GOLD_ARMOR,
   STARTER_BOW,
+  STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   type ItemId,
@@ -24,6 +25,7 @@ export type WorldSpritePresentation = {
   height?: number;
   bottom?: number;
   top?: number;
+  handAction?: "THROW" | "BOW";
 };
 
 export type WorldLegPresentation = {
@@ -62,15 +64,27 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
       backSource: `${PLAYER_PARTS}/boots-leg-back.png`,
     },
   },
+  [STARTER_STONE]: {
+    inventory: { source: `${PLAYER_PARTS}/stone.png`, equippedWidth: 26, equippedHeight: 26 },
+    world: {
+      kind: "SPRITE",
+      source: `${PLAYER_PARTS}/stone.png`,
+      layer: "HAND",
+      top: 116,
+      handAction: "THROW",
+    },
+    projectile: "ROCK",
+  },
   [STARTER_BOW]: {
-    inventory: { source: STARTER_BOW_ASSET_SOURCE, equippedWidth: 36, equippedHeight: 28 },
+    inventory: { source: STARTER_BOW_ASSET_SOURCE, equippedWidth: 44, equippedHeight: 34 },
     world: {
       kind: "SPRITE",
       source: STARTER_BOW_ASSET_SOURCE,
       layer: "HAND",
-      width: 65,
-      height: 36,
-      top: 108,
+      width: 82,
+      height: 46,
+      top: 102,
+      handAction: "BOW",
     },
     projectile: "ARROW",
   },
@@ -85,7 +99,7 @@ export function itemArtMarkup(itemId: string, hidden = true) {
   const aria = hidden ? ' aria-hidden="true"' : "";
   if (presentation?.source) {
     const style = [
-      `--item-art: url(&quot;${presentation.source}&quot;)`,
+      `background-image: url(${presentation.source})`,
       presentation.equippedWidth ? `--equipped-art-width: ${presentation.equippedWidth}px` : "",
       presentation.equippedHeight ? `--equipped-art-height: ${presentation.equippedHeight}px` : "",
     ].filter(Boolean).join("; ");

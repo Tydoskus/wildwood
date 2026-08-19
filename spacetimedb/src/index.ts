@@ -19,10 +19,11 @@ import {
   BASIC_PAPER_HAT,
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
+  itemDefinition,
   itemFitsEquipmentSlot,
   LEGENDARY_WHITE_GOLD_ARMOR,
-  LEGACY_STARTER_STONE,
   STARTER_BOW,
+  STARTER_STONE,
   STARTER_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
@@ -112,7 +113,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 5;
+const MODULE_MIGRATION_VERSION = 6;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 7;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1097,11 +1098,11 @@ function defaultPlayerProgress(identity: any) {
     regen: 0,
     speed: PLAYER_SPEED,
     bootsCollected: false,
-    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_BOW]),
+    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE]),
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
     equippedFeet: "",
-    equippedRightHand: STARTER_BOW,
+    equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     introComplete: false,
     desertUnlocked: false,
@@ -1167,6 +1168,25 @@ function runPendingModuleMigrations(ctx: any) {
           equippedLeftHand,
         });
       }
+    }
+  }
+  if (currentVersion < 6) {
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const restoredProgress = {
+        ...progress,
+        equippedRightHand: progress.equippedRightHand === STARTER_BOW ? STARTER_STONE : progress.equippedRightHand,
+        equippedLeftHand: progress.equippedLeftHand === STARTER_BOW ? STARTER_STONE : progress.equippedLeftHand,
+      };
+      const inventoryJson = JSON.stringify(inventoryForProgress(restoredProgress));
+      const normalizedProgress = { ...restoredProgress, inventoryJson };
+      const equippedRightHand = equippedRightHandForProgress(normalizedProgress);
+      const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(normalizedProgress);
+      ctx.db.playerProgress.identity.update({
+        ...progress,
+        inventoryJson,
+        equippedRightHand,
+        equippedLeftHand,
+      });
     }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
@@ -2004,8 +2024,13 @@ function equippedFeetForProgress(progress: any) {
   return inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
 }
 
-function savedInventoryIncludes(progress: any, itemId: string) {
-  try { return JSON.parse(progress.inventoryJson ?? "[]").includes(itemId); } catch { return false; }
+function savedInventoryHasHandItem(progress: any) {
+  try {
+    const itemIds = JSON.parse(progress.inventoryJson ?? "[]");
+    return Array.isArray(itemIds) && itemIds.some((itemId) => itemDefinition(itemId)?.slot === "HAND");
+  } catch {
+    return false;
+  }
 }
 
 function canonicalSavedHand(progress: any, field: "equippedRightHand" | "equippedLeftHand") {
@@ -2019,9 +2044,7 @@ function equippedRightHandForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
   const saved = canonicalSavedHand(progress, "equippedRightHand");
   if (saved && inventory.includes(saved)) return saved;
-  const starterWeaponWasSaved = savedInventoryIncludes(progress, STARTER_BOW) ||
-    savedInventoryIncludes(progress, LEGACY_STARTER_STONE);
-  return starterWeaponWasSaved ? "" : STARTER_BOW;
+  return savedInventoryHasHandItem(progress) ? "" : STARTER_STONE;
 }
 
 function equippedLeftHandForProgress(progress: any) {

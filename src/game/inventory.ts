@@ -6,8 +6,8 @@ import {
   itemDefinition,
   itemFitsEquipmentSlot,
   LEGENDARY_WHITE_GOLD_ARMOR,
-  LEGACY_STARTER_STONE,
   STARTER_BOW,
+  STARTER_STONE,
   STARTER_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
@@ -18,9 +18,10 @@ export {
   BASIC_PAPER_HAT,
   ITEM_DEFINITIONS,
   itemDefinition,
+  itemFitsEquipmentSlot,
   LEGENDARY_WHITE_GOLD_ARMOR,
-  LEGACY_STARTER_STONE,
   STARTER_BOW,
+  STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   type EquipmentSlot,
@@ -61,6 +62,10 @@ export function moveInventoryItem(inventory: InventoryState, itemId: string, des
   const allowed = itemFitsEquipmentSlot(item.id, destination);
   if (!allowed || inventory[target] === itemId) return false;
   clearItem();
+  if (item.slot === "HAND") {
+    inventory.equippedRightHand = "";
+    inventory.equippedLeftHand = "";
+  }
   inventory[target] = itemId;
   return true;
 }
@@ -69,7 +74,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const requested = Array.isArray(itemIds) ? itemIds : [];
   const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
   const hasBetaTesterGoldenHelmet = ownsDeveloperCosmetics || requested.includes(SUPERIOR_GOLDEN_HELMET);
-  const starterWeaponWasSaved = requested.includes(STARTER_BOW) || requested.includes(LEGACY_STARTER_STONE);
+  const handStateWasSaved = requested.some((itemId) => itemDefinition(itemId)?.slot === "HAND");
   const developerItems = ownsDeveloperCosmetics
     ? DEVELOPER_ITEM_IDS
     : hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [];
@@ -90,7 +95,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS
       ? TRAILBLAZER_BOOTS
       : "",
-    equippedRightHand: savedRightHand || (!starterWeaponWasSaved && !savedLeftHand ? STARTER_BOW : ""),
+    equippedRightHand: savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : ""),
     equippedLeftHand: savedRightHand ? "" : savedLeftHand,
   };
 }

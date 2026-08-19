@@ -20,8 +20,8 @@ export const ATTACK_BALANCE_VERSION = 1;
 export {
   BASIC_PAPER_HAT,
   LEGENDARY_WHITE_GOLD_ARMOR,
-  LEGACY_STARTER_STONE,
   STARTER_BOW,
+  STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
 } from "./items";
@@ -49,7 +49,7 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 53;
+export const PROTOCOL_VERSION = 54;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

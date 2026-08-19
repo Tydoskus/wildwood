@@ -2,6 +2,7 @@ import {
   BASIC_PAPER_HAT,
   LEGENDARY_WHITE_GOLD_ARMOR,
   STARTER_BOW,
+  STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   type InventoryState,
 } from "../game/inventory";
@@ -91,13 +92,13 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     const { inventory } = dependencies;
     inventory.itemIds = [
       BASIC_PAPER_HAT,
-      STARTER_BOW,
-      ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR),
+      STARTER_STONE,
+      ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR || itemId === STARTER_BOW),
     ];
     inventory.equippedHead = BASIC_PAPER_HAT;
     inventory.equippedChest = "";
     inventory.equippedFeet = "";
-    inventory.equippedRightHand = STARTER_BOW;
+    inventory.equippedRightHand = STARTER_STONE;
     inventory.equippedLeftHand = "";
     inventory.selectedItemId = "";
     dependencies.renderInventory();

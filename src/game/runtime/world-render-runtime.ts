@@ -173,6 +173,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     localRightHandItem: () => options.equippedItems().rightHand,
     localLeftHandItem: () => options.equippedItems().leftHand,
     equipmentForIdentity: options.equipmentForIdentity,
+    itemSprite: (itemId) => itemId ? options.playerAppearanceAssets.equipment[itemId]?.sprite : undefined,
     enemySprites: options.enemySprites,
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,

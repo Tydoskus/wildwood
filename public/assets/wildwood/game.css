@@ -285,7 +285,7 @@
   .inventory-item:disabled { opacity: 1; cursor: default; }
   .inventory-item.is-filled { border-color: rgba(216,145,49,.7); background: rgba(158,99,29,.2); }
   .inventory-item.is-selected { border-color: #ffe47b; box-shadow: 0 0 0 1px rgba(255,228,123,.45); }
-  .inventory-item-art { display: block; width: 100%; height: 100%; background: var(--item-art) center / contain no-repeat; image-rendering: pixelated; }
+  .inventory-item-art { display: block; width: 100%; height: 100%; background-position: center; background-size: contain; background-repeat: no-repeat; image-rendering: pixelated; }
   .equipment-slot .inventory-item-art { width: var(--equipped-art-width, 34px); height: var(--equipped-art-height, 34px); }
 
   .boot-pixel-icon { display: flex; justify-content: center; gap: 3px; align-items: end; height: 22px; }

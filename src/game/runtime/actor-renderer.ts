@@ -40,6 +40,7 @@ export function createActorRenderer(options: {
   localRightHandItem: () => string;
   localLeftHandItem: () => string;
   equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
+  itemSprite: (itemId: string | undefined) => HTMLImageElement | undefined;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
@@ -78,6 +79,17 @@ export function createActorRenderer(options: {
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-13, -4); ctx.moveTo(-9, 0); ctx.lineTo(-13, 4); ctx.stroke();
     ctx.restore();
+  }
+
+  function drawRock(itemId: string | undefined, x: number, y: number, angle: number, offset = 0) {
+    const image = options.itemSprite(itemId);
+    if (!image?.complete || image.naturalWidth <= 0) return false;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.drawImage(image, -image.naturalWidth / 2, offset - image.naturalHeight / 2);
+    ctx.restore();
+    return true;
   }
 
   function createLabelBitmap(segments: LabelSegment[], baseline: CanvasTextBaseline): LabelBitmap {
@@ -236,11 +248,12 @@ export function createActorRenderer(options: {
       const projectileY = startY + (endY - startY) * progress - camera.y;
       const visibleHits = Math.min(5, attack.hits);
       const equipment = options.equipmentForIdentity(other.id);
-      const projectileKind = projectileKindForWeapon(equipment.rightHandItem || equipment.leftHandItem);
+      const weaponItem = equipment.rightHandItem || equipment.leftHandItem;
+      const projectileKind = projectileKindForWeapon(weaponItem);
       for (let index = 0; index < visibleHits; index += 1) {
         const offset = (index - (visibleHits - 1) / 2) * 9;
         if (projectileKind === "ARROW") drawArrow(projectileX, projectileY, Math.atan2(dy, dx), offset);
-        else {
+        else if (projectileKind !== "ROCK" || !drawRock(weaponItem, projectileX, projectileY, Math.atan2(dy, dx), offset)) {
           ctx.save(); ctx.translate(projectileX, projectileY);
           ctx.fillStyle = "#ffe76a";
           options.pixelCircle(0, offset, 6);
@@ -360,13 +373,15 @@ export function createActorRenderer(options: {
   function drawProjectile(projectile: Projectile | EnemyShot, enemy = false) {
     const x = Math.floor(projectile.x - camera.x);
     const y = Math.floor(projectile.y - camera.y);
+    const weaponItem = options.localRightHandItem() || options.localLeftHandItem();
     const projectileKind = !enemy
-      ? projectileKindForWeapon(options.localRightHandItem() || options.localLeftHandItem())
+      ? projectileKindForWeapon(weaponItem)
       : undefined;
     if (projectileKind === "ARROW") {
       drawArrow(x, y, Math.atan2(projectile.vy, projectile.vx));
       return;
     }
+    if (projectileKind === "ROCK" && drawRock(weaponItem, x, y, Math.atan2(projectile.vy, projectile.vx))) return;
     ctx.fillStyle = enemy ? "#d67cff" : "#5a250d";
     options.pixelCircle(x, y, projectile.r + 2);
     ctx.fillStyle = enemy ? "#f3c5ff" : "#ffe76a";

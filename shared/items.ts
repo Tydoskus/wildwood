@@ -5,13 +5,13 @@ export const BASIC_PAPER_HAT = "basic_paper_hat";
 export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
 export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
+export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
-export const LEGACY_STARTER_STONE = "starter_stone";
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
 export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER";
-export type ProjectileKind = "ARROW";
+export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
   id: string;
@@ -59,12 +59,21 @@ export const ITEM_DEFINITIONS = {
     description: "Leather boots built for crossing Wildwood faster.",
     stats: ["MOVE SPEED +25"],
   },
-  [STARTER_BOW]: {
-    id: STARTER_BOW,
-    name: "STARTER BOW",
+  [STARTER_STONE]: {
+    id: STARTER_STONE,
+    name: "STARTER STONE",
     slot: "HAND",
     acquisition: "STARTER",
-    description: "A dependable wooden bow for beginning your hunt.",
+    description: "Your trusty first throwing stone.",
+    stats: ["STARTER WEAPON · NO STATS"],
+    weapon: { mode: "RANGED", projectile: "ROCK" },
+  },
+  [STARTER_BOW]: {
+    id: STARTER_BOW,
+    name: "BOW",
+    slot: "HAND",
+    acquisition: "DEVELOPER",
+    description: "A dependable wooden bow for hunting Wildwood monsters.",
     stats: ["RANGED WEAPON · NO STATS"],
     weapon: { mode: "RANGED", projectile: "ARROW" },
   },
@@ -79,10 +88,6 @@ export const DEVELOPER_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "DEVELOPER")
   .map((item) => item.id) as ItemId[];
 
-const LEGACY_ITEM_REPLACEMENTS: Readonly<Record<string, ItemId>> = {
-  [LEGACY_STARTER_STONE]: STARTER_BOW,
-};
-
 export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
   return typeof itemId === "string"
     ? ITEM_DEFINITIONS[itemId as ItemId]
@@ -91,8 +96,7 @@ export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
 
 export function canonicalItemId(itemId: unknown): ItemId | undefined {
   if (typeof itemId !== "string") return undefined;
-  return itemDefinition(itemId)?.id as ItemId | undefined
-    ?? LEGACY_ITEM_REPLACEMENTS[itemId];
+  return itemDefinition(itemId)?.id as ItemId | undefined;
 }
 
 export function itemFitsEquipmentSlot(itemId: unknown, destination: EquipmentSlot) {

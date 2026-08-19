@@ -1,5 +1,6 @@
 import {
   itemDefinition,
+  itemFitsEquipmentSlot,
   type EquipmentSlot,
   type InventoryState,
 } from "../game/inventory";
@@ -14,8 +15,13 @@ type InventoryDependencies = {
   move: (itemId: string, destination: EquipmentSlot | "BAG") => void;
 };
 
+export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
+  return currentItemId === tappedItemId ? "" : tappedItemId;
+}
+
 /** Inventory grid, equipped-slot selection, and item inspection modal. */
 export function createInventoryController(dependencies: InventoryDependencies) {
+  const panel = requiredElement("inventoryPanel");
   const items = requiredElement("inventoryItems");
   const detail = requiredElement("inventoryDetail");
   const count = requiredElement("inventoryCount");
@@ -38,7 +44,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       dependencies.inventory,
       {
         onSelect(itemId) {
-          dependencies.inventory.selectedItemId = itemId;
+          dependencies.inventory.selectedItemId = nextInventorySelection(dependencies.inventory.selectedItemId, itemId);
           render();
         },
         onMove(itemId, destination) {
@@ -69,7 +75,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   function clickEquipment(destination: EquipmentSlot, itemId: string) {
     const selectedItemId = dependencies.inventory.selectedItemId;
     if (selectedItemId) {
-      dependencies.move(selectedItemId, destination);
+      if (itemFitsEquipmentSlot(selectedItemId, destination)) dependencies.move(selectedItemId, destination);
+      dependencies.inventory.selectedItemId = "";
       render();
       return;
     }
@@ -83,6 +90,12 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   equippedRightHand.addEventListener("click", () => clickEquipment("RIGHT_HAND", dependencies.inventory.equippedRightHand));
   equippedLeftHand.addEventListener("click", () => clickEquipment("LEFT_HAND", dependencies.inventory.equippedLeftHand));
   equippedFeet.addEventListener("click", () => clickEquipment("FEET", dependencies.inventory.equippedFeet));
+  panel.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest("button") || !dependencies.inventory.selectedItemId) return;
+    dependencies.inventory.selectedItemId = "";
+    render();
+  });
   closeInspect.addEventListener("click", close);
 
   return {
