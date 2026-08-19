@@ -1,6 +1,5 @@
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
-import type { PlayerPowerStats } from "../../shared/player-power";
-import { duelReplayIsInteractive, presentedChatPower } from "./chat-presentation";
+import { duelReplayIsInteractive } from "./chat-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
@@ -24,13 +23,9 @@ type ChatMessage = {
 };
 
 type CoopClient = {
-  localDisplayName?: () => string;
-  localIdentity?: () => string | undefined;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
   playerGender?: (identity: string) => PlayerGender;
-  playerProfile?: (identity?: string) => { progress: PlayerPowerStats } | null;
-  savedProgress?: () => PlayerPowerStats | null;
   chatRevision?: () => number;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
@@ -107,23 +102,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
   }
 
-  function duelPresentation(message: ChatMessage, localName: string | undefined, localIdentity: string | undefined) {
-    const match = /^(.+?) beat (.+?) in a duel\.$/.exec(message.message);
-    if (!match || !localName) return null;
-    const [, winner, loser] = match;
-    if (loser === localName) return { name: loser, identity: localIdentity, text: `${loser} lost to ${winner} in a duel.` };
-    return null;
-  }
-
-  function displayNameFor(message: ChatMessage, localName: string | undefined, localIdentity: string | undefined) {
-    if (message.replayId === 0n) return message.senderName;
-    return duelPresentation(message, localName, localIdentity)?.name ?? (message.senderName || "DUEL");
-  }
-
   function refresh() {
     const coop = getCoop();
-    const localName = coop?.localDisplayName?.();
-    const localIdentity = coop?.localIdentity?.();
 
     const now = Date.now();
     const revision = coop?.chatRevision?.() ?? -1;
@@ -141,24 +121,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     nextExpiryAt = allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
     elements.messages.replaceChildren();
     for (const message of messages) {
-      const duel = message.replayId > 0n ? duelPresentation(message, localName, localIdentity) : null;
-      const displayName = displayNameFor(message, localName, localIdentity);
-      const displayIdentity = duel?.identity ?? message.sender;
+      const displayName = message.senderName || (message.replayId > 0n ? "DUEL" : "PLAYER");
+      const displayIdentity = message.sender;
       const cachedGender = normalizePlayerGender(coop?.playerGender?.(displayIdentity));
       const displayedGender = cachedGender !== PLAYER_GENDER_UNSET
         ? cachedGender
-        : displayIdentity === message.sender ? message.senderGender : PLAYER_GENDER_UNSET;
-      const displayedProfile = duel && displayIdentity !== message.sender
-        ? coop?.playerProfile?.(displayIdentity)
-        : null;
-      const displayedStats = displayedProfile?.progress
-        ?? (duel && displayIdentity === localIdentity ? coop?.savedProgress?.() ?? null : null);
-      const displayedPower = presentedChatPower(
-        message.powerLevel,
-        message.sender,
-        displayIdentity,
-        displayedStats,
-      );
+        : message.senderGender;
+      const displayedPower = message.powerLevel;
       const line = document.createElement("div");
       line.className = "chat-line";
       const isDuelMessage = message.replayId > 0n;
@@ -216,7 +185,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       });
       const text = document.createElement("span");
       text.className = "chat-text";
-      text.textContent = duel?.text ?? message.message;
+      text.textContent = message.message;
       const icon = document.createElement("span");
       icon.className = "chat-profile-icon";
       icon.setAttribute("role", "button");

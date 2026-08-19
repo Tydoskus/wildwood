@@ -239,26 +239,28 @@
   .inventory-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
   .inventory-panel-header .settings-title { margin: 0; }
   .inventory-panel-header .profile-close-button { flex: 0 0 auto; }
-  .inventory-layout { display: grid; grid-template-columns: 156px minmax(0, 1fr); gap: 8px; }
+  .inventory-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .inventory-section-title { margin-bottom: 6px; color: var(--gold); font-size: 10px; font-weight: 900; letter-spacing: .08em; }
   .inventory-section-title span { color: var(--muted); }
 
   .equipment-section {
     position: relative;
-    min-height: 190px;
+    min-height: 0;
     padding: 7px;
     border: 1px solid rgba(255,255,255,.13);
     border-radius: 8px;
     background: rgba(0,0,0,.18);
   }
 
-  .equipment-slots { position: relative; min-height: 158px; }
+  .equipment-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; min-height: 0; }
   .equipment-slot {
-    position: absolute;
+    position: relative;
     display: grid;
     place-items: center;
-    width: 46px;
-    height: 46px;
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
     margin: 0;
     padding: 2px;
     border: 2px solid rgba(255,255,255,.18);
@@ -272,17 +274,12 @@
   .equipment-slot.is-equipped { border-color: #d79935; color: #ffe47b; background: rgba(166,103,28,.2); }
   .equipment-slot.is-selected { border-color: #ffe47b; box-shadow: 0 0 0 1px rgba(255,228,123,.45); }
 
-  .slot-head { left: 50%; top: 0; transform: translateX(-50%); }
-  .slot-right-hand { left: 0; top: 57px; }
-  .slot-left-hand { right: 0; top: 57px; }
-  .slot-chest { left: 50%; top: 57px; transform: translateX(-50%); }
-  .slot-feet { left: 50%; top: 113px; transform: translateX(-50%); }
+  .slot-head, .slot-right-hand, .slot-left-hand, .slot-chest, .slot-feet { inset: auto; transform: none; }
   .equipment-slot:active, .inventory-item:active { transform: none; }
-  .slot-head:active, .slot-chest:active, .slot-feet:active { transform: translateX(-50%); }
 
   .bag-section { min-width: 0; padding: 7px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(0,0,0,.18); }
-  .inventory-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
-  .inventory-item { position: relative; aspect-ratio: 1; margin: 0; padding: 2px; border: 2px solid rgba(255,255,255,.15); border-radius: 5px; background: rgba(2,7,4,.72); color: var(--text); }
+  .inventory-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; gap: 5px; }
+  .inventory-item { position: relative; display: grid; place-items: center; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 1 / 1; margin: 0; padding: 2px; overflow: hidden; border: 2px solid rgba(255,255,255,.15); border-radius: 5px; background: rgba(2,7,4,.72); color: var(--text); }
   .inventory-item:disabled { opacity: 1; cursor: default; }
   .inventory-item.is-filled { border-color: rgba(216,145,49,.7); background: rgba(158,99,29,.2); }
   .inventory-item.is-selected { border-color: #ffe47b; box-shadow: 0 0 0 1px rgba(255,228,123,.45); }
@@ -327,16 +324,13 @@
     :root { --game-window-width: min(360px, calc(100vw - 16px)); }
     .inventory-panel { max-height: calc(100vh - 66px); padding: 7px; overflow-y: auto; }
     .inventory-panel-header, .settings-panel-header { margin-bottom: 5px; }
-    .inventory-layout { grid-template-columns: 112px minmax(0, 1fr); gap: 5px; }
+    .inventory-layout { grid-template-columns: minmax(0, 1fr); gap: 5px; }
     .inventory-section-title { margin-bottom: 4px; font-size: 8px; }
     .equipment-section, .bag-section { padding: 4px; }
-    .equipment-section { min-height: 190px; }
-    .equipment-slots { min-height: 130px; }
-    .equipment-slot { width: 36px; height: 36px; font-size: 6px; }
+    .equipment-section { min-height: 0; }
+    .equipment-slots { min-height: 0; }
+    .equipment-slot { width: 100%; height: auto; font-size: 6px; }
     .equipment-slot::before { width: 10px; height: 10px; margin-bottom: 1px; }
-    .slot-head { top: 0; }
-    .slot-right-hand, .slot-left-hand, .slot-chest { top: 42px; }
-    .slot-feet { top: 84px; }
     .inventory-items { gap: 3px; }
     .inventory-detail { min-height: 0; margin-top: 5px; padding: 6px; font-size: 8px; line-height: 1.25; }
     .inventory-detail strong { font-size: 10px; }

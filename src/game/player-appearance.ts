@@ -78,6 +78,22 @@ export function bowHeldRotationRadians(options: {
   return localAim + handOffsetDegrees * DEGREES_TO_RADIANS;
 }
 
+/** Subtle client-side arm sway shared by every held weapon while running. */
+export function heldWeaponRunMotion(options: {
+  moving?: boolean;
+  gameTime: number;
+  heldInLeftHand: boolean;
+}) {
+  if (!options.moving) return { x: 0, y: 0, rotation: 0 };
+  const phase = options.gameTime * 12;
+  const handDirection = options.heldInLeftHand ? -1 : 1;
+  return {
+    x: Math.sin(phase) * 2.5 * handDirection,
+    y: Math.sin(phase * 2) * 1.5,
+    rotation: Math.sin(phase) * 4.5 * DEGREES_TO_RADIANS * handDirection,
+  };
+}
+
 function drawEgg(ctx: CanvasRenderingContext2D, width: number, height: number, inset: number, fill: string) {
   const left = inset, top = inset, eggWidth = width - inset * 2, eggHeight = height - inset * 2, middle = left + eggWidth / 2;
   ctx.fillStyle = fill;
@@ -149,6 +165,13 @@ export function drawStartingPlayer(
     heldX += 3 * (1 - settle);
     heldY -= Math.sin(settle * Math.PI) * 2;
   }
+  const runMotion = heldWeaponRunMotion({
+    moving: options.moving,
+    gameTime: options.gameTime,
+    heldInLeftHand,
+  });
+  heldX += runMotion.x;
+  heldY += runMotion.y;
   const feetAssets = options.feetItem ? assets.equipment[options.feetItem] : undefined;
   const backLeg = feetAssets?.backLeg ?? assets.basicBackLeg;
   const frontLeg = feetAssets?.frontLeg ?? assets.basicFrontLeg;
@@ -178,13 +201,12 @@ export function drawStartingPlayer(
     const width = heldSpritePresentation.width ?? asset.naturalWidth;
     const height = heldSpritePresentation.height ?? asset.naturalHeight;
     const left = 90 - width / 2 + heldX;
-    if (heldSpritePresentation.handAction !== "BOW") {
-      drawLayer(asset, left, heldY, width, height);
-      return;
-    }
     ctx.save();
     ctx.translate(left + width / 2, heldY + height / 2);
-    ctx.rotate(bowHeldRotationRadians({ combatFacing: options.combatFacing, facingLeft, heldInLeftHand }));
+    const baseRotation = heldSpritePresentation.handAction === "BOW"
+      ? bowHeldRotationRadians({ combatFacing: options.combatFacing, facingLeft, heldInLeftHand })
+      : 0;
+    ctx.rotate(baseRotation + runMotion.rotation);
     drawLayer(asset, -width / 2, -height / 2, width, height);
     ctx.restore();
   };

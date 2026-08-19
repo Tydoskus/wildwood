@@ -15,6 +15,7 @@ import {
   PLAYER_GENDER_UNSET,
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
+import { duelAnnouncementText } from "../../shared/duel-announcement";
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
@@ -2649,10 +2650,6 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
   trimChatHistory(ctx);
 }
 
-function insertDuelAnnouncement(ctx: any, winner: any, winnerName: string, loserName: string, replayId: bigint) {
-  insertChatMessage(ctx, winner, winnerName, `${winnerName} beat ${loserName} in a duel.`, replayId);
-}
-
 function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
   const current = playerWithMotion(ctx, ctx.db.player.identity.find(identity));
   if (!current) return;
@@ -2728,13 +2725,16 @@ function finishDuel(ctx: any, current: any) {
     opponentGender: current.opponentGender,
   });
 
-  if (challengerWon) {
-    insertDuelAnnouncement(ctx, current.challenger, challengerName, opponentName, current.id);
-  } else if (opponentWon) {
-    insertDuelAnnouncement(ctx, current.opponent, opponentName, challengerName, current.id);
-  } else {
-    insertChatMessage(ctx, current.challenger, challengerName, `${challengerName} and ${opponentName} drew a duel.`, current.id);
-  }
+  const announcementOutcome = challengerWon
+    ? "CHALLENGER_WIN"
+    : opponentWon ? "OPPONENT_WIN" : "DRAW";
+  insertChatMessage(
+    ctx,
+    current.challenger,
+    challengerName,
+    duelAnnouncementText(challengerName, opponentName, announcementOutcome),
+    current.id,
+  );
   ctx.db.duel.id.delete(current.id);
 }
 

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.454": [
+    "Equipped items now stay selected for inspection, equipment sits in a compact row above the bag, and stacked item badges cannot resize inventory slots.",
+    "Bow now renders at full source size, while every held weapon gets subtle mirrored running sway for local and nearby players.",
+    "Duel announcements now use one universal challenger-first rule, so every viewer sees who challenged, beat, or lost to whom in the same words.",
+  ],
   "0.453": [
     "Bow and Wooden Armor now drop independently from Tutorial Forest enemies at a 1-in-25 rate and stack into single inventory slots.",
     "Bow adds 0.05 to damage and attack-speed multipliers, while Wooden Armor adds 0.05 to max-health multiplier across world combat and duels.",

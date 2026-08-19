@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STARTER_BOW, STARTER_STONE, WOODEN_ARMOR } from "../../shared/items";
-import { itemArtMarkup, projectileKindForWeapon } from "./item-presentation";
+import { itemArtMarkup, itemPresentation, projectileKindForWeapon } from "./item-presentation";
 
 describe("item presentation", () => {
   it("renders weapon-specific inventory and inspection art", () => {
@@ -14,5 +14,13 @@ describe("item presentation", () => {
   it("keeps Rock and Bow projectile visuals separate", () => {
     expect(projectileKindForWeapon(STARTER_STONE)).toBe("ROCK");
     expect(projectileKindForWeapon(STARTER_BOW)).toBe("ARROW");
+  });
+
+  it("renders the Bow at its full source size on players", () => {
+    const world = itemPresentation(STARTER_BOW)?.world;
+    expect(world?.kind).toBe("SPRITE");
+    if (world?.kind !== "SPRITE") return;
+    expect(world.width).toBe(130);
+    expect(world.height).toBe(71);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOW_RIGHT_HAND_ANGLE_DEGREES, bowHeldRotationRadians } from "./player-appearance";
+import { BOW_RIGHT_HAND_ANGLE_DEGREES, bowHeldRotationRadians, heldWeaponRunMotion } from "./player-appearance";
 
 const degrees = (radians: number) => radians * 180 / Math.PI;
 
@@ -13,5 +13,21 @@ describe("Bow pose", () => {
     expect(degrees(bowHeldRotationRadians({ facingLeft: false, heldInLeftHand: true }))).toBeCloseTo(55);
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI / 4, facingLeft: false, heldInLeftHand: false }))).toBeCloseTo(-10);
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI * .75, facingLeft: true, heldInLeftHand: false }))).toBeCloseTo(-10);
+  });
+});
+
+describe("held weapon running motion", () => {
+  it("keeps every held weapon steady while idle", () => {
+    expect(heldWeaponRunMotion({ moving: false, gameTime: .25, heldInLeftHand: false })).toEqual({ x: 0, y: 0, rotation: 0 });
+  });
+
+  it("adds subtle mirrored arm sway while running", () => {
+    const right = heldWeaponRunMotion({ moving: true, gameTime: .125, heldInLeftHand: false });
+    const left = heldWeaponRunMotion({ moving: true, gameTime: .125, heldInLeftHand: true });
+    expect(right.x).not.toBe(0);
+    expect(right.y).not.toBe(0);
+    expect(left.x).toBeCloseTo(-right.x);
+    expect(left.y).toBeCloseTo(right.y);
+    expect(left.rotation).toBeCloseTo(-right.rotation);
   });
 });

@@ -102,7 +102,11 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   equippedFeet.addEventListener("click", () => clickEquipment("FEET", dependencies.inventory.equippedFeet));
   panel.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof Element) || target.closest("button") || !dependencies.inventory.selectedItemId) return;
+    // Equipment rendering replaces its inner art during the button's click
+    // handler. Use the original event path so the detached art node is still
+    // recognized as a button click when the event reaches this panel.
+    const clickedButton = event.composedPath().some((entry) => entry instanceof HTMLButtonElement);
+    if (!(target instanceof Element) || clickedButton || !dependencies.inventory.selectedItemId) return;
     dependencies.inventory.selectedItemId = "";
     dependencies.inventory.selectedItemLocation = "";
     render();
