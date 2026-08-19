@@ -1,5 +1,6 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
+import { itemMaxHealthMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
 
 export function formatPlayedTime(seconds: number) {
@@ -22,6 +23,42 @@ export function profilePresenceText(online: boolean, lastSeenAtMs: number) {
   return `LAST SEEN ${lastSeen.toLocaleString([], options).toUpperCase()}`;
 }
 
+export function effectiveProfileStats(
+  progress: PlayerProfileData["progress"],
+  research: PlayerResearch = createEmptyResearchRanks(),
+) {
+  const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
+  const weaponItem = progress.equippedRightHand || progress.equippedLeftHand;
+  const healthResearchMultiplier = multiplier(research.vitality, 2);
+  const healthEquipmentMultiplier = itemMaxHealthMultiplier(progress.equippedChest);
+  const damageResearchMultiplier = multiplier(research.warcraft, 2);
+  const damageEquipmentMultiplier = weaponDamageMultiplier(weaponItem);
+  const damageTotalMultiplier = weaponDamageMultiplier(weaponItem, damageResearchMultiplier);
+  const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem);
+  const armorMultiplier = multiplier(research.precision, 2);
+  const regenMultiplier = multiplier(research.regeneration, 2);
+  const speedMultiplier = multiplier(research.moveSpeed, 2);
+  return {
+    maxHp: progress.maxHp * healthEquipmentMultiplier,
+    damage: progress.damage * damageTotalMultiplier,
+    attackRate: progress.attackRate / attackSpeedMultiplier,
+    armor: progress.armor * armorMultiplier,
+    regen: progress.regen * regenMultiplier,
+    speed: progress.speed * speedMultiplier,
+    multipliers: {
+      healthResearch: healthResearchMultiplier,
+      healthEquipment: healthEquipmentMultiplier,
+      damageResearch: damageResearchMultiplier,
+      damageEquipment: damageEquipmentMultiplier,
+      damageTotal: damageTotalMultiplier,
+      attackSpeed: attackSpeedMultiplier,
+      armor: armorMultiplier,
+      regen: regenMultiplier,
+      speed: speedMultiplier,
+    },
+  };
+}
+
 export function renderProfileStats(
   profile: PlayerProfileData,
   statGrid: HTMLElement,
@@ -34,19 +71,18 @@ export function renderProfileStats(
   const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const modifier = (base: number, rank = 0, percentPerRank = 0) => `BASE: ${statValue(base)} · +${rank * percentPerRank}% · ×${multiplier(rank, percentPerRank).toFixed(2)}`;
-  const healthMultiplier = multiplier(ranks.vitality, 2);
-  const damageMultiplier = multiplier(ranks.warcraft, 2);
-  const armorMultiplier = multiplier(ranks.precision, 2);
-  const speedMultiplier = multiplier(ranks.moveSpeed, 2);
-  const regenMultiplier = multiplier(ranks.regeneration, 2);
+  const effective = effectiveProfileStats(progress, ranks);
+  const equipmentModifier = (equipmentMultiplier: number, totalMultiplier: number) => equipmentMultiplier > 1
+    ? ` · EQUIPMENT +${(equipmentMultiplier - 1).toFixed(2)}× · TOTAL ×${totalMultiplier.toFixed(2)}`
+    : "";
   const stats: Array<{ kind: string; label: string; value: string; modifier?: string }> = [
-    { kind: "health", label: "MAX HP", value: statValue(progress.maxHp), modifier: modifier(progress.maxHp / healthMultiplier, ranks.vitality, 2) },
-    { kind: "damage", label: "DAMAGE", value: statValue(progress.damage * damageMultiplier), modifier: modifier(progress.damage, ranks.warcraft, 2) },
-    { kind: "armor", label: "ARMOR", value: `${statValue(progress.armor * armorMultiplier)} (${armorReduction(progress.armor * armorMultiplier)} damage reduction)`, modifier: modifier(progress.armor, ranks.precision, 2) },
-    { kind: "attack", label: "ATTACK SPEED", value: `${(1 / progress.attackRate).toFixed(2)}/s${progress.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: modifier(1 / progress.attackRate) },
+    { kind: "health", label: "MAX HP", value: statValue(effective.maxHp), modifier: `${modifier(progress.maxHp / effective.multipliers.healthResearch, ranks.vitality, 2)}${equipmentModifier(effective.multipliers.healthEquipment, effective.multipliers.healthResearch * effective.multipliers.healthEquipment)}` },
+    { kind: "damage", label: "DAMAGE", value: statValue(effective.damage), modifier: `${modifier(progress.damage, ranks.warcraft, 2)}${equipmentModifier(effective.multipliers.damageEquipment, effective.multipliers.damageTotal)}` },
+    { kind: "armor", label: "ARMOR", value: `${statValue(effective.armor)} (${armorReduction(effective.armor)} damage reduction)`, modifier: modifier(progress.armor, ranks.precision, 2) },
+    { kind: "attack", label: "ATTACK SPEED", value: `${(1 / effective.attackRate).toFixed(2)}/s${effective.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: `BASE: ${(1 / progress.attackRate).toFixed(2)}/s${equipmentModifier(effective.multipliers.attackSpeed, effective.multipliers.attackSpeed)}` },
     { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString(), modifier: modifier(progress.attackRange) },
-    { kind: "regen", label: "REGEN", value: `${progress.regen * regenMultiplier >= 1_000_000 ? formatCompactNumber(progress.regen * regenMultiplier) : (progress.regen * regenMultiplier).toFixed(1)}/s`, modifier: modifier(progress.regen, ranks.regeneration, 2) },
-    { kind: "speed", label: "MOVE SPEED", value: Math.round(progress.speed * speedMultiplier).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
+    { kind: "regen", label: "REGEN", value: `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`, modifier: modifier(progress.regen, ranks.regeneration, 2) },
+    { kind: "speed", label: "MOVE SPEED", value: Math.round(effective.speed).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
   ];
   const statGain = ranks.foraging + ranks.prosperity * 2;
   stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${statGain}%`, modifier: `BASE: 0% · +${statGain}% · ×${multiplier(statGain, 1).toFixed(2)}` });

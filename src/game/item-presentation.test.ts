@@ -16,11 +16,11 @@ describe("item presentation", () => {
     expect(projectileKindForWeapon(STARTER_BOW)).toBe("ARROW");
   });
 
-  it("renders the Bow at its full source size on players", () => {
+  it("renders the Bow slightly larger than its original player size", () => {
     const world = itemPresentation(STARTER_BOW)?.world;
     expect(world?.kind).toBe("SPRITE");
     if (world?.kind !== "SPRITE") return;
-    expect(world.width).toBe(130);
-    expect(world.height).toBe(71);
+    expect(world.width).toBe(92);
+    expect(world.height).toBe(50);
   });
 });

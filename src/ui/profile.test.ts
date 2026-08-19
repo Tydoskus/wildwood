@@ -1,5 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { profilePresenceText } from "./profile";
+import { createEmptyResearchRanks } from "../../shared/research";
+import { STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
+import type { PlayerProgress } from "../wildwood-coop";
+import { effectiveProfileStats, profilePresenceText } from "./profile";
+
+const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress => ({
+  maxHp: 100,
+  damage: 20,
+  attackRate: 1,
+  projectileSpeed: 390,
+  projectileCount: 1,
+  attackRange: 260,
+  armor: 10,
+  regen: 2,
+  speed: 190,
+  bootsCollected: false,
+  inventoryJson: "[]",
+  equippedHead: "",
+  equippedChest,
+  equippedFeet: "",
+  equippedRightHand,
+  equippedLeftHand: "",
+  introComplete: true,
+  desertUnlocked: false,
+  snowlandsUnlocked: false,
+  lavaUnlocked: false,
+  bowCount: 0,
+  woodenArmorCount: 0,
+});
 
 describe("profile presence", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -15,5 +43,18 @@ describe("profile presence", () => {
 
   it("uses a placeholder when no timestamp exists", () => {
     expect(profilePresenceText(false, 0)).toBe("LAST SEEN —");
+  });
+});
+
+describe("effective profile equipment stats", () => {
+  it("includes equipped Bow damage and attack-speed bonuses after tech multipliers", () => {
+    const research = { ...createEmptyResearchRanks(), warcraft: 10 };
+    const stats = effectiveProfileStats(progress(STARTER_BOW), research);
+    expect(stats.damage).toBeCloseTo(25);
+    expect(stats.attackRate).toBeCloseTo(1 / 1.05);
+  });
+
+  it("includes equipped Wooden Armor max-health bonus", () => {
+    expect(effectiveProfileStats(progress("", WOODEN_ARMOR)).maxHp).toBeCloseTo(105);
   });
 });

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.455": [
+    "Bow now renders only slightly larger than its original character size instead of using the oversized full source dimensions.",
+    "Profile stats now include equipped Bow damage and attack speed plus Wooden Armor max health for local and inspected players.",
+  ],
   "0.454": [
     "Equipped items now stay selected for inspection, equipment sits in a compact row above the bag, and stacked item badges cannot resize inventory slots.",
     "Bow now renders at full source size, while every held weapon gets subtle mirrored running sway for local and nearby players.",
