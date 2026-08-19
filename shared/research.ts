@@ -1,4 +1,4 @@
-export const RESEARCH_STAGE_COUNT = 4;
+export const RESEARCH_RANK_BAND_COUNT = 4;
 
 export const RESEARCH_IDS = [
   "warcraft",
@@ -18,54 +18,54 @@ export type ResearchDefinition = {
   id: ResearchId;
   title: string;
   icon: string;
-  ranksPerStage: number;
+  ranksPerBand: number;
   maxRank: number;
   effect: string;
   valuePerRank: number;
   durationStartMs: number;
-  /** Ranks required inside the same stage. */
+  /** One-time rank requirements that permanently unlock this technology. */
   prerequisites?: Partial<Record<ResearchId, number>>;
 };
 
-function stagedDefinition(definition: Omit<ResearchDefinition, "maxRank">): ResearchDefinition {
-  return { ...definition, maxRank: definition.ranksPerStage * RESEARCH_STAGE_COUNT };
+function repeatedDefinition(definition: Omit<ResearchDefinition, "maxRank">): ResearchDefinition {
+  return { ...definition, maxRank: definition.ranksPerBand * RESEARCH_RANK_BAND_COUNT };
 }
 
 export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
-  foraging: stagedDefinition({
-    id: "foraging", title: "FORAGING", icon: "✦", ranksPerStage: 5, effect: "STAT GAIN", valuePerRank: 1, durationStartMs: 15_000,
+  foraging: repeatedDefinition({
+    id: "foraging", title: "FORAGING", icon: "✦", ranksPerBand: 5, effect: "STAT GAIN", valuePerRank: 1, durationStartMs: 15_000,
   }),
-  warcraft: stagedDefinition({
-    id: "warcraft", title: "WARCRAFT", icon: "⚔", ranksPerStage: 5, effect: "TOTAL DAMAGE", valuePerRank: 2, durationStartMs: 30_000,
+  warcraft: repeatedDefinition({
+    id: "warcraft", title: "WARCRAFT", icon: "⚔", ranksPerBand: 5, effect: "TOTAL DAMAGE", valuePerRank: 2, durationStartMs: 30_000,
     prerequisites: { foraging: 1 },
   }),
-  moveSpeed: stagedDefinition({
-    id: "moveSpeed", title: "MOVE SPEED", icon: "➜", ranksPerStage: 5, effect: "MOVE SPEED", valuePerRank: 2, durationStartMs: 30_000,
+  moveSpeed: repeatedDefinition({
+    id: "moveSpeed", title: "MOVE SPEED", icon: "➜", ranksPerBand: 5, effect: "MOVE SPEED", valuePerRank: 2, durationStartMs: 30_000,
     prerequisites: { foraging: 1 },
   }),
-  vitality: stagedDefinition({
-    id: "vitality", title: "VITALITY", icon: "♥", ranksPerStage: 5, effect: "MAX HEALTH", valuePerRank: 2, durationStartMs: 45_000,
-    prerequisites: { foraging: 3, warcraft: 3 },
+  vitality: repeatedDefinition({
+    id: "vitality", title: "VITALITY", icon: "♥", ranksPerBand: 5, effect: "MAX HEALTH", valuePerRank: 2, durationStartMs: 45_000,
+    prerequisites: { warcraft: 1 },
   }),
-  precision: stagedDefinition({
-    id: "precision", title: "PRECISION", icon: "◈", ranksPerStage: 5, effect: "ARMOR", valuePerRank: 2, durationStartMs: 45_000,
-    prerequisites: { foraging: 3, warcraft: 3 },
+  precision: repeatedDefinition({
+    id: "precision", title: "PRECISION", icon: "◈", ranksPerBand: 5, effect: "ARMOR", valuePerRank: 2, durationStartMs: 45_000,
+    prerequisites: { warcraft: 1 },
   }),
-  regeneration: stagedDefinition({
-    id: "regeneration", title: "REGENERATION", icon: "✚", ranksPerStage: 5, effect: "REGEN", valuePerRank: 2, durationStartMs: 60_000,
-    prerequisites: { vitality: 3, precision: 3 },
+  regeneration: repeatedDefinition({
+    id: "regeneration", title: "REGENERATION", icon: "✚", ranksPerBand: 5, effect: "REGEN", valuePerRank: 2, durationStartMs: 60_000,
+    prerequisites: { vitality: 1, precision: 1 },
   }),
-  prosperity: stagedDefinition({
-    id: "prosperity", title: "PROSPERITY", icon: "✧", ranksPerStage: 5, effect: "STAT GAIN", valuePerRank: 2, durationStartMs: 60_000,
-    prerequisites: { vitality: 3, precision: 3 },
+  prosperity: repeatedDefinition({
+    id: "prosperity", title: "PROSPERITY", icon: "✧", ranksPerBand: 5, effect: "STAT GAIN", valuePerRank: 2, durationStartMs: 60_000,
+    prerequisites: { vitality: 1, precision: 1 },
   }),
-  criticalChance: stagedDefinition({
-    id: "criticalChance", title: "CRITICAL CHANCE", icon: "✦", ranksPerStage: 5, effect: "CRITICAL CHANCE", valuePerRank: 1, durationStartMs: 120_000,
-    prerequisites: { prosperity: 5 },
+  criticalChance: repeatedDefinition({
+    id: "criticalChance", title: "CRITICAL CHANCE", icon: "✦", ranksPerBand: 5, effect: "CRITICAL CHANCE", valuePerRank: 1, durationStartMs: 120_000,
+    prerequisites: { prosperity: 1 },
   }),
-  criticalDamage: stagedDefinition({
-    id: "criticalDamage", title: "CRITICAL DAMAGE", icon: "✹", ranksPerStage: 4, effect: "CRITICAL DAMAGE", valuePerRank: 5, durationStartMs: 120_000,
-    prerequisites: { criticalChance: 5 },
+  criticalDamage: repeatedDefinition({
+    id: "criticalDamage", title: "CRITICAL DAMAGE", icon: "✹", ranksPerBand: 4, effect: "CRITICAL DAMAGE", valuePerRank: 5, durationStartMs: 120_000,
+    prerequisites: { criticalChance: 1 },
   }),
 };
 
@@ -86,37 +86,27 @@ const LEGACY_COMPLETE_RANKS: Partial<Record<ResearchId, number>> = {
 
 /** Preserves completion for players who maxed the tree before Regen existed. */
 export function shouldBackfillLegacyRegeneration(ranks: ResearchRanks) {
-  if (ranks.regeneration >= RESEARCH_DEFINITIONS.regeneration.ranksPerStage) return false;
+  if (ranks.regeneration >= RESEARCH_DEFINITIONS.regeneration.ranksPerBand) return false;
   return Object.entries(LEGACY_COMPLETE_RANKS)
     .every(([id, requiredRank]) => ranks[id as ResearchId] >= Number(requiredRank));
 }
 
-export function researchStageStartRank(researchId: ResearchId, stageIndex: number) {
-  return RESEARCH_DEFINITIONS[researchId].ranksPerStage * stageIndex;
+export function researchRankBandStart(researchId: ResearchId, rankBandIndex: number) {
+  return RESEARCH_DEFINITIONS[researchId].ranksPerBand * rankBandIndex;
 }
 
-export function researchStageEndRank(researchId: ResearchId, stageIndex: number) {
-  return researchStageStartRank(researchId, stageIndex + 1);
+export function researchRankBandEnd(researchId: ResearchId, rankBandIndex: number) {
+  return researchRankBandStart(researchId, rankBandIndex + 1);
 }
 
-export function researchStageIndex(researchId: ResearchId, completedRanks: number) {
+export function researchRankBandIndex(researchId: ResearchId, completedRanks: number) {
   const definition = RESEARCH_DEFINITIONS[researchId];
-  return Math.min(RESEARCH_STAGE_COUNT - 1, Math.floor(Math.max(0, completedRanks) / definition.ranksPerStage));
+  return Math.min(RESEARCH_RANK_BAND_COUNT - 1, Math.floor(Math.max(0, completedRanks) / definition.ranksPerBand));
 }
 
-/** Resolves same-stage requirements into aggregate rank thresholds. */
-export function researchPrerequisitesForNextRank(researchId: ResearchId, completedRanks: number) {
-  const definition = RESEARCH_DEFINITIONS[researchId];
-  const stageIndex = researchStageIndex(researchId, completedRanks);
-  const requirements: Partial<Record<ResearchId, number>> = {};
-  for (const [requiredId, requiredRank] of Object.entries(definition.prerequisites ?? {})) {
-    const id = requiredId as ResearchId;
-    requirements[id] = researchStageStartRank(id, stageIndex) + Number(requiredRank);
-  }
-  if (researchId === "foraging" && stageIndex > 0) {
-    for (const id of RESEARCH_IDS) requirements[id] = researchStageEndRank(id, stageIndex - 1);
-  }
-  return requirements;
+/** One predecessor rank unlocks a technology for every remaining rank. */
+export function researchPrerequisitesForNextRank(researchId: ResearchId, _completedRanks: number) {
+  return { ...(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {}) };
 }
 
 export function researchIsAvailable(researchId: ResearchId, ranks: ResearchRanks) {

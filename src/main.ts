@@ -62,6 +62,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
+import { isWeaponItem } from "../shared/items";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -301,7 +302,7 @@ import {
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return;
       player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
-      const hasWeapon = Boolean(inventory.equippedRightHand || inventory.equippedLeftHand);
+      const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
       showMessage(hasWeapon ? "WEAPON EQUIPPED" : "WEAPON UNEQUIPPED", hasWeapon ? "#72ef58" : "#ff9b91");
     },
@@ -686,7 +687,7 @@ import {
     regenerationMultiplier: researchRegenerationMultiplier,
     syncMovementState: (x, y, dx, dy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, dx, dy, inputSource, force, interestArea),
     autoAttack: (dt) => playerCombat.attackNearest(dt),
-    isAutoAttackEnabled: () => Boolean(inventory.equippedRightHand || inventory.equippedLeftHand),
+    isAutoAttackEnabled: () => isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
     isDueling,
     localIdentity: () => coop?.localIdentity?.(),

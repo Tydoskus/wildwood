@@ -1,4 +1,5 @@
-import { BASIC_PAPER_HAT, ITEM_DEFINITIONS, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, type EquipmentSlot } from "../game/inventory";
+import { ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
+import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
@@ -99,12 +100,7 @@ type ItemDefinition = {
 const itemsById = ITEM_DEFINITIONS as Record<string, ItemDefinition>;
 
 function itemArt(itemId: string, hidden = true) {
-  const aria = hidden ? ' aria-hidden="true"' : "";
-  if (itemId === BASIC_PAPER_HAT) return `<span class="inventory-item-art basic-paper-hat-art"${aria}></span>`;
-  if (itemId === SUPERIOR_GOLDEN_HELMET) return `<span class="inventory-item-art superior-golden-helmet-art"${aria}></span>`;
-  if (itemId === LEGENDARY_WHITE_GOLD_ARMOR) return `<span class="inventory-item-art legendary-white-gold-armor-art"${aria}></span>`;
-  if (itemId === STARTER_STONE) return `<span class="inventory-item-art starter-stone-art"${aria}></span>`;
-  return '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
+  return itemArtMarkup(itemId, hidden);
 }
 
 function equippedItem(inventory: InventoryViewState, slot: string) {
@@ -115,8 +111,16 @@ function equippedItem(inventory: InventoryViewState, slot: string) {
   return inventory.equippedLeftHand;
 }
 
+function itemIsEquipped(inventory: InventoryViewState, item: ItemDefinition) {
+  if (item.slot === "HAND") {
+    return inventory.equippedRightHand === item.id || inventory.equippedLeftHand === item.id;
+  }
+  return equippedItem(inventory, item.slot) === item.id;
+}
+
 function renderEquipmentSlot(element: HTMLElement, itemId: string, label: string) {
   element.classList.toggle("is-equipped", Boolean(itemId));
+  element.setAttribute("aria-label", itemId ? `${label}: ${itemsById[itemId]?.name ?? itemId}` : label);
   element.innerHTML = itemId ? itemArt(itemId, false) : label;
 }
 
@@ -169,7 +173,7 @@ export function renderInventoryView(
     return;
   }
   elements.detail.innerHTML =
-    `<div class="inventory-slot">${selected.slot} · ${equippedItem(inventory, selected.slot) === selected.id ? "EQUIPPED" : "IN BAG"}</div>` +
+    `<div class="inventory-slot">${selected.slot} · ${itemIsEquipped(inventory, selected) ? "EQUIPPED" : "IN BAG"}</div>` +
     `<strong>${selected.name}</strong><p>${selected.description}</p>` +
     `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   const actionRow = document.createElement("div");

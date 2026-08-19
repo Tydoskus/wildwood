@@ -1,5 +1,5 @@
 import { WORLD } from "../constants";
-import { BASIC_PAPER_HAT, STARTER_STONE, type InventoryState } from "../inventory";
+import { BASIC_PAPER_HAT, STARTER_BOW, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
@@ -131,11 +131,11 @@ export function createGameBootstrap() {
   };
   const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
-    itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
+    itemIds: [BASIC_PAPER_HAT, STARTER_BOW],
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
     equippedFeet: "",
-    equippedRightHand: STARTER_STONE,
+    equippedRightHand: STARTER_BOW,
     equippedLeftHand: "",
     selectedItemId: "",
   };

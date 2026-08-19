@@ -2,13 +2,17 @@
 
 Browser action RPG with persistent multiplayer state, deployed as a static GitHub Pages site and backed by SpacetimeDB.
 
+## Product target
+
+Wildwood is mobile-first. Touch interaction, narrow portrait layouts, safe areas, small-screen readability, mobile browser memory, and low-end-phone frame stability are release requirements. Desktop is a secondary compatibility target and must not drive wider spacing, denser UI, hover-only behavior, or heavier rendering paths. See `docs/mobile-first.md`.
+
 ## Architecture
 
 | Area | Location | Purpose |
 | --- | --- | --- |
 | Composition root | `src/main.ts` | Wires typed runtime and UI controllers. Keep new game behavior out of this file. |
 | Gameplay runtime | `src/game/runtime/{player,player-combat,enemy-simulation,boss,map,game-session}-controller.ts` | Player movement, combat, enemy LOD, bosses, portals, and frame/session lifecycle. |
-| Runtime rendering | `src/game/runtime/{world-renderer,canvas-runtime,render-controller,pixi-static-world-layer}.ts` | PixiJS WebGL-first static world, Pixi Canvas fallback, transparent Canvas2D dynamic overlay, viewport/DPR, and world draw ordering. Use `?renderer=canvas` to force the compatibility renderer. |
+| Runtime rendering | `src/game/runtime/{world-renderer,canvas-runtime,render-controller,static-tile-painter,static-tile-worker}.ts` | One Canvas2D renderer, worker-built static tile caching, viewport/DPR handling, and world draw ordering. GPU rendering returns only after measured low-end-device benchmarks or a deliberate full-renderer migration. |
 | UI views | `src/ui/*-controller.ts` | HUD, inventory, profile, leaderboard, developer, overlays, startup, and window behavior. |
 | Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
 | Runtime systems | `src/game/runtime/` | Strictly typed audio, assets, bootstrap, camera, combat effects, persistence, rendering, input, session, and browser contracts. |
@@ -24,7 +28,7 @@ Browser action RPG with persistent multiplayer state, deployed as a static GitHu
 
 GitHub Pages builds the client and deploys only `dist/` after every push to `main`. Source files and repository documentation never ship as site files.
 
-See `ENGINEERING.md` for module boundaries and backlog. See `docs/realtime-data-flow.md` for movement, minimap, save, reconnect, and research flow diagrams. See `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
+See `ENGINEERING.md` for module boundaries and backlog. See `docs/mobile-first.md` for product and QA constraints, `docs/equipment.md` for item extension boundaries, `docs/realtime-data-flow.md` for movement, minimap, save, reconnect, and research flow diagrams, and `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
 
 ## Local development
 

@@ -1,6 +1,31 @@
-import { BASIC_PAPER_HAT, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "../../shared/rules";
+import {
+  BASIC_PAPER_HAT,
+  canonicalItemId,
+  DEVELOPER_ITEM_IDS,
+  ITEM_DEFINITIONS,
+  itemDefinition,
+  itemFitsEquipmentSlot,
+  LEGENDARY_WHITE_GOLD_ARMOR,
+  LEGACY_STARTER_STONE,
+  STARTER_BOW,
+  STARTER_ITEM_IDS,
+  SUPERIOR_GOLDEN_HELMET,
+  TRAILBLAZER_BOOTS,
+  type EquipmentSlot,
+} from "../../shared/items";
 
-export { BASIC_PAPER_HAT, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS };
+export {
+  BASIC_PAPER_HAT,
+  ITEM_DEFINITIONS,
+  itemDefinition,
+  LEGENDARY_WHITE_GOLD_ARMOR,
+  LEGACY_STARTER_STONE,
+  STARTER_BOW,
+  SUPERIOR_GOLDEN_HELMET,
+  TRAILBLAZER_BOOTS,
+  type EquipmentSlot,
+  type ItemDefinition as InventoryItemDefinition,
+} from "../../shared/items";
 
 export type InventoryState = {
   itemIds: string[];
@@ -10,57 +35,6 @@ export type InventoryState = {
   equippedRightHand: string;
   equippedLeftHand: string;
 };
-
-export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type InventoryItemDefinition = {
-  id: string;
-  name: string;
-  slot: "HEAD" | "CHEST" | "FEET" | "HAND";
-  description: string;
-  stats: readonly string[];
-};
-
-export const ITEM_DEFINITIONS = {
-  [BASIC_PAPER_HAT]: {
-    id: BASIC_PAPER_HAT,
-    name: "BASIC PAPER HAT",
-    slot: "HEAD",
-    description: "A folded brown paper hat. No stats, just style.",
-    stats: ["NO STATS"],
-  },
-  [SUPERIOR_GOLDEN_HELMET]: {
-    id: SUPERIOR_GOLDEN_HELMET,
-    name: "BETA TESTER GOLDEN HELMET",
-    slot: "HEAD",
-    description: "A gleaming winged helmet for Wildwood beta testers.",
-    stats: ["COSMETIC · NO STATS"],
-  },
-  [LEGENDARY_WHITE_GOLD_ARMOR]: {
-    id: LEGENDARY_WHITE_GOLD_ARMOR,
-    name: "LEGENDARY WHITE GOLD ARMOR",
-    slot: "CHEST",
-    description: "White gold plate with a legendary gleam. Cosmetic only.",
-    stats: ["COSMETIC · NO STATS"],
-  },
-  [TRAILBLAZER_BOOTS]: {
-    id: TRAILBLAZER_BOOTS,
-    name: "TRAILBLAZER BOOTS",
-    slot: "FEET",
-    description: "Leather boots built for crossing Wildwood faster.",
-    stats: ["MOVE SPEED +25"],
-  },
-  [STARTER_STONE]: {
-    id: STARTER_STONE,
-    name: "STARTER STONE",
-    slot: "HAND",
-    description: "Your trusty first throwing stone.",
-    stats: ["STARTER WEAPON · NO STATS"],
-  },
-} as const;
-
-export function itemDefinition(itemId: string): InventoryItemDefinition | undefined {
-  return ITEM_DEFINITIONS[itemId as keyof typeof ITEM_DEFINITIONS];
-}
 
 /** Moves an owned item between bag and compatible equipment slots. */
 export function moveInventoryItem(inventory: InventoryState, itemId: string, destination: EquipmentSlot | "BAG") {
@@ -84,9 +58,7 @@ export function moveInventoryItem(inventory: InventoryState, itemId: string, des
       : destination === "FEET" ? "equippedFeet"
         : destination === "RIGHT_HAND" ? "equippedRightHand"
           : "equippedLeftHand";
-  const allowed = item.slot === "HAND"
-    ? destination === "RIGHT_HAND" || destination === "LEFT_HAND"
-    : item.slot === destination;
+  const allowed = itemFitsEquipmentSlot(item.id, destination);
   if (!allowed || inventory[target] === itemId) return false;
   clearItem();
   inventory[target] = itemId;
@@ -97,13 +69,18 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const requested = Array.isArray(itemIds) ? itemIds : [];
   const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
   const hasBetaTesterGoldenHelmet = ownsDeveloperCosmetics || requested.includes(SUPERIOR_GOLDEN_HELMET);
-  const stoneWasSaved = requested.includes(STARTER_STONE);
-  const headItems = [BASIC_PAPER_HAT, ...(hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [])];
-  const chestItems = ownsDeveloperCosmetics ? [LEGENDARY_WHITE_GOLD_ARMOR] : [];
-  const items = [...headItems, STARTER_STONE, ...chestItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : [])];
+  const starterWeaponWasSaved = requested.includes(STARTER_BOW) || requested.includes(LEGACY_STARTER_STONE);
+  const developerItems = ownsDeveloperCosmetics
+    ? DEVELOPER_ITEM_IDS
+    : hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [];
+  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : [])];
+  const headItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HEAD");
+  const chestItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "CHEST");
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");
-  const savedLeftHand = typeof equippedLeftHand === "string" && handItems.includes(equippedLeftHand) ? equippedLeftHand : "";
-  const savedRightHand = typeof equippedRightHand === "string" && handItems.includes(equippedRightHand) ? equippedRightHand : "";
+  const savedLeftItem = canonicalItemId(equippedLeftHand);
+  const savedRightItem = canonicalItemId(equippedRightHand);
+  const savedLeftHand = savedLeftItem && handItems.includes(savedLeftItem) ? savedLeftItem : "";
+  const savedRightHand = savedRightItem && handItems.includes(savedRightItem) ? savedRightItem : "";
   return {
     itemIds: items,
     equippedHead: equippedHead === ""
@@ -113,7 +90,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS
       ? TRAILBLAZER_BOOTS
       : "",
-    equippedRightHand: savedRightHand || (!stoneWasSaved && !savedLeftHand ? STARTER_STONE : ""),
+    equippedRightHand: savedRightHand || (!starterWeaponWasSaved && !savedLeftHand ? STARTER_BOW : ""),
     equippedLeftHand: savedRightHand ? "" : savedLeftHand,
   };
 }

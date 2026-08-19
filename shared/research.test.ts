@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   RESEARCH_DEFINITIONS,
   RESEARCH_IDS,
-  RESEARCH_STAGE_COUNT,
+  RESEARCH_RANK_BAND_COUNT,
   createEmptyResearchRanks,
   researchDurationMs,
   researchIsAvailable,
@@ -23,55 +23,52 @@ describe("research timer curve", () => {
     expect(researchDurationMs("criticalChance", 50)).toBe(72 * 60 * 60 * 1_000);
   });
 
-  it("repeats every technology through four complete stages", () => {
-    expect(RESEARCH_STAGE_COUNT).toBe(4);
+  it("repeats every technology through four complete rank bands", () => {
+    expect(RESEARCH_RANK_BAND_COUNT).toBe(4);
     expect(RESEARCH_DEFINITIONS.regeneration).toMatchObject({
       effect: "REGEN",
       valuePerRank: 2,
-      ranksPerStage: 5,
+      ranksPerBand: 5,
       maxRank: 20,
     });
     expect(RESEARCH_DEFINITIONS.prosperity).toMatchObject({
       effect: "STAT GAIN",
       valuePerRank: 2,
-      ranksPerStage: 5,
+      ranksPerBand: 5,
       maxRank: 20,
     });
     expect(RESEARCH_DEFINITIONS.criticalDamage).toMatchObject({
       valuePerRank: 5,
-      ranksPerStage: 4,
+      ranksPerBand: 4,
       maxRank: 16,
     });
   });
 
-  it("requires every prior-stage technology before opening the next stage", () => {
-    const requirements = researchPrerequisitesForNextRank("foraging", 5);
-    for (const id of RESEARCH_IDS) {
-      expect(requirements[id]).toBe(RESEARCH_DEFINITIONS[id].ranksPerStage);
-    }
-
+  it("keeps a technology unlocked after one predecessor rank", () => {
     const ranks = createEmptyResearchRanks();
-    for (const id of RESEARCH_IDS) ranks[id] = RESEARCH_DEFINITIONS[id].ranksPerStage;
-    ranks.regeneration -= 1;
-    expect(researchIsAvailable("foraging", ranks)).toBe(false);
-    ranks.regeneration += 1;
-    expect(researchIsAvailable("foraging", ranks)).toBe(true);
+    expect(researchIsAvailable("warcraft", ranks)).toBe(false);
+    ranks.foraging = 1;
+    expect(researchIsAvailable("warcraft", ranks)).toBe(true);
+    ranks.warcraft = RESEARCH_DEFINITIONS.warcraft.maxRank - 1;
+    expect(researchIsAvailable("warcraft", ranks)).toBe(true);
   });
 
-  it("offsets prerequisites into the active repeated stage", () => {
-    expect(researchPrerequisitesForNextRank("warcraft", 5)).toEqual({ foraging: 6 });
-    expect(researchPrerequisitesForNextRank("regeneration", 5)).toEqual({ vitality: 8, precision: 8 });
+  it("does not raise unlock requirements in later rank bands", () => {
+    expect(researchPrerequisitesForNextRank("warcraft", 0)).toEqual({ foraging: 1 });
+    expect(researchPrerequisitesForNextRank("warcraft", 19)).toEqual({ foraging: 1 });
+    expect(researchPrerequisitesForNextRank("regeneration", 15)).toEqual({ vitality: 1, precision: 1 });
   });
 
-  it("preserves existing first-stage unlock requirements during migration", () => {
-    expect(RESEARCH_DEFINITIONS.vitality.prerequisites).toEqual({ foraging: 3, warcraft: 3 });
-    expect(RESEARCH_DEFINITIONS.precision.prerequisites).toEqual({ foraging: 3, warcraft: 3 });
-    expect(RESEARCH_DEFINITIONS.prosperity.prerequisites).toEqual({ vitality: 3, precision: 3 });
+  it("uses one-rank predecessor unlocks throughout the tree", () => {
+    expect(RESEARCH_DEFINITIONS.vitality.prerequisites).toEqual({ warcraft: 1 });
+    expect(RESEARCH_DEFINITIONS.precision.prerequisites).toEqual({ warcraft: 1 });
+    expect(RESEARCH_DEFINITIONS.prosperity.prerequisites).toEqual({ vitality: 1, precision: 1 });
+    expect(RESEARCH_DEFINITIONS.criticalDamage.prerequisites).toEqual({ criticalChance: 1 });
   });
 
   it("recognizes only players who completed the tree before Regen existed", () => {
     const ranks = createEmptyResearchRanks();
-    for (const id of RESEARCH_IDS) ranks[id] = RESEARCH_DEFINITIONS[id].ranksPerStage;
+    for (const id of RESEARCH_IDS) ranks[id] = RESEARCH_DEFINITIONS[id].ranksPerBand;
     ranks.regeneration = 0;
     expect(shouldBackfillLegacyRegeneration(ranks)).toBe(true);
 
@@ -82,7 +79,7 @@ describe("research timer curve", () => {
     expect(shouldBackfillLegacyRegeneration(ranks)).toBe(false);
   });
 
-  it("keeps every same-stage prerequisite valid, reachable, and acyclic", () => {
+  it("keeps every prerequisite valid, reachable, and acyclic", () => {
     const ids = new Set<string>(RESEARCH_IDS);
     const visiting = new Set<ResearchId>();
     const visited = new Set<ResearchId>();
@@ -92,7 +89,7 @@ describe("research timer curve", () => {
       visiting.add(id);
       for (const [requiredId, requiredRank] of Object.entries(RESEARCH_DEFINITIONS[id].prerequisites ?? {})) {
         expect(ids.has(requiredId), `${id} references missing ${requiredId}`).toBe(true);
-        expect(requiredRank).toBeLessThanOrEqual(RESEARCH_DEFINITIONS[requiredId as ResearchId].ranksPerStage);
+        expect(requiredRank).toBe(1);
         visit(requiredId as ResearchId);
       }
       visiting.delete(id);

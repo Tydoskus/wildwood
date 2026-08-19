@@ -1,11 +1,9 @@
 import {
-  BASIC_PAPER_HAT,
   itemDefinition,
-  LEGENDARY_WHITE_GOLD_ARMOR,
-  SUPERIOR_GOLDEN_HELMET,
   type EquipmentSlot,
   type InventoryState,
 } from "../game/inventory";
+import { itemArtMarkup } from "../game/item-presentation";
 import { requiredElement } from "../game/runtime/dom";
 import { renderInventoryView } from "./hud";
 
@@ -60,7 +58,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     inspectName.textContent = item.name;
     inspectDescription.textContent = item.description;
     inspectStats.textContent = item.stats.join(" · ");
-    inspectIcon.innerHTML = inspectArt(item.id);
+    inspectIcon.innerHTML = itemArtMarkup(item.id, false);
     inspect.hidden = false;
   }
 
@@ -93,11 +91,4 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     isInspectOpen: () => !inspect.hidden,
     render,
   };
-}
-
-function inspectArt(itemId: string) {
-  if (itemId === BASIC_PAPER_HAT) return '<span class="inventory-item-art basic-paper-hat-art" aria-hidden="true"></span>';
-  if (itemId === SUPERIOR_GOLDEN_HELMET) return '<span class="inventory-item-art superior-golden-helmet-art" aria-hidden="true"></span>';
-  if (itemId === LEGENDARY_WHITE_GOLD_ARMOR) return '<span class="inventory-item-art legendary-white-gold-armor-art" aria-hidden="true"></span>';
-  return '<span class="boot-pixel-icon" aria-hidden="true"><i></i><i></i></span>';
 }

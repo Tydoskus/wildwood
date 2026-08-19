@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASIC_PAPER_HAT, STARTER_STONE } from "../../../shared/rules";
+import { BASIC_PAPER_HAT, STARTER_BOW } from "../../../shared/rules";
 import { remoteEquipmentFromRow } from "./remote-equipment";
 
 describe("remoteEquipmentFromRow", () => {
@@ -9,13 +9,13 @@ describe("remoteEquipmentFromRow", () => {
       headItem: "",
       chestItem: "",
       rightHandItem: "",
-      leftHandItem: STARTER_STONE,
+      leftHandItem: STARTER_BOW,
     })).toEqual({
       feetItem: "",
       headItem: "",
       chestItem: "",
       rightHandItem: "",
-      leftHandItem: STARTER_STONE,
+      leftHandItem: STARTER_BOW,
     });
   });
 

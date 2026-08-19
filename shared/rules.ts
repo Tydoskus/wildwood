@@ -17,11 +17,14 @@ export const MIN_ATTACK_INTERVAL = .32;
 export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 1;
-export const TRAILBLAZER_BOOTS = "trailblazer_boots";
-export const BASIC_PAPER_HAT = "basic_paper_hat";
-export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
-export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
-export const STARTER_STONE = "starter_stone";
+export {
+  BASIC_PAPER_HAT,
+  LEGENDARY_WHITE_GOLD_ARMOR,
+  LEGACY_STARTER_STONE,
+  STARTER_BOW,
+  SUPERIOR_GOLDEN_HELMET,
+  TRAILBLAZER_BOOTS,
+} from "./items";
 export const BOOTS_SPEED_BONUS = 25;
 export const SPIDER_REWARD_DAMAGE = 75_000;
 export const SPIDER_REWARD_HEALTH = 200_000;
@@ -46,7 +49,7 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 52;
+export const PROTOCOL_VERSION = 53;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

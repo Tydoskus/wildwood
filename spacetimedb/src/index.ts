@@ -16,6 +16,18 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import {
+  BASIC_PAPER_HAT,
+  canonicalItemId,
+  DEVELOPER_ITEM_IDS,
+  itemFitsEquipmentSlot,
+  LEGENDARY_WHITE_GOLD_ARMOR,
+  LEGACY_STARTER_STONE,
+  STARTER_BOW,
+  STARTER_ITEM_IDS,
+  SUPERIOR_GOLDEN_HELMET,
+  TRAILBLAZER_BOOTS,
+} from "../../shared/items";
+import {
   PLAYER_MAP_FRAME_HZ,
   PLAYER_MOTION_FRAME_HZ,
   compactPlayerMapSamples,
@@ -25,7 +37,6 @@ import {
 import {
   ATTACK_BALANCE_VERSION,
   ADVANCED_LAVA_WASTES_MAP_ID,
-  BASIC_PAPER_HAT,
   BEGINNER_DESERT_MAP_ID,
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
@@ -34,7 +45,6 @@ import {
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
-  LEGENDARY_WHITE_GOLD_ARMOR,
   MAP_DISPLAY_NAMES,
   MAP_IDS,
   MAX_ARMOR,
@@ -52,9 +62,6 @@ import {
   SPIDER_REWARD_HEALTH,
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
-  SUPERIOR_GOLDEN_HELMET,
-  STARTER_STONE,
-  TRAILBLAZER_BOOTS,
   TUTORIAL_FOREST_MAP_ID,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -105,7 +112,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 4;
+const MODULE_MIGRATION_VERSION = 5;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 7;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1090,11 +1097,11 @@ function defaultPlayerProgress(identity: any) {
     regen: 0,
     speed: PLAYER_SPEED,
     bootsCollected: false,
-    inventoryJson: JSON.stringify([STARTER_STONE]),
+    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_BOW]),
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
     equippedFeet: "",
-    equippedRightHand: STARTER_STONE,
+    equippedRightHand: STARTER_BOW,
     equippedLeftHand: "",
     introComplete: false,
     desertUnlocked: false,
@@ -1140,7 +1147,24 @@ function runPendingModuleMigrations(ctx: any) {
       if (shouldBackfillLegacyRegeneration(research)) {
         ctx.db.playerResearch.identity.update({
           ...research,
-          regeneration: RESEARCH_DEFINITIONS.regeneration.ranksPerStage,
+          regeneration: RESEARCH_DEFINITIONS.regeneration.ranksPerBand,
+        });
+      }
+    }
+  }
+  if (currentVersion < 5) {
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const inventoryJson = JSON.stringify(inventoryForProgress(progress));
+      const equippedRightHand = equippedRightHandForProgress(progress);
+      const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(progress);
+      if (progress.inventoryJson !== inventoryJson ||
+        progress.equippedRightHand !== equippedRightHand ||
+        progress.equippedLeftHand !== equippedLeftHand) {
+        ctx.db.playerProgress.identity.update({
+          ...progress,
+          inventoryJson,
+          equippedRightHand,
+          equippedLeftHand,
         });
       }
     }
@@ -1947,11 +1971,12 @@ function inventoryForProgress(progress: any) {
   try {
     hasBetaTesterGoldenHelmet ||= JSON.parse(progress.inventoryJson ?? "[]").includes(SUPERIOR_GOLDEN_HELMET);
   } catch {}
+  const developerItems = isDeveloperIdentity(progress.identity)
+    ? DEVELOPER_ITEM_IDS
+    : hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [];
   return [
-    BASIC_PAPER_HAT,
-    STARTER_STONE,
-    ...(hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : []),
-    ...(isDeveloperIdentity(progress.identity) ? [LEGENDARY_WHITE_GOLD_ARMOR] : []),
+    ...STARTER_ITEM_IDS,
+    ...developerItems,
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
   ];
 }
@@ -1983,15 +2008,26 @@ function savedInventoryIncludes(progress: any, itemId: string) {
   try { return JSON.parse(progress.inventoryJson ?? "[]").includes(itemId); } catch { return false; }
 }
 
+function canonicalSavedHand(progress: any, field: "equippedRightHand" | "equippedLeftHand") {
+  const itemId = canonicalItemId(progress[field]);
+  return itemId && itemFitsEquipmentSlot(itemId, field === "equippedRightHand" ? "RIGHT_HAND" : "LEFT_HAND")
+    ? itemId
+    : "";
+}
+
 function equippedRightHandForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
-  if (progress.equippedRightHand === STARTER_STONE && inventory.includes(STARTER_STONE)) return STARTER_STONE;
-  return savedInventoryIncludes(progress, STARTER_STONE) ? "" : STARTER_STONE;
+  const saved = canonicalSavedHand(progress, "equippedRightHand");
+  if (saved && inventory.includes(saved)) return saved;
+  const starterWeaponWasSaved = savedInventoryIncludes(progress, STARTER_BOW) ||
+    savedInventoryIncludes(progress, LEGACY_STARTER_STONE);
+  return starterWeaponWasSaved ? "" : STARTER_BOW;
 }
 
 function equippedLeftHandForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
-  return progress.equippedLeftHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
+  const saved = canonicalSavedHand(progress, "equippedLeftHand");
+  return saved && inventory.includes(saved) ? saved : "";
 }
 
 function equipmentPresentationForProgress(progress: any) {
@@ -4029,8 +4065,14 @@ export const savePlayerProgress = spacetimedb.reducer(
       : inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
     const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
     const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
-    const equippedRightHand = progress.equippedRightHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
-    const equippedLeftHand = !equippedRightHand && progress.equippedLeftHand === STARTER_STONE && inventory.includes(STARTER_STONE) ? STARTER_STONE : "";
+    const requestedRightHand = canonicalItemId(progress.equippedRightHand);
+    const requestedLeftHand = canonicalItemId(progress.equippedLeftHand);
+    const equippedRightHand = requestedRightHand && inventory.includes(requestedRightHand) && itemFitsEquipmentSlot(requestedRightHand, "RIGHT_HAND")
+      ? requestedRightHand
+      : "";
+    const equippedLeftHand = !equippedRightHand && requestedLeftHand && inventory.includes(requestedLeftHand) && itemFitsEquipmentSlot(requestedLeftHand, "LEFT_HAND")
+      ? requestedLeftHand
+      : "";
     const next = {
       identity: ctx.sender,
       maxHp: Math.max(base.maxHp, normalized.maxHp),

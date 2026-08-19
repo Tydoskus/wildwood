@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.451": [
+    "The full 36-node Tech Tree is restored with cumulative rank bands, mobile-sized spacing on every screen, and no rank-reset presentation.",
+    "One rank in each predecessor now permanently unlocks the next technology, so every unlocked upgrade can be researched through its full grind.",
+    "The Starter Bow now replaces the Rock with the selected FA_WP_Main_Bow_011_Brown art, visible arrows, automatic save migration, and developer inventory access.",
+    "Equipment now uses shared gameplay and client presentation registries, while mobile-first design and testing are explicit project requirements.",
+  ],
   "0.450": [
     "The Tech Tree is compact again: one node per upgrade, cumulative rank totals, and the same long research grind without repeated Stage sections.",
     "Players who completed the original tree keep Critical Damage rank 4 and receive the first five Regen ranks, reopening continued research immediately.",

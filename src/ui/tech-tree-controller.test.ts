@@ -16,7 +16,9 @@ function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
 
 describe("hasAvailableResearch", () => {
   it("shows saved ranks cumulatively instead of resetting each loop", () => {
-    expect(researchProgressLabel("criticalDamage", 4)).toBe("4 / 16");
+    expect(researchProgressLabel(4, 4)).toBe("4 / 4");
+    expect(researchProgressLabel(4, 8)).toBe("4 / 8");
+    expect(researchProgressLabel(9, 8)).toBe("8 / 8");
   });
 
   it("reports an immediately researchable node", () => {
@@ -27,14 +29,14 @@ describe("hasAvailableResearch", () => {
     expect(researchIsAvailable("criticalDamage", ranks())).toBe(false);
   });
 
-  it("does not let a player skip an unfinished technology between loops", () => {
-    const firstStage = ranks(Object.fromEntries(
-      RESEARCH_IDS.map((id) => [id, RESEARCH_DEFINITIONS[id].ranksPerStage]),
+  it("lets an unlocked technology continue through later rank bands", () => {
+    const firstBand = ranks(Object.fromEntries(
+      RESEARCH_IDS.map((id) => [id, RESEARCH_DEFINITIONS[id].ranksPerBand]),
     ) as ResearchRanks);
-    firstStage.moveSpeed -= 1;
-    expect(researchIsAvailable("foraging", firstStage)).toBe(false);
-    firstStage.moveSpeed += 1;
-    expect(researchIsAvailable("foraging", firstStage)).toBe(true);
+    firstBand.moveSpeed = 0;
+    expect(researchIsAvailable("foraging", firstBand)).toBe(true);
+    firstBand.warcraft = RESEARCH_DEFINITIONS.warcraft.maxRank - 1;
+    expect(researchIsAvailable("warcraft", firstBand)).toBe(true);
   });
 
   it("clears once every research is maxed", () => {

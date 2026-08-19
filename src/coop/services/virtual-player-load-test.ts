@@ -17,7 +17,7 @@ import {
   PLAYER_RADIUS,
   PLAYER_SPEED,
   PROTOCOL_VERSION,
-  STARTER_STONE,
+  STARTER_BOW,
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../../../shared/rules";
@@ -441,12 +441,12 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           regen: 0,
           speed: PLAYER_SPEED,
           bootsCollected: false,
-          inventoryJson: JSON.stringify([STARTER_STONE]),
+          inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_BOW]),
           equippedHead: BASIC_PAPER_HAT,
           equippedChest: "",
           equippedFeet: "",
           enemyKills: bot.enemyKills,
-          equippedRightHand: STARTER_STONE,
+          equippedRightHand: STARTER_BOW,
           equippedLeftHand: "",
         }).catch((error) => {
           reportProtocolMismatch(error);

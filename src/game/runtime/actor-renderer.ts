@@ -6,6 +6,7 @@ import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
 import type { DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
+import { projectileKindForWeapon } from "../item-presentation";
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -39,7 +40,6 @@ export function createActorRenderer(options: {
   localRightHandItem: () => string;
   localLeftHandItem: () => string;
   equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
-  playerStone: HTMLImageElement;
   enemySprites: Record<string, LoadedEnemySprite>;
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
@@ -57,6 +57,28 @@ export function createActorRenderer(options: {
   const { ctx, camera } = options;
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
   const enemyLabelFont = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+
+  function drawArrow(x: number, y: number, angle: number, offset = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.translate(0, offset);
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#160b07";
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(8, 0); ctx.stroke();
+    ctx.strokeStyle = "#f4ce84";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(8, 0); ctx.stroke();
+    ctx.fillStyle = "#160b07";
+    ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(5, -6); ctx.lineTo(5, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d7e8ee";
+    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(6, -3); ctx.lineTo(6, 3); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#160b07";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-13, -4); ctx.moveTo(-9, 0); ctx.lineTo(-13, 4); ctx.stroke();
+    ctx.restore();
+  }
 
   function createLabelBitmap(segments: LabelSegment[], baseline: CanvasTextBaseline): LabelBitmap {
     const scale = 3;
@@ -213,19 +235,18 @@ export function createActorRenderer(options: {
       const projectileX = startX + (endX - startX) * progress - camera.x;
       const projectileY = startY + (endY - startY) * progress - camera.y;
       const visibleHits = Math.min(5, attack.hits);
-      ctx.save();
-      ctx.translate(projectileX, projectileY);
-      ctx.rotate(Math.atan2(dy, dx));
+      const equipment = options.equipmentForIdentity(other.id);
+      const projectileKind = projectileKindForWeapon(equipment.rightHandItem || equipment.leftHandItem);
       for (let index = 0; index < visibleHits; index += 1) {
         const offset = (index - (visibleHits - 1) / 2) * 9;
-        if (options.playerStone.complete && options.playerStone.naturalWidth > 0) {
-          ctx.drawImage(options.playerStone, -options.playerStone.naturalWidth / 2, offset - options.playerStone.naturalHeight / 2);
-        } else {
+        if (projectileKind === "ARROW") drawArrow(projectileX, projectileY, Math.atan2(dy, dx), offset);
+        else {
+          ctx.save(); ctx.translate(projectileX, projectileY);
           ctx.fillStyle = "#ffe76a";
           options.pixelCircle(0, offset, 6);
+          ctx.restore();
         }
       }
-      ctx.restore();
     }
 
     options.drawShadow(x, y + 29, 34, .16);
@@ -339,12 +360,11 @@ export function createActorRenderer(options: {
   function drawProjectile(projectile: Projectile | EnemyShot, enemy = false) {
     const x = Math.floor(projectile.x - camera.x);
     const y = Math.floor(projectile.y - camera.y);
-    if (!enemy && options.playerStone.complete && options.playerStone.naturalWidth > 0) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.atan2(projectile.vy, projectile.vx));
-      ctx.drawImage(options.playerStone, -options.playerStone.naturalWidth / 2, -options.playerStone.naturalHeight / 2);
-      ctx.restore();
+    const projectileKind = !enemy
+      ? projectileKindForWeapon(options.localRightHandItem() || options.localLeftHandItem())
+      : undefined;
+    if (projectileKind === "ARROW") {
+      drawArrow(x, y, Math.atan2(projectile.vy, projectile.vx));
       return;
     }
     ctx.fillStyle = enemy ? "#d67cff" : "#5a250d";

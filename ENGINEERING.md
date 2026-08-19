@@ -2,7 +2,7 @@
 
 This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior.
 
-Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`.
+Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`. Mobile-first release constraints live in `docs/mobile-first.md`; equipment extension boundaries live in `docs/equipment.md`.
 
 ## Client structure
 
@@ -14,7 +14,9 @@ Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`
 | `src/game/world.ts` | World decoration, road layout, and enemy spawn-site generation. |
 | `src/game/duel.ts` | Duel constants and pure replay simulation helpers. |
 | `src/game/canvas.ts` | Reusable canvas path and pixel-shape primitives. |
-| `src/game/inventory.ts` | Inventory normalization, item definitions, and serialization. |
+| `shared/items.ts` | Browser/server-safe item definitions, equipment slots, weapon behavior, acquisition classes, and legacy ID migration. |
+| `src/game/inventory.ts` | Owned-item normalization, equip operations, save migration, and serialization. |
+| `src/game/item-presentation.ts` | Client-only inventory art, equipped sprites, draw anchors, and projectile presentation. |
 | `src/game/runtime/` | Typed runtime controllers for assets, bootstrap, canvas, combat, enemy simulation/LOD, map progression, persistence, player input, rendering, and game/duel/coop sessions. |
 | `src/ui/` | UI controllers and views for HUD, inventory, profiles, leaderboard, developer tools, overlays, startup, chat, and interaction bindings. |
 | `src/ui/hud.ts` | HUD and inventory DOM rendering. |
@@ -25,6 +27,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 
 ## Required change rules
 
+- Mobile is the primary product target. Validate narrow portrait touch layout, readability, safe areas, lifecycle behavior, and low-end-device performance before desktop compatibility. Desktop must preserve mobile-sized content spacing.
 - Change source files under `src/`; never edit generated browser bundles or SpacetimeDB bindings by hand.
 - Keep only runtime-loaded media under `public/assets/`; place original or unused vendor art under `art-source/`.
 - Run `npm run build:client` before every player-facing commit. Generated `dist/` files are never committed; GitHub Pages builds the same artifact in CI.
@@ -35,6 +38,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 - Never publish production with destructive database flags.
 - Keep pending saves scoped to player identity. Never share browser-pending progress across guest and account identities.
 - Never reuse `player_research.frontier_mastery`. It is a zeroed, migration-only column retained because Maincloud cannot remove it non-destructively; no client or gameplay rule may read it.
+- Keep one Canvas2D renderer with worker-built static tile caching. Reconsider GPU rendering only after measured low-end-device benchmarks or a deliberate full-renderer migration.
 
 ## Prioritized improvement backlog
 

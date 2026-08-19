@@ -15,7 +15,7 @@ import {
   PLAYER_RADIUS,
   PLAYER_SPEED,
   PROTOCOL_VERSION,
-  STARTER_STONE,
+  STARTER_BOW,
   TUTORIAL_FOREST_MAP_ID,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -701,12 +701,12 @@ function saveBot(bot: LoadBot, counters: WorkerCounters) {
     regen: 0,
     speed: PLAYER_SPEED,
     bootsCollected: false,
-    inventoryJson: JSON.stringify([STARTER_STONE]),
+    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_BOW]),
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
     equippedFeet: "",
     enemyKills: bot.enemyKills,
-    equippedRightHand: STARTER_STONE,
+    equippedRightHand: STARTER_BOW,
     equippedLeftHand: "",
   }).then(() => {
     counters.saveAcks += 1;

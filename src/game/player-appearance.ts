@@ -1,4 +1,5 @@
-import { LEGENDARY_WHITE_GOLD_ARMOR, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
+import { BASIC_PAPER_HAT, STARTER_BOW } from "./inventory";
+import { ITEM_PRESENTATIONS, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
 
 export const PLAYER_SKIN_TONES = [
   "#f9dfd0", "#f2c8ac", "#e9b58f", "#d99e76", "#c88358",
@@ -15,12 +16,11 @@ export const DEFAULT_SKIN_TONE = 3;
 export type PlayerAppearanceAssets = {
   basicFrontLeg: HTMLImageElement;
   basicBackLeg: HTMLImageElement;
-  bootsFrontLeg: HTMLImageElement;
-  bootsBackLeg: HTMLImageElement;
-  stone: HTMLImageElement;
-  basicPaperHat: HTMLImageElement;
-  superiorGoldenHelmet: HTMLImageElement;
-  legendaryWhiteGoldArmor: HTMLImageElement;
+  equipment: Record<string, {
+    sprite?: HTMLImageElement;
+    frontLeg?: HTMLImageElement;
+    backLeg?: HTMLImageElement;
+  }>;
 };
 
 function image(source: string, settled: () => void) {
@@ -32,15 +32,20 @@ function image(source: string, settled: () => void) {
 }
 
 export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanceAssets {
+  const equipment: PlayerAppearanceAssets["equipment"] = {};
+  for (const [itemId, presentation] of Object.entries(ITEM_PRESENTATIONS)) {
+    if (!presentation.world) continue;
+    equipment[itemId] = presentation.world.kind === "LEGS"
+      ? {
+        frontLeg: image(presentation.world.frontSource, settled),
+        backLeg: image(presentation.world.backSource, settled),
+      }
+      : { sprite: image(presentation.world.source, settled) };
+  }
   return {
     basicFrontLeg: image("assets/wildwood/player-parts/basic-leg-front.png", settled),
     basicBackLeg: image("assets/wildwood/player-parts/basic-leg-back.png", settled),
-    bootsFrontLeg: image("assets/wildwood/player-parts/boots-leg-front.png", settled),
-    bootsBackLeg: image("assets/wildwood/player-parts/boots-leg-back.png", settled),
-    stone: image("assets/wildwood/player-parts/stone.png", settled),
-    basicPaperHat: image("assets/wildwood/player-parts/basic-paper-hat.png", settled),
-    superiorGoldenHelmet: image("assets/wildwood/player-parts/superior-golden-helmet.png", settled),
-    legendaryWhiteGoldArmor: image("assets/wildwood/player-parts/legendary-white-gold-armor.png", settled),
+    equipment,
   };
 }
 
@@ -82,31 +87,45 @@ export function drawStartingPlayer(
     front: [{ x: 0, y: 0 }, { x: -1, y: -3 }, { x: -4, y: 0 }, { x: 2, y: 0 }][walkFrame] ?? { x: 0, y: 0 },
     head: [0, -2, -3, -2][idleFrame] ?? 0,
   };
-  const boots = options.feetItem === TRAILBLAZER_BOOTS;
   const facingLeft = Math.cos(options.facing) < 0;
-  const throwElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
+  const attackElapsed = Math.max(0, .42 - (options.throwClock ?? 0));
   const handStateKnown = options.rightHandItem !== undefined || options.leftHandItem !== undefined;
-  const stoneInRightHand = options.rightHandItem === STARTER_STONE || !handStateKnown;
-  const stoneInLeftHand = options.leftHandItem === STARTER_STONE;
+  const heldItem = options.rightHandItem || options.leftHandItem || (!handStateKnown ? STARTER_BOW : "");
+  const heldInLeftHand = Boolean(heldItem && options.leftHandItem === heldItem);
+  const heldPresentation = itemPresentation(heldItem)?.world;
+  const heldSpritePresentation = heldPresentation?.kind === "SPRITE" && heldPresentation.layer === "HAND"
+    ? heldPresentation
+    : undefined;
   // Mirroring the hand anchor makes the same item visibly change sides.
-  let stoneX = stoneInLeftHand ? (facingLeft ? 18 - 33 + 4 : 30) : (facingLeft ? 30 : 18 - 33 + 4);
-  let stoneY = 112 + 4;
-  let stoneVisible = stoneInRightHand || stoneInLeftHand;
-  if (throwElapsed > 0 && throwElapsed < .12) {
-    const windup = throwElapsed / .12;
-    stoneX -= 11 * (1 - (1 - windup) * (1 - windup));
-    stoneY += 2 * windup;
-  } else if (throwElapsed >= .12 && throwElapsed < .20) {
-    stoneVisible = false;
-  } else if (throwElapsed >= .20 && throwElapsed < .42) {
-    const reload = (throwElapsed - .20) / .22;
-    stoneX += 14 * (1 - reload);
-    stoneY -= Math.sin(reload * Math.PI) * 5;
+  let heldX = heldInLeftHand ? (facingLeft ? -11 : 30) : (facingLeft ? 30 : -11);
+  let heldY = heldSpritePresentation?.top ?? 116;
+  if (attackElapsed > 0 && attackElapsed < .12) {
+    const windup = attackElapsed / .12;
+    heldX -= 6 * (1 - (1 - windup) * (1 - windup));
+    heldY += 2 * windup;
+  } else if (attackElapsed >= .12 && attackElapsed < .20) {
+    const release = (attackElapsed - .12) / .08;
+    heldX += 4 * (1 - release);
+  } else if (attackElapsed >= .20 && attackElapsed < .42) {
+    const settle = (attackElapsed - .20) / .22;
+    heldX += 3 * (1 - settle);
+    heldY -= Math.sin(settle * Math.PI) * 2;
   }
-  const backLeg = boots ? assets.bootsBackLeg : assets.basicBackLeg;
-  const frontLeg = boots ? assets.bootsFrontLeg : assets.basicFrontLeg;
-  const drawLayer = (asset: HTMLImageElement, x: number, y: number) => {
-    if (asset.complete && asset.naturalWidth > 0) ctx.drawImage(asset, x, y, asset.naturalWidth, asset.naturalHeight);
+  const feetAssets = options.feetItem ? assets.equipment[options.feetItem] : undefined;
+  const backLeg = feetAssets?.backLeg ?? assets.basicBackLeg;
+  const frontLeg = feetAssets?.frontLeg ?? assets.basicFrontLeg;
+  const drawLayer = (asset: HTMLImageElement, x: number, y: number, width = asset.naturalWidth, height = asset.naturalHeight) => {
+    if (asset.complete && asset.naturalWidth > 0) ctx.drawImage(asset, x, y, width, height);
+  };
+  const drawEquippedSprite = (itemId: string | undefined, layer: WorldSpritePresentation["layer"], gaitY = 0) => {
+    if (!itemId) return;
+    const presentation = itemPresentation(itemId)?.world;
+    const asset = assets.equipment[itemId]?.sprite;
+    if (!asset || presentation?.kind !== "SPRITE" || presentation.layer !== layer) return;
+    const width = presentation.width ?? asset.naturalWidth;
+    const height = presentation.height ?? asset.naturalHeight;
+    const y = presentation.top ?? (presentation.bottom ?? height) - height + gaitY;
+    drawLayer(asset, 90 - width / 2, y, width, height);
   };
 
   ctx.save();
@@ -114,19 +133,25 @@ export function drawStartingPlayer(
   ctx.translate(Math.round(options.x), Math.round(options.y + 29));
   if (facingLeft) ctx.scale(-1, 1);
   ctx.scale(scale, scale); ctx.translate(-90, -171);
-  const drawHeldStone = () => drawLayer(assets.stone, 90 - assets.stone.naturalWidth / 2 + stoneX, stoneY);
+  const drawHeldItem = () => {
+    if (!heldItem || !heldSpritePresentation) return;
+    const asset = assets.equipment[heldItem]?.sprite;
+    if (!asset) return;
+    const width = heldSpritePresentation.width ?? asset.naturalWidth;
+    const height = heldSpritePresentation.height ?? asset.naturalHeight;
+    drawLayer(asset, 90 - width / 2 + heldX, heldY, width, height);
+  };
   // The off-side hand belongs behind the body. Handedness must invert that
   // depth rule as the character turns, otherwise a left-hand weapon appears
   // in front while facing right.
-  const stoneBehindBody = stoneInLeftHand ? !facingLeft : facingLeft;
-  if (stoneBehindBody && stoneVisible) drawHeldStone();
+  const heldBehindBody = heldInLeftHand ? !facingLeft : facingLeft;
+  if (heldBehindBody) drawHeldItem();
   drawLayer(backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
   drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
   ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
-  if (options.chestItem === LEGENDARY_WHITE_GOLD_ARMOR) drawLayer(assets.legendaryWhiteGoldArmor, 90 - assets.legendaryWhiteGoldArmor.naturalWidth / 2, 157 - assets.legendaryWhiteGoldArmor.naturalHeight + 11);
+  drawEquippedSprite(options.chestItem, "CHEST");
   ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
-  const headwear = options.headItem === SUPERIOR_GOLDEN_HELMET ? assets.superiorGoldenHelmet : assets.basicPaperHat;
-  if (options.headItem !== "") drawLayer(headwear, 90 - headwear.naturalWidth / 2, 118 - headwear.naturalHeight + 26 + gait.head);
-  if (!stoneBehindBody && stoneVisible) drawHeldStone();
+  drawEquippedSprite(options.headItem === undefined ? BASIC_PAPER_HAT : options.headItem, "HEAD", gait.head);
+  if (!heldBehindBody) drawHeldItem();
   ctx.restore();
 }

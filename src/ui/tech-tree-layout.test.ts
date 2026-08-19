@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { RESEARCH_IDS } from "../../shared/research";
+import { RESEARCH_IDS, RESEARCH_RANK_BAND_COUNT } from "../../shared/research";
 import { createTechTreeLayout } from "./tech-tree-layout";
 
 describe("tech tree layout", () => {
-  it("renders every technology once with cumulative progress", () => {
+  it("renders every technology in four cumulative rank bands", () => {
     const layout = createTechTreeLayout();
-    expect(layout.nodes).toHaveLength(RESEARCH_IDS.length);
-    expect(layout.nodes.map((node) => node.researchId).sort()).toEqual([...RESEARCH_IDS].sort());
-    expect(new Set(layout.nodes.map((node) => node.id)).size).toBe(RESEARCH_IDS.length);
+    expect(layout.nodes).toHaveLength(RESEARCH_IDS.length * RESEARCH_RANK_BAND_COUNT);
+    for (const researchId of RESEARCH_IDS) {
+      expect(layout.nodes.filter((node) => node.researchId === researchId)).toHaveLength(RESEARCH_RANK_BAND_COUNT);
+    }
+    expect(new Set(layout.nodes.map((node) => node.id)).size).toBe(layout.nodes.length);
   });
 
   it("keeps one readable progression path", () => {
     const layout = createTechTreeLayout();
-    expect(layout.paths).toContainEqual(["tech-foraging", "tech-warcraft"]);
-    expect(layout.paths).toContainEqual(["tech-criticalChance", "tech-criticalDamage"]);
+    expect(layout.paths).toContainEqual(["tech-1-foraging", "tech-1-warcraft"]);
+    expect(layout.paths).toContainEqual(["tech-1-criticalChance", "tech-1-criticalDamage"]);
   });
 
   it("draws only real prerequisite branches", () => {
     const layout = createTechTreeLayout();
-    expect(layout.paths).toContainEqual(["tech-vitality", "tech-regeneration"]);
-    expect(layout.paths).toContainEqual(["tech-prosperity", "tech-criticalChance"]);
-    expect(layout.paths).not.toContainEqual(["tech-moveSpeed", "tech-vitality"]);
-    expect(layout.paths).not.toContainEqual(["tech-regeneration", "tech-criticalChance"]);
+    expect(layout.paths).toContainEqual(["tech-1-vitality", "tech-1-regeneration"]);
+    expect(layout.paths).toContainEqual(["tech-1-prosperity", "tech-1-criticalChance"]);
+    expect(layout.paths).not.toContainEqual(["tech-1-moveSpeed", "tech-1-vitality"]);
+    expect(layout.paths).not.toContainEqual(["tech-1-regeneration", "tech-1-criticalChance"]);
   });
 });

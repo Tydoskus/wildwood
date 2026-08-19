@@ -285,15 +285,8 @@
   .inventory-item:disabled { opacity: 1; cursor: default; }
   .inventory-item.is-filled { border-color: rgba(216,145,49,.7); background: rgba(158,99,29,.2); }
   .inventory-item.is-selected { border-color: #ffe47b; box-shadow: 0 0 0 1px rgba(255,228,123,.45); }
-  .inventory-item-art { display: block; width: 100%; height: 100%; background: center / contain no-repeat; image-rendering: pixelated; }
-  .basic-paper-hat-art { background-image: url("player-parts/basic-paper-hat.png"); }
-  .superior-golden-helmet-art { background-image: url("player-parts/superior-golden-helmet.png"); }
-  .legendary-white-gold-armor-art { background-image: url("player-parts/legendary-white-gold-armor.png"); }
-  .starter-stone-art { background-image: url("player-parts/stone.png"); }
-  .equipment-slot .basic-paper-hat-art { width: 30px; height: 27px; }
-  .equipment-slot .superior-golden-helmet-art { width: 30px; height: 27px; }
-  .equipment-slot .legendary-white-gold-armor-art { width: 30px; height: 27px; }
-  .equipment-slot .starter-stone-art { width: 26px; height: 26px; }
+  .inventory-item-art { display: block; width: 100%; height: 100%; background: var(--item-art) center / contain no-repeat; image-rendering: pixelated; }
+  .equipment-slot .inventory-item-art { width: var(--equipped-art-width, 34px); height: var(--equipped-art-height, 34px); }
 
   .boot-pixel-icon { display: flex; justify-content: center; gap: 3px; align-items: end; height: 22px; }
   .boot-pixel-icon i { position: relative; display: block; width: 8px; height: 15px; border: 2px solid #32190d; border-radius: 2px 2px 3px 3px; background: #d58b32; box-shadow: -2px 3px 0 #ffe47b; }
@@ -1183,7 +1176,7 @@
   .tech-tree-viewport::-webkit-scrollbar { display: none; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
   .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 168px; min-width: 420px; min-height: calc(var(--tech-tree-row-count, 1) * 168px + 44px); height: auto; padding: 22px clamp(24px, 7vw, 112px); }
-  .tech-tree-tier { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: clamp(56px, 16vw, 180px); }
+  .tech-tree-tier { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; justify-self: center; width: min(372px, 100%); gap: 56px; }
   .tech-tree-tier-mid { justify-content: space-between; }
   .tech-tree-tier-bottom { justify-content: space-between; }
   .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: 112px; aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 15px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
