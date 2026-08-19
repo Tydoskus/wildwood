@@ -8,6 +8,41 @@ type TextSprite = {
   pixels: number;
 };
 
+type TextSpriteMetrics = {
+  width: number;
+  actualBoundingBoxAscent?: number;
+  actualBoundingBoxDescent?: number;
+  fontBoundingBoxAscent?: number;
+  fontBoundingBoxDescent?: number;
+};
+
+export function textSpriteLayout(metrics: TextSpriteMetrics, fontSize: number, strokeWidth: number | null) {
+  const safeFontSize = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 16;
+  const positiveMetric = (value: number | undefined) => Number.isFinite(value) && value! > 0 ? value! : undefined;
+  const nonNegativeMetric = (value: number | undefined) => Number.isFinite(value) && value! >= 0 ? value! : undefined;
+  const measuredAscent = positiveMetric(metrics.actualBoundingBoxAscent)
+    ?? positiveMetric(metrics.fontBoundingBoxAscent)
+    ?? safeFontSize * .8;
+  // Zero descent is valid for digits. Extra raster bleed protects glyphs with
+  // unreliable descent metrics without moving centered number labels.
+  const measuredDescent = nonNegativeMetric(metrics.actualBoundingBoxDescent)
+    ?? nonNegativeMetric(metrics.fontBoundingBoxDescent)
+    ?? safeFontSize * .2;
+  const textWidth = Math.max(1, Math.ceil(Number.isFinite(metrics.width) ? metrics.width : 1));
+  const ascent = Math.max(1, Math.ceil(measuredAscent));
+  const descent = Math.max(0, Math.ceil(measuredDescent));
+  const glyphBleed = Math.max(2, Math.ceil(safeFontSize * .2));
+  const padding = Math.ceil((strokeWidth ?? 0) / 2) + glyphBleed;
+  return {
+    textWidth,
+    ascent,
+    descent,
+    padding,
+    logicalWidth: textWidth + padding * 2,
+    logicalHeight: ascent + descent + padding * 2,
+  };
+}
+
 export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
   const TEXT_CACHE_LIMIT = 256;
   const TEXT_CACHE_PIXEL_LIMIT = 4_000_000;
@@ -16,7 +51,9 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
 
   function textSprite(text: string, fillColor: string, strokeWidth: number | null) {
     const scale = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-    const key = `${scale}\u0000${ctx.font}\u0000${ctx.direction}\u0000${fillColor}\u0000${strokeWidth ?? "fill"}\u0000${text}`;
+    const font = ctx.font;
+    const direction = ctx.direction;
+    const key = `${scale}\u0000${font}\u0000${direction}\u0000${fillColor}\u0000${strokeWidth ?? "fill"}\u0000${text}`;
     const cached = textSprites.get(key);
     if (cached) {
       textSprites.delete(key);
@@ -24,27 +61,23 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
       return cached;
     }
 
-    const metrics = ctx.measureText(text);
-    const fontSize = Number.parseFloat(ctx.font.match(/([\d.]+)px/)?.[1] ?? "16");
-    const textWidth = Math.max(1, Math.ceil(metrics.width));
-    const measuredAscent = metrics.actualBoundingBoxAscent;
-    const measuredDescent = metrics.actualBoundingBoxDescent;
-    const ascent = Math.max(1, Math.ceil(Number.isFinite(measuredAscent) ? measuredAscent : fontSize * .8));
-    // Digits commonly have a legitimate zero descent. Treating zero as a
-    // missing metric adds fake space below the glyph and shifts centered HP
-    // text upward inside its bar.
-    const descent = Math.max(0, Math.ceil(Number.isFinite(measuredDescent) ? measuredDescent : fontSize * .2));
-    const padding = Math.ceil((strokeWidth ?? 0) / 2) + 2;
-    const logicalWidth = textWidth + padding * 2;
-    const logicalHeight = ascent + descent + padding * 2;
     const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(logicalWidth * scale);
-    canvas.height = Math.ceil(logicalHeight * scale);
     const target = canvas.getContext("2d");
     if (target) {
-      target.scale(scale, scale);
-      target.font = ctx.font;
-      target.direction = ctx.direction;
+      // WebKit can resolve different font metrics for a document canvas and a
+      // detached canvas. Measure and render with this same context.
+      target.font = font;
+      target.direction = direction;
+    }
+    const metrics = target?.measureText(text) ?? ctx.measureText(text);
+    const fontSize = Number.parseFloat(font.match(/([\d.]+)px/)?.[1] ?? "16");
+    const { textWidth, ascent, padding, logicalWidth, logicalHeight } = textSpriteLayout(metrics, fontSize, strokeWidth);
+    canvas.width = Math.ceil(logicalWidth * scale);
+    canvas.height = Math.ceil(logicalHeight * scale);
+    if (target) {
+      target.setTransform(scale, 0, 0, scale, 0, 0);
+      target.font = font;
+      target.direction = direction;
       target.textAlign = "left";
       target.textBaseline = "alphabetic";
       target.lineJoin = "round";

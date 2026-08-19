@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.458": [
+    "crop fix 2",
+  ],
   "0.457": [
     "Text cropping bug fixes",
   ],
