@@ -3,6 +3,7 @@ import { clamp } from "../math";
 import { createSpawnSites, createWorldLayout, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import type { Movement, MovementInputSource } from "./player-input-controller";
 import type { DragonBossState, EnemyState, PlayerState, DuelScene, RuntimeDuelReplay, RuntimeDuelState } from "./types";
+import { setPlayerBaseMaxHealth } from "./player-health";
 
 type LocalState = { x: number; y: number; facing?: number };
 type DuelPresentation = { state: { challengerHp: number; opponentHp: number } };
@@ -52,6 +53,7 @@ export function createPlayerController(options: {
   syncSpeed: (speed: number) => void;
   movementSpeedMultiplier: () => number;
   regenerationMultiplier: () => number;
+  healthMultiplier?: () => number;
   syncMovementState: (x: number, y: number, dx: number, dy: number, inputSource: Exclude<MovementInputSource, "none">, force: boolean, interestArea?: PlayerInterestArea) => void;
   autoAttack: (dt: number) => void;
   isAutoAttackEnabled: () => boolean;
@@ -96,12 +98,16 @@ export function createPlayerController(options: {
     const spawn = mapSpawn(getCurrentMapId());
     player.x = spawn.x;
     player.y = spawn.y;
-    if (!preserveStats && !hasSavedProgress) Object.assign(player, initialStats);
-    player.hp = player.maxHp;
+    if (!preserveStats && !hasSavedProgress) {
+      Object.assign(player, initialStats);
+      player.baseMaxHp = initialStats.maxHp;
+    }
+    setPlayerBaseMaxHealth(player, player.baseMaxHp, options.healthMultiplier?.() ?? 1, true);
     player.attackClock = 0;
     player.throwClock = 0;
     player.hurtClock = 0;
     player.facing = 0;
+    player.combatFacing = null;
     player.moving = false;
     enemies.length = 0;
     clearTransientCombat();
@@ -128,6 +134,7 @@ export function createPlayerController(options: {
       ? localIsChallenger ? duel.challengerHp : duel.opponentHp
       : localIsChallenger ? presentation.state.challengerHp : presentation.state.opponentHp;
     player.moving = false;
+    player.combatFacing = null;
     duelWasActive = true;
     lastLocalDuelId = duel.id;
     const liveScene = liveDuelScene();
@@ -149,7 +156,7 @@ export function createPlayerController(options: {
       return;
     }
     if (duelResultHeld) return;
-    if (isMapTransitioning()) { player.moving = false; return; }
+    if (isMapTransitioning()) { player.moving = false; player.combatFacing = null; return; }
     const connected = isConnected();
     const started = connected && !movementSyncActive;
     movementSyncActive = connected;
@@ -163,7 +170,7 @@ export function createPlayerController(options: {
       my /= length;
       player.x += mx * movementSpeed * dt;
       player.y += my * movementSpeed * dt;
-      if (Math.abs(mx) > .1) player.facing = Math.atan2(my, mx);
+      if (Math.abs(mx) > .1 && player.combatFacing === null) player.facing = Math.atan2(my, mx);
     }
     applyDragonConePush(dt);
     applyFrostclawPush(dt);
@@ -188,6 +195,7 @@ export function createPlayerController(options: {
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.regen * regenerationMultiplier() * dt);
     if (isAutoAttackEnabled()) autoAttack(dt);
+    else player.combatFacing = null;
   }
 
   return {

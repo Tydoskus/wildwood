@@ -1,7 +1,8 @@
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { clamp } from "../math";
-import { inventoryFromSave, serialiseInventory, TRAILBLAZER_BOOTS, type InventoryState } from "../inventory";
+import { inventoryFromSave, serialiseInventory, TRAILBLAZER_BOOTS, type EquipmentSlot, type InventoryState } from "../inventory";
 import type { PlayerState } from "./types";
+import { setPlayerBaseMaxHealth } from "./player-health";
 import type { PlayerProgress, ProgressSave } from "../../coop/services/progress";
 import {
   BOOTS_SPEED_BONUS,
@@ -13,7 +14,7 @@ import {
   PLAYER_SPEED,
 } from "../../../shared/rules";
 
-type Inventory = InventoryState & { selectedItemId: string };
+type Inventory = InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
 type BootPickup = { collected: boolean };
 
 type ProgressDependencies = {
@@ -29,6 +30,7 @@ type ProgressDependencies = {
   getTotalKills: () => number;
   setTotalKills: (kills: number) => void;
   researchVitalityRank: () => number;
+  healthMultiplier: () => number;
   setAppliedVitalityRank: (rank: number) => void;
   renderInventory: () => void;
   onLoaded: () => void;
@@ -48,7 +50,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
   function save(immediate = false) {
     const { player, inventory, bootsPickup } = dependencies;
     dependencies.saveRemoteProgress({
-      maxHp: player.maxHp,
+      maxHp: player.baseMaxHp,
       damage: player.damage,
       attackRate: player.attackRate,
       projectileSpeed: player.projectileSpeed,
@@ -109,7 +111,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
     const { player, inventory, bootsPickup } = dependencies;
     const bounded = (value: number | undefined, fallback: number, min: number, max: number) =>
       Number.isFinite(value) ? clamp(value as number, min, max) : fallback;
-    player.maxHp = bounded(source.maxHp, player.maxHp, 1, MAX_PLAYER_STAT);
+    player.baseMaxHp = bounded(source.maxHp, player.baseMaxHp, 1, MAX_PLAYER_STAT);
     player.damage = bounded(source.damage, player.damage, 1, MAX_PLAYER_STAT);
     player.attackRate = bounded(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
     player.projectileSpeed = BASE_PROJECTILE_SPEED;
@@ -119,7 +121,6 @@ export function createProgressController(dependencies: ProgressDependencies) {
     player.regen = bounded(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;
     dependencies.setAppliedVitalityRank(dependencies.researchVitalityRank());
-    player.hp = player.maxHp;
     const savedInventory = inventoryFromSave(
       source.inventoryJson,
       source.equippedFeet,
@@ -136,8 +137,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
     inventory.equippedFeet = savedInventory.equippedFeet;
     inventory.equippedRightHand = savedInventory.equippedRightHand;
     inventory.equippedLeftHand = savedInventory.equippedLeftHand;
+    setPlayerBaseMaxHealth(player, player.baseMaxHp, dependencies.healthMultiplier(), true);
     player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? PLAYER_SPEED + BOOTS_SPEED_BONUS : PLAYER_SPEED;
     inventory.selectedItemId = "";
+    inventory.selectedItemLocation = "";
     dependencies.renderInventory();
   }
 

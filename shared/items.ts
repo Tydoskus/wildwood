@@ -7,10 +7,13 @@ export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
+export const WOODEN_ARMOR = "wooden_armor";
+export const FOREST_ITEM_DROP_DENOMINATOR = 25;
+export const MAX_FOREST_ITEM_COUNT = 999;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -20,9 +23,15 @@ export type ItemDefinition = {
   acquisition: ItemAcquisition;
   description: string;
   stats: readonly string[];
+  stackable?: boolean;
+  modifiers?: {
+    maxHealthMultiplierBonus?: number;
+  };
   weapon?: {
     mode: "RANGED";
     projectile: ProjectileKind;
+    damageMultiplierBonus?: number;
+    attackSpeedMultiplierBonus?: number;
   };
 };
 
@@ -72,10 +81,26 @@ export const ITEM_DEFINITIONS = {
     id: STARTER_BOW,
     name: "BOW",
     slot: "HAND",
-    acquisition: "DEVELOPER",
+    acquisition: "FOREST_DROP",
     description: "A dependable wooden bow for hunting Wildwood monsters.",
-    stats: ["RANGED WEAPON · NO STATS"],
-    weapon: { mode: "RANGED", projectile: "ARROW" },
+    stats: ["DAMAGE MULTIPLIER +0.05×", "ATTACK SPEED MULTIPLIER +0.05×"],
+    stackable: true,
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: .05,
+      attackSpeedMultiplierBonus: .05,
+    },
+  },
+  [WOODEN_ARMOR]: {
+    id: WOODEN_ARMOR,
+    name: "WOODEN ARMOR",
+    slot: "CHEST",
+    acquisition: "FOREST_DROP",
+    description: "Wooden forest plate that reinforces its wearer with extra health.",
+    stats: ["MAX HEALTH MULTIPLIER +0.05×"],
+    stackable: true,
+    modifiers: { maxHealthMultiplierBonus: .05 },
   },
 } as const satisfies Record<string, ItemDefinition>;
 
@@ -86,6 +111,9 @@ export const STARTER_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .map((item) => item.id) as ItemId[];
 export const DEVELOPER_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "DEVELOPER")
+  .map((item) => item.id) as ItemId[];
+export const FOREST_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "FOREST_DROP")
   .map((item) => item.id) as ItemId[];
 
 export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
@@ -108,4 +136,21 @@ export function itemFitsEquipmentSlot(itemId: unknown, destination: EquipmentSlo
 
 export function isWeaponItem(itemId: unknown) {
   return Boolean(itemDefinition(canonicalItemId(itemId))?.weapon);
+}
+
+/** Equipment bonuses add to research multipliers instead of multiplying them. */
+export function weaponDamageMultiplier(itemId: unknown, researchMultiplier = 1) {
+  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.weapon?.damageMultiplierBonus ?? 0);
+}
+
+export function weaponAttackSpeedMultiplier(itemId: unknown, researchMultiplier = 1) {
+  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.weapon?.attackSpeedMultiplierBonus ?? 0);
+}
+
+export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1) {
+  return baseInterval / weaponAttackSpeedMultiplier(itemId, researchMultiplier);
+}
+
+export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1) {
+  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus ?? 0);
 }

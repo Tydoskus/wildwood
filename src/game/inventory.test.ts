@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASIC_PAPER_HAT, inventoryFromSave, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
 
 describe("inventory rules", () => {
   it("rejects malformed inventory and restores a valid saved item", () => {
@@ -15,7 +15,7 @@ describe("inventory rules", () => {
 
   it("keeps the developer-only golden helmet cosmetic available and equipable", () => {
     expect(inventoryFromSave("[]", "", SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR, false, true)).toEqual({
-      itemIds: [BASIC_PAPER_HAT, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR, STARTER_BOW],
+      itemIds: [BASIC_PAPER_HAT, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR],
       equippedHead: SUPERIOR_GOLDEN_HELMET,
       equippedChest: LEGENDARY_WHITE_GOLD_ARMOR,
       equippedFeet: "",
@@ -74,21 +74,44 @@ describe("inventory rules", () => {
     )).toEqual(inventory);
   });
 
-  it("adds the developer Bow without replacing Rock and equips one weapon at a time", () => {
+  it("preserves earned Bow stacks without replacing Rock and equips one weapon at a time", () => {
     const inventory = inventoryFromSave(
-      JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE]),
+      JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE, STARTER_BOW, STARTER_BOW]),
       "",
       BASIC_PAPER_HAT,
       "",
       false,
-      true,
+      false,
       STARTER_STONE,
       "",
     );
     expect(inventory.itemIds).toContain(STARTER_STONE);
-    expect(inventory.itemIds).toContain(STARTER_BOW);
+    expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(2);
     expect(moveInventoryItem(inventory, STARTER_BOW, "LEFT_HAND")).toBe(true);
     expect(inventory.equippedRightHand).toBe("");
     expect(inventory.equippedLeftHand).toBe(STARTER_BOW);
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: STARTER_BOW, quantity: 1 });
+  });
+
+  it("groups duplicate forest equipment into bag stacks and subtracts equipped copies", () => {
+    const inventory = normaliseInventory(
+      [STARTER_BOW, STARTER_BOW, STARTER_BOW, WOODEN_ARMOR, WOODEN_ARMOR],
+      "",
+      BASIC_PAPER_HAT,
+      WOODEN_ARMOR,
+      false,
+      false,
+      STARTER_BOW,
+      "",
+    );
+
+    expect(bagInventoryStacks(inventory)).toEqual([
+      { itemId: STARTER_STONE, quantity: 1 },
+      { itemId: STARTER_BOW, quantity: 2 },
+      { itemId: WOODEN_ARMOR, quantity: 1 },
+    ]);
+    expect(setInventoryItemQuantity(inventory, STARTER_BOW, 4)).toBe(true);
+    expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(4);
+    expect(serialiseInventory(inventory)).toContain(`"${STARTER_BOW}","${STARTER_BOW}"`);
   });
 });

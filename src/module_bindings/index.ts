@@ -54,6 +54,7 @@ import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
+import RecordForestEnemyDefeatReducer from "./record_forest_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "./record_player_death_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -435,6 +436,7 @@ const reducersSchema = __reducers(
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
+  __reducerSchema("record_forest_enemy_defeat", RecordForestEnemyDefeatReducer),
   __reducerSchema("record_player_death", RecordPlayerDeathReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

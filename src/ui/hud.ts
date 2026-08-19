@@ -1,4 +1,4 @@
-import { ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
+import { bagInventoryStacks, inventoryItemQuantity, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
@@ -76,6 +76,7 @@ type InventoryViewState = {
   equippedRightHand: string;
   equippedLeftHand: string;
   selectedItemId: string;
+  selectedItemLocation?: EquipmentSlot | "BAG" | "";
 };
 
 type InventoryElements = {
@@ -103,24 +104,11 @@ function itemArt(itemId: string, hidden = true) {
   return itemArtMarkup(itemId, hidden);
 }
 
-function equippedItem(inventory: InventoryViewState, slot: string) {
-  if (slot === "HEAD") return inventory.equippedHead;
-  if (slot === "CHEST") return inventory.equippedChest;
-  if (slot === "FEET") return inventory.equippedFeet;
-  if (slot === "RIGHT_HAND") return inventory.equippedRightHand;
-  return inventory.equippedLeftHand;
-}
-
-function itemIsEquipped(inventory: InventoryViewState, item: ItemDefinition) {
-  if (item.slot === "HAND") {
-    return inventory.equippedRightHand === item.id || inventory.equippedLeftHand === item.id;
-  }
-  return equippedItem(inventory, item.slot) === item.id;
-}
-
-function renderEquipmentSlot(element: HTMLElement, itemId: string, label: string) {
+function renderEquipmentSlot(element: HTMLElement, itemId: string, label: string, selected: boolean) {
   element.classList.toggle("is-equipped", Boolean(itemId));
+  element.classList.toggle("is-selected", selected);
   element.setAttribute("aria-label", itemId ? `${label}: ${itemsById[itemId]?.name ?? itemId}` : label);
+  element.setAttribute("aria-pressed", String(selected));
   element.innerHTML = itemId ? itemArt(itemId, false) : label;
 }
 
@@ -128,40 +116,47 @@ export function renderInventoryView(
   elements: InventoryElements,
   inventory: InventoryViewState,
   actions: {
-    onSelect: (itemId: string) => void;
+    onSelect: (itemId: string, location: EquipmentSlot | "BAG" | "") => void;
     onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
     onInspect: (itemId: string) => void;
   },
 ) {
   elements.items.replaceChildren();
-  const itemIds = inventory.itemIds.filter((itemId) => itemsById[itemId]);
-  const equippedIds = new Set([inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet, inventory.equippedRightHand, inventory.equippedLeftHand].filter(Boolean));
-  const bagItemIds = itemIds.filter((itemId) => !equippedIds.has(itemId));
-  elements.count.textContent = `${bagItemIds.length} / 16`;
-  renderEquipmentSlot(elements.equippedHead, inventory.equippedHead, "HEAD");
-  renderEquipmentSlot(elements.equippedChest, inventory.equippedChest, "CHEST");
-  renderEquipmentSlot(elements.equippedRightHand, inventory.equippedRightHand, "RIGHT");
-  renderEquipmentSlot(elements.equippedLeftHand, inventory.equippedLeftHand, "LEFT");
-  renderEquipmentSlot(elements.equippedFeet, inventory.equippedFeet, "FEET");
+  const bagStacks = bagInventoryStacks(inventory);
+  elements.count.textContent = `${bagStacks.length} / 16`;
+  renderEquipmentSlot(elements.equippedHead, inventory.equippedHead, "HEAD", inventory.selectedItemLocation === "HEAD" && inventory.selectedItemId === inventory.equippedHead);
+  renderEquipmentSlot(elements.equippedChest, inventory.equippedChest, "CHEST", inventory.selectedItemLocation === "CHEST" && inventory.selectedItemId === inventory.equippedChest);
+  renderEquipmentSlot(elements.equippedRightHand, inventory.equippedRightHand, "RIGHT", inventory.selectedItemLocation === "RIGHT_HAND" && inventory.selectedItemId === inventory.equippedRightHand);
+  renderEquipmentSlot(elements.equippedLeftHand, inventory.equippedLeftHand, "LEFT", inventory.selectedItemLocation === "LEFT_HAND" && inventory.selectedItemId === inventory.equippedLeftHand);
+  renderEquipmentSlot(elements.equippedFeet, inventory.equippedFeet, "FEET", inventory.selectedItemLocation === "FEET" && inventory.selectedItemId === inventory.equippedFeet);
 
   for (let index = 0; index < 16; index += 1) {
-    const itemId = bagItemIds[index];
+    const stack = bagStacks[index];
+    const itemId = stack?.itemId;
+    const stackQuantity = stack?.quantity ?? 0;
+    const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === itemId;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "inventory-item" + (itemId ? " is-filled" : "") +
-      (inventory.selectedItemId === itemId ? " is-selected" : "");
+      (selected ? " is-selected" : "");
     if (itemId) {
       const item = itemsById[itemId];
-      button.setAttribute("aria-label", item.name);
-      button.setAttribute("aria-pressed", String(inventory.selectedItemId === itemId));
+      button.setAttribute("aria-label", stackQuantity > 1 ? `${item.name}, quantity ${stackQuantity}` : item.name);
+      button.setAttribute("aria-pressed", String(selected));
       button.innerHTML = itemArt(itemId);
-      button.addEventListener("click", () => actions.onSelect(itemId));
+      if (stackQuantity > 1) {
+        const quantity = document.createElement("span");
+        quantity.className = "inventory-stack-count";
+        quantity.textContent = `×${stackQuantity}`;
+        button.appendChild(quantity);
+      }
+      button.addEventListener("click", () => actions.onSelect(itemId, "BAG"));
     } else {
-      const canMoveSelectedToBag = Boolean(inventory.selectedItemId && equippedIds.has(inventory.selectedItemId));
+      const canMoveSelectedToBag = Boolean(inventory.selectedItemId && inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG");
       button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}: clear selection`);
       button.addEventListener("click", () => {
         if (canMoveSelectedToBag) actions.onMove(inventory.selectedItemId, "BAG");
-        else actions.onSelect("");
+        else actions.onSelect("", "");
       });
     }
     elements.items.appendChild(button);
@@ -173,7 +168,7 @@ export function renderInventoryView(
     return;
   }
   elements.detail.innerHTML =
-    `<div class="inventory-slot">${selected.slot} · ${itemIsEquipped(inventory, selected) ? "EQUIPPED" : "IN BAG"}</div>` +
+    `<div class="inventory-slot">${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}${inventoryItemQuantity(inventory, selected.id) > 1 ? ` · OWNED ×${inventoryItemQuantity(inventory, selected.id)}` : ""}</div>` +
     `<strong>${selected.name}</strong><p>${selected.description}</p>` +
     `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
   const actionRow = document.createElement("div");

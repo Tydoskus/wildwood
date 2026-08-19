@@ -5,10 +5,12 @@ import {
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
+  WOODEN_ARMOR,
   type ItemId,
   type ProjectileKind,
 } from "../../shared/items";
 import { STARTER_BOW_ASSET_SOURCE } from "./starter-bow-asset";
+import { WOODEN_ARMOR_ASSET_SOURCE } from "./wooden-armor-asset";
 
 type InventoryArt = {
   source?: string;
@@ -55,6 +57,10 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
     inventory: { source: `${PLAYER_PARTS}/legendary-white-gold-armor.png`, equippedWidth: 30, equippedHeight: 27 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/legendary-white-gold-armor.png`, layer: "CHEST", bottom: 168 },
+  },
+  [WOODEN_ARMOR]: {
+    inventory: { source: WOODEN_ARMOR_ASSET_SOURCE, equippedWidth: 34, equippedHeight: 31 },
+    world: { kind: "SPRITE", source: WOODEN_ARMOR_ASSET_SOURCE, layer: "CHEST", width: 76, height: 68, top: 100 },
   },
   [TRAILBLAZER_BOOTS]: {
     inventory: { fallback: "BOOTS" },

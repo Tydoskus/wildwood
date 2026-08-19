@@ -6,6 +6,8 @@ import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
 import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, PlayerState, RuntimeReward, SpiderBossState } from "./types";
 import type { SpawnSite } from "../world";
+import { weaponAttackInterval, weaponDamageMultiplier } from "../../../shared/items";
+import { addPlayerBaseMaxHealth } from "./player-health";
 
 const PLAYER_THROW_SECONDS = .42;
 const PLAYER_THROW_WINDUP_SECONDS = .12;
@@ -40,14 +42,18 @@ export function createPlayerCombatController(options: {
   isSnowMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
+  researchAttackSpeedMultiplier?: () => number;
   researchCriticalChance: () => number;
   researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
+  equippedWeapon: () => string;
+  healthMultiplier: () => number;
   minAttackInterval: number;
   effectiveArmor: () => number;
   isDueling: () => boolean;
   scheduleEnemyRespawn: (site: SpawnSite) => void;
   incrementKills: () => void;
+  recordForestEnemyDefeat: () => void;
   damageDragon: (hits: number) => void;
   damageSpider: (hits: number) => void;
   damageFrostclaw: (hits: number) => void;
@@ -65,7 +71,7 @@ export function createPlayerCombatController(options: {
     player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss,
     isTutorialMap, isDesertMap, isSnowMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, damageDragon, damageSpider, damageFrostclaw, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -105,7 +111,7 @@ export function createPlayerCombatController(options: {
       projectile.vx = Math.cos(angle) * player.projectileSpeed;
       projectile.vy = Math.sin(angle) * player.projectileSpeed;
       projectile.r = 6;
-      projectile.damage = player.damage * researchDamageMultiplier() * (critical ? researchCriticalDamageMultiplier() : 1);
+      projectile.damage = player.damage * weaponDamageMultiplier(options.equippedWeapon(), researchDamageMultiplier()) * (critical ? researchCriticalDamageMultiplier() : 1);
       projectile.critical = critical;
       projectile.hitLife = player.attackRange / player.projectileSpeed * projectileLifeBonus;
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
@@ -125,7 +131,6 @@ export function createPlayerCombatController(options: {
 
   function attackNearest(dt: number) {
     player.attackClock -= dt;
-    if (player.attackClock > 0) return;
     let target: EnemyState | BossTarget | null = null;
     let best = player.attackRange * player.attackRange;
     rebuildTargetGrid();
@@ -145,15 +150,20 @@ export function createPlayerCombatController(options: {
       const edgeDistance = Math.max(0, Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y) - mapBoss.r);
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
     }
-    if (target) { fireAt(target); player.attackClock = player.attackRate; }
-    else player.attackClock = Math.min(player.attackClock, .08);
+    player.combatFacing = target ? Math.atan2(target.y - player.y, target.x - player.x) : null;
+    if (player.combatFacing !== null) player.facing = player.combatFacing;
+    if (player.attackClock > 0) return;
+    if (target) {
+      fireAt(target);
+      player.attackClock = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1);
+    } else player.attackClock = Math.min(player.attackClock, .08);
   }
 
   function applyReward(reward: RuntimeReward, x: number, y: number) {
     const enhanced = { ...reward, amount: reward.amount * researchRewardMultiplier() };
     switch (enhanced.type) {
       case "damage": player.damage += enhanced.amount; break;
-      case "health": player.maxHp += enhanced.amount; player.hp = Math.min(player.maxHp, player.hp + enhanced.amount); break;
+      case "health": addPlayerBaseMaxHealth(player, enhanced.amount, options.healthMultiplier()); break;
       case "speed": player.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / player.attackRate + enhanced.amount); break;
       case "armor": player.armor += enhanced.amount; break;
       case "regen": player.regen += enhanced.amount; break;
@@ -172,6 +182,7 @@ export function createPlayerCombatController(options: {
     if (site) scheduleEnemyRespawn(site);
     const base = ENEMY_TYPES[enemy.type];
     applyReward(enemy.reward, enemy.x, enemy.y);
+    if (isTutorialMap()) recordForestEnemyDefeat();
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
@@ -193,7 +204,7 @@ export function createPlayerCombatController(options: {
     setHitFlash();
     addScreenShake(7);
     spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
-    if (player.hp <= 0) { player.hp = 0; breakEnemyLeashes(); recordDeath(); endGame(); }
+    if (player.hp <= 0) { player.hp = 0; player.combatFacing = null; breakEnemyLeashes(); recordDeath(); endGame(); }
     return true;
   }
 
@@ -334,6 +345,6 @@ export function createPlayerCombatController(options: {
       pendingFrostclawHits = 0;
       frostclawHitBatchTimer = 0;
     },
-    clearPendingThrow: () => { pendingPlayerThrow = null; },
+    clearPendingThrow: () => { pendingPlayerThrow = null; player.combatFacing = null; },
   };
 }

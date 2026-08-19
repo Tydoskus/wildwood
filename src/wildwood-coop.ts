@@ -69,6 +69,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../shared/rules";
+import { STARTER_BOW, WOODEN_ARMOR } from "../shared/items";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -454,6 +455,7 @@ let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
 let changeListener: (() => void) | null = null;
+let forestDropListener: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null = null;
 let changeBatchDepth = 0;
 let batchedChangePending = false;
 let pendingProgress: ProgressSave | null = null;
@@ -1509,7 +1511,7 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   onChange?.();
 }
 
-function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lavaUnlocked"> & { lavaUnlocked?: boolean }) {
+function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lavaUnlocked" | "bowCount" | "woodenArmorCount"> & { lavaUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number }) {
   const id = row.identity.toHexString();
   const progress = {
     maxHp: row.maxHp,
@@ -1532,13 +1534,22 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lava
     desertUnlocked: row.desertUnlocked,
     snowlandsUnlocked: row.snowlandsUnlocked,
     lavaUnlocked: row.lavaUnlocked ?? false,
+    bowCount: Math.max(0, Math.floor(row.bowCount ?? 0)),
+    woodenArmorCount: Math.max(0, Math.floor(row.woodenArmorCount ?? 0)),
   };
   profileProgress.set(id, progress);
   if (id !== localIdentity) {
     if (id === activePlayerProfileIdentity) onChange();
     return;
   }
+  const previousProgress = localProgress;
   localProgress = progress;
+  if (previousProgress) {
+    const bowQuantity = progress.bowCount - previousProgress.bowCount;
+    if (bowQuantity > 0) forestDropListener?.({ itemId: STARTER_BOW, quantity: bowQuantity, totalQuantity: progress.bowCount });
+    const woodenArmorQuantity = progress.woodenArmorCount - previousProgress.woodenArmorCount;
+    if (woodenArmorQuantity > 0) forestDropListener?.({ itemId: WOODEN_ARMOR, quantity: woodenArmorQuantity, totalQuantity: progress.woodenArmorCount });
+  }
   completeAccountReturnWhenReady();
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
   else flushPendingProgress();
@@ -2776,6 +2787,9 @@ export const wildwoodCoop = {
   setOnChange(callback: (() => void) | null) {
     changeListener = callback;
   },
+  setOnForestDrop(callback: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null) {
+    forestDropListener = callback;
+  },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);
   },
@@ -3164,6 +3178,10 @@ export const wildwoodCoop = {
     } catch (error) {
       handleReducerFailure("death tracking", error);
     }
+  },
+  recordForestEnemyDefeat() {
+    if (protocolBlocked || !connection) return;
+    sendReducer("forest enemy defeat", () => connection?.reducers.recordForestEnemyDefeat({}));
   },
   dragonBoss() {
     return sharedDragon ? { ...sharedDragon } : null;

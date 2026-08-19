@@ -5,7 +5,7 @@ import type { RemotePlayer } from "../../wildwood-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
-import type { DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
+import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 import { projectileKindForWeapon } from "../item-presentation";
 
 type Viewport = { width: number; height: number };
@@ -33,7 +33,7 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
-  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string }, alpha: number) => void;
+  drawPlayerAppearance: (actor: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string }, alpha: number) => void;
   localHeadItem: () => string;
   localChestItem: () => string;
   localFeetItem: () => string;
@@ -42,6 +42,9 @@ export function createActorRenderer(options: {
   equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
   itemSprite: (itemId: string | undefined) => HTMLImageElement | undefined;
   enemySprites: Record<string, LoadedEnemySprite>;
+  enemies: EnemyState[];
+  activeBossTarget: () => BossTarget | null;
+  remoteAttackRange: number;
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
   rewardMultiplier: () => number;
@@ -140,10 +143,31 @@ export function createActorRenderer(options: {
   }
 
   function drawPlayerSprite(
-    actor: { x: number; y: number; facing: number; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
+    actor: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
     alpha = 1,
   ) {
     options.drawPlayerAppearance(actor, alpha);
+  }
+
+  function clientCombatFacing(actor: { x: number; y: number }) {
+    let target: EnemyState | BossTarget | null = null;
+    let bestDistanceSquared = options.remoteAttackRange * options.remoteAttackRange;
+    for (const enemy of options.enemies) {
+      if (enemy.dead) continue;
+      const dx = enemy.x - actor.x;
+      const dy = enemy.y - actor.y;
+      const candidateDistanceSquared = dx * dx + dy * dy;
+      if (candidateDistanceSquared >= bestDistanceSquared) continue;
+      bestDistanceSquared = candidateDistanceSquared;
+      target = enemy;
+    }
+    const boss = options.activeBossTarget();
+    if (boss && !boss.dead) {
+      const centerDistance = Math.hypot(actor.x - boss.x, actor.y - boss.y);
+      const edgeDistance = Math.max(0, centerDistance - boss.r);
+      if (edgeDistance * edgeDistance < bestDistanceSquared) target = boss;
+    }
+    return target ? Math.atan2(target.y - actor.y, target.x - actor.x) : null;
   }
 
   function drawDuelArena(show: boolean, center: { x: number; y: number; r: number }) {
@@ -262,8 +286,13 @@ export function createActorRenderer(options: {
       }
     }
 
+    const equipment = options.equipmentForIdentity(other.id);
+    const weaponItem = equipment.rightHandItem || equipment.leftHandItem;
+    const combatFacing = attack
+      ? Math.atan2(attack.targetY - other.y, attack.targetX - other.x)
+      : weaponItem ? clientCombatFacing(other) : null;
     options.drawShadow(x, y + 29, 34, .16);
-    drawPlayerSprite({ ...other, x, y }, 1);
+    drawPlayerSprite({ ...other, ...equipment, x, y, facing: combatFacing ?? other.facing, combatFacing }, 1);
     options.drawIdentity(
       other.id,
       options.publicName(other.id, other.name),

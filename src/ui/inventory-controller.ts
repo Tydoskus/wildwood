@@ -8,7 +8,8 @@ import { itemArtMarkup } from "../game/item-presentation";
 import { requiredElement } from "../game/runtime/dom";
 import { renderInventoryView } from "./hud";
 
-type SelectableInventory = InventoryState & { selectedItemId: string };
+type InventoryLocation = EquipmentSlot | "BAG" | "";
+type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
 
 type InventoryDependencies = {
   inventory: SelectableInventory;
@@ -43,12 +44,16 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       { items, detail, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
       dependencies.inventory,
       {
-        onSelect(itemId) {
-          dependencies.inventory.selectedItemId = nextInventorySelection(dependencies.inventory.selectedItemId, itemId);
+        onSelect(itemId, location) {
+          const tappedAgain = dependencies.inventory.selectedItemId === itemId && dependencies.inventory.selectedItemLocation === location;
+          dependencies.inventory.selectedItemId = tappedAgain ? "" : itemId;
+          dependencies.inventory.selectedItemLocation = tappedAgain || !itemId ? "" : location;
           render();
         },
         onMove(itemId, destination) {
           dependencies.move(itemId, destination);
+          dependencies.inventory.selectedItemId = "";
+          dependencies.inventory.selectedItemLocation = "";
           render();
         },
         onInspect: openInspect,
@@ -59,7 +64,9 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   function openInspect(itemId: string) {
     const item = itemDefinition(itemId);
     if (!item) return;
-    const equipped = [dependencies.inventory.equippedHead, dependencies.inventory.equippedChest, dependencies.inventory.equippedFeet, dependencies.inventory.equippedRightHand, dependencies.inventory.equippedLeftHand].includes(item.id);
+    const equipped = dependencies.inventory.selectedItemId === item.id
+      ? Boolean(dependencies.inventory.selectedItemLocation && dependencies.inventory.selectedItemLocation !== "BAG")
+      : [dependencies.inventory.equippedHead, dependencies.inventory.equippedChest, dependencies.inventory.equippedFeet, dependencies.inventory.equippedRightHand, dependencies.inventory.equippedLeftHand].includes(item.id);
     inspectSlot.textContent = `${item.slot} · ${equipped ? "EQUIPPED" : "IN BAG"}`;
     inspectName.textContent = item.name;
     inspectDescription.textContent = item.description;
@@ -75,13 +82,16 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   function clickEquipment(destination: EquipmentSlot, itemId: string) {
     const selectedItemId = dependencies.inventory.selectedItemId;
     if (selectedItemId) {
-      if (itemFitsEquipmentSlot(selectedItemId, destination)) dependencies.move(selectedItemId, destination);
+      const tappedAgain = dependencies.inventory.selectedItemLocation === destination && selectedItemId === itemId;
+      if (!tappedAgain && itemFitsEquipmentSlot(selectedItemId, destination)) dependencies.move(selectedItemId, destination);
       dependencies.inventory.selectedItemId = "";
+      dependencies.inventory.selectedItemLocation = "";
       render();
       return;
     }
     if (!itemId) return;
     dependencies.inventory.selectedItemId = itemId;
+    dependencies.inventory.selectedItemLocation = destination;
     render();
   }
 
@@ -94,12 +104,13 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     const target = event.target;
     if (!(target instanceof Element) || target.closest("button") || !dependencies.inventory.selectedItemId) return;
     dependencies.inventory.selectedItemId = "";
+    dependencies.inventory.selectedItemLocation = "";
     render();
   });
   closeInspect.addEventListener("click", close);
 
   return {
-    clearSelection: () => { dependencies.inventory.selectedItemId = ""; },
+    clearSelection: () => { dependencies.inventory.selectedItemId = ""; dependencies.inventory.selectedItemLocation = ""; },
     close,
     isInspectOpen: () => !inspect.hidden,
     render,

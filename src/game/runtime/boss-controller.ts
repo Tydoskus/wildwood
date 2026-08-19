@@ -28,6 +28,7 @@ import type {
   SpiderBossState,
   SpiderVenomPool,
 } from "./types";
+import { addPlayerBaseMaxHealth } from "./player-health";
 
 export const BOSS_HP_LOSS_FLASH_DURATION = .18;
 export const SPIDER_WEB_RANGE = 720;
@@ -128,6 +129,7 @@ export function createBossController(options: {
   logPickup: (text: string, color: string) => void;
   showMessage: (text: string, color: string) => void;
   saveProgress: () => void;
+  healthMultiplier?: () => number;
 }): BossController {
   const {
     boss, spiderBoss, frostclawBoss, bossRain, spiderVenom, frostclawIcefalls, player, elements,
@@ -284,8 +286,7 @@ export function createBossController(options: {
       // in the same frame as the reward notice, not after a later save sync.
       locallyRewardedSpiderEncounters.add(encounterKey);
       player.damage += SPIDER_REWARD_DAMAGE;
-      player.maxHp += SPIDER_REWARD_HEALTH;
-      player.hp = Math.min(player.maxHp, player.hp + SPIDER_REWARD_HEALTH);
+      addPlayerBaseMaxHealth(player, SPIDER_REWARD_HEALTH, options.healthMultiplier?.() ?? 1);
     }
     logPickup("+75K DAMAGE", "#ff655a");
     logPickup("+200K MAX HEALTH", "#6fe48e");
@@ -311,8 +312,7 @@ export function createBossController(options: {
     if (!locallyRewardedFrostclawEncounters.has(encounterKey)) {
       locallyRewardedFrostclawEncounters.add(encounterKey);
       player.damage += FROSTCLAW_REWARD_DAMAGE;
-      player.maxHp += FROSTCLAW_REWARD_HEALTH;
-      player.hp = Math.min(player.maxHp, player.hp + FROSTCLAW_REWARD_HEALTH);
+      addPlayerBaseMaxHealth(player, FROSTCLAW_REWARD_HEALTH, options.healthMultiplier?.() ?? 1);
       player.armor += FROSTCLAW_REWARD_ARMOR;
     }
     logPickup("+72M DAMAGE", "#ff655a");

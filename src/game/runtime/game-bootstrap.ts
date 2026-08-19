@@ -1,5 +1,5 @@
 import { WORLD } from "../constants";
-import { BASIC_PAPER_HAT, STARTER_STONE, type InventoryState } from "../inventory";
+import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
@@ -16,7 +16,10 @@ import {
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
 
-export type BootstrapInventory = InventoryState & { selectedItemId: string };
+export type BootstrapInventory = InventoryState & {
+  selectedItemId: string;
+  selectedItemLocation: EquipmentSlot | "BAG" | "";
+};
 
 /** Immutable map rules plus mutable game entities allocated once per session. */
 export function createGameBootstrap() {
@@ -58,6 +61,7 @@ export function createGameBootstrap() {
     x: startSpawn.x, y: startSpawn.y, r: 17,
     speed: PLAYER_SPEED,
     hp: PLAYER_BASE_HP,
+    baseMaxHp: PLAYER_BASE_HP,
     maxHp: PLAYER_BASE_HP,
     damage: 4,
     attackRate: DEFAULT_ATTACK_INTERVAL,
@@ -71,6 +75,7 @@ export function createGameBootstrap() {
     throwClock: 0,
     hurtClock: 0,
     facing: 0,
+    combatFacing: null,
     moving: false,
   };
   const boss: DragonBossState = {
@@ -138,6 +143,7 @@ export function createGameBootstrap() {
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     selectedItemId: "",
+    selectedItemLocation: "",
   };
 
   return {

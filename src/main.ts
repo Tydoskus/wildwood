@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { moveInventoryItem, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { moveInventoryItem, setInventoryItemQuantity, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
@@ -28,6 +28,7 @@ import { createMapController } from "./game/runtime/map-controller";
 import { createPlayerCombatController, type PlayerCombatController } from "./game/runtime/player-combat-controller";
 import { createPlayerInputController } from "./game/runtime/player-input-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
+import { applyPlayerMaxHealthMultiplier } from "./game/runtime/player-health";
 import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
 import { createResearchController } from "./game/runtime/research-controller";
 import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
@@ -62,7 +63,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
-import { isWeaponItem } from "../shared/items";
+import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier } from "../shared/items";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -139,6 +140,7 @@ import {
     spiderVenom,
     startSpawn: START_SPAWN,
   } = bootstrap;
+  const healthMultiplier = () => itemMaxHealthMultiplier(inventory.equippedChest);
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
   const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
   const { spawnFromSite, engageEnemy, updateRespawns } = enemyLifecycle;
@@ -302,9 +304,10 @@ import {
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return;
       player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
+      applyPlayerMaxHealthMultiplier(player, healthMultiplier());
       const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
-      showMessage(hasWeapon ? "WEAPON EQUIPPED" : "WEAPON UNEQUIPPED", hasWeapon ? "#72ef58" : "#ff9b91");
+      showMessage(hasWeapon ? "EQUIPMENT UPDATED · WEAPON READY" : "EQUIPMENT UPDATED", "#72ef58");
     },
   });
   const renderInventory = inventoryController.render;
@@ -317,6 +320,7 @@ import {
       inventory.itemIds = [...new Set([...inventory.itemIds, TRAILBLAZER_BOOTS])];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
       inventory.selectedItemId = TRAILBLAZER_BOOTS;
+      inventory.selectedItemLocation = "FEET";
     },
     saveProgress: () => saveProgress(),
     renderInventory,
@@ -352,6 +356,7 @@ import {
     isDueling,
     maxPlayerStat: MAX_PLAYER_STAT,
     saveProgress,
+    healthMultiplier,
   });
   const {
     ranks: researchRanks,
@@ -377,6 +382,7 @@ import {
     getTotalKills: () => totalKills,
     setTotalKills: (kills) => { totalKills = kills; },
     researchVitalityRank: () => researchRanks().vitality,
+    healthMultiplier,
     setAppliedVitalityRank: research.setAppliedVitalityRank,
     renderInventory,
     onLoaded: finishStartup,
@@ -392,11 +398,15 @@ import {
     researchCriticalChance,
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
+    researchAttackSpeedMultiplier: () => 1,
+    equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
+    healthMultiplier,
     minAttackInterval: MIN_ATTACK_INTERVAL,
     effectiveArmor,
     isDueling,
     scheduleEnemyRespawn: regularEnemyRespawnBoost.schedule,
     incrementKills: () => { totalKills += 1; },
+    recordForestEnemyDefeat: () => coop?.recordForestEnemyDefeat?.(),
     damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
     damageFrostclaw: (hits) => coop?.damageFrostclaw?.(hits, player.x, player.y),
@@ -545,6 +555,7 @@ import {
     logPickup,
     showMessage,
     saveProgress,
+    healthMultiplier,
   });
 
   let playerSpriteReady = false;
@@ -682,6 +693,7 @@ import {
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
     regenerationMultiplier: researchRegenerationMultiplier,
+    healthMultiplier,
     syncMovementState: (x, y, dx, dy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, dx, dy, inputSource, force, interestArea),
     autoAttack: (dt) => playerCombat.attackNearest(dt),
     isAutoAttackEnabled: () => isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
@@ -1094,6 +1106,12 @@ import {
     refreshReconnectOverlay,
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
+  coop?.setOnForestDrop?.(({ itemId, quantity, totalQuantity }) => {
+    if (!setInventoryItemQuantity(inventory, itemId, totalQuantity)) return;
+    renderInventory();
+    const item = itemDefinition(itemId);
+    logPickup(`${item?.name ?? "FOREST ITEM"}${quantity > 1 ? ` ×${quantity}` : ""}`, itemId === "starter_bow" ? "#ffd45c" : "#b98752");
+  });
   refreshReconnectOverlay();
   updateDuelControls();
   appShell.refreshSettings();

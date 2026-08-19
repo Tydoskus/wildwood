@@ -32,4 +32,6 @@ export default __t.row({
   equippedRightHand: __t.string().name("equipped_right_hand"),
   equippedLeftHand: __t.string().name("equipped_left_hand"),
   lavaUnlocked: __t.bool().name("lava_unlocked"),
+  bowCount: __t.u32().name("bow_count"),
+  woodenArmorCount: __t.u32().name("wooden_armor_count"),
 });

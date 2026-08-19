@@ -14,6 +14,8 @@ export type Circle = Position & {
 export type PlayerState = Circle & {
   speed: number;
   hp: number;
+  /** Persisted max-health stat before temporary equipment multipliers. */
+  baseMaxHp: number;
   maxHp: number;
   damage: number;
   attackRate: number;
@@ -27,6 +29,7 @@ export type PlayerState = Circle & {
   throwClock: number;
   hurtClock: number;
   facing: number;
+  combatFacing: number | null;
   moving: boolean;
 };
 

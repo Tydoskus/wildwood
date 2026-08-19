@@ -24,6 +24,7 @@ export {
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
+  WOODEN_ARMOR,
 } from "./items";
 export const BOOTS_SPEED_BONUS = 25;
 export const SPIDER_REWARD_DAMAGE = 75_000;
@@ -49,7 +50,7 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 54;
+export const PROTOCOL_VERSION = 55;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

@@ -10,6 +10,7 @@ import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import { BASE_ATTACK_RANGE } from "../constants";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -175,6 +176,13 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     equipmentForIdentity: options.equipmentForIdentity,
     itemSprite: (itemId) => itemId ? options.playerAppearanceAssets.equipment[itemId]?.sprite : undefined,
     enemySprites: options.enemySprites,
+    enemies: options.enemies,
+    activeBossTarget: () => options.currentMapId() === options.tutorialMapId
+      ? options.boss
+      : options.currentMapId() === options.desertMapId
+        ? options.spiderBoss
+        : options.currentMapId() === options.snowMapId ? options.frostclawBoss : null,
+    remoteAttackRange: BASE_ATTACK_RANGE,
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,
     rewardMultiplier: options.rewardMultiplier,

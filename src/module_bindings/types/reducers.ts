@@ -26,6 +26,7 @@ import DevUpdatePlayerSaveReducer from "../dev_update_player_save_reducer";
 import EnterWorldReducer from "../enter_world_reducer";
 import JoinVirtualPlayerLoadTestReducer from "../join_virtual_player_load_test_reducer";
 import PulseDuelReducer from "../pulse_duel_reducer";
+import RecordForestEnemyDefeatReducer from "../record_forest_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "../record_player_death_reducer";
 import RegisterProtocolReducer from "../register_protocol_reducer";
 import RequestDuelReducer from "../request_duel_reducer";
@@ -65,6 +66,7 @@ export type DevUpdatePlayerSaveParams = __Infer<typeof DevUpdatePlayerSaveReduce
 export type EnterWorldParams = __Infer<typeof EnterWorldReducer>;
 export type JoinVirtualPlayerLoadTestParams = __Infer<typeof JoinVirtualPlayerLoadTestReducer>;
 export type PulseDuelParams = __Infer<typeof PulseDuelReducer>;
+export type RecordForestEnemyDefeatParams = __Infer<typeof RecordForestEnemyDefeatReducer>;
 export type RecordPlayerDeathParams = __Infer<typeof RecordPlayerDeathReducer>;
 export type RegisterProtocolParams = __Infer<typeof RegisterProtocolReducer>;
 export type RequestDuelParams = __Infer<typeof RequestDuelReducer>;

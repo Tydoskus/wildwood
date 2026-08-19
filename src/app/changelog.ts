@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.453": [
+    "Bow and Wooden Armor now drop independently from Tutorial Forest enemies at a 1-in-25 rate and stack into single inventory slots.",
+    "Bow adds 0.05 to damage and attack-speed multipliers, while Wooden Armor adds 0.05 to max-health multiplier across world combat and duels.",
+    "Combat locks local and nearby-player facing toward targets, Bow follows the target from either hand, and equipped slots can be selected like bag slots.",
+  ],
   "0.452": [
     "Rock remains every player's unchanged starter weapon; Bow is a separate developer-only inventory item with larger mobile-readable art and arrow visuals.",
     "Inventory and inspection sprites render correctly again, selected items toggle off, and tapping free window space clears selection while valid equipment slots still equip.",

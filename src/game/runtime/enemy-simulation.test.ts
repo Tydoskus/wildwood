@@ -4,9 +4,9 @@ import type { EnemyState, PlayerState } from "./types";
 
 function playerAt(x: number, y: number): PlayerState {
   return {
-    x, y, r: 18, speed: 0, hp: 100, maxHp: 100, damage: 1, attackRate: 1,
+    x, y, r: 18, speed: 0, hp: 100, baseMaxHp: 100, maxHp: 100, damage: 1, attackRate: 1,
     projectileSpeed: 1, projectileCount: 1, attackRange: 155, knockback: 0,
-    armor: 0, regen: 0, attackClock: 0, throwClock: 0, hurtClock: 0, facing: 0, moving: false,
+    armor: 0, regen: 0, attackClock: 0, throwClock: 0, hurtClock: 0, facing: 0, combatFacing: null, moving: false,
   };
 }
 

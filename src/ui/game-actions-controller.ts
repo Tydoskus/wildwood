@@ -1,9 +1,9 @@
 import {
   BASIC_PAPER_HAT,
   LEGENDARY_WHITE_GOLD_ARMOR,
-  STARTER_BOW,
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
+  type EquipmentSlot,
   type InventoryState,
 } from "../game/inventory";
 
@@ -41,7 +41,7 @@ type EscapeWindows = {
 
 type GameActionsDependencies = {
   elements: WindowActionsElements;
-  inventory: InventoryState & { selectedItemId: string };
+  inventory: InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
   closeCompetingWindows: () => void;
   clearInventorySelection: () => void;
   renderInventory: () => void;
@@ -93,7 +93,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     inventory.itemIds = [
       BASIC_PAPER_HAT,
       STARTER_STONE,
-      ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR || itemId === STARTER_BOW),
+      ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR),
     ];
     inventory.equippedHead = BASIC_PAPER_HAT;
     inventory.equippedChest = "";
@@ -101,6 +101,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     inventory.equippedRightHand = STARTER_STONE;
     inventory.equippedLeftHand = "";
     inventory.selectedItemId = "";
+    inventory.selectedItemLocation = "";
     dependencies.renderInventory();
     elements.bootUpgrade.hidden = true;
     dependencies.clearPlayerInput();

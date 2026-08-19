@@ -19,14 +19,20 @@ import {
   BASIC_PAPER_HAT,
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
+  FOREST_ITEM_DROP_DENOMINATOR,
   itemDefinition,
+  itemMaxHealthMultiplier,
   itemFitsEquipmentSlot,
   LEGENDARY_WHITE_GOLD_ARMOR,
+  MAX_FOREST_ITEM_COUNT,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
+  weaponAttackInterval,
+  weaponDamageMultiplier,
+  WOODEN_ARMOR,
 } from "../../shared/items";
 import {
   PLAYER_MAP_FRAME_HZ,
@@ -113,7 +119,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 6;
+const MODULE_MIGRATION_VERSION = 7;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 7;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -364,6 +370,8 @@ const playerProgress = table(
     equippedRightHand: t.string().default(""),
     equippedLeftHand: t.string().default(""),
     lavaUnlocked: t.bool().default(false),
+    bowCount: t.u32().default(0),
+    woodenArmorCount: t.u32().default(0),
   },
 );
 
@@ -1108,6 +1116,8 @@ function defaultPlayerProgress(identity: any) {
     desertUnlocked: false,
     snowlandsUnlocked: false,
     lavaUnlocked: false,
+    bowCount: 0,
+    woodenArmorCount: 0,
   };
 }
 
@@ -1186,6 +1196,19 @@ function runPendingModuleMigrations(ctx: any) {
         inventoryJson,
         equippedRightHand,
         equippedLeftHand,
+      });
+    }
+  }
+  if (currentVersion < 7) {
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const normalizedProgress = {
+        ...progress,
+        bowCount: forestItemCountForProgress(progress, STARTER_BOW, "bowCount"),
+        woodenArmorCount: forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount"),
+      };
+      ctx.db.playerProgress.identity.update({
+        ...normalizedProgress,
+        inventoryJson: JSON.stringify(inventoryForProgress(normalizedProgress)),
       });
     }
   }
@@ -1347,7 +1370,9 @@ function powerFieldsForProgress(progress: { maxHp: number; damage: number; attac
 
 function researchedDamage(ctx: any, identity: any, damage: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.warcraft ?? 0;
-  return damage * (1 + rank * .02);
+  const progress = ctx.db.playerProgress.identity.find(identity);
+  const weaponItem = progress ? equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress) : "";
+  return damage * weaponDamageMultiplier(weaponItem, 1 + rank * .02);
 }
 
 function researchedArmor(ctx: any, identity: any, armor: number) {
@@ -1362,7 +1387,7 @@ function researchedRegen(ctx: any, identity: any, regen: number) {
 
 function duelDamage(ctx: any, identity: any, damage: number) {
   const research = ctx.db.playerResearch.identity.find(identity);
-  const baseDamage = damage * (1 + (research?.warcraft ?? 0) * .02);
+  const baseDamage = researchedDamage(ctx, identity, damage);
   const criticalChance = (research?.criticalChance ?? 0) * .01;
   const criticalMultiplier = 1.05 + (research?.criticalDamage ?? 0) * .05;
   // Duel simulation is deterministic. Fold random criticals into expected
@@ -1962,6 +1987,8 @@ function hasFreshProgress(progress: any) {
     progress.equippedChest === defaultProgress.equippedChest &&
     progress.equippedRightHand === defaultProgress.equippedRightHand &&
     progress.equippedLeftHand === defaultProgress.equippedLeftHand &&
+    progress.bowCount === defaultProgress.bowCount &&
+    progress.woodenArmorCount === defaultProgress.woodenArmorCount &&
     progress.desertUnlocked === defaultProgress.desertUnlocked &&
     progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked &&
     progress.lavaUnlocked === defaultProgress.lavaUnlocked;
@@ -1986,6 +2013,16 @@ function contributedToLatestFrostclaw(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.frostclawResult.id.find(FROSTCLAW_ID), identity);
 }
 
+function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
+  const storedCount = Number.isInteger(progress?.[field]) ? progress[field] : 0;
+  let legacyCount = 0;
+  try {
+    const savedItems = JSON.parse(progress.inventoryJson ?? "[]");
+    if (Array.isArray(savedItems)) legacyCount = savedItems.filter((savedItem) => savedItem === itemId).length;
+  } catch {}
+  return Math.max(0, Math.min(MAX_FOREST_ITEM_COUNT, Math.max(storedCount, legacyCount)));
+}
+
 function inventoryForProgress(progress: any) {
   let hasBetaTesterGoldenHelmet = isDeveloperIdentity(progress.identity);
   try {
@@ -1998,7 +2035,15 @@ function inventoryForProgress(progress: any) {
     ...STARTER_ITEM_IDS,
     ...developerItems,
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
+    ...Array(forestItemCountForProgress(progress, STARTER_BOW, "bowCount")).fill(STARTER_BOW),
+    ...Array(forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
   ];
+}
+
+function inventoryWithBetaHelmet(progress: any, grant: boolean) {
+  const inventory = inventoryForProgress(progress);
+  if (grant && !inventory.includes(SUPERIOR_GOLDEN_HELMET)) inventory.push(SUPERIOR_GOLDEN_HELMET);
+  return inventory;
 }
 
 function hasRecentPlayerActivity(ctx: any, identity: any) {
@@ -2062,6 +2107,15 @@ function equipmentPresentationForProgress(progress: any) {
     rightHandItem,
     leftHandItem: rightHandItem ? "" : equippedLeftHandForProgress(progress),
   };
+}
+
+function attackIntervalForProgress(progress: any) {
+  const weaponItem = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
+  return weaponAttackInterval(weaponItem, progress.attackRate);
+}
+
+function maxHealthForProgress(progress: any) {
+  return progress.maxHp * itemMaxHealthMultiplier(equippedChestForProgress(progress));
 }
 
 function sameIdentity(a: any, b: any) {
@@ -2851,7 +2905,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   if (!existingProgress) {
     existingProgress = defaultPlayerProgress(ctx.sender);
     if (grantBetaTesterGoldenHelmet) {
-      existingProgress.inventoryJson = JSON.stringify([...inventoryForProgress(existingProgress), SUPERIOR_GOLDEN_HELMET]);
+      existingProgress.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, true));
     }
     ctx.db.playerProgress.insert(existingProgress);
     markAttackBalanceCurrent(ctx);
@@ -2879,10 +2933,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const equippedChest = equippedChestForProgress(existingProgress);
     const equippedRightHand = equippedRightHandForProgress(existingProgress);
     const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
-    const inventoryJson = JSON.stringify([
-      ...inventoryForProgress(existingProgress),
-      ...(grantBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : []),
-    ].filter((item, index, items) => items.indexOf(item) === index));
+    const inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, grantBetaTesterGoldenHelmet));
     const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand) {
@@ -3281,7 +3332,7 @@ function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(progress.attackRate * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.dragonAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -3363,7 +3414,7 @@ function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(progress.attackRate * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.spiderAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -3442,7 +3493,7 @@ function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(progress.attackRate * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.frostclawAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -4078,10 +4129,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       bootsCollected: progress.bootsCollected === true,
     };
     const bootsCollected = base.bootsCollected || normalized.bootsCollected;
-    const inventory = [
-      ...inventoryForProgress({ identity: ctx.sender, bootsCollected, inventoryJson: base.inventoryJson }),
-      ...(hasRecentPlayerActivity(ctx, ctx.sender) ? [SUPERIOR_GOLDEN_HELMET] : []),
-    ].filter((item, index, items) => items.indexOf(item) === index);
+    const inventorySource = { ...base, identity: ctx.sender, bootsCollected };
+    const inventory = inventoryWithBetaHelmet(inventorySource, hasRecentPlayerActivity(ctx, ctx.sender));
     const inventoryJson = JSON.stringify(inventory);
     const equippedHead = progress.equippedHead === ""
       ? ""
@@ -4118,6 +4167,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       desertUnlocked: base.desertUnlocked,
       snowlandsUnlocked: base.snowlandsUnlocked,
       lavaUnlocked: base.lavaUnlocked,
+      bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
+      woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
@@ -4180,6 +4231,32 @@ export const recordPlayerDeath = spacetimedb.reducer(
   },
 );
 
+/** Records one client-simulated forest defeat; server RNG owns durable loot. */
+export const recordForestEnemyDefeat = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const activePlayer = requireControllingPlayer(ctx);
+    if (activePlayer.mapId !== TUTORIAL_FOREST_MAP_ID || activeDuelFor(ctx, ctx.sender)) return;
+    const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+    const previousBowCount = forestItemCountForProgress(current, STARTER_BOW, "bowCount");
+    const previousWoodenArmorCount = forestItemCountForProgress(current, WOODEN_ARMOR, "woodenArmorCount");
+    const bowDropped = previousBowCount < MAX_FOREST_ITEM_COUNT &&
+      ctx.random.integerInRange(1, FOREST_ITEM_DROP_DENOMINATOR) === 1;
+    const woodenArmorDropped = previousWoodenArmorCount < MAX_FOREST_ITEM_COUNT &&
+      ctx.random.integerInRange(1, FOREST_ITEM_DROP_DENOMINATOR) === 1;
+    if (!bowDropped && !woodenArmorDropped) return;
+
+    const next = {
+      ...current,
+      bowCount: previousBowCount + Number(bowDropped),
+      woodenArmorCount: previousWoodenArmorCount + Number(woodenArmorDropped),
+    };
+    next.inventoryJson = JSON.stringify(inventoryForProgress(next));
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
+    else ctx.db.playerProgress.insert(next);
+  },
+);
+
 export const beginAdventure = spacetimedb.reducer(
   {},
   (ctx) => {
@@ -4198,7 +4275,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     if (hasRecentPlayerActivity(ctx, ctx.sender)) {
-      next.inventoryJson = JSON.stringify([...inventoryForProgress(next), SUPERIOR_GOLDEN_HELMET]);
+      next.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(next, true));
     }
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
@@ -4292,6 +4369,8 @@ export const requestDuel = spacetimedb.reducer(
     const opponentRightHandItem = equippedRightHandForProgress(opponentProgress);
     const challengerLeftHandItem = challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress);
     const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
+    const challengerMaxHp = maxHealthForProgress(challengerProgress);
+    const opponentMaxHp = maxHealthForProgress(opponentProgress);
     const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;
     const insertedDuel = ctx.db.duel.insert({
       id: 0n,
@@ -4307,21 +4386,21 @@ export const requestDuel = spacetimedb.reducer(
       challengerOriginY: challenger.y,
       opponentOriginX: 0,
       opponentOriginY: 0,
-      challengerHp: challengerProgress.maxHp,
-      challengerMaxHp: challengerProgress.maxHp,
+      challengerHp: challengerMaxHp,
+      challengerMaxHp,
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
       challengerArmor: researchedArmor(ctx, ctx.sender, challengerProgress.armor),
-      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? challengerProgress.attackRate : inactiveAttackRate,
+      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(challengerProgress) : inactiveAttackRate,
       challengerRegen: researchedRegen(ctx, ctx.sender, challengerProgress.regen),
       challengerAttacks: 0,
       challengerDamageDealt: 0,
       challengerRegened: 0,
       challengerBlocked: 0,
-      opponentHp: opponentProgress.maxHp,
-      opponentMaxHp: opponentProgress.maxHp,
+      opponentHp: opponentMaxHp,
+      opponentMaxHp,
       opponentDamage: duelDamage(ctx, opponent, opponentProgress.damage),
       opponentArmor: researchedArmor(ctx, opponent, opponentProgress.armor),
-      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? opponentProgress.attackRate : inactiveAttackRate,
+      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(opponentProgress) : inactiveAttackRate,
       opponentRegen: researchedRegen(ctx, opponent, opponentProgress.regen),
       opponentAttacks: 0,
       opponentDamageDealt: 0,

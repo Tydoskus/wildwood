@@ -2,15 +2,18 @@ import {
   BASIC_PAPER_HAT,
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
+  FOREST_DROP_ITEM_IDS,
   ITEM_DEFINITIONS,
   itemDefinition,
   itemFitsEquipmentSlot,
   LEGENDARY_WHITE_GOLD_ARMOR,
+  MAX_FOREST_ITEM_COUNT,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
+  WOODEN_ARMOR,
   type EquipmentSlot,
 } from "../../shared/items";
 
@@ -24,6 +27,7 @@ export {
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
+  WOODEN_ARMOR,
   type EquipmentSlot,
   type ItemDefinition as InventoryItemDefinition,
 } from "../../shared/items";
@@ -36,6 +40,48 @@ export type InventoryState = {
   equippedRightHand: string;
   equippedLeftHand: string;
 };
+
+export type InventoryStack = { itemId: string; quantity: number };
+
+export function inventoryItemQuantity(inventory: Pick<InventoryState, "itemIds">, itemId: string) {
+  return inventory.itemIds.reduce((count, current) => count + Number(current === itemId), 0);
+}
+
+/** Replaces one stack's quantity while retaining its first inventory position. */
+export function setInventoryItemQuantity(inventory: InventoryState, itemId: string, quantity: number) {
+  const item = itemDefinition(itemId);
+  if (!item?.stackable) return false;
+  const nextQuantity = Math.max(0, Math.min(MAX_FOREST_ITEM_COUNT, Math.floor(quantity)));
+  const firstIndex = inventory.itemIds.indexOf(itemId);
+  const insertionIndex = firstIndex < 0 ? inventory.itemIds.length : firstIndex;
+  const withoutItem = inventory.itemIds.filter((current) => current !== itemId);
+  withoutItem.splice(insertionIndex, 0, ...Array(nextQuantity).fill(itemId));
+  inventory.itemIds = withoutItem;
+  if (nextQuantity === 0) {
+    if (inventory.equippedHead === itemId) inventory.equippedHead = "";
+    if (inventory.equippedChest === itemId) inventory.equippedChest = "";
+    if (inventory.equippedFeet === itemId) inventory.equippedFeet = "";
+    if (inventory.equippedRightHand === itemId) inventory.equippedRightHand = "";
+    if (inventory.equippedLeftHand === itemId) inventory.equippedLeftHand = "";
+  }
+  return true;
+}
+
+/** Converts owned copies into one bag stack per item, subtracting equipped copies. */
+export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] {
+  const counts = new Map<string, number>();
+  for (const itemId of inventory.itemIds) {
+    if (!itemDefinition(itemId)) continue;
+    counts.set(itemId, (counts.get(itemId) ?? 0) + 1);
+  }
+  for (const itemId of [inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet, inventory.equippedRightHand, inventory.equippedLeftHand]) {
+    if (!itemId) continue;
+    counts.set(itemId, Math.max(0, (counts.get(itemId) ?? 0) - 1));
+  }
+  return [...counts]
+    .filter(([, quantity]) => quantity > 0)
+    .map(([itemId, quantity]) => ({ itemId, quantity }));
+}
 
 /** Moves an owned item between bag and compatible equipment slots. */
 export function moveInventoryItem(inventory: InventoryState, itemId: string, destination: EquipmentSlot | "BAG") {
@@ -78,7 +124,9 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const developerItems = ownsDeveloperCosmetics
     ? DEVELOPER_ITEM_IDS
     : hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [];
-  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : [])];
+  const forestDropItems = FOREST_DROP_ITEM_IDS.flatMap((itemId) =>
+    Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
+  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems];
   const headItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HEAD");
   const chestItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "CHEST");
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");

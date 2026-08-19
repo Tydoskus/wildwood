@@ -12,6 +12,9 @@ export const PLAYER_SKIN_TONE_NAMES = [
   "light green", "mint", "sky blue", "periwinkle", "lavender", "pink", "coral red", "violet", "gold", "cool gray",
 ] as const;
 export const DEFAULT_SKIN_TONE = 3;
+export const BOW_RIGHT_HAND_ANGLE_DEGREES = 125;
+const BOW_SOURCE_DOWN_ANGLE_DEGREES = 180;
+const DEGREES_TO_RADIANS = Math.PI / 180;
 
 export type PlayerAppearanceAssets = {
   basicFrontLeg: HTMLImageElement;
@@ -60,6 +63,21 @@ export function skinToneColor(value: number | undefined) {
   return PLAYER_SKIN_TONES[Math.max(0, Math.min(PLAYER_SKIN_TONES.length - 1, Math.floor(value ?? DEFAULT_SKIN_TONE)))] ?? PLAYER_SKIN_TONES[DEFAULT_SKIN_TONE];
 }
 
+/** Converts the requested 125° right-hand pose into canvas rotation. */
+export function bowHeldRotationRadians(options: {
+  combatFacing?: number | null;
+  facingLeft: boolean;
+  heldInLeftHand: boolean;
+}) {
+  const handOffsetDegrees = options.heldInLeftHand
+    ? BOW_SOURCE_DOWN_ANGLE_DEGREES - BOW_RIGHT_HAND_ANGLE_DEGREES
+    : BOW_RIGHT_HAND_ANGLE_DEGREES - BOW_SOURCE_DOWN_ANGLE_DEGREES;
+  const localAim = options.combatFacing === null || options.combatFacing === undefined
+    ? 0
+    : options.facingLeft ? Math.PI - options.combatFacing : options.combatFacing;
+  return localAim + handOffsetDegrees * DEGREES_TO_RADIANS;
+}
+
 function drawEgg(ctx: CanvasRenderingContext2D, width: number, height: number, inset: number, fill: string) {
   const left = inset, top = inset, eggWidth = width - inset * 2, eggHeight = height - inset * 2, middle = left + eggWidth / 2;
   ctx.fillStyle = fill;
@@ -84,7 +102,7 @@ function drawPillHead(ctx: CanvasRenderingContext2D, width: number, height: numb
 export function drawStartingPlayer(
   ctx: CanvasRenderingContext2D,
   assets: PlayerAppearanceAssets,
-  options: { x: number; y: number; facing: number; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string; alpha?: number; scale?: number },
+  options: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string; alpha?: number; scale?: number },
 ) {
   const scale = options.scale ?? .6;
   const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
@@ -159,7 +177,16 @@ export function drawStartingPlayer(
     if (!asset) return;
     const width = heldSpritePresentation.width ?? asset.naturalWidth;
     const height = heldSpritePresentation.height ?? asset.naturalHeight;
-    drawLayer(asset, 90 - width / 2 + heldX, heldY, width, height);
+    const left = 90 - width / 2 + heldX;
+    if (heldSpritePresentation.handAction !== "BOW") {
+      drawLayer(asset, left, heldY, width, height);
+      return;
+    }
+    ctx.save();
+    ctx.translate(left + width / 2, heldY + height / 2);
+    ctx.rotate(bowHeldRotationRadians({ combatFacing: options.combatFacing, facingLeft, heldInLeftHand }));
+    drawLayer(asset, -width / 2, -height / 2, width, height);
+    ctx.restore();
   };
   // The off-side hand belongs behind the body. Handedness must invert that
   // depth rule as the character turns, otherwise a left-hand weapon appears
