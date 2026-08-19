@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.456": [
+    "Skeleton and Dune Archer bows now rotate from the character's grip to aim directly at players in every direction.",
+  ],
   "0.455": [
     "Bow now renders only slightly larger than its original character size instead of using the oversized full source dimensions.",
     "Profile stats now include equipped Bow damage and attack speed plus Wooden Armor max health for local and inspected players.",

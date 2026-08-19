@@ -15,6 +15,15 @@ type OutlinedText = (text: string, x: number, y: number, color: string, strokeWi
 type LabelBitmap = { canvas: HTMLCanvasElement; width: number; height: number; anchorY: number };
 type LabelSegment = { text: string; color: string };
 
+export function enemyWeaponAimRotation(
+  enemy: Pick<EnemyState, "x" | "y" | "facingX">,
+  target: Pick<PlayerState, "x" | "y">,
+) {
+  // Enemy art is assembled facing right. Convert the world-space target into
+  // that local coordinate system before the whole actor is mirrored.
+  return Math.atan2(target.y - enemy.y, (target.x - enemy.x) * enemy.facingX);
+}
+
 export type ActorStatus = {
   x: number;
   y: number;
@@ -338,7 +347,21 @@ export function createActorRenderer(options: {
       ctx.globalAlpha = enemy.hurt > 0 ? .7 : 1;
       if (layers) {
         for (const layer of layers) {
-          ctx.drawImage(layer.image, layer.x, layer.y - 3, layer.w, layer.h);
+          if (layer.aimPivot && enemy.engaged) {
+            ctx.save();
+            ctx.translate(layer.aimPivot.x, layer.aimPivot.y - 3);
+            ctx.rotate(enemyWeaponAimRotation(enemy, options.player));
+            ctx.drawImage(
+              layer.image,
+              layer.x - layer.aimPivot.x,
+              layer.y - layer.aimPivot.y,
+              layer.w,
+              layer.h,
+            );
+            ctx.restore();
+          } else {
+            ctx.drawImage(layer.image, layer.x, layer.y - 3, layer.w, layer.h);
+          }
         }
       } else if (image) {
         ctx.drawImage(
