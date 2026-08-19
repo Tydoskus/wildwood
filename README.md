@@ -78,6 +78,26 @@ Open `http://127.0.0.1:8000`.
 
 Wildwood uses a release version to invalidate browser caches and direct stale tabs to reload. Every player-facing release must update all of these to the **same** value:
 
+For a client-only release, run the interactive helper:
+
+```sh
+npm run release:live
+```
+
+On macOS, double-click `Release Wildwood.command` in the project folder instead of typing the command yourself. Its Terminal window stays open, asks for the version and notes, and shows every check plus live deployment progress.
+
+It suggests the next version, accepts one release note per line, shows included changes, runs every required check, commits and pushes `main`, then waits until the live site reports the new version. Tracked changes and already-staged new files are included by default. Untracked paths are shown but excluded; stage intended new files first, or deliberately run `npm run release:live -- --include-untracked` after reviewing them.
+
+Automation-friendly use accepts explicit values:
+
+```sh
+npm run release:live -- --version 0.457 --note "Fixed enemy aim." --yes
+```
+
+The helper blocks changes under `shared/`, `spacetimedb/`, and generated module bindings because those require the separate Maincloud checklist below.
+
+Manual release steps remain available:
+
 - Run `npm run release -- <version>` to update `src/game/runtime/game-settings.ts`, `public/version.json`, and every cache/display reference in `public/index.html` together.
 - Add release notes for that version in `src/app/changelog.ts`.
 

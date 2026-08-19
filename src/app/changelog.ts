@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.457": [
+    "Text cropping bug fixes",
+  ],
   "0.456": [
     "Skeleton and Dune Archer bows now rotate from the character's grip to aim directly at players in every direction.",
   ],
