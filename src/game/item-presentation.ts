@@ -1,5 +1,6 @@
 import {
   BASIC_PAPER_HAT,
+  FROST_BOW,
   LEGENDARY_WHITE_GOLD_ARMOR,
   STARTER_BOW,
   STARTER_STONE,
@@ -86,6 +87,19 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
     world: {
       kind: "SPRITE",
       source: STARTER_BOW_ASSET_SOURCE,
+      layer: "HAND",
+      width: 92,
+      height: 50,
+      top: 102,
+      handAction: "BOW",
+    },
+    projectile: "ARROW",
+  },
+  [FROST_BOW]: {
+    inventory: { source: `${PLAYER_PARTS}/frost-bow.png`, equippedWidth: 44, equippedHeight: 34 },
+    world: {
+      kind: "SPRITE",
+      source: `${PLAYER_PARTS}/frost-bow.png`,
       layer: "HAND",
       width: 92,
       height: 50,

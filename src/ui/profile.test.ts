@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
-import { STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
+import { FROST_BOW, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
 import type { PlayerProgress } from "../wildwood-coop";
 import { effectiveProfileStats, profilePresenceText } from "./profile";
 
@@ -56,5 +56,12 @@ describe("effective profile equipment stats", () => {
 
   it("includes equipped Wooden Armor max-health bonus", () => {
     expect(effectiveProfileStats(progress("", WOODEN_ARMOR)).maxHp).toBeCloseTo(105);
+  });
+
+  it("shows Frost Bow's additive equipment and tech multipliers", () => {
+    const research = { ...createEmptyResearchRanks(), warcraft: 10 };
+    const stats = effectiveProfileStats(progress(FROST_BOW), research);
+    expect(stats.damage).toBeCloseTo(64);
+    expect(stats.attackRate).toBeCloseTo(1 / 1.2);
   });
 });

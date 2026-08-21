@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bagInventoryStacks, BASIC_PAPER_HAT, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, FROST_BOW, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
 
 describe("inventory rules", () => {
   it("rejects malformed inventory and restores a valid saved item", () => {
@@ -113,5 +113,36 @@ describe("inventory rules", () => {
     expect(setInventoryItemQuantity(inventory, STARTER_BOW, 4)).toBe(true);
     expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(4);
     expect(serialiseInventory(inventory)).toContain(`"${STARTER_BOW}","${STARTER_BOW}"`);
+  });
+
+  it("preserves, stacks, equips, and serialises Frost Bows like normal items", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([FROST_BOW, FROST_BOW, FROST_BOW]),
+      "",
+      BASIC_PAPER_HAT,
+      "",
+      false,
+      false,
+      FROST_BOW,
+      "",
+    );
+
+    expect(inventoryItemQuantity(inventory, FROST_BOW)).toBe(3);
+    expect(inventory.equippedRightHand).toBe(FROST_BOW);
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_BOW, quantity: 2 });
+    expect(moveInventoryItem(inventory, FROST_BOW, "LEFT_HAND")).toBe(true);
+    expect(inventory.equippedLeftHand).toBe(FROST_BOW);
+    expect(setInventoryItemQuantity(inventory, FROST_BOW, 4)).toBe(true);
+    expect(inventoryItemQuantity(inventory, FROST_BOW)).toBe(4);
+    expect(inventoryFromSave(
+      serialiseInventory(inventory),
+      "",
+      BASIC_PAPER_HAT,
+      "",
+      false,
+      false,
+      "",
+      FROST_BOW,
+    ).equippedLeftHand).toBe(FROST_BOW);
   });
 });

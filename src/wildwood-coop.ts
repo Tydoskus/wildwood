@@ -27,7 +27,7 @@ import {
   type RemoteBossAttackState,
   type RemoteBossAttackVisual,
 } from "./coop/services/remote-boss-attack";
-import { resolvePlayerPresenceMap } from "./coop/services/profile-presence";
+import { resolvePlayerPresenceMap, shouldRetainProfilePresentation } from "./coop/services/profile-presence";
 import {
   createUpdateResumeStore,
   inferLegacyUpdateResumeMode,
@@ -69,7 +69,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../shared/rules";
-import { STARTER_BOW, WOODEN_ARMOR } from "../shared/items";
+import { FROST_BOW, inventoryJsonItemQuantity, STARTER_BOW, WOODEN_ARMOR } from "../shared/items";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -455,7 +455,7 @@ let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
 let changeListener: (() => void) | null = null;
-let forestDropListener: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null = null;
+let itemDropListener: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null = null;
 let changeBatchDepth = 0;
 let batchedChangePending = false;
 let pendingProgress: ProgressSave | null = null;
@@ -1275,9 +1275,9 @@ function upsertProfile(row: { identity: Identity; displayName: string; profileIc
 
 function removeProfile(row: { identity: Identity }) {
   const id = row.identity.toHexString();
-  // Active-map presence carries the same presentation fields. Releasing a
-  // temporary profile subscription must not erase an actor still on screen.
-  if (activeMotionIdentities.has(id)) return;
+  // Unsubscribing a temporary profile query emits a row removal. Preserve the
+  // presentation snapshot while another visible UI surface still references it.
+  if (shouldRetainProfilePresentation(id, activeMotionIdentities, leaderboardEntries, chatMessages)) return;
   profiles.delete(id);
   profileIcons.delete(id);
   playerSprites.delete(id);
@@ -1375,7 +1375,7 @@ function upsertPlayerAccountStatus(row: { identity: Identity; isGuest: boolean }
 
 function removePlayerAccountStatus(row: { identity: Identity }) {
   const identity = row.identity.toHexString();
-  if (activeMotionIdentities.has(identity)) return;
+  if (shouldRetainProfilePresentation(identity, activeMotionIdentities, leaderboardEntries, chatMessages)) return;
   guestAccounts.delete(identity);
   chatPresentationRevision += 1;
   onChange?.();
@@ -1546,9 +1546,13 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lava
   localProgress = progress;
   if (previousProgress) {
     const bowQuantity = progress.bowCount - previousProgress.bowCount;
-    if (bowQuantity > 0) forestDropListener?.({ itemId: STARTER_BOW, quantity: bowQuantity, totalQuantity: progress.bowCount });
+    if (bowQuantity > 0) itemDropListener?.({ itemId: STARTER_BOW, quantity: bowQuantity, totalQuantity: progress.bowCount });
     const woodenArmorQuantity = progress.woodenArmorCount - previousProgress.woodenArmorCount;
-    if (woodenArmorQuantity > 0) forestDropListener?.({ itemId: WOODEN_ARMOR, quantity: woodenArmorQuantity, totalQuantity: progress.woodenArmorCount });
+    if (woodenArmorQuantity > 0) itemDropListener?.({ itemId: WOODEN_ARMOR, quantity: woodenArmorQuantity, totalQuantity: progress.woodenArmorCount });
+    const previousFrostBowCount = inventoryJsonItemQuantity(previousProgress.inventoryJson, FROST_BOW);
+    const frostBowCount = inventoryJsonItemQuantity(progress.inventoryJson, FROST_BOW);
+    const frostBowQuantity = frostBowCount - previousFrostBowCount;
+    if (frostBowQuantity > 0) itemDropListener?.({ itemId: FROST_BOW, quantity: frostBowQuantity, totalQuantity: frostBowCount });
   }
   completeAccountReturnWhenReady();
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
@@ -2787,8 +2791,8 @@ export const wildwoodCoop = {
   setOnChange(callback: (() => void) | null) {
     changeListener = callback;
   },
-  setOnForestDrop(callback: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null) {
-    forestDropListener = callback;
+  setOnItemDrop(callback: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null) {
+    itemDropListener = callback;
   },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);

@@ -7,13 +7,15 @@ export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
+export const FROST_BOW = "frost_bow";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
+export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const MAX_FOREST_ITEM_COUNT = 999;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "SNOW_BOSS_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -92,6 +94,21 @@ export const ITEM_DEFINITIONS = {
       attackSpeedMultiplierBonus: .05,
     },
   },
+  [FROST_BOW]: {
+    id: FROST_BOW,
+    name: "FROST BOW",
+    slot: "HAND",
+    acquisition: "SNOW_BOSS_DROP",
+    description: "A frozen bow claimed from Frostclaw, built for swift and devastating shots.",
+    stats: ["DAMAGE MULTIPLIER 3.00×", "ATTACK SPEED MULTIPLIER 1.20×"],
+    stackable: true,
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: 2,
+      attackSpeedMultiplierBonus: .2,
+    },
+  },
   [WOODEN_ARMOR]: {
     id: WOODEN_ARMOR,
     name: "WOODEN ARMOR",
@@ -115,6 +132,9 @@ export const DEVELOPER_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
 export const FOREST_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "FOREST_DROP")
   .map((item) => item.id) as ItemId[];
+export const SNOW_BOSS_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "SNOW_BOSS_DROP")
+  .map((item) => item.id) as ItemId[];
 
 export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
   return typeof itemId === "string"
@@ -125,6 +145,22 @@ export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
 export function canonicalItemId(itemId: unknown): ItemId | undefined {
   if (typeof itemId !== "string") return undefined;
   return itemDefinition(itemId)?.id as ItemId | undefined;
+}
+
+/** Counts one canonical stackable item in a saved inventory payload. */
+export function inventoryJsonItemQuantity(inventoryJson: unknown, itemId: unknown) {
+  const canonical = canonicalItemId(itemId);
+  if (!canonical || typeof inventoryJson !== "string") return 0;
+  try {
+    const itemIds = JSON.parse(inventoryJson);
+    if (!Array.isArray(itemIds)) return 0;
+    return Math.min(
+      MAX_FOREST_ITEM_COUNT,
+      itemIds.reduce((count, savedItemId) => count + Number(canonicalItemId(savedItemId) === canonical), 0),
+    );
+  } catch {
+    return 0;
+  }
 }
 
 export function itemFitsEquipmentSlot(itemId: unknown, destination: EquipmentSlot) {

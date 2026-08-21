@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.460": [
+    "Frostclaw now has a 1-in-25 chance per qualifying player to drop a stackable Frost Bow using the original transparent blue vendor art.",
+    "Frost Bow provides 3× base damage and 1.2× base attack speed, adds its bonuses to tech multipliers, and renders throughout inventory, profiles, duels, and local or nearby combat.",
+    "Chat portraits no longer revert to the default image after opening and closing that player's profile.",
+  ],
   "0.459": [
     "iOS-safe HP text now stays vertically centered in the HUD and floating health bars.",
     "Updated the duel replay play medallion art.",

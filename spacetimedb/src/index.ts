@@ -21,6 +21,8 @@ import {
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
   FOREST_ITEM_DROP_DENOMINATOR,
+  FROST_BOW,
+  inventoryJsonItemQuantity,
   itemDefinition,
   itemMaxHealthMultiplier,
   itemFitsEquipmentSlot,
@@ -29,6 +31,7 @@ import {
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
+  SNOW_BOSS_ITEM_DROP_DENOMINATOR,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   weaponAttackInterval,
@@ -2038,6 +2041,7 @@ function inventoryForProgress(progress: any) {
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
     ...Array(forestItemCountForProgress(progress, STARTER_BOW, "bowCount")).fill(STARTER_BOW),
     ...Array(forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
+    ...Array(inventoryJsonItemQuantity(progress.inventoryJson, FROST_BOW)).fill(FROST_BOW),
   ];
 }
 
@@ -2513,12 +2517,18 @@ function clearFrostclawCombatRows(ctx: any) {
 function rewardFrostclawContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
+  const frostBowCount = inventoryJsonItemQuantity(current.inventoryJson, FROST_BOW);
+  const frostBowDropped = frostBowCount < MAX_FOREST_ITEM_COUNT &&
+    ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
+  const inventory = inventoryForProgress(current);
+  if (frostBowDropped) inventory.push(FROST_BOW);
   const next = {
     ...current,
     damage: current.damage + FROSTCLAW_REWARD_DAMAGE,
     maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH,
     armor: current.armor + FROSTCLAW_REWARD_ARMOR,
     lavaUnlocked: true,
+    inventoryJson: JSON.stringify(inventory),
   };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);

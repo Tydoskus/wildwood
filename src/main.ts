@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { moveInventoryItem, setInventoryItemQuantity, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { FROST_BOW, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
@@ -1106,11 +1106,12 @@ import {
     refreshReconnectOverlay,
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
-  coop?.setOnForestDrop?.(({ itemId, quantity, totalQuantity }) => {
+  coop?.setOnItemDrop?.(({ itemId, quantity, totalQuantity }) => {
     if (!setInventoryItemQuantity(inventory, itemId, totalQuantity)) return;
     renderInventory();
     const item = itemDefinition(itemId);
-    logPickup(`${item?.name ?? "FOREST ITEM"}${quantity > 1 ? ` ×${quantity}` : ""}`, itemId === "starter_bow" ? "#ffd45c" : "#b98752");
+    const pickupColor = itemId === FROST_BOW ? "#2d92ff" : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
+    logPickup(`${item?.name ?? "ITEM"}${quantity > 1 ? ` ×${quantity}` : ""}`, pickupColor);
   });
   refreshReconnectOverlay();
   updateDuelControls();

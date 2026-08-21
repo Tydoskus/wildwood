@@ -3,6 +3,7 @@ import {
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
   FOREST_DROP_ITEM_IDS,
+  FROST_BOW,
   ITEM_DEFINITIONS,
   itemDefinition,
   itemFitsEquipmentSlot,
@@ -11,6 +12,7 @@ import {
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
+  SNOW_BOSS_DROP_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   WOODEN_ARMOR,
@@ -19,6 +21,7 @@ import {
 
 export {
   BASIC_PAPER_HAT,
+  FROST_BOW,
   ITEM_DEFINITIONS,
   itemDefinition,
   itemFitsEquipmentSlot,
@@ -126,7 +129,9 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     : hasBetaTesterGoldenHelmet ? [SUPERIOR_GOLDEN_HELMET] : [];
   const forestDropItems = FOREST_DROP_ITEM_IDS.flatMap((itemId) =>
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
-  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems];
+  const snowBossDropItems = SNOW_BOSS_DROP_ITEM_IDS.flatMap((itemId) =>
+    Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
+  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems, ...snowBossDropItems];
   const headItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HEAD");
   const chestItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "CHEST");
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");
