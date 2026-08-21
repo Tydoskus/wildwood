@@ -19,6 +19,7 @@ export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 1;
 export {
   BASIC_PAPER_HAT,
+  FROST_ARMOR,
   FROST_BOW,
   LEGENDARY_WHITE_GOLD_ARMOR,
   STARTER_BOW,
@@ -51,7 +52,7 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 55;
+export const PROTOCOL_VERSION = 56;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.460" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.461" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -145,7 +145,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.460</div>
+        <div id="version">v0.461</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -212,13 +212,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.460</strong></div>
+        <div><strong id="updateNoticeTitle">v0.461</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.460</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.461</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -392,6 +392,7 @@
       <button id="leaderboardRegenTab" class="profile-tab" type="button" role="tab" aria-selected="false">REGEN</button>
       <button id="leaderboardTimeTab" class="profile-tab" type="button" role="tab" aria-selected="false">TIME</button>
     </div>
+    <section id="leaderboardPodium" class="leaderboard-podium" aria-label="Top three players" hidden></section>
     <div class="leaderboard-column-headings" aria-hidden="true"><span>RANK · PLAYER</span><span id="leaderboardValueHeading">POWER</span></div>
     <ol id="leaderboardRows" class="leaderboard-rows"></ol>
     <div id="leaderboardLoading" class="leaderboard-loading" role="status" aria-label="Loading leaderboard" hidden><span class="leaderboard-spinner" aria-hidden="true"></span></div>
@@ -501,7 +502,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.460"></script>
-<script src="assets/wildwood/game.js?v=0.460"></script>
+<script src="assets/wildwood/coop-client.js?v=0.461"></script>
+<script src="assets/wildwood/game.js?v=0.461"></script>
 </body>
 </html>

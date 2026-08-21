@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOW_RIGHT_HAND_ANGLE_DEGREES, bowHeldRotationRadians, heldWeaponRunMotion } from "./player-appearance";
+import { BOW_RIGHT_HAND_ANGLE_DEGREES, bowHeldAlignment, bowHeldRotationRadians, heldWeaponRunMotion } from "./player-appearance";
 
 const degrees = (radians: number) => radians * 180 / Math.PI;
 
@@ -13,6 +13,11 @@ describe("Bow pose", () => {
     expect(degrees(bowHeldRotationRadians({ facingLeft: false, heldInLeftHand: true }))).toBeCloseTo(55);
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI / 4, facingLeft: false, heldInLeftHand: false }))).toBeCloseTo(-10);
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI * .75, facingLeft: true, heldInLeftHand: false }))).toBeCloseTo(-10);
+  });
+
+  it("mirrors the tuned bow position and sprite for the left hand", () => {
+    expect(bowHeldAlignment(false)).toEqual({ x: 4, y: -2, scaleX: 1 });
+    expect(bowHeldAlignment(true)).toEqual({ x: -4, y: -2, scaleX: -1 });
   });
 });
 

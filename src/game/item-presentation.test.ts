@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { FROST_BOW, STARTER_BOW, STARTER_STONE, WOODEN_ARMOR } from "../../shared/items";
+import { FROST_ARMOR, FROST_BOW, STARTER_BOW, STARTER_STONE, WOODEN_ARMOR } from "../../shared/items";
 import { itemArtMarkup, itemPresentation, projectileKindForWeapon } from "./item-presentation";
 
 describe("item presentation", () => {
@@ -9,6 +9,7 @@ describe("item presentation", () => {
     expect(itemArtMarkup(STARTER_STONE)).toContain("stone.png");
     expect(itemArtMarkup(STARTER_BOW)).toContain("data:image/png;base64,");
     expect(itemArtMarkup(FROST_BOW)).toContain("player-parts/frost-bow.png");
+    expect(itemArtMarkup(FROST_ARMOR)).toContain("player-parts/frost-armor.png");
     expect(itemArtMarkup(WOODEN_ARMOR)).toContain("data:image/png;base64,");
     expect(itemArtMarkup(STARTER_STONE)).not.toContain("boot-pixel-icon");
     expect(itemArtMarkup(STARTER_BOW)).not.toContain("boot-pixel-icon");
@@ -39,6 +40,19 @@ describe("item presentation", () => {
       height: 50,
       top: 102,
       handAction: "BOW",
+    });
+  });
+
+  it("uses the exact transparent FA_Chest_032_Blue vendor armor asset", () => {
+    const asset = readFileSync(new URL("../../public/assets/wildwood/player-parts/frost-armor.png", import.meta.url));
+    expect(createHash("sha256").update(asset).digest("hex")).toBe("8e106750b8acd754c4cbe3aa766f25b0da68bbdf8a5e4a8b858a6e7b72241081");
+    expect(itemPresentation(FROST_ARMOR)?.world).toMatchObject({
+      kind: "SPRITE",
+      source: "assets/wildwood/player-parts/frost-armor.png",
+      layer: "CHEST",
+      width: 76,
+      height: 68,
+      top: 100,
     });
   });
 });

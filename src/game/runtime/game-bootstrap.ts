@@ -5,6 +5,7 @@ import { loadPlayerAppearanceAssets } from "../player-appearance";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
+import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { updateCamera } from "./camera";
 import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import {
@@ -181,6 +182,7 @@ export function createGameBootstrapAssets(options: {
     assets,
     enemySprites: loadEnemySprites(),
     playerAppearanceAssets,
+    leaderboardPodiumPreview: createLeaderboardPodiumPreview(playerAppearanceAssets),
     profileCharacterPreview: createProfileCharacterPreview(options.profileCharacterCanvas, playerAppearanceAssets),
   };
 }

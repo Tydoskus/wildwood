@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
-import { FROST_BOW, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
+import { FROST_ARMOR, FROST_BOW, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
 import type { PlayerProgress } from "../wildwood-coop";
 import { effectiveProfileStats, profilePresenceText } from "./profile";
 
@@ -63,5 +63,14 @@ describe("effective profile equipment stats", () => {
     const stats = effectiveProfileStats(progress(FROST_BOW), research);
     expect(stats.damage).toBeCloseTo(64);
     expect(stats.attackRate).toBeCloseTo(1 / 1.2);
+  });
+
+  it("shows Frost Armor's health and additive regeneration multipliers", () => {
+    const research = { ...createEmptyResearchRanks(), regeneration: 10 };
+    const stats = effectiveProfileStats(progress("", FROST_ARMOR), research);
+    expect(stats.maxHp).toBeCloseTo(200);
+    expect(stats.regen).toBeCloseTo(4.4);
+    expect(stats.multipliers.regenEquipment).toBeCloseTo(2);
+    expect(stats.multipliers.regenTotal).toBeCloseTo(2.2);
   });
 });

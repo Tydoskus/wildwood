@@ -1,4 +1,4 @@
-import { renderLeaderboard, setLeaderboardTab, type LeaderboardStat } from "./leaderboard";
+import { renderLeaderboard, renderLeaderboardPodium, setLeaderboardTab, type LeaderboardStat, type RenderedLeaderboardPodiumPlayer } from "./leaderboard";
 import type { LeaderboardEntry } from "../wildwood-coop";
 
 export type LeaderboardControllerElements = {
@@ -7,6 +7,7 @@ export type LeaderboardControllerElements = {
   closeButton: HTMLElement;
   tabs: Record<LeaderboardStat, HTMLElement>;
   valueHeading: HTMLElement;
+  podium: HTMLElement;
   rows: HTMLElement;
   loading: HTMLElement;
   empty: HTMLElement;
@@ -18,6 +19,7 @@ export type LeaderboardControllerHooks = {
   localIdentity: () => string;
   isDeveloper: (identity: string) => boolean;
   paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => void;
+  drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => void;
   openProfile: (identity: string, name: string) => void;
   beforeOpen: () => void;
 };
@@ -26,23 +28,33 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   let stat: LeaderboardStat = "power";
   let snapshot: LeaderboardEntry[] = [];
   let loading = false;
+  let podiumPlayers: RenderedLeaderboardPodiumPlayer[] = [];
 
   function render() {
     if (loading) {
       elements.rows.hidden = true;
       elements.empty.hidden = true;
       elements.loading.hidden = false;
+      elements.podium.hidden = true;
+      podiumPlayers = [];
       return;
     }
     elements.loading.hidden = true;
-    renderLeaderboard({ rows: elements.rows, empty: elements.empty }, stat, snapshot, hooks.localIdentity(), {
+    const actions = {
       isDeveloper: hooks.isDeveloper,
       paintProfileIcon: hooks.paintProfileIcon,
-      openProfile(identity, name) {
+      openProfile(identity: string, name: string) {
         close();
         hooks.openProfile(identity, name);
       },
-    });
+    };
+    podiumPlayers = renderLeaderboardPodium(elements.podium, stat, snapshot, actions);
+    renderLeaderboard({ rows: elements.rows, empty: elements.empty }, stat, snapshot, hooks.localIdentity(), actions);
+  }
+
+  function drawPodium() {
+    if (elements.overlay.hidden) return;
+    for (const player of podiumPlayers) hooks.drawPodiumCharacter(player.canvas, player.entry, player.rank);
   }
 
   function select(requested: string) {
@@ -81,5 +93,5 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     tab.addEventListener("click", () => select(name));
   }
 
-  return { close, open, render, select, isOpen: () => !elements.overlay.hidden };
+  return { close, drawPodium, open, render, select, isOpen: () => !elements.overlay.hidden };
 }

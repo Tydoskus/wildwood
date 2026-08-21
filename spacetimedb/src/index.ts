@@ -21,16 +21,20 @@ import {
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
   FOREST_ITEM_DROP_DENOMINATOR,
+  FROST_ARMOR,
   FROST_BOW,
   inventoryJsonItemQuantity,
   itemDefinition,
   itemMaxHealthMultiplier,
+  itemRegenerationMultiplier,
   itemFitsEquipmentSlot,
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAX_FOREST_ITEM_COUNT,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
+  SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
+  SNOW_BOSS_DROP_ITEM_IDS,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
@@ -125,7 +129,7 @@ const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const MODULE_MIGRATION_VERSION = 7;
 const LEADERBOARD_LIMIT = 100;
-const LEADERBOARD_REFRESH_VERSION = 7;
+const LEADERBOARD_REFRESH_VERSION = 8;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
 // Beta support: let players correct names freely. Re-enable after account-link
@@ -442,6 +446,12 @@ const leaderboardEntry = table(
     profileIcon: t.u32().default(0),
     powerLevel: t.f64().default(0),
     gender: t.u8().default(PLAYER_GENDER_UNSET),
+    skinTone: t.u32().default(3),
+    headItem: t.string().default(BASIC_PAPER_HAT),
+    chestItem: t.string().default(""),
+    feetItem: t.string().default(""),
+    rightHandItem: t.string().default(STARTER_STONE),
+    leftHandItem: t.string().default(""),
   },
 );
 
@@ -1386,7 +1396,9 @@ function researchedArmor(ctx: any, identity: any, armor: number) {
 
 function researchedRegen(ctx: any, identity: any, regen: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.regeneration ?? 0;
-  return regen * (1 + rank * .02);
+  const progress = ctx.db.playerProgress.identity.find(identity);
+  const chestItem = progress ? equippedChestForProgress(progress) : "";
+  return regen * itemRegenerationMultiplier(chestItem, 1 + rank * .02);
 }
 
 function duelDamage(ctx: any, identity: any, damage: number) {
@@ -1760,6 +1772,7 @@ function refreshLeaderboard(ctx: any) {
       power: powerForProgress(progress),
       profileIcon: profile.profileIcon,
       gender: profile.gender,
+      ...leaderboardAppearanceForProgress(progress, profile),
       damage: progress.damage,
       maxHp: progress.maxHp,
       armor: progress.armor,
@@ -1801,6 +1814,12 @@ function refreshLeaderboard(ctx: any) {
       powerLevel: candidate.power,
       profileIcon: candidate.profileIcon,
       gender: candidate.gender,
+      skinTone: candidate.skinTone,
+      headItem: candidate.headItem,
+      chestItem: candidate.chestItem,
+      feetItem: candidate.feetItem,
+      rightHandItem: candidate.rightHandItem,
+      leftHandItem: candidate.leftHandItem,
       damage: candidate.damage,
       maxHp: candidate.maxHp,
       armor: candidate.armor,
@@ -1816,6 +1835,12 @@ function refreshLeaderboard(ctx: any) {
       current.powerLevel !== next.powerLevel ||
       current.profileIcon !== next.profileIcon ||
       current.gender !== next.gender ||
+      current.skinTone !== next.skinTone ||
+      current.headItem !== next.headItem ||
+      current.chestItem !== next.chestItem ||
+      current.feetItem !== next.feetItem ||
+      current.rightHandItem !== next.rightHandItem ||
+      current.leftHandItem !== next.leftHandItem ||
       current.damage !== next.damage ||
       current.maxHp !== next.maxHp ||
       current.armor !== next.armor ||
@@ -2041,7 +2066,8 @@ function inventoryForProgress(progress: any) {
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
     ...Array(forestItemCountForProgress(progress, STARTER_BOW, "bowCount")).fill(STARTER_BOW),
     ...Array(forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
-    ...Array(inventoryJsonItemQuantity(progress.inventoryJson, FROST_BOW)).fill(FROST_BOW),
+    ...SNOW_BOSS_DROP_ITEM_IDS.flatMap((itemId) =>
+      Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
   ];
 }
 
@@ -2111,6 +2137,13 @@ function equipmentPresentationForProgress(progress: any) {
     chestItem: equippedChestForProgress(progress),
     rightHandItem,
     leftHandItem: rightHandItem ? "" : equippedLeftHandForProgress(progress),
+  };
+}
+
+function leaderboardAppearanceForProgress(progress: any, profile: any) {
+  return {
+    skinTone: profile?.skinTone ?? 3,
+    ...equipmentPresentationForProgress(progress),
   };
 }
 
@@ -2520,8 +2553,12 @@ function rewardFrostclawContributor(ctx: any, identity: any) {
   const frostBowCount = inventoryJsonItemQuantity(current.inventoryJson, FROST_BOW);
   const frostBowDropped = frostBowCount < MAX_FOREST_ITEM_COUNT &&
     ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
+  const frostArmorCount = inventoryJsonItemQuantity(current.inventoryJson, FROST_ARMOR);
+  const frostArmorDropped = frostArmorCount < MAX_FOREST_ITEM_COUNT &&
+    ctx.random.integerInRange(1, SNOW_BOSS_ARMOR_DROP_DENOMINATOR) === 1;
   const inventory = inventoryForProgress(current);
   if (frostBowDropped) inventory.push(FROST_BOW);
+  if (frostArmorDropped) inventory.push(FROST_ARMOR);
   const next = {
     ...current,
     damage: current.damage + FROSTCLAW_REWARD_DAMAGE,
@@ -3709,7 +3746,8 @@ export const claimGuestAccount = spacetimedb.reducer(
       });
     }
 
-    const finalDisplayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? generatedDisplayName(ctx.sender);
+    const finalProfile = ctx.db.playerProfile.identity.find(ctx.sender);
+    const finalDisplayName = finalProfile?.displayName ?? generatedDisplayName(ctx.sender);
     const accountStatus = ctx.db.playerAccountStatus.identity.find(ctx.sender);
     const linkedStatus = { identity: ctx.sender, isGuest: false };
     if (accountStatus) ctx.db.playerAccountStatus.identity.update(linkedStatus);
@@ -3724,8 +3762,9 @@ export const claimGuestAccount = spacetimedb.reducer(
         identity: ctx.sender,
         displayName: finalDisplayName,
         ...powerFieldsForProgress(nextProgress),
-        profileIcon: ctx.db.playerProfile.identity.find(ctx.sender)?.profileIcon ?? 0,
-        gender: ctx.db.playerProfile.identity.find(ctx.sender)?.gender ?? PLAYER_GENDER_UNSET,
+        profileIcon: finalProfile?.profileIcon ?? 0,
+        gender: finalProfile?.gender ?? PLAYER_GENDER_UNSET,
+        ...leaderboardAppearanceForProgress(nextProgress, finalProfile),
         damage: nextProgress.damage,
         maxHp: nextProgress.maxHp,
         armor: nextProgress.armor,
@@ -4037,6 +4076,8 @@ export const setSkinTone = spacetimedb.reducer(
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.skinTone === skinTone) return;
     ctx.db.playerProfile.identity.update({ ...profile, skinTone });
+    const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
+    if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, skinTone });
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
   },
 );
@@ -4182,6 +4223,18 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (current) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
+    const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
+    if (leaderboard) {
+      const appearance = leaderboardAppearanceForProgress(next, ctx.db.playerProfile.identity.find(ctx.sender));
+      if (
+        leaderboard.skinTone !== appearance.skinTone ||
+        leaderboard.headItem !== appearance.headItem ||
+        leaderboard.chestItem !== appearance.chestItem ||
+        leaderboard.feetItem !== appearance.feetItem ||
+        leaderboard.rightHandItem !== appearance.rightHandItem ||
+        leaderboard.leftHandItem !== appearance.leftHandItem
+      ) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, ...appearance });
+    }
     const lifetime = ensurePlayerLifetime(ctx);
     const boundedKills = BigInt(Math.max(0, Math.min(4_294_967_295, Math.floor(progress.enemyKills))));
     if (boundedKills > lifetime.enemyKills) {

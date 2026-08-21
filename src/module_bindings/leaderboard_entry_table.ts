@@ -23,4 +23,10 @@ export default __t.row({
   profileIcon: __t.u32().name("profile_icon"),
   powerLevel: __t.f64().name("power_level"),
   gender: __t.u8(),
+  skinTone: __t.u32().name("skin_tone"),
+  headItem: __t.string().name("head_item"),
+  chestItem: __t.string().name("chest_item"),
+  feetItem: __t.string().name("feet_item"),
+  rightHandItem: __t.string().name("right_hand_item"),
+  leftHandItem: __t.string().name("left_hand_item"),
 });

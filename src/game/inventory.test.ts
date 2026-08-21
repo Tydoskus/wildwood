@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bagInventoryStacks, BASIC_PAPER_HAT, FROST_BOW, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, FROST_ARMOR, FROST_BOW, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveInventoryItem, normaliseInventory, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
 
 describe("inventory rules", () => {
   it("rejects malformed inventory and restores a valid saved item", () => {
@@ -144,5 +144,20 @@ describe("inventory rules", () => {
       "",
       FROST_BOW,
     ).equippedLeftHand).toBe(FROST_BOW);
+  });
+
+  it("preserves and stacks Frost Armor while subtracting its equipped copy", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([FROST_ARMOR, FROST_ARMOR, FROST_ARMOR]),
+      "",
+      BASIC_PAPER_HAT,
+      FROST_ARMOR,
+      false,
+    );
+    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(3);
+    expect(inventory.equippedChest).toBe(FROST_ARMOR);
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 2 });
+    expect(setInventoryItemQuantity(inventory, FROST_ARMOR, 4)).toBe(true);
+    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(4);
   });
 });

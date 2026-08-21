@@ -5,15 +5,18 @@ import {
   DEVELOPER_ITEM_IDS,
   FOREST_ITEM_DROP_DENOMINATOR,
   FOREST_DROP_ITEM_IDS,
+  FROST_ARMOR,
   FROST_BOW,
   inventoryJsonItemQuantity,
   isWeaponItem,
   itemMaxHealthMultiplier,
+  itemRegenerationMultiplier,
   itemFitsEquipmentSlot,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
   SNOW_BOSS_DROP_ITEM_IDS,
+  SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
   weaponAttackSpeedMultiplier,
   weaponDamageMultiplier,
@@ -26,9 +29,10 @@ describe("equipment catalog", () => {
     expect(DEVELOPER_ITEM_IDS).not.toContain(STARTER_BOW);
     expect(STARTER_ITEM_IDS).not.toContain(STARTER_BOW);
     expect(FOREST_DROP_ITEM_IDS).toEqual([STARTER_BOW, WOODEN_ARMOR]);
-    expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW]);
+    expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW, FROST_ARMOR]);
     expect(FOREST_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(SNOW_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
+    expect(SNOW_BOSS_ARMOR_DROP_DENOMINATOR).toBe(5);
   });
 
   it("declares both bows as two-hand-slot-compatible ranged weapons", () => {
@@ -60,6 +64,14 @@ describe("equipment catalog", () => {
     expect(weaponAttackSpeedMultiplier(FROST_BOW)).toBeCloseTo(1.2);
     expect(weaponDamageMultiplier(FROST_BOW, 1.2)).toBeCloseTo(3.2);
     expect(weaponAttackSpeedMultiplier(FROST_BOW, 1.1)).toBeCloseTo(1.3);
+  });
+
+  it("gives Frost Armor 2x health and additive 2x regeneration", () => {
+    expect(itemFitsEquipmentSlot(FROST_ARMOR, "CHEST")).toBe(true);
+    expect(itemFitsEquipmentSlot(FROST_ARMOR, "HEAD")).toBe(false);
+    expect(itemMaxHealthMultiplier(FROST_ARMOR)).toBeCloseTo(2);
+    expect(itemRegenerationMultiplier(FROST_ARMOR)).toBeCloseTo(2);
+    expect(itemRegenerationMultiplier(FROST_ARMOR, 1.2)).toBeCloseTo(2.2);
   });
 
   it("counts persisted Frost Bow stacks safely", () => {

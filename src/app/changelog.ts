@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.461": [
+    "Every leaderboard tab now shows animated snapshots of its current top three players above the rankings, with first place centered, second on the right, and third on the left.",
+    "Frostclaw now independently has a 1-in-5 chance per qualifying player to drop stackable Frost Armor, which doubles max health and regeneration and appears throughout equipment, profiles, and multiplayer.",
+    "Bows now use the tuned hand offset and correctly mirrored sprite alignment when equipped in either hand or viewed from either direction.",
+  ],
   "0.460": [
     "Frostclaw now has a 1-in-25 chance per qualifying player to drop a stackable Frost Bow using the original transparent blue vendor art.",
     "Frost Bow provides 3× base damage and 1.2× base attack speed, adds its bonuses to tech multipliers, and renders throughout inventory, profiles, duels, and local or nearby combat.",

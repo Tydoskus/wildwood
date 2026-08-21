@@ -1,5 +1,6 @@
 import {
   BASIC_PAPER_HAT,
+  FROST_ARMOR,
   FROST_BOW,
   LEGENDARY_WHITE_GOLD_ARMOR,
   STARTER_BOW,
@@ -62,6 +63,10 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   [WOODEN_ARMOR]: {
     inventory: { source: WOODEN_ARMOR_ASSET_SOURCE, equippedWidth: 34, equippedHeight: 31 },
     world: { kind: "SPRITE", source: WOODEN_ARMOR_ASSET_SOURCE, layer: "CHEST", width: 76, height: 68, top: 100 },
+  },
+  [FROST_ARMOR]: {
+    inventory: { source: `${PLAYER_PARTS}/frost-armor.png`, equippedWidth: 34, equippedHeight: 31 },
+    world: { kind: "SPRITE", source: `${PLAYER_PARTS}/frost-armor.png`, layer: "CHEST", width: 76, height: 68, top: 100 },
   },
   [TRAILBLAZER_BOOTS]: {
     inventory: { fallback: "BOOTS" },

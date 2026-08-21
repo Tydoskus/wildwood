@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { FROST_BOW, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { FROST_ARMOR, FROST_BOW, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
@@ -63,7 +63,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
-import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier } from "../shared/items";
+import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier, itemRegenerationMultiplier } from "../shared/items";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -92,7 +92,7 @@ import {
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileLeaderboardStatsEl, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileRankingTab, profileOverviewPanel, profileStatsPanel, profileRankingPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
-    leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
+    leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardPodiumEl, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
@@ -369,6 +369,7 @@ import {
     criticalDamageMultiplier: researchCriticalDamageMultiplier,
     applyVitality: applyVitalityResearch,
   } = research;
+  const regenerationMultiplier = () => itemRegenerationMultiplier(inventory.equippedChest, researchRegenerationMultiplier());
   progress = createProgressController({
     player,
     inventory,
@@ -572,7 +573,7 @@ import {
     },
     onPlayerAppearanceAssetReady: markPlayerSpriteReady,
   });
-  const { assets, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
+  const { assets, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   const worldRenderRuntime = createWorldRenderRuntime({
@@ -692,7 +693,7 @@ import {
     isConnected: () => Boolean(coop?.isConnected?.()),
     syncSpeed: (speed) => { if (coop) coop.syncSpeed(speed); },
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
-    regenerationMultiplier: researchRegenerationMultiplier,
+    regenerationMultiplier,
     healthMultiplier,
     syncMovementState: (x, y, dx, dy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, dx, dy, inputSource, force, interestArea),
     autoAttack: (dt) => playerCombat.attackNearest(dt),
@@ -723,7 +724,7 @@ import {
     duelResultHeld: () => playerController.isDuelResultHeld(),
     setRenderedDuelScene: (scene) => { renderedDuelScene = scene; },
     setDuelCountdown: (countdown) => runtimeHud?.setDuelCountdown(countdown),
-    drawProfileCharacterPreview: () => profileWindow.drawPreview(),
+    drawProfileCharacterPreview: () => { profileWindow.drawPreview(); leaderboard.drawPodium(); },
     updateSpeechBubbles,
     localIdentity: () => coop?.localIdentity?.(),
     localDisplayName: () => coop?.localDisplayName?.(),
@@ -811,6 +812,7 @@ import {
     localIdentity: () => coop?.localIdentity?.() || "",
     isDeveloper: isDeveloperIdentity,
     paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0),
+    drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
     beforeOpen: () => {
       devPanel.close();
@@ -1110,7 +1112,7 @@ import {
     if (!setInventoryItemQuantity(inventory, itemId, totalQuantity)) return;
     renderInventory();
     const item = itemDefinition(itemId);
-    const pickupColor = itemId === FROST_BOW ? "#2d92ff" : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
+    const pickupColor = itemId === FROST_BOW || itemId === FROST_ARMOR ? "#2d92ff" : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
     logPickup(`${item?.name ?? "ITEM"}${quantity > 1 ? ` ×${quantity}` : ""}`, pickupColor);
   });
   refreshReconnectOverlay();

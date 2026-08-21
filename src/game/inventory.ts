@@ -3,6 +3,7 @@ import {
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
   FOREST_DROP_ITEM_IDS,
+  FROST_ARMOR,
   FROST_BOW,
   ITEM_DEFINITIONS,
   itemDefinition,
@@ -21,6 +22,7 @@ import {
 
 export {
   BASIC_PAPER_HAT,
+  FROST_ARMOR,
   FROST_BOW,
   ITEM_DEFINITIONS,
   itemDefinition,

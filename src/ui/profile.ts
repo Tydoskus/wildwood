@@ -1,6 +1,6 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
-import { itemMaxHealthMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../../shared/items";
+import { itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
 
 export function formatPlayedTime(seconds: number) {
@@ -36,14 +36,16 @@ export function effectiveProfileStats(
   const damageTotalMultiplier = weaponDamageMultiplier(weaponItem, damageResearchMultiplier);
   const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem);
   const armorMultiplier = multiplier(research.precision, 2);
-  const regenMultiplier = multiplier(research.regeneration, 2);
+  const regenResearchMultiplier = multiplier(research.regeneration, 2);
+  const regenEquipmentMultiplier = itemRegenerationMultiplier(progress.equippedChest);
+  const regenTotalMultiplier = itemRegenerationMultiplier(progress.equippedChest, regenResearchMultiplier);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   return {
     maxHp: progress.maxHp * healthEquipmentMultiplier,
     damage: progress.damage * damageTotalMultiplier,
     attackRate: progress.attackRate / attackSpeedMultiplier,
     armor: progress.armor * armorMultiplier,
-    regen: progress.regen * regenMultiplier,
+    regen: progress.regen * regenTotalMultiplier,
     speed: progress.speed * speedMultiplier,
     multipliers: {
       healthResearch: healthResearchMultiplier,
@@ -53,7 +55,10 @@ export function effectiveProfileStats(
       damageTotal: damageTotalMultiplier,
       attackSpeed: attackSpeedMultiplier,
       armor: armorMultiplier,
-      regen: regenMultiplier,
+      regen: regenTotalMultiplier,
+      regenResearch: regenResearchMultiplier,
+      regenEquipment: regenEquipmentMultiplier,
+      regenTotal: regenTotalMultiplier,
       speed: speedMultiplier,
     },
   };
@@ -81,7 +86,7 @@ export function renderProfileStats(
     { kind: "armor", label: "ARMOR", value: `${statValue(effective.armor)} (${armorReduction(effective.armor)} damage reduction)`, modifier: modifier(progress.armor, ranks.precision, 2) },
     { kind: "attack", label: "ATTACK SPEED", value: `${(1 / effective.attackRate).toFixed(2)}/s${effective.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: `BASE: ${(1 / progress.attackRate).toFixed(2)}/s${equipmentModifier(effective.multipliers.attackSpeed, effective.multipliers.attackSpeed)}` },
     { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString(), modifier: modifier(progress.attackRange) },
-    { kind: "regen", label: "REGEN", value: `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`, modifier: modifier(progress.regen, ranks.regeneration, 2) },
+    { kind: "regen", label: "REGEN", value: `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`, modifier: `${modifier(progress.regen, ranks.regeneration, 2)}${equipmentModifier(effective.multipliers.regenEquipment, effective.multipliers.regenTotal)}` },
     { kind: "speed", label: "MOVE SPEED", value: Math.round(effective.speed).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
   ];
   const statGain = ranks.foraging + ranks.prosperity * 2;

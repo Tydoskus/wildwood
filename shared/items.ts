@@ -8,9 +8,11 @@ export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
 export const FROST_BOW = "frost_bow";
+export const FROST_ARMOR = "frost_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
+export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
 export const MAX_FOREST_ITEM_COUNT = 999;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
@@ -28,6 +30,7 @@ export type ItemDefinition = {
   stackable?: boolean;
   modifiers?: {
     maxHealthMultiplierBonus?: number;
+    regenerationMultiplierBonus?: number;
   };
   weapon?: {
     mode: "RANGED";
@@ -107,6 +110,19 @@ export const ITEM_DEFINITIONS = {
       projectile: "ARROW",
       damageMultiplierBonus: 2,
       attackSpeedMultiplierBonus: .2,
+    },
+  },
+  [FROST_ARMOR]: {
+    id: FROST_ARMOR,
+    name: "FROST ARMOR",
+    slot: "CHEST",
+    acquisition: "SNOW_BOSS_DROP",
+    description: "Frozen blue armor claimed from Frostclaw that fortifies health and regeneration.",
+    stats: ["MAX HEALTH MULTIPLIER 2.00×", "REGEN MULTIPLIER 2.00×"],
+    stackable: true,
+    modifiers: {
+      maxHealthMultiplierBonus: 1,
+      regenerationMultiplierBonus: 1,
     },
   },
   [WOODEN_ARMOR]: {
@@ -189,4 +205,9 @@ export function weaponAttackInterval(itemId: unknown, baseInterval: number, rese
 
 export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1) {
   return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus ?? 0);
+}
+
+/** Equipment regeneration bonuses add to research multipliers. */
+export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1) {
+  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus ?? 0);
 }

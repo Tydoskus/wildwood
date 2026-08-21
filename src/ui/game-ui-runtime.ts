@@ -57,9 +57,9 @@ export function createGameUiRuntime(d: Record<string, any>) {
     researchRanks: d.researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), showMessage: d.showMessage,
     beforeOpen: () => { e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); }, nowMs: () => Date.now(),
   });
-  leaderboard = createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, {
+  leaderboard = createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, {
     entries: () => coop?.leaderboardEntries?.() ?? [], loadSnapshot: async () => coop?.loadLeaderboardSnapshot?.() ?? [], localIdentity: () => coop?.localIdentity?.() || "", isDeveloper: isDeveloperIdentity,
-    paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => d.paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0), openProfile: (identity: string, name: string) => { void d.profileWindow.open(identity, name); },
+    paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => d.paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0), drawPodiumCharacter: d.drawPodiumCharacter ?? (() => undefined), openProfile: (identity: string, name: string) => { void d.profileWindow.open(identity, name); },
     beforeOpen: () => { devPanel.close(); techTree.close(); e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); },
   });
   devPanel = createDevPanelController({
@@ -122,7 +122,7 @@ export function createDevPanel(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createLeaderboardPanel(d: Record<string, any>) {
   const e = d.e;
-  return createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, d.options);
+  return createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, d.options);
 }
 
 /** Wires standard game-window actions and escape priority from UI controllers. */

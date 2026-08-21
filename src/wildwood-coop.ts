@@ -69,7 +69,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../shared/rules";
-import { FROST_BOW, inventoryJsonItemQuantity, STARTER_BOW, WOODEN_ARMOR } from "../shared/items";
+import { inventoryJsonItemQuantity, SNOW_BOSS_DROP_ITEM_IDS, STARTER_BOW, WOODEN_ARMOR } from "../shared/items";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -150,6 +150,12 @@ export type LeaderboardEntry = {
   regen: number;
   playedSeconds: number;
   isGuest: boolean;
+  skinTone: number;
+  headItem: string;
+  chestItem: string;
+  feetItem: string;
+  rightHandItem: string;
+  leftHandItem: string;
 };
 
 export type AccessAuditEntry = {
@@ -1306,6 +1312,12 @@ function leaderboardEntryFromRow(row: {
   playedMicros: bigint;
   isGuest: boolean;
   gender: number;
+  skinTone?: number;
+  headItem?: string;
+  chestItem?: string;
+  feetItem?: string;
+  rightHandItem?: string;
+  leftHandItem?: string;
 }): LeaderboardEntry {
   const identity = row.identity.toHexString();
   return {
@@ -1319,6 +1331,12 @@ function leaderboardEntryFromRow(row: {
     regen: row.regen,
     playedSeconds: Number(row.playedMicros) / 1_000_000,
     isGuest: row.isGuest,
+    skinTone: Number.isInteger(row.skinTone) ? Math.max(0, Math.min(19, Number(row.skinTone))) : 3,
+    headItem: row.headItem ?? "",
+    chestItem: row.chestItem ?? "",
+    feetItem: row.feetItem ?? "",
+    rightHandItem: row.rightHandItem ?? "",
+    leftHandItem: row.leftHandItem ?? "",
   };
 }
 
@@ -1549,10 +1567,12 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lava
     if (bowQuantity > 0) itemDropListener?.({ itemId: STARTER_BOW, quantity: bowQuantity, totalQuantity: progress.bowCount });
     const woodenArmorQuantity = progress.woodenArmorCount - previousProgress.woodenArmorCount;
     if (woodenArmorQuantity > 0) itemDropListener?.({ itemId: WOODEN_ARMOR, quantity: woodenArmorQuantity, totalQuantity: progress.woodenArmorCount });
-    const previousFrostBowCount = inventoryJsonItemQuantity(previousProgress.inventoryJson, FROST_BOW);
-    const frostBowCount = inventoryJsonItemQuantity(progress.inventoryJson, FROST_BOW);
-    const frostBowQuantity = frostBowCount - previousFrostBowCount;
-    if (frostBowQuantity > 0) itemDropListener?.({ itemId: FROST_BOW, quantity: frostBowQuantity, totalQuantity: frostBowCount });
+    for (const itemId of SNOW_BOSS_DROP_ITEM_IDS) {
+      const previousQuantity = inventoryJsonItemQuantity(previousProgress.inventoryJson, itemId);
+      const totalQuantity = inventoryJsonItemQuantity(progress.inventoryJson, itemId);
+      const quantity = totalQuantity - previousQuantity;
+      if (quantity > 0) itemDropListener?.({ itemId, quantity, totalQuantity });
+    }
   }
   completeAccountReturnWhenReady();
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
@@ -2005,6 +2025,7 @@ function loadLeaderboardSnapshot(): Promise<LeaderboardEntry[]> {
           profileIdentities.set(entry.identity, row.identity);
           profiles.set(entry.identity, entry.name);
           profileIcons.set(entry.identity, Math.max(0, Math.min(63, Number(row.profileIcon) || 0)));
+          skinTones.set(entry.identity, entry.skinTone);
           playerGenders.set(entry.identity, entry.gender);
           guestAccounts.set(entry.identity, entry.isGuest);
         }

@@ -289,6 +289,12 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   profileIcon: __t.u32(),
   powerLevel: __t.f64(),
   gender: __t.u8(),
+  skinTone: __t.u32(),
+  headItem: __t.string(),
+  chestItem: __t.string(),
+  feetItem: __t.string(),
+  rightHandItem: __t.string(),
+  leftHandItem: __t.string(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
 

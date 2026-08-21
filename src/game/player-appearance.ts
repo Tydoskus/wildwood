@@ -78,6 +78,15 @@ export function bowHeldRotationRadians(options: {
   return localAim + handOffsetDegrees * DEGREES_TO_RADIANS;
 }
 
+/** Mirrors the tuned right-hand bow alignment when the bow changes hands. */
+export function bowHeldAlignment(heldInLeftHand: boolean) {
+  return {
+    x: heldInLeftHand ? -4 : 4,
+    y: -2,
+    scaleX: heldInLeftHand ? -1 : 1,
+  };
+}
+
 /** Subtle client-side arm sway shared by every held weapon while running. */
 export function heldWeaponRunMotion(options: {
   moving?: boolean;
@@ -140,6 +149,11 @@ export function drawStartingPlayer(
   // Mirroring the hand anchor makes the same item visibly change sides.
   let heldX = heldInLeftHand ? (facingLeft ? -11 : 30) : (facingLeft ? 30 : -11);
   let heldY = heldSpritePresentation?.top ?? 116;
+  const bowAlignment = heldSpritePresentation?.handAction === "BOW"
+    ? bowHeldAlignment(heldInLeftHand)
+    : { x: 0, y: 0, scaleX: 1 };
+  heldX += bowAlignment.x;
+  heldY += bowAlignment.y;
   let heldVisible = true;
   if (heldSpritePresentation?.handAction === "THROW") {
     if (attackElapsed > 0 && attackElapsed < .12) {
@@ -207,6 +221,7 @@ export function drawStartingPlayer(
       ? bowHeldRotationRadians({ combatFacing: options.combatFacing, facingLeft, heldInLeftHand })
       : 0;
     ctx.rotate(baseRotation + runMotion.rotation);
+    ctx.scale(bowAlignment.scaleX, 1);
     drawLayer(asset, -width / 2, -height / 2, width, height);
     ctx.restore();
   };

@@ -3,6 +3,13 @@ import type { LeaderboardEntry } from "../wildwood-coop";
 import { appendPlayerGenderIcon } from "./player-gender";
 
 export type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";
+export type LeaderboardPodiumRank = 1 | 2 | 3;
+
+export type RenderedLeaderboardPodiumPlayer = {
+  rank: LeaderboardPodiumRank;
+  entry: LeaderboardEntry;
+  canvas: HTMLCanvasElement;
+};
 
 type LeaderboardElements = {
   rows: HTMLElement;
@@ -19,6 +26,37 @@ export function formatPlayedTime(seconds: number) {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+export function leaderboardValueKey(stat: LeaderboardStat): "power" | "damage" | "maxHp" | "armor" | "regen" | "playedSeconds" {
+  return stat === "health" ? "maxHp" : stat === "time" ? "playedSeconds" : stat;
+}
+
+export function sortedLeaderboardEntries(stat: LeaderboardStat, entries: LeaderboardEntry[], limit = 100) {
+  const valueKey = leaderboardValueKey(stat);
+  return entries
+    .filter((entry) => Number.isFinite(entry[valueKey]))
+    .sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
+
+export function leaderboardValueText(stat: LeaderboardStat, entry: LeaderboardEntry) {
+  const valueKey = leaderboardValueKey(stat);
+  return stat === "time"
+    ? formatPlayedTime(entry.playedSeconds)
+    : stat === "regen"
+      ? `${entry.regen < 1_000 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s`
+      : formatCompactNumber(entry[valueKey]);
+}
+
+/** Visual order is third, first, second so the winner owns the center podium. */
+export function leaderboardPodiumEntries(stat: LeaderboardStat, entries: LeaderboardEntry[]) {
+  const [first, second, third] = sortedLeaderboardEntries(stat, entries, 3);
+  return [
+    { rank: 3 as const, entry: third },
+    { rank: 1 as const, entry: first },
+    { rank: 2 as const, entry: second },
+  ];
 }
 
 export function setLeaderboardTab(
@@ -42,6 +80,69 @@ export function setLeaderboardTab(
   return stat;
 }
 
+export function renderLeaderboardPodium(
+  podium: HTMLElement,
+  stat: LeaderboardStat,
+  entries: LeaderboardEntry[],
+  actions: {
+    isDeveloper: (identity: string) => boolean;
+    openProfile: (identity: string, name: string) => void;
+  },
+) {
+  const rendered: RenderedLeaderboardPodiumPlayer[] = [];
+  const slots = leaderboardPodiumEntries(stat, entries).map(({ rank, entry }) => {
+    const slot = document.createElement("button");
+    slot.type = "button";
+    slot.className = `leaderboard-podium-player leaderboard-podium-rank-${rank}`;
+    slot.dataset.rank = String(rank);
+
+    const name = document.createElement("span");
+    name.className = "leaderboard-podium-name";
+    const value = document.createElement("span");
+    value.className = "leaderboard-podium-value";
+    const canvas = document.createElement("canvas");
+    canvas.className = "leaderboard-podium-canvas";
+    canvas.width = 120;
+    canvas.height = 78;
+    canvas.setAttribute("aria-hidden", "true");
+    const pedestal = document.createElement("span");
+    pedestal.className = "leaderboard-podium-step";
+    const rankLabel = document.createElement("span");
+    rankLabel.className = "leaderboard-podium-rank-label";
+    rankLabel.textContent = `#${rank}`;
+    pedestal.append(rankLabel);
+
+    if (!entry) {
+      slot.classList.add("is-empty");
+      slot.disabled = true;
+      name.textContent = "—";
+      value.textContent = "—";
+    } else {
+      if (actions.isDeveloper(entry.identity)) {
+        const badge = document.createElement("span");
+        badge.className = "dev-badge";
+        badge.textContent = "[dev] ";
+        name.append(badge);
+      }
+      const nameText = document.createElement("span");
+      nameText.className = "leaderboard-podium-name-text";
+      nameText.textContent = entry.name;
+      name.append(nameText);
+      appendPlayerGenderIcon(name, entry.gender);
+      name.title = entry.name;
+      value.textContent = leaderboardValueText(stat, entry);
+      slot.setAttribute("aria-label", `#${rank} ${entry.name}, ${value.textContent}. View profile`);
+      slot.addEventListener("click", () => actions.openProfile(entry.identity, entry.name));
+      rendered.push({ rank, entry, canvas });
+    }
+    slot.append(name, value, canvas, pedestal);
+    return slot;
+  });
+  podium.replaceChildren(...slots);
+  podium.hidden = rendered.length === 0;
+  return rendered;
+}
+
 export function renderLeaderboard(
   elements: Pick<LeaderboardElements, "rows" | "empty">,
   stat: LeaderboardStat,
@@ -53,15 +154,7 @@ export function renderLeaderboard(
     openProfile: (identity: string, name: string) => void;
   },
 ) {
-  const valueKey: "power" | "damage" | "maxHp" | "armor" | "regen" | "playedSeconds" = stat === "health"
-    ? "maxHp"
-    : stat === "time"
-      ? "playedSeconds"
-      : stat;
-  const sorted = entries
-    .filter((entry) => Number.isFinite(entry[valueKey]))
-    .sort((a, b) => b[valueKey] - a[valueKey] || a.name.localeCompare(b.name))
-    .slice(0, 100);
+  const sorted = sortedLeaderboardEntries(stat, entries);
   elements.rows.replaceChildren();
 
   sorted.forEach((entry, index) => {
@@ -115,11 +208,7 @@ export function renderLeaderboard(
 
     const value = document.createElement("span");
     value.className = "leaderboard-value";
-    value.textContent = stat === "time"
-      ? formatPlayedTime(entry.playedSeconds)
-      : stat === "regen"
-        ? `${entry.regen < 1_000 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s`
-        : formatCompactNumber(entry[valueKey]);
+    value.textContent = leaderboardValueText(stat, entry);
     row.append(rank, icon, name, value);
     elements.rows.appendChild(row);
   });
