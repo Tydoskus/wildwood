@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.459": [
+    "iOS-safe HP text now stays vertically centered in the HUD and floating health bars.",
+    "Updated the duel replay play medallion art.",
+  ],
   "0.458": [
     "crop fix 2",
   ],

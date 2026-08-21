@@ -1666,7 +1666,7 @@
     .player-summary { min-width: min(250px, 50vw); gap: 5px; padding: 0 2px 3px; }
     .bar { width: min(250px, 50vw); height: 17px; margin-bottom: 1px; }
     #playerName, #playerPower { font-size: 11.25px; }
-    #hpText { font-size: 10px; line-height: 11px; }
+    #hpText { font-size: 10px; line-height: 11px; transform: translateY(-1px); }
     .settings-button { font-size: 25px; }
     .toolbar-icon { width: 28px; height: 28px; }
     #chatPanel {
