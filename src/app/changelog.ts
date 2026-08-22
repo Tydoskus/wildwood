@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.465": [
+    "Toolbar buttons now sit above an additional 10px bottom cushion while chat and gameplay reserve the full dock height.",
+    "Equipped-item slots are exact 1:1 squares matching bag slots at every responsive size, with the character preview resized around them.",
+    "The leaderboard top-three podium now uses a grass-green backdrop matching the inventory character preview.",
+  ],
   "0.464": [
     "Inventory now opens as a fullscreen dark game window with a grass-backed, vertically centered character preview, a hidden scrollbar, and cleaner item guidance.",
     "Inventory, Tech Tree, Leaderboard, and Settings now form a one-handed bottom dock; chat and the playable canvas sit fully above it while the dock owns device safe-area padding.",
