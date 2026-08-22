@@ -15,9 +15,9 @@ describe("Bow pose", () => {
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI * .75, facingLeft: true, heldInLeftHand: false }))).toBeCloseTo(-10);
   });
 
-  it("mirrors the tuned bow position and sprite for the left hand", () => {
-    expect(bowHeldAlignment(false)).toEqual({ x: 4, y: -2, scaleX: 1 });
-    expect(bowHeldAlignment(true)).toEqual({ x: -4, y: -2, scaleX: -1 });
+  it("mirrors the tuned position and bow-facing axis for the left hand", () => {
+    expect(bowHeldAlignment(false)).toEqual({ x: 4, y: -2, scaleY: 1 });
+    expect(bowHeldAlignment(true)).toEqual({ x: -4, y: 2, scaleY: -1 });
   });
 });
 

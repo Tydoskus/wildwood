@@ -39,11 +39,7 @@ export function createLeaderboardPodiumPreview(playerAppearanceAssets: PlayerApp
     const now = performance.now() / 1_000;
     const widthScale = Math.max(.42, (width - 8) / 180);
     const scale = Math.min(rank === 1 ? .62 : .57, widthScale + (rank === 1 ? .035 : 0));
-    const groundY = height - 7;
-    ctx.fillStyle = "rgba(0,0,0,.24)";
-    ctx.beginPath();
-    ctx.ellipse(width / 2, groundY + 1, 22 * scale / .6, 4 * scale / .6, 0, 0, Math.PI * 2);
-    ctx.fill();
+    const groundY = height - 1;
 
     drawStartingPlayer(ctx, playerAppearanceAssets, {
       x: width / 2,

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.462": [
+    "Leaderboard podiums now use a clean white backdrop, taller character previews seated directly on the steps, usernames only, and no ground shadows.",
+    "Left-hand bows now mirror along the correct axis with reversed offsets so they point toward the player's facing and combat target direction.",
+  ],
   "0.461": [
     "Every leaderboard tab now shows animated snapshots of its current top three players above the rankings, with first place centered, second on the right, and third on the left.",
     "Frostclaw now independently has a 1-in-5 chance per qualifying player to drop stackable Frost Armor, which doubles max health and regeneration and appears throughout equipment, profiles, and multiplayer.",
