@@ -402,6 +402,7 @@
   .upgrade-bench-stat-row span { color: #8deb94; font-weight: 900; white-space: nowrap; }
   .upgrade-bench-timer { min-height: 20px; color: #f3cf70; font-size: var(--font-readable-body); font-weight: 900; letter-spacing: .04em; }
   .upgrade-bench-action { width: min(220px, 80vw); height: 44px; min-height: 44px; margin: 0; border-color: #15371b; border-radius: 8px; background: linear-gradient(#72d977, #3e9f48); box-shadow: 0 3px 0 #17361c; color: #fff; font-size: var(--font-readable-body); }
+  .upgrade-bench-action[hidden] { display: none; }
   .upgrade-bench-action.is-cancel { border-color: #492020; background: linear-gradient(#cf6868, #953c3c); box-shadow: 0 3px 0 #431d1d; }
   .upgrade-bench-action:disabled { border-color: #313a34; background: #4b554f; box-shadow: none; color: #9ba49e; }
   .upgrade-bench-back { width: min(220px, 80vw); height: 44px; min-height: 44px; margin: 0; border-color: #351010; border-radius: 8px; background: linear-gradient(#c85050, #842f34); box-shadow: 0 3px 0 #351519; color: #fff; font-size: var(--font-readable-body); }

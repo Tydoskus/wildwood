@@ -185,6 +185,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       : itemId ? `UPGRADE TIME · ${formatRemaining(itemUpgradeDurationMs(level))}` : "";
     elements.action.classList.toggle("is-cancel", Boolean(job));
     elements.action.textContent = job ? "CANCEL" : "UPGRADE";
+    elements.action.hidden = !itemId;
     elements.action.disabled = busy || !itemId || (!job && level >= MAX_ITEM_UPGRADE_LEVEL);
     elements.back.hidden = Boolean(job);
     elements.back.disabled = busy;
@@ -308,8 +309,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   elements.back.addEventListener("click", returnToPicker);
   elements.slot.addEventListener("click", openPicker);
   elements.action.addEventListener("click", () => { void useAction(); });
-  elements.closePicker.addEventListener("click", closePicker);
-  elements.picker.addEventListener("click", (event) => { if (event.target === elements.picker) closePicker(); });
+  elements.closePicker.addEventListener("click", close);
+  elements.picker.addEventListener("click", (event) => { if (event.target === elements.picker) close(); });
 
   return {
     close,

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.484": [
+    "The Upgrade Bench now has a distinct Add Item screen whose BACK closes the workbench, while Upgrade appears only after selecting an item.",
+  ],
   "0.483": [
     "The Upgrade Bench now forgets prior selections and opens a fresh item list whenever no upgrade is active, including after completion or cancellation.",
   ],
@@ -913,6 +916,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.484": "2026-08-22",
   "0.483": "2026-08-22",
   "0.482": "2026-08-22",
   "0.481": "2026-08-22",
