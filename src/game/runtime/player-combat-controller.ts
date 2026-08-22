@@ -6,7 +6,7 @@ import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
 import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, PlayerState, RuntimeReward, SpiderBossState } from "./types";
 import type { SpawnSite } from "../world";
-import { weaponAttackInterval, weaponDamageMultiplier } from "../../../shared/items";
+import { itemDefinition, weaponAttackInterval, weaponDamageMultiplier } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
 
 const PLAYER_THROW_SECONDS = .42;
@@ -60,6 +60,7 @@ export function createPlayerCombatController(options: {
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
+  playBowAttackSound?: () => void;
   logPickup: (text: string, color: string) => void;
   saveProgress: () => void;
   setHitFlash: () => void;
@@ -98,6 +99,7 @@ export function createPlayerCombatController(options: {
     const dy = target.y - player.y;
     const distance = Math.hypot(dx, dy) || 1;
     const baseAngle = Math.atan2(dy, dx);
+    const weaponItem = options.equippedWeapon();
     for (let index = 0; index < player.projectileCount; index++) {
       const angle = baseAngle + (index - (player.projectileCount - 1) / 2) * .13;
       const projectileLifeBonus = 1.25;
@@ -111,12 +113,13 @@ export function createPlayerCombatController(options: {
       projectile.vx = Math.cos(angle) * player.projectileSpeed;
       projectile.vy = Math.sin(angle) * player.projectileSpeed;
       projectile.r = 6;
-      projectile.damage = player.damage * weaponDamageMultiplier(options.equippedWeapon(), researchDamageMultiplier()) * (critical ? researchCriticalDamageMultiplier() : 1);
+      projectile.damage = player.damage * weaponDamageMultiplier(weaponItem, researchDamageMultiplier()) * (critical ? researchCriticalDamageMultiplier() : 1);
       projectile.critical = critical;
       projectile.hitLife = player.attackRange / player.projectileSpeed * projectileLifeBonus;
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
       projectile.trail = 0;
     }
+    if (itemDefinition(weaponItem)?.weapon?.projectile === "ARROW") options.playBowAttackSound?.();
     spawnBurst(player.x + dx / distance * 17, player.y + dy / distance * 17, "#ffe36b", 4, 38);
   }
 

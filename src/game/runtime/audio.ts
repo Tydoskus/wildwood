@@ -6,6 +6,16 @@ const SNOW_MUSIC_SOURCE = "assets/wildwood/audio/snow.mp3";
 const LAVA_MUSIC_SOURCE = "assets/wildwood/audio/lava.mp3";
 export const SIGN_IN_MUSIC_SOURCE = "assets/wildwood/audio/signin.mp3";
 export const DEATH_SOUND_SOURCE = "assets/wildwood/audio/death.mp3";
+export const BOW_ATTACK_SOUND_SOURCE = "assets/wildwood/audio/bow-release.mp3";
+export const BOW_ATTACK_SOUND_GAIN = .22;
+export const BOW_ATTACK_SOUND_CLIP_SECONDS = .46;
+export const BOW_ATTACK_SOUND_RATE_MIN = .97;
+export const BOW_ATTACK_SOUND_RATE_MAX = 1.03;
+
+const BOW_ATTACK_SOUND_FADE_SECONDS = .09;
+const BOW_ATTACK_SOUND_ATTACK_SECONDS = .008;
+const BOW_ATTACK_SOUND_MIN_GAP_SECONDS = .055;
+const BOW_ATTACK_SOUND_MAX_VOICES = 3;
 
 type WebkitAudioWindow = Window & typeof globalThis & {
   webkitAudioContext?: typeof AudioContext;
@@ -25,7 +35,18 @@ export type MapMusicController = {
   syncMap(mapId: MapId): void;
   ensurePlaying(allowed: boolean): void;
   playDeathSound(): void;
+  playBowAttackSound(): void;
 };
+
+type BowAttackVoice = {
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+};
+
+export function bowAttackPlaybackRate(randomValue = Math.random()) {
+  const normalized = Number.isFinite(randomValue) ? Math.min(1, Math.max(0, randomValue)) : .5;
+  return BOW_ATTACK_SOUND_RATE_MIN + normalized * (BOW_ATTACK_SOUND_RATE_MAX - BOW_ATTACK_SOUND_RATE_MIN);
+}
 
 export function createMapMusicController(
   storageKey: string,
@@ -51,6 +72,28 @@ export function createMapMusicController(
   deathAudio.volume = volume;
   let audioContext: AudioContext | null = null;
   let gainNode: GainNode | null = null;
+  let bowAttackBuffer: AudioBuffer | null = null;
+  let bowAttackBufferPromise: Promise<AudioBuffer | null> | null = null;
+  let lastBowAttackAt = Number.NEGATIVE_INFINITY;
+  const activeBowAttackVoices: BowAttackVoice[] = [];
+
+  function preloadBowAttackSound(context: AudioContext) {
+    if (bowAttackBuffer) return Promise.resolve(bowAttackBuffer);
+    if (bowAttackBufferPromise) return bowAttackBufferPromise;
+    bowAttackBufferPromise = fetch(BOW_ATTACK_SOUND_SOURCE)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Bow attack audio request failed: ${response.status}`);
+        return response.arrayBuffer();
+      })
+      .then((encodedAudio) => context.decodeAudioData(encodedAudio))
+      .then((decodedAudio) => {
+        bowAttackBuffer = decodedAudio;
+        return decodedAudio;
+      })
+      .catch(() => null)
+      .finally(() => { bowAttackBufferPromise = null; });
+    return bowAttackBufferPromise;
+  }
 
   function ensureAudioGraph() {
     if (audioContext && gainNode) return audioContext;
@@ -99,7 +142,10 @@ export function createMapMusicController(
 
   function ensurePlaying(allowed: boolean) {
     const context = ensureAudioGraph();
-    if (context?.state === "suspended") void context.resume().catch(() => {});
+    if (context) {
+      if (context.state === "suspended") void context.resume().catch(() => {});
+      void preloadBowAttackSound(context);
+    }
     if (!allowed || volume <= 0 || !audio.paused) return;
     void audio.play().catch(() => {});
   }
@@ -112,6 +158,65 @@ export function createMapMusicController(
     void deathAudio.play().catch(() => {});
   }
 
+  function playBowAttackSound() {
+    if (volume <= 0) return;
+    const context = ensureAudioGraph();
+    if (!context || !gainNode) return;
+    if (context.state === "suspended") void context.resume().catch(() => {});
+    if (!bowAttackBuffer) {
+      void preloadBowAttackSound(context);
+      return;
+    }
+    const now = context.currentTime;
+    if (now - lastBowAttackAt < BOW_ATTACK_SOUND_MIN_GAP_SECONDS) return;
+    lastBowAttackAt = now;
+
+    while (activeBowAttackVoices.length >= BOW_ATTACK_SOUND_MAX_VOICES) {
+      const oldest = activeBowAttackVoices.shift();
+      if (!oldest) break;
+      try {
+        oldest.gain.gain.cancelScheduledValues(now);
+        oldest.gain.gain.setValueAtTime(BOW_ATTACK_SOUND_GAIN, now);
+        oldest.gain.gain.exponentialRampToValueAtTime(.0001, now + .02);
+        oldest.source.stop(now + .025);
+      } catch {}
+    }
+
+    const playbackRate = bowAttackPlaybackRate();
+    const sourceDuration = Math.min(BOW_ATTACK_SOUND_CLIP_SECONDS, bowAttackBuffer.duration);
+    if (sourceDuration <= 0) return;
+    const playbackDuration = sourceDuration / playbackRate;
+    const endAt = now + playbackDuration;
+    const fadeAt = Math.max(now + BOW_ATTACK_SOUND_ATTACK_SECONDS, endAt - BOW_ATTACK_SOUND_FADE_SECONDS);
+    const source = context.createBufferSource();
+    const voiceGain = context.createGain();
+    const voice: BowAttackVoice = { source, gain: voiceGain };
+    source.buffer = bowAttackBuffer;
+    source.playbackRate.value = playbackRate;
+    voiceGain.gain.setValueAtTime(.0001, now);
+    voiceGain.gain.linearRampToValueAtTime(BOW_ATTACK_SOUND_GAIN, now + BOW_ATTACK_SOUND_ATTACK_SECONDS);
+    voiceGain.gain.setValueAtTime(BOW_ATTACK_SOUND_GAIN, fadeAt);
+    voiceGain.gain.exponentialRampToValueAtTime(.0001, endAt);
+    source.connect(voiceGain);
+    voiceGain.connect(gainNode);
+    source.onended = () => {
+      const index = activeBowAttackVoices.indexOf(voice);
+      if (index >= 0) activeBowAttackVoices.splice(index, 1);
+      source.disconnect();
+      voiceGain.disconnect();
+    };
+    activeBowAttackVoices.push(voice);
+    try {
+      source.start(now, 0, sourceDuration);
+      source.stop(endAt + .02);
+    } catch {
+      source.onended = null;
+      activeBowAttackVoices.pop();
+      source.disconnect();
+      voiceGain.disconnect();
+    }
+  }
+
   return {
     audio,
     get volume() { return volume; },
@@ -119,5 +224,6 @@ export function createMapMusicController(
     syncMap,
     ensurePlaying,
     playDeathSound,
+    playBowAttackSound,
   };
 }

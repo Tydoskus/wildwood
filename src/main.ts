@@ -416,6 +416,7 @@ import {
     spawnBurst,
     spawnParticle,
     spawnDamageNumber,
+    playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
     setHitFlash: () => { flash = .22; },

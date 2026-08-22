@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.470": [
+    "Bow and Frost Bow attacks now play the new release sound exactly when arrows launch, with one sound per attack even for multishot.",
+    "Bow audio is professionally mixed with a short fade, subtle pitch variation, overlap limits, and the existing volume and mute control.",
+  ],
   "0.469": [
     "Successful enemy and boss item drops now appear as queued, glowing item reveals with the item sprite, name, quantity, and stats.",
     "Inventory item details now overlay bag slots without shifting the layout, while only the slot grid scrolls and its scrollbar stays hidden.",
