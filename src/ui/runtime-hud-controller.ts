@@ -2,11 +2,17 @@ import type { PlayerState, RuntimeDuelReplay, RuntimeDuelState } from "../game/r
 import { createDuelResultStatRow } from "./duel-result";
 import { renderPlayerHud } from "./hud";
 import { appendPlayerGenderIcon } from "./player-gender";
+import {
+  createItemDropReveal,
+  ITEM_DROP_REVEAL_DURATION_MS,
+  type ItemDropRevealDetails,
+} from "./item-drop-reveal";
 import type { PlayerGender } from "../../shared/player-gender";
 
 type RuntimeHudElements = {
   message: HTMLElement;
   pickupLog: HTMLElement;
+  itemDropReveal: HTMLElement;
   hpFill: HTMLElement;
   hpText: HTMLElement;
   playerName: HTMLElement;
@@ -54,6 +60,9 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   const { elements } = dependencies;
   let messageClock = 0;
   let nextHudUpdateAt = 0;
+  const itemDropQueue: ItemDropRevealDetails[] = [];
+  let itemDropActive = false;
+  let itemDropTimer: number | null = null;
 
   function showMessage(text: string, color = "#fff") {
     elements.message.textContent = text;
@@ -77,10 +86,44 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     setTimeout(() => entry.remove(), 2400);
   }
 
+  function showNextItemDrop() {
+    if (itemDropActive) return;
+    const details = itemDropQueue.shift();
+    if (!details) return;
+    itemDropActive = true;
+    const entry = createItemDropReveal(details);
+    elements.itemDropReveal.replaceChildren(entry);
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (itemDropTimer !== null) window.clearTimeout(itemDropTimer);
+      itemDropTimer = null;
+      entry.remove();
+      itemDropActive = false;
+      showNextItemDrop();
+    };
+    entry.addEventListener("animationend", (event) => {
+      if (event.target === entry) finish();
+    });
+    itemDropTimer = window.setTimeout(finish, ITEM_DROP_REVEAL_DURATION_MS + 150);
+  }
+
+  function showItemDrop(details: ItemDropRevealDetails) {
+    itemDropQueue.push(details);
+    showNextItemDrop();
+  }
+
   function clearTransientUi() {
     messageClock = 0;
     elements.message.style.opacity = "0";
     elements.pickupLog.replaceChildren();
+    itemDropQueue.length = 0;
+    itemDropActive = false;
+    if (itemDropTimer !== null) window.clearTimeout(itemDropTimer);
+    itemDropTimer = null;
+    elements.itemDropReveal.replaceChildren();
   }
 
   function showDuelResult(replay: RuntimeDuelReplay | null) {
@@ -189,6 +232,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   return {
     clearTransientUi,
     logPickup,
+    showItemDrop,
     setDuelCountdown,
     showDuelResult,
     showDuelResultUnavailable,

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.469": [
+    "Successful enemy and boss item drops now appear as queued, glowing item reveals with the item sprite, name, quantity, and stats.",
+    "Inventory item details now overlay bag slots without shifting the layout, while only the slot grid scrolls and its scrollbar stays hidden.",
+    "Functional UI text now follows an 11px readability floor with scalable type tokens and increased-contrast support, and every tab is 44px tall.",
+  ],
   "0.468": [
     "World chat history now remains available for 24 hours, with duel replays retained for matching chat entries.",
     "Toolbar press feedback no longer competes with the green open-window highlight.",

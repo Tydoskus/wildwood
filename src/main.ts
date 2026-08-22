@@ -7,6 +7,7 @@ import {
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
 import { FROST_ARMOR, FROST_BOW, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
@@ -1144,7 +1145,13 @@ import {
     renderInventory();
     const item = itemDefinition(itemId);
     const pickupColor = itemId === FROST_BOW || itemId === FROST_ARMOR ? "#2d92ff" : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
-    logPickup(`${item?.name ?? "ITEM"}${quantity > 1 ? ` ×${quantity}` : ""}`, pickupColor);
+    runtimeHud.showItemDrop({
+      artSource: itemPresentation(itemId)?.inventory.source ?? "",
+      color: pickupColor,
+      name: item?.name ?? "ITEM",
+      quantity,
+      stats: item?.stats ?? [],
+    });
   });
   refreshReconnectOverlay();
   updateDuelControls();

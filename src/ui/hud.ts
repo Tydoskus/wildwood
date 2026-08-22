@@ -247,6 +247,7 @@ export function renderInventoryView(
   }
 
   const selected = itemsById[inventory.selectedItemId];
+  elements.detail.closest(".bag-section")?.classList.toggle("has-detail", Boolean(selected));
   if (!selected) {
     elements.detail.classList.remove("has-selection");
     const prompt = document.createElement("div");
