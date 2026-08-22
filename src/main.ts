@@ -69,7 +69,6 @@ import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { isWeaponItem, itemDisplayName, itemMaxHealthMultiplier, itemRegenerationMultiplier, itemStats } from "../shared/items";
 import {
-  BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_ARMOR,
   MAX_PLAYER_STAT,
@@ -320,7 +319,7 @@ import {
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return false;
-      player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
+      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS);
       applyPlayerMaxHealthMultiplier(player, healthMultiplier());
       const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
@@ -339,8 +338,7 @@ import {
   const worldProgression = createWorldProgressionController({
     player,
     bootsPickup,
-    basePlayerSpeed: BASE_PLAYER_SPEED,
-    bootsSpeedBonus: BOOTS_SPEED_BONUS,
+    movementSpeedForBoots: (bootsEquipped) => progress.movementSpeedForEquipment(bootsEquipped),
     collectBoots: () => {
       inventory.itemIds = [...new Set([...inventory.itemIds, TRAILBLAZER_BOOTS])];
       inventory.equippedFeet = TRAILBLAZER_BOOTS;
@@ -966,7 +964,7 @@ import {
         inventory.selectedItemId = "";
         inventory.selectedItemLocation = "";
       }
-      player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
+      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS);
       applyPlayerMaxHealthMultiplier(player, healthMultiplier());
       renderInventory();
       saveProgress(true);

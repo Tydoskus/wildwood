@@ -176,7 +176,7 @@ export function createProfileWindowController(elements: {
 
   function beginDeveloperEdit() {
     if (!profileData || !api.isDeveloper()) return; const progress = profileData.progress;
-    elements.editNameInput.value = profileData.name; elements.editMaxHp.value = String(progress.maxHp); elements.editDamage.value = String(progress.damage); elements.editAttackRate.value = String(progress.attackRate); elements.editArmor.value = String(progress.armor); elements.editRegen.value = String(progress.regen); elements.editSpeed.value = String(progress.speed); elements.editAttackRange.value = String(progress.attackRange); elements.editProjectileSpeed.value = String(progress.projectileSpeed); elements.editProjectileCount.value = String(progress.projectileCount);
+    elements.editNameInput.value = profileData.name; elements.editMaxHp.value = String(progress.maxHp); elements.editDamage.value = String(progress.damage); elements.editAttackRate.value = String(progress.attackRate); elements.editArmor.value = String(progress.armor); elements.editRegen.value = String(progress.regen); elements.editSpeed.value = String(progress.speedOverride > 0 ? progress.speedOverride : progress.speed); elements.editAttackRange.value = String(progress.attackRange); elements.editProjectileSpeed.value = String(progress.projectileSpeed); elements.editProjectileCount.value = String(progress.projectileCount);
     elements.developerEdit.hidden = false; elements.developerEditButton.hidden = true;
   }
   function cancelDeveloperEdit() { elements.developerEdit.hidden = true; elements.developerEditButton.hidden = !profileData || !api.isDeveloper(); }

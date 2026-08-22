@@ -571,6 +571,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cosmeticFeet: __t.string(),
   cosmeticRightHand: __t.string(),
   cosmeticLeftHand: __t.string(),
+  speedOverride: __t.f32(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

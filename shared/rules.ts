@@ -7,6 +7,10 @@ export const PLAYER_SPAWN = { x: 360, y: 360 } as const;
 export const PLAYER_RADIUS = 17;
 export const PLAYER_BASE_HP = 100;
 export const PLAYER_SPEED = 180;
+export const BOOTS_SPEED_BONUS = 25;
+export const MOVE_SPEED_RESEARCH_BONUS_PER_RANK = .02;
+export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;
+export const MOVEMENT_SPEED_EPSILON = .01;
 export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
@@ -28,7 +32,6 @@ export {
   TRAILBLAZER_BOOTS,
   WOODEN_ARMOR,
 } from "./items";
-export const BOOTS_SPEED_BONUS = 25;
 export const SPIDER_REWARD_DAMAGE = 75_000;
 export const SPIDER_REWARD_HEALTH = 200_000;
 export const FROSTCLAW_REWARD_DAMAGE = 72_000_000;
@@ -52,9 +55,31 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 60;
+export const PROTOCOL_VERSION = 61;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 
 export const NAME_ADJECTIVES: readonly string[] = ["Mossy", "Bright", "Quiet", "Brave", "Dusky", "Lucky", "Wild", "Clever"];
 export const NAME_CREATURES: readonly string[] = ["Fox", "Owl", "Badger", "Hare", "Raven", "Wolf", "Deer", "Moth"];
+
+/** Server-owned base movement speed, including equipment or an explicit developer override. */
+export function playerBaseMovementSpeed(bootsEquipped: boolean, speedOverride = 0) {
+  const override = Number.isFinite(speedOverride)
+    ? Math.max(0, Math.min(MAX_MOVEMENT_SPEED_OVERRIDE, speedOverride))
+    : 0;
+  return override > 0 ? override : PLAYER_SPEED + (bootsEquipped ? BOOTS_SPEED_BONUS : 0);
+}
+
+export function movementSpeedMultiplier(moveSpeedRank: number) {
+  const rank = Number.isFinite(moveSpeedRank) ? Math.max(0, Math.floor(moveSpeedRank)) : 0;
+  return 1 + rank * MOVE_SPEED_RESEARCH_BONUS_PER_RANK;
+}
+
+export function effectivePlayerMovementSpeed(bootsEquipped: boolean, moveSpeedRank: number, speedOverride = 0) {
+  return playerBaseMovementSpeed(bootsEquipped, speedOverride) * movementSpeedMultiplier(moveSpeedRank);
+}
+
+export function movementSpeedsMatch(left: number | null | undefined, right: number | null | undefined) {
+  return Number.isFinite(left) && Number.isFinite(right) &&
+    Math.abs(Number(left) - Number(right)) < MOVEMENT_SPEED_EPSILON;
+}

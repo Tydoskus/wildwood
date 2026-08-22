@@ -5,6 +5,7 @@ import {
   MAX_ARMOR,
   MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
+  movementSpeedsMatch,
   PLAYER_SPEED,
 } from "../../../shared/rules";
 
@@ -21,6 +22,7 @@ export type PlayerProgress = {
   armor: number;
   regen: number;
   speed: number;
+  speedOverride: number;
   bootsCollected: boolean;
   inventoryJson: string;
   equippedHead: string;
@@ -41,7 +43,7 @@ export type PlayerProgress = {
   woodenArmorCount: number;
 };
 
-export type ProgressSave = Omit<PlayerProgress, "introComplete" | "desertUnlocked" | "snowlandsUnlocked" | "lavaUnlocked" | "bowCount" | "woodenArmorCount"> & { enemyKills: number };
+export type ProgressSave = Omit<PlayerProgress, "speedOverride" | "introComplete" | "desertUnlocked" | "snowlandsUnlocked" | "lavaUnlocked" | "bowCount" | "woodenArmorCount"> & { enemyKills: number };
 
 export function bounded(value: number, min: number, max: number, fallback: number) {
   return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
@@ -109,6 +111,7 @@ export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion:
 
 export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
   const epsilon = 0.0001;
+  const savedMovementBase = saved.speedOverride > 0 ? saved.speedOverride : saved.speed;
   return saved.maxHp >= pending.maxHp &&
     saved.damage >= pending.damage &&
     saved.attackRate <= pending.attackRate + epsilon &&
@@ -117,7 +120,7 @@ export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     Math.abs(saved.attackRange - pending.attackRange) <= epsilon &&
     saved.armor >= pending.armor &&
     saved.regen >= pending.regen &&
-    saved.speed >= pending.speed &&
+    movementSpeedsMatch(savedMovementBase, pending.speed) &&
     (!pending.bootsCollected || saved.bootsCollected) &&
     saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedChest === pending.equippedChest && saved.equippedFeet === pending.equippedFeet &&
     saved.equippedRightHand === pending.equippedRightHand && saved.equippedLeftHand === pending.equippedLeftHand &&

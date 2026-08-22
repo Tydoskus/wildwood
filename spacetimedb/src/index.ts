@@ -58,9 +58,9 @@ import {
   ATTACK_BALANCE_VERSION,
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
-  BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
+  effectivePlayerMovementSpeed,
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
@@ -68,8 +68,10 @@ import {
   MAP_DISPLAY_NAMES,
   MAP_IDS,
   MAX_ARMOR,
+  MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
+  movementSpeedsMatch,
   NAME_ADJECTIVES,
   NAME_CREATURES,
   PLAYER_BASE_HP,
@@ -77,6 +79,7 @@ import {
   PLAYER_RADIUS,
   PLAYER_SPAWN,
   PLAYER_SPEED,
+  playerBaseMovementSpeed,
   PROTOCOL_VERSION,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
@@ -132,7 +135,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 9;
+const MODULE_MIGRATION_VERSION = 10;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 8;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -394,6 +397,9 @@ const playerProgress = table(
     cosmeticFeet: t.string().default(""),
     cosmeticRightHand: t.string().default(""),
     cosmeticLeftHand: t.string().default(""),
+    // Zero derives speed from stat equipment. Positive values are durable,
+    // developer-authored base-speed overrides and cannot be supplied by saves.
+    speedOverride: t.f32().default(0),
   },
 );
 
@@ -1216,6 +1222,7 @@ function defaultPlayerProgress(identity: any) {
     cosmeticFeet: "",
     cosmeticRightHand: "",
     cosmeticLeftHand: "",
+    speedOverride: 0,
   };
 }
 
@@ -1330,6 +1337,31 @@ function runPendingModuleMigrations(ctx: any) {
       if (active.paused) cancelActiveItemUpgrade(ctx, active);
     }
   }
+  if (currentVersion < 10) {
+    // Preserve obvious developer-authored custom speeds while normalizing
+    // historical base values that predate the current 180/+25 equipment rule.
+    const legacyDerivedSpeeds = [175, 180, 200, 205];
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const equipmentSpeed = playerBaseMovementSpeed(equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS);
+      const storedSpeed = Number(progress.speed);
+      const existingOverride = Number(progress.speedOverride ?? 0);
+      const isLegacyDerivedSpeed = legacyDerivedSpeeds.some((speed) => movementSpeedsMatch(storedSpeed, speed));
+      const speedOverride = existingOverride > 0
+        ? Math.min(MAX_MOVEMENT_SPEED_OVERRIDE, existingOverride)
+        : Number.isFinite(storedSpeed) && storedSpeed > 0 && !isLegacyDerivedSpeed
+          ? Math.min(MAX_MOVEMENT_SPEED_OVERRIDE, storedSpeed)
+          : 0;
+      const nextProgress = { ...progress, speed: equipmentSpeed, speedOverride };
+      ctx.db.playerProgress.identity.update(nextProgress);
+      const active = ctx.db.player.identity.find(progress.identity);
+      if (active) {
+        ctx.db.player.identity.update({
+          ...active,
+          speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
+        });
+      }
+    }
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -1371,7 +1403,16 @@ function completeActiveResearch(ctx: any, active: any) {
     removeResearchCompletionSchedules(ctx, active.identity);
     return false;
   }
-  ctx.db.playerResearch.identity.update({ ...research, [active.researchId]: active.targetRank });
+  const nextResearch = { ...research, [active.researchId]: active.targetRank };
+  ctx.db.playerResearch.identity.update(nextResearch);
+  const progress = ctx.db.playerProgress.identity.find(active.identity);
+  const player = ctx.db.player.identity.find(active.identity);
+  if (progress && player) {
+    ctx.db.player.identity.update({
+      ...player,
+      speed: effectiveMovementSpeedForProgress(ctx, progress, nextResearch),
+    });
+  }
   ctx.db.activeResearch.identity.delete(active.identity);
   removeResearchCompletionSchedules(ctx, active.identity);
   return true;
@@ -1454,8 +1495,12 @@ function earlierTimestamp(first: Timestamp, second: Timestamp) {
   return first.microsSinceUnixEpoch <= second.microsSinceUnixEpoch ? first : second;
 }
 
-function speedForBoots(bootsEquipped: boolean) {
-  return PLAYER_SPEED + (bootsEquipped ? BOOTS_SPEED_BONUS : 0);
+function effectiveMovementSpeedForProgress(ctx: any, progress: any, research?: any) {
+  return effectivePlayerMovementSpeed(
+    equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS,
+    (research ?? ctx.db.playerResearch.identity.find(progress.identity))?.moveSpeed ?? 0,
+    progress.speedOverride ?? 0,
+  );
 }
 
 function markAttackBalanceCurrent(ctx: any) {
@@ -2120,6 +2165,7 @@ function hasFreshProgress(progress: any) {
     progress.armor === defaultProgress.armor &&
     progress.regen === defaultProgress.regen &&
     progress.speed === defaultProgress.speed &&
+    (progress.speedOverride ?? 0) === 0 &&
     progress.bootsCollected === defaultProgress.bootsCollected &&
     progress.inventoryJson === defaultProgress.inventoryJson &&
     progress.equippedHead === defaultProgress.equippedHead &&
@@ -2254,7 +2300,7 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
     ctx.db.player.identity.update({
       ...active,
       ...powerFieldsForProgress(progress),
-      speed: progress.speed,
+      speed: effectiveMovementSpeedForProgress(ctx, progress),
       ...equipmentPresentationForProgress(progress),
     });
   }
@@ -3295,7 +3341,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, grantBetaTesterGoldenHelmet));
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
-    const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
+    const speed = playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
@@ -3340,6 +3386,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         mapId: canonicalMapId(existing.mapId),
         ...playerZone(existing.x, existing.y),
         ...powerFieldsForProgress(existingProgress),
+        speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
         moving: false,
         ...equipmentPresentation,
         isVisible: visibleOnEntry,
@@ -3373,6 +3420,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       facing: Number.isFinite(existing.facing) ? existing.facing : 0,
       moving: false,
       ...powerFieldsForProgress(existingProgress),
+      speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
       protocolVersion: session.protocolVersion,
       controllerTabId: normalizedTabId,
       lastInputAt: ctx.timestamp,
@@ -3409,7 +3457,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     maxHp: existingProgress.maxHp,
     ...powerFieldsForProgress(existingProgress),
     // Cosmetic boots never affect movement stats.
-    speed: speedForBoots(equippedFeetForProgress(existingProgress) === TRAILBLAZER_BOOTS),
+    speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
@@ -4091,7 +4139,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (activePlayer) {
       ctx.db.player.identity.update({
         ...activePlayer,
-        speed: speedForBoots(nextProgress.equippedFeet === TRAILBLAZER_BOOTS),
+        speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         ...powerFieldsForProgress(nextProgress),
         ...equipmentPresentationForProgress(nextProgress),
       });
@@ -4463,6 +4511,8 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       }
       return value;
     };
+    const requestedSpeed = bounded(update.speed, 0, MAX_MOVEMENT_SPEED_OVERRIDE, "Move speed");
+    const equipmentSpeed = playerBaseMovementSpeed(equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS);
     const nextProgress = {
       ...progress,
       maxHp: bounded(update.maxHp, 1, MAX_PLAYER_STAT, "Max HP"),
@@ -4473,7 +4523,8 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       attackRange: bounded(update.attackRange, 1, 5_000, "Attack range"),
       armor: bounded(update.armor, 0, MAX_ARMOR, "Armor"),
       regen: bounded(update.regen, 0, MAX_PLAYER_STAT, "Regen"),
-      speed: bounded(update.speed, 1, 2_000, "Move speed"),
+      speed: equipmentSpeed,
+      speedOverride: requestedSpeed === 0 || movementSpeedsMatch(requestedSpeed, equipmentSpeed) ? 0 : requestedSpeed,
     };
     ctx.db.playerProfile.identity.update({ ...profile, displayName });
     ctx.db.playerProgress.identity.update(nextProgress);
@@ -4481,7 +4532,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
     if (active) {
       ctx.db.player.identity.update({
         ...active,
-        speed: nextProgress.speed,
+        speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         ...powerFieldsForProgress(nextProgress),
       });
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, active));
@@ -4577,7 +4628,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRange: DEFAULT_ATTACK_RANGE,
       armor: Math.max(base.armor, normalized.armor),
       regen: Math.max(base.regen, normalized.regen),
-      speed: speedForBoots(equippedFeet === TRAILBLAZER_BOOTS),
+      speed: playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS),
+      speedOverride: base.speedOverride ?? 0,
       bootsCollected,
       inventoryJson,
       equippedHead,
@@ -4614,7 +4666,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     }
     const presentation = {
       ...powerFieldsForProgress(next),
-      speed: next.speed,
+      speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     };
     if (
@@ -4781,7 +4833,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     ctx.db.player.identity.update({
       ...activePlayer,
       ...powerFieldsForProgress(next),
-      speed: next.speed,
+      speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     });
   },
@@ -5090,8 +5142,8 @@ export const setSpeed = spacetimedb.reducer(
       ? equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS
       : current.feetItem === TRAILBLAZER_BOOTS;
     const moveSpeedRank = research?.moveSpeed ?? 0;
-    const expectedSpeed = speedForBoots(bootsEquipped) * (1 + moveSpeedRank * 0.02);
-    if (Math.abs(speed - expectedSpeed) >= 0.01) throw new SenderError("Unsupported player speed");
+    const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0);
+    if (!movementSpeedsMatch(speed, expectedSpeed)) throw new SenderError("Unsupported player speed");
 
     ctx.db.player.identity.update({
       ...current,

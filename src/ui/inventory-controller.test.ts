@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, STARTER_STONE } from "../game/inventory";
 import { inventoryMoveActions } from "./hud";
-import { clearInventorySelection, nextInventorySelection } from "./inventory-controller";
+import { clearInventorySelection, inventorySelectionAfterMove, nextInventorySelection } from "./inventory-controller";
 
 describe("inventory selection", () => {
   it("unselects an item when tapped twice", () => {
@@ -16,6 +16,14 @@ describe("inventory selection", () => {
     const selection = { selectedItemId: STARTER_BOW, selectedItemLocation: "BAG" as const };
     clearInventorySelection(selection);
     expect(selection).toEqual({ selectedItemId: "", selectedItemLocation: "" });
+  });
+
+  it("clears selection after an item is equipped", () => {
+    expect(inventorySelectionAfterMove(STARTER_BOW, "RIGHT_HAND")).toEqual({ itemId: "", location: "" });
+  });
+
+  it("keeps an unequipped item selected after returning it to the bag", () => {
+    expect(inventorySelectionAfterMove(STARTER_BOW, "BAG")).toEqual({ itemId: STARTER_BOW, location: "BAG" });
   });
 });
 

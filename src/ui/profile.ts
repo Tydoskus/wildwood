@@ -43,13 +43,14 @@ export function effectiveProfileStats(
   const regenEquipmentMultiplier = itemRegenerationMultiplier(progress.equippedChest, 1, chestUpgradeLevel);
   const regenTotalMultiplier = itemRegenerationMultiplier(progress.equippedChest, regenResearchMultiplier, chestUpgradeLevel);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
+  const baseSpeed = progress.speedOverride > 0 ? progress.speedOverride : progress.speed;
   return {
     maxHp: progress.maxHp * healthEquipmentMultiplier,
     damage: progress.damage * damageTotalMultiplier,
     attackRate: progress.attackRate / attackSpeedMultiplier,
     armor: progress.armor * armorMultiplier,
     regen: progress.regen * regenTotalMultiplier,
-    speed: progress.speed * speedMultiplier,
+    speed: baseSpeed * speedMultiplier,
     multipliers: {
       healthResearch: healthResearchMultiplier,
       healthEquipment: healthEquipmentMultiplier,
@@ -90,7 +91,7 @@ export function renderProfileStats(
     { kind: "attack", label: "ATTACK SPEED", value: `${(1 / effective.attackRate).toFixed(2)}/s${effective.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: `BASE: ${(1 / progress.attackRate).toFixed(2)}/s${equipmentModifier(effective.multipliers.attackSpeed, effective.multipliers.attackSpeed)}` },
     { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString(), modifier: modifier(progress.attackRange) },
     { kind: "regen", label: "REGEN", value: `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`, modifier: `${modifier(progress.regen, ranks.regeneration, 2)}${equipmentModifier(effective.multipliers.regenEquipment, effective.multipliers.regenTotal)}` },
-    { kind: "speed", label: "MOVE SPEED", value: Math.round(effective.speed).toLocaleString(), modifier: modifier(progress.speed, ranks.moveSpeed, 2) },
+    { kind: "speed", label: "MOVE SPEED", value: Math.round(effective.speed).toLocaleString(), modifier: modifier(progress.speedOverride > 0 ? progress.speedOverride : progress.speed, ranks.moveSpeed, 2) },
   ];
   const statGain = ranks.foraging + ranks.prosperity * 2;
   stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${statGain}%`, modifier: `BASE: 0% · +${statGain}% · ×${multiplier(statGain, 1).toFixed(2)}` });

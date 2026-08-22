@@ -378,7 +378,6 @@
   .inventory-item.is-filled { border-color: rgba(213,154,58,.58); background: linear-gradient(#302719, #17130d); }
   .inventory-item.is-filled, .equipment-slot.is-equipped { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .inventory-item.is-selected { z-index: 1; border-color: #f0b044; background: linear-gradient(#57411e, #2c2112); box-shadow: 0 0 0 2px rgba(255,220,142,.55), inset 0 -3px 0 rgba(0,0,0,.2); }
-  .inventory-item.is-drop-target { border-color: #d79a32; border-style: dashed; background: #332914; cursor: pointer; }
   .inventory-item:hover, .inventory-item:focus-visible { border-color: #8d7655; outline: 2px solid rgba(111,88,53,.2); outline-offset: 1px; }
   .inventory-item-art-wrap { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; place-items: center; pointer-events: none; }
   .inventory-item-art { display: block; width: 100%; height: 100%; background-position: center; background-size: contain; background-repeat: no-repeat; image-rendering: pixelated; }

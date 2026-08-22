@@ -23,6 +23,7 @@ import { remoteEquipmentFromRow, type RemoteEquipment } from "./coop/services/re
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
 import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
 import { connectionGateState } from "./coop/services/connection-gate-state";
+import { createSpeedSyncTracker } from "./coop/services/speed-sync";
 import {
   createRemoteBossAttackState,
   remoteBossAttackFrame,
@@ -472,7 +473,7 @@ let localProgress: PlayerProgress | null = null;
 let localResearch: PlayerResearch = createEmptyResearchRanks();
 let localActiveResearch: ActiveResearch | null = null;
 let localActiveItemUpgrade: ActiveItemUpgrade | null = null;
-let lastSpeedSent: number | null = null;
+const speedSyncTracker = createSpeedSyncTracker();
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
 let changeListener: (() => void) | null = null;
@@ -620,7 +621,7 @@ function handleReducerFailure(action: string, error: unknown) {
   onChange?.();
 }
 
-function sendReducer(action: string, reducer: () => unknown, onRejected?: () => void) {
+function sendReducer(action: string, reducer: () => unknown, onRejected?: () => void, onAccepted?: () => void) {
   if (protocolBlocked || worldEntryBlocked) return;
   try {
     const startedAt = performance.now();
@@ -628,6 +629,7 @@ function sendReducer(action: string, reducer: () => unknown, onRejected?: () => 
     if (measureLatency) lastLatencyProbeStartedAt = startedAt;
     void Promise.resolve(reducer())
       .then(() => {
+        onAccepted?.();
         if (measureLatency) recordLatency(startedAt);
       })
       .catch((error) => {
@@ -1183,6 +1185,7 @@ function upsertPlayer(row: RemoteEquipment & {
 }) {
   const id = row.identity.toHexString();
   if (id === localIdentity) {
+    speedSyncTracker.observe(row.speed);
     const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
     const firstLocalState = localState === null;
     const presenceChanged = localPresenceVisible !== row.isVisible;
@@ -1558,7 +1561,7 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   onChange?.();
 }
 
-function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lavaUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand"> & { lavaUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number; cosmeticHead?: string; cosmeticChest?: string; cosmeticFeet?: string; cosmeticRightHand?: string; cosmeticLeftHand?: string }) {
+function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "speedOverride" | "lavaUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand"> & { speedOverride?: number; lavaUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number; cosmeticHead?: string; cosmeticChest?: string; cosmeticFeet?: string; cosmeticRightHand?: string; cosmeticLeftHand?: string }) {
   const id = row.identity.toHexString();
   const progress = {
     maxHp: row.maxHp,
@@ -1570,6 +1573,7 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lava
     armor: row.armor,
     regen: row.regen,
     speed: row.speed,
+    speedOverride: Math.max(0, row.speedOverride ?? 0),
     bootsCollected: row.bootsCollected,
     inventoryJson: row.inventoryJson,
     equippedHead: row.equippedHead,
@@ -2630,7 +2634,7 @@ function connect() {
         localActiveResearch = null;
         localActiveItemUpgrade = null;
       }
-      lastSpeedSent = null;
+      speedSyncTracker.reset();
       lastDuelPulseAt = 0;
       clearRealtimeCaches();
       if (!signedIn) {
@@ -2866,7 +2870,7 @@ function connect() {
       nextPositionSequence = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
-      lastSpeedSent = null;
+      speedSyncTracker.reset();
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
@@ -2892,7 +2896,7 @@ function connect() {
       nextPositionSequence = 0;
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
-      lastSpeedSent = null;
+      speedSyncTracker.reset();
       lastDuelPulseAt = 0;
       worldEntryPromise = null;
       worldEntryGeneration = 0;
@@ -3544,9 +3548,13 @@ export const wildwoodCoop = {
     sendReducer("duel pulse", () => connection?.reducers.pulseDuel({}));
   },
   syncSpeed(speed: number) {
-    if (protocolBlocked || !connection || !Number.isFinite(speed) || speed === lastSpeedSent) return;
-    lastSpeedSent = speed;
-    sendReducer("speed sync", () => connection?.reducers.setSpeed({ speed }));
+    if (protocolBlocked || worldEntryBlocked || !connection || !speedSyncTracker.begin(speed, performance.now())) return;
+    sendReducer(
+      "speed sync",
+      () => connection?.reducers.setSpeed({ speed }),
+      () => speedSyncTracker.reject(speed, performance.now()),
+      () => speedSyncTracker.accept(speed),
+    );
   },
   syncMovementState(x: number, y: number, dx: number, dy: number, inputKind: MovementInputKind = "keyboard", force = false, interestArea?: PlayerInterestArea) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;

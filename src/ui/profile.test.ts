@@ -14,6 +14,7 @@ const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress =>
   armor: 10,
   regen: 2,
   speed: 190,
+  speedOverride: 0,
   bootsCollected: false,
   inventoryJson: "[]",
   equippedHead: "",
@@ -52,6 +53,11 @@ describe("profile presence", () => {
 });
 
 describe("effective profile equipment stats", () => {
+  it("applies Move Speed research to a developer base-speed override", () => {
+    const research = { ...createEmptyResearchRanks(), moveSpeed: 15 };
+    expect(effectiveProfileStats({ ...progress(), speedOverride: 262.5 }, research).speed).toBeCloseTo(341.25);
+  });
+
   it("ignores cosmetic overrides when calculating stats", () => {
     const cosmeticOnly = { ...progress(), cosmeticRightHand: FROST_BOW, cosmeticChest: FROST_ARMOR };
     const stats = effectiveProfileStats(cosmeticOnly);

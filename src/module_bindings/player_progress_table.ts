@@ -39,4 +39,5 @@ export default __t.row({
   cosmeticFeet: __t.string().name("cosmetic_feet"),
   cosmeticRightHand: __t.string().name("cosmetic_right_hand"),
   cosmeticLeftHand: __t.string().name("cosmetic_left_hand"),
+  speedOverride: __t.f32().name("speed_override"),
 });

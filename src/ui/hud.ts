@@ -271,10 +271,9 @@ export function renderInventoryView(
     } else {
       const canMoveSelectedToBag = Boolean(inventory.selectedItemId && inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG");
       button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}: clear selection`);
-      button.classList.toggle("is-drop-target", canMoveSelectedToBag);
       const empty = document.createElement("span");
       empty.className = "inventory-item-empty-mark";
-      empty.textContent = canMoveSelectedToBag ? "↓" : "";
+      empty.textContent = "";
       button.append(empty);
       button.addEventListener("click", () => {
         if (canMoveSelectedToBag) actions.onMove(inventory.selectedItemId, "BAG");

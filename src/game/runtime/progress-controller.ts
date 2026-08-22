@@ -5,13 +5,14 @@ import type { PlayerState } from "./types";
 import { setPlayerBaseMaxHealth } from "./player-health";
 import type { PlayerProgress, ProgressSave } from "../../coop/services/progress";
 import {
-  BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
+  MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_ARMOR,
   MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP,
   PLAYER_SPEED,
+  playerBaseMovementSpeed,
 } from "../../../shared/rules";
 
 type Inventory = InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
@@ -46,6 +47,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
   let waitingForFreshStart = false;
   let startupKind: "new" | "returning" | null = null;
   let lifetimeKillsIdentity = "";
+  let movementSpeedOverride = 0;
 
   function save(immediate = false) {
     const { player, inventory, bootsPickup } = dependencies;
@@ -87,8 +89,11 @@ export function createProgressController(dependencies: ProgressDependencies) {
 
   function load() {
     const progressIdentity = dependencies.localIdentity();
-    if (progressLoaded && progressLoadedIdentity === progressIdentity) return;
     const saved = dependencies.getSavedProgress();
+    if (progressLoaded && progressLoadedIdentity === progressIdentity) {
+      if (saved) applyMovementSpeed(saved, dependencies.inventory.equippedFeet === TRAILBLAZER_BOOTS);
+      return;
+    }
     if (!saved) return;
     syncLifetimeKills(progressIdentity);
 
@@ -153,10 +158,17 @@ export function createProgressController(dependencies: ProgressDependencies) {
     inventory.cosmeticRightHand = savedInventory.cosmeticRightHand;
     inventory.cosmeticLeftHand = savedInventory.cosmeticLeftHand;
     setPlayerBaseMaxHealth(player, player.baseMaxHp, dependencies.healthMultiplier(), true);
-    player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? PLAYER_SPEED + BOOTS_SPEED_BONUS : PLAYER_SPEED;
+    applyMovementSpeed(source, inventory.equippedFeet === TRAILBLAZER_BOOTS);
     inventory.selectedItemId = "";
     inventory.selectedItemLocation = "";
     dependencies.renderInventory();
+  }
+
+  function applyMovementSpeed(source: Partial<PlayerProgress>, bootsEquipped: boolean) {
+    movementSpeedOverride = Number.isFinite(source.speedOverride) && Number(source.speedOverride) > 0
+      ? clamp(Number(source.speedOverride), 1, MAX_MOVEMENT_SPEED_OVERRIDE)
+      : 0;
+    dependencies.player.speed = playerBaseMovementSpeed(bootsEquipped, movementSpeedOverride);
   }
 
   return {
@@ -169,10 +181,12 @@ export function createProgressController(dependencies: ProgressDependencies) {
       progressLoadedIdentity = "";
       waitingForFreshStart = true;
       startupKind = null;
+      movementSpeedOverride = 0;
     },
     save,
     startupKind: () => startupKind,
     syncLifetimeKills,
+    movementSpeedForEquipment: (bootsEquipped: boolean) => playerBaseMovementSpeed(bootsEquipped, movementSpeedOverride),
   };
 }
 
@@ -201,5 +215,6 @@ function isDefaultProgress(progress: Partial<PlayerProgress>) {
     progress.armor === 0 &&
     progress.regen === 0 &&
     progress.speed === PLAYER_SPEED &&
+    (progress.speedOverride ?? 0) === 0 &&
     progress.bootsCollected === false;
 }

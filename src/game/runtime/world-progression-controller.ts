@@ -4,8 +4,7 @@ type BootsPickup = { x: number; y: number; r: number; collected: boolean };
 export function createWorldProgressionController(hooks: {
   player: Player;
   bootsPickup: BootsPickup;
-  basePlayerSpeed: number;
-  bootsSpeedBonus: number;
+  movementSpeedForBoots: (bootsEquipped: boolean) => number;
   collectBoots: () => void;
   saveProgress: () => void;
   renderInventory: () => void;
@@ -30,7 +29,7 @@ export function createWorldProgressionController(hooks: {
     if (dx * dx + dy * dy > reach * reach) return;
     bootsPickup.collected = true;
     hooks.collectBoots();
-    player.speed = hooks.basePlayerSpeed + hooks.bootsSpeedBonus;
+    player.speed = hooks.movementSpeedForBoots(true);
     hooks.saveProgress();
     hooks.renderInventory();
     hooks.pause();
