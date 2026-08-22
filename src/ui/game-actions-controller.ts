@@ -43,6 +43,7 @@ type GameActionsDependencies = {
   elements: WindowActionsElements;
   inventory: InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
   closeCompetingWindows: () => void;
+  minimizeChat: () => void;
   renderInventory: () => void;
   logPickup: (message: string, color: string) => void;
   leaveDuelResult: () => void;
@@ -132,6 +133,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   elements.settingsButton.addEventListener("click", () => {
     const opening = elements.settingsPanel.hidden;
+    if (opening) dependencies.minimizeChat();
     elements.settingsPanel.hidden = !opening;
     closeInventory();
     elements.settingsButton.setAttribute("aria-expanded", String(opening));
@@ -141,6 +143,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   elements.inventoryButton.addEventListener("click", () => {
     const opening = elements.inventoryPanel.hidden;
+    if (opening) dependencies.minimizeChat();
     elements.inventoryPanel.hidden = !opening;
     closeSettings();
     elements.inventoryButton.setAttribute("aria-expanded", String(opening));

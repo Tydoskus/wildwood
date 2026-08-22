@@ -29,5 +29,10 @@ export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop"
     window.setInterval(chat.refresh, 1_000);
   }
 
-  return { init, refresh: chat.refresh };
+  return {
+    init,
+    refresh: chat.refresh,
+    minimize: chat.minimize,
+    isMaximized: chat.isMaximized,
+  };
 }

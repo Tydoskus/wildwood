@@ -304,5 +304,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     refresh();
   }
 
-  return { init, refresh };
+  return {
+    init,
+    refresh,
+    minimize: () => { if (large) setLarge(false); },
+    isMaximized: () => large,
+  };
 }

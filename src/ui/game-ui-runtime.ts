@@ -55,19 +55,19 @@ export function createGameUiRuntime(d: Record<string, any>) {
   const closeLeaderboard = () => leaderboard.close();
   techTree = createTechTreeController({ button: e.techTreeBtn, notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
     researchRanks: d.researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), showMessage: d.showMessage,
-    beforeOpen: () => { e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); closeLeaderboard(); devPanel.close(); }, nowMs: () => Date.now(),
+    beforeOpen: () => { d.minimizeChat?.(); e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); closeLeaderboard(); devPanel.close(); }, nowMs: () => Date.now(),
   });
   leaderboard = createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, {
     entries: () => coop?.leaderboardEntries?.() ?? [], loadSnapshot: async () => coop?.loadLeaderboardSnapshot?.() ?? [], localIdentity: () => coop?.localIdentity?.() || "", isDeveloper: isDeveloperIdentity,
     paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => d.paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0), drawPodiumCharacter: d.drawPodiumCharacter ?? (() => undefined), openProfile: (identity: string, name: string) => { void d.profileWindow.open(identity, name); },
-    beforeOpen: () => { devPanel.close(); techTree.close(); e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); },
+    beforeOpen: () => { d.minimizeChat?.(); devPanel.close(); techTree.close(); e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); },
   });
   devPanel = createDevPanelController({
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), getPresenceVisible: () => coop?.developerPresenceVisible?.() === true, setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible), getBugReports: () => coop?.bugReportEntries?.() ?? [], deleteBugReport: (id: bigint) => coop?.deleteBugReport?.(id), getMetrics: d.getMetrics,
     getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: VIRTUAL_PLAYER_MOVEMENT_HZ, saveIntervalMs: VIRTUAL_PLAYER_SAVE_INTERVAL_MS },
     startVirtualPlayers: (count: number) => coop?.startVirtualPlayers?.(count),
     stopVirtualPlayers: () => coop?.stopVirtualPlayers?.(),
-    closeCompetingWindows: () => { e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); closeLeaderboard(); techTree.close(); }, showMessage: d.showMessage,
+    closeCompetingWindows: () => { d.minimizeChat?.(); e.settingsPanel.hidden = true; e.inventoryPanel.hidden = true; e.settingsBtn.setAttribute("aria-expanded", "false"); e.inventoryBtn.setAttribute("aria-expanded", "false"); closeLeaderboard(); techTree.close(); }, showMessage: d.showMessage,
   });
   const runtimeHud = createRuntimeHudController({
     elements: { message: e.messageEl, pickupLog: e.pickupLog, itemDropReveal: e.itemDropReveal, hpFill: e.hpFill, hpText: e.hpText, playerName: e.playerNameEl, playerPower: e.playerPowerEl, coopStatus: e.coopStatusEl, playerIcon: e.playerHudProfileIcon, duelControls: e.duelControls, duelStatus: e.duelStatusEl, duelRequest: e.duelRequestBtn, duelAccept: e.duelAcceptBtn, duelCountdown: e.duelCountdownEl, duelResult: e.duelResultEl, duelResultTitle: e.duelResultTitle, duelResultStats: e.duelResultStats, watchDuelReplay: e.watchDuelReplayBtn },
@@ -140,6 +140,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     },
     inventory: d.inventory,
     closeCompetingWindows: d.closeCompetingWindows,
+    minimizeChat: d.minimizeChat,
     renderInventory: d.renderInventory,
     logPickup: d.logPickup,
     leaveDuelResult: d.leaveDuelResult,

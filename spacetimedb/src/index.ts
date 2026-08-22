@@ -132,7 +132,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 8;
+const MODULE_MIGRATION_VERSION = 9;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 8;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -458,8 +458,9 @@ const playerItemUpgrade = table(
   },
 );
 
-// A paused job keeps its remaining duration while its item is back in the
-// player's inventory. A running job owns the item until it completes.
+// A running job owns the item until it completes or is canceled. The paused
+// and remaining fields stay for additive-schema compatibility with v0.476;
+// new jobs never enter a paused state.
 const activeItemUpgrade = table(
   { public: true },
   {
@@ -1320,6 +1321,13 @@ function runPendingModuleMigrations(ctx: any) {
         ...normalizedProgress,
         inventoryJson: JSON.stringify([...new Set(inventoryForProgress(normalizedProgress))]),
       });
+    }
+  }
+  if (currentVersion < 9) {
+    // v0.476 briefly supported paused upgrades. Cancellation now forfeits the
+    // unfinished timer, so return any item left in that legacy paused state.
+    for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
+      if (active.paused) cancelActiveItemUpgrade(ctx, active);
     }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
@@ -2429,6 +2437,13 @@ function completeActiveItemUpgrade(ctx: any, active: any) {
   removeItemUpgradeCompletionSchedules(ctx, active.identity);
 }
 
+function cancelActiveItemUpgrade(ctx: any, active: any) {
+  const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
+  writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
+  ctx.db.activeItemUpgrade.identity.delete(active.identity);
+  removeItemUpgradeCompletionSchedules(ctx, active.identity);
+}
+
 function reconcileActiveItemUpgrade(ctx: any, active: any) {
   if (!isUpgradeableItem(active.itemId) || active.currentLevel !== itemUpgradeLevelFor(ctx, active.identity, active.itemId) || active.targetLevel !== active.currentLevel + 1) {
     const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
@@ -2438,7 +2453,7 @@ function reconcileActiveItemUpgrade(ctx: any, active: any) {
     return;
   }
   if (active.paused) {
-    removeItemUpgradeCompletionSchedules(ctx, active.identity);
+    cancelActiveItemUpgrade(ctx, active);
     return;
   }
   if (ctx.timestamp.microsSinceUnixEpoch >= active.completesAt.microsSinceUnixEpoch) {
@@ -4657,20 +4672,14 @@ export const startItemUpgrade = spacetimedb.reducer(
     const existing = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
     if (existing) reconcileActiveItemUpgrade(ctx, existing);
     const active = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
-    if (active && !active.paused) throw new SenderError("An item is already being upgraded.");
-    if (active && active.itemId !== canonical) throw new SenderError("Resume your paused upgrade first.");
+    if (active) throw new SenderError("An item is already being upgraded.");
 
     const progress = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
     if (!progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
     const currentLevel = itemUpgradeLevelFor(ctx, ctx.sender, canonical);
     if (currentLevel >= MAX_ITEM_UPGRADE_LEVEL) throw new SenderError("That item is already +10.");
-    if (active && (active.currentLevel !== currentLevel || active.targetLevel !== currentLevel + 1)) {
-      throw new SenderError("That paused upgrade is no longer valid.");
-    }
 
-    const durationMicros = active
-      ? active.remainingMicros
-      : BigInt(itemUpgradeDurationMs(currentLevel)) * 1_000n;
+    const durationMicros = BigInt(itemUpgradeDurationMs(currentLevel)) * 1_000n;
     const safeDurationMicros = durationMicros > 0n ? durationMicros : 1n;
     const completesAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch + safeDurationMicros);
     const nextActive = {
@@ -4683,14 +4692,13 @@ export const startItemUpgrade = spacetimedb.reducer(
       paused: false,
       remainingMicros: safeDurationMicros,
     };
-    if (active) ctx.db.activeItemUpgrade.identity.update(nextActive);
-    else ctx.db.activeItemUpgrade.insert(nextActive);
+    ctx.db.activeItemUpgrade.insert(nextActive);
     writeProgressAndPresentation(ctx, removeItemFromProgress(progress, canonical));
     ensureItemUpgradeCompletionSchedule(ctx, nextActive);
   },
 );
 
-export const pauseItemUpgrade = spacetimedb.reducer(
+export const cancelItemUpgrade = spacetimedb.reducer(
   {},
   (ctx) => {
     requireControllingPlayer(ctx);
@@ -4699,21 +4707,7 @@ export const pauseItemUpgrade = spacetimedb.reducer(
     reconcileActiveItemUpgrade(ctx, existing);
     const active = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
     if (!active) return;
-    if (active.paused) return;
-    const remainingMicros = active.completesAt.microsSinceUnixEpoch - ctx.timestamp.microsSinceUnixEpoch;
-    if (remainingMicros <= 0n) {
-      completeActiveItemUpgrade(ctx, active);
-      return;
-    }
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
-    writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
-    ctx.db.activeItemUpgrade.identity.update({
-      ...active,
-      paused: true,
-      remainingMicros,
-      completesAt: ctx.timestamp,
-    });
-    removeItemUpgradeCompletionSchedules(ctx, ctx.sender);
+    cancelActiveItemUpgrade(ctx, active);
   },
 );
 

@@ -845,6 +845,8 @@ import {
     }
   }).observe(inventoryCharacterCanvas);
 
+  let minimizeMaximizedChat = () => {};
+
   const techTree = createTechTreePanel({
     e: gameElements,
     researchRanks,
@@ -852,6 +854,7 @@ import {
     startResearch: async (id: ResearchId) => coop?.startResearch?.(id),
     showMessage,
     beforeOpen: () => {
+      minimizeMaximizedChat();
       upgradeBenchController?.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
@@ -871,6 +874,7 @@ import {
     drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
     beforeOpen: () => {
+      minimizeMaximizedChat();
       upgradeBenchController?.close();
       devPanel.close();
       techTree.close();
@@ -899,6 +903,7 @@ import {
       subscriptions: coop?.subscriptionCount?.() ?? 0,
     }),
     closeCompetingWindows: () => {
+      minimizeMaximizedChat();
       upgradeBenchController?.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
@@ -930,8 +935,9 @@ import {
     activeUpgrade: () => coop?.activeItemUpgrade?.() ?? null,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
     startUpgrade: async (itemId) => coop?.startItemUpgrade?.(itemId),
-    pauseUpgrade: async () => coop?.pauseItemUpgrade?.(),
+    cancelUpgrade: async () => coop?.cancelItemUpgrade?.(),
     beforeOpen: () => {
+      minimizeMaximizedChat();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", "false");
@@ -1150,9 +1156,11 @@ import {
     openReplay: (replayId) => { void duelRuntime.openReplay(replayId); },
   });
   chatRuntime.init();
+  minimizeMaximizedChat = chatRuntime.minimize;
 
   inputEscapeHandler = createGameActionsRuntime({
     e: gameElements, inventory, renderInventory, logPickup, leaveDuelResult, closeUpdateNotice,
+    minimizeChat: minimizeMaximizedChat,
     closeCompetingWindows: () => { upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
     resetServerProgress: () => coop?.resetProgress?.(),

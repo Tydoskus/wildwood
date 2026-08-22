@@ -3306,9 +3306,7 @@ export const wildwoodCoop = {
     try {
       await connection.reducers.startItemUpgrade({ itemId });
       const currentLevel = profileItemUpgrades.get(localIdentity)?.get(itemId) ?? 0;
-      const remainingMs = localActiveItemUpgrade?.paused && localActiveItemUpgrade.itemId === itemId
-        ? localActiveItemUpgrade.remainingMs
-        : itemUpgradeDurationMs(currentLevel);
+      const remainingMs = itemUpgradeDurationMs(currentLevel);
       const startedAtMs = Date.now();
       localActiveItemUpgrade = {
         itemId,
@@ -3327,25 +3325,17 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
-  async pauseItemUpgrade() {
+  async cancelItemUpgrade() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.pauseItemUpgrade({});
-      if (localActiveItemUpgrade && !localActiveItemUpgrade.paused) {
-        const remainingMs = Math.max(0, localActiveItemUpgrade.completesAtMs - Date.now());
-        localActiveItemUpgrade = {
-          ...localActiveItemUpgrade,
-          paused: true,
-          completesAtMs: Date.now(),
-          remainingMs,
-        };
-        onChange?.();
-      }
+      await connection.reducers.cancelItemUpgrade({});
+      localActiveItemUpgrade = null;
+      onChange?.();
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
-      handleReducerFailure("item upgrade pause", error);
+      handleReducerFailure("item upgrade cancel", error);
       return { ok: false, error: message };
     }
   },

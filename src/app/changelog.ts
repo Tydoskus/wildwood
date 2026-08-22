@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.477": [
+    "Canceling an Upgrade Bench job now asks for confirmation, forfeits unfinished progress toward the next level, and immediately returns the unchanged item.",
+    "Opening any fullscreen game window now minimizes expanded chat, while toolbar icons use distinct gold, blue, brown, and grey tints.",
+    "Leaderboard tabs now tint their text and backgrounds by stat, and the Upgrade Bench shadow sits closer beneath the sprite.",
+  ],
   "0.476": [
     "The Snowlands Upgrade Bench now opens on contact with a focused fullscreen menu for upgrading stat-bearing weapons and armor from +1 through +10.",
     "Upgrades persist on the server, begin at three minutes, grow forty percent longer per level, add +0.20 to every defined item stat per level, and can be paused to immediately return the item.",
@@ -887,6 +892,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.477": "2026-08-22",
   "0.476": "2026-08-22",
   "0.475": "2026-08-22",
   "0.474": "2026-08-22",

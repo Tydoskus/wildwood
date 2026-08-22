@@ -37,6 +37,7 @@ import {
 import AcceptDuelReducer from "./accept_duel_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
+import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
 import ChangeMapReducer from "./change_map_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
@@ -53,7 +54,6 @@ import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer"
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
-import PauseItemUpgradeReducer from "./pause_item_upgrade_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RecordForestEnemyDefeatReducer from "./record_forest_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "./record_player_death_reducer";
@@ -463,6 +463,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
+  __reducerSchema("cancel_item_upgrade", CancelItemUpgradeReducer),
   __reducerSchema("change_map", ChangeMapReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
@@ -479,7 +480,6 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
-  __reducerSchema("pause_item_upgrade", PauseItemUpgradeReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("record_forest_enemy_defeat", RecordForestEnemyDefeatReducer),
   __reducerSchema("record_player_death", RecordPlayerDeathReducer),

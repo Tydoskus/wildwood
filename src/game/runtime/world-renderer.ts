@@ -447,8 +447,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const width = Math.round(180 * bench.s);
     const height = Math.round(width * options.upgradeBench.naturalHeight / options.upgradeBench.naturalWidth);
     // The generated sprite has generous transparent padding below its feet;
-    // lift the shadow so the bench reads as planted on the snow.
-    options.drawShadow(x, y - 15, Math.round(width * .68), .2);
+    // Lift the shadow into the sprite's padded feet so the bench stays planted.
+    options.drawShadow(x, y - 21, Math.round(width * .68), .2);
     ctx.drawImage(options.upgradeBench, Math.round(x - width / 2), Math.round(y - height), width, height);
     const upgrade = options.upgradeBenchStatus();
     if (upgrade?.itemSprite?.complete && upgrade.itemSprite.naturalWidth > 0) {

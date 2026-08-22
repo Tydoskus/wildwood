@@ -38,7 +38,8 @@ type UpgradeBenchDependencies = {
   activeUpgrade: () => ActiveItemUpgrade | null;
   upgradeLevel: (itemId: string) => number;
   startUpgrade: (itemId: string) => Promise<UpgradeResult>;
-  pauseUpgrade: () => Promise<UpgradeResult>;
+  cancelUpgrade: () => Promise<UpgradeResult>;
+  confirmCancel?: (message: string) => boolean;
   beforeOpen: () => void;
   setPaused: (paused: boolean) => void;
   clearPlayerInput: () => void;
@@ -46,6 +47,8 @@ type UpgradeBenchDependencies = {
   showMessage: (message: string, color?: string) => void;
   nowMs?: () => number;
 };
+
+export const UPGRADE_CANCEL_CONFIRMATION = "Are you sure you want to cancel? You will lose current progress to the next upgrade.";
 
 function formatRemaining(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1_000));
@@ -64,6 +67,7 @@ export function upgradeBenchTouchTransition(wasTouching: boolean, touching: bool
 /** Fullscreen one-slot upgrade interaction plus enter/leave collision latch. */
 export function createUpgradeBenchController(elements: UpgradeBenchElements, dependencies: UpgradeBenchDependencies) {
   const nowMs = dependencies.nowMs ?? Date.now;
+  const confirmCancel = dependencies.confirmCancel ?? ((message: string) => confirm(message));
   let selectedItemId = "";
   let touchingBench = false;
   let busy = false;
@@ -134,7 +138,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   function remainingFor(job: ActiveItemUpgrade) {
-    return job.paused ? job.remainingMs : Math.max(0, job.completesAtMs - nowMs());
+    return Math.max(0, job.completesAtMs - nowMs());
   }
 
   function render(force = false) {
@@ -152,18 +156,17 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
 
     renderSlot(itemId, level);
     renderStatGain(itemId, level);
-    elements.slot.disabled = Boolean(job && !job.paused);
+    elements.slot.disabled = Boolean(job);
     if (!itemId) elements.prompt.textContent = "Add weapon or armor to upgrade";
-    else if (job?.paused) elements.prompt.textContent = `${itemDisplayName(itemId, level)} · Paused, item returned`;
     else if (job) elements.prompt.textContent = `Upgrading ${itemDisplayName(itemId, level)}`;
     else elements.prompt.textContent = `${itemDisplayName(itemId, level)} → +${level + 1}`;
 
     elements.timer.hidden = !itemId;
     elements.timer.textContent = job
-      ? `${job.paused ? "PAUSED" : "UPGRADING"} · ${formatRemaining(remaining)}`
+      ? `UPGRADING · ${formatRemaining(remaining)}`
       : itemId ? `UPGRADE TIME · ${formatRemaining(itemUpgradeDurationMs(level))}` : "";
-    elements.action.classList.toggle("is-cancel", Boolean(job && !job.paused));
-    elements.action.textContent = job ? job.paused ? "RESUME UPGRADE" : "CANCEL" : "UPGRADE";
+    elements.action.classList.toggle("is-cancel", Boolean(job));
+    elements.action.textContent = job ? "CANCEL" : "UPGRADE";
     elements.action.disabled = busy || !itemId || (!job && level >= MAX_ITEM_UPGRADE_LEVEL);
   }
 
@@ -210,23 +213,24 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const job = dependencies.activeUpgrade();
     const itemId = job?.itemId ?? selectedItemId;
     if (!itemId) return;
+    if (job && !confirmCancel(UPGRADE_CANCEL_CONFIRMATION)) return;
     busy = true;
     render(true);
-    if (job && !job.paused) {
-      const result = await dependencies.pauseUpgrade();
+    if (job) {
+      const result = await dependencies.cancelUpgrade();
       if (result?.ok) {
         setInventoryItemQuantity(dependencies.inventory, itemId, 1);
         dependencies.onInventoryChanged();
-        dependencies.showMessage("UPGRADE PAUSED · ITEM RETURNED", "#f3cf70");
+        dependencies.showMessage("UPGRADE CANCELED · ITEM RETURNED", "#f3cf70");
       } else {
-        dependencies.showMessage(result?.error ?? "COULD NOT PAUSE UPGRADE", "#ff7a7a");
+        dependencies.showMessage(result?.error ?? "COULD NOT CANCEL UPGRADE", "#ff7a7a");
       }
     } else {
       const result = await dependencies.startUpgrade(itemId);
       if (result?.ok) {
         setInventoryItemQuantity(dependencies.inventory, itemId, 0);
         dependencies.onInventoryChanged();
-        dependencies.showMessage(job?.paused ? "UPGRADE RESUMED" : "UPGRADE STARTED", "#72ef58");
+        dependencies.showMessage("UPGRADE STARTED", "#72ef58");
       } else {
         dependencies.showMessage(result?.error ?? "COULD NOT START UPGRADE", "#ff7a7a");
       }
