@@ -171,7 +171,7 @@ describe("inventory rules", () => {
     expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(4);
   });
 
-  it("uses owned items as cosmetic overrides without consuming copies or changing equipment", () => {
+  it("uses free owned copies as cosmetic overrides without changing stat equipment", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([STARTER_BOW, WOODEN_ARMOR, FROST_ARMOR]),
       "",
@@ -188,6 +188,8 @@ describe("inventory rules", () => {
     expect(inventory.equippedRightHand).toBe(STARTER_STONE);
     expect(inventory.equippedChest).toBe(WOODEN_ARMOR);
     expect(ownedInventoryStacks(inventory)).toContainEqual({ itemId: STARTER_BOW, quantity: 1 });
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(STARTER_BOW);
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
     expect(equipmentAppearance(inventory)).toEqual({
       headItem: BASIC_PAPER_HAT,
       chestItem: FROST_ARMOR,
@@ -195,6 +197,32 @@ describe("inventory rules", () => {
       rightHandItem: "",
       leftHandItem: STARTER_BOW,
     });
+  });
+
+  it("hides both loadouts from the bag and requires a separate cosmetic copy", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([FROST_ARMOR]),
+      "",
+      BASIC_PAPER_HAT,
+      FROST_ARMOR,
+      false,
+      false,
+      "",
+      "",
+      "",
+      FROST_ARMOR,
+    );
+
+    expect(inventory.cosmeticChest).toBe("");
+    expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(false);
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
+
+    expect(setInventoryItemQuantity(inventory, FROST_ARMOR, 2)).toBe(true);
+    expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(true);
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
+
+    expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "BAG")).toBe(true);
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 1 });
   });
 
   it("round-trips cosmetic slots and rejects unowned or incompatible overrides", () => {

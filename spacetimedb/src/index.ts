@@ -2149,9 +2149,23 @@ function equippedLeftHandForProgress(progress: any) {
 
 function cosmeticEquipmentForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
+  const remainingCounts = new Map<string, number>();
+  for (const itemId of inventory) remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) + 1);
+  const equippedRightHand = equippedRightHandForProgress(progress);
+  for (const itemId of [
+    equippedHeadForProgress(progress),
+    equippedChestForProgress(progress),
+    equippedFeetForProgress(progress),
+    equippedRightHand,
+    equippedRightHand ? "" : equippedLeftHandForProgress(progress),
+  ]) {
+    if (itemId) remainingCounts.set(itemId, Math.max(0, (remainingCounts.get(itemId) ?? 0) - 1));
+  }
   const itemFor = (field: "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand", slot: "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND") => {
     const itemId = canonicalItemId(progress[field]);
-    return itemId && inventory.includes(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
+    if (!itemId || !itemFitsEquipmentSlot(itemId, slot) || (remainingCounts.get(itemId) ?? 0) <= 0) return "";
+    remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) - 1);
+    return itemId;
   };
   const cosmeticRightHand = itemFor("cosmeticRightHand", "RIGHT_HAND");
   return {
@@ -4243,6 +4257,11 @@ export const savePlayerProgress = spacetimedb.reducer(
     const cosmeticEquipment = cosmeticEquipmentForProgress({
       ...base,
       inventoryJson,
+      equippedHead,
+      equippedChest,
+      equippedFeet,
+      equippedRightHand,
+      equippedLeftHand,
       cosmeticHead: progress.cosmeticHead,
       cosmeticChest: progress.cosmeticChest,
       cosmeticFeet: progress.cosmeticFeet,

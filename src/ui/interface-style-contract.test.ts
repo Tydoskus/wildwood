@@ -25,6 +25,8 @@ describe("interface style contracts", () => {
     expect(cssRule(".inventory-detail")).toContain("position: absolute");
     expect(cssRule(".inventory-detail")).toContain("display: none");
     expect(cssRule(".inventory-detail.has-selection")).toContain("display: grid");
+    expect(cssRule(".inventory-detail.has-selection")).toContain("height: 190px");
+    expect(css).not.toContain(".bag-section.has-detail .inventory-items");
   });
 
   it("makes only the slot grid scroll and hides its scrollbar", () => {

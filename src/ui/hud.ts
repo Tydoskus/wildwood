@@ -1,4 +1,4 @@
-import { bagInventoryStacks, inventoryItemQuantity, itemFitsEquipmentSlot, ITEM_DEFINITIONS, ownedInventoryStacks, type EquipmentSlot } from "../game/inventory";
+import { bagInventoryStacks, inventoryItemQuantity, itemFitsEquipmentSlot, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
@@ -219,7 +219,7 @@ export function renderInventoryView(
   },
 ) {
   elements.items.replaceChildren();
-  const bagStacks = mode === "COSMETICS" ? ownedInventoryStacks(inventory) : bagInventoryStacks(inventory);
+  const bagStacks = bagInventoryStacks(inventory);
   elements.count.textContent = `${bagStacks.length} / 16 STACKS`;
   renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode);
   renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode);
@@ -271,7 +271,6 @@ export function renderInventoryView(
   }
 
   const selected = itemsById[inventory.selectedItemId];
-  elements.detail.closest(".bag-section")?.classList.toggle("has-detail", Boolean(selected));
   if (!selected) {
     elements.detail.classList.remove("has-selection");
     const prompt = document.createElement("div");

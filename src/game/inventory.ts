@@ -56,6 +56,14 @@ export type { EquipmentAppearance } from "../../shared/equipment-appearance";
 
 export type InventoryStack = { itemId: string; quantity: number };
 
+const EQUIPPED_ITEM_FIELDS = [
+  "equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand",
+] as const;
+const COSMETIC_ITEM_FIELDS = [
+  "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand",
+] as const;
+const SLOTTED_ITEM_FIELDS = [...EQUIPPED_ITEM_FIELDS, ...COSMETIC_ITEM_FIELDS] as const;
+
 export function inventoryItemQuantity(inventory: Pick<InventoryState, "itemIds">, itemId: string) {
   return inventory.itemIds.reduce((count, current) => count + Number(current === itemId), 0);
 }
@@ -71,21 +79,24 @@ export function setInventoryItemQuantity(inventory: InventoryState, itemId: stri
   withoutItem.splice(insertionIndex, 0, ...Array(nextQuantity).fill(itemId));
   inventory.itemIds = withoutItem;
   if (nextQuantity === 0) {
-    if (inventory.equippedHead === itemId) inventory.equippedHead = "";
-    if (inventory.equippedChest === itemId) inventory.equippedChest = "";
-    if (inventory.equippedFeet === itemId) inventory.equippedFeet = "";
-    if (inventory.equippedRightHand === itemId) inventory.equippedRightHand = "";
-    if (inventory.equippedLeftHand === itemId) inventory.equippedLeftHand = "";
-    if (inventory.cosmeticHead === itemId) inventory.cosmeticHead = "";
-    if (inventory.cosmeticChest === itemId) inventory.cosmeticChest = "";
-    if (inventory.cosmeticFeet === itemId) inventory.cosmeticFeet = "";
-    if (inventory.cosmeticRightHand === itemId) inventory.cosmeticRightHand = "";
-    if (inventory.cosmeticLeftHand === itemId) inventory.cosmeticLeftHand = "";
+    for (const field of SLOTTED_ITEM_FIELDS) {
+      if (inventory[field] === itemId) inventory[field] = "";
+    }
+  } else {
+    let remainingCopies = nextQuantity - EQUIPPED_ITEM_FIELDS.reduce(
+      (count, field) => count + Number(inventory[field] === itemId),
+      0,
+    );
+    for (const field of COSMETIC_ITEM_FIELDS) {
+      if (inventory[field] !== itemId) continue;
+      if (remainingCopies > 0) remainingCopies -= 1;
+      else inventory[field] = "";
+    }
   }
   return true;
 }
 
-/** Converts every owned copy into one stack per item without consuming cosmetics. */
+/** Converts every owned copy into one stack per item before slot assignment. */
 export function ownedInventoryStacks(inventory: Pick<InventoryState, "itemIds">): InventoryStack[] {
   const counts = new Map<string, number>();
   for (const itemId of inventory.itemIds) {
@@ -95,10 +106,11 @@ export function ownedInventoryStacks(inventory: Pick<InventoryState, "itemIds">)
   return [...counts].map(([itemId, quantity]) => ({ itemId, quantity }));
 }
 
-/** Converts owned copies into one bag stack per item, subtracting stat equipment. */
+/** Converts unassigned copies into bag stacks, subtracting both equipment loadouts. */
 export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] {
   const counts = new Map(ownedInventoryStacks(inventory).map(({ itemId, quantity }) => [itemId, quantity]));
-  for (const itemId of [inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet, inventory.equippedRightHand, inventory.equippedLeftHand]) {
+  for (const field of SLOTTED_ITEM_FIELDS) {
+    const itemId = inventory[field];
     if (!itemId) continue;
     counts.set(itemId, Math.max(0, (counts.get(itemId) ?? 0) - 1));
   }
@@ -107,16 +119,26 @@ export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] 
     .map(([itemId, quantity]) => ({ itemId, quantity }));
 }
 
+function hasFreeOrMovableCopy(
+  inventory: InventoryState,
+  itemId: string,
+  movableFields: readonly (typeof SLOTTED_ITEM_FIELDS)[number][],
+) {
+  if (movableFields.some((field) => inventory[field] === itemId)) return true;
+  const slottedQuantity = SLOTTED_ITEM_FIELDS.reduce(
+    (count, field) => count + Number(inventory[field] === itemId),
+    0,
+  );
+  return inventoryItemQuantity(inventory, itemId) > slottedQuantity;
+}
+
 /** Moves an owned item between bag and compatible equipment slots. */
 export function moveInventoryItem(inventory: InventoryState, itemId: string, destination: EquipmentSlot | "BAG") {
   const item = itemDefinition(itemId);
   if (!item || !inventory.itemIds.includes(itemId)) return false;
-  const equippedSlots: (keyof Pick<InventoryState, "equippedHead" | "equippedChest" | "equippedFeet" | "equippedRightHand" | "equippedLeftHand">)[] = [
-    "equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand",
-  ];
   const clearItem = () => {
     let changed = false;
-    for (const slot of equippedSlots) {
+    for (const slot of EQUIPPED_ITEM_FIELDS) {
       if (inventory[slot] !== itemId) continue;
       inventory[slot] = "";
       changed = true;
@@ -131,6 +153,7 @@ export function moveInventoryItem(inventory: InventoryState, itemId: string, des
           : "equippedLeftHand";
   const allowed = itemFitsEquipmentSlot(item.id, destination);
   if (!allowed || inventory[target] === itemId) return false;
+  if (!hasFreeOrMovableCopy(inventory, itemId, EQUIPPED_ITEM_FIELDS)) return false;
   clearItem();
   if (item.slot === "HAND") {
     inventory.equippedRightHand = "";
@@ -144,12 +167,9 @@ export function moveInventoryItem(inventory: InventoryState, itemId: string, des
 export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: string, destination: EquipmentSlot | "BAG") {
   const item = itemDefinition(itemId);
   if (!item || !inventory.itemIds.includes(itemId)) return false;
-  const cosmeticSlots: (keyof Pick<InventoryState, "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand">)[] = [
-    "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand",
-  ];
   const clearItem = () => {
     let changed = false;
-    for (const slot of cosmeticSlots) {
+    for (const slot of COSMETIC_ITEM_FIELDS) {
       if (inventory[slot] !== itemId) continue;
       inventory[slot] = "";
       changed = true;
@@ -161,9 +181,10 @@ export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: str
   const target = destination === "HEAD" ? "cosmeticHead"
     : destination === "CHEST" ? "cosmeticChest"
       : destination === "FEET" ? "cosmeticFeet"
-        : destination === "RIGHT_HAND" ? "cosmeticRightHand"
+          : destination === "RIGHT_HAND" ? "cosmeticRightHand"
           : "cosmeticLeftHand";
   if (inventory[target] === itemId) return false;
+  if (!hasFreeOrMovableCopy(inventory, itemId, COSMETIC_ITEM_FIELDS)) return false;
   clearItem();
   if (item.slot === "HAND") {
     inventory.cosmeticRightHand = "";
@@ -202,26 +223,38 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedRightItem = canonicalItemId(equippedRightHand);
   const savedLeftHand = savedLeftItem && handItems.includes(savedLeftItem) ? savedLeftItem : "";
   const savedRightHand = savedRightItem && handItems.includes(savedRightItem) ? savedRightItem : "";
+  const savedHead = equippedHead === ""
+    ? ""
+    : typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : BASIC_PAPER_HAT;
+  const savedChest = typeof equippedChest === "string" && chestItems.includes(equippedChest) ? equippedChest : "";
+  const savedFeet = hasBoots && equippedFeet === TRAILBLAZER_BOOTS ? TRAILBLAZER_BOOTS : "";
+  const resolvedRightHand = savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : "");
+  const resolvedLeftHand = savedRightHand ? "" : savedLeftHand;
+  const remainingCounts = new Map(ownedInventoryStacks({ itemIds: items }).map(({ itemId, quantity }) => [itemId, quantity]));
+  for (const itemId of [savedHead, savedChest, savedFeet, resolvedRightHand, resolvedLeftHand]) {
+    if (itemId) remainingCounts.set(itemId, Math.max(0, (remainingCounts.get(itemId) ?? 0) - 1));
+  }
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
     const itemId = canonicalItemId(requestedItem);
-    return itemId && items.includes(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
+    if (!itemId || !itemFitsEquipmentSlot(itemId, slot) || (remainingCounts.get(itemId) ?? 0) <= 0) return "";
+    remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) - 1);
+    return itemId;
   };
+  const savedCosmeticHead = cosmeticItem(cosmeticHead, "HEAD");
+  const savedCosmeticChest = cosmeticItem(cosmeticChest, "CHEST");
+  const savedCosmeticFeet = cosmeticItem(cosmeticFeet, "FEET");
   const savedCosmeticRightHand = cosmeticItem(cosmeticRightHand, "RIGHT_HAND");
   const savedCosmeticLeftHand = savedCosmeticRightHand ? "" : cosmeticItem(cosmeticLeftHand, "LEFT_HAND");
   return {
     itemIds: items,
-    equippedHead: equippedHead === ""
-      ? ""
-      : typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : BASIC_PAPER_HAT,
-    equippedChest: typeof equippedChest === "string" && chestItems.includes(equippedChest) ? equippedChest : "",
-    equippedFeet: hasBoots && equippedFeet === TRAILBLAZER_BOOTS
-      ? TRAILBLAZER_BOOTS
-      : "",
-    equippedRightHand: savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : ""),
-    equippedLeftHand: savedRightHand ? "" : savedLeftHand,
-    cosmeticHead: cosmeticItem(cosmeticHead, "HEAD"),
-    cosmeticChest: cosmeticItem(cosmeticChest, "CHEST"),
-    cosmeticFeet: cosmeticItem(cosmeticFeet, "FEET"),
+    equippedHead: savedHead,
+    equippedChest: savedChest,
+    equippedFeet: savedFeet,
+    equippedRightHand: resolvedRightHand,
+    equippedLeftHand: resolvedLeftHand,
+    cosmeticHead: savedCosmeticHead,
+    cosmeticChest: savedCosmeticChest,
+    cosmeticFeet: savedCosmeticFeet,
     cosmeticRightHand: savedCosmeticRightHand,
     cosmeticLeftHand: savedCosmeticLeftHand,
   };

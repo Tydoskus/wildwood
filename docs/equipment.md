@@ -24,3 +24,5 @@ Mobile-first rule: validate equipment silhouettes, tap targets, inventory densit
 Weapons declare attack mode and projectile kind in shared catalog. Renderer maps projectile kind to visuals; future server combat behavior can consume same definition without trusting client presentation data.
 
 Current ownership contract: Rock (`starter_stone`) remains unchanged starter gear for every player. Bow (`starter_bow`) and Wooden Armor (`wooden_armor`) are independently rolled server-side after each Tutorial Forest enemy defeat at a 1-in-25 rate. Both stack, while equipped copies remain part of their owned count.
+
+Equipment and cosmetic slots each occupy one owned copy. Bag stacks show only copies not assigned to either loadout, while cosmetic slots remain visual-only and never contribute item stats.

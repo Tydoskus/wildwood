@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.473": [
+    "Inventory bags no longer show copies assigned to Equipment or Cosmetics, and using the same item in both loadouts now requires a separate owned copy.",
+    "Item inspection now expands into a larger overlay without resizing, shifting, or padding the inventory slot grid.",
+  ],
   "0.472": [
     "Inventory now includes a Cosmetics tab where owned items can visually override equipped gear without consuming items or changing stats.",
     "Cosmetic outfits now persist and appear consistently on local and remote players, inventory and profile previews, leaderboard podiums, duels, and replays.",
