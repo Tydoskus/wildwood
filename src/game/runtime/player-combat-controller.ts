@@ -47,6 +47,7 @@ export function createPlayerCombatController(options: {
   researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
   equippedWeapon: () => string;
+  equippedWeaponUpgradeLevel?: () => number;
   healthMultiplier: () => number;
   minAttackInterval: number;
   effectiveArmor: () => number;
@@ -113,7 +114,7 @@ export function createPlayerCombatController(options: {
       projectile.vx = Math.cos(angle) * player.projectileSpeed;
       projectile.vy = Math.sin(angle) * player.projectileSpeed;
       projectile.r = 6;
-      projectile.damage = player.damage * weaponDamageMultiplier(weaponItem, researchDamageMultiplier()) * (critical ? researchCriticalDamageMultiplier() : 1);
+      projectile.damage = player.damage * weaponDamageMultiplier(weaponItem, researchDamageMultiplier(), options.equippedWeaponUpgradeLevel?.() ?? 0) * (critical ? researchCriticalDamageMultiplier() : 1);
       projectile.critical = critical;
       projectile.hitLife = player.attackRange / player.projectileSpeed * projectileLifeBonus;
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
@@ -158,7 +159,7 @@ export function createPlayerCombatController(options: {
     if (player.attackClock > 0) return;
     if (target) {
       fireAt(target);
-      player.attackClock = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1);
+      player.attackClock = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
     } else player.attackClock = Math.min(player.attackClock, .08);
   }
 

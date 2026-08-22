@@ -13,6 +13,7 @@ type InventoryDependencies = {
   inventory: SelectableInventory;
   move: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
   moveCosmetic: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
+  upgradeLevel: (itemId: string) => number;
 };
 
 export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
@@ -94,6 +95,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         onMove(itemId, destination) {
           move(itemId, destination);
         },
+        upgradeLevel: dependencies.upgradeLevel,
       },
     );
   }

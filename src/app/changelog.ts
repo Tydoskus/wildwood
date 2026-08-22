@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.476": [
+    "The Snowlands Upgrade Bench now opens on contact with a focused fullscreen menu for upgrading stat-bearing weapons and armor from +1 through +10.",
+    "Upgrades persist on the server, begin at three minutes, grow forty percent longer per level, add +0.20 to every defined item stat per level, and can be paused to immediately return the item.",
+    "Inventory items are now unique instead of stackable; independent loot rolls still occur and clearly report Already Owned when a duplicate succeeds.",
+    "Upgrade levels and effective stats now appear throughout inventory, profiles, combat, leaderboards, and the world bench display, with improved bench sprite grounding.",
+  ],
   "0.475": [
     "Restored version notes on the sign-in screen with GitHub-verified release dates, and future releases now record their exact date automatically.",
   ],
@@ -881,6 +887,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.476": "2026-08-22",
   "0.475": "2026-08-22",
   "0.474": "2026-08-22",
 };

@@ -157,6 +157,8 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     hideGameOver: d.hideGameOver,
     refreshFrameClock: d.refreshFrameClock,
     escapeWindows: {
+      isUpgradeBenchOpen: d.upgradeBenchController.isOpen,
+      closeUpgradeBench: d.upgradeBenchController.close,
       isProfileIconPickerOpen: () => !e.profileIconPickerEl.hidden,
       closeProfileIconPicker: d.closeProfileIconPicker,
       isLeaderboardOpen: d.leaderboard.isOpen,

@@ -17,6 +17,18 @@ export const AccountLink = __t.object("AccountLink", {
 });
 export type AccountLink = __Infer<typeof AccountLink>;
 
+export const ActiveItemUpgrade = __t.object("ActiveItemUpgrade", {
+  identity: __t.identity(),
+  itemId: __t.string(),
+  currentLevel: __t.u8(),
+  targetLevel: __t.u8(),
+  startedAt: __t.timestamp(),
+  completesAt: __t.timestamp(),
+  paused: __t.bool(),
+  remainingMicros: __t.u64(),
+});
+export type ActiveItemUpgrade = __Infer<typeof ActiveItemUpgrade>;
+
 export const ActiveResearch = __t.object("ActiveResearch", {
   identity: __t.identity(),
   researchId: __t.string(),
@@ -276,6 +288,16 @@ export const FrostclawResult = __t.object("FrostclawResult", {
 });
 export type FrostclawResult = __Infer<typeof FrostclawResult>;
 
+export const ItemUpgradeCompletionSchedule = __t.object("ItemUpgradeCompletionSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  targetLevel: __t.u8(),
+  completesAtMicros: __t.u64(),
+});
+export type ItemUpgradeCompletionSchedule = __Infer<typeof ItemUpgradeCompletionSchedule>;
+
 export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   identity: __t.identity(),
   displayName: __t.string(),
@@ -391,6 +413,24 @@ export const PlayerController = __t.object("PlayerController", {
   connectionId: __t.connectionId(),
 });
 export type PlayerController = __Infer<typeof PlayerController>;
+
+export const PlayerItemDrop = __t.object("PlayerItemDrop", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  alreadyOwned: __t.bool(),
+  sequence: __t.u64(),
+  droppedAt: __t.timestamp(),
+});
+export type PlayerItemDrop = __Infer<typeof PlayerItemDrop>;
+
+export const PlayerItemUpgrade = __t.object("PlayerItemUpgrade", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  level: __t.u8(),
+});
+export type PlayerItemUpgrade = __Infer<typeof PlayerItemUpgrade>;
 
 export const PlayerLastLocation = __t.object("PlayerLastLocation", {
   identity: __t.identity(),

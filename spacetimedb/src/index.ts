@@ -26,11 +26,15 @@ import {
   FROST_BOW,
   inventoryJsonItemQuantity,
   itemDefinition,
+  isUpgradeableItem,
   itemMaxHealthMultiplier,
   itemRegenerationMultiplier,
   itemFitsEquipmentSlot,
+  itemUpgradeDurationMs,
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAX_FOREST_ITEM_COUNT,
+  MAX_ITEM_UPGRADE_LEVEL,
+  normalizeItemUpgradeLevel,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
@@ -128,7 +132,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 7;
+const MODULE_MIGRATION_VERSION = 8;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 8;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -163,6 +167,8 @@ const FROSTCLAW_RADIUS = 150;
 const FROSTCLAW_POSITION = { x: 4050, y: 4050 };
 const FROSTCLAW_HIT_RANGE_TOLERANCE = 60;
 const FROSTCLAW_RESPAWN_MICROS = 30_000_000n;
+const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
+const UPGRADE_BENCH_USE_RANGE = 150;
 const BOSS_REGEN_DELAY_MICROS = 180_000_000n;
 const BOSS_REGEN_FRACTION_PER_MAINTENANCE = .05;
 
@@ -434,6 +440,54 @@ const activeResearch = table(
     targetRank: t.u32(),
     startedAt: t.timestamp(),
     completesAt: t.timestamp(),
+  },
+);
+
+// Completed levels are stored independently from the inventory payload so an
+// upgrade cannot be overwritten by a delayed client save.
+const playerItemUpgrade = table(
+  {
+    public: true,
+    indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }],
+  },
+  {
+    key: t.string().primaryKey(),
+    identity: t.identity(),
+    itemId: t.string(),
+    level: t.u8(),
+  },
+);
+
+// A paused job keeps its remaining duration while its item is back in the
+// player's inventory. A running job owns the item until it completes.
+const activeItemUpgrade = table(
+  { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    itemId: t.string(),
+    currentLevel: t.u8(),
+    targetLevel: t.u8(),
+    startedAt: t.timestamp(),
+    completesAt: t.timestamp(),
+    paused: t.bool().default(false),
+    remainingMicros: t.u64().default(0n),
+  },
+);
+
+// Explicit loot events let the client reveal successful duplicate rolls as
+// "Already owned" without manufacturing another copy of the item.
+const playerItemDrop = table(
+  {
+    public: true,
+    indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }],
+  },
+  {
+    key: t.string().primaryKey(),
+    identity: t.identity(),
+    itemId: t.string(),
+    alreadyOwned: t.bool(),
+    sequence: t.u64(),
+    droppedAt: t.timestamp(),
   },
 );
 
@@ -883,6 +937,18 @@ const researchCompletionSchedule = table(
   },
 );
 
+const itemUpgradeCompletionSchedule = table(
+  { scheduled: (): any => completeItemUpgrade },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    identity: t.identity(),
+    itemId: t.string(),
+    targetLevel: t.u8(),
+    completesAtMicros: t.u64(),
+  },
+);
+
 const duelResolutionSchedule = table(
   { scheduled: (): any => resolveScheduledDuel },
   {
@@ -1021,6 +1087,9 @@ const spacetimedb = schema({
   playerLastLocation,
   playerResearch,
   activeResearch,
+  playerItemUpgrade,
+  activeItemUpgrade,
+  playerItemDrop,
   leaderboardEntry,
   playerAccountStatus,
   worldStatus,
@@ -1052,6 +1121,7 @@ const spacetimedb = schema({
   motionFrameSchedule,
   mapFrameSchedule,
   researchCompletionSchedule,
+  itemUpgradeCompletionSchedule,
   duelResolutionSchedule,
   dragonRespawnSchedule,
   spiderBoss,
@@ -1239,6 +1309,19 @@ function runPendingModuleMigrations(ctx: any) {
       });
     }
   }
+  if (currentVersion < 8) {
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const normalizedProgress = {
+        ...progress,
+        bowCount: Math.min(1, forestItemCountForProgress(progress, STARTER_BOW, "bowCount")),
+        woodenArmorCount: Math.min(1, forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")),
+      };
+      ctx.db.playerProgress.identity.update({
+        ...normalizedProgress,
+        inventoryJson: JSON.stringify([...new Set(inventoryForProgress(normalizedProgress))]),
+      });
+    }
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -1399,7 +1482,7 @@ function researchedDamage(ctx: any, identity: any, damage: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.warcraft ?? 0;
   const progress = ctx.db.playerProgress.identity.find(identity);
   const weaponItem = progress ? equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress) : "";
-  return damage * weaponDamageMultiplier(weaponItem, 1 + rank * .02);
+  return damage * weaponDamageMultiplier(weaponItem, 1 + rank * .02, itemUpgradeLevelFor(ctx, identity, weaponItem));
 }
 
 function researchedArmor(ctx: any, identity: any, armor: number) {
@@ -1411,7 +1494,7 @@ function researchedRegen(ctx: any, identity: any, regen: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.regeneration ?? 0;
   const progress = ctx.db.playerProgress.identity.find(identity);
   const chestItem = progress ? equippedChestForProgress(progress) : "";
-  return regen * itemRegenerationMultiplier(chestItem, 1 + rank * .02);
+  return regen * itemRegenerationMultiplier(chestItem, 1 + rank * .02, itemUpgradeLevelFor(ctx, identity, chestItem));
 }
 
 function duelDamage(ctx: any, identity: any, damage: number) {
@@ -1778,18 +1861,25 @@ function refreshLeaderboard(ctx: any) {
     const activeMicros = lifetime && active
       ? ctx.timestamp.microsSinceUnixEpoch - lifetime.sessionStartedAt.microsSinceUnixEpoch
       : 0n;
+    const effectiveStats = {
+      maxHp: maxHealthForProgress(ctx, progress.identity, progress),
+      damage: researchedDamage(ctx, progress.identity, progress.damage),
+      attackRate: attackIntervalForProgress(ctx, progress.identity, progress),
+      armor: researchedArmor(ctx, progress.identity, progress.armor),
+      regen: researchedRegen(ctx, progress.identity, progress.regen),
+    };
     candidates.push({
       identity: progress.identity,
       identityKey: progress.identity.toHexString(),
       displayName: profile.displayName,
-      power: powerForProgress(progress),
+      power: powerForProgress(effectiveStats),
       profileIcon: profile.profileIcon,
       gender: profile.gender,
       ...leaderboardAppearanceForProgress(progress, profile),
-      damage: progress.damage,
-      maxHp: progress.maxHp,
-      armor: progress.armor,
-      regen: progress.regen,
+      damage: effectiveStats.damage,
+      maxHp: effectiveStats.maxHp,
+      armor: effectiveStats.armor,
+      regen: effectiveStats.regen,
       playedMicros: (lifetime?.playedMicros ?? 0n) + (activeMicros > 0n ? activeMicros : 0n),
       isGuest: ctx.db.playerAccountStatus.identity.find(progress.identity)?.isGuest ?? current?.isGuest ?? false,
     });
@@ -2095,6 +2185,89 @@ function inventoryWithBetaHelmet(progress: any, grant: boolean) {
   return inventory;
 }
 
+function itemUpgradeKey(identity: any, itemId: string) {
+  return `${identity.toHexString()}:${itemId}`;
+}
+
+function itemUpgradeLevelFor(ctx: any, identity: any, itemId: unknown) {
+  const canonical = canonicalItemId(itemId);
+  if (!canonical) return 0;
+  return normalizeItemUpgradeLevel(ctx.db.playerItemUpgrade.key.find(itemUpgradeKey(identity, canonical))?.level ?? 0);
+}
+
+function progressHasItem(progress: any, itemId: string) {
+  return inventoryForProgress(progress).includes(itemId);
+}
+
+function playerOwnsItem(ctx: any, identity: any, itemId: string) {
+  const progress = ctx.db.playerProgress.identity.find(identity);
+  if (progressHasItem(progress ?? defaultPlayerProgress(identity), itemId)) return true;
+  return ctx.db.activeItemUpgrade.identity.find(identity)?.itemId === itemId;
+}
+
+function clearItemFromProgressSlots(progress: any, itemId: string) {
+  const next = { ...progress };
+  for (const field of [
+    "equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand",
+    "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand",
+  ] as const) {
+    if (next[field] === itemId) next[field] = "";
+  }
+  return next;
+}
+
+function removeItemFromProgress(progress: any, itemId: string) {
+  let next = clearItemFromProgressSlots(progress, itemId);
+  if (itemId === STARTER_BOW) next = { ...next, bowCount: 0 };
+  if (itemId === WOODEN_ARMOR) next = { ...next, woodenArmorCount: 0 };
+  next.inventoryJson = JSON.stringify(inventoryForProgress(next).filter((savedItemId) => savedItemId !== itemId));
+  return next;
+}
+
+function restoreItemToProgress(progress: any, itemId: string) {
+  let next = { ...progress };
+  if (itemId === STARTER_BOW) next.bowCount = 1;
+  else if (itemId === WOODEN_ARMOR) next.woodenArmorCount = 1;
+  else {
+    const inventory = inventoryForProgress(next);
+    if (!inventory.includes(itemId)) inventory.push(itemId);
+    next.inventoryJson = JSON.stringify(inventory);
+  }
+  next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
+  return next;
+}
+
+function writeProgressAndPresentation(ctx: any, progress: any) {
+  const current = ctx.db.playerProgress.identity.find(progress.identity);
+  if (current) ctx.db.playerProgress.identity.update(progress);
+  else ctx.db.playerProgress.insert(progress);
+  const active = ctx.db.player.identity.find(progress.identity);
+  if (active) {
+    ctx.db.player.identity.update({
+      ...active,
+      ...powerFieldsForProgress(progress),
+      speed: progress.speed,
+      ...equipmentPresentationForProgress(progress),
+    });
+  }
+  refreshLeaderboard(ctx);
+}
+
+function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: boolean) {
+  const key = itemUpgradeKey(identity, itemId);
+  const current = ctx.db.playerItemDrop.key.find(key);
+  const next = {
+    key,
+    identity,
+    itemId,
+    alreadyOwned,
+    sequence: (current?.sequence ?? 0n) + 1n,
+    droppedAt: ctx.timestamp,
+  };
+  if (current) ctx.db.playerItemDrop.key.update(next);
+  else ctx.db.playerItemDrop.insert(next);
+}
+
 function hasRecentPlayerActivity(ctx: any, identity: any) {
   if (isDeveloperIdentity(identity)) return true;
   const lifetime = ctx.db.playerLifetime.identity.find(identity);
@@ -2197,13 +2370,82 @@ function leaderboardAppearanceForProgress(progress: any, profile: any) {
   };
 }
 
-function attackIntervalForProgress(progress: any) {
+function attackIntervalForProgress(ctx: any, identity: any, progress: any) {
   const weaponItem = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
-  return weaponAttackInterval(weaponItem, progress.attackRate);
+  return weaponAttackInterval(weaponItem, progress.attackRate, 1, itemUpgradeLevelFor(ctx, identity, weaponItem));
 }
 
-function maxHealthForProgress(progress: any) {
-  return progress.maxHp * itemMaxHealthMultiplier(equippedChestForProgress(progress));
+function maxHealthForProgress(ctx: any, identity: any, progress: any) {
+  const chestItem = equippedChestForProgress(progress);
+  return progress.maxHp * itemMaxHealthMultiplier(chestItem, 1, itemUpgradeLevelFor(ctx, identity, chestItem));
+}
+
+function removeItemUpgradeCompletionSchedules(ctx: any, identity: any) {
+  const scheduledIds = [...ctx.db.itemUpgradeCompletionSchedule.iter() as Iterable<any>]
+    .filter((scheduled: any) => sameIdentity(scheduled.identity, identity))
+    .map((scheduled: any) => scheduled.scheduledId);
+  for (const scheduledId of scheduledIds) ctx.db.itemUpgradeCompletionSchedule.scheduledId.delete(scheduledId);
+}
+
+function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = false) {
+  if (ctx.db.activeItemUpgrade.identity.find(identity)) ctx.db.activeItemUpgrade.identity.delete(identity);
+  removeItemUpgradeCompletionSchedules(ctx, identity);
+  for (const upgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(identity) as Iterable<any>]) {
+    ctx.db.playerItemUpgrade.key.delete(upgrade.key);
+  }
+  if (removeDrops) {
+    for (const drop of [...ctx.db.playerItemDrop.byIdentity.filter(identity) as Iterable<any>]) {
+      ctx.db.playerItemDrop.key.delete(drop.key);
+    }
+  }
+}
+
+function ensureItemUpgradeCompletionSchedule(ctx: any, active: any) {
+  removeItemUpgradeCompletionSchedules(ctx, active.identity);
+  if (active.paused) return;
+  const completesAtMicros = active.completesAt.microsSinceUnixEpoch;
+  ctx.db.itemUpgradeCompletionSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(completesAtMicros),
+    identity: active.identity,
+    itemId: active.itemId,
+    targetLevel: active.targetLevel,
+    completesAtMicros,
+  });
+}
+
+function completeActiveItemUpgrade(ctx: any, active: any) {
+  const currentLevel = itemUpgradeLevelFor(ctx, active.identity, active.itemId);
+  const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
+  if (currentLevel === active.currentLevel && active.targetLevel === currentLevel + 1 && active.targetLevel <= MAX_ITEM_UPGRADE_LEVEL) {
+    const key = itemUpgradeKey(active.identity, active.itemId);
+    const current = ctx.db.playerItemUpgrade.key.find(key);
+    const completed = { key, identity: active.identity, itemId: active.itemId, level: active.targetLevel };
+    if (current) ctx.db.playerItemUpgrade.key.update(completed);
+    else ctx.db.playerItemUpgrade.insert(completed);
+  }
+  writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
+  ctx.db.activeItemUpgrade.identity.delete(active.identity);
+  removeItemUpgradeCompletionSchedules(ctx, active.identity);
+}
+
+function reconcileActiveItemUpgrade(ctx: any, active: any) {
+  if (!isUpgradeableItem(active.itemId) || active.currentLevel !== itemUpgradeLevelFor(ctx, active.identity, active.itemId) || active.targetLevel !== active.currentLevel + 1) {
+    const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
+    writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
+    ctx.db.activeItemUpgrade.identity.delete(active.identity);
+    removeItemUpgradeCompletionSchedules(ctx, active.identity);
+    return;
+  }
+  if (active.paused) {
+    removeItemUpgradeCompletionSchedules(ctx, active.identity);
+    return;
+  }
+  if (ctx.timestamp.microsSinceUnixEpoch >= active.completesAt.microsSinceUnixEpoch) {
+    completeActiveItemUpgrade(ctx, active);
+    return;
+  }
+  ensureItemUpgradeCompletionSchedule(ctx, active);
 }
 
 function sameIdentity(a: any, b: any) {
@@ -2317,6 +2559,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.playerResearch.identity.find(identity)) ctx.db.playerResearch.identity.delete(identity);
   if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
   removeResearchCompletionSchedules(ctx, identity);
+  removePlayerItemUpgradeData(ctx, identity, true);
   if (ctx.db.playerAccountStatus.identity.find(identity)) ctx.db.playerAccountStatus.identity.delete(identity);
   if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
@@ -2600,23 +2843,28 @@ function clearFrostclawCombatRows(ctx: any) {
 function rewardFrostclawContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
-  const frostBowCount = inventoryJsonItemQuantity(current.inventoryJson, FROST_BOW);
-  const frostBowDropped = frostBowCount < MAX_FOREST_ITEM_COUNT &&
-    ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
-  const frostArmorCount = inventoryJsonItemQuantity(current.inventoryJson, FROST_ARMOR);
-  const frostArmorDropped = frostArmorCount < MAX_FOREST_ITEM_COUNT &&
-    ctx.random.integerInRange(1, SNOW_BOSS_ARMOR_DROP_DENOMINATOR) === 1;
-  const inventory = inventoryForProgress(current);
-  if (frostBowDropped) inventory.push(FROST_BOW);
-  if (frostArmorDropped) inventory.push(FROST_ARMOR);
-  const next = {
+  // Each boss item owns an independent roll, even when the player already has
+  // that item. Successful duplicates become an explicit "Already owned" event.
+  const frostBowDropped = ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
+  const frostArmorDropped = ctx.random.integerInRange(1, SNOW_BOSS_ARMOR_DROP_DENOMINATOR) === 1;
+  let next = {
     ...current,
     damage: current.damage + FROSTCLAW_REWARD_DAMAGE,
     maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH,
     armor: current.armor + FROSTCLAW_REWARD_ARMOR,
     lavaUnlocked: true,
-    inventoryJson: JSON.stringify(inventory),
   };
+  if (frostBowDropped) {
+    const alreadyOwned = playerOwnsItem(ctx, identity, FROST_BOW);
+    publishItemDrop(ctx, identity, FROST_BOW, alreadyOwned);
+    if (!alreadyOwned) next = restoreItemToProgress(next, FROST_BOW);
+  }
+  if (frostArmorDropped) {
+    const alreadyOwned = playerOwnsItem(ctx, identity, FROST_ARMOR);
+    publishItemDrop(ctx, identity, FROST_ARMOR, alreadyOwned);
+    if (!alreadyOwned) next = restoreItemToProgress(next, FROST_ARMOR);
+  }
+  next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -3245,6 +3493,7 @@ export const runMaintenance = spacetimedb.reducer(
     reconcileOnlinePlayers(ctx);
     runPendingModuleMigrations(ctx);
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
+    for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) reconcileActiveItemUpgrade(ctx, active);
     refreshLeaderboardIfDue(ctx);
     regenerateIdleBosses(ctx);
   },
@@ -3351,6 +3600,15 @@ export const completeResearch = spacetimedb.reducer(
   },
 );
 
+export const completeItemUpgrade = spacetimedb.reducer(
+  { schedule: itemUpgradeCompletionSchedule.rowType },
+  (ctx, { schedule }) => {
+    const active = ctx.db.activeItemUpgrade.identity.find(schedule.identity);
+    if (!active || active.paused || active.itemId !== schedule.itemId || active.targetLevel !== schedule.targetLevel) return;
+    reconcileActiveItemUpgrade(ctx, active);
+  },
+);
+
 export const resolveScheduledDuel = spacetimedb.reducer(
   { schedule: duelResolutionSchedule.rowType },
   (ctx, { schedule }) => {
@@ -3432,7 +3690,7 @@ function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
   const currentWindow = ctx.db.dragonAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -3514,7 +3772,7 @@ function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
   const currentWindow = ctx.db.spiderAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -3593,7 +3851,7 @@ function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
   const currentWindow = ctx.db.frostclawAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -3663,6 +3921,8 @@ export const registerProtocol = spacetimedb.reducer(
     }
     const activeResearch = ctx.db.activeResearch.identity.find(ctx.sender);
     if (activeResearch) reconcileActiveResearch(ctx, activeResearch);
+    const activeUpgrade = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    if (activeUpgrade) reconcileActiveItemUpgrade(ctx, activeUpgrade);
   },
 );
 
@@ -3744,6 +4004,29 @@ export const claimGuestAccount = spacetimedb.reducer(
       ensureResearchCompletionSchedule(ctx, transferredActiveResearch);
     } else if (guestActiveResearch) {
       removeResearchCompletionSchedules(ctx, link.guest);
+    }
+
+    for (const guestUpgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(link.guest) as Iterable<any>]) {
+      const key = itemUpgradeKey(ctx.sender, guestUpgrade.itemId);
+      const accountUpgrade = ctx.db.playerItemUpgrade.key.find(key);
+      const transferred = {
+        key,
+        identity: ctx.sender,
+        itemId: guestUpgrade.itemId,
+        level: Math.max(accountUpgrade?.level ?? 0, guestUpgrade.level),
+      };
+      if (accountUpgrade) ctx.db.playerItemUpgrade.key.update(transferred);
+      else ctx.db.playerItemUpgrade.insert(transferred);
+    }
+    const guestActiveItemUpgrade = ctx.db.activeItemUpgrade.identity.find(link.guest);
+    const accountActiveItemUpgrade = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    if (guestActiveItemUpgrade && !accountActiveItemUpgrade) {
+      const transferred = { ...guestActiveItemUpgrade, identity: ctx.sender };
+      ctx.db.activeItemUpgrade.insert(transferred);
+      removeItemUpgradeCompletionSchedules(ctx, link.guest);
+      ensureItemUpgradeCompletionSchedule(ctx, transferred);
+    } else if (guestActiveItemUpgrade) {
+      removeItemUpgradeCompletionSchedules(ctx, link.guest);
     }
 
     const guestLifetime = ctx.db.playerLifetime.identity.find(link.guest);
@@ -3869,6 +4152,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestLocation) ctx.db.playerLastLocation.identity.delete(link.guest);
     if (guestResearch) ctx.db.playerResearch.identity.delete(link.guest);
     if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);
+    removePlayerItemUpgradeData(ctx, link.guest, true);
     if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
     if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);
     const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
@@ -4358,6 +4642,81 @@ export const startResearch = spacetimedb.reducer(
   },
 );
 
+export const startItemUpgrade = spacetimedb.reducer(
+  { itemId: t.string() },
+  (ctx, { itemId }) => {
+    const playerAtBench = requireControllingPlayer(ctx);
+    if (playerAtBench.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID ||
+      Math.hypot(playerAtBench.x - UPGRADE_BENCH_POSITION.x, playerAtBench.y - UPGRADE_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
+      throw new SenderError("Touch the Upgrade Bench first.");
+    }
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+    const canonical = canonicalItemId(itemId);
+    if (!canonical || !isUpgradeableItem(canonical)) throw new SenderError("Choose a weapon or armor with stats.");
+
+    const existing = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    if (existing) reconcileActiveItemUpgrade(ctx, existing);
+    const active = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    if (active && !active.paused) throw new SenderError("An item is already being upgraded.");
+    if (active && active.itemId !== canonical) throw new SenderError("Resume your paused upgrade first.");
+
+    const progress = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+    if (!progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
+    const currentLevel = itemUpgradeLevelFor(ctx, ctx.sender, canonical);
+    if (currentLevel >= MAX_ITEM_UPGRADE_LEVEL) throw new SenderError("That item is already +10.");
+    if (active && (active.currentLevel !== currentLevel || active.targetLevel !== currentLevel + 1)) {
+      throw new SenderError("That paused upgrade is no longer valid.");
+    }
+
+    const durationMicros = active
+      ? active.remainingMicros
+      : BigInt(itemUpgradeDurationMs(currentLevel)) * 1_000n;
+    const safeDurationMicros = durationMicros > 0n ? durationMicros : 1n;
+    const completesAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch + safeDurationMicros);
+    const nextActive = {
+      identity: ctx.sender,
+      itemId: canonical,
+      currentLevel,
+      targetLevel: currentLevel + 1,
+      startedAt: ctx.timestamp,
+      completesAt,
+      paused: false,
+      remainingMicros: safeDurationMicros,
+    };
+    if (active) ctx.db.activeItemUpgrade.identity.update(nextActive);
+    else ctx.db.activeItemUpgrade.insert(nextActive);
+    writeProgressAndPresentation(ctx, removeItemFromProgress(progress, canonical));
+    ensureItemUpgradeCompletionSchedule(ctx, nextActive);
+  },
+);
+
+export const pauseItemUpgrade = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    requireControllingPlayer(ctx);
+    const existing = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    if (!existing) throw new SenderError("No item is being upgraded.");
+    reconcileActiveItemUpgrade(ctx, existing);
+    const active = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    if (!active) return;
+    if (active.paused) return;
+    const remainingMicros = active.completesAt.microsSinceUnixEpoch - ctx.timestamp.microsSinceUnixEpoch;
+    if (remainingMicros <= 0n) {
+      completeActiveItemUpgrade(ctx, active);
+      return;
+    }
+    const progress = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+    writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
+    ctx.db.activeItemUpgrade.identity.update({
+      ...active,
+      paused: true,
+      remainingMicros,
+      completesAt: ctx.timestamp,
+    });
+    removeItemUpgradeCompletionSchedules(ctx, ctx.sender);
+  },
+);
+
 export const recordPlayerDeath = spacetimedb.reducer(
   {},
   (ctx) => {
@@ -4374,19 +4733,21 @@ export const recordForestEnemyDefeat = spacetimedb.reducer(
     const activePlayer = requireControllingPlayer(ctx);
     if (activePlayer.mapId !== TUTORIAL_FOREST_MAP_ID || activeDuelFor(ctx, ctx.sender)) return;
     const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
-    const previousBowCount = forestItemCountForProgress(current, STARTER_BOW, "bowCount");
-    const previousWoodenArmorCount = forestItemCountForProgress(current, WOODEN_ARMOR, "woodenArmorCount");
-    const bowDropped = previousBowCount < MAX_FOREST_ITEM_COUNT &&
-      ctx.random.integerInRange(1, FOREST_ITEM_DROP_DENOMINATOR) === 1;
-    const woodenArmorDropped = previousWoodenArmorCount < MAX_FOREST_ITEM_COUNT &&
-      ctx.random.integerInRange(1, FOREST_ITEM_DROP_DENOMINATOR) === 1;
+    const bowDropped = ctx.random.integerInRange(1, FOREST_ITEM_DROP_DENOMINATOR) === 1;
+    const woodenArmorDropped = ctx.random.integerInRange(1, FOREST_ITEM_DROP_DENOMINATOR) === 1;
     if (!bowDropped && !woodenArmorDropped) return;
 
-    const next = {
-      ...current,
-      bowCount: previousBowCount + Number(bowDropped),
-      woodenArmorCount: previousWoodenArmorCount + Number(woodenArmorDropped),
-    };
+    let next = { ...current };
+    if (bowDropped) {
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, STARTER_BOW);
+      publishItemDrop(ctx, ctx.sender, STARTER_BOW, alreadyOwned);
+      if (!alreadyOwned) next = restoreItemToProgress(next, STARTER_BOW);
+    }
+    if (woodenArmorDropped) {
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, WOODEN_ARMOR);
+      publishItemDrop(ctx, ctx.sender, WOODEN_ARMOR, alreadyOwned);
+      if (!alreadyOwned) next = restoreItemToProgress(next, WOODEN_ARMOR);
+    }
     next.inventoryJson = JSON.stringify(inventoryForProgress(next));
     if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
@@ -4420,6 +4781,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
     if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
     removeResearchCompletionSchedules(ctx, ctx.sender);
+    removePlayerItemUpgradeData(ctx, ctx.sender, true);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({
@@ -4507,8 +4869,8 @@ export const requestDuel = spacetimedb.reducer(
     const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
     const challengerAppearance = equipmentPresentationForProgress(challengerProgress);
     const opponentAppearance = equipmentPresentationForProgress(opponentProgress);
-    const challengerMaxHp = maxHealthForProgress(challengerProgress);
-    const opponentMaxHp = maxHealthForProgress(opponentProgress);
+    const challengerMaxHp = maxHealthForProgress(ctx, ctx.sender, challengerProgress);
+    const opponentMaxHp = maxHealthForProgress(ctx, opponent, opponentProgress);
     const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;
     const insertedDuel = ctx.db.duel.insert({
       id: 0n,
@@ -4528,7 +4890,7 @@ export const requestDuel = spacetimedb.reducer(
       challengerMaxHp,
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
       challengerArmor: researchedArmor(ctx, ctx.sender, challengerProgress.armor),
-      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(challengerProgress) : inactiveAttackRate,
+      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(ctx, ctx.sender, challengerProgress) : inactiveAttackRate,
       challengerRegen: researchedRegen(ctx, ctx.sender, challengerProgress.regen),
       challengerAttacks: 0,
       challengerDamageDealt: 0,
@@ -4538,7 +4900,7 @@ export const requestDuel = spacetimedb.reducer(
       opponentMaxHp,
       opponentDamage: duelDamage(ctx, opponent, opponentProgress.damage),
       opponentArmor: researchedArmor(ctx, opponent, opponentProgress.armor),
-      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(opponentProgress) : inactiveAttackRate,
+      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(ctx, opponent, opponentProgress) : inactiveAttackRate,
       opponentRegen: researchedRegen(ctx, opponent, opponentProgress.regen),
       opponentAttacks: 0,
       opponentDamageDealt: 0,

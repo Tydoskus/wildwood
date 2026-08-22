@@ -69,7 +69,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../shared/rules";
-import { inventoryJsonItemQuantity, SNOW_BOSS_DROP_ITEM_IDS, STARTER_BOW, WOODEN_ARMOR } from "../shared/items";
+import { itemUpgradeDurationMs, normalizeItemUpgradeLevel } from "../shared/items";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -120,6 +120,15 @@ export type { PlayerProgress } from "./coop/services/progress";
 
 export type PlayerResearch = Record<ResearchId, number>;
 export type ActiveResearch = { researchId: ResearchId; targetRank: number; startedAtMs: number; completesAtMs: number };
+export type ActiveItemUpgrade = {
+  itemId: string;
+  currentLevel: number;
+  targetLevel: number;
+  startedAtMs: number;
+  completesAtMs: number;
+  paused: boolean;
+  remainingMs: number;
+};
 
 export type PlayerLifetime = {
   joinedAtMs: number;
@@ -135,6 +144,7 @@ export type PlayerProfileData = {
   gender: PlayerGender;
   progress: PlayerProgress;
   research: PlayerResearch;
+  itemUpgradeLevels: Record<string, number>;
   lifetime: PlayerLifetime;
   mapId?: string;
 };
@@ -398,6 +408,7 @@ let onlinePlayerCount = 0;
 let localPresenceVisible = true;
 const profileProgress = new Map<string, PlayerProgress>();
 const profileResearch = new Map<string, PlayerResearch>();
+const profileItemUpgrades = new Map<string, Map<string, number>>();
 const playerLifetimes = new Map<string, PlayerLifetime>();
 const playerMaps = new Map<string, string>();
 // Full player rows subscribed for an open profile must stay independent from
@@ -457,11 +468,13 @@ let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
 let localResearch: PlayerResearch = createEmptyResearchRanks();
 let localActiveResearch: ActiveResearch | null = null;
+let localActiveItemUpgrade: ActiveItemUpgrade | null = null;
 let lastSpeedSent: number | null = null;
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
 let changeListener: (() => void) | null = null;
-let itemDropListener: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null = null;
+let itemDropListener: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null = null;
+let itemUpgradeListener: ((upgrade: { itemId: string; level: number }) => void) | null = null;
 let changeBatchDepth = 0;
 let batchedChangePending = false;
 let pendingProgress: ProgressSave | null = null;
@@ -1565,20 +1578,7 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lava
     if (id === activePlayerProfileIdentity) onChange();
     return;
   }
-  const previousProgress = localProgress;
   localProgress = progress;
-  if (previousProgress) {
-    const bowQuantity = progress.bowCount - previousProgress.bowCount;
-    if (bowQuantity > 0) itemDropListener?.({ itemId: STARTER_BOW, quantity: bowQuantity, totalQuantity: progress.bowCount });
-    const woodenArmorQuantity = progress.woodenArmorCount - previousProgress.woodenArmorCount;
-    if (woodenArmorQuantity > 0) itemDropListener?.({ itemId: WOODEN_ARMOR, quantity: woodenArmorQuantity, totalQuantity: progress.woodenArmorCount });
-    for (const itemId of SNOW_BOSS_DROP_ITEM_IDS) {
-      const previousQuantity = inventoryJsonItemQuantity(previousProgress.inventoryJson, itemId);
-      const totalQuantity = inventoryJsonItemQuantity(progress.inventoryJson, itemId);
-      const quantity = totalQuantity - previousQuantity;
-      if (quantity > 0) itemDropListener?.({ itemId, quantity, totalQuantity });
-    }
-  }
   completeAccountReturnWhenReady();
   if (pendingProgress && progressCovers(localProgress, pendingProgress)) clearPendingProgress();
   else flushPendingProgress();
@@ -1630,6 +1630,68 @@ function removeActiveResearch(row: { identity: Identity }) {
   if (row.identity.toHexString() !== localIdentity) return;
   localActiveResearch = null;
   onChange?.();
+}
+
+function upgradeLevelsFor(identity: string) {
+  return Object.fromEntries(profileItemUpgrades.get(identity)?.entries() ?? []);
+}
+
+function upsertItemUpgrade(row: { identity: Identity; itemId: string; level: number }) {
+  const identity = row.identity.toHexString();
+  let levels = profileItemUpgrades.get(identity);
+  if (!levels) {
+    levels = new Map();
+    profileItemUpgrades.set(identity, levels);
+  }
+  const previousLevel = levels.get(row.itemId) ?? 0;
+  const level = normalizeItemUpgradeLevel(row.level);
+  levels.set(row.itemId, level);
+  if (identity === localIdentity && hydrationReady && level > previousLevel) {
+    itemUpgradeListener?.({ itemId: row.itemId, level });
+  }
+  if (identity === localIdentity || identity === activePlayerProfileIdentity) onChange?.();
+}
+
+function removeItemUpgrade(row: { identity: Identity; itemId: string }) {
+  const identity = row.identity.toHexString();
+  const levels = profileItemUpgrades.get(identity);
+  levels?.delete(row.itemId);
+  if (levels?.size === 0) profileItemUpgrades.delete(identity);
+  if (identity === localIdentity || identity === activePlayerProfileIdentity) onChange?.();
+}
+
+function upsertActiveItemUpgrade(row: {
+  identity: Identity;
+  itemId: string;
+  currentLevel: number;
+  targetLevel: number;
+  startedAt: { microsSinceUnixEpoch: bigint };
+  completesAt: { microsSinceUnixEpoch: bigint };
+  paused: boolean;
+  remainingMicros: bigint;
+}) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localActiveItemUpgrade = {
+    itemId: row.itemId,
+    currentLevel: normalizeItemUpgradeLevel(row.currentLevel),
+    targetLevel: normalizeItemUpgradeLevel(row.targetLevel),
+    startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1_000n),
+    completesAtMs: Number(row.completesAt.microsSinceUnixEpoch / 1_000n),
+    paused: row.paused,
+    remainingMs: Number(row.remainingMicros / 1_000n),
+  };
+  onChange?.();
+}
+
+function removeActiveItemUpgrade(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localActiveItemUpgrade = null;
+  onChange?.();
+}
+
+function upsertItemDrop(row: { identity: Identity; itemId: string; alreadyOwned: boolean }) {
+  if (row.identity.toHexString() !== localIdentity || !hydrationReady) return;
+  itemDropListener?.({ itemId: row.itemId, alreadyOwned: row.alreadyOwned });
 }
 
 function upsertPlayerLifetime(row: {
@@ -2057,6 +2119,7 @@ function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     gender: playerGenders.get(identity) ?? PLAYER_GENDER_UNSET,
     progress: { ...progress },
     research: { ...profileResearch.get(identity) ?? createEmptyResearchRanks() },
+    itemUpgradeLevels: upgradeLevelsFor(identity),
     lifetime: { ...lifetime },
     mapId: resolvePlayerPresenceMap(identity, localIdentity, localState?.mapId, profilePlayerMaps, playerMaps) ?? undefined,
   };
@@ -2100,6 +2163,9 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         for (const row of conn.db.playerResearch.iter()) {
           if (row.identity.toHexString() === identity) upsertResearch(row);
         }
+        for (const row of conn.db.playerItemUpgrade.iter()) {
+          if (row.identity.toHexString() === identity) upsertItemUpgrade(row);
+        }
         for (const row of conn.db.playerProfile.iter()) {
           if (row.identity.toHexString() === identity) upsertProfile(row);
         }
@@ -2122,6 +2188,7 @@ function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> 
         tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
         tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
         tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),
+        tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dbIdentity)),
         tables.player.where((player) => player.identity.eq(dbIdentity)),
       ]);
     if (!settled) {
@@ -2143,6 +2210,7 @@ function releasePlayerProfile() {
   if (activePlayerProfileIdentity && activePlayerProfileIdentity !== localIdentity) {
     profileProgress.delete(activePlayerProfileIdentity);
     profileResearch.delete(activePlayerProfileIdentity);
+    profileItemUpgrades.delete(activePlayerProfileIdentity);
     playerLifetimes.delete(activePlayerProfileIdentity);
     profilePlayerMaps.delete(activePlayerProfileIdentity);
     playerProfileLoads.delete(activePlayerProfileIdentity);
@@ -2370,6 +2438,9 @@ function clearRealtimeCaches() {
   guestAccounts.clear();
   onlinePlayerCount = 0;
   profileProgress.clear();
+  profileResearch.clear();
+  profileItemUpgrades.clear();
+  localActiveItemUpgrade = null;
   playerLifetimes.clear();
   playerMaps.clear();
   profilePlayerMaps.clear();
@@ -2520,6 +2591,7 @@ function connect() {
         localProgress = null;
       localResearch = createEmptyResearchRanks();
         localActiveResearch = null;
+        localActiveItemUpgrade = null;
       }
       lastSpeedSent = null;
       lastDuelPulseAt = 0;
@@ -2643,6 +2715,14 @@ function connect() {
         conn.db.activeResearch.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertActiveResearch(row); });
         conn.db.activeResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertActiveResearch(row); });
         conn.db.activeResearch.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeActiveResearch(row); });
+        conn.db.playerItemUpgrade.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertItemUpgrade(row); });
+        conn.db.playerItemUpgrade.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertItemUpgrade(row); });
+        conn.db.playerItemUpgrade.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeItemUpgrade(row); });
+        conn.db.activeItemUpgrade.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row); });
+        conn.db.activeItemUpgrade.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row); });
+        conn.db.activeItemUpgrade.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeActiveItemUpgrade(row); });
+        conn.db.playerItemDrop.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertItemDrop(row); });
+        conn.db.playerItemDrop.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertItemDrop(row); });
         conn.db.playerLifetime.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerLifetime(row); });
         conn.db.playerLifetime.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertPlayerLifetime(row); });
         conn.db.dragonBoss.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDragonBoss(row); });
@@ -2675,6 +2755,9 @@ function connect() {
             for (const row of conn.db.playerProgress.iter()) upsertProgress(row);
             for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
             for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
+            for (const row of conn.db.playerItemUpgrade.iter()) upsertItemUpgrade(row);
+            for (const row of conn.db.activeItemUpgrade.iter()) upsertActiveItemUpgrade(row);
+            for (const row of conn.db.playerItemDrop.iter()) upsertItemDrop(row);
             for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
             for (const row of conn.db.playerMotionIdentity.iter()) upsertMotionIdentity(row);
             for (const row of conn.db.player.iter()) upsertPlayer(row);
@@ -2713,6 +2796,9 @@ function connect() {
           tables.playerProgress.where((progress) => progress.identity.eq(identity)),
           tables.playerResearch.where((research) => research.identity.eq(identity)),
           tables.activeResearch.where((research) => research.identity.eq(identity)),
+          tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(identity)),
+          tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(identity)),
+          tables.playerItemDrop.where((drop) => drop.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
           tables.dragonResult,
@@ -2750,6 +2836,7 @@ function connect() {
       localProfileReady = false;
       localResearch = createEmptyResearchRanks();
       localActiveResearch = null;
+      localActiveItemUpgrade = null;
       clearRealtimeCaches();
       if (hadActiveGame) {
         setServerUpdateVisible(true);
@@ -2817,8 +2904,11 @@ export const wildwoodCoop = {
   setOnChange(callback: (() => void) | null) {
     changeListener = callback;
   },
-  setOnItemDrop(callback: ((drop: { itemId: string; quantity: number; totalQuantity: number }) => void) | null) {
+  setOnItemDrop(callback: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null) {
     itemDropListener = callback;
+  },
+  setOnItemUpgrade(callback: ((upgrade: { itemId: string; level: number }) => void) | null) {
+    itemUpgradeListener = callback;
   },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);
@@ -3189,6 +3279,15 @@ export const wildwoodCoop = {
   activeResearch() {
     return localActiveResearch ? { ...localActiveResearch } : null;
   },
+  itemUpgradeLevel(itemId: string, identity = localIdentity) {
+    return profileItemUpgrades.get(identity)?.get(itemId) ?? 0;
+  },
+  itemUpgradeLevels(identity = localIdentity) {
+    return upgradeLevelsFor(identity);
+  },
+  activeItemUpgrade() {
+    return localActiveItemUpgrade ? { ...localActiveItemUpgrade } : null;
+  },
   async startResearch(researchId: ResearchId) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
@@ -3198,6 +3297,55 @@ export const wildwoodCoop = {
     } catch (error) {
       const message = reducerErrorMessage(error);
       handleReducerFailure("research start", error);
+      return { ok: false, error: message };
+    }
+  },
+  async startItemUpgrade(itemId: string) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.startItemUpgrade({ itemId });
+      const currentLevel = profileItemUpgrades.get(localIdentity)?.get(itemId) ?? 0;
+      const remainingMs = localActiveItemUpgrade?.paused && localActiveItemUpgrade.itemId === itemId
+        ? localActiveItemUpgrade.remainingMs
+        : itemUpgradeDurationMs(currentLevel);
+      const startedAtMs = Date.now();
+      localActiveItemUpgrade = {
+        itemId,
+        currentLevel,
+        targetLevel: currentLevel + 1,
+        startedAtMs,
+        completesAtMs: startedAtMs + remainingMs,
+        paused: false,
+        remainingMs,
+      };
+      onChange?.();
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("item upgrade start", error);
+      return { ok: false, error: message };
+    }
+  },
+  async pauseItemUpgrade() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.pauseItemUpgrade({});
+      if (localActiveItemUpgrade && !localActiveItemUpgrade.paused) {
+        const remainingMs = Math.max(0, localActiveItemUpgrade.completesAtMs - Date.now());
+        localActiveItemUpgrade = {
+          ...localActiveItemUpgrade,
+          paused: true,
+          completesAtMs: Date.now(),
+          remainingMs,
+        };
+        onChange?.();
+      }
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("item upgrade pause", error);
       return { ok: false, error: message };
     }
   },
@@ -3240,7 +3388,7 @@ export const wildwoodCoop = {
   playerProfile(identity = localIdentity) {
     const profile = cachedPlayerProfile(identity);
     return profile
-      ? { ...profile, progress: { ...profile.progress }, lifetime: { ...profile.lifetime } }
+      ? { ...profile, progress: { ...profile.progress }, itemUpgradeLevels: { ...profile.itemUpgradeLevels }, lifetime: { ...profile.lifetime } }
       : null;
   },
   activePlayerMap(identity = localIdentity) {

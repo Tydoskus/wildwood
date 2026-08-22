@@ -64,6 +64,7 @@ export type WorldRendererOptions = {
   portalSwirl: HTMLImageElement;
   snowPine: HTMLImageElement;
   upgradeBench: HTMLImageElement;
+  upgradeBenchStatus: () => { itemSprite?: HTMLImageElement; timer: string } | null;
   lavaPools: HTMLImageElement[];
   lavaRocks: HTMLImageElement[];
   charredTrees: HTMLImageElement[];
@@ -445,13 +446,35 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (!options.upgradeBench.complete || options.upgradeBench.naturalWidth <= 0) return;
     const width = Math.round(180 * bench.s);
     const height = Math.round(width * options.upgradeBench.naturalHeight / options.upgradeBench.naturalWidth);
-    options.drawShadow(x, y - 3, Math.round(width * .72), .22);
+    // The generated sprite has generous transparent padding below its feet;
+    // lift the shadow so the bench reads as planted on the snow.
+    options.drawShadow(x, y - 15, Math.round(width * .68), .2);
     ctx.drawImage(options.upgradeBench, Math.round(x - width / 2), Math.round(y - height), width, height);
+    const upgrade = options.upgradeBenchStatus();
+    if (upgrade?.itemSprite?.complete && upgrade.itemSprite.naturalWidth > 0) {
+      const maxWidth = 44;
+      const maxHeight = 34;
+      const scale = Math.min(maxWidth / upgrade.itemSprite.naturalWidth, maxHeight / upgrade.itemSprite.naturalHeight);
+      const itemWidth = Math.max(1, Math.round(upgrade.itemSprite.naturalWidth * scale));
+      const itemHeight = Math.max(1, Math.round(upgrade.itemSprite.naturalHeight * scale));
+      const itemCenterX = x - Math.round(width * .1);
+      const itemCenterY = Math.round(y - height + height * .39);
+      ctx.save();
+      ctx.shadowColor = "rgba(116,225,255,.8)";
+      ctx.shadowBlur = 8;
+      ctx.drawImage(upgrade.itemSprite, Math.round(itemCenterX - itemWidth / 2), Math.round(itemCenterY - itemHeight / 2), itemWidth, itemHeight);
+      ctx.restore();
+    }
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(bench.label, x, Math.round(y - height - 7 + Math.sin(options.getGameTime() * 2.2) * 2), "#f5e9c4", 4);
+    const labelY = Math.round(y - height - (upgrade ? 21 : 7) + Math.sin(options.getGameTime() * 2.2) * 2);
+    options.outlinedText(bench.label, x, labelY, "#f5e9c4", 4);
+    if (upgrade) {
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      options.outlinedText(upgrade.timer, x, labelY + 16, "#8fe7ff", 4);
+    }
     ctx.restore();
   }
 

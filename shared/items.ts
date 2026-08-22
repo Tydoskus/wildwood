@@ -13,7 +13,14 @@ export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
-export const MAX_FOREST_ITEM_COUNT = 999;
+export const MAX_OWNED_ITEM_COUNT = 1;
+// Kept as a compatibility export for older client/server call sites. Wildwood
+// equipment is unique now, so every durable quantity is clamped to one.
+export const MAX_FOREST_ITEM_COUNT = MAX_OWNED_ITEM_COUNT;
+export const MAX_ITEM_UPGRADE_LEVEL = 10;
+export const ITEM_UPGRADE_STAT_BONUS = .2;
+export const ITEM_UPGRADE_BASE_DURATION_MS = 3 * 60 * 1_000;
+export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
@@ -27,7 +34,6 @@ export type ItemDefinition = {
   acquisition: ItemAcquisition;
   description: string;
   stats: readonly string[];
-  stackable?: boolean;
   modifiers?: {
     maxHealthMultiplierBonus?: number;
     regenerationMultiplierBonus?: number;
@@ -89,7 +95,6 @@ export const ITEM_DEFINITIONS = {
     acquisition: "FOREST_DROP",
     description: "A dependable wooden bow for hunting Wildwood monsters.",
     stats: ["DAMAGE MULTIPLIER +0.05×", "ATTACK SPEED MULTIPLIER +0.05×"],
-    stackable: true,
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
@@ -104,7 +109,6 @@ export const ITEM_DEFINITIONS = {
     acquisition: "SNOW_BOSS_DROP",
     description: "A frozen bow claimed from Frostclaw, built for swift and devastating shots.",
     stats: ["DAMAGE MULTIPLIER 3.00×", "ATTACK SPEED MULTIPLIER 1.20×"],
-    stackable: true,
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
@@ -119,7 +123,6 @@ export const ITEM_DEFINITIONS = {
     acquisition: "SNOW_BOSS_DROP",
     description: "Frozen blue armor claimed from Frostclaw that fortifies health and regeneration.",
     stats: ["MAX HEALTH MULTIPLIER 2.00×", "REGEN MULTIPLIER 2.00×"],
-    stackable: true,
     modifiers: {
       maxHealthMultiplierBonus: 1,
       regenerationMultiplierBonus: 1,
@@ -132,7 +135,6 @@ export const ITEM_DEFINITIONS = {
     acquisition: "FOREST_DROP",
     description: "Wooden forest plate that reinforces its wearer with extra health.",
     stats: ["MAX HEALTH MULTIPLIER +0.05×"],
-    stackable: true,
     modifiers: { maxHealthMultiplierBonus: .05 },
   },
 } as const satisfies Record<string, ItemDefinition>;
@@ -163,7 +165,7 @@ export function canonicalItemId(itemId: unknown): ItemId | undefined {
   return itemDefinition(itemId)?.id as ItemId | undefined;
 }
 
-/** Counts one canonical stackable item in a saved inventory payload. */
+/** Counts one canonical unique item in a saved inventory payload. */
 export function inventoryJsonItemQuantity(inventoryJson: unknown, itemId: unknown) {
   const canonical = canonicalItemId(itemId);
   if (!canonical || typeof inventoryJson !== "string") return 0;
@@ -190,24 +192,97 @@ export function isWeaponItem(itemId: unknown) {
   return Boolean(itemDefinition(canonicalItemId(itemId))?.weapon);
 }
 
+export function normalizeItemUpgradeLevel(level: unknown) {
+  return Number.isFinite(level)
+    ? Math.max(0, Math.min(MAX_ITEM_UPGRADE_LEVEL, Math.floor(Number(level))))
+    : 0;
+}
+
+export function itemUpgradeDurationMs(currentLevel: unknown) {
+  const level = normalizeItemUpgradeLevel(currentLevel);
+  return Math.round(ITEM_UPGRADE_BASE_DURATION_MS * ITEM_UPGRADE_DURATION_GROWTH ** level);
+}
+
+export function isUpgradeableItem(itemId: unknown) {
+  const item = itemDefinition(canonicalItemId(itemId));
+  if (!item || (item.slot !== "HAND" && item.slot !== "CHEST")) return false;
+  return item.weapon?.damageMultiplierBonus !== undefined ||
+    item.weapon?.attackSpeedMultiplierBonus !== undefined ||
+    item.modifiers?.maxHealthMultiplierBonus !== undefined ||
+    item.modifiers?.regenerationMultiplierBonus !== undefined;
+}
+
+function upgradeBonus(itemId: unknown, level: unknown, statExists: boolean) {
+  return statExists && isUpgradeableItem(itemId)
+    ? normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS
+    : 0;
+}
+
+export function itemDisplayName(itemId: unknown, upgradeLevel: unknown = 0) {
+  const item = itemDefinition(canonicalItemId(itemId));
+  if (!item) return "ITEM";
+  const level = normalizeItemUpgradeLevel(upgradeLevel);
+  return level > 0 ? `${item.name} +${level}` : item.name;
+}
+
+export function itemStats(itemId: unknown, upgradeLevel: unknown = 0): readonly string[] {
+  const item = itemDefinition(canonicalItemId(itemId));
+  if (!item || !isUpgradeableItem(item.id)) return item?.stats ?? [];
+  const level = normalizeItemUpgradeLevel(upgradeLevel);
+  const added = level * ITEM_UPGRADE_STAT_BONUS;
+  const stats: string[] = [];
+  if (item.weapon?.damageMultiplierBonus !== undefined) {
+    stats.push(`DAMAGE MULTIPLIER ${(1 + item.weapon.damageMultiplierBonus + added).toFixed(2)}×`);
+  }
+  if (item.weapon?.attackSpeedMultiplierBonus !== undefined) {
+    stats.push(`ATTACK SPEED MULTIPLIER ${(1 + item.weapon.attackSpeedMultiplierBonus + added).toFixed(2)}×`);
+  }
+  if (item.modifiers?.maxHealthMultiplierBonus !== undefined) {
+    stats.push(`MAX HEALTH MULTIPLIER ${(1 + item.modifiers.maxHealthMultiplierBonus + added).toFixed(2)}×`);
+  }
+  if (item.modifiers?.regenerationMultiplierBonus !== undefined) {
+    stats.push(`REGEN MULTIPLIER ${(1 + item.modifiers.regenerationMultiplierBonus + added).toFixed(2)}×`);
+  }
+  return stats;
+}
+
+export function itemUpgradeStatChanges(itemId: unknown, currentLevel: unknown) {
+  const level = normalizeItemUpgradeLevel(currentLevel);
+  if (!isUpgradeableItem(itemId) || level >= MAX_ITEM_UPGRADE_LEVEL) return [];
+  const current = itemStats(itemId, level);
+  const next = itemStats(itemId, level + 1);
+  return current.map((stat, index) => {
+    const splitAt = stat.lastIndexOf(" ");
+    return {
+      label: splitAt >= 0 ? stat.slice(0, splitAt) : stat,
+      current: splitAt >= 0 ? stat.slice(splitAt + 1) : stat,
+      next: next[index]?.slice(next[index].lastIndexOf(" ") + 1) ?? "",
+    };
+  });
+}
+
 /** Equipment bonuses add to research multipliers instead of multiplying them. */
-export function weaponDamageMultiplier(itemId: unknown, researchMultiplier = 1) {
-  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.weapon?.damageMultiplierBonus ?? 0);
+export function weaponDamageMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
+  const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.damageMultiplierBonus;
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
 }
 
-export function weaponAttackSpeedMultiplier(itemId: unknown, researchMultiplier = 1) {
-  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.weapon?.attackSpeedMultiplierBonus ?? 0);
+export function weaponAttackSpeedMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
+  const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.attackSpeedMultiplierBonus;
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
 }
 
-export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1) {
-  return baseInterval / weaponAttackSpeedMultiplier(itemId, researchMultiplier);
+export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1, upgradeLevel = 0) {
+  return baseInterval / weaponAttackSpeedMultiplier(itemId, researchMultiplier, upgradeLevel);
 }
 
-export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1) {
-  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus ?? 0);
+export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
+  const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus;
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
 }
 
 /** Equipment regeneration bonuses add to research multipliers. */
-export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1) {
-  return researchMultiplier + (itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus ?? 0);
+export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
+  const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus;
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
 }

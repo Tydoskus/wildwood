@@ -66,6 +66,7 @@ export type WorldRenderRuntimeOptions = {
     duelPlatformArt: HTMLImageElement;
   };
   actorShadowSprite: HTMLImageElement;
+  upgradeBenchStatus: () => { itemId: string; timer: string } | null;
   drawShadow: DrawShadow;
   pixelCircle: (x: number, y: number, radius: number) => void;
   outlinedText: OutlinedText;
@@ -148,6 +149,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
+    upgradeBenchStatus: () => {
+      const status = options.upgradeBenchStatus();
+      return status ? { itemSprite: options.playerAppearanceAssets.equipment[status.itemId]?.sprite, timer: status.timer } : null;
+    },
     ...options.assets,
   });
   const boss = createBossRenderer({

@@ -47,6 +47,7 @@ type SessionDependencies = {
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
+  updateUpgradeBench: () => void;
   updatePortal: (dt: number) => void;
   updateBootPickup: () => void;
   updateEnemies: (dt: number) => void;
@@ -96,6 +97,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     }
 
     dependencies.updatePlayer(dt);
+    dependencies.updateUpgradeBench();
     if (!dependencies.isDueling()) {
       dependencies.updatePortal(dt);
       if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.updateBootPickup();

@@ -8,10 +8,16 @@ import {
   FROST_ARMOR,
   FROST_BOW,
   inventoryJsonItemQuantity,
+  isUpgradeableItem,
   isWeaponItem,
+  itemDisplayName,
   itemMaxHealthMultiplier,
   itemRegenerationMultiplier,
+  itemStats,
+  itemUpgradeDurationMs,
+  itemUpgradeStatChanges,
   itemFitsEquipmentSlot,
+  MAX_ITEM_UPGRADE_LEVEL,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
@@ -74,8 +80,40 @@ describe("equipment catalog", () => {
     expect(itemRegenerationMultiplier(FROST_ARMOR, 1.2)).toBeCloseTo(2.2);
   });
 
-  it("counts persisted Frost Bow stacks safely", () => {
-    expect(inventoryJsonItemQuantity(JSON.stringify([FROST_BOW, STARTER_BOW, FROST_BOW]), FROST_BOW)).toBe(2);
+  it("clamps legacy duplicate items to unique ownership", () => {
+    expect(inventoryJsonItemQuantity(JSON.stringify([FROST_BOW, STARTER_BOW, FROST_BOW]), FROST_BOW)).toBe(1);
     expect(inventoryJsonItemQuantity("not json", FROST_BOW)).toBe(0);
+  });
+
+  it("uses a three-minute upgrade timer that grows forty percent per level", () => {
+    expect(itemUpgradeDurationMs(0)).toBe(180_000);
+    expect(itemUpgradeDurationMs(1)).toBe(252_000);
+    expect(itemUpgradeDurationMs(MAX_ITEM_UPGRADE_LEVEL + 99)).toBe(itemUpgradeDurationMs(MAX_ITEM_UPGRADE_LEVEL));
+  });
+
+  it("only upgrades stat-bearing weapons and armor", () => {
+    expect(isUpgradeableItem(STARTER_BOW)).toBe(true);
+    expect(isUpgradeableItem(FROST_BOW)).toBe(true);
+    expect(isUpgradeableItem(WOODEN_ARMOR)).toBe(true);
+    expect(isUpgradeableItem(FROST_ARMOR)).toBe(true);
+    expect(isUpgradeableItem(STARTER_STONE)).toBe(false);
+    expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);
+  });
+
+  it("adds 0.20 to every defined item stat per upgrade", () => {
+    expect(weaponDamageMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(5);
+    expect(weaponAttackSpeedMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(3.2);
+    expect(itemMaxHealthMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(4);
+    expect(itemRegenerationMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(4);
+    expect(itemRegenerationMultiplier(WOODEN_ARMOR, 1, 10)).toBeCloseTo(1);
+    expect(itemDisplayName(FROST_BOW, 1)).toBe("FROST BOW +1");
+    expect(itemStats(FROST_BOW, 1)).toEqual([
+      "DAMAGE MULTIPLIER 3.20×",
+      "ATTACK SPEED MULTIPLIER 1.40×",
+    ]);
+    expect(itemUpgradeStatChanges(FROST_BOW, 0)).toEqual([
+      { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.20×" },
+      { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.40×" },
+    ]);
   });
 });

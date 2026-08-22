@@ -40,6 +40,7 @@ import {
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
+  UPGRADE_BENCH_POSITION,
   type MapId,
 } from "./game/world";
 import {
@@ -47,6 +48,7 @@ import {
 } from "./game/duel";
 import { createChatRuntimeController } from "./ui/chat-runtime-controller";
 import { createInventoryController } from "./ui/inventory-controller";
+import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
 import { createLeaderboardController } from "./ui/leaderboard-controller";
 import { createProfileWindowController } from "./ui/profile-window-controller";
 import { formatPlayedTime, profilePresenceText, renderProfileStats } from "./ui/profile";
@@ -64,7 +66,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
-import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../shared/items";
+import { isWeaponItem, itemDisplayName, itemMaxHealthMultiplier, itemRegenerationMultiplier, itemStats } from "../shared/items";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -141,7 +143,11 @@ import {
     spiderVenom,
     startSpawn: START_SPAWN,
   } = bootstrap;
-  const healthMultiplier = () => itemMaxHealthMultiplier(inventory.equippedChest);
+  const healthMultiplier = () => itemMaxHealthMultiplier(
+    inventory.equippedChest,
+    1,
+    coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
+  );
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
   const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
   const { spawnFromSite, engageEnemy, updateRespawns } = enemyLifecycle;
@@ -303,6 +309,7 @@ import {
   let progress: ReturnType<typeof createProgressController>;
   const inventoryController = createInventoryController({
     inventory,
+    upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return false;
       player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
@@ -320,6 +327,7 @@ import {
     },
   });
   const renderInventory = inventoryController.render;
+  let upgradeBenchController!: ReturnType<typeof createUpgradeBenchController>;
   const worldProgression = createWorldProgressionController({
     player,
     bootsPickup,
@@ -378,7 +386,11 @@ import {
     criticalDamageMultiplier: researchCriticalDamageMultiplier,
     applyVitality: applyVitalityResearch,
   } = research;
-  const regenerationMultiplier = () => itemRegenerationMultiplier(inventory.equippedChest, researchRegenerationMultiplier());
+  const regenerationMultiplier = () => itemRegenerationMultiplier(
+    inventory.equippedChest,
+    researchRegenerationMultiplier(),
+    coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
+  );
   progress = createProgressController({
     player,
     inventory,
@@ -410,6 +422,7 @@ import {
     researchRewardMultiplier,
     researchAttackSpeedMultiplier: () => 1,
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
+    equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
     healthMultiplier,
     minAttackInterval: MIN_ATTACK_INTERVAL,
     effectiveArmor,
@@ -617,6 +630,7 @@ import {
     portalDestinationOpacity: () => mapController.portalDestinationOpacity(),
     assets,
     actorShadowSprite,
+    upgradeBenchStatus: () => upgradeBenchController?.worldStatus() ?? null,
     drawShadow: drawActorShadow,
     pixelCircle,
     outlinedText: outlinedWorldText,
@@ -838,6 +852,7 @@ import {
     startResearch: async (id: ResearchId) => coop?.startResearch?.(id),
     showMessage,
     beforeOpen: () => {
+      upgradeBenchController?.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", "false");
@@ -856,6 +871,7 @@ import {
     drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
     beforeOpen: () => {
+      upgradeBenchController?.close();
       devPanel.close();
       techTree.close();
       settingsPanel.hidden = true;
@@ -883,12 +899,58 @@ import {
       subscriptions: coop?.subscriptionCount?.() ?? 0,
     }),
     closeCompetingWindows: () => {
+      upgradeBenchController?.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", "false");
       inventoryBtn.setAttribute("aria-expanded", "false");
       closeLeaderboard();
       techTree.close();
+    },
+    showMessage,
+  });
+
+  upgradeBenchController = createUpgradeBenchController({
+    panel: gameElements.upgradeBenchPanel,
+    close: gameElements.closeUpgradeBenchBtn,
+    prompt: gameElements.upgradeBenchPrompt,
+    slot: gameElements.upgradeBenchSlot,
+    statGain: gameElements.upgradeBenchStatGain,
+    timer: gameElements.upgradeBenchTimer,
+    action: gameElements.upgradeBenchAction,
+    picker: gameElements.upgradeBenchPicker,
+    pickerItems: gameElements.upgradeBenchPickerItems,
+    closePicker: gameElements.closeUpgradeBenchPickerBtn,
+  }, {
+    inventory,
+    playerPosition: () => player,
+    currentMapId: () => currentMapId,
+    snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
+    benchPosition: UPGRADE_BENCH_POSITION,
+    activeUpgrade: () => coop?.activeItemUpgrade?.() ?? null,
+    upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
+    startUpgrade: async (itemId) => coop?.startItemUpgrade?.(itemId),
+    pauseUpgrade: async () => coop?.pauseItemUpgrade?.(),
+    beforeOpen: () => {
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
+      closeLeaderboard();
+      techTree.close();
+      devPanel.close();
+    },
+    setPaused: (paused) => setGameplayPause("upgrade-bench", paused),
+    clearPlayerInput: playerInput.clear,
+    onInventoryChanged: () => {
+      if (inventory.selectedItemId && !inventory.itemIds.includes(inventory.selectedItemId)) {
+        inventory.selectedItemId = "";
+        inventory.selectedItemLocation = "";
+      }
+      player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
+      applyPlayerMaxHealthMultiplier(player, healthMultiplier());
+      renderInventory();
+      saveProgress(true);
     },
     showMessage,
   });
@@ -964,14 +1026,14 @@ import {
     isDueling, activeDuel,
     syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
-    updatePlayer: playerController.update, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
+    updatePlayer: playerController.update, updateUpgradeBench: upgradeBenchController.updateTouch, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
     updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
     updateVisuals: (dt) => { flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt); },
     updateMessage: runtimeHud.updateMessage,
-    render: () => renderController.render(), recordPerformance: performanceMonitor.record,
+    render: () => { upgradeBenchController.tick(); renderController.render(); }, recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
     renderFpsDisplay: () => {
       const performance = performanceMonitor.snapshot();
@@ -1091,7 +1153,7 @@ import {
 
   inputEscapeHandler = createGameActionsRuntime({
     e: gameElements, inventory, renderInventory, logPickup, leaveDuelResult, closeUpdateNotice,
-    closeCompetingWindows: () => { closeLeaderboard(); devPanel.close(); techTree.close(); },
+    closeCompetingWindows: () => { upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
     resetServerProgress: () => coop?.resetProgress?.(),
     clearProgressState: () => { progress.resetState(); newPlayerIntroShown = false; },
@@ -1101,7 +1163,7 @@ import {
     resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
     stopGame: session.stop, startConnecting: startup.showConnecting, hideGameOver: deathScreen.hide,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
-    leaderboard, closeLeaderboard, devPanel, profileWindow,
+    leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController,
   }).handleInputEscape;
 
   const coopSession = createCoopSessionController({
@@ -1151,18 +1213,26 @@ import {
     refreshReconnectOverlay,
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
-  coop?.setOnItemDrop?.(({ itemId, quantity, totalQuantity }) => {
-    if (!setInventoryItemQuantity(inventory, itemId, totalQuantity)) return;
-    renderInventory();
-    const item = itemDefinition(itemId);
+  coop?.setOnItemDrop?.(({ itemId, alreadyOwned }) => {
+    if (!alreadyOwned) {
+      if (!setInventoryItemQuantity(inventory, itemId, 1)) return;
+      renderInventory();
+    }
+    const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
     const pickupColor = itemId === FROST_BOW || itemId === FROST_ARMOR ? "#2d92ff" : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
     runtimeHud.showItemDrop({
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
       color: pickupColor,
-      name: item?.name ?? "ITEM",
-      quantity,
-      stats: item?.stats ?? [],
+      name: itemDisplayName(itemId, level),
+      stats: alreadyOwned ? ["ALREADY OWNED"] : itemStats(itemId, level),
     });
+  });
+  coop?.setOnItemUpgrade?.(({ itemId, level }) => {
+    setInventoryItemQuantity(inventory, itemId, 1);
+    applyPlayerMaxHealthMultiplier(player, healthMultiplier());
+    renderInventory();
+    saveProgress(true);
+    showMessage(`${itemDisplayName(itemId, level)} COMPLETE`, "#72ef58");
   });
   refreshReconnectOverlay();
   updateDuelControls();

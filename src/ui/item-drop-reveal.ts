@@ -4,13 +4,11 @@ export type ItemDropRevealDetails = {
   artSource: string;
   color: string;
   name: string;
-  quantity: number;
   stats: readonly string[];
 };
 
-export function itemDropRevealName(name: string, quantity: number) {
-  const safeQuantity = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
-  return safeQuantity > 1 ? `${name} ×${safeQuantity}` : name;
+export function itemDropRevealName(name: string) {
+  return name;
 }
 
 export function createItemDropReveal(details: ItemDropRevealDetails) {
@@ -26,7 +24,7 @@ export function createItemDropReveal(details: ItemDropRevealDetails) {
   if (details.artSource) sprite.style.backgroundImage = `url(${details.artSource})`;
   art.appendChild(sprite);
 
-  const displayName = itemDropRevealName(details.name, details.quantity);
+  const displayName = itemDropRevealName(details.name);
   const name = document.createElement("strong");
   name.className = "item-drop-name";
   name.textContent = displayName;

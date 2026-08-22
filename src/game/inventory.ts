@@ -68,10 +68,10 @@ export function inventoryItemQuantity(inventory: Pick<InventoryState, "itemIds">
   return inventory.itemIds.reduce((count, current) => count + Number(current === itemId), 0);
 }
 
-/** Replaces one stack's quantity while retaining its first inventory position. */
+/** Adds or removes one unique item while retaining its original bag position. */
 export function setInventoryItemQuantity(inventory: InventoryState, itemId: string, quantity: number) {
   const item = itemDefinition(itemId);
-  if (!item?.stackable) return false;
+  if (!item) return false;
   const nextQuantity = Math.max(0, Math.min(MAX_FOREST_ITEM_COUNT, Math.floor(quantity)));
   const firstIndex = inventory.itemIds.indexOf(itemId);
   const insertionIndex = firstIndex < 0 ? inventory.itemIds.length : firstIndex;
@@ -96,17 +96,17 @@ export function setInventoryItemQuantity(inventory: InventoryState, itemId: stri
   return true;
 }
 
-/** Converts every owned copy into one stack per item before slot assignment. */
+/** Converts owned IDs into unique inventory entries before slot assignment. */
 export function ownedInventoryStacks(inventory: Pick<InventoryState, "itemIds">): InventoryStack[] {
   const counts = new Map<string, number>();
   for (const itemId of inventory.itemIds) {
     if (!itemDefinition(itemId)) continue;
-    counts.set(itemId, (counts.get(itemId) ?? 0) + 1);
+    counts.set(itemId, 1);
   }
   return [...counts].map(([itemId, quantity]) => ({ itemId, quantity }));
 }
 
-/** Converts unassigned copies into bag stacks, subtracting both equipment loadouts. */
+/** Converts unassigned unique items into bag entries, subtracting both loadouts. */
 export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] {
   const counts = new Map(ownedInventoryStacks(inventory).map(({ itemId, quantity }) => [itemId, quantity]));
   for (const field of SLOTTED_ITEM_FIELDS) {

@@ -84,7 +84,7 @@ describe("inventory rules", () => {
     )).toEqual(inventory);
   });
 
-  it("preserves earned Bow stacks without replacing Rock and equips one weapon at a time", () => {
+  it("migrates duplicate Bows to one unique item without replacing Rock", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE, STARTER_BOW, STARTER_BOW]),
       "",
@@ -96,14 +96,14 @@ describe("inventory rules", () => {
       "",
     );
     expect(inventory.itemIds).toContain(STARTER_STONE);
-    expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(2);
+    expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(1);
     expect(moveInventoryItem(inventory, STARTER_BOW, "LEFT_HAND")).toBe(true);
     expect(inventory.equippedRightHand).toBe("");
     expect(inventory.equippedLeftHand).toBe(STARTER_BOW);
-    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: STARTER_BOW, quantity: 1 });
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(STARTER_BOW);
   });
 
-  it("groups duplicate forest equipment into bag stacks and subtracts equipped copies", () => {
+  it("clamps legacy forest duplicates and keeps equipped items out of the bag", () => {
     const inventory = normaliseInventory(
       [STARTER_BOW, STARTER_BOW, STARTER_BOW, WOODEN_ARMOR, WOODEN_ARMOR],
       "",
@@ -115,17 +115,13 @@ describe("inventory rules", () => {
       "",
     );
 
-    expect(bagInventoryStacks(inventory)).toEqual([
-      { itemId: STARTER_STONE, quantity: 1 },
-      { itemId: STARTER_BOW, quantity: 2 },
-      { itemId: WOODEN_ARMOR, quantity: 1 },
-    ]);
+    expect(bagInventoryStacks(inventory)).toEqual([{ itemId: STARTER_STONE, quantity: 1 }]);
     expect(setInventoryItemQuantity(inventory, STARTER_BOW, 4)).toBe(true);
-    expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(4);
-    expect(serialiseInventory(inventory)).toContain(`"${STARTER_BOW}","${STARTER_BOW}"`);
+    expect(inventoryItemQuantity(inventory, STARTER_BOW)).toBe(1);
+    expect(JSON.parse(serialiseInventory(inventory)).filter((itemId: string) => itemId === STARTER_BOW)).toHaveLength(1);
   });
 
-  it("preserves, stacks, equips, and serialises Frost Bows like normal items", () => {
+  it("migrates Frost Bow stacks into one unique equipable item", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([FROST_BOW, FROST_BOW, FROST_BOW]),
       "",
@@ -137,13 +133,13 @@ describe("inventory rules", () => {
       "",
     );
 
-    expect(inventoryItemQuantity(inventory, FROST_BOW)).toBe(3);
+    expect(inventoryItemQuantity(inventory, FROST_BOW)).toBe(1);
     expect(inventory.equippedRightHand).toBe(FROST_BOW);
-    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_BOW, quantity: 2 });
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_BOW);
     expect(moveInventoryItem(inventory, FROST_BOW, "LEFT_HAND")).toBe(true);
     expect(inventory.equippedLeftHand).toBe(FROST_BOW);
     expect(setInventoryItemQuantity(inventory, FROST_BOW, 4)).toBe(true);
-    expect(inventoryItemQuantity(inventory, FROST_BOW)).toBe(4);
+    expect(inventoryItemQuantity(inventory, FROST_BOW)).toBe(1);
     expect(inventoryFromSave(
       serialiseInventory(inventory),
       "",
@@ -156,7 +152,7 @@ describe("inventory rules", () => {
     ).equippedLeftHand).toBe(FROST_BOW);
   });
 
-  it("preserves and stacks Frost Armor while subtracting its equipped copy", () => {
+  it("migrates Frost Armor stacks into one unique equipped item", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([FROST_ARMOR, FROST_ARMOR, FROST_ARMOR]),
       "",
@@ -164,11 +160,11 @@ describe("inventory rules", () => {
       FROST_ARMOR,
       false,
     );
-    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(3);
+    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(1);
     expect(inventory.equippedChest).toBe(FROST_ARMOR);
-    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 2 });
+    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
     expect(setInventoryItemQuantity(inventory, FROST_ARMOR, 4)).toBe(true);
-    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(4);
+    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(1);
   });
 
   it("uses free owned copies as cosmetic overrides without changing stat equipment", () => {
@@ -199,7 +195,7 @@ describe("inventory rules", () => {
     });
   });
 
-  it("hides both loadouts from the bag and requires a separate cosmetic copy", () => {
+  it("moves one unique item between stat and cosmetic loadouts", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([FROST_ARMOR]),
       "",
@@ -218,9 +214,12 @@ describe("inventory rules", () => {
     expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
 
     expect(setInventoryItemQuantity(inventory, FROST_ARMOR, 2)).toBe(true);
+    expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(1);
+    expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(false);
+
+    expect(moveInventoryItem(inventory, FROST_ARMOR, "BAG")).toBe(true);
     expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(true);
     expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
-
     expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "BAG")).toBe(true);
     expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 1 });
   });

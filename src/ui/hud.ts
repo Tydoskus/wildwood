@@ -1,8 +1,9 @@
-import { bagInventoryStacks, inventoryItemQuantity, itemFitsEquipmentSlot, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
+import { bagInventoryStacks, itemFitsEquipmentSlot, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
+import { itemDisplayName, itemStats, normalizeItemUpgradeLevel } from "../../shared/items";
 
 type PlayerHudState = {
   hp: number;
@@ -178,6 +179,7 @@ function renderEquipmentSlot(
   destination: EquipmentSlot,
   label: string,
   mode: InventoryMode,
+  upgradeLevel: (itemId: string) => number,
 ) {
   const itemId = equipmentItemId(inventory, destination, mode);
   const item = itemsById[itemId];
@@ -189,7 +191,8 @@ function renderEquipmentSlot(
   element.classList.toggle("is-selected", selected);
   element.classList.toggle("is-compatible", compatible);
   element.classList.toggle("is-incompatible", hasSelection && !selected && !compatible);
-  element.setAttribute("aria-label", itemId ? `${label}: ${item?.name ?? itemId}` : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
+  const level = upgradeLevel(itemId);
+  element.setAttribute("aria-label", itemId ? `${label}: ${itemDisplayName(itemId, level)}` : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
   element.setAttribute("aria-pressed", String(selected));
   const slotLabel = document.createElement("span");
   slotLabel.className = "equipment-slot-label";
@@ -207,6 +210,12 @@ function renderEquipmentSlot(
   name.className = "equipment-slot-name";
   name.textContent = item?.name ?? (mode === "COSMETICS" ? "EQUIPPED LOOK" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
+  if (level > 0) {
+    const badge = document.createElement("span");
+    badge.className = "inventory-upgrade-level";
+    badge.textContent = `+${level}`;
+    element.append(badge);
+  }
 }
 
 export function renderInventoryView(
@@ -216,21 +225,21 @@ export function renderInventoryView(
   actions: {
     onSelect: (itemId: string, location: EquipmentSlot | "BAG" | "") => void;
     onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
+    upgradeLevel: (itemId: string) => number;
   },
 ) {
   elements.items.replaceChildren();
   const bagStacks = bagInventoryStacks(inventory);
-  elements.count.textContent = `${bagStacks.length} / 16 STACKS`;
-  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode);
-  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode);
-  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND", mode);
-  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND", mode);
-  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode);
+  elements.count.textContent = `${bagStacks.length} / 16 ITEMS`;
+  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode, actions.upgradeLevel);
 
   for (let index = 0; index < 16; index += 1) {
     const stack = bagStacks[index];
     const itemId = stack?.itemId;
-    const stackQuantity = stack?.quantity ?? 0;
     const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === itemId;
     const button = document.createElement("button");
     button.type = "button";
@@ -238,7 +247,8 @@ export function renderInventoryView(
       (selected ? " is-selected" : "");
     if (itemId) {
       const item = itemsById[itemId];
-      button.setAttribute("aria-label", stackQuantity > 1 ? `${item.name}, quantity ${stackQuantity}` : item.name);
+      const level = normalizeItemUpgradeLevel(actions.upgradeLevel(itemId));
+      button.setAttribute("aria-label", itemDisplayName(itemId, level));
       button.setAttribute("aria-pressed", String(selected));
       const art = document.createElement("span");
       art.className = "inventory-item-art-wrap";
@@ -247,11 +257,11 @@ export function renderInventoryView(
       name.className = "inventory-item-name";
       name.textContent = item.name;
       button.append(art, name);
-      if (stackQuantity > 1) {
-        const quantity = document.createElement("span");
-        quantity.className = "inventory-stack-count";
-        quantity.textContent = `×${stackQuantity}`;
-        button.appendChild(quantity);
+      if (level > 0) {
+        const badge = document.createElement("span");
+        badge.className = "inventory-upgrade-level";
+        badge.textContent = `+${level}`;
+        button.appendChild(badge);
       }
       button.addEventListener("click", () => actions.onSelect(itemId, "BAG"));
     } else {
@@ -289,19 +299,19 @@ export function renderInventoryView(
   copy.className = "inventory-detail-copy";
   const location = document.createElement("div");
   location.className = "inventory-slot";
-  const quantity = inventoryItemQuantity(inventory, selected.id);
   location.textContent = mode === "COSMETICS"
-    ? `${selected.slot} · VISUAL ONLY · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "COSMETIC ACTIVE" : "OWNED"}${quantity > 1 ? ` ×${quantity}` : ""}`
-    : `${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}${quantity > 1 ? ` · OWNED ×${quantity}` : ""}`;
+    ? `${selected.slot} · VISUAL ONLY · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "COSMETIC ACTIVE" : "OWNED"}`
+    : `${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}`;
   const name = document.createElement("strong");
-  name.textContent = selected.name;
+  const selectedLevel = normalizeItemUpgradeLevel(actions.upgradeLevel(selected.id));
+  name.textContent = itemDisplayName(selected.id, selectedLevel);
   const description = document.createElement("p");
   description.textContent = mode === "COSMETICS"
     ? `${selected.description} Cosmetic slots change appearance only; Equipment supplies your stats.`
     : selected.description;
   const stats = document.createElement("div");
   stats.className = "inventory-stats";
-  for (const stat of selected.stats) {
+  for (const stat of itemStats(selected.id, selectedLevel)) {
     const value = document.createElement("span");
     value.textContent = stat;
     stats.append(value);

@@ -33,6 +33,7 @@ export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
+export const UPGRADE_BENCH_POSITION = { x: 800, y: 710 } as const;
 export type MapId =
   | typeof TUTORIAL_FOREST_MAP_ID
   | typeof BEGINNER_DESERT_MAP_ID
@@ -120,7 +121,7 @@ function createDesertLayout() {
 
 function createSnowLayout() {
   const decor: WorldDecor[] = [
-    { type: "upgradeBench", x: 800, y: 710, s: 1, label: "Upgrade Bench" },
+    { type: "upgradeBench", ...UPGRADE_BENCH_POSITION, s: 1, label: "Upgrade Bench" },
   ];
   const paths: WorldPath[] = [
     { x: 300, y: 600, w: 3800, h: 150 },

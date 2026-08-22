@@ -26,19 +26,22 @@ export function profilePresenceText(online: boolean, lastSeenAtMs: number) {
 export function effectiveProfileStats(
   progress: PlayerProfileData["progress"],
   research: PlayerResearch = createEmptyResearchRanks(),
+  itemUpgradeLevels: Record<string, number> = {},
 ) {
   const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
   const weaponItem = progress.equippedRightHand || progress.equippedLeftHand;
   const healthResearchMultiplier = multiplier(research.vitality, 2);
-  const healthEquipmentMultiplier = itemMaxHealthMultiplier(progress.equippedChest);
+  const chestUpgradeLevel = itemUpgradeLevels[progress.equippedChest] ?? 0;
+  const weaponUpgradeLevel = itemUpgradeLevels[weaponItem] ?? 0;
+  const healthEquipmentMultiplier = itemMaxHealthMultiplier(progress.equippedChest, 1, chestUpgradeLevel);
   const damageResearchMultiplier = multiplier(research.warcraft, 2);
-  const damageEquipmentMultiplier = weaponDamageMultiplier(weaponItem);
-  const damageTotalMultiplier = weaponDamageMultiplier(weaponItem, damageResearchMultiplier);
-  const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem);
+  const damageEquipmentMultiplier = weaponDamageMultiplier(weaponItem, 1, weaponUpgradeLevel);
+  const damageTotalMultiplier = weaponDamageMultiplier(weaponItem, damageResearchMultiplier, weaponUpgradeLevel);
+  const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem, 1, weaponUpgradeLevel);
   const armorMultiplier = multiplier(research.precision, 2);
   const regenResearchMultiplier = multiplier(research.regeneration, 2);
-  const regenEquipmentMultiplier = itemRegenerationMultiplier(progress.equippedChest);
-  const regenTotalMultiplier = itemRegenerationMultiplier(progress.equippedChest, regenResearchMultiplier);
+  const regenEquipmentMultiplier = itemRegenerationMultiplier(progress.equippedChest, 1, chestUpgradeLevel);
+  const regenTotalMultiplier = itemRegenerationMultiplier(progress.equippedChest, regenResearchMultiplier, chestUpgradeLevel);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   return {
     maxHp: progress.maxHp * healthEquipmentMultiplier,
@@ -76,7 +79,7 @@ export function renderProfileStats(
   const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const modifier = (base: number, rank = 0, percentPerRank = 0) => `BASE: ${statValue(base)} · +${rank * percentPerRank}% · ×${multiplier(rank, percentPerRank).toFixed(2)}`;
-  const effective = effectiveProfileStats(progress, ranks);
+  const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
   const equipmentModifier = (equipmentMultiplier: number, totalMultiplier: number) => equipmentMultiplier > 1
     ? ` · EQUIPMENT +${(equipmentMultiplier - 1).toFixed(2)}× · TOTAL ×${totalMultiplier.toFixed(2)}`
     : "";
