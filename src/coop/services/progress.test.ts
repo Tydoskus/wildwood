@@ -20,6 +20,11 @@ const pending: ProgressSave = {
   equippedFeet: "trailblazer_boots",
   equippedRightHand: "",
   equippedLeftHand: "",
+  cosmeticHead: "",
+  cosmeticChest: "",
+  cosmeticFeet: "",
+  cosmeticRightHand: "",
+  cosmeticLeftHand: "",
   enemyKills: 10,
 };
 
@@ -77,11 +82,30 @@ describe("progress persistence rules", () => {
     expect(storage.getItem("pending/player-1")).not.toBeNull();
   });
 
+  it("migrates pending saves created before cosmetic slots existed", () => {
+    const storage = memoryStorage();
+    const legacy = { ...pending } as Partial<ProgressSave>;
+    delete legacy.cosmeticHead;
+    delete legacy.cosmeticChest;
+    delete legacy.cosmeticFeet;
+    delete legacy.cosmeticRightHand;
+    delete legacy.cosmeticLeftHand;
+    storage.setItem("pending/player-1", JSON.stringify({ identity: "player-1", balanceVersion: ATTACK_BALANCE_VERSION, progress: legacy }));
+    expect(createProgressStore(storage, "pending").read("player-1")).toMatchObject({
+      cosmeticHead: "",
+      cosmeticChest: "",
+      cosmeticFeet: "",
+      cosmeticRightHand: "",
+      cosmeticLeftHand: "",
+    });
+  });
+
   it("merges only monotonic gains and verifies save acknowledgement", () => {
     const merged = mergeProgress({ ...saved, damage: 10, bootsCollected: false }, pending);
     expect(merged.damage).toBe(20);
     expect(merged.bootsCollected).toBe(true);
     expect(progressCovers(merged, pending)).toBe(true);
     expect(progressCovers({ ...merged, inventoryJson: "[]" }, pending)).toBe(false);
+    expect(progressCovers({ ...merged, cosmeticHead: "different" }, pending)).toBe(false);
   });
 });

@@ -19,6 +19,7 @@ import {
   WOODEN_ARMOR,
   type EquipmentSlot,
 } from "../../shared/items";
+import { resolveEquipmentAppearance, type EquipmentAppearance } from "../../shared/equipment-appearance";
 
 export {
   BASIC_PAPER_HAT,
@@ -44,7 +45,14 @@ export type InventoryState = {
   equippedFeet: string;
   equippedRightHand: string;
   equippedLeftHand: string;
+  cosmeticHead: string;
+  cosmeticChest: string;
+  cosmeticFeet: string;
+  cosmeticRightHand: string;
+  cosmeticLeftHand: string;
 };
+
+export type { EquipmentAppearance } from "../../shared/equipment-appearance";
 
 export type InventoryStack = { itemId: string; quantity: number };
 
@@ -68,17 +76,28 @@ export function setInventoryItemQuantity(inventory: InventoryState, itemId: stri
     if (inventory.equippedFeet === itemId) inventory.equippedFeet = "";
     if (inventory.equippedRightHand === itemId) inventory.equippedRightHand = "";
     if (inventory.equippedLeftHand === itemId) inventory.equippedLeftHand = "";
+    if (inventory.cosmeticHead === itemId) inventory.cosmeticHead = "";
+    if (inventory.cosmeticChest === itemId) inventory.cosmeticChest = "";
+    if (inventory.cosmeticFeet === itemId) inventory.cosmeticFeet = "";
+    if (inventory.cosmeticRightHand === itemId) inventory.cosmeticRightHand = "";
+    if (inventory.cosmeticLeftHand === itemId) inventory.cosmeticLeftHand = "";
   }
   return true;
 }
 
-/** Converts owned copies into one bag stack per item, subtracting equipped copies. */
-export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] {
+/** Converts every owned copy into one stack per item without consuming cosmetics. */
+export function ownedInventoryStacks(inventory: Pick<InventoryState, "itemIds">): InventoryStack[] {
   const counts = new Map<string, number>();
   for (const itemId of inventory.itemIds) {
     if (!itemDefinition(itemId)) continue;
     counts.set(itemId, (counts.get(itemId) ?? 0) + 1);
   }
+  return [...counts].map(([itemId, quantity]) => ({ itemId, quantity }));
+}
+
+/** Converts owned copies into one bag stack per item, subtracting stat equipment. */
+export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] {
+  const counts = new Map(ownedInventoryStacks(inventory).map(({ itemId, quantity }) => [itemId, quantity]));
   for (const itemId of [inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet, inventory.equippedRightHand, inventory.equippedLeftHand]) {
     if (!itemId) continue;
     counts.set(itemId, Math.max(0, (counts.get(itemId) ?? 0) - 1));
@@ -121,7 +140,49 @@ export function moveInventoryItem(inventory: InventoryState, itemId: string, des
   return true;
 }
 
-export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = ""): InventoryState {
+/** Assigns an owned item as a visual override without moving or consuming it. */
+export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: string, destination: EquipmentSlot | "BAG") {
+  const item = itemDefinition(itemId);
+  if (!item || !inventory.itemIds.includes(itemId)) return false;
+  const cosmeticSlots: (keyof Pick<InventoryState, "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand">)[] = [
+    "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand",
+  ];
+  const clearItem = () => {
+    let changed = false;
+    for (const slot of cosmeticSlots) {
+      if (inventory[slot] !== itemId) continue;
+      inventory[slot] = "";
+      changed = true;
+    }
+    return changed;
+  };
+  if (destination === "BAG") return clearItem();
+  if (!itemFitsEquipmentSlot(item.id, destination)) return false;
+  const target = destination === "HEAD" ? "cosmeticHead"
+    : destination === "CHEST" ? "cosmeticChest"
+      : destination === "FEET" ? "cosmeticFeet"
+        : destination === "RIGHT_HAND" ? "cosmeticRightHand"
+          : "cosmeticLeftHand";
+  if (inventory[target] === itemId) return false;
+  clearItem();
+  if (item.slot === "HAND") {
+    inventory.cosmeticRightHand = "";
+    inventory.cosmeticLeftHand = "";
+  }
+  inventory[target] = itemId;
+  return true;
+}
+
+/** Resolves final outfit art while keeping stat equipment untouched. */
+export function equipmentAppearance(inventory: Pick<InventoryState,
+  "equippedHead" | "equippedChest" | "equippedFeet" | "equippedRightHand" | "equippedLeftHand"
+> & Partial<Pick<InventoryState,
+  "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand"
+>>): EquipmentAppearance {
+  return resolveEquipmentAppearance(inventory);
+}
+
+export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = ""): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
   const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
   const hasBetaTesterGoldenHelmet = ownsDeveloperCosmetics || requested.includes(SUPERIOR_GOLDEN_HELMET);
@@ -141,6 +202,12 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedRightItem = canonicalItemId(equippedRightHand);
   const savedLeftHand = savedLeftItem && handItems.includes(savedLeftItem) ? savedLeftItem : "";
   const savedRightHand = savedRightItem && handItems.includes(savedRightItem) ? savedRightItem : "";
+  const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
+    const itemId = canonicalItemId(requestedItem);
+    return itemId && items.includes(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
+  };
+  const savedCosmeticRightHand = cosmeticItem(cosmeticRightHand, "RIGHT_HAND");
+  const savedCosmeticLeftHand = savedCosmeticRightHand ? "" : cosmeticItem(cosmeticLeftHand, "LEFT_HAND");
   return {
     itemIds: items,
     equippedHead: equippedHead === ""
@@ -152,15 +219,20 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
       : "",
     equippedRightHand: savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : ""),
     equippedLeftHand: savedRightHand ? "" : savedLeftHand,
+    cosmeticHead: cosmeticItem(cosmeticHead, "HEAD"),
+    cosmeticChest: cosmeticItem(cosmeticChest, "CHEST"),
+    cosmeticFeet: cosmeticItem(cosmeticFeet, "FEET"),
+    cosmeticRightHand: savedCosmeticRightHand,
+    cosmeticLeftHand: savedCosmeticLeftHand,
   };
 }
 
-export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = ""): InventoryState {
+export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = ""): InventoryState {
   let itemIds: unknown = [];
   if (typeof inventoryJson === "string") {
     try { itemIds = JSON.parse(inventoryJson); } catch {}
   }
-  return normaliseInventory(itemIds, equippedFeet, equippedHead, equippedChest, ownsBoots, ownsDeveloperCosmetics, equippedRightHand, equippedLeftHand);
+  return normaliseInventory(itemIds, equippedFeet, equippedHead, equippedChest, ownsBoots, ownsDeveloperCosmetics, equippedRightHand, equippedLeftHand, cosmeticHead, cosmeticChest, cosmeticFeet, cosmeticRightHand, cosmeticLeftHand);
 }
 
 export function serialiseInventory(inventory: InventoryState) {

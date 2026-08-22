@@ -28,6 +28,11 @@ export type PlayerProgress = {
   equippedFeet: string;
   equippedRightHand: string;
   equippedLeftHand: string;
+  cosmeticHead: string;
+  cosmeticChest: string;
+  cosmeticFeet: string;
+  cosmeticRightHand: string;
+  cosmeticLeftHand: string;
   introComplete: boolean;
   desertUnlocked: boolean;
   snowlandsUnlocked: boolean;
@@ -62,6 +67,11 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
     equippedFeet: typeof progress.equippedFeet === "string" ? progress.equippedFeet : "",
     equippedRightHand: typeof progress.equippedRightHand === "string" ? progress.equippedRightHand : "",
     equippedLeftHand: typeof progress.equippedLeftHand === "string" ? progress.equippedLeftHand : "",
+    cosmeticHead: typeof progress.cosmeticHead === "string" ? progress.cosmeticHead : "",
+    cosmeticChest: typeof progress.cosmeticChest === "string" ? progress.cosmeticChest : "",
+    cosmeticFeet: typeof progress.cosmeticFeet === "string" ? progress.cosmeticFeet : "",
+    cosmeticRightHand: typeof progress.cosmeticRightHand === "string" ? progress.cosmeticRightHand : "",
+    cosmeticLeftHand: typeof progress.cosmeticLeftHand === "string" ? progress.cosmeticLeftHand : "",
     enemyKills: Number.isInteger(progress.enemyKills)
       ? Math.max(0, Math.min(4_294_967_295, progress.enemyKills))
       : 0,
@@ -84,6 +94,8 @@ export function isProgressSave(value: unknown): value is ProgressSave {
     typeof progress.bootsCollected === "boolean" && typeof progress.inventoryJson === "string" &&
     typeof progress.equippedHead === "string" && typeof progress.equippedChest === "string" && typeof progress.equippedFeet === "string" &&
     typeof progress.equippedRightHand === "string" && typeof progress.equippedLeftHand === "string" &&
+    [progress.cosmeticHead, progress.cosmeticChest, progress.cosmeticFeet, progress.cosmeticRightHand, progress.cosmeticLeftHand]
+      .every((value) => value === undefined || typeof value === "string") &&
     (progress.enemyKills === undefined || Number.isInteger(progress.enemyKills));
 }
 
@@ -108,7 +120,9 @@ export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     saved.speed >= pending.speed &&
     (!pending.bootsCollected || saved.bootsCollected) &&
     saved.inventoryJson === pending.inventoryJson && saved.equippedHead === pending.equippedHead && saved.equippedChest === pending.equippedChest && saved.equippedFeet === pending.equippedFeet &&
-    saved.equippedRightHand === pending.equippedRightHand && saved.equippedLeftHand === pending.equippedLeftHand;
+    saved.equippedRightHand === pending.equippedRightHand && saved.equippedLeftHand === pending.equippedLeftHand &&
+    saved.cosmeticHead === pending.cosmeticHead && saved.cosmeticChest === pending.cosmeticChest && saved.cosmeticFeet === pending.cosmeticFeet &&
+    saved.cosmeticRightHand === pending.cosmeticRightHand && saved.cosmeticLeftHand === pending.cosmeticLeftHand;
 }
 
 export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): PlayerProgress {
@@ -129,6 +143,11 @@ export function mergeProgress(saved: PlayerProgress, pending: ProgressSave): Pla
     equippedFeet: pending.equippedFeet,
     equippedRightHand: pending.equippedRightHand,
     equippedLeftHand: pending.equippedLeftHand,
+    cosmeticHead: pending.cosmeticHead,
+    cosmeticChest: pending.cosmeticChest,
+    cosmeticFeet: pending.cosmeticFeet,
+    cosmeticRightHand: pending.cosmeticRightHand,
+    cosmeticLeftHand: pending.cosmeticLeftHand,
   };
 }
 

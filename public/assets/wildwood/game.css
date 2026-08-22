@@ -269,7 +269,7 @@
     inset: 0 0 var(--toolbar-height);
     z-index: 10;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     width: auto;
     height: auto;
     max-height: none;
@@ -295,6 +295,11 @@
   .inventory-capacity { color: var(--inventory-muted); font-size: var(--font-readable-min); font-weight: 900; letter-spacing: .04em; white-space: nowrap; }
   .inventory-panel-header .profile-close-button { flex: 0 0 auto; width: 44px; min-width: 44px; height: 44px; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.26); border-radius: 8px; background: linear-gradient(#68736d, #39413d); box-shadow: 0 3px 0 rgba(0,0,0,.48); color: #fff; font-size: 25px; line-height: 1; }
   .inventory-panel-header .profile-close-button:active { transform: translateY(2px); box-shadow: none; }
+
+  .inventory-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; min-height: 56px; padding: 6px max(14px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left)); border-bottom: 1px solid rgba(255,255,255,.14); background: rgba(10,15,12,.94); }
+  .inventory-tab { min-width: 0; height: 44px; min-height: 44px; margin: 0; padding: 0 10px; border: 2px solid rgba(255,255,255,.17); border-radius: 8px; background: linear-gradient(#27312b, #171e1a); box-shadow: inset 0 -3px 0 rgba(0,0,0,.24); color: #b9c5bc; font: 900 var(--font-readable-label)/1 var(--font-rounded); letter-spacing: .04em; }
+  .inventory-tab.is-active { border-color: #d9a344; background: linear-gradient(#4b3c23, #282016); color: #fff4d6; box-shadow: inset 0 -3px 0 rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,229,167,.2); }
+  .inventory-tab:focus-visible { outline: 2px solid #fff4d6; outline-offset: 1px; }
 
   .inventory-content { --inventory-grid-gap: 6px; --inventory-slot-size: calc(18.75% - 3.375px); position: relative; display: grid; grid-template-columns: repeat(2, minmax(330px, 430px)); grid-template-rows: minmax(0, 1fr); align-items: center; align-content: stretch; justify-content: center; gap: 12px; min-height: 0; padding: clamp(12px, 2.3vw, 28px) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-right)) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-bottom)) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-left)); overflow: hidden; }
 

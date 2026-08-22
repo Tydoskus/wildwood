@@ -144,6 +144,11 @@ export function createGameBootstrap() {
     equippedFeet: "",
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
+    cosmeticHead: "",
+    cosmeticChest: "",
+    cosmeticFeet: "",
+    cosmeticRightHand: "",
+    cosmeticLeftHand: "",
     selectedItemId: "",
     selectedItemLocation: "",
   };

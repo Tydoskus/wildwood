@@ -4,7 +4,7 @@ import {
   type InventoryState,
 } from "../game/inventory";
 import { requiredElement } from "../game/runtime/dom";
-import { renderInventoryView } from "./hud";
+import { renderInventoryView, type InventoryMode } from "./hud";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -12,6 +12,7 @@ type SelectableInventory = InventoryState & { selectedItemId: string; selectedIt
 type InventoryDependencies = {
   inventory: SelectableInventory;
   move: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
+  moveCosmetic: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
 };
 
 export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
@@ -29,6 +30,11 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const equippedFeet = requiredElement("equippedFeetSlot");
   const equippedRightHand = requiredElement("equippedRightHandSlot");
   const equippedLeftHand = requiredElement("equippedLeftHandSlot");
+  const equipmentTab = requiredElement<HTMLButtonElement>("inventoryEquipmentTab");
+  const cosmeticsTab = requiredElement<HTMLButtonElement>("inventoryCosmeticsTab");
+  const content = requiredElement("inventoryContent");
+  const loadout = panel.querySelector<HTMLElement>(".inventory-loadout");
+  let mode: InventoryMode = "EQUIPMENT";
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -55,7 +61,10 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function move(itemId: string, destination: EquipmentSlot | "BAG") {
-    if (!dependencies.move(itemId, destination)) return false;
+    const moved = mode === "COSMETICS"
+      ? dependencies.moveCosmetic(itemId, destination)
+      : dependencies.move(itemId, destination);
+    if (!moved) return false;
     setSelection(itemId, destination);
     render();
     playMoveFeedback(destination);
@@ -63,9 +72,19 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function render() {
+    const cosmeticsActive = mode === "COSMETICS";
+    equipmentTab.classList.toggle("is-active", !cosmeticsActive);
+    equipmentTab.setAttribute("aria-selected", String(!cosmeticsActive));
+    equipmentTab.tabIndex = cosmeticsActive ? -1 : 0;
+    cosmeticsTab.classList.toggle("is-active", cosmeticsActive);
+    cosmeticsTab.setAttribute("aria-selected", String(cosmeticsActive));
+    cosmeticsTab.tabIndex = cosmeticsActive ? 0 : -1;
+    content.setAttribute("aria-labelledby", cosmeticsActive ? cosmeticsTab.id : equipmentTab.id);
+    if (loadout) loadout.setAttribute("aria-label", cosmeticsActive ? "Cosmetic items" : "Equipped items");
     renderInventoryView(
       { items, detail, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
       dependencies.inventory,
+      mode,
       {
         onSelect(itemId, location) {
           const tappedAgain = dependencies.inventory.selectedItemId === itemId && dependencies.inventory.selectedItemLocation === location;
@@ -77,6 +96,21 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         },
       },
     );
+  }
+
+  function itemInSlot(destination: EquipmentSlot) {
+    if (mode === "COSMETICS") {
+      return destination === "HEAD" ? dependencies.inventory.cosmeticHead
+        : destination === "CHEST" ? dependencies.inventory.cosmeticChest
+          : destination === "FEET" ? dependencies.inventory.cosmeticFeet
+            : destination === "RIGHT_HAND" ? dependencies.inventory.cosmeticRightHand
+              : dependencies.inventory.cosmeticLeftHand;
+    }
+    return destination === "HEAD" ? dependencies.inventory.equippedHead
+      : destination === "CHEST" ? dependencies.inventory.equippedChest
+        : destination === "FEET" ? dependencies.inventory.equippedFeet
+          : destination === "RIGHT_HAND" ? dependencies.inventory.equippedRightHand
+            : dependencies.inventory.equippedLeftHand;
   }
 
   function clickEquipment(destination: EquipmentSlot, itemId: string) {
@@ -94,11 +128,28 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     render();
   }
 
-  equippedHead.addEventListener("click", () => clickEquipment("HEAD", dependencies.inventory.equippedHead));
-  equippedChest.addEventListener("click", () => clickEquipment("CHEST", dependencies.inventory.equippedChest));
-  equippedRightHand.addEventListener("click", () => clickEquipment("RIGHT_HAND", dependencies.inventory.equippedRightHand));
-  equippedLeftHand.addEventListener("click", () => clickEquipment("LEFT_HAND", dependencies.inventory.equippedLeftHand));
-  equippedFeet.addEventListener("click", () => clickEquipment("FEET", dependencies.inventory.equippedFeet));
+  equippedHead.addEventListener("click", () => clickEquipment("HEAD", itemInSlot("HEAD")));
+  equippedChest.addEventListener("click", () => clickEquipment("CHEST", itemInSlot("CHEST")));
+  equippedRightHand.addEventListener("click", () => clickEquipment("RIGHT_HAND", itemInSlot("RIGHT_HAND")));
+  equippedLeftHand.addEventListener("click", () => clickEquipment("LEFT_HAND", itemInSlot("LEFT_HAND")));
+  equippedFeet.addEventListener("click", () => clickEquipment("FEET", itemInSlot("FEET")));
+  const setMode = (nextMode: InventoryMode) => {
+    if (mode === nextMode) return;
+    mode = nextMode;
+    setSelection("", "");
+    render();
+  };
+  equipmentTab.addEventListener("click", () => setMode("EQUIPMENT"));
+  cosmeticsTab.addEventListener("click", () => setMode("COSMETICS"));
+  for (const tab of [equipmentTab, cosmeticsTab]) {
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const nextTab = tab === equipmentTab ? cosmeticsTab : equipmentTab;
+      setMode(nextTab === cosmeticsTab ? "COSMETICS" : "EQUIPMENT");
+      nextTab.focus();
+    });
+  }
   panel.addEventListener("click", (event) => {
     const target = event.target;
     // Equipment rendering replaces its inner art during the button's click
@@ -112,5 +163,6 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   return {
     render,
+    mode: () => mode,
   };
 }

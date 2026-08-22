@@ -34,4 +34,9 @@ export default __t.row({
   lavaUnlocked: __t.bool().name("lava_unlocked"),
   bowCount: __t.u32().name("bow_count"),
   woodenArmorCount: __t.u32().name("wooden_armor_count"),
+  cosmeticHead: __t.string().name("cosmetic_head"),
+  cosmeticChest: __t.string().name("cosmetic_chest"),
+  cosmeticFeet: __t.string().name("cosmetic_feet"),
+  cosmeticRightHand: __t.string().name("cosmetic_right_hand"),
+  cosmeticLeftHand: __t.string().name("cosmetic_left_hand"),
 });

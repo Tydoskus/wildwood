@@ -28,4 +28,9 @@ export default {
   enemyKills: __t.u32(),
   equippedRightHand: __t.string(),
   equippedLeftHand: __t.string(),
+  cosmeticHead: __t.string(),
+  cosmeticChest: __t.string(),
+  cosmeticFeet: __t.string(),
+  cosmeticRightHand: __t.string(),
+  cosmeticLeftHand: __t.string(),
 };

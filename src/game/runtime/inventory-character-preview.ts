@@ -1,10 +1,10 @@
-import type { InventoryState } from "../inventory";
+import { equipmentAppearance, type InventoryState } from "../inventory";
 import { drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import { requiredCanvasContext } from "./dom";
 
 type InventoryCharacterPreviewOptions = {
   visible: boolean;
-  inventory: Pick<InventoryState, "equippedHead" | "equippedChest" | "equippedFeet" | "equippedRightHand" | "equippedLeftHand">;
+  inventory: InventoryState;
   skinTone: number;
 };
 
@@ -53,6 +53,7 @@ export function createInventoryCharacterPreview(
 
     const widthScale = Math.max(.5, (width - 12) / 180);
     const scale = Math.min(.72, widthScale);
+    const appearance = equipmentAppearance(inventory);
     drawStartingPlayer(ctx, playerAppearanceAssets, {
       x: width / 2,
       y: height / 2 + 4,
@@ -60,11 +61,7 @@ export function createInventoryCharacterPreview(
       moving: false,
       gameTime: performance.now() / 1_000,
       skinTone,
-      headItem: inventory.equippedHead,
-      chestItem: inventory.equippedChest,
-      feetItem: inventory.equippedFeet,
-      rightHandItem: inventory.equippedRightHand,
-      leftHandItem: inventory.equippedLeftHand,
+      ...appearance,
       scale,
     });
   }

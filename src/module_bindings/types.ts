@@ -526,6 +526,11 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   lavaUnlocked: __t.bool(),
   bowCount: __t.u32(),
   woodenArmorCount: __t.u32(),
+  cosmeticHead: __t.string(),
+  cosmeticChest: __t.string(),
+  cosmeticFeet: __t.string(),
+  cosmeticRightHand: __t.string(),
+  cosmeticLeftHand: __t.string(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

@@ -1,4 +1,4 @@
-import { bagInventoryStacks, inventoryItemQuantity, itemFitsEquipmentSlot, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
+import { bagInventoryStacks, inventoryItemQuantity, itemFitsEquipmentSlot, ITEM_DEFINITIONS, ownedInventoryStacks, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
@@ -75,9 +75,16 @@ type InventoryViewState = {
   equippedFeet: string;
   equippedRightHand: string;
   equippedLeftHand: string;
+  cosmeticHead: string;
+  cosmeticChest: string;
+  cosmeticFeet: string;
+  cosmeticRightHand: string;
+  cosmeticLeftHand: string;
   selectedItemId: string;
   selectedItemLocation?: EquipmentSlot | "BAG" | "";
 };
+
+export type InventoryMode = "EQUIPMENT" | "COSMETICS";
 
 type InventoryElements = {
   items: HTMLElement;
@@ -110,7 +117,14 @@ function itemArt(itemId: string, hidden = true) {
   return itemArtMarkup(itemId, hidden);
 }
 
-function equipmentItemId(inventory: InventoryViewState, slot: EquipmentSlot) {
+function equipmentItemId(inventory: InventoryViewState, slot: EquipmentSlot, mode: InventoryMode) {
+  if (mode === "COSMETICS") {
+    return slot === "HEAD" ? inventory.cosmeticHead
+      : slot === "CHEST" ? inventory.cosmeticChest
+        : slot === "FEET" ? inventory.cosmeticFeet
+          : slot === "RIGHT_HAND" ? inventory.cosmeticRightHand
+            : inventory.cosmeticLeftHand;
+  }
   return slot === "HEAD" ? inventory.equippedHead
     : slot === "CHEST" ? inventory.equippedChest
       : slot === "FEET" ? inventory.equippedFeet
@@ -122,11 +136,12 @@ export function inventoryMoveActions(
   inventory: InventoryViewState,
   itemId: string,
   location: EquipmentSlot | "BAG" | "" | undefined,
+  mode: InventoryMode = "EQUIPMENT",
 ): InventoryMoveAction[] {
   const item = itemsById[itemId];
   if (!item || !location) return [];
   if (location !== "BAG") {
-    const actions: InventoryMoveAction[] = [{ label: "UNEQUIP", destination: "BAG" }];
+    const actions: InventoryMoveAction[] = [{ label: mode === "COSMETICS" ? "REMOVE COSMETIC" : "UNEQUIP", destination: "BAG" }];
     if (item.slot === "HAND") {
       const opposite = location === "RIGHT_HAND" ? "LEFT_HAND" : "RIGHT_HAND";
       actions.push({ label: opposite === "RIGHT_HAND" ? "MOVE TO RIGHT" : "MOVE TO LEFT", destination: opposite });
@@ -135,17 +150,23 @@ export function inventoryMoveActions(
   }
   if (item.slot === "HAND") {
     return (["RIGHT_HAND", "LEFT_HAND"] as const).map((destination) => ({
-      label: equipmentItemId(inventory, destination) === itemId
-        ? destination === "RIGHT_HAND" ? "RIGHT HAND EQUIPPED" : "LEFT HAND EQUIPPED"
-        : destination === "RIGHT_HAND" ? "EQUIP RIGHT" : "EQUIP LEFT",
+      label: equipmentItemId(inventory, destination, mode) === itemId
+        ? mode === "COSMETICS"
+          ? destination === "RIGHT_HAND" ? "RIGHT LOOK ACTIVE" : "LEFT LOOK ACTIVE"
+          : destination === "RIGHT_HAND" ? "RIGHT HAND EQUIPPED" : "LEFT HAND EQUIPPED"
+        : mode === "COSMETICS"
+          ? destination === "RIGHT_HAND" ? "USE ON RIGHT" : "USE ON LEFT"
+          : destination === "RIGHT_HAND" ? "EQUIP RIGHT" : "EQUIP LEFT",
       destination,
-      disabled: equipmentItemId(inventory, destination) === itemId,
+      disabled: equipmentItemId(inventory, destination, mode) === itemId,
     }));
   }
   const destination = item.slot;
-  const alreadyEquipped = equipmentItemId(inventory, destination) === itemId;
+  const alreadyEquipped = equipmentItemId(inventory, destination, mode) === itemId;
   return [{
-    label: alreadyEquipped ? "ALREADY EQUIPPED" : "EQUIP",
+    label: alreadyEquipped
+      ? mode === "COSMETICS" ? "LOOK ACTIVE" : "ALREADY EQUIPPED"
+      : mode === "COSMETICS" ? "USE COSMETIC" : "EQUIP",
     destination,
     disabled: alreadyEquipped,
   }];
@@ -156,17 +177,19 @@ function renderEquipmentSlot(
   inventory: InventoryViewState,
   destination: EquipmentSlot,
   label: string,
+  mode: InventoryMode,
 ) {
-  const itemId = equipmentItemId(inventory, destination);
+  const itemId = equipmentItemId(inventory, destination, mode);
   const item = itemsById[itemId];
   const selected = inventory.selectedItemLocation === destination && inventory.selectedItemId === itemId;
   const hasSelection = Boolean(itemsById[inventory.selectedItemId]);
   const compatible = hasSelection && !selected && itemFitsEquipmentSlot(inventory.selectedItemId, destination);
   element.classList.toggle("is-equipped", Boolean(itemId));
+  element.classList.toggle("is-cosmetic", mode === "COSMETICS" && Boolean(itemId));
   element.classList.toggle("is-selected", selected);
   element.classList.toggle("is-compatible", compatible);
   element.classList.toggle("is-incompatible", hasSelection && !selected && !compatible);
-  element.setAttribute("aria-label", itemId ? `${label}: ${item?.name ?? itemId}` : `${label}: empty`);
+  element.setAttribute("aria-label", itemId ? `${label}: ${item?.name ?? itemId}` : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
   element.setAttribute("aria-pressed", String(selected));
   const slotLabel = document.createElement("span");
   slotLabel.className = "equipment-slot-label";
@@ -182,26 +205,27 @@ function renderEquipmentSlot(
   }
   const name = document.createElement("span");
   name.className = "equipment-slot-name";
-  name.textContent = item?.name ?? "EMPTY";
+  name.textContent = item?.name ?? (mode === "COSMETICS" ? "EQUIPPED LOOK" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
 }
 
 export function renderInventoryView(
   elements: InventoryElements,
   inventory: InventoryViewState,
+  mode: InventoryMode,
   actions: {
     onSelect: (itemId: string, location: EquipmentSlot | "BAG" | "") => void;
     onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
   },
 ) {
   elements.items.replaceChildren();
-  const bagStacks = bagInventoryStacks(inventory);
+  const bagStacks = mode === "COSMETICS" ? ownedInventoryStacks(inventory) : bagInventoryStacks(inventory);
   elements.count.textContent = `${bagStacks.length} / 16 STACKS`;
-  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD");
-  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR");
-  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND");
-  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND");
-  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS");
+  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode);
+  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode);
+  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND", mode);
+  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND", mode);
+  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode);
 
   for (let index = 0; index < 16; index += 1) {
     const stack = bagStacks[index];
@@ -252,7 +276,9 @@ export function renderInventoryView(
     elements.detail.classList.remove("has-selection");
     const prompt = document.createElement("div");
     prompt.className = "inventory-detail-empty";
-    prompt.innerHTML = "<strong>SELECT AN ITEM</strong><span>VIEW STATS AND EQUIP IT FROM HERE</span>";
+    prompt.innerHTML = mode === "COSMETICS"
+      ? "<strong>SELECT AN ITEM</strong><span>CHANGE YOUR LOOK WITHOUT CHANGING STATS</span>"
+      : "<strong>SELECT AN ITEM</strong><span>VIEW STATS AND EQUIP IT FROM HERE</span>";
     elements.detail.replaceChildren(prompt);
     return;
   }
@@ -265,11 +291,15 @@ export function renderInventoryView(
   const location = document.createElement("div");
   location.className = "inventory-slot";
   const quantity = inventoryItemQuantity(inventory, selected.id);
-  location.textContent = `${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}${quantity > 1 ? ` · OWNED ×${quantity}` : ""}`;
+  location.textContent = mode === "COSMETICS"
+    ? `${selected.slot} · VISUAL ONLY · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "COSMETIC ACTIVE" : "OWNED"}${quantity > 1 ? ` ×${quantity}` : ""}`
+    : `${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}${quantity > 1 ? ` · OWNED ×${quantity}` : ""}`;
   const name = document.createElement("strong");
   name.textContent = selected.name;
   const description = document.createElement("p");
-  description.textContent = selected.description;
+  description.textContent = mode === "COSMETICS"
+    ? `${selected.description} Cosmetic slots change appearance only; Equipment supplies your stats.`
+    : selected.description;
   const stats = document.createElement("div");
   stats.className = "inventory-stats";
   for (const stat of selected.stats) {
@@ -280,7 +310,7 @@ export function renderInventoryView(
   copy.append(location, name, description, stats);
   const actionRow = document.createElement("div");
   actionRow.className = "inventory-actions";
-  for (const action of inventoryMoveActions(inventory, selected.id, inventory.selectedItemLocation)) {
+  for (const action of inventoryMoveActions(inventory, selected.id, inventory.selectedItemLocation, mode)) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = action.destination === "BAG" ? "inventory-action-secondary" : "inventory-action-primary";

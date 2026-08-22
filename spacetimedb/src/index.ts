@@ -16,6 +16,7 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
+import { resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
@@ -380,6 +381,13 @@ const playerProgress = table(
     lavaUnlocked: t.bool().default(false),
     bowCount: t.u32().default(0),
     woodenArmorCount: t.u32().default(0),
+    // Cosmetic equipment is presentation-only. Appended defaults preserve
+    // every existing save while empty slots fall back to stat equipment.
+    cosmeticHead: t.string().default(""),
+    cosmeticChest: t.string().default(""),
+    cosmeticFeet: t.string().default(""),
+    cosmeticRightHand: t.string().default(""),
+    cosmeticLeftHand: t.string().default(""),
   },
 );
 
@@ -1132,6 +1140,11 @@ function defaultPlayerProgress(identity: any) {
     lavaUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
+    cosmeticHead: "",
+    cosmeticChest: "",
+    cosmeticFeet: "",
+    cosmeticRightHand: "",
+    cosmeticLeftHand: "",
   };
 }
 
@@ -2016,6 +2029,11 @@ function hasFreshProgress(progress: any) {
     progress.equippedChest === defaultProgress.equippedChest &&
     progress.equippedRightHand === defaultProgress.equippedRightHand &&
     progress.equippedLeftHand === defaultProgress.equippedLeftHand &&
+    progress.cosmeticHead === defaultProgress.cosmeticHead &&
+    progress.cosmeticChest === defaultProgress.cosmeticChest &&
+    progress.cosmeticFeet === defaultProgress.cosmeticFeet &&
+    progress.cosmeticRightHand === defaultProgress.cosmeticRightHand &&
+    progress.cosmeticLeftHand === defaultProgress.cosmeticLeftHand &&
     progress.bowCount === defaultProgress.bowCount &&
     progress.woodenArmorCount === defaultProgress.woodenArmorCount &&
     progress.desertUnlocked === defaultProgress.desertUnlocked &&
@@ -2129,15 +2147,33 @@ function equippedLeftHandForProgress(progress: any) {
   return saved && inventory.includes(saved) ? saved : "";
 }
 
+function cosmeticEquipmentForProgress(progress: any) {
+  const inventory = inventoryForProgress(progress);
+  const itemFor = (field: "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand", slot: "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND") => {
+    const itemId = canonicalItemId(progress[field]);
+    return itemId && inventory.includes(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
+  };
+  const cosmeticRightHand = itemFor("cosmeticRightHand", "RIGHT_HAND");
+  return {
+    cosmeticHead: itemFor("cosmeticHead", "HEAD"),
+    cosmeticChest: itemFor("cosmeticChest", "CHEST"),
+    cosmeticFeet: itemFor("cosmeticFeet", "FEET"),
+    cosmeticRightHand,
+    cosmeticLeftHand: cosmeticRightHand ? "" : itemFor("cosmeticLeftHand", "LEFT_HAND"),
+  };
+}
+
 function equipmentPresentationForProgress(progress: any) {
   const rightHandItem = equippedRightHandForProgress(progress);
-  return {
-    feetItem: equippedFeetForProgress(progress),
-    headItem: equippedHeadForProgress(progress),
-    chestItem: equippedChestForProgress(progress),
-    rightHandItem,
-    leftHandItem: rightHandItem ? "" : equippedLeftHandForProgress(progress),
-  };
+  const cosmetics = cosmeticEquipmentForProgress(progress);
+  return resolveEquipmentAppearance({
+    equippedFeet: equippedFeetForProgress(progress),
+    equippedHead: equippedHeadForProgress(progress),
+    equippedChest: equippedChestForProgress(progress),
+    equippedRightHand: rightHandItem,
+    equippedLeftHand: rightHandItem ? "" : equippedLeftHandForProgress(progress),
+    ...cosmetics,
+  });
 }
 
 function leaderboardAppearanceForProgress(progress: any, profile: any) {
@@ -2981,9 +3017,10 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const equippedRightHand = equippedRightHandForProgress(existingProgress);
     const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, grantBetaTesterGoldenHelmet));
+    const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
     const speed = speedForBoots(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
-    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand) {
+    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
         ...existingProgress,
         maxHp,
@@ -2995,6 +3032,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         equippedFeet,
         equippedRightHand,
         equippedLeftHand,
+        ...cosmeticEquipment,
       };
       ctx.db.playerProgress.identity.update(migratedProgress);
       existingProgress = migratedProgress;
@@ -3093,7 +3131,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
     ...powerFieldsForProgress(existingProgress),
-    speed: speedForBoots(equipmentPresentation.feetItem === TRAILBLAZER_BOOTS),
+    // Cosmetic boots never affect movement stats.
+    speed: speedForBoots(equippedFeetForProgress(existingProgress) === TRAILBLAZER_BOOTS),
     moving: false,
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
@@ -4159,6 +4198,11 @@ export const savePlayerProgress = spacetimedb.reducer(
     enemyKills: t.u32(),
     equippedRightHand: t.string(),
     equippedLeftHand: t.string(),
+    cosmeticHead: t.string(),
+    cosmeticChest: t.string(),
+    cosmeticFeet: t.string(),
+    cosmeticRightHand: t.string(),
+    cosmeticLeftHand: t.string(),
   },
   (ctx, progress) => {
     const activePlayer = requireControllingPlayer(ctx);
@@ -4196,6 +4240,15 @@ export const savePlayerProgress = spacetimedb.reducer(
     const equippedLeftHand = !equippedRightHand && requestedLeftHand && inventory.includes(requestedLeftHand) && itemFitsEquipmentSlot(requestedLeftHand, "LEFT_HAND")
       ? requestedLeftHand
       : "";
+    const cosmeticEquipment = cosmeticEquipmentForProgress({
+      ...base,
+      inventoryJson,
+      cosmeticHead: progress.cosmeticHead,
+      cosmeticChest: progress.cosmeticChest,
+      cosmeticFeet: progress.cosmeticFeet,
+      cosmeticRightHand: progress.cosmeticRightHand,
+      cosmeticLeftHand: progress.cosmeticLeftHand,
+    });
     const next = {
       identity: ctx.sender,
       maxHp: Math.max(base.maxHp, normalized.maxHp),
@@ -4214,6 +4267,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       equippedFeet,
       equippedRightHand,
       equippedLeftHand,
+      ...cosmeticEquipment,
       introComplete: base.introComplete,
       desertUnlocked: base.desertUnlocked,
       snowlandsUnlocked: base.snowlandsUnlocked,
@@ -4432,6 +4486,8 @@ export const requestDuel = spacetimedb.reducer(
     const opponentRightHandItem = equippedRightHandForProgress(opponentProgress);
     const challengerLeftHandItem = challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress);
     const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
+    const challengerAppearance = equipmentPresentationForProgress(challengerProgress);
+    const opponentAppearance = equipmentPresentationForProgress(opponentProgress);
     const challengerMaxHp = maxHealthForProgress(challengerProgress);
     const opponentMaxHp = maxHealthForProgress(opponentProgress);
     const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;
@@ -4469,16 +4525,16 @@ export const requestDuel = spacetimedb.reducer(
       opponentDamageDealt: 0,
       opponentRegened: 0,
       opponentBlocked: 0,
-      challengerHeadItem: equippedHeadForProgress(challengerProgress),
-      challengerChestItem: equippedChestForProgress(challengerProgress),
-      challengerFeetItem: equippedFeetForProgress(challengerProgress),
-      challengerRightHandItem,
-      challengerLeftHandItem,
-      opponentHeadItem: equippedHeadForProgress(opponentProgress),
-      opponentChestItem: equippedChestForProgress(opponentProgress),
-      opponentFeetItem: equippedFeetForProgress(opponentProgress),
-      opponentRightHandItem,
-      opponentLeftHandItem,
+      challengerHeadItem: challengerAppearance.headItem,
+      challengerChestItem: challengerAppearance.chestItem,
+      challengerFeetItem: challengerAppearance.feetItem,
+      challengerRightHandItem: challengerAppearance.rightHandItem,
+      challengerLeftHandItem: challengerAppearance.leftHandItem,
+      opponentHeadItem: opponentAppearance.headItem,
+      opponentChestItem: opponentAppearance.chestItem,
+      opponentFeetItem: opponentAppearance.feetItem,
+      opponentRightHandItem: opponentAppearance.rightHandItem,
+      opponentLeftHandItem: opponentAppearance.leftHandItem,
       challengerName: challengerProfile.displayName,
       opponentName: opponentProfile.displayName,
       challengerGender: challengerProfile.gender,

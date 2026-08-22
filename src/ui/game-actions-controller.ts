@@ -97,6 +97,11 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     inventory.equippedFeet = "";
     inventory.equippedRightHand = STARTER_STONE;
     inventory.equippedLeftHand = "";
+    inventory.cosmeticHead = "";
+    inventory.cosmeticChest = "";
+    inventory.cosmeticFeet = "";
+    inventory.cosmeticRightHand = "";
+    inventory.cosmeticLeftHand = "";
     inventory.selectedItemId = "";
     inventory.selectedItemLocation = "";
     dependencies.renderInventory();

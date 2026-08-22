@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.472": [
+    "Inventory now includes a Cosmetics tab where owned items can visually override equipped gear without consuming items or changing stats.",
+    "Cosmetic outfits now persist and appear consistently on local and remote players, inventory and profile previews, leaderboard podiums, duels, and replays.",
+  ],
   "0.471": [
     "Settings now include a persistent SFX volume slider that controls bow and death sounds independently from music.",
     "Bow attacks now use a wider seven-percent pitch variation for more natural shot-to-shot sound.",

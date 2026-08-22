@@ -1529,7 +1529,7 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   onChange?.();
 }
 
-function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lavaUnlocked" | "bowCount" | "woodenArmorCount"> & { lavaUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number }) {
+function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lavaUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand"> & { lavaUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number; cosmeticHead?: string; cosmeticChest?: string; cosmeticFeet?: string; cosmeticRightHand?: string; cosmeticLeftHand?: string }) {
   const id = row.identity.toHexString();
   const progress = {
     maxHp: row.maxHp,
@@ -1548,6 +1548,11 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "lava
     equippedFeet: row.equippedFeet,
     equippedRightHand: row.equippedRightHand ?? "",
     equippedLeftHand: row.equippedLeftHand ?? "",
+    cosmeticHead: row.cosmeticHead ?? "",
+    cosmeticChest: row.cosmeticChest ?? "",
+    cosmeticFeet: row.cosmeticFeet ?? "",
+    cosmeticRightHand: row.cosmeticRightHand ?? "",
+    cosmeticLeftHand: row.cosmeticLeftHand ?? "",
     introComplete: row.introComplete,
     desertUnlocked: row.desertUnlocked,
     snowlandsUnlocked: row.snowlandsUnlocked,

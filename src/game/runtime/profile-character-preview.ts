@@ -1,4 +1,5 @@
 import { drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
+import { BASIC_PAPER_HAT, equipmentAppearance } from "../inventory";
 import { requiredCanvasContext } from "./dom";
 
 type ProfilePreviewProgress = {
@@ -7,6 +8,11 @@ type ProfilePreviewProgress = {
   equippedFeet?: string;
   equippedRightHand?: string;
   equippedLeftHand?: string;
+  cosmeticHead?: string;
+  cosmeticChest?: string;
+  cosmeticFeet?: string;
+  cosmeticRightHand?: string;
+  cosmeticLeftHand?: string;
 } | null;
 
 type DrawProfileCharacterPreviewOptions = {
@@ -58,6 +64,18 @@ export function createProfileCharacterPreview(
       if (index % 4 > 1) ctx.fillRect(Math.floor(x + 6), Math.floor(y), 2, 3);
     }
     ctx.imageSmoothingEnabled = false;
+    const appearance = progress ? equipmentAppearance({
+      equippedHead: progress.equippedHead ?? BASIC_PAPER_HAT,
+      equippedChest: progress.equippedChest ?? "",
+      equippedFeet: progress.equippedFeet ?? "",
+      equippedRightHand: progress.equippedRightHand ?? "",
+      equippedLeftHand: progress.equippedLeftHand ?? "",
+      cosmeticHead: progress.cosmeticHead ?? "",
+      cosmeticChest: progress.cosmeticChest ?? "",
+      cosmeticFeet: progress.cosmeticFeet ?? "",
+      cosmeticRightHand: progress.cosmeticRightHand ?? "",
+      cosmeticLeftHand: progress.cosmeticLeftHand ?? "",
+    }) : null;
     drawStartingPlayer(ctx, playerAppearanceAssets, {
       x: width / 2,
       y: 47,
@@ -65,11 +83,11 @@ export function createProfileCharacterPreview(
       moving: true,
       gameTime: now / 1000,
       skinTone,
-      headItem: progress?.equippedHead,
-      chestItem: progress?.equippedChest,
-      feetItem: progress?.equippedFeet,
-      rightHandItem: progress?.equippedRightHand,
-      leftHandItem: progress?.equippedLeftHand,
+      headItem: appearance?.headItem,
+      chestItem: appearance?.chestItem,
+      feetItem: appearance?.feetItem,
+      rightHandItem: appearance?.rightHandItem,
+      leftHandItem: appearance?.leftHandItem,
       scale: .6,
     });
     const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .25, width / 2, height / 2, Math.max(width, height) * .72);

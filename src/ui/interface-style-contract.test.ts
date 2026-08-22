@@ -36,6 +36,14 @@ describe("interface style contracts", () => {
     expect(cssRule(".inventory-items::-webkit-scrollbar")).toContain("display: none");
   });
 
+  it("keeps both inventory tabs at the 44px touch-target minimum", () => {
+    expect(html).toContain('id="inventoryEquipmentTab"');
+    expect(html).toContain('id="inventoryCosmeticsTab"');
+    const tabs = cssRule(".inventory-tab {");
+    expect(tabs).toContain("height: 44px");
+    expect(tabs).toContain("min-height: 44px");
+  });
+
   it("defines and applies the 11px functional-text floor", () => {
     expect(css).toMatch(/--font-readable-min:\s*11px/);
     expect(css).toContain("-webkit-text-size-adjust: 100%");

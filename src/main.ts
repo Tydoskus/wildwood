@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { FROST_ARMOR, FROST_BOW, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { equipmentAppearance, FROST_ARMOR, FROST_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -310,6 +310,12 @@ import {
       const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
       showMessage(hasWeapon ? "EQUIPMENT UPDATED · WEAPON READY" : "EQUIPMENT UPDATED", "#72ef58");
+      return true;
+    },
+    moveCosmetic: (itemId, destination) => {
+      if (!moveCosmeticInventoryItem(inventory, itemId, destination)) return false;
+      saveProgress(true);
+      showMessage("COSMETIC UPDATED · STATS UNCHANGED", "#f0c66b");
       return true;
     },
   });
@@ -619,9 +625,12 @@ import {
     spiderWebRange: SPIDER_WEB_RANGE,
     playerAppearanceAssets,
     skinTone: (identity) => coop?.skinTone?.(identity),
-    equippedItems: () => ({ head: inventory.equippedHead, chest: inventory.equippedChest, feet: inventory.equippedFeet, rightHand: inventory.equippedRightHand, leftHand: inventory.equippedLeftHand }),
+    equippedItems: () => {
+      const appearance = equipmentAppearance(inventory);
+      return { head: appearance.headItem, chest: appearance.chestItem, feet: appearance.feetItem, rightHand: appearance.rightHandItem, leftHand: appearance.leftHandItem };
+    },
     equipmentForIdentity: (identity) => {
-      if (identity === coop?.localIdentity?.()) return { headItem: inventory.equippedHead, chestItem: inventory.equippedChest, feetItem: inventory.equippedFeet, rightHandItem: inventory.equippedRightHand, leftHandItem: inventory.equippedLeftHand };
+      if (identity === coop?.localIdentity?.()) return equipmentAppearance(inventory);
       const remote = coop?.remotePlayers?.().find((player) => player.id === identity);
       return remote ? { headItem: remote.headItem, chestItem: remote.chestItem, feetItem: remote.feetItem, rightHandItem: remote.rightHandItem, leftHandItem: remote.leftHandItem } : {};
     },

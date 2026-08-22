@@ -66,6 +66,11 @@ export function createProgressController(dependencies: ProgressDependencies) {
       equippedFeet: inventory.equippedFeet,
       equippedRightHand: inventory.equippedRightHand,
       equippedLeftHand: inventory.equippedLeftHand,
+      cosmeticHead: inventory.cosmeticHead,
+      cosmeticChest: inventory.cosmeticChest,
+      cosmeticFeet: inventory.cosmeticFeet,
+      cosmeticRightHand: inventory.cosmeticRightHand,
+      cosmeticLeftHand: inventory.cosmeticLeftHand,
       enemyKills: dependencies.getTotalKills(),
     }, immediate);
   }
@@ -130,6 +135,11 @@ export function createProgressController(dependencies: ProgressDependencies) {
       dependencies.isDeveloper(dependencies.localIdentity()),
       source.equippedRightHand,
       source.equippedLeftHand,
+      source.cosmeticHead,
+      source.cosmeticChest,
+      source.cosmeticFeet,
+      source.cosmeticRightHand,
+      source.cosmeticLeftHand,
     );
     inventory.itemIds = savedInventory.itemIds;
     inventory.equippedHead = savedInventory.equippedHead;
@@ -137,6 +147,11 @@ export function createProgressController(dependencies: ProgressDependencies) {
     inventory.equippedFeet = savedInventory.equippedFeet;
     inventory.equippedRightHand = savedInventory.equippedRightHand;
     inventory.equippedLeftHand = savedInventory.equippedLeftHand;
+    inventory.cosmeticHead = savedInventory.cosmeticHead;
+    inventory.cosmeticChest = savedInventory.cosmeticChest;
+    inventory.cosmeticFeet = savedInventory.cosmeticFeet;
+    inventory.cosmeticRightHand = savedInventory.cosmeticRightHand;
+    inventory.cosmeticLeftHand = savedInventory.cosmeticLeftHand;
     setPlayerBaseMaxHealth(player, player.baseMaxHp, dependencies.healthMultiplier(), true);
     player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? PLAYER_SPEED + BOOTS_SPEED_BONUS : PLAYER_SPEED;
     inventory.selectedItemId = "";

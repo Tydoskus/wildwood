@@ -448,6 +448,11 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           enemyKills: bot.enemyKills,
           equippedRightHand: STARTER_STONE,
           equippedLeftHand: "",
+          cosmeticHead: "",
+          cosmeticChest: "",
+          cosmeticFeet: "",
+          cosmeticRightHand: "",
+          cosmeticLeftHand: "",
         }).catch((error) => {
           reportProtocolMismatch(error);
           markBotFailed(bot, runGeneration);

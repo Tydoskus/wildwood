@@ -21,6 +21,11 @@ const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress =>
   equippedFeet: "",
   equippedRightHand,
   equippedLeftHand: "",
+  cosmeticHead: "",
+  cosmeticChest: "",
+  cosmeticFeet: "",
+  cosmeticRightHand: "",
+  cosmeticLeftHand: "",
   introComplete: true,
   desertUnlocked: false,
   snowlandsUnlocked: false,
@@ -47,6 +52,15 @@ describe("profile presence", () => {
 });
 
 describe("effective profile equipment stats", () => {
+  it("ignores cosmetic overrides when calculating stats", () => {
+    const cosmeticOnly = { ...progress(), cosmeticRightHand: FROST_BOW, cosmeticChest: FROST_ARMOR };
+    const stats = effectiveProfileStats(cosmeticOnly);
+    expect(stats.maxHp).toBe(100);
+    expect(stats.damage).toBe(20);
+    expect(stats.attackRate).toBe(1);
+    expect(stats.regen).toBe(2);
+  });
+
   it("includes equipped Bow damage and attack-speed bonuses after tech multipliers", () => {
     const research = { ...createEmptyResearchRanks(), warcraft: 10 };
     const stats = effectiveProfileStats(progress(STARTER_BOW), research);

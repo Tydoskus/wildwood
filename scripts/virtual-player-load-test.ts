@@ -708,6 +708,11 @@ function saveBot(bot: LoadBot, counters: WorkerCounters) {
     enemyKills: bot.enemyKills,
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
+    cosmeticHead: "",
+    cosmeticChest: "",
+    cosmeticFeet: "",
+    cosmeticRightHand: "",
+    cosmeticLeftHand: "",
   }).then(() => {
     counters.saveAcks += 1;
   }).catch(() => {

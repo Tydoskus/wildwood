@@ -21,6 +21,11 @@ describe("inventory direct actions", () => {
     equippedFeet: "",
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
+    cosmeticHead: "",
+    cosmeticChest: "",
+    cosmeticFeet: "",
+    cosmeticRightHand: "",
+    cosmeticLeftHand: "",
     selectedItemId: "",
     selectedItemLocation: "" as const,
   });
@@ -51,6 +56,18 @@ describe("inventory direct actions", () => {
   it("offers the matching armor slot", () => {
     expect(inventoryMoveActions(inventory(), FROST_ARMOR, "BAG")).toEqual([
       { label: "EQUIP", destination: "CHEST", disabled: false },
+    ]);
+  });
+
+  it("offers visual-only cosmetic actions without treating regular equipment as active cosmetics", () => {
+    expect(inventoryMoveActions(inventory(), FROST_ARMOR, "BAG", "COSMETICS")).toEqual([
+      { label: "USE COSMETIC", destination: "CHEST", disabled: false },
+    ]);
+    const state = inventory();
+    state.cosmeticRightHand = STARTER_BOW;
+    expect(inventoryMoveActions(state, STARTER_BOW, "RIGHT_HAND", "COSMETICS")).toEqual([
+      { label: "REMOVE COSMETIC", destination: "BAG" },
+      { label: "MOVE TO LEFT", destination: "LEFT_HAND" },
     ]);
   });
 });
