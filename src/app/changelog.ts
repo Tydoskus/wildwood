@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.468": [
+    "World chat history now remains available for 24 hours, with duel replays retained for matching chat entries.",
+    "Toolbar press feedback no longer competes with the green open-window highlight.",
+  ],
   "0.467": [
     "Made Chat, Leaderboard, and Settings fullscreen above the toolbar.",
     "Added a red BACK button and touch-friendly 44px chat controls and message rows.",

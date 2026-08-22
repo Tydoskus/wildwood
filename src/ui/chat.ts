@@ -5,7 +5,7 @@ import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
-const CHAT_DISPLAY_TTL_MS = 10_800_000;
+const CHAT_DISPLAY_TTL_MS = 86_400_000;
 const CHAT_COOLDOWN_MS = 3_000;
 const PROFILE_PORTRAIT_ZOOM = 1.03;
 const PROFILE_PORTRAIT_POSITION_STEP = PROFILE_PORTRAIT_ZOOM / (8 * PROFILE_PORTRAIT_ZOOM - 1) * 100;
