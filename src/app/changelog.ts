@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.475": [
+    "Restored version notes on the sign-in screen with GitHub-verified release dates, and future releases now record their exact date automatically.",
+  ],
   "0.474": [
     "Snowlands now has a shadowed, depth-sorted Upgrade Bench beside the portals with a floating label.",
     "Successful item-drop reveals now settle at the upper 30 percent of the game view for better visibility.",
@@ -877,9 +880,19 @@ const RELEASE_DATES: Record<string, string> = {
   "0.328": "AUG 13, 2026",
 };
 
+export const RELEASE_DAYS: Record<string, string> = {
+  "0.475": "2026-08-22",
+  "0.474": "2026-08-22",
+};
+
 function releaseDay(version: string) {
+  if (RELEASE_DAYS[version]) return RELEASE_DAYS[version];
   const numericVersion = Number(version);
-  if (numericVersion >= .436) return "2026-08-17";
+  if (numericVersion >= .472) return "2026-08-22";
+  if (numericVersion >= .459) return "2026-08-21";
+  if (numericVersion >= .456) return "2026-08-19";
+  if (numericVersion >= .444) return "2026-08-18";
+  if (numericVersion >= .431) return "2026-08-17";
   if (numericVersion >= .419) return "2026-08-16";
   if (numericVersion >= .409) return "2026-08-15";
   if (numericVersion >= .376) return "2026-08-14";
@@ -891,21 +904,18 @@ function releaseDay(version: string) {
 export function releaseDate(version: string) {
   if (RELEASE_DATES[version]) return RELEASE_DATES[version];
   const day = releaseDay(version);
-  if (day === "2026-08-17") return "AUG 17, 2026";
-  if (day === "2026-08-16") return "AUG 16, 2026";
-  if (day === "2026-08-15") return "AUG 15, 2026";
-  if (day === "2026-08-14") return "AUG 14, 2026";
-  if (day === "2026-08-13") return "AUG 13, 2026";
-  if (day === "2026-08-12") return "AUG 12, 2026";
-  return "";
+  if (!day) return "";
+  const [year, month, date] = day.split("-").map(Number);
+  const monthName = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][month - 1];
+  return monthName && Number.isInteger(date) ? `${monthName} ${date}, ${year}` : "";
 }
 
 export function releaseNotes(version: string) {
   return RELEASE_NOTES[version] ?? [];
 }
 
-export function recentReleaseNotes(days = 2) {
-  const cutoff = new Date();
+export function recentReleaseNotes(days = 2, today = new Date()) {
+  const cutoff = new Date(today);
   cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - Math.max(0, days - 1));
   return Object.entries(RELEASE_NOTES)

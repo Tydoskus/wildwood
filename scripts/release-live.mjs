@@ -64,6 +64,25 @@ export function insertReleaseNotes(source, version, notes) {
   return source.replace(marker, `${marker}${entry}`);
 }
 
+export function insertReleaseDay(source, version, day) {
+  versionParts(version);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error(`Invalid release day: ${day}`);
+  const marker = "export const RELEASE_DAYS: Record<string, string> = {\n";
+  if (!source.includes(marker)) throw new Error("Release-day insertion point was not found.");
+  const escapedVersion = version.replaceAll(".", "\\.");
+  if (new RegExp(`^\\s*"${escapedVersion}":`, "m").test(source.slice(source.indexOf(marker)))) {
+    throw new Error(`Release days already contain version ${version}.`);
+  }
+  return source.replace(marker, `${marker}  ${JSON.stringify(version)}: ${JSON.stringify(day)},\n`);
+}
+
+export function localReleaseDay(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function parseArguments(argv) {
   const options = {
     version: "",
@@ -264,7 +283,12 @@ async function main() {
     releaseFileSnapshot = await Promise.all(releaseFilePaths.map(async (path) => [path, await readFile(path, "utf8")]));
     const changelog = releaseFileSnapshot.find(([path]) => path === changelogPath)?.[1];
     if (typeof changelog !== "string") throw new Error("Changelog snapshot failed.");
-    await writeFile(changelogPath, insertReleaseNotes(changelog, nextVersion, notes));
+    const nextChangelog = insertReleaseDay(
+      insertReleaseNotes(changelog, nextVersion, notes),
+      nextVersion,
+      localReleaseDay(),
+    );
+    await writeFile(changelogPath, nextChangelog);
     releaseFilesUpdated = true;
     command("node", ["scripts/release.mjs", nextVersion]);
 

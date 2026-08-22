@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { compareVersions, incrementVersion, insertReleaseNotes } from "./release-live.mjs";
+import {
+  compareVersions,
+  incrementVersion,
+  insertReleaseDay,
+  insertReleaseNotes,
+  localReleaseDay,
+} from "./release-live.mjs";
 
 describe("live release helper", () => {
   it("increments the final numeric version segment", () => {
@@ -17,5 +23,15 @@ describe("live release helper", () => {
     expect(updated).toContain(`  "0.457": [\n    "First note.",\n    "Player's \\"Bow\\" fixed.",\n  ],\n`);
     expect(updated.indexOf('"0.457"')).toBeLessThan(updated.indexOf('"0.456"'));
     expect(() => insertReleaseNotes(updated, "0.457", ["Duplicate."])).toThrow("already contain");
+  });
+
+  it("records the local release day at the top", () => {
+    const source = `export const RELEASE_DAYS: Record<string, string> = {\n  "0.456": "2026-08-19",\n};\n`;
+    const updated = insertReleaseDay(source, "0.457", "2026-08-20");
+
+    expect(updated).toContain(`export const RELEASE_DAYS: Record<string, string> = {\n  "0.457": "2026-08-20",\n  "0.456": "2026-08-19",`);
+    expect(() => insertReleaseDay(updated, "0.457", "2026-08-20")).toThrow("already contain");
+    expect(() => insertReleaseDay(source, "0.457", "AUG 20")).toThrow("Invalid release day");
+    expect(localReleaseDay(new Date(2026, 7, 22, 23, 30))).toBe("2026-08-22");
   });
 });
