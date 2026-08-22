@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.478": [
+    "Toolbar icons retain their original artwork while the Leaderboard, Tech Tree, Inventory, and Settings button backgrounds now use distinct gold, blue, brown, and grey tints.",
+  ],
   "0.477": [
     "Canceling an Upgrade Bench job now asks for confirmation, forfeits unfinished progress toward the next level, and immediately returns the unchanged item.",
     "Opening any fullscreen game window now minimizes expanded chat, while toolbar icons use distinct gold, blue, brown, and grey tints.",
@@ -892,6 +895,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.478": "2026-08-22",
   "0.477": "2026-08-22",
   "0.476": "2026-08-22",
   "0.475": "2026-08-22",

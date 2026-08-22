@@ -208,11 +208,6 @@
     object-fit: contain;
     pointer-events: none;
   }
-  .leaderboard-button .toolbar-icon { filter: sepia(.48) saturate(1.55) hue-rotate(350deg) brightness(1.08); }
-  .tech-tree-button .toolbar-icon { filter: sepia(.3) saturate(1.5) hue-rotate(165deg) brightness(1.08); }
-  .inventory-button .toolbar-icon { filter: sepia(.52) saturate(1.18) hue-rotate(344deg) brightness(.96); }
-  #settingsBtn .toolbar-icon { filter: grayscale(.78) saturate(.55) brightness(1.08); }
-
   .tech-tree-button { position: relative; }
   .tech-tree-notice { position: absolute; top: 12%; left: calc(50% + 8px); width: 8px; height: 8px; border: 1px solid #fff; border-radius: 50%; background: #e63d3d; box-shadow: 0 1px 0 #000; pointer-events: none; }
   .tech-tree-notice[hidden] { display: none; }
@@ -227,6 +222,14 @@
     background: linear-gradient(#356d42, #244c30);
     box-shadow: inset 0 3px 0 var(--green), inset 0 0 0 2px rgba(105,229,111,.18);
   }
+  #leaderboardBtn { background: linear-gradient(#3a321d, #241f15); }
+  #techTreeBtn { background: linear-gradient(#1e3240, #16242e); }
+  #inventoryBtn { background: linear-gradient(#38291f, #261d17); }
+  #settingsBtn { background: linear-gradient(#303532, #222624); }
+  #leaderboardBtn[aria-expanded="true"] { background: linear-gradient(#665426, #44391d); box-shadow: inset 0 3px 0 #e0b84f, inset 0 0 0 2px rgba(224,184,79,.18); }
+  #techTreeBtn[aria-expanded="true"] { background: linear-gradient(#315b74, #234155); box-shadow: inset 0 3px 0 #74c7ef, inset 0 0 0 2px rgba(116,199,239,.18); }
+  #inventoryBtn[aria-expanded="true"] { background: linear-gradient(#60432d, #432f22); box-shadow: inset 0 3px 0 #bf875c, inset 0 0 0 2px rgba(191,135,92,.18); }
+  #settingsBtn[aria-expanded="true"] { background: linear-gradient(#505754, #393f3c); box-shadow: inset 0 3px 0 #c3cac6, inset 0 0 0 2px rgba(195,202,198,.18); }
   .settings-button:active { filter: brightness(1.16); transform: none; }
 
   .fps-status { position: absolute; bottom: calc(100% + 5px); left: max(4px, env(safe-area-inset-left)); display: flex; gap: 9px; padding: 5px 7px; border: 2px solid #000; border-radius: 5px; background: rgba(13,20,17,.82); color: #fff; font: 900 8px/1 var(--font-rounded); letter-spacing: .03em; white-space: nowrap; pointer-events: none; }
