@@ -23,7 +23,7 @@ export function renderLatencyStatus(
     : displayed <= 80 ? "good" : displayed <= 150 ? "fair" : "poor";
 }
 
-export function renderMusicVolume(
+export function renderVolume(
   input: HTMLInputElement,
   value: HTMLElement,
   volume: number,

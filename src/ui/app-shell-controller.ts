@@ -6,7 +6,7 @@ import {
   renderConnectionStatus,
   renderFullscreenSetting,
   renderLatencyStatus,
-  renderMusicVolume,
+  renderVolume,
 } from "./settings";
 
 type AccountState = { signedIn: boolean; notice: string };
@@ -20,6 +20,7 @@ type AppShellDependencies = {
     lowPerformance: string;
     latency: string;
     musicVolume: string;
+    sfxVolume: string;
   };
   connected: () => boolean;
   latencyMs: () => number | null | undefined;
@@ -46,6 +47,8 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const latencyStatus = requiredElement("latencyStatus");
   const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
   const musicVolumeValue = requiredElement("musicVolumeValue");
+  const sfxVolumeInput = requiredElement<HTMLInputElement>("sfxVolume");
+  const sfxVolumeValue = requiredElement("sfxVolumeValue");
   const signInMuteButton = requiredElement<HTMLButtonElement>("signInMuteButton");
   const fullscreenToggle = requiredElement<HTMLButtonElement>("fullscreenToggle");
   const connectionStatus = requiredElement("connectionStatus");
@@ -78,7 +81,9 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderBooleanSetting(latencyToggle, latencyVisible);
     renderLatencyStatus(latencyStatus, latencyVisible, dependencies.latencyMs(), dependencies.connected());
     dependencies.mapMusic.setVolume(dependencies.mapMusic.volume);
-    renderMusicVolume(musicVolumeInput, musicVolumeValue, dependencies.mapMusic.volume);
+    dependencies.mapMusic.setSfxVolume(dependencies.mapMusic.sfxVolume);
+    renderVolume(musicVolumeInput, musicVolumeValue, dependencies.mapMusic.volume);
+    renderVolume(sfxVolumeInput, sfxVolumeValue, dependencies.mapMusic.sfxVolume);
     renderSignInMuteButton();
   }
 
@@ -149,18 +154,27 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     if (volume > 0) lastAudibleMusicVolume = volume;
     // Do not rewrite the range input through the full settings renderer while
     // iOS is actively dragging its native thumb.
-    renderMusicVolume(musicVolumeInput, musicVolumeValue, volume);
+    renderVolume(musicVolumeInput, musicVolumeValue, volume);
     renderSignInMuteButton();
     if (volume > 0) ensureMusicPlaying();
   };
   musicVolumeInput.addEventListener("input", applyMusicVolume);
   musicVolumeInput.addEventListener("change", applyMusicVolume);
+  const applySfxVolume = () => {
+    const volume = Math.min(1, Math.max(0, Number(sfxVolumeInput.value) / 100));
+    dependencies.mapMusic.setSfxVolume(volume);
+    writeString(dependencies.storageKeys.sfxVolume, String(volume));
+    // Avoid moving iOS's native range thumb while it is actively dragged.
+    renderVolume(sfxVolumeInput, sfxVolumeValue, volume);
+  };
+  sfxVolumeInput.addEventListener("input", applySfxVolume);
+  sfxVolumeInput.addEventListener("change", applySfxVolume);
   signInMuteButton.addEventListener("click", () => {
     const nextVolume = dependencies.mapMusic.volume > 0 ? 0 : lastAudibleMusicVolume;
     if (dependencies.mapMusic.volume > 0) lastAudibleMusicVolume = dependencies.mapMusic.volume;
     dependencies.mapMusic.setVolume(nextVolume);
     writeString(dependencies.storageKeys.musicVolume, String(nextVolume));
-    renderMusicVolume(musicVolumeInput, musicVolumeValue, nextVolume);
+    renderVolume(musicVolumeInput, musicVolumeValue, nextVolume);
     renderSignInMuteButton();
     if (nextVolume > 0) ensureMusicPlaying();
   });

@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.470";
+export const GAME_VERSION = "0.471";
 export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
@@ -6,6 +6,7 @@ export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
 export const FPS_VISIBLE_KEY = "wildwood-fps-visible-v1";
 export const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
 export const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
+export const SFX_VOLUME_KEY = "wildwood-sfx-volume-v1";
 export const REWARDED_RESPAWN_BOOST_EXPIRES_KEY = "wildwood-rewarded-respawn-boost-expires-v1";
 export const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
 export const SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-snowlands-portal-cutscene-v1";

@@ -9,8 +9,8 @@ export const DEATH_SOUND_SOURCE = "assets/wildwood/audio/death.mp3";
 export const BOW_ATTACK_SOUND_SOURCE = "assets/wildwood/audio/bow-release.mp3";
 export const BOW_ATTACK_SOUND_GAIN = .22;
 export const BOW_ATTACK_SOUND_CLIP_SECONDS = .46;
-export const BOW_ATTACK_SOUND_RATE_MIN = .97;
-export const BOW_ATTACK_SOUND_RATE_MAX = 1.03;
+export const BOW_ATTACK_SOUND_RATE_MIN = .93;
+export const BOW_ATTACK_SOUND_RATE_MAX = 1.07;
 
 const BOW_ATTACK_SOUND_FADE_SECONDS = .09;
 const BOW_ATTACK_SOUND_ATTACK_SECONDS = .008;
@@ -31,7 +31,9 @@ export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: M
 export type MapMusicController = {
   readonly audio: HTMLAudioElement;
   readonly volume: number;
+  readonly sfxVolume: number;
   setVolume(volume: number): void;
+  setSfxVolume(volume: number): void;
   syncMap(mapId: MapId): void;
   ensurePlaying(allowed: boolean): void;
   playDeathSound(): void;
@@ -53,6 +55,7 @@ export function createMapMusicController(
   desertMapId: MapId,
   snowMapId: MapId,
   lavaMapId: MapId,
+  sfxStorageKey?: string,
 ): MapMusicController {
   const audio = new Audio(SIGN_IN_MUSIC_SOURCE);
   audio.loop = true;
@@ -68,10 +71,21 @@ export function createMapMusicController(
       if (Number.isFinite(savedVolume)) volume = Math.min(1, Math.max(0, savedVolume));
     }
   } catch {}
+  let sfxVolume = volume;
+  if (sfxStorageKey) {
+    try {
+      const storedSfxVolume = localStorage.getItem(sfxStorageKey);
+      if (storedSfxVolume !== null) {
+        const savedSfxVolume = Number(storedSfxVolume);
+        if (Number.isFinite(savedSfxVolume)) sfxVolume = Math.min(1, Math.max(0, savedSfxVolume));
+      }
+    } catch {}
+  }
   audio.volume = volume;
-  deathAudio.volume = volume;
+  deathAudio.volume = sfxVolume;
   let audioContext: AudioContext | null = null;
-  let gainNode: GainNode | null = null;
+  let musicGainNode: GainNode | null = null;
+  let sfxGainNode: GainNode | null = null;
   let bowAttackBuffer: AudioBuffer | null = null;
   let bowAttackBufferPromise: Promise<AudioBuffer | null> | null = null;
   let lastBowAttackAt = Number.NEGATIVE_INFINITY;
@@ -96,18 +110,21 @@ export function createMapMusicController(
   }
 
   function ensureAudioGraph() {
-    if (audioContext && gainNode) return audioContext;
+    if (audioContext && musicGainNode && sfxGainNode) return audioContext;
     const AudioContextConstructor = window.AudioContext || (window as WebkitAudioWindow).webkitAudioContext;
     if (!AudioContextConstructor) return null;
     try {
       audioContext = new AudioContextConstructor();
       const source = audioContext.createMediaElementSource(audio);
       const deathSource = audioContext.createMediaElementSource(deathAudio);
-      gainNode = audioContext.createGain();
-      gainNode.gain.value = volume;
-      source.connect(gainNode);
-      deathSource.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      musicGainNode = audioContext.createGain();
+      sfxGainNode = audioContext.createGain();
+      musicGainNode.gain.value = volume;
+      sfxGainNode.gain.value = sfxVolume;
+      source.connect(musicGainNode);
+      deathSource.connect(sfxGainNode);
+      musicGainNode.connect(audioContext.destination);
+      sfxGainNode.connect(audioContext.destination);
       // iOS ignores HTMLMediaElement.volume. Keep the media element at full
       // volume after routing it through Web Audio and apply user volume here.
       audio.volume = 1;
@@ -115,20 +132,24 @@ export function createMapMusicController(
       return audioContext;
     } catch {
       audioContext = null;
-      gainNode = null;
+      musicGainNode = null;
+      sfxGainNode = null;
       audio.volume = volume;
-      deathAudio.volume = volume;
+      deathAudio.volume = sfxVolume;
       return null;
     }
   }
 
   function setVolume(nextVolume: number) {
     volume = Math.min(1, Math.max(0, nextVolume));
-    if (gainNode) gainNode.gain.value = volume;
-    else {
-      audio.volume = volume;
-      deathAudio.volume = volume;
-    }
+    if (musicGainNode) musicGainNode.gain.value = volume;
+    else audio.volume = volume;
+  }
+
+  function setSfxVolume(nextVolume: number) {
+    sfxVolume = Math.min(1, Math.max(0, nextVolume));
+    if (sfxGainNode) sfxGainNode.gain.value = sfxVolume;
+    else deathAudio.volume = sfxVolume;
   }
 
   function syncMap(mapId: MapId) {
@@ -151,7 +172,7 @@ export function createMapMusicController(
   }
 
   function playDeathSound() {
-    if (volume <= 0) return;
+    if (sfxVolume <= 0) return;
     const context = ensureAudioGraph();
     if (context?.state === "suspended") void context.resume().catch(() => {});
     deathAudio.currentTime = 0;
@@ -159,9 +180,9 @@ export function createMapMusicController(
   }
 
   function playBowAttackSound() {
-    if (volume <= 0) return;
+    if (sfxVolume <= 0) return;
     const context = ensureAudioGraph();
-    if (!context || !gainNode) return;
+    if (!context || !sfxGainNode) return;
     if (context.state === "suspended") void context.resume().catch(() => {});
     if (!bowAttackBuffer) {
       void preloadBowAttackSound(context);
@@ -198,7 +219,7 @@ export function createMapMusicController(
     voiceGain.gain.setValueAtTime(BOW_ATTACK_SOUND_GAIN, fadeAt);
     voiceGain.gain.exponentialRampToValueAtTime(.0001, endAt);
     source.connect(voiceGain);
-    voiceGain.connect(gainNode);
+    voiceGain.connect(sfxGainNode);
     source.onended = () => {
       const index = activeBowAttackVoices.indexOf(voice);
       if (index >= 0) activeBowAttackVoices.splice(index, 1);
@@ -220,7 +241,9 @@ export function createMapMusicController(
   return {
     audio,
     get volume() { return volume; },
+    get sfxVolume() { return sfxVolume; },
     setVolume,
+    setSfxVolume,
     syncMap,
     ensurePlaying,
     playDeathSound,

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.471": [
+    "Settings now include a persistent SFX volume slider that controls bow and death sounds independently from music.",
+    "Bow attacks now use a wider seven-percent pitch variation for more natural shot-to-shot sound.",
+  ],
   "0.470": [
     "Bow and Frost Bow attacks now play the new release sound exactly when arrows launch, with one sound per attack even for multishot.",
     "Bow audio is professionally mixed with a short fade, subtle pitch variation, overlap limits, and the existing volume and mute control.",

@@ -52,14 +52,16 @@ describe("map music", () => {
     expect(runtime).toEqual(source);
   });
 
-  it("keeps bow pitch variation subtle and centered around the original", () => {
+  it("varies bow pitch by seven percent around the original", () => {
+    expect(BOW_ATTACK_SOUND_RATE_MIN).toBe(.93);
+    expect(BOW_ATTACK_SOUND_RATE_MAX).toBe(1.07);
     expect(bowAttackPlaybackRate(0)).toBe(BOW_ATTACK_SOUND_RATE_MIN);
     expect(bowAttackPlaybackRate(.5)).toBe(1);
     expect(bowAttackPlaybackRate(1)).toBe(BOW_ATTACK_SOUND_RATE_MAX);
     expect(bowAttackPlaybackRate(Number.NaN)).toBe(1);
   });
 
-  it("plays death audio through the shared volume and mute control", () => {
+  it("controls death audio independently through the SFX volume", () => {
     const instances: FakeAudio[] = [];
     vi.stubGlobal("Audio", class extends FakeAudio {
       constructor(source: string) {
@@ -75,17 +77,24 @@ describe("map music", () => {
       BEGINNER_DESERT_MAP_ID,
       INTERMEDIATE_SNOWLANDS_MAP_ID,
       ADVANCED_LAVA_WASTES_MAP_ID,
+      "test-sfx-volume",
     );
     controller.setVolume(.25);
+    controller.setSfxVolume(.6);
     controller.playDeathSound();
 
     expect(instances[1]?.src).toBe(DEATH_SOUND_SOURCE);
-    expect(instances[1]?.volume).toBe(.25);
+    expect(instances[0]?.volume).toBe(.25);
+    expect(instances[1]?.volume).toBe(.6);
     expect(instances[1]?.play).toHaveBeenCalledOnce();
 
     controller.setVolume(0);
     controller.playDeathSound();
-    expect(instances[1]?.play).toHaveBeenCalledOnce();
+    expect(instances[1]?.play).toHaveBeenCalledTimes(2);
+
+    controller.setSfxVolume(0);
+    controller.playDeathSound();
+    expect(instances[1]?.play).toHaveBeenCalledTimes(2);
   });
 
   it("plays a short, quietly mixed bow voice through Web Audio", async () => {
@@ -104,15 +113,18 @@ describe("map music", () => {
       BEGINNER_DESERT_MAP_ID,
       INTERMEDIATE_SNOWLANDS_MAP_ID,
       ADVANCED_LAVA_WASTES_MAP_ID,
+      "test-sfx-volume",
     );
     controller.ensurePlaying(false);
     await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledOnce());
+    controller.setSfxVolume(.4);
     controller.playBowAttackSound();
 
     expect(context.sources).toHaveLength(1);
     expect(context.sources[0]?.playbackRate.value).toBe(1);
     expect(context.sources[0]?.start).toHaveBeenCalledWith(context.currentTime, 0, .46);
-    expect(context.gains[1]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);
+    expect(context.gains[1]?.gain.value).toBe(.4);
+    expect(context.gains[2]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);
   });
 });
 

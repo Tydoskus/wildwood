@@ -518,14 +518,14 @@
     min-width: 138px;
   }
 
-  #musicVolume {
+  .volume-control input[type="range"] {
     width: 94px;
     margin: 0;
     accent-color: var(--green);
     cursor: pointer;
   }
 
-  #musicVolumeValue {
+  .volume-control output {
     width: 35px;
     color: var(--muted);
     font-size: 10px;
