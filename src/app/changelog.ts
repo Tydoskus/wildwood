@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.481": [
+    "Upgrade Bench BACK now returns to item selection whenever no upgrade is active and stays hidden while an upgrade is running.",
+  ],
   "0.480": [
     "Upgrade Bench item choices now preview every exact before-and-after stat change before selection.",
     "A 44px BACK button beneath Upgrade or Cancel now closes the Upgrade Bench without interrupting an active upgrade.",
@@ -904,6 +907,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.481": "2026-08-22",
   "0.480": "2026-08-22",
   "0.479": "2026-08-22",
   "0.478": "2026-08-22",

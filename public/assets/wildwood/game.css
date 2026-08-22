@@ -405,6 +405,7 @@
   .upgrade-bench-action.is-cancel { border-color: #492020; background: linear-gradient(#cf6868, #953c3c); box-shadow: 0 3px 0 #431d1d; }
   .upgrade-bench-action:disabled { border-color: #313a34; background: #4b554f; box-shadow: none; color: #9ba49e; }
   .upgrade-bench-back { width: min(220px, 80vw); height: 44px; min-height: 44px; margin: 0; border-color: #351010; border-radius: 8px; background: linear-gradient(#c85050, #842f34); box-shadow: 0 3px 0 #351519; color: #fff; font-size: var(--font-readable-body); }
+  .upgrade-bench-back[hidden] { display: none; }
   .upgrade-bench-picker { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; padding: 16px; background: rgba(4,8,6,.76); }
   .upgrade-bench-picker[hidden] { display: none; }
   .upgrade-bench-picker-sheet { display: grid; gap: 10px; width: min(100%, 360px); max-height: min(76vh, 520px); padding: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.22); border-radius: 10px; background: #111a15; box-shadow: 0 10px 30px rgba(0,0,0,.55); }

@@ -178,6 +178,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.action.classList.toggle("is-cancel", Boolean(job));
     elements.action.textContent = job ? "CANCEL" : "UPGRADE";
     elements.action.disabled = busy || !itemId || (!job && level >= MAX_ITEM_UPGRADE_LEVEL);
+    elements.back.hidden = Boolean(job);
+    elements.back.disabled = busy;
   }
 
   function renderPicker() {
@@ -237,6 +239,14 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.picker.hidden = false;
   }
 
+  function returnToPicker() {
+    if (busy || dependencies.activeUpgrade()) return;
+    selectedItemId = "";
+    lastRenderKey = "";
+    render();
+    openPicker();
+  }
+
   async function useAction() {
     if (busy) return;
     const job = dependencies.activeUpgrade();
@@ -285,7 +295,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   elements.close.addEventListener("click", close);
-  elements.back.addEventListener("click", close);
+  elements.back.addEventListener("click", returnToPicker);
   elements.slot.addEventListener("click", openPicker);
   elements.action.addEventListener("click", () => { void useAction(); });
   elements.closePicker.addEventListener("click", closePicker);
