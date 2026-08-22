@@ -5,7 +5,6 @@ import {
 } from "../game/inventory";
 import { requiredElement } from "../game/runtime/dom";
 import { renderInventoryView } from "./hud";
-import { formatCompactNumber } from "./number-format";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -13,7 +12,6 @@ type SelectableInventory = InventoryState & { selectedItemId: string; selectedIt
 type InventoryDependencies = {
   inventory: SelectableInventory;
   move: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
-  power: () => number;
 };
 
 export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
@@ -31,7 +29,6 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const equippedFeet = requiredElement("equippedFeetSlot");
   const equippedRightHand = requiredElement("equippedRightHandSlot");
   const equippedLeftHand = requiredElement("equippedLeftHandSlot");
-  const power = requiredElement("inventoryPower");
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -66,9 +63,6 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function render() {
-    const value = document.createElement("strong");
-    value.textContent = formatCompactNumber(dependencies.power());
-    power.replaceChildren(document.createTextNode("POWER "), value);
     renderInventoryView(
       { items, detail, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
       dependencies.inventory,

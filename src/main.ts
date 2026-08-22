@@ -64,7 +64,6 @@ import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../shared/items";
-import { playerPowerForStats } from "../shared/player-power";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -311,13 +310,6 @@ import {
       showMessage(hasWeapon ? "EQUIPMENT UPDATED · WEAPON READY" : "EQUIPMENT UPDATED", "#72ef58");
       return true;
     },
-    power: () => playerPowerForStats({
-      maxHp: player.maxHp,
-      damage: player.damage * weaponDamageMultiplier(inventory.equippedRightHand || inventory.equippedLeftHand, researchDamageMultiplier()),
-      attackRate: player.attackRate / weaponAttackSpeedMultiplier(inventory.equippedRightHand || inventory.equippedLeftHand),
-      armor: effectiveArmor(),
-      regen: player.regen * regenerationMultiplier(),
-    }),
   });
   const renderInventory = inventoryController.render;
   const worldProgression = createWorldProgressionController({
@@ -827,7 +819,21 @@ import {
     }
   }).observe(inventoryCharacterCanvas);
 
-  const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
+  const techTree = createTechTreePanel({
+    e: gameElements,
+    researchRanks,
+    activeResearch: () => coop?.activeResearch?.() ?? null,
+    startResearch: async (id: ResearchId) => coop?.startResearch?.(id),
+    showMessage,
+    beforeOpen: () => {
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
+      closeLeaderboard();
+      devPanel.close();
+    },
+  });
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
     entries: () => coop?.leaderboardEntries?.() ?? [],
@@ -867,6 +873,8 @@ import {
     closeCompetingWindows: () => {
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
       closeLeaderboard();
       techTree.close();
     },

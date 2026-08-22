@@ -206,7 +206,10 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     if (!developer) close();
   }
 
-  button.addEventListener("click", open);
+  button.addEventListener("click", () => {
+    if (panel.hidden) open();
+    else close();
+  });
   closeButton.addEventListener("click", close);
   for (const [tab, element] of Object.entries(tabs) as [DevPanelTab, HTMLElement][]) {
     element.addEventListener("click", () => setTab(tab));

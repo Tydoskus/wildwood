@@ -87,7 +87,10 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     elements.button.setAttribute("aria-expanded", "false");
   }
 
-  elements.button.addEventListener("click", () => { void open(); });
+  elements.button.addEventListener("click", () => {
+    if (elements.overlay.hidden) void open();
+    else close();
+  });
   elements.closeButton.addEventListener("click", close);
   for (const [name, tab] of Object.entries(elements.tabs) as Array<[LeaderboardStat, HTMLElement]>) {
     tab.addEventListener("click", () => select(name));

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.466": [
+    "Inventory and equipment slots are 25% smaller exact squares, and the inventory preview no longer shows Power.",
+    "Grass now fills the complete loadout behind equipment, with a seamless borderless character preview.",
+    "Inventory, Tech Tree, Leaderboard, Settings, and Developer Tools now toggle closed from their toolbar buttons while full windows stay above the dock.",
+    "The bottom toolbar now has a 30px lighter-layer cushion with intact dividers, while the player HUD and minimized chat use square upper-right corners.",
+  ],
   "0.465": [
     "Toolbar buttons now sit above an additional 10px bottom cushion while chat and gameplay reserve the full dock height.",
     "Equipped-item slots are exact 1:1 squares matching bag slots at every responsive size, with the character preview resized around them.",

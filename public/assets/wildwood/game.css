@@ -27,7 +27,7 @@
     --hud-row-height: clamp(59px, 8.5vw, 63px);
     --hud-map-size: calc(var(--hud-row-height) * 2);
     --toolbar-button-height: 58px;
-    --toolbar-bottom-padding: 10px;
+    --toolbar-bottom-padding: 30px;
     --toolbar-height: calc(var(--toolbar-button-height) + var(--toolbar-bottom-padding) + env(safe-area-inset-bottom, 0px));
   }
 
@@ -118,7 +118,7 @@
     padding: 2px 3px 6px;
   }
 
-  .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: flex; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 7px 9px; overflow: hidden; border-color: #000; border-top: 0; border-left: 0; border-radius: 0 10px 0 0; background: rgba(13,20,17,.62); }
+  .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: flex; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 7px 9px; overflow: hidden; border-color: #000; border-top: 0; border-left: 0; border-radius: 0; background: rgba(13,20,17,.62); }
   .player-hud-content { display: flex; flex: 1; flex-direction: column; justify-content: center; min-width: 0; }
   .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; cursor: pointer; }
@@ -154,7 +154,7 @@
     width: 100vw;
     height: var(--toolbar-height);
     min-height: var(--toolbar-height);
-    padding: 0 max(0px, env(safe-area-inset-right)) calc(var(--toolbar-bottom-padding) + env(safe-area-inset-bottom, 0px)) max(0px, env(safe-area-inset-left));
+    padding: 0 max(0px, env(safe-area-inset-right)) 0 max(0px, env(safe-area-inset-left));
     gap: 0;
     border-top: 2px solid #000;
     background: rgba(8,13,10,.96);
@@ -171,9 +171,9 @@
     flex: 1 1 0;
     min-width: 0;
     width: auto;
-    height: var(--toolbar-button-height);
+    height: 100%;
     margin: 0;
-    padding: 0;
+    padding: 0 0 calc(var(--toolbar-bottom-padding) + env(safe-area-inset-bottom, 0px));
     border: 2px solid #000;
     border-top: 0;
     border-bottom: 0;
@@ -243,13 +243,12 @@
     --inventory-line: rgba(255,255,255,.17);
     --inventory-gold: #e0aa42;
     position: fixed;
-    inset: 0;
+    inset: 0 0 var(--toolbar-height);
     z-index: 10;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
+    width: auto;
+    height: auto;
     max-height: none;
     padding: 0;
     overflow: hidden;
@@ -275,7 +274,7 @@
   .inventory-panel-header .profile-close-button { flex: 0 0 auto; width: 44px; min-width: 44px; height: 44px; margin: 0; padding: 0; border: 2px solid rgba(255,255,255,.26); border-radius: 8px; background: linear-gradient(#68736d, #39413d); box-shadow: 0 3px 0 rgba(0,0,0,.48); color: #fff; font-size: 25px; line-height: 1; }
   .inventory-panel-header .profile-close-button:active { transform: translateY(2px); box-shadow: none; }
 
-  .inventory-content { --inventory-grid-gap: 6px; --inventory-slot-width: calc(25% - 4.5px); display: grid; grid-template-columns: repeat(2, minmax(330px, 430px)); grid-template-rows: auto auto; align-content: center; justify-content: center; gap: 12px; min-height: 0; padding: clamp(12px, 2.3vw, 28px) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-right)) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-bottom)) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-left)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .inventory-content { --inventory-grid-gap: 6px; --inventory-slot-size: calc(18.75% - 3.375px); display: grid; grid-template-columns: repeat(2, minmax(330px, 430px)); grid-template-rows: auto auto; align-content: center; justify-content: center; gap: 12px; min-height: 0; padding: clamp(12px, 2.3vw, 28px) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-right)) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-bottom)) max(clamp(12px, 2.3vw, 28px), env(safe-area-inset-left)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .inventory-content::-webkit-scrollbar { display: none; }
 
   .inventory-loadout {
@@ -283,14 +282,15 @@
     display: grid;
     grid-column: 1;
     grid-row: 1;
-    grid-template-columns: var(--inventory-slot-width) minmax(0, 1fr) var(--inventory-slot-width);
+    grid-template-columns: var(--inventory-slot-size) minmax(112px, 160px) var(--inventory-slot-size);
     grid-auto-rows: auto;
+    justify-content: center;
     gap: var(--inventory-grid-gap);
     min-height: 0;
     padding: 7px;
     border: 2px solid rgba(255,255,255,.22);
     border-radius: 10px;
-    background: var(--inventory-surface);
+    background: #369b5b;
     box-shadow: inset 0 0 0 2px rgba(0,0,0,.34), 0 5px 0 rgba(0,0,0,.2);
   }
 
@@ -334,15 +334,11 @@
   .slot-right-hand { grid-column: 3; grid-row: 1; }
   .slot-left-hand { grid-column: 3; grid-row: 2; }
 
-  .inventory-character-stage { position: relative; grid-column: 2; grid-row: 1 / span 3; min-width: 0; min-height: 0; overflow: hidden; border: 2px solid #0a100c; border-radius: 8px; background: #369b5b; box-shadow: inset 0 0 0 2px rgba(255,255,255,.12); }
-  .inventory-character-stage::after { position: absolute; inset: 5px; border: 1px solid rgba(0,0,0,.16); border-radius: 5px; content: ""; pointer-events: none; }
+  .inventory-character-stage { position: relative; grid-column: 2; grid-row: 1 / span 3; min-width: 0; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: #369b5b; box-shadow: none; }
   canvas#inventoryCharacterCanvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: #369b5b; image-rendering: pixelated; pointer-events: none; }
-  #inventoryPower { position: absolute; z-index: 2; left: 50%; bottom: 7px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; background: rgba(8,18,11,.78); box-shadow: 0 2px 0 rgba(0,0,0,.28); color: #d5e6d8; font-size: 7px; font-weight: 900; letter-spacing: .06em; white-space: nowrap; transform: translateX(-50%); }
-  #inventoryPower strong { color: #fff; font-size: 9px; }
-
   .bag-section { grid-column: 2; grid-row: 1 / span 2; min-width: 0; margin: 0; padding: 7px; border: 2px solid rgba(255,255,255,.16); border-radius: 8px; background: rgba(9,14,11,.58); box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
   .inventory-section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: #f2f4ef; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
-  .inventory-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; gap: var(--inventory-grid-gap); }
+  .inventory-items { display: grid; grid-template-columns: repeat(4, var(--inventory-slot-size)); align-items: start; justify-content: center; gap: var(--inventory-grid-gap); }
   .inventory-item { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 18px; place-items: center; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 1 / 1; margin: 0; padding: 5px 3px 3px; overflow: hidden; border: 2px solid rgba(255,255,255,.15); border-radius: 7px; background: linear-gradient(#172019, #0a0f0c); box-shadow: inset 0 -3px 0 rgba(0,0,0,.28); color: var(--inventory-ink); }
   .inventory-item.is-empty { background: rgba(4,8,6,.34); border-color: rgba(255,255,255,.09); box-shadow: inset 0 0 0 1px rgba(0,0,0,.24); cursor: default; }
   .inventory-item.is-filled { border-color: rgba(213,154,58,.58); background: linear-gradient(#302719, #17130d); }
@@ -428,7 +424,7 @@
 
   @media (max-width: 460px) {
     :root { --game-window-width: min(360px, calc(100vw - 16px)); }
-    .inventory-content { --inventory-grid-gap: 4px; --inventory-slot-width: calc(25% - 3px); }
+    .inventory-content { --inventory-grid-gap: 4px; --inventory-slot-size: calc(18.75% - 2.25px); }
     .card.inventory-panel { max-height: none; padding: 0; }
     .settings-panel-header { margin-bottom: 6px; }
     .inventory-panel-header { grid-template-columns: minmax(0, 1fr) auto 40px; gap: 6px; margin: 0; }
@@ -440,8 +436,6 @@
     .equipment-slot-label { font-size: 6px; }
     .equipment-slot-name { font-size: 5.5px; }
     .equipment-slot .inventory-item-art { max-width: 42px; max-height: 33px; }
-    #inventoryPower { bottom: 5px; padding: 3px 5px; font-size: 6px; }
-    #inventoryPower strong { font-size: 8px; }
     .bag-section { margin: 0; padding: 5px; }
     .inventory-section-title { margin-bottom: 4px; font-size: 9px; }
     .inventory-item { padding: 4px 2px 2px; border-radius: 6px; }
@@ -798,7 +792,7 @@
   }
 
   #chatPanel[hidden] { display: none; }
-  #chatPanel:not(.is-large) { background: rgba(8, 18, 12, .5); backdrop-filter: none; }
+  #chatPanel:not(.is-large) { border-radius: 0; background: rgba(8, 18, 12, .5); backdrop-filter: none; }
   #chatPanel:not(.is-large) #topMeta { color: #fff; }
   .chat-header,
   #chatForm {
@@ -1281,6 +1275,10 @@
   #devAudit[hidden],
   #techTreeOverlay[hidden] { display: none; }
 
+  #leaderboard,
+  #devAudit,
+  #techTreeOverlay { bottom: var(--toolbar-height); }
+
   /* Let world touch controls through outside non-blocking windows. */
   #playerProfile,
   #leaderboard,
@@ -1467,7 +1465,7 @@
   .profile-name-editor-controls { display: flex; gap: 5px; }
   #profileNameInput { flex: 1; width: 0; }
   #savePlayerNameBtn { min-width: 0; margin: 0; padding: 4px 8px; border-width: 1px; border-radius: 5px; font-size: 11px; line-height: 1; text-transform: none; }
-  .modal.leaderboard-modal { --leaderboard-body-height: min(34vh, 270px); width: var(--game-window-width); max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.leaderboard-modal { --leaderboard-body-height: min(34vh, 270px); width: var(--game-window-width); max-height: calc(100vh - var(--toolbar-height) - 20px); max-height: calc(100dvh - var(--toolbar-height) - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .leaderboard-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   #leaderboardTitle { color: #fff; }
@@ -1517,7 +1515,7 @@
   .leaderboard-value { color: #fff; font-size: 10px; text-align: right; white-space: nowrap; }
   .dev-badge { color: var(--gold); }
   .dev-audit-button { color: var(--gold); font-size: 10px; }
-  .modal.dev-audit-modal { width: var(--game-window-width); max-height: calc(100vh - 20px); padding: 13px; overflow: hidden; text-align: left; }
+  .modal.dev-audit-modal { width: var(--game-window-width); max-height: calc(100vh - var(--toolbar-height) - 20px); max-height: calc(100dvh - var(--toolbar-height) - 20px); padding: 13px; overflow: hidden; text-align: left; }
   .dev-audit-tabs { display: flex; gap: 5px; margin: 3px 0 7px; }
   .dev-audit-tabs .profile-tab { flex: 1; }
   #devControlsPanel[hidden], #devCutscenesPanel[hidden] { display: none; }
