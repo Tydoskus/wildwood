@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.474": [
+    "Snowlands now has a shadowed, depth-sorted Upgrade Bench beside the portals with a floating label.",
+    "Successful item-drop reveals now settle at the upper 30 percent of the game view for better visibility.",
+    "Fixed 60 FPS scheduling from accidentally falling to every-other-frame cadence while Low Performance mode remains capped at 30 FPS.",
+  ],
   "0.473": [
     "Inventory bags no longer show copies assigned to Equipment or Cosmetics, and using the same item in both loadouts now requires a separate owned copy.",
     "Item inspection now expands into a larger overlay without resizing, shifting, or padding the inventory slot grid.",

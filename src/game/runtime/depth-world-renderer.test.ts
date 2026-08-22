@@ -21,6 +21,7 @@ function renderer(decor: WorldDecor[], calls: string[]) {
     drawTree: (tree) => calls.push(`tree:${tree.y}`),
     drawCactus: (cactus) => calls.push(`cactus:${cactus.y}`),
     drawSnowPine: (tree) => calls.push(`pine:${tree.y}`),
+    drawUpgradeBench: (bench) => calls.push(`bench:${bench.y}`),
     drawLavaRock: (rock) => calls.push(`lava-rock:${rock.y}`),
     drawCharredTree: (tree) => calls.push(`charred-tree:${tree.y}`),
     drawEnemy: () => calls.push("enemy"),
@@ -41,11 +42,12 @@ describe("depth world renderer", () => {
     const depth = renderer([
       { type: "tree", x: 100, y: 300, s: 1, variant: 0 },
       { type: "cactus", x: 100, y: 100, s: 1, variant: 0 },
+      { type: "upgradeBench", x: 100, y: 220, s: 1, label: "Upgrade Bench" },
     ], calls);
 
     depth.drawDepthSortedWorld([], false);
 
-    expect(calls).toEqual(["cactus:100", "player", "tree:300"]);
+    expect(calls).toEqual(["cactus:100", "player", "bench:220", "tree:300"]);
   });
 
   it("pre-culls offscreen static decor and remote players", () => {

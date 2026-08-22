@@ -53,6 +53,7 @@ export type WorldRenderRuntimeOptions = {
     portalArch: HTMLImageElement;
     portalSwirl: HTMLImageElement;
     snowPine: HTMLImageElement;
+    upgradeBench: HTMLImageElement;
     lavaPools: HTMLImageElement[];
     lavaRocks: HTMLImageElement[];
     charredTrees: HTMLImageElement[];
@@ -215,6 +216,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawTree: world.drawTree,
       drawCactus: world.drawCactus,
       drawSnowPine: world.drawSnowPine,
+      drawUpgradeBench: world.drawUpgradeBench,
       drawLavaRock: world.drawLavaRock,
       drawCharredTree: world.drawCharredTree,
       drawEnemy: actor.drawEnemy,

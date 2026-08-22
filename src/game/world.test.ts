@@ -44,3 +44,14 @@ describe("Advanced Lava Lake", () => {
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].portal.destination).toBe(INTERMEDIATE_SNOWLANDS_MAP_ID);
   });
 });
+
+describe("Intermediate Snowlands", () => {
+  it("places one labeled upgrade bench beside the portal approach", () => {
+    const layout = createWorldLayout({ x: 580, y: 770 }, INTERMEDIATE_SNOWLANDS_MAP_ID);
+    const benches = layout.decor.filter((item) => item.type === "upgradeBench");
+
+    expect(benches).toEqual([
+      { type: "upgradeBench", x: 800, y: 710, s: 1, label: "Upgrade Bench" },
+    ]);
+  });
+});

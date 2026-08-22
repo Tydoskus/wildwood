@@ -23,6 +23,7 @@ type RockDecor = Extract<WorldDecor, { type: "rock" }>;
 type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type SnowTuftDecor = Extract<WorldDecor, { type: "snowTuft" }>;
+type UpgradeBenchDecor = Extract<WorldDecor, { type: "upgradeBench" }>;
 type LavaPoolDecor = Extract<WorldDecor, { type: "lavaPool" }>;
 type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
@@ -62,6 +63,7 @@ export type WorldRendererOptions = {
   portalArch: HTMLImageElement;
   portalSwirl: HTMLImageElement;
   snowPine: HTMLImageElement;
+  upgradeBench: HTMLImageElement;
   lavaPools: HTMLImageElement[];
   lavaRocks: HTMLImageElement[];
   charredTrees: HTMLImageElement[];
@@ -435,6 +437,24 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.drawImage(options.snowPine, x - width / 2, y - height, width, height);
   }
 
+  function drawUpgradeBench(bench: UpgradeBenchDecor) {
+    const visible = visibleSize();
+    const x = Math.round(bench.x - camera.x);
+    const y = Math.round(bench.y - camera.y);
+    if (x < -120 || y < -160 || x > visible.width + 120 || y > visible.height + 50) return;
+    if (!options.upgradeBench.complete || options.upgradeBench.naturalWidth <= 0) return;
+    const width = Math.round(180 * bench.s);
+    const height = Math.round(width * options.upgradeBench.naturalHeight / options.upgradeBench.naturalWidth);
+    options.drawShadow(x, y - 3, Math.round(width * .72), .22);
+    ctx.drawImage(options.upgradeBench, Math.round(x - width / 2), Math.round(y - height), width, height);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    options.outlinedText(bench.label, x, Math.round(y - height - 7 + Math.sin(options.getGameTime() * 2.2) * 2), "#f5e9c4", 4);
+    ctx.restore();
+  }
+
   function drawLavaPool(pool: LavaPoolDecor) {
     const image = options.lavaPools[pool.variant % options.lavaPools.length];
     if (!image?.complete || image.naturalWidth <= 0) return;
@@ -580,5 +600,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, view.width - size, 0, size, size);
   }
 
-  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawLavaRock, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawUpgradeBench, drawLavaRock, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }

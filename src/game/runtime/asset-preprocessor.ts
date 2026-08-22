@@ -177,6 +177,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   });
   const snowPine = new Image();
   snowPine.src = "assets/wildwood/snow-pine-tree-v1.png";
+  const upgradeBench = new Image();
+  upgradeBench.src = "assets/wildwood/workbench-upgrade-station-v1.png";
   let settledLavaAssets = 0;
   const lavaAssetSources = [
     "assets/wildwood/lava/lava-pool-1.png",
@@ -213,6 +215,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     lavaPools: lavaAssets.slice(0, 3),
     lavaRocks: lavaAssets.slice(3, 6),
     snowPine,
+    upgradeBench,
     spiderReady: () => spiderReady,
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,

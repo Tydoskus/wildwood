@@ -5,6 +5,17 @@ import type { PlayerState } from "./types";
 type MapId = string;
 type RuntimeDuel = { status: string; startsAtMs: number; endsAtMs: number } | null;
 
+/**
+ * requestAnimationFrame timestamps can land a fraction of a millisecond before
+ * a nominal refresh deadline. Treating those callbacks as early makes a 60 Hz
+ * display skip the callback and render at 30 FPS instead.
+ */
+export const FRAME_DEADLINE_TOLERANCE_MS = 1;
+
+export function frameDeadlineReached(now: number, nextFrameAt: number) {
+  return now + FRAME_DEADLINE_TOLERANCE_MS >= nextFrameAt;
+}
+
 type SessionDependencies = {
   player: PlayerState;
   camera: { x: number; y: number; zoom: number };
@@ -104,7 +115,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
 
   function loop(now: number) {
     const frameIntervalMs = 1_000 / (dependencies.lowPerformanceMode() ? 30 : 60);
-    if (now < nextFrameAt) {
+    if (!frameDeadlineReached(now, nextFrameAt)) {
       requestAnimationFrame(loop);
       return;
     }

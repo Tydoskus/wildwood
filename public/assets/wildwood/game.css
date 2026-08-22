@@ -848,9 +848,9 @@
 
   @keyframes item-drop-reveal {
     0% { top: 84%; opacity: 0; transform: translate(-50%, -50%) translateY(24px) scale(.72); }
-    18% { top: 72%; opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-    28%, 72% { top: 70%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    100% { top: 66%; opacity: 0; transform: translate(-50%, -50%) translateY(-12px) scale(.96); }
+    18% { top: 32%; opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    28%, 72% { top: 30%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { top: 26%; opacity: 0; transform: translate(-50%, -50%) translateY(-12px) scale(.96); }
   }
 
   @keyframes item-drop-glow {

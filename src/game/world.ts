@@ -12,6 +12,7 @@ export type WorldDecor =
   | { type: "desertGrass"; x: number; y: number; variant: number }
   | { type: "snowPine"; x: number; y: number; s: number }
   | { type: "snowTuft"; x: number; y: number; variant: number }
+  | { type: "upgradeBench"; x: number; y: number; s: number; label: "Upgrade Bench" }
   | { type: "lavaPool"; x: number; y: number; s: number; variant: number }
   | { type: "lavaRock"; x: number; y: number; s: number; variant: number }
   | { type: "charredTree"; x: number; y: number; s: number; variant: number }
@@ -118,7 +119,9 @@ function createDesertLayout() {
 }
 
 function createSnowLayout() {
-  const decor: WorldDecor[] = [];
+  const decor: WorldDecor[] = [
+    { type: "upgradeBench", x: 800, y: 710, s: 1, label: "Upgrade Bench" },
+  ];
   const paths: WorldPath[] = [
     { x: 300, y: 600, w: 3800, h: 150 },
     { x: 970, y: 600, w: 150, h: 3150 },
