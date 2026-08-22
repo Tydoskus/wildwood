@@ -141,6 +141,8 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     inventory: d.inventory,
     closeCompetingWindows: d.closeCompetingWindows,
     minimizeChat: d.minimizeChat,
+    prepareInventoryOpen: d.inventoryController.prepareOpen,
+    closeItemInspection: d.itemInspectionController.close,
     renderInventory: d.renderInventory,
     logPickup: d.logPickup,
     leaveDuelResult: d.leaveDuelResult,
@@ -158,6 +160,8 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     hideGameOver: d.hideGameOver,
     refreshFrameClock: d.refreshFrameClock,
     escapeWindows: {
+      isItemInspectionOpen: d.itemInspectionController.isOpen,
+      closeItemInspection: d.itemInspectionController.close,
       isUpgradeBenchOpen: d.upgradeBenchController.isOpen,
       closeUpgradeBench: d.upgradeBenchController.close,
       isProfileIconPickerOpen: () => !e.profileIconPickerEl.hidden,

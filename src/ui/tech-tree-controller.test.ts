@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RESEARCH_DEFINITIONS, RESEARCH_IDS } from "../../shared/research";
 import {
   hasAvailableResearch,
+  researchElapsedRatio,
   researchIsAvailable,
   researchProgressLabel,
   type ResearchRanks,
@@ -15,6 +16,12 @@ function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
 }
 
 describe("hasAvailableResearch", () => {
+  it("fills active research from empty to full as elapsed time increases", () => {
+    expect(researchElapsedRatio(1_000, 5_000, 1_000)).toBe(0);
+    expect(researchElapsedRatio(1_000, 5_000, 3_000)).toBe(.5);
+    expect(researchElapsedRatio(1_000, 5_000, 5_000)).toBe(1);
+  });
+
   it("shows saved ranks cumulatively instead of resetting each loop", () => {
     expect(researchProgressLabel("criticalDamage", 4)).toBe("4 / 16");
   });

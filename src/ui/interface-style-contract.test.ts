@@ -13,20 +13,21 @@ function cssRule(selector: string) {
 }
 
 describe("interface style contracts", () => {
-  it("keeps item details inside the bag as a non-reflowing overlay", () => {
+  it("keeps item inspection in a standalone fullscreen window outside the bag", () => {
     const bagStart = html.indexOf('<section class="bag-section"');
     const bagEnd = html.indexOf("</section>", bagStart);
-    const detail = html.indexOf('id="inventoryDetail"');
+    const detail = html.indexOf('id="itemInspectionPanel"');
+    const upgradeBench = html.indexOf('id="upgradeBenchPanel"');
 
     expect(bagStart).toBeGreaterThanOrEqual(0);
-    expect(detail).toBeGreaterThan(bagStart);
-    expect(detail).toBeLessThan(bagEnd);
+    expect(detail).toBeGreaterThan(bagEnd);
+    expect(detail).toBeLessThan(upgradeBench);
+    expect(html).not.toContain('id="inventoryDetail"');
     expect(cssRule(".inventory-content")).toContain("overflow: hidden");
-    expect(cssRule(".inventory-detail")).toContain("position: absolute");
-    expect(cssRule(".inventory-detail")).toContain("display: none");
-    expect(cssRule(".inventory-detail.has-selection")).toContain("display: grid");
-    expect(cssRule(".inventory-detail.has-selection")).toContain("height: 190px");
-    expect(css).not.toContain(".bag-section.has-detail .inventory-items");
+    expect(cssRule(".item-inspection-panel")).toContain("position: fixed");
+    expect(cssRule(".item-inspection-panel")).toContain("var(--toolbar-height)");
+    expect(cssRule(".item-inspection-panel[hidden]")).toContain("display: none");
+    expect(css).not.toContain(".inventory-detail");
   });
 
   it("makes only the slot grid scroll and hides its scrollbar", () => {

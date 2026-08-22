@@ -25,6 +25,8 @@ type WindowActionsElements = {
 };
 
 type EscapeWindows = {
+  isItemInspectionOpen: () => boolean;
+  closeItemInspection: () => void;
   isUpgradeBenchOpen: () => boolean;
   closeUpgradeBench: () => void;
   isProfileIconPickerOpen: () => boolean;
@@ -44,6 +46,8 @@ type GameActionsDependencies = {
   inventory: InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
   closeCompetingWindows: () => void;
   minimizeChat: () => void;
+  prepareInventoryOpen: () => void;
+  closeItemInspection: () => void;
   renderInventory: () => void;
   logPickup: (message: string, color: string) => void;
   leaveDuelResult: () => void;
@@ -73,6 +77,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   }
 
   function closeInventory() {
+    dependencies.closeItemInspection();
     elements.inventoryPanel.hidden = true;
     elements.inventoryButton.setAttribute("aria-expanded", "false");
   }
@@ -122,6 +127,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   function handleInputEscape() {
     const windows = dependencies.escapeWindows;
+    if (windows.isItemInspectionOpen()) { windows.closeItemInspection(); return true; }
     if (windows.isUpgradeBenchOpen()) { windows.closeUpgradeBench(); return true; }
     if (windows.isProfileIconPickerOpen()) { windows.closeProfileIconPicker(); return true; }
     if (windows.isLeaderboardOpen()) { windows.closeLeaderboard(); return true; }
@@ -143,7 +149,12 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   elements.inventoryButton.addEventListener("click", () => {
     const opening = elements.inventoryPanel.hidden;
-    if (opening) dependencies.minimizeChat();
+    if (opening) {
+      dependencies.minimizeChat();
+      dependencies.prepareInventoryOpen();
+    } else {
+      dependencies.closeItemInspection();
+    }
     elements.inventoryPanel.hidden = !opening;
     closeSettings();
     elements.inventoryButton.setAttribute("aria-expanded", String(opening));

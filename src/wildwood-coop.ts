@@ -22,6 +22,7 @@ import { createProgressStore } from "./coop/services/progress-store";
 import { remoteEquipmentFromRow, type RemoteEquipment } from "./coop/services/remote-equipment";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
 import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
+import { connectionGateState } from "./coop/services/connection-gate-state";
 import {
   createRemoteBossAttackState,
   remoteBossAttackFrame,
@@ -488,8 +489,7 @@ let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
 let resumeProbeGeneration = 0;
 let wakeReconnectVisible = false;
-let serverUpdateVisible = false;
-let reconnectAfterServerUpdateVisible = false;
+let networkReconnectVisible = false;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
@@ -521,7 +521,7 @@ function onChange() {
 
 const reconnectWatchdog = createReconnectWatchdog({
   delayMs: WAKE_RECONNECT_WATCHDOG_MS,
-  shouldWatch: () => (wakeReconnectVisible || reconnectAfterServerUpdateVisible) &&
+  shouldWatch: () => (wakeReconnectVisible || networkReconnectVisible) &&
     !document.hidden && navigator.onLine && !protocolBlocked && !worldEntryBlocked,
   onTimeout: restartStalledWakeConnection,
   schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
@@ -599,7 +599,7 @@ function handleReducerFailure(action: string, error: unknown) {
     worldEntryBlocked = true;
     authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
     setWakeReconnectVisible(false);
-    setReconnectAfterServerUpdateVisible(false);
+    setNetworkReconnectVisible(false);
     onChange?.();
     return;
   }
@@ -616,7 +616,7 @@ function handleReducerFailure(action: string, error: unknown) {
   virtualPlayerLoadTest.disconnectLocal();
   authNotice = "GAME UPDATING · WAITING FOR DEPLOY";
   setWakeReconnectVisible(false);
-  setReconnectAfterServerUpdateVisible(false);
+  setNetworkReconnectVisible(false);
   onChange?.();
 }
 
@@ -2509,15 +2509,9 @@ function setWakeReconnectVisible(visible: boolean) {
   onChange?.();
 }
 
-function setServerUpdateVisible(visible: boolean) {
-  if (serverUpdateVisible === visible) return;
-  serverUpdateVisible = visible;
-  onChange?.();
-}
-
-function setReconnectAfterServerUpdateVisible(visible: boolean) {
-  if (reconnectAfterServerUpdateVisible === visible) return;
-  reconnectAfterServerUpdateVisible = visible;
+function setNetworkReconnectVisible(visible: boolean) {
+  if (networkReconnectVisible === visible) return;
+  networkReconnectVisible = visible;
   reconnectWatchdog.refresh();
   onChange?.();
 }
@@ -2525,7 +2519,7 @@ function setReconnectAfterServerUpdateVisible(visible: boolean) {
 function reconnectAfterWake(force = false) {
   if (protocolBlocked || worldEntryBlocked) {
     setWakeReconnectVisible(false);
-    setReconnectAfterServerUpdateVisible(false);
+    setNetworkReconnectVisible(false);
     return;
   }
   if (document.hidden) return;
@@ -2606,7 +2600,6 @@ function connect() {
       }
       connection = conn;
       connecting = false;
-      setServerUpdateVisible(false);
       hydrationReady = false;
       connectedSignedIn = signedIn;
       touchServerActivity();
@@ -2816,7 +2809,7 @@ function connect() {
             hydrationReady = true;
             updateResumePending = false;
             setWakeReconnectVisible(false);
-            setReconnectAfterServerUpdateVisible(false);
+            setNetworkReconnectVisible(false);
             refreshMapPlayerSubscription(true);
             refreshMapMarkerSubscription(true);
             sessionGeneration += 1;
@@ -2882,10 +2875,8 @@ function connect() {
       localActiveResearch = null;
       localActiveItemUpgrade = null;
       clearRealtimeCaches();
-      if (hadActiveGame) {
-        setServerUpdateVisible(true);
-        setReconnectAfterServerUpdateVisible(true);
-      }
+      if (hadActiveGame && !protocolBlocked) setNetworkReconnectVisible(true);
+      else setNetworkReconnectVisible(false);
       if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
@@ -2958,7 +2949,7 @@ export const wildwoodCoop = {
     return Boolean(connection?.isActive && hydrationReady);
   },
   isReconnectingAfterWake() {
-    return wakeReconnectVisible || reconnectAfterServerUpdateVisible;
+    return connectionGateState(protocolBlocked, wakeReconnectVisible, networkReconnectVisible).reconnecting;
   },
   latencyMs() {
     return latencyMs;
@@ -2988,7 +2979,7 @@ export const wildwoodCoop = {
       authInProgress: accountCallbackPending,
       returningFromSignIn: accountReturnPending || updateResumePending,
       hydrated: hydrationReady,
-      updating: protocolBlocked || serverUpdateVisible,
+      updating: connectionGateState(protocolBlocked, wakeReconnectVisible, networkReconnectVisible).updating,
       sessionConflict: worldEntryBlocked,
       notice: authNotice,
     };

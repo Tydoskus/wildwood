@@ -48,6 +48,7 @@ import {
 } from "./game/duel";
 import { createChatRuntimeController } from "./ui/chat-runtime-controller";
 import { createInventoryController } from "./ui/inventory-controller";
+import { createItemInspectionController } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
 import { createLeaderboardController } from "./ui/leaderboard-controller";
 import { createProfileWindowController } from "./ui/profile-window-controller";
@@ -89,7 +90,7 @@ import {
   const {
     canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
-    toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -307,8 +308,15 @@ import {
   }
 
   let progress: ReturnType<typeof createProgressController>;
+  const itemInspectionController = createItemInspectionController({
+    panel: itemInspectionPanel,
+    title: itemInspectionTitle,
+    content: itemInspectionContent,
+    close: closeItemInspectionBtn,
+  });
   const inventoryController = createInventoryController({
     inventory,
+    itemInspection: itemInspectionController,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return false;
@@ -855,6 +863,7 @@ import {
     showMessage,
     beforeOpen: () => {
       minimizeMaximizedChat();
+      itemInspectionController.close();
       upgradeBenchController?.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
@@ -875,6 +884,7 @@ import {
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
     beforeOpen: () => {
       minimizeMaximizedChat();
+      itemInspectionController.close();
       upgradeBenchController?.close();
       devPanel.close();
       techTree.close();
@@ -904,6 +914,7 @@ import {
     }),
     closeCompetingWindows: () => {
       minimizeMaximizedChat();
+      itemInspectionController.close();
       upgradeBenchController?.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
@@ -939,6 +950,7 @@ import {
     cancelUpgrade: async () => coop?.cancelItemUpgrade?.(),
     beforeOpen: () => {
       minimizeMaximizedChat();
+      itemInspectionController.close();
       settingsPanel.hidden = true;
       inventoryPanel.hidden = true;
       settingsBtn.setAttribute("aria-expanded", "false");
@@ -1161,6 +1173,7 @@ import {
 
   inputEscapeHandler = createGameActionsRuntime({
     e: gameElements, inventory, renderInventory, logPickup, leaveDuelResult, closeUpdateNotice,
+    itemInspectionController,
     minimizeChat: minimizeMaximizedChat,
     closeCompetingWindows: () => { upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,

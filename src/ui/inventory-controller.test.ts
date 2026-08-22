@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, STARTER_STONE } from "../game/inventory";
 import { inventoryMoveActions } from "./hud";
-import { nextInventorySelection } from "./inventory-controller";
+import { clearInventorySelection, nextInventorySelection } from "./inventory-controller";
 
 describe("inventory selection", () => {
   it("unselects an item when tapped twice", () => {
@@ -10,6 +10,12 @@ describe("inventory selection", () => {
 
   it("selects a different item", () => {
     expect(nextInventorySelection("starter_stone", "starter_bow")).toBe("starter_bow");
+  });
+
+  it("starts a newly opened inventory without a selected item", () => {
+    const selection = { selectedItemId: STARTER_BOW, selectedItemLocation: "BAG" as const };
+    clearInventorySelection(selection);
+    expect(selection).toEqual({ selectedItemId: "", selectedItemLocation: "" });
   });
 });
 

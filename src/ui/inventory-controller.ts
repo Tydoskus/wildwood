@@ -4,7 +4,10 @@ import {
   type InventoryState,
 } from "../game/inventory";
 import { requiredElement } from "../game/runtime/dom";
-import { renderInventoryView, type InventoryMode } from "./hud";
+import { itemDefinition } from "../../shared/items";
+import { inventoryMoveActions, renderInventoryView, type InventoryMode } from "./hud";
+import type { ItemInspectionController } from "./item-inspection-controller";
+import { bindLongPress } from "./long-press";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -14,17 +17,22 @@ type InventoryDependencies = {
   move: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
   moveCosmetic: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
   upgradeLevel: (itemId: string) => number;
+  itemInspection: ItemInspectionController;
 };
 
 export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
   return currentItemId === tappedItemId ? "" : tappedItemId;
 }
 
+export function clearInventorySelection(inventory: Pick<SelectableInventory, "selectedItemId" | "selectedItemLocation">) {
+  inventory.selectedItemId = "";
+  inventory.selectedItemLocation = "";
+}
+
 /** Paper-doll loadout, inventory selection, and direct equipment actions. */
 export function createInventoryController(dependencies: InventoryDependencies) {
   const panel = requiredElement("inventoryPanel");
   const items = requiredElement("inventoryItems");
-  const detail = requiredElement("inventoryDetail");
   const count = requiredElement("inventoryCount");
   const equippedHead = requiredElement("equippedHeadSlot");
   const equippedChest = requiredElement("equippedChestSlot");
@@ -72,6 +80,32 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     return true;
   }
 
+  function inspect(itemId: string, location: Exclude<InventoryLocation, "">) {
+    const item = itemDefinition(itemId);
+    if (!item) return;
+    const visuallyEquipped = location !== "BAG";
+    const context = mode === "COSMETICS"
+      ? `${item.slot} · VISUAL ONLY · ${visuallyEquipped ? "COSMETIC ACTIVE" : "OWNED"}`
+      : `${item.slot} · ${visuallyEquipped ? "EQUIPPED" : "IN BAG"}`;
+    const description = mode === "COSMETICS"
+      ? `${item.description} Cosmetic slots change appearance only; Equipment supplies your stats.`
+      : item.description;
+    dependencies.itemInspection.open({
+      itemId,
+      upgradeLevel: dependencies.upgradeLevel(itemId),
+      context,
+      description,
+      actions: inventoryMoveActions(dependencies.inventory, itemId, location, mode).map((action) => ({
+        label: action.label,
+        kind: action.destination === "BAG" ? "SECONDARY" as const : "PRIMARY" as const,
+        disabled: action.disabled,
+        onActivate: () => {
+          if (move(itemId, action.destination)) dependencies.itemInspection.close();
+        },
+      })),
+    });
+  }
+
   function render() {
     const cosmeticsActive = mode === "COSMETICS";
     equipmentTab.classList.toggle("is-active", !cosmeticsActive);
@@ -83,7 +117,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     content.setAttribute("aria-labelledby", cosmeticsActive ? cosmeticsTab.id : equipmentTab.id);
     if (loadout) loadout.setAttribute("aria-label", cosmeticsActive ? "Cosmetic items" : "Equipped items");
     renderInventoryView(
-      { items, detail, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
+      { items, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
       dependencies.inventory,
       mode,
       {
@@ -95,6 +129,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         onMove(itemId, destination) {
           move(itemId, destination);
         },
+        onInspect: inspect,
         upgradeLevel: dependencies.upgradeLevel,
       },
     );
@@ -135,6 +170,14 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   equippedRightHand.addEventListener("click", () => clickEquipment("RIGHT_HAND", itemInSlot("RIGHT_HAND")));
   equippedLeftHand.addEventListener("click", () => clickEquipment("LEFT_HAND", itemInSlot("LEFT_HAND")));
   equippedFeet.addEventListener("click", () => clickEquipment("FEET", itemInSlot("FEET")));
+  for (const [destination, element] of Object.entries(equipmentElements) as Array<[EquipmentSlot, HTMLElement]>) {
+    bindLongPress(element, {
+      onLongPress: () => {
+        const itemId = itemInSlot(destination);
+        if (itemId) inspect(itemId, destination);
+      },
+    });
+  }
   const setMode = (nextMode: InventoryMode) => {
     if (mode === nextMode) return;
     mode = nextMode;
@@ -165,6 +208,10 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   return {
     render,
+    prepareOpen: () => {
+      dependencies.itemInspection.close();
+      clearInventorySelection(dependencies.inventory);
+    },
     mode: () => mode,
   };
 }

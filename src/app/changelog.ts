@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.485": [
+    "Inventory now opens with no selected item, while a reusable standalone item-details window opens only after a continuous two-second hold without interfering with normal tap-to-equip controls.",
+    "Active research progress now fills naturally from left to right as elapsed time increases.",
+    "Transient mobile disconnects now show Reconnecting instead of a false Game Updating screen, and stale deployed-version responses can no longer trigger update reloads.",
+  ],
   "0.484": [
     "The Upgrade Bench now has a distinct Add Item screen whose BACK closes the workbench, while Upgrade appears only after selecting an item.",
   ],
@@ -916,6 +921,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.485": "2026-08-22",
   "0.484": "2026-08-22",
   "0.483": "2026-08-22",
   "0.482": "2026-08-22",

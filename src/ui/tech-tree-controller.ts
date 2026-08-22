@@ -52,6 +52,11 @@ export function researchProgressLabel(researchId: ResearchId, rank: number) {
   return `${rank} / ${RESEARCH_DEFINITIONS[researchId].maxRank}`;
 }
 
+export function researchElapsedRatio(startedAtMs: number, completesAtMs: number, nowMs: number) {
+  const duration = Math.max(1, completesAtMs - startedAtMs);
+  return Math.max(0, Math.min(1, (nowMs - startedAtMs) / duration));
+}
+
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
   const { button, notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
   const layout = createTechTreeLayout();
@@ -213,10 +218,11 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       track.setAttribute("role", "progressbar");
       track.setAttribute("aria-valuemin", "0");
       track.setAttribute("aria-valuemax", String(totalDuration));
-      track.setAttribute("aria-valuenow", String(Math.max(0, activeRemaining)));
+      const elapsed = Math.round(researchElapsedRatio(current.startedAtMs, current.completesAtMs, hooks.nowMs()) * totalDuration);
+      track.setAttribute("aria-valuenow", String(elapsed));
       const fill = document.createElement("div");
       fill.className = "tech-tree-timer-fill";
-      fill.style.setProperty("--research-remaining", String(Math.max(0, Math.min(1, activeRemaining / totalDuration))));
+      fill.style.setProperty("--research-progress", String(elapsed / totalDuration));
       track.append(fill);
       timer.append(label, track);
       detailContent.append(timer);
