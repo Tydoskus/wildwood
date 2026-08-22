@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.467": [
+    "Made Chat, Leaderboard, and Settings fullscreen above the toolbar.",
+    "Added a red BACK button and touch-friendly 44px chat controls and message rows.",
+    "Refined toolbar navigation with persistent active states, swapped Leaderboard and Inventory positions, and cleaner Inventory and Tech Tree labels.",
+  ],
   "0.466": [
     "Inventory and equipment slots are 25% smaller exact squares, and the inventory preview no longer shows Power.",
     "Grass now fills the complete loadout behind equipment, with a seamless borderless character preview.",

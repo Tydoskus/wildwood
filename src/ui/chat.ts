@@ -39,6 +39,7 @@ type ChatElements = {
   messages: HTMLElement;
   form: HTMLFormElement;
   input: HTMLTextAreaElement;
+  backButton: HTMLButtonElement;
   sendButton: HTMLButtonElement;
 };
 
@@ -72,11 +73,21 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.panel.classList.toggle("is-large", large);
     elements.sizeToggle.setAttribute("aria-expanded", String(large));
     elements.sizeToggle.setAttribute("aria-label", large ? "Minimize chat" : "Expand chat");
+    elements.backButton.hidden = !large;
     // Minimized chat renders only its two latest messages. Rebuild when the
     // presentation changes so there is no hidden scroll position to preserve.
     renderedRevision = -1;
     refresh();
     if (large) requestAnimationFrame(() => { elements.messages.scrollTop = elements.messages.scrollHeight; });
+  }
+
+  function setLarge(nextLarge: boolean) {
+    large = nextLarge;
+    updateHeight();
+  }
+
+  function toggleLarge() {
+    setLarge(!large);
   }
 
   function updateChatCooldown() {
@@ -242,13 +253,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     });
     elements.header.addEventListener("pointerup", (event) => {
       if (event.target instanceof Element && event.target.closest("button")) return;
-      large = !large;
-      updateHeight();
+      toggleLarge();
     });
-    elements.sizeToggle.addEventListener("click", () => {
-      large = !large;
-      updateHeight();
-    });
+    elements.sizeToggle.addEventListener("click", toggleLarge);
+    elements.backButton.addEventListener("click", () => setLarge(false));
     elements.form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (Date.now() < chatCooldownUntil) {

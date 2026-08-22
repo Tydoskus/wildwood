@@ -15,6 +15,7 @@ export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop"
       messages: requiredElement("chatMessages"),
       form: requiredElement<HTMLFormElement>("chatForm"),
       input: requiredElement<HTMLTextAreaElement>("chatInput"),
+      backButton: requiredElement<HTMLButtonElement>("chatBackBtn"),
       sendButton: requiredElement<HTMLButtonElement>("chatSendBtn"),
     },
     getCoop: options.getCoop,

@@ -154,7 +154,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     updateNotice();
     active.textContent = current
       ? activeRemaining > 0
-        ? `${RESEARCH_DEFINITIONS[current.researchId].effect} · ${formatResearchTime(activeRemaining)} · SERVER TIMER`
+        ? `${RESEARCH_DEFINITIONS[current.researchId].effect} · ${formatResearchTime(activeRemaining)}`
         : `${RESEARCH_DEFINITIONS[current.researchId].effect} · FINALIZING`
       : "NO RESEARCH ACTIVE";
 
