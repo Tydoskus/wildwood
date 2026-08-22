@@ -90,10 +90,10 @@ describe("effective profile equipment stats", () => {
 
   it("includes completed item upgrade levels in profile stats", () => {
     const bow = effectiveProfileStats(progress(FROST_BOW), createEmptyResearchRanks(), { [FROST_BOW]: 1 });
-    expect(bow.damage).toBeCloseTo(64);
-    expect(bow.attackRate).toBeCloseTo(1 / 1.4);
+    expect(bow.damage).toBeCloseTo(72);
+    expect(bow.attackRate).toBeCloseTo(1 / 1.44);
     const armor = effectiveProfileStats(progress("", FROST_ARMOR), createEmptyResearchRanks(), { [FROST_ARMOR]: 1 });
-    expect(armor.maxHp).toBeCloseTo(220);
-    expect(armor.regen).toBeCloseTo(4.4);
+    expect(armor.maxHp).toBeCloseTo(240);
+    expect(armor.regen).toBeCloseTo(4.8);
   });
 });

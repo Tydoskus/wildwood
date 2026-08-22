@@ -18,6 +18,7 @@ export const MAX_OWNED_ITEM_COUNT = 1;
 // equipment is unique now, so every durable quantity is clamped to one.
 export const MAX_FOREST_ITEM_COUNT = MAX_OWNED_ITEM_COUNT;
 export const MAX_ITEM_UPGRADE_LEVEL = 10;
+// Each level adds this share of the stat's level-zero full multiplier.
 export const ITEM_UPGRADE_STAT_BONUS = .2;
 export const ITEM_UPGRADE_BASE_DURATION_MS = 3 * 60 * 1_000;
 export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
@@ -212,9 +213,14 @@ export function isUpgradeableItem(itemId: unknown) {
     item.modifiers?.regenerationMultiplierBonus !== undefined;
 }
 
-function upgradeBonus(itemId: unknown, level: unknown, statExists: boolean) {
-  return statExists && isUpgradeableItem(itemId)
-    ? normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS
+function upgradedStatMultiplier(baseBonus: number, level: unknown) {
+  const baseMultiplier = 1 + baseBonus;
+  return baseMultiplier * (1 + normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS);
+}
+
+function upgradeBonus(itemId: unknown, level: unknown, baseBonus: number | undefined) {
+  return baseBonus !== undefined && isUpgradeableItem(itemId)
+    ? (1 + baseBonus) * normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS
     : 0;
 }
 
@@ -229,19 +235,18 @@ export function itemStats(itemId: unknown, upgradeLevel: unknown = 0): readonly 
   const item = itemDefinition(canonicalItemId(itemId));
   if (!item || !isUpgradeableItem(item.id)) return item?.stats ?? [];
   const level = normalizeItemUpgradeLevel(upgradeLevel);
-  const added = level * ITEM_UPGRADE_STAT_BONUS;
   const stats: string[] = [];
   if (item.weapon?.damageMultiplierBonus !== undefined) {
-    stats.push(`DAMAGE MULTIPLIER ${(1 + item.weapon.damageMultiplierBonus + added).toFixed(2)}×`);
+    stats.push(`DAMAGE MULTIPLIER ${upgradedStatMultiplier(item.weapon.damageMultiplierBonus, level).toFixed(2)}×`);
   }
   if (item.weapon?.attackSpeedMultiplierBonus !== undefined) {
-    stats.push(`ATTACK SPEED MULTIPLIER ${(1 + item.weapon.attackSpeedMultiplierBonus + added).toFixed(2)}×`);
+    stats.push(`ATTACK SPEED MULTIPLIER ${upgradedStatMultiplier(item.weapon.attackSpeedMultiplierBonus, level).toFixed(2)}×`);
   }
   if (item.modifiers?.maxHealthMultiplierBonus !== undefined) {
-    stats.push(`MAX HEALTH MULTIPLIER ${(1 + item.modifiers.maxHealthMultiplierBonus + added).toFixed(2)}×`);
+    stats.push(`MAX HEALTH MULTIPLIER ${upgradedStatMultiplier(item.modifiers.maxHealthMultiplierBonus, level).toFixed(2)}×`);
   }
   if (item.modifiers?.regenerationMultiplierBonus !== undefined) {
-    stats.push(`REGEN MULTIPLIER ${(1 + item.modifiers.regenerationMultiplierBonus + added).toFixed(2)}×`);
+    stats.push(`REGEN MULTIPLIER ${upgradedStatMultiplier(item.modifiers.regenerationMultiplierBonus, level).toFixed(2)}×`);
   }
   return stats;
 }
@@ -264,12 +269,12 @@ export function itemUpgradeStatChanges(itemId: unknown, currentLevel: unknown) {
 /** Equipment bonuses add to research multipliers instead of multiplying them. */
 export function weaponDamageMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.damageMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
 }
 
 export function weaponAttackSpeedMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.attackSpeedMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
 }
 
 export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1, upgradeLevel = 0) {
@@ -278,11 +283,11 @@ export function weaponAttackInterval(itemId: unknown, baseInterval: number, rese
 
 export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
 }
 
 /** Equipment regeneration bonuses add to research multipliers. */
 export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus !== undefined);
+  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
 }

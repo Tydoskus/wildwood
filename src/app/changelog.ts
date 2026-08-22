@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.479": [
+    "Upgrade Bench levels now add twenty percent of each item's original full stat multiplier, keeping previews, inventory, profiles, combat, and server results consistent.",
+    "Returning after a suspended tab now recovers stalled connections automatically instead of remaining stuck on Reconnecting.",
+    "Leaderboard tabs retain their stat-colored text without button fills or borders, while the full leaderboard window changes tint for the selected stat.",
+  ],
   "0.478": [
     "Toolbar icons retain their original artwork while the Leaderboard, Tech Tree, Inventory, and Settings button backgrounds now use distinct gold, blue, brown, and grey tints.",
   ],
@@ -895,6 +900,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.479": "2026-08-22",
   "0.478": "2026-08-22",
   "0.477": "2026-08-22",
   "0.476": "2026-08-22",

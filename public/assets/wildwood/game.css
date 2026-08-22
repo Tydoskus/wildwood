@@ -1663,6 +1663,12 @@
     box-shadow: none;
     text-align: left;
   }
+  #leaderboard[data-stat="power"] .leaderboard-modal { background: radial-gradient(ellipse at 50% 38%, #39331e, #121009 76%); }
+  #leaderboard[data-stat="damage"] .leaderboard-modal { background: radial-gradient(ellipse at 50% 38%, #3a2422, #130b0b 76%); }
+  #leaderboard[data-stat="health"] .leaderboard-modal { background: radial-gradient(ellipse at 50% 38%, #263a29, #0b130d 76%); }
+  #leaderboard[data-stat="armor"] .leaderboard-modal { background: radial-gradient(ellipse at 50% 38%, #233843, #0a1216 76%); }
+  #leaderboard[data-stat="regen"] .leaderboard-modal { background: radial-gradient(ellipse at 50% 38%, #293d2b, #0c140d 76%); }
+  #leaderboard[data-stat="time"] .leaderboard-modal { background: radial-gradient(ellipse at 50% 38%, #303534, #101211 76%); }
   .leaderboard-modal > .leaderboard-header,
   .leaderboard-modal > .leaderboard-tabs,
   .leaderboard-modal > .leaderboard-podium,
@@ -1677,26 +1683,25 @@
   .leaderboard-header h2 { margin: 0; color: var(--gold); font-size: clamp(21px, 5vw, 28px); }
   #leaderboardTitle { color: #fff; }
   .leaderboard-tabs { margin: 9px 0 8px; }
-  #leaderboardPowerTab { --leaderboard-tab-color: #ffe05d; --leaderboard-tab-border: rgba(255,224,93,.46); --leaderboard-tab-bg: rgba(255,224,93,.1); --leaderboard-tab-active-bg: rgba(255,224,93,.25); }
-  #leaderboardDamageTab { --leaderboard-tab-color: #ff7f70; --leaderboard-tab-border: rgba(255,100,88,.44); --leaderboard-tab-bg: rgba(255,72,62,.1); --leaderboard-tab-active-bg: rgba(255,72,62,.24); }
-  #leaderboardHealthTab { --leaderboard-tab-color: #72ef58; --leaderboard-tab-border: rgba(114,239,88,.44); --leaderboard-tab-bg: rgba(78,205,82,.1); --leaderboard-tab-active-bg: rgba(78,205,82,.23); }
-  #leaderboardArmorTab { --leaderboard-tab-color: #74d8ff; --leaderboard-tab-border: rgba(116,216,255,.44); --leaderboard-tab-bg: rgba(71,186,226,.1); --leaderboard-tab-active-bg: rgba(71,186,226,.23); }
-  #leaderboardRegenTab { --leaderboard-tab-color: #91ee83; --leaderboard-tab-border: rgba(145,238,131,.44); --leaderboard-tab-bg: rgba(91,206,91,.1); --leaderboard-tab-active-bg: rgba(91,206,91,.23); }
-  #leaderboardTimeTab { --leaderboard-tab-color: #c3cbcf; --leaderboard-tab-border: rgba(195,203,207,.4); --leaderboard-tab-bg: rgba(170,180,184,.09); --leaderboard-tab-active-bg: rgba(170,180,184,.21); }
+  #leaderboardPowerTab { --leaderboard-tab-color: #ffe05d; }
+  #leaderboardDamageTab { --leaderboard-tab-color: #ff7f70; }
+  #leaderboardHealthTab { --leaderboard-tab-color: #72ef58; }
+  #leaderboardArmorTab { --leaderboard-tab-color: #74d8ff; }
+  #leaderboardRegenTab { --leaderboard-tab-color: #91ee83; }
+  #leaderboardTimeTab { --leaderboard-tab-color: #c3cbcf; }
   .leaderboard-tabs .profile-tab {
     padding: 6px 10px;
-    border: 1px solid var(--leaderboard-tab-border);
-    border-bottom: 3px solid transparent;
-    background: var(--leaderboard-tab-bg);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
     color: var(--leaderboard-tab-color);
-    opacity: .82;
+    opacity: .68;
     text-shadow: 0 1px 0 #000;
   }
   .leaderboard-tabs .profile-tab.is-active {
-    border-color: var(--leaderboard-tab-border);
-    border-bottom-color: var(--leaderboard-tab-color);
-    background: var(--leaderboard-tab-active-bg);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
     color: var(--leaderboard-tab-color);
     opacity: 1;
   }

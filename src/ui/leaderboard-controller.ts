@@ -64,6 +64,7 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
       empty: elements.empty,
       valueHeading: elements.valueHeading,
     }, requested);
+    elements.overlay.dataset.stat = stat;
     render();
   }
 

@@ -21,6 +21,7 @@ import {
 import { createProgressStore } from "./coop/services/progress-store";
 import { remoteEquipmentFromRow, type RemoteEquipment } from "./coop/services/remote-equipment";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
+import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
 import {
   createRemoteBossAttackState,
   remoteBossAttackFrame,
@@ -330,6 +331,7 @@ const LATENCY_SMOOTHING = .25;
 const REMOTE_SNAP_DISTANCE = 260;
 const REMOTE_SAMPLE_LIMIT = 8;
 const SUBSCRIPTION_LOAD_TIMEOUT_MS = 10_000;
+const WAKE_RECONNECT_WATCHDOG_MS = 10_000;
 const DUEL_COOLDOWN_MS = 120_000;
 const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
 
@@ -484,6 +486,7 @@ let authNotice = "";
 let protocolBlocked = false;
 let accountLinkClaiming = false;
 let resumeProbePromise: Promise<void> | null = null;
+let resumeProbeGeneration = 0;
 let wakeReconnectVisible = false;
 let serverUpdateVisible = false;
 let reconnectAfterServerUpdateVisible = false;
@@ -515,6 +518,15 @@ function onChange() {
   }
   changeListener?.();
 }
+
+const reconnectWatchdog = createReconnectWatchdog({
+  delayMs: WAKE_RECONNECT_WATCHDOG_MS,
+  shouldWatch: () => (wakeReconnectVisible || reconnectAfterServerUpdateVisible) &&
+    !document.hidden && navigator.onLine && !protocolBlocked && !worldEntryBlocked,
+  onTimeout: restartStalledWakeConnection,
+  schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
+  cancel: (timer) => window.clearTimeout(timer),
+});
 
 function batchChanges(action: () => void) {
   changeBatchDepth += 1;
@@ -586,6 +598,8 @@ function handleReducerFailure(action: string, error: unknown) {
   if (/active in another tab/i.test(message)) {
     worldEntryBlocked = true;
     authNotice = "SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB";
+    setWakeReconnectVisible(false);
+    setReconnectAfterServerUpdateVisible(false);
     onChange?.();
     return;
   }
@@ -601,6 +615,8 @@ function handleReducerFailure(action: string, error: unknown) {
   progressSaveInFlightUntil = Number.POSITIVE_INFINITY;
   virtualPlayerLoadTest.disconnectLocal();
   authNotice = "GAME UPDATING · WAITING FOR DEPLOY";
+  setWakeReconnectVisible(false);
+  setReconnectAfterServerUpdateVisible(false);
   onChange?.();
 }
 
@@ -2461,16 +2477,35 @@ function clearRealtimeCaches() {
 }
 
 function scheduleReconnect(delay = 500) {
-  if (protocolBlocked || worldEntryBlocked || document.hidden || reconnectTimer !== null || connection?.isActive || connecting) return;
+  if (protocolBlocked || worldEntryBlocked || document.hidden || !navigator.onLine || reconnectTimer !== null || connection?.isActive || connecting) return;
   reconnectTimer = window.setTimeout(() => {
     reconnectTimer = null;
+    if (!navigator.onLine) return;
     connect();
   }, delay);
+}
+
+function restartStalledWakeConnection() {
+  const staleConnection = connection;
+  connection = null;
+  connecting = false;
+  hydrationReady = false;
+  localDbIdentity = null;
+  resumeProbePromise = null;
+  resumeProbeGeneration += 1;
+  worldEntryPromise = null;
+  worldEntryGeneration = 0;
+  lastSentMovement = null;
+  connectionGeneration += 1;
+  try { staleConnection?.disconnect(); } catch {}
+  onChange();
+  scheduleReconnect(100);
 }
 
 function setWakeReconnectVisible(visible: boolean) {
   if (wakeReconnectVisible === visible) return;
   wakeReconnectVisible = visible;
+  reconnectWatchdog.refresh();
   onChange?.();
 }
 
@@ -2483,11 +2518,19 @@ function setServerUpdateVisible(visible: boolean) {
 function setReconnectAfterServerUpdateVisible(visible: boolean) {
   if (reconnectAfterServerUpdateVisible === visible) return;
   reconnectAfterServerUpdateVisible = visible;
+  reconnectWatchdog.refresh();
   onChange?.();
 }
 
 function reconnectAfterWake(force = false) {
-  if (protocolBlocked || worldEntryBlocked || document.hidden || connecting || resumeProbePromise) return;
+  if (protocolBlocked || worldEntryBlocked) {
+    setWakeReconnectVisible(false);
+    setReconnectAfterServerUpdateVisible(false);
+    return;
+  }
+  if (document.hidden) return;
+  reconnectWatchdog.refresh();
+  if (!navigator.onLine || connecting || resumeProbePromise) return;
   const conn = connection;
   if (force || !conn?.isActive) {
     if (conn) {
@@ -2507,6 +2550,7 @@ function reconnectAfterWake(force = false) {
   }
 
   const generation = connectionGeneration;
+  const probeGeneration = ++resumeProbeGeneration;
   resumeProbePromise = Promise.race([
     conn.reducers.resumeSession({}),
     new Promise<never>((_resolve, reject) => window.setTimeout(() => reject(new Error("Resume check timed out")), 2_500)),
@@ -2532,7 +2576,7 @@ function reconnectAfterWake(force = false) {
       }
     })
     .finally(() => {
-      resumeProbePromise = null;
+      if (probeGeneration === resumeProbeGeneration) resumeProbePromise = null;
     });
 }
 
@@ -3593,6 +3637,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pageWasHidden = true;
     pageHiddenAt = Date.now();
+    reconnectWatchdog.clear();
     return;
   }
   if (pageWasHidden) {
