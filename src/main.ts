@@ -935,7 +935,7 @@ import {
     benchPosition: UPGRADE_BENCH_POSITION,
     activeUpgrade: () => coop?.activeItemUpgrade?.() ?? null,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
-    startUpgrade: async (itemId) => coop?.startItemUpgrade?.(itemId),
+    startUpgrade: async (itemId, position) => coop?.startItemUpgrade?.(itemId, position),
     cancelUpgrade: async () => coop?.cancelItemUpgrade?.(),
     beforeOpen: () => {
       minimizeMaximizedChat();

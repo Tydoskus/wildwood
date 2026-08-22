@@ -3344,11 +3344,36 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
-  async startItemUpgrade(itemId: string) {
+  async startItemUpgrade(itemId: string, position?: { x: number; y: number }) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
-    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    const conn = connection;
+    if (!conn) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.startItemUpgrade({ itemId });
+      // Opening the fullscreen bench pauses the game loop. Commit and await
+      // the exact contact position first so server validation cannot see the
+      // last sparse movement sample from before the player reached the bench.
+      if (position) {
+        if (![position.x, position.y].every(Number.isFinite)) {
+          return { ok: false, error: "INVALID BENCH POSITION" };
+        }
+        const sequence = ++nextPositionSequence;
+        await conn.reducers.updateMovementState({
+          x: position.x,
+          y: position.y,
+          dx: 0,
+          dy: 0,
+          sequence,
+        });
+        if (connection !== conn) return { ok: false, error: "CONNECTION CHANGED" };
+        lastSentMovement = { dx: 0, dy: 0, moving: false, sentAt: performance.now() };
+        if (localState) {
+          localState.x = position.x;
+          localState.y = position.y;
+          localState.moving = false;
+          localState.lastInputSequence = sequence;
+        }
+      }
+      await conn.reducers.startItemUpgrade({ itemId });
       const currentLevel = profileItemUpgrades.get(localIdentity)?.get(itemId) ?? 0;
       const remainingMs = itemUpgradeDurationMs(currentLevel);
       const startedAtMs = Date.now();

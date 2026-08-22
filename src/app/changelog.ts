@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.482": [
+    "Upgrade Bench now confirms the exact touch position with the server before starting an upgrade, preventing false Touch the Upgrade Bench first rejections.",
+  ],
   "0.481": [
     "Upgrade Bench BACK now returns to item selection whenever no upgrade is active and stays hidden while an upgrade is running.",
   ],
@@ -907,6 +910,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.482": "2026-08-22",
   "0.481": "2026-08-22",
   "0.480": "2026-08-22",
   "0.479": "2026-08-22",

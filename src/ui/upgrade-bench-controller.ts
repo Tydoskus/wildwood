@@ -38,7 +38,7 @@ type UpgradeBenchDependencies = {
   benchPosition: { x: number; y: number };
   activeUpgrade: () => ActiveItemUpgrade | null;
   upgradeLevel: (itemId: string) => number;
-  startUpgrade: (itemId: string) => Promise<UpgradeResult>;
+  startUpgrade: (itemId: string, position: { x: number; y: number }) => Promise<UpgradeResult>;
   cancelUpgrade: () => Promise<UpgradeResult>;
   confirmCancel?: (message: string) => boolean;
   beforeOpen: () => void;
@@ -265,7 +265,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
         dependencies.showMessage(result?.error ?? "COULD NOT CANCEL UPGRADE", "#ff7a7a");
       }
     } else {
-      const result = await dependencies.startUpgrade(itemId);
+      const result = await dependencies.startUpgrade(itemId, dependencies.playerPosition());
       if (result?.ok) {
         setInventoryItemQuantity(dependencies.inventory, itemId, 0);
         dependencies.onInventoryChanged();
