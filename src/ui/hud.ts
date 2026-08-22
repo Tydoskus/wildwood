@@ -1,4 +1,4 @@
-import { bagInventoryStacks, inventoryItemQuantity, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
+import { bagInventoryStacks, inventoryItemQuantity, itemFitsEquipmentSlot, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
@@ -93,9 +93,15 @@ type InventoryElements = {
 type ItemDefinition = {
   id: string;
   name: string;
-  slot: string;
+  slot: "HEAD" | "CHEST" | "FEET" | "HAND";
   description: string;
   stats: readonly string[];
+};
+
+export type InventoryMoveAction = {
+  label: string;
+  destination: EquipmentSlot | "BAG";
+  disabled?: boolean;
 };
 
 const itemsById = ITEM_DEFINITIONS as Record<string, ItemDefinition>;
@@ -104,12 +110,80 @@ function itemArt(itemId: string, hidden = true) {
   return itemArtMarkup(itemId, hidden);
 }
 
-function renderEquipmentSlot(element: HTMLElement, itemId: string, label: string, selected: boolean) {
+function equipmentItemId(inventory: InventoryViewState, slot: EquipmentSlot) {
+  return slot === "HEAD" ? inventory.equippedHead
+    : slot === "CHEST" ? inventory.equippedChest
+      : slot === "FEET" ? inventory.equippedFeet
+        : slot === "RIGHT_HAND" ? inventory.equippedRightHand
+          : inventory.equippedLeftHand;
+}
+
+export function inventoryMoveActions(
+  inventory: InventoryViewState,
+  itemId: string,
+  location: EquipmentSlot | "BAG" | "" | undefined,
+): InventoryMoveAction[] {
+  const item = itemsById[itemId];
+  if (!item || !location) return [];
+  if (location !== "BAG") {
+    const actions: InventoryMoveAction[] = [{ label: "UNEQUIP", destination: "BAG" }];
+    if (item.slot === "HAND") {
+      const opposite = location === "RIGHT_HAND" ? "LEFT_HAND" : "RIGHT_HAND";
+      actions.push({ label: opposite === "RIGHT_HAND" ? "MOVE TO RIGHT" : "MOVE TO LEFT", destination: opposite });
+    }
+    return actions;
+  }
+  if (item.slot === "HAND") {
+    return (["RIGHT_HAND", "LEFT_HAND"] as const).map((destination) => ({
+      label: equipmentItemId(inventory, destination) === itemId
+        ? destination === "RIGHT_HAND" ? "RIGHT HAND EQUIPPED" : "LEFT HAND EQUIPPED"
+        : destination === "RIGHT_HAND" ? "EQUIP RIGHT" : "EQUIP LEFT",
+      destination,
+      disabled: equipmentItemId(inventory, destination) === itemId,
+    }));
+  }
+  const destination = item.slot;
+  const alreadyEquipped = equipmentItemId(inventory, destination) === itemId;
+  return [{
+    label: alreadyEquipped ? "ALREADY EQUIPPED" : "EQUIP",
+    destination,
+    disabled: alreadyEquipped,
+  }];
+}
+
+function renderEquipmentSlot(
+  element: HTMLElement,
+  inventory: InventoryViewState,
+  destination: EquipmentSlot,
+  label: string,
+) {
+  const itemId = equipmentItemId(inventory, destination);
+  const item = itemsById[itemId];
+  const selected = inventory.selectedItemLocation === destination && inventory.selectedItemId === itemId;
+  const hasSelection = Boolean(itemsById[inventory.selectedItemId]);
+  const compatible = hasSelection && !selected && itemFitsEquipmentSlot(inventory.selectedItemId, destination);
   element.classList.toggle("is-equipped", Boolean(itemId));
   element.classList.toggle("is-selected", selected);
-  element.setAttribute("aria-label", itemId ? `${label}: ${itemsById[itemId]?.name ?? itemId}` : label);
+  element.classList.toggle("is-compatible", compatible);
+  element.classList.toggle("is-incompatible", hasSelection && !selected && !compatible);
+  element.setAttribute("aria-label", itemId ? `${label}: ${item?.name ?? itemId}` : `${label}: empty`);
   element.setAttribute("aria-pressed", String(selected));
-  element.innerHTML = itemId ? itemArt(itemId, false) : label;
+  const slotLabel = document.createElement("span");
+  slotLabel.className = "equipment-slot-label";
+  slotLabel.textContent = label;
+  const art = document.createElement("span");
+  art.className = "equipment-slot-art";
+  if (itemId) art.innerHTML = itemArt(itemId, false);
+  else {
+    const empty = document.createElement("span");
+    empty.className = "equipment-slot-empty";
+    empty.textContent = "+";
+    art.append(empty);
+  }
+  const name = document.createElement("span");
+  name.className = "equipment-slot-name";
+  name.textContent = item?.name ?? "EMPTY";
+  element.replaceChildren(slotLabel, art, name);
 }
 
 export function renderInventoryView(
@@ -118,17 +192,16 @@ export function renderInventoryView(
   actions: {
     onSelect: (itemId: string, location: EquipmentSlot | "BAG" | "") => void;
     onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
-    onInspect: (itemId: string) => void;
   },
 ) {
   elements.items.replaceChildren();
   const bagStacks = bagInventoryStacks(inventory);
-  elements.count.textContent = `${bagStacks.length} / 16`;
-  renderEquipmentSlot(elements.equippedHead, inventory.equippedHead, "HEAD", inventory.selectedItemLocation === "HEAD" && inventory.selectedItemId === inventory.equippedHead);
-  renderEquipmentSlot(elements.equippedChest, inventory.equippedChest, "CHEST", inventory.selectedItemLocation === "CHEST" && inventory.selectedItemId === inventory.equippedChest);
-  renderEquipmentSlot(elements.equippedRightHand, inventory.equippedRightHand, "RIGHT", inventory.selectedItemLocation === "RIGHT_HAND" && inventory.selectedItemId === inventory.equippedRightHand);
-  renderEquipmentSlot(elements.equippedLeftHand, inventory.equippedLeftHand, "LEFT", inventory.selectedItemLocation === "LEFT_HAND" && inventory.selectedItemId === inventory.equippedLeftHand);
-  renderEquipmentSlot(elements.equippedFeet, inventory.equippedFeet, "FEET", inventory.selectedItemLocation === "FEET" && inventory.selectedItemId === inventory.equippedFeet);
+  elements.count.textContent = `${bagStacks.length} / 16 STACKS`;
+  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD");
+  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR");
+  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND");
+  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND");
+  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS");
 
   for (let index = 0; index < 16; index += 1) {
     const stack = bagStacks[index];
@@ -137,13 +210,19 @@ export function renderInventoryView(
     const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === itemId;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "inventory-item" + (itemId ? " is-filled" : "") +
+    button.className = "inventory-item" + (itemId ? " is-filled" : " is-empty") +
       (selected ? " is-selected" : "");
     if (itemId) {
       const item = itemsById[itemId];
       button.setAttribute("aria-label", stackQuantity > 1 ? `${item.name}, quantity ${stackQuantity}` : item.name);
       button.setAttribute("aria-pressed", String(selected));
-      button.innerHTML = itemArt(itemId);
+      const art = document.createElement("span");
+      art.className = "inventory-item-art-wrap";
+      art.innerHTML = itemArt(itemId);
+      const name = document.createElement("span");
+      name.className = "inventory-item-name";
+      name.textContent = item.name;
+      button.append(art, name);
       if (stackQuantity > 1) {
         const quantity = document.createElement("span");
         quantity.className = "inventory-stack-count";
@@ -154,6 +233,11 @@ export function renderInventoryView(
     } else {
       const canMoveSelectedToBag = Boolean(inventory.selectedItemId && inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG");
       button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}: clear selection`);
+      button.classList.toggle("is-drop-target", canMoveSelectedToBag);
+      const empty = document.createElement("span");
+      empty.className = "inventory-item-empty-mark";
+      empty.textContent = canMoveSelectedToBag ? "↓" : "";
+      button.append(empty);
       button.addEventListener("click", () => {
         if (canMoveSelectedToBag) actions.onMove(inventory.selectedItemId, "BAG");
         else actions.onSelect("", "");
@@ -164,22 +248,45 @@ export function renderInventoryView(
 
   const selected = itemsById[inventory.selectedItemId];
   if (!selected) {
-    elements.detail.textContent = "SELECT AN ITEM TO VIEW ITS STATS";
+    elements.detail.classList.remove("has-selection");
+    const prompt = document.createElement("div");
+    prompt.className = "inventory-detail-empty";
+    prompt.innerHTML = "<strong>SELECT AN ITEM</strong><span>VIEW STATS AND EQUIP IT FROM HERE</span>";
+    elements.detail.replaceChildren(prompt);
     return;
   }
-  elements.detail.innerHTML =
-    `<div class="inventory-slot">${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}${inventoryItemQuantity(inventory, selected.id) > 1 ? ` · OWNED ×${inventoryItemQuantity(inventory, selected.id)}` : ""}</div>` +
-    `<strong>${selected.name}</strong><p>${selected.description}</p>` +
-    `<div class="inventory-stats">${selected.stats.join(" · ")}</div>`;
+  elements.detail.classList.add("has-selection");
+  const icon = document.createElement("div");
+  icon.className = "inventory-detail-icon";
+  icon.innerHTML = itemArt(selected.id, false);
+  const copy = document.createElement("div");
+  copy.className = "inventory-detail-copy";
+  const location = document.createElement("div");
+  location.className = "inventory-slot";
+  const quantity = inventoryItemQuantity(inventory, selected.id);
+  location.textContent = `${selected.slot} · ${inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG" ? "EQUIPPED" : "IN BAG"}${quantity > 1 ? ` · OWNED ×${quantity}` : ""}`;
+  const name = document.createElement("strong");
+  name.textContent = selected.name;
+  const description = document.createElement("p");
+  description.textContent = selected.description;
+  const stats = document.createElement("div");
+  stats.className = "inventory-stats";
+  for (const stat of selected.stats) {
+    const value = document.createElement("span");
+    value.textContent = stat;
+    stats.append(value);
+  }
+  copy.append(location, name, description, stats);
   const actionRow = document.createElement("div");
   actionRow.className = "inventory-actions";
-  const moveHint = document.createElement("span");
-  moveHint.textContent = selected.slot === "HAND" ? "CLICK LEFT OR RIGHT HAND SLOT" : `CLICK ${selected.slot} SLOT`;
-  const inspect = document.createElement("button");
-  inspect.type = "button";
-  inspect.className = "secondary-button";
-  inspect.textContent = "INSPECT";
-  inspect.addEventListener("click", () => actions.onInspect(selected.id));
-  actionRow.append(moveHint, inspect);
-  elements.detail.appendChild(actionRow);
+  for (const action of inventoryMoveActions(inventory, selected.id, inventory.selectedItemLocation)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = action.destination === "BAG" ? "inventory-action-secondary" : "inventory-action-primary";
+    button.textContent = action.label;
+    button.disabled = action.disabled === true;
+    button.addEventListener("click", () => actions.onMove(selected.id, action.destination));
+    actionRow.append(button);
+  }
+  elements.detail.replaceChildren(icon, copy, actionRow);
 }

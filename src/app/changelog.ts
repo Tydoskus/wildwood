@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.463": [
+    "Inventory now uses an intuitive paper-doll loadout above a four-column bag, with visible item names, fixed-size stack badges, and direct equip, hand-switch, and unequip actions.",
+    "An animated equipped-character preview and equipment-aware Power now sit inside a warm off-white mobile layout with compatible-slot highlighting and responsive touch targets.",
+  ],
   "0.462": [
     "Leaderboard podiums now use a clean white backdrop, taller character previews seated directly on the steps, usernames only, and no ground shadows.",
     "Left-hand bows now mirror along the correct axis with reversed offsets so they point toward the player's facing and combat target direction.",

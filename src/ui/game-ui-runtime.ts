@@ -140,7 +140,6 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     },
     inventory: d.inventory,
     closeCompetingWindows: d.closeCompetingWindows,
-    clearInventorySelection: d.inventoryController.clearSelection,
     renderInventory: d.renderInventory,
     logPickup: d.logPickup,
     leaveDuelResult: d.leaveDuelResult,
@@ -160,8 +159,6 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     escapeWindows: {
       isProfileIconPickerOpen: () => !e.profileIconPickerEl.hidden,
       closeProfileIconPicker: d.closeProfileIconPicker,
-      isInventoryInspectOpen: d.inventoryController.isInspectOpen,
-      closeInventoryInspect: d.inventoryController.close,
       isLeaderboardOpen: d.leaderboard.isOpen,
       closeLeaderboard: d.closeLeaderboard,
       isDevPanelOpen: d.devPanel.isOpen,

@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.462" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.463" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -100,26 +100,26 @@
       </div>
       <div id="inventoryPanel" class="inventory-panel card" role="dialog" aria-label="Inventory" hidden>
         <div class="inventory-panel-header">
-          <div class="settings-title window-title">Inventory</div>
+          <div class="inventory-title-block"><span>LOADOUT</span><div class="settings-title window-title">Inventory</div></div>
+          <div id="inventoryCount" class="inventory-capacity">0 / 16 STACKS</div>
           <button id="closeInventoryBtn" class="profile-close-button secondary-button" type="button" aria-label="Close inventory">×</button>
         </div>
-        <div class="inventory-layout">
-          <section class="equipment-section" aria-label="Equipped items">
-            <div class="inventory-section-title">EQUIPPED</div>
-            <div class="equipment-slots">
-              <button id="equippedHeadSlot" class="equipment-slot slot-head" type="button" data-slot="head"><span>HEAD</span></button>
-              <button id="equippedChestSlot" class="equipment-slot slot-chest" type="button" data-slot="chest"><span>CHEST</span></button>
-              <button id="equippedRightHandSlot" class="equipment-slot slot-right-hand" type="button" data-slot="right-hand"><span>RIGHT</span></button>
-              <button id="equippedLeftHandSlot" class="equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>LEFT</span></button>
-              <button id="equippedFeetSlot" class="equipment-slot slot-feet" type="button" data-slot="feet"><span>FEET</span></button>
-            </div>
-          </section>
-          <section class="bag-section" aria-label="Bag slots">
-            <div class="inventory-section-title">BAG <span id="inventoryCount">0 / 16</span></div>
-            <div id="inventoryItems" class="inventory-items"></div>
-          </section>
-        </div>
-        <div id="inventoryDetail" class="inventory-detail">NO ITEMS YET · EXPLORE WILDWOOD</div>
+        <section class="inventory-loadout" aria-label="Equipped items">
+          <button id="equippedHeadSlot" class="equipment-slot slot-head" type="button" data-slot="head"><span>HEAD</span></button>
+          <button id="equippedChestSlot" class="equipment-slot slot-chest" type="button" data-slot="chest"><span>ARMOR</span></button>
+          <button id="equippedFeetSlot" class="equipment-slot slot-feet" type="button" data-slot="feet"><span>BOOTS</span></button>
+          <div class="inventory-character-stage" aria-label="Current character preview">
+            <canvas id="inventoryCharacterCanvas" aria-hidden="true"></canvas>
+            <span id="inventoryPower">POWER --</span>
+          </div>
+          <button id="equippedRightHandSlot" class="equipment-slot slot-right-hand" type="button" data-slot="right-hand"><span>R HAND</span></button>
+          <button id="equippedLeftHandSlot" class="equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>L HAND</span></button>
+        </section>
+        <section class="bag-section" aria-label="Bag slots">
+          <div class="inventory-section-title"><strong>BAG</strong><span>TAP AN ITEM · COMPATIBLE SLOTS LIGHT UP</span></div>
+          <div id="inventoryItems" class="inventory-items"></div>
+        </section>
+        <div id="inventoryDetail" class="inventory-detail" aria-live="polite">SELECT AN ITEM TO VIEW ITS STATS</div>
       </div>
       <div id="duelControls" hidden>
         <div id="duelStatus">DUEL READY</div>
@@ -145,7 +145,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.462</div>
+        <div id="version">v0.463</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -154,17 +154,6 @@
       <textarea id="chatInput" maxlength="250" rows="1" autocomplete="off" enterkeyhint="send" placeholder="Say something…"></textarea>
       <button id="chatSendBtn" type="submit">SEND</button>
     </form>
-  </div>
-</div>
-
-<div id="itemInspect" hidden>
-  <div class="modal item-inspect-modal" role="dialog" aria-modal="true" aria-labelledby="itemInspectName">
-    <button id="closeItemInspectBtn" class="profile-close-button secondary-button" type="button" aria-label="Close item inspection">×</button>
-    <div id="itemInspectIcon" class="item-inspect-icon" aria-hidden="true"></div>
-    <div id="itemInspectSlot" class="inventory-slot">ITEM</div>
-    <h2 id="itemInspectName">ITEM</h2>
-    <p id="itemInspectDescription"></p>
-    <div id="itemInspectStats" class="inventory-stats"></div>
   </div>
 </div>
 
@@ -212,13 +201,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.462</strong></div>
+        <div><strong id="updateNoticeTitle">v0.463</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.462</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.463</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -502,7 +491,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.462"></script>
-<script src="assets/wildwood/game.js?v=0.462"></script>
+<script src="assets/wildwood/coop-client.js?v=0.463"></script>
+<script src="assets/wildwood/game.js?v=0.463"></script>
 </body>
 </html>

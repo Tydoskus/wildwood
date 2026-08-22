@@ -1,26 +1,26 @@
 import {
-  itemDefinition,
   itemFitsEquipmentSlot,
   type EquipmentSlot,
   type InventoryState,
 } from "../game/inventory";
-import { itemArtMarkup } from "../game/item-presentation";
 import { requiredElement } from "../game/runtime/dom";
 import { renderInventoryView } from "./hud";
+import { formatCompactNumber } from "./number-format";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
 
 type InventoryDependencies = {
   inventory: SelectableInventory;
-  move: (itemId: string, destination: EquipmentSlot | "BAG") => void;
+  move: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
+  power: () => number;
 };
 
 export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
   return currentItemId === tappedItemId ? "" : tappedItemId;
 }
 
-/** Inventory grid, equipped-slot selection, and item inspection modal. */
+/** Paper-doll loadout, inventory selection, and direct equipment actions. */
 export function createInventoryController(dependencies: InventoryDependencies) {
   const panel = requiredElement("inventoryPanel");
   const items = requiredElement("inventoryItems");
@@ -31,67 +31,72 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const equippedFeet = requiredElement("equippedFeetSlot");
   const equippedRightHand = requiredElement("equippedRightHandSlot");
   const equippedLeftHand = requiredElement("equippedLeftHandSlot");
-  const inspect = requiredElement("itemInspect");
-  const closeInspect = requiredElement("closeItemInspectBtn");
-  const inspectIcon = requiredElement("itemInspectIcon");
-  const inspectSlot = requiredElement("itemInspectSlot");
-  const inspectName = requiredElement("itemInspectName");
-  const inspectDescription = requiredElement("itemInspectDescription");
-  const inspectStats = requiredElement("itemInspectStats");
+  const power = requiredElement("inventoryPower");
+
+  const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
+    HEAD: equippedHead,
+    CHEST: equippedChest,
+    FEET: equippedFeet,
+    RIGHT_HAND: equippedRightHand,
+    LEFT_HAND: equippedLeftHand,
+  };
+
+  function setSelection(itemId: string, location: InventoryLocation) {
+    dependencies.inventory.selectedItemId = itemId;
+    dependencies.inventory.selectedItemLocation = itemId ? location : "";
+  }
+
+  function playMoveFeedback(destination: EquipmentSlot | "BAG") {
+    if (destination !== "BAG") {
+      const target = equipmentElements[destination];
+      target.classList.remove("is-equipped-now");
+      void target.offsetWidth;
+      target.classList.add("is-equipped-now");
+      window.setTimeout(() => target.classList.remove("is-equipped-now"), 360);
+    }
+    if (typeof navigator.vibrate === "function") navigator.vibrate(10);
+  }
+
+  function move(itemId: string, destination: EquipmentSlot | "BAG") {
+    if (!dependencies.move(itemId, destination)) return false;
+    setSelection(itemId, destination);
+    render();
+    playMoveFeedback(destination);
+    return true;
+  }
 
   function render() {
+    const value = document.createElement("strong");
+    value.textContent = formatCompactNumber(dependencies.power());
+    power.replaceChildren(document.createTextNode("POWER "), value);
     renderInventoryView(
       { items, detail, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
       dependencies.inventory,
       {
         onSelect(itemId, location) {
           const tappedAgain = dependencies.inventory.selectedItemId === itemId && dependencies.inventory.selectedItemLocation === location;
-          dependencies.inventory.selectedItemId = tappedAgain ? "" : itemId;
-          dependencies.inventory.selectedItemLocation = tappedAgain || !itemId ? "" : location;
+          setSelection(tappedAgain ? "" : itemId, tappedAgain ? "" : location);
           render();
         },
         onMove(itemId, destination) {
-          dependencies.move(itemId, destination);
-          dependencies.inventory.selectedItemId = "";
-          dependencies.inventory.selectedItemLocation = "";
-          render();
+          move(itemId, destination);
         },
-        onInspect: openInspect,
       },
     );
-  }
-
-  function openInspect(itemId: string) {
-    const item = itemDefinition(itemId);
-    if (!item) return;
-    const equipped = dependencies.inventory.selectedItemId === item.id
-      ? Boolean(dependencies.inventory.selectedItemLocation && dependencies.inventory.selectedItemLocation !== "BAG")
-      : [dependencies.inventory.equippedHead, dependencies.inventory.equippedChest, dependencies.inventory.equippedFeet, dependencies.inventory.equippedRightHand, dependencies.inventory.equippedLeftHand].includes(item.id);
-    inspectSlot.textContent = `${item.slot} · ${equipped ? "EQUIPPED" : "IN BAG"}`;
-    inspectName.textContent = item.name;
-    inspectDescription.textContent = item.description;
-    inspectStats.textContent = item.stats.join(" · ");
-    inspectIcon.innerHTML = itemArtMarkup(item.id, false);
-    inspect.hidden = false;
-  }
-
-  function close() {
-    inspect.hidden = true;
   }
 
   function clickEquipment(destination: EquipmentSlot, itemId: string) {
     const selectedItemId = dependencies.inventory.selectedItemId;
     if (selectedItemId) {
       const tappedAgain = dependencies.inventory.selectedItemLocation === destination && selectedItemId === itemId;
-      if (!tappedAgain && itemFitsEquipmentSlot(selectedItemId, destination)) dependencies.move(selectedItemId, destination);
-      dependencies.inventory.selectedItemId = "";
-      dependencies.inventory.selectedItemLocation = "";
+      if (tappedAgain) setSelection("", "");
+      else if (itemFitsEquipmentSlot(selectedItemId, destination) && move(selectedItemId, destination)) return;
+      else if (itemId) setSelection(itemId, destination);
       render();
       return;
     }
     if (!itemId) return;
-    dependencies.inventory.selectedItemId = itemId;
-    dependencies.inventory.selectedItemLocation = destination;
+    setSelection(itemId, destination);
     render();
   }
 
@@ -107,16 +112,11 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     // recognized as a button click when the event reaches this panel.
     const clickedButton = event.composedPath().some((entry) => entry instanceof HTMLButtonElement);
     if (!(target instanceof Element) || clickedButton || !dependencies.inventory.selectedItemId) return;
-    dependencies.inventory.selectedItemId = "";
-    dependencies.inventory.selectedItemLocation = "";
+    setSelection("", "");
     render();
   });
-  closeInspect.addEventListener("click", close);
 
   return {
-    clearSelection: () => { dependencies.inventory.selectedItemId = ""; dependencies.inventory.selectedItemLocation = ""; },
-    close,
-    isInspectOpen: () => !inspect.hidden,
     render,
   };
 }

@@ -63,7 +63,8 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
-import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier, itemRegenerationMultiplier } from "../shared/items";
+import { isWeaponItem, itemDefinition, itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../shared/items";
+import { playerPowerForStats } from "../shared/player-power";
 import {
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -86,7 +87,7 @@ import {
   const {
     canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
-    settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -302,13 +303,21 @@ import {
   const inventoryController = createInventoryController({
     inventory,
     move: (itemId, destination) => {
-      if (!moveInventoryItem(inventory, itemId, destination)) return;
+      if (!moveInventoryItem(inventory, itemId, destination)) return false;
       player.speed = inventory.equippedFeet === TRAILBLAZER_BOOTS ? BASE_PLAYER_SPEED + BOOTS_SPEED_BONUS : BASE_PLAYER_SPEED;
       applyPlayerMaxHealthMultiplier(player, healthMultiplier());
       const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
       showMessage(hasWeapon ? "EQUIPMENT UPDATED · WEAPON READY" : "EQUIPMENT UPDATED", "#72ef58");
+      return true;
     },
+    power: () => playerPowerForStats({
+      maxHp: player.maxHp,
+      damage: player.damage * weaponDamageMultiplier(inventory.equippedRightHand || inventory.equippedLeftHand, researchDamageMultiplier()),
+      attackRate: player.attackRate / weaponAttackSpeedMultiplier(inventory.equippedRightHand || inventory.equippedLeftHand),
+      armor: effectiveArmor(),
+      regen: player.regen * regenerationMultiplier(),
+    }),
   });
   const renderInventory = inventoryController.render;
   const worldProgression = createWorldProgressionController({
@@ -567,13 +576,14 @@ import {
   };
   const bootstrapAssets = createGameBootstrapAssets({
     profileCharacterCanvas,
+    inventoryCharacterCanvas,
     onWorldArtReady: () => {
       startup.refreshLoading();
       finishStartup();
     },
     onPlayerAppearanceAssetReady: markPlayerSpriteReady,
   });
-  const { assets, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
+  const { assets, inventoryCharacterPreview, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   const worldRenderRuntime = createWorldRenderRuntime({
@@ -724,7 +734,15 @@ import {
     duelResultHeld: () => playerController.isDuelResultHeld(),
     setRenderedDuelScene: (scene) => { renderedDuelScene = scene; },
     setDuelCountdown: (countdown) => runtimeHud?.setDuelCountdown(countdown),
-    drawProfileCharacterPreview: () => { profileWindow.drawPreview(); leaderboard.drawPodium(); },
+    drawProfileCharacterPreview: () => {
+      profileWindow.drawPreview();
+      leaderboard.drawPodium();
+      inventoryCharacterPreview.draw({
+        visible: !inventoryPanel.hidden,
+        inventory,
+        skinTone: coop?.skinTone?.() ?? DEFAULT_SKIN_TONE,
+      });
+    },
     updateSpeechBubbles,
     localIdentity: () => coop?.localIdentity?.(),
     localDisplayName: () => coop?.localDisplayName?.(),
@@ -803,6 +821,11 @@ import {
     isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), showMessage,
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
+  new ResizeObserver(() => {
+    if (!inventoryPanel.hidden && inventoryCharacterPreview.resize()) {
+      inventoryCharacterPreview.draw({ visible: true, inventory, skinTone: coop?.skinTone?.() ?? DEFAULT_SKIN_TONE });
+    }
+  }).observe(inventoryCharacterCanvas);
 
   const techTree = createTechTreePanel({ e: gameElements, researchRanks, activeResearch: () => coop?.activeResearch?.() ?? null, startResearch: async (id: ResearchId) => coop?.startResearch?.(id), showMessage, beforeOpen: () => { settingsPanel.hidden = true; inventoryPanel.hidden = true; closeLeaderboard(); devPanel.close(); } });
 

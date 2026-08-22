@@ -27,8 +27,6 @@ type WindowActionsElements = {
 type EscapeWindows = {
   isProfileIconPickerOpen: () => boolean;
   closeProfileIconPicker: () => void;
-  isInventoryInspectOpen: () => boolean;
-  closeInventoryInspect: () => void;
   isLeaderboardOpen: () => boolean;
   closeLeaderboard: () => void;
   isDevPanelOpen: () => boolean;
@@ -43,7 +41,6 @@ type GameActionsDependencies = {
   elements: WindowActionsElements;
   inventory: InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
   closeCompetingWindows: () => void;
-  clearInventorySelection: () => void;
   renderInventory: () => void;
   logPickup: (message: string, color: string) => void;
   leaveDuelResult: () => void;
@@ -118,7 +115,6 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   function handleInputEscape() {
     const windows = dependencies.escapeWindows;
     if (windows.isProfileIconPickerOpen()) { windows.closeProfileIconPicker(); return true; }
-    if (windows.isInventoryInspectOpen()) { windows.closeInventoryInspect(); return true; }
     if (windows.isLeaderboardOpen()) { windows.closeLeaderboard(); return true; }
     if (windows.isDevPanelOpen()) { windows.closeDevPanel(); return true; }
     if (windows.isProfileNameEditorOpen()) { windows.closeProfileNameEditor(); return true; }
@@ -141,10 +137,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     closeSettings();
     elements.inventoryButton.setAttribute("aria-expanded", String(opening));
     dependencies.closeCompetingWindows();
-    if (opening) {
-      dependencies.clearInventorySelection();
-      dependencies.renderInventory();
-    }
+    if (opening) dependencies.renderInventory();
   });
   elements.closeInventoryButton.addEventListener("click", closeInventory);
 
