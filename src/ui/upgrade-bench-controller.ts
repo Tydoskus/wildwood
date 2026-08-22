@@ -82,6 +82,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   let touchingBench = false;
   let busy = false;
   let lastRenderKey = "";
+  let renderedActiveItemId = "";
 
   function eligibleItems() {
     return ownedInventoryStacks(dependencies.inventory)
@@ -96,6 +97,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   function close() {
     if (elements.panel.hidden) return;
     closePicker();
+    selectedItemId = "";
     elements.panel.hidden = true;
     dependencies.setPaused(false);
   }
@@ -106,8 +108,11 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     dependencies.clearPlayerInput();
     elements.panel.hidden = false;
     dependencies.setPaused(true);
+    const job = dependencies.activeUpgrade();
+    if (!job) selectedItemId = "";
     lastRenderKey = "";
     render();
+    if (!job) openPicker();
   }
 
   function renderSlot(itemId: string, level: number) {
@@ -154,6 +159,9 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   function render(force = false) {
     if (elements.panel.hidden) return;
     const job = dependencies.activeUpgrade();
+    const finishedActiveUpgrade = Boolean(renderedActiveItemId) && !job;
+    renderedActiveItemId = job?.itemId ?? "";
+    if (finishedActiveUpgrade) selectedItemId = "";
     const candidates = eligibleItems();
     if (!job && selectedItemId && !candidates.includes(selectedItemId)) selectedItemId = "";
     const itemId = job?.itemId ?? selectedItemId;
@@ -180,6 +188,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.action.disabled = busy || !itemId || (!job && level >= MAX_ITEM_UPGRADE_LEVEL);
     elements.back.hidden = Boolean(job);
     elements.back.disabled = busy;
+    if (finishedActiveUpgrade && !busy) openPicker();
   }
 
   function renderPicker() {
@@ -267,6 +276,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     } else {
       const result = await dependencies.startUpgrade(itemId, dependencies.playerPosition());
       if (result?.ok) {
+        selectedItemId = "";
         setInventoryItemQuantity(dependencies.inventory, itemId, 0);
         dependencies.onInventoryChanged();
         dependencies.showMessage("UPGRADE STARTED", "#72ef58");
