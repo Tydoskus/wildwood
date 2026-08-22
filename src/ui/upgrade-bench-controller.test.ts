@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { UPGRADE_CANCEL_CONFIRMATION, upgradeBenchTouchTransition } from "./upgrade-bench-controller";
+import { FROST_BOW } from "../../shared/items";
+import { UPGRADE_CANCEL_CONFIRMATION, upgradeBenchTouchTransition, upgradePickerPreview } from "./upgrade-bench-controller";
 
 describe("upgrade bench touch latch", () => {
   it("requires leaving before a closed bench can open again", () => {
@@ -19,5 +20,16 @@ describe("upgrade bench touch latch", () => {
     expect(UPGRADE_CANCEL_CONFIRMATION).toBe(
       "Are you sure you want to cancel? You will lose current progress to the next upgrade.",
     );
+  });
+
+  it("previews every stat change before an item is selected", () => {
+    expect(upgradePickerPreview(FROST_BOW, 0)).toEqual({
+      name: "FROST BOW",
+      nextLevel: 1,
+      changes: [
+        { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.60×" },
+        { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.44×" },
+      ],
+    });
   });
 });

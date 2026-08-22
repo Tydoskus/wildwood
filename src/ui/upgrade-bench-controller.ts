@@ -22,6 +22,7 @@ type UpgradeBenchElements = {
   statGain: HTMLElement;
   timer: HTMLElement;
   action: HTMLButtonElement;
+  back: HTMLButtonElement;
   picker: HTMLElement;
   pickerItems: HTMLElement;
   closePicker: HTMLButtonElement;
@@ -62,6 +63,15 @@ function formatRemaining(milliseconds: number) {
 
 export function upgradeBenchTouchTransition(wasTouching: boolean, touching: boolean) {
   return { touching, shouldOpen: touching && !wasTouching };
+}
+
+export function upgradePickerPreview(itemId: string, upgradeLevel: unknown) {
+  const level = normalizeItemUpgradeLevel(upgradeLevel);
+  return {
+    name: itemDisplayName(itemId, level),
+    nextLevel: level + 1,
+    changes: itemUpgradeStatChanges(itemId, level),
+  };
 }
 
 /** Fullscreen one-slot upgrade interaction plus enter/leave collision latch. */
@@ -174,16 +184,35 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const candidates = eligibleItems();
     const rows = candidates.map((itemId) => {
       const level = normalizeItemUpgradeLevel(dependencies.upgradeLevel(itemId));
+      const preview = upgradePickerPreview(itemId, level);
       const button = document.createElement("button");
       button.type = "button";
       button.className = "upgrade-bench-picker-item";
       const art = document.createElement("span");
       art.innerHTML = itemArtMarkup(itemId);
+      const copy = document.createElement("span");
+      copy.className = "upgrade-bench-picker-copy";
+      const title = document.createElement("span");
+      title.className = "upgrade-bench-picker-title";
       const name = document.createElement("strong");
-      name.textContent = itemDisplayName(itemId, level);
+      name.textContent = preview.name;
       const next = document.createElement("small");
-      next.textContent = `NEXT +${level + 1}`;
-      button.append(art, name, next);
+      next.textContent = `NEXT +${preview.nextLevel}`;
+      title.append(name, next);
+      const stats = document.createElement("span");
+      stats.className = "upgrade-bench-picker-stats";
+      for (const change of preview.changes) {
+        const row = document.createElement("span");
+        row.className = "upgrade-bench-picker-stat";
+        const label = document.createElement("span");
+        label.textContent = change.label.replace(" MULTIPLIER", "");
+        const values = document.createElement("span");
+        values.textContent = `${change.current} → ${change.next}`;
+        row.append(label, values);
+        stats.append(row);
+      }
+      copy.append(title, stats);
+      button.append(art, copy);
       button.addEventListener("click", () => {
         selectedItemId = itemId;
         closePicker();
@@ -256,6 +285,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   elements.close.addEventListener("click", close);
+  elements.back.addEventListener("click", close);
   elements.slot.addEventListener("click", openPicker);
   elements.action.addEventListener("click", () => { void useAction(); });
   elements.closePicker.addEventListener("click", closePicker);

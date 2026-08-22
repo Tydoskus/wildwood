@@ -404,16 +404,22 @@
   .upgrade-bench-action { width: min(220px, 80vw); height: 44px; min-height: 44px; margin: 0; border-color: #15371b; border-radius: 8px; background: linear-gradient(#72d977, #3e9f48); box-shadow: 0 3px 0 #17361c; color: #fff; font-size: var(--font-readable-body); }
   .upgrade-bench-action.is-cancel { border-color: #492020; background: linear-gradient(#cf6868, #953c3c); box-shadow: 0 3px 0 #431d1d; }
   .upgrade-bench-action:disabled { border-color: #313a34; background: #4b554f; box-shadow: none; color: #9ba49e; }
+  .upgrade-bench-back { width: min(220px, 80vw); height: 44px; min-height: 44px; margin: 0; border-color: #351010; border-radius: 8px; background: linear-gradient(#c85050, #842f34); box-shadow: 0 3px 0 #351519; color: #fff; font-size: var(--font-readable-body); }
   .upgrade-bench-picker { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; padding: 16px; background: rgba(4,8,6,.76); }
   .upgrade-bench-picker[hidden] { display: none; }
   .upgrade-bench-picker-sheet { display: grid; gap: 10px; width: min(100%, 360px); max-height: min(76vh, 520px); padding: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.22); border-radius: 10px; background: #111a15; box-shadow: 0 10px 30px rgba(0,0,0,.55); }
   .upgrade-bench-picker-heading { color: #f4f3e8; font-size: var(--font-readable-label); font-weight: 900; letter-spacing: .05em; text-align: center; }
   .upgrade-bench-picker-items { display: grid; gap: 7px; overflow-y: auto; scrollbar-width: none; }
   .upgrade-bench-picker-items::-webkit-scrollbar { display: none; }
-  .upgrade-bench-picker-item { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 54px; margin: 0; padding: 4px 9px; border: 2px solid #54462f; border-radius: 8px; background: linear-gradient(#302719, #17130d); color: #f4f3e8; text-align: left; }
+  .upgrade-bench-picker-item { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 9px; min-height: 72px; margin: 0; padding: 7px 9px; border: 2px solid #54462f; border-radius: 8px; background: linear-gradient(#302719, #17130d); color: #f4f3e8; text-align: left; }
   .upgrade-bench-picker-item .inventory-item-art { width: 44px; height: 44px; }
-  .upgrade-bench-picker-item strong { overflow: hidden; font-size: var(--font-readable-label); text-overflow: ellipsis; white-space: nowrap; }
-  .upgrade-bench-picker-item small { color: #8deb94; font-size: var(--font-readable-min); }
+  .upgrade-bench-picker-copy { display: grid; gap: 4px; min-width: 0; pointer-events: none; }
+  .upgrade-bench-picker-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+  .upgrade-bench-picker-title strong { overflow: hidden; font-size: var(--font-readable-label); text-overflow: ellipsis; white-space: nowrap; }
+  .upgrade-bench-picker-title small { flex: none; color: #f3cf70; font-size: var(--font-readable-min); }
+  .upgrade-bench-picker-stats { display: grid; gap: 2px; min-width: 0; }
+  .upgrade-bench-picker-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; color: #d7dfd8; font-size: var(--font-readable-min); line-height: var(--line-height-readable); }
+  .upgrade-bench-picker-stat span:last-child { color: #8deb94; font-weight: 900; white-space: nowrap; }
   .upgrade-bench-picker-close { min-height: 44px; margin: 0; }
 
   .boot-pixel-icon { display: flex; justify-content: center; gap: 3px; align-items: end; height: 22px; }

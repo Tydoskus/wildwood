@@ -923,6 +923,7 @@ import {
     statGain: gameElements.upgradeBenchStatGain,
     timer: gameElements.upgradeBenchTimer,
     action: gameElements.upgradeBenchAction,
+    back: gameElements.upgradeBenchBack,
     picker: gameElements.upgradeBenchPicker,
     pickerItems: gameElements.upgradeBenchPickerItems,
     closePicker: gameElements.closeUpgradeBenchPickerBtn,

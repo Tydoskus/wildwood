@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.480": [
+    "Upgrade Bench item choices now preview every exact before-and-after stat change before selection.",
+    "A 44px BACK button beneath Upgrade or Cancel now closes the Upgrade Bench without interrupting an active upgrade.",
+  ],
   "0.479": [
     "Upgrade Bench levels now add twenty percent of each item's original full stat multiplier, keeping previews, inventory, profiles, combat, and server results consistent.",
     "Returning after a suspended tab now recovers stalled connections automatically instead of remaining stuck on Reconnecting.",
@@ -900,6 +904,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.480": "2026-08-22",
   "0.479": "2026-08-22",
   "0.478": "2026-08-22",
   "0.477": "2026-08-22",
