@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.464": [
+    "Inventory now opens as a fullscreen dark game window with a grass-backed, vertically centered character preview, a hidden scrollbar, and cleaner item guidance.",
+    "Inventory, Tech Tree, Leaderboard, and Settings now form a one-handed bottom dock; chat and the playable canvas sit fully above it while the dock owns device safe-area padding.",
+  ],
   "0.463": [
     "Inventory now uses an intuitive paper-doll loadout above a four-column bag, with visible item names, fixed-size stack badges, and direct equip, hand-switch, and unequip actions.",
     "An animated equipped-character preview and equipment-aware Power now sit inside a warm off-white mobile layout with compatible-slot highlighting and responsive touch targets.",

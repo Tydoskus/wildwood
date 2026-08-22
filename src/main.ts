@@ -87,7 +87,7 @@ import {
   const {
     canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
-    settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -97,7 +97,7 @@ import {
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
-  const canvasRuntime = createCanvasRuntime({ canvas, getActorShadowSprite: () => actorShadowSprite });
+  const canvasRuntime = createCanvasRuntime({ canvas, bottomInset: () => toolbar.getBoundingClientRect().height, getActorShadowSprite: () => actorShadowSprite });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
   const coop = window.wildwoodCoop || null;
   const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, seenVersionKey: SEEN_VERSION_KEY, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });

@@ -3,9 +3,11 @@ import { requiredCanvasContext } from "./dom";
 
 export function createCanvasRuntime({
   canvas,
+  bottomInset,
   getActorShadowSprite,
 }: {
   canvas: HTMLCanvasElement;
+  bottomInset?: () => number;
   getActorShadowSprite: () => HTMLImageElement | null;
 }) {
   const ctx = requiredCanvasContext(canvas, { alpha: false });
@@ -16,12 +18,14 @@ export function createCanvasRuntime({
 
   function resize() {
     width = innerWidth;
-    height = innerHeight;
+    const reservedBottom = Math.max(0, Math.round(bottomInset?.() ?? 0));
+    height = Math.max(1, innerHeight - reservedBottom);
     dpr = Math.min(devicePixelRatio || 1, 3);
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
+    canvas.style.bottom = `${reservedBottom}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }
