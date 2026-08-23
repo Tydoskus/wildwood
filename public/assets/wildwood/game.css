@@ -1001,6 +1001,7 @@
   }
 
   #chatPanel.is-large #chatMessages {
+    row-gap: 6px;
     min-height: 0;
     height: auto;
     max-height: none;
@@ -1027,7 +1028,8 @@
   #chatPanel.is-large .chat-header { min-height: 44px; border-bottom: 1px solid rgba(255,255,255,.14); }
   #chatPanel.is-large .chat-size-toggle { width: 44px; height: 44px; flex-basis: 44px; }
   #chatPanel.is-large .chat-size-icon { inset: 12px; }
-  #chatPanel.is-large .chat-line { min-height: 44px; padding: 4px 0; }
+  #chatPanel.is-large .chat-line { grid-template-columns: 44px minmax(0, 1fr) auto; min-height: 44px; padding: 0; }
+  #chatPanel.is-large .chat-profile-icon { width: 44px; height: 44px; }
   #chatPanel:not(.is-large) #chatForm { display: none; }
   #chatPanel:not(.is-large) #topMeta { display: block; margin-left: auto; color: #fff; font-size: 8px; }
   #chatPanel:not(.is-large) #latencyStatus,
@@ -1721,7 +1723,7 @@
   .leaderboard-modal > #leaderboardEmpty[hidden] { display: none; }
   .leaderboard-spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,.22); border-top-color: var(--gold); border-radius: 50%; animation: leaderboard-spin .65s linear infinite; }
   @keyframes leaderboard-spin { to { transform: rotate(1turn); } }
-  .leaderboard-row { display: grid; grid-template-columns: 29px 25px minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 35px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; }
+  .leaderboard-row { display: grid; grid-template-columns: 29px 25px minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 44px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; }
   canvas.leaderboard-profile-icon { position: static; inset: auto; display: block; width: 25px; height: 25px; padding: 0; border: 2px solid #000; border-radius: 4px; background: #fff; cursor: pointer; image-rendering: auto; }
   .leaderboard-row.is-local { background: rgba(67,160,62,.24); }
   .leaderboard-rank { color: var(--muted); font-size: 9px; text-align: center; }
@@ -1856,7 +1858,7 @@
     .leaderboard-podium-rank-label { font-size: 10px; }
     .leaderboard-column-headings { padding: 0 7px 2px 35px; font-size: 7px; }
     .leaderboard-rows { gap: 0; padding: 0; }
-    .leaderboard-row { min-height: 25px; padding: 0 7px; }
+    .leaderboard-row { min-height: 44px; padding: 0 7px; }
     .leaderboard-rank { font-size: 8px; }
     .leaderboard-name, .leaderboard-value { font-size: 9px; }
     .modal.dev-audit-modal { padding: 9px; }

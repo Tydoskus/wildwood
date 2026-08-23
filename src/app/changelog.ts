@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.487": [
+    "Improved leaderboard and chat readability with 44px player rows, roomier message spacing, and larger maximized-chat portraits.",
+  ],
   "0.486": [
     "Movement speed now applies Trailblazer Boots, every Move Speed research rank, and durable developer overrides consistently to local movement and remote-player prediction without save resets or correction jumps.",
     "Developer Move Speed overrides can now be cleared by entering 0, returning the player to normal equipment-based speed before research.",
@@ -926,6 +929,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.487": "2026-08-22",
   "0.486": "2026-08-22",
   "0.485": "2026-08-22",
   "0.484": "2026-08-22",
