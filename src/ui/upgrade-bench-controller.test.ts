@@ -27,8 +27,8 @@ describe("upgrade bench touch latch", () => {
       name: "FROST BOW",
       nextLevel: 1,
       changes: [
-        { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.60×" },
-        { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.44×" },
+        { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.40×" },
+        { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.24×" },
       ],
     });
   });

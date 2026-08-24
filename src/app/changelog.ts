@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.492": [
+    "Item upgrades now scale only each item's additive stat bonuses, keeping the universal 1× baseline unchanged.",
+  ],
   "0.491": [
     "Duels now render equipped bows and stones with their real projectile visuals, directions, and attack-speed-scaled weapon animations.",
     "High attack speeds now match the displayed attacks per second instead of silently dropping throws behind a fixed windup.",
@@ -945,6 +948,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.492": "2026-08-24",
   "0.491": "2026-08-24",
   "0.490": "2026-08-24",
   "0.489": "2026-08-24",
