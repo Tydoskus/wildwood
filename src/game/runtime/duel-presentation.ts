@@ -4,6 +4,7 @@ import {
   DUEL_REPLAY_COUNTDOWN_SECONDS,
   DUEL_SHOT_LIFETIME,
   DUEL_SHOT_SPEED,
+  duelAttackAnimationClock,
   duelShotsAt,
   duelTimelineState,
   replayState,
@@ -92,6 +93,8 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       challengerFromX: DUEL_ARENA.x - 120,
       opponentFromX: DUEL_ARENA.x + 120,
       y: DUEL_COMBAT_Y,
+      challengerWeaponItem: duel.challengerRightHandItem || duel.challengerLeftHandItem,
+      opponentWeaponItem: duel.opponentRightHandItem || duel.opponentLeftHandItem,
     });
   }
 
@@ -104,25 +107,34 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       const visible = hooks.remotePlayers().find((other) => other.id === identity)?.name;
       return visible || hooks.playerDisplayName(identity) || "OPPONENT";
     };
-    const actor = (identity: string, isChallenger: boolean): DuelScene["challenger"] => ({
-      identity,
-      x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
-      y: DUEL_COMBAT_Y,
-      name: (isChallenger ? duel.challengerName : duel.opponentName)
-        || (identity === localId ? (hooks.localDisplayName() || "PLAYER") : remoteName(identity)),
-      gender: isChallenger ? duel.challengerGender : duel.opponentGender,
-      hp: duel.status === "finishing"
-        ? isChallenger ? duel.challengerHp : duel.opponentHp
-        : isChallenger ? presentation.state.challengerHp : presentation.state.opponentHp,
-      maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
-      facing: isChallenger ? 0 : Math.PI,
-      isLocal: identity === localId,
-      headItem: isChallenger ? duel.challengerHeadItem : duel.opponentHeadItem,
-      chestItem: isChallenger ? duel.challengerChestItem : duel.opponentChestItem,
-      feetItem: isChallenger ? duel.challengerFeetItem : duel.opponentFeetItem,
-      rightHandItem: isChallenger ? duel.challengerRightHandItem : duel.opponentRightHandItem,
-      leftHandItem: isChallenger ? duel.challengerLeftHandItem : duel.opponentLeftHandItem,
-    });
+    const actor = (identity: string, isChallenger: boolean): DuelScene["challenger"] => {
+      const facing = isChallenger ? 0 : Math.PI;
+      return {
+        identity,
+        x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
+        y: DUEL_COMBAT_Y,
+        name: (isChallenger ? duel.challengerName : duel.opponentName)
+          || (identity === localId ? (hooks.localDisplayName() || "PLAYER") : remoteName(identity)),
+        gender: isChallenger ? duel.challengerGender : duel.opponentGender,
+        hp: duel.status === "finishing"
+          ? isChallenger ? duel.challengerHp : duel.opponentHp
+          : isChallenger ? presentation.state.challengerHp : presentation.state.opponentHp,
+        maxHp: isChallenger ? duel.challengerMaxHp : duel.opponentMaxHp,
+        facing,
+        combatFacing: facing,
+        throwClock: duelAttackAnimationClock(
+          isChallenger ? duel.challengerAttackRate : duel.opponentAttackRate,
+          isChallenger ? presentation.state.challengerAttacks : presentation.state.opponentAttacks,
+          presentation.elapsed,
+        ),
+        isLocal: identity === localId,
+        headItem: isChallenger ? duel.challengerHeadItem : duel.opponentHeadItem,
+        chestItem: isChallenger ? duel.challengerChestItem : duel.opponentChestItem,
+        feetItem: isChallenger ? duel.challengerFeetItem : duel.opponentFeetItem,
+        rightHandItem: isChallenger ? duel.challengerRightHandItem : duel.opponentRightHandItem,
+        leftHandItem: isChallenger ? duel.challengerLeftHandItem : duel.opponentLeftHandItem,
+      };
+    };
     return {
       challenger: actor(duel.challenger, true),
       opponent: actor(duel.opponent, false),
@@ -166,22 +178,31 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
     }
     replayMode.lastElapsed = elapsed;
     replayMode.lastState = { challengerHp: state.challengerHp, opponentHp: state.opponentHp };
-    const actor = (isChallenger: boolean): DuelScene["challenger"] => ({
-      identity: isChallenger ? replay.challengerIdentity : replay.opponentIdentity,
-      x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
-      y: DUEL_COMBAT_Y,
-      name: isChallenger ? replay.challengerName : replay.opponentName,
-      gender: isChallenger ? replay.challengerGender : replay.opponentGender,
-      hp: isChallenger ? state.challengerHp : state.opponentHp,
-      maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
-      facing: isChallenger ? 0 : Math.PI,
-      isLocal: false,
-      headItem: isChallenger ? replay.challengerHeadItem : replay.opponentHeadItem,
-      chestItem: isChallenger ? replay.challengerChestItem : replay.opponentChestItem,
-      feetItem: isChallenger ? replay.challengerFeetItem : replay.opponentFeetItem,
-      rightHandItem: isChallenger ? replay.challengerRightHandItem : replay.opponentRightHandItem,
-      leftHandItem: isChallenger ? replay.challengerLeftHandItem : replay.opponentLeftHandItem,
-    });
+    const actor = (isChallenger: boolean): DuelScene["challenger"] => {
+      const facing = isChallenger ? 0 : Math.PI;
+      return {
+        identity: isChallenger ? replay.challengerIdentity : replay.opponentIdentity,
+        x: DUEL_ARENA.x + (isChallenger ? -120 : 120),
+        y: DUEL_COMBAT_Y,
+        name: isChallenger ? replay.challengerName : replay.opponentName,
+        gender: isChallenger ? replay.challengerGender : replay.opponentGender,
+        hp: isChallenger ? state.challengerHp : state.opponentHp,
+        maxHp: isChallenger ? replay.challengerMaxHp : replay.opponentMaxHp,
+        facing,
+        combatFacing: facing,
+        throwClock: duelAttackAnimationClock(
+          isChallenger ? replay.challengerAttackRate : replay.opponentAttackRate,
+          isChallenger ? state.challengerAttacks : state.opponentAttacks,
+          elapsed,
+        ),
+        isLocal: false,
+        headItem: isChallenger ? replay.challengerHeadItem : replay.opponentHeadItem,
+        chestItem: isChallenger ? replay.challengerChestItem : replay.opponentChestItem,
+        feetItem: isChallenger ? replay.challengerFeetItem : replay.opponentFeetItem,
+        rightHandItem: isChallenger ? replay.challengerRightHandItem : replay.opponentRightHandItem,
+        leftHandItem: isChallenger ? replay.challengerLeftHandItem : replay.opponentLeftHandItem,
+      };
+    };
     hooks.setReplayTitle({
       challengerName: replay.challengerName,
       challengerGender: replay.challengerGender,

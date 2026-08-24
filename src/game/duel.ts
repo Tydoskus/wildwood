@@ -1,11 +1,13 @@
+import { PLAYER_PROJECTILE_SPEED } from "../../shared/rules";
+import { damageAfterArmor } from "./combat";
+
 export const DUEL_REQUEST_RANGE = 250;
 export const DUEL_ARENA = { x: 6000, y: 6000, r: 430 } as const;
 export const DUEL_COMBAT_Y = DUEL_ARENA.y - 60;
 export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
-export const DUEL_SHOT_SPEED = 620;
-
-import { damageAfterArmor } from "./combat";
+export const DUEL_SHOT_SPEED = PLAYER_PROJECTILE_SPEED;
+export const DUEL_ATTACK_ANIMATION_SECONDS = .42;
 
 function loadDuelImage(source: string, onSettled?: () => void) {
   const image = new Image();
@@ -70,28 +72,45 @@ export function duelShotsAt(
     challengerFromX: number;
     opponentFromX: number;
     y: number;
+    challengerWeaponItem?: string;
+    opponentWeaponItem?: string;
   },
 ) {
-  const shots: Array<{ x: number; y: number; color: string }> = [];
-  const addShots = (attackRate: number, attackCount: number, fromX: number, toX: number, color: string) => {
+  const shots: Array<{ x: number; y: number; color: string; weaponItem: string; angle: number }> = [];
+  const addShots = (attackRate: number, attackCount: number, fromX: number, toX: number, color: string, weaponItem = "") => {
     const interval = Math.max(.001, attackRate);
     const limit = Math.max(0, Math.floor(attackCount));
-    const firstVisibleAttack = Math.max(1, Math.ceil((elapsed - options.shotLifetime) / interval));
+    const distance = Math.abs(toX - fromX);
+    const visibleLifetime = Math.min(options.shotLifetime, distance / Math.max(1, options.shotSpeed));
+    const firstVisibleAttack = Math.max(1, Math.ceil((elapsed - visibleLifetime) / interval));
     const lastVisibleAttack = Math.min(limit, Math.floor((elapsed + .00001) / interval));
     const direction = Math.sign(toX - fromX);
     for (let attack = firstVisibleAttack; attack <= lastVisibleAttack; attack++) {
       const age = elapsed - attack * interval;
-      if (age < 0 || age >= options.shotLifetime) continue;
+      if (age < 0 || age >= visibleLifetime) continue;
       shots.push({
         x: fromX + direction * options.shotSpeed * age,
         y: options.y,
         color,
+        weaponItem,
+        angle: direction < 0 ? Math.PI : 0,
       });
     }
   };
-  addShots(duel.challengerAttackRate, duel.challengerAttacks, options.challengerFromX, options.opponentFromX, "#ffe36b");
-  addShots(duel.opponentAttackRate, duel.opponentAttacks, options.opponentFromX, options.challengerFromX, "#ff8aa8");
+  addShots(duel.challengerAttackRate, duel.challengerAttacks, options.challengerFromX, options.opponentFromX, "#ffe36b", options.challengerWeaponItem);
+  addShots(duel.opponentAttackRate, duel.opponentAttacks, options.opponentFromX, options.challengerFromX, "#ff8aa8", options.opponentWeaponItem);
   return shots;
+}
+
+/** Scales the complete weapon motion into the current attack interval. */
+export function duelAttackAnimationClock(attackRate: number, attackCount: number, elapsed: number) {
+  if (attackCount <= 0) return 0;
+  const interval = Math.max(.001, attackRate);
+  const lastAttackAt = Math.max(1, Math.floor(attackCount)) * interval;
+  const age = Math.max(0, elapsed - lastAttackAt);
+  const animationDuration = Math.min(DUEL_ATTACK_ANIMATION_SECONDS, interval);
+  if (age >= animationDuration) return 0;
+  return DUEL_ATTACK_ANIMATION_SECONDS * (1 - age / animationDuration);
 }
 
 /**

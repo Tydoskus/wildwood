@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.491": [
+    "Duels now render equipped bows and stones with their real projectile visuals, directions, and attack-speed-scaled weapon animations.",
+    "High attack speeds now match the displayed attacks per second instead of silently dropping throws behind a fixed windup.",
+  ],
   "0.490": [
     "Profile stat equations now evenly space base values, tech percentages, equipment multipliers, and final totals without covering their labels.",
   ],
@@ -941,6 +945,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.491": "2026-08-24",
   "0.490": "2026-08-24",
   "0.489": "2026-08-24",
   "0.488": "2026-08-24",

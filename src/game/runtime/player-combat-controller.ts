@@ -11,6 +11,7 @@ import { addPlayerBaseMaxHealth } from "./player-health";
 
 const PLAYER_THROW_SECONDS = .42;
 const PLAYER_THROW_WINDUP_SECONDS = .12;
+const PLAYER_THROW_RELEASE_PROGRESS = PLAYER_THROW_WINDUP_SECONDS / PLAYER_THROW_SECONDS;
 const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
 const DRAGON_HIT_BATCH_DELAY = .1;
 const SPIDER_HIT_BATCH_DELAY = .1;
@@ -19,6 +20,18 @@ const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 
 type AttackTarget = { x: number; y: number; isBoss?: boolean };
+type PendingPlayerThrow = { target: AttackTarget; delay: number };
+
+export function playerAttackAnimationSpeed(attackInterval: number) {
+  return Math.max(1, PLAYER_THROW_SECONDS / Math.max(.001, attackInterval));
+}
+
+export function playerAttackWindupSeconds(attackInterval: number) {
+  return Math.min(
+    PLAYER_THROW_WINDUP_SECONDS,
+    Math.max(.001, attackInterval) * PLAYER_THROW_RELEASE_PROGRESS,
+  );
+}
 
 export type PlayerCombatController = {
   attackNearest: (dt: number) => void;
@@ -80,7 +93,8 @@ export function createPlayerCombatController(options: {
   const targetGrid = createSpatialGrid<EnemyState>(TARGET_GRID_CELL_SIZE, WORLD.w, WORLD.h);
   const targetCandidates: EnemyState[] = [];
   let maxEnemyRadius = 0;
-  let pendingPlayerThrow: AttackTarget | null = null;
+  let pendingPlayerThrow: PendingPlayerThrow | null = null;
+  let playerThrowAnimationSpeed = 1;
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   let pendingSpiderHits = 0;
@@ -88,11 +102,13 @@ export function createPlayerCombatController(options: {
   let pendingFrostclawHits = 0;
   let frostclawHitBatchTimer = 0;
 
-  function fireAt(target: AttackTarget) {
-    if (pendingPlayerThrow) return;
+  function fireAt(target: AttackTarget, attackInterval: number) {
+    if (pendingPlayerThrow) return false;
     player.facing = Math.atan2(target.y - player.y, target.x - player.x);
     player.throwClock = PLAYER_THROW_SECONDS;
-    pendingPlayerThrow = target;
+    playerThrowAnimationSpeed = playerAttackAnimationSpeed(attackInterval);
+    pendingPlayerThrow = { target, delay: playerAttackWindupSeconds(attackInterval) };
+    return true;
   }
 
   function launchPlayerStone(target: AttackTarget) {
@@ -125,10 +141,11 @@ export function createPlayerCombatController(options: {
   }
 
   function advanceThrow(dt: number) {
-    const previousThrowClock = player.throwClock;
-    player.throwClock = Math.max(0, player.throwClock - dt);
-    if (!pendingPlayerThrow || previousThrowClock <= PLAYER_THROW_SECONDS - PLAYER_THROW_WINDUP_SECONDS || player.throwClock > PLAYER_THROW_SECONDS - PLAYER_THROW_WINDUP_SECONDS) return;
-    const target = pendingPlayerThrow;
+    player.throwClock = Math.max(0, player.throwClock - dt * playerThrowAnimationSpeed);
+    if (!pendingPlayerThrow) return;
+    pendingPlayerThrow.delay -= dt;
+    if (pendingPlayerThrow.delay > 0) return;
+    const target = pendingPlayerThrow.target;
     pendingPlayerThrow = null;
     launchPlayerStone(target);
   }
@@ -158,8 +175,8 @@ export function createPlayerCombatController(options: {
     if (player.combatFacing !== null) player.facing = player.combatFacing;
     if (player.attackClock > 0) return;
     if (target) {
-      fireAt(target);
-      player.attackClock = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
+      const attackInterval = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
+      if (fireAt(target, attackInterval)) player.attackClock += attackInterval;
     } else player.attackClock = Math.min(player.attackClock, .08);
   }
 
@@ -349,6 +366,6 @@ export function createPlayerCombatController(options: {
       pendingFrostclawHits = 0;
       frostclawHitBatchTimer = 0;
     },
-    clearPendingThrow: () => { pendingPlayerThrow = null; player.combatFacing = null; },
+    clearPendingThrow: () => { pendingPlayerThrow = null; playerThrowAnimationSpeed = 1; player.throwClock = 0; player.combatFacing = null; },
   };
 }

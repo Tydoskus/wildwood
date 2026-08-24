@@ -210,8 +210,16 @@ export function createActorRenderer(options: {
 
   function drawDuelScene(scene: DuelScene) {
     for (const shot of scene.shots) {
+      const x = shot.x - camera.x;
+      const y = shot.y - camera.y;
+      const projectileKind = projectileKindForWeapon(shot.weaponItem);
+      if (projectileKind === "ARROW") {
+        drawArrow(x, y, shot.angle);
+        continue;
+      }
+      if (projectileKind === "ROCK" && drawRock(shot.weaponItem, x, y, shot.angle)) continue;
       ctx.fillStyle = shot.color;
-      options.pixelCircle(shot.x - camera.x, shot.y - camera.y, 6);
+      options.pixelCircle(x, y, 6);
     }
     drawDuelCombatant(scene.challenger);
     drawDuelCombatant(scene.opponent);

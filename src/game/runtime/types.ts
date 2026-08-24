@@ -182,6 +182,8 @@ export type DuelCombatant = Position & {
   hp: number;
   maxHp: number;
   facing: number;
+  combatFacing: number;
+  throwClock: number;
   isLocal: boolean;
   headItem: string;
   chestItem: string;
@@ -192,6 +194,8 @@ export type DuelCombatant = Position & {
 
 export type DuelShot = Position & {
   color: string;
+  weaponItem: string;
+  angle: number;
 };
 
 export type DuelScene = {
