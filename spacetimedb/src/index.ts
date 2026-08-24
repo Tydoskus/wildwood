@@ -1,6 +1,6 @@
 import { Range, schema, SenderError, table, t } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
-import { damageAfterArmor } from "./combat";
+import { damageAfterArmor, damageBlockedByArmor } from "./combat";
 import {
   RESEARCH_DEFINITIONS,
   isResearchId,
@@ -137,7 +137,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 11;
+const MODULE_MIGRATION_VERSION = 12;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1369,6 +1369,25 @@ function runPendingModuleMigrations(ctx: any) {
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       const active = ctx.db.player.identity.find(progress.identity);
       if (active) ctx.db.player.identity.update({ ...active, ...powerFieldsForProgress(ctx, progress) });
+    }
+  }
+  if (currentVersion < 12) {
+    // Blocked damage belongs to the defender whose armor prevented it. Older
+    // duel simulation stored that amount on the attacker, so repair completed
+    // replays and any duel that was active during this deployment.
+    for (const replay of [...ctx.db.duelReplay.iter()] as any[]) {
+      ctx.db.duelReplay.id.update({
+        ...replay,
+        challengerBlocked: replay.opponentBlocked,
+        opponentBlocked: replay.challengerBlocked,
+      });
+    }
+    for (const activeDuel of [...ctx.db.duel.iter()] as any[]) {
+      ctx.db.duel.id.update({
+        ...activeDuel,
+        challengerBlocked: activeDuel.opponentBlocked,
+        opponentBlocked: activeDuel.challengerBlocked,
+      });
     }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
@@ -3228,12 +3247,12 @@ function resolveDuel(ctx: any, current: any) {
     if (challengerHits) {
       challengerAttacks += 1;
       challengerDamageDealt += opponentTaken;
-      challengerBlocked += Math.max(0, current.challengerDamage - challengerHit);
+      opponentBlocked += damageBlockedByArmor(current.challengerDamage, current.opponentArmor);
     }
     if (opponentHits) {
       opponentAttacks += 1;
       opponentDamageDealt += challengerTaken;
-      opponentBlocked += Math.max(0, current.opponentDamage - opponentHit);
+      challengerBlocked += damageBlockedByArmor(current.opponentDamage, current.challengerArmor);
     }
   }
 
