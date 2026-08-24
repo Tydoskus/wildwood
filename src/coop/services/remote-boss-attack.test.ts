@@ -21,6 +21,8 @@ describe("remote boss attack visuals", () => {
   });
 
   it("expires without any heartbeat or persistent server animation state", () => {
+    expect(remoteBossAttackFrame(state, 1_119)?.visual.projectileProgress).toBe(0);
+    expect(remoteBossAttackFrame(state, 1_210)?.visual.projectileProgress).toBeCloseTo(.5);
     expect(remoteBossAttackFrame(state, 1_419)).not.toBeNull();
     expect(remoteBossAttackFrame(state, 1_420)).toBeNull();
   });

@@ -55,7 +55,7 @@ export function createPlayerController(options: {
   regenerationMultiplier: () => number;
   healthMultiplier?: () => number;
   syncMovementState: (x: number, y: number, dx: number, dy: number, inputSource: Exclude<MovementInputSource, "none">, force: boolean, interestArea?: PlayerInterestArea) => void;
-  autoAttack: (dt: number) => void;
+  autoAttack: () => void;
   isAutoAttackEnabled: () => boolean;
   activeDuel: () => RuntimeDuelState | null;
   isDueling: () => boolean;
@@ -194,7 +194,7 @@ export function createPlayerController(options: {
     }
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.regen * regenerationMultiplier() * dt);
-    if (isAutoAttackEnabled()) autoAttack(dt);
+    if (isAutoAttackEnabled()) autoAttack();
     else player.combatFacing = null;
   }
 

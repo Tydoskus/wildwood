@@ -1,4 +1,4 @@
-export const ITEM_INSPECTION_HOLD_MS = 2_000;
+export const ITEM_INSPECTION_HOLD_MS = 600;
 export const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
 
 type LongPressOptions = {

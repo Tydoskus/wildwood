@@ -188,7 +188,7 @@ function renderEquipmentSlot(
   updateEquipmentSlotSelection(element, inventory, destination, mode);
   const level = upgradeLevel(itemId);
   element.setAttribute("aria-label", itemId
-    ? `${label}: ${itemDisplayName(itemId, level)}. Tap to select. Hold for two seconds for details.`
+    ? `${label}: ${itemDisplayName(itemId, level)}. Tap to select. Hold briefly for details.`
     : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
   const slotLabel = document.createElement("span");
   slotLabel.className = "equipment-slot-label";
@@ -276,7 +276,7 @@ export function renderInventoryView(
     if (itemId) {
       const item = itemsById[itemId];
       const level = normalizeItemUpgradeLevel(actions.upgradeLevel(itemId));
-      button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to select. Hold for two seconds for details.`);
+      button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to select. Hold briefly for details.`);
       button.setAttribute("aria-pressed", String(selected));
       button.dataset.itemId = itemId;
       const art = document.createElement("span");

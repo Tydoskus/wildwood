@@ -31,6 +31,8 @@ export function createGameUiRuntime(d: Record<string, any>) {
     showMessage: d.showMessage,
   });
   e.signinVersionEl.textContent = `v${d.version}`;
+  e.minimapVersionEl.textContent = `v${d.version}`;
+  e.minimapVersionEl.setAttribute("aria-label", `Game version ${d.version}`);
 
   const appShell = createAppShellController({
     mapMusic: d.mapMusic, storageKeys: d.storageKeys,
@@ -84,6 +86,8 @@ export function createGameOverlays(d: Record<string, any>) {
     version: d.version, releases: () => recentReleaseNotes(2), seenVersion: () => { try { return localStorage.getItem(d.seenVersionKey) || ""; } catch { return ""; } }, markSeen: () => { try { localStorage.setItem(d.seenVersionKey, d.version); } catch {} }, connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
   });
   e.signinVersionEl.textContent = `v${d.version}`;
+  e.minimapVersionEl.textContent = `v${d.version}`;
+  e.minimapVersionEl.setAttribute("aria-label", `Game version ${d.version}`);
   return overlays;
 }
 

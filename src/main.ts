@@ -419,6 +419,7 @@ import {
 
   playerCombat = createPlayerCombatController({
     player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss,
+    nowSeconds: () => session?.gameTime() ?? 0,
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
@@ -741,7 +742,7 @@ import {
     regenerationMultiplier,
     healthMultiplier,
     syncMovementState: (x, y, dx, dy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, dx, dy, inputSource, force, interestArea),
-    autoAttack: (dt) => playerCombat.attackNearest(dt),
+    autoAttack: () => playerCombat.attackNearest(),
     isAutoAttackEnabled: () => isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
     isDueling,

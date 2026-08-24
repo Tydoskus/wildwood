@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.494": [
+    "Attack cadence now uses one absolute timeline and stays armed while enemies change, preventing random slowdowns between targets.",
+    "Bow windup, animation, projectile release, remote boss attacks, and duel animation now share deterministic timestamp rules.",
+    "Left-hand bows angle downward correctly, and item inspection now opens after a 0.6-second hold.",
+    "A compact automatic version label now appears beneath the minimap above the respawn ad.",
+  ],
   "0.493": [
     "Gameplay now advances on a fixed 60 Hz simulation clock, keeping movement, physics, and attack rates consistent through render-frame drops and Low Performance mode.",
     "Brief foreground stalls receive bounded catch-up while pauses and backgrounding reset timing without queued combat bursts.",
@@ -952,6 +958,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.494": "2026-08-24",
   "0.493": "2026-08-24",
   "0.492": "2026-08-24",
   "0.491": "2026-08-24",

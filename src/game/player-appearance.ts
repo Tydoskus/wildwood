@@ -69,9 +69,9 @@ export function bowHeldRotationRadians(options: {
   facingLeft: boolean;
   heldInLeftHand: boolean;
 }) {
-  const handOffsetDegrees = options.heldInLeftHand
-    ? BOW_SOURCE_DOWN_ANGLE_DEGREES - BOW_RIGHT_HAND_ANGLE_DEGREES
-    : BOW_RIGHT_HAND_ANGLE_DEGREES - BOW_SOURCE_DOWN_ANGLE_DEGREES;
+  // Left-hand art is already mirrored on its Y axis below. Reversing the
+  // rotation too would double-flip the pose and point the bow upward.
+  const handOffsetDegrees = BOW_RIGHT_HAND_ANGLE_DEGREES - BOW_SOURCE_DOWN_ANGLE_DEGREES;
   const localAim = options.combatFacing === null || options.combatFacing === undefined
     ? 0
     : options.facingLeft ? Math.PI - options.combatFacing : options.combatFacing;

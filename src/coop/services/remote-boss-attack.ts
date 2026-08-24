@@ -1,5 +1,10 @@
-const THROW_DURATION_SECONDS = .42;
-const PROJECTILE_WINDUP_SECONDS = .1;
+import {
+  absoluteAttackTimestamps,
+  ATTACK_ANIMATION_SECONDS,
+  attackAnimationClockAt,
+  attackAnimationFinished,
+} from "../../game/attack-timeline";
+
 const PROJECTILE_FLIGHT_SECONDS = .18;
 
 export type RemoteBossAttackState = {
@@ -30,9 +35,10 @@ export function createRemoteBossAttackState(event: Omit<RemoteBossAttackState, "
 
 export function remoteBossAttackFrame(state: RemoteBossAttackState | undefined, now: number) {
   if (!state) return null;
-  const elapsedSeconds = Math.max(0, (now - state.startedAt) / 1_000);
-  const projectileProgress = (elapsedSeconds - PROJECTILE_WINDUP_SECONDS) / PROJECTILE_FLIGHT_SECONDS;
-  if (elapsedSeconds >= THROW_DURATION_SECONDS) return null;
+  const timestamps = absoluteAttackTimestamps(state.startedAt / 1_000, ATTACK_ANIMATION_SECONDS);
+  const nowSeconds = now / 1_000;
+  const projectileProgress = (nowSeconds - timestamps.releaseAtSeconds) / PROJECTILE_FLIGHT_SECONDS;
+  if (attackAnimationFinished(timestamps, nowSeconds)) return null;
   const visual: RemoteBossAttackVisual = {
     targetX: state.targetX,
     targetY: state.targetY,
@@ -42,7 +48,7 @@ export function remoteBossAttackFrame(state: RemoteBossAttackState | undefined, 
   };
   return {
     facing: Math.atan2(state.targetY - state.attackerY, state.targetX - state.attackerX),
-    throwClock: Math.max(0, THROW_DURATION_SECONDS - elapsedSeconds),
+    throwClock: attackAnimationClockAt(timestamps, nowSeconds),
     visual,
   };
 }

@@ -6,8 +6,8 @@ import {
 } from "./long-press";
 
 describe("long press", () => {
-  it("requires at least a two-second hold for item inspection", () => {
-    expect(ITEM_INSPECTION_HOLD_MS).toBe(2_000);
+  it("opens item inspection after a 0.6-second hold", () => {
+    expect(ITEM_INSPECTION_HOLD_MS).toBe(600);
   });
 
   it("allows small finger drift but cancels when the inventory is scrolled", () => {

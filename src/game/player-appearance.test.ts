@@ -9,8 +9,8 @@ describe("Bow pose", () => {
     expect(degrees(bowHeldRotationRadians({ facingLeft: false, heldInLeftHand: false }))).toBeCloseTo(-55);
   });
 
-  it("reverses the pose for the other hand and follows combat aim", () => {
-    expect(degrees(bowHeldRotationRadians({ facingLeft: false, heldInLeftHand: true }))).toBeCloseTo(55);
+  it("keeps the mirrored left-hand bow angled down and follows combat aim", () => {
+    expect(degrees(bowHeldRotationRadians({ facingLeft: false, heldInLeftHand: true }))).toBeCloseTo(-55);
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI / 4, facingLeft: false, heldInLeftHand: false }))).toBeCloseTo(-10);
     expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI * .75, facingLeft: true, heldInLeftHand: false }))).toBeCloseTo(-10);
   });

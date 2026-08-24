@@ -38,6 +38,8 @@ export type Projectile = Circle & {
   vy: number;
   damage: number;
   critical: boolean;
+  /** Absolute simulation time when this projectile became active. */
+  spawnedAtSeconds?: number;
   /** Time remaining for collision checks; visual tail can continue after it expires. */
   hitLife?: number;
   life: number;

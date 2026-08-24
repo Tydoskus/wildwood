@@ -8,33 +8,62 @@ import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, Playe
 import type { SpawnSite } from "../world";
 import { itemDefinition, weaponAttackInterval, weaponDamageMultiplier } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
+import {
+  absoluteAttackTimestamps,
+  ATTACK_ANIMATION_SECONDS,
+  attackAnimationClockAt,
+  attackAnimationFinished,
+  attackReleaseReached,
+  type AbsoluteAttackTimestamps,
+} from "../attack-timeline";
 
-const PLAYER_THROW_SECONDS = .42;
-const PLAYER_THROW_WINDUP_SECONDS = .12;
-const PLAYER_THROW_RELEASE_PROGRESS = PLAYER_THROW_WINDUP_SECONDS / PLAYER_THROW_SECONDS;
 const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
 const DRAGON_HIT_BATCH_DELAY = .1;
 const SPIDER_HIT_BATCH_DELAY = .1;
 const FROSTCLAW_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
+const IDLE_TARGET_RECHECK_SECONDS = .08;
+const MAX_SCHEDULE_LATE_SECONDS = .05;
 
 type AttackTarget = { x: number; y: number; isBoss?: boolean };
-type PendingPlayerThrow = { target: AttackTarget; delay: number };
+type PendingPlayerAttack = {
+  target: AttackTarget;
+  timestamps: AbsoluteAttackTimestamps;
+  projectileReleased: boolean;
+};
 
+/** Compatibility helpers, now derived from the same absolute phase record. */
 export function playerAttackAnimationSpeed(attackInterval: number) {
-  return Math.max(1, PLAYER_THROW_SECONDS / Math.max(.001, attackInterval));
+  const timestamps = absoluteAttackTimestamps(0, attackInterval);
+  return ATTACK_ANIMATION_SECONDS / (timestamps.animationEndsAtSeconds - timestamps.startedAtSeconds);
 }
 
 export function playerAttackWindupSeconds(attackInterval: number) {
-  return Math.min(
-    PLAYER_THROW_WINDUP_SECONDS,
-    Math.max(.001, attackInterval) * PLAYER_THROW_RELEASE_PROGRESS,
-  );
+  const timestamps = absoluteAttackTimestamps(0, attackInterval);
+  return timestamps.releaseAtSeconds - timestamps.startedAtSeconds;
+}
+
+export function projectileSimulationSeconds(
+  spawnedAtSeconds: number | undefined,
+  nowSeconds: number,
+  simulationStepSeconds: number,
+) {
+  const stepSeconds = Math.max(0, simulationStepSeconds);
+  if (spawnedAtSeconds === undefined) return stepSeconds;
+  return Math.max(0, nowSeconds - Math.max(nowSeconds - stepSeconds, spawnedAtSeconds));
+}
+
+/**
+ * No target may shorten a future cooldown, but it must never disarm an attack
+ * whose timestamp has already arrived. This preserves instant reacquisition.
+ */
+export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSeconds: number) {
+  return Math.min(nextAttackAtSeconds, nowSeconds + IDLE_TARGET_RECHECK_SECONDS);
 }
 
 export type PlayerCombatController = {
-  attackNearest: (dt: number) => void;
+  attackNearest: () => void;
   updateProjectiles: (dt: number) => void;
   damagePlayer: (amount: number) => boolean;
   clearPendingBossHits: () => void;
@@ -50,6 +79,7 @@ export function createPlayerCombatController(options: {
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
+  nowSeconds: () => number;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
   isSnowMap: () => boolean;
@@ -93,8 +123,8 @@ export function createPlayerCombatController(options: {
   const targetGrid = createSpatialGrid<EnemyState>(TARGET_GRID_CELL_SIZE, WORLD.w, WORLD.h);
   const targetCandidates: EnemyState[] = [];
   let maxEnemyRadius = 0;
-  let pendingPlayerThrow: PendingPlayerThrow | null = null;
-  let playerThrowAnimationSpeed = 1;
+  let pendingPlayerAttack: PendingPlayerAttack | null = null;
+  let nextAttackAtSeconds = 0;
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   let pendingSpiderHits = 0;
@@ -102,16 +132,21 @@ export function createPlayerCombatController(options: {
   let pendingFrostclawHits = 0;
   let frostclawHitBatchTimer = 0;
 
-  function fireAt(target: AttackTarget, attackInterval: number) {
-    if (pendingPlayerThrow) return false;
+  function fireAt(target: AttackTarget, attackInterval: number, nowSeconds: number) {
+    if (pendingPlayerAttack) return false;
+    const scheduledAt = nextAttackAtSeconds > 0 && nowSeconds - nextAttackAtSeconds <= MAX_SCHEDULE_LATE_SECONDS
+      ? nextAttackAtSeconds
+      : nowSeconds;
+    const timestamps = absoluteAttackTimestamps(scheduledAt, attackInterval);
     player.facing = Math.atan2(target.y - player.y, target.x - player.x);
-    player.throwClock = PLAYER_THROW_SECONDS;
-    playerThrowAnimationSpeed = playerAttackAnimationSpeed(attackInterval);
-    pendingPlayerThrow = { target, delay: playerAttackWindupSeconds(attackInterval) };
+    player.throwClock = attackAnimationClockAt(timestamps, nowSeconds);
+    pendingPlayerAttack = { target, timestamps, projectileReleased: false };
+    nextAttackAtSeconds = timestamps.nextAttackAtSeconds;
+    player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
     return true;
   }
 
-  function launchPlayerStone(target: AttackTarget) {
+  function launchPlayerStone(target: AttackTarget, releasedAtSeconds: number) {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -135,23 +170,32 @@ export function createPlayerCombatController(options: {
       projectile.hitLife = player.attackRange / player.projectileSpeed * projectileLifeBonus;
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
       projectile.trail = 0;
+      projectile.spawnedAtSeconds = releasedAtSeconds;
     }
     if (itemDefinition(weaponItem)?.weapon?.projectile === "ARROW") options.playBowAttackSound?.();
     spawnBurst(player.x + dx / distance * 17, player.y + dy / distance * 17, "#ffe36b", 4, 38);
   }
 
-  function advanceThrow(dt: number) {
-    player.throwClock = Math.max(0, player.throwClock - dt * playerThrowAnimationSpeed);
-    if (!pendingPlayerThrow) return;
-    pendingPlayerThrow.delay -= dt;
-    if (pendingPlayerThrow.delay > 0) return;
-    const target = pendingPlayerThrow.target;
-    pendingPlayerThrow = null;
-    launchPlayerStone(target);
+  function syncAttackTimeline(nowSeconds: number) {
+    player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
+    if (!pendingPlayerAttack) {
+      player.throwClock = 0;
+      return;
+    }
+    const attack = pendingPlayerAttack;
+    player.throwClock = attackAnimationClockAt(attack.timestamps, nowSeconds);
+    if (!attack.projectileReleased && attackReleaseReached(attack.timestamps, nowSeconds)) {
+      attack.projectileReleased = true;
+      launchPlayerStone(attack.target, attack.timestamps.releaseAtSeconds);
+    }
+    if (!attackAnimationFinished(attack.timestamps, nowSeconds)) return;
+    if (pendingPlayerAttack === attack) pendingPlayerAttack = null;
+    player.throwClock = 0;
   }
 
-  function attackNearest(dt: number) {
-    player.attackClock -= dt;
+  function attackNearest() {
+    const nowSeconds = options.nowSeconds();
+    syncAttackTimeline(nowSeconds);
     let target: EnemyState | BossTarget | null = null;
     let best = player.attackRange * player.attackRange;
     rebuildTargetGrid();
@@ -173,11 +217,14 @@ export function createPlayerCombatController(options: {
     }
     player.combatFacing = target ? Math.atan2(target.y - player.y, target.x - player.x) : null;
     if (player.combatFacing !== null) player.facing = player.combatFacing;
-    if (player.attackClock > 0) return;
-    if (target) {
-      const attackInterval = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
-      if (fireAt(target, attackInterval)) player.attackClock += attackInterval;
-    } else player.attackClock = Math.min(player.attackClock, .08);
+    if (!target) {
+      nextAttackAtSeconds = attackReadyAtWithoutTarget(nextAttackAtSeconds, nowSeconds);
+      player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
+      return;
+    }
+    if (nowSeconds < nextAttackAtSeconds) return;
+    const attackInterval = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
+    fireAt(target, attackInterval, nowSeconds);
   }
 
   function applyReward(reward: RuntimeReward, x: number, y: number) {
@@ -283,19 +330,22 @@ export function createPlayerCombatController(options: {
   }
 
   function updateProjectiles(dt: number) {
-    advanceThrow(dt);
+    const nowSeconds = options.nowSeconds();
+    syncAttackTimeline(nowSeconds);
     if (projectiles.length > 0) rebuildTargetGrid();
     for (const projectile of projectiles) {
-      const travelTime = Math.min(dt, projectile.life);
+      const projectileStepSeconds = projectileSimulationSeconds(projectile.spawnedAtSeconds, nowSeconds, dt);
+      if (projectileStepSeconds <= 0) continue;
+      const travelTime = Math.min(projectileStepSeconds, projectile.life);
       const startX = projectile.x;
       const startY = projectile.y;
       const endX = startX + projectile.vx * travelTime;
       const endY = startY + projectile.vy * travelTime;
       const hitTravelTime = Math.min(travelTime, Math.max(0, projectile.hitLife ?? projectile.life));
       const hit = hitTravelTime > 0 ? raycastProjectile(startX, startY, startX + projectile.vx * hitTravelTime, startY + projectile.vy * hitTravelTime, projectile.r) : null;
-      projectile.life -= dt;
-      if (projectile.hitLife !== undefined) projectile.hitLife -= dt;
-      projectile.trail -= dt;
+      projectile.life -= projectileStepSeconds;
+      if (projectile.hitLife !== undefined) projectile.hitLife -= projectileStepSeconds;
+      projectile.trail -= projectileStepSeconds;
       if (hit) {
         projectile.x = startX + (endX - startX) * hit.t;
         projectile.y = startY + (endY - startY) * hit.t;
@@ -366,6 +416,12 @@ export function createPlayerCombatController(options: {
       pendingFrostclawHits = 0;
       frostclawHitBatchTimer = 0;
     },
-    clearPendingThrow: () => { pendingPlayerThrow = null; playerThrowAnimationSpeed = 1; player.throwClock = 0; player.combatFacing = null; },
+    clearPendingThrow: () => {
+      pendingPlayerAttack = null;
+      nextAttackAtSeconds = 0;
+      player.attackClock = 0;
+      player.throwClock = 0;
+      player.combatFacing = null;
+    },
   };
 }

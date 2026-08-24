@@ -1,4 +1,9 @@
 import { PLAYER_PROJECTILE_SPEED } from "../../shared/rules";
+import {
+  absoluteAttackTimestamps,
+  ATTACK_ANIMATION_SECONDS,
+  attackAnimationClockAt,
+} from "./attack-timeline";
 import { damageAfterArmor } from "./combat";
 
 export const DUEL_REQUEST_RANGE = 250;
@@ -7,7 +12,7 @@ export const DUEL_COMBAT_Y = DUEL_ARENA.y - 60;
 export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
 export const DUEL_SHOT_SPEED = PLAYER_PROJECTILE_SPEED;
-export const DUEL_ATTACK_ANIMATION_SECONDS = .42;
+export const DUEL_ATTACK_ANIMATION_SECONDS = ATTACK_ANIMATION_SECONDS;
 
 function loadDuelImage(source: string, onSettled?: () => void) {
   const image = new Image();
@@ -107,10 +112,7 @@ export function duelAttackAnimationClock(attackRate: number, attackCount: number
   if (attackCount <= 0) return 0;
   const interval = Math.max(.001, attackRate);
   const lastAttackAt = Math.max(1, Math.floor(attackCount)) * interval;
-  const age = Math.max(0, elapsed - lastAttackAt);
-  const animationDuration = Math.min(DUEL_ATTACK_ANIMATION_SECONDS, interval);
-  if (age >= animationDuration) return 0;
-  return DUEL_ATTACK_ANIMATION_SECONDS * (1 - age / animationDuration);
+  return attackAnimationClockAt(absoluteAttackTimestamps(lastAttackAt, interval), elapsed);
 }
 
 /**

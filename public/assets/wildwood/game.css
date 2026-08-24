@@ -660,9 +660,23 @@
     transition: opacity .15s;
   }
 
+  .minimap-version {
+    position: absolute;
+    top: calc(var(--hud-map-size) + 1px);
+    right: 4px;
+    z-index: 4;
+    width: calc(var(--hud-map-size) - 8px);
+    color: rgba(246, 246, 232, .72);
+    font: 900 8px/10px var(--font-rounded);
+    letter-spacing: .06em;
+    text-align: center;
+    text-shadow: 1px 1px 0 #000;
+    pointer-events: none;
+  }
+
   .respawn-ad-button {
     position: absolute;
-    top: calc(var(--hud-map-size) + 7px);
+    top: calc(var(--hud-map-size) + 17px);
     right: 4px;
     z-index: 4;
     display: flex;
@@ -711,7 +725,7 @@
 
   .respawn-boost-status {
     position: absolute;
-    top: calc(var(--hud-map-size) + 12px);
+    top: calc(var(--hud-map-size) + 19px);
     right: 4px;
     z-index: 4;
     width: calc(var(--hud-map-size) - 8px);
