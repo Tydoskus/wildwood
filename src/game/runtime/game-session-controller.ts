@@ -11,9 +11,40 @@ type RuntimeDuel = { status: string; startsAtMs: number; endsAtMs: number } | nu
  * display skip the callback and render at 30 FPS instead.
  */
 export const FRAME_DEADLINE_TOLERANCE_MS = 1;
+export const SIMULATION_HZ = 60;
+export const SIMULATION_STEP_SECONDS = 1 / SIMULATION_HZ;
+export const MAX_SIMULATION_STEPS_PER_FRAME = 8;
+export const MAX_SIMULATION_CATCH_UP_SECONDS = SIMULATION_STEP_SECONDS * MAX_SIMULATION_STEPS_PER_FRAME;
+
+export type FixedSimulationClock = {
+  accumulatorSeconds: number;
+  steps: number;
+  droppedSeconds: number;
+};
 
 export function frameDeadlineReached(now: number, nextFrameAt: number) {
   return now + FRAME_DEADLINE_TOLERANCE_MS >= nextFrameAt;
+}
+
+/**
+ * Converts real foreground time into deterministic 60 Hz gameplay steps.
+ * Eight catch-up steps preserve game speed through a frame near 9 FPS, while
+ * longer stalls are treated as pauses instead of causing a large burst.
+ */
+export function advanceFixedSimulationClock(accumulatorSeconds: number, elapsedSeconds: number): FixedSimulationClock {
+  const previous = Number.isFinite(accumulatorSeconds) ? Math.max(0, accumulatorSeconds) : 0;
+  const elapsed = Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0;
+  const total = previous + elapsed;
+  const retained = Math.min(total, MAX_SIMULATION_CATCH_UP_SECONDS);
+  const steps = Math.min(
+    MAX_SIMULATION_STEPS_PER_FRAME,
+    Math.floor((retained + SIMULATION_STEP_SECONDS * 1e-7) / SIMULATION_STEP_SECONDS),
+  );
+  return {
+    accumulatorSeconds: Math.max(0, retained - steps * SIMULATION_STEP_SECONDS),
+    steps,
+    droppedSeconds: Math.max(0, total - retained),
+  };
 }
 
 type SessionDependencies = {
@@ -79,20 +110,23 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let gameTime = 0;
   let lastFrameAt = performance.now();
   let nextFrameAt = lastFrameAt;
+  let simulationAccumulatorSeconds = 0;
   let nextPerformancePanelUpdateAt = 0;
   let fading = false;
 
-  function update(dt: number) {
+  function syncSharedWorldState() {
     if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.syncDragon();
     if (dependencies.getMapId() === dependencies.desertMapId) dependencies.syncSpider();
     if (dependencies.getMapId() === dependencies.snowMapId) dependencies.syncFrostclaw();
+  }
+
+  function simulate(dt: number) {
     gameTime += dt;
     dependencies.updateVisuals(dt);
     dependencies.updateMessage(dt);
 
     if (dependencies.cutsceneActive()) {
       dependencies.updateCutscene(dt);
-      dependencies.updateHud();
       return;
     }
 
@@ -112,8 +146,38 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     }
     dependencies.updateEffects(dt);
     updateCamera(dependencies.camera, dependencies.player, dependencies.viewport(), dependencies.isDueling() ? DUEL_ARENA : null, dt);
+  }
+
+  function update(dt: number) {
+    syncSharedWorldState();
+    simulate(dt);
     dependencies.updateHud();
   }
+
+  function updateFixedSimulation(elapsedSeconds: number) {
+    syncSharedWorldState();
+    const clock = advanceFixedSimulationClock(simulationAccumulatorSeconds, elapsedSeconds);
+    simulationAccumulatorSeconds = clock.accumulatorSeconds;
+    for (let step = 0; step < clock.steps; step += 1) {
+      if (!running || paused || dependencies.accountInConflict()) {
+        simulationAccumulatorSeconds = 0;
+        break;
+      }
+      simulate(SIMULATION_STEP_SECONDS);
+    }
+    dependencies.updateHud();
+  }
+
+  function refreshFrameClock() {
+    lastFrameAt = performance.now();
+    nextFrameAt = lastFrameAt;
+    simulationAccumulatorSeconds = 0;
+  }
+
+  // Browsers can suspend animation frames for an arbitrary amount of time.
+  // Returning to the page starts a fresh foreground clock instead of turning
+  // background time into movement or queued combat.
+  document.addEventListener("visibilitychange", refreshFrameClock);
 
   function loop(now: number) {
     const frameIntervalMs = 1_000 / (dependencies.lowPerformanceMode() ? 30 : 60);
@@ -124,14 +188,15 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     nextFrameAt += frameIntervalMs;
     if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
     const frameDeltaMs = Math.max(0, now - lastFrameAt);
-    const dt = Math.min(.035, Math.max(0, frameDeltaMs / 1_000));
     lastFrameAt = now;
     const workStartedAt = performance.now();
     let updateMs = 0;
-    if (running && !paused && !dependencies.accountInConflict()) {
+    if (running && !paused && !dependencies.accountInConflict() && !document.hidden) {
       const updateStartedAt = performance.now();
-      update(dt);
+      updateFixedSimulation(frameDeltaMs / 1_000);
       updateMs = performance.now() - updateStartedAt;
+    } else {
+      simulationAccumulatorSeconds = 0;
     }
     const renderStartedAt = performance.now();
     dependencies.render();
@@ -164,13 +229,13 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     running = true;
     if (markIntro) dependencies.beginAdventure();
     if (dependencies.connected()) dependencies.syncStoppedPosition();
-    lastFrameAt = performance.now();
-    nextFrameAt = lastFrameAt;
+    refreshFrameClock();
     dependencies.ensureMusicPlaying();
   }
 
   function end() {
     running = false;
+    simulationAccumulatorSeconds = 0;
     dependencies.showGameOver();
   }
 
@@ -203,16 +268,17 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     isRunning: () => running,
     leaveDuelResult: () => fadeToWorld(dependencies.onLeaveDuelResult),
     loop,
-    pause: () => { paused = true; },
-    refreshFrameClock: () => {
-      lastFrameAt = performance.now();
-      nextFrameAt = lastFrameAt;
-    },
+    pause: () => { paused = true; simulationAccumulatorSeconds = 0; },
+    refreshFrameClock,
     resetFrameSchedule: () => { nextFrameAt = performance.now(); },
-    resetGameTime: () => { gameTime = 0; },
+    resetGameTime: () => { gameTime = 0; simulationAccumulatorSeconds = 0; },
     setHasStarted: (started: boolean) => { hasStarted = started; },
-    setPaused: (nextPaused: boolean) => { paused = nextPaused; },
-    stop: () => { running = false; },
+    setPaused: (nextPaused: boolean) => {
+      if (paused === nextPaused) return;
+      paused = nextPaused;
+      refreshFrameClock();
+    },
+    stop: () => { running = false; simulationAccumulatorSeconds = 0; },
     start,
     update,
   };

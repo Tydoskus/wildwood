@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.493": [
+    "Gameplay now advances on a fixed 60 Hz simulation clock, keeping movement, physics, and attack rates consistent through render-frame drops and Low Performance mode.",
+    "Brief foreground stalls receive bounded catch-up while pauses and backgrounding reset timing without queued combat bursts.",
+  ],
   "0.492": [
     "Item upgrades now scale only each item's additive stat bonuses, keeping the universal 1× baseline unchanged.",
   ],
@@ -948,6 +952,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.493": "2026-08-24",
   "0.492": "2026-08-24",
   "0.491": "2026-08-24",
   "0.490": "2026-08-24",
