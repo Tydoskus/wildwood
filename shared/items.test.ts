@@ -100,24 +100,24 @@ describe("equipment catalog", () => {
     expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);
   });
 
-  it("adds twenty percent of each base stat multiplier per upgrade", () => {
-    expect(weaponDamageMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(9);
-    expect(weaponAttackSpeedMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(3.6);
-    expect(itemMaxHealthMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(6);
-    expect(itemRegenerationMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(6);
-    expect(weaponDamageMultiplier(STARTER_BOW, 1, 10)).toBeCloseTo(3.15);
-    expect(weaponAttackSpeedMultiplier(STARTER_BOW, 1, 10)).toBeCloseTo(3.15);
-    expect(itemMaxHealthMultiplier(WOODEN_ARMOR, 1, 10)).toBeCloseTo(3.15);
+  it("scales every stat from only its additive equipment bonus", () => {
+    expect(weaponDamageMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(7);
+    expect(weaponAttackSpeedMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(1.6);
+    expect(itemMaxHealthMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(4);
+    expect(itemRegenerationMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(4);
+    expect(weaponDamageMultiplier(STARTER_BOW, 1, 10)).toBeCloseTo(1.15);
+    expect(weaponAttackSpeedMultiplier(STARTER_BOW, 1, 10)).toBeCloseTo(1.15);
+    expect(itemMaxHealthMultiplier(WOODEN_ARMOR, 1, 10)).toBeCloseTo(1.15);
     expect(itemRegenerationMultiplier(WOODEN_ARMOR, 1, 10)).toBeCloseTo(1);
-    expect(weaponDamageMultiplier(FROST_BOW, 1.2, 10)).toBeCloseTo(9.2);
+    expect(weaponDamageMultiplier(FROST_BOW, 1.2, 10)).toBeCloseTo(7.2);
     expect(itemDisplayName(FROST_BOW, 1)).toBe("FROST BOW +1");
     expect(itemStats(FROST_BOW, 1)).toEqual([
-      "DAMAGE MULTIPLIER 3.60×",
-      "ATTACK SPEED MULTIPLIER 1.44×",
+      "DAMAGE MULTIPLIER 3.40×",
+      "ATTACK SPEED MULTIPLIER 1.24×",
     ]);
     expect(itemUpgradeStatChanges(FROST_BOW, 0)).toEqual([
-      { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.60×" },
-      { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.44×" },
+      { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.40×" },
+      { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.24×" },
     ]);
   });
 });

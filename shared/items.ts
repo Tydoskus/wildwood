@@ -214,13 +214,14 @@ export function isUpgradeableItem(itemId: unknown) {
 }
 
 function upgradedStatMultiplier(baseBonus: number, level: unknown) {
-  const baseMultiplier = 1 + baseBonus;
-  return baseMultiplier * (1 + normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS);
+  // Upgrades improve only the item's additive bonus. The universal baseline
+  // 1× is never itself amplified by item levels.
+  return 1 + baseBonus * (1 + normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS);
 }
 
 function upgradeBonus(itemId: unknown, level: unknown, baseBonus: number | undefined) {
   return baseBonus !== undefined && isUpgradeableItem(itemId)
-    ? (1 + baseBonus) * normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS
+    ? baseBonus * normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS
     : 0;
 }
 
