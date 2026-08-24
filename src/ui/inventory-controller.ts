@@ -8,6 +8,7 @@ import { itemDefinition } from "../../shared/items";
 import { inventoryMoveActions, renderInventoryView, type InventoryMode } from "./hud";
 import type { ItemInspectionController } from "./item-inspection-controller";
 import { bindLongPress } from "./long-press";
+import { bindInventoryDrag } from "./inventory-drag";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -49,7 +50,9 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const cosmeticsTab = requiredElement<HTMLButtonElement>("inventoryCosmeticsTab");
   const content = requiredElement("inventoryContent");
   const loadout = panel.querySelector<HTMLElement>(".inventory-loadout");
+  const bagSection = items.closest<HTMLElement>(".bag-section");
   let mode: InventoryMode = "EQUIPMENT";
+  let cancelDrag = () => {};
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -58,6 +61,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     RIGHT_HAND: equippedRightHand,
     LEFT_HAND: equippedLeftHand,
   };
+  if (bagSection) bagSection.dataset.inventoryDrop = "BAG";
 
   function setSelection(itemId: string, location: InventoryLocation) {
     dependencies.inventory.selectedItemId = itemId;
@@ -88,6 +92,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function inspect(itemId: string, location: Exclude<InventoryLocation, "">) {
+    cancelDrag();
     const item = itemDefinition(itemId);
     if (!item) return;
     const visuallyEquipped = location !== "BAG";
@@ -190,6 +195,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
   const setMode = (nextMode: InventoryMode) => {
     if (mode === nextMode) return;
+    cancelDrag();
     mode = nextMode;
     setSelection("", "");
     render();
@@ -215,10 +221,17 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     setSelection("", "");
     render();
   });
+  const inventoryDrag = bindInventoryDrag({
+    panel,
+    bagItems: items,
+    onDrop: (itemId, destination) => { move(itemId, destination); },
+  });
+  cancelDrag = inventoryDrag.cancel;
 
   return {
     render,
     prepareOpen: () => {
+      cancelDrag();
       dependencies.itemInspection.close();
       clearInventorySelection(dependencies.inventory);
     },

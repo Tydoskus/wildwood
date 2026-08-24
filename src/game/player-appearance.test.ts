@@ -16,8 +16,8 @@ describe("Bow pose", () => {
   });
 
   it("mirrors the tuned position and bow-facing axis for the left hand", () => {
-    expect(bowHeldAlignment(false)).toEqual({ x: 4, y: -2, scaleY: 1 });
-    expect(bowHeldAlignment(true)).toEqual({ x: -4, y: 2, scaleY: -1 });
+    expect(bowHeldAlignment(false)).toEqual({ x: 4, y: -2, scaleX: 1 });
+    expect(bowHeldAlignment(true)).toEqual({ x: -4, y: 2, scaleX: -1 });
   });
 });
 

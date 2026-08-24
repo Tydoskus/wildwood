@@ -183,12 +183,21 @@ function renderEquipmentSlot(
 ) {
   const itemId = equipmentItemId(inventory, destination, mode);
   const item = itemsById[itemId];
+  element.dataset.inventoryDrop = destination;
+  element.dataset.inventoryLocation = destination;
+  if (itemId) {
+    element.dataset.inventoryDragSource = "true";
+    element.dataset.itemId = itemId;
+  } else {
+    delete element.dataset.inventoryDragSource;
+    delete element.dataset.itemId;
+  }
   element.classList.toggle("is-equipped", Boolean(itemId));
   element.classList.toggle("is-cosmetic", mode === "COSMETICS" && Boolean(itemId));
   updateEquipmentSlotSelection(element, inventory, destination, mode);
   const level = upgradeLevel(itemId);
   element.setAttribute("aria-label", itemId
-    ? `${label}: ${itemDisplayName(itemId, level)}. Tap to select. Hold briefly for details.`
+    ? `${label}: ${itemDisplayName(itemId, level)}. Tap to select, drag to move, or hold briefly for details.`
     : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
   const slotLabel = document.createElement("span");
   slotLabel.className = "equipment-slot-label";
@@ -271,14 +280,16 @@ export function renderInventoryView(
     const button = document.createElement("button");
     let selectedAtPointerDown = false;
     button.type = "button";
+    button.dataset.inventoryLocation = "BAG";
     button.className = "inventory-item" + (itemId ? " is-filled" : " is-empty") +
       (selected ? " is-selected" : "");
     if (itemId) {
       const item = itemsById[itemId];
       const level = normalizeItemUpgradeLevel(actions.upgradeLevel(itemId));
-      button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to select. Hold briefly for details.`);
+      button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to select, drag to equip, or hold briefly for details.`);
       button.setAttribute("aria-pressed", String(selected));
       button.dataset.itemId = itemId;
+      button.dataset.inventoryDragSource = "true";
       const art = document.createElement("span");
       art.className = "inventory-item-art-wrap";
       art.innerHTML = itemArt(itemId);

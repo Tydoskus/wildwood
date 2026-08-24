@@ -83,7 +83,9 @@ export function bowHeldAlignment(heldInLeftHand: boolean) {
   return {
     x: heldInLeftHand ? -4 : 4,
     y: heldInLeftHand ? 2 : -2,
-    scaleY: heldInLeftHand ? -1 : 1,
+    // Swap the bow's face without inverting its vertical aim. A Y-axis flip
+    // turns the source-down sprite upward after rotation.
+    scaleX: heldInLeftHand ? -1 : 1,
   };
 }
 
@@ -151,7 +153,7 @@ export function drawStartingPlayer(
   let heldY = heldSpritePresentation?.top ?? 116;
   const bowAlignment = heldSpritePresentation?.handAction === "BOW"
     ? bowHeldAlignment(heldInLeftHand)
-    : { x: 0, y: 0, scaleY: 1 };
+    : { x: 0, y: 0, scaleX: 1 };
   heldX += bowAlignment.x;
   heldY += bowAlignment.y;
   let heldVisible = true;
@@ -221,7 +223,7 @@ export function drawStartingPlayer(
       ? bowHeldRotationRadians({ combatFacing: options.combatFacing, facingLeft, heldInLeftHand })
       : 0;
     ctx.rotate(baseRotation + runMotion.rotation);
-    ctx.scale(1, bowAlignment.scaleY);
+    ctx.scale(bowAlignment.scaleX, 1);
     drawLayer(asset, -width / 2, -height / 2, width, height);
     ctx.restore();
   };

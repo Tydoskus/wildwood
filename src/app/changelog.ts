@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.495": [
+    "Inventory items can now be dragged between the bag and compatible Equipment or Cosmetics slots with mouse and touch, while preserving tap selection, bag scrolling, and hold-to-inspect.",
+    "Left-hand bows now mirror horizontally while preserving their downward aim instead of flipping upward.",
+  ],
   "0.494": [
     "Attack cadence now uses one absolute timeline and stays armed while enemies change, preventing random slowdowns between targets.",
     "Bow windup, animation, projectile release, remote boss attacks, and duel animation now share deterministic timestamp rules.",
@@ -958,6 +962,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.495": "2026-08-24",
   "0.494": "2026-08-24",
   "0.493": "2026-08-24",
   "0.492": "2026-08-24",
