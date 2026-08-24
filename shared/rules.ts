@@ -34,6 +34,7 @@ export {
 } from "./items";
 export const SPIDER_REWARD_DAMAGE = 75_000;
 export const SPIDER_REWARD_HEALTH = 200_000;
+export const DRAGON_REWARD_DAMAGE = 650;
 export const FROSTCLAW_REWARD_DAMAGE = 72_000_000;
 export const FROSTCLAW_REWARD_HEALTH = 270_000_000;
 export const FROSTCLAW_REWARD_ARMOR = 75_000;

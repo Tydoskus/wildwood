@@ -7,11 +7,17 @@ import {
   researchDurationMs,
   researchIsAvailable,
   researchPrerequisitesForNextRank,
+  researchStatRewardMultiplier,
   shouldBackfillLegacyRegeneration,
   type ResearchId,
 } from "./research";
 
 describe("research timer curve", () => {
+  it("combines Foraging and Prosperity into one stat-reward multiplier", () => {
+    expect(researchStatRewardMultiplier(null)).toBe(1);
+    expect(researchStatRewardMultiplier({ foraging: 5, prosperity: 4 })).toBeCloseTo(1.13);
+  });
+
   it("grows each research by forty percent from its own starting timer", () => {
     expect(researchDurationMs("foraging", 0)).toBe(15_000);
     expect(researchDurationMs("foraging", 1)).toBe(21_000);

@@ -6,11 +6,12 @@ import {
   isResearchId,
   researchDurationMs,
   researchPrerequisitesForNextRank,
+  researchStatRewardMultiplier,
   shouldBackfillLegacyRegeneration,
   type ResearchId,
 } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
-import { legacyU32Power, playerPowerForStats } from "../../shared/player-power";
+import { effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
   PLAYER_GENDER_UNSET,
   isSelectedPlayerGender,
@@ -60,6 +61,7 @@ import {
   BEGINNER_DESERT_MAP_ID,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
+  DRAGON_REWARD_DAMAGE,
   effectivePlayerMovementSpeed,
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
@@ -135,9 +137,9 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 10;
+const MODULE_MIGRATION_VERSION = 11;
 const LEADERBOARD_LIMIT = 100;
-const LEADERBOARD_REFRESH_VERSION = 8;
+const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 const DISPLAY_NAME_COOLDOWN_MICROS = 2_592_000_000_000n;
 // Beta support: let players correct names freely. Re-enable after account-link
@@ -153,7 +155,6 @@ const DUEL_ARENA = {
 };
 const DRAGON_ID = 1;
 const DRAGON_MAX_HP = 1_000_000;
-const DRAGON_REWARD_DAMAGE = 650;
 const DRAGON_RADIUS = 140;
 const DRAGON_POSITION = { x: WORLD.width - 760, y: WORLD.height - 560 };
 const DRAGON_HIT_RANGE_TOLERANCE = 60;
@@ -1362,6 +1363,14 @@ function runPendingModuleMigrations(ctx: any) {
       }
     }
   }
+  if (currentVersion < 11) {
+    // Public player labels previously used raw save stats while profiles and
+    // rankings applied research, equipment, and item upgrades.
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const active = ctx.db.player.identity.find(progress.identity);
+      if (active) ctx.db.player.identity.update({ ...active, ...powerFieldsForProgress(ctx, progress) });
+    }
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -1411,6 +1420,7 @@ function completeActiveResearch(ctx: any, active: any) {
     ctx.db.player.identity.update({
       ...player,
       speed: effectiveMovementSpeedForProgress(ctx, progress, nextResearch),
+      ...powerFieldsForProgress(ctx, progress),
     });
   }
   ctx.db.activeResearch.identity.delete(active.identity);
@@ -1526,8 +1536,24 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
   return playerPowerForStats(progress);
 }
 
-function powerFieldsForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
-  const powerLevel = powerForProgress(progress);
+function effectivePowerStatsForProgress(ctx: any, progress: any) {
+  return effectivePlayerPowerStats(
+    progress,
+    ctx.db.playerResearch.identity.find(progress.identity),
+    (itemId) => itemUpgradeLevelFor(ctx, progress.identity, itemId),
+  );
+}
+
+function effectivePowerForProgress(ctx: any, progress: any) {
+  return effectivePlayerPower(
+    progress,
+    ctx.db.playerResearch.identity.find(progress.identity),
+    (itemId) => itemUpgradeLevelFor(ctx, progress.identity, itemId),
+  );
+}
+
+function powerFieldsForProgress(ctx: any, progress: any) {
+  const powerLevel = effectivePowerForProgress(ctx, progress);
   return { power: legacyU32Power(powerLevel), powerLevel };
 }
 
@@ -1914,13 +1940,7 @@ function refreshLeaderboard(ctx: any) {
     const activeMicros = lifetime && active
       ? ctx.timestamp.microsSinceUnixEpoch - lifetime.sessionStartedAt.microsSinceUnixEpoch
       : 0n;
-    const effectiveStats = {
-      maxHp: maxHealthForProgress(ctx, progress.identity, progress),
-      damage: researchedDamage(ctx, progress.identity, progress.damage),
-      attackRate: attackIntervalForProgress(ctx, progress.identity, progress),
-      armor: researchedArmor(ctx, progress.identity, progress.armor),
-      regen: researchedRegen(ctx, progress.identity, progress.regen),
-    };
+    const effectiveStats = effectivePowerStatsForProgress(ctx, progress);
     candidates.push({
       identity: progress.identity,
       identityKey: progress.identity.toHexString(),
@@ -2299,7 +2319,7 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      ...powerFieldsForProgress(progress),
+      ...powerFieldsForProgress(ctx, progress),
       speed: effectiveMovementSpeedForProgress(ctx, progress),
       ...equipmentPresentationForProgress(progress),
     });
@@ -2844,10 +2864,11 @@ function clearSpiderCombatRows(ctx: any) {
 function rewardSpiderContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
   const next = {
     ...current,
-    damage: current.damage + SPIDER_REWARD_DAMAGE,
-    maxHp: current.maxHp + SPIDER_REWARD_HEALTH,
+    damage: current.damage + SPIDER_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + SPIDER_REWARD_HEALTH * rewardMultiplier,
     snowlandsUnlocked: true,
   };
   ctx.db.playerProgress.identity.update(next);
@@ -2855,7 +2876,7 @@ function rewardSpiderContributor(ctx: any, identity: any) {
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      ...powerFieldsForProgress(next),
+      ...powerFieldsForProgress(ctx, next),
     });
   }
 }
@@ -2904,15 +2925,16 @@ function clearFrostclawCombatRows(ctx: any) {
 function rewardFrostclawContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
   // Each boss item owns an independent roll, even when the player already has
   // that item. Successful duplicates become an explicit "Already owned" event.
   const frostBowDropped = ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
   const frostArmorDropped = ctx.random.integerInRange(1, SNOW_BOSS_ARMOR_DROP_DENOMINATOR) === 1;
   let next = {
     ...current,
-    damage: current.damage + FROSTCLAW_REWARD_DAMAGE,
-    maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH,
-    armor: current.armor + FROSTCLAW_REWARD_ARMOR,
+    damage: current.damage + FROSTCLAW_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH * rewardMultiplier,
+    armor: current.armor + FROSTCLAW_REWARD_ARMOR * rewardMultiplier,
     lavaUnlocked: true,
   };
   if (frostBowDropped) {
@@ -2931,7 +2953,7 @@ function rewardFrostclawContributor(ctx: any, identity: any) {
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      ...powerFieldsForProgress(next),
+      ...powerFieldsForProgress(ctx, next),
     });
   }
 }
@@ -2980,13 +3002,14 @@ function clearDragonCombatRows(ctx: any) {
 function rewardDragonContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
-  const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE, desertUnlocked: true };
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE * rewardMultiplier, desertUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     ctx.db.player.identity.update({
       ...active,
-      ...powerFieldsForProgress(next),
+      ...powerFieldsForProgress(ctx, next),
     });
   }
 }
@@ -3050,7 +3073,7 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
     message,
     replayId,
     sentAt: ctx.timestamp,
-    powerLevel: progress ? powerForProgress(progress) : 0,
+    powerLevel: progress ? effectivePowerForProgress(ctx, progress) : 0,
     senderGender: profile?.gender ?? PLAYER_GENDER_UNSET,
   });
   trimChatHistory(ctx);
@@ -3385,7 +3408,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         ...existing,
         mapId: canonicalMapId(existing.mapId),
         ...playerZone(existing.x, existing.y),
-        ...powerFieldsForProgress(existingProgress),
+        ...powerFieldsForProgress(ctx, existingProgress),
         speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
         moving: false,
         ...equipmentPresentation,
@@ -3419,7 +3442,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       ...playerZone(entryPosition.x, entryPosition.y),
       facing: Number.isFinite(existing.facing) ? existing.facing : 0,
       moving: false,
-      ...powerFieldsForProgress(existingProgress),
+      ...powerFieldsForProgress(ctx, existingProgress),
       speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
       protocolVersion: session.protocolVersion,
       controllerTabId: normalizedTabId,
@@ -3455,7 +3478,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     // Required by the legacy physical schema. These are never synchronized.
     hp: existingProgress.maxHp,
     maxHp: existingProgress.maxHp,
-    ...powerFieldsForProgress(existingProgress),
+    ...powerFieldsForProgress(ctx, existingProgress),
     // Cosmetic boots never affect movement stats.
     speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
     moving: false,
@@ -4140,7 +4163,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       ctx.db.player.identity.update({
         ...activePlayer,
         speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
-        ...powerFieldsForProgress(nextProgress),
+        ...powerFieldsForProgress(ctx, nextProgress),
         ...equipmentPresentationForProgress(nextProgress),
       });
     }
@@ -4160,7 +4183,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       const nextLeaderboardEntry = {
         identity: ctx.sender,
         displayName: finalDisplayName,
-        ...powerFieldsForProgress(nextProgress),
+        ...powerFieldsForProgress(ctx, nextProgress),
         profileIcon: finalProfile?.profileIcon ?? 0,
         gender: finalProfile?.gender ?? PLAYER_GENDER_UNSET,
         ...leaderboardAppearanceForProgress(nextProgress, finalProfile),
@@ -4533,7 +4556,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       ctx.db.player.identity.update({
         ...active,
         speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
-        ...powerFieldsForProgress(nextProgress),
+        ...powerFieldsForProgress(ctx, nextProgress),
       });
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, active));
     }
@@ -4665,7 +4688,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: boundedKills });
     }
     const presentation = {
-      ...powerFieldsForProgress(next),
+      ...powerFieldsForProgress(ctx, next),
       speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     };
@@ -4832,7 +4855,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     ctx.db.player.identity.update({
       ...activePlayer,
-      ...powerFieldsForProgress(next),
+      ...powerFieldsForProgress(ctx, next),
       speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     });

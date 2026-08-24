@@ -1,4 +1,10 @@
 import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
+import {
+  itemMaxHealthMultiplier,
+  itemRegenerationMultiplier,
+  weaponAttackInterval,
+  weaponDamageMultiplier,
+} from "./items";
 
 export type PlayerPowerStats = {
   maxHp: number;
@@ -7,6 +13,51 @@ export type PlayerPowerStats = {
   armor: number;
   regen: number;
 };
+
+export type PlayerPowerProgress = PlayerPowerStats & {
+  equippedChest?: string;
+  equippedRightHand?: string;
+  equippedLeftHand?: string;
+};
+
+export type PlayerPowerResearch = {
+  warcraft?: number;
+  precision?: number;
+  regeneration?: number;
+};
+
+type ItemUpgradeLevel = (itemId: string) => number;
+
+function researchRank(value: unknown) {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(Number(value))) : 0;
+}
+
+/** One canonical effective-stat calculation for profile, world, and leaderboard power. */
+export function effectivePlayerPowerStats(
+  progress: PlayerPowerProgress,
+  research: PlayerPowerResearch | null | undefined = null,
+  itemUpgradeLevel: ItemUpgradeLevel = () => 0,
+): PlayerPowerStats {
+  const weaponItem = progress.equippedRightHand || progress.equippedLeftHand || "";
+  const chestItem = progress.equippedChest || "";
+  const weaponLevel = itemUpgradeLevel(weaponItem);
+  const chestLevel = itemUpgradeLevel(chestItem);
+  return {
+    maxHp: progress.maxHp * itemMaxHealthMultiplier(chestItem, 1, chestLevel),
+    damage: progress.damage * weaponDamageMultiplier(weaponItem, 1 + researchRank(research?.warcraft) * .02, weaponLevel),
+    attackRate: weaponAttackInterval(weaponItem, progress.attackRate, 1, weaponLevel),
+    armor: progress.armor * (1 + researchRank(research?.precision) * .02),
+    regen: progress.regen * itemRegenerationMultiplier(chestItem, 1 + researchRank(research?.regeneration) * .02, chestLevel),
+  };
+}
+
+export function effectivePlayerPower(
+  progress: PlayerPowerProgress,
+  research?: PlayerPowerResearch | null,
+  itemUpgradeLevel?: ItemUpgradeLevel,
+) {
+  return playerPowerForStats(effectivePlayerPowerStats(progress, research, itemUpgradeLevel));
+}
 
 export function playerPowerForStats(stats: PlayerPowerStats) {
   const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);

@@ -73,6 +73,17 @@ export function createEmptyResearchRanks(): ResearchRanks {
   return Object.fromEntries(RESEARCH_IDS.map((id) => [id, 0])) as ResearchRanks;
 }
 
+function normalizedResearchRank(rank: unknown) {
+  return Number.isFinite(rank) ? Math.max(0, Math.floor(Number(rank))) : 0;
+}
+
+/** Foraging adds 1% and Prosperity adds 2% to every permanent stat reward. */
+export function researchStatRewardMultiplier(
+  ranks: Pick<ResearchRanks, "foraging" | "prosperity"> | null | undefined,
+) {
+  return 1 + normalizedResearchRank(ranks?.foraging) * .01 + normalizedResearchRank(ranks?.prosperity) * .02;
+}
+
 const LEGACY_COMPLETE_RANKS: Partial<Record<ResearchId, number>> = {
   warcraft: 5,
   moveSpeed: 5,
