@@ -182,12 +182,22 @@ export function createGameBootstrapAssets(options: {
   onWorldArtReady: () => void;
   onPlayerAppearanceAssetReady: () => void;
 }) {
-  const assets = createAssetPreprocessor(options.onWorldArtReady);
+  const preprocessedAssets = createAssetPreprocessor(options.onWorldArtReady);
+  const enemyAssets = loadEnemySprites(options.onWorldArtReady);
+  let actorShadowReady = false;
+  const actorShadowSprite = loadActorShadowSprite(() => {
+    actorShadowReady = true;
+    options.onWorldArtReady();
+  });
+  const assets = {
+    ...preprocessedAssets,
+    worldArtReady: () => preprocessedAssets.worldArtReady() && enemyAssets.ready() && actorShadowReady,
+  };
   const playerAppearanceAssets = loadPlayerAppearanceAssets(options.onPlayerAppearanceAssetReady);
   return {
-    actorShadowSprite: loadActorShadowSprite(),
+    actorShadowSprite,
     assets,
-    enemySprites: loadEnemySprites(),
+    enemySprites: enemyAssets.sprites,
     playerAppearanceAssets,
     leaderboardPodiumPreview: createLeaderboardPodiumPreview(playerAppearanceAssets),
     inventoryCharacterPreview: createInventoryCharacterPreview(options.inventoryCharacterCanvas, playerAppearanceAssets),

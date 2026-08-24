@@ -1,4 +1,4 @@
-import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite } from "../enemies";
+import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite, type LoadedSpriteLayer } from "../enemies";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
 import type { RemotePlayer } from "../../wildwood-coop";
@@ -14,6 +14,7 @@ type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type LabelBitmap = { canvas: HTMLCanvasElement; width: number; height: number; anchorY: number };
 type LabelSegment = { text: string; color: string };
+const ENEMY_SPRITE_Y_OFFSET = -3;
 
 export function enemyWeaponAimRotation(
   enemy: Pick<EnemyState, "x" | "y" | "facingX">,
@@ -22,6 +23,44 @@ export function enemyWeaponAimRotation(
   // Enemy art is assembled facing right. Convert the world-space target into
   // that local coordinate system before the whole actor is mirrored.
   return Math.atan2(target.y - enemy.y, (target.x - enemy.x) * enemy.facingX);
+}
+
+export function enemyWeaponLayerRotation(
+  enemy: Pick<EnemyState, "x" | "y" | "facingX" | "engaged">,
+  target: Pick<PlayerState, "x" | "y">,
+  sourceOffsetRadians = 0,
+) {
+  return sourceOffsetRadians + (enemy.engaged ? enemyWeaponAimRotation(enemy, target) : 0);
+}
+
+export function drawableEnemyLayers(layers: LoadedSpriteLayer[] | undefined) {
+  return layers?.filter((layer) => layer.image.complete && layer.image.naturalWidth > 0) ?? [];
+}
+
+export function enemySpriteVerticalBounds(sprite: LoadedEnemySprite | undefined, enemyRadius: number) {
+  if (sprite?.layers?.length) {
+    let top = Number.POSITIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+    for (const layer of sprite.layers) {
+      top = Math.min(top, layer.y + ENEMY_SPRITE_Y_OFFSET);
+      bottom = Math.max(bottom, layer.y + ENEMY_SPRITE_Y_OFFSET + layer.h);
+    }
+    return { top, bottom, height: bottom - top };
+  }
+  const image = sprite?.image;
+  const fallbackHeight = Math.max(1, enemyRadius * 2);
+  const height = image?.complete && image.naturalWidth > 0
+    ? sprite?.height ?? (sprite?.size ?? fallbackHeight) * image.naturalHeight / image.naturalWidth
+    : fallbackHeight;
+  return {
+    top: -height / 2 + ENEMY_SPRITE_Y_OFFSET,
+    bottom: height / 2 + ENEMY_SPRITE_Y_OFFSET,
+    height,
+  };
+}
+
+export function enemyShadowOffsetY(sprite: LoadedEnemySprite | undefined, enemyRadius: number) {
+  return Math.max(10, enemySpriteVerticalBounds(sprite, enemyRadius).bottom - 2);
 }
 
 export type ActorStatus = {
@@ -325,6 +364,24 @@ export function createActorRenderer(options: {
     for (const other of players) drawRemotePlayer(other);
   }
 
+  function drawLayeredEnemyPlaceholder(sprite: LoadedEnemySprite, bounds: { top: number; bottom: number }, color: string) {
+    const width = Math.max(22, sprite.size * .48);
+    const headRadius = width * .28;
+    const headY = bounds.top + headRadius + 5;
+    const torsoTop = headY + headRadius * .55;
+    const torsoBottom = bounds.bottom - 8;
+    ctx.save();
+    ctx.globalAlpha = .24;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(0, headY, headRadius, headRadius * .9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-width / 2, torsoTop, width, Math.max(8, torsoBottom - torsoTop));
+    ctx.fillRect(-width * .36, torsoBottom, width * .22, 8);
+    ctx.fillRect(width * .14, torsoBottom, width * .22, 8);
+    ctx.restore();
+  }
+
   function drawEnemy(enemy: EnemyState) {
     const viewport = options.viewport();
     const width = viewport.width / camera.zoom;
@@ -337,49 +394,47 @@ export function createActorRenderer(options: {
     const sprite = options.enemySprites[enemy.type];
     const layers = sprite?.layers;
     const image = sprite?.image;
-    const spriteReady = layers
-      ? layers.every((layer) => layer.image.complete && layer.image.naturalWidth > 0)
-      : Boolean(image?.complete && image.naturalWidth > 0);
-    const spriteHeight = spriteReady && image
-      ? (sprite.height ?? sprite.size * image.naturalHeight / image.naturalWidth)
-      : enemy.r * 2;
+    const readyLayers = drawableEnemyLayers(layers);
+    const imageReady = Boolean(image?.complete && image.naturalWidth > 0);
+    const spriteBounds = enemySpriteVerticalBounds(sprite, enemy.r);
+    const spriteHeight = spriteBounds.height;
     const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
-    const shadowY = y + Math.max(10, Math.min(30, spriteHeight / 2 - 4));
+    const shadowY = y + enemyShadowOffsetY(sprite, enemy.r);
     options.drawShadow(x, shadowY, shadowWidth, .36);
 
     ctx.save();
     ctx.translate(x, y);
     if (enemy.facingX < 0) ctx.scale(-1, 1);
 
-    if (spriteReady) {
+    if (layers && sprite) {
       ctx.globalAlpha = enemy.hurt > 0 ? .7 : 1;
-      if (layers) {
-        for (const layer of layers) {
-          if (layer.aimPivot && enemy.engaged) {
-            ctx.save();
-            ctx.translate(layer.aimPivot.x, layer.aimPivot.y - 3);
-            ctx.rotate(enemyWeaponAimRotation(enemy, options.player));
-            ctx.drawImage(
-              layer.image,
-              layer.x - layer.aimPivot.x,
-              layer.y - layer.aimPivot.y,
-              layer.w,
-              layer.h,
-            );
-            ctx.restore();
-          } else {
-            ctx.drawImage(layer.image, layer.x, layer.y - 3, layer.w, layer.h);
-          }
+      if (readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline);
+      for (const layer of readyLayers) {
+        if (layer.aimPivot) {
+          ctx.save();
+          ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
+          ctx.rotate(enemyWeaponLayerRotation(enemy, options.player, layer.aimOffsetRadians));
+          ctx.drawImage(
+            layer.image,
+            layer.x - layer.aimPivot.x,
+            layer.y - layer.aimPivot.y,
+            layer.w,
+            layer.h,
+          );
+          ctx.restore();
+        } else {
+          ctx.drawImage(layer.image, layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
         }
-      } else if (image) {
-        ctx.drawImage(
-          image,
-          -sprite.size / 2,
-          -spriteHeight / 2 - 3,
-          sprite.size,
-          spriteHeight,
-        );
       }
+    } else if (imageReady && image && sprite) {
+      ctx.globalAlpha = enemy.hurt > 0 ? .7 : 1;
+      ctx.drawImage(
+        image,
+        -sprite.size / 2,
+        -spriteHeight / 2 + ENEMY_SPRITE_Y_OFFSET,
+        sprite.size,
+        spriteHeight,
+      );
     } else {
       ctx.fillStyle = base.outline;
       options.pixelCircle(0, 0, enemy.r + 3);
@@ -390,16 +445,8 @@ export function createActorRenderer(options: {
 
     if (!options.enemyTextVisible(enemy)) return;
 
-    let spriteTop = -spriteHeight / 2 - 3;
-    let spriteBottom = spriteHeight / 2 - 3;
-    if (layers) {
-      spriteTop = Number.POSITIVE_INFINITY;
-      spriteBottom = Number.NEGATIVE_INFINITY;
-      for (const layer of layers) {
-        spriteTop = Math.min(spriteTop, layer.y - 3);
-        spriteBottom = Math.max(spriteBottom, layer.y - 3 + layer.h);
-      }
-    }
+    const spriteTop = spriteBounds.top;
+    const spriteBottom = spriteBounds.bottom;
     const rewardY = Math.round(y + spriteBottom + 13);
     const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26)) * 1.05;
     const barH = options.worldHealthBarHeight;

@@ -392,7 +392,9 @@
   .inventory-panel.is-dragging .is-drag-source { opacity: .38; transform: scale(.94); }
   .inventory-panel.is-dragging .is-drag-valid { border-color: #86e78e; box-shadow: 0 0 0 2px rgba(134,231,142,.42), inset 0 0 0 1px rgba(9,32,14,.35); }
   .inventory-panel.is-dragging .is-drag-invalid { opacity: .42; filter: saturate(.45); }
-  .inventory-panel.is-dragging .is-drag-over { z-index: 4; border-color: #d8ffab; box-shadow: 0 0 0 3px rgba(145,240,111,.72), 0 0 18px rgba(117,231,105,.45); transform: scale(1.035); }
+  .inventory-panel.is-dragging .is-drag-over { z-index: 4; border-color: #d8ffab; box-shadow: 0 0 0 3px rgba(145,240,111,.72), 0 0 18px rgba(117,231,105,.45); }
+  .inventory-panel.is-dragging .equipment-slot.is-drag-over { transform: scale(1.035); }
+  .inventory-panel.is-dragging .bag-section.is-drag-over { box-shadow: inset 0 0 0 3px rgba(145,240,111,.72), inset 0 0 18px rgba(117,231,105,.32); transform: none; }
   .inventory-drag-ghost { position: fixed; z-index: 1000; display: grid; width: 62px; height: 62px; place-items: center; overflow: hidden; border: 2px solid #d8ffab; border-radius: 10px; background: rgba(24,33,27,.92); box-shadow: 0 8px 18px rgba(0,0,0,.48), 0 0 14px rgba(117,231,105,.38); pointer-events: none; transform: translate(-50%, -50%) rotate(2deg); }
   .inventory-drag-ghost .inventory-item-art { width: 50px; height: 46px; }
   .inventory-drag-ghost .boot-pixel-icon { transform: scale(1.6); }
@@ -515,7 +517,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .equipment-slot.is-compatible, .equipment-slot.is-equipped-now { animation: none; }
-    .inventory-panel.is-dragging .is-drag-over, .inventory-panel.is-dragging .is-drag-source { transform: none; }
+    .inventory-panel.is-dragging .equipment-slot.is-drag-over, .inventory-panel.is-dragging .is-drag-source { transform: none; }
   }
 
   .settings-title {

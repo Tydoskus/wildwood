@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { ENEMY_TYPES, rewardLabel } from "./enemies";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("enemy reward rules", () => {
   it("keeps starter through Lava Lake reward values intentional", () => {
@@ -38,5 +43,58 @@ describe("enemy reward rules", () => {
     expect(rewardLabel({ type: "armor", amount: 150 })).toBe("+150 ARMOR");
     expect(rewardLabel({ type: "health", amount: 8_500 })).toBe("+8.50k MAX HEALTH");
     expect(rewardLabel({ type: "damage", amount: 240_000 })).toBe("+240k DAMAGE");
+  });
+});
+
+describe("enemy sprite loading", () => {
+  it("waits for every enemy image, including a delayed layer", () => {
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      decoding = "auto";
+      src = "";
+
+      constructor() {
+        super();
+        images.push(this);
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const onSettled = vi.fn();
+    const assets = loadEnemySprites(onSettled);
+
+    expect(assets.ready()).toBe(false);
+    images.slice(0, -1).forEach((image) => image.dispatchEvent(new Event("load")));
+    expect(assets.ready()).toBe(false);
+    images.at(-1)?.dispatchEvent(new Event("load"));
+    expect(assets.ready()).toBe(true);
+    expect(onSettled).toHaveBeenCalledTimes(images.length);
+  });
+
+  it("unblocks after a failed image exhausts two cache-busting retries", () => {
+    vi.useFakeTimers();
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      decoding = "auto";
+      src = "";
+
+      constructor() {
+        super();
+        images.push(this);
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const assets = loadEnemySprites();
+    const failedImage = images[0];
+    images.slice(1).forEach((image) => image.dispatchEvent(new Event("load")));
+
+    failedImage.dispatchEvent(new Event("error"));
+    vi.advanceTimersByTime(500);
+    expect(failedImage.src).toContain("?asset-retry=1");
+    failedImage.dispatchEvent(new Event("error"));
+    vi.advanceTimersByTime(1_000);
+    expect(failedImage.src).toContain("?asset-retry=2");
+    expect(assets.ready()).toBe(false);
+    failedImage.dispatchEvent(new Event("error"));
+    expect(assets.ready()).toBe(true);
   });
 });

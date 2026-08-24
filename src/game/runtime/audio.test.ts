@@ -52,11 +52,11 @@ describe("map music", () => {
     expect(runtime).toEqual(source);
   });
 
-  it("varies bow pitch by seven percent around the original", () => {
+  it("varies bow pitch up to seven percent below the original", () => {
     expect(BOW_ATTACK_SOUND_RATE_MIN).toBe(.93);
-    expect(BOW_ATTACK_SOUND_RATE_MAX).toBe(1.07);
+    expect(BOW_ATTACK_SOUND_RATE_MAX).toBe(1);
     expect(bowAttackPlaybackRate(0)).toBe(BOW_ATTACK_SOUND_RATE_MIN);
-    expect(bowAttackPlaybackRate(.5)).toBe(1);
+    expect(bowAttackPlaybackRate(.5)).toBeCloseTo(.965);
     expect(bowAttackPlaybackRate(1)).toBe(BOW_ATTACK_SOUND_RATE_MAX);
     expect(bowAttackPlaybackRate(Number.NaN)).toBe(1);
   });
@@ -121,7 +121,7 @@ describe("map music", () => {
     controller.playBowAttackSound();
 
     expect(context.sources).toHaveLength(1);
-    expect(context.sources[0]?.playbackRate.value).toBe(1);
+    expect(context.sources[0]?.playbackRate.value).toBeCloseTo(.965);
     expect(context.sources[0]?.start).toHaveBeenCalledWith(context.currentTime, 0, .46);
     expect(context.gains[1]?.gain.value).toBe(.4);
     expect(context.gains[2]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);

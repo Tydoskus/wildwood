@@ -50,6 +50,9 @@ type UpgradeBenchDependencies = {
 };
 
 export const UPGRADE_CANCEL_CONFIRMATION = "Are you sure you want to cancel? You will lose current progress to the next upgrade.";
+export const UPGRADE_BENCH_TOUCH_OFFSET_Y = -36;
+const UPGRADE_BENCH_TOUCH_RADIUS_X = 108;
+const UPGRADE_BENCH_TOUCH_RADIUS_Y = 78;
 
 function formatRemaining(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1_000));
@@ -63,6 +66,16 @@ function formatRemaining(milliseconds: number) {
 
 export function upgradeBenchTouchTransition(wasTouching: boolean, touching: boolean) {
   return { touching, shouldOpen: touching && !wasTouching };
+}
+
+export function playerTouchesUpgradeBench(
+  player: { x: number; y: number },
+  bench: { x: number; y: number },
+) {
+  const dx = player.x - bench.x;
+  const dy = player.y - (bench.y + UPGRADE_BENCH_TOUCH_OFFSET_Y);
+  return dx * dx / (UPGRADE_BENCH_TOUCH_RADIUS_X * UPGRADE_BENCH_TOUCH_RADIUS_X) +
+    dy * dy / (UPGRADE_BENCH_TOUCH_RADIUS_Y * UPGRADE_BENCH_TOUCH_RADIUS_Y) <= 1;
 }
 
 export function upgradePickerPreview(itemId: string, upgradeLevel: unknown) {
@@ -297,9 +310,9 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       return;
     }
     const player = dependencies.playerPosition();
-    const dx = player.x - dependencies.benchPosition.x;
-    const dy = player.y - dependencies.benchPosition.y;
-    const touching = dx * dx / (108 * 108) + dy * dy / (78 * 78) <= 1;
+    // The decor depth point sits below the visible bench feet. Center the
+    // interaction footprint on the art while remaining inside server range.
+    const touching = playerTouchesUpgradeBench(player, dependencies.benchPosition);
     const transition = upgradeBenchTouchTransition(touchingBench, touching);
     touchingBench = transition.touching;
     if (transition.shouldOpen) open();

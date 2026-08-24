@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.496": [
+    "Enemy artwork now participates in startup loading with bounded retries and partial-layer recovery, preventing delayed mobile assets from turning desert enemies into pixelated fallback blobs.",
+    "Dune Archer bows now face their target correctly, enemy shadows sit beneath their feet, and the Upgrade Bench interaction footprint matches its raised artwork.",
+    "Bow sound pitch now varies only downward from the original between 0.93x and 1.00x, while dragging over the inventory bag no longer enlarges the panel.",
+  ],
   "0.495": [
     "Inventory items can now be dragged between the bag and compatible Equipment or Cosmetics slots with mouse and touch, while preserving tap selection, bag scrolling, and hold-to-inspect.",
     "Left-hand bows now mirror horizontally while preserving their downward aim instead of flipping upward.",
@@ -962,6 +967,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.496": "2026-08-24",
   "0.495": "2026-08-24",
   "0.494": "2026-08-24",
   "0.493": "2026-08-24",

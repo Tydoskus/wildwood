@@ -10,7 +10,7 @@ export const BOW_ATTACK_SOUND_SOURCE = "assets/wildwood/audio/bow-release.mp3";
 export const BOW_ATTACK_SOUND_GAIN = .22;
 export const BOW_ATTACK_SOUND_CLIP_SECONDS = .46;
 export const BOW_ATTACK_SOUND_RATE_MIN = .93;
-export const BOW_ATTACK_SOUND_RATE_MAX = 1.07;
+export const BOW_ATTACK_SOUND_RATE_MAX = 1;
 
 const BOW_ATTACK_SOUND_FADE_SECONDS = .09;
 const BOW_ATTACK_SOUND_ATTACK_SECONDS = .008;
@@ -46,7 +46,7 @@ type BowAttackVoice = {
 };
 
 export function bowAttackPlaybackRate(randomValue = Math.random()) {
-  const normalized = Number.isFinite(randomValue) ? Math.min(1, Math.max(0, randomValue)) : .5;
+  const normalized = Number.isFinite(randomValue) ? Math.min(1, Math.max(0, randomValue)) : 1;
   return BOW_ATTACK_SOUND_RATE_MIN + normalized * (BOW_ATTACK_SOUND_RATE_MAX - BOW_ATTACK_SOUND_RATE_MIN);
 }
 

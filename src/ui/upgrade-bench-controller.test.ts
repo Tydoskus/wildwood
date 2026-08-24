@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FROST_BOW } from "../../shared/items";
-import { UPGRADE_CANCEL_CONFIRMATION, upgradeBenchTouchTransition, upgradePickerPreview } from "./upgrade-bench-controller";
+import { UPGRADE_BENCH_TOUCH_OFFSET_Y, UPGRADE_CANCEL_CONFIRMATION, playerTouchesUpgradeBench, upgradeBenchTouchTransition, upgradePickerPreview } from "./upgrade-bench-controller";
 
 describe("upgrade bench touch latch", () => {
   it("requires leaving before a closed bench can open again", () => {
@@ -14,6 +14,14 @@ describe("upgrade bench touch latch", () => {
     const left = upgradeBenchTouchTransition(stillTouching.touching, false);
     expect(left).toEqual({ touching: false, shouldOpen: false });
     expect(upgradeBenchTouchTransition(left.touching, true)).toEqual({ touching: true, shouldOpen: true });
+  });
+
+  it("centers the interaction collision above the decor depth point", () => {
+    const bench = { x: 800, y: 710 };
+    expect(UPGRADE_BENCH_TOUCH_OFFSET_Y).toBe(-36);
+    expect(playerTouchesUpgradeBench({ x: 800, y: 674 }, bench)).toBe(true);
+    expect(playerTouchesUpgradeBench({ x: 800, y: 595 }, bench)).toBe(false);
+    expect(playerTouchesUpgradeBench({ x: 800, y: 753 }, bench)).toBe(false);
   });
 
   it("warns that cancellation forfeits progress toward the next level", () => {

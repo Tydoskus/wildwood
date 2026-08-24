@@ -155,6 +155,8 @@ type SpriteLayerSource = {
   h: number;
   /** Actor-local point held by the archer. The layer rotates around it while aiming. */
   aimPivot?: { x: number; y: number };
+  /** Rotation needed to make the source art face actor-local right. */
+  aimOffsetRadians?: number;
 };
 type SpriteSource = { src: string; size: number } | { size: number; height: number; layers: SpriteLayerSource[] };
 export type LoadedSpriteLayer = SpriteLayerSource & { image: HTMLImageElement };
@@ -164,6 +166,8 @@ export type LoadedEnemySprite = {
   image?: HTMLImageElement;
   layers?: LoadedSpriteLayer[];
 };
+
+export const ENEMY_BOW_AIM_OFFSET_RADIANS = Math.PI / 2;
 
 const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
   Bramble: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
@@ -177,7 +181,7 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg1.png", x: -16, y: 19, w: 15, h: 21 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg2.png", x: 1, y: 19, w: 17, h: 22 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/body.png", x: -20, y: -5, w: 40, h: 40 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/bow.png", x: 15, y: -6, w: 43, h: 33, aimPivot: { x: 20, y: 8 } },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/bow.png", x: 15, y: -6, w: 43, h: 33, aimPivot: { x: 20, y: 8 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/arm2.png", x: 13, y: -1, w: 20, h: 21 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 },
     ],
@@ -204,7 +208,7 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg2.png", x: 1, y: 22, w: 15, h: 16 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/body.png", x: -25, y: -31, w: 50, h: 58 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/hat.png", x: -32, y: -43, w: 64, h: 39 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png", x: 15, y: -12, w: 50, h: 30, aimPivot: { x: 20, y: 3 } },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png", x: 15, y: -12, w: 50, h: 30, aimPivot: { x: 20, y: 3 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/arm2.png", x: 12, y: -5, w: 14, h: 15 },
     ],
   },
@@ -227,7 +231,7 @@ const ENEMY_SPRITE_SOURCES: Record<EnemyKind, SpriteSource> = {
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg1.png", x: -18, y: 25, w: 19, h: 27 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg2.png", x: 1, y: 25, w: 20, h: 27 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/body.png", x: -26, y: -22, w: 52, h: 52 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43, aimPivot: { x: 26, y: 5 } },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43, aimPivot: { x: 26, y: 5 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/arm2.png", x: 16, y: -9, w: 25, h: 26 },
       { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 },
     ],
@@ -279,26 +283,57 @@ export const CAMPS: EnemyCamp[] = [
   { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#553334", ring: "#d37362" },
 ];
 
-export function loadEnemySprites(): Record<EnemyKind, LoadedEnemySprite> {
-  return Object.fromEntries(Object.entries(ENEMY_SPRITE_SOURCES).map(([kind, source]) => {
-    if ("layers" in source) {
-      const layers = source.layers.map((layer) => {
-        const image = new Image();
-        image.src = layer.src;
-        return { ...layer, image };
-      });
-      return [kind, { size: source.size, height: source.height, layers }];
+function loadEnemyImage(source: string, onSettled: () => void) {
+  const image = new Image();
+  image.decoding = "async";
+  let retry = 0;
+  let settled = false;
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    onSettled();
+  };
+  image.addEventListener("load", settle, { once: true });
+  image.addEventListener("error", () => {
+    if (retry >= 2) {
+      settle();
+      return;
     }
-    const image = new Image();
-    image.src = source.src;
-    return [kind, { size: source.size, image }];
-  })) as Record<EnemyKind, LoadedEnemySprite>;
+    retry += 1;
+    globalThis.setTimeout(() => {
+      image.src = `${source}?asset-retry=${retry}`;
+    }, retry * 500);
+  });
+  image.src = source;
+  return image;
 }
 
-export function loadActorShadowSprite() {
-  const image = new Image();
-  image.src = "assets/wildwood/2D Character - Casual Monsters/_PNG/slime/shadow.png";
-  return image;
+export function loadEnemySprites(onAssetSettled: () => void = () => {}) {
+  const expectedAssets = Object.values(ENEMY_SPRITE_SOURCES).reduce(
+    (count, source) => count + ("layers" in source ? source.layers.length : 1),
+    0,
+  );
+  let settledAssets = 0;
+  const settleAsset = () => {
+    settledAssets += 1;
+    onAssetSettled();
+  };
+  const sprites = Object.fromEntries(Object.entries(ENEMY_SPRITE_SOURCES).map(([kind, source]) => {
+    if ("layers" in source) {
+      const layers = source.layers.map((layer) => ({ ...layer, image: loadEnemyImage(layer.src, settleAsset) }));
+      return [kind, { size: source.size, height: source.height, layers }];
+    }
+    const image = loadEnemyImage(source.src, settleAsset);
+    return [kind, { size: source.size, image }];
+  })) as Record<EnemyKind, LoadedEnemySprite>;
+  return {
+    sprites,
+    ready: () => settledAssets >= expectedAssets,
+  };
+}
+
+export function loadActorShadowSprite(onAssetSettled: () => void = () => {}) {
+  return loadEnemyImage("assets/wildwood/2D Character - Casual Monsters/_PNG/slime/shadow.png", onAssetSettled);
 }
 
 export function rewardLabel(reward: EnemyDefinition["reward"]) {
