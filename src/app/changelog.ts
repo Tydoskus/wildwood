@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.498": [
+    "Dune Archers now use the approved horizontal bow placement and hand pivot from the alignment tool, with the unnecessary separate gripping-hand layer removed.",
+  ],
   "0.497": [
     "Added a one-click Enemy Sprite Aligner that reads the game’s exact live layer data, previews facing and target-aware rotation, supports direct dragging and reference images, and saves complete alignment values to a shareable text file.",
   ],
@@ -970,6 +973,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.498": "2026-08-24",
   "0.497": "2026-08-24",
   "0.496": "2026-08-24",
   "0.495": "2026-08-24",

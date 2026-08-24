@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
+import { ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -47,6 +48,21 @@ describe("enemy reward rules", () => {
 });
 
 describe("enemy sprite loading", () => {
+  it("keeps the approved Dune Archer bow alignment without a separate hand layer", () => {
+    const duneArcher = ENEMY_SPRITE_LAYOUTS["Dune Archer"];
+    expect("layers" in duneArcher).toBe(true);
+    if (!("layers" in duneArcher)) return;
+    expect(duneArcher.layers.find((layer) => layer.src.endsWith("/bow.png"))).toMatchObject({
+      x: -27,
+      y: 0,
+      w: 50,
+      h: 30,
+      aimPivot: { x: 0, y: 18 },
+      aimOffsetRadians: 0,
+    });
+    expect(duneArcher.layers.some((layer) => layer.src.endsWith("/arm2.png"))).toBe(false);
+  });
+
   it("waits for every enemy image, including a delayed layer", () => {
     const images: FakeImage[] = [];
     class FakeImage extends EventTarget {
