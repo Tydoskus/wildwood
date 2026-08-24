@@ -113,6 +113,10 @@ export function profileStatDisplayRows(
   return stats;
 }
 
+export function profileStatEquationParts(equation: string) {
+  return equation.split(/\s{2,}/).filter(Boolean);
+}
+
 export function renderProfileStats(
   profile: PlayerProfileData,
   statGrid: HTMLElement,
@@ -128,7 +132,15 @@ export function renderProfileStats(
     const term = document.createElement("dt");
     const detail = document.createElement("dd");
     term.textContent = stat.label;
-    detail.textContent = stat.equation;
+    detail.className = "profile-stat-equation";
+    detail.setAttribute("aria-label", stat.equation.replace(/\s+/g, " "));
+    for (const equationPart of profileStatEquationParts(stat.equation)) {
+      const part = document.createElement("span");
+      part.className = "profile-stat-equation-part";
+      part.setAttribute("aria-hidden", "true");
+      part.textContent = equationPart;
+      detail.append(part);
+    }
     item.append(term, detail);
     statGrid.append(item);
   }

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.490": [
+    "Profile stat equations now evenly space base values, tech percentages, equipment multipliers, and final totals without covering their labels.",
+  ],
   "0.489": [
     "Profile stats now use compact one-line Camel Case equations without Base, Equipment, or Total labels.",
     "Duel results now credit blocked damage to the armored defender, including corrected existing replay totals.",
@@ -938,6 +941,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.490": "2026-08-24",
   "0.489": "2026-08-24",
   "0.488": "2026-08-24",
   "0.487": "2026-08-22",

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { FROST_ARMOR, FROST_BOW, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
 import type { PlayerProgress } from "../wildwood-coop";
-import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows } from "./profile";
+import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows, profileStatEquationParts } from "./profile";
 
 const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress => ({
   maxHp: 100,
@@ -124,6 +124,7 @@ describe("profile stat display", () => {
       label: "Damage:",
       equation: "20  +8%  × 2.00×  = 62",
     });
+    expect(profileStatEquationParts(rows[1].equation)).toEqual(["20", "+8%", "× 2.00×", "= 62"]);
     expect(rows.map((row) => `${row.label} ${row.equation}`).join(" ")).not.toMatch(/\b(?:BASE|EQUIPMENT|TOTAL)\b/);
   });
 });
