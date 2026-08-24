@@ -62,6 +62,7 @@ describe("enemy sprite loading", () => {
     const onSettled = vi.fn();
     const assets = loadEnemySprites(onSettled);
 
+    expect(Object.keys(assets.sprites).sort()).toEqual(Object.keys(ENEMY_TYPES).sort());
     expect(assets.ready()).toBe(false);
     images.slice(0, -1).forEach((image) => image.dispatchEvent(new Event("load")));
     expect(assets.ready()).toBe(false);

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Wildwood Enemy Sprite Aligner</title>
+<style>
+  :root { color-scheme: dark; font-family: Inter, ui-rounded, system-ui, sans-serif; background: #101712; color: #f5f4e9; }
+  * { box-sizing: border-box; }
+  body { min-width: 320px; min-height: 100vh; margin: 0; padding: 18px; background: radial-gradient(circle at top, #253727 0, #101712 58%); }
+  main { width: min(1180px, 100%); margin: auto; }
+  h1 { margin: 0; font-size: clamp(21px, 3vw, 29px); letter-spacing: -.02em; }
+  h2 { margin: 0; font-size: 15px; }
+  p { margin: 5px 0 16px; color: #bdcaba; font-size: 13px; line-height: 1.45; }
+  button, input, select, textarea { font: inherit; }
+  button, select, input[type="number"] { min-height: 44px; border: 2px solid #071008; border-radius: 8px; }
+  button { padding: 8px 13px; background: #f6f2d9; color: #111b12; font-weight: 800; cursor: pointer; }
+  button:hover { background: #fff; }
+  button:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible { outline: 3px solid #7df18a; outline-offset: 2px; }
+  button.secondary { background: #263629; color: #f5f4e9; border-color: #516a53; }
+  button.danger { background: #63382f; color: #fff5e8; border-color: #1e0a07; }
+  label { display: grid; gap: 5px; min-width: 0; color: #d9e2d5; font-size: 12px; font-weight: 750; }
+  select, input[type="number"] { width: 100%; padding: 7px 9px; background: #f4f0dc; color: #132016; }
+  input[type="range"] { width: 100%; accent-color: #69db75; }
+  input[type="file"] { max-width: 100%; }
+  .top-controls { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; padding: 12px; border: 2px solid #050805; border-radius: 12px; background: #1c291e; }
+  .range-value { color: #8bf598; font-variant-numeric: tabular-nums; }
+  .workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .65fr); gap: 12px; }
+  .panel { overflow: hidden; border: 2px solid #050805; border-radius: 12px; background: #1c291e; box-shadow: 0 8px 22px rgba(0,0,0,.22); }
+  .panel-heading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #435247; background: #243528; }
+  .panel-heading span { color: #aebdab; font-size: 12px; }
+  .stage-wrap { padding: 10px; background: #0e160f; }
+  canvas { display: block; width: 100%; max-height: 62vh; aspect-ratio: 19 / 14; border: 2px solid #050805; border-radius: 8px; background: #c89d59; touch-action: none; }
+  .reference-body { display: grid; min-height: 300px; grid-template-rows: auto minmax(220px, 1fr); gap: 10px; padding: 12px; }
+  .reference-drop { position: relative; display: grid; min-height: 220px; place-items: center; overflow: hidden; border: 2px dashed #607463; border-radius: 9px; background: #111b13; }
+  .reference-drop.is-over { border-color: #8bf598; background: #1b2d1e; }
+  .reference-drop img { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: auto; }
+  .reference-drop p { max-width: 220px; margin: 0; padding: 20px; text-align: center; }
+  .editor { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+  .layers { padding: 10px; }
+  .layer-list { display: grid; gap: 6px; margin-top: 8px; }
+  .layer-button { display: grid; min-height: 44px; grid-template-columns: 26px 1fr; align-items: center; gap: 8px; padding: 6px 8px; text-align: left; background: #17221a; color: #dce6da; border-color: #3e5141; }
+  .layer-button[aria-pressed="true"] { background: #e9d077; color: #19170d; border-color: #080703; }
+  .layer-order { color: inherit; opacity: .68; font-variant-numeric: tabular-nums; text-align: center; }
+  .layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .layer-actions, .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .layer-actions button { flex: 1; min-width: 96px; }
+  .properties { padding: 12px; }
+  .property-grid { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 10px; }
+  fieldset { min-width: 0; margin: 12px 0 0; padding: 10px; border: 1px solid #526456; border-radius: 9px; }
+  legend { padding: 0 6px; color: #aee9b4; font-size: 12px; font-weight: 850; }
+  .check { display: flex; min-height: 44px; align-items: center; gap: 8px; }
+  .check input { width: 20px; height: 20px; accent-color: #6de779; }
+  textarea { width: 100%; min-height: 170px; margin-top: 10px; padding: 10px; resize: vertical; border: 1px solid #526456; border-radius: 8px; background: #0c130e; color: #dbe8d9; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .status { min-height: 22px; margin: 8px 0 0; color: #8bf598; font-size: 12px; }
+  .shortcut { margin: 9px 0 0; color: #9fb09e; font-size: 12px; }
+  .file-button { position: relative; overflow: hidden; }
+  .file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  [hidden] { display: none !important; }
+  @media (max-width: 850px) {
+    .top-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .top-controls label:first-child { grid-column: 1 / -1; }
+    .workspace, .editor { grid-template-columns: 1fr; }
+    .reference-body { min-height: 250px; }
+  }
+  @media (max-width: 520px) {
+    body { padding: 10px; }
+    .property-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .top-controls { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Enemy Sprite Aligner</h1>
+  <p>Uses the game’s live layer data. Select or click a layer, then drag it into place. Load the desired artwork on the right for comparison.</p>
+
+  <section class="top-controls" aria-label="Preview controls">
+    <label>Enemy<select id="enemy"></select></label>
+    <label>Facing<select id="facing"><option value="right">Right</option><option value="left">Left · mirrored</option></select></label>
+    <label>Preview state<select id="pose"><option value="idle">Idle</option><option value="aiming">Aiming</option></select></label>
+    <label>Aim angle <span id="aimAngleValue" class="range-value">0°</span><input id="aimAngle" type="range" min="-90" max="90" value="0" /></label>
+    <label>Preview zoom <span id="zoomValue" class="range-value">4.0×</span><input id="zoom" type="range" min="2" max="5" step="0.25" value="4" /></label>
+  </section>
+
+  <section class="workspace">
+    <div class="panel">
+      <div class="panel-heading"><h2>Game-accurate preview</h2><span>Click a layer · drag to move</span></div>
+      <div class="stage-wrap"><canvas id="canvas" width="760" height="560" tabindex="0" aria-label="Editable enemy sprite preview"></canvas></div>
+    </div>
+    <aside class="panel">
+      <div class="panel-heading"><h2>Desired example</h2><button id="clearReference" class="secondary" type="button">Clear</button></div>
+      <div class="reference-body">
+        <label>Choose, drop, or paste an image<input id="referenceInput" type="file" accept="image/*" /></label>
+        <div id="referenceDrop" class="reference-drop">
+          <p id="referencePlaceholder">Drop or paste the correct example here so it stays beside the editable sprite.</p>
+          <img id="referenceImage" alt="Desired enemy sprite reference" hidden />
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="editor">
+    <aside class="panel layers">
+      <h2>Layers · back to front</h2>
+      <div id="layerList" class="layer-list"></div>
+      <div class="layer-actions">
+        <button id="moveBack" class="secondary" type="button">Move back</button>
+        <button id="moveFront" class="secondary" type="button">Move front</button>
+      </div>
+    </aside>
+
+    <section class="panel properties">
+      <h2 id="selectedTitle">Selected layer</h2>
+      <fieldset>
+        <legend>Layer rectangle · game units</legend>
+        <div class="property-grid">
+          <label>X<input id="layerX" type="number" step="1" /></label>
+          <label>Y<input id="layerY" type="number" step="1" /></label>
+          <label>Width<input id="layerWidth" type="number" min="1" step="1" /></label>
+          <label>Height<input id="layerHeight" type="number" min="1" step="1" /></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Whole sprite</legend>
+        <div class="property-grid">
+          <label>Nominal size<input id="spriteSize" type="number" min="1" step="1" /></label>
+          <label>Nominal height<input id="spriteHeight" type="number" min="1" step="1" /></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Target-aware rotation</legend>
+        <label class="check"><input id="aimEnabled" type="checkbox" /> Rotate this layer around a hand pivot</label>
+        <div id="aimProperties" class="property-grid">
+          <label>Pivot X<input id="pivotX" type="number" step="1" /></label>
+          <label>Pivot Y<input id="pivotY" type="number" step="1" /></label>
+          <label>Base rotation °<input id="baseRotation" type="number" step="1" /></label>
+          <label class="check"><input id="movePivot" type="checkbox" checked /> Move pivot with layer</label>
+        </div>
+      </fieldset>
+      <p class="shortcut">Arrow keys nudge 1 unit; Shift + arrows nudge 5. The cyan cross is the rotation pivot.</p>
+      <div class="actions">
+        <button id="saveValues" type="button">Save values (.txt)</button>
+        <button id="copyValues" type="button">Copy values</button>
+        <button id="copyTypeScript" class="secondary" type="button">Copy TypeScript</button>
+        <label class="file-button"><button class="secondary" type="button" tabindex="-1">Load values</button><input id="loadValues" type="file" accept=".txt,.json,text/plain,application/json" /></label>
+        <button id="resetLayer" class="secondary" type="button">Reset layer</button>
+        <button id="resetEnemy" class="danger" type="button">Reset enemy</button>
+      </div>
+      <div id="status" class="status" role="status"></div>
+      <textarea id="valueOutput" readonly aria-label="Current alignment values"></textarea>
+    </section>
+  </section>
+</main>
+<script type="module" src="enemy-sprite-aligner.js"></script>
+</body>
+</html>

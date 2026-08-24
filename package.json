@@ -20,7 +20,8 @@
     "typecheck:coop": "tsc --noEmit -p tsconfig.coop.json",
     "typecheck:loadtest": "tsc --noEmit -p tsconfig.loadtest.json",
     "serve:dist": "python3 -m http.server --directory dist 8000",
-    "art:align": "python3 -m http.server --directory . 4173"
+    "art:align": "python3 -m http.server --directory . 4173",
+    "art:enemy-align": "python3 -m http.server --directory . 4173"
   },
   "dependencies": {
     "spacetimedb": "2.8.1"

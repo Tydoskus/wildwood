@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.497": [
+    "Added a one-click Enemy Sprite Aligner that reads the game’s exact live layer data, previews facing and target-aware rotation, supports direct dragging and reference images, and saves complete alignment values to a shareable text file.",
+  ],
   "0.496": [
     "Enemy artwork now participates in startup loading with bounded retries and partial-layer recovery, preventing delayed mobile assets from turning desert enemies into pixelated fallback blobs.",
     "Dune Archer bows now face their target correctly, enemy shadows sit beneath their feet, and the Upgrade Bench interaction footprint matches its raised artwork.",
@@ -967,6 +970,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.497": "2026-08-24",
   "0.496": "2026-08-24",
   "0.495": "2026-08-24",
   "0.494": "2026-08-24",
