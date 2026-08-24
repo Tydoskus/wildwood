@@ -78,6 +78,41 @@ export function profilePower(profile: PlayerProfileData) {
   );
 }
 
+export function profileStatDisplayRows(
+  profile: PlayerProfileData,
+  armorReduction: (armor: number) => string,
+  minAttackInterval: number,
+  research?: PlayerResearch,
+) {
+  const { progress } = profile;
+  const ranks = research ?? profile.research ?? createEmptyResearchRanks();
+  const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
+  const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
+  const researchBonus = (rank = 0, percentPerRank = 0) => rank * percentPerRank;
+  const equipmentFactor = (equipmentMultiplier: number) => equipmentMultiplier > 1
+    ? `  × ${(equipmentMultiplier - 1).toFixed(2)}×`
+    : "";
+  const equation = (base: string, finalValue: string, researchPercent?: number, equipmentMultiplier = 1) =>
+    `${base}${researchPercent === undefined ? "" : `  +${researchPercent}%`}${equipmentFactor(equipmentMultiplier)}  = ${finalValue}`;
+  const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s${effective.attackRate <= minAttackInterval + .0001 ? " (Max Attack Speed)" : ""}`;
+  const regen = `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`;
+  const stats: Array<{ kind: string; label: string; equation: string }> = [
+    { kind: "health", label: "Max Hp:", equation: equation(statValue(progress.maxHp / effective.multipliers.healthResearch), statValue(effective.maxHp), researchBonus(ranks.vitality, 2), effective.multipliers.healthEquipment) },
+    { kind: "damage", label: "Damage:", equation: equation(statValue(progress.damage), statValue(effective.damage), researchBonus(ranks.warcraft, 2), effective.multipliers.damageEquipment) },
+    { kind: "armor", label: "Armor:", equation: equation(statValue(progress.armor), `${statValue(effective.armor)} (${armorReduction(effective.armor)} Damage Reduction)`, researchBonus(ranks.precision, 2)) },
+    { kind: "attack", label: "Attack Speed:", equation: equation(`${(1 / progress.attackRate).toFixed(2)}/s`, attackSpeed, undefined, effective.multipliers.attackSpeed) },
+    { kind: "range", label: "Attack Range:", equation: equation(Math.round(progress.attackRange).toLocaleString(), Math.round(progress.attackRange).toLocaleString()) },
+    { kind: "regen", label: "Regen:", equation: equation(progress.regen >= 1_000_000 ? `${formatCompactNumber(progress.regen)}/s` : `${progress.regen.toFixed(1)}/s`, regen, researchBonus(ranks.regeneration, 2), effective.multipliers.regenEquipment) },
+    { kind: "speed", label: "Move Speed:", equation: equation(statValue(progress.speedOverride > 0 ? progress.speedOverride : progress.speed), statValue(effective.speed), researchBonus(ranks.moveSpeed, 2)) },
+  ];
+  const statGain = ranks.foraging + ranks.prosperity * 2;
+  stats.push({ kind: "stat-gain", label: "Stat Gain:", equation: `0%  +${statGain}%  = +${statGain}%` });
+  stats.push({ kind: "critical", label: "Critical Chance:", equation: `0%  +${ranks.criticalChance}%  = ${ranks.criticalChance}%` });
+  const criticalDamage = 1.05 + ranks.criticalDamage * .05;
+  stats.push({ kind: "critical-damage", label: "Critical Damage:", equation: `1.05×  +${(ranks.criticalDamage * .05).toFixed(2)}×  = ${criticalDamage.toFixed(2)}×` });
+  return stats;
+}
+
 export function renderProfileStats(
   profile: PlayerProfileData,
   statGrid: HTMLElement,
@@ -85,29 +120,7 @@ export function renderProfileStats(
   minAttackInterval: number,
   research?: PlayerResearch,
 ) {
-  const { progress } = profile;
-  const ranks = research ?? profile.research ?? createEmptyResearchRanks();
-  const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
-  const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
-  const modifier = (base: number, rank = 0, percentPerRank = 0) => `BASE: ${statValue(base)} · +${rank * percentPerRank}% · ×${multiplier(rank, percentPerRank).toFixed(2)}`;
-  const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
-  const equipmentModifier = (equipmentMultiplier: number, totalMultiplier: number) => equipmentMultiplier > 1
-    ? ` · EQUIPMENT +${(equipmentMultiplier - 1).toFixed(2)}× · TOTAL ×${totalMultiplier.toFixed(2)}`
-    : "";
-  const stats: Array<{ kind: string; label: string; value: string; modifier?: string }> = [
-    { kind: "health", label: "MAX HP", value: statValue(effective.maxHp), modifier: `${modifier(progress.maxHp / effective.multipliers.healthResearch, ranks.vitality, 2)}${equipmentModifier(effective.multipliers.healthEquipment, effective.multipliers.healthResearch * effective.multipliers.healthEquipment)}` },
-    { kind: "damage", label: "DAMAGE", value: statValue(effective.damage), modifier: `${modifier(progress.damage, ranks.warcraft, 2)}${equipmentModifier(effective.multipliers.damageEquipment, effective.multipliers.damageTotal)}` },
-    { kind: "armor", label: "ARMOR", value: `${statValue(effective.armor)} (${armorReduction(effective.armor)} damage reduction)`, modifier: modifier(progress.armor, ranks.precision, 2) },
-    { kind: "attack", label: "ATTACK SPEED", value: `${(1 / effective.attackRate).toFixed(2)}/s${effective.attackRate <= minAttackInterval + .0001 ? " (max attack speed)" : ""}`, modifier: `BASE: ${(1 / progress.attackRate).toFixed(2)}/s${equipmentModifier(effective.multipliers.attackSpeed, effective.multipliers.attackSpeed)}` },
-    { kind: "range", label: "ATTACK RANGE", value: Math.round(progress.attackRange).toLocaleString(), modifier: modifier(progress.attackRange) },
-    { kind: "regen", label: "REGEN", value: `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`, modifier: `${modifier(progress.regen, ranks.regeneration, 2)}${equipmentModifier(effective.multipliers.regenEquipment, effective.multipliers.regenTotal)}` },
-    { kind: "speed", label: "MOVE SPEED", value: Math.round(effective.speed).toLocaleString(), modifier: modifier(progress.speedOverride > 0 ? progress.speedOverride : progress.speed, ranks.moveSpeed, 2) },
-  ];
-  const statGain = ranks.foraging + ranks.prosperity * 2;
-  stats.push({ kind: "stat-gain", label: "STAT GAIN", value: `+${statGain}%`, modifier: `BASE: 0% · +${statGain}% · ×${multiplier(statGain, 1).toFixed(2)}` });
-  stats.push({ kind: "critical", label: "CRITICAL CHANCE", value: `${ranks.criticalChance}%`, modifier: `BASE: 0% · +${ranks.criticalChance}% · ×1.00` });
-  const criticalDamage = 1.05 + ranks.criticalDamage * .05;
-  stats.push({ kind: "critical-damage", label: "CRITICAL DAMAGE", value: `×${criticalDamage.toFixed(2)}`, modifier: `BASE: ×1.05 · +${(ranks.criticalDamage * .05).toFixed(2)}` });
+  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research);
   statGrid.replaceChildren();
   for (const stat of stats) {
     const item = document.createElement("div");
@@ -115,14 +128,8 @@ export function renderProfileStats(
     const term = document.createElement("dt");
     const detail = document.createElement("dd");
     term.textContent = stat.label;
-    detail.textContent = stat.value;
+    detail.textContent = stat.equation;
     item.append(term, detail);
-    if (stat.modifier) {
-      const modifier = document.createElement("small");
-      modifier.className = "profile-stat-modifier";
-      modifier.textContent = stat.modifier;
-      item.append(modifier);
-    }
     statGrid.append(item);
   }
 }

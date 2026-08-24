@@ -1618,11 +1618,10 @@
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
   .profile-stat-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(0,0,0,.27); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-  .profile-stat-grid > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline; min-height: 25px; padding: 5px 8px; border: 0; border-bottom: 1px solid rgba(255,255,255,.1); border-radius: 0; background: transparent; }
+  .profile-stat-grid > div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: baseline; min-height: 25px; padding: 5px 8px; border: 0; border-bottom: 1px solid rgba(255,255,255,.1); border-radius: 0; background: transparent; }
   .profile-stat-grid > div:last-child { border-bottom: 0; }
   .profile-stat-grid dt { font-size: 10px; letter-spacing: .04em; white-space: nowrap; }
-  .profile-stat-grid dd { margin: 0; color: #fff; font-size: 10px; line-height: 1.15; text-align: right; white-space: nowrap; }
-  .profile-stat-modifier { grid-column: 1 / -1; color: #bfc6ce; font-size: 8px; letter-spacing: .04em; }
+  .profile-stat-grid dd { min-width: 0; margin: 0; color: #fff; font-size: clamp(8px, 1.6vw, 10px); line-height: 1.15; text-align: right; white-space: nowrap; }
   .profile-stat-health dt, .profile-stat-regen dt { color: #72ef58; }
   .profile-stat-damage dt { color: #ff8b77; }
   .profile-stat-armor dt { color: #c3cbcf; }
@@ -1836,7 +1835,7 @@
     .player-profile-modal .profile-grid dt { font-size: 7px; }
     .player-profile-modal .profile-grid dd { margin-top: 2px; font-size: 10px; }
     .player-profile-modal .profile-stat-grid { gap: 0; }
-    .player-profile-modal .profile-stat-grid > div { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-height: 23px; padding: 4px 6px; }
+    .player-profile-modal .profile-stat-grid > div { grid-template-columns: auto minmax(0, 1fr); gap: 8px; min-height: 23px; padding: 4px 6px; }
     .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .profile-edit-button { margin-top: 5px; padding: 4px 7px; font-size: 8px; }
     .modal.leaderboard-modal { padding: max(9px, env(safe-area-inset-top)) max(9px, env(safe-area-inset-right)) 9px max(9px, env(safe-area-inset-left)); }
@@ -2093,7 +2092,6 @@
   .profile-grid dt,
   .profile-stat-grid dt,
   .profile-stat-grid dd,
-  .profile-stat-modifier,
   .profile-name-editor-modal label,
   .leaderboard-podium-name,
   .leaderboard-podium-rank-label,

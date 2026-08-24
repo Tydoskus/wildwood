@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { FROST_ARMOR, FROST_BOW, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
 import type { PlayerProgress } from "../wildwood-coop";
-import { effectiveProfileStats, profilePresenceText } from "./profile";
+import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows } from "./profile";
 
 const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress => ({
   maxHp: 100,
@@ -101,5 +101,29 @@ describe("effective profile equipment stats", () => {
     const armor = effectiveProfileStats(progress("", FROST_ARMOR), createEmptyResearchRanks(), { [FROST_ARMOR]: 1 });
     expect(armor.maxHp).toBeCloseTo(240);
     expect(armor.regen).toBeCloseTo(4.8);
+  });
+});
+
+describe("profile stat display", () => {
+  it("uses one Camel Case equation without Base, Equipment, or Total labels", () => {
+    const research = { ...createEmptyResearchRanks(), vitality: 5, warcraft: 4 };
+    const profile = {
+      progress: progress(FROST_BOW, FROST_ARMOR),
+      research,
+      itemUpgradeLevels: {},
+    } as Parameters<typeof profileStatDisplayRows>[0];
+    const rows = profileStatDisplayRows(profile, () => "50%", .1);
+
+    expect(rows[0]).toEqual({
+      kind: "health",
+      label: "Max Hp:",
+      equation: "91  +10%  × 1.00×  = 200",
+    });
+    expect(rows[1]).toEqual({
+      kind: "damage",
+      label: "Damage:",
+      equation: "20  +8%  × 2.00×  = 62",
+    });
+    expect(rows.map((row) => `${row.label} ${row.equation}`).join(" ")).not.toMatch(/\b(?:BASE|EQUIPMENT|TOTAL)\b/);
   });
 });

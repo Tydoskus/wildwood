@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.489": [
+    "Profile stats now use compact one-line Camel Case equations without Base, Equipment, or Total labels.",
+    "Duel results now credit blocked damage to the armored defender, including corrected existing replay totals.",
+  ],
   "0.488": [
     "Foraging and Prosperity Stat Gain bonuses now scale every boss stat reward and its displayed value.",
     "Power now uses the same research, equipment, and upgrade calculation across profiles, leaderboards, HUD and overhead labels, remote players, and chat.",
@@ -934,6 +938,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.489": "2026-08-24",
   "0.488": "2026-08-24",
   "0.487": "2026-08-22",
   "0.486": "2026-08-22",
