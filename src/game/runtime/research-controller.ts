@@ -1,6 +1,6 @@
 import { clamp } from "../math";
 import type { PlayerState } from "./types";
-import { createEmptyResearchRanks, type ResearchRanks } from "../../../shared/research";
+import { createEmptyResearchRanks, researchStatRewardMultiplier, type ResearchRanks } from "../../../shared/research";
 import { applyPlayerMaxHealthMultiplier } from "./player-health";
 import { movementSpeedMultiplier } from "../../../shared/rules";
 
@@ -26,7 +26,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     ranks,
     damageMultiplier: () => 1 + ranks().warcraft * .02,
     movementSpeedMultiplier: () => movementSpeedMultiplier(ranks().moveSpeed),
-    rewardMultiplier: () => 1 + ranks().foraging * .01 + ranks().prosperity * .02,
+    rewardMultiplier: () => researchStatRewardMultiplier(ranks()),
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     regenerationMultiplier: () => 1 + ranks().regeneration * .02,
     criticalChance: () => ranks().criticalChance * .01,

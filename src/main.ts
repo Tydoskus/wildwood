@@ -52,7 +52,7 @@ import { createItemInspectionController } from "./ui/item-inspection-controller"
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
 import { createLeaderboardController } from "./ui/leaderboard-controller";
 import { createProfileWindowController } from "./ui/profile-window-controller";
-import { formatPlayedTime, profilePresenceText, renderProfileStats } from "./ui/profile";
+import { formatPlayedTime, profilePower, profilePresenceText, renderProfileStats } from "./ui/profile";
 import { createTechTreeController } from "./ui/tech-tree-controller";
 import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
@@ -67,6 +67,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
+import { effectivePlayerPower } from "../shared/player-power";
 import { isWeaponItem, itemDisplayName, itemMaxHealthMultiplier, itemRegenerationMultiplier, itemStats } from "../shared/items";
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
@@ -494,8 +495,17 @@ import {
     drawSpeechBubble,
     drawActorStatus,
     drawPlayerIdentity,
-    playerPower,
   } = playerIdentityRenderer;
+  const playerPower: typeof playerIdentityRenderer.playerPower = () => effectivePlayerPower({
+    maxHp: player.baseMaxHp,
+    damage: player.damage,
+    attackRate: player.attackRate,
+    armor: player.armor,
+    regen: player.regen,
+    equippedChest: inventory.equippedChest,
+    equippedRightHand: inventory.equippedRightHand,
+    equippedLeftHand: inventory.equippedLeftHand,
+  }, researchRanks(), (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0);
 
   let playerController: PlayerController;
   const mapController = createMapController({
@@ -586,6 +596,7 @@ import {
     showMessage,
     saveProgress,
     healthMultiplier,
+    rewardMultiplier: researchRewardMultiplier,
   });
 
   let playerSpriteReady = false;
@@ -839,7 +850,7 @@ import {
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research),
-    renderRankings: () => undefined, entries: () => coop?.leaderboardEntries?.() ?? [], formatPower: (progress) => formatCompactNumber(playerPower(progress)), formatPlayedTime,
+    renderRankings: () => undefined, entries: () => coop?.leaderboardEntries?.() ?? [], formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0, requestDuel: async (identity) => coop?.requestDuel?.(identity),
     isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), showMessage,

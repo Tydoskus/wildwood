@@ -162,6 +162,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: options.drawShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
+    rewardMultiplier: options.rewardMultiplier,
   });
   const actor = createActorRenderer({
     ctx: options.ctx,

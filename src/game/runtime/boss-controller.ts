@@ -14,9 +14,11 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  DRAGON_REWARD_DAMAGE,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
 } from "../../../shared/rules";
+import { rewardLabel, type RewardType } from "../enemies";
 import { clamp, rand } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type {
@@ -130,6 +132,7 @@ export function createBossController(options: {
   showMessage: (text: string, color: string) => void;
   saveProgress: () => void;
   healthMultiplier?: () => number;
+  rewardMultiplier?: () => number;
 }): BossController {
   const {
     boss, spiderBoss, frostclawBoss, bossRain, spiderVenom, frostclawIcefalls, player, elements,
@@ -158,6 +161,14 @@ export function createBossController(options: {
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
+
+  function scaledReward(type: RewardType, baseAmount: number) {
+    const multiplier = options.rewardMultiplier?.() ?? 1;
+    return {
+      type,
+      amount: baseAmount * (Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1),
+    };
+  }
 
   function resetBoss() {
     const shared = getDragonBoss();
@@ -279,18 +290,20 @@ export function createBossController(options: {
     }
     shownSpiderResultEncounter = result.encounter;
     renderResult(result, "Desert Spider Defeated");
+    const damageReward = scaledReward("damage", SPIDER_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", SPIDER_REWARD_HEALTH);
     const encounterKey = String(result.encounter);
     if (!locallyRewardedSpiderEncounters.has(encounterKey)) {
       // The authoritative reward arrives through the server result. Mirror it
       // into the active runtime now so the overhead HP and Power labels change
       // in the same frame as the reward notice, not after a later save sync.
       locallyRewardedSpiderEncounters.add(encounterKey);
-      player.damage += SPIDER_REWARD_DAMAGE;
-      addPlayerBaseMaxHealth(player, SPIDER_REWARD_HEALTH, options.healthMultiplier?.() ?? 1);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
     }
-    logPickup("+75K DAMAGE", "#ff655a");
-    logPickup("+200K MAX HEALTH", "#6fe48e");
-    showMessage("+75K DAMAGE · +200K MAX HEALTH", "#f5e9c4");
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    showMessage(`${rewardLabel(damageReward)} · ${rewardLabel(healthReward)}`, "#f5e9c4");
   }
 
   function showFrostclawResult(result: BossResult | null | undefined) {
@@ -308,17 +321,20 @@ export function createBossController(options: {
     }
     shownFrostclawResultEncounter = result.encounter;
     renderResult(result, "Frostclaw Defeated");
+    const damageReward = scaledReward("damage", FROSTCLAW_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", FROSTCLAW_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", FROSTCLAW_REWARD_ARMOR);
     const encounterKey = String(result.encounter);
     if (!locallyRewardedFrostclawEncounters.has(encounterKey)) {
       locallyRewardedFrostclawEncounters.add(encounterKey);
-      player.damage += FROSTCLAW_REWARD_DAMAGE;
-      addPlayerBaseMaxHealth(player, FROSTCLAW_REWARD_HEALTH, options.healthMultiplier?.() ?? 1);
-      player.armor += FROSTCLAW_REWARD_ARMOR;
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
     }
-    logPickup("+72M DAMAGE", "#ff655a");
-    logPickup("+270M MAX HEALTH", "#6fe48e");
-    logPickup("+75K ARMOR", "#d3dbe0");
-    showMessage("+72M DAMAGE · +270M MAX HEALTH · +75K ARMOR", "#dff7ff");
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), "#d3dbe0");
+    showMessage(`${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)}`, "#dff7ff");
   }
 
   function killBoss() {
@@ -353,12 +369,13 @@ export function createBossController(options: {
       return;
     }
     renderResult(result, "Dragon Defeated", true);
+    const damageReward = scaledReward("damage", DRAGON_REWARD_DAMAGE);
     const encounterKey = String(result.encounter);
     if (!locallyRewardedDragonEncounters.has(encounterKey)) {
       locallyRewardedDragonEncounters.add(encounterKey);
-      player.damage += 650;
-      logPickup("+650 DAMAGE", "#ff655a");
-      showMessage("+650 DAMAGE", "#ff655a");
+      player.damage += damageReward.amount;
+      logPickup(rewardLabel(damageReward), "#ff655a");
+      showMessage(rewardLabel(damageReward), "#ff655a");
       saveProgress();
     }
   }

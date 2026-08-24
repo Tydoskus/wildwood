@@ -183,19 +183,13 @@ function renderEquipmentSlot(
 ) {
   const itemId = equipmentItemId(inventory, destination, mode);
   const item = itemsById[itemId];
-  const selected = inventory.selectedItemLocation === destination && inventory.selectedItemId === itemId;
-  const hasSelection = Boolean(itemsById[inventory.selectedItemId]);
-  const compatible = hasSelection && !selected && itemFitsEquipmentSlot(inventory.selectedItemId, destination);
   element.classList.toggle("is-equipped", Boolean(itemId));
   element.classList.toggle("is-cosmetic", mode === "COSMETICS" && Boolean(itemId));
-  element.classList.toggle("is-selected", selected);
-  element.classList.toggle("is-compatible", compatible);
-  element.classList.toggle("is-incompatible", hasSelection && !selected && !compatible);
+  updateEquipmentSlotSelection(element, inventory, destination, mode);
   const level = upgradeLevel(itemId);
   element.setAttribute("aria-label", itemId
     ? `${label}: ${itemDisplayName(itemId, level)}. Tap to select. Hold for two seconds for details.`
     : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
-  element.setAttribute("aria-pressed", String(selected));
   const slotLabel = document.createElement("span");
   slotLabel.className = "equipment-slot-label";
   slotLabel.textContent = label;
@@ -220,12 +214,42 @@ function renderEquipmentSlot(
   }
 }
 
+function updateEquipmentSlotSelection(
+  element: HTMLElement,
+  inventory: InventoryViewState,
+  destination: EquipmentSlot,
+  mode: InventoryMode,
+) {
+  const itemId = equipmentItemId(inventory, destination, mode);
+  const selected = inventory.selectedItemLocation === destination && inventory.selectedItemId === itemId;
+  const hasSelection = Boolean(itemsById[inventory.selectedItemId]);
+  const compatible = hasSelection && !selected && itemFitsEquipmentSlot(inventory.selectedItemId, destination);
+  element.classList.toggle("is-selected", selected);
+  element.classList.toggle("is-compatible", compatible);
+  element.classList.toggle("is-incompatible", hasSelection && !selected && !compatible);
+  element.setAttribute("aria-pressed", String(selected));
+}
+
+function updateInventorySelection(elements: InventoryElements, inventory: InventoryViewState, mode: InventoryMode) {
+  updateEquipmentSlotSelection(elements.equippedHead, inventory, "HEAD", mode);
+  updateEquipmentSlotSelection(elements.equippedChest, inventory, "CHEST", mode);
+  updateEquipmentSlotSelection(elements.equippedRightHand, inventory, "RIGHT_HAND", mode);
+  updateEquipmentSlotSelection(elements.equippedLeftHand, inventory, "LEFT_HAND", mode);
+  updateEquipmentSlotSelection(elements.equippedFeet, inventory, "FEET", mode);
+  elements.items.querySelectorAll<HTMLButtonElement>(".inventory-item.is-filled").forEach((button) => {
+    const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === button.dataset.itemId;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
 export function renderInventoryView(
   elements: InventoryElements,
   inventory: InventoryViewState,
   mode: InventoryMode,
   actions: {
     onSelect: (itemId: string, location: EquipmentSlot | "BAG" | "") => void;
+    onPressSelect: (itemId: string, location: EquipmentSlot | "BAG") => void;
     onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
     onInspect: (itemId: string, location: EquipmentSlot | "BAG") => void;
     upgradeLevel: (itemId: string) => number;
@@ -245,6 +269,7 @@ export function renderInventoryView(
     const itemId = stack?.itemId;
     const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === itemId;
     const button = document.createElement("button");
+    let selectedAtPointerDown = false;
     button.type = "button";
     button.className = "inventory-item" + (itemId ? " is-filled" : " is-empty") +
       (selected ? " is-selected" : "");
@@ -253,6 +278,7 @@ export function renderInventoryView(
       const level = normalizeItemUpgradeLevel(actions.upgradeLevel(itemId));
       button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to select. Hold for two seconds for details.`);
       button.setAttribute("aria-pressed", String(selected));
+      button.dataset.itemId = itemId;
       const art = document.createElement("span");
       art.className = "inventory-item-art-wrap";
       art.innerHTML = itemArt(itemId);
@@ -266,8 +292,21 @@ export function renderInventoryView(
         badge.textContent = `+${level}`;
         button.appendChild(badge);
       }
-      button.addEventListener("click", () => actions.onSelect(itemId, "BAG"));
-      bindLongPress(button, { onLongPress: () => actions.onInspect(itemId, "BAG") });
+      button.addEventListener("click", (event) => {
+        // Pointer presses select immediately. Keep click for keyboard access
+        // and for releasing an item that was already selected.
+        if (event.detail === 0 || selectedAtPointerDown) actions.onSelect(itemId, "BAG");
+      });
+      bindLongPress(button, {
+        onPress: () => {
+          selectedAtPointerDown = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === itemId;
+          if (!selectedAtPointerDown) {
+            actions.onPressSelect(itemId, "BAG");
+            updateInventorySelection(elements, inventory, mode);
+          }
+        },
+        onLongPress: () => actions.onInspect(itemId, "BAG"),
+      });
     } else {
       const canMoveSelectedToBag = Boolean(inventory.selectedItemId && inventory.selectedItemLocation && inventory.selectedItemLocation !== "BAG");
       button.setAttribute("aria-label", canMoveSelectedToBag ? "Move selected item to bag" : `Empty bag slot ${index + 1}: clear selection`);

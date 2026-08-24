@@ -1,5 +1,6 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
+import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
 
@@ -44,12 +45,13 @@ export function effectiveProfileStats(
   const regenTotalMultiplier = itemRegenerationMultiplier(progress.equippedChest, regenResearchMultiplier, chestUpgradeLevel);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   const baseSpeed = progress.speedOverride > 0 ? progress.speedOverride : progress.speed;
+  const powerStats = effectivePlayerPowerStats(
+    progress,
+    research,
+    (itemId) => itemUpgradeLevels[itemId] ?? 0,
+  );
   return {
-    maxHp: progress.maxHp * healthEquipmentMultiplier,
-    damage: progress.damage * damageTotalMultiplier,
-    attackRate: progress.attackRate / attackSpeedMultiplier,
-    armor: progress.armor * armorMultiplier,
-    regen: progress.regen * regenTotalMultiplier,
+    ...powerStats,
     speed: baseSpeed * speedMultiplier,
     multipliers: {
       healthResearch: healthResearchMultiplier,
@@ -66,6 +68,14 @@ export function effectiveProfileStats(
       speed: speedMultiplier,
     },
   };
+}
+
+export function profilePower(profile: PlayerProfileData) {
+  return effectivePlayerPower(
+    profile.progress,
+    profile.research,
+    (itemId) => profile.itemUpgradeLevels[itemId] ?? 0,
+  );
 }
 
 export function renderProfileStats(

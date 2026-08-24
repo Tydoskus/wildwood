@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.488": [
+    "Foraging and Prosperity Stat Gain bonuses now scale every boss stat reward and its displayed value.",
+    "Power now uses the same research, equipment, and upgrade calculation across profiles, leaderboards, HUD and overhead labels, remote players, and chat.",
+    "Inventory items now select on press so a two-second hold opens details without requiring release first.",
+  ],
   "0.487": [
     "Improved leaderboard and chat readability with 44px player rows, roomier message spacing, and larger maximized-chat portraits.",
   ],
@@ -929,6 +934,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.488": "2026-08-24",
   "0.487": "2026-08-22",
   "0.486": "2026-08-22",
   "0.485": "2026-08-22",

@@ -20,7 +20,7 @@ export function createProfileWindowController(elements: {
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
   renderCharacter: (identity: string, progress: Profile["progress"] | null, visible: boolean) => void; skinTone: (identity?: string) => number; setSkinTone: (value: number) => Promise<{ ok?: boolean; error?: string } | undefined>;
   playerGender: (identity?: string) => PlayerGender; setGender: (value: PlayerGender) => Promise<{ ok?: boolean; error?: string } | undefined>;
-  renderStats: (profile: Profile, element: HTMLElement) => void; renderRankings: (identity: string, entries: LeaderboardEntry[]) => void; entries: () => LeaderboardEntry[]; formatPower: (progress: Profile["progress"]) => string; formatPlayedTime: (seconds: number) => string;
+  renderStats: (profile: Profile, element: HTMLElement) => void; renderRankings: (identity: string, entries: LeaderboardEntry[]) => void; entries: () => LeaderboardEntry[]; formatPower: (profile: Profile) => string; formatPlayedTime: (seconds: number) => string;
   profile: (identity: string) => Profile | null | undefined; loadProfile: (identity: string) => Promise<Profile | null | undefined>; releaseProfile: () => void;
   isDeveloper: () => boolean; isDueling: () => boolean; duelCooldownMs: () => number; requestDuel: (identity: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
   isNameTaken: (name: string) => boolean; setDisplayName: (name: string) => Promise<{ ok?: boolean; error?: string } | undefined>; updateSave: (identity: string, save: SavePatch) => Promise<{ ok?: boolean; error?: string } | undefined>;
@@ -129,7 +129,7 @@ export function createProfileWindowController(elements: {
     else closeGenderChoices();
     updatePreview(profile.identity, own);
     renderRankings(profile.identity);
-    renderPower(api.formatPower(profile.progress));
+    renderPower(api.formatPower(profile));
     elements.duel.hidden = own; elements.duel.dataset.identity = own ? "" : profile.identity; updateDuelButton();
     const lifetime = profile.lifetime;
     elements.joined.textContent = new Date(lifetime.joinedAtMs).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });

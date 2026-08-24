@@ -2,6 +2,7 @@ export const ITEM_INSPECTION_HOLD_MS = 2_000;
 export const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
 
 type LongPressOptions = {
+  onPress?: () => void;
   onLongPress: () => void;
   durationMs?: number;
   moveTolerancePx?: number;
@@ -37,8 +38,15 @@ export function bindLongPress(element: HTMLElement, options: LongPressOptions) {
     timer = 0;
   };
 
+  const stopPointerTracking = () => {
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerCancel);
+  };
+
   const cancelGesture = (preserveClickSuppression = false) => {
     clearTimer();
+    stopPointerTracking();
     activePointerId = null;
     if (!preserveClickSuppression) suppressNextClick = false;
   };
@@ -49,12 +57,16 @@ export function bindLongPress(element: HTMLElement, options: LongPressOptions) {
     activePointerId = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
     timer = window.setTimeout(() => {
       if (activePointerId !== event.pointerId) return;
       timer = 0;
       suppressNextClick = true;
       options.onLongPress();
     }, durationMs);
+    options.onPress?.();
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -66,15 +78,17 @@ export function bindLongPress(element: HTMLElement, options: LongPressOptions) {
 
   const onPointerUp = (event: PointerEvent) => {
     if (event.pointerId !== activePointerId) return;
-    cancelGesture(suppressNextClick);
+    const preserveClickSuppression = suppressNextClick;
+    cancelGesture(preserveClickSuppression);
+    if (preserveClickSuppression) {
+      // A long press may open an overlay before release, retargeting the
+      // synthesized click away from this element. Do not suppress a later tap.
+      window.setTimeout(() => { suppressNextClick = false; }, 0);
+    }
   };
 
   const onPointerCancel = (event: PointerEvent) => {
     if (event.pointerId === activePointerId) cancelGesture();
-  };
-
-  const onPointerLeave = (event: PointerEvent) => {
-    if (event.pointerType === "mouse" && event.pointerId === activePointerId) cancelGesture(suppressNextClick);
   };
 
   const onClick = (event: MouseEvent) => {
@@ -87,20 +101,12 @@ export function bindLongPress(element: HTMLElement, options: LongPressOptions) {
   const onContextMenu = (event: MouseEvent) => event.preventDefault();
 
   element.addEventListener("pointerdown", onPointerDown);
-  element.addEventListener("pointermove", onPointerMove);
-  element.addEventListener("pointerup", onPointerUp);
-  element.addEventListener("pointercancel", onPointerCancel);
-  element.addEventListener("pointerleave", onPointerLeave);
   element.addEventListener("click", onClick, { capture: true });
   element.addEventListener("contextmenu", onContextMenu);
 
   return () => {
     cancelGesture();
     element.removeEventListener("pointerdown", onPointerDown);
-    element.removeEventListener("pointermove", onPointerMove);
-    element.removeEventListener("pointerup", onPointerUp);
-    element.removeEventListener("pointercancel", onPointerCancel);
-    element.removeEventListener("pointerleave", onPointerLeave);
     element.removeEventListener("click", onClick, { capture: true });
     element.removeEventListener("contextmenu", onContextMenu);
   };

@@ -133,6 +133,9 @@ export function createInventoryController(dependencies: InventoryDependencies) {
           setSelection(tappedAgain ? "" : itemId, tappedAgain ? "" : location);
           render();
         },
+        onPressSelect(itemId, location) {
+          setSelection(itemId, location);
+        },
         onMove(itemId, destination) {
           move(itemId, destination);
         },
