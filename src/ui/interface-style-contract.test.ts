@@ -71,12 +71,31 @@ describe("interface style contracts", () => {
     expect(compactChat).toContain("min-height: var(--mini-chat-height)");
     expect(compactChat).toContain("max-height: var(--mini-chat-height)");
     expect(compactChat).toContain("linear-gradient");
+    expect(compactChat).toContain("cursor: pointer");
     expect(cssRule("canvas#game {")).toContain("bottom: var(--gameplay-bottom-inset)");
     expect(cssRule("#chatPanel.is-large {")).toContain("var(--toolbar-height)");
     expect(cssRule(".card.settings-panel")).toContain("inset: 0 0 var(--toolbar-height)");
     expect(cssRule(".card.settings-panel")).toContain("z-index: 10");
     expect(cssRule(".card.inventory-panel")).toContain("inset: 0 0 var(--toolbar-height)");
     expect(cssRule(".card.inventory-panel")).toContain("z-index: 10");
+  });
+
+  it("renders chat messages with the same font treatment as usernames", () => {
+    const username = cssRule("\n  .chat-name {");
+    const message = cssRule("\n  .chat-text {");
+
+    expect(username).toContain("font-family: var(--player-name-font)");
+    expect(username).toContain("font-weight: 900");
+    expect(message).toContain("font-family: var(--player-name-font)");
+    expect(message).toContain("font-weight: 900");
+  });
+
+  it("keeps the profile window to Stats and Info without ranking code", () => {
+    expect(html).toContain('id="profileStatsTab"');
+    expect(html).toContain('id="profileOverviewTab"');
+    expect(html).not.toContain('id="profileRankingTab"');
+    expect(html).not.toContain('id="profileRankingPanel"');
+    expect(css).not.toContain(".profile-leaderboard-");
   });
 
   it("places the unbordered Gem balance beneath the player HUD", () => {
@@ -125,8 +144,17 @@ describe("interface style contracts", () => {
     expect(html.slice(slotTwo, cancel)).toContain("150");
     expect(finishNow).toBeGreaterThan(cancel);
     expect(back).toBeGreaterThan(finishNow);
+    expect(html).toContain('id="upgradeBenchSpeedUp" class="upgrade-bench-action upgrade-bench-speed-up" type="button" disabled hidden>Finish Now</button>');
+    expect(html).toContain('id="upgradeBenchBack" class="upgrade-bench-back" type="button">Back</button>');
     expect(cssRule(".upgrade-bench-slots {")).toContain("justify-content: center");
-    expect(cssRule(".upgrade-bench-speed-up {")).toContain("justify-content: center");
+    const actionStyle = cssRule(".upgrade-bench-action {");
+    expect(actionStyle).toContain("align-items: center");
+    expect(actionStyle).toContain("padding: 0 8px 2px");
+    const backStyle = cssRule(".upgrade-bench-back {");
+    expect(backStyle).toContain("position: absolute");
+    expect(backStyle).toContain("bottom: max(14px, env(safe-area-inset-bottom))");
+    expect(backStyle).toContain("align-items: center");
+    expect(backStyle).toContain("padding: 0 8px 2px");
   });
 
   it("centers every research action state in the detail card", () => {

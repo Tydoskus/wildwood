@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { equipmentAppearance, FROST_ARMOR, FROST_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { equipmentAppearance, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -69,7 +69,7 @@ import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { effectivePlayerPower } from "../shared/player-power";
-import { isWeaponItem, itemDisplayName, itemMaxHealthMultiplier, itemRegenerationMultiplier, itemStats } from "../shared/items";
+import { equipmentMaxHealthMultiplier, isWeaponItem, itemDisplayName, itemRegenerationMultiplier, itemStats } from "../shared/items";
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_ARMOR,
@@ -95,8 +95,8 @@ import {
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
-    playerProfileEl, playerProfileNameEl, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileLeaderboardStatsEl, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
-    playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileRankingTab, profileOverviewPanel, profileStatsPanel, profileRankingPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
+    playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
+    playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
     leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardPodiumEl, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
@@ -107,11 +107,13 @@ import {
   };
   const canvasRuntime = createCanvasRuntime({
     canvas,
-    bottomInset: () => gameplayBottomInset(
-      toolbar.getBoundingClientRect().height,
-      configuredMiniChatHeight(),
-      !chatPanel.hidden && !chatPanel.classList.contains("is-large"),
-    ),
+    bottomInset: () => document.body.classList.contains("is-cutscene")
+      ? 0
+      : gameplayBottomInset(
+        toolbar.getBoundingClientRect().height,
+        configuredMiniChatHeight(),
+        !chatPanel.hidden && !chatPanel.classList.contains("is-large"),
+      ),
     getActorShadowSprite: () => actorShadowSprite,
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
@@ -165,9 +167,11 @@ import {
     spiderVenom,
     startSpawn: START_SPAWN,
   } = bootstrap;
-  const healthMultiplier = () => itemMaxHealthMultiplier(
+  const healthMultiplier = () => equipmentMaxHealthMultiplier(
+    inventory.equippedHead,
     inventory.equippedChest,
     1,
+    coop?.itemUpgradeLevel?.(inventory.equippedHead) ?? 0,
     coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
   );
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
@@ -474,6 +478,7 @@ import {
     scheduleEnemyRespawn: regularEnemyRespawnBoost.schedule,
     incrementKills: () => { totalKills += 1; },
     recordForestEnemyDefeat: () => coop?.recordForestEnemyDefeat?.(),
+    recordDesertEnemyDefeat: () => coop?.recordDesertEnemyDefeat?.(),
     recordLavaEnemyDefeat: () => coop?.recordLavaEnemyDefeat?.(),
     damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
@@ -564,6 +569,7 @@ import {
     keys: playerInput.keys,
     stopTouchMove: playerInput.stopTouchMove,
     cutsceneOverlay: cutsceneOverlayEl,
+    resizeViewport: canvasRuntime.resize,
     isDueling,
     running: () => session.isRunning(),
     localMapState: () => coop?.localState?.(),
@@ -878,8 +884,8 @@ import {
   }
 
   const profileWindow = createProfileWindowController({
-    window: playerProfileEl, name: playerProfileNameEl, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,
-    overviewTab: profileOverviewTab, statsTab: profileStatsTab, rankingTab: profileRankingTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel, rankingPanel: profileRankingPanel, leaderboardStats: profileLeaderboardStatsEl,
+    window: playerProfileEl, name: playerProfileNameEl, guest: playerProfileGuestLabel, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,
+    overviewTab: profileOverviewTab, statsTab: profileStatsTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel,
     joined: profileJoinedEl, timePlayed: profileTimePlayedEl, kills: profileKillsEl, online: profileOnlineEl, statGrid: profileStatGrid,
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
     skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
@@ -889,18 +895,19 @@ import {
   }, {
     localIdentity: () => coop?.localIdentity?.(), localDisplayName: () => coop?.localDisplayName?.(), profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0, paintIcon: applyProfileIcon,
     renderName: renderDomPlayerName,
+    isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
     isOnline: (identity) => identity === coop?.localIdentity?.()
       ? Boolean(coop?.isConnected?.()) && (!isDeveloperIdentity(identity) || coop?.developerPresenceVisible?.() === true)
       : Boolean(coop?.activePlayerMap?.(identity)) || coop?.remotePlayers?.().some((other) => other.id === identity) === true,
     presenceText: (profile, online) => {
       const mapName = mapNameForPresence(profile.mapId);
-      return online && mapName ? `ONLINE - ${mapName}` : profilePresenceText(online, profile.lifetime.sessionStartedAtMs);
+      return online && mapName ? `Online - ${mapName}` : profilePresenceText(online, profile.lifetime.sessionStartedAtMs);
     },
     renderCharacter: (identity, progress, visible) => profileCharacterPreview.draw({ visible, progress, skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE }),
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research),
-    renderRankings: () => undefined, entries: () => coop?.leaderboardEntries?.() ?? [], formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
+    formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0, requestDuel: async (identity) => coop?.requestDuel?.(identity),
     isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), showMessage,
@@ -1324,7 +1331,10 @@ import {
       renderInventory();
     }
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
-    const pickupColor = itemId === FROST_BOW || itemId === FROST_ARMOR ? "#2d92ff" : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
+    const pickupColor = itemId === FROST_BOW || itemId === FROST_ARMOR
+      ? "#2d92ff"
+      : itemId === IRON_BOW ? "#aeb7c5"
+        : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
     runtimeHud.showItemDrop({
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
       color: pickupColor,

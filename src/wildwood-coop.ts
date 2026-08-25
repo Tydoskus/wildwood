@@ -811,10 +811,10 @@ function rememberedAccountGender() {
 }
 
 function rememberConfirmedGender(gender: PlayerGender) {
-  if (!isSelectedPlayerGender(gender)) return;
   if (!(connection?.isActive ? connectedSignedIn : Boolean(accountToken()))) return;
   try {
-    localStorage.setItem(knownAccountGenderKey, String(gender));
+    if (isSelectedPlayerGender(gender)) localStorage.setItem(knownAccountGenderKey, String(gender));
+    else localStorage.removeItem(knownAccountGenderKey);
   } catch {}
 }
 
@@ -3412,7 +3412,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     const normalized = normalizePlayerGender(gender);
-    if (!isSelectedPlayerGender(normalized)) return { ok: false, error: "CHOOSE MALE OR FEMALE" };
+    if (normalized !== gender) return { ok: false, error: "INVALID GENDER" };
     try {
       await connection.reducers.setGender({ gender: normalized });
       playerGenders.set(localIdentity, normalized);
@@ -3609,6 +3609,10 @@ export const wildwoodCoop = {
   recordForestEnemyDefeat() {
     if (protocolBlocked || !connection) return;
     sendReducer("forest enemy defeat", () => connection?.reducers.recordForestEnemyDefeat({}));
+  },
+  recordDesertEnemyDefeat() {
+    if (protocolBlocked || !connection) return;
+    sendReducer("desert enemy defeat", () => connection?.reducers.recordDesertEnemyDefeat({}));
   },
   recordLavaEnemyDefeat() {
     if (protocolBlocked || !connection) return;

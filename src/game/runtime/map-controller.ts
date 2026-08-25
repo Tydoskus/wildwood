@@ -45,6 +45,7 @@ export function createMapController(options: {
   keys: { clear: () => void };
   stopTouchMove: () => void;
   cutsceneOverlay: HTMLElement;
+  resizeViewport: () => void;
   isDueling: () => boolean;
   running: () => boolean;
   localMapState: () => { mapId: string; x: number; y: number; facing: number } | null | undefined;
@@ -72,7 +73,7 @@ export function createMapController(options: {
 }): MapController {
   const {
     mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey,
-    getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay,
+    getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
     bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, boss, spiderBoss, frostclawBoss, magmaliskBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
@@ -176,6 +177,8 @@ export function createMapController(options: {
   }
 
   function startMapPortalCutscene(mapId: MapId, preview = false, portal: MapPortal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
+    document.body.classList.add("is-cutscene");
+    resizeViewport();
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, viewport());
     portalCutsceneIntensity = 0;
     portalCutsceneBlackoutOpacity = 0;
@@ -186,7 +189,6 @@ export function createMapController(options: {
     keys.clear();
     stopTouchMove();
     cutsceneOverlay.hidden = false;
-    document.body.classList.add("is-cutscene");
   }
 
   function startDragonPortalCutscene(preview = false) { startMapPortalCutscene(tutorialMapId, preview); }
@@ -213,6 +215,7 @@ export function createMapController(options: {
     portalCutsceneDestinationOpacity = 0;
     cutsceneOverlay.hidden = true;
     document.body.classList.remove("is-cutscene");
+    resizeViewport();
     const wasPreview = portalCutscenePreview;
     portalCutscenePreview = false;
     if (!wasPreview) { try { localStorage.setItem(portalCutsceneSeenKey, "true"); } catch {} }

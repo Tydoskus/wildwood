@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "./game-bootstrap";
 import { createBossController } from "./boss-controller";
 import {
+  DRAGON_MAX_HP,
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
@@ -10,6 +11,15 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
 } from "../../../shared/rules";
+
+describe("Dragon boss", () => {
+  it("starts at the shared 300K health balance", () => {
+    const { boss } = createGameBootstrap();
+    expect(DRAGON_MAX_HP).toBe(300_000);
+    expect(boss.maxHp).toBe(DRAGON_MAX_HP);
+    expect(boss.hp).toBe(DRAGON_MAX_HP);
+  });
+});
 
 function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossController>[0]> = {}) {
   const state = createGameBootstrap();

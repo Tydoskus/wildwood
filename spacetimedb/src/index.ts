@@ -28,18 +28,21 @@ import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearan
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
+  DESERT_DROP_ITEM_IDS,
+  DESERT_ITEM_DROP_DENOMINATOR,
   DEVELOPER_ITEM_IDS,
   equipmentDamageMultiplier,
+  equipmentMaxHealthMultiplier,
   FOREST_ITEM_DROP_DENOMINATOR,
   FROST_ARMOR,
   FROST_BOW,
   inventoryJsonItemQuantity,
   itemDefinition,
   isUpgradeableItem,
-  itemMaxHealthMultiplier,
   itemRegenerationMultiplier,
   itemFitsEquipmentSlot,
   itemUpgradeDurationMs,
+  IRON_BOW,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
@@ -59,6 +62,7 @@ import {
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   weaponAttackInterval,
+  WOOD_FULL_HELM,
   WOODEN_ARMOR,
 } from "../../shared/items";
 import {
@@ -74,6 +78,7 @@ import {
   BEGINNER_DESERT_MAP_ID,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
+  DRAGON_MAX_HP,
   DRAGON_REWARD_DAMAGE,
   effectivePlayerMovementSpeed,
   FROSTCLAW_REWARD_ARMOR,
@@ -171,7 +176,6 @@ const DUEL_ARENA = {
   opponent: { x: 6120, y: 5940 },
 };
 const DRAGON_ID = 1;
-const DRAGON_MAX_HP = 1_000_000;
 const DRAGON_RADIUS = 140;
 const DRAGON_POSITION = { x: WORLD.width - 760, y: WORLD.height - 560 };
 const DRAGON_HIT_RANGE_TOLERANCE = 60;
@@ -1598,9 +1602,10 @@ function activeResearchIsAvailable(research: Record<ResearchId, number>, active:
   if (!isResearchId(researchId)) return false;
   const definition = RESEARCH_DEFINITIONS[researchId];
   if (research[researchId] >= definition.maxRank) return false;
-  if (active.targetRank !== research[researchId] + 1) return false;
-  return Object.entries(researchPrerequisitesForNextRank(researchId, research[researchId]))
-    .every(([requiredId, requiredRank]) => research[requiredId as ResearchId] >= Number(requiredRank));
+  // Prerequisites are authoritative when research starts. Once accepted, keep
+  // that rank valid across later tree-layout migrations so no active progress
+  // is discarded merely because its node connections changed.
+  return active.targetRank === research[researchId] + 1;
 }
 
 function activeResearchCanComplete(research: Record<ResearchId, number>, active: any) {
@@ -2464,6 +2469,8 @@ function inventoryForProgress(progress: any) {
     ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
     ...Array(forestItemCountForProgress(progress, STARTER_BOW, "bowCount")).fill(STARTER_BOW),
     ...Array(forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
+    ...DESERT_DROP_ITEM_IDS.flatMap((itemId) =>
+      Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
     ...SNOW_BOSS_DROP_ITEM_IDS.flatMap((itemId) =>
       Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
     ...LAVA_DROP_ITEM_IDS.flatMap((itemId) =>
@@ -2671,8 +2678,15 @@ function attackIntervalForProgress(ctx: any, identity: any, progress: any) {
 }
 
 function maxHealthForProgress(ctx: any, identity: any, progress: any) {
+  const headItem = equippedHeadForProgress(progress);
   const chestItem = equippedChestForProgress(progress);
-  return progress.maxHp * itemMaxHealthMultiplier(chestItem, 1, itemUpgradeLevelFor(ctx, identity, chestItem));
+  return progress.maxHp * equipmentMaxHealthMultiplier(
+    headItem,
+    chestItem,
+    1,
+    itemUpgradeLevelFor(ctx, identity, headItem),
+    itemUpgradeLevelFor(ctx, identity, chestItem),
+  );
 }
 
 function normalizeUpgradeBenchSlot(slot: unknown) {
@@ -3182,7 +3196,12 @@ function ensureMaintenanceSchedule(ctx: any) {
 
 function ensureDragonBoss(ctx: any) {
   const existing = ctx.db.dragonBoss.id.find(DRAGON_ID);
-  if (existing) return existing;
+  if (existing) {
+    if (existing.maxHp === DRAGON_MAX_HP && existing.hp <= DRAGON_MAX_HP) return existing;
+    const balanced = { ...existing, hp: Math.min(existing.hp, DRAGON_MAX_HP), maxHp: DRAGON_MAX_HP };
+    ctx.db.dragonBoss.id.update(balanced);
+    return balanced;
+  }
   return ctx.db.dragonBoss.insert({
     id: DRAGON_ID,
     encounter: 1n,
@@ -5111,7 +5130,9 @@ export const setGender = spacetimedb.reducer(
   { gender: t.u8() },
   (ctx, { gender }) => {
     requireControllingPlayer(ctx);
-    if (!isSelectedPlayerGender(gender)) throw new SenderError("Gender must be male or female.");
+    if (gender !== PLAYER_GENDER_UNSET && !isSelectedPlayerGender(gender)) {
+      throw new SenderError("Gender must be unset, male, or female.");
+    }
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.gender === gender) return;
@@ -5556,6 +5577,34 @@ export const recordForestEnemyDefeat = spacetimedb.reducer(
       if (!alreadyOwned) next = restoreItemToProgress(next, WOODEN_ARMOR);
     }
     next.inventoryJson = JSON.stringify(inventoryForProgress(next));
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
+    else ctx.db.playerProgress.insert(next);
+  },
+);
+
+/** Records one regular Beginner Desert defeat; both 1/50 equipment rolls are independent. */
+export const recordDesertEnemyDefeat = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const activePlayer = requireControllingPlayer(ctx);
+    if (activePlayer.mapId !== BEGINNER_DESERT_MAP_ID || activeDuelFor(ctx, ctx.sender)) return;
+    const helmDropped = ctx.random.integerInRange(1, DESERT_ITEM_DROP_DENOMINATOR) === 1;
+    const bowDropped = ctx.random.integerInRange(1, DESERT_ITEM_DROP_DENOMINATOR) === 1;
+    if (!helmDropped && !bowDropped) return;
+
+    const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+    let next = { ...current };
+    if (helmDropped) {
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, WOOD_FULL_HELM);
+      publishItemDrop(ctx, ctx.sender, WOOD_FULL_HELM, alreadyOwned);
+      if (!alreadyOwned) next = restoreItemToProgress(next, WOOD_FULL_HELM);
+    }
+    if (bowDropped) {
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, IRON_BOW);
+      publishItemDrop(ctx, ctx.sender, IRON_BOW, alreadyOwned);
+      if (!alreadyOwned) next = restoreItemToProgress(next, IRON_BOW);
+    }
+    next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
     if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);
   },

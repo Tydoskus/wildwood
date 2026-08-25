@@ -3,16 +3,19 @@
 
 export const BASIC_PAPER_HAT = "basic_paper_hat";
 export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
+export const WOOD_FULL_HELM = "wood_full_helm";
 export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
+export const IRON_BOW = "iron_bow";
 export const FROST_BOW = "frost_bow";
 export const LAVA_BOW = "lava_bow";
 export const FROST_ARMOR = "frost_armor";
 export const MAGMA_ARMOR = "magma_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
+export const DESERT_ITEM_DROP_DENOMINATOR = 50;
 export const LAVA_ITEM_DROP_DENOMINATOR = 30;
 export const LAVA_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
@@ -29,7 +32,7 @@ export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -69,6 +72,15 @@ export const ITEM_DEFINITIONS = {
     description: "A gleaming winged helmet for Wildwood beta testers.",
     stats: ["COSMETIC · NO STATS"],
   },
+  [WOOD_FULL_HELM]: {
+    id: WOOD_FULL_HELM,
+    name: "WOOD FULL HELM",
+    slot: "HEAD",
+    acquisition: "DESERT_DROP",
+    description: "A sturdy wooden full helm carried by Beginner Desert monsters that increases maximum health.",
+    stats: ["MAX HEALTH MULTIPLIER 1.25×"],
+    modifiers: { maxHealthMultiplierBonus: .25 },
+  },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
     id: LEGENDARY_WHITE_GOLD_ARMOR,
     name: "LEGENDARY WHITE GOLD ARMOR",
@@ -106,6 +118,20 @@ export const ITEM_DEFINITIONS = {
       projectile: "ARROW",
       damageMultiplierBonus: .05,
       attackSpeedMultiplierBonus: .05,
+    },
+  },
+  [IRON_BOW]: {
+    id: IRON_BOW,
+    name: "IRON BOW",
+    slot: "HAND",
+    acquisition: "DESERT_DROP",
+    description: "A reinforced iron bow carried by Beginner Desert monsters, balancing stronger hits with faster attacks.",
+    stats: ["DAMAGE MULTIPLIER 1.50×", "ATTACK SPEED MULTIPLIER 1.10×"],
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: .5,
+      attackSpeedMultiplierBonus: .1,
     },
   },
   [FROST_BOW]: {
@@ -183,6 +209,9 @@ export const DEVELOPER_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
 export const FOREST_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "FOREST_DROP")
   .map((item) => item.id) as ItemId[];
+export const DESERT_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "DESERT_DROP")
+  .map((item) => item.id) as ItemId[];
 export const SNOW_BOSS_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "SNOW_BOSS_DROP")
   .map((item) => item.id) as ItemId[];
@@ -244,7 +273,7 @@ export function itemUpgradeDurationMs(currentLevel: unknown) {
 
 export function isUpgradeableItem(itemId: unknown) {
   const item = itemDefinition(canonicalItemId(itemId));
-  if (!item || (item.slot !== "HAND" && item.slot !== "CHEST")) return false;
+  if (!item || (item.slot !== "HAND" && item.slot !== "HEAD" && item.slot !== "CHEST")) return false;
   return item.weapon?.damageMultiplierBonus !== undefined ||
     item.weapon?.attackSpeedMultiplierBonus !== undefined ||
     item.modifiers?.damageMultiplierBonus !== undefined ||
@@ -348,6 +377,18 @@ export function weaponAttackInterval(itemId: unknown, baseInterval: number, rese
 export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus;
   return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+}
+
+/** Head, chest, and research max-health bonuses are independent multipliers. */
+export function equipmentMaxHealthMultiplier(
+  headItemId: unknown,
+  chestItemId: unknown,
+  researchMultiplier = 1,
+  headUpgradeLevel = 0,
+  chestUpgradeLevel = 0,
+) {
+  return itemMaxHealthMultiplier(headItemId, researchMultiplier, headUpgradeLevel) *
+    itemMaxHealthMultiplier(chestItemId, 1, chestUpgradeLevel);
 }
 
 /** Regeneration uses the same research-then-equipment multiplication order. */

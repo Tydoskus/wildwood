@@ -73,6 +73,8 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     for (const stat of itemStats(item.id, level)) {
       const value = document.createElement("span");
       value.textContent = stat;
+      if (/^REGEN\b/.test(stat)) value.dataset.statKind = "regen";
+      if (/^ARMOR\b/.test(stat)) value.dataset.statKind = "armor";
       stats.append(value);
     }
     copy.append(stats);

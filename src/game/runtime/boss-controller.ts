@@ -25,7 +25,7 @@ import {
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
 } from "../../../shared/rules";
-import { rewardLabel, type RewardType } from "../enemies";
+import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { clamp, rand } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type {
@@ -46,11 +46,13 @@ export const SPIDER_WEB_RANGE = 720;
 
 const DRAGON_CONE_WINDUP = .75;
 const DRAGON_CONE_DURATION = 1.2;
+const DRAGON_RAIN_DAMAGE = 200;
+const DRAGON_CONE_DAMAGE = 1_000;
 const SPIDER_AGGRO_RANGE = 1150;
 const SPIDER_WEB_DAMAGE = 900_000;
 const SPIDER_VENOM_DAMAGE = 1_100_000;
 const SPIDER_CONTACT_DAMAGE = 1_000_000;
-const DRAGON_CONTACT_DAMAGE = 1000;
+const DRAGON_CONTACT_DAMAGE = 2_000;
 const DRAGON_CONTACT_DAMAGE_COOLDOWN = .75;
 const FROSTCLAW_ROAR_WINDUP = .85;
 const FROSTCLAW_ROAR_DURATION = .95;
@@ -379,7 +381,7 @@ export function createBossController(options: {
     }
     logPickup(rewardLabel(damageReward), "#ff655a");
     logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), "#d3dbe0");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     showMessage(`${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)}`, "#dff7ff");
   }
 
@@ -408,8 +410,8 @@ export function createBossController(options: {
     }
     logPickup(rewardLabel(damageReward), "#ff655a");
     logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), "#d3dbe0");
-    logPickup(rewardLabel(regenReward), "#b877ff");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
     showMessage(
       `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
       "#ffcf8f",
@@ -689,7 +691,7 @@ export function createBossController(options: {
       if (strike.timer <= 0) {
         const dx = player.x - strike.x;
         const dy = player.y - strike.y;
-        if (dx * dx + dy * dy <= strike.r * strike.r) damagePlayer(100);
+        if (dx * dx + dy * dy <= strike.r * strike.r) damagePlayer(DRAGON_RAIN_DAMAGE);
         spawnBurst(strike.x, strike.y, "#ff5d32", 22, 170);
         bossRain.splice(i, 1);
       }
@@ -709,7 +711,7 @@ export function createBossController(options: {
         const angleDelta = Math.atan2(Math.sin(Math.atan2(dy, dx) - cone.angle), Math.cos(Math.atan2(dy, dx) - cone.angle));
         if (distance >= minRadius - 34 && distance <= maxRadius + 34 && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
           cone.hitPlayer = true;
-          damagePlayer(500);
+          damagePlayer(DRAGON_CONE_DAMAGE);
           cone.pushAngle = Math.atan2(dy, dx);
           spawnBurst(player.x, player.y, "#ffb14a", 18, 165);
         }

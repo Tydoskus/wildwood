@@ -206,7 +206,11 @@ export function createStartupController(dependencies: StartupDependencies) {
       showAccountChoice("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
     });
   });
-  guestButton.addEventListener("click", dependencies.onContinueGuest);
+  guestButton.addEventListener("click", () => {
+    guestButton.disabled = true;
+    showLoading();
+    dependencies.onContinueGuest();
+  });
   sessionTakeoverButton.addEventListener("click", () => {
     sessionTakeoverButton.disabled = true;
     loadingDetail.textContent = "SIGNING OUT OTHER TAB…";

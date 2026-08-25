@@ -26,6 +26,53 @@ export type PlayerAppearanceAssets = {
   }>;
 };
 
+const PLAYER_BODY_WIDTH = 180;
+const PLAYER_BODY_HEIGHT = 171;
+const PLAYER_BODY_CACHE_LIMIT = 128;
+const playerBodyCaches = new WeakMap<PlayerAppearanceAssets, Map<string, HTMLCanvasElement>>();
+
+function readyImage(asset: HTMLImageElement | undefined) {
+  return Boolean(asset?.complete && asset.naturalWidth > 0 && asset.naturalHeight > 0);
+}
+
+function playerBodyCache(assets: PlayerAppearanceAssets) {
+  let cache = playerBodyCaches.get(assets);
+  if (!cache) {
+    cache = new Map();
+    playerBodyCaches.set(assets, cache);
+  }
+  return cache;
+}
+
+function cachedPlayerBody(
+  assets: PlayerAppearanceAssets,
+  key: string,
+  draw: (context: CanvasRenderingContext2D) => void,
+) {
+  const cache = playerBodyCache(assets);
+  const existing = cache.get(key);
+  if (existing) {
+    cache.delete(key);
+    cache.set(key, existing);
+    return existing;
+  }
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = PLAYER_BODY_WIDTH;
+  canvas.height = PLAYER_BODY_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.imageSmoothingEnabled = false;
+  draw(context);
+  cache.set(key, canvas);
+  while (cache.size > PLAYER_BODY_CACHE_LIMIT) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+  return canvas;
+}
+
 function image(source: string, settled: () => void) {
   const asset = new Image();
   asset.addEventListener("load", settled, { once: true });
@@ -191,10 +238,11 @@ export function drawStartingPlayer(
   const feetAssets = options.feetItem ? assets.equipment[options.feetItem] : undefined;
   const backLeg = feetAssets?.backLeg ?? assets.basicBackLeg;
   const frontLeg = feetAssets?.frontLeg ?? assets.basicFrontLeg;
-  const drawLayer = (asset: HTMLImageElement, x: number, y: number, width = asset.naturalWidth, height = asset.naturalHeight) => {
-    if (asset.complete && asset.naturalWidth > 0) ctx.drawImage(asset, x, y, width, height);
+  const headItem = options.headItem === undefined ? BASIC_PAPER_HAT : options.headItem;
+  const drawLayer = (target: CanvasRenderingContext2D, asset: HTMLImageElement, x: number, y: number, width = asset.naturalWidth, height = asset.naturalHeight) => {
+    if (readyImage(asset)) target.drawImage(asset, x, y, width, height);
   };
-  const drawEquippedSprite = (itemId: string | undefined, layer: WorldSpritePresentation["layer"], gaitY = 0) => {
+  const drawEquippedSprite = (target: CanvasRenderingContext2D, itemId: string | undefined, layer: WorldSpritePresentation["layer"], gaitY = 0) => {
     if (!itemId) return;
     const presentation = itemPresentation(itemId)?.world;
     const asset = assets.equipment[itemId]?.sprite;
@@ -202,7 +250,31 @@ export function drawStartingPlayer(
     const width = presentation.width ?? asset.naturalWidth;
     const height = presentation.height ?? asset.naturalHeight;
     const y = presentation.top ?? (presentation.bottom ?? height) - height + gaitY;
-    drawLayer(asset, 90 - width / 2, y, width, height);
+    drawLayer(target, asset, 90 - width / 2, y, width, height);
+  };
+  const bodyAssetsReady = readyImage(backLeg) && readyImage(frontLeg) && [
+    { itemId: options.chestItem, layer: "CHEST" as const },
+    { itemId: headItem, layer: "HEAD" as const },
+  ].every(({ itemId, layer }) => {
+    if (!itemId) return true;
+    const presentation = itemPresentation(itemId)?.world;
+    if (presentation?.kind !== "SPRITE" || presentation.layer !== layer) return true;
+    return readyImage(assets.equipment[itemId]?.sprite);
+  });
+  const drawBody = (target: CanvasRenderingContext2D) => {
+    drawLayer(target, backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
+    drawLayer(target, frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
+    target.save();
+    target.translate(90 - 41.4675 / 2, 157 - 45.315);
+    drawEgg(target, 41.4675, 45.315, 0, "#000");
+    drawEgg(target, 41.4675, 45.315, 3, skinToneColor(options.skinTone));
+    target.restore();
+    drawEquippedSprite(target, options.chestItem, "CHEST");
+    target.save();
+    target.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head);
+    drawPillHead(target, 61.75, 40, skinToneColor(options.skinTone));
+    target.restore();
+    drawEquippedSprite(target, headItem, "HEAD", gait.head);
   };
 
   ctx.save();
@@ -224,7 +296,7 @@ export function drawStartingPlayer(
       : 0;
     ctx.rotate(baseRotation + runMotion.rotation);
     ctx.scale(bowAlignment.scaleX, 1);
-    drawLayer(asset, -width / 2, -height / 2, width, height);
+    drawLayer(ctx, asset, -width / 2, -height / 2, width, height);
     ctx.restore();
   };
   // The off-side hand belongs behind the body. Handedness must invert that
@@ -232,12 +304,19 @@ export function drawStartingPlayer(
   // in front while facing right.
   const heldBehindBody = heldInLeftHand ? !facingLeft : facingLeft;
   if (heldBehindBody) drawHeldItem();
-  drawLayer(backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y);
-  drawLayer(frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y);
-  ctx.save(); ctx.translate(90 - 41.4675 / 2, 157 - 45.315); drawEgg(ctx, 41.4675, 45.315, 0, "#000"); drawEgg(ctx, 41.4675, 45.315, 3, skinToneColor(options.skinTone)); ctx.restore();
-  drawEquippedSprite(options.chestItem, "CHEST");
-  ctx.save(); ctx.translate(90 - 61.75 / 2, 104 - 40 + 15 + gait.head); drawPillHead(ctx, 61.75, 40, skinToneColor(options.skinTone)); ctx.restore();
-  drawEquippedSprite(options.headItem === undefined ? BASIC_PAPER_HAT : options.headItem, "HEAD", gait.head);
+  const bodyCacheKey = [
+    skinToneColor(options.skinTone),
+    headItem,
+    options.chestItem ?? "",
+    options.feetItem ?? "",
+    walkFrame,
+    idleFrame,
+  ].join("|");
+  const bodyCanvas = bodyAssetsReady
+    ? cachedPlayerBody(assets, bodyCacheKey, drawBody)
+    : null;
+  if (bodyCanvas) ctx.drawImage(bodyCanvas, 0, 0);
+  else drawBody(ctx);
   if (!heldBehindBody) drawHeldItem();
   ctx.restore();
 }

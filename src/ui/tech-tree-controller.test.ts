@@ -22,8 +22,13 @@ describe("hasAvailableResearch", () => {
     expect(researchElapsedRatio(1_000, 5_000, 5_000)).toBe(1);
   });
 
-  it("shows saved ranks cumulatively instead of resetting each loop", () => {
-    expect(researchProgressLabel("criticalDamage", 4)).toBe("4 / 16");
+  it("splits a saved cumulative rank without losing any completed levels", () => {
+    expect([0, 1, 2, 3].map((band) => researchProgressLabel("warcraft", 17, band))).toEqual([
+      "5 / 5",
+      "5 / 5",
+      "5 / 5",
+      "2 / 5",
+    ]);
   });
 
   it("reports an immediately researchable node", () => {
@@ -34,13 +39,13 @@ describe("hasAvailableResearch", () => {
     expect(researchIsAvailable("criticalDamage", ranks())).toBe(false);
   });
 
-  it("lets an unlocked technology continue through later rank bands", () => {
+  it("opens the next tier only after every preceding five-rank node", () => {
     const firstBand = ranks(Object.fromEntries(
       RESEARCH_IDS.map((id) => [id, RESEARCH_DEFINITIONS[id].ranksPerBand]),
     ) as ResearchRanks);
-    firstBand.moveSpeed = 0;
     expect(researchIsAvailable("foraging", firstBand)).toBe(true);
-    firstBand.warcraft = RESEARCH_DEFINITIONS.warcraft.maxRank - 1;
+    expect(researchIsAvailable("warcraft", firstBand)).toBe(false);
+    firstBand.foraging += 1;
     expect(researchIsAvailable("warcraft", firstBand)).toBe(true);
   });
 

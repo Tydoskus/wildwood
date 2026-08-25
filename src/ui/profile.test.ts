@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
-import { FROST_ARMOR, FROST_BOW, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
+import { FROST_ARMOR, FROST_BOW, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import type { PlayerProgress } from "../wildwood-coop";
-import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows, profileStatEquationParts } from "./profile";
+import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows } from "./profile";
 
 const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress => ({
   maxHp: 100,
@@ -39,7 +39,7 @@ describe("profile presence", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("keeps online status ahead of any stored timestamp", () => {
-    expect(profilePresenceText(true, 0)).toBe("ONLINE");
+    expect(profilePresenceText(true, 0)).toBe("Online");
   });
 
   it("renders a valid offline last-seen timestamp", () => {
@@ -78,6 +78,12 @@ describe("effective profile equipment stats", () => {
     expect(effectiveProfileStats(progress("", WOODEN_ARMOR)).maxHp).toBeCloseTo(105);
   });
 
+  it("multiplies the Wood Full Helm health bonus with chest armor", () => {
+    const stats = effectiveProfileStats({ ...progress("", FROST_ARMOR), equippedHead: WOOD_FULL_HELM });
+    expect(stats.maxHp).toBeCloseTo(250);
+    expect(stats.multipliers.healthEquipment).toBeCloseTo(2.5);
+  });
+
   it("shows Frost Bow's multiplicative equipment and tech multipliers", () => {
     const research = { ...createEmptyResearchRanks(), warcraft: 10 };
     const stats = effectiveProfileStats(progress(FROST_BOW), research);
@@ -105,7 +111,23 @@ describe("effective profile equipment stats", () => {
 });
 
 describe("profile stat display", () => {
-  it("uses one Camel Case equation without Base, Equipment, or Total labels", () => {
+  it("places the short max marker beside the base attack speed", () => {
+    const profile = {
+      progress: { ...progress(FROST_BOW), attackRate: .32 },
+      research: createEmptyResearchRanks(),
+      itemUpgradeLevels: {},
+    } as Parameters<typeof profileStatDisplayRows>[0];
+    const attack = profileStatDisplayRows(profile, () => "0%", .32).find((row) => row.kind === "attack");
+
+    expect(attack).toMatchObject({
+      base: "3.13/s (Max)",
+      multiplier: "1.20×",
+      total: "3.75/s",
+      sources: [{ label: "Equipment", value: "1.20×" }],
+    });
+  });
+
+  it("combines all active multipliers and keeps their source breakdown", () => {
     const research = { ...createEmptyResearchRanks(), vitality: 5, warcraft: 4 };
     const profile = {
       progress: progress(FROST_BOW, FROST_ARMOR),
@@ -117,14 +139,32 @@ describe("profile stat display", () => {
     expect(rows[0]).toEqual({
       kind: "health",
       label: "Max Hp:",
-      equation: "91  +10%  × 2.00×  = 200",
+      base: "91",
+      multiplier: "2.20×",
+      total: "200",
+      sources: [
+        { label: "Tech", value: "+10%" },
+        { label: "Equipment", value: "2.00×" },
+      ],
     });
     expect(rows[1]).toEqual({
       kind: "damage",
       label: "Damage:",
-      equation: "20  +8%  × 3.00×  = 65",
+      base: "20",
+      multiplier: "3.24×",
+      total: "65",
+      sources: [
+        { label: "Tech", value: "+8%" },
+        { label: "Equipment", value: "3.00×" },
+      ],
     });
-    expect(profileStatEquationParts(rows[1].equation)).toEqual(["20", "+8%", "× 3.00×", "= 65"]);
-    expect(rows.map((row) => `${row.label} ${row.equation}`).join(" ")).not.toMatch(/\b(?:BASE|EQUIPMENT|TOTAL)\b/);
+    expect(rows[2]).toEqual({
+      kind: "armor",
+      label: "Armor:",
+      base: "10",
+      multiplier: "1.00×",
+      total: "10 (50% Block)",
+      sources: [],
+    });
   });
 });

@@ -29,7 +29,7 @@ describe("research timer curve", () => {
     expect(researchDurationMs("criticalChance", 50)).toBe(72 * 60 * 60 * 1_000);
   });
 
-  it("repeats every technology through four complete rank bands", () => {
+  it("repeats every technology through four five-rank bands", () => {
     expect(RESEARCH_RANK_BAND_COUNT).toBe(4);
     expect(RESEARCH_DEFINITIONS.regeneration).toMatchObject({
       effect: "REGEN",
@@ -45,31 +45,48 @@ describe("research timer curve", () => {
     });
     expect(RESEARCH_DEFINITIONS.criticalDamage).toMatchObject({
       valuePerRank: 5,
-      ranksPerBand: 4,
-      maxRank: 16,
+      ranksPerBand: 5,
+      maxRank: 20,
     });
   });
 
-  it("keeps a technology unlocked after one predecessor rank", () => {
+  it("unlocks connected technologies inside the current rank band", () => {
     const ranks = createEmptyResearchRanks();
     expect(researchIsAvailable("warcraft", ranks)).toBe(false);
     ranks.foraging = 1;
     expect(researchIsAvailable("warcraft", ranks)).toBe(true);
-    ranks.warcraft = RESEARCH_DEFINITIONS.warcraft.maxRank - 1;
+    ranks.warcraft = 5;
+    expect(researchIsAvailable("warcraft", ranks)).toBe(false);
+    ranks.foraging = 6;
     expect(researchIsAvailable("warcraft", ranks)).toBe(true);
   });
 
-  it("does not raise unlock requirements in later rank bands", () => {
+  it("translates each node line into the matching cumulative tier requirement", () => {
     expect(researchPrerequisitesForNextRank("warcraft", 0)).toEqual({ foraging: 1 });
-    expect(researchPrerequisitesForNextRank("warcraft", 19)).toEqual({ foraging: 1 });
-    expect(researchPrerequisitesForNextRank("regeneration", 15)).toEqual({ vitality: 1, precision: 1 });
+    expect(researchPrerequisitesForNextRank("warcraft", 19)).toEqual({ foraging: 16 });
+    expect(researchPrerequisitesForNextRank("vitality", 15)).toEqual({ warcraft: 16, moveSpeed: 16 });
+    expect(researchPrerequisitesForNextRank("regeneration", 15)).toEqual({ vitality: 16 });
+    expect(researchPrerequisitesForNextRank("prosperity", 15)).toEqual({ precision: 16, regeneration: 16 });
+    expect(researchPrerequisitesForNextRank("criticalDamage", 15)).toEqual({ prosperity: 16 });
   });
 
-  it("uses one-rank predecessor unlocks throughout the tree", () => {
-    expect(RESEARCH_DEFINITIONS.vitality.prerequisites).toEqual({ warcraft: 1 });
-    expect(RESEARCH_DEFINITIONS.precision.prerequisites).toEqual({ warcraft: 1 });
-    expect(RESEARCH_DEFINITIONS.prosperity.prerequisites).toEqual({ vitality: 1, precision: 1 });
-    expect(RESEARCH_DEFINITIONS.criticalDamage.prerequisites).toEqual({ criticalChance: 1 });
+  it("requires a complete tier before its next foundation node", () => {
+    const previousTier = Object.fromEntries(RESEARCH_IDS.map((id) => [id, 5]));
+    expect(researchPrerequisitesForNextRank("foraging", 5)).toEqual(previousTier);
+
+    const incomplete = { ...createEmptyResearchRanks(), ...previousTier, regeneration: 4 };
+    expect(researchIsAvailable("foraging", incomplete)).toBe(false);
+    incomplete.regeneration = 5;
+    expect(researchIsAvailable("foraging", incomplete)).toBe(true);
+  });
+
+  it("uses the alternating one-to-two prerequisite graph", () => {
+    expect(RESEARCH_DEFINITIONS.vitality.prerequisites).toEqual({ warcraft: 1, moveSpeed: 1 });
+    expect(RESEARCH_DEFINITIONS.precision.prerequisites).toEqual({ vitality: 1 });
+    expect(RESEARCH_DEFINITIONS.regeneration.prerequisites).toEqual({ vitality: 1 });
+    expect(RESEARCH_DEFINITIONS.prosperity.prerequisites).toEqual({ precision: 1, regeneration: 1 });
+    expect(RESEARCH_DEFINITIONS.criticalChance.prerequisites).toEqual({ prosperity: 1 });
+    expect(RESEARCH_DEFINITIONS.criticalDamage.prerequisites).toEqual({ prosperity: 1 });
   });
 
   it("recognizes only players who completed the tree before Regen existed", () => {

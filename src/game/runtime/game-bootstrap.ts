@@ -11,6 +11,7 @@ import { updateCamera } from "./camera";
 import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
+  DRAGON_MAX_HP,
   MAP_DISPLAY_NAMES,
   PLAYER_BASE_HP,
   PLAYER_SPEED,
@@ -86,11 +87,11 @@ export function createGameBootstrap() {
     x: WORLD.w - 760,
     y: WORLD.h - 560,
     r: 140,
-    maxHp: 1_000_000,
-    hp: 1_000_000,
+    maxHp: DRAGON_MAX_HP,
+    hp: DRAGON_MAX_HP,
     dead: false,
     hurt: 0,
-    hpLossFlashFrom: 1_000_000,
+    hpLossFlashFrom: DRAGON_MAX_HP,
     hpLossFlashTimer: 0,
     contactDamageClock: 0,
     attackClock: 3,

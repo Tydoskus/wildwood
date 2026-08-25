@@ -1,7 +1,7 @@
 import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
 import {
   equipmentDamageMultiplier,
-  itemMaxHealthMultiplier,
+  equipmentMaxHealthMultiplier,
   itemRegenerationMultiplier,
   weaponAttackInterval,
 } from "./items";
@@ -15,6 +15,7 @@ export type PlayerPowerStats = {
 };
 
 export type PlayerPowerProgress = PlayerPowerStats & {
+  equippedHead?: string;
   equippedChest?: string;
   equippedRightHand?: string;
   equippedLeftHand?: string;
@@ -39,11 +40,13 @@ export function effectivePlayerPowerStats(
   itemUpgradeLevel: ItemUpgradeLevel = () => 0,
 ): PlayerPowerStats {
   const weaponItem = progress.equippedRightHand || progress.equippedLeftHand || "";
+  const headItem = progress.equippedHead || "";
   const chestItem = progress.equippedChest || "";
   const weaponLevel = itemUpgradeLevel(weaponItem);
+  const headLevel = itemUpgradeLevel(headItem);
   const chestLevel = itemUpgradeLevel(chestItem);
   return {
-    maxHp: progress.maxHp * itemMaxHealthMultiplier(chestItem, 1, chestLevel),
+    maxHp: progress.maxHp * equipmentMaxHealthMultiplier(headItem, chestItem, 1, headLevel, chestLevel),
     damage: progress.damage * equipmentDamageMultiplier(
       weaponItem,
       chestItem,

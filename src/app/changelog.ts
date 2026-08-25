@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.506": [
+    "Profile Stats now show one combined multiplier per row; tap any 44px row to expand an 88px Tech and Equipment breakdown, with every profile opening collapsed.",
+    "Regular desert enemies can now independently drop the 1-in-50 Wood Full Helm and Iron Bow, adding new health, damage, and attack-speed equipment choices.",
+    "Research is reorganized into clear five-level bands with aligned one-to-two paths while preserving every completed and active rank.",
+    "The Dragon now has 300,000 health and deals twice as much damage, while the tutorial forest Attack Speed reward is increased to 0.02.",
+    "Layered player and enemy appearances are cached, lava scenery uses static baked rendering, and cutscenes now cover chat and the toolbar.",
+    "Gem spending now requires confirmation, compact chat opens from any click without triggering content beneath it, and guest login immediately shows loading feedback.",
+  ],
   "0.505": [
     "The Upgrade Bench now opens on two item slots, with a permanent second slot unlock for 150 Gems and support for two simultaneous upgrades.",
     "Active item upgrades now offer a Gem-priced Finish Now action at one Gem per started ten minutes, followed by a clear Back button to close the bench.",
@@ -1007,6 +1015,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.506": "2026-08-25",
   "0.505": "2026-08-25",
   "0.504": "2026-08-25",
   "0.503": "2026-08-24",

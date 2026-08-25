@@ -26,7 +26,7 @@ const enemyTypes = {
   },
   Needle: {
     hp: 90, speed: 210, damage: 24, attackSpeed: 1, r: 10,
-    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .01 },
+    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .02 },
   },
   Mossback: {
     hp: 380, speed: 210, damage: 29, attackSpeed: 1, r: 22,
@@ -176,7 +176,7 @@ export const REWARD_DATA: Record<RewardType, { color: string }> = {
   damage: { color: "#ff655a" },
   health: { color: "#66ed79" },
   speed: { color: "#ffe05d" },
-  armor: { color: "#d3dbe0" },
+  armor: { color: "#74d8ff" },
   regen: { color: "#ff7ccb" },
 };
 

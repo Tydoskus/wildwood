@@ -73,6 +73,7 @@ describe("player attack timing", () => {
       scheduleEnemyRespawn: noop,
       incrementKills: noop,
       recordForestEnemyDefeat: noop,
+      recordDesertEnemyDefeat: noop,
       recordLavaEnemyDefeat: noop,
       damageDragon: noop,
       damageSpider: noop,

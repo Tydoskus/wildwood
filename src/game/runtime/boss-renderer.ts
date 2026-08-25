@@ -12,7 +12,7 @@ import {
   TAU,
 } from "../constants";
 import { clamp } from "../math";
-import { rewardLabel, type RewardType } from "../enemies";
+import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { formatCompactNumber } from "../../ui/number-format";
 import {
   DRAGON_REWARD_DAMAGE,
@@ -200,7 +200,7 @@ export function createBossRenderer(options: {
     const barW = 270; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34; const ratio = clamp(frostclawBoss.hp / frostclawBoss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#17364b"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#42c9f5"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (frostclawBoss.hpLossFlashTimer > 0 && frostclawBoss.hpLossFlashFrom > frostclawBoss.hp) { const fromRatio = clamp(frostclawBoss.hpLossFlashFrom / frostclawBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(frostclawBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText(rewardText("damage", FROSTCLAW_REWARD_DAMAGE), x, barY - 30, "#ff655a", 4); options.outlinedText(rewardText("health", FROSTCLAW_REWARD_HEALTH), x, barY - 17, "#6fe48e", 4); options.outlinedText(rewardText("armor", FROSTCLAW_REWARD_ARMOR), x, barY - 4, "#d3dbe0", 4); ctx.restore();
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText(rewardText("damage", FROSTCLAW_REWARD_DAMAGE), x, barY - 30, "#ff655a", 4); options.outlinedText(rewardText("health", FROSTCLAW_REWARD_HEALTH), x, barY - 17, "#6fe48e", 4); options.outlinedText(rewardText("armor", FROSTCLAW_REWARD_ARMOR), x, barY - 4, REWARD_DATA.armor.color, 4); ctx.restore();
   }
 
   function drawMagmaliskTelegraphs() {
@@ -285,8 +285,8 @@ export function createBossRenderer(options: {
     options.outlinedText("MAGMALISK", x, barY - 56, "#ffe0ad", 4);
     options.outlinedText(rewardText("damage", MAGMALISK_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
     options.outlinedText(rewardText("health", MAGMALISK_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
-    options.outlinedText(rewardText("armor", MAGMALISK_REWARD_ARMOR), x, barY - 17, "#d3dbe0", 4);
-    options.outlinedText(rewardText("regen", MAGMALISK_REWARD_REGEN), x, barY - 4, "#b877ff", 4);
+    options.outlinedText(rewardText("armor", MAGMALISK_REWARD_ARMOR), x, barY - 17, REWARD_DATA.armor.color, 4);
+    options.outlinedText(rewardText("regen", MAGMALISK_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
     ctx.restore();
   }
   return {

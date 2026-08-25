@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
+  DESERT_DROP_ITEM_IDS,
+  DESERT_ITEM_DROP_DENOMINATOR,
   DEVELOPER_ITEM_IDS,
   equipmentDamageMultiplier,
+  equipmentMaxHealthMultiplier,
   FOREST_ITEM_DROP_DENOMINATOR,
   FOREST_DROP_ITEM_IDS,
   FROST_ARMOR,
@@ -19,6 +22,7 @@ import {
   itemUpgradeDurationMs,
   itemUpgradeStatChanges,
   itemFitsEquipmentSlot,
+  IRON_BOW,
   MAX_ITEM_UPGRADE_LEVEL,
   LAVA_DROP_ITEM_IDS,
   LAVA_BOSS_DROP_ITEM_IDS,
@@ -34,6 +38,7 @@ import {
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
   weaponAttackSpeedMultiplier,
   weaponDamageMultiplier,
+  WOOD_FULL_HELM,
   WOODEN_ARMOR,
 } from "./items";
 
@@ -43,10 +48,12 @@ describe("equipment catalog", () => {
     expect(DEVELOPER_ITEM_IDS).not.toContain(STARTER_BOW);
     expect(STARTER_ITEM_IDS).not.toContain(STARTER_BOW);
     expect(FOREST_DROP_ITEM_IDS).toEqual([STARTER_BOW, WOODEN_ARMOR]);
+    expect(DESERT_DROP_ITEM_IDS).toEqual([WOOD_FULL_HELM, IRON_BOW]);
     expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW, FROST_ARMOR]);
     expect(LAVA_DROP_ITEM_IDS).toEqual([MAGMA_ARMOR]);
     expect(LAVA_BOSS_DROP_ITEM_IDS).toEqual([LAVA_BOW]);
     expect(FOREST_ITEM_DROP_DENOMINATOR).toBe(25);
+    expect(DESERT_ITEM_DROP_DENOMINATOR).toBe(50);
     expect(SNOW_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(SNOW_BOSS_ARMOR_DROP_DENOMINATOR).toBe(5);
     expect(LAVA_ITEM_DROP_DENOMINATOR).toBe(30);
@@ -112,6 +119,15 @@ describe("equipment catalog", () => {
     expect(weaponDamageMultiplier(LAVA_BOW, 1.5)).toBeCloseTo(7.5);
   });
 
+  it("gives the independent desert drops their requested equipment multipliers", () => {
+    expect(itemFitsEquipmentSlot(WOOD_FULL_HELM, "HEAD")).toBe(true);
+    expect(itemMaxHealthMultiplier(WOOD_FULL_HELM)).toBeCloseTo(1.25);
+    expect(isWeaponItem(IRON_BOW)).toBe(true);
+    expect(weaponDamageMultiplier(IRON_BOW)).toBeCloseTo(1.5);
+    expect(weaponAttackSpeedMultiplier(IRON_BOW)).toBeCloseTo(1.1);
+    expect(equipmentMaxHealthMultiplier(WOOD_FULL_HELM, FROST_ARMOR, 1.2)).toBeCloseTo(3);
+  });
+
   it("clamps legacy duplicate items to unique ownership", () => {
     expect(inventoryJsonItemQuantity(JSON.stringify([FROST_BOW, STARTER_BOW, FROST_BOW]), FROST_BOW)).toBe(1);
     expect(inventoryJsonItemQuantity("not json", FROST_BOW)).toBe(0);
@@ -130,6 +146,8 @@ describe("equipment catalog", () => {
     expect(isUpgradeableItem(FROST_ARMOR)).toBe(true);
     expect(isUpgradeableItem(MAGMA_ARMOR)).toBe(true);
     expect(isUpgradeableItem(LAVA_BOW)).toBe(true);
+    expect(isUpgradeableItem(WOOD_FULL_HELM)).toBe(true);
+    expect(isUpgradeableItem(IRON_BOW)).toBe(true);
     expect(isUpgradeableItem(STARTER_STONE)).toBe(false);
     expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);
   });

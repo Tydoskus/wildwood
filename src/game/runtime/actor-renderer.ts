@@ -14,7 +14,64 @@ type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type LabelBitmap = { canvas: HTMLCanvasElement; width: number; height: number; anchorY: number };
 type LabelSegment = { text: string; color: string };
+type EnemyLayerPlanPart =
+  | { kind: "STATIC"; canvas: HTMLCanvasElement; x: number; y: number }
+  | { kind: "AIMED"; layer: LoadedSpriteLayer };
 const ENEMY_SPRITE_Y_OFFSET = -3;
+const enemyLayerPlanCache = new WeakMap<LoadedEnemySprite, EnemyLayerPlanPart[]>();
+const enemyBoundsCache = new WeakMap<LoadedEnemySprite, { top: number; bottom: number; height: number }>();
+
+function enemyLayerReady(layer: LoadedSpriteLayer) {
+  return layer.image.complete && layer.image.naturalWidth > 0 && layer.image.naturalHeight > 0;
+}
+
+function cachedEnemyLayerPlan(sprite: LoadedEnemySprite) {
+  const layers = sprite.layers;
+  if (!layers?.length || !layers.every(enemyLayerReady)) return null;
+  const cached = enemyLayerPlanCache.get(sprite);
+  if (cached) return cached;
+  if (typeof document === "undefined") return null;
+
+  const plan: EnemyLayerPlanPart[] = [];
+  let staticLayers: LoadedSpriteLayer[] = [];
+  const flushStaticLayers = () => {
+    if (!staticLayers.length) return true;
+    const left = Math.floor(Math.min(...staticLayers.map((layer) => layer.x)));
+    const top = Math.floor(Math.min(...staticLayers.map((layer) => layer.y + ENEMY_SPRITE_Y_OFFSET)));
+    const right = Math.ceil(Math.max(...staticLayers.map((layer) => layer.x + layer.w)));
+    const bottom = Math.ceil(Math.max(...staticLayers.map((layer) => layer.y + ENEMY_SPRITE_Y_OFFSET + layer.h)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, right - left);
+    canvas.height = Math.max(1, bottom - top);
+    const context = canvas.getContext("2d");
+    if (!context) return false;
+    context.imageSmoothingEnabled = false;
+    for (const layer of staticLayers) {
+      context.drawImage(
+        layer.image,
+        layer.x - left,
+        layer.y + ENEMY_SPRITE_Y_OFFSET - top,
+        layer.w,
+        layer.h,
+      );
+    }
+    plan.push({ kind: "STATIC", canvas, x: left, y: top });
+    staticLayers = [];
+    return true;
+  };
+
+  for (const layer of layers) {
+    if (!layer.aimPivot) {
+      staticLayers.push(layer);
+      continue;
+    }
+    if (!flushStaticLayers()) return null;
+    plan.push({ kind: "AIMED", layer });
+  }
+  if (!flushStaticLayers()) return null;
+  enemyLayerPlanCache.set(sprite, plan);
+  return plan;
+}
 
 export function enemyWeaponAimRotation(
   enemy: Pick<EnemyState, "x" | "y" | "facingX">,
@@ -39,13 +96,17 @@ export function drawableEnemyLayers(layers: LoadedSpriteLayer[] | undefined) {
 
 export function enemySpriteVerticalBounds(sprite: LoadedEnemySprite | undefined, enemyRadius: number) {
   if (sprite?.layers?.length) {
+    const cached = enemyBoundsCache.get(sprite);
+    if (cached) return cached;
     let top = Number.POSITIVE_INFINITY;
     let bottom = Number.NEGATIVE_INFINITY;
     for (const layer of sprite.layers) {
       top = Math.min(top, layer.y + ENEMY_SPRITE_Y_OFFSET);
       bottom = Math.max(bottom, layer.y + ENEMY_SPRITE_Y_OFFSET + layer.h);
     }
-    return { top, bottom, height: bottom - top };
+    const bounds = { top, bottom, height: bottom - top };
+    enemyBoundsCache.set(sprite, bounds);
+    return bounds;
   }
   const image = sprite?.image;
   const fallbackHeight = Math.max(1, enemyRadius * 2);
@@ -394,12 +455,11 @@ export function createActorRenderer(options: {
     const sprite = options.enemySprites[enemy.type];
     const layers = sprite?.layers;
     const image = sprite?.image;
-    const readyLayers = drawableEnemyLayers(layers);
     const imageReady = Boolean(image?.complete && image.naturalWidth > 0);
     const spriteBounds = enemySpriteVerticalBounds(sprite, enemy.r);
     const spriteHeight = spriteBounds.height;
     const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
-    const shadowY = y + enemyShadowOffsetY(sprite, enemy.r);
+    const shadowY = y + Math.max(10, spriteBounds.bottom - 2);
     options.drawShadow(x, shadowY, shadowWidth, .36);
 
     ctx.save();
@@ -408,22 +468,47 @@ export function createActorRenderer(options: {
 
     if (layers && sprite) {
       ctx.globalAlpha = enemy.hurt > 0 ? .7 : 1;
-      if (readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline);
-      for (const layer of readyLayers) {
-        if (layer.aimPivot) {
+      const layerPlan = cachedEnemyLayerPlan(sprite);
+      if (layerPlan) {
+        for (const part of layerPlan) {
+          if (part.kind === "STATIC") {
+            ctx.drawImage(part.canvas, part.x, part.y);
+            continue;
+          }
+          const layer = part.layer;
+          const pivot = layer.aimPivot;
+          if (!pivot) continue;
           ctx.save();
-          ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
+          ctx.translate(pivot.x, pivot.y + ENEMY_SPRITE_Y_OFFSET);
           ctx.rotate(enemyWeaponLayerRotation(enemy, options.player, layer.aimOffsetRadians));
           ctx.drawImage(
             layer.image,
-            layer.x - layer.aimPivot.x,
-            layer.y - layer.aimPivot.y,
+            layer.x - pivot.x,
+            layer.y - pivot.y,
             layer.w,
             layer.h,
           );
           ctx.restore();
-        } else {
-          ctx.drawImage(layer.image, layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
+        }
+      } else {
+        const readyLayers = drawableEnemyLayers(layers);
+        if (readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline);
+        for (const layer of readyLayers) {
+          if (layer.aimPivot) {
+            ctx.save();
+            ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
+            ctx.rotate(enemyWeaponLayerRotation(enemy, options.player, layer.aimOffsetRadians));
+            ctx.drawImage(
+              layer.image,
+              layer.x - layer.aimPivot.x,
+              layer.y - layer.aimPivot.y,
+              layer.w,
+              layer.h,
+            );
+            ctx.restore();
+          } else {
+            ctx.drawImage(layer.image, layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
+          }
         }
       }
     } else if (imageReady && image && sprite) {

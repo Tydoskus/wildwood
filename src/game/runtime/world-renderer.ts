@@ -7,6 +7,7 @@ import type { MapId, WorldDecor, WorldPath } from "../world";
 import {
   paintStaticTile,
   paintStaticTilePlaceholder,
+  type StaticTileImage,
   type StaticTileScene,
   type StaticTileTreeBounds,
 } from "./static-tile-painter";
@@ -24,7 +25,6 @@ type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type SnowTuftDecor = Extract<WorldDecor, { type: "snowTuft" }>;
 type UpgradeBenchDecor = Extract<WorldDecor, { type: "upgradeBench" }>;
-type LavaPoolDecor = Extract<WorldDecor, { type: "lavaPool" }>;
 type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
@@ -121,6 +121,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function staticScene() {
     if (cachedStaticScene && sceneGeneration === staticTileGeneration) return cachedStaticScene;
+    const lava = options.getMapId() === options.lavaMapId;
     cachedStaticScene = {
       tileSize: STATIC_TILE_SIZE,
       colors: mapColors(),
@@ -130,6 +131,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       snowPineAspect: options.snowPine.naturalWidth > 0
         ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
         : 0,
+      lavaRockUrls: lava ? options.lavaRocks.map((image) => image.currentSrc || image.src).filter(Boolean) : [],
+      lavaPoolUrls: lava ? options.lavaPools.map((image) => image.currentSrc || image.src).filter(Boolean) : [],
     };
     sceneGeneration = staticTileGeneration;
     return cachedStaticScene;
@@ -186,6 +189,15 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   staticTileWorker?.addEventListener("error", disableStaticTileWorker);
   if (!options.actorShadowSprite.complete) options.actorShadowSprite.addEventListener("load", invalidateStaticWorld, { once: true });
   if (!options.snowPine.complete) options.snowPine.addEventListener("load", invalidateStaticWorld, { once: true });
+  for (const image of [...options.lavaRocks, ...options.lavaPools]) {
+    if (!image.complete) image.addEventListener("load", invalidateStaticWorld, { once: true });
+  }
+
+  function staticImages(images: readonly HTMLImageElement[]): StaticTileImage[] {
+    return images.flatMap((image) => image.complete && image.naturalWidth > 0
+      ? [{ source: image, width: image.naturalWidth, height: image.naturalHeight }]
+      : []);
+  }
 
   function configureStaticTileWorker(scene: StaticTileScene) {
     if (!staticTileWorkerEnabled || !staticTileWorker || configuredWorkerGeneration === staticTileGeneration) return;
@@ -234,7 +246,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const shadow = options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0
         ? options.actorShadowSprite
         : undefined;
-      paintStaticTile(tileContext, scene, tileX, tileY, shadow);
+      paintStaticTile(tileContext, scene, tileX, tileY, shadow, staticImages(options.lavaRocks), staticImages(options.lavaPools));
     }
     cacheStaticTile(key, tile);
     return tile;
@@ -479,21 +491,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.restore();
   }
 
-  function drawLavaPool(pool: LavaPoolDecor) {
-    const image = options.lavaPools[pool.variant % options.lavaPools.length];
-    if (!image?.complete || image.naturalWidth <= 0) return;
-    const visible = visibleSize();
-    const x = Math.round(pool.x - camera.x);
-    const y = Math.round(pool.y - camera.y);
-    const width = Math.round(300 * pool.s);
-    const height = Math.round(width * image.naturalHeight / image.naturalWidth);
-    if (x + width / 2 < -40 || x - width / 2 > visible.width + 40 || y + height / 2 < -40 || y - height / 2 > visible.height + 40) return;
-    ctx.save();
-    ctx.globalAlpha = .94;
-    ctx.drawImage(image, x - width / 2, y - height / 2, width, height);
-    ctx.restore();
-  }
-
   function drawLavaRock(rock: LavaRockDecor) {
     const image = options.lavaRocks[rock.variant % options.lavaRocks.length];
     if (!image?.complete || image.naturalWidth <= 0) return;
@@ -538,11 +535,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDecor() {
-    if (options.getMapId() !== options.lavaMapId) return;
-    for (const item of options.decor) {
-      if (item.type === "lavaPool") drawLavaPool(item);
-      else if (item.type === "lavaRock") drawLavaRock(item);
-    }
+    // Lava pools and rocks are fixed, non-interactive scenery baked into the
+    // cached ground tiles. Nothing in lava decor needs per-frame drawing.
   }
 
   function minimapRoundedRect(target: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {

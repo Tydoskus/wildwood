@@ -2,6 +2,7 @@ import {
   BASIC_PAPER_HAT,
   FROST_ARMOR,
   FROST_BOW,
+  IRON_BOW,
   LEGENDARY_WHITE_GOLD_ARMOR,
   LAVA_BOW,
   MAGMA_ARMOR,
@@ -9,6 +10,7 @@ import {
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
+  WOOD_FULL_HELM,
   WOODEN_ARMOR,
   type ItemId,
   type ProjectileKind,
@@ -58,6 +60,10 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
     inventory: { source: `${PLAYER_PARTS}/superior-golden-helmet.png`, equippedWidth: 30, equippedHeight: 27 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/superior-golden-helmet.png`, layer: "HEAD", bottom: 144 },
   },
+  [WOOD_FULL_HELM]: {
+    inventory: { source: `${PLAYER_PARTS}/wood-full-helm.png`, equippedWidth: 30, equippedHeight: 27 },
+    world: { kind: "SPRITE", source: `${PLAYER_PARTS}/wood-full-helm.png`, layer: "HEAD", bottom: 144 },
+  },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
     inventory: { source: `${PLAYER_PARTS}/legendary-white-gold-armor.png`, equippedWidth: 30, equippedHeight: 27 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/legendary-white-gold-armor.png`, layer: "CHEST", bottom: 168 },
@@ -98,6 +104,19 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
     world: {
       kind: "SPRITE",
       source: STARTER_BOW_ASSET_SOURCE,
+      layer: "HAND",
+      width: 115,
+      height: 63,
+      top: 102,
+      handAction: "BOW",
+    },
+    projectile: "ARROW",
+  },
+  [IRON_BOW]: {
+    inventory: { source: `${PLAYER_PARTS}/iron-bow.png`, equippedWidth: 44, equippedHeight: 34 },
+    world: {
+      kind: "SPRITE",
+      source: `${PLAYER_PARTS}/iron-bow.png`,
       layer: "HAND",
       width: 115,
       height: 63,

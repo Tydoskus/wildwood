@@ -1,9 +1,16 @@
-import type { ResearchId } from "../../shared/research";
+import {
+  RESEARCH_RANK_BAND_COUNT,
+  researchRankBandEnd,
+  researchRankBandStart,
+  type ResearchId,
+} from "../../shared/research";
 
 export type TechTreeNode = {
   id: string;
   researchId: ResearchId;
-  category: string;
+  rankBandIndex: number;
+  startRank: number;
+  endRank: number;
 };
 
 export type TechTreeLayout = {
@@ -12,46 +19,60 @@ export type TechTreeLayout = {
   paths: Array<[string, string]>;
 };
 
-const TECH_TREE_ROWS: Array<Array<{ researchId: ResearchId; category: string }>> = [
-  [{ researchId: "foraging", category: "FOUNDATION" }],
+const TECH_TREE_ROWS: ResearchId[][] = [
+  ["foraging"],
   [
-    { researchId: "warcraft", category: "COMBAT" },
-    { researchId: "moveSpeed", category: "MOBILITY" },
+    "warcraft",
+    "moveSpeed",
   ],
+  ["vitality"],
   [
-    { researchId: "vitality", category: "SURVIVAL" },
-    { researchId: "precision", category: "DEFENSE" },
+    "precision",
+    "regeneration",
   ],
+  ["prosperity"],
   [
-    { researchId: "regeneration", category: "RECOVERY" },
-    { researchId: "prosperity", category: "PROSPERITY" },
+    "criticalChance",
+    "criticalDamage",
   ],
-  [{ researchId: "criticalChance", category: "OFFENSE" }],
-  [{ researchId: "criticalDamage", category: "OFFENSE" }],
 ];
 
-function nodeId(researchId: ResearchId) {
-  return `tech-${researchId}`;
+function nodeId(researchId: ResearchId, rankBandIndex: number) {
+  return `tech-${rankBandIndex + 1}-${researchId}`;
 }
 
 export function createTechTreeLayout(): TechTreeLayout {
-  const rows = TECH_TREE_ROWS.map((row) => row.map(({ researchId, category }) => ({
-    id: nodeId(researchId),
-    researchId,
-    category,
-  })));
+  const rows: TechTreeNode[][] = [];
   const paths: Array<[string, string]> = [];
-  const path = (from: ResearchId, to: ResearchId) => paths.push([nodeId(from), nodeId(to)]);
-  path("foraging", "warcraft");
-  path("foraging", "moveSpeed");
-  path("warcraft", "vitality");
-  path("warcraft", "precision");
-  path("vitality", "regeneration");
-  path("precision", "regeneration");
-  path("vitality", "prosperity");
-  path("precision", "prosperity");
-  path("prosperity", "criticalChance");
-  path("criticalChance", "criticalDamage");
+  for (let rankBandIndex = 0; rankBandIndex < RESEARCH_RANK_BAND_COUNT; rankBandIndex += 1) {
+    rows.push(...TECH_TREE_ROWS.map((row) => row.map((researchId) => ({
+      id: nodeId(researchId, rankBandIndex),
+      researchId,
+      rankBandIndex,
+      startRank: researchRankBandStart(researchId, rankBandIndex),
+      endRank: researchRankBandEnd(researchId, rankBandIndex),
+    }))));
+    const path = (from: ResearchId, to: ResearchId) => paths.push([
+      nodeId(from, rankBandIndex),
+      nodeId(to, rankBandIndex),
+    ]);
+    path("foraging", "warcraft");
+    path("foraging", "moveSpeed");
+    path("warcraft", "vitality");
+    path("moveSpeed", "vitality");
+    path("vitality", "precision");
+    path("vitality", "regeneration");
+    path("precision", "prosperity");
+    path("regeneration", "prosperity");
+    path("prosperity", "criticalChance");
+    path("prosperity", "criticalDamage");
+    if (rankBandIndex > 0) {
+      paths.push(
+        [nodeId("criticalChance", rankBandIndex - 1), nodeId("foraging", rankBandIndex)],
+        [nodeId("criticalDamage", rankBandIndex - 1), nodeId("foraging", rankBandIndex)],
+      );
+    }
+  }
 
   return { rows, nodes: rows.flat(), paths };
 }

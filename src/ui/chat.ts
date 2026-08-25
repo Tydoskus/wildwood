@@ -185,10 +185,15 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         name.appendChild(power);
       }
       name.setAttribute("role", "button");
-      name.setAttribute("tabindex", "0");
+      name.setAttribute("tabindex", large ? "0" : "-1");
       name.setAttribute("aria-label", `View ${displayName}'s profile`);
       const openPlayer = (event: Event) => {
         event.stopPropagation();
+        if (!large) {
+          event.preventDefault();
+          setLarge(true);
+          return;
+        }
         onOpenPlayer?.(displayIdentity, displayName);
       };
       const openReplay = (event: Event) => {
@@ -207,7 +212,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const icon = document.createElement("span");
       icon.className = "chat-profile-icon";
       icon.setAttribute("role", "button");
-      icon.setAttribute("tabindex", "0");
+      icon.setAttribute("tabindex", large ? "0" : "-1");
       icon.setAttribute("aria-label", `View ${displayName}'s profile`);
       icon.addEventListener("click", openPlayer);
       icon.addEventListener("keydown", (event) => {
@@ -262,6 +267,12 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       if (event.target instanceof Element && event.target.closest("button")) return;
       toggleLarge();
     });
+    elements.panel.addEventListener("click", (event) => {
+      if (large) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setLarge(true);
+    }, { capture: true });
     elements.sizeToggle.addEventListener("click", toggleLarge);
     elements.backButton.addEventListener("click", () => setLarge(false));
     elements.form.addEventListener("submit", async (event) => {

@@ -17,6 +17,7 @@ import {
 } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { ActiveItemUpgrade, UpgradeBenchSlot } from "../wildwood-coop";
+import { gemSpendConfirmationText } from "./gem-spend-confirmation";
 
 type UpgradeBenchElements = {
   panel: HTMLElement;
@@ -52,6 +53,7 @@ type UpgradeBenchDependencies = {
   unlockSecondSlot: () => Promise<UpgradeResult>;
   confirmCancel?: (message: string) => boolean;
   confirmUnlock?: (message: string) => boolean;
+  confirmGemSpend?: (message: string) => boolean;
   beforeOpen: () => void;
   setPaused: (paused: boolean) => void;
   clearPlayerInput: () => void;
@@ -61,7 +63,10 @@ type UpgradeBenchDependencies = {
 };
 
 export const UPGRADE_CANCEL_CONFIRMATION = "Are you sure you want to cancel? You will lose current progress to the next upgrade.";
-export const UPGRADE_SLOT_UNLOCK_CONFIRMATION = "Permanently unlock a second Upgrade Bench slot for 150 Gems?";
+export const UPGRADE_SLOT_UNLOCK_CONFIRMATION = gemSpendConfirmationText(
+  "permanently unlock the second Upgrade Bench slot",
+  UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
+);
 export const UPGRADE_BENCH_TOUCH_OFFSET_Y = -36;
 const UPGRADE_BENCH_TOUCH_RADIUS_X = 108;
 const UPGRADE_BENCH_TOUCH_RADIUS_Y = 78;
@@ -103,7 +108,8 @@ export function upgradePickerPreview(itemId: string, upgradeLevel: unknown) {
 export function createUpgradeBenchController(elements: UpgradeBenchElements, dependencies: UpgradeBenchDependencies) {
   const nowMs = dependencies.nowMs ?? Date.now;
   const confirmCancel = dependencies.confirmCancel ?? ((message: string) => confirm(message));
-  const confirmUnlock = dependencies.confirmUnlock ?? ((message: string) => confirm(message));
+  const confirmGemSpend = dependencies.confirmGemSpend ?? ((message: string) => confirm(message));
+  const confirmUnlock = dependencies.confirmUnlock ?? confirmGemSpend;
   const selectedItems = new Map<UpgradeBenchSlot, string>();
   let selectedSlot: UpgradeBenchSlot | null = null;
   let touchingBench = false;
@@ -219,6 +225,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const rows = itemId ? itemUpgradeStatChanges(itemId, level).map((change) => {
       const row = document.createElement("div");
       row.className = "upgrade-bench-stat-row";
+      if (/^REGEN\b/.test(change.label)) row.dataset.statKind = "regen";
+      if (/^ARMOR\b/.test(change.label)) row.dataset.statKind = "armor";
       const label = document.createElement("strong");
       label.textContent = change.label;
       const values = document.createElement("span");
@@ -235,7 +243,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
 
   function renderSpeedUp(cost: bigint) {
     const label = document.createElement("span");
-    label.textContent = "FINISH NOW";
+    label.textContent = "Finish Now";
     const icon = document.createElement("img");
     icon.src = "assets/wildwood/gems/gem-icon.png";
     icon.alt = "";
@@ -307,7 +315,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       ? `UPGRADING · ${formatRemaining(remaining)}`
       : itemId ? `UPGRADE TIME · ${formatRemaining(itemUpgradeDurationMs(level))}` : "";
     elements.action.classList.toggle("is-cancel", Boolean(selectedJob));
-    elements.action.textContent = selectedJob ? "CANCEL" : "UPGRADE";
+    elements.action.textContent = selectedJob ? "Cancel" : "Upgrade";
     elements.action.hidden = !itemId;
     elements.action.disabled = busy || !itemId || (!selectedJob && level >= MAX_ITEM_UPGRADE_LEVEL);
     elements.speedUp.hidden = !selectedJob || remaining <= 0;
@@ -341,6 +349,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       for (const change of preview.changes) {
         const row = document.createElement("span");
         row.className = "upgrade-bench-picker-stat";
+        if (/^REGEN\b/.test(change.label)) row.dataset.statKind = "regen";
+        if (/^ARMOR\b/.test(change.label)) row.dataset.statKind = "armor";
         const label = document.createElement("span");
         label.textContent = change.label.replace(" MULTIPLIER", "");
         const values = document.createElement("span");
@@ -468,6 +478,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${cost}`, "#ff9b91");
       return;
     }
+    if (!confirmGemSpend(gemSpendConfirmationText("finish this item upgrade now", cost))) return;
     busy = true;
     render(true);
     const result = await dependencies.speedUpUpgrade(slot);

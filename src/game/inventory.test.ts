@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bagInventoryStacks, BASIC_PAPER_HAT, equipmentAppearance, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, equipmentAppearance, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
 
 const emptyCosmetics = {
   cosmeticHead: "",
@@ -165,6 +165,23 @@ describe("inventory rules", () => {
     expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
     expect(setInventoryItemQuantity(inventory, FROST_ARMOR, 4)).toBe(true);
     expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(1);
+  });
+
+  it("restores and equips unique desert drops", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([WOOD_FULL_HELM, IRON_BOW]),
+      "",
+      WOOD_FULL_HELM,
+      "",
+      false,
+      false,
+      IRON_BOW,
+      "",
+    );
+    expect(inventory.equippedHead).toBe(WOOD_FULL_HELM);
+    expect(inventory.equippedRightHand).toBe(IRON_BOW);
+    expect(inventoryItemQuantity(inventory, WOOD_FULL_HELM)).toBe(1);
+    expect(inventoryItemQuantity(inventory, IRON_BOW)).toBe(1);
   });
 
   it("uses free owned copies as cosmetic overrides without changing stat equipment", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STARTER_BOW, WOODEN_ARMOR } from "./items";
+import { FROST_ARMOR, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "./items";
 import { effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power, playerPowerForStats } from "./player-power";
 
 describe("player power", () => {
@@ -35,6 +35,19 @@ describe("player power", () => {
     });
     expect(power).toBeGreaterThan(0xffffffff);
     expect(legacyU32Power(power)).toBe(0xffffffff);
+  });
+
+  it("multiplies equipped head and chest health bonuses", () => {
+    const effective = effectivePlayerPowerStats({
+      maxHp: 100,
+      damage: 10,
+      attackRate: 1.56,
+      armor: 0,
+      regen: 0,
+      equippedHead: WOOD_FULL_HELM,
+      equippedChest: FROST_ARMOR,
+    });
+    expect(effective.maxHp).toBeCloseTo(250);
   });
 
   it("bounds malformed totals", () => {

@@ -103,6 +103,7 @@ export function createPlayerCombatController(options: {
   scheduleEnemyRespawn: (site: SpawnSite) => void;
   incrementKills: () => void;
   recordForestEnemyDefeat: () => void;
+  recordDesertEnemyDefeat: () => void;
   recordLavaEnemyDefeat: () => void;
   damageDragon: (hits: number) => void;
   damageSpider: (hits: number) => void;
@@ -123,7 +124,7 @@ export function createPlayerCombatController(options: {
     player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss,
     isTutorialMap, isDesertMap, isSnowMap, isLavaMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, recordForestEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -274,6 +275,7 @@ export function createPlayerCombatController(options: {
     const base = ENEMY_TYPES[enemy.type];
     applyReward(enemy.reward, enemy.x, enemy.y);
     if (isTutorialMap()) recordForestEnemyDefeat();
+    if (isDesertMap() && !base.elite) recordDesertEnemyDefeat();
     if (isLavaMap()) recordLavaEnemyDefeat();
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }

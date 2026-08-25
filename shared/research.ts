@@ -23,7 +23,7 @@ export type ResearchDefinition = {
   effect: string;
   valuePerRank: number;
   durationStartMs: number;
-  /** One-time rank requirements that permanently unlock this technology. */
+  /** Ranks required from connected technologies inside the same rank band. */
   prerequisites?: Partial<Record<ResearchId, number>>;
 };
 
@@ -45,27 +45,27 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
   }),
   vitality: repeatedDefinition({
     id: "vitality", title: "VITALITY", icon: "♥", ranksPerBand: 5, effect: "MAX HEALTH", valuePerRank: 2, durationStartMs: 45_000,
-    prerequisites: { warcraft: 1 },
+    prerequisites: { warcraft: 1, moveSpeed: 1 },
   }),
   precision: repeatedDefinition({
     id: "precision", title: "PRECISION", icon: "◈", ranksPerBand: 5, effect: "ARMOR", valuePerRank: 2, durationStartMs: 45_000,
-    prerequisites: { warcraft: 1 },
+    prerequisites: { vitality: 1 },
   }),
   regeneration: repeatedDefinition({
     id: "regeneration", title: "REGENERATION", icon: "✚", ranksPerBand: 5, effect: "REGEN", valuePerRank: 2, durationStartMs: 60_000,
-    prerequisites: { vitality: 1, precision: 1 },
+    prerequisites: { vitality: 1 },
   }),
   prosperity: repeatedDefinition({
     id: "prosperity", title: "PROSPERITY", icon: "✧", ranksPerBand: 5, effect: "STAT GAIN", valuePerRank: 2, durationStartMs: 60_000,
-    prerequisites: { vitality: 1, precision: 1 },
+    prerequisites: { precision: 1, regeneration: 1 },
   }),
   criticalChance: repeatedDefinition({
     id: "criticalChance", title: "CRITICAL CHANCE", icon: "✦", ranksPerBand: 5, effect: "CRITICAL CHANCE", valuePerRank: 1, durationStartMs: 120_000,
     prerequisites: { prosperity: 1 },
   }),
   criticalDamage: repeatedDefinition({
-    id: "criticalDamage", title: "CRITICAL DAMAGE", icon: "✹", ranksPerBand: 4, effect: "CRITICAL DAMAGE", valuePerRank: 5, durationStartMs: 120_000,
-    prerequisites: { criticalChance: 1 },
+    id: "criticalDamage", title: "CRITICAL DAMAGE", icon: "✹", ranksPerBand: 5, effect: "CRITICAL DAMAGE", valuePerRank: 5, durationStartMs: 120_000,
+    prerequisites: { prosperity: 1 },
   }),
 };
 
@@ -115,9 +115,18 @@ export function researchRankBandIndex(researchId: ResearchId, completedRanks: nu
   return Math.min(RESEARCH_RANK_BAND_COUNT - 1, Math.floor(Math.max(0, completedRanks) / definition.ranksPerBand));
 }
 
-/** One predecessor rank unlocks a technology for every remaining rank. */
-export function researchPrerequisitesForNextRank(researchId: ResearchId, _completedRanks: number) {
-  return { ...(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {}) };
+/** Resolves same-band requirements into cumulative stored-rank thresholds. */
+export function researchPrerequisitesForNextRank(researchId: ResearchId, completedRanks: number) {
+  const rankBandIndex = researchRankBandIndex(researchId, completedRanks);
+  const requirements: Partial<Record<ResearchId, number>> = {};
+  for (const [requiredId, requiredRank] of Object.entries(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {})) {
+    const id = requiredId as ResearchId;
+    requirements[id] = researchRankBandStart(id, rankBandIndex) + Number(requiredRank);
+  }
+  if (researchId === "foraging" && rankBandIndex > 0) {
+    for (const id of RESEARCH_IDS) requirements[id] = researchRankBandEnd(id, rankBandIndex - 1);
+  }
+  return requirements;
 }
 
 export function researchIsAvailable(researchId: ResearchId, ranks: ResearchRanks) {

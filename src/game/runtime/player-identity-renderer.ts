@@ -67,7 +67,12 @@ export function createPlayerIdentityRenderer(options: {
     }
     element.append(document.createTextNode(baseName));
     appendPlayerGenderIcon(element, gender);
-    if (options.isGuest(identity)) element.append(document.createTextNode(" (guest)"));
+    if (options.isGuest(identity)) {
+      const guest = document.createElement("span");
+      guest.className = "player-name-guest";
+      guest.textContent = " (guest)";
+      element.append(guest);
+    }
   }
 
   function applyProfileIcon(element: HTMLElement, iconIndex: number) {
@@ -164,7 +169,7 @@ export function createPlayerIdentityRenderer(options: {
     const height = bubble.lines.length * lineHeight + paddingY * 2;
     const visibleWidth = options.viewport().width / options.camera.zoom;
     const centerX = clamp(x, width / 2 + 4, visibleWidth - width / 2 - 4);
-    const bottom = Math.max(height + 8, y - 108);
+    const bottom = Math.max(height + 8, y - (options.isGuest(identity) ? 124 : 108));
     const left = Math.round(centerX - width / 2);
     const top = Math.round(bottom - height);
     ctx.globalAlpha = opacity;
@@ -218,7 +223,7 @@ export function createPlayerIdentityRenderer(options: {
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      options.outlinedText("Invisible", centerX, barY - 39, "#c9a6ff", 4);
+      options.outlinedText("Invisible", centerX, barY - (options.isGuest(identity) ? 55 : 39), "#c9a6ff", 4);
       ctx.restore();
     }
     drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor, gender);
@@ -228,11 +233,13 @@ export function createPlayerIdentityRenderer(options: {
   function drawPlayerIdentity(identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, explicitGender?: PlayerGender) {
     if (!name) return;
     const ctx = options.ctx;
+    const guest = options.isGuest(identity);
+    const displayName = guest ? name.replace(/\s*\(guest\)$/i, "") : name;
     const powerValue = power === null ? "" : formatCompactNumber(power);
     ctx.save();
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
-    const nameWidth = ctx.measureText(name).width;
+    const nameWidth = ctx.measureText(displayName).width;
     const gender = explicitGender ?? options.playerGender(identity);
     const genderIcon = gender === PLAYER_GENDER_MALE || gender === PLAYER_GENDER_FEMALE
       ? options.genderIcons[gender]
@@ -247,15 +254,15 @@ export function createPlayerIdentityRenderer(options: {
     const textLeft = Math.round(centerX - labelWidth / 2);
     const nameBottom = powerValue ? bottom - 18 : bottom;
     const developerPrefix = `${DEVELOPER_BADGE} `;
-    if (name.startsWith(developerPrefix)) {
-      const playerName = name.slice(developerPrefix.length);
+    if (displayName.startsWith(developerPrefix)) {
+      const playerName = displayName.slice(developerPrefix.length);
       const prefixWidth = ctx.measureText(developerPrefix).width;
       ctx.textAlign = "left";
       options.outlinedText(developerPrefix, textLeft, nameBottom, "#ffd85b", 4);
       options.outlinedText(playerName, textLeft + prefixWidth, nameBottom, color, 4);
     } else {
       ctx.textAlign = "left";
-      options.outlinedText(name, textLeft, nameBottom, color, 4);
+      options.outlinedText(displayName, textLeft, nameBottom, color, 4);
     }
     if (hasGenderIcon && genderIcon) {
       ctx.imageSmoothingEnabled = true;
@@ -266,6 +273,11 @@ export function createPlayerIdentityRenderer(options: {
         Math.round(genderIconWidth),
         genderIconHeight,
       );
+    }
+    if (guest) {
+      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.textAlign = "center";
+      options.outlinedText("(guest)", centerX, nameBottom - 16, "#a9b1ad", 3);
     }
     if (powerValue) {
       const hasPowerIcon = options.powerIcon.complete && options.powerIcon.naturalWidth > 0;

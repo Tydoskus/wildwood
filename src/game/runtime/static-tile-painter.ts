@@ -23,9 +23,12 @@ export type StaticTileScene = {
   decor: WorldDecor[];
   treeBounds: StaticTileTreeBounds[];
   snowPineAspect: number;
+  lavaRockUrls?: readonly string[];
+  lavaPoolUrls?: readonly string[];
 };
 
 type TileContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+export type StaticTileImage = { source: CanvasImageSource; width: number; height: number };
 
 const TAU = Math.PI * 2;
 const TREE_SHADOW_CANOPY_WIDTH_RATIO = .9;
@@ -61,6 +64,8 @@ export function paintStaticTile(
   tileX: number,
   tileY: number,
   shadowImage?: CanvasImageSource,
+  lavaRockImages: readonly StaticTileImage[] = [],
+  lavaPoolImages: readonly StaticTileImage[] = [],
 ) {
   const originX = tileX * scene.tileSize;
   const originY = tileY * scene.tileSize;
@@ -70,6 +75,27 @@ export function paintStaticTile(
   for (const decor of scene.decor) {
     const x = Math.round(decor.x - originX);
     const y = Math.round(decor.y - originY);
+    if (decor.type === "lavaPool") {
+      const image = lavaPoolImages[decor.variant % lavaPoolImages.length];
+      if (!image) continue;
+      const width = Math.round(300 * decor.s);
+      const height = Math.round(width * image.height / image.width);
+      if (x + width / 2 < 0 || x - width / 2 > scene.tileSize || y + height / 2 < 0 || y - height / 2 > scene.tileSize) continue;
+      context.save();
+      context.globalAlpha = .94;
+      context.drawImage(image.source, x - width / 2, y - height / 2, width, height);
+      context.restore();
+      continue;
+    }
+    if (decor.type === "lavaRock") {
+      const image = lavaRockImages[decor.variant % lavaRockImages.length];
+      if (!image) continue;
+      const width = Math.round(150 * decor.s);
+      const height = Math.round(width * image.height / image.width);
+      if (x + width / 2 < 0 || x - width / 2 > scene.tileSize || y < 0 || y - height > scene.tileSize) continue;
+      context.drawImage(image.source, x - width / 2, y - height, width, height);
+      continue;
+    }
     if (x < -50 || y < -50 || x > scene.tileSize + 50 || y > scene.tileSize + 50) continue;
     if (decor.type === "grass") {
       context.fillStyle = decor.variant % 2 ? "#237b49" : "#267f4c";
