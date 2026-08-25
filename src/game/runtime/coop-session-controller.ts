@@ -6,6 +6,7 @@ type AccountState = ReturnType<CoopClient["accountState"]>;
 type CoopSessionDependencies = {
   coop: CoopClient | null;
   syncLifetimeKills: (identity: string) => void;
+  refreshGemCounter: () => void;
   refreshOpenProfile: () => void;
   refreshLeaderboard: () => void;
   refreshDevPanel: () => void;
@@ -41,6 +42,7 @@ export function createCoopSessionController(dependencies: CoopSessionDependencie
 
     const identity = coop.localIdentity?.() || "";
     dependencies.syncLifetimeKills(identity);
+    dependencies.refreshGemCounter();
     dependencies.refreshOpenProfile();
     dependencies.refreshLeaderboard();
     dependencies.refreshDevPanel();

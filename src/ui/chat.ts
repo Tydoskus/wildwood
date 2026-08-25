@@ -49,9 +49,10 @@ type ChatOptions = {
   showMessage: (text: string, color?: string) => void;
   onOpenReplay?: (replayId: bigint) => void;
   onOpenPlayer?: (identity: string, displayName: string) => void;
+  onLayoutChange?: () => void;
 };
 
-export function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer }: ChatOptions) {
+export function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer, onLayoutChange }: ChatOptions) {
   let enabled = true;
   let large = false;
   let renderedRevision = -1;
@@ -67,6 +68,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.toggle.classList.toggle("is-off", !enabled);
     elements.panel.hidden = !enabled;
     try { localStorage.setItem(CHAT_ENABLED_KEY, String(enabled)); } catch {}
+    requestAnimationFrame(() => onLayoutChange?.());
   }
 
   function updateHeight() {
@@ -78,6 +80,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     // presentation changes so there is no hidden scroll position to preserve.
     renderedRevision = -1;
     refresh();
+    requestAnimationFrame(() => onLayoutChange?.());
     if (large) requestAnimationFrame(() => { elements.messages.scrollTop = elements.messages.scrollHeight; });
   }
 

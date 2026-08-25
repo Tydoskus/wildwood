@@ -1,14 +1,13 @@
 import type { LeaderboardEntry, PlayerProfileData } from "../wildwood-coop";
 import { isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
 import { appendPlayerGenderIcon } from "./player-gender";
-import { formatGemAmount } from "./number-format";
 
 export type ProfileTab = "overview" | "stats" | "ranking";
 type Profile = PlayerProfileData;
 type SavePatch = { displayName: string; maxHp: number; damage: number; attackRate: number; armor: number; regen: number; speed: number; attackRange: number; projectileSpeed: number; projectileCount: number };
 
 export function createProfileWindowController(elements: {
-  window: HTMLElement; name: HTMLElement; presence: HTMLElement; power: HTMLElement; gemWallet: HTMLElement; gemBalance: HTMLElement; icon: HTMLButtonElement; loading: HTMLElement;
+  window: HTMLElement; name: HTMLElement; presence: HTMLElement; power: HTMLElement; icon: HTMLButtonElement; loading: HTMLElement;
   overviewTab: HTMLElement; statsTab: HTMLElement; rankingTab: HTMLElement; overviewPanel: HTMLElement; statsPanel: HTMLElement; rankingPanel: HTMLElement; leaderboardStats: HTMLElement;
   joined: HTMLElement; timePlayed: HTMLElement; kills: HTMLElement; online: HTMLElement; statGrid: HTMLElement;
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
@@ -26,7 +25,6 @@ export function createProfileWindowController(elements: {
   isDeveloper: () => boolean; isDueling: () => boolean; duelCooldownMs: () => number; requestDuel: (identity: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
   isNameTaken: (name: string) => boolean; setDisplayName: (name: string) => Promise<{ ok?: boolean; error?: string } | undefined>; updateSave: (identity: string, save: SavePatch) => Promise<{ ok?: boolean; error?: string } | undefined>;
   showMessage: (text: string, color: string) => void;
-  gemBalance: () => bigint;
 }) {
   let identity = "";
   let profileData: Profile | null = null;
@@ -126,8 +124,6 @@ export function createProfileWindowController(elements: {
     api.paintIcon(elements.icon, api.profileIcon(profile.identity));
     elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.icon.setAttribute("aria-label", own ? "Choose profile icon" : `${profile.name}'s profile icon`);
     elements.editName.hidden = !own;
-    elements.gemWallet.hidden = !own;
-    if (own) elements.gemBalance.textContent = formatGemAmount(api.gemBalance());
     elements.genderSetting.hidden = !own;
     if (own) updateGenderChoices(profile.gender);
     else closeGenderChoices();
@@ -153,14 +149,14 @@ export function createProfileWindowController(elements: {
     identity = nextIdentity; profileData = null; elements.developerEdit.hidden = true; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity; updateDuelButton();
     elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity));
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "ONLINE" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
-    api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.gemWallet.hidden = !own; if (own) elements.gemBalance.textContent = formatGemAmount(api.gemBalance()); elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
+    api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
     updatePreview(nextIdentity, own); renderPower("—"); elements.loading.hidden = false; elements.overviewPanel.hidden = true; elements.statsPanel.hidden = true; elements.rankingPanel.hidden = true; selectTab("stats"); elements.statsPanel.hidden = true;
     const cached = api.profile(nextIdentity); if (cached) { render(cached); return; }
     const loaded = await api.loadProfile(nextIdentity); if (nextIdentity !== identity) return; if (loaded) render(loaded); else elements.loading.textContent = "PLAYER DATA UNAVAILABLE";
   }
 
   function close() {
-    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.gemWallet.hidden = true; elements.window.hidden = true; identity = ""; profileData = null; elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
+    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.window.hidden = true; identity = ""; profileData = null; elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
   }
 
   function openNameEditor() {

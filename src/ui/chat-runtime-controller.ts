@@ -5,6 +5,7 @@ type ChatOptions = Parameters<typeof createChatController>[0];
 
 export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop" | "showMessage" | "onOpenPlayer"> & {
   openReplay: (replayId: bigint) => void;
+  onLayoutChange?: () => void;
 }) {
   const chat = createChatController({
     elements: {
@@ -22,6 +23,7 @@ export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop"
     showMessage: options.showMessage,
     onOpenReplay: options.openReplay,
     onOpenPlayer: options.onOpenPlayer,
+    onLayoutChange: options.onLayoutChange,
   });
 
   function init() {

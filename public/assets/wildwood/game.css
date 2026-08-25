@@ -31,9 +31,11 @@
     --game-window-width: min(420px, calc(100vw - 24px));
     --hud-row-height: clamp(59px, 8.5vw, 63px);
     --hud-map-size: calc(var(--hud-row-height) * 2);
+    --mini-chat-height: 82px;
     --toolbar-button-height: 58px;
     --toolbar-bottom-padding: 30px;
     --toolbar-height: calc(var(--toolbar-button-height) + var(--toolbar-bottom-padding) + env(safe-area-inset-bottom, 0px));
+    --gameplay-bottom-inset: calc(var(--toolbar-height) + var(--mini-chat-height));
   }
 
   * {
@@ -82,7 +84,7 @@
   }
 
   canvas#game {
-    bottom: var(--toolbar-height);
+    bottom: var(--gameplay-bottom-inset);
     height: auto;
   }
 
@@ -1006,18 +1008,25 @@
   #chatPanel {
     position: fixed;
     left: 0;
-    top: var(--hud-row-height);
-    bottom: auto;
-    width: min(320px, 50vw);
+    right: 0;
+    top: auto;
+    bottom: var(--toolbar-height);
+    width: 100vw;
+    height: var(--mini-chat-height);
     padding: 3px 6px 5px;
     border-top: 0;
     border-left: 0;
+    border-right: 0;
     border-radius: 0;
     cursor: default;
     font-family: var(--chat-font);
     pointer-events: auto;
     z-index: 6;
   }
+
+  .hud-gem-wallet { position: fixed; top: calc(var(--hud-row-height) + 4px); left: 6px; z-index: 5; display: flex; align-items: center; gap: 3px; min-height: 23px; padding: 0; border: 0; background: transparent; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
+  .hud-gem-icon { display: block; width: 17px; height: 17px; object-fit: contain; }
+  .hud-gem-balance { color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px #071c29; }
 
   #chatPanel[hidden] { display: none; }
   #chatPanel:not(.is-large) { border-radius: 0; background: rgba(8, 18, 12, .5); backdrop-filter: none; }
@@ -1120,7 +1129,7 @@
   #chatPanel:not(.is-large) #latencyStatus,
   #chatPanel:not(.is-large) #version { display: none; }
   #chatPanel:not(.is-large) .chat-size-toggle { margin-left: 0; }
-  #chatPanel:not(.is-large) #chatMessages { display: grid; align-content: end; }
+  #chatPanel:not(.is-large) #chatMessages { display: grid; align-content: end; height: 39px; min-height: 39px; max-height: 39px; }
   #chatPanel:not(.is-large) .chat-line { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 18px; }
   #chatPanel:not(.is-large) .chat-time,
   #chatPanel:not(.is-large) .chat-profile-icon { display: none; }
@@ -1650,11 +1659,6 @@
   .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
-  .profile-gem-wallet { display: flex; align-items: center; gap: 4px; width: max-content; min-height: 16px; margin-top: 3px; padding: 1px 5px 1px 3px; border: 1px solid rgba(237,98,173,.55); border-radius: 5px; background: rgba(92,28,67,.28); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; }
-  .profile-gem-wallet[hidden] { display: none; }
-  .profile-gem-icon { display: block; width: 13px; height: 13px; object-fit: contain; }
-  .profile-gem-label { color: #ff9fd2; font-size: 7px; font-weight: 900; letter-spacing: .08em; }
-  .profile-gem-balance { color: #fff; font-size: 9px; font-weight: 900; text-shadow: 0 1px #071c29; }
   #playerProfilePower { margin-left: auto; font-size: 11px; white-space: nowrap; text-align: right; }
   .power-label { color: var(--gold); }
   .power-value { color: #fff; }
@@ -1920,10 +1924,6 @@
     .player-profile-title-row { gap: 7px; }
     .player-profile-header h2 { font-size: clamp(11px, 3.8vw, 16px); }
     .player-profile-presence { margin-top: 2px; font-size: 7px; line-height: 1.15; }
-    .profile-gem-wallet { min-height: 14px; margin-top: 2px; }
-    .profile-gem-icon { width: 11px; height: 11px; }
-    .profile-gem-label { font-size: 6px; }
-    .profile-gem-balance { font-size: 8px; }
     #playerProfilePower { font-size: 10px; }
     .player-profile-modal .profile-close-button { width: 34px; min-width: 34px; height: 34px; font-size: 21px; }
     .player-profile-modal .profile-tabs { margin: 8px 0 5px; }
@@ -2103,7 +2103,7 @@
     pointer-events: none;
     position: fixed;
     left: 26px;
-    bottom: calc(var(--toolbar-height) + 30px);
+    bottom: calc(var(--gameplay-bottom-inset) + 30px);
     width: 118px;
     height: 118px;
     border-radius: 50%;
@@ -2142,7 +2142,6 @@
     .settings-button { font-size: 25px; }
     .toolbar-icon { width: 28px; height: 28px; }
     #chatPanel {
-      width: min(300px, 50vw);
       padding-bottom: 5px;
     }
   }

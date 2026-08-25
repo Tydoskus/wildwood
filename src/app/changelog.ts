@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.500": [
+    "Moved the private Gems balance out of the profile into a borderless HUD counter beneath the player summary, showing only the pink Gem symbol and amount.",
+    "Returned minimized World Chat to a full-width strip between the gameplay canvas and toolbar; gameplay now ends above it while fullscreen windows continue to cover it normally.",
+    "Simplified the Upgrade Bench item list by removing the NEXT +level labels.",
+  ],
   "0.499": [
     "Added a private, server-backed Gems balance to your profile with a new pink Gem icon; purchases and spending are not enabled yet.",
     "Settings volume controls now use much wider responsive tracks with exact 44-by-44-pixel slider thumbs and visible filled progress for easier touch adjustment.",
@@ -978,6 +983,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.500": "2026-08-24",
   "0.499": "2026-08-24",
   "0.498": "2026-08-24",
   "0.497": "2026-08-24",

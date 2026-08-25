@@ -60,17 +60,35 @@ describe("interface style contracts", () => {
     expect(firefoxThumb).toContain("height: 44px");
   });
 
-  it("anchors minimized chat directly below the player HUD", () => {
+  it("stacks the full-width minimized chat between the canvas and toolbar", () => {
     const chat = cssRule("#chatPanel {");
-    expect(chat).toContain("top: var(--hud-row-height)");
-    expect(chat).toContain("bottom: auto");
+    expect(chat).toContain("top: auto");
+    expect(chat).toContain("bottom: var(--toolbar-height)");
+    expect(chat).toContain("width: 100vw");
+    expect(chat).toContain("height: var(--mini-chat-height)");
+    expect(cssRule("canvas#game {")).toContain("bottom: var(--gameplay-bottom-inset)");
     expect(cssRule("#chatPanel.is-large {")).toContain("var(--toolbar-height)");
+    expect(cssRule(".card.settings-panel")).toContain("inset: 0 0 var(--toolbar-height)");
+    expect(cssRule(".card.settings-panel")).toContain("z-index: 10");
+    expect(cssRule(".card.inventory-panel")).toContain("inset: 0 0 var(--toolbar-height)");
+    expect(cssRule(".card.inventory-panel")).toContain("z-index: 10");
   });
 
-  it("uses the flat pink Gem asset in the private profile balance", () => {
-    expect(html).toContain('id="profileGemWallet"');
+  it("places the unbordered Gem balance beneath the player HUD", () => {
+    const chat = html.indexOf('id="chatPanel"');
+    const wallet = html.indexOf('id="hudGemWallet"');
+    const profile = html.indexOf('id="playerProfile"');
+    expect(wallet).toBeGreaterThan(chat);
+    expect(wallet).toBeLessThan(profile);
+    expect(html).not.toContain('id="profileGemWallet"');
+    expect(html).not.toContain('class="profile-gem-label"');
     expect(html).toContain('src="assets/wildwood/gems/gem-icon.png"');
-    const icon = cssRule(".profile-gem-icon {");
+    const counter = cssRule(".hud-gem-wallet {");
+    expect(counter).toContain("top: calc(var(--hud-row-height) + 4px)");
+    expect(counter).toContain("left: 6px");
+    expect(counter).toContain("border: 0");
+    expect(counter).toContain("background: transparent");
+    const icon = cssRule(".hud-gem-icon {");
     expect(icon).not.toContain("gradient");
     expect(icon).not.toContain("box-shadow");
     expect(icon).not.toContain("clip-path");

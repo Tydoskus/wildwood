@@ -26,6 +26,7 @@ export function createCanvasRuntime({
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     canvas.style.bottom = `${reservedBottom}px`;
+    document.documentElement.style.setProperty("--gameplay-bottom-inset", `${reservedBottom}px`);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }

@@ -82,7 +82,6 @@ export function upgradePickerPreview(itemId: string, upgradeLevel: unknown) {
   const level = normalizeItemUpgradeLevel(upgradeLevel);
   return {
     name: itemDisplayName(itemId, level),
-    nextLevel: level + 1,
     changes: itemUpgradeStatChanges(itemId, level),
   };
 }
@@ -221,9 +220,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       title.className = "upgrade-bench-picker-title";
       const name = document.createElement("strong");
       name.textContent = preview.name;
-      const next = document.createElement("small");
-      next.textContent = `NEXT +${preview.nextLevel}`;
-      title.append(name, next);
+      title.append(name);
       const stats = document.createElement("span");
       stats.className = "upgrade-bench-picker-stats";
       for (const change of preview.changes) {

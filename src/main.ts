@@ -62,7 +62,7 @@ import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-cont
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
-import { formatCompactNumber } from "./ui/number-format";
+import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
@@ -88,21 +88,35 @@ import {
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, coopStatusEl, messageEl, pickupLog,
+    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, chatPanel, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
-    playerProfileEl, playerProfileNameEl, playerProfilePresenceEl, playerProfilePowerEl, profileGemWallet, profileGemBalance, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileLeaderboardStatsEl, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
+    playerProfileEl, playerProfileNameEl, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileLeaderboardStatsEl, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileRankingTab, profileOverviewPanel, profileStatsPanel, profileRankingPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
     leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardPodiumEl, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
-  const canvasRuntime = createCanvasRuntime({ canvas, bottomInset: () => toolbar.getBoundingClientRect().height, getActorShadowSprite: () => actorShadowSprite });
+  const canvasRuntime = createCanvasRuntime({
+    canvas,
+    bottomInset: () => toolbar.getBoundingClientRect().height + (
+      chatPanel.hidden || chatPanel.classList.contains("is-large")
+        ? 0
+        : chatPanel.getBoundingClientRect().height
+    ),
+    getActorShadowSprite: () => actorShadowSprite,
+  });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
   const coop = window.wildwoodCoop || null;
+  function refreshGemCounter() {
+    const balance = formatGemAmount(coop?.gemBalance?.() ?? 0n);
+    hudGemBalance.textContent = balance;
+    hudGemWallet.setAttribute("aria-label", `${balance} Gems`);
+  }
+  refreshGemCounter();
   const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, seenVersionKey: SEEN_VERSION_KEY, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });
 
   let startupCoordinator!: ReturnType<typeof createStartupCoordinator>;
@@ -829,7 +843,7 @@ import {
   }
 
   const profileWindow = createProfileWindowController({
-    window: playerProfileEl, name: playerProfileNameEl, presence: playerProfilePresenceEl, power: playerProfilePowerEl, gemWallet: profileGemWallet, gemBalance: profileGemBalance, icon: playerProfileIcon, loading: playerProfileLoadingEl,
+    window: playerProfileEl, name: playerProfileNameEl, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, rankingTab: profileRankingTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel, rankingPanel: profileRankingPanel, leaderboardStats: profileLeaderboardStatsEl,
     joined: profileJoinedEl, timePlayed: profileTimePlayedEl, kills: profileKillsEl, online: profileOnlineEl, statGrid: profileStatGrid,
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
@@ -855,7 +869,6 @@ import {
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0, requestDuel: async (identity) => coop?.requestDuel?.(identity),
     isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), showMessage,
-    gemBalance: () => coop?.gemBalance?.() ?? 0n,
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
   new ResizeObserver(() => {
@@ -1178,6 +1191,7 @@ import {
     showMessage,
     onOpenPlayer: (identity, name) => { void profileWindow.open(identity, name); },
     openReplay: (replayId) => { void duelRuntime.openReplay(replayId); },
+    onLayoutChange: canvasRuntime.resize,
   });
   chatRuntime.init();
   minimizeMaximizedChat = chatRuntime.minimize;
@@ -1202,6 +1216,7 @@ import {
   const coopSession = createCoopSessionController({
     coop,
     syncLifetimeKills: progress.syncLifetimeKills,
+    refreshGemCounter,
     refreshOpenProfile: () => {
       const identity = profileWindow.identity();
       if (!identity) return;
