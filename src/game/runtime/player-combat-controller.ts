@@ -141,6 +141,14 @@ export function createPlayerCombatController(options: {
   let pendingMagmaliskHits = 0;
   let magmaliskHitBatchTimer = 0;
 
+  function activeMapBoss(): BossTarget | null {
+    if (isTutorialMap()) return boss;
+    if (isDesertMap()) return spiderBoss;
+    if (isSnowMap()) return frostclawBoss;
+    if (isLavaMap()) return magmaliskBoss;
+    return null;
+  }
+
   function fireAt(target: AttackTarget, attackInterval: number, nowSeconds: number) {
     if (pendingPlayerAttack) return false;
     const scheduledAt = nextAttackAtSeconds > 0 && nowSeconds - nextAttackAtSeconds <= MAX_SCHEDULE_LATE_SECONDS
@@ -225,7 +233,7 @@ export function createPlayerCombatController(options: {
       const distance = distanceSquared(player, enemy);
       if (distance < best) { best = distance; target = enemy; }
     }
-    const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : isSnowMap() ? frostclawBoss : isLavaMap() ? magmaliskBoss : null;
+    const mapBoss = activeMapBoss();
     if (mapBoss && !mapBoss.dead) {
       const edgeDistance = Math.max(0, Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y) - mapBoss.r);
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
@@ -300,7 +308,7 @@ export function createPlayerCombatController(options: {
     const invLength = 1 / Math.sqrt(lengthSq);
     let closest: EnemyState | BossTarget | null = null;
     let closestT = Infinity;
-    const mapBoss = isTutorialMap() ? boss : isDesertMap() ? spiderBoss : isSnowMap() ? frostclawBoss : null;
+    const mapBoss = activeMapBoss();
     const padding = radius + maxEnemyRadius;
     targetGrid.queryBounds(
       Math.min(startX, endX) - padding,

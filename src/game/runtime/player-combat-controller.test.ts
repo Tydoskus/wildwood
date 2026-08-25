@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   attackReadyAtWithoutTarget,
+  createPlayerCombatController,
   playerAttackAnimationSpeed,
   playerAttackWindupSeconds,
   projectileSimulationSeconds,
 } from "./player-combat-controller";
+import { createGameBootstrap } from "./game-bootstrap";
 
 describe("player attack timing", () => {
   it("keeps the normal windup for slower attacks", () => {
@@ -28,5 +30,68 @@ describe("player attack timing", () => {
     expect(attackReadyAtWithoutTarget(9.8, 10)).toBe(9.8);
     expect(attackReadyAtWithoutTarget(10.5, 10)).toBeCloseTo(10.08);
     expect(attackReadyAtWithoutTarget(9.8, 10.08)).toBe(9.8);
+  });
+
+  it("collides projectiles with the Magmalisk and submits the hit batch", () => {
+    const state = createGameBootstrap();
+    state.magmaliskBoss.x = 200;
+    state.magmaliskBoss.y = 100;
+    state.magmaliskBoss.dead = false;
+    const projectile = state.projectileStore.acquirePlayerProjectile();
+    Object.assign(projectile, {
+      x: 0, y: 100, vx: 1_000, vy: 0, r: 6, damage: 25,
+      critical: false, hitLife: 1, life: 1, trail: 1,
+    });
+    const damageMagmalisk = vi.fn();
+    const spawnDamageNumber = vi.fn();
+    const noop = () => {};
+    const controller = createPlayerCombatController({
+      player: state.player,
+      enemies: state.enemies,
+      spawnSites: state.spawnSites,
+      projectileStore: state.projectileStore,
+      boss: state.boss,
+      spiderBoss: state.spiderBoss,
+      frostclawBoss: state.frostclawBoss,
+      magmaliskBoss: state.magmaliskBoss,
+      nowSeconds: () => 1,
+      isTutorialMap: () => false,
+      isDesertMap: () => false,
+      isSnowMap: () => false,
+      isLavaMap: () => true,
+      engageEnemy: noop,
+      researchDamageMultiplier: () => 1,
+      researchCriticalChance: () => 0,
+      researchCriticalDamageMultiplier: () => 1,
+      researchRewardMultiplier: () => 1,
+      equippedWeapon: () => "starter_stone",
+      equippedChest: () => "",
+      healthMultiplier: () => 1,
+      minAttackInterval: .05,
+      effectiveArmor: () => 0,
+      isDueling: () => false,
+      scheduleEnemyRespawn: noop,
+      incrementKills: noop,
+      recordForestEnemyDefeat: noop,
+      recordLavaEnemyDefeat: noop,
+      damageDragon: noop,
+      damageSpider: noop,
+      damageFrostclaw: noop,
+      damageMagmalisk,
+      spawnBurst: noop,
+      spawnParticle: noop,
+      spawnDamageNumber,
+      logPickup: noop,
+      saveProgress: noop,
+      setHitFlash: noop,
+      addScreenShake: noop,
+      recordDeath: noop,
+      endGame: noop,
+    });
+
+    controller.updateProjectiles(.2);
+
+    expect(spawnDamageNumber).toHaveBeenCalledWith(200, 100, 25, false);
+    expect(damageMagmalisk).toHaveBeenCalledWith(1);
   });
 });

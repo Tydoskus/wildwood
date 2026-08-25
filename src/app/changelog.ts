@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.503": [
+    "Arrows now collide with the Magmalisk, show damage numbers, and submit their boss damage correctly.",
+    "Magmalisk animation frames now use their true artwork bounds so the left side is no longer cropped.",
+  ],
   "0.502": [
     "The Magmalisk now guards Lava Lake with bite and eruption attacks, permanent Damage, Health, Armor, and Regeneration rewards, plus a 1-in-25 Lava Bow drop.",
     "Regular lava monsters now have a 1-in-30 chance to drop Magma Armor, while equipment multipliers now multiply technology percentage bonuses.",
@@ -995,6 +999,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.503": "2026-08-24",
   "0.502": "2026-08-24",
   "0.501": "2026-08-24",
   "0.500": "2026-08-24",
