@@ -68,12 +68,22 @@ describe("interface style contracts", () => {
     expect(chat).toContain("height: var(--mini-chat-height)");
     expect(chat).toContain("border-bottom: 0");
     const compactChat = cssRule("#chatPanel:not(.is-large) {");
+    expect(cssRule(":root {")).toContain("--mini-chat-height: 58px");
     expect(compactChat).toContain("min-height: var(--mini-chat-height)");
     expect(compactChat).toContain("max-height: var(--mini-chat-height)");
     expect(compactChat).toContain("linear-gradient");
     expect(compactChat).toContain("cursor: pointer");
+    expect(cssRule("#chatPanel:not(.is-large) .chat-header {")).toContain("display: none");
+    expect(cssRule("#chatPanel.is-large .chat-header {")).toContain("display: none");
     expect(cssRule("canvas#game {")).toContain("bottom: var(--gameplay-bottom-inset)");
-    expect(cssRule("#chatPanel.is-large {")).toContain("var(--toolbar-height)");
+    const fullscreenChat = cssRule("#chatPanel.is-large {");
+    expect(fullscreenChat).toContain("inset: 0");
+    expect(fullscreenChat).toContain("z-index: 8");
+    expect(fullscreenChat).toContain("grid-template-rows: minmax(0, 1fr) auto");
+    expect(fullscreenChat).toContain("row-gap: 6px");
+    expect(fullscreenChat).toContain("max(8px, env(safe-area-inset-top))");
+    expect(fullscreenChat).toContain("overflow: hidden");
+    expect(fullscreenChat).toContain("#2e2c29, #1c1b19 88%");
     expect(cssRule(".card.settings-panel")).toContain("inset: 0 0 var(--toolbar-height)");
     expect(cssRule(".card.settings-panel")).toContain("z-index: 10");
     expect(cssRule(".card.inventory-panel")).toContain("inset: 0 0 var(--toolbar-height)");
@@ -101,20 +111,40 @@ describe("interface style contracts", () => {
     expect(username).toContain("font-weight: 900");
     expect(message).toContain("font-family: var(--player-name-font)");
     expect(message).toContain("font-weight: 900");
+    const fullscreenMessages = cssRule("#chatPanel.is-large #chatMessages {");
+    expect(fullscreenMessages).toContain("grid-row: 1");
+    expect(fullscreenMessages).toContain("display: flex");
+    expect(fullscreenMessages).toContain("flex-direction: column");
+    expect(fullscreenMessages).toContain("height: auto");
+    expect(fullscreenMessages).toContain("overflow: hidden auto");
+    expect(fullscreenMessages).toContain("align-self: stretch");
     const fullscreenLine = cssRule("#chatPanel.is-large .chat-line {");
-    expect(fullscreenLine).toContain("grid-template-columns: 66px minmax(0, 1fr) auto");
-    expect(fullscreenLine).toContain("min-height: 66px");
-    expect(fullscreenLine).toContain("padding: 7px 0");
+    expect(fullscreenLine).toContain("flex: 0 0 auto");
+    expect(fullscreenLine).toContain("grid-template-columns: 66px minmax(0, 1fr)");
+    expect(fullscreenLine).toContain("grid-template-rows: auto auto");
+    expect(fullscreenLine).toContain("min-height: 93px");
+    expect(fullscreenLine).toContain("padding: 7px 0 0");
+    expect(fullscreenLine).toContain("row-gap: 6px");
+    const fullscreenContent = cssRule("#chatPanel.is-large .chat-message-content {");
+    expect(fullscreenContent).toContain("flex-direction: column");
+    expect(fullscreenContent).toContain("gap: 2px");
     expect(cssRule("#chatPanel.is-large .chat-profile-icon {")).toContain("width: 66px");
-    expect(cssRule("#chatPanel.is-large .chat-text {")).toContain("font-size: 15px");
-  });
-
-  it("renders presence announcements as plain purple chat text", () => {
-    const presence = cssRule(".chat-line.is-presence .chat-text {");
-
-    expect(cssRule(":root {")).toContain("--chat-presence: #c9a6ff");
-    expect(presence).toContain("background: transparent");
-    expect(presence).toContain("color: var(--chat-presence)");
+    const fullscreenMessage = cssRule("#chatPanel.is-large .chat-text {");
+    expect(fullscreenMessage).toContain("height: auto");
+    expect(fullscreenMessage).toContain("margin: 0 0 10px");
+    expect(fullscreenMessage).toContain("padding: 6px 12px");
+    expect(fullscreenMessage).toContain("font-size: 15px");
+    const fullscreenTime = cssRule("#chatPanel.is-large .chat-time {");
+    expect(fullscreenTime).toContain("grid-column: 1 / -1");
+    expect(fullscreenTime).toContain("justify-self: center");
+    const fullscreenForm = cssRule("#chatPanel.is-large #chatForm {");
+    expect(fullscreenForm).toContain("grid-row: 2");
+    expect(fullscreenForm).toContain('grid-template-areas: "input send" "back back"');
+    expect(fullscreenForm).toContain("grid-template-rows: max-content max-content");
+    expect(fullscreenForm).toContain("align-content: start");
+    expect(fullscreenForm).toContain("env(safe-area-inset-bottom)");
+    expect(cssRule("#chatPanel.is-large #chatBackBtn {")).toContain("grid-area: back");
+    expect(cssRule("#chatPanel.is-large #chatMessages::before")).toContain("margin-top: auto");
   });
 
   it("keeps the profile window to Stats and Info without ranking code", () => {

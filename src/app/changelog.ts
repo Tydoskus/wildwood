@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.512": [
+    "Fullscreen chat now uses non-overlapping portrait-led messages, centered compact timestamps, and a safely clipped scroll area.",
+    "Fullscreen chat covers the toolbar with compact bottom controls, a centered Back button, and a warmer charcoal background.",
+    "Mini chat is shorter and removes its header bar, returning more room to the game canvas.",
+    "Global login and leave announcements are hidden until a future friends-only implementation.",
+  ],
   "0.511": [
     "Fullscreen chat now uses larger portraits, rows, and message text.",
     "Recovered missing world presence automatically and retried interrupted actions once.",
@@ -1040,6 +1046,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.512": "2026-08-25",
   "0.511": "2026-08-25",
   "0.510": "2026-08-25",
   "0.509": "2026-08-25",

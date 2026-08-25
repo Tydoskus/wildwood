@@ -1,9 +1,12 @@
 import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
-import { duelReplayIsInteractive } from "./chat-presentation";
+import {
+  duelReplayIsInteractive,
+  formatChatTime,
+  shouldShowGlobalChatMessage,
+} from "./chat-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
-import { isPresenceChatMessage } from "../../shared/presence-chat";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
@@ -131,7 +134,9 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const previousScrollHeight = elements.messages.scrollHeight;
     const distanceFromBottom = previousScrollHeight - elements.messages.clientHeight - previousScrollTop;
     const followNewestMessage = !large || renderedRevision < 0 || distanceFromBottom <= 16;
-    const allMessages = (coop?.chatMessages?.().filter((message) => now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) ?? []).slice(-100);
+    const allMessages = (coop?.chatMessages?.().filter((message) =>
+      now - message.sentAtMs < CHAT_DISPLAY_TTL_MS && shouldShowGlobalChatMessage(message.senderName)
+    ) ?? []).slice(-100);
     // Do not rely on scrolling hidden rows in compact mode. Its DOM contains
     // exactly the newest two rows in the same oldest-to-newest order as the
     // expanded view.
@@ -144,17 +149,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       line.className = "chat-line";
       const time = document.createElement("span");
       time.className = "chat-time";
-      time.textContent = new Date(message.sentAtMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      time.textContent = formatChatTime(new Date(message.sentAtMs));
       const text = document.createElement("span");
       text.className = "chat-text";
       text.textContent = message.message;
-      if (isPresenceChatMessage(message.senderName)) {
-        line.classList.add("is-presence");
-        line.append(time, text);
-        elements.messages.appendChild(line);
-        continue;
-      }
-
       const displayName = message.senderName || (message.replayId > 0n ? "DUEL" : "PLAYER");
       const displayIdentity = message.sender;
       const cachedGender = normalizePlayerGender(coop?.playerGender?.(displayIdentity));
@@ -229,7 +227,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       });
       const iconIndex = Math.max(0, Math.min(63, Math.floor(coop?.profileIcon?.(displayIdentity) ?? 0)));
       icon.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + (iconIndex % 8) * PROFILE_PORTRAIT_POSITION_STEP}% ${PROFILE_PORTRAIT_POSITION_START + Math.floor(iconIndex / 8) * PROFILE_PORTRAIT_POSITION_STEP}%`;
-      line.append(time, icon, name, text);
+      const content = document.createElement("div");
+      content.className = "chat-message-content";
+      content.append(name, text);
+      line.append(time, icon, content);
       if (duelReplayIsInteractive(message.replayId, large)) {
         line.classList.add("has-replay");
         line.setAttribute("role", "button");
