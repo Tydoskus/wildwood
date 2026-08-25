@@ -61,6 +61,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     loadingStageStartedAt = performance.now();
     loadingStageTimer = null;
     loadingSequenceComplete = false;
+    accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
@@ -73,6 +74,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showSessionConflict() {
+    accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
@@ -89,6 +91,7 @@ export function createStartupController(dependencies: StartupDependencies) {
       return;
     }
     const account = dependencies.accountState();
+    accountChoicePanel.classList.remove("is-signing-in");
     const accountOptionsReady = dependencies.connected() || Boolean(account?.signInRequired);
     const knownAccount = Boolean(account?.knownAccount);
     const name = dependencies.knownCharacter().trim();
@@ -131,13 +134,17 @@ export function createStartupController(dependencies: StartupDependencies) {
     newPlayerPanel.hidden = true;
     accountCharacterName.textContent = "signing in…";
     accountCharacter.classList.remove("is-empty");
-    signInButton.hidden = true;
-    guestButton.hidden = true;
+    accountChoicePanel.classList.add("is-signing-in");
+    signInButton.hidden = false;
+    signInButton.disabled = true;
+    guestButton.hidden = false;
+    guestButton.disabled = true;
     accountChoiceDetail.textContent = detail;
   }
 
   /** Switch an authenticated account back to progress loading without restarting its timer sequence. */
   function showLoading() {
+    accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
@@ -174,6 +181,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showNewPlayerIntro() {
+    accountChoicePanel.classList.remove("is-signing-in");
     if (!playerNameInput.value) playerNameInput.value = dependencies.defaultPlayerName() || "WANDERER";
     start.style.display = "grid";
     connectionPanel.hidden = true;

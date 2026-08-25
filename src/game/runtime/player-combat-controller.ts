@@ -298,7 +298,14 @@ export function createPlayerCombatController(options: {
     setHitFlash();
     addScreenShake(7);
     spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
-    if (player.hp <= 0) { player.hp = 0; player.combatFacing = null; breakEnemyLeashes(); recordDeath(); endGame(); }
+    if (player.hp <= 0) {
+      player.hp = 0;
+      player.moving = false;
+      player.combatFacing = null;
+      breakEnemyLeashes();
+      endGame();
+      recordDeath();
+    }
     return true;
   }
 

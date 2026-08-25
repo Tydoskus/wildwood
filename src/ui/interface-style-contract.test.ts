@@ -88,6 +88,7 @@ describe("interface style contracts", () => {
     expect(username).toContain("font-weight: 900");
     expect(message).toContain("font-family: var(--player-name-font)");
     expect(message).toContain("font-weight: 900");
+    expect(cssRule("#chatPanel.is-large .chat-line {")).toContain("padding: 5px 0");
   });
 
   it("renders presence announcements as plain purple chat text", () => {
@@ -136,9 +137,22 @@ describe("interface style contracts", () => {
   });
 
   it("centers profile equation operators in dedicated columns", () => {
+    expect(cssRule(".profile-stat-summary {")).toContain("minmax(0, 1fr) 20px minmax(0, 1fr) 20px minmax(0, 1fr)");
     expect(cssRule(".profile-stat-multiply {")).toContain("grid-column: 2");
     expect(cssRule(".profile-stat-equals {")).toContain("grid-column: 4");
     expect(cssRule(".profile-stat-total-group {")).toContain("grid-column: 5");
+  });
+
+  it("keeps sign-in artwork present and stable through authentication transitions", () => {
+    expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
+    expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high"');
+    expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/wildwood-wordmark.png" type="image/png" fetchpriority="high"');
+    expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
+    expect(css).toContain("height: calc(100dvh + 30px)");
+    expect(css).toContain("var(--signin-preview, none)");
+    expect(cssRule(".connection-modal,")).toContain("calc(100svh - 24px)");
+    expect(cssRule(".connection-modal,")).toContain("calc((100svh - 586px) / 2)");
+    expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
   });
 
   it("turns the full minimap into a help target with a fullscreen map guide", () => {

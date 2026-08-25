@@ -16,8 +16,10 @@ export type Particle = {
 export type DamageNumber = {
   x: number;
   y: number;
+  startY: number;
   life: number;
   maxLife: number;
+  opacity: number;
   text: string;
   critical: boolean;
 };
@@ -27,6 +29,10 @@ type OutlinedText = (text: string, x: number, y: number, color: string, strokeWi
 
 export const MAX_PARTICLES = 320;
 export const MAX_DAMAGE_NUMBERS = 96;
+export const DAMAGE_NUMBER_RISE_DURATION = .55;
+export const DAMAGE_NUMBER_FADE_DURATION = .35;
+const DAMAGE_NUMBER_RISE_DISTANCE = 32;
+const DAMAGE_NUMBER_LIFETIME = DAMAGE_NUMBER_RISE_DURATION + DAMAGE_NUMBER_FADE_DURATION;
 
 export function createCombatEffects() {
   const particles: Particle[] = [];
@@ -71,16 +77,18 @@ export function createCombatEffects() {
     if (!Number.isFinite(amount) || amount <= 0) return;
     let number: DamageNumber;
     if (damageNumbers.length < MAX_DAMAGE_NUMBERS) {
-      number = damageNumberPool.pop() ?? { x: 0, y: 0, life: 0, maxLife: 0, text: "", critical: false };
+      number = damageNumberPool.pop() ?? { x: 0, y: 0, startY: 0, life: 0, maxLife: 0, opacity: 1, text: "", critical: false };
       damageNumbers.push(number);
     } else {
       number = damageNumbers[damageNumberReplacement % damageNumbers.length];
       damageNumberReplacement = (damageNumberReplacement + 1) % MAX_DAMAGE_NUMBERS;
     }
     number.x = x + rand(-10, 10);
-    number.y = y - 28;
-    number.life = .72;
-    number.maxLife = .72;
+    number.startY = y - 28;
+    number.y = number.startY;
+    number.life = DAMAGE_NUMBER_LIFETIME;
+    number.maxLife = DAMAGE_NUMBER_LIFETIME;
+    number.opacity = 1;
     number.text = `-${formatCompactNumber(amount)}`;
     number.critical = critical;
   }
@@ -102,8 +110,13 @@ export function createCombatEffects() {
     }
 
     for (const number of damageNumbers) {
-      number.life -= dt;
-      number.y -= 34 * dt;
+      number.life = Math.max(0, number.life - dt);
+      const elapsed = number.maxLife - number.life;
+      const riseProgress = clamp(elapsed / DAMAGE_NUMBER_RISE_DURATION, 0, 1);
+      const easedRise = 1 - Math.pow(1 - riseProgress, 3);
+      number.y = number.startY - DAMAGE_NUMBER_RISE_DISTANCE * easedRise;
+      const fadeProgress = clamp((elapsed - DAMAGE_NUMBER_RISE_DURATION) / DAMAGE_NUMBER_FADE_DURATION, 0, 1);
+      number.opacity = 1 - fadeProgress;
     }
     for (let index = damageNumbers.length - 1; index >= 0; index -= 1) {
       if (damageNumbers[index].life > 0) continue;
@@ -133,7 +146,7 @@ export function createCombatEffects() {
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     for (const number of damageNumbers) {
-      ctx.globalAlpha = clamp(number.life / number.maxLife, 0, 1);
+      ctx.globalAlpha = number.opacity;
       ctx.font = number.critical
         ? '900 22px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
         : '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';

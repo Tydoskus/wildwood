@@ -109,6 +109,15 @@ export type LocalPlayerState = {
   mapId: string;
 };
 
+export type RemotePlayerDeath = {
+  id: string;
+  mapId: string;
+  x: number;
+  y: number;
+  facing: number;
+  startedAtMs: number;
+};
+
 export type ChatMessage = {
   id: bigint;
   sender: string;
@@ -337,6 +346,7 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const REMOTE_SNAP_DISTANCE = 260;
 const REMOTE_SAMPLE_LIMIT = 8;
+const REMOTE_PLAYER_DEATH_TTL_MS = 4_250;
 const SUBSCRIPTION_LOAD_TIMEOUT_MS = 10_000;
 const WAKE_RECONNECT_WATCHDOG_MS = 10_000;
 const DUEL_COOLDOWN_MS = 120_000;
@@ -442,6 +452,7 @@ const chatMessages: ChatMessage[] = [];
 let chatPresentationRevision = 0;
 const remotePlayerRenderBuffer: RemotePlayer[] = [];
 const mapPlayerMarkers = new Map<string, MapPlayerMarker>();
+const remotePlayerDeaths = new Map<string, RemotePlayerDeath>();
 const duels = new Map<bigint, DuelState>();
 const duelReplays = new Map<bigint, DuelReplay>();
 const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
@@ -1516,6 +1527,7 @@ function removeMotionIdentity(row: { networkId: number; identity: Identity }) {
   if (motionIdentities.get(row.networkId) === identity) motionIdentities.delete(row.networkId);
   activeMotionIdentities.delete(identity);
   const playerRemoved = players.delete(identity);
+  remotePlayerDeaths.delete(identity);
   const markerRemoved = mapPlayerMarkers.delete(identity) || mapPlayerMarkers.delete(`network:${row.networkId}`);
   const mapRemoved = playerMaps.delete(identity);
   if (playerRemoved || markerRemoved || mapRemoved) onChange?.();
@@ -1599,6 +1611,26 @@ function upsertBossAttackFrame(row: {
     targetRadius: row.targetRadius,
     hits: row.hits,
   }, performance.now());
+}
+
+function upsertPlayerDeathFrame(row: {
+  mapId: string;
+  networkId: number;
+  playerX: number;
+  playerY: number;
+  facing: number;
+}) {
+  if (row.mapId !== currentMapId) return;
+  const identity = motionIdentities.get(row.networkId);
+  if (!identity || identity === localIdentity || !players.has(identity)) return;
+  remotePlayerDeaths.set(identity, {
+    id: identity,
+    mapId: row.mapId,
+    x: row.playerX,
+    y: row.playerY,
+    facing: row.facing,
+    startedAtMs: performance.now(),
+  });
 }
 
 function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
@@ -2328,6 +2360,7 @@ function removeDuel(row: { id: bigint }) {
 function removePlayer(row: { identity: Identity }) {
   const identity = row.identity.toHexString();
   const playerRemoved = players.delete(identity);
+  remotePlayerDeaths.delete(identity);
   const mapRemoved = playerMaps.delete(identity);
   const profileMapRemoved = profilePlayerMaps.delete(identity);
   if (playerRemoved || mapRemoved || profileMapRemoved || activePlayerProfileIdentity === identity) onChange();
@@ -2468,6 +2501,12 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
     .and(row.zoneX.lte(bounds.maxZoneX))
     .and(row.zoneY.gte(bounds.minZoneY))
     .and(row.zoneY.lte(bounds.maxZoneY)));
+  const nearbyPlayerDeaths = tables.playerDeathFrame.where((row) => row
+    .mapId.eq(currentMapId)
+    .and(row.zoneX.gte(bounds.minZoneX))
+    .and(row.zoneX.lte(bounds.maxZoneX))
+    .and(row.zoneY.gte(bounds.minZoneY))
+    .and(row.zoneY.lte(bounds.maxZoneY)));
 
   let next: SubscriptionHandle | null = null;
   const subscribeNext = () => {
@@ -2495,7 +2534,7 @@ function refreshMapPlayerSubscription(force = false, interestArea?: PlayerIntere
           mapPlayerSubscriptionTransitioning = false;
           window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
         })
-        .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities, nearbyBossAttacks]);
+        .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities, nearbyBossAttacks, nearbyPlayerDeaths]);
       mapPlayerSubscription = next;
     } catch (error) {
       if (connection !== conn || generation !== mapSubscriptionGeneration) return;
@@ -2524,6 +2563,7 @@ function clearRealtimeCaches() {
   leaderboardSnapshotLoad = null;
   cancelLeaderboardSnapshotLoad = null;
   players.clear();
+  remotePlayerDeaths.clear();
   mapPlayerMarkers.clear();
   profiles.clear();
   profileIcons.clear();
@@ -2816,6 +2856,7 @@ function connect() {
         conn.db.playerMotionFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMotionFrame(row); });
         conn.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerMapFrame(row); });
         conn.db.bossAttackFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertBossAttackFrame(row); });
+        conn.db.playerDeathFrame.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerDeathFrame(row); });
         conn.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
         conn.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMotionIdentity(row); });
         conn.db.playerMotionIdentity.onDelete((_ctx, row) => {
@@ -3851,6 +3892,15 @@ export const wildwoodCoop = {
       if (player.id !== localIdentity) count += 1;
     }
     return count;
+  },
+  remotePlayerDeath(identity: string) {
+    const death = remotePlayerDeaths.get(identity);
+    if (!death) return null;
+    if (death.mapId !== currentMapId || performance.now() - death.startedAtMs > REMOTE_PLAYER_DEATH_TTL_MS) {
+      remotePlayerDeaths.delete(identity);
+      return null;
+    }
+    return { ...death };
   },
   mapPlayerMarkers() {
     return [...mapPlayerMarkers.values()];

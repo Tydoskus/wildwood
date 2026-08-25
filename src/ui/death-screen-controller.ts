@@ -1,4 +1,7 @@
-export const DEATH_RESPAWN_DELAY_MS = 5_000;
+import { PLAYER_DEATH_FALL_DURATION_MS } from "../game/runtime/player-death-animation";
+
+export const DEATH_RESPAWN_DELAY_MS = 3_000;
+export const DEATH_SCREEN_REVEAL_DELAY_MS = PLAYER_DEATH_FALL_DURATION_MS;
 
 type DeathScreenClock = {
   now: () => number;
@@ -17,6 +20,7 @@ export function createDeathScreenController(options: {
   countdown: HTMLElement;
   onRespawn: () => void;
   delayMs?: number;
+  revealDelayMs?: number;
   clock?: DeathScreenClock;
 }) {
   const clock = options.clock ?? {
@@ -25,6 +29,7 @@ export function createDeathScreenController(options: {
     clearTimeout: (timer: ReturnType<typeof globalThis.setTimeout>) => globalThis.clearTimeout(timer),
   };
   const delayMs = Math.max(0, options.delayMs ?? DEATH_RESPAWN_DELAY_MS);
+  const revealDelayMs = Math.max(0, options.revealDelayMs ?? DEATH_SCREEN_REVEAL_DELAY_MS);
   let deadline = 0;
   let timer: ReturnType<typeof globalThis.setTimeout> | null = null;
 
@@ -36,6 +41,7 @@ export function createDeathScreenController(options: {
 
   function hide() {
     clearTimer();
+    options.screen.classList?.remove("is-visible");
     options.screen.hidden = true;
   }
 
@@ -50,11 +56,27 @@ export function createDeathScreenController(options: {
     timer = clock.setTimeout(tick, Math.min(250, remainingMs));
   }
 
-  function show() {
-    clearTimer();
+  function reveal() {
     deadline = clock.now() + delayMs;
     options.screen.hidden = false;
+    void options.screen.offsetWidth;
+    options.screen.classList?.add("is-visible");
     tick();
+  }
+
+  function show() {
+    clearTimer();
+    options.screen.classList?.remove("is-visible");
+    options.screen.hidden = true;
+    options.countdown.textContent = formatDeathCountdown(delayMs);
+    if (revealDelayMs === 0) {
+      reveal();
+      return;
+    }
+    timer = clock.setTimeout(() => {
+      timer = null;
+      reveal();
+    }, revealDelayMs);
   }
 
   return { hide, show };

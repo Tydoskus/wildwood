@@ -17,7 +17,8 @@ import type { PlayerState } from "./types";
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type FillText = (text: string, x: number, y: number) => void;
 type RoundRect = (x: number, y: number, width: number, height: number, radius: number) => void;
-type SpeechBubble = { text: string; sentAtMs: number; lines: string[]; textWidth: number };
+type SpeechBubbleMessage = Pick<ChatMessage, "id" | "sender" | "senderName" | "message" | "replayId" | "sentAtMs">;
+type SpeechBubble = { sentAtMs: number; lines: string[]; width: number; height: number };
 
 const DEVELOPER_BADGE = "[dev]";
 const PROFILE_PORTRAIT_ZOOM = 1.03;
@@ -25,6 +26,23 @@ const PROFILE_PORTRAIT_GRID = 8;
 const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
 const SPEECH_BUBBLE_DURATION_MS = 6_000;
 const SPEECH_BUBBLE_FADE_MS = 1_250;
+const SPEECH_BUBBLE_STACK_GAP = 5;
+export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
+
+export function activeSpeechBubbleMessages(messages: readonly SpeechBubbleMessage[], now: number) {
+  const active = new Map<string, SpeechBubbleMessage[]>();
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    const age = now - message.sentAtMs;
+    if (age < 0 || age >= SPEECH_BUBBLE_DURATION_MS) continue;
+    if (isPresenceChatMessage(message.senderName) || message.senderName === "DUEL" || message.replayId > 0n) continue;
+    const stack = active.get(message.sender) ?? [];
+    if (stack.length >= MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER) continue;
+    stack.push(message);
+    active.set(message.sender, stack);
+  }
+  return active;
+}
 
 /** Player names, profile portraits, status bars, and speech bubbles. */
 export function createPlayerIdentityRenderer(options: {
@@ -47,9 +65,11 @@ export function createPlayerIdentityRenderer(options: {
   roundRect: RoundRect;
   healthBarHeight: number;
 }) {
-  const bubbles = new Map<string, SpeechBubble>();
+  const bubbles = new Map<string, SpeechBubble[]>();
+  const speechBubbleLayoutCache = new Map<bigint, SpeechBubble>();
   let renderedSpeechBubbleRevision = -1;
   let nextSpeechBubbleExpiryAt = 0;
+  let speechBubbleNow = 0;
 
   function publicPlayerName(identity: string | undefined, name: string | undefined) {
     const baseName = name || "PLAYER";
@@ -105,6 +125,7 @@ export function createPlayerIdentityRenderer(options: {
 
   function updateSpeechBubbles() {
     const now = Date.now();
+    speechBubbleNow = now;
     const revision = options.chatRevision();
     if (revision === renderedSpeechBubbleRevision && now < nextSpeechBubbleExpiryAt) return;
     bubbles.clear();
@@ -112,15 +133,33 @@ export function createPlayerIdentityRenderer(options: {
     const ctx = options.ctx;
     ctx.save();
     ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    for (let index = options.chatMessages().length - 1; index >= 0; index -= 1) {
-      const message = options.chatMessages()[index];
-      const age = now - message.sentAtMs;
-      if (age < 0 || age >= SPEECH_BUBBLE_DURATION_MS) continue;
-      if (isPresenceChatMessage(message.senderName) || message.senderName === "DUEL" || message.replayId > 0n || bubbles.has(message.sender)) continue;
-      const lines = wrapSpeechBubbleText(message.message, 190);
-      const textWidth = Math.max(28, ...lines.map((line) => ctx.measureText(line).width));
-      bubbles.set(message.sender, { text: message.message, sentAtMs: message.sentAtMs, lines, textWidth });
-      nextSpeechBubbleExpiryAt = Math.min(nextSpeechBubbleExpiryAt, message.sentAtMs + SPEECH_BUBBLE_DURATION_MS);
+    const activeMessageIds = new Set<bigint>();
+    for (const [identity, messages] of activeSpeechBubbleMessages(options.chatMessages(), now)) {
+      const stack: SpeechBubble[] = [];
+      for (const message of messages) {
+        activeMessageIds.add(message.id);
+        let bubble = speechBubbleLayoutCache.get(message.id);
+        if (!bubble) {
+          const lines = wrapSpeechBubbleText(message.message, 190);
+          const textWidth = Math.max(28, ...lines.map((line) => ctx.measureText(line).width));
+          const paddingX = 11;
+          const paddingY = 7;
+          const lineHeight = 15;
+          bubble = {
+            sentAtMs: message.sentAtMs,
+            lines,
+            width: Math.ceil(textWidth + paddingX * 2),
+            height: lines.length * lineHeight + paddingY * 2,
+          };
+          speechBubbleLayoutCache.set(message.id, bubble);
+        }
+        stack.push(bubble);
+        nextSpeechBubbleExpiryAt = Math.min(nextSpeechBubbleExpiryAt, message.sentAtMs + SPEECH_BUBBLE_DURATION_MS);
+      }
+      bubbles.set(identity, stack);
+    }
+    for (const messageId of speechBubbleLayoutCache.keys()) {
+      if (!activeMessageIds.has(messageId)) speechBubbleLayoutCache.delete(messageId);
     }
     ctx.restore();
     renderedSpeechBubbleRevision = revision;
@@ -155,42 +194,48 @@ export function createPlayerIdentityRenderer(options: {
 
   function drawSpeechBubble(identity: string | undefined, x: number, y: number) {
     if (!identity) return;
-    const bubble = bubbles.get(identity);
-    if (!bubble) return;
-    const age = Date.now() - bubble.sentAtMs;
+    const stack = bubbles.get(identity);
+    if (!stack?.length) return;
     const fadeStart = SPEECH_BUBBLE_DURATION_MS - SPEECH_BUBBLE_FADE_MS;
-    const opacity = age <= fadeStart ? 1 : clamp(1 - (age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
-    const paddingX = 10;
     const paddingY = 7;
     const lineHeight = 15;
     const ctx = options.ctx;
     ctx.save();
     ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    const width = Math.ceil(bubble.textWidth + paddingX * 2);
-    const height = bubble.lines.length * lineHeight + paddingY * 2;
     const visibleWidth = options.viewport().width / options.camera.zoom;
-    const centerX = clamp(x, width / 2 + 4, visibleWidth - width / 2 - 4);
-    const bottom = Math.max(height + 8, y - (options.isGuest(identity) ? 124 : 108));
-    const left = Math.round(centerX - width / 2);
-    const top = Math.round(bottom - height);
-    ctx.globalAlpha = opacity;
-    ctx.fillStyle = "#f4f0df";
-    ctx.strokeStyle = "#171b18";
-    ctx.lineWidth = 2;
-    options.roundRect(left, top, width, height, 8);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(centerX - 6, bottom - 1);
-    ctx.lineTo(centerX, bottom + 7);
-    ctx.lineTo(centerX + 6, bottom - 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#20251f";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    bubble.lines.forEach((line, index) => options.fillText(line, centerX, top + paddingY + lineHeight * (index + .5)));
+    const totalHeight = stack.reduce((height, bubble) => height + bubble.height, 0)
+      + SPEECH_BUBBLE_STACK_GAP * (stack.length - 1);
+    let bottom = Math.max(totalHeight + 4, y - (options.isGuest(identity) ? 124 : 108));
+    for (const bubble of stack) {
+      const age = speechBubbleNow - bubble.sentAtMs;
+      const opacity = age <= fadeStart ? 1 : clamp(1 - (age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
+      const centerX = clamp(x, bubble.width / 2 + 4, visibleWidth - bubble.width / 2 - 4);
+      const left = Math.round(centerX - bubble.width / 2);
+      const top = Math.round(bottom - bubble.height);
+
+      ctx.globalAlpha = opacity * .42;
+      ctx.fillStyle = "#050806";
+      options.roundRect(left + 1, top + 3, bubble.width, bubble.height, 9);
+      ctx.fill();
+
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = "rgba(22, 30, 26, .96)";
+      ctx.strokeStyle = "#090d0b";
+      ctx.lineWidth = 2;
+      options.roundRect(left, top, bubble.width, bubble.height, 9);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(174, 206, 187, .48)";
+      ctx.lineWidth = 1;
+      options.roundRect(left + 1.5, top + 1.5, bubble.width - 3, bubble.height - 3, 7.5);
+      ctx.stroke();
+
+      ctx.fillStyle = "#f7f3e7";
+      bubble.lines.forEach((line, index) => options.fillText(line, centerX, top + paddingY + lineHeight * (index + .5)));
+      bottom = top - SPEECH_BUBBLE_STACK_GAP;
+    }
     ctx.restore();
   }
 

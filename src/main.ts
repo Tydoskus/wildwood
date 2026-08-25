@@ -19,6 +19,7 @@ import { createGameSessionController } from "./game/runtime/game-session-control
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
 import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from "./game/runtime/game-bootstrap";
 import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-renderer";
+import type { PlayerDeathAnimationState } from "./game/runtime/player-death-animation";
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
@@ -129,6 +130,7 @@ import {
   const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, seenVersionKey: SEEN_VERSION_KEY, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });
 
   let startupCoordinator!: ReturnType<typeof createStartupCoordinator>;
+  let localPlayerDeath: PlayerDeathAnimationState | null = null;
 
   const deathScreen = createDeathScreenController({
     screen: gameOverEl,
@@ -677,6 +679,9 @@ import {
     viewport: canvasRuntime.renderViewport,
     currentMapId: () => currentMapId,
     gameTime: () => session.gameTime(),
+    nowMs: () => performance.now(),
+    localDeath: () => localPlayerDeath,
+    remoteDeath: (identity) => coop?.remotePlayerDeath?.(identity) ?? null,
     isArenaScene,
     mapName: (mapId) => MAP_CONFIG[mapId].name,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
@@ -1157,8 +1162,18 @@ import {
     accountInConflict: () => Boolean(coop?.accountState?.().sessionConflict),
     lowPerformanceMode: appShell.lowPerformanceMode, ensureMusicPlaying: appShell.ensureMusicPlaying,
     hideStart: startup.hideStart,
-    hideGameOver: deathScreen.hide,
-    showGameOver: () => { mapMusic.playDeathSound(); deathScreen.show(); },
+    hideGameOver: () => { localPlayerDeath = null; deathScreen.hide(); },
+    showGameOver: () => {
+      localPlayerDeath = {
+        id: coop?.localIdentity?.() ?? "local-player",
+        x: player.x,
+        y: player.y,
+        facing: player.facing,
+        startedAtMs: performance.now(),
+      };
+      mapMusic.playDeathSound();
+      deathScreen.show();
+    },
     beginAdventure: () => { coop?.beginAdventure?.(); },
     syncStoppedPosition: () => { coop?.correctMovementPosition?.(player.x, player.y, true); },
     resetPlayer: (preserveStats) => {

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.510": [
+    "Player deaths now animate before a faster 3-second respawn, and nearby players see the fall too.",
+    "Profile stat equations align cleanly, with Block details shown only when Armor is expanded.",
+    "Sign-in loading now keeps stable preloaded artwork and avoids Safari viewport flashes and layout shifts.",
+    "Chat bubbles, damage popups, and fullscreen chat spacing are more readable and polished.",
+  ],
   "0.509": [
     "World Chat now shows plain purple login and leave notices without player profile details, with separate server-side 15-minute cooldowns to prevent reconnect spam.",
   ],
@@ -1028,6 +1034,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.510": "2026-08-25",
   "0.509": "2026-08-25",
   "0.508": "2026-08-25",
   "0.507": "2026-08-25",

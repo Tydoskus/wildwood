@@ -6,7 +6,8 @@ import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
-import { projectileKindForWeapon } from "../item-presentation";
+import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
+import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -142,6 +143,9 @@ export function createActorRenderer(options: {
   camera: Camera;
   viewport: () => Viewport;
   gameTime: () => number;
+  nowMs: () => number;
+  localDeath: () => PlayerDeathAnimationState | null;
+  remoteDeath: (identity: string) => PlayerDeathAnimationState | null;
   drawPlayerAppearance: (actor: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string }, alpha: number) => void;
   localHeadItem: () => string;
   localChestItem: () => string;
@@ -258,6 +262,76 @@ export function createActorRenderer(options: {
     options.drawPlayerAppearance(actor, alpha);
   }
 
+  function drawDetachedEquipment(
+    itemId: string | undefined,
+    x: number,
+    y: number,
+    rotation: number,
+    facing: number,
+  ) {
+    const image = options.itemSprite(itemId);
+    const presentation = itemPresentation(itemId)?.world;
+    if (!image?.complete || image.naturalWidth <= 0 || presentation?.kind !== "SPRITE") return;
+    const width = (presentation.width ?? image.naturalWidth) * .6;
+    const height = (presentation.height ?? image.naturalHeight) * .6;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    if (Math.cos(facing) < 0) ctx.scale(-1, 1);
+    ctx.drawImage(image, -width / 2, -height / 2, width, height);
+    ctx.restore();
+  }
+
+  function drawDeadPlayer(
+    actor: { identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
+    death: PlayerDeathAnimationState,
+    alpha: number,
+  ) {
+    const identity = actor.identity ?? actor.id ?? death.id;
+    const pose = playerDeathPose(death.startedAtMs, options.nowMs(), identity);
+    if (!pose.active) return false;
+    const x = Math.floor(death.x - camera.x);
+    const y = Math.floor(death.y - camera.y);
+    const fallProgress = Math.min(1, Math.abs(pose.bodyRotation) / (Math.PI / 2));
+    options.drawShadow(x + pose.direction * 22 * fallProgress, y + 32, 34 + 34 * fallProgress, .18 * alpha);
+
+    ctx.save();
+    ctx.translate(x, y + 29 + pose.bodyGroundOffsetY);
+    ctx.rotate(pose.bodyRotation);
+    ctx.scale(1, pose.bodyScaleY);
+    drawPlayerSprite({
+      ...actor,
+      x: 0,
+      y: -29,
+      facing: death.facing,
+      combatFacing: null,
+      moving: false,
+      throwClock: 0,
+      headItem: "",
+      rightHandItem: "",
+      leftHandItem: "",
+    }, alpha);
+    ctx.restore();
+
+    const groundX = x;
+    const groundY = y + 29;
+    drawDetachedEquipment(
+      actor.headItem,
+      groundX + pose.helmetOffsetX,
+      groundY - 49 + pose.helmetOffsetY,
+      pose.helmetRotation,
+      death.facing,
+    );
+    drawDetachedEquipment(
+      actor.rightHandItem || actor.leftHandItem,
+      groundX + pose.weaponOffsetX,
+      groundY - 16 + pose.weaponOffsetY,
+      pose.weaponRotation,
+      death.facing,
+    );
+    return true;
+  }
+
   function clientCombatFacing(actor: { x: number; y: number }) {
     let target: EnemyState | BossTarget | null = null;
     let bestDistanceSquared = options.remoteAttackRange * options.remoteAttackRange;
@@ -346,10 +420,19 @@ export function createActorRenderer(options: {
 
   function drawPlayer(identity: string | undefined, name: string, power: number) {
     const player = options.player;
+    const equipment = {
+      headItem: options.localHeadItem(),
+      chestItem: options.localChestItem(),
+      feetItem: options.localFeetItem(),
+      rightHandItem: options.localRightHandItem(),
+      leftHandItem: options.localLeftHandItem(),
+    };
+    const death = options.localDeath();
+    if (death && drawDeadPlayer({ ...equipment, identity }, death, 1)) return;
     const x = Math.floor(player.x - camera.x);
     const y = Math.floor(player.y - camera.y);
     options.drawShadow(x, y + 29, 34, .21);
-    drawPlayerSprite({ ...player, x, y, identity, headItem: options.localHeadItem(), chestItem: options.localChestItem(), feetItem: options.localFeetItem(), rightHandItem: options.localRightHandItem(), leftHandItem: options.localLeftHandItem() });
+    drawPlayerSprite({ ...player, ...equipment, x, y, identity });
     options.drawStatus({
       x,
       y,
@@ -369,9 +452,15 @@ export function createActorRenderer(options: {
     const width = viewport.width / camera.zoom;
     const height = viewport.height / camera.zoom;
 
-    const x = Math.floor(other.x - camera.x);
-    const y = Math.floor(other.y - camera.y);
+    const death = options.remoteDeath(other.id);
+    const renderX = death?.x ?? other.x;
+    const renderY = death?.y ?? other.y;
+    const x = Math.floor(renderX - camera.x);
+    const y = Math.floor(renderY - camera.y);
     if (x < -65 || y < -70 || x > width + 65 || y > height + 70) return;
+
+    const equipment = options.equipmentForIdentity(other.id);
+    if (death && drawDeadPlayer({ ...other, ...equipment }, death, 1)) return;
 
     const attack = other.bossAttack;
     if (attack && attack.projectileProgress > 0 && attack.projectileProgress < 1) {
@@ -388,7 +477,6 @@ export function createActorRenderer(options: {
       const projectileX = startX + (endX - startX) * progress - camera.x;
       const projectileY = startY + (endY - startY) * progress - camera.y;
       const visibleHits = Math.min(5, attack.hits);
-      const equipment = options.equipmentForIdentity(other.id);
       const weaponItem = equipment.rightHandItem || equipment.leftHandItem;
       const projectileKind = projectileKindForWeapon(weaponItem);
       for (let index = 0; index < visibleHits; index += 1) {
@@ -403,7 +491,6 @@ export function createActorRenderer(options: {
       }
     }
 
-    const equipment = options.equipmentForIdentity(other.id);
     const weaponItem = equipment.rightHandItem || equipment.leftHandItem;
     const combatFacing = attack
       ? Math.atan2(attack.targetY - other.y, attack.targetX - other.x)

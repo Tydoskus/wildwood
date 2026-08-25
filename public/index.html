@@ -2,11 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.509" />
+<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high" />
+<link rel="preload" as="image" href="assets/wildwood/wildwood-wordmark.png" type="image/png" fetchpriority="high" />
+<style>
+  :root { --signin-preview: url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAG6ADAAQAAAABAAAAMAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAMAAbAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMADAwMDAwMFAwMFB0UFBQdJx0dHR0nMScnJycnMTsxMTExMTE7Ozs7Ozs7O0dHR0dHR1NTU1NTXV1dXV1dXV1dXf/bAEMBDg8PGBYYKBYWKGFCNkJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYf/dAAQAAv/aAAwDAQACEQMRAD8AyRIpO0cn0FWECYfecEDimLGqsXAwx6mnY615ykkzCMb6CKNxAA5NNZkVirEAildC6lQcHsariz/vEk+vNJW6iP/QzEeYuEYYVc8+tTjvQPelQbiQK8xbkUVeVkQSv5ShsZHfFEbMyBiOtSZOSvp68UtBnJWdmf/RzENxuCufkXoe5rRsQTMAozmqZOV25p1tvii2Z/KvM8yaS1Jb5pIZ2ZV3FT0yT/OsotdSEuPlzziroG3jJP1oz700/Iyluf/Z"); }
+  html, body { min-height: 100vh; min-height: 100dvh; background: #284d20; }
+  #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: linear-gradient(180deg, rgba(4,12,6,.24), rgba(4,12,6,.38)), var(--signin-preview) center / cover no-repeat; }
+</style>
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.510" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -184,7 +191,7 @@
   <button id="minimapButton" class="minimap-button" type="button" aria-label="Open map guide" aria-controls="mapGuide" aria-expanded="false">
     <span class="minimap-help-mark" aria-hidden="true">?</span>
   </button>
-  <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.509">v0.509</div>
+  <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.510">v0.510</div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
     <span class="respawn-ad-copy">
@@ -199,7 +206,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.509</div>
+        <div id="version">v0.510</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -251,7 +258,7 @@
   <div id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite">
     <h1 class="wildwood-wordmark-title" aria-label="Wildwood">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <p>CONNECTING TO WILDWOOD</p>
@@ -263,7 +270,7 @@
   <div id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle" hidden>
     <h1 id="accountChoiceTitle" class="wildwood-wordmark-title" aria-label="Wildwood">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <p>This game is in beta, report bugs with /bug</p>
@@ -272,19 +279,19 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.509</strong></div>
+        <div><strong id="updateNoticeTitle">v0.510</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.509</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.510</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
       <span class="welcome-wordmark-prefix" aria-hidden="true">WELCOME TO</span>
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <label class="onboarding-name-label" for="newPlayerNameInput">PLAYER NAME</label>
@@ -299,7 +306,7 @@
   <div class="modal game-update-modal" role="status" aria-live="assertive">
     <h1 class="wildwood-wordmark-title" aria-label="Wildwood">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildwood-wordmark.png" alt="" />
+        <img src="assets/wildwood/wildwood-wordmark.png" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <h2 class="window-title">Game Updating</h2>
@@ -312,7 +319,7 @@
 <div id="gameOver" role="status" aria-live="assertive" aria-atomic="true" hidden>
   <div class="death-screen">
     <h1>You Died</h1>
-    <p id="deathCountdown" class="death-countdown" role="timer">returning to spawn in 5</p>
+    <p id="deathCountdown" class="death-countdown" role="timer">returning to spawn in 3</p>
   </div>
 </div>
 
@@ -587,7 +594,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.509"></script>
-<script src="assets/wildwood/game.js?v=0.509"></script>
+<script src="assets/wildwood/coop-client.js?v=0.510"></script>
+<script src="assets/wildwood/game.js?v=0.510"></script>
 </body>
 </html>

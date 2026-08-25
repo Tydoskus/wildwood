@@ -11,6 +11,7 @@ import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
+import type { PlayerDeathAnimationState } from "./player-death-animation";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -24,6 +25,9 @@ export type WorldRenderRuntimeOptions = {
   viewport: () => Viewport;
   currentMapId: () => MapId;
   gameTime: () => number;
+  nowMs: () => number;
+  localDeath: () => PlayerDeathAnimationState | null;
+  remoteDeath: (identity: string) => PlayerDeathAnimationState | null;
   isArenaScene: () => boolean;
   mapName: (mapId: MapId) => string;
   tutorialMapId: MapId;
@@ -174,6 +178,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     camera: options.camera,
     viewport: () => options.viewport(),
     gameTime: options.gameTime,
+    nowMs: options.nowMs,
+    localDeath: options.localDeath,
+    remoteDeath: options.remoteDeath,
     drawPlayerAppearance: (rendered, alpha) => drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
       ...rendered,
       gameTime: options.gameTime(),

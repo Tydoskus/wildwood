@@ -108,7 +108,7 @@ export type ProfileStatDisplayRow = {
   base: string;
   equationOperator?: "×";
   multiplier: string;
-  totalPrefix?: string;
+  expandedDetail?: string;
   total: string;
   sources: ProfileStatDisplaySource[];
 };
@@ -162,7 +162,7 @@ export function profileStatDisplayRows(
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.armor),
-      totalPrefix: `(${armorReduction(effective.armor)} Block)`,
+      expandedDetail: `(${armorReduction(effective.armor)} Block)`,
       total: statValue(effective.armor),
       sources: multiplierSources(armorResearchBonus),
     },
@@ -247,18 +247,12 @@ export function renderProfileStats(
     multiplier.textContent = stat.multiplier;
     equalsOperator.textContent = "=";
     equalsOperator.setAttribute("aria-hidden", "true");
-    if (stat.totalPrefix) {
-      const totalPrefix = document.createElement("span");
-      totalPrefix.className = "profile-stat-total-prefix";
-      totalPrefix.textContent = stat.totalPrefix;
-      totalGroup.append(totalPrefix);
-    }
     total.textContent = stat.total;
     totalGroup.append(total);
     summary.append(base, multiplyOperator, multiplier, equalsOperator, totalGroup);
     sources.className = "profile-stat-sources";
     sources.hidden = true;
-    if (stat.sources.length === 0) {
+    if (stat.sources.length === 0 && !stat.expandedDetail) {
       const empty = document.createElement("span");
       empty.className = "profile-stat-source-empty";
       empty.textContent = "No bonus multipliers";
@@ -279,17 +273,33 @@ export function renderProfileStats(
         sourceElement.append(sourceLabel, ` ${source.value}`);
         sources.append(sourceElement);
       });
+      if (stat.expandedDetail && stat.sources.length > 0) {
+        const separator = document.createElement("span");
+        separator.className = "profile-stat-source-operator";
+        separator.setAttribute("aria-hidden", "true");
+        separator.textContent = "·";
+        sources.append(separator);
+      }
+    }
+    if (stat.expandedDetail) {
+      const detail = document.createElement("span");
+      detail.className = "profile-stat-expanded-detail";
+      detail.textContent = stat.expandedDetail;
+      sources.append(detail);
     }
     const sourceText = stat.sources.length > 0
       ? stat.sources.map((source) => `${source.label}: ${source.value}`).join(" multiplied by ")
       : "No bonus multipliers";
+    const breakdownText = [stat.sources.length > 0 ? sourceText : "", stat.expandedDetail ?? ""]
+      .filter(Boolean)
+      .join(". ") || sourceText;
     const multiplierText = stat.equationOperator === "×" ? `${stat.multiplier} times` : stat.multiplier;
-    const summaryText = `${stat.label} Base ${stat.base}. Combined multiplier ${multiplierText}.${stat.totalPrefix ? ` ${stat.totalPrefix}.` : ""} Total ${stat.total}.`;
+    const summaryText = `${stat.label} Base ${stat.base}. Combined multiplier ${multiplierText}. Total ${stat.total}.`;
     const setExpanded = (expanded: boolean) => {
       item.classList.toggle("is-expanded", expanded);
       item.setAttribute("aria-expanded", String(expanded));
       item.setAttribute("aria-label", expanded
-        ? `${summaryText} Sources: ${sourceText}. Activate to collapse.`
+        ? `${summaryText} Breakdown: ${breakdownText}. Activate to collapse.`
         : `${summaryText} Activate to show bonus sources.`);
       sources.hidden = !expanded;
     };

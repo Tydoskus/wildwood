@@ -241,6 +241,8 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   function end() {
     running = false;
     simulationAccumulatorSeconds = 0;
+    dependencies.player.moving = false;
+    if (dependencies.connected()) dependencies.syncStoppedPosition();
     dependencies.showGameOver();
   }
 

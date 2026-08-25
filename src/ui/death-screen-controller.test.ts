@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createDeathScreenController, formatDeathCountdown } from "./death-screen-controller";
+import {
+  DEATH_SCREEN_REVEAL_DELAY_MS,
+  createDeathScreenController,
+  formatDeathCountdown,
+} from "./death-screen-controller";
 
 describe("death screen", () => {
   beforeEach(() => {
@@ -17,7 +21,7 @@ describe("death screen", () => {
     expect(formatDeathCountdown(0)).toBe("returning to spawn");
   });
 
-  it("returns to spawn automatically after five seconds", () => {
+  it("reveals after the fall and returns to spawn three seconds later", () => {
     const screen = { hidden: true } as HTMLElement;
     const countdown = { textContent: "" } as HTMLElement;
     const onRespawn = vi.fn();
@@ -33,14 +37,18 @@ describe("death screen", () => {
     });
 
     controller.show();
+    expect(screen.hidden).toBe(true);
+    expect(countdown.textContent).toBe("returning to spawn in 3");
+
+    vi.advanceTimersByTime(DEATH_SCREEN_REVEAL_DELAY_MS);
     expect(screen.hidden).toBe(false);
-    expect(countdown.textContent).toBe("returning to spawn in 5");
+    expect(countdown.textContent).toBe("returning to spawn in 3");
 
     vi.advanceTimersByTime(1_000);
-    expect(countdown.textContent).toBe("returning to spawn in 4");
+    expect(countdown.textContent).toBe("returning to spawn in 2");
     expect(onRespawn).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(4_000);
+    vi.advanceTimersByTime(2_000);
     expect(onRespawn).toHaveBeenCalledOnce();
   });
 
@@ -60,7 +68,7 @@ describe("death screen", () => {
 
     controller.show();
     controller.hide();
-    vi.advanceTimersByTime(5_000);
+    vi.advanceTimersByTime(10_000);
 
     expect(screen.hidden).toBe(true);
     expect(onRespawn).not.toHaveBeenCalled();

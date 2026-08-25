@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createCombatEffects, MAX_DAMAGE_NUMBERS, MAX_PARTICLES } from "./combat-effects";
+import {
+  DAMAGE_NUMBER_FADE_DURATION,
+  DAMAGE_NUMBER_RISE_DURATION,
+  MAX_DAMAGE_NUMBERS,
+  MAX_PARTICLES,
+  createCombatEffects,
+} from "./combat-effects";
 
 describe("combat effects runtime", () => {
   it("expires particles and damage numbers", () => {
@@ -21,6 +27,27 @@ describe("combat effects runtime", () => {
 
     expect(effects.particles).toHaveLength(0);
     expect(effects.damageNumbers).toHaveLength(0);
+  });
+
+  it("eases damage numbers to a stop before fading", () => {
+    const effects = createCombatEffects();
+    effects.spawnDamageNumber(10, 100, 1500);
+    const number = effects.damageNumbers[0];
+    const startY = number.y;
+
+    effects.update(DAMAGE_NUMBER_RISE_DURATION / 2);
+    const halfwayY = number.y;
+    expect(halfwayY).toBeLessThan(startY);
+    expect(number.opacity).toBe(1);
+
+    effects.update(DAMAGE_NUMBER_RISE_DURATION / 2);
+    const stoppedY = number.y;
+    expect(stoppedY).toBeLessThan(halfwayY);
+    expect(number.opacity).toBe(1);
+
+    effects.update(DAMAGE_NUMBER_FADE_DURATION / 2);
+    expect(number.y).toBeCloseTo(stoppedY);
+    expect(number.opacity).toBeCloseTo(.5);
   });
 
   it("caps and recycles transient effects", () => {
