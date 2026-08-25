@@ -553,18 +553,75 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    min-width: 138px;
+    width: min(300px, 70vw);
+    min-width: 0;
   }
 
   .volume-control input[type="range"] {
-    width: 94px;
+    --volume-percent: 35%;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: 260px;
+    height: 44px;
     margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     accent-color: var(--green);
+    appearance: none;
+    -webkit-appearance: none;
     cursor: pointer;
   }
 
+  .volume-control input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--green) 0, var(--green) var(--volume-percent), #39463d var(--volume-percent), #39463d 100%);
+    box-shadow: 0 0 0 2px #050805, inset 0 1px 2px rgba(0,0,0,.55);
+  }
+
+  .volume-control input[type="range"]::-webkit-slider-thumb {
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    margin-top: -18px;
+    border: 3px solid #050805;
+    border-radius: 50%;
+    background: linear-gradient(#efffe9, #69e56f);
+    box-shadow: 0 3px 0 rgba(0,0,0,.42), 0 0 0 2px rgba(255,255,255,.18);
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .volume-control input[type="range"]::-moz-range-track {
+    height: 8px;
+    border: 0;
+    border-radius: 999px;
+    background: #39463d;
+    box-shadow: 0 0 0 2px #050805, inset 0 1px 2px rgba(0,0,0,.55);
+  }
+
+  .volume-control input[type="range"]::-moz-range-progress {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--green);
+  }
+
+  .volume-control input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    border: 3px solid #050805;
+    border-radius: 50%;
+    background: linear-gradient(#efffe9, #69e56f);
+    box-shadow: 0 3px 0 rgba(0,0,0,.42), 0 0 0 2px rgba(255,255,255,.18);
+  }
+
   .volume-control output {
-    width: 35px;
+    flex: 0 0 42px;
+    width: 42px;
     color: var(--muted);
     font-size: 10px;
     text-align: right;
@@ -949,12 +1006,13 @@
   #chatPanel {
     position: fixed;
     left: 0;
-    bottom: var(--toolbar-height);
+    top: var(--hud-row-height);
+    bottom: auto;
     width: min(320px, 50vw);
     padding: 3px 6px 5px;
-    border-bottom: 0;
+    border-top: 0;
     border-left: 0;
-    border-radius: 0 10px 0 0;
+    border-radius: 0;
     cursor: default;
     font-family: var(--chat-font);
     pointer-events: auto;
@@ -1592,6 +1650,11 @@
   .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
+  .profile-gem-wallet { display: flex; align-items: center; gap: 4px; width: max-content; min-height: 16px; margin-top: 3px; padding: 1px 5px 1px 3px; border: 1px solid rgba(237,98,173,.55); border-radius: 5px; background: rgba(92,28,67,.28); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; }
+  .profile-gem-wallet[hidden] { display: none; }
+  .profile-gem-icon { display: block; width: 13px; height: 13px; object-fit: contain; }
+  .profile-gem-label { color: #ff9fd2; font-size: 7px; font-weight: 900; letter-spacing: .08em; }
+  .profile-gem-balance { color: #fff; font-size: 9px; font-weight: 900; text-shadow: 0 1px #071c29; }
   #playerProfilePower { margin-left: auto; font-size: 11px; white-space: nowrap; text-align: right; }
   .power-label { color: var(--gold); }
   .power-value { color: #fff; }
@@ -1857,6 +1920,10 @@
     .player-profile-title-row { gap: 7px; }
     .player-profile-header h2 { font-size: clamp(11px, 3.8vw, 16px); }
     .player-profile-presence { margin-top: 2px; font-size: 7px; line-height: 1.15; }
+    .profile-gem-wallet { min-height: 14px; margin-top: 2px; }
+    .profile-gem-icon { width: 11px; height: 11px; }
+    .profile-gem-label { font-size: 6px; }
+    .profile-gem-balance { font-size: 8px; }
     #playerProfilePower { font-size: 10px; }
     .player-profile-modal .profile-close-button { width: 34px; min-width: 34px; height: 34px; font-size: 21px; }
     .player-profile-modal .profile-tabs { margin: 8px 0 5px; }
@@ -2088,6 +2155,7 @@
   .fps-status,
   .toolbar-label,
   #musicVolumeValue,
+  #sfxVolumeValue,
   .account-button,
   .account-status,
   .respawn-ad-button,

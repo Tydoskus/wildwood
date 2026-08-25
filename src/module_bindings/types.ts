@@ -288,6 +288,18 @@ export const FrostclawResult = __t.object("FrostclawResult", {
 });
 export type FrostclawResult = __Infer<typeof FrostclawResult>;
 
+export const GemTransaction = __t.object("GemTransaction", {
+  id: __t.u64(),
+  identity: __t.identity(),
+  delta: __t.i64(),
+  balanceAfter: __t.u64(),
+  kind: __t.string(),
+  note: __t.string(),
+  externalReference: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type GemTransaction = __Infer<typeof GemTransaction>;
+
 export const ItemUpgradeCompletionSchedule = __t.object("ItemUpgradeCompletionSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
@@ -355,6 +367,9 @@ export const MotionFrameSchedule = __t.object("MotionFrameSchedule", {
 });
 export type MotionFrameSchedule = __Infer<typeof MotionFrameSchedule>;
 
+export const MyGemWallet = __t.object("MyGemWallet", {});
+export type MyGemWallet = __Infer<typeof MyGemWallet>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   x: __t.f64(),
@@ -413,6 +428,14 @@ export const PlayerController = __t.object("PlayerController", {
   connectionId: __t.connectionId(),
 });
 export type PlayerController = __Infer<typeof PlayerController>;
+
+export const PlayerGemWallet = __t.object("PlayerGemWallet", {
+  identity: __t.identity(),
+  balance: __t.u64(),
+  revision: __t.u64(),
+  updatedAt: __t.timestamp(),
+});
+export type PlayerGemWallet = __Infer<typeof PlayerGemWallet>;
 
 export const PlayerItemDrop = __t.object("PlayerItemDrop", {
   key: __t.string(),

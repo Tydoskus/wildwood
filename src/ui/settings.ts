@@ -30,6 +30,8 @@ export function renderVolume(
 ) {
   const percent = Math.round(volume * 100);
   input.value = String(percent);
+  input.style.setProperty("--volume-percent", `${percent}%`);
+  input.setAttribute("aria-valuetext", `${percent}%`);
   value.textContent = `${percent}%`;
 }
 

@@ -468,6 +468,7 @@ let pageHiddenAt = 0;
 let lastServerActivityAt = performance.now();
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
+let localGemBalance = 0n;
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
 let localResearch: PlayerResearch = createEmptyResearchRanks();
@@ -1328,6 +1329,18 @@ function removeProfile(row: { identity: Identity }) {
     localProfileReady = false;
   }
   chatPresentationRevision += 1;
+  onChange?.();
+}
+
+function upsertGemWallet(row: { identity: Identity; balance: bigint }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localGemBalance = row.balance;
+  onChange?.();
+}
+
+function removeGemWallet(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localGemBalance = 0n;
   onChange?.();
 }
 
@@ -2449,6 +2462,7 @@ function clearRealtimeCaches() {
   playerSprites.clear();
   skinTones.clear();
   playerGenders.clear();
+  localGemBalance = 0n;
   profileIdentities.clear();
   motionIdentities.clear();
   activeMotionIdentities.clear();
@@ -2737,6 +2751,9 @@ function connect() {
         conn.db.playerProfile.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertProfile(row); });
         conn.db.playerProfile.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeProfile(row); });
+        conn.db.myGemWallet.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertGemWallet(row); });
+        conn.db.myGemWallet.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertGemWallet(row); });
+        conn.db.myGemWallet.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeGemWallet(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeAccessAudit(row); });
@@ -2789,6 +2806,7 @@ function connect() {
           if (!isCurrentConnection()) return;
           batchChanges(() => {
             for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
+            for (const row of conn.db.myGemWallet.iter()) upsertGemWallet(row);
             for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
             for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
             for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
@@ -2831,6 +2849,7 @@ function connect() {
           tables.player.where((player) => player.identity.eq(identity)),
           tables.playerMotionIdentity.where((presence) => presence.identity.eq(identity)),
           tables.playerProfile.where((profile) => profile.identity.eq(identity)),
+          tables.myGemWallet,
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus.where((status) => status.identity.eq(identity)),
           tables.worldStatus,
@@ -3138,6 +3157,23 @@ export const wildwoodCoop = {
   },
   playerGender(identity = localIdentity) {
     return playerGenders.get(identity) ?? PLAYER_GENDER_UNSET;
+  },
+  gemBalance() {
+    return localGemBalance;
+  },
+  async devAdjustGems(identity: string, delta: bigint, reason: string) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection || !isDeveloperIdentity(localIdentity)) return { ok: false, error: "DEVELOPER CONNECTION REQUIRED" };
+    const target = identity === localIdentity ? localDbIdentity : profileIdentities.get(identity);
+    if (!target) return { ok: false, error: "PLAYER PROFILE UNAVAILABLE" };
+    try {
+      await connection.reducers.devAdjustGems({ identity: target, delta, reason });
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("Gem adjustment", error);
+      return { ok: false, error: message };
+    }
   },
   localProfileReady() {
     return localProfileReady;

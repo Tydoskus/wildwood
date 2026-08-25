@@ -17,6 +17,7 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
+import { gemBalanceAfter } from "../../shared/gems";
 import { resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import {
   BASIC_PAPER_HAT,
@@ -362,6 +363,39 @@ const playerProfile = table(
     playerSprite: t.u32().default(0),
     skinTone: t.u32().default(3),
     gender: t.u8().default(PLAYER_GENDER_UNSET),
+  },
+);
+
+// Paid currency is private at rest. Clients receive only their own row through
+// my_gem_wallet, while server reducers remain the sole balance writers.
+const playerGemWallet = table(
+  { name: "player_gem_wallet", public: false },
+  {
+    identity: t.identity().primaryKey(),
+    balance: t.u64(),
+    revision: t.u64(),
+    updatedAt: t.timestamp(),
+  },
+);
+
+// Every credit and debit is retained for reconciliation, refunds, chargebacks,
+// and idempotent store/webhook processing. External references are globally
+// unique after they are prefixed with their issuing platform.
+const gemTransaction = table(
+  {
+    name: "gem_transaction",
+    public: false,
+    indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }],
+  },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    identity: t.identity(),
+    delta: t.i64(),
+    balanceAfter: t.u64(),
+    kind: t.string(),
+    note: t.string(),
+    externalReference: t.string().unique(),
+    createdAt: t.timestamp(),
   },
 );
 
@@ -1091,6 +1125,8 @@ const spacetimedb = schema({
   playerMapFrame,
   bossAttackFrame,
   playerProfile,
+  playerGemWallet,
+  gemTransaction,
   playerProgress,
   playerLastLocation,
   playerResearch,
@@ -1170,6 +1206,15 @@ export const localMovementDemand = spacetimedb.view(
   (ctx) => {
     const row = ctx.db.playerMovementDemand.identity.find(ctx.sender);
     return row ? [row] : [];
+  },
+);
+
+export const myGemWallet = spacetimedb.view(
+  { name: "my_gem_wallet", public: true },
+  t.array(playerGemWallet.rowType),
+  (ctx) => {
+    const wallet = ctx.db.playerGemWallet.identity.find(ctx.sender);
+    return wallet ? [wallet] : [];
   },
 );
 
@@ -2552,6 +2597,86 @@ function sameIdentity(a: any, b: any) {
   return a?.toHexString?.() === b?.toHexString?.();
 }
 
+function ensureGemWallet(ctx: any, identity: any) {
+  const existing = ctx.db.playerGemWallet.identity.find(identity);
+  if (existing) return existing;
+  return ctx.db.playerGemWallet.insert({
+    identity,
+    balance: 0n,
+    revision: 0n,
+    updatedAt: ctx.timestamp,
+  });
+}
+
+function applyGemBalanceChange(ctx: any, input: {
+  identity: any;
+  delta: bigint;
+  kind: string;
+  note: string;
+  externalReference: string;
+}) {
+  const duplicate = ctx.db.gemTransaction.externalReference.find(input.externalReference);
+  if (duplicate) {
+    if (!sameIdentity(duplicate.identity, input.identity) || duplicate.delta !== input.delta || duplicate.kind !== input.kind) {
+      throw new SenderError("Gem transaction reference conflict.");
+    }
+    return ensureGemWallet(ctx, input.identity);
+  }
+
+  if (input.delta === 0n) throw new SenderError("Gem amount must not be zero.");
+  const wallet = ensureGemWallet(ctx, input.identity);
+  let balanceAfter: bigint;
+  try {
+    balanceAfter = gemBalanceAfter(wallet.balance, input.delta);
+  } catch (error) {
+    throw new SenderError(error instanceof Error ? error.message : "Gem balance update failed.");
+  }
+  const nextWallet = {
+    ...wallet,
+    balance: balanceAfter,
+    revision: wallet.revision + 1n,
+    updatedAt: ctx.timestamp,
+  };
+  ctx.db.playerGemWallet.identity.update(nextWallet);
+  ctx.db.gemTransaction.insert({
+    id: 0n,
+    identity: input.identity,
+    delta: input.delta,
+    balanceAfter,
+    kind: input.kind,
+    note: input.note,
+    externalReference: input.externalReference,
+    createdAt: ctx.timestamp,
+  });
+  return nextWallet;
+}
+
+function mergeGuestGemWallet(ctx: any, guestIdentity: any, accountIdentity: any, accountLinkCode: string) {
+  const accountWallet = ensureGemWallet(ctx, accountIdentity);
+  const guestWallet = ctx.db.playerGemWallet.identity.find(guestIdentity);
+  if (!guestWallet) return accountWallet;
+  const guestBalance = BigInt(guestWallet.balance);
+  if (guestBalance > 0n) {
+    const reference = `account-link:${accountLinkCode}`;
+    applyGemBalanceChange(ctx, {
+      identity: guestIdentity,
+      delta: -guestBalance,
+      kind: "account_transfer_out",
+      note: "Guest balance transferred to signed-in account.",
+      externalReference: `${reference}:out`,
+    });
+    applyGemBalanceChange(ctx, {
+      identity: accountIdentity,
+      delta: guestBalance,
+      kind: "account_transfer_in",
+      note: "Guest balance transferred to signed-in account.",
+      externalReference: `${reference}:in`,
+    });
+  }
+  ctx.db.playerGemWallet.identity.delete(guestIdentity);
+  return ctx.db.playerGemWallet.identity.find(accountIdentity);
+}
+
 function countOnlinePlayers(ctx: any) {
   let count = 0;
   for (const current of ctx.db.player.iter() as Iterable<any>) {
@@ -2664,6 +2789,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
   if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
+  if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
   if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
   if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
   if (ctx.db.duelRequestCooldown.identity.find(identity)) ctx.db.duelRequestCooldown.identity.delete(identity);
@@ -3345,6 +3471,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       gender: PLAYER_GENDER_UNSET,
     });
   }
+  ensureGemWallet(ctx, ctx.sender);
 
   const lifetime = ensurePlayerLifetime(ctx);
   const grantBetaTesterGoldenHelmet = hasRecentPlayerActivity(ctx, ctx.sender);
@@ -4081,6 +4208,7 @@ export const claimGuestAccount = spacetimedb.reducer(
 
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
     if (!guestProgress) throw new SenderError("Guest save unavailable. Return to guest mode and try again.");
+    mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
     const nextProgress = { ...guestProgress, identity: ctx.sender };
     if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
     else ctx.db.playerProgress.insert(nextProgress);
@@ -4268,6 +4396,8 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestDuelRequestCooldown) ctx.db.duelRequestCooldown.identity.delete(link.guest);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     if (guestBalance) ctx.db.playerBalanceVersion.identity.delete(link.guest);
+    const guestGemWallet = ctx.db.playerGemWallet.identity.find(link.guest);
+    if (guestGemWallet) ctx.db.playerGemWallet.identity.delete(link.guest);
 
     const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
     for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
@@ -4337,6 +4467,27 @@ export const setDeveloperPresence = spacetimedb.reducer(
     syncPlayerMapMarker(ctx, nextPlayer, true);
     ensureRealtimeFrameSchedules(ctx);
     adjustOnlinePlayers(ctx, visible ? 1 : -1);
+  },
+);
+
+// Development-only economy seeding. Production purchase credits will use
+// verified store/webhook references through a separate trusted server path.
+export const devAdjustGems = spacetimedb.reducer(
+  { identity: t.identity(), delta: t.i64(), reason: t.string() },
+  (ctx, { identity, delta, reason }) => {
+    requireDeveloper(ctx);
+    const note = reason.trim().replace(/\s+/g, " ");
+    if (note.length < 3 || note.length > 120) {
+      throw new SenderError("Gem adjustment reason must be 3-120 characters.");
+    }
+    const wallet = ensureGemWallet(ctx, identity);
+    applyGemBalanceChange(ctx, {
+      identity,
+      delta,
+      kind: "developer_adjustment",
+      note,
+      externalReference: `developer:${ctx.sender.toHexString()}:${identity.toHexString()}:${ctx.timestamp.microsSinceUnixEpoch}:${wallet.revision + 1n}`,
+    });
   },
 );
 

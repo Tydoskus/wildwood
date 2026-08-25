@@ -47,6 +47,35 @@ describe("interface style contracts", () => {
     expect(tabs).toContain("min-height: 44px");
   });
 
+  it("uses wide volume tracks with exact 44px slider thumbs", () => {
+    const range = cssRule('.volume-control input[type="range"] {');
+    const webkitThumb = cssRule('.volume-control input[type="range"]::-webkit-slider-thumb');
+    const firefoxThumb = cssRule('.volume-control input[type="range"]::-moz-range-thumb');
+
+    expect(range).toContain("max-width: 260px");
+    expect(range).toContain("height: 44px");
+    expect(webkitThumb).toContain("width: 44px");
+    expect(webkitThumb).toContain("height: 44px");
+    expect(firefoxThumb).toContain("width: 44px");
+    expect(firefoxThumb).toContain("height: 44px");
+  });
+
+  it("anchors minimized chat directly below the player HUD", () => {
+    const chat = cssRule("#chatPanel {");
+    expect(chat).toContain("top: var(--hud-row-height)");
+    expect(chat).toContain("bottom: auto");
+    expect(cssRule("#chatPanel.is-large {")).toContain("var(--toolbar-height)");
+  });
+
+  it("uses the flat pink Gem asset in the private profile balance", () => {
+    expect(html).toContain('id="profileGemWallet"');
+    expect(html).toContain('src="assets/wildwood/gems/gem-icon.png"');
+    const icon = cssRule(".profile-gem-icon {");
+    expect(icon).not.toContain("gradient");
+    expect(icon).not.toContain("box-shadow");
+    expect(icon).not.toContain("clip-path");
+  });
+
   it("defines and applies the 11px functional-text floor", () => {
     expect(css).toMatch(/--font-readable-min:\s*11px/);
     expect(css).toContain("-webkit-text-size-adjust: 100%");

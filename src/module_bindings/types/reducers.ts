@@ -18,6 +18,7 @@ import DamageDragonFromPositionReducer from "../damage_dragon_from_position_redu
 import DamageFrostclawFromPositionReducer from "../damage_frostclaw_from_position_reducer";
 import DamageSpiderBatchReducer from "../damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "../damage_spider_from_position_reducer";
+import DevAdjustGemsReducer from "../dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "../dev_begin_virtual_player_load_test_reducer";
 import DevClearVirtualPlayersReducer from "../dev_clear_virtual_players_reducer";
 import DevDeleteBugReportReducer from "../dev_delete_bug_report_reducer";
@@ -60,6 +61,7 @@ export type DamageDragonFromPositionParams = __Infer<typeof DamageDragonFromPosi
 export type DamageFrostclawFromPositionParams = __Infer<typeof DamageFrostclawFromPositionReducer>;
 export type DamageSpiderBatchParams = __Infer<typeof DamageSpiderBatchReducer>;
 export type DamageSpiderFromPositionParams = __Infer<typeof DamageSpiderFromPositionReducer>;
+export type DevAdjustGemsParams = __Infer<typeof DevAdjustGemsReducer>;
 export type DevBeginVirtualPlayerLoadTestParams = __Infer<typeof DevBeginVirtualPlayerLoadTestReducer>;
 export type DevClearVirtualPlayersParams = __Infer<typeof DevClearVirtualPlayersReducer>;
 export type DevDeleteBugReportParams = __Infer<typeof DevDeleteBugReportReducer>;

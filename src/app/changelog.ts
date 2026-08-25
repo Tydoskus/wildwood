@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.499": [
+    "Added a private, server-backed Gems balance to your profile with a new pink Gem icon; purchases and spending are not enabled yet.",
+    "Settings volume controls now use much wider responsive tracks with exact 44-by-44-pixel slider thumbs and visible filled progress for easier touch adjustment.",
+    "Minimized World Chat now sits at the top of gameplay directly beneath the player HUD, while expanded chat remains fullscreen above the toolbar.",
+  ],
   "0.498": [
     "Dune Archers now use the approved horizontal bow placement and hand pivot from the alignment tool, with the unnecessary separate gripping-hand layer removed.",
   ],
@@ -973,6 +978,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.499": "2026-08-24",
   "0.498": "2026-08-24",
   "0.497": "2026-08-24",
   "0.496": "2026-08-24",
