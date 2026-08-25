@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.504": [
+    "Magmalisk poses are now isolated and repacked without intermittent left-edge cropping, with the shadow raised closer to his feet.",
+    "Starter, Frost, and Lava Bows now use the updated transparent sprite artwork.",
+  ],
   "0.503": [
     "Arrows now collide with the Magmalisk, show damage numbers, and submit their boss damage correctly.",
     "Magmalisk animation frames now use their true artwork bounds so the left side is no longer cropped.",
@@ -999,6 +1003,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.504": "2026-08-25",
   "0.503": "2026-08-24",
   "0.502": "2026-08-24",
   "0.501": "2026-08-24",

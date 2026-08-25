@@ -2,7 +2,7 @@ import { loadDuelPlatformArt, loadDuelSpaceBackground } from "../duel";
 import { requiredCanvasContext } from "./dom";
 import { scheduleBackgroundTask, yieldToUser } from "./scheduler";
 import { loadTreeSpritesheet } from "../world";
-import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels } from "./sprite-pixels";
+import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
 
 export type TreeSpriteBound = {
   x: number;
@@ -40,13 +40,17 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     ratio: number,
     complete: () => void,
     frameColumns = 0,
+    repackFrameComponents = false,
   ) {
     const pixels = context.getImageData(0, 0, width, height);
     if (!worker) {
       removeGreenPixels(pixels.data, greenThreshold, ratio);
       if (frameColumns > 1) {
-        keepLargestFrameComponents(pixels.data, width, height, frameColumns);
-        centerFramesOnGround(pixels.data, width, height, frameColumns);
+        if (repackFrameComponents) repackLargestComponentsIntoFrames(pixels.data, width, height, frameColumns);
+        else {
+          keepLargestFrameComponents(pixels.data, width, height, frameColumns);
+          centerFramesOnGround(pixels.data, width, height, frameColumns);
+        }
       }
       context.putImageData(pixels, 0, 0);
       complete();
@@ -68,6 +72,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
         greenThreshold,
         ratio,
         frameColumns,
+        repackFrameComponents,
       }, [pixels.data.buffer]);
     });
   }
@@ -124,7 +129,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     magmaliskSpriteContext.drawImage(magmaliskSprite, 0, 0);
     removeGreen(magmaliskSpriteContext, magmaliskSpriteCanvas.width, magmaliskSpriteCanvas.height, 145, 1.45, () => {
       magmaliskReady = true;
-    }, 4);
+    }, 4, true);
   });
   magmaliskSprite.src = "assets/wildwood/magmalisk-boss-spritesheet.png";
 

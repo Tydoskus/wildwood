@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels } from "./sprite-pixels";
+import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
 
 describe("sprite pixel preprocessing", () => {
   it("keys green and removes disconnected bleed from each atlas frame", () => {
@@ -51,5 +51,32 @@ describe("sprite pixel preprocessing", () => {
     expect(pixels[(9 * width + 11) * 4 + 3]).toBe(255);
     expect(pixels[(9 * width + 6) * 4 + 3]).toBe(0);
     expect(pixels[(9 * width + 8) * 4 + 3]).toBe(0);
+  });
+
+  it("re-packs complete connected poses that cross nominal atlas boundaries", () => {
+    const width = 12;
+    const height = 6;
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    const opaque = (x: number, y: number) => {
+      const index = (y * width + x) * 4;
+      pixels[index] = 255;
+      pixels[index + 3] = 255;
+    };
+    for (let x = 1; x <= 5; x += 1) opaque(x, 0);
+    for (let x = 4; x <= 9; x += 1) opaque(x, 5);
+
+    repackLargestComponentsIntoFrames(pixels, width, height, 2);
+
+    const opaqueInFrame = (frame: number) => {
+      let count = 0;
+      for (let y = 0; y < height; y += 1) {
+        for (let x = frame * 6; x < (frame + 1) * 6; x += 1) {
+          if (pixels[(y * width + x) * 4 + 3] > 0) count += 1;
+        }
+      }
+      return count;
+    };
+    expect(opaqueInFrame(0)).toBe(5);
+    expect(opaqueInFrame(1)).toBe(6);
   });
 });

@@ -253,18 +253,12 @@ export function createBossRenderer(options: {
   function drawMagmaliskBoss() {
     if (magmaliskBoss.dead || !options.magmaliskReady()) return;
     const canvas = options.magmaliskSpriteCanvas;
+    const cellW = canvas.width / 4;
     // The selected Magmalisk animation deliberately uses only source frames 0–2.
     const frame = options.magmaliskEruptions.length > 0 ? 2 : magmaliskBoss.bite ? 1 : 0;
-    // Generated poses are not spaced into equal-width cells. Crop each pose at
-    // its real boundary so the eruption frame keeps its left paw and outline.
-    const sourceFrames = [
-      { x: 0, width: 540 },
-      { x: 540, width: 508 },
-      { x: 1048, width: 516 },
-    ] as const;
-    const sourceFrame = sourceFrames[frame];
+    // Preprocessing isolates and re-packs each connected pose before rendering.
+    const drawW = 390;
     const drawH = 520;
-    const drawW = sourceFrame.width * drawH / canvas.height;
     const x = Math.floor(magmaliskBoss.x - camera.x);
     const y = Math.floor(magmaliskBoss.y - camera.y);
     const visualY = y + MAGMALISK_SPRITE_Y_OFFSET;
@@ -273,7 +267,7 @@ export function createBossRenderer(options: {
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
-    ctx.drawImage(canvas, sourceFrame.x, 0, sourceFrame.width, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
     ctx.restore();
     const barW = 290; const barH = 23; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34;
     const ratio = clamp(magmaliskBoss.hp / magmaliskBoss.maxHp, 0, 1);

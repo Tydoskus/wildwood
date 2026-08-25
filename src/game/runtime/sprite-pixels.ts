@@ -77,6 +77,117 @@ export function keepLargestFrameComponents(
   }
 }
 
+/**
+ * Re-packs the largest connected sprites into clean equal-width atlas cells.
+ * This handles generated sheets whose neighboring poses cross nominal cell
+ * boundaries, without clipping either pose or retaining atlas bleed.
+ */
+export function repackLargestComponentsIntoFrames(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  frameColumns: number,
+  anchorHeightRatio = .2,
+) {
+  if (!Number.isInteger(frameColumns) || frameColumns < 2 || width % frameColumns !== 0) return;
+  const pixelCount = width * height;
+  const frameWidth = width / frameColumns;
+  const anchorTop = Math.floor(height * (1 - anchorHeightRatio));
+  const labels = new Uint32Array(pixelCount);
+  const queue = new Uint32Array(pixelCount);
+  const components: Array<{
+    label: number;
+    size: number;
+    minX: number;
+    maxX: number;
+    anchorLeft: number;
+    anchorRight: number;
+  }> = [];
+  let nextLabel = 0;
+
+  for (let start = 0; start < pixelCount; start += 1) {
+    if (pixels[start * 4 + 3] === 0 || labels[start] !== 0) continue;
+    const label = ++nextLabel;
+    let head = 0;
+    let tail = 0;
+    let size = 0;
+    let minX = width;
+    let maxX = -1;
+    let anchorLeft = width;
+    let anchorRight = -1;
+    labels[start] = label;
+    queue[tail++] = start;
+
+    while (head < tail) {
+      const current = queue[head++];
+      const x = current % width;
+      const y = Math.floor(current / width);
+      size += 1;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      if (y >= anchorTop) {
+        anchorLeft = Math.min(anchorLeft, x);
+        anchorRight = Math.max(anchorRight, x);
+      }
+
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        const neighborY = y + offsetY;
+        if (neighborY < 0 || neighborY >= height) continue;
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) continue;
+          const neighborX = x + offsetX;
+          if (neighborX < 0 || neighborX >= width) continue;
+          const neighbor = neighborY * width + neighborX;
+          if (labels[neighbor] !== 0 || pixels[neighbor * 4 + 3] === 0) continue;
+          labels[neighbor] = label;
+          queue[tail++] = neighbor;
+        }
+      }
+    }
+
+    components.push({ label, size, minX, maxX, anchorLeft, anchorRight });
+  }
+
+  const selected = components
+    .sort((left, right) => right.size - left.size)
+    .slice(0, frameColumns)
+    .sort((left, right) => left.minX - right.minX);
+  if (selected.length === 0) return;
+
+  const placements = new Map<number, { frame: number; offset: number }>();
+  for (let frame = 0; frame < selected.length; frame += 1) {
+    const component = selected[frame];
+    const frameX = frame * frameWidth;
+    const anchorLeft = component.anchorRight >= component.anchorLeft ? component.anchorLeft : component.minX;
+    const anchorRight = component.anchorRight >= component.anchorLeft ? component.anchorRight : component.maxX;
+    const desiredOffset = Math.round(frameX + (frameWidth - 1) / 2 - (anchorLeft + anchorRight) / 2);
+    const minimumOffset = frameX - component.minX;
+    const maximumOffset = frameX + frameWidth - 1 - component.maxX;
+    placements.set(component.label, {
+      frame,
+      offset: Math.max(minimumOffset, Math.min(maximumOffset, desiredOffset)),
+    });
+  }
+
+  const packed = new Uint8ClampedArray(pixels.length);
+  for (let sourcePixel = 0; sourcePixel < pixelCount; sourcePixel += 1) {
+    const placement = placements.get(labels[sourcePixel]);
+    if (!placement) continue;
+    const sourceX = sourcePixel % width;
+    const sourceY = Math.floor(sourcePixel / width);
+    const targetX = sourceX + placement.offset;
+    const frameX = placement.frame * frameWidth;
+    if (targetX < frameX || targetX >= frameX + frameWidth) continue;
+    const source = sourcePixel * 4;
+    const target = (sourceY * width + targetX) * 4;
+    packed[target] = pixels[source];
+    packed[target + 1] = pixels[source + 1];
+    packed[target + 2] = pixels[source + 2];
+    packed[target + 3] = pixels[source + 3];
+  }
+  pixels.set(packed);
+}
+
 /** Aligns atlas frames to a stable lower-body anchor so animation poses do not drift. */
 export function centerFramesOnGround(
   pixels: Uint8ClampedArray,

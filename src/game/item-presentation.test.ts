@@ -33,7 +33,7 @@ describe("item presentation", () => {
 
   it("uses the exact transparent blue vendor bow asset at the established bow size", () => {
     const asset = readFileSync(new URL("../../public/assets/wildwood/player-parts/frost-bow.png", import.meta.url));
-    expect(createHash("sha256").update(asset).digest("hex")).toBe("244285ca6bb7ea0908a776e9f5a8989ecaa4b31ceac4aa731552d2532c4479a2");
+    expect(createHash("sha256").update(asset).digest("hex")).toBe("a13a7ed71cfd8f6958f67133f4f16340449b27cb0645f38e3801b68ab14edf59");
     const world = itemPresentation(FROST_BOW)?.world;
     expect(world).toMatchObject({
       kind: "SPRITE",
@@ -48,7 +48,7 @@ describe("item presentation", () => {
   it("uses the requested Lava Bow and Magma Armor vendor assets", () => {
     const bow = readFileSync(new URL("../../public/assets/wildwood/player-parts/lava-bow.png", import.meta.url));
     const armor = readFileSync(new URL("../../public/assets/wildwood/player-parts/magma-armor.png", import.meta.url));
-    expect(createHash("sha256").update(bow).digest("hex")).toBe("c764642111a99dbc53ffc556bf2d62c129024982df2d6e6b3f971ac0b17419ba");
+    expect(createHash("sha256").update(bow).digest("hex")).toBe("cf6a4cd3cd27c9350decd21c06e09bbd495505ad4348bf90a1cda0e0d4240e5d");
     expect(createHash("sha256").update(armor).digest("hex")).toBe("b7ebe48ca52241e5c08e818af101c6c632a3534464cdc50d7e558cfd69273b04");
   });
 

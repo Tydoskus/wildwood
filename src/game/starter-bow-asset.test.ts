@@ -6,6 +6,6 @@ describe("starter bow asset", () => {
   it("keeps the exact FA_WP_Main_Bow_011_Brown PNG bytes", () => {
     const encoded = STARTER_BOW_ASSET_SOURCE.replace("data:image/png;base64,", "");
     const digest = createHash("sha256").update(Buffer.from(encoded, "base64")).digest("hex");
-    expect(digest).toBe("2aaf6566097743c5eeda632574f2680134aae5577bfca2616ffd8413407e0daf");
+    expect(digest).toBe("381750f017e841feff183b0591e0e0f33f000721fb8a47f31dd71e0584dfaedf");
   });
 });
