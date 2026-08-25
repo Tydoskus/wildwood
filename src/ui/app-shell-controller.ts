@@ -42,6 +42,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
   const gameFpsStatus = requiredElement("gameFpsStatus");
+  const onePercentLowFpsStatus = requiredElement("onePercentLowFpsStatus");
   const workFpsStatus = requiredElement("workFpsStatus");
   const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
   const latencyStatus = requiredElement("latencyStatus");
@@ -215,9 +216,10 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     refreshFullscreen,
     refreshSettings,
     refreshStatus,
-    renderFps: (fps: number, workFps: number) => {
+    renderFps: (fps: number, onePercentLowFps: number, workFps: number) => {
       if (!fpsVisible) return;
       gameFpsStatus.textContent = `GAME FPS: ${fps}`;
+      onePercentLowFpsStatus.textContent = `1% LOW: ${onePercentLowFps}`;
       workFpsStatus.textContent = `WORK FPS: ${workFps}`;
     },
     ensureMusicPlaying,

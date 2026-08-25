@@ -63,6 +63,13 @@ describe("enemy sprite loading", () => {
     expect(duneArcher.layers.some((layer) => layer.src.endsWith("/arm2.png"))).toBe(false);
   });
 
+  it("omits separate hand and arm layers from every layered bow enemy", () => {
+    for (const sprite of Object.values(ENEMY_SPRITE_LAYOUTS)) {
+      if (!("layers" in sprite) || !sprite.layers.some((layer) => layer.src.endsWith("/bow.png"))) continue;
+      expect(sprite.layers.some((layer) => /\/(?:arm\d*|hand\d*)\.png$/.test(layer.src))).toBe(false);
+    }
+  });
+
   it("waits for every enemy image, including a delayed layer", () => {
     const images: FakeImage[] = [];
     class FakeImage extends EventTarget {

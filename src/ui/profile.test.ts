@@ -121,7 +121,8 @@ describe("profile stat display", () => {
 
     expect(attack).toMatchObject({
       base: "3.13/s (Max)",
-      multiplier: "1.20×",
+      equationOperator: "×",
+      multiplier: "1.20",
       total: "3.75/s",
       sources: [{ label: "Equipment", value: "1.20×" }],
     });
@@ -140,7 +141,8 @@ describe("profile stat display", () => {
       kind: "health",
       label: "Max Hp:",
       base: "91",
-      multiplier: "2.20×",
+      equationOperator: "×",
+      multiplier: "2.20",
       total: "200",
       sources: [
         { label: "Tech", value: "+10%" },
@@ -151,7 +153,8 @@ describe("profile stat display", () => {
       kind: "damage",
       label: "Damage:",
       base: "20",
-      multiplier: "3.24×",
+      equationOperator: "×",
+      multiplier: "3.24",
       total: "65",
       sources: [
         { label: "Tech", value: "+8%" },
@@ -162,8 +165,9 @@ describe("profile stat display", () => {
       kind: "armor",
       label: "Armor:",
       base: "10",
-      multiplier: "1.00×",
-      beforeEquals: "(50% Block)",
+      equationOperator: "×",
+      multiplier: "1.00",
+      totalPrefix: "(50% Block)",
       total: "10",
       sources: [],
     });

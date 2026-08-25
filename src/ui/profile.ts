@@ -106,8 +106,9 @@ export type ProfileStatDisplayRow = {
   kind: string;
   label: string;
   base: string;
+  equationOperator?: "×";
   multiplier: string;
-  beforeEquals?: string;
+  totalPrefix?: string;
   total: string;
   sources: ProfileStatDisplaySource[];
 };
@@ -123,12 +124,13 @@ export function profileStatDisplayRows(
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
   const researchBonus = (rank = 0, percentPerRank = 0) => rank * percentPerRank;
-  const multiplierValue = (value: number) => `${value.toFixed(2)}×`;
+  const multiplierValue = (value: number) => value.toFixed(2);
+  const multiplierSourceValue = (value: number) => `${multiplierValue(value)}×`;
   const multiplierSources = (researchPercent?: number, equipmentMultiplier?: number): ProfileStatDisplaySource[] => {
     const sources: ProfileStatDisplaySource[] = [];
     if (researchPercent) sources.push({ label: "Tech", value: `+${researchPercent}%` });
     if (equipmentMultiplier !== undefined && Math.abs(equipmentMultiplier - 1) > .0001) {
-      sources.push({ label: "Equipment", value: multiplierValue(equipmentMultiplier) });
+      sources.push({ label: "Equipment", value: multiplierSourceValue(equipmentMultiplier) });
     }
     return sources;
   };
@@ -145,39 +147,46 @@ export function profileStatDisplayRows(
     {
       kind: "health", label: "Max Hp:",
       base: statValue(progress.maxHp / effective.multipliers.healthResearch),
+      equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.healthResearch * effective.multipliers.healthEquipment),
       total: statValue(effective.maxHp),
       sources: multiplierSources(healthResearchBonus, effective.multipliers.healthEquipment),
     },
     {
       kind: "damage", label: "Damage:", base: statValue(progress.damage),
+      equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.damageTotal), total: statValue(effective.damage),
       sources: multiplierSources(damageResearchBonus, effective.multipliers.damageEquipment),
     },
     {
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
+      equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.armor),
-      beforeEquals: `(${armorReduction(effective.armor)} Block)`,
+      totalPrefix: `(${armorReduction(effective.armor)} Block)`,
       total: statValue(effective.armor),
       sources: multiplierSources(armorResearchBonus),
     },
     {
       kind: "attack", label: "Attack Speed:", base: baseAttackSpeed,
+      equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
       sources: multiplierSources(undefined, effective.multipliers.attackSpeed),
     },
     {
       kind: "range", label: "Attack Range:", base: Math.round(progress.attackRange).toLocaleString(),
+      equationOperator: "×",
       multiplier: multiplierValue(1), total: Math.round(progress.attackRange).toLocaleString(), sources: [],
     },
     {
       kind: "regen", label: "Regen:",
       base: progress.regen >= 1_000_000 ? `${formatCompactNumber(progress.regen)}/s` : `${progress.regen.toFixed(1)}/s`,
+      equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.regenTotal), total: regen,
       sources: multiplierSources(regenResearchBonus, effective.multipliers.regenEquipment),
     },
     {
       kind: "speed", label: "Move Speed:", base: statValue(progress.speedOverride > 0 ? progress.speedOverride : progress.speed),
+      equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.speed), total: statValue(effective.speed),
       sources: multiplierSources(speedResearchBonus),
     },
@@ -218,20 +227,35 @@ export function renderProfileStats(
     const term = document.createElement("dt");
     const summary = document.createElement("dd");
     const base = document.createElement("span");
+    const multiplyOperator = document.createElement("span");
     const multiplier = document.createElement("span");
+    const equalsOperator = document.createElement("span");
+    const totalGroup = document.createElement("span");
     const total = document.createElement("span");
     const sources = document.createElement("dd");
     term.textContent = stat.label;
     summary.className = "profile-stat-summary";
     base.className = "profile-stat-base";
+    multiplyOperator.className = "profile-stat-equation-operator profile-stat-multiply";
     multiplier.className = "profile-stat-multiplier";
+    equalsOperator.className = "profile-stat-equation-operator profile-stat-equals";
+    totalGroup.className = "profile-stat-total-group";
     total.className = "profile-stat-total";
     base.textContent = stat.base;
+    multiplyOperator.textContent = stat.equationOperator ?? "";
+    multiplyOperator.setAttribute("aria-hidden", "true");
     multiplier.textContent = stat.multiplier;
-    total.textContent = stat.beforeEquals
-      ? `${stat.beforeEquals} = ${stat.total}`
-      : `= ${stat.total}`;
-    summary.append(base, multiplier, total);
+    equalsOperator.textContent = "=";
+    equalsOperator.setAttribute("aria-hidden", "true");
+    if (stat.totalPrefix) {
+      const totalPrefix = document.createElement("span");
+      totalPrefix.className = "profile-stat-total-prefix";
+      totalPrefix.textContent = stat.totalPrefix;
+      totalGroup.append(totalPrefix);
+    }
+    total.textContent = stat.total;
+    totalGroup.append(total);
+    summary.append(base, multiplyOperator, multiplier, equalsOperator, totalGroup);
     sources.className = "profile-stat-sources";
     sources.hidden = true;
     if (stat.sources.length === 0) {
@@ -259,7 +283,8 @@ export function renderProfileStats(
     const sourceText = stat.sources.length > 0
       ? stat.sources.map((source) => `${source.label}: ${source.value}`).join(" multiplied by ")
       : "No bonus multipliers";
-    const summaryText = `${stat.label} Base ${stat.base}. Combined multiplier ${stat.multiplier}.${stat.beforeEquals ? ` ${stat.beforeEquals}.` : ""} Total ${stat.total}.`;
+    const multiplierText = stat.equationOperator === "×" ? `${stat.multiplier} times` : stat.multiplier;
+    const summaryText = `${stat.label} Base ${stat.base}. Combined multiplier ${multiplierText}.${stat.totalPrefix ? ` ${stat.totalPrefix}.` : ""} Total ${stat.total}.`;
     const setExpanded = (expanded: boolean) => {
       item.classList.toggle("is-expanded", expanded);
       item.setAttribute("aria-expanded", String(expanded));

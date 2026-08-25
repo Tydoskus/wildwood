@@ -119,6 +119,20 @@ describe("interface style contracts", () => {
     expect(icon).not.toContain("clip-path");
   });
 
+  it("places the complete FPS readout beneath the player HUD", () => {
+    expect(html).toContain('id="onePercentLowFpsStatus">1% LOW: --</span>');
+    const status = cssRule(".fps-status {");
+    expect(status).toContain("position: fixed");
+    expect(status).toContain("top: calc(var(--hud-row-height) + 31px)");
+    expect(status).toContain("bottom: auto");
+  });
+
+  it("centers profile equation operators in dedicated columns", () => {
+    expect(cssRule(".profile-stat-multiply {")).toContain("grid-column: 2");
+    expect(cssRule(".profile-stat-equals {")).toContain("grid-column: 4");
+    expect(cssRule(".profile-stat-total-group {")).toContain("grid-column: 5");
+  });
+
   it("turns the full minimap into a help target with a fullscreen map guide", () => {
     expect(html).toContain('id="minimapButton"');
     expect(html).toContain('class="minimap-help-mark" aria-hidden="true">?</span>');

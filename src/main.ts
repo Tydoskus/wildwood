@@ -1180,7 +1180,7 @@ import {
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
     renderFpsDisplay: () => {
       const performance = performanceMonitor.snapshot();
-      appShell.renderFps(performance.fps, performance.workFps);
+      appShell.renderFps(performance.fps, performance.onePercentLowFps, performance.workFps);
     },
     fpsDisplayVisible: appShell.fpsVisible,
     fadeElement: sceneFadeEl,

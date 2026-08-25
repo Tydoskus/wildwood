@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.508": [
+    "The FPS display now sits beneath the player HUD and adds a rolling 1% Low metric so brief frame hitches are visible beside average and Work FPS.",
+    "Profile stat equations now center multiplication and equals signs between their values, with Armor keeping Block directly beside the final armor total.",
+    "Regular bow enemies no longer render separate hand or arm layers.",
+  ],
   "0.507": [
     "The World Map now opens into a clean full-window guide with destination-colored portals, simplified reward zones and boss markers, plus concise item drop chances and sources.",
     "Lava Lake scenery now stays crisp and stable while moving, removes stray terrain dots, and keeps decorative rocks walkable; equipped bows rest centered and aim naturally.",
@@ -1020,6 +1025,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.508": "2026-08-25",
   "0.507": "2026-08-25",
   "0.506": "2026-08-25",
   "0.505": "2026-08-25",

@@ -1,5 +1,6 @@
 export type PerformanceSnapshot = {
   fps: number;
+  onePercentLowFps: number;
   workFps: number;
   frameP50Ms: number;
   frameP95Ms: number;
@@ -53,8 +54,15 @@ export function createPerformanceMonitor() {
     }
     const average = frameCount ? totalFrameMs / frameCount : 0;
     const averageWork = frameCount ? totalWorkMs / frameCount : 0;
+    const lowSampleCount = Math.max(1, Math.ceil(sorted.length * .01));
+    let lowFrameTotalMs = 0;
+    for (let index = sorted.length - lowSampleCount; index < sorted.length; index += 1) {
+      if (index >= 0) lowFrameTotalMs += sorted[index];
+    }
+    const lowFrameAverageMs = sorted.length ? lowFrameTotalMs / lowSampleCount : 0;
     return {
       fps: average > 0 ? Math.round(1_000 / average) : 0,
+      onePercentLowFps: lowFrameAverageMs > 0 ? Math.round(1_000 / lowFrameAverageMs) : 0,
       workFps: averageWork > 0 ? Math.round(1_000 / averageWork) : 0,
       frameP50Ms: p50,
       frameP95Ms: p95,
