@@ -18,6 +18,7 @@
     --red: #ff6767;
     --stat-armor: #74d8ff;
     --stat-regen: #ff7ccb;
+    --chat-presence: #c9a6ff;
     --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
     --chat-font: "Arial Rounded MT Bold", "Arial Rounded MT", "Wildwood Chat", Arial, sans-serif;
     --player-name-font: var(--font-rounded);
@@ -1244,6 +1245,10 @@
   .chat-text { grid-column: 2 / 4; grid-row: 2; min-height: 19px; padding: 3px 11px; border-radius: 5px; background: rgba(255,255,255,.09); color: var(--text); font-family: var(--player-name-font); font-size: 11.25px; font-weight: 900; line-height: 1.5; white-space: pre-wrap; }
   .chat-line.has-replay .chat-text { grid-column: 2 / 4; }
   .chat-line.has-replay { cursor: pointer; }
+  .chat-line.is-presence { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; align-items: center; min-height: 19px; }
+  #chatPanel.is-large .chat-line.is-presence { grid-template-columns: minmax(0, 1fr) auto; min-height: 29px; }
+  .chat-line.is-presence .chat-time { grid-column: 2; grid-row: 1; }
+  .chat-line.is-presence .chat-text { grid-column: 1; grid-row: 1; min-height: 0; padding: 3px 0; border-radius: 0; background: transparent; color: var(--chat-presence); }
   #chatForm { gap: 5px; }
 
   #chatBackBtn,

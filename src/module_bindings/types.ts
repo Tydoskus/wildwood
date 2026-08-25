@@ -703,6 +703,13 @@ export const PlayerUpgradeBench = __t.object("PlayerUpgradeBench", {
 });
 export type PlayerUpgradeBench = __Infer<typeof PlayerUpgradeBench>;
 
+export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
+  identity: __t.identity(),
+  lastLoginAtMicros: __t.u64(),
+  lastLeaveAtMicros: __t.u64(),
+});
+export type PresenceChatCooldown = __Infer<typeof PresenceChatCooldown>;
+
 export const ResearchCompletionSchedule = __t.object("ResearchCompletionSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),

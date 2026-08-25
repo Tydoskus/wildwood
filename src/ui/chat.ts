@@ -3,6 +3,7 @@ import { duelReplayIsInteractive } from "./chat-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
+import { isPresenceChatMessage } from "../../shared/presence-chat";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
@@ -139,6 +140,21 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     nextExpiryAt = allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
     elements.messages.replaceChildren();
     for (const message of messages) {
+      const line = document.createElement("div");
+      line.className = "chat-line";
+      const time = document.createElement("span");
+      time.className = "chat-time";
+      time.textContent = new Date(message.sentAtMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const text = document.createElement("span");
+      text.className = "chat-text";
+      text.textContent = message.message;
+      if (isPresenceChatMessage(message.senderName)) {
+        line.classList.add("is-presence");
+        line.append(time, text);
+        elements.messages.appendChild(line);
+        continue;
+      }
+
       const displayName = message.senderName || (message.replayId > 0n ? "DUEL" : "PLAYER");
       const displayIdentity = message.sender;
       const cachedGender = normalizePlayerGender(coop?.playerGender?.(displayIdentity));
@@ -146,12 +162,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         ? cachedGender
         : message.senderGender;
       const displayedPower = message.powerLevel;
-      const line = document.createElement("div");
-      line.className = "chat-line";
-      const isDuelMessage = message.replayId > 0n;
-      const time = document.createElement("span");
-      time.className = "chat-time";
-      time.textContent = new Date(message.sentAtMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const name = document.createElement("span");
       name.className = "chat-name";
       name.style.color = nameColor(displayIdentity);
@@ -206,9 +216,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         event.preventDefault();
         openPlayer(event);
       });
-      const text = document.createElement("span");
-      text.className = "chat-text";
-      text.textContent = message.message;
       const icon = document.createElement("span");
       icon.className = "chat-profile-icon";
       icon.setAttribute("role", "button");

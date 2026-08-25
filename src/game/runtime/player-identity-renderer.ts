@@ -1,4 +1,5 @@
 import { playerPowerForStats } from "../../../shared/player-power";
+import { isPresenceChatMessage } from "../../../shared/presence-chat";
 import {
   PLAYER_GENDER_FEMALE,
   PLAYER_GENDER_MALE,
@@ -115,7 +116,7 @@ export function createPlayerIdentityRenderer(options: {
       const message = options.chatMessages()[index];
       const age = now - message.sentAtMs;
       if (age < 0 || age >= SPEECH_BUBBLE_DURATION_MS) continue;
-      if (message.senderName === "DUEL" || message.replayId > 0n || bubbles.has(message.sender)) continue;
+      if (isPresenceChatMessage(message.senderName) || message.senderName === "DUEL" || message.replayId > 0n || bubbles.has(message.sender)) continue;
       const lines = wrapSpeechBubbleText(message.message, 190);
       const textWidth = Math.max(28, ...lines.map((line) => ctx.measureText(line).width));
       bubbles.set(message.sender, { text: message.message, sentAtMs: message.sentAtMs, lines, textWidth });

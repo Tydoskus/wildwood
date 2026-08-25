@@ -3,6 +3,7 @@ import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
 import { GAME_VERSION } from "./game/runtime/game-settings";
 import { createEmptyResearchRanks, isResearchId, type ResearchId } from "../shared/research";
+import { isPresenceChatMessage } from "../shared/presence-chat";
 import {
   PLAYER_GENDER_UNSET,
   isSelectedPlayerGender,
@@ -1941,9 +1942,11 @@ function upsertChatMessage(row: {
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
   const sender = row.sender.toHexString();
-  profileIdentities.set(sender, row.sender);
-  if (!profiles.has(sender)) profiles.set(sender, row.senderName);
-  if (!guestAccounts.has(sender)) guestAccounts.set(sender, row.senderIsGuest);
+  if (!isPresenceChatMessage(row.senderName)) {
+    profileIdentities.set(sender, row.sender);
+    if (!profiles.has(sender)) profiles.set(sender, row.senderName);
+    if (!guestAccounts.has(sender)) guestAccounts.set(sender, row.senderIsGuest);
+  }
   chatMessages.push({
     id: row.id,
     sender,

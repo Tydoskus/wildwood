@@ -18,6 +18,11 @@ import {
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import {
+  advancePresenceChatCooldown,
+  presenceChatMessage,
+  type PresenceChatEvent,
+} from "../../shared/presence-chat";
+import {
   DAILY_LOGIN_GEM_BONUS,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
   gemBalanceAfter,
@@ -810,6 +815,15 @@ const chatCooldown = table(
   },
 );
 
+const presenceChatCooldown = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    lastLoginAtMicros: t.u64(),
+    lastLeaveAtMicros: t.u64(),
+  },
+);
+
 const duelRequestCooldown = table(
   { public: false },
   {
@@ -1277,6 +1291,7 @@ const spacetimedb = schema({
   virtualPlayerLoad,
   virtualPlayerRun,
   chatCooldown,
+  presenceChatCooldown,
   duelRequestCooldown,
   accountLink,
   chatMessage,
@@ -3154,6 +3169,7 @@ function clearOrphanPresence(ctx: any) {
   }
   for (const identity of orphanIdentities) {
     finishLifetimeSession(ctx, identity);
+    announcePlayerPresence(ctx, identity, "leave");
     removeIdentityPresence(ctx, identity);
   }
 }
@@ -3569,6 +3585,37 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
   trimChatHistory(ctx);
 }
 
+function announcePlayerPresence(ctx: any, identity: any, event: PresenceChatEvent) {
+  if (isVirtualPlayer(ctx, identity)) return;
+  const profile = ctx.db.playerProfile.identity.find(identity);
+  if (!profile) return;
+
+  const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
+  const cooldown = ctx.db.presenceChatCooldown.identity.find(identity);
+  const nextState = advancePresenceChatCooldown(cooldown, event, nowMicros);
+  if (!nextState) return;
+
+  const nextCooldown = {
+    identity,
+    ...nextState,
+  };
+  if (cooldown) ctx.db.presenceChatCooldown.identity.update(nextCooldown);
+  else ctx.db.presenceChatCooldown.insert(nextCooldown);
+
+  ctx.db.chatMessage.insert({
+    id: 0n,
+    sender: identity,
+    senderName: "",
+    senderIsGuest: false,
+    message: presenceChatMessage(profile.displayName, event),
+    replayId: 0n,
+    sentAt: ctx.timestamp,
+    powerLevel: 0,
+    senderGender: PLAYER_GENDER_UNSET,
+  });
+  trimChatHistory(ctx);
+}
+
 function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
   const current = playerWithMotion(ctx, ctx.db.player.identity.find(identity));
   if (!current) return;
@@ -3787,6 +3834,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   const normalizedTabId = tabId.trim();
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(normalizedTabId)) throw new SenderError("Invalid Wildwood tab session.");
   const virtualRegistration = ctx.db.virtualPlayer.identity.find(ctx.sender);
+  const alreadyInWorld = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>]
+    .some((candidate: any) => candidate.enteredWorld);
 
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (controller && !sameConnection(controller.connectionId, ctx.connectionId)) {
@@ -3816,6 +3865,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       gender: PLAYER_GENDER_UNSET,
     });
   }
+  if (!alreadyInWorld) announcePlayerPresence(ctx, ctx.sender, "login");
   ensureGemWallet(ctx, ctx.sender);
   if (hasSpacetimeAuthAccount(ctx)) ensureDailyGemBonusState(ctx, ctx.sender);
 
@@ -4051,6 +4101,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
 
   if (isDeveloperIdentity(ctx.sender)) clearVirtualPlayersForOwner(ctx, ctx.sender);
   finishLifetimeSession(ctx, ctx.sender);
+  if (session.enteredWorld) announcePlayerPresence(ctx, ctx.sender, "leave");
   removeIdentityPresence(ctx, ctx.sender);
 });
 
@@ -4848,6 +4899,26 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestNameCooldown) ctx.db.playerNameCooldown.identity.delete(link.guest);
     const guestChatCooldown = ctx.db.chatCooldown.identity.find(link.guest);
     if (guestChatCooldown) ctx.db.chatCooldown.identity.delete(link.guest);
+    const guestPresenceChatCooldown = ctx.db.presenceChatCooldown.identity.find(link.guest);
+    const accountPresenceChatCooldown = ctx.db.presenceChatCooldown.identity.find(ctx.sender);
+    if (guestPresenceChatCooldown) {
+      const transferredPresenceChatCooldown = {
+        identity: ctx.sender,
+        lastLoginAtMicros: accountPresenceChatCooldown
+          ? accountPresenceChatCooldown.lastLoginAtMicros > guestPresenceChatCooldown.lastLoginAtMicros
+            ? accountPresenceChatCooldown.lastLoginAtMicros
+            : guestPresenceChatCooldown.lastLoginAtMicros
+          : guestPresenceChatCooldown.lastLoginAtMicros,
+        lastLeaveAtMicros: accountPresenceChatCooldown
+          ? accountPresenceChatCooldown.lastLeaveAtMicros > guestPresenceChatCooldown.lastLeaveAtMicros
+            ? accountPresenceChatCooldown.lastLeaveAtMicros
+            : guestPresenceChatCooldown.lastLeaveAtMicros
+          : guestPresenceChatCooldown.lastLeaveAtMicros,
+      };
+      if (accountPresenceChatCooldown) ctx.db.presenceChatCooldown.identity.update(transferredPresenceChatCooldown);
+      else ctx.db.presenceChatCooldown.insert(transferredPresenceChatCooldown);
+      ctx.db.presenceChatCooldown.identity.delete(link.guest);
+    }
     const guestDuelRequestCooldown = ctx.db.duelRequestCooldown.identity.find(link.guest);
     if (guestDuelRequestCooldown) ctx.db.duelRequestCooldown.identity.delete(link.guest);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);

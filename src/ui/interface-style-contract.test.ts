@@ -90,6 +90,14 @@ describe("interface style contracts", () => {
     expect(message).toContain("font-weight: 900");
   });
 
+  it("renders presence announcements as plain purple chat text", () => {
+    const presence = cssRule(".chat-line.is-presence .chat-text {");
+
+    expect(cssRule(":root {")).toContain("--chat-presence: #c9a6ff");
+    expect(presence).toContain("background: transparent");
+    expect(presence).toContain("color: var(--chat-presence)");
+  });
+
   it("keeps the profile window to Stats and Info without ranking code", () => {
     expect(html).toContain('id="profileStatsTab"');
     expect(html).toContain('id="profileOverviewTab"');
