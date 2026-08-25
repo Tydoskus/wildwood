@@ -10,6 +10,8 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
-  slot: __t.u8(),
-};
+export default __t.row({
+  identity: __t.identity().primaryKey(),
+  secondSlotUnlocked: __t.bool().name("second_slot_unlocked"),
+  updatedAt: __t.timestamp().name("updated_at"),
+});

@@ -11,5 +11,6 @@ import {
 } from "spacetimedb";
 
 export default {
+  slot: __t.u8(),
   itemId: __t.string(),
 };

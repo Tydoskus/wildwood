@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.505": [
+    "The Upgrade Bench now opens on two item slots, with a permanent second slot unlock for 150 Gems and support for two simultaneous upgrades.",
+    "Active item upgrades now offer a Gem-priced Finish Now action at one Gem per started ten minutes, followed by a clear Back button to close the bench.",
+  ],
   "0.504": [
     "Magmalisk poses are now isolated and repacked without intermittent left-edge cropping, with the shadow raised closer to his feet.",
     "Starter, Frost, and Lava Bows now use the updated transparent sprite artwork.",
@@ -1003,6 +1007,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.505": "2026-08-25",
   "0.504": "2026-08-25",
   "0.503": "2026-08-24",
   "0.502": "2026-08-24",

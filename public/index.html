@@ -6,7 +6,7 @@
 <title>Wildwood</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.504" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.505" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -146,13 +146,20 @@
         <h2 id="upgradeBenchTitle" class="visually-hidden">Upgrade Bench</h2>
         <button id="closeUpgradeBenchBtn" class="profile-close-button secondary-button upgrade-bench-close" type="button" aria-label="Close upgrade bench">×</button>
         <div class="upgrade-bench-content">
-          <p id="upgradeBenchPrompt" class="upgrade-bench-prompt">Add weapon or armor to upgrade</p>
-          <button id="upgradeBenchSlot" class="inventory-item upgrade-bench-slot is-empty" type="button" aria-label="Choose a weapon or armor to upgrade">
-            <span class="inventory-item-empty-mark">+</span>
-          </button>
+          <p id="upgradeBenchPrompt" class="upgrade-bench-prompt">Choose an upgrade slot</p>
+          <div class="upgrade-bench-slots" role="group" aria-label="Upgrade slots">
+            <button id="upgradeBenchSlot" class="inventory-item upgrade-bench-slot is-empty" type="button" aria-label="Choose an item for upgrade slot 1" aria-pressed="false">
+              <span class="inventory-item-empty-mark">+</span>
+            </button>
+            <button id="upgradeBenchSlotTwo" class="inventory-item upgrade-bench-slot is-locked" type="button" aria-label="Unlock second upgrade slot for 150 Gems" aria-pressed="false">
+              <span class="upgrade-bench-lock-symbol" aria-hidden="true">🔒</span>
+              <span class="upgrade-bench-slot-cost"><img src="assets/wildwood/gems/gem-icon.png" alt="" aria-hidden="true" draggable="false" /><strong>150</strong></span>
+            </button>
+          </div>
           <div id="upgradeBenchStatGain" class="upgrade-bench-stat-gain" aria-live="polite"></div>
           <div id="upgradeBenchTimer" class="upgrade-bench-timer" role="timer" hidden></div>
           <button id="upgradeBenchAction" class="upgrade-bench-action" type="button" disabled hidden>UPGRADE</button>
+          <button id="upgradeBenchSpeedUp" class="upgrade-bench-action upgrade-bench-speed-up" type="button" disabled hidden>FINISH NOW</button>
           <button id="upgradeBenchBack" class="upgrade-bench-back" type="button">BACK</button>
         </div>
         <div id="upgradeBenchPicker" class="upgrade-bench-picker" hidden>
@@ -174,7 +181,7 @@
   <div id="message"></div>
   <div id="pickupLog"></div>
   <div id="itemDropReveal" aria-live="polite" aria-atomic="true"></div>
-  <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.504">v0.504</div>
+  <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.505">v0.505</div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
     <span class="respawn-ad-copy">
@@ -189,7 +196,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.504</div>
+        <div id="version">v0.505</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -262,13 +269,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.504</strong></div>
+        <div><strong id="updateNoticeTitle">v0.505</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.504</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.505</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -552,7 +559,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.504"></script>
-<script src="assets/wildwood/game.js?v=0.504"></script>
+<script src="assets/wildwood/coop-client.js?v=0.505"></script>
+<script src="assets/wildwood/game.js?v=0.505"></script>
 </body>
 </html>

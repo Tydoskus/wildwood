@@ -123,7 +123,9 @@ export type { PlayerProgress } from "./coop/services/progress";
 
 export type PlayerResearch = Record<ResearchId, number>;
 export type ActiveResearch = { researchId: ResearchId; targetRank: number; startedAtMs: number; completesAtMs: number };
+export type UpgradeBenchSlot = 1 | 2;
 export type ActiveItemUpgrade = {
+  slot: UpgradeBenchSlot;
   itemId: string;
   currentLevel: number;
   targetLevel: number;
@@ -474,11 +476,12 @@ let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localGemBalance = 0n;
 let localDailyGemBonusClaimable = false;
+let localSecondUpgradeSlotUnlocked = false;
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
 let localResearch: PlayerResearch = createEmptyResearchRanks();
 let localActiveResearch: ActiveResearch | null = null;
-let localActiveItemUpgrade: ActiveItemUpgrade | null = null;
+const localActiveItemUpgrades = new Map<UpgradeBenchSlot, ActiveItemUpgrade>();
 const speedSyncTracker = createSpeedSyncTracker();
 let lastDuelPulseAt = 0;
 let duelCooldownUntil = 0;
@@ -1361,6 +1364,18 @@ function removeDailyGemBonus(row: { identity: Identity }) {
   onChange?.();
 }
 
+function upsertUpgradeBench(row: { identity: Identity; secondSlotUnlocked: boolean }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localSecondUpgradeSlotUnlocked = row.secondSlotUnlocked;
+  onChange?.();
+}
+
+function removeUpgradeBench(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localSecondUpgradeSlotUnlocked = false;
+  onChange?.();
+}
+
 function leaderboardEntryFromRow(row: {
   identity: Identity;
   displayName: string;
@@ -1719,9 +1734,10 @@ function upsertActiveItemUpgrade(row: {
   completesAt: { microsSinceUnixEpoch: bigint };
   paused: boolean;
   remainingMicros: bigint;
-}) {
+}, slot: UpgradeBenchSlot) {
   if (row.identity.toHexString() !== localIdentity) return;
-  localActiveItemUpgrade = {
+  localActiveItemUpgrades.set(slot, {
+    slot,
     itemId: row.itemId,
     currentLevel: normalizeItemUpgradeLevel(row.currentLevel),
     targetLevel: normalizeItemUpgradeLevel(row.targetLevel),
@@ -1729,13 +1745,13 @@ function upsertActiveItemUpgrade(row: {
     completesAtMs: Number(row.completesAt.microsSinceUnixEpoch / 1_000n),
     paused: row.paused,
     remainingMs: Number(row.remainingMicros / 1_000n),
-  };
+  });
   onChange?.();
 }
 
-function removeActiveItemUpgrade(row: { identity: Identity }) {
+function removeActiveItemUpgrade(row: { identity: Identity }, slot: UpgradeBenchSlot) {
   if (row.identity.toHexString() !== localIdentity) return;
-  localActiveItemUpgrade = null;
+  localActiveItemUpgrades.delete(slot);
   onChange?.();
 }
 
@@ -2513,6 +2529,7 @@ function clearRealtimeCaches() {
   playerGenders.clear();
   localGemBalance = 0n;
   localDailyGemBonusClaimable = false;
+  localSecondUpgradeSlotUnlocked = false;
   profileIdentities.clear();
   motionIdentities.clear();
   activeMotionIdentities.clear();
@@ -2524,7 +2541,7 @@ function clearRealtimeCaches() {
   profileProgress.clear();
   profileResearch.clear();
   profileItemUpgrades.clear();
-  localActiveItemUpgrade = null;
+  localActiveItemUpgrades.clear();
   playerLifetimes.clear();
   playerMaps.clear();
   profilePlayerMaps.clear();
@@ -2698,7 +2715,8 @@ function connect() {
         localProgress = null;
       localResearch = createEmptyResearchRanks();
         localActiveResearch = null;
-        localActiveItemUpgrade = null;
+        localActiveItemUpgrades.clear();
+        localSecondUpgradeSlotUnlocked = false;
       }
       speedSyncTracker.reset();
       lastDuelPulseAt = 0;
@@ -2809,6 +2827,9 @@ function connect() {
         conn.db.myDailyGemBonus.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDailyGemBonus(row); });
         conn.db.myDailyGemBonus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDailyGemBonus(row); });
         conn.db.myDailyGemBonus.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeDailyGemBonus(row); });
+        conn.db.myUpgradeBench.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertUpgradeBench(row); });
+        conn.db.myUpgradeBench.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertUpgradeBench(row); });
+        conn.db.myUpgradeBench.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeUpgradeBench(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeAccessAudit(row); });
@@ -2831,9 +2852,12 @@ function connect() {
         conn.db.playerItemUpgrade.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertItemUpgrade(row); });
         conn.db.playerItemUpgrade.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertItemUpgrade(row); });
         conn.db.playerItemUpgrade.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeItemUpgrade(row); });
-        conn.db.activeItemUpgrade.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row); });
-        conn.db.activeItemUpgrade.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row); });
-        conn.db.activeItemUpgrade.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeActiveItemUpgrade(row); });
+        conn.db.activeItemUpgrade.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row, 1); });
+        conn.db.activeItemUpgrade.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row, 1); });
+        conn.db.activeItemUpgrade.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeActiveItemUpgrade(row, 1); });
+        conn.db.activeItemUpgradeSlotTwo.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row, 2); });
+        conn.db.activeItemUpgradeSlotTwo.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertActiveItemUpgrade(row, 2); });
+        conn.db.activeItemUpgradeSlotTwo.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeActiveItemUpgrade(row, 2); });
         conn.db.playerItemDrop.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertItemDrop(row); });
         conn.db.playerItemDrop.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertItemDrop(row); });
         conn.db.playerLifetime.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertPlayerLifetime(row); });
@@ -2867,6 +2891,7 @@ function connect() {
             for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
             for (const row of conn.db.myGemWallet.iter()) upsertGemWallet(row);
             for (const row of conn.db.myDailyGemBonus.iter()) upsertDailyGemBonus(row);
+            for (const row of conn.db.myUpgradeBench.iter()) upsertUpgradeBench(row);
             for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
             for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
             for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
@@ -2875,7 +2900,8 @@ function connect() {
             for (const row of conn.db.playerResearch.iter()) upsertResearch(row);
             for (const row of conn.db.activeResearch.iter()) upsertActiveResearch(row);
             for (const row of conn.db.playerItemUpgrade.iter()) upsertItemUpgrade(row);
-            for (const row of conn.db.activeItemUpgrade.iter()) upsertActiveItemUpgrade(row);
+            for (const row of conn.db.activeItemUpgrade.iter()) upsertActiveItemUpgrade(row, 1);
+            for (const row of conn.db.activeItemUpgradeSlotTwo.iter()) upsertActiveItemUpgrade(row, 2);
             for (const row of conn.db.playerItemDrop.iter()) upsertItemDrop(row);
             for (const row of conn.db.playerLifetime.iter()) upsertPlayerLifetime(row);
             for (const row of conn.db.playerMotionIdentity.iter()) upsertMotionIdentity(row);
@@ -2913,6 +2939,7 @@ function connect() {
           tables.playerProfile.where((profile) => profile.identity.eq(identity)),
           tables.myGemWallet,
           tables.myDailyGemBonus,
+          tables.myUpgradeBench,
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus.where((status) => status.identity.eq(identity)),
           tables.worldStatus,
@@ -2921,6 +2948,7 @@ function connect() {
           tables.activeResearch.where((research) => research.identity.eq(identity)),
           tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(identity)),
           tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(identity)),
+          tables.activeItemUpgradeSlotTwo.where((upgrade) => upgrade.identity.eq(identity)),
           tables.playerItemDrop.where((drop) => drop.identity.eq(identity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(identity)),
           tables.dragonBoss,
@@ -2961,7 +2989,8 @@ function connect() {
       localProfileReady = false;
       localResearch = createEmptyResearchRanks();
       localActiveResearch = null;
-      localActiveItemUpgrade = null;
+      localActiveItemUpgrades.clear();
+      localSecondUpgradeSlotUnlocked = false;
       clearRealtimeCaches();
       if (hadActiveGame && !protocolBlocked) setNetworkReconnectVisible(true);
       else setNetworkReconnectVisible(false);
@@ -3440,8 +3469,31 @@ export const wildwoodCoop = {
   itemUpgradeLevels(identity = localIdentity) {
     return upgradeLevelsFor(identity);
   },
-  activeItemUpgrade() {
-    return localActiveItemUpgrade ? { ...localActiveItemUpgrade } : null;
+  activeItemUpgrade(slot: UpgradeBenchSlot = 1) {
+    const active = localActiveItemUpgrades.get(slot);
+    return active ? { ...active } : null;
+  },
+  activeItemUpgrades() {
+    return [...localActiveItemUpgrades.values()]
+      .sort((left, right) => left.slot - right.slot)
+      .map((active) => ({ ...active }));
+  },
+  secondUpgradeSlotUnlocked() {
+    return localSecondUpgradeSlotUnlocked;
+  },
+  async unlockSecondUpgradeSlot() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.unlockSecondUpgradeSlot({});
+      localSecondUpgradeSlotUnlocked = true;
+      onChange?.();
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("second upgrade slot unlock", error);
+      return { ok: false, error: message };
+    }
   },
   async startResearch(researchId: ResearchId) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
@@ -3467,7 +3519,7 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
-  async startItemUpgrade(itemId: string, position?: { x: number; y: number }) {
+  async startItemUpgrade(slot: UpgradeBenchSlot, itemId: string, position?: { x: number; y: number }) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     const conn = connection;
     if (!conn) return { ok: false, error: "NOT CONNECTED" };
@@ -3496,11 +3548,12 @@ export const wildwoodCoop = {
           localState.lastInputSequence = sequence;
         }
       }
-      await conn.reducers.startItemUpgrade({ itemId });
+      await conn.reducers.startItemUpgrade({ slot, itemId });
       const currentLevel = profileItemUpgrades.get(localIdentity)?.get(itemId) ?? 0;
       const remainingMs = itemUpgradeDurationMs(currentLevel);
       const startedAtMs = Date.now();
-      localActiveItemUpgrade = {
+      localActiveItemUpgrades.set(slot, {
+        slot,
         itemId,
         currentLevel,
         targetLevel: currentLevel + 1,
@@ -3508,7 +3561,7 @@ export const wildwoodCoop = {
         completesAtMs: startedAtMs + remainingMs,
         paused: false,
         remainingMs,
-      };
+      });
       onChange?.();
       return { ok: true };
     } catch (error) {
@@ -3517,17 +3570,31 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
-  async cancelItemUpgrade() {
+  async cancelItemUpgrade(slot: UpgradeBenchSlot = 1) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.cancelItemUpgrade({});
-      localActiveItemUpgrade = null;
+      await connection.reducers.cancelItemUpgrade({ slot });
+      localActiveItemUpgrades.delete(slot);
       onChange?.();
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
       handleReducerFailure("item upgrade cancel", error);
+      return { ok: false, error: message };
+    }
+  },
+  async speedUpItemUpgradeWithGems(slot: UpgradeBenchSlot) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.speedUpItemUpgradeWithGems({ slot });
+      localActiveItemUpgrades.delete(slot);
+      onChange?.();
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("item upgrade speed-up", error);
       return { ok: false, error: message };
     }
   },

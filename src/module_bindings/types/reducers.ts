@@ -47,11 +47,13 @@ import SetPlayerSpriteReducer from "../set_player_sprite_reducer";
 import SetProfileIconReducer from "../set_profile_icon_reducer";
 import SetSkinToneReducer from "../set_skin_tone_reducer";
 import SetSpeedReducer from "../set_speed_reducer";
+import SpeedUpItemUpgradeWithGemsReducer from "../speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "../speed_up_research_with_gems_reducer";
 import StartItemUpgradeReducer from "../start_item_upgrade_reducer";
 import StartResearchReducer from "../start_research_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 import TakeOverSessionReducer from "../take_over_session_reducer";
+import UnlockSecondUpgradeSlotReducer from "../unlock_second_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
 
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
@@ -95,10 +97,12 @@ export type SetPlayerSpriteParams = __Infer<typeof SetPlayerSpriteReducer>;
 export type SetProfileIconParams = __Infer<typeof SetProfileIconReducer>;
 export type SetSkinToneParams = __Infer<typeof SetSkinToneReducer>;
 export type SetSpeedParams = __Infer<typeof SetSpeedReducer>;
+export type SpeedUpItemUpgradeWithGemsParams = __Infer<typeof SpeedUpItemUpgradeWithGemsReducer>;
 export type SpeedUpResearchWithGemsParams = __Infer<typeof SpeedUpResearchWithGemsReducer>;
 export type StartItemUpgradeParams = __Infer<typeof StartItemUpgradeReducer>;
 export type StartResearchParams = __Infer<typeof StartResearchReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;
+export type UnlockSecondUpgradeSlotParams = __Infer<typeof UnlockSecondUpgradeSlotReducer>;
 export type UpdateMovementStateParams = __Infer<typeof UpdateMovementStateReducer>;
 

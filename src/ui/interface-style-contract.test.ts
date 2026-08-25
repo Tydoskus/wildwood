@@ -114,6 +114,21 @@ describe("interface style contracts", () => {
     expect(cssRule(".daily-gem-claim-button {")).toContain("justify-self: center");
   });
 
+  it("opens the Upgrade Bench on two slots and orders active-job actions clearly", () => {
+    const slotOne = html.indexOf('id="upgradeBenchSlot"');
+    const slotTwo = html.indexOf('id="upgradeBenchSlotTwo"');
+    const cancel = html.indexOf('id="upgradeBenchAction"');
+    const finishNow = html.indexOf('id="upgradeBenchSpeedUp"');
+    const back = html.indexOf('id="upgradeBenchBack"');
+    expect(slotOne).toBeGreaterThanOrEqual(0);
+    expect(slotTwo).toBeGreaterThan(slotOne);
+    expect(html.slice(slotTwo, cancel)).toContain("150");
+    expect(finishNow).toBeGreaterThan(cancel);
+    expect(back).toBeGreaterThan(finishNow);
+    expect(cssRule(".upgrade-bench-slots {")).toContain("justify-content: center");
+    expect(cssRule(".upgrade-bench-speed-up {")).toContain("justify-content: center");
+  });
+
   it("centers every research action state in the detail card", () => {
     const action = cssRule(".tech-tree-action {");
     expect(action).toContain("justify-self: center");

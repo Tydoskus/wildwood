@@ -17,7 +17,13 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
-import { DAILY_LOGIN_GEM_BONUS, gemBalanceAfter, researchSpeedUpGemCost } from "../../shared/gems";
+import {
+  DAILY_LOGIN_GEM_BONUS,
+  UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
+  gemBalanceAfter,
+  itemUpgradeSpeedUpGemCost,
+  researchSpeedUpGemCost,
+} from "../../shared/gems";
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import {
   BASIC_PAPER_HAT,
@@ -190,6 +196,8 @@ const MAGMALISK_HIT_RANGE_TOLERANCE = 60;
 const MAGMALISK_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
+const UPGRADE_BENCH_SLOT_ONE = 1;
+const UPGRADE_BENCH_SLOT_TWO = 2;
 const BOSS_REGEN_DELAY_MICROS = 180_000_000n;
 const BOSS_REGEN_FRACTION_PER_MAINTENANCE = .05;
 
@@ -429,6 +437,17 @@ const dailyGemBonus = table(
   },
 );
 
+// Permanent paid upgrade-bench capacity is private account data. Slot one is
+// always available; this row exists only after slot two has been purchased.
+const playerUpgradeBench = table(
+  { name: "player_upgrade_bench", public: false },
+  {
+    identity: t.identity().primaryKey(),
+    secondSlotUnlocked: t.bool(),
+    updatedAt: t.timestamp(),
+  },
+);
+
 const playerProgress = table(
   { public: true },
   {
@@ -534,6 +553,22 @@ const playerItemUpgrade = table(
 // new jobs never enter a paused state.
 const activeItemUpgrade = table(
   { public: true },
+  {
+    identity: t.identity().primaryKey(),
+    itemId: t.string(),
+    currentLevel: t.u8(),
+    targetLevel: t.u8(),
+    startedAt: t.timestamp(),
+    completesAt: t.timestamp(),
+    paused: t.bool().default(false),
+    remainingMicros: t.u64().default(0n),
+  },
+);
+
+// Kept separate from the legacy identity-keyed slot-one table so adding a
+// concurrent queue is an additive, data-preserving schema migration.
+const activeItemUpgradeSlotTwo = table(
+  { name: "active_item_upgrade_slot_two", public: true },
   {
     identity: t.identity().primaryKey(),
     itemId: t.string(),
@@ -1018,6 +1053,7 @@ const itemUpgradeCompletionSchedule = table(
     itemId: t.string(),
     targetLevel: t.u8(),
     completesAtMicros: t.u64(),
+    slot: t.u8().default(1),
   },
 );
 
@@ -1211,12 +1247,14 @@ const spacetimedb = schema({
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
+  playerUpgradeBench,
   playerProgress,
   playerLastLocation,
   playerResearch,
   activeResearch,
   playerItemUpgrade,
   activeItemUpgrade,
+  activeItemUpgradeSlotTwo,
   playerItemDrop,
   leaderboardEntry,
   playerAccountStatus,
@@ -1313,6 +1351,15 @@ export const myDailyGemBonus = spacetimedb.view(
   (ctx) => {
     const bonus = ctx.db.dailyGemBonus.identity.find(ctx.sender);
     return bonus ? [bonus] : [];
+  },
+);
+
+export const myUpgradeBench = spacetimedb.view(
+  { name: "my_upgrade_bench", public: true },
+  t.array(playerUpgradeBench.rowType),
+  (ctx) => {
+    const bench = ctx.db.playerUpgradeBench.identity.find(ctx.sender);
+    return bench ? [bench] : [];
   },
 );
 
@@ -1478,7 +1525,7 @@ function runPendingModuleMigrations(ctx: any) {
     // v0.476 briefly supported paused upgrades. Cancellation now forfeits the
     // unfinished timer, so return any item left in that legacy paused state.
     for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
-      if (active.paused) cancelActiveItemUpgrade(ctx, active);
+      if (active.paused) cancelActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_ONE);
     }
   }
   if (currentVersion < 10) {
@@ -2449,7 +2496,7 @@ function progressHasItem(progress: any, itemId: string) {
 function playerOwnsItem(ctx: any, identity: any, itemId: string) {
   const progress = ctx.db.playerProgress.identity.find(identity);
   if (progressHasItem(progress ?? defaultPlayerProgress(identity), itemId)) return true;
-  return ctx.db.activeItemUpgrade.identity.find(identity)?.itemId === itemId;
+  return activeItemUpgradeEntriesFor(ctx, identity).some(({ active }) => active.itemId === itemId);
 }
 
 function clearItemFromProgressSlots(progress: any, itemId: string) {
@@ -2628,15 +2675,59 @@ function maxHealthForProgress(ctx: any, identity: any, progress: any) {
   return progress.maxHp * itemMaxHealthMultiplier(chestItem, 1, itemUpgradeLevelFor(ctx, identity, chestItem));
 }
 
-function removeItemUpgradeCompletionSchedules(ctx: any, identity: any) {
+function normalizeUpgradeBenchSlot(slot: unknown) {
+  return Number(slot) === UPGRADE_BENCH_SLOT_TWO ? UPGRADE_BENCH_SLOT_TWO : UPGRADE_BENCH_SLOT_ONE;
+}
+
+function requireUpgradeBenchSlot(slot: unknown) {
+  const numericSlot = Number(slot);
+  if (numericSlot !== UPGRADE_BENCH_SLOT_ONE && numericSlot !== UPGRADE_BENCH_SLOT_TWO) {
+    throw new SenderError("Unknown upgrade slot.");
+  }
+  return numericSlot;
+}
+
+function activeItemUpgradeForSlot(ctx: any, identity: any, slot: number) {
+  return slot === UPGRADE_BENCH_SLOT_TWO
+    ? ctx.db.activeItemUpgradeSlotTwo.identity.find(identity)
+    : ctx.db.activeItemUpgrade.identity.find(identity);
+}
+
+function activeItemUpgradeEntriesFor(ctx: any, identity: any) {
+  const slotOne = ctx.db.activeItemUpgrade.identity.find(identity);
+  const slotTwo = ctx.db.activeItemUpgradeSlotTwo.identity.find(identity);
+  return [
+    ...(slotOne ? [{ slot: UPGRADE_BENCH_SLOT_ONE, active: slotOne }] : []),
+    ...(slotTwo ? [{ slot: UPGRADE_BENCH_SLOT_TWO, active: slotTwo }] : []),
+  ];
+}
+
+function insertActiveItemUpgrade(ctx: any, slot: number, active: any) {
+  return slot === UPGRADE_BENCH_SLOT_TWO
+    ? ctx.db.activeItemUpgradeSlotTwo.insert(active)
+    : ctx.db.activeItemUpgrade.insert(active);
+}
+
+function deleteActiveItemUpgrade(ctx: any, identity: any, slot: number) {
+  if (slot === UPGRADE_BENCH_SLOT_TWO) ctx.db.activeItemUpgradeSlotTwo.identity.delete(identity);
+  else ctx.db.activeItemUpgrade.identity.delete(identity);
+}
+
+function secondUpgradeSlotUnlockedFor(ctx: any, identity: any) {
+  return ctx.db.playerUpgradeBench.identity.find(identity)?.secondSlotUnlocked === true;
+}
+
+function removeItemUpgradeCompletionSchedules(ctx: any, identity: any, slot?: number) {
   const scheduledIds = [...ctx.db.itemUpgradeCompletionSchedule.iter() as Iterable<any>]
-    .filter((scheduled: any) => sameIdentity(scheduled.identity, identity))
+    .filter((scheduled: any) => sameIdentity(scheduled.identity, identity) &&
+      (slot === undefined || normalizeUpgradeBenchSlot(scheduled.slot) === slot))
     .map((scheduled: any) => scheduled.scheduledId);
   for (const scheduledId of scheduledIds) ctx.db.itemUpgradeCompletionSchedule.scheduledId.delete(scheduledId);
 }
 
 function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = false) {
   if (ctx.db.activeItemUpgrade.identity.find(identity)) ctx.db.activeItemUpgrade.identity.delete(identity);
+  if (ctx.db.activeItemUpgradeSlotTwo.identity.find(identity)) ctx.db.activeItemUpgradeSlotTwo.identity.delete(identity);
   removeItemUpgradeCompletionSchedules(ctx, identity);
   for (const upgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(identity) as Iterable<any>]) {
     ctx.db.playerItemUpgrade.key.delete(upgrade.key);
@@ -2648,8 +2739,8 @@ function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = fals
   }
 }
 
-function ensureItemUpgradeCompletionSchedule(ctx: any, active: any) {
-  removeItemUpgradeCompletionSchedules(ctx, active.identity);
+function ensureItemUpgradeCompletionSchedule(ctx: any, active: any, slot: number) {
+  removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
   if (active.paused) return;
   const completesAtMicros = active.completesAt.microsSinceUnixEpoch;
   ctx.db.itemUpgradeCompletionSchedule.insert({
@@ -2659,10 +2750,11 @@ function ensureItemUpgradeCompletionSchedule(ctx: any, active: any) {
     itemId: active.itemId,
     targetLevel: active.targetLevel,
     completesAtMicros,
+    slot,
   });
 }
 
-function completeActiveItemUpgrade(ctx: any, active: any) {
+function completeActiveItemUpgrade(ctx: any, active: any, slot: number) {
   const currentLevel = itemUpgradeLevelFor(ctx, active.identity, active.itemId);
   const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
   if (currentLevel === active.currentLevel && active.targetLevel === currentLevel + 1 && active.targetLevel <= MAX_ITEM_UPGRADE_LEVEL) {
@@ -2673,34 +2765,34 @@ function completeActiveItemUpgrade(ctx: any, active: any) {
     else ctx.db.playerItemUpgrade.insert(completed);
   }
   writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
-  ctx.db.activeItemUpgrade.identity.delete(active.identity);
-  removeItemUpgradeCompletionSchedules(ctx, active.identity);
+  deleteActiveItemUpgrade(ctx, active.identity, slot);
+  removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
 }
 
-function cancelActiveItemUpgrade(ctx: any, active: any) {
+function cancelActiveItemUpgrade(ctx: any, active: any, slot: number) {
   const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
   writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
-  ctx.db.activeItemUpgrade.identity.delete(active.identity);
-  removeItemUpgradeCompletionSchedules(ctx, active.identity);
+  deleteActiveItemUpgrade(ctx, active.identity, slot);
+  removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
 }
 
-function reconcileActiveItemUpgrade(ctx: any, active: any) {
+function reconcileActiveItemUpgrade(ctx: any, active: any, slot: number) {
   if (!isUpgradeableItem(active.itemId) || active.currentLevel !== itemUpgradeLevelFor(ctx, active.identity, active.itemId) || active.targetLevel !== active.currentLevel + 1) {
     const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
     writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
-    ctx.db.activeItemUpgrade.identity.delete(active.identity);
-    removeItemUpgradeCompletionSchedules(ctx, active.identity);
+    deleteActiveItemUpgrade(ctx, active.identity, slot);
+    removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
     return;
   }
   if (active.paused) {
-    cancelActiveItemUpgrade(ctx, active);
+    cancelActiveItemUpgrade(ctx, active, slot);
     return;
   }
   if (ctx.timestamp.microsSinceUnixEpoch >= active.completesAt.microsSinceUnixEpoch) {
-    completeActiveItemUpgrade(ctx, active);
+    completeActiveItemUpgrade(ctx, active, slot);
     return;
   }
-  ensureItemUpgradeCompletionSchedule(ctx, active);
+  ensureItemUpgradeCompletionSchedule(ctx, active, slot);
 }
 
 function sameIdentity(a: any, b: any) {
@@ -2937,6 +3029,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
   if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
   if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
+  if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
   if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
   if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
   if (ctx.db.duelRequestCooldown.identity.find(identity)) ctx.db.duelRequestCooldown.identity.delete(identity);
@@ -3960,7 +4053,12 @@ export const runMaintenance = spacetimedb.reducer(
     reconcileOnlinePlayers(ctx);
     runPendingModuleMigrations(ctx);
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
-    for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) reconcileActiveItemUpgrade(ctx, active);
+    for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
+      reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_ONE);
+    }
+    for (const active of [...ctx.db.activeItemUpgradeSlotTwo.iter()] as any[]) {
+      reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_TWO);
+    }
     refreshLeaderboardIfDue(ctx);
     regenerateIdleBosses(ctx);
   },
@@ -4070,9 +4168,10 @@ export const completeResearch = spacetimedb.reducer(
 export const completeItemUpgrade = spacetimedb.reducer(
   { schedule: itemUpgradeCompletionSchedule.rowType },
   (ctx, { schedule }) => {
-    const active = ctx.db.activeItemUpgrade.identity.find(schedule.identity);
+    const slot = normalizeUpgradeBenchSlot(schedule.slot);
+    const active = activeItemUpgradeForSlot(ctx, schedule.identity, slot);
     if (!active || active.paused || active.itemId !== schedule.itemId || active.targetLevel !== schedule.targetLevel) return;
-    reconcileActiveItemUpgrade(ctx, active);
+    reconcileActiveItemUpgrade(ctx, active, slot);
   },
 );
 
@@ -4480,8 +4579,9 @@ export const registerProtocol = spacetimedb.reducer(
     }
     const activeResearch = ctx.db.activeResearch.identity.find(ctx.sender);
     if (activeResearch) reconcileActiveResearch(ctx, activeResearch);
-    const activeUpgrade = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
-    if (activeUpgrade) reconcileActiveItemUpgrade(ctx, activeUpgrade);
+    for (const { slot, active } of activeItemUpgradeEntriesFor(ctx, ctx.sender)) {
+      reconcileActiveItemUpgrade(ctx, active, slot);
+    }
   },
 );
 
@@ -4578,15 +4678,25 @@ export const claimGuestAccount = spacetimedb.reducer(
       if (accountUpgrade) ctx.db.playerItemUpgrade.key.update(transferred);
       else ctx.db.playerItemUpgrade.insert(transferred);
     }
-    const guestActiveItemUpgrade = ctx.db.activeItemUpgrade.identity.find(link.guest);
-    const accountActiveItemUpgrade = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
-    if (guestActiveItemUpgrade && !accountActiveItemUpgrade) {
-      const transferred = { ...guestActiveItemUpgrade, identity: ctx.sender };
-      ctx.db.activeItemUpgrade.insert(transferred);
-      removeItemUpgradeCompletionSchedules(ctx, link.guest);
-      ensureItemUpgradeCompletionSchedule(ctx, transferred);
-    } else if (guestActiveItemUpgrade) {
-      removeItemUpgradeCompletionSchedules(ctx, link.guest);
+    for (const slot of [UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO]) {
+      const guestActiveItemUpgrade = activeItemUpgradeForSlot(ctx, link.guest, slot);
+      const accountActiveItemUpgrade = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
+      if (guestActiveItemUpgrade && !accountActiveItemUpgrade) {
+        const transferred = { ...guestActiveItemUpgrade, identity: ctx.sender };
+        insertActiveItemUpgrade(ctx, slot, transferred);
+        removeItemUpgradeCompletionSchedules(ctx, link.guest, slot);
+        ensureItemUpgradeCompletionSchedule(ctx, transferred, slot);
+      } else if (guestActiveItemUpgrade) {
+        removeItemUpgradeCompletionSchedules(ctx, link.guest, slot);
+      }
+    }
+
+    const guestUpgradeBench = ctx.db.playerUpgradeBench.identity.find(link.guest);
+    const accountUpgradeBench = ctx.db.playerUpgradeBench.identity.find(ctx.sender);
+    if (guestUpgradeBench?.secondSlotUnlocked && !accountUpgradeBench?.secondSlotUnlocked) {
+      const transferred = { identity: ctx.sender, secondSlotUnlocked: true, updatedAt: ctx.timestamp };
+      if (accountUpgradeBench) ctx.db.playerUpgradeBench.identity.update(transferred);
+      else ctx.db.playerUpgradeBench.insert(transferred);
     }
 
     const guestLifetime = ctx.db.playerLifetime.identity.find(link.guest);
@@ -4725,6 +4835,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestBalance) ctx.db.playerBalanceVersion.identity.delete(link.guest);
     const guestGemWallet = ctx.db.playerGemWallet.identity.find(link.guest);
     if (guestGemWallet) ctx.db.playerGemWallet.identity.delete(link.guest);
+    if (ctx.db.playerUpgradeBench.identity.find(link.guest)) ctx.db.playerUpgradeBench.identity.delete(link.guest);
 
     const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
     for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
@@ -5309,22 +5420,46 @@ export const claimDailyGemBonus = spacetimedb.reducer((ctx) => {
   });
 });
 
+export const unlockSecondUpgradeSlot = spacetimedb.reducer((ctx) => {
+  requireControllingPlayer(ctx);
+  const current = ctx.db.playerUpgradeBench.identity.find(ctx.sender);
+  if (current?.secondSlotUnlocked) return;
+
+  applyGemBalanceChange(ctx, {
+    identity: ctx.sender,
+    delta: -UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
+    kind: "upgrade_bench_slot_unlock",
+    note: "Permanently unlocked Upgrade Bench slot two.",
+    externalReference: `upgrade-bench-slot-two:${ctx.sender.toHexString()}`,
+  });
+  const next = { identity: ctx.sender, secondSlotUnlocked: true, updatedAt: ctx.timestamp };
+  if (current) ctx.db.playerUpgradeBench.identity.update(next);
+  else ctx.db.playerUpgradeBench.insert(next);
+});
+
 export const startItemUpgrade = spacetimedb.reducer(
-  { itemId: t.string() },
-  (ctx, { itemId }) => {
+  { slot: t.u8(), itemId: t.string() },
+  (ctx, { slot: requestedSlot, itemId }) => {
+    const slot = requireUpgradeBenchSlot(requestedSlot);
     const playerAtBench = requireControllingPlayer(ctx);
     if (playerAtBench.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID ||
       Math.hypot(playerAtBench.x - UPGRADE_BENCH_POSITION.x, playerAtBench.y - UPGRADE_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
       throw new SenderError("Touch the Upgrade Bench first.");
     }
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+    if (slot === UPGRADE_BENCH_SLOT_TWO && !secondUpgradeSlotUnlockedFor(ctx, ctx.sender)) {
+      throw new SenderError("Unlock the second upgrade slot first.");
+    }
     const canonical = canonicalItemId(itemId);
     if (!canonical || !isUpgradeableItem(canonical)) throw new SenderError("Choose a weapon or armor with stats.");
 
-    const existing = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
-    if (existing) reconcileActiveItemUpgrade(ctx, existing);
-    const active = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
-    if (active) throw new SenderError("An item is already being upgraded.");
+    const existing = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
+    if (existing) reconcileActiveItemUpgrade(ctx, existing, slot);
+    const active = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
+    if (active) throw new SenderError("That upgrade slot is already in use.");
+    if (activeItemUpgradeEntriesFor(ctx, ctx.sender).some(({ active: other }) => other.itemId === canonical)) {
+      throw new SenderError("That item is already being upgraded.");
+    }
 
     const progress = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
     if (!progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
@@ -5344,22 +5479,48 @@ export const startItemUpgrade = spacetimedb.reducer(
       paused: false,
       remainingMicros: safeDurationMicros,
     };
-    ctx.db.activeItemUpgrade.insert(nextActive);
+    insertActiveItemUpgrade(ctx, slot, nextActive);
     writeProgressAndPresentation(ctx, removeItemFromProgress(progress, canonical));
-    ensureItemUpgradeCompletionSchedule(ctx, nextActive);
+    ensureItemUpgradeCompletionSchedule(ctx, nextActive, slot);
   },
 );
 
 export const cancelItemUpgrade = spacetimedb.reducer(
-  {},
-  (ctx) => {
+  { slot: t.u8() },
+  (ctx, { slot: requestedSlot }) => {
+    const slot = requireUpgradeBenchSlot(requestedSlot);
     requireControllingPlayer(ctx);
-    const existing = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    const existing = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
     if (!existing) throw new SenderError("No item is being upgraded.");
-    reconcileActiveItemUpgrade(ctx, existing);
-    const active = ctx.db.activeItemUpgrade.identity.find(ctx.sender);
+    reconcileActiveItemUpgrade(ctx, existing, slot);
+    const active = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
     if (!active) return;
-    cancelActiveItemUpgrade(ctx, active);
+    cancelActiveItemUpgrade(ctx, active, slot);
+  },
+);
+
+export const speedUpItemUpgradeWithGems = spacetimedb.reducer(
+  { slot: t.u8() },
+  (ctx, { slot: requestedSlot }) => {
+    const slot = requireUpgradeBenchSlot(requestedSlot);
+    requireControllingPlayer(ctx);
+    const existing = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
+    if (!existing) throw new SenderError("No item is being upgraded.");
+    reconcileActiveItemUpgrade(ctx, existing, slot);
+    const active = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
+    if (!active) return;
+
+    const remainingMicros = active.completesAt.microsSinceUnixEpoch - ctx.timestamp.microsSinceUnixEpoch;
+    const remainingMs = Number((remainingMicros + 999n) / 1_000n);
+    const cost = itemUpgradeSpeedUpGemCost(remainingMs);
+    applyGemBalanceChange(ctx, {
+      identity: ctx.sender,
+      delta: -cost,
+      kind: "item_upgrade_speed_up",
+      note: `Finished ${active.itemId} upgrade to +${active.targetLevel} early in slot ${slot}.`,
+      externalReference: `item-upgrade-speed-up:${ctx.sender.toHexString()}:${slot}:${active.itemId}:${active.targetLevel}:${active.startedAt.microsSinceUnixEpoch}`,
+    });
+    completeActiveItemUpgrade(ctx, active, slot);
   },
 );
 

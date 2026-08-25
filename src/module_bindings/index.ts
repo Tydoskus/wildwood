@@ -75,17 +75,20 @@ import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
+import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
+import UnlockSecondUpgradeSlotReducer from "./unlock_second_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
 import ActiveItemUpgradeRow from "./active_item_upgrade_table";
+import ActiveItemUpgradeSlotTwoRow from "./active_item_upgrade_slot_two_table";
 import ActiveResearchRow from "./active_research_table";
 import BossAttackFrameRow from "./boss_attack_frame_table";
 import ChatMessageRow from "./chat_message_table";
@@ -103,6 +106,7 @@ import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
+import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerItemDropRow from "./player_item_drop_table";
@@ -134,6 +138,17 @@ const tablesSchema = __schema({
       { name: 'active_item_upgrade_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, ActiveItemUpgradeRow),
+  activeItemUpgradeSlotTwo: __table({
+    name: 'active_item_upgrade_slot_two',
+    indexes: [
+      { accessor: 'identity', name: 'active_item_upgrade_slot_two_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'active_item_upgrade_slot_two_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, ActiveItemUpgradeSlotTwoRow),
   activeResearch: __table({
     name: 'active_research',
     indexes: [
@@ -502,6 +517,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyGemWalletRow),
+  myUpgradeBench: __table({
+    name: 'my_upgrade_bench',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyUpgradeBenchRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -547,11 +569,13 @@ const reducersSchema = __reducers(
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
+  __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
+  __reducerSchema("unlock_second_upgrade_slot", UnlockSecondUpgradeSlotReducer),
   __reducerSchema("update_movement_state", UpdateMovementStateReducer),
 );
 

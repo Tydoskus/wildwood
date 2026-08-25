@@ -29,6 +29,18 @@ export const ActiveItemUpgrade = __t.object("ActiveItemUpgrade", {
 });
 export type ActiveItemUpgrade = __Infer<typeof ActiveItemUpgrade>;
 
+export const ActiveItemUpgradeSlotTwo = __t.object("ActiveItemUpgradeSlotTwo", {
+  identity: __t.identity(),
+  itemId: __t.string(),
+  currentLevel: __t.u8(),
+  targetLevel: __t.u8(),
+  startedAt: __t.timestamp(),
+  completesAt: __t.timestamp(),
+  paused: __t.bool(),
+  remainingMicros: __t.u64(),
+});
+export type ActiveItemUpgradeSlotTwo = __Infer<typeof ActiveItemUpgradeSlotTwo>;
+
 export const ActiveResearch = __t.object("ActiveResearch", {
   identity: __t.identity(),
   researchId: __t.string(),
@@ -317,6 +329,7 @@ export const ItemUpgradeCompletionSchedule = __t.object("ItemUpgradeCompletionSc
   itemId: __t.string(),
   targetLevel: __t.u8(),
   completesAtMicros: __t.u64(),
+  slot: __t.u8(),
 });
 export type ItemUpgradeCompletionSchedule = __Infer<typeof ItemUpgradeCompletionSchedule>;
 
@@ -425,6 +438,9 @@ export type MyDailyGemBonus = __Infer<typeof MyDailyGemBonus>;
 
 export const MyGemWallet = __t.object("MyGemWallet", {});
 export type MyGemWallet = __Infer<typeof MyGemWallet>;
+
+export const MyUpgradeBench = __t.object("MyUpgradeBench", {});
+export type MyUpgradeBench = __Infer<typeof MyUpgradeBench>;
 
 export const Player = __t.object("Player", {
   identity: __t.identity(),
@@ -679,6 +695,13 @@ export const PlayerSession = __t.object("PlayerSession", {
   tabId: __t.string(),
 });
 export type PlayerSession = __Infer<typeof PlayerSession>;
+
+export const PlayerUpgradeBench = __t.object("PlayerUpgradeBench", {
+  identity: __t.identity(),
+  secondSlotUnlocked: __t.bool(),
+  updatedAt: __t.timestamp(),
+});
+export type PlayerUpgradeBench = __Infer<typeof PlayerUpgradeBench>;
 
 export const ResearchCompletionSchedule = __t.object("ResearchCompletionSchedule", {
   scheduledId: __t.u64(),
