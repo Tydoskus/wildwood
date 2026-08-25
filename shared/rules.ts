@@ -63,7 +63,7 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 64;
+export const PROTOCOL_VERSION = 65;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

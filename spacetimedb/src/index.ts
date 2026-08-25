@@ -17,6 +17,7 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
+import { moderatePublicChatMessage } from "./chat-moderation";
 import {
   DAILY_LOGIN_GEM_BONUS,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
@@ -873,6 +874,7 @@ const chatMessage = table(
     senderIsGuest: t.bool().default(false),
     powerLevel: t.f32().default(0),
     senderGender: t.u8().default(PLAYER_GENDER_UNSET),
+    moderated: t.bool().default(false),
   },
 );
 
@@ -3600,7 +3602,14 @@ function trimChatHistory(ctx: any) {
   }
 }
 
-function insertChatMessage(ctx: any, sender: any, senderName: string, message: string, replayId = 0n) {
+function insertChatMessage(
+  ctx: any,
+  sender: any,
+  senderName: string,
+  message: string,
+  replayId = 0n,
+  moderated = false,
+) {
   const progress = ctx.db.playerProgress.identity.find(sender);
   const profile = ctx.db.playerProfile.identity.find(sender);
   ctx.db.chatMessage.insert({
@@ -3613,6 +3622,7 @@ function insertChatMessage(ctx: any, sender: any, senderName: string, message: s
     sentAt: ctx.timestamp,
     powerLevel: progress ? effectivePowerForProgress(ctx, progress) : 0,
     senderGender: profile?.gender ?? PLAYER_GENDER_UNSET,
+    moderated,
   });
   trimChatHistory(ctx);
 }
@@ -5781,7 +5791,15 @@ export const sendChatMessage = spacetimedb.reducer(
       return;
     }
 
-    insertChatMessage(ctx, ctx.sender, profile.displayName, normalized);
+    const moderatedMessage = moderatePublicChatMessage(normalized);
+    insertChatMessage(
+      ctx,
+      ctx.sender,
+      profile.displayName,
+      moderatedMessage.message,
+      0n,
+      moderatedMessage.moderated,
+    );
   },
 );
 

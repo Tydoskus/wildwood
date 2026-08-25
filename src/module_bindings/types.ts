@@ -91,6 +91,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   senderIsGuest: __t.bool(),
   powerLevel: __t.f32(),
   senderGender: __t.u8(),
+  moderated: __t.bool(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
