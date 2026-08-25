@@ -71,6 +71,7 @@ import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
+import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
@@ -506,6 +507,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
+  __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),

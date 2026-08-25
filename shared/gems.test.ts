@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { MAX_GEM_BALANCE, gemBalanceAfter } from "./gems";
+import {
+  DAILY_LOGIN_GEM_BONUS,
+  MAX_GEM_BALANCE,
+  RESEARCH_SPEED_UP_MS_PER_GEM,
+  gemBalanceAfter,
+  researchSpeedUpGemCost,
+} from "./gems";
 
 describe("Gem balance rules", () => {
   it("credits and spends whole Gems exactly", () => {
@@ -10,5 +16,17 @@ describe("Gem balance rules", () => {
   it("rejects overspending and balances above the economy cap", () => {
     expect(() => gemBalanceAfter(5n, -6n)).toThrow("Not enough Gems");
     expect(() => gemBalanceAfter(MAX_GEM_BALANCE, 1n)).toThrow("limit reached");
+  });
+
+  it("grants seven Gems in the daily registered-account bonus", () => {
+    expect(DAILY_LOGIN_GEM_BONUS).toBe(7n);
+  });
+
+  it("prices research at one Gem per started ten-minute block", () => {
+    expect(researchSpeedUpGemCost(0)).toBe(1n);
+    expect(researchSpeedUpGemCost(1)).toBe(1n);
+    expect(researchSpeedUpGemCost(RESEARCH_SPEED_UP_MS_PER_GEM)).toBe(1n);
+    expect(researchSpeedUpGemCost(RESEARCH_SPEED_UP_MS_PER_GEM + 1)).toBe(2n);
+    expect(researchSpeedUpGemCost(25 * 60 * 1_000)).toBe(3n);
   });
 });

@@ -17,8 +17,8 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
-import { gemBalanceAfter } from "../../shared/gems";
-import { resolveEquipmentAppearance } from "../../shared/equipment-appearance";
+import { DAILY_LOGIN_GEM_BONUS, gemBalanceAfter, researchSpeedUpGemCost } from "../../shared/gems";
+import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
@@ -2473,6 +2473,7 @@ function cosmeticEquipmentForProgress(progress: any) {
     if (itemId) remainingCounts.set(itemId, Math.max(0, (remainingCounts.get(itemId) ?? 0) - 1));
   }
   const itemFor = (field: "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand", slot: "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND") => {
+    if (isHiddenCosmeticItem(progress[field])) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(progress[field]);
     if (!itemId || !itemFitsEquipmentSlot(itemId, slot) || (remainingCounts.get(itemId) ?? 0) <= 0) return "";
     remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) - 1);
@@ -2649,6 +2650,20 @@ function applyGemBalanceChange(ctx: any, input: {
     createdAt: ctx.timestamp,
   });
   return nextWallet;
+}
+
+const UTC_DAY_MICROS = 86_400_000_000n;
+
+function grantDailyLoginGems(ctx: any) {
+  if (!hasSpacetimeAuthAccount(ctx)) return ensureGemWallet(ctx, ctx.sender);
+  const utcDay = ctx.timestamp.microsSinceUnixEpoch / UTC_DAY_MICROS;
+  return applyGemBalanceChange(ctx, {
+    identity: ctx.sender,
+    delta: DAILY_LOGIN_GEM_BONUS,
+    kind: "daily_login_bonus",
+    note: "Registered-account daily login bonus.",
+    externalReference: `daily-login:${ctx.sender.toHexString()}:${utcDay}`,
+  });
 }
 
 function mergeGuestGemWallet(ctx: any, guestIdentity: any, accountIdentity: any, accountLinkCode: string) {
@@ -3471,7 +3486,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       gender: PLAYER_GENDER_UNSET,
     });
   }
-  ensureGemWallet(ctx, ctx.sender);
+  grantDailyLoginGems(ctx);
 
   const lifetime = ensurePlayerLifetime(ctx);
   const grantBetaTesterGoldenHelmet = hasRecentPlayerActivity(ctx, ctx.sender);
@@ -4901,6 +4916,26 @@ export const startResearch = spacetimedb.reducer(
     ensureResearchCompletionSchedule(ctx, { identity: ctx.sender, researchId, targetRank, completesAt: new Timestamp(completesAtMicros) });
   },
 );
+
+export const speedUpResearchWithGems = spacetimedb.reducer((ctx) => {
+  requireControllingPlayer(ctx);
+  const current = ctx.db.activeResearch.identity.find(ctx.sender);
+  if (!current) throw new SenderError("No research is active.");
+  const { active } = reconcileActiveResearch(ctx, current);
+  if (!active) return;
+
+  const remainingMicros = active.completesAt.microsSinceUnixEpoch - ctx.timestamp.microsSinceUnixEpoch;
+  const remainingMs = Number((remainingMicros + 999n) / 1_000n);
+  const cost = researchSpeedUpGemCost(remainingMs);
+  applyGemBalanceChange(ctx, {
+    identity: ctx.sender,
+    delta: -cost,
+    kind: "research_speed_up",
+    note: `Finished ${active.researchId} rank ${active.targetRank} research early.`,
+    externalReference: `research-speed-up:${ctx.sender.toHexString()}:${active.researchId}:${active.targetRank}:${active.startedAt.microsSinceUnixEpoch}`,
+  });
+  if (!completeActiveResearch(ctx, active)) throw new SenderError("Research is no longer available.");
+});
 
 export const startItemUpgrade = spacetimedb.reducer(
   { itemId: t.string() },

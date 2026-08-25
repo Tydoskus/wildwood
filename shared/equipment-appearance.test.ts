@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveEquipmentAppearance } from "./equipment-appearance";
+import { HIDDEN_COSMETIC_ITEM_ID, resolveEquipmentAppearance } from "./equipment-appearance";
 
 const regular = {
   equippedHead: "paper_hat",
@@ -43,5 +43,22 @@ describe("equipment appearance", () => {
       cosmeticRightHand: "bow",
       cosmeticLeftHand: "stale_bow",
     })).toMatchObject({ rightHandItem: "bow", leftHandItem: "" });
+  });
+
+  it("hides stat equipment without unequipping it", () => {
+    expect(resolveEquipmentAppearance({
+      ...regular,
+      cosmeticHead: HIDDEN_COSMETIC_ITEM_ID,
+      cosmeticChest: HIDDEN_COSMETIC_ITEM_ID,
+      cosmeticFeet: HIDDEN_COSMETIC_ITEM_ID,
+      cosmeticRightHand: HIDDEN_COSMETIC_ITEM_ID,
+    })).toEqual({
+      headItem: "",
+      chestItem: "",
+      feetItem: "",
+      rightHandItem: "",
+      leftHandItem: "",
+    });
+    expect(regular).toMatchObject({ equippedChest: "wooden_armor", equippedRightHand: "stone" });
   });
 });
