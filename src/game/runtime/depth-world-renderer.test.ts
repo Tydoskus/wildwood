@@ -23,7 +23,6 @@ function renderer(decor: WorldDecor[], calls: string[]) {
     drawCactus: (cactus) => calls.push(`cactus:${cactus.y}`),
     drawSnowPine: (tree) => calls.push(`pine:${tree.y}`),
     drawUpgradeBench: (bench) => calls.push(`bench:${bench.y}`),
-    drawLavaRock: (rock) => calls.push(`lava-rock:${rock.y}`),
     drawCharredTree: (tree) => calls.push(`charred-tree:${tree.y}`),
     drawEnemy: () => calls.push("enemy"),
     drawBoss: () => calls.push("boss"),

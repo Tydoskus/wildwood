@@ -58,6 +58,7 @@ import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
 import { createDeathScreenController } from "./ui/death-screen-controller";
 import { createDailyGemBonusController } from "./ui/daily-gem-bonus-controller";
+import { createMapGuideController } from "./ui/map-guide-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
@@ -90,7 +91,7 @@ import {
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
     canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, chatPanel, coopStatusEl, messageEl, pickupLog,
-    enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
+    minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
@@ -98,6 +99,7 @@ import {
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
     leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardPodiumEl, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
+    mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
@@ -920,6 +922,7 @@ import {
   }).observe(inventoryCharacterCanvas);
 
   let minimizeMaximizedChat = () => {};
+  let mapGuide!: ReturnType<typeof createMapGuideController>;
 
   const techTree = createTechTreePanel({
     e: gameElements,
@@ -930,6 +933,7 @@ import {
     speedUpResearch: async () => coop?.speedUpResearchWithGems?.(),
     showMessage,
     beforeOpen: () => {
+      mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
       upgradeBenchController?.close();
@@ -951,6 +955,7 @@ import {
     drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
     beforeOpen: () => {
+      mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
       upgradeBenchController?.close();
@@ -981,6 +986,7 @@ import {
       subscriptions: coop?.subscriptionCount?.() ?? 0,
     }),
     closeCompetingWindows: () => {
+      mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
       upgradeBenchController?.close();
@@ -1023,6 +1029,7 @@ import {
     speedUpUpgrade: async (slot) => coop?.speedUpItemUpgradeWithGems?.(slot),
     unlockSecondSlot: async () => coop?.unlockSecondUpgradeSlot?.(),
     beforeOpen: () => {
+      mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
       settingsPanel.hidden = true;
@@ -1046,6 +1053,49 @@ import {
       saveProgress(true);
     },
     showMessage,
+  });
+
+  mapGuide = createMapGuideController({
+    trigger: minimapButton,
+    overlay: mapGuideEl,
+    title: mapGuideTitle,
+    canvas: mapGuideCanvas,
+    zoneLabels: mapGuideZoneLabels,
+    dropItems: mapGuideDropItems,
+    back: mapGuideBack,
+  }, {
+    currentMapId: () => currentMapId,
+    mapName: (mapId) => MAP_CONFIG[mapId].name,
+    paths,
+    spawnSites,
+    player,
+    boss: () => currentMapId === TUTORIAL_FOREST_MAP_ID
+      ? { x: boss.x, y: boss.y, name: "Dragon", dead: boss.dead }
+      : currentMapId === BEGINNER_DESERT_MAP_ID
+        ? { x: spiderBoss.x, y: spiderBoss.y, name: "Desert Spider", dead: spiderBoss.dead }
+        : currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID
+          ? { x: frostclawBoss.x, y: frostclawBoss.y, name: "Frostclaw", dead: frostclawBoss.dead }
+          : { x: magmaliskBoss.x, y: magmaliskBoss.y, name: "Magmalisk", dead: magmaliskBoss.dead },
+    portals: () => {
+      const portals = [activePortal()];
+      const secondary = secondaryPortal();
+      if (secondary) portals.push(secondary);
+      return portals.map((portal) => ({ x: portal.x, y: portal.y, destination: portal.destination, unlocked: portalIsUnlocked(portal) }));
+    },
+    beforeOpen: () => {
+      minimizeMaximizedChat();
+      itemInspectionController.close();
+      upgradeBenchController.close();
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
+      profileWindow.close();
+      closeLeaderboard();
+      techTree.close();
+      devPanel.close();
+    },
+    clearPlayerInput: playerInput.clear,
   });
 
   runtimeHud = createGameRuntimeHud({
@@ -1263,7 +1313,7 @@ import {
     e: gameElements, inventory, renderInventory, logPickup, leaveDuelResult, closeUpdateNotice,
     itemInspectionController,
     minimizeChat: minimizeMaximizedChat,
-    closeCompetingWindows: () => { upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
+    closeCompetingWindows: () => { mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
     resetServerProgress: () => coop?.resetProgress?.(),
     clearProgressState: () => { progress.resetState(); newPlayerIntroShown = false; },
@@ -1273,7 +1323,7 @@ import {
     resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
     stopGame: session.stop, startConnecting: startup.showConnecting, hideGameOver: deathScreen.hide,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
-    leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController,
+    leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController, mapGuide,
   }).handleInputEscape;
 
   const coopSession = createCoopSessionController({

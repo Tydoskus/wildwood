@@ -25,6 +25,8 @@ type WindowActionsElements = {
 };
 
 type EscapeWindows = {
+  isMapGuideOpen: () => boolean;
+  closeMapGuide: () => void;
   isItemInspectionOpen: () => boolean;
   closeItemInspection: () => void;
   isUpgradeBenchOpen: () => boolean;
@@ -127,6 +129,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   function handleInputEscape() {
     const windows = dependencies.escapeWindows;
+    if (windows.isMapGuideOpen()) { windows.closeMapGuide(); return true; }
     if (windows.isItemInspectionOpen()) { windows.closeItemInspection(); return true; }
     if (windows.isUpgradeBenchOpen()) { windows.closeUpgradeBench(); return true; }
     if (windows.isProfileIconPickerOpen()) { windows.closeProfileIconPicker(); return true; }

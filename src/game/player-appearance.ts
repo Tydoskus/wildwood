@@ -116,20 +116,26 @@ export function bowHeldRotationRadians(options: {
   facingLeft: boolean;
   heldInLeftHand: boolean;
 }) {
+  // The current bow art natively points down. Preserve that exact pose until
+  // a combat target supplies an aim direction.
+  if (options.combatFacing === null || options.combatFacing === undefined) return 0;
   // Left-hand art is already mirrored on its Y axis below. Reversing the
   // rotation too would double-flip the pose and point the bow upward.
   const handOffsetDegrees = BOW_RIGHT_HAND_ANGLE_DEGREES - BOW_SOURCE_DOWN_ANGLE_DEGREES;
-  const localAim = options.combatFacing === null || options.combatFacing === undefined
-    ? 0
-    : options.facingLeft ? Math.PI - options.combatFacing : options.combatFacing;
+  const localAim = options.facingLeft ? Math.PI - options.combatFacing : options.combatFacing;
   return localAim + handOffsetDegrees * DEGREES_TO_RADIANS;
 }
 
-/** Mirrors the tuned right-hand bow alignment when the bow changes hands. */
+/** Keeps the bow artwork centered on the actor until aiming begins. */
+export function bowHeldAnchorX(_heldInLeftHand: boolean, _facingLeft: boolean) {
+  return 0;
+}
+
+/** Mirrors the bow art itself when the bow changes hands. */
 export function bowHeldAlignment(heldInLeftHand: boolean) {
   return {
-    x: heldInLeftHand ? -4 : 4,
-    y: heldInLeftHand ? 2 : -2,
+    x: 0,
+    y: 0,
     // Swap the bow's face without inverting its vertical aim. A Y-axis flip
     // turns the source-down sprite upward after rotation.
     scaleX: heldInLeftHand ? -1 : 1,
@@ -195,8 +201,12 @@ export function drawStartingPlayer(
   const heldSpritePresentation = heldPresentation?.kind === "SPRITE" && heldPresentation.layer === "HAND"
     ? heldPresentation
     : undefined;
-  // Mirroring the hand anchor makes the same item visibly change sides.
-  let heldX = heldInLeftHand ? (facingLeft ? -11 : 30) : (facingLeft ? 30 : -11);
+  const bowHeld = heldSpritePresentation?.handAction === "BOW";
+  // Bows use the actor's exact center anchor. Other held items retain their
+  // tuned hand positions and animation offsets.
+  let heldX = bowHeld
+    ? bowHeldAnchorX(heldInLeftHand, facingLeft)
+    : heldInLeftHand ? (facingLeft ? -11 : 30) : (facingLeft ? 30 : -11);
   let heldY = heldSpritePresentation?.top ?? 116;
   const bowAlignment = heldSpritePresentation?.handAction === "BOW"
     ? bowHeldAlignment(heldInLeftHand)
@@ -228,11 +238,13 @@ export function drawStartingPlayer(
     heldX += 3 * (1 - settle);
     heldY -= Math.sin(settle * Math.PI) * 2;
   }
-  const runMotion = heldWeaponRunMotion({
-    moving: options.moving,
-    gameTime: options.gameTime,
-    heldInLeftHand,
-  });
+  const runMotion = bowHeld
+    ? { x: 0, y: 0, rotation: 0 }
+    : heldWeaponRunMotion({
+      moving: options.moving,
+      gameTime: options.gameTime,
+      heldInLeftHand,
+    });
   heldX += runMotion.x;
   heldY += runMotion.y;
   const feetAssets = options.feetItem ? assets.equipment[options.feetItem] : undefined;

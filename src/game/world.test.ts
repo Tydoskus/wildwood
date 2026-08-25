@@ -10,7 +10,7 @@ import {
 } from "./world";
 
 describe("Advanced Lava Lake", () => {
-  it("builds a deterministic lava environment from distinct decor layers", () => {
+  it("builds a deterministic lava environment without overlapping rocks or ember dots", () => {
     const first = createWorldLayout({ x: 580, y: 770 }, ADVANCED_LAVA_WASTES_MAP_ID);
     const second = createWorldLayout({ x: 580, y: 770 }, ADVANCED_LAVA_WASTES_MAP_ID);
 
@@ -19,7 +19,6 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor.some((item) => item.type === "lavaPool")).toBe(true);
     expect(first.decor.some((item) => item.type === "lavaRock")).toBe(true);
     expect(first.decor.some((item) => item.type === "charredTree")).toBe(true);
-    expect(first.decor.some((item) => item.type === "lavaEmber")).toBe(true);
     const rocks = first.decor.filter((item) => item.type === "lavaRock");
     expect(rocks).toHaveLength(72 * 7);
     let minimumGap = Number.POSITIVE_INFINITY;

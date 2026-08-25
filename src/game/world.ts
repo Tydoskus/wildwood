@@ -15,8 +15,7 @@ export type WorldDecor =
   | { type: "upgradeBench"; x: number; y: number; s: number; label: "Upgrade Bench" }
   | { type: "lavaPool"; x: number; y: number; s: number; variant: number }
   | { type: "lavaRock"; x: number; y: number; s: number; variant: number }
-  | { type: "charredTree"; x: number; y: number; s: number; variant: number }
-  | { type: "lavaEmber"; x: number; y: number; variant: number };
+  | { type: "charredTree"; x: number; y: number; s: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -205,11 +204,6 @@ function createLavaLayout() {
       s,
       variant: index % 2,
     });
-  }
-  for (let index = 0; index < 360; index += 1) {
-    const x = 25 + seededUnit(index, 40) * (WORLD.w - 50);
-    const y = 25 + seededUnit(index, 41) * (WORLD.h - 50);
-    if (!isOnRoad(x, y, 8)) decor.push({ type: "lavaEmber", x: Math.round(x), y: Math.round(y), variant: index % 4 });
   }
   return { decor, paths };
 }

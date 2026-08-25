@@ -13,7 +13,8 @@ export default defineConfig({
     },
     outDir: "dist",
     emptyOutDir: false,
-    minify: false,
+    minify: "esbuild",
+    sourcemap: true,
     rollupOptions: {
       output: {
         exports: "none",

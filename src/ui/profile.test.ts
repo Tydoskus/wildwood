@@ -163,7 +163,8 @@ describe("profile stat display", () => {
       label: "Armor:",
       base: "10",
       multiplier: "1.00×",
-      total: "10 (50% Block)",
+      beforeEquals: "(50% Block)",
+      total: "10",
       sources: [],
     });
   });

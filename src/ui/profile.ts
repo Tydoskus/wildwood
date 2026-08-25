@@ -107,6 +107,7 @@ export type ProfileStatDisplayRow = {
   label: string;
   base: string;
   multiplier: string;
+  beforeEquals?: string;
   total: string;
   sources: ProfileStatDisplaySource[];
 };
@@ -156,7 +157,8 @@ export function profileStatDisplayRows(
     {
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
       multiplier: multiplierValue(effective.multipliers.armor),
-      total: `${statValue(effective.armor)} (${armorReduction(effective.armor)} Block)`,
+      beforeEquals: `(${armorReduction(effective.armor)} Block)`,
+      total: statValue(effective.armor),
       sources: multiplierSources(armorResearchBonus),
     },
     {
@@ -226,7 +228,9 @@ export function renderProfileStats(
     total.className = "profile-stat-total";
     base.textContent = stat.base;
     multiplier.textContent = stat.multiplier;
-    total.textContent = `= ${stat.total}`;
+    total.textContent = stat.beforeEquals
+      ? `${stat.beforeEquals} = ${stat.total}`
+      : `= ${stat.total}`;
     summary.append(base, multiplier, total);
     sources.className = "profile-stat-sources";
     sources.hidden = true;
@@ -255,7 +259,7 @@ export function renderProfileStats(
     const sourceText = stat.sources.length > 0
       ? stat.sources.map((source) => `${source.label}: ${source.value}`).join(" multiplied by ")
       : "No bonus multipliers";
-    const summaryText = `${stat.label} Base ${stat.base}. Combined multiplier ${stat.multiplier}. Total ${stat.total}.`;
+    const summaryText = `${stat.label} Base ${stat.base}. Combined multiplier ${stat.multiplier}.${stat.beforeEquals ? ` ${stat.beforeEquals}.` : ""} Total ${stat.total}.`;
     const setExpanded = (expanded: boolean) => {
       item.classList.toggle("is-expanded", expanded);
       item.setAttribute("aria-expanded", String(expanded));

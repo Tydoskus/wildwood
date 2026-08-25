@@ -23,7 +23,6 @@ export type StaticTileScene = {
   decor: WorldDecor[];
   treeBounds: StaticTileTreeBounds[];
   snowPineAspect: number;
-  lavaRockUrls?: readonly string[];
   lavaPoolUrls?: readonly string[];
 };
 
@@ -64,7 +63,6 @@ export function paintStaticTile(
   tileX: number,
   tileY: number,
   shadowImage?: CanvasImageSource,
-  lavaRockImages: readonly StaticTileImage[] = [],
   lavaPoolImages: readonly StaticTileImage[] = [],
 ) {
   const originX = tileX * scene.tileSize;
@@ -87,15 +85,6 @@ export function paintStaticTile(
       context.restore();
       continue;
     }
-    if (decor.type === "lavaRock") {
-      const image = lavaRockImages[decor.variant % lavaRockImages.length];
-      if (!image) continue;
-      const width = Math.round(150 * decor.s);
-      const height = Math.round(width * image.height / image.width);
-      if (x + width / 2 < 0 || x - width / 2 > scene.tileSize || y < 0 || y - height > scene.tileSize) continue;
-      context.drawImage(image.source, x - width / 2, y - height, width, height);
-      continue;
-    }
     if (x < -50 || y < -50 || x > scene.tileSize + 50 || y > scene.tileSize + 50) continue;
     if (decor.type === "grass") {
       context.fillStyle = decor.variant % 2 ? "#237b49" : "#267f4c";
@@ -109,10 +98,6 @@ export function paintStaticTile(
     } else if (decor.type === "snowTuft") {
       context.fillStyle = decor.variant % 2 ? "rgba(255,255,255,.78)" : "rgba(221,242,255,.76)";
       context.fillRect(x - 2, y - 1, 5, 2); context.fillRect(x, y - 3, 2, 5);
-    } else if (decor.type === "lavaEmber") {
-      context.fillStyle = decor.variant % 2 ? "rgba(255,243,126,.82)" : "rgba(190,63,31,.52)";
-      context.fillRect(x - 2, y - 1, 5, 2);
-      if (decor.variant > 1) context.fillRect(x, y - 3, 2, 5);
     } else if (decor.type === "rock") {
       const width = Math.round(35 * decor.s);
       const height = Math.round(22 * decor.s);

@@ -119,6 +119,22 @@ describe("interface style contracts", () => {
     expect(icon).not.toContain("clip-path");
   });
 
+  it("turns the full minimap into a help target with a fullscreen map guide", () => {
+    expect(html).toContain('id="minimapButton"');
+    expect(html).toContain('class="minimap-help-mark" aria-hidden="true">?</span>');
+    expect(html).toContain('id="mapGuideCanvas"');
+    expect(html).toContain('id="mapGuideDropItems"');
+    expect(html).toContain('id="mapGuideBack" class="map-guide-back" type="button">Back</button>');
+    const minimap = cssRule(".minimap-button {");
+    expect(minimap).toContain("width: var(--hud-map-size)");
+    expect(minimap).toContain("height: var(--hud-map-size)");
+    expect(minimap).toContain("pointer-events: auto");
+    const guide = cssRule("#mapGuide {");
+    expect(guide).toContain("inset: 0 0 var(--toolbar-height)");
+    expect(cssRule(".map-guide-scroll {")).toContain("touch-action: pan-y");
+    expect(cssRule(".map-guide-back {")).toContain("width: min(220px, 80vw)");
+  });
+
   it("uses the existing cosmetic slots for the wear-nothing state", () => {
     expect(cssRule(".equipment-slot.is-cosmetic-inherited {")).toContain("cursor: pointer");
     expect(cssRule(".equipment-slot.is-cosmetic-hidden {")).toContain("cursor: pointer");

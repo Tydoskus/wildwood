@@ -53,7 +53,7 @@ export type WorldRenderRuntimeOptions = {
     treeSpritesheet: HTMLImageElement;
     treeSpriteBounds: () => { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number }[];
     portalArch: HTMLImageElement;
-    portalSwirl: HTMLImageElement;
+    portalSwirls: Record<MapId, HTMLImageElement>;
     snowPine: HTMLImageElement;
     upgradeBench: HTMLImageElement;
     lavaPools: HTMLImageElement[];
@@ -231,7 +231,6 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawCactus: world.drawCactus,
       drawSnowPine: world.drawSnowPine,
       drawUpgradeBench: world.drawUpgradeBench,
-      drawLavaRock: world.drawLavaRock,
       drawCharredTree: world.drawCharredTree,
       drawEnemy: actor.drawEnemy,
       drawBoss: boss.drawBoss,

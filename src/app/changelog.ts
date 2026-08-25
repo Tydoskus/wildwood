@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.507": [
+    "The World Map now opens into a clean full-window guide with destination-colored portals, simplified reward zones and boss markers, plus concise item drop chances and sources.",
+    "Lava Lake scenery now stays crisp and stable while moving, removes stray terrain dots, and keeps decorative rocks walkable; equipped bows rest centered and aim naturally.",
+    "Profile Armor now places Block before the final value, the app icon is refreshed, and production browser bundles are minified with source maps for substantially smaller downloads.",
+  ],
   "0.506": [
     "Profile Stats now show one combined multiplier per row; tap any 44px row to expand an 88px Tech and Equipment breakdown, with every profile opening collapsed.",
     "Regular desert enemies can now independently drop the 1-in-50 Wood Full Helm and Iron Bow, adding new health, damage, and attack-speed equipment choices.",
@@ -1015,6 +1020,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.507": "2026-08-25",
   "0.506": "2026-08-25",
   "0.505": "2026-08-25",
   "0.504": "2026-08-25",

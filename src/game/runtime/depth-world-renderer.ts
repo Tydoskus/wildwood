@@ -16,7 +16,6 @@ type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
 type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type UpgradeBenchDecor = Extract<WorldDecor, { type: "upgradeBench" }>;
-type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
 type Portal = { depth: number };
@@ -46,7 +45,6 @@ export function createDepthWorldRenderer(options: {
   drawCactus: (cactus: CactusDecor) => void;
   drawSnowPine: (tree: SnowPineDecor) => void;
   drawUpgradeBench: (bench: UpgradeBenchDecor) => void;
-  drawLavaRock: (rock: LavaRockDecor) => void;
   drawCharredTree: (tree: CharredTreeDecor) => void;
   drawEnemy: (enemy: EnemyState) => void;
   drawBoss: () => void;

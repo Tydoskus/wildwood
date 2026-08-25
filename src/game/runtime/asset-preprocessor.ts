@@ -1,7 +1,8 @@
 import { loadDuelPlatformArt, loadDuelSpaceBackground } from "../duel";
 import { requiredCanvasContext } from "./dom";
 import { scheduleBackgroundTask, yieldToUser } from "./scheduler";
-import { loadTreeSpritesheet } from "../world";
+import { PORTAL_SWIRL_SOURCES } from "../portal-presentation";
+import { loadTreeSpritesheet, type MapId } from "../world";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
 
 export type TreeSpriteBound = {
@@ -143,15 +144,19 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   portalArch.addEventListener("error", settlePortalArch, { once: true });
   portalArch.src = "assets/wildwood/stone-portal-arch.png";
 
-  let portalSwirlReady = false;
-  const portalSwirl = new Image();
-  const settlePortalSwirl = () => {
-    portalSwirlReady = true;
-    onWorldAssetReady();
-  };
-  portalSwirl.addEventListener("load", settlePortalSwirl, { once: true });
-  portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
-  portalSwirl.src = "assets/wildwood/portal-swirl-spritesheet.png";
+  let settledPortalSwirls = 0;
+  const portalSwirls = {} as Record<MapId, HTMLImageElement>;
+  for (const destination of Object.keys(PORTAL_SWIRL_SOURCES) as MapId[]) {
+    const portalSwirl = new Image();
+    const settlePortalSwirl = () => {
+      settledPortalSwirls += 1;
+      onWorldAssetReady();
+    };
+    portalSwirl.addEventListener("load", settlePortalSwirl, { once: true });
+    portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
+    portalSwirl.src = PORTAL_SWIRL_SOURCES[destination];
+    portalSwirls[destination] = portalSwirl;
+  }
 
   let treeReady = false;
   let treeBounds: TreeSpriteBound[] = [];
@@ -227,7 +232,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     duelPlatformArt,
     duelSpaceBackground,
     portalArch,
-    portalSwirl,
+    portalSwirls,
     frostclawReady: () => frostclawReady,
     frostclawSpriteCanvas,
     charredTrees: lavaAssets.slice(6),
@@ -241,7 +246,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
     treeSpritesheet,
-    worldArtReady: () => treeReady && portalArchReady && portalSwirlReady && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
+    worldArtReady: () => treeReady && portalArchReady && settledPortalSwirls === Object.keys(PORTAL_SWIRL_SOURCES).length && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
   };
 }
 

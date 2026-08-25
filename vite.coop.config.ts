@@ -11,7 +11,8 @@ export default defineConfig({
     outDir: "dist",
     // This build runs first. It recreates the deploy artifact and copies public/.
     emptyOutDir: true,
-    minify: false,
+    minify: "esbuild",
+    sourcemap: true,
     rollupOptions: {
       output: {
         exports: "named",

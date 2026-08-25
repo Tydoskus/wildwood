@@ -1,5 +1,6 @@
 import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
+import { drawPortalMapMarker, portalDestinationColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
@@ -29,6 +30,12 @@ type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
 type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
+
+export function snapWorldRenderCoordinate(value: number, zoom: number, devicePixelRatio: number) {
+  const scale = zoom * devicePixelRatio;
+  if (!Number.isFinite(scale) || scale <= 0) return Math.round(value);
+  return Math.round(value * scale) / scale;
+}
 
 export type WorldRendererOptions = {
   ctx: CanvasRenderingContext2D;
@@ -62,7 +69,7 @@ export type WorldRendererOptions = {
   actorShadowSprite: HTMLImageElement;
   treeSpriteBounds: () => TreeSpriteBounds[];
   portalArch: HTMLImageElement;
-  portalSwirl: HTMLImageElement;
+  portalSwirls: Record<MapId, HTMLImageElement>;
   snowPine: HTMLImageElement;
   upgradeBench: HTMLImageElement;
   upgradeBenchStatus: () => { itemSprite?: HTMLImageElement; timer: string } | null;
@@ -78,6 +85,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const STATIC_TILE_SIZE = 640;
   const STATIC_TILE_MIN_LIMIT = 12;
   const STATIC_TILE_CACHE_PADDING = 4;
+  const LAVA_ROCK_BUCKET_SIZE = 640;
+  const LAVA_ROCK_CULL_PADDING = 200;
   const MINIMAP_FRAME_INTERVAL_MS = 125;
   type CachedStaticTile = HTMLCanvasElement | ImageBitmap;
   type StaticTileWorkerResult =
@@ -105,8 +114,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   let minimapCacheKey = "";
   let nextMinimapFrameAt = 0;
   let staticTileLimit = STATIC_TILE_MIN_LIMIT;
+  let lavaRockBucketGeneration = -1;
+  const lavaRockBuckets = new Map<string, LavaRockDecor[]>();
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
+  const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
 
   function mapColors() {
     const desert = options.getMapId() === options.desertMapId;
@@ -126,12 +138,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       tileSize: STATIC_TILE_SIZE,
       colors: mapColors(),
       paths: options.paths,
-      decor: options.decor,
+      decor: lava ? options.decor.filter((decor) => decor.type !== "lavaRock") : options.decor,
       treeBounds: options.treeSpriteBounds(),
       snowPineAspect: options.snowPine.naturalWidth > 0
         ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
         : 0,
-      lavaRockUrls: lava ? options.lavaRocks.map((image) => image.currentSrc || image.src).filter(Boolean) : [],
       lavaPoolUrls: lava ? options.lavaPools.map((image) => image.currentSrc || image.src).filter(Boolean) : [],
     };
     sceneGeneration = staticTileGeneration;
@@ -189,7 +200,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   staticTileWorker?.addEventListener("error", disableStaticTileWorker);
   if (!options.actorShadowSprite.complete) options.actorShadowSprite.addEventListener("load", invalidateStaticWorld, { once: true });
   if (!options.snowPine.complete) options.snowPine.addEventListener("load", invalidateStaticWorld, { once: true });
-  for (const image of [...options.lavaRocks, ...options.lavaPools]) {
+  for (const image of options.lavaPools) {
     if (!image.complete) image.addEventListener("load", invalidateStaticWorld, { once: true });
   }
 
@@ -246,7 +257,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const shadow = options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0
         ? options.actorShadowSprite
         : undefined;
-      paintStaticTile(tileContext, scene, tileX, tileY, shadow, staticImages(options.lavaRocks), staticImages(options.lavaPools));
+      paintStaticTile(tileContext, scene, tileX, tileY, shadow, staticImages(options.lavaPools));
     }
     cacheStaticTile(key, tile);
     return tile;
@@ -269,16 +280,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       STATIC_TILE_MIN_LIMIT,
       (endX - startX + 1) * (endY - startY + 1) + STATIC_TILE_CACHE_PADDING,
     );
-    const snapTileEdge = (coordinate: number, offset: number) =>
-      Math.round((coordinate - offset) * camera.zoom * options.getDevicePixelRatio()) /
-      (camera.zoom * options.getDevicePixelRatio());
     for (let tileY = startY; tileY <= endY; tileY += 1) {
       for (let tileX = startX; tileX <= endX; tileX += 1) {
         if (tileX < 0 || tileY < 0 || tileX * STATIC_TILE_SIZE >= WORLD.w || tileY * STATIC_TILE_SIZE >= WORLD.h) continue;
-        const left = snapTileEdge(tileX * STATIC_TILE_SIZE, camera.x);
-        const top = snapTileEdge(tileY * STATIC_TILE_SIZE, camera.y);
-        const right = snapTileEdge((tileX + 1) * STATIC_TILE_SIZE, camera.x);
-        const bottom = snapTileEdge((tileY + 1) * STATIC_TILE_SIZE, camera.y);
+        const left = snapToWorldPixel(tileX * STATIC_TILE_SIZE - camera.x);
+        const top = snapToWorldPixel(tileY * STATIC_TILE_SIZE - camera.y);
+        const right = snapToWorldPixel((tileX + 1) * STATIC_TILE_SIZE - camera.x);
+        const bottom = snapToWorldPixel((tileY + 1) * STATIC_TILE_SIZE - camera.y);
         ctx.drawImage(staticTile(tileX, tileY), left, top, right - left, bottom - top);
       }
     }
@@ -294,6 +302,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     configuredWorkerGeneration = -1;
     sceneGeneration = -1;
     cachedStaticScene = null;
+    lavaRockBuckets.clear();
+    lavaRockBucketGeneration = -1;
     minimapCacheKey = "";
     nextMinimapFrameAt = 0;
   }
@@ -369,18 +379,21 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const cutsceneIntensity = cutscene ? options.portalRevealIntensity() : -1;
     const cutsceneActive = cutsceneIntensity >= 0;
     const portalIntensity = cutsceneActive ? cutsceneIntensity : options.portalIsUnlocked(portal) ? 1 : 0;
-    if (portalIntensity > 0 && options.portalSwirl.complete && options.portalSwirl.naturalWidth > 0) {
+    const requestedSwirl = options.portalSwirls[portal.destination];
+    const fallbackSwirl = options.portalSwirls[options.snowMapId];
+    const portalSwirl = requestedSwirl?.complete && requestedSwirl.naturalWidth > 0 ? requestedSwirl : fallbackSwirl;
+    if (portalIntensity > 0 && portalSwirl.complete && portalSwirl.naturalWidth > 0) {
       // Ease through the sprite sequence instead of abruptly reversing at
       // either end. The swirl now settles into and out of each turn.
       const cycle = options.getGameTime() / 3;
       const sweep = .5 - Math.cos(cycle * TAU) * .5;
       const frame = Math.round(sweep * 15);
-      const cell = options.portalSwirl.naturalWidth / 4;
+      const cell = portalSwirl.naturalWidth / 4;
       const width = Math.round(portal.width * .59 * 1.265 * 1.05);
       const height = Math.round(portal.height * .75 * 1.265);
       ctx.save();
       ctx.globalAlpha = portalIntensity;
-      ctx.drawImage(options.portalSwirl, (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell, Math.round(x - width / 2), Math.round(y - height - 5), width, height);
+      ctx.drawImage(portalSwirl, (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell, Math.round(x - width / 2), Math.round(y - height - 5), width, height);
       ctx.restore();
     }
     ctx.drawImage(options.portalArch, Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height);
@@ -391,7 +404,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(options.mapName(portal.destination), x, Math.round(y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3), "#f5e9c4", 4);
+    options.outlinedText(options.mapName(portal.destination), x, Math.round(y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3), portalDestinationColor(portal.destination), 4);
     ctx.restore();
   }
 
@@ -495,8 +508,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const image = options.lavaRocks[rock.variant % options.lavaRocks.length];
     if (!image?.complete || image.naturalWidth <= 0) return;
     const visible = visibleSize();
-    const x = Math.round(rock.x - camera.x);
-    const y = Math.round(rock.y - camera.y);
+    const x = snapToWorldPixel(rock.x - camera.x);
+    const y = snapToWorldPixel(rock.y - camera.y);
     const width = Math.round(150 * rock.s);
     const height = Math.round(width * image.naturalHeight / image.naturalWidth);
     if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return;
@@ -507,8 +520,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const image = options.charredTrees[tree.variant % options.charredTrees.length];
     if (!image?.complete || image.naturalWidth <= 0) return;
     const visible = visibleSize();
-    const x = Math.round(tree.x - camera.x);
-    const y = Math.round(tree.y - camera.y);
+    const x = snapToWorldPixel(tree.x - camera.x);
+    const y = snapToWorldPixel(tree.y - camera.y);
     const height = Math.round(150 * tree.s);
     const width = Math.round(height * image.naturalWidth / image.naturalHeight);
     if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return;
@@ -535,8 +548,32 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDecor() {
-    // Lava pools and rocks are fixed, non-interactive scenery baked into the
-    // cached ground tiles. Nothing in lava decor needs per-frame drawing.
+    if (options.getMapId() !== options.lavaMapId) return;
+    if (lavaRockBucketGeneration !== staticTileGeneration) {
+      lavaRockBuckets.clear();
+      for (const decor of options.decor) {
+        if (decor.type !== "lavaRock") continue;
+        const bucketX = Math.floor(decor.x / LAVA_ROCK_BUCKET_SIZE);
+        const bucketY = Math.floor(decor.y / LAVA_ROCK_BUCKET_SIZE);
+        const key = `${bucketX}:${bucketY}`;
+        const bucket = lavaRockBuckets.get(key);
+        if (bucket) bucket.push(decor);
+        else lavaRockBuckets.set(key, [decor]);
+      }
+      lavaRockBucketGeneration = staticTileGeneration;
+    }
+    const visible = visibleSize();
+    const startX = Math.floor((camera.x - LAVA_ROCK_CULL_PADDING) / LAVA_ROCK_BUCKET_SIZE);
+    const startY = Math.floor((camera.y - LAVA_ROCK_CULL_PADDING) / LAVA_ROCK_BUCKET_SIZE);
+    const endX = Math.floor((camera.x + visible.width + LAVA_ROCK_CULL_PADDING) / LAVA_ROCK_BUCKET_SIZE);
+    const endY = Math.floor((camera.y + visible.height + LAVA_ROCK_CULL_PADDING) / LAVA_ROCK_BUCKET_SIZE);
+    for (let bucketY = startY; bucketY <= endY; bucketY += 1) {
+      for (let bucketX = startX; bucketX <= endX; bucketX += 1) {
+        const bucket = lavaRockBuckets.get(`${bucketX}:${bucketY}`);
+        if (!bucket) continue;
+        for (const rock of bucket) drawLavaRock(rock);
+      }
+    }
   }
 
   function minimapRoundedRect(target: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -578,10 +615,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const drawPortalMarker = (portal: Portal) => {
       const px = Math.round(innerX + portal.x * sx); const py = Math.round(innerY + portal.y * sy);
       const unlocked = options.portalIsUnlocked(portal);
-      draw.fillStyle = "#132433"; draw.fillRect(px - 4, py - 5, 9, 8);
-      draw.fillStyle = unlocked ? "#d8fbff" : "#89949b"; draw.fillRect(px - 3, py - 5, 7, 2); draw.fillRect(px - 4, py - 3, 2, 6); draw.fillRect(px + 3, py - 3, 2, 6);
-      draw.fillStyle = unlocked ? "#5fe3ff" : "#3f4a50"; draw.fillRect(px - 2, py - 3, 5, 6);
-      if (unlocked) { draw.fillStyle = "#efffff"; draw.fillRect(px, py - 2, 1, 4); }
+      drawPortalMapMarker(draw, px, py, portal.destination, unlocked);
     };
     drawPortalMarker(options.activePortal());
     const secondary = options.secondaryPortal();
@@ -623,5 +657,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, view.width - size, 0, size, size);
   }
 
-  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawUpgradeBench, drawLavaRock, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawUpgradeBench, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }

@@ -23,7 +23,6 @@ const workerScope = self as unknown as {
 let configuredGeneration = -1;
 let configuredScene: StaticTileScene | null = null;
 let configuredShadow: Promise<ImageBitmap | undefined> = Promise.resolve(undefined);
-let configuredLavaRocks: Promise<StaticTileImage[]> = Promise.resolve([]);
 let configuredLavaPools: Promise<StaticTileImage[]> = Promise.resolve([]);
 const staticImages = new Map<string, Promise<ImageBitmap | undefined>>();
 
@@ -47,8 +46,6 @@ workerScope.onmessage = ({ data }) => {
     configuredGeneration = data.generation;
     configuredScene = data.scene;
     configuredShadow = loadImage(data.shadowUrl);
-    configuredLavaRocks = Promise.all((data.scene.lavaRockUrls ?? []).map(loadImage)).then((images) =>
-      images.flatMap((image) => image ? [{ source: image, width: image.width, height: image.height }] : []));
     configuredLavaPools = Promise.all((data.scene.lavaPoolUrls ?? []).map(loadImage)).then((images) =>
       images.flatMap((image) => image ? [{ source: image, width: image.width, height: image.height }] : []));
     return;
@@ -60,12 +57,12 @@ workerScope.onmessage = ({ data }) => {
   const scene = configuredScene;
   if (!scene || data.generation !== configuredGeneration) return;
   const request = data;
-  void Promise.all([configuredShadow, configuredLavaRocks, configuredLavaPools]).then(([shadowImage, lavaRockImages, lavaPoolImages]) => {
+  void Promise.all([configuredShadow, configuredLavaPools]).then(([shadowImage, lavaPoolImages]) => {
     try {
       const canvas = new OffscreenCanvas(scene.tileSize, scene.tileSize);
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Static tile context unavailable");
-      paintStaticTile(context, scene, request.tileX, request.tileY, shadowImage, lavaRockImages, lavaPoolImages);
+      paintStaticTile(context, scene, request.tileX, request.tileY, shadowImage, lavaPoolImages);
       const bitmap = canvas.transferToImageBitmap();
       workerScope.postMessage({ type: "tile", generation: request.generation, key: request.key, bitmap }, [bitmap]);
     } catch {
