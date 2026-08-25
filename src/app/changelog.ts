@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.513": [
+    "World Chat now replaces high-confidence abusive, explicit, threatening, scam, and invite content with an italic moderated notice.",
+    "Closing fullscreen chat after using the mobile keyboard now restores the gameplay canvas correctly.",
+  ],
   "0.512": [
     "Fullscreen chat now uses non-overlapping portrait-led messages, centered compact timestamps, and a safely clipped scroll area.",
     "Fullscreen chat covers the toolbar with compact bottom controls, a centered Back button, and a warmer charcoal background.",
@@ -1046,6 +1050,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.513": "2026-08-25",
   "0.512": "2026-08-25",
   "0.511": "2026-08-25",
   "0.510": "2026-08-25",

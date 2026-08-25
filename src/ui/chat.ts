@@ -7,6 +7,7 @@ import {
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
+import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
@@ -23,6 +24,7 @@ type ChatMessage = {
   replayId: bigint;
   powerLevel: number;
   senderGender: PlayerGender;
+  moderated: boolean;
   sentAtMs: number;
 };
 
@@ -63,6 +65,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   let nextExpiryAt = 0;
   let chatCooldownUntil = 0;
   let chatCooldownTimer: number | null = null;
+  let layoutRecoveryTimer: number | null = null;
 
   try { enabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false"; } catch {}
 
@@ -93,8 +96,18 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   }
 
   function setLarge(nextLarge: boolean) {
+    const closingComposer = large && !nextLarge;
+    if (closingComposer) elements.input.blur();
     large = nextLarge;
     updateHeight();
+    if (closingComposer) {
+      if (layoutRecoveryTimer !== null) window.clearTimeout(layoutRecoveryTimer);
+      requestAnimationFrame(() => requestAnimationFrame(() => onLayoutChange?.()));
+      layoutRecoveryTimer = window.setTimeout(() => {
+        layoutRecoveryTimer = null;
+        onLayoutChange?.();
+      }, 400);
+    }
   }
 
   function toggleLarge() {
@@ -152,7 +165,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       time.textContent = formatChatTime(new Date(message.sentAtMs));
       const text = document.createElement("span");
       text.className = "chat-text";
-      text.textContent = message.message;
+      text.classList.toggle("is-moderated", message.moderated);
+      text.textContent = message.moderated ? MODERATED_CHAT_MESSAGE : message.message;
       const displayName = message.senderName || (message.replayId > 0n ? "DUEL" : "PLAYER");
       const displayIdentity = message.sender;
       const cachedGender = normalizePlayerGender(coop?.playerGender?.(displayIdentity));

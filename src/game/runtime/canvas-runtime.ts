@@ -54,6 +54,7 @@ export function createCanvasRuntime({
   }
 
   window.addEventListener("resize", resize);
+  window.visualViewport?.addEventListener("resize", resize);
   resize();
 
   return {

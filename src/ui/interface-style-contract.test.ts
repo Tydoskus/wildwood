@@ -111,6 +111,7 @@ describe("interface style contracts", () => {
     expect(username).toContain("font-weight: 900");
     expect(message).toContain("font-family: var(--player-name-font)");
     expect(message).toContain("font-weight: 900");
+    expect(cssRule(".chat-text.is-moderated { ")).toContain("font-style: italic");
     const fullscreenMessages = cssRule("#chatPanel.is-large #chatMessages {");
     expect(fullscreenMessages).toContain("grid-row: 1");
     expect(fullscreenMessages).toContain("display: flex");

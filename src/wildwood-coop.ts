@@ -127,6 +127,7 @@ export type ChatMessage = {
   replayId: bigint;
   powerLevel: number;
   senderGender: PlayerGender;
+  moderated: boolean;
   sentAtMs: number;
 };
 
@@ -1989,6 +1990,7 @@ function upsertChatMessage(row: {
   replayId: bigint;
   powerLevel: number;
   senderGender: number;
+  moderated: boolean;
   sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
@@ -2006,6 +2008,7 @@ function upsertChatMessage(row: {
     replayId: row.replayId,
     powerLevel: Number(row.powerLevel) || 0,
     senderGender: normalizePlayerGender(row.senderGender),
+    moderated: row.moderated,
     sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n),
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
