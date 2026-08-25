@@ -7,6 +7,9 @@ import {
   FROSTCLAW_RIFT_HALF_ANGLE,
   FROSTCLAW_RIFT_RANGE,
   FROSTCLAW_ROAR_RANGE,
+  MAGMALISK_AGGRO_RANGE,
+  MAGMALISK_BITE_HALF_ANGLE,
+  MAGMALISK_BITE_RANGE,
   TAU,
   WORLD,
 } from "../constants";
@@ -15,6 +18,10 @@ import {
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
   DRAGON_REWARD_DAMAGE,
+  MAGMALISK_REWARD_ARMOR,
+  MAGMALISK_REWARD_DAMAGE,
+  MAGMALISK_REWARD_HEALTH,
+  MAGMALISK_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
 } from "../../../shared/rules";
@@ -26,6 +33,8 @@ import type {
   DragonBossState,
   FrostclawBossState,
   FrostclawIcefall,
+  MagmaliskBossState,
+  MagmaliskEruption,
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
@@ -53,6 +62,11 @@ const FROSTCLAW_RIFT_DAMAGE = 52_000_000;
 const FROSTCLAW_CONTACT_DAMAGE = 45_000_000;
 const FROSTCLAW_PUSH_DURATION = .55;
 const FROSTCLAW_PUSH_SPEED = 860;
+const MAGMALISK_BITE_WINDUP = .72;
+const MAGMALISK_BITE_DURATION = .9;
+const MAGMALISK_BITE_DAMAGE = 260_000_000_000;
+const MAGMALISK_ERUPTION_DAMAGE = 200_000_000_000;
+const MAGMALISK_CONTACT_DAMAGE = 225_000_000_000;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -81,15 +95,19 @@ export type BossController = {
   resetBoss: () => void;
   resetSpiderBoss: () => void;
   resetFrostclawBoss: () => void;
+  resetMagmaliskBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
+  syncMagmaliskState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
+  updateMagmaliskBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
+  resolveMagmaliskCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
@@ -103,20 +121,25 @@ export function createBossController(options: {
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
+  magmaliskBoss: MagmaliskBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
+  magmaliskEruptions: MagmaliskEruption[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
   getFrostclawBoss: () => SharedBossState | null | undefined;
+  getMagmaliskBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
+  getMagmaliskResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   running: () => boolean;
   currentMapIsDesert: () => boolean;
   currentMapIsSnow: () => boolean;
+  currentMapIsLava: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -135,9 +158,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, bossRain, spiderVenom, frostclawIcefalls, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getDragonResult, getSpiderResult, getFrostclawResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
@@ -158,9 +181,14 @@ export function createBossController(options: {
   let frostclawWasAlive: boolean | null = null;
   let pendingFrostclawResultEncounter: bigint | null = null;
   let shownFrostclawResultEncounter: bigint | null = null;
+  let observedMagmaliskEncounter: bigint | null = null;
+  let magmaliskWasAlive: boolean | null = null;
+  let pendingMagmaliskResultEncounter: bigint | null = null;
+  let shownMagmaliskResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
+  const locallyRewardedMagmaliskEncounters = new Set<string>();
 
   function scaledReward(type: RewardType, baseAmount: number) {
     const multiplier = options.rewardMultiplier?.() ?? 1;
@@ -223,6 +251,24 @@ export function createBossController(options: {
     frostclawBoss.rift = null;
     frostclawBoss.pushTimer = 0;
     frostclawIcefalls.length = 0;
+  }
+
+  function resetMagmaliskBoss() {
+    const shared = getMagmaliskBoss();
+    if (shared) {
+      magmaliskBoss.encounter = shared.encounter;
+      magmaliskBoss.hp = shared.hp;
+      magmaliskBoss.maxHp = shared.maxHp;
+      magmaliskBoss.dead = !shared.alive;
+    }
+    magmaliskBoss.hurt = 0;
+    magmaliskBoss.hpLossFlashFrom = magmaliskBoss.hp;
+    magmaliskBoss.hpLossFlashTimer = 0;
+    magmaliskBoss.contactDamageClock = 0;
+    magmaliskBoss.attackClock = 3;
+    magmaliskBoss.nextAttack = "bite";
+    magmaliskBoss.bite = null;
+    magmaliskEruptions.length = 0;
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -335,6 +381,39 @@ export function createBossController(options: {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), "#d3dbe0");
     showMessage(`${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)}`, "#dff7ff");
+  }
+
+  function showMagmaliskResult(result: BossResult | null | undefined) {
+    if (!result || shownMagmaliskResultEncounter === result.encounter) return;
+    pendingMagmaliskResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      shownMagmaliskResultEncounter = result.encounter;
+      showWorldResult(result, "MAGMALISK DEFEATED");
+      return;
+    }
+    shownMagmaliskResultEncounter = result.encounter;
+    renderResult(result, "Magmalisk Defeated");
+    const damageReward = scaledReward("damage", MAGMALISK_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", MAGMALISK_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", MAGMALISK_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", MAGMALISK_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedMagmaliskEncounters.has(encounterKey)) {
+      locallyRewardedMagmaliskEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), "#d3dbe0");
+    logPickup(rewardLabel(regenReward), "#b877ff");
+    showMessage(
+      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
+      "#ffcf8f",
+    );
   }
 
   function killBoss() {
@@ -474,6 +553,58 @@ export function createBossController(options: {
     if (pendingFrostclawResultEncounter !== null) {
       const result = getFrostclawResult();
       if (result?.encounter === pendingFrostclawResultEncounter) showFrostclawResult(result);
+    }
+  }
+
+  function syncMagmaliskState() {
+    const shared = getMagmaliskBoss();
+    if (!shared) return;
+    const initialized = observedMagmaliskEncounter !== null;
+    const encounterChanged = initialized && observedMagmaliskEncounter !== shared.encounter;
+    const previousHp = magmaliskBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedMagmaliskEncounter = shared.encounter;
+      magmaliskWasAlive = shared.alive;
+      magmaliskBoss.dead = !shared.alive;
+      magmaliskBoss.attackClock = 3;
+      magmaliskBoss.nextAttack = "bite";
+      magmaliskBoss.bite = null;
+      magmaliskEruptions.length = 0;
+      magmaliskBoss.hpLossFlashFrom = shared.hp;
+      magmaliskBoss.hpLossFlashTimer = 0;
+    } else if (magmaliskWasAlive && !shared.alive) {
+      magmaliskWasAlive = false;
+      magmaliskBoss.dead = true;
+      magmaliskBoss.bite = null;
+      magmaliskEruptions.length = 0;
+      pendingMagmaliskResultEncounter = shared.encounter;
+      spawnBurst(magmaliskBoss.x, magmaliskBoss.y, "#ff6b24", 88, 280);
+    } else if (!magmaliskWasAlive && shared.alive) {
+      magmaliskWasAlive = true;
+      magmaliskBoss.dead = false;
+      magmaliskBoss.attackClock = 3;
+      magmaliskBoss.nextAttack = "bite";
+    } else if (shared.alive && shared.hp < previousHp) {
+      magmaliskBoss.hpLossFlashFrom = magmaliskBoss.hpLossFlashTimer > 0
+        ? Math.max(magmaliskBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      magmaliskBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      magmaliskBoss.hpLossFlashFrom = shared.hp;
+      magmaliskBoss.hpLossFlashTimer = 0;
+    }
+    magmaliskBoss.encounter = shared.encounter;
+    magmaliskBoss.maxHp = shared.maxHp;
+    magmaliskBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsLava()) {
+      const result = getMagmaliskResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        showMagmaliskResult(result);
+      }
+    }
+    if (pendingMagmaliskResultEncounter !== null) {
+      const result = getMagmaliskResult();
+      if (result?.encounter === pendingMagmaliskResultEncounter) showMagmaliskResult(result);
     }
   }
 
@@ -775,7 +906,95 @@ export function createBossController(options: {
     else startFrostclawRift();
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState, damage: number, cooldown: number) {
+  function startMagmaliskBite() {
+    magmaliskBoss.bite = {
+      angle: Math.atan2(player.y - magmaliskBoss.y, player.x - magmaliskBoss.x),
+      windup: MAGMALISK_BITE_WINDUP,
+      timer: MAGMALISK_BITE_DURATION,
+      duration: MAGMALISK_BITE_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
+    magmaliskBoss.nextAttack = "eruption";
+  }
+
+  function startMagmaliskEruption() {
+    for (let index = 0; index < 11; index += 1) {
+      const angle = index * TAU / 11 + rand(-.3, .3);
+      const radius = index === 0 ? 0 : rand(48, 230);
+      const timer = .8 + index * .11;
+      magmaliskEruptions.push({
+        x: clamp(player.x + Math.cos(angle) * radius, 72, WORLD.w - 72),
+        y: clamp(player.y + Math.sin(angle) * radius, 72, WORLD.h - 72),
+        r: 72,
+        timer,
+        maxTimer: timer,
+      });
+    }
+    magmaliskBoss.attackClock = 3.1;
+    magmaliskBoss.nextAttack = "bite";
+  }
+
+  function updateMagmaliskBoss(dt: number) {
+    magmaliskBoss.hpLossFlashTimer = Math.max(0, magmaliskBoss.hpLossFlashTimer - dt);
+    magmaliskBoss.contactDamageClock = Math.max(0, magmaliskBoss.contactDamageClock - dt);
+    if (magmaliskBoss.dead) return;
+    magmaliskBoss.hurt = Math.max(0, magmaliskBoss.hurt - dt);
+
+    for (let index = magmaliskEruptions.length - 1; index >= 0; index -= 1) {
+      const eruption = magmaliskEruptions[index];
+      eruption.timer -= dt;
+      if (eruption.timer > 0) continue;
+      const dx = player.x - eruption.x;
+      const dy = player.y - eruption.y;
+      if (dx * dx + dy * dy <= eruption.r * eruption.r) damagePlayer(MAGMALISK_ERUPTION_DAMAGE);
+      spawnBurst(eruption.x, eruption.y, "#ff7a24", 32, 220);
+      magmaliskEruptions.splice(index, 1);
+    }
+    if (magmaliskEruptions.length > 0) return;
+
+    if (magmaliskBoss.bite) {
+      const bite = magmaliskBoss.bite;
+      if (bite.windup > 0) {
+        bite.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - bite.timer / bite.duration, 0, 1);
+      bite.timer -= dt;
+      const progress = clamp(1 - bite.timer / bite.duration, 0, 1);
+      const minRadius = magmaliskBoss.r + (MAGMALISK_BITE_RANGE - magmaliskBoss.r) * previousProgress;
+      const maxRadius = magmaliskBoss.r + (MAGMALISK_BITE_RANGE - magmaliskBoss.r) * progress;
+      if (!bite.hitPlayer) {
+        const dx = player.x - magmaliskBoss.x;
+        const dy = player.y - magmaliskBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - bite.angle),
+          Math.cos(Math.atan2(dy, dx) - bite.angle),
+        );
+        if (distance >= minRadius - 38 && distance <= maxRadius + 38 && Math.abs(angleDelta) <= MAGMALISK_BITE_HALF_ANGLE) {
+          bite.hitPlayer = true;
+          damagePlayer(MAGMALISK_BITE_DAMAGE);
+          spawnBurst(player.x, player.y, "#ffb13b", 28, 230);
+        }
+      }
+      if (bite.timer <= 0) {
+        magmaliskBoss.bite = null;
+        magmaliskBoss.attackClock = 2.4;
+      }
+      return;
+    }
+
+    magmaliskBoss.attackClock -= dt;
+    if (magmaliskBoss.attackClock > 0) return;
+    const dx = player.x - magmaliskBoss.x;
+    const dy = player.y - magmaliskBoss.y;
+    if (dx * dx + dy * dy > MAGMALISK_AGGRO_RANGE * MAGMALISK_AGGRO_RANGE) return;
+    if (magmaliskBoss.nextAttack === "bite") startMagmaliskBite();
+    else startMagmaliskEruption();
+  }
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -810,15 +1029,19 @@ export function createBossController(options: {
     resetBoss,
     resetSpiderBoss,
     resetFrostclawBoss,
+    resetMagmaliskBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
+    syncMagmaliskState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
+    updateMagmaliskBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
+    resolveMagmaliskCollision: () => resolveCollision(magmaliskBoss, MAGMALISK_CONTACT_DAMAGE, .75),
     applyDragonConePush,
     applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {

@@ -5,6 +5,10 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  MAGMALISK_REWARD_ARMOR,
+  MAGMALISK_REWARD_DAMAGE,
+  MAGMALISK_REWARD_HEALTH,
+  MAGMALISK_REWARD_REGEN,
 } from "../../../shared/rules";
 
 function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossController>[0]> = {}) {
@@ -20,20 +24,25 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     boss: state.boss,
     spiderBoss: state.spiderBoss,
     frostclawBoss: state.frostclawBoss,
+    magmaliskBoss: state.magmaliskBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
+    magmaliskEruptions: state.magmaliskEruptions,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
     getFrostclawBoss: () => null,
+    getMagmaliskBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
+    getMagmaliskResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
     currentMapIsSnow: () => true,
+    currentMapIsLava: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -140,5 +149,34 @@ describe("Frostclaw boss", () => {
     controller.syncFrostclawState();
 
     expect(startLavaPortalCutscene).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Magmalisk boss", () => {
+  it("continues Lava scaling with four stat rewards", () => {
+    expect(MAGMALISK_REWARD_DAMAGE).toBe(14_400_000_000);
+    expect(MAGMALISK_REWARD_HEALTH).toBe(81_945_000_000);
+    expect(MAGMALISK_REWARD_ARMOR).toBe(7_000_000);
+    expect(MAGMALISK_REWARD_REGEN).toBe(405_015_625);
+  });
+
+  it("cycles bite and eruption using the selected attack frames", () => {
+    const { controller, magmaliskBoss, magmaliskEruptions, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsLava: () => true,
+    });
+    player.x = magmaliskBoss.x + 300;
+    player.y = magmaliskBoss.y;
+    magmaliskBoss.attackClock = 0;
+
+    controller.updateMagmaliskBoss(.016);
+    expect(magmaliskBoss.bite).not.toBeNull();
+    expect(magmaliskBoss.nextAttack).toBe("eruption");
+
+    controller.updateMagmaliskBoss(.72);
+    controller.updateMagmaliskBoss(1);
+    controller.updateMagmaliskBoss(2.5);
+    expect(magmaliskEruptions).toHaveLength(11);
+    expect(magmaliskBoss.nextAttack).toBe("bite");
   });
 });

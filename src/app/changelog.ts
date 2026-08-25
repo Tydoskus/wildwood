@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.502": [
+    "The Magmalisk now guards Lava Lake with bite and eruption attacks, permanent Damage, Health, Armor, and Regeneration rewards, plus a 1-in-25 Lava Bow drop.",
+    "Regular lava monsters now have a 1-in-30 chance to drop Magma Armor, while equipment multipliers now multiply technology percentage bonuses.",
+    "Lava Lake now has seven times as many non-overlapping ground-layer rocks that players can walk over without visual layering.",
+    "Bag slots now use cleaner icon-only presentation while preserving upgrade badges, with adjusted item sizing, angled bow icons, and 25% larger bows on characters.",
+    "Daily Gems now arrive through a registered-account Claim popup, and active research offers centered Gem-priced Finish Now controls.",
+  ],
   "0.501": [
     "Registered accounts now receive 7 free Gems once per UTC day, and active research can be finished for one Gem per started ten minutes.",
     "Cosmetics slots can now hide equipped gear visually without changing its stats.",
@@ -988,6 +995,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.502": "2026-08-24",
   "0.501": "2026-08-24",
   "0.500": "2026-08-24",
   "0.499": "2026-08-24",

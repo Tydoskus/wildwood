@@ -20,6 +20,18 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor.some((item) => item.type === "lavaRock")).toBe(true);
     expect(first.decor.some((item) => item.type === "charredTree")).toBe(true);
     expect(first.decor.some((item) => item.type === "lavaEmber")).toBe(true);
+    const rocks = first.decor.filter((item) => item.type === "lavaRock");
+    expect(rocks).toHaveLength(72 * 7);
+    let minimumGap = Number.POSITIVE_INFINITY;
+    for (let left = 0; left < rocks.length; left += 1) {
+      for (let right = left + 1; right < rocks.length; right += 1) {
+        minimumGap = Math.min(
+          minimumGap,
+          Math.hypot(rocks[left].x - rocks[right].x, rocks[left].y - rocks[right].y) - 75 * (rocks[left].s + rocks[right].s),
+        );
+      }
+    }
+    expect(minimumGap).toBeGreaterThanOrEqual(0);
     expect(first.decor
       .filter((item) => item.type === "charredTree")
       .every((item) => item.variant === 0 || item.variant === 1)).toBe(true);
@@ -31,6 +43,7 @@ describe("Advanced Lava Lake", () => {
 
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => lavaKinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900 - .001)).toBe(true);
   });
 
   it("uses Title Case map names and connects Snowlands with Lava Lake", () => {
@@ -42,6 +55,7 @@ describe("Advanced Lava Lake", () => {
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].name).toBe("Advanced Lava Lake");
     expect(config[INTERMEDIATE_SNOWLANDS_MAP_ID].secondaryPortal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].portal.destination).toBe(INTERMEDIATE_SNOWLANDS_MAP_ID);
+    expect(createGameBootstrap().magmaliskBoss).toMatchObject({ x: 4050, y: 4050, r: 165, maxHp: 3_750_000_000_000_000 });
   });
 });
 

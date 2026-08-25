@@ -106,6 +106,20 @@ describe("interface style contracts", () => {
     expect(cssRule(".cosmetic-hidden-icon::after {")).toContain("transform: rotate(-36deg)");
   });
 
+  it("presents the daily Gem reward as a centered Claim window", () => {
+    expect(html).toContain('id="dailyGemBonus"');
+    expect(html).toContain('id="dailyGemClaimBtn"');
+    expect(html).toContain('>CLAIM</button>');
+    expect(cssRule(".daily-gem-bonus {")).toContain("place-items: center");
+    expect(cssRule(".daily-gem-claim-button {")).toContain("justify-self: center");
+  });
+
+  it("centers every research action state in the detail card", () => {
+    const action = cssRule(".tech-tree-action {");
+    expect(action).toContain("justify-self: center");
+    expect(action).toContain("text-align: center");
+  });
+
   it("defines and applies the 11px functional-text floor", () => {
     expect(css).toMatch(/--font-readable-min:\s*11px/);
     expect(css).toContain("-webkit-text-size-adjust: 100%");

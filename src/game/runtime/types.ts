@@ -114,6 +114,11 @@ export type FrostclawIcefall = Circle & {
   maxTimer: number;
 };
 
+export type MagmaliskEruption = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
 export type FrostclawRoar = {
   windup: number;
   timer: number;
@@ -163,7 +168,13 @@ export type FrostclawBossState = BossStateBase & {
   pushTimer: number;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState;
+export type MagmaliskBossState = BossStateBase & {
+  bossKind: "magmalisk";
+  nextAttack: "bite" | "eruption";
+  bite: BossCone | null;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState;
 export type CombatTarget = EnemyState | BossTarget;
 
 export type DuelPresentation = {

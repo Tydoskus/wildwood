@@ -381,7 +381,7 @@
   .inventory-section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: #f2f4ef; font-size: var(--font-readable-label); font-weight: 900; letter-spacing: .06em; }
   .inventory-items { display: grid; grid-template-columns: repeat(4, var(--inventory-slot-size)); align-content: start; align-items: start; justify-content: center; gap: var(--inventory-grid-gap); min-height: 0; padding-bottom: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   .inventory-items::-webkit-scrollbar { display: none; width: 0; height: 0; }
-  .inventory-item { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 18px; place-items: center; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 1 / 1; margin: 0; padding: 5px 3px 3px; overflow: hidden; border: 2px solid rgba(255,255,255,.15); border-radius: 7px; background: linear-gradient(#172019, #0a0f0c); box-shadow: inset 0 -3px 0 rgba(0,0,0,.28); color: var(--inventory-ink); }
+  .inventory-item { position: relative; display: grid; grid-template-rows: minmax(0, 1fr); place-items: center; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 1 / 1; margin: 0; padding: 5px; overflow: hidden; border: 2px solid rgba(255,255,255,.15); border-radius: 7px; background: linear-gradient(#172019, #0a0f0c); box-shadow: inset 0 -3px 0 rgba(0,0,0,.28); color: var(--inventory-ink); }
   .inventory-item.is-empty { background: rgba(4,8,6,.34); border-color: rgba(255,255,255,.09); box-shadow: inset 0 0 0 1px rgba(0,0,0,.24); cursor: default; }
   .inventory-item.is-filled { border-color: rgba(213,154,58,.58); background: linear-gradient(#302719, #17130d); }
   .inventory-item.is-filled, .equipment-slot.is-equipped { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -390,8 +390,12 @@
   .inventory-item:hover, .inventory-item:focus-visible { border-color: #8d7655; outline: 2px solid rgba(111,88,53,.2); outline-offset: 1px; }
   .inventory-item-art-wrap { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; place-items: center; pointer-events: none; }
   .inventory-item-art { display: block; width: 100%; height: 100%; background-position: center; background-size: contain; background-repeat: no-repeat; image-rendering: pixelated; }
-  .inventory-item-art-wrap .inventory-item-art { width: min(50px, 78%); height: min(46px, 78%); }
+  .inventory-item-art-wrap .inventory-item-art { width: min(62px, 90%); height: min(58px, 90%); }
+  .inventory-item[data-item-id="starter_stone"] .inventory-item-art { width: min(40px, 58%); height: min(40px, 58%); }
+  .inventory-item-art-wrap .boot-pixel-icon { transform: scale(1.35); }
   .equipment-slot .inventory-item-art { width: var(--equipped-art-width, 34px); height: var(--equipped-art-height, 34px); }
+  .inventory-item:is([data-item-id="starter_bow"], [data-item-id="frost_bow"], [data-item-id="lava_bow"]) .inventory-item-art,
+  .equipment-slot:is([data-item-id="starter_bow"], [data-item-id="frost_bow"], [data-item-id="lava_bow"]) .inventory-item-art { transform: rotate(-45deg); }
   .inventory-item-name { align-self: end; width: 100%; min-width: 0; overflow: hidden; color: #eef2ed; font-size: var(--font-readable-min); line-height: var(--line-height-readable); text-align: center; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
   .inventory-upgrade-level { position: absolute; top: 4px; right: 4px; z-index: 2; min-width: 22px; padding: 3px 4px; border: 1px solid #071009; border-radius: 999px; background: #65d66d; box-shadow: 0 1px 0 rgba(0,0,0,.55); color: #08150a; font: 900 var(--font-readable-min)/1 var(--font-rounded); text-align: center; pointer-events: none; }
   .inventory-item-empty-mark { color: #a17932; font: 900 20px/1 Arial, sans-serif; }
@@ -512,8 +516,9 @@
     .equipment-slot .inventory-item-art { max-width: 42px; max-height: 33px; }
     .bag-section { margin: 0; padding: 5px; }
     .inventory-section-title { margin-bottom: 4px; font-size: var(--font-readable-label); }
-    .inventory-item { padding: 4px 2px 2px; border-radius: 6px; }
-    .inventory-item-art-wrap .inventory-item-art { width: min(44px, 76%); height: min(41px, 76%); }
+    .inventory-item { padding: 4px; border-radius: 6px; }
+    .inventory-item-art-wrap .inventory-item-art { width: min(54px, 88%); height: min(51px, 88%); }
+    .inventory-item[data-item-id="starter_stone"] .inventory-item-art { width: min(35px, 56%); height: min(35px, 56%); }
     .inventory-item-name { font-size: var(--font-readable-min); line-height: var(--line-height-readable); }
     .inventory-upgrade-level { top: 2px; right: 2px; min-width: 20px; padding: 2px 3px; font-size: var(--font-readable-min); }
     .item-inspection-content { grid-template-columns: 1fr; justify-items: center; align-content: center; gap: 12px; padding-top: 14px; padding-bottom: 14px; text-align: center; }
@@ -1035,6 +1040,25 @@
   .hud-gem-icon { display: block; width: 17px; height: 17px; object-fit: contain; }
   .hud-gem-balance { color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px #071c29; }
 
+  .daily-gem-bonus { position: fixed; inset: 0 0 var(--toolbar-height); z-index: 18; display: grid; place-items: center; padding: 18px; background: rgba(8, 7, 10, .78); pointer-events: auto; }
+  .daily-gem-bonus[hidden] { display: none; }
+  .daily-gem-bonus-card { position: relative; display: grid; justify-items: center; gap: 7px; width: min(330px, calc(100vw - 36px)); padding: 19px 22px 22px; overflow: hidden; border: 2px solid #e89abd; border-radius: 13px; background: radial-gradient(circle at 50% 32%, #513547, #211a20 72%); box-shadow: 0 12px 0 rgba(0,0,0,.42), 0 0 30px rgba(241,130,187,.2); color: #fff; text-align: center; animation: daily-gem-card-enter .34s cubic-bezier(.2,.9,.24,1.24); }
+  .daily-gem-bonus-kicker { color: #ffc2df; font-size: 10px; font-weight: 900; letter-spacing: .18em; }
+  .daily-gem-bonus-art { position: relative; display: grid; width: 112px; height: 112px; place-items: center; }
+  .daily-gem-bonus-art::before { position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(255,190,223,.24) 0 7deg, transparent 7deg 22deg); content: ""; animation: daily-gem-rays 12s linear infinite; }
+  .daily-gem-bonus-art img { position: relative; display: block; width: 70px; height: 70px; object-fit: contain; animation: daily-gem-float 1.6s ease-in-out infinite alternate; }
+  .daily-gem-bonus-card h2 { margin: -3px 0 0; color: #fff; font-size: 29px; line-height: 1; letter-spacing: .04em; }
+  .daily-gem-bonus-card p { margin: 0 0 6px; color: #d9cbd2; font-size: 9px; letter-spacing: .12em; }
+  .daily-gem-claim-button { justify-self: center; min-width: 164px; min-height: 44px; margin: 0; border: 2px solid #ffd1e7; border-radius: 8px; background: linear-gradient(#e971aa, #a33f78); box-shadow: 0 4px 0 #55233f; color: #fff; font-size: 13px; letter-spacing: .08em; }
+  .daily-gem-claim-button:hover:not(:disabled), .daily-gem-claim-button:focus-visible { border-color: #fff; background: linear-gradient(#f58abd, #bd4a8b); outline: 0; }
+  .daily-gem-claim-button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #55233f; }
+  .daily-gem-bonus.is-claimed .daily-gem-bonus-art img { animation: daily-gem-claimed .72s cubic-bezier(.2,.9,.24,1.3); }
+
+  @keyframes daily-gem-card-enter { from { opacity: 0; transform: scale(.76) translateY(18px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes daily-gem-rays { to { transform: rotate(360deg); } }
+  @keyframes daily-gem-float { to { transform: translateY(-6px) scale(1.04); } }
+  @keyframes daily-gem-claimed { 45% { transform: scale(1.42) rotate(-8deg); } 100% { transform: scale(1) rotate(0); } }
+
   #chatPanel[hidden] { display: none; }
   #chatPanel:not(.is-large) { height: var(--mini-chat-height); min-height: var(--mini-chat-height); max-height: var(--mini-chat-height); border-radius: 0; background: linear-gradient(180deg, rgba(61, 65, 66, .94), rgba(37, 41, 42, .96)); backdrop-filter: none; }
   #chatPanel:not(.is-large) #topMeta { color: #fff; }
@@ -1300,7 +1324,11 @@
 
   @media (prefers-reduced-motion: reduce) {
     .respawn-ad-button,
-    #accountChoicePanel .wildwood-wordmark-title { animation: none; }
+    #accountChoicePanel .wildwood-wordmark-title,
+    .daily-gem-bonus-card,
+    .daily-gem-bonus-art::before,
+    .daily-gem-bonus-art img,
+    .daily-gem-bonus.is-claimed .daily-gem-bonus-art img { animation: none; }
   }
 
   .modal.game-update-modal { width: min(430px, calc(100vw - 28px)); }
@@ -1607,7 +1635,7 @@
   .tech-tree-timer-label { color: #e9edf1; font-size: 10px; }
   .tech-tree-timer-track { height: 13px; overflow: hidden; border: 2px solid #9ba3ad; background: #0d1013; }
   .tech-tree-timer-fill { width: calc(var(--research-progress) * 100%); height: 100%; margin-right: auto; background: #d9dde2; transform-origin: left center; transition: width .7s linear; }
-  .tech-tree-action { justify-self: start; min-height: 28px; margin-top: 3px; border-color: #aeb5bd; background: #515963; color: #fff; font-size: 9px; }
+  .tech-tree-action { justify-self: center; min-height: 28px; margin-top: 3px; border-color: #aeb5bd; background: #515963; color: #fff; font-size: 9px; text-align: center; }
   .tech-tree-action:hover:not(:disabled), .tech-tree-action:focus-visible { border-color: #fff; background: #68727d; }
   .tech-tree-action.is-gem-speed-up { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 38px; padding-inline: 12px; border-color: #e697bd; background: linear-gradient(#864c72, #57304b); color: #fff; }
   .tech-tree-action.is-gem-speed-up:hover:not(:disabled), .tech-tree-action.is-gem-speed-up:focus-visible { border-color: #ffd0e6; background: linear-gradient(#a35e8b, #6e3b60); }

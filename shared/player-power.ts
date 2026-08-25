@@ -1,9 +1,9 @@
 import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
 import {
+  equipmentDamageMultiplier,
   itemMaxHealthMultiplier,
   itemRegenerationMultiplier,
   weaponAttackInterval,
-  weaponDamageMultiplier,
 } from "./items";
 
 export type PlayerPowerStats = {
@@ -44,7 +44,13 @@ export function effectivePlayerPowerStats(
   const chestLevel = itemUpgradeLevel(chestItem);
   return {
     maxHp: progress.maxHp * itemMaxHealthMultiplier(chestItem, 1, chestLevel),
-    damage: progress.damage * weaponDamageMultiplier(weaponItem, 1 + researchRank(research?.warcraft) * .02, weaponLevel),
+    damage: progress.damage * equipmentDamageMultiplier(
+      weaponItem,
+      chestItem,
+      1 + researchRank(research?.warcraft) * .02,
+      weaponLevel,
+      chestLevel,
+    ),
     attackRate: weaponAttackInterval(weaponItem, progress.attackRate, 1, weaponLevel),
     armor: progress.armor * (1 + researchRank(research?.precision) * .02),
     regen: progress.regen * itemRegenerationMultiplier(chestItem, 1 + researchRank(research?.regeneration) * .02, chestLevel),

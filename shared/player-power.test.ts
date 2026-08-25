@@ -18,7 +18,7 @@ describe("player power", () => {
     const effective = effectivePlayerPowerStats(progress, research);
 
     expect(effective.maxHp).toBeCloseTo(105);
-    expect(effective.damage).toBeCloseTo(109);
+    expect(effective.damage).toBeCloseTo(109.2);
     expect(effective.attackRate).toBeCloseTo(1.56 / 1.05);
     expect(effective.armor).toBeCloseTo(10.6);
     expect(effective.regen).toBeCloseTo(2.16);

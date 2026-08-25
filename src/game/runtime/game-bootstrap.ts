@@ -8,7 +8,7 @@ import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   MAP_DISPLAY_NAMES,
@@ -34,6 +34,7 @@ export function createGameBootstrap() {
   const bossRain: BossRainStrike[] = [];
   const spiderVenom: SpiderVenomPool[] = [];
   const frostclawIcefalls: FrostclawIcefall[] = [];
+  const magmaliskEruptions: MagmaliskEruption[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: {
@@ -136,6 +137,24 @@ export function createGameBootstrap() {
     pushTimer: 0,
     encounter: null,
   };
+  const magmaliskBoss: MagmaliskBossState = {
+    isBoss: true,
+    bossKind: "magmalisk",
+    x: 4050,
+    y: 4050,
+    r: 165,
+    maxHp: 3_750_000_000_000_000,
+    hp: 3_750_000_000_000_000,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: 3_750_000_000_000_000,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "bite",
+    bite: null,
+    encounter: null,
+  };
   const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
     itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
@@ -163,6 +182,8 @@ export function createGameBootstrap() {
     frostclawBoss,
     frostclawIcefalls,
     inventory,
+    magmaliskBoss,
+    magmaliskEruptions,
     mapConfig,
     paths,
     player,

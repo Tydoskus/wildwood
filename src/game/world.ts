@@ -61,7 +61,7 @@ const LAVA_CAMPS = [
   { name: "Magma Causeway", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Cinder Archer"] as EnemyKind[] },
   { name: "Obsidian Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Magma Guard"] as EnemyKind[] },
   { name: "Ashen Shelf", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Ash Reaper"] as EnemyKind[] },
-  { name: "Inferno Caldera", x: 3900, y: 3960, minRadius: 170, radius: 420, count: 6, types: ["Inferno Oracle", "Inferno Oracle", "Ash Reaper"] as EnemyKind[] },
+  { name: "Inferno Caldera", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Inferno Oracle", "Inferno Oracle", "Ash Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -159,11 +159,12 @@ function createLavaLayout() {
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 380;
+  const isNearMagmalisk = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 640;
 
   for (let index = 0; index < 24; index += 1) {
     const x = 180 + seededUnit(index, 31) * (WORLD.w - 360);
     const y = 180 + seededUnit(index, 32) * (WORLD.h - 360);
-    if (isOnRoad(x, y, 150) || isNearArrival(x, y)) continue;
+    if (isOnRoad(x, y, 150) || isNearArrival(x, y) || isNearMagmalisk(x, y)) continue;
     decor.push({
       type: "lavaPool",
       x: Math.round(x),
@@ -172,27 +173,36 @@ function createLavaLayout() {
       variant: index % 3,
     });
   }
-  for (let index = 0; index < 72; index += 1) {
+  const lavaRocks: Extract<WorldDecor, { type: "lavaRock" }>[] = [];
+  const lavaRockTarget = 72 * 7;
+  for (let index = 0; lavaRocks.length < lavaRockTarget && index < 20_000; index += 1) {
     const x = 90 + seededUnit(index, 34) * (WORLD.w - 180);
     const y = 90 + seededUnit(index, 35) * (WORLD.h - 180);
-    if (isOnRoad(x, y, 60) || isNearArrival(x, y)) continue;
-    decor.push({
+    const s = .48 + seededUnit(index, 36) * .62;
+    const radius = 75 * s;
+    if (isOnRoad(x, y, 60) || isNearArrival(x, y) || isNearMagmalisk(x, y)) continue;
+    if (lavaRocks.some((rock) => Math.hypot(x - rock.x, y - rock.y) < radius + 75 * rock.s + 6)) continue;
+    if (decor.some((item) => item.type === "lavaPool" && Math.hypot(x - item.x, y - item.y) < radius + 150 * item.s + 12)) continue;
+    lavaRocks.push({
       type: "lavaRock",
       x: Math.round(x),
       y: Math.round(y),
-      s: .48 + seededUnit(index, 36) * .62,
-      variant: index % 3,
+      s,
+      variant: lavaRocks.length % 3,
     });
   }
+  decor.push(...lavaRocks);
   for (let index = 0; index < 48; index += 1) {
     const x = 100 + seededUnit(index, 37) * (WORLD.w - 200);
     const y = 100 + seededUnit(index, 38) * (WORLD.h - 200);
-    if (isOnRoad(x, y, 80) || isNearArrival(x, y)) continue;
+    if (isOnRoad(x, y, 80) || isNearArrival(x, y) || isNearMagmalisk(x, y)) continue;
+    const s = .72 + seededUnit(index, 39) * .62;
+    if (lavaRocks.some((rock) => Math.hypot(x - rock.x, y - rock.y) < 75 * rock.s + 48 * s + 8)) continue;
     decor.push({
       type: "charredTree",
       x: Math.round(x),
       y: Math.round(y),
-      s: .72 + seededUnit(index, 39) * .62,
+      s,
       variant: index % 2,
     });
   }
@@ -296,13 +306,14 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
       let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
       let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID) {
-        const bossDx = x - boss.x;
-        const bossDy = y - boss.y;
+      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID) {
+        const activeBoss = mapId === ADVANCED_LAVA_WASTES_MAP_ID ? { x: 4050, y: 4050 } : boss;
+        const bossDx = x - activeBoss.x;
+        const bossDy = y - activeBoss.y;
         const bossDistance = Math.hypot(bossDx, bossDy) || 1;
         if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
-          x = clamp(boss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
-          y = clamp(boss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
+          x = clamp(activeBoss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
+          y = clamp(activeBoss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
         }
       }
       const type = camp.types[index % camp.types.length];

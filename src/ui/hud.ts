@@ -311,7 +311,6 @@ export function renderInventoryView(
     button.className = "inventory-item" + (itemId ? " is-filled" : " is-empty") +
       (selected ? " is-selected" : "");
     if (itemId) {
-      const item = itemsById[itemId];
       const level = normalizeItemUpgradeLevel(actions.upgradeLevel(itemId));
       button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to select, drag to equip, or hold briefly for details.`);
       button.setAttribute("aria-pressed", String(selected));
@@ -320,10 +319,7 @@ export function renderInventoryView(
       const art = document.createElement("span");
       art.className = "inventory-item-art-wrap";
       art.innerHTML = itemArt(itemId);
-      const name = document.createElement("span");
-      name.className = "inventory-item-name";
-      name.textContent = item.name;
-      button.append(art, name);
+      button.append(art);
       if (level > 0) {
         const badge = document.createElement("span");
         badge.className = "inventory-upgrade-level";

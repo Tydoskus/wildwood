@@ -57,6 +57,7 @@ import { createTechTreeController } from "./ui/tech-tree-controller";
 import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
 import { createDeathScreenController } from "./ui/death-screen-controller";
+import { createDailyGemBonusController } from "./ui/daily-gem-bonus-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
@@ -88,7 +89,7 @@ import {
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, chatPanel, coopStatusEl, messageEl, pickupLog,
+    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, chatPanel, coopStatusEl, messageEl, pickupLog,
     enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
@@ -152,6 +153,8 @@ import {
     frostclawBoss,
     frostclawIcefalls,
     inventory,
+    magmaliskBoss,
+    magmaliskEruptions,
     mapConfig: MAP_CONFIG,
     paths,
     player,
@@ -448,11 +451,12 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss,
     nowSeconds: () => session?.gameTime() ?? 0,
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
+    isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
     engageEnemy,
     researchDamageMultiplier,
     researchCriticalChance,
@@ -461,6 +465,8 @@ import {
     researchAttackSpeedMultiplier: () => 1,
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
+    equippedChest: () => inventory.equippedChest,
+    equippedChestUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
     healthMultiplier,
     minAttackInterval: MIN_ATTACK_INTERVAL,
     effectiveArmor,
@@ -468,9 +474,11 @@ import {
     scheduleEnemyRespawn: regularEnemyRespawnBoost.schedule,
     incrementKills: () => { totalKills += 1; },
     recordForestEnemyDefeat: () => coop?.recordForestEnemyDefeat?.(),
+    recordLavaEnemyDefeat: () => coop?.recordLavaEnemyDefeat?.(),
     damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
     damageFrostclaw: (hits) => coop?.damageFrostclaw?.(hits, player.x, player.y),
+    damageMagmalisk: (hits) => coop?.damageMagmalisk?.(hits, player.x, player.y),
     spawnBurst,
     spawnParticle,
     spawnDamageNumber,
@@ -578,9 +586,11 @@ import {
     bossRain,
     spiderVenom,
     frostclawIcefalls,
+    magmaliskEruptions,
     boss,
     spiderBoss,
     frostclawBoss,
+    magmaliskBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     showMapMessage: (mapId) => showMessage(MAP_CONFIG[mapId].name, "#ffe769"),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
@@ -591,20 +601,25 @@ import {
     boss,
     spiderBoss,
     frostclawBoss,
+    magmaliskBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
+    magmaliskEruptions,
     player,
     getDragonBoss: () => coop?.dragonBoss?.(),
     getSpiderBoss: () => coop?.spiderBoss?.(),
     getFrostclawBoss: () => coop?.frostclawBoss?.(),
+    getMagmaliskBoss: () => coop?.magmaliskBoss?.(),
     getDragonResult: () => coop?.dragonResult?.(),
     getSpiderResult: () => coop?.spiderResult?.(),
     getFrostclawResult: () => coop?.frostclawResult?.(),
+    getMagmaliskResult: () => coop?.magmaliskResult?.(),
     localIdentity: () => coop?.localIdentity?.(),
     running: () => session.isRunning(),
     currentMapIsDesert: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     currentMapIsSnow: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
+    currentMapIsLava: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     hasSeenDragonPortalCutscene: worldProgression.hasSeenDragonPortalCutscene,
     hasSeenSnowlandsPortalCutscene: worldProgression.hasSeenSnowlandsPortalCutscene,
@@ -667,9 +682,11 @@ import {
     boss,
     spiderBoss,
     frostclawBoss,
+    magmaliskBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
+    magmaliskEruptions,
     activePortal,
     cutscenePortal: () => mapController.cutscenePortal(),
     secondaryPortal,
@@ -744,7 +761,7 @@ import {
     invalidateStaticWorld,
     spawnFromSite,
     clearPlayerCombat: () => { playerCombat.clearPendingThrow(); playerCombat.clearPendingBossHits(); },
-    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); },
+    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); bossController.resetMagmaliskBoss(); },
     onResetUI: () => {
       session.resetGameTime();
       flash = 0;
@@ -759,11 +776,13 @@ import {
     resolveDragonCollision: () => bossController.resolveDragonCollision(),
     resolveSpiderCollision: () => bossController.resolveSpiderCollision(),
     resolveFrostclawCollision: () => bossController.resolveFrostclawCollision(),
+    resolveMagmaliskCollision: () => bossController.resolveMagmaliskCollision(),
     applyDragonConePush: (dt) => bossController.applyDragonConePush(dt),
     applyFrostclawPush: (dt) => bossController.applyFrostclawPush(dt),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
+    isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
     viewport: () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     cameraPosition: () => camera,
     isConnected: () => Boolean(coop?.isConnected?.()),
@@ -1066,7 +1085,7 @@ import {
 
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
-    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
+    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
     validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
     serverMapId: () => coop?.localState?.()?.mapId,
@@ -1085,10 +1104,10 @@ import {
     },
     mapMusicSync: syncMapMusic,
     isDueling, activeDuel,
-    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState,
+    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     updatePlayer: playerController.update, updateUpgradeBench: upgradeBenchController.updateTouch, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
-    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss,
+    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
@@ -1103,6 +1122,17 @@ import {
     fpsDisplayVisible: appShell.fpsVisible,
     fadeElement: sceneFadeEl,
     onLeaveDuelResult: () => { duelResultEl.hidden = true; playerController.finishDuelResult(); },
+  });
+
+  const dailyGemBonus = createDailyGemBonusController({
+    overlay: dailyGemBonusEl,
+    claimButton: dailyGemClaimBtn,
+  }, {
+    canShow: () => session.hasStarted() && coop?.accountState?.().signedIn === true,
+    claimable: () => coop?.dailyGemBonusClaimable?.() === true,
+    claim: async () => coop?.claimDailyGemBonus?.(),
+    setPaused: (paused) => setGameplayPause("daily-gem-bonus", paused),
+    showMessage,
   });
 
   function refreshReconnectOverlay() {
@@ -1145,6 +1175,7 @@ import {
 
   function startGame(markIntro = true, restoreServerPosition = true) {
     session.start(markIntro, restoreServerPosition);
+    dailyGemBonus.refresh();
     applyGameplayPauseState();
   }
 
@@ -1152,6 +1183,7 @@ import {
     screenShake = 0;
     flash = 0;
     session.end();
+    dailyGemBonus.refresh();
   }
 
   bindGameInteractionListeners({
@@ -1235,6 +1267,7 @@ import {
     coop,
     syncLifetimeKills: progress.syncLifetimeKills,
     refreshGemCounter,
+    refreshDailyGemBonus: dailyGemBonus.refresh,
     refreshOpenProfile: () => {
       const identity = profileWindow.identity();
       if (!identity) return;

@@ -114,6 +114,20 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   });
   frostclawSprite.src = "assets/wildwood/frostclaw-boss-spritesheet.png";
 
+  const magmaliskSprite = new Image();
+  const magmaliskSpriteCanvas = document.createElement("canvas");
+  const magmaliskSpriteContext = requiredCanvasContext(magmaliskSpriteCanvas, { willReadFrequently: true });
+  let magmaliskReady = false;
+  magmaliskSprite.addEventListener("load", () => {
+    magmaliskSpriteCanvas.width = magmaliskSprite.naturalWidth;
+    magmaliskSpriteCanvas.height = magmaliskSprite.naturalHeight;
+    magmaliskSpriteContext.drawImage(magmaliskSprite, 0, 0);
+    removeGreen(magmaliskSpriteContext, magmaliskSpriteCanvas.width, magmaliskSpriteCanvas.height, 145, 1.45, () => {
+      magmaliskReady = true;
+    }, 4);
+  });
+  magmaliskSprite.src = "assets/wildwood/magmalisk-boss-spritesheet.png";
+
   let portalArchReady = false;
   const portalArch = new Image();
   const settlePortalArch = () => {
@@ -214,6 +228,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     charredTrees: lavaAssets.slice(6),
     lavaPools: lavaAssets.slice(0, 3),
     lavaRocks: lavaAssets.slice(3, 6),
+    magmaliskReady: () => magmaliskReady,
+    magmaliskSpriteCanvas,
     snowPine,
     upgradeBench,
     spiderReady: () => spiderReady,

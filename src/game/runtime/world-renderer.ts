@@ -2,7 +2,7 @@ import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, PlayerState, SpiderBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import {
   paintStaticTile,
@@ -56,6 +56,7 @@ export type WorldRendererOptions = {
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
+  magmaliskBoss: MagmaliskBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   actorShadowSprite: HTMLImageElement;
@@ -538,7 +539,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawDecor() {
     if (options.getMapId() !== options.lavaMapId) return;
-    for (const item of options.decor) if (item.type === "lavaPool") drawLavaPool(item);
+    for (const item of options.decor) {
+      if (item.type === "lavaPool") drawLavaPool(item);
+      else if (item.type === "lavaRock") drawLavaRock(item);
+    }
   }
 
   function minimapRoundedRect(target: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -595,7 +599,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         ? { state: options.spiderBoss, color: "#e9ac4e" }
         : snow
           ? { state: options.frostclawBoss, color: "#67dcff" }
-          : null;
+          : options.getMapId() === options.lavaMapId
+            ? { state: options.magmaliskBoss, color: "#ff752f" }
+            : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
       draw.globalAlpha = mapBoss.state.dead ? .46 : 1;

@@ -9,7 +9,7 @@ import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
-import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -37,9 +37,11 @@ export type WorldRenderRuntimeOptions = {
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
+  magmaliskBoss: MagmaliskBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
+  magmaliskEruptions: MagmaliskEruption[];
   activePortal: () => Portal;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
@@ -60,9 +62,11 @@ export type WorldRenderRuntimeOptions = {
     dragonSpriteCanvas: HTMLCanvasElement;
     spiderSpriteCanvas: HTMLCanvasElement;
     frostclawSpriteCanvas: HTMLCanvasElement;
+    magmaliskSpriteCanvas: HTMLCanvasElement;
     dragonReady: () => boolean;
     spiderReady: () => boolean;
     frostclawReady: () => boolean;
+    magmaliskReady: () => boolean;
     duelPlatformArt: HTMLImageElement;
   };
   actorShadowSprite: HTMLImageElement;
@@ -146,6 +150,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     boss: options.boss,
     spiderBoss: options.spiderBoss,
     frostclawBoss: options.frostclawBoss,
+    magmaliskBoss: options.magmaliskBoss,
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
@@ -156,10 +161,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ...options.assets,
   });
   const boss = createBossRenderer({
-    ctx: options.ctx, camera: options.camera, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss,
-    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls,
-    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas,
-    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady,
+    ctx: options.ctx, camera: options.camera, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss,
+    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions,
+    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas,
+    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: options.drawShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
@@ -188,7 +193,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       ? options.boss
       : options.currentMapId() === options.desertMapId
         ? options.spiderBoss
-        : options.currentMapId() === options.snowMapId ? options.frostclawBoss : null,
+        : options.currentMapId() === options.snowMapId
+          ? options.frostclawBoss
+          : options.currentMapId() === options.lavaMapId ? options.magmaliskBoss : null,
     remoteAttackRange: BASE_ATTACK_RANGE,
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,
@@ -215,6 +222,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       boss: options.boss,
       spiderBoss: options.spiderBoss,
       frostclawBoss: options.frostclawBoss,
+      magmaliskBoss: options.magmaliskBoss,
       bootsPickup: frame.bootsPickup,
       currentMapId: options.currentMapId,
       activePortal: options.activePortal,
@@ -229,6 +237,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBoss: boss.drawBoss,
       drawSpiderBoss: boss.drawSpiderBoss,
       drawFrostclawBoss: boss.drawFrostclawBoss,
+      drawMagmaliskBoss: boss.drawMagmaliskBoss,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -268,6 +277,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBossTelegraphs: boss.drawBossTelegraphs,
       drawSpiderTelegraphs: boss.drawSpiderTelegraphs,
       drawFrostclawTelegraphs: boss.drawFrostclawTelegraphs,
+      drawMagmaliskTelegraphs: boss.drawMagmaliskTelegraphs,
       drawProjectile: actor.drawProjectile,
       drawDepthSortedWorld: depth.drawDepthSortedWorld,
       drawMinimap: world.drawMinimap,
@@ -277,6 +287,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       currentMapIsTutorial: () => options.currentMapId() === options.tutorialMapId,
       currentMapIsDesert: () => options.currentMapId() === options.desertMapId,
       currentMapIsSnow: () => options.currentMapId() === options.snowMapId,
+      currentMapIsLava: () => options.currentMapId() === options.lavaMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
       screenShake: frame.screenShake,

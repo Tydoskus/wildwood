@@ -45,6 +45,7 @@ export function createRenderController(options: {
   drawBossTelegraphs: () => void;
   drawSpiderTelegraphs: () => void;
   drawFrostclawTelegraphs: () => void;
+  drawMagmaliskTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
   drawMinimap: (players: MapPlayerMarker[]) => void;
@@ -54,6 +55,7 @@ export function createRenderController(options: {
   currentMapIsTutorial: () => boolean;
   currentMapIsDesert: () => boolean;
   currentMapIsSnow: () => boolean;
+  currentMapIsLava: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   screenShake: () => number;
@@ -68,8 +70,8 @@ export function createRenderController(options: {
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
-    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
-    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, portalCutsceneActive,
+    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
+    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, portalCutsceneActive,
     portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots,
   } = options;
 
@@ -176,6 +178,7 @@ export function createRenderController(options: {
     if (!isDueling() && currentMapIsTutorial()) drawBossTelegraphs();
     if (!isDueling() && currentMapIsDesert()) drawSpiderTelegraphs();
     if (!isDueling() && currentMapIsSnow()) drawFrostclawTelegraphs();
+    if (!isDueling() && currentMapIsLava()) drawMagmaliskTelegraphs();
     drawAttackRange();
     for (const projectile of projectiles) drawProjectile(projectile, false);
     for (const shot of enemyShots) drawProjectile(shot, true);

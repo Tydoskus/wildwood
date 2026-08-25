@@ -39,11 +39,13 @@ import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
 import ChangeMapReducer from "./change_map_reducer";
+import ClaimDailyGemBonusReducer from "./claim_daily_gem_bonus_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reducer";
 import DamageFrostclawFromPositionReducer from "./damage_frostclaw_from_position_reducer";
+import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
@@ -51,12 +53,14 @@ import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_loa
 import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
 import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
+import DevResetDailyGemBonusReducer from "./dev_reset_daily_gem_bonus_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RecordForestEnemyDefeatReducer from "./record_forest_enemy_defeat_reducer";
+import RecordLavaEnemyDefeatReducer from "./record_lava_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "./record_player_death_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -95,6 +99,9 @@ import FrostclawBossRow from "./frostclaw_boss_table";
 import FrostclawResultRow from "./frostclaw_result_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
 import LocalMovementDemandRow from "./local_movement_demand_table";
+import MagmaliskBossRow from "./magmalisk_boss_table";
+import MagmaliskResultRow from "./magmalisk_result_table";
+import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
@@ -245,6 +252,28 @@ const tablesSchema = __schema({
       { name: 'leaderboard_entry_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, LeaderboardEntryRow),
+  magmaliskBoss: __table({
+    name: 'magmalisk_boss',
+    indexes: [
+      { accessor: 'id', name: 'magmalisk_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'magmalisk_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MagmaliskBossRow),
+  magmaliskResult: __table({
+    name: 'magmalisk_result',
+    indexes: [
+      { accessor: 'id', name: 'magmalisk_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'magmalisk_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MagmaliskResultRow),
   player: __table({
     name: 'player',
     indexes: [
@@ -459,6 +488,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, LocalMovementDemandRow),
+  myDailyGemBonus: __table({
+    name: 'my_daily_gem_bonus',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyDailyGemBonusRow),
   myGemWallet: __table({
     name: 'my_gem_wallet',
     indexes: [
@@ -475,11 +511,13 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("cancel_item_upgrade", CancelItemUpgradeReducer),
   __reducerSchema("change_map", ChangeMapReducer),
+  __reducerSchema("claim_daily_gem_bonus", ClaimDailyGemBonusReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_dragon_from_position", DamageDragonFromPositionReducer),
   __reducerSchema("damage_frostclaw_from_position", DamageFrostclawFromPositionReducer),
+  __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
@@ -487,12 +525,14 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),
   __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
+  __reducerSchema("dev_reset_daily_gem_bonus", DevResetDailyGemBonusReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("record_forest_enemy_defeat", RecordForestEnemyDefeatReducer),
+  __reducerSchema("record_lava_enemy_defeat", RecordLavaEnemyDefeatReducer),
   __reducerSchema("record_player_death", RecordPlayerDeathReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

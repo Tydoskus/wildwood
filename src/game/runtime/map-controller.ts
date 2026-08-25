@@ -1,6 +1,6 @@
 import { createPortalCutscene } from "./cutscene";
 import type { Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -61,9 +61,11 @@ export function createMapController(options: {
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
+  magmaliskEruptions: MagmaliskEruption[];
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
+  magmaliskBoss: MagmaliskBossState;
   clearPendingBossHits: () => void;
   showMapMessage: (mapId: MapId) => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
@@ -73,7 +75,7 @@ export function createMapController(options: {
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, boss, spiderBoss, frostclawBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, boss, spiderBoss, frostclawBoss, magmaliskBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -131,6 +133,8 @@ export function createMapController(options: {
     frostclawBoss.roar = null;
     frostclawBoss.rift = null;
     frostclawBoss.pushTimer = 0;
+    magmaliskEruptions.length = 0;
+    magmaliskBoss.bite = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }

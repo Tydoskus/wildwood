@@ -38,6 +38,10 @@ export const DRAGON_REWARD_DAMAGE = 650;
 export const FROSTCLAW_REWARD_DAMAGE = 72_000_000;
 export const FROSTCLAW_REWARD_HEALTH = 270_000_000;
 export const FROSTCLAW_REWARD_ARMOR = 75_000;
+export const MAGMALISK_REWARD_DAMAGE = 14_400_000_000;
+export const MAGMALISK_REWARD_HEALTH = 81_945_000_000;
+export const MAGMALISK_REWARD_ARMOR = 7_000_000;
+export const MAGMALISK_REWARD_REGEN = 405_015_625;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -56,7 +60,7 @@ export const MAP_IDS: readonly string[] = [
   ADVANCED_LAVA_WASTES_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 62;
+export const PROTOCOL_VERSION = 63;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

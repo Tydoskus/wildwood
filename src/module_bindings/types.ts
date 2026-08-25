@@ -82,6 +82,16 @@ export const ChatMessage = __t.object("ChatMessage", {
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
+export const DailyGemBonus = __t.object("DailyGemBonus", {
+  identity: __t.identity(),
+  claimableDayKey: __t.string(),
+  lastClaimedDayKey: __t.string(),
+  claimCycle: __t.u64(),
+  revision: __t.u64(),
+  updatedAt: __t.timestamp(),
+});
+export type DailyGemBonus = __Infer<typeof DailyGemBonus>;
+
 export const DevAccessAudit = __t.object("DevAccessAudit", {});
 export type DevAccessAudit = __Infer<typeof DevAccessAudit>;
 
@@ -342,6 +352,49 @@ export type LeaderboardRefreshState = __Infer<typeof LeaderboardRefreshState>;
 export const LocalMovementDemand = __t.object("LocalMovementDemand", {});
 export type LocalMovementDemand = __Infer<typeof LocalMovementDemand>;
 
+export const MagmaliskAttackWindow = __t.object("MagmaliskAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type MagmaliskAttackWindow = __Infer<typeof MagmaliskAttackWindow>;
+
+export const MagmaliskBoss = __t.object("MagmaliskBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type MagmaliskBoss = __Infer<typeof MagmaliskBoss>;
+
+export const MagmaliskContribution = __t.object("MagmaliskContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type MagmaliskContribution = __Infer<typeof MagmaliskContribution>;
+
+export const MagmaliskRespawnSchedule = __t.object("MagmaliskRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type MagmaliskRespawnSchedule = __Infer<typeof MagmaliskRespawnSchedule>;
+
+export const MagmaliskResult = __t.object("MagmaliskResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type MagmaliskResult = __Infer<typeof MagmaliskResult>;
+
 export const MaintenanceSchedule = __t.object("MaintenanceSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
@@ -366,6 +419,9 @@ export const MotionFrameSchedule = __t.object("MotionFrameSchedule", {
   previousTickMicros: __t.u64(),
 });
 export type MotionFrameSchedule = __Infer<typeof MotionFrameSchedule>;
+
+export const MyDailyGemBonus = __t.object("MyDailyGemBonus", {});
+export type MyDailyGemBonus = __Infer<typeof MyDailyGemBonus>;
 
 export const MyGemWallet = __t.object("MyGemWallet", {});
 export type MyGemWallet = __Infer<typeof MyGemWallet>;

@@ -202,6 +202,8 @@ export type SpiderBossState = DragonBossState;
 export type SpiderResult = DragonResult;
 export type FrostclawBossState = DragonBossState;
 export type FrostclawResult = DragonResult;
+export type MagmaliskBossState = DragonBossState;
+export type MagmaliskResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;
@@ -447,6 +449,8 @@ let latestSpiderResult: SpiderResult | null = null;
 let latestDragonResult: DragonResult | null = null;
 let sharedFrostclaw: FrostclawBossState | null = null;
 let latestFrostclawResult: FrostclawResult | null = null;
+let sharedMagmalisk: MagmaliskBossState | null = null;
+let latestMagmaliskResult: MagmaliskResult | null = null;
 
 let connection: DbConnection | null = null;
 let localIdentity = "";
@@ -469,6 +473,7 @@ let lastServerActivityAt = performance.now();
 let localState: LocalPlayerState | null = null;
 let localDisplayName = "";
 let localGemBalance = 0n;
+let localDailyGemBonusClaimable = false;
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
 let localResearch: PlayerResearch = createEmptyResearchRanks();
@@ -1344,6 +1349,18 @@ function removeGemWallet(row: { identity: Identity }) {
   onChange?.();
 }
 
+function upsertDailyGemBonus(row: { identity: Identity; claimableDayKey: string }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localDailyGemBonusClaimable = Boolean(row.claimableDayKey);
+  onChange?.();
+}
+
+function removeDailyGemBonus(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localDailyGemBonusClaimable = false;
+  onChange?.();
+}
+
 function leaderboardEntryFromRow(row: {
   identity: Identity;
   displayName: string;
@@ -1793,6 +1810,22 @@ function upsertFrostclawBoss(row: {
   };
 }
 
+function upsertMagmaliskBoss(row: {
+  encounter: bigint;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  respawnAtMicros: bigint;
+}) {
+  sharedMagmalisk = {
+    encounter: row.encounter,
+    hp: row.hp,
+    maxHp: row.maxHp,
+    alive: row.alive,
+    respawnAtMs: Number(row.respawnAtMicros / 1000n),
+  };
+}
+
 function bossContributorsFromJson(contributorsJson: string): DragonContributor[] {
   try {
     const parsed = JSON.parse(contributorsJson);
@@ -1855,6 +1888,22 @@ function upsertFrostclawResult(row: {
 }) {
   const contributors = bossContributorsFromJson(row.contributorsJson);
   latestFrostclawResult = {
+    encounter: row.encounter,
+    totalDamage: row.totalDamage,
+    contributors,
+    createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1_000n),
+  };
+  onChange?.();
+}
+
+function upsertMagmaliskResult(row: {
+  encounter: bigint;
+  totalDamage: number;
+  contributorsJson: string;
+  createdAt: { microsSinceUnixEpoch: bigint };
+}) {
+  const contributors = bossContributorsFromJson(row.contributorsJson);
+  latestMagmaliskResult = {
     encounter: row.encounter,
     totalDamage: row.totalDamage,
     contributors,
@@ -2463,6 +2512,7 @@ function clearRealtimeCaches() {
   skinTones.clear();
   playerGenders.clear();
   localGemBalance = 0n;
+  localDailyGemBonusClaimable = false;
   profileIdentities.clear();
   motionIdentities.clear();
   activeMotionIdentities.clear();
@@ -2492,6 +2542,8 @@ function clearRealtimeCaches() {
   latestSpiderResult = null;
   sharedFrostclaw = null;
   latestFrostclawResult = null;
+  sharedMagmalisk = null;
+  latestMagmaliskResult = null;
 }
 
 function scheduleReconnect(delay = 500) {
@@ -2754,6 +2806,9 @@ function connect() {
         conn.db.myGemWallet.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertGemWallet(row); });
         conn.db.myGemWallet.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertGemWallet(row); });
         conn.db.myGemWallet.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeGemWallet(row); });
+        conn.db.myDailyGemBonus.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDailyGemBonus(row); });
+        conn.db.myDailyGemBonus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDailyGemBonus(row); });
+        conn.db.myDailyGemBonus.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeDailyGemBonus(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeAccessAudit(row); });
@@ -2795,6 +2850,10 @@ function connect() {
         conn.db.frostclawBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertFrostclawBoss(row); });
         conn.db.frostclawResult.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertFrostclawResult(row); });
         conn.db.frostclawResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertFrostclawResult(row); });
+        conn.db.magmaliskBoss.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMagmaliskBoss(row); });
+        conn.db.magmaliskBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMagmaliskBoss(row); });
+        conn.db.magmaliskResult.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertMagmaliskResult(row); });
+        conn.db.magmaliskResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertMagmaliskResult(row); });
         conn.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertChatMessage(row); });
         conn.db.duel.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertDuel(row); });
         conn.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertDuel(row); });
@@ -2807,6 +2866,7 @@ function connect() {
           batchChanges(() => {
             for (const row of conn.db.playerProfile.iter()) upsertProfile(row);
             for (const row of conn.db.myGemWallet.iter()) upsertGemWallet(row);
+            for (const row of conn.db.myDailyGemBonus.iter()) upsertDailyGemBonus(row);
             for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
             for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
             for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
@@ -2826,6 +2886,8 @@ function connect() {
             for (const row of conn.db.spiderResult.iter()) upsertSpiderResult(row);
             for (const row of conn.db.frostclawBoss.iter()) upsertFrostclawBoss(row);
             for (const row of conn.db.frostclawResult.iter()) upsertFrostclawResult(row);
+            for (const row of conn.db.magmaliskBoss.iter()) upsertMagmaliskBoss(row);
+            for (const row of conn.db.magmaliskResult.iter()) upsertMagmaliskResult(row);
             for (const row of conn.db.chatMessage.iter()) upsertChatMessage(row);
             for (const row of conn.db.duel.iter()) upsertDuel(row);
             hydrationReady = true;
@@ -2850,6 +2912,7 @@ function connect() {
           tables.playerMotionIdentity.where((presence) => presence.identity.eq(identity)),
           tables.playerProfile.where((profile) => profile.identity.eq(identity)),
           tables.myGemWallet,
+          tables.myDailyGemBonus,
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus.where((status) => status.identity.eq(identity)),
           tables.worldStatus,
@@ -2866,6 +2929,8 @@ function connect() {
           tables.spiderResult,
           tables.frostclawBoss,
           tables.frostclawResult,
+          tables.magmaliskBoss,
+          tables.magmaliskResult,
           tables.chatMessage,
           tables.duel.where((duel) => duel.challenger.eq(identity)),
         ]);
@@ -3160,6 +3225,21 @@ export const wildwoodCoop = {
   },
   gemBalance() {
     return localGemBalance;
+  },
+  dailyGemBonusClaimable() {
+    return localDailyGemBonusClaimable;
+  },
+  async claimDailyGemBonus() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.claimDailyGemBonus({});
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("daily Gem claim", error);
+      return { ok: false, error: message };
+    }
   },
   async devAdjustGems(identity: string, delta: bigint, reason: string) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
@@ -3463,6 +3543,10 @@ export const wildwoodCoop = {
     if (protocolBlocked || !connection) return;
     sendReducer("forest enemy defeat", () => connection?.reducers.recordForestEnemyDefeat({}));
   },
+  recordLavaEnemyDefeat() {
+    if (protocolBlocked || !connection) return;
+    sendReducer("lava enemy defeat", () => connection?.reducers.recordLavaEnemyDefeat({}));
+  },
   dragonBoss() {
     return sharedDragon ? { ...sharedDragon } : null;
   },
@@ -3487,6 +3571,14 @@ export const wildwoodCoop = {
       ? { ...latestFrostclawResult, contributors: latestFrostclawResult.contributors.map((entry) => ({ ...entry })) }
       : null;
   },
+  magmaliskBoss() {
+    return sharedMagmalisk ? { ...sharedMagmalisk } : null;
+  },
+  magmaliskResult() {
+    return latestMagmaliskResult
+      ? { ...latestMagmaliskResult, contributors: latestMagmaliskResult.contributors.map((entry) => ({ ...entry })) }
+      : null;
+  },
   playerProfile(identity = localIdentity) {
     const profile = cachedPlayerProfile(identity);
     return profile
@@ -3509,6 +3601,10 @@ export const wildwoodCoop = {
   damageFrostclaw(hits = 1, x = localState?.x ?? Number.NaN, y = localState?.y ?? Number.NaN) {
     if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
     sendReducer("frostclaw damage", () => connection?.reducers.damageFrostclawFromPosition({ hits, x, y }));
+  },
+  damageMagmalisk(hits = 1, x = localState?.x ?? Number.NaN, y = localState?.y ?? Number.NaN) {
+    if (protocolBlocked || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    sendReducer("magmalisk damage", () => connection?.reducers.damageMagmaliskFromPosition({ hits, x, y }));
   },
   saveProgress(progress: ProgressSave, immediate = false) {
     persistPendingProgress(progress);

@@ -70,7 +70,7 @@ describe("effective profile equipment stats", () => {
   it("includes equipped Bow damage and attack-speed bonuses after tech multipliers", () => {
     const research = { ...createEmptyResearchRanks(), warcraft: 10 };
     const stats = effectiveProfileStats(progress(STARTER_BOW), research);
-    expect(stats.damage).toBeCloseTo(25);
+    expect(stats.damage).toBeCloseTo(25.2);
     expect(stats.attackRate).toBeCloseTo(1 / 1.05);
   });
 
@@ -78,20 +78,20 @@ describe("effective profile equipment stats", () => {
     expect(effectiveProfileStats(progress("", WOODEN_ARMOR)).maxHp).toBeCloseTo(105);
   });
 
-  it("shows Frost Bow's additive equipment and tech multipliers", () => {
+  it("shows Frost Bow's multiplicative equipment and tech multipliers", () => {
     const research = { ...createEmptyResearchRanks(), warcraft: 10 };
     const stats = effectiveProfileStats(progress(FROST_BOW), research);
-    expect(stats.damage).toBeCloseTo(64);
+    expect(stats.damage).toBeCloseTo(72);
     expect(stats.attackRate).toBeCloseTo(1 / 1.2);
   });
 
-  it("shows Frost Armor's health and additive regeneration multipliers", () => {
+  it("shows Frost Armor's multiplicative health and regeneration multipliers", () => {
     const research = { ...createEmptyResearchRanks(), regeneration: 10 };
     const stats = effectiveProfileStats(progress("", FROST_ARMOR), research);
     expect(stats.maxHp).toBeCloseTo(200);
-    expect(stats.regen).toBeCloseTo(4.4);
+    expect(stats.regen).toBeCloseTo(4.8);
     expect(stats.multipliers.regenEquipment).toBeCloseTo(2);
-    expect(stats.multipliers.regenTotal).toBeCloseTo(2.2);
+    expect(stats.multipliers.regenTotal).toBeCloseTo(2.4);
   });
 
   it("includes completed item upgrade levels in profile stats", () => {
@@ -117,14 +117,14 @@ describe("profile stat display", () => {
     expect(rows[0]).toEqual({
       kind: "health",
       label: "Max Hp:",
-      equation: "91  +10%  × 1.00×  = 200",
+      equation: "91  +10%  × 2.00×  = 200",
     });
     expect(rows[1]).toEqual({
       kind: "damage",
       label: "Damage:",
-      equation: "20  +8%  × 2.00×  = 62",
+      equation: "20  +8%  × 3.00×  = 65",
     });
-    expect(profileStatEquationParts(rows[1].equation)).toEqual(["20", "+8%", "× 2.00×", "= 62"]);
+    expect(profileStatEquationParts(rows[1].equation)).toEqual(["20", "+8%", "× 3.00×", "= 65"]);
     expect(rows.map((row) => `${row.label} ${row.equation}`).join(" ")).not.toMatch(/\b(?:BASE|EQUIPMENT|TOTAL)\b/);
   });
 });

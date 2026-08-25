@@ -1,7 +1,7 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
-import { itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier, weaponDamageMultiplier } from "../../shared/items";
+import { equipmentDamageMultiplier, itemMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
 
 export function formatPlayedTime(seconds: number) {
@@ -36,8 +36,20 @@ export function effectiveProfileStats(
   const weaponUpgradeLevel = itemUpgradeLevels[weaponItem] ?? 0;
   const healthEquipmentMultiplier = itemMaxHealthMultiplier(progress.equippedChest, 1, chestUpgradeLevel);
   const damageResearchMultiplier = multiplier(research.warcraft, 2);
-  const damageEquipmentMultiplier = weaponDamageMultiplier(weaponItem, 1, weaponUpgradeLevel);
-  const damageTotalMultiplier = weaponDamageMultiplier(weaponItem, damageResearchMultiplier, weaponUpgradeLevel);
+  const damageEquipmentMultiplier = equipmentDamageMultiplier(
+    weaponItem,
+    progress.equippedChest,
+    1,
+    weaponUpgradeLevel,
+    chestUpgradeLevel,
+  );
+  const damageTotalMultiplier = equipmentDamageMultiplier(
+    weaponItem,
+    progress.equippedChest,
+    damageResearchMultiplier,
+    weaponUpgradeLevel,
+    chestUpgradeLevel,
+  );
   const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem, 1, weaponUpgradeLevel);
   const armorMultiplier = multiplier(research.precision, 2);
   const regenResearchMultiplier = multiplier(research.regeneration, 2);
@@ -90,7 +102,7 @@ export function profileStatDisplayRows(
   const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
   const researchBonus = (rank = 0, percentPerRank = 0) => rank * percentPerRank;
   const equipmentFactor = (equipmentMultiplier: number) => equipmentMultiplier > 1
-    ? `  × ${(equipmentMultiplier - 1).toFixed(2)}×`
+    ? `  × ${equipmentMultiplier.toFixed(2)}×`
     : "";
   const equation = (base: string, finalValue: string, researchPercent?: number, equipmentMultiplier = 1) =>
     `${base}${researchPercent === undefined ? "" : `  +${researchPercent}%`}${equipmentFactor(equipmentMultiplier)}  = ${finalValue}`;

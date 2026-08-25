@@ -8,9 +8,13 @@ export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
 export const FROST_BOW = "frost_bow";
+export const LAVA_BOW = "lava_bow";
 export const FROST_ARMOR = "frost_armor";
+export const MAGMA_ARMOR = "magma_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
+export const LAVA_ITEM_DROP_DENOMINATOR = 30;
+export const LAVA_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
 export const MAX_OWNED_ITEM_COUNT = 1;
@@ -25,7 +29,7 @@ export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "SNOW_BOSS_DROP";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -36,6 +40,7 @@ export type ItemDefinition = {
   description: string;
   stats: readonly string[];
   modifiers?: {
+    damageMultiplierBonus?: number;
     maxHealthMultiplierBonus?: number;
     regenerationMultiplierBonus?: number;
   };
@@ -117,6 +122,20 @@ export const ITEM_DEFINITIONS = {
       attackSpeedMultiplierBonus: .2,
     },
   },
+  [LAVA_BOW]: {
+    id: LAVA_BOW,
+    name: "LAVA BOW",
+    slot: "HAND",
+    acquisition: "LAVA_BOSS_DROP",
+    description: "A blazing red bow claimed from the Magmalisk, built for overwhelming damage and rapid fire.",
+    stats: ["DAMAGE MULTIPLIER 5.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: 4,
+      attackSpeedMultiplierBonus: .3,
+    },
+  },
   [FROST_ARMOR]: {
     id: FROST_ARMOR,
     name: "FROST ARMOR",
@@ -127,6 +146,19 @@ export const ITEM_DEFINITIONS = {
     modifiers: {
       maxHealthMultiplierBonus: 1,
       regenerationMultiplierBonus: 1,
+    },
+  },
+  [MAGMA_ARMOR]: {
+    id: MAGMA_ARMOR,
+    name: "MAGMA ARMOR",
+    slot: "CHEST",
+    acquisition: "LAVA_DROP",
+    description: "Molten orange armor carried by Lava Wastes monsters that amplifies damage, health, and regeneration.",
+    stats: ["DAMAGE MULTIPLIER 2.00×", "MAX HEALTH MULTIPLIER 2.25×", "REGEN MULTIPLIER 2.25×"],
+    modifiers: {
+      damageMultiplierBonus: 1,
+      maxHealthMultiplierBonus: 1.25,
+      regenerationMultiplierBonus: 1.25,
     },
   },
   [WOODEN_ARMOR]: {
@@ -153,6 +185,12 @@ export const FOREST_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .map((item) => item.id) as ItemId[];
 export const SNOW_BOSS_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "SNOW_BOSS_DROP")
+  .map((item) => item.id) as ItemId[];
+export const LAVA_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "LAVA_DROP")
+  .map((item) => item.id) as ItemId[];
+export const LAVA_BOSS_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "LAVA_BOSS_DROP")
   .map((item) => item.id) as ItemId[];
 
 export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
@@ -209,6 +247,7 @@ export function isUpgradeableItem(itemId: unknown) {
   if (!item || (item.slot !== "HAND" && item.slot !== "CHEST")) return false;
   return item.weapon?.damageMultiplierBonus !== undefined ||
     item.weapon?.attackSpeedMultiplierBonus !== undefined ||
+    item.modifiers?.damageMultiplierBonus !== undefined ||
     item.modifiers?.maxHealthMultiplierBonus !== undefined ||
     item.modifiers?.regenerationMultiplierBonus !== undefined;
 }
@@ -243,6 +282,9 @@ export function itemStats(itemId: unknown, upgradeLevel: unknown = 0): readonly 
   if (item.weapon?.attackSpeedMultiplierBonus !== undefined) {
     stats.push(`ATTACK SPEED MULTIPLIER ${upgradedStatMultiplier(item.weapon.attackSpeedMultiplierBonus, level).toFixed(2)}×`);
   }
+  if (item.modifiers?.damageMultiplierBonus !== undefined) {
+    stats.push(`DAMAGE MULTIPLIER ${upgradedStatMultiplier(item.modifiers.damageMultiplierBonus, level).toFixed(2)}×`);
+  }
   if (item.modifiers?.maxHealthMultiplierBonus !== undefined) {
     stats.push(`MAX HEALTH MULTIPLIER ${upgradedStatMultiplier(item.modifiers.maxHealthMultiplierBonus, level).toFixed(2)}×`);
   }
@@ -267,15 +309,36 @@ export function itemUpgradeStatChanges(itemId: unknown, currentLevel: unknown) {
   });
 }
 
-/** Equipment bonuses add to research multipliers instead of multiplying them. */
+function equipmentStatMultiplier(itemId: unknown, upgradeLevel: unknown, bonus: number | undefined) {
+  return 1 + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
+}
+
+/** Research boosts the base stat, then equipment multiplies that boosted value. */
 export function weaponDamageMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.damageMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
+  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+}
+
+export function itemDamageMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
+  const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.damageMultiplierBonus;
+  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+}
+
+/** Weapon, armor, and research damage bonuses are independent multipliers. */
+export function equipmentDamageMultiplier(
+  weaponItemId: unknown,
+  chestItemId: unknown,
+  researchMultiplier = 1,
+  weaponUpgradeLevel = 0,
+  chestUpgradeLevel = 0,
+) {
+  return weaponDamageMultiplier(weaponItemId, researchMultiplier, weaponUpgradeLevel) *
+    itemDamageMultiplier(chestItemId, 1, chestUpgradeLevel);
 }
 
 export function weaponAttackSpeedMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.attackSpeedMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
+  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
 }
 
 export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1, upgradeLevel = 0) {
@@ -284,11 +347,11 @@ export function weaponAttackInterval(itemId: unknown, baseInterval: number, rese
 
 export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
+  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
 }
 
-/** Equipment regeneration bonuses add to research multipliers. */
+/** Regeneration uses the same research-then-equipment multiplication order. */
 export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus;
-  return researchMultiplier + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
+  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
 }

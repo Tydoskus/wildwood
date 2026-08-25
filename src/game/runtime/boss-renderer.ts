@@ -5,6 +5,10 @@ import {
   FROSTCLAW_ROAR_RANGE,
   FROSTCLAW_SPRITE_GROUND_OFFSET,
   FROSTCLAW_SPRITE_Y_OFFSET,
+  MAGMALISK_BITE_HALF_ANGLE,
+  MAGMALISK_BITE_RANGE,
+  MAGMALISK_SPRITE_GROUND_OFFSET,
+  MAGMALISK_SPRITE_Y_OFFSET,
   TAU,
 } from "../constants";
 import { clamp } from "../math";
@@ -15,12 +19,16 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  MAGMALISK_REWARD_ARMOR,
+  MAGMALISK_REWARD_DAMAGE,
+  MAGMALISK_REWARD_HEALTH,
+  MAGMALISK_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
 } from "../../../shared/rules";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool } from "./types";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -32,15 +40,19 @@ export function createBossRenderer(options: {
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
+  magmaliskBoss: MagmaliskBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
+  magmaliskEruptions: MagmaliskEruption[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
+  magmaliskSpriteCanvas: HTMLCanvasElement;
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
+  magmaliskReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -49,7 +61,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss } = options;
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
     type,
     amount: baseAmount * options.rewardMultiplier(),
@@ -190,5 +202,100 @@ export function createBossRenderer(options: {
     if (frostclawBoss.hpLossFlashTimer > 0 && frostclawBoss.hpLossFlashFrom > frostclawBoss.hp) { const fromRatio = clamp(frostclawBoss.hpLossFlashFrom / frostclawBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(frostclawBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
     ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText(rewardText("damage", FROSTCLAW_REWARD_DAMAGE), x, barY - 30, "#ff655a", 4); options.outlinedText(rewardText("health", FROSTCLAW_REWARD_HEALTH), x, barY - 17, "#6fe48e", 4); options.outlinedText(rewardText("armor", FROSTCLAW_REWARD_ARMOR), x, barY - 4, "#d3dbe0", 4); ctx.restore();
   }
-  return { drawBossTelegraphs, drawBoss, drawSpiderTelegraphs, drawSpiderBoss, drawFrostclawTelegraphs, drawFrostclawBoss };
+
+  function drawMagmaliskTelegraphs() {
+    if (magmaliskBoss.dead) return;
+    const x = magmaliskBoss.x - camera.x;
+    const y = magmaliskBoss.y - camera.y;
+    const time = options.gameTime();
+    if (magmaliskBoss.bite) {
+      const bite = magmaliskBoss.bite;
+      ctx.save();
+      ctx.fillStyle = bite.windup > 0 ? "rgba(255,116,35,.15)" : "rgba(255,72,24,.22)";
+      ctx.strokeStyle = "rgba(255,151,52,.94)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, MAGMALISK_BITE_RANGE, bite.angle - MAGMALISK_BITE_HALF_ANGLE, bite.angle + MAGMALISK_BITE_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (bite.windup <= 0) {
+        const radius = magmaliskBoss.r + (MAGMALISK_BITE_RANGE - magmaliskBoss.r) * clamp(1 - bite.timer / bite.duration, 0, 1);
+        for (let flame = 0; flame < 11; flame += 1) {
+          const angle = bite.angle - MAGMALISK_BITE_HALF_ANGLE + flame / 10 * MAGMALISK_BITE_HALF_ANGLE * 2;
+          ctx.fillStyle = flame % 2 ? "#ffad2f" : "#ff5b22";
+          options.pixelCircle(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, flame % 2 ? 12 : 16);
+        }
+      }
+      ctx.restore();
+    }
+    for (const eruption of options.magmaliskEruptions) {
+      const progress = 1 - clamp(eruption.timer / eruption.maxTimer, 0, 1);
+      const strikeX = eruption.x - camera.x;
+      const strikeY = eruption.y - camera.y;
+      const fallY = strikeY - 230 * (1 - progress);
+      ctx.save();
+      ctx.fillStyle = `rgba(255,84,28,${.1 + progress * .2})`;
+      ctx.strokeStyle = "rgba(255,176,58,.96)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([12, 8]);
+      ctx.lineDashOffset = -time * 38;
+      ctx.beginPath(); ctx.arc(strikeX, strikeY, eruption.r, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#3b2925"; options.pixelCircle(strikeX, fallY, 14);
+      ctx.fillStyle = "#ff6b21"; options.pixelCircle(strikeX, fallY + 3, 9);
+      ctx.fillStyle = "#ffd34b"; options.pixelCircle(strikeX, fallY + 5, 4);
+      ctx.restore();
+    }
+  }
+
+  function drawMagmaliskBoss() {
+    if (magmaliskBoss.dead || !options.magmaliskReady()) return;
+    const canvas = options.magmaliskSpriteCanvas;
+    const cellW = canvas.width / 4;
+    // The selected Magmalisk animation deliberately uses only source frames 0–2.
+    const frame = options.magmaliskEruptions.length > 0 ? 2 : magmaliskBoss.bite ? 1 : 0;
+    const drawW = 390;
+    const drawH = 520;
+    const x = Math.floor(magmaliskBoss.x - camera.x);
+    const y = Math.floor(magmaliskBoss.y - camera.y);
+    const visualY = y + MAGMALISK_SPRITE_Y_OFFSET;
+    const pulse = options.magmaliskEruptions.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
+    options.drawShadow(x, visualY + MAGMALISK_SPRITE_GROUND_OFFSET, 245, .29);
+    ctx.save();
+    ctx.translate(x, visualY);
+    ctx.scale(pulse, pulse);
+    ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
+    const barW = 290; const barH = 23; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34;
+    const ratio = clamp(magmaliskBoss.hp / magmaliskBoss.maxHp, 0, 1);
+    ctx.fillStyle = "rgba(0,0,0,.9)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = "#4b2119"; ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "#ef6428"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
+    if (magmaliskBoss.hpLossFlashTimer > 0 && magmaliskBoss.hpLossFlashFrom > magmaliskBoss.hp) {
+      const fromRatio = clamp(magmaliskBoss.hpLossFlashFrom / magmaliskBoss.maxHp, ratio, 1);
+      ctx.save(); ctx.globalAlpha = clamp(magmaliskBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff";
+      ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore();
+    }
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(magmaliskBoss.hp)))} / ${formatCompactNumber(Math.ceil(magmaliskBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4);
+    ctx.textBaseline = "bottom";
+    options.outlinedText("MAGMALISK", x, barY - 56, "#ffe0ad", 4);
+    options.outlinedText(rewardText("damage", MAGMALISK_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
+    options.outlinedText(rewardText("health", MAGMALISK_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
+    options.outlinedText(rewardText("armor", MAGMALISK_REWARD_ARMOR), x, barY - 17, "#d3dbe0", 4);
+    options.outlinedText(rewardText("regen", MAGMALISK_REWARD_REGEN), x, barY - 4, "#b877ff", 4);
+    ctx.restore();
+  }
+  return {
+    drawBossTelegraphs,
+    drawBoss,
+    drawSpiderTelegraphs,
+    drawSpiderBoss,
+    drawFrostclawTelegraphs,
+    drawFrostclawBoss,
+    drawMagmaliskTelegraphs,
+    drawMagmaliskBoss,
+  };
 }
