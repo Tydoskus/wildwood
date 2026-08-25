@@ -17,6 +17,7 @@ type InventoryDependencies = {
   inventory: SelectableInventory;
   move: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
   moveCosmetic: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
+  toggleCosmeticVisibility: (destination: EquipmentSlot) => boolean;
   upgradeLevel: (itemId: string) => number;
   itemInspection: ItemInspectionController;
 };
@@ -171,11 +172,19 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       const tappedAgain = dependencies.inventory.selectedItemLocation === destination && selectedItemId === itemId;
       if (tappedAgain) setSelection("", "");
       else if (itemFitsEquipmentSlot(selectedItemId, destination) && move(selectedItemId, destination)) return;
-      else if (itemId) setSelection(itemId, destination);
+      else if (itemDefinition(itemId)) setSelection(itemId, destination);
       render();
       return;
     }
-    if (!itemId) return;
+    if (mode === "COSMETICS" && !itemDefinition(itemId)) {
+      if (dependencies.toggleCosmeticVisibility(destination)) {
+        setSelection("", "");
+        render();
+        playMoveFeedback(destination);
+      }
+      return;
+    }
+    if (!itemDefinition(itemId)) return;
     setSelection(itemId, destination);
     render();
   }
@@ -189,7 +198,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     bindLongPress(element, {
       onLongPress: () => {
         const itemId = itemInSlot(destination);
-        if (itemId) inspect(itemId, destination);
+        if (itemDefinition(itemId)) inspect(itemId, destination);
       },
     });
   }

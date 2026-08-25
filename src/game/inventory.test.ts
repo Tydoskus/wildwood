@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bagInventoryStacks, BASIC_PAPER_HAT, equipmentAppearance, FROST_ARMOR, FROST_BOW, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, equipmentAppearance, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "./inventory";
 
 const emptyCosmetics = {
   cosmeticHead: "",
@@ -193,6 +193,59 @@ describe("inventory rules", () => {
       rightHandItem: "",
       leftHandItem: STARTER_BOW,
     });
+  });
+
+  it("toggles inherited equipment art to nothing without changing stat equipment", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([WOODEN_ARMOR]),
+      "",
+      BASIC_PAPER_HAT,
+      WOODEN_ARMOR,
+      false,
+      false,
+      STARTER_STONE,
+      "",
+    );
+
+    expect(toggleCosmeticEquipmentVisibility(inventory, "CHEST")).toBe("HIDDEN");
+    expect(inventory.cosmeticChest).toBe(HIDDEN_COSMETIC_ITEM_ID);
+    expect(inventory.equippedChest).toBe(WOODEN_ARMOR);
+    expect(equipmentAppearance(inventory).chestItem).toBe("");
+    expect(toggleCosmeticEquipmentVisibility(inventory, "CHEST")).toBe("EQUIPMENT");
+    expect(equipmentAppearance(inventory).chestItem).toBe(WOODEN_ARMOR);
+
+    expect(toggleCosmeticEquipmentVisibility(inventory, "RIGHT_HAND")).toBe("HIDDEN");
+    expect(equipmentAppearance(inventory)).toMatchObject({ rightHandItem: "", leftHandItem: "" });
+    expect(inventory.equippedRightHand).toBe(STARTER_STONE);
+  });
+
+  it("round-trips the reserved nothing-over-equipment cosmetic value", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([WOODEN_ARMOR]),
+      "",
+      BASIC_PAPER_HAT,
+      WOODEN_ARMOR,
+      false,
+      false,
+      STARTER_STONE,
+      "",
+      HIDDEN_COSMETIC_ITEM_ID,
+      HIDDEN_COSMETIC_ITEM_ID,
+      "",
+      HIDDEN_COSMETIC_ITEM_ID,
+      "",
+    );
+
+    expect(inventory).toMatchObject({
+      equippedHead: BASIC_PAPER_HAT,
+      equippedChest: WOODEN_ARMOR,
+      equippedRightHand: STARTER_STONE,
+      cosmeticHead: HIDDEN_COSMETIC_ITEM_ID,
+      cosmeticChest: HIDDEN_COSMETIC_ITEM_ID,
+      cosmeticRightHand: HIDDEN_COSMETIC_ITEM_ID,
+    });
+    expect(equipmentAppearance(inventory)).toMatchObject({ headItem: "", chestItem: "", rightHandItem: "", leftHandItem: "" });
+    expect(bagInventoryStacks(inventory)).toEqual([]);
   });
 
   it("moves one unique item between stat and cosmetic loadouts", () => {

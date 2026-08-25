@@ -66,6 +66,11 @@ describe("interface style contracts", () => {
     expect(chat).toContain("bottom: var(--toolbar-height)");
     expect(chat).toContain("width: 100vw");
     expect(chat).toContain("height: var(--mini-chat-height)");
+    expect(chat).toContain("border-bottom: 0");
+    const compactChat = cssRule("#chatPanel:not(.is-large) {");
+    expect(compactChat).toContain("min-height: var(--mini-chat-height)");
+    expect(compactChat).toContain("max-height: var(--mini-chat-height)");
+    expect(compactChat).toContain("linear-gradient");
     expect(cssRule("canvas#game {")).toContain("bottom: var(--gameplay-bottom-inset)");
     expect(cssRule("#chatPanel.is-large {")).toContain("var(--toolbar-height)");
     expect(cssRule(".card.settings-panel")).toContain("inset: 0 0 var(--toolbar-height)");
@@ -87,11 +92,18 @@ describe("interface style contracts", () => {
     expect(counter).toContain("top: calc(var(--hud-row-height) + 4px)");
     expect(counter).toContain("left: 6px");
     expect(counter).toContain("border: 0");
-    expect(counter).toContain("background: transparent");
+    expect(counter).toContain("background: rgba(");
+    expect(counter).not.toContain("background: transparent");
     const icon = cssRule(".hud-gem-icon {");
     expect(icon).not.toContain("gradient");
     expect(icon).not.toContain("box-shadow");
     expect(icon).not.toContain("clip-path");
+  });
+
+  it("uses the existing cosmetic slots for the wear-nothing state", () => {
+    expect(cssRule(".equipment-slot.is-cosmetic-inherited {")).toContain("cursor: pointer");
+    expect(cssRule(".equipment-slot.is-cosmetic-hidden {")).toContain("cursor: pointer");
+    expect(cssRule(".cosmetic-hidden-icon::after {")).toContain("transform: rotate(-36deg)");
   });
 
   it("defines and applies the 11px functional-text floor", () => {

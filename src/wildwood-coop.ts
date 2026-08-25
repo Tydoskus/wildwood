@@ -3375,6 +3375,18 @@ export const wildwoodCoop = {
       return { ok: false, error: message };
     }
   },
+  async speedUpResearchWithGems() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await connection.reducers.speedUpResearchWithGems({});
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("research speed-up", error);
+      return { ok: false, error: message };
+    }
+  },
   async startItemUpgrade(itemId: string, position?: { x: number; y: number }) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     const conn = connection;

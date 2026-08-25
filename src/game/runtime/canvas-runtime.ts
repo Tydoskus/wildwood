@@ -1,6 +1,12 @@
 import { createCanvasPrimitives } from "../canvas";
 import { requiredCanvasContext } from "./dom";
 
+export function gameplayBottomInset(toolbarHeight: number, compactChatHeight: number, compactChatVisible: boolean) {
+  const toolbar = Number.isFinite(toolbarHeight) ? Math.max(0, toolbarHeight) : 0;
+  const chat = Number.isFinite(compactChatHeight) ? Math.max(0, compactChatHeight) : 0;
+  return toolbar + (compactChatVisible ? chat : 0);
+}
+
 export function createCanvasRuntime({
   canvas,
   bottomInset,

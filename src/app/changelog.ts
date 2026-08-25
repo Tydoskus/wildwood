@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.501": [
+    "Registered accounts now receive 7 free Gems once per UTC day, and active research can be finished for one Gem per started ten minutes.",
+    "Cosmetics slots can now hide equipped gear visually without changing its stats.",
+    "World Chat now uses a seamless dark-gray compact bar, stays at the correct height after fullscreen windows, and the Gem counter has a subtle borderless background.",
+  ],
   "0.500": [
     "Moved the private Gems balance out of the profile into a borderless HUD counter beneath the player summary, showing only the pink Gem symbol and amount.",
     "Returned minimized World Chat to a full-width strip between the gameplay canvas and toolbar; gameplay now ends above it while fullscreen windows continue to cover it normally.",
@@ -983,6 +988,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.501": "2026-08-24",
   "0.500": "2026-08-24",
   "0.499": "2026-08-24",
   "0.498": "2026-08-24",

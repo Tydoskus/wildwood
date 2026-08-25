@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { equipmentAppearance, FROST_ARMOR, FROST_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { equipmentAppearance, FROST_ARMOR, FROST_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -21,7 +21,7 @@ import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from
 import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-renderer";
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
-import { createCanvasRuntime } from "./game/runtime/canvas-runtime";
+import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
 import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
@@ -100,12 +100,16 @@ import {
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
+  const configuredMiniChatHeight = () => {
+    const value = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mini-chat-height"));
+    return Number.isFinite(value) ? value : 82;
+  };
   const canvasRuntime = createCanvasRuntime({
     canvas,
-    bottomInset: () => toolbar.getBoundingClientRect().height + (
-      chatPanel.hidden || chatPanel.classList.contains("is-large")
-        ? 0
-        : chatPanel.getBoundingClientRect().height
+    bottomInset: () => gameplayBottomInset(
+      toolbar.getBoundingClientRect().height,
+      configuredMiniChatHeight(),
+      !chatPanel.hidden && !chatPanel.classList.contains("is-large"),
     ),
     getActorShadowSprite: () => actorShadowSprite,
   });
@@ -345,6 +349,18 @@ import {
       if (!moveCosmeticInventoryItem(inventory, itemId, destination)) return false;
       saveProgress(true);
       showMessage("COSMETIC UPDATED · STATS UNCHANGED", "#f0c66b");
+      return true;
+    },
+    toggleCosmeticVisibility: (destination) => {
+      const change = toggleCosmeticEquipmentVisibility(inventory, destination);
+      if (!change) return false;
+      saveProgress(true);
+      showMessage(
+        change === "HIDDEN"
+          ? "COSMETIC UPDATED · WEARING NOTHING · STATS UNCHANGED"
+          : "COSMETIC UPDATED · EQUIPMENT VISIBLE · STATS UNCHANGED",
+        "#f0c66b",
+      );
       return true;
     },
   });
@@ -884,6 +900,8 @@ import {
     researchRanks,
     activeResearch: () => coop?.activeResearch?.() ?? null,
     startResearch: async (id: ResearchId) => coop?.startResearch?.(id),
+    gemBalance: () => coop?.gemBalance?.() ?? 0n,
+    speedUpResearch: async () => coop?.speedUpResearchWithGems?.(),
     showMessage,
     beforeOpen: () => {
       minimizeMaximizedChat();

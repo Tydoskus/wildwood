@@ -19,7 +19,12 @@ import {
   WOODEN_ARMOR,
   type EquipmentSlot,
 } from "../../shared/items";
-import { resolveEquipmentAppearance, type EquipmentAppearance } from "../../shared/equipment-appearance";
+import {
+  HIDDEN_COSMETIC_ITEM_ID,
+  isHiddenCosmeticItem,
+  resolveEquipmentAppearance,
+  type EquipmentAppearance,
+} from "../../shared/equipment-appearance";
 
 export {
   BASIC_PAPER_HAT,
@@ -53,6 +58,7 @@ export type InventoryState = {
 };
 
 export type { EquipmentAppearance } from "../../shared/equipment-appearance";
+export { HIDDEN_COSMETIC_ITEM_ID } from "../../shared/equipment-appearance";
 
 export type InventoryStack = { itemId: string; quantity: number };
 
@@ -111,7 +117,7 @@ export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] 
   const counts = new Map(ownedInventoryStacks(inventory).map(({ itemId, quantity }) => [itemId, quantity]));
   for (const field of SLOTTED_ITEM_FIELDS) {
     const itemId = inventory[field];
-    if (!itemId) continue;
+    if (!itemDefinition(itemId)) continue;
     counts.set(itemId, Math.max(0, (counts.get(itemId) ?? 0) - 1));
   }
   return [...counts]
@@ -194,6 +200,37 @@ export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: str
   return true;
 }
 
+export type CosmeticVisibilityChange = "HIDDEN" | "EQUIPMENT";
+
+/** Tapping an inherited Cosmetics slot switches between stat-equipment art and no art. */
+export function toggleCosmeticEquipmentVisibility(
+  inventory: InventoryState,
+  destination: EquipmentSlot,
+): CosmeticVisibilityChange | null {
+  const cosmeticTarget = destination === "HEAD" ? "cosmeticHead"
+    : destination === "CHEST" ? "cosmeticChest"
+      : destination === "FEET" ? "cosmeticFeet"
+        : destination === "RIGHT_HAND" ? "cosmeticRightHand"
+          : "cosmeticLeftHand";
+  const equippedTarget = destination === "HEAD" ? "equippedHead"
+    : destination === "CHEST" ? "equippedChest"
+      : destination === "FEET" ? "equippedFeet"
+        : destination === "RIGHT_HAND" ? "equippedRightHand"
+          : "equippedLeftHand";
+  const currentCosmetic = inventory[cosmeticTarget];
+  if (isHiddenCosmeticItem(currentCosmetic)) {
+    inventory[cosmeticTarget] = "";
+    return "EQUIPMENT";
+  }
+  if (currentCosmetic || !inventory[equippedTarget]) return null;
+  if (destination === "RIGHT_HAND" || destination === "LEFT_HAND") {
+    inventory.cosmeticRightHand = "";
+    inventory.cosmeticLeftHand = "";
+  }
+  inventory[cosmeticTarget] = HIDDEN_COSMETIC_ITEM_ID;
+  return "HIDDEN";
+}
+
 /** Resolves final outfit art while keeping stat equipment untouched. */
 export function equipmentAppearance(inventory: Pick<InventoryState,
   "equippedHead" | "equippedChest" | "equippedFeet" | "equippedRightHand" | "equippedLeftHand"
@@ -235,6 +272,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     if (itemId) remainingCounts.set(itemId, Math.max(0, (remainingCounts.get(itemId) ?? 0) - 1));
   }
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
+    if (isHiddenCosmeticItem(requestedItem)) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(requestedItem);
     if (!itemId || !itemFitsEquipmentSlot(itemId, slot) || (remainingCounts.get(itemId) ?? 0) <= 0) return "";
     remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) - 1);

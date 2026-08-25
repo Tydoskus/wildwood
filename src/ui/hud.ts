@@ -4,6 +4,7 @@ import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { bindLongPress } from "./long-press";
 import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
+import { isHiddenCosmeticItem } from "../../shared/equipment-appearance";
 import { itemDisplayName, normalizeItemUpgradeLevel } from "../../shared/items";
 
 type PlayerHudState = {
@@ -133,6 +134,14 @@ function equipmentItemId(inventory: InventoryViewState, slot: EquipmentSlot, mod
           : inventory.equippedLeftHand;
 }
 
+function statEquipmentItemId(inventory: InventoryViewState, slot: EquipmentSlot) {
+  return slot === "HEAD" ? inventory.equippedHead
+    : slot === "CHEST" ? inventory.equippedChest
+      : slot === "FEET" ? inventory.equippedFeet
+        : slot === "RIGHT_HAND" ? inventory.equippedRightHand
+          : inventory.equippedLeftHand;
+}
+
 export function inventoryMoveActions(
   inventory: InventoryViewState,
   itemId: string,
@@ -183,37 +192,55 @@ function renderEquipmentSlot(
 ) {
   const itemId = equipmentItemId(inventory, destination, mode);
   const item = itemsById[itemId];
+  const cosmeticHidden = mode === "COSMETICS" && isHiddenCosmeticItem(itemId);
+  const inheritedItemId = mode === "COSMETICS" && !item && !cosmeticHidden
+    ? statEquipmentItemId(inventory, destination)
+    : "";
+  const inheritedItem = itemsById[inheritedItemId];
   element.dataset.inventoryDrop = destination;
   element.dataset.inventoryLocation = destination;
-  if (itemId) {
+  if (item) {
     element.dataset.inventoryDragSource = "true";
     element.dataset.itemId = itemId;
   } else {
     delete element.dataset.inventoryDragSource;
     delete element.dataset.itemId;
   }
-  element.classList.toggle("is-equipped", Boolean(itemId));
-  element.classList.toggle("is-cosmetic", mode === "COSMETICS" && Boolean(itemId));
+  element.classList.toggle("is-equipped", Boolean(item));
+  element.classList.toggle("is-cosmetic", mode === "COSMETICS" && Boolean(item));
+  element.classList.toggle("is-cosmetic-inherited", Boolean(inheritedItem));
+  element.classList.toggle("is-cosmetic-hidden", cosmeticHidden);
   updateEquipmentSlotSelection(element, inventory, destination, mode);
-  const level = upgradeLevel(itemId);
-  element.setAttribute("aria-label", itemId
+  const level = item ? upgradeLevel(itemId) : 0;
+  element.setAttribute("aria-label", item
     ? `${label}: ${itemDisplayName(itemId, level)}. Tap to select, drag to move, or hold briefly for details.`
-    : mode === "COSMETICS" ? `${label}: use equipped appearance` : `${label}: empty`);
+    : cosmeticHidden
+      ? `${label}: wearing nothing over equipped item. Tap to show equipment.`
+      : inheritedItem
+        ? `${label}: showing equipped ${itemDisplayName(inheritedItemId)}. Tap to wear nothing over it.`
+        : mode === "COSMETICS" ? `${label}: nothing equipped` : `${label}: empty`);
+  element.title = cosmeticHidden ? "Show equipped item" : inheritedItem ? "Wear nothing over equipped item" : "";
   const slotLabel = document.createElement("span");
   slotLabel.className = "equipment-slot-label";
   slotLabel.textContent = label;
   const art = document.createElement("span");
   art.className = "equipment-slot-art";
-  if (itemId) art.innerHTML = itemArt(itemId, false);
+  if (item) art.innerHTML = itemArt(itemId, false);
+  else if (cosmeticHidden) {
+    const hidden = document.createElement("span");
+    hidden.className = "cosmetic-hidden-icon";
+    hidden.setAttribute("aria-hidden", "true");
+    art.append(hidden);
+  } else if (inheritedItem) art.innerHTML = itemArt(inheritedItemId, false);
   else {
     const empty = document.createElement("span");
     empty.className = "equipment-slot-empty";
-    empty.textContent = "+";
+    empty.textContent = mode === "COSMETICS" ? "—" : "+";
     art.append(empty);
   }
   const name = document.createElement("span");
   name.className = "equipment-slot-name";
-  name.textContent = item?.name ?? (mode === "COSMETICS" ? "EQUIPPED LOOK" : "EMPTY");
+  name.textContent = item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
   if (level > 0) {
     const badge = document.createElement("span");

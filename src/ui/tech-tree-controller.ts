@@ -6,6 +6,7 @@ import {
   type ResearchId,
   type ResearchRanks as SharedResearchRanks,
 } from "../../shared/research";
+import { researchSpeedUpGemCost } from "../../shared/gems";
 import { createTechTreeLayout, type TechTreeNode } from "./tech-tree-layout";
 
 export type ResearchRanks = SharedResearchRanks;
@@ -35,6 +36,8 @@ export type TechTreeControllerHooks = {
   researchRanks: () => ResearchRanks;
   activeResearch: () => ActiveResearch | null;
   startResearch: (researchId: ResearchId) => Promise<ResearchResult>;
+  gemBalance: () => bigint;
+  speedUpResearch: () => Promise<ResearchResult>;
   showMessage: (message: string, color: string) => void;
   beforeOpen: () => void;
   nowMs: () => number;
@@ -229,12 +232,29 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     }
     const action = document.createElement("button");
     action.className = "primary-button tech-tree-action";
-    action.disabled = researchRequestPending || Boolean(current) || !canStart;
-    action.textContent = current
-      ? activeRemaining <= 0 ? "FINALIZING RESEARCH" : "RESEARCH IN PROGRESS"
-      : progress.isComplete ? "MAXED"
-        : canStart ? "START RESEARCH"
-          : `REQUIRES ${requirementText(selected.researchId, ranks)}`;
+    const canSpeedUp = Boolean(selectedActive && current && activeRemaining > 0);
+    const speedUpCost = canSpeedUp ? researchSpeedUpGemCost(activeRemaining) : 0n;
+    action.disabled = researchRequestPending || (canSpeedUp ? hooks.gemBalance() < speedUpCost : Boolean(current) || !canStart);
+    if (canSpeedUp) {
+      action.classList.add("is-gem-speed-up");
+      const label = document.createElement("span");
+      label.textContent = "FINISH NOW";
+      const icon = document.createElement("img");
+      icon.src = "assets/wildwood/gems/gem-icon.png";
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+      icon.draggable = false;
+      const cost = document.createElement("strong");
+      cost.textContent = speedUpCost.toString();
+      action.append(label, icon, cost);
+      action.setAttribute("aria-label", `Finish research now for ${speedUpCost} Gems. One Gem is worth ten minutes. Your balance is ${hooks.gemBalance()} Gems.`);
+    } else {
+      action.textContent = current
+        ? activeRemaining <= 0 ? "FINALIZING RESEARCH" : "RESEARCH IN PROGRESS"
+        : progress.isComplete ? "MAXED"
+          : canStart ? "START RESEARCH"
+            : `REQUIRES ${requirementText(selected.researchId, ranks)}`;
+    }
     action.addEventListener("click", () => { void triggerAction(); });
     detailContent.append(action);
     drawLinks();
@@ -246,9 +266,14 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     if (!selected) return;
     researchRequestPending = true;
     render();
-    const result = current ? { ok: false, error: "RESEARCH IN PROGRESS" } : await hooks.startResearch(selected.researchId);
+    const speedingUp = current?.researchId === selected.researchId && current.completesAtMs > hooks.nowMs();
+    const result = speedingUp
+      ? await hooks.speedUpResearch()
+      : current ? { ok: false, error: "RESEARCH IN PROGRESS" }
+        : await hooks.startResearch(selected.researchId);
     researchRequestPending = false;
     if (!result?.ok) hooks.showMessage(result?.error ?? "RESEARCH UNAVAILABLE", "#ff9b91");
+    else if (speedingUp) hooks.showMessage("RESEARCH COMPLETED WITH GEMS", "#ff9fd2");
     render();
   }
 

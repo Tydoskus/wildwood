@@ -356,6 +356,12 @@
   .equipment-slot-name { align-self: end; max-width: 100%; overflow: hidden; color: #eef2ed; font-size: var(--font-readable-min); line-height: var(--line-height-readable); text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
   .equipment-slot-empty { color: #758178; font: 500 18px/1 Arial, sans-serif; }
   .equipment-slot.is-equipped { border-color: #c88b2c; background: linear-gradient(#3b311d, #211b11); color: #ffe19a; }
+  .equipment-slot.is-cosmetic-inherited { border-color: #77827b; background: linear-gradient(#25302a, #121915); cursor: pointer; }
+  .equipment-slot.is-cosmetic-inherited .inventory-item-art { opacity: .42; filter: grayscale(.32); }
+  .equipment-slot.is-cosmetic-hidden { border-color: #76666f; background: linear-gradient(#2d272b, #171316); cursor: pointer; }
+  .cosmetic-hidden-icon { position: relative; display: block; width: 28px; height: 20px; }
+  .cosmetic-hidden-icon::before { position: absolute; inset: 4px 5px; border: 2px solid #aeb6b1; border-radius: 70% 12%; content: ""; transform: rotate(45deg); }
+  .cosmetic-hidden-icon::after { position: absolute; top: 9px; left: 0; width: 28px; height: 2px; border-radius: 999px; background: #e49a9f; box-shadow: 0 1px 0 #111; content: ""; transform: rotate(-36deg); }
   .equipment-slot.is-selected { z-index: 2; border-color: #e29b21; box-shadow: 0 0 0 2px #fff3c9, 0 0 0 4px rgba(215,150,38,.58); }
   .equipment-slot.is-compatible { z-index: 1; border-color: #d5962c; animation: inventory-compatible-pulse 1.15s ease-in-out infinite; }
   .equipment-slot.is-incompatible { opacity: .48; filter: saturate(.55); }
@@ -1015,6 +1021,7 @@
     height: var(--mini-chat-height);
     padding: 3px 6px 5px;
     border-top: 0;
+    border-bottom: 0;
     border-left: 0;
     border-right: 0;
     border-radius: 0;
@@ -1024,12 +1031,12 @@
     z-index: 6;
   }
 
-  .hud-gem-wallet { position: fixed; top: calc(var(--hud-row-height) + 4px); left: 6px; z-index: 5; display: flex; align-items: center; gap: 3px; min-height: 23px; padding: 0; border: 0; background: transparent; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
+  .hud-gem-wallet { position: fixed; top: calc(var(--hud-row-height) + 4px); left: 6px; z-index: 5; display: flex; align-items: center; gap: 3px; min-height: 23px; padding: 2px 5px 2px 3px; border: 0; border-radius: 5px; background: rgba(92, 58, 79, .52); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
   .hud-gem-icon { display: block; width: 17px; height: 17px; object-fit: contain; }
   .hud-gem-balance { color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px #071c29; }
 
   #chatPanel[hidden] { display: none; }
-  #chatPanel:not(.is-large) { border-radius: 0; background: rgba(8, 18, 12, .5); backdrop-filter: none; }
+  #chatPanel:not(.is-large) { height: var(--mini-chat-height); min-height: var(--mini-chat-height); max-height: var(--mini-chat-height); border-radius: 0; background: linear-gradient(180deg, rgba(61, 65, 66, .94), rgba(37, 41, 42, .96)); backdrop-filter: none; }
   #chatPanel:not(.is-large) #topMeta { color: #fff; }
   .chat-header,
   #chatForm {
@@ -1602,6 +1609,10 @@
   .tech-tree-timer-fill { width: calc(var(--research-progress) * 100%); height: 100%; margin-right: auto; background: #d9dde2; transform-origin: left center; transition: width .7s linear; }
   .tech-tree-action { justify-self: start; min-height: 28px; margin-top: 3px; border-color: #aeb5bd; background: #515963; color: #fff; font-size: 9px; }
   .tech-tree-action:hover:not(:disabled), .tech-tree-action:focus-visible { border-color: #fff; background: #68727d; }
+  .tech-tree-action.is-gem-speed-up { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 38px; padding-inline: 12px; border-color: #e697bd; background: linear-gradient(#864c72, #57304b); color: #fff; }
+  .tech-tree-action.is-gem-speed-up:hover:not(:disabled), .tech-tree-action.is-gem-speed-up:focus-visible { border-color: #ffd0e6; background: linear-gradient(#a35e8b, #6e3b60); }
+  .tech-tree-action.is-gem-speed-up img { display: block; width: 18px; height: 18px; object-fit: contain; }
+  .tech-tree-action.is-gem-speed-up strong { color: #fff; font-size: 12px; line-height: 1; }
 
   #sceneFade {
     position: fixed;

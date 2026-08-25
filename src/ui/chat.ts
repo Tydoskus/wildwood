@@ -80,6 +80,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     // presentation changes so there is no hidden scroll position to preserve.
     renderedRevision = -1;
     refresh();
+    if (!large) {
+      elements.input.style.height = "28px";
+      elements.messages.scrollTop = elements.messages.scrollHeight;
+    }
     requestAnimationFrame(() => onLayoutChange?.());
     if (large) requestAnimationFrame(() => { elements.messages.scrollTop = elements.messages.scrollHeight; });
   }
