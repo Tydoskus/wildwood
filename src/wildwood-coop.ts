@@ -25,6 +25,7 @@ import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load
 import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
 import { connectionGateState } from "./coop/services/connection-gate-state";
 import { createSpeedSyncTracker } from "./coop/services/speed-sync";
+import { retryAfterMissingWorldPresence } from "./coop/services/world-presence-recovery";
 import {
   createRemoteBossAttackState,
   remoteBossAttackFrame,
@@ -575,12 +576,12 @@ const virtualPlayerLoadTest = createVirtualPlayerLoadTest({
   beginServerRun: async (ticket, maxCount) => {
     const conn = connection;
     if (!conn?.isActive || !isDeveloperIdentity(localIdentity)) throw new Error("DEVELOPER CONNECTION REQUIRED");
-    await conn.reducers.devBeginVirtualPlayerLoadTest({ ticket, maxCount });
+    await runWorldReducer(() => conn.reducers.devBeginVirtualPlayerLoadTest({ ticket, maxCount }));
   },
   clearServerPlayers: async () => {
     const conn = connection;
     if (!conn?.isActive || !isDeveloperIdentity(localIdentity)) throw new Error("DEVELOPER CONNECTION REQUIRED");
-    await conn.reducers.devClearVirtualPlayers({});
+    await runWorldReducer(() => conn.reducers.devClearVirtualPlayers({}));
   },
   onProtocolMismatch: (error) => handleReducerFailure("virtual-player protocol", error),
   onStateChange: onChange,
@@ -648,7 +649,7 @@ function sendReducer(action: string, reducer: () => unknown, onRejected?: () => 
     const startedAt = performance.now();
     const measureLatency = startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
     if (measureLatency) lastLatencyProbeStartedAt = startedAt;
-    void Promise.resolve(reducer())
+    void runWorldReducer(() => Promise.resolve(reducer()))
       .then(() => {
         onAccepted?.();
         if (measureLatency) recordLatency(startedAt);
@@ -693,6 +694,24 @@ function requestWorldEntry(): Promise<boolean> {
       worldEntryPromise = null;
     });
   return worldEntryPromise;
+}
+
+async function recoverMissingWorldPresence() {
+  if (protocolBlocked || worldEntryBlocked || !connection) return false;
+  const generation = connectionGeneration;
+  worldEntryGeneration = 0;
+  authNotice = "REJOINING WILDWOOD";
+  setNetworkReconnectVisible(true);
+  const recovered = await requestWorldEntry();
+  if (generation !== connectionGeneration) return false;
+  setNetworkReconnectVisible(false);
+  if (recovered) authNotice = "";
+  onChange?.();
+  return recovered;
+}
+
+function runWorldReducer<T>(reducer: () => T | PromiseLike<T>) {
+  return retryAfterMissingWorldPresence(reducer, recoverMissingWorldPresence);
 }
 
 function accountToken() {
@@ -1097,7 +1116,7 @@ function flushPendingProgressAsync(force = false): Promise<boolean> {
   const identity = localIdentity;
   const snapshot = copyProgress(pendingProgress);
   progressSaveInFlightUntil = Date.now() + 4_000;
-  progressSavePromise = Promise.resolve(conn.reducers.savePlayerProgress(snapshot))
+  progressSavePromise = runWorldReducer(() => conn.reducers.savePlayerProgress(snapshot))
     .then(() => {
       if (identity === localIdentity && pendingProgress && sameProgressSave(pendingProgress, snapshot)) {
         clearPendingProgress(identity);
@@ -3198,7 +3217,7 @@ export const wildwoodCoop = {
     const code = randomUrlSafe(40);
     writeAccountLinkTransaction({ code, guestIdentity: localIdentity });
     try {
-      await connection.reducers.beginAccountLink({ code });
+      await runWorldReducer(() => connection!.reducers.beginAccountLink({ code }));
     } catch (error) {
       clearTabValue(accountLinkKey);
       authNotice = "SIGN-IN NOT READY";
@@ -3306,7 +3325,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.claimDailyGemBonus({});
+      await runWorldReducer(() => connection!.reducers.claimDailyGemBonus({}));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3320,7 +3339,7 @@ export const wildwoodCoop = {
     const target = identity === localIdentity ? localDbIdentity : profileIdentities.get(identity);
     if (!target) return { ok: false, error: "PLAYER PROFILE UNAVAILABLE" };
     try {
-      await connection.reducers.devAdjustGems({ identity: target, delta, reason });
+      await runWorldReducer(() => connection!.reducers.devAdjustGems({ identity: target, delta, reason }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3349,7 +3368,7 @@ export const wildwoodCoop = {
       return { ok: false, error: "DEVELOPER ACCESS REQUIRED" };
     }
     try {
-      await connection.reducers.setDeveloperPresence({ visible });
+      await runWorldReducer(() => connection!.reducers.setDeveloperPresence({ visible }));
       localPresenceVisible = visible;
       onChange?.();
       return { ok: true };
@@ -3371,7 +3390,7 @@ export const wildwoodCoop = {
     }
     if (!bugReportEntries.has(id.toString())) return { ok: false, error: "BUG REPORT NOT FOUND" };
     try {
-      await connection.reducers.devDeleteBugReport({ id });
+      await runWorldReducer(() => connection!.reducers.devDeleteBugReport({ id }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3386,7 +3405,7 @@ export const wildwoodCoop = {
     const entry = accessAuditEntries.get(identity);
     if (!entry) return { ok: false, error: "AUDIT ROW NOT FOUND" };
     try {
-      await connection.reducers.devSetAccessAuditLabel({ identity: entry.identityValue, label });
+      await runWorldReducer(() => connection!.reducers.devSetAccessAuditLabel({ identity: entry.identityValue, label }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3412,7 +3431,7 @@ export const wildwoodCoop = {
     const targetIdentity = profileIdentities.get(identity) ?? accessAuditEntries.get(identity)?.identityValue;
     if (!targetIdentity) return { ok: false, error: "PLAYER IDENTITY NOT FOUND" };
     try {
-      await connection.reducers.devUpdatePlayerSave({ identity: targetIdentity, ...update });
+      await runWorldReducer(() => connection!.reducers.devUpdatePlayerSave({ identity: targetIdentity, ...update }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3430,7 +3449,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.setDisplayName({ displayName });
+      await runWorldReducer(() => connection!.reducers.setDisplayName({ displayName }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3444,7 +3463,7 @@ export const wildwoodCoop = {
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     const normalized = Math.max(0, Math.min(63, Math.floor(profileIcon)));
     try {
-      await connection.reducers.setProfileIcon({ profileIcon: normalized });
+      await runWorldReducer(() => connection!.reducers.setProfileIcon({ profileIcon: normalized }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3458,7 +3477,7 @@ export const wildwoodCoop = {
     const normalized = normalizePlayerGender(gender);
     if (normalized !== gender) return { ok: false, error: "INVALID GENDER" };
     try {
-      await connection.reducers.setGender({ gender: normalized });
+      await runWorldReducer(() => connection!.reducers.setGender({ gender: normalized }));
       playerGenders.set(localIdentity, normalized);
       rememberConfirmedGender(normalized);
       chatPresentationRevision += 1;
@@ -3475,7 +3494,7 @@ export const wildwoodCoop = {
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     const normalized = Math.max(0, Math.min(3, Math.floor(playerSprite)));
     try {
-      await connection.reducers.setPlayerSprite({ playerSprite: normalized });
+      await runWorldReducer(() => connection!.reducers.setPlayerSprite({ playerSprite: normalized }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3488,7 +3507,7 @@ export const wildwoodCoop = {
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     const normalized = Math.max(0, Math.min(19, Math.floor(skinTone)));
     try {
-      await connection.reducers.setSkinTone({ skinTone: normalized });
+      await runWorldReducer(() => connection!.reducers.setSkinTone({ skinTone: normalized }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3529,7 +3548,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.unlockSecondUpgradeSlot({});
+      await runWorldReducer(() => connection!.reducers.unlockSecondUpgradeSlot({}));
       localSecondUpgradeSlotUnlocked = true;
       onChange?.();
       return { ok: true };
@@ -3543,7 +3562,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.startResearch({ researchId });
+      await runWorldReducer(() => connection!.reducers.startResearch({ researchId }));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3555,7 +3574,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.speedUpResearchWithGems({});
+      await runWorldReducer(() => connection!.reducers.speedUpResearchWithGems({}));
       return { ok: true };
     } catch (error) {
       const message = reducerErrorMessage(error);
@@ -3568,31 +3587,38 @@ export const wildwoodCoop = {
     const conn = connection;
     if (!conn) return { ok: false, error: "NOT CONNECTED" };
     try {
+      if (position && ![position.x, position.y].every(Number.isFinite)) {
+        return { ok: false, error: "INVALID BENCH POSITION" };
+      }
+      const positionSequence = position ? ++nextPositionSequence : 0;
       // Opening the fullscreen bench pauses the game loop. Commit and await
       // the exact contact position first so server validation cannot see the
       // last sparse movement sample from before the player reached the bench.
-      if (position) {
-        if (![position.x, position.y].every(Number.isFinite)) {
-          return { ok: false, error: "INVALID BENCH POSITION" };
+      // Retry the whole position + upgrade transaction sequence after a lost
+      // presence repair so the re-entered player is still validated at the bench.
+      await runWorldReducer(async () => {
+        if (connection !== conn) throw new Error("CONNECTION CHANGED");
+        if (position) {
+          await conn.reducers.updateMovementState({
+            x: position.x,
+            y: position.y,
+            dx: 0,
+            dy: 0,
+            sequence: positionSequence,
+          });
         }
-        const sequence = ++nextPositionSequence;
-        await conn.reducers.updateMovementState({
-          x: position.x,
-          y: position.y,
-          dx: 0,
-          dy: 0,
-          sequence,
-        });
-        if (connection !== conn) return { ok: false, error: "CONNECTION CHANGED" };
+        if (connection !== conn) throw new Error("CONNECTION CHANGED");
+        await conn.reducers.startItemUpgrade({ slot, itemId });
+      });
+      if (position) {
         lastSentMovement = { dx: 0, dy: 0, moving: false, sentAt: performance.now() };
         if (localState) {
           localState.x = position.x;
           localState.y = position.y;
           localState.moving = false;
-          localState.lastInputSequence = sequence;
+          localState.lastInputSequence = positionSequence;
         }
       }
-      await conn.reducers.startItemUpgrade({ slot, itemId });
       const currentLevel = profileItemUpgrades.get(localIdentity)?.get(itemId) ?? 0;
       const remainingMs = itemUpgradeDurationMs(currentLevel);
       const startedAtMs = Date.now();
@@ -3618,7 +3644,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.cancelItemUpgrade({ slot });
+      await runWorldReducer(() => connection!.reducers.cancelItemUpgrade({ slot }));
       localActiveItemUpgrades.delete(slot);
       onChange?.();
       return { ok: true };
@@ -3632,7 +3658,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.speedUpItemUpgradeWithGems({ slot });
+      await runWorldReducer(() => connection!.reducers.speedUpItemUpgradeWithGems({ slot }));
       localActiveItemUpgrades.delete(slot);
       onChange?.();
       return { ok: true };
@@ -3645,7 +3671,7 @@ export const wildwoodCoop = {
   async recordPlayerDeath() {
     if (protocolBlocked || !connection) return;
     try {
-      await connection.reducers.recordPlayerDeath({});
+      await runWorldReducer(() => connection!.reducers.recordPlayerDeath({}));
     } catch (error) {
       handleReducerFailure("death tracking", error);
     }
@@ -3750,7 +3776,7 @@ export const wildwoodCoop = {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await connection.reducers.sendChatMessage({ message });
+      await runWorldReducer(() => connection!.reducers.sendChatMessage({ message }));
       return { ok: true };
     } catch (error) {
       const rejected = reducerErrorMessage(error);
@@ -3783,7 +3809,7 @@ export const wildwoodCoop = {
       if (!await drainPendingProgress()) return { ok: false, error: "SAVE STILL SYNCING · TRY AGAIN" };
       const conn = connection;
       if (!conn) return { ok: false, error: "NOT CONNECTED" };
-      await conn.reducers.requestDuel({ opponent });
+      await runWorldReducer(() => conn.reducers.requestDuel({ opponent }));
       rememberDuelCooldown(Date.now() + DUEL_COOLDOWN_MS);
       return { ok: true };
     } catch (error) {
@@ -3850,7 +3876,7 @@ export const wildwoodCoop = {
       ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID].includes(mapId)
     ) return false;
     try {
-      await connection.reducers.changeMap({ mapId, x, y });
+      await runWorldReducer(() => connection!.reducers.changeMap({ mapId, x, y }));
       return true;
     } catch (error) {
       handleReducerFailure("map change", error);

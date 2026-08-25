@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.511": [
+    "Fullscreen chat now uses larger portraits, rows, and message text.",
+    "Recovered missing world presence automatically and retried interrupted actions once.",
+    "Fixed mobile toolbar safe-area sizing and kept notifications visible above fullscreen windows.",
+    "Polished Upgrade Bench item placement, shadow, and the transparent death message layout.",
+  ],
   "0.510": [
     "Player deaths now animate before a faster 3-second respawn, and nearby players see the fall too.",
     "Profile stat equations align cleanly, with Block details shown only when Armor is expanded.",
@@ -1034,6 +1040,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.511": "2026-08-25",
   "0.510": "2026-08-25",
   "0.509": "2026-08-25",
   "0.508": "2026-08-25",

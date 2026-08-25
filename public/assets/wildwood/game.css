@@ -36,8 +36,7 @@
     --hud-map-size: calc(var(--hud-row-height) * 2);
     --mini-chat-height: 82px;
     --toolbar-button-height: 58px;
-    --toolbar-bottom-padding: 30px;
-    --toolbar-height: calc(var(--toolbar-button-height) + var(--toolbar-bottom-padding) + env(safe-area-inset-bottom, 0px));
+    --toolbar-height: calc(var(--toolbar-button-height) + env(safe-area-inset-bottom, 0px));
     --gameplay-bottom-inset: calc(var(--toolbar-height) + var(--mini-chat-height));
   }
 
@@ -185,7 +184,7 @@
     width: auto;
     height: 100%;
     margin: 0;
-    padding: 0 0 calc(var(--toolbar-bottom-padding) + env(safe-area-inset-bottom, 0px));
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
     border: 2px solid #000;
     border-top: 0;
     border-bottom: 0;
@@ -756,12 +755,14 @@
     position: absolute;
     left: 50%;
     top: 24%;
+    z-index: 16;
     transform: translate(-50%, -50%);
     text-align: center;
     font-weight: 900;
     letter-spacing: .04em;
     font-size: clamp(18px, 4vw, 34px);
     opacity: 0;
+    pointer-events: none;
     transition: opacity .15s;
   }
 
@@ -1190,7 +1191,7 @@
   }
 
   #chatPanel.is-large #chatMessages {
-    row-gap: 6px;
+    row-gap: 9px;
     min-height: 0;
     height: auto;
     max-height: none;
@@ -1217,8 +1218,12 @@
   #chatPanel.is-large .chat-header { min-height: 44px; border-bottom: 1px solid rgba(255,255,255,.14); }
   #chatPanel.is-large .chat-size-toggle { width: 44px; height: 44px; flex-basis: 44px; }
   #chatPanel.is-large .chat-size-icon { inset: 12px; }
-  #chatPanel.is-large .chat-line { grid-template-columns: 44px minmax(0, 1fr) auto; min-height: 44px; padding: 5px 0; }
-  #chatPanel.is-large .chat-profile-icon { width: 44px; height: 44px; }
+  #chatPanel.is-large .chat-line { grid-template-columns: 66px minmax(0, 1fr) auto; min-height: 66px; padding: 7px 0; column-gap: 9px; }
+  #chatPanel.is-large .chat-profile-icon { width: 66px; height: 66px; border-radius: 6px; }
+  #chatPanel.is-large .chat-name { font-size: 15px; }
+  #chatPanel.is-large .chat-power-icon { width: 18px; height: 18px; }
+  #chatPanel.is-large .chat-time { font-size: 11px; }
+  #chatPanel.is-large .chat-text { min-height: 29px; padding: 6px 12px; font-size: 15px; line-height: 1.4; }
   #chatPanel:not(.is-large) #chatForm { display: none; }
   #chatPanel:not(.is-large) #topMeta { display: block; margin-left: auto; color: #fff; font-size: 8px; }
   #chatPanel:not(.is-large) #latencyStatus,
@@ -1429,7 +1434,7 @@
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    background: #000;
+    background: transparent;
     color: #f02d3d;
     pointer-events: auto;
     opacity: 0;
@@ -1448,6 +1453,8 @@
     padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
     color: #f02d3d;
     text-align: center;
+    transform: translateY(-25vh);
+    transform: translateY(-25dvh);
   }
 
   .death-screen h1 {

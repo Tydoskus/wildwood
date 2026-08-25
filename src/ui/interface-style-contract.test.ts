@@ -80,6 +80,19 @@ describe("interface style contracts", () => {
     expect(cssRule(".card.inventory-panel")).toContain("z-index: 10");
   });
 
+  it("uses only the real device safe area beneath the in-game toolbar", () => {
+    const root = cssRule(":root {");
+    expect(root).toContain("--toolbar-height: calc(var(--toolbar-button-height) + env(safe-area-inset-bottom, 0px))");
+    expect(root).not.toContain("--toolbar-bottom-padding");
+    expect(cssRule(".settings-button {")).toContain("padding: 0 0 env(safe-area-inset-bottom, 0px)");
+  });
+
+  it("keeps notifications above normal fullscreen windows", () => {
+    const message = cssRule("#message {");
+    expect(message).toContain("z-index: 16");
+    expect(message).toContain("pointer-events: none");
+  });
+
   it("renders chat messages with the same font treatment as usernames", () => {
     const username = cssRule("\n  .chat-name {");
     const message = cssRule("\n  .chat-text {");
@@ -88,7 +101,12 @@ describe("interface style contracts", () => {
     expect(username).toContain("font-weight: 900");
     expect(message).toContain("font-family: var(--player-name-font)");
     expect(message).toContain("font-weight: 900");
-    expect(cssRule("#chatPanel.is-large .chat-line {")).toContain("padding: 5px 0");
+    const fullscreenLine = cssRule("#chatPanel.is-large .chat-line {");
+    expect(fullscreenLine).toContain("grid-template-columns: 66px minmax(0, 1fr) auto");
+    expect(fullscreenLine).toContain("min-height: 66px");
+    expect(fullscreenLine).toContain("padding: 7px 0");
+    expect(cssRule("#chatPanel.is-large .chat-profile-icon {")).toContain("width: 66px");
+    expect(cssRule("#chatPanel.is-large .chat-text {")).toContain("font-size: 15px");
   });
 
   it("renders presence announcements as plain purple chat text", () => {
@@ -153,6 +171,11 @@ describe("interface style contracts", () => {
     expect(cssRule(".connection-modal,")).toContain("calc(100svh - 24px)");
     expect(cssRule(".connection-modal,")).toContain("calc((100svh - 586px) / 2)");
     expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
+  });
+
+  it("shows the death message above the fallen player without covering the game", () => {
+    expect(cssRule("#gameOver {")).toContain("background: transparent");
+    expect(cssRule(".death-screen {")).toContain("transform: translateY(-25dvh)");
   });
 
   it("turns the full minimap into a help target with a fullscreen map guide", () => {

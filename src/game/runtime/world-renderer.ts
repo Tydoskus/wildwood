@@ -474,17 +474,18 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const height = Math.round(width * options.upgradeBench.naturalHeight / options.upgradeBench.naturalWidth);
     // The generated sprite has generous transparent padding below its feet;
     // Lift the shadow into the sprite's padded feet so the bench stays planted.
-    options.drawShadow(x, y - 21, Math.round(width * .68), .2);
+    options.drawShadow(x, y - 27, Math.round(width * .75), .2);
     ctx.drawImage(options.upgradeBench, Math.round(x - width / 2), Math.round(y - height), width, height);
     const upgrade = options.upgradeBenchStatus();
     if (upgrade?.itemSprite?.complete && upgrade.itemSprite.naturalWidth > 0) {
-      const maxWidth = 44;
-      const maxHeight = 34;
+      const maxWidth = 88;
+      const maxHeight = 68;
       const scale = Math.min(maxWidth / upgrade.itemSprite.naturalWidth, maxHeight / upgrade.itemSprite.naturalHeight);
       const itemWidth = Math.max(1, Math.round(upgrade.itemSprite.naturalWidth * scale));
       const itemHeight = Math.max(1, Math.round(upgrade.itemSprite.naturalHeight * scale));
-      const itemCenterX = x - Math.round(width * .1);
-      const itemCenterY = Math.round(y - height + height * .39);
+      // Center the active item over the bench sprite's flat gray work plate.
+      const itemCenterX = x - Math.round(width * .18);
+      const itemCenterY = Math.round(y - height + height * .32) - 6;
       ctx.save();
       ctx.shadowColor = "rgba(116,225,255,.8)";
       ctx.shadowBlur = 8;
