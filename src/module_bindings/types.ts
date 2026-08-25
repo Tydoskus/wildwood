@@ -501,6 +501,18 @@ export const PlayerController = __t.object("PlayerController", {
 });
 export type PlayerController = __Infer<typeof PlayerController>;
 
+export const PlayerDeathFrame = __t.object("PlayerDeathFrame", {
+  mapId: __t.string(),
+  zoneX: __t.i32(),
+  zoneY: __t.i32(),
+  networkId: __t.u32(),
+  playerX: __t.f64(),
+  playerY: __t.f64(),
+  facing: __t.f64(),
+  emittedAt: __t.timestamp(),
+});
+export type PlayerDeathFrame = __Infer<typeof PlayerDeathFrame>;
+
 export const PlayerGemWallet = __t.object("PlayerGemWallet", {
   identity: __t.identity(),
   balance: __t.u64(),

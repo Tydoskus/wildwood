@@ -110,6 +110,7 @@ import MyGemWalletRow from "./my_gem_wallet_table";
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
+import PlayerDeathFrameRow from "./player_death_frame_table";
 import PlayerItemDropRow from "./player_item_drop_table";
 import PlayerItemUpgradeRow from "./player_item_upgrade_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
@@ -318,6 +319,19 @@ const tablesSchema = __schema({
       { name: 'player_account_status_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerAccountStatusRow),
+  playerDeathFrame: __table({
+    name: 'player_death_frame',
+    indexes: [
+      { accessor: 'byMapZone', name: 'player_death_frame_map_id_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+        'zoneX',
+        'zoneY',
+      ] },
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, PlayerDeathFrameRow),
   playerItemDrop: __table({
     name: 'player_item_drop',
     indexes: [

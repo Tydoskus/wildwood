@@ -387,6 +387,28 @@ const bossAttackFrame = table(
   },
 );
 
+// One authoritative death event lets nearby clients play the full presentation
+// locally without turning health into continuously synchronized public state.
+const playerDeathFrame = table(
+  {
+    public: true,
+    event: true,
+    indexes: [
+      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "zoneX", "zoneY"] as const },
+    ],
+  },
+  {
+    mapId: t.string(),
+    zoneX: t.i32(),
+    zoneY: t.i32(),
+    networkId: t.u32(),
+    playerX: t.f64(),
+    playerY: t.f64(),
+    facing: t.f64(),
+    emittedAt: t.timestamp(),
+  },
+);
+
 const playerProfile = table(
   { public: true },
   {
@@ -1261,6 +1283,7 @@ const spacetimedb = schema({
   playerMotionFrame,
   playerMapFrame,
   bossAttackFrame,
+  playerDeathFrame,
   playerProfile,
   playerGemWallet,
   gemTransaction,
@@ -1874,6 +1897,21 @@ function playerWithMotion(ctx: any, activePlayer: any) {
     zoneY: motion.zoneY,
     mapId: motion.mapId,
   };
+}
+
+function publishPlayerDeathFrame(ctx: any, activePlayer: any) {
+  if (boundedMapPopulation(ctx, activePlayer.mapId) < 2) return;
+  const motion = ctx.db.playerMotion.identity.find(activePlayer.identity);
+  if (!motion?.isVisible) return;
+  ctx.db.playerDeathFrame.insert({
+    mapId: activePlayer.mapId,
+    ...playerZone(activePlayer.x, activePlayer.y),
+    networkId: motion.networkId,
+    playerX: activePlayer.x,
+    playerY: activePlayer.y,
+    facing: activePlayer.facing,
+    emittedAt: ctx.timestamp,
+  });
 }
 
 function adjustPlayerMotionMapState(ctx: any, mapId: string, playerDelta: number, visibleDelta: number) {
@@ -5619,7 +5657,18 @@ export const speedUpItemUpgradeWithGems = spacetimedb.reducer(
 export const recordPlayerDeath = spacetimedb.reducer(
   {},
   (ctx) => {
-    requireControllingPlayer(ctx);
+    const activePlayer = playerWithMotion(ctx, requireControllingPlayer(ctx));
+    const motion = ctx.db.playerMotion.identity.find(ctx.sender);
+    if (motion && (motion.moving || motion.dx !== 0 || motion.dy !== 0)) {
+      ctx.db.playerMotion.networkId.update({
+        ...motion,
+        dx: 0,
+        dy: 0,
+        moving: false,
+        lastInputAt: ctx.timestamp,
+      });
+    }
+    publishPlayerDeathFrame(ctx, activePlayer);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, deathCount: lifetime.deathCount + 1n });
   },
