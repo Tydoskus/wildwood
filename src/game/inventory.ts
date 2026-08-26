@@ -1,6 +1,7 @@
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
+  DARK_METAL_HELMET,
   DESERT_DROP_ITEM_IDS,
   DEVELOPER_ITEM_IDS,
   FIRE_METAL_BOW,
@@ -12,6 +13,7 @@ import {
   itemDefinition,
   itemFitsEquipmentSlot,
   IRON_BOW,
+  INFERNAL_DROP_ITEM_IDS,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOW,
   LAVA_DROP_ITEM_IDS,
@@ -37,6 +39,7 @@ import {
 
 export {
   BASIC_PAPER_HAT,
+  DARK_METAL_HELMET,
   FIRE_METAL_BOW,
   FIRE_METAL_HELMET,
   FROST_ARMOR,
@@ -103,16 +106,6 @@ export function setInventoryItemQuantity(inventory: InventoryState, itemId: stri
     for (const field of SLOTTED_ITEM_FIELDS) {
       if (inventory[field] === itemId) inventory[field] = "";
     }
-  } else {
-    let remainingCopies = nextQuantity - EQUIPPED_ITEM_FIELDS.reduce(
-      (count, field) => count + Number(inventory[field] === itemId),
-      0,
-    );
-    for (const field of COSMETIC_ITEM_FIELDS) {
-      if (inventory[field] !== itemId) continue;
-      if (remainingCopies > 0) remainingCopies -= 1;
-      else inventory[field] = "";
-    }
   }
   return true;
 }
@@ -127,10 +120,10 @@ export function ownedInventoryStacks(inventory: Pick<InventoryState, "itemIds">)
   return [...counts].map(([itemId, quantity]) => ({ itemId, quantity }));
 }
 
-/** Converts unassigned unique items into bag entries, subtracting both loadouts. */
+/** Converts unassigned unique items into bag entries; cosmetic references do not consume items. */
 export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] {
   const counts = new Map(ownedInventoryStacks(inventory).map(({ itemId, quantity }) => [itemId, quantity]));
-  for (const field of SLOTTED_ITEM_FIELDS) {
+  for (const field of EQUIPPED_ITEM_FIELDS) {
     const itemId = inventory[field];
     if (!itemDefinition(itemId)) continue;
     counts.set(itemId, Math.max(0, (counts.get(itemId) ?? 0) - 1));
@@ -143,14 +136,14 @@ export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] 
 function hasFreeOrMovableCopy(
   inventory: InventoryState,
   itemId: string,
-  movableFields: readonly (typeof SLOTTED_ITEM_FIELDS)[number][],
+  movableFields: readonly (typeof EQUIPPED_ITEM_FIELDS)[number][],
 ) {
   if (movableFields.some((field) => inventory[field] === itemId)) return true;
-  const slottedQuantity = SLOTTED_ITEM_FIELDS.reduce(
+  const equippedQuantity = EQUIPPED_ITEM_FIELDS.reduce(
     (count, field) => count + Number(inventory[field] === itemId),
     0,
   );
-  return inventoryItemQuantity(inventory, itemId) > slottedQuantity;
+  return inventoryItemQuantity(inventory, itemId) > equippedQuantity;
 }
 
 /** Moves an owned item between bag and compatible equipment slots. */
@@ -205,7 +198,6 @@ export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: str
           : destination === "RIGHT_HAND" ? "cosmeticRightHand"
           : "cosmeticLeftHand";
   if (inventory[target] === itemId) return false;
-  if (!hasFreeOrMovableCopy(inventory, itemId, COSMETIC_ITEM_FIELDS)) return false;
   clearItem();
   if (item.slot === "HAND") {
     inventory.cosmeticRightHand = "";
@@ -271,7 +263,9 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
   const lavaDropItems = [...LAVA_DROP_ITEM_IDS, ...LAVA_BOSS_DROP_ITEM_IDS].flatMap((itemId) =>
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
-  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems, ...desertDropItems, ...snowBossDropItems, ...lavaDropItems];
+  const infernalDropItems = INFERNAL_DROP_ITEM_IDS.flatMap((itemId) =>
+    Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
+  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems, ...desertDropItems, ...snowBossDropItems, ...lavaDropItems, ...infernalDropItems];
   const headItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HEAD");
   const chestItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "CHEST");
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");
@@ -286,16 +280,11 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedFeet = hasBoots && equippedFeet === TRAILBLAZER_BOOTS ? TRAILBLAZER_BOOTS : "";
   const resolvedRightHand = savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : "");
   const resolvedLeftHand = savedRightHand ? "" : savedLeftHand;
-  const remainingCounts = new Map(ownedInventoryStacks({ itemIds: items }).map(({ itemId, quantity }) => [itemId, quantity]));
-  for (const itemId of [savedHead, savedChest, savedFeet, resolvedRightHand, resolvedLeftHand]) {
-    if (itemId) remainingCounts.set(itemId, Math.max(0, (remainingCounts.get(itemId) ?? 0) - 1));
-  }
+  const ownedItemIds = new Set(items);
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
     if (isHiddenCosmeticItem(requestedItem)) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(requestedItem);
-    if (!itemId || !itemFitsEquipmentSlot(itemId, slot) || (remainingCounts.get(itemId) ?? 0) <= 0) return "";
-    remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) - 1);
-    return itemId;
+    return itemId && ownedItemIds.has(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
   };
   const savedCosmeticHead = cosmeticItem(cosmeticHead, "HEAD");
   const savedCosmeticChest = cosmeticItem(cosmeticChest, "CHEST");

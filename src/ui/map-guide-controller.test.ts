@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DARK_METAL_HELMET,
   FROST_ARMOR,
   FROST_BOW,
   FIRE_METAL_BOW,
@@ -42,6 +43,7 @@ describe("map guide", () => {
     ]);
     expect(mapGuideDrops(INFERNAL_DEPTHS_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
       [FIRE_METAL_BOW, 50],
+      [DARK_METAL_HELMET, 65],
     ]);
     expect(mapGuideDropChance(25)).toBe("4%");
     expect(mapGuideDropChance(30)).toBe("3.3%");
@@ -52,6 +54,7 @@ describe("map guide", () => {
     expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Damage 2×", "Max Health 2.25×", "Regen 2.25×"]);
     expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Damage 1.25×", "Max Health 1.25×", "Regen 1.5×"]);
     expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage 12×", "Attack Speed 1.3×"]);
+    expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Damage 2.5×", "Max Health 2.5×", "Regen 3×"]);
   });
 
   it("groups live forest spawns into compact reward zones", () => {

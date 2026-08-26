@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -1424,7 +1424,9 @@ import {
       renderInventory();
     }
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
-    const pickupColor = itemId === FIRE_METAL_BOW || itemId === FIRE_METAL_HELMET
+    const pickupColor = itemId === DARK_METAL_HELMET
+      ? "#8f83a6"
+      : itemId === FIRE_METAL_BOW || itemId === FIRE_METAL_HELMET
       ? "#ff6557"
       : itemId === FROST_BOW || itemId === FROST_ARMOR
         ? "#2d92ff"

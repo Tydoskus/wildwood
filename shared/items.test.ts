@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
+  DARK_METAL_HELMET,
   DESERT_DROP_ITEM_IDS,
   DESERT_ITEM_DROP_DENOMINATOR,
   DEVELOPER_ITEM_IDS,
@@ -28,6 +29,7 @@ import {
   IRON_BOW,
   INFERNAL_DROP_ITEM_IDS,
   INFERNAL_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
   MAX_ITEM_UPGRADE_LEVEL,
   LAVA_DROP_ITEM_IDS,
   LAVA_BOSS_DROP_ITEM_IDS,
@@ -58,7 +60,7 @@ describe("equipment catalog", () => {
     expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW, FROST_ARMOR]);
     expect(LAVA_DROP_ITEM_IDS).toEqual([FIRE_METAL_HELMET, MAGMA_ARMOR]);
     expect(LAVA_BOSS_DROP_ITEM_IDS).toEqual([LAVA_BOW]);
-    expect(INFERNAL_DROP_ITEM_IDS).toEqual([FIRE_METAL_BOW]);
+    expect(INFERNAL_DROP_ITEM_IDS).toEqual([DARK_METAL_HELMET, FIRE_METAL_BOW]);
     expect(FOREST_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(DESERT_ITEM_DROP_DENOMINATOR).toBe(50);
     expect(SNOW_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
@@ -67,6 +69,7 @@ describe("equipment catalog", () => {
     expect(LAVA_HELMET_ITEM_DROP_DENOMINATOR).toBe(50);
     expect(LAVA_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(INFERNAL_ITEM_DROP_DENOMINATOR).toBe(50);
+    expect(NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR).toBe(65);
   });
 
   it("declares both bows as two-hand-slot-compatible ranged weapons", () => {
@@ -143,6 +146,18 @@ describe("equipment catalog", () => {
     expect(equipmentRegenerationMultiplier(FIRE_METAL_HELMET, MAGMA_ARMOR)).toBeCloseTo(3.375);
   });
 
+  it("doubles every Fire Metal Helmet multiplier on the Dark Metal Helmet", () => {
+    expect(itemFitsEquipmentSlot(DARK_METAL_HELMET, "HEAD")).toBe(true);
+    expect(itemDamageMultiplier(DARK_METAL_HELMET)).toBeCloseTo(2.5);
+    expect(itemMaxHealthMultiplier(DARK_METAL_HELMET)).toBeCloseTo(2.5);
+    expect(itemRegenerationMultiplier(DARK_METAL_HELMET)).toBeCloseTo(3);
+    expect(itemStats(DARK_METAL_HELMET)).toEqual([
+      "DAMAGE MULTIPLIER 2.50×",
+      "MAX HEALTH MULTIPLIER 2.50×",
+      "REGEN MULTIPLIER 3.00×",
+    ]);
+  });
+
   it("gives the independent desert drops their requested equipment multipliers", () => {
     expect(itemFitsEquipmentSlot(WOOD_FULL_HELM, "HEAD")).toBe(true);
     expect(itemMaxHealthMultiplier(WOOD_FULL_HELM)).toBeCloseTo(1.25);
@@ -173,6 +188,7 @@ describe("equipment catalog", () => {
     expect(isUpgradeableItem(WOOD_FULL_HELM)).toBe(true);
     expect(isUpgradeableItem(IRON_BOW)).toBe(true);
     expect(isUpgradeableItem(FIRE_METAL_HELMET)).toBe(true);
+    expect(isUpgradeableItem(DARK_METAL_HELMET)).toBe(true);
     expect(isUpgradeableItem(FIRE_METAL_BOW)).toBe(true);
     expect(isUpgradeableItem(STARTER_STONE)).toBe(false);
     expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);

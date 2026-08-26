@@ -23,6 +23,7 @@ export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 1;
 export {
   BASIC_PAPER_HAT,
+  DARK_METAL_HELMET,
   FIRE_METAL_BOW,
   FIRE_METAL_HELMET,
   FROST_ARMOR,
@@ -58,7 +59,7 @@ export const MAP_DISPLAY_NAMES = {
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "Intermediate Snowlands",
   [ADVANCED_LAVA_WASTES_MAP_ID]: "Advanced Lava Lake",
-  [INFERNAL_DEPTHS_MAP_ID]: "Infernal Depths",
+  [INFERNAL_DEPTHS_MAP_ID]: "Night Forest",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
@@ -68,7 +69,7 @@ export const MAP_IDS: readonly string[] = [
   INFERNAL_DEPTHS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 67;
+export const PROTOCOL_VERSION = 68;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

@@ -6,6 +6,7 @@ import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { StaticWorldLayer, StaticWorldTileFrame } from "./webgl-static-world-layer";
+import { NIGHT_ENEMY_REVEAL_RANGE } from "./night-visibility";
 import {
   paintStaticTile,
   paintStaticTilePlaceholder,
@@ -122,7 +123,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
   const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
-  const isLavaTerrain = () => options.getMapId() === options.lavaMapId || options.getMapId() === options.infernalMapId;
+  const isLavaTerrain = () => options.getMapId() === options.lavaMapId;
 
   function mapColors() {
     const desert = options.getMapId() === options.desertMapId;
@@ -130,9 +131,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const lava = options.getMapId() === options.lavaMapId;
     const infernal = options.getMapId() === options.infernalMapId;
     return {
-      ground: infernal ? "#8e3d2f" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: infernal ? "#5d2728" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: infernal ? "rgba(29,8,14,.28)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+      ground: infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
     };
   }
 
@@ -639,7 +640,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const colors = mapColors();
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
     draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
-    draw.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) { const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3; draw.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker); }
+    draw.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) {
+      if (options.getMapId() === options.infernalMapId && Math.hypot(enemy.x - options.player.x, enemy.y - options.player.y) >= options.player.attackRange * NIGHT_ENEMY_REVEAL_RANGE + enemy.r) continue;
+      const marker = ENEMY_TYPES[enemy.type].elite ? 5 : 3;
+      draw.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker);
+    }
 
     const drawPortalMarker = (portal: Portal) => {
       const px = Math.round(innerX + portal.x * sx); const py = Math.round(innerY + portal.y * sy);

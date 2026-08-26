@@ -37,16 +37,20 @@ describe("Advanced Lava Lake", () => {
       .every((item) => item.variant === 0 || item.variant === 1)).toBe(true);
   });
 
-  it("connects Magmalisk's Lava Lake portal to scaled Infernal Depths camps", () => {
+  it("connects Magmalisk's Lava Lake portal to scaled Night Forest camps", () => {
     const config = createGameBootstrap().mapConfig;
     const sites = createSpawnSites({ x: 4050, y: 4050 }, INFERNAL_DEPTHS_MAP_ID);
+    const layout = createWorldLayout({ x: 580, y: 770 }, INFERNAL_DEPTHS_MAP_ID);
     const infernalKinds = new Set(["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]);
 
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].secondaryPortal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
     expect(config[INFERNAL_DEPTHS_MAP_ID].portal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
-    expect(config[INFERNAL_DEPTHS_MAP_ID].name).toBe("Infernal Depths");
+    expect(config[INFERNAL_DEPTHS_MAP_ID].name).toBe("Night Forest");
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => infernalKinds.has(site.type))).toBe(true);
+    expect(layout.decor.filter((item) => item.type === "tree")).toHaveLength(128);
+    expect(layout.decor.filter((item) => item.type === "charredTree")).toHaveLength(38);
+    expect(layout.decor.some((item) => item.type === "lavaPool" || item.type === "lavaRock" || item.type === "grass" || item.type === "petal")).toBe(false);
   });
 
   it("spawns only lava-tier enemies", () => {

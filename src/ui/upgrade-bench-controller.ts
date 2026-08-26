@@ -86,6 +86,10 @@ export function upgradeBenchTouchTransition(wasTouching: boolean, touching: bool
   return { touching, shouldOpen: touching && !wasTouching };
 }
 
+export function upgradeSlotAfterPickerDismiss(slot: UpgradeBenchSlot | null, itemId: string | undefined) {
+  return slot && itemId ? slot : null;
+}
+
 export function playerTouchesUpgradeBench(
   player: { x: number; y: number },
   bench: { x: number; y: number },
@@ -390,7 +394,13 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
 
   function returnFromPicker() {
     closePicker();
-    selectedSlot = null;
+    // Keep the slot selected so dismissing item choices restores the actions
+    // for an item that was already sitting in that slot.
+    const dismissedSlot = selectedSlot;
+    selectedSlot = upgradeSlotAfterPickerDismiss(
+      dismissedSlot,
+      dismissedSlot ? selectedItems.get(dismissedSlot) : undefined,
+    );
     lastRenderKey = "";
     render();
   }

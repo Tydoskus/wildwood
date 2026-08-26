@@ -1,4 +1,5 @@
 import {
+  DARK_METAL_HELMET,
   DESERT_ITEM_DROP_DENOMINATOR,
   FIRE_METAL_BOW,
   FIRE_METAL_HELMET,
@@ -7,6 +8,7 @@ import {
   FROST_BOW,
   IRON_BOW,
   INFERNAL_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
   ITEM_DEFINITIONS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
@@ -95,7 +97,8 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
     { itemId: LAVA_BOW, denominator: LAVA_BOSS_ITEM_DROP_DENOMINATOR, source: "Boss" },
   ],
   [INFERNAL_DEPTHS_MAP_ID]: [
-    { itemId: FIRE_METAL_BOW, denominator: INFERNAL_ITEM_DROP_DENOMINATOR, source: "Any regular Infernal Depths enemy" },
+    { itemId: FIRE_METAL_BOW, denominator: INFERNAL_ITEM_DROP_DENOMINATOR, source: "Any regular Night Forest enemy" },
+    { itemId: DARK_METAL_HELMET, denominator: NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR, source: "Any regular Night Forest enemy" },
   ],
 };
 
@@ -104,7 +107,7 @@ const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: stri
   [BEGINNER_DESERT_MAP_ID]: { ground: "#d9a95f", path: "#c48b4b", glow: "#ffe09a" },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { ground: "#bfddeb", path: "#8fb7d0", glow: "#e9fbff" },
   [ADVANCED_LAVA_WASTES_MAP_ID]: { ground: "#f5b255", path: "#df754b", glow: "#ffd077" },
-  [INFERNAL_DEPTHS_MAP_ID]: { ground: "#8e3d2f", path: "#5d2728", glow: "#ff745e" },
+  [INFERNAL_DEPTHS_MAP_ID]: { ground: "#100e17", path: "#261a26", glow: "#8f83a6" },
 };
 
 const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {

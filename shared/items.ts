@@ -5,6 +5,7 @@ export const BASIC_PAPER_HAT = "basic_paper_hat";
 export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
 export const WOOD_FULL_HELM = "wood_full_helm";
 export const FIRE_METAL_HELMET = "fire_metal_helmet";
+export const DARK_METAL_HELMET = "dark_metal_helmet";
 export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
@@ -22,6 +23,7 @@ export const LAVA_ITEM_DROP_DENOMINATOR = 30;
 export const LAVA_HELMET_ITEM_DROP_DENOMINATOR = 50;
 export const LAVA_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const INFERNAL_ITEM_DROP_DENOMINATOR = 50;
+export const NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR = 65;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
 export const MAX_OWNED_ITEM_COUNT = 1;
@@ -96,6 +98,19 @@ export const ITEM_DEFINITIONS = {
       damageMultiplierBonus: .25,
       maxHealthMultiplierBonus: .25,
       regenerationMultiplierBonus: .5,
+    },
+  },
+  [DARK_METAL_HELMET]: {
+    id: DARK_METAL_HELMET,
+    name: "DARK METAL HELMET",
+    slot: "HEAD",
+    acquisition: "INFERNAL_DROP",
+    description: "A horned dark-metal helm carried by Night Forest monsters that greatly amplifies damage, health, and regeneration.",
+    stats: ["DAMAGE MULTIPLIER 2.50×", "MAX HEALTH MULTIPLIER 2.50×", "REGEN MULTIPLIER 3.00×"],
+    modifiers: {
+      damageMultiplierBonus: 1.5,
+      maxHealthMultiplierBonus: 1.5,
+      regenerationMultiplierBonus: 2,
     },
   },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
@@ -184,7 +199,7 @@ export const ITEM_DEFINITIONS = {
     name: "FIRE METAL BOW",
     slot: "HAND",
     acquisition: "INFERNAL_DROP",
-    description: "A forged infernal bow carried by Infernal Depths monsters, built for extreme damage and rapid fire.",
+    description: "A forged bow carried by Night Forest monsters, built for extreme damage and rapid fire.",
     stats: ["DAMAGE MULTIPLIER 12.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
     weapon: {
       mode: "RANGED",

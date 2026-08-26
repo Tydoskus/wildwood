@@ -32,6 +32,7 @@ import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearan
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
+  DARK_METAL_HELMET,
   DESERT_DROP_ITEM_IDS,
   DESERT_ITEM_DROP_DENOMINATOR,
   DEVELOPER_ITEM_IDS,
@@ -51,6 +52,7 @@ import {
   IRON_BOW,
   INFERNAL_DROP_ITEM_IDS,
   INFERNAL_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
@@ -2755,24 +2757,11 @@ function equippedLeftHandForProgress(progress: any) {
 
 function cosmeticEquipmentForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
-  const remainingCounts = new Map<string, number>();
-  for (const itemId of inventory) remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) + 1);
-  const equippedRightHand = equippedRightHandForProgress(progress);
-  for (const itemId of [
-    equippedHeadForProgress(progress),
-    equippedChestForProgress(progress),
-    equippedFeetForProgress(progress),
-    equippedRightHand,
-    equippedRightHand ? "" : equippedLeftHandForProgress(progress),
-  ]) {
-    if (itemId) remainingCounts.set(itemId, Math.max(0, (remainingCounts.get(itemId) ?? 0) - 1));
-  }
+  const ownedItemIds = new Set(inventory);
   const itemFor = (field: "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand", slot: "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND") => {
     if (isHiddenCosmeticItem(progress[field])) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(progress[field]);
-    if (!itemId || !itemFitsEquipmentSlot(itemId, slot) || (remainingCounts.get(itemId) ?? 0) <= 0) return "";
-    remainingCounts.set(itemId, (remainingCounts.get(itemId) ?? 0) - 1);
-    return itemId;
+    return itemId && ownedItemIds.has(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
   };
   const cosmeticRightHand = itemFor("cosmeticRightHand", "RIGHT_HAND");
   return {
@@ -5835,11 +5824,21 @@ export const recordLavaEnemyDefeat = spacetimedb.reducer(
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId === INFERNAL_DEPTHS_MAP_ID) {
-      if (ctx.random.integerInRange(1, INFERNAL_ITEM_DROP_DENOMINATOR) !== 1) return;
+      const bowDropped = ctx.random.integerInRange(1, INFERNAL_ITEM_DROP_DENOMINATOR) === 1;
+      const helmetDropped = ctx.random.integerInRange(1, NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR) === 1;
+      if (!bowDropped && !helmetDropped) return;
       const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
-      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, FIRE_METAL_BOW);
-      publishItemDrop(ctx, ctx.sender, FIRE_METAL_BOW, alreadyOwned);
-      const next = alreadyOwned ? current : restoreItemToProgress(current, FIRE_METAL_BOW);
+      let next = { ...current };
+      if (bowDropped) {
+        const alreadyOwned = playerOwnsItem(ctx, ctx.sender, FIRE_METAL_BOW);
+        publishItemDrop(ctx, ctx.sender, FIRE_METAL_BOW, alreadyOwned);
+        if (!alreadyOwned) next = restoreItemToProgress(next, FIRE_METAL_BOW);
+      }
+      if (helmetDropped) {
+        const alreadyOwned = playerOwnsItem(ctx, ctx.sender, DARK_METAL_HELMET);
+        publishItemDrop(ctx, ctx.sender, DARK_METAL_HELMET, alreadyOwned);
+        if (!alreadyOwned) next = restoreItemToProgress(next, DARK_METAL_HELMET);
+      }
       next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
       if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
       else ctx.db.playerProgress.insert(next);

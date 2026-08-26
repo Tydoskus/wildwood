@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bagInventoryStacks, BASIC_PAPER_HAT, equipmentAppearance, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
 
 const emptyCosmetics = {
   cosmeticHead: "",
@@ -184,7 +184,24 @@ describe("inventory rules", () => {
     expect(inventoryItemQuantity(inventory, IRON_BOW)).toBe(1);
   });
 
-  it("uses free owned copies as cosmetic overrides without changing stat equipment", () => {
+  it("restores and equips unique Night Forest drops", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([DARK_METAL_HELMET, FIRE_METAL_BOW]),
+      "",
+      DARK_METAL_HELMET,
+      "",
+      false,
+      false,
+      FIRE_METAL_BOW,
+      "",
+    );
+    expect(inventory.equippedHead).toBe(DARK_METAL_HELMET);
+    expect(inventory.equippedRightHand).toBe(FIRE_METAL_BOW);
+    expect(inventoryItemQuantity(inventory, DARK_METAL_HELMET)).toBe(1);
+    expect(inventoryItemQuantity(inventory, FIRE_METAL_BOW)).toBe(1);
+  });
+
+  it("keeps cosmetic overrides in the bag without changing stat equipment", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([STARTER_BOW, WOODEN_ARMOR, FROST_ARMOR]),
       "",
@@ -201,8 +218,8 @@ describe("inventory rules", () => {
     expect(inventory.equippedRightHand).toBe(STARTER_STONE);
     expect(inventory.equippedChest).toBe(WOODEN_ARMOR);
     expect(ownedInventoryStacks(inventory)).toContainEqual({ itemId: STARTER_BOW, quantity: 1 });
-    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(STARTER_BOW);
-    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: STARTER_BOW, quantity: 1 });
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 1 });
     expect(equipmentAppearance(inventory)).toEqual({
       headItem: BASIC_PAPER_HAT,
       chestItem: FROST_ARMOR,
@@ -265,7 +282,7 @@ describe("inventory rules", () => {
     expect(bagInventoryStacks(inventory)).toEqual([]);
   });
 
-  it("moves one unique item between stat and cosmetic loadouts", () => {
+  it("allows one owned item to be equipped and referenced cosmetically", () => {
     const inventory = inventoryFromSave(
       JSON.stringify([FROST_ARMOR]),
       "",
@@ -279,17 +296,18 @@ describe("inventory rules", () => {
       FROST_ARMOR,
     );
 
-    expect(inventory.cosmeticChest).toBe("");
+    expect(inventory.cosmeticChest).toBe(FROST_ARMOR);
     expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(false);
     expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
 
     expect(setInventoryItemQuantity(inventory, FROST_ARMOR, 2)).toBe(true);
     expect(inventoryItemQuantity(inventory, FROST_ARMOR)).toBe(1);
+    expect(inventory.cosmeticChest).toBe(FROST_ARMOR);
     expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(false);
 
     expect(moveInventoryItem(inventory, FROST_ARMOR, "BAG")).toBe(true);
-    expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "CHEST")).toBe(true);
-    expect(bagInventoryStacks(inventory).map(({ itemId }) => itemId)).not.toContain(FROST_ARMOR);
+    expect(inventory.cosmeticChest).toBe(FROST_ARMOR);
+    expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 1 });
     expect(moveCosmeticInventoryItem(inventory, FROST_ARMOR, "BAG")).toBe(true);
     expect(bagInventoryStacks(inventory)).toContainEqual({ itemId: FROST_ARMOR, quantity: 1 });
   });

@@ -512,14 +512,14 @@ export function createActorRenderer(options: {
     for (const other of players) drawRemotePlayer(other);
   }
 
-  function drawLayeredEnemyPlaceholder(sprite: LoadedEnemySprite, bounds: { top: number; bottom: number }, color: string) {
+  function drawLayeredEnemyPlaceholder(sprite: LoadedEnemySprite, bounds: { top: number; bottom: number }, color: string, visibility = 1) {
     const width = Math.max(22, sprite.size * .48);
     const headRadius = width * .28;
     const headY = bounds.top + headRadius + 5;
     const torsoTop = headY + headRadius * .55;
     const torsoBottom = bounds.bottom - 8;
     ctx.save();
-    ctx.globalAlpha = .24;
+    ctx.globalAlpha = .24 * visibility;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.ellipse(0, headY, headRadius, headRadius * .9, 0, 0, Math.PI * 2);
@@ -530,7 +530,9 @@ export function createActorRenderer(options: {
     ctx.restore();
   }
 
-  function drawEnemy(enemy: EnemyState) {
+  function drawEnemy(enemy: EnemyState, opacity = 1) {
+    const visibility = clamp(opacity, 0, 1);
+    if (visibility <= 0) return;
     const viewport = options.viewport();
     const width = viewport.width / camera.zoom;
     const height = viewport.height / camera.zoom;
@@ -547,14 +549,14 @@ export function createActorRenderer(options: {
     const spriteHeight = spriteBounds.height;
     const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
     const shadowY = y + Math.max(10, spriteBounds.bottom - 2);
-    options.drawShadow(x, shadowY, shadowWidth, .36);
+    options.drawShadow(x, shadowY, shadowWidth, .36 * visibility);
 
     ctx.save();
     ctx.translate(x, y);
     if (enemy.facingX < 0) ctx.scale(-1, 1);
 
     if (layers && sprite) {
-      ctx.globalAlpha = enemy.hurt > 0 ? .7 : 1;
+      ctx.globalAlpha = (enemy.hurt > 0 ? .7 : 1) * visibility;
       const layerPlan = cachedEnemyLayerPlan(sprite);
       if (layerPlan) {
         for (const part of layerPlan) {
@@ -579,7 +581,7 @@ export function createActorRenderer(options: {
         }
       } else {
         const readyLayers = drawableEnemyLayers(layers);
-        if (readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline);
+        if (readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline, visibility);
         for (const layer of readyLayers) {
           if (layer.aimPivot) {
             ctx.save();
@@ -599,7 +601,7 @@ export function createActorRenderer(options: {
         }
       }
     } else if (imageReady && image && sprite) {
-      ctx.globalAlpha = enemy.hurt > 0 ? .7 : 1;
+      ctx.globalAlpha = (enemy.hurt > 0 ? .7 : 1) * visibility;
       ctx.drawImage(
         image,
         -sprite.size / 2,
@@ -608,6 +610,7 @@ export function createActorRenderer(options: {
         spriteHeight,
       );
     } else {
+      ctx.globalAlpha = visibility;
       ctx.fillStyle = base.outline;
       options.pixelCircle(0, 0, enemy.r + 3);
       ctx.fillStyle = enemy.hurt > 0 ? "#fff3d0" : base.color;
@@ -628,6 +631,8 @@ export function createActorRenderer(options: {
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
 
+    ctx.save();
+    ctx.globalAlpha = visibility;
     ctx.fillStyle = "rgba(0,0,0,.86)";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
     ctx.fillStyle = "#472225";
@@ -635,8 +640,6 @@ export function createActorRenderer(options: {
     ctx.fillStyle = enemy.hurt > 0 ? "#fff1b6" : "#55d568";
     ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
 
-    ctx.save();
-    ctx.globalAlpha = 1;
     ctx.textAlign = "center";
     const labels = enemyLabels(enemy.type, { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
     ctx.drawImage(labels.name.canvas, Math.round(x - labels.name.width / 2), Math.round(barY - 4 - labels.name.anchorY), labels.name.width, labels.name.height);

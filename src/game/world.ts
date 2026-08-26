@@ -66,11 +66,11 @@ const LAVA_CAMPS = [
 ];
 
 const INFERNAL_CAMPS = [
-  { name: "Depths Threshold", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Depth Raider"] as EnemyKind[] },
-  { name: "Abyss Causeway", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Abyss Archer"] as EnemyKind[] },
-  { name: "Blackglass Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Obsidian Colossus"] as EnemyKind[] },
-  { name: "Doom Shelf", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Doom Reaper"] as EnemyKind[] },
-  { name: "Nether Caldera", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Nether Oracle", "Nether Oracle", "Doom Reaper"] as EnemyKind[] },
+  { name: "Moonless Gate", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Depth Raider"] as EnemyKind[] },
+  { name: "Blackbough Trail", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Abyss Archer"] as EnemyKind[] },
+  { name: "Hollow Grove", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Obsidian Colossus"] as EnemyKind[] },
+  { name: "Dreadwood", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Doom Reaper"] as EnemyKind[] },
+  { name: "Witching Glade", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Nether Oracle", "Nether Oracle", "Doom Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -218,10 +218,56 @@ function createLavaLayout() {
   return { decor, paths };
 }
 
+function createNightForestLayout() {
+  const decor: WorldDecor[] = [];
+  const paths: WorldPath[] = [
+    { x: 300, y: 640, w: 900, h: 130 },
+    { x: 1040, y: 640, w: 130, h: 850 },
+    { x: 1040, y: 1120, w: 1880, h: 130 },
+    { x: 2740, y: 1120, w: 130, h: 1360 },
+    { x: 2740, y: 2350, w: 1390, h: 130 },
+    { x: 3980, y: 2350, w: 130, h: 420 },
+    { x: 1810, y: 2350, w: 1060, h: 130 },
+    { x: 1810, y: 2350, w: 130, h: 1430 },
+    { x: 1810, y: 3570, w: 1320, h: 130 },
+    { x: 2990, y: 3570, w: 130, h: 500 },
+  ];
+  const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
+  const isNearCamp = (x: number, y: number) => INFERNAL_CAMPS.some((camp) =>
+    Math.hypot(x - camp.x, y - camp.y) < camp.radius + 120);
+  const placed: { x: number; y: number; radius: number }[] = [];
+  const placeTrees = (type: "tree" | "charredTree", target: number, salt: number) => {
+    let count = 0;
+    for (let index = 0; count < target && index < 5_000; index += 1) {
+      const x = 85 + seededUnit(index, salt) * (WORLD.w - 170);
+      const y = 100 + seededUnit(index, salt + 1) * (WORLD.h - 200);
+      const s = type === "tree"
+        ? .68 + seededUnit(index, salt + 2) * .5
+        : .72 + seededUnit(index, salt + 2) * .56;
+      const radius = (type === "tree" ? 47 : 34) * s;
+      if (isOnPath(x, y, 62) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
+      if (placed.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 18)) continue;
+      placed.push({ x, y, radius });
+      decor.push(type === "tree"
+        ? { type, x: Math.round(x), y: Math.round(y), s, variant: (index + count) % 16 }
+        : { type, x: Math.round(x), y: Math.round(y), s, variant: count % 2 });
+      count += 1;
+    }
+  };
+
+  placeTrees("tree", 128, 51);
+  placeTrees("charredTree", 38, 61);
+  return { decor, paths };
+}
+
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
-  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID) return createLavaLayout();
+  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID) return createLavaLayout();
+  if (mapId === INFERNAL_DEPTHS_MAP_ID) return createNightForestLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;

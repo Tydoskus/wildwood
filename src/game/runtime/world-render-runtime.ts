@@ -13,6 +13,7 @@ import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState,
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { StaticWorldLayer } from "./webgl-static-world-layer";
+import { nightEnemyOpacity } from "./night-visibility";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -245,6 +246,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawUpgradeBench: world.drawUpgradeBench,
       drawCharredTree: world.drawCharredTree,
       drawEnemy: actor.drawEnemy,
+      enemyOpacity: (enemy) => options.currentMapId() === options.infernalMapId
+        ? nightEnemyOpacity(Math.hypot(enemy.x - options.player.x, enemy.y - options.player.y), options.player.attackRange, enemy.r)
+        : 1,
       drawBoss: boss.drawBoss,
       drawSpiderBoss: boss.drawSpiderBoss,
       drawFrostclawBoss: boss.drawFrostclawBoss,
@@ -299,6 +303,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       currentMapIsDesert: () => options.currentMapId() === options.desertMapId,
       currentMapIsSnow: () => options.currentMapId() === options.snowMapId,
       currentMapIsLava: () => options.currentMapId() === options.lavaMapId,
+      currentMapIsInfernal: () => options.currentMapId() === options.infernalMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
       screenShake: frame.screenShake,

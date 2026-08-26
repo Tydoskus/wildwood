@@ -1,11 +1,17 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.517": [
+    "Night Forest now has its own moonless woodland layout, black portal swirl, near-black terrain, and enemies that emerge only as they approach attack range.",
+    "Dark Metal Helmet now drops independently from regular Night Forest enemies at 1/65, with 2.5× Damage, 2.5× Max Health, and 3× Regen.",
+    "Cosmetic equipment no longer consumes bag items, inventory expansion rows stay aligned, completed research turns gold with Max badges, and Upgrade Bench selection reliably restores its Upgrade action.",
+  ],
+
   "0.516": [
-    "Fire Metal Helmet now drops from regular Advanced Lava Lake enemies, while Fire Metal Bow drops in Infernal Depths with its new high-damage equipment bonuses.",
+    "Fire Metal Helmet now drops from regular Advanced Lava Lake enemies, while Fire Metal Bow drops in Night Forest with its new high-damage equipment bonuses.",
     "Bag capacity can now expand through progressively priced Gem slot unlocks, and the Upgrade Bench item picker shows five choices before scrolling.",
     "Item inspection gains centered Camel Case actions and a bottom Back button, Infernal damage rewards are doubled, and equipped bows sit four pixels lower.",
   ],
   "0.515": [
-    "Infernal Depths now opens beyond Lava Lake after defeating Magmalisk, with a one-time portal reveal and five enemy camps that continue each archetype's established scaling curve.",
+    "Night Forest now opens beyond Lava Lake after defeating Magmalisk, with a one-time portal reveal and five enemy camps that continue each archetype's established scaling curve.",
     "Mini chat now uses a translucent charcoal gradient over full-height gameplay, while the default page background is black and the toolbar's outside corners are square.",
     "Static world tiles can now render through a lightweight native WebGL layer with automatic Canvas fallback, while permanent joystick compositing reduces first-movement frame hitches.",
   ],
@@ -1065,6 +1071,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.517": "2026-08-25",
   "0.516": "2026-08-25",
   "0.515": "2026-08-25",
   "0.514": "2026-08-25",

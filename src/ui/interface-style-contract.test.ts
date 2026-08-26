@@ -40,9 +40,12 @@ describe("interface style contracts", () => {
     const slots = cssRule(".inventory-items {");
 
     expect(slots).toContain("overflow-y: auto");
+    expect(slots).toContain("grid-auto-rows: var(--inventory-slot-row-size)");
     expect(slots).toContain("scrollbar-width: none");
     expect(slots).toContain("touch-action: pan-y");
     expect(cssRule(".inventory-items::-webkit-scrollbar")).toContain("display: none");
+    expect(cssRule(".inventory-items > .inventory-item {")).toContain("height: 100%");
+    expect(cssRule(".bag-section { ")).toContain("container-type: inline-size");
   });
 
   it("keeps both inventory tabs at the 44px touch-target minimum", () => {
@@ -332,6 +335,13 @@ describe("interface style contracts", () => {
     const action = cssRule(".tech-tree-action {");
     expect(action).toContain("justify-self: center");
     expect(action).toContain("text-align: center");
+  });
+
+  it("marks completed research nodes gold with a green Max badge", () => {
+    expect(cssRule(".tech-tree-node.is-complete {")).toContain("border-color: #f0c44f");
+    const badge = cssRule(".tech-tree-node.is-complete::after {");
+    expect(badge).toContain('content: "Max"');
+    expect(badge).toContain("background: #65d66d");
   });
 
   it("defines and applies the 11px functional-text floor", () => {

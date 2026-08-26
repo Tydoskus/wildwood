@@ -21,7 +21,7 @@ type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | C
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
 type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
-type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer };
+type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer; opacity: number };
 
 /**
  * Builds and draws the world depth queue. Keep render ordering and viewport
@@ -46,7 +46,8 @@ export function createDepthWorldRenderer(options: {
   drawSnowPine: (tree: SnowPineDecor) => void;
   drawUpgradeBench: (bench: UpgradeBenchDecor) => void;
   drawCharredTree: (tree: CharredTreeDecor) => void;
-  drawEnemy: (enemy: EnemyState) => void;
+  drawEnemy: (enemy: EnemyState, opacity?: number) => void;
+  enemyOpacity?: (enemy: EnemyState) => number;
   drawBoss: () => void;
   drawSpiderBoss: () => void;
   drawFrostclawBoss: () => void;
@@ -155,7 +156,7 @@ export function createDepthWorldRenderer(options: {
 
   function drawDynamicLayer(layer: DepthLayer) {
     switch (layer.kind) {
-      case "enemy": options.drawEnemy(layer.entity as EnemyState); break;
+      case "enemy": options.drawEnemy(layer.entity as EnemyState, layer.opacity); break;
       case "dragon": options.drawBoss(); break;
       case "spider": options.drawSpiderBoss(); break;
       case "frostclaw": options.drawFrostclawBoss(); break;
@@ -170,12 +171,13 @@ export function createDepthWorldRenderer(options: {
 
   function drawDepthSortedWorld(remotePlayers: RemotePlayer[], includePortal = true) {
     let layerCount = 0;
-    const queueLayer = (depth: number, priority: number, kind: DepthLayerKind, entity?: WorldDecor | EnemyState | RemotePlayer) => {
-      const layer = dynamicLayers[layerCount] ?? (dynamicLayers[layerCount] = { depth: 0, priority: 0, kind });
+    const queueLayer = (depth: number, priority: number, kind: DepthLayerKind, entity?: WorldDecor | EnemyState | RemotePlayer, opacity = 1) => {
+      const layer = dynamicLayers[layerCount] ?? (dynamicLayers[layerCount] = { depth: 0, priority: 0, kind, opacity: 1 });
       layer.depth = depth;
       layer.priority = priority;
       layer.kind = kind;
       layer.entity = entity;
+      layer.opacity = opacity;
       layerCount += 1;
     };
     const camera = options.camera;
@@ -186,13 +188,15 @@ export function createDepthWorldRenderer(options: {
     const enemyCullPadding = 140;
     for (const enemy of options.enemies) {
       if (enemy.dead) continue;
+      const opacity = options.enemyOpacity?.(enemy) ?? 1;
+      if (opacity <= 0) continue;
       if (
         enemy.x + enemy.r < camera.x - enemyCullPadding ||
         enemy.x - enemy.r > camera.x + visibleW + enemyCullPadding ||
         enemy.y + enemy.r < camera.y - enemyCullPadding ||
         enemy.y - enemyCullPadding > camera.y + visibleH + enemyCullPadding
       ) continue;
-      queueLayer(enemy.y + enemy.r, 1, "enemy", enemy);
+      queueLayer(enemy.y + enemy.r, 1, "enemy", enemy, opacity);
     }
     const currentMapId = options.currentMapId();
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.boss.dead) {

@@ -13,7 +13,7 @@ export const PORTAL_SWIRL_SOURCES: Record<MapId, string> = {
   [BEGINNER_DESERT_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-gold.png",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet.png",
   [ADVANCED_LAVA_WASTES_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-red.png",
-  [INFERNAL_DEPTHS_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-red.png",
+  [INFERNAL_DEPTHS_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-black.png",
 };
 
 const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
@@ -21,7 +21,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [BEGINNER_DESERT_MAP_ID]: "#ffd34d",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "#8deeff",
   [ADVANCED_LAVA_WASTES_MAP_ID]: "#ff6258",
-  [INFERNAL_DEPTHS_MAP_ID]: "#ff3f57",
+  [INFERNAL_DEPTHS_MAP_ID]: "#625a70",
 };
 
 export function portalDestinationColor(destination: MapId) {

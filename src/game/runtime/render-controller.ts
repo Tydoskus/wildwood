@@ -56,6 +56,7 @@ export function createRenderController(options: {
   currentMapIsDesert: () => boolean;
   currentMapIsSnow: () => boolean;
   currentMapIsLava: () => boolean;
+  currentMapIsInfernal: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   screenShake: () => number;
@@ -71,7 +72,7 @@ export function createRenderController(options: {
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
     drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
-    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, portalCutsceneActive,
+    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, portalCutsceneActive,
     portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots,
   } = options;
 
@@ -115,6 +116,7 @@ export function createRenderController(options: {
   }
 
   function drawVignette() {
+    if (currentMapIsInfernal() && !isDueling()) return;
     const { width, height } = viewport();
     const x = (player.x - camera.x) * camera.zoom;
     const y = (player.y - camera.y) * camera.zoom;
@@ -123,6 +125,21 @@ export function createRenderController(options: {
     const gradient = ctx.createRadialGradient(x, y, innerRadius, x, y, farthestCorner);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, "rgba(0,0,0,.33)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  function drawNightMask() {
+    if (!currentMapIsInfernal()) return;
+    const { width, height } = viewport();
+    const x = (player.x - camera.x) * camera.zoom;
+    const y = (player.y - camera.y) * camera.zoom;
+    const fullRadius = Math.max(72, player.attackRange * camera.zoom * .92);
+    const revealRadius = Math.max(fullRadius + 28, player.attackRange * camera.zoom * 1.25);
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, revealRadius);
+    gradient.addColorStop(0, "rgba(2,1,6,.12)");
+    gradient.addColorStop(Math.min(.95, fullRadius / revealRadius), "rgba(2,1,6,.2)");
+    gradient.addColorStop(1, "rgba(2,1,6,.96)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
   }
@@ -187,6 +204,7 @@ export function createRenderController(options: {
     drawParticles(ctx, camera);
     drawDamageNumbers(ctx, camera);
     ctx.restore();
+    if (!isDueling() && !cutscene) drawNightMask();
     if (!isDueling() && !cutscene) drawMinimap(mapPlayerMarkers());
     if (flash() > 0) {
       ctx.fillStyle = `rgba(255,55,40,${flash() * .75})`;

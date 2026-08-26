@@ -1,5 +1,6 @@
 import {
   BASIC_PAPER_HAT,
+  DARK_METAL_HELMET,
   FIRE_METAL_BOW,
   FIRE_METAL_HELMET,
   FROST_ARMOR,
@@ -69,6 +70,10 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   [FIRE_METAL_HELMET]: {
     inventory: { source: `${PLAYER_PARTS}/fire-metal-helmet.png`, equippedWidth: 30, equippedHeight: 27 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/fire-metal-helmet.png`, layer: "HEAD", bottom: 144 },
+  },
+  [DARK_METAL_HELMET]: {
+    inventory: { source: `${PLAYER_PARTS}/dark-metal-helmet.png`, equippedWidth: 30, equippedHeight: 27 },
+    world: { kind: "SPRITE", source: `${PLAYER_PARTS}/dark-metal-helmet.png`, layer: "HEAD", bottom: 144 },
   },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
     inventory: { source: `${PLAYER_PARTS}/legendary-white-gold-armor.png`, equippedWidth: 30, equippedHeight: 27 },

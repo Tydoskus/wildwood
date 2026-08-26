@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, LAVA_BOW, MAGMA_ARMOR, STARTER_BOW, STARTER_STONE, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
+import { DARK_METAL_HELMET, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, LAVA_BOW, MAGMA_ARMOR, STARTER_BOW, STARTER_STONE, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import { itemArtMarkup, itemPresentation, projectileKindForWeapon } from "./item-presentation";
 
 describe("item presentation", () => {
@@ -15,6 +15,7 @@ describe("item presentation", () => {
     expect(itemArtMarkup(LAVA_BOW)).toContain("player-parts/lava-bow.png");
     expect(itemArtMarkup(MAGMA_ARMOR)).toContain("player-parts/magma-armor.png");
     expect(itemArtMarkup(FIRE_METAL_HELMET)).toContain("player-parts/fire-metal-helmet.png");
+    expect(itemArtMarkup(DARK_METAL_HELMET)).toContain("player-parts/dark-metal-helmet.png");
     expect(itemArtMarkup(FIRE_METAL_BOW)).toContain("player-parts/fire-metal-bow.png");
     expect(itemArtMarkup(WOODEN_ARMOR)).toContain("data:image/png;base64,");
     expect(itemArtMarkup(STARTER_STONE)).not.toContain("boot-pixel-icon");
@@ -86,6 +87,17 @@ describe("item presentation", () => {
     expect(createHash("sha256").update(bow).digest("hex")).toBe("6d9427c5ebc29dbf8df188f029215a2453e8afd67a6358fe01b74cab5cb06867");
     expect(itemPresentation(FIRE_METAL_HELMET)?.world).toMatchObject({ layer: "HEAD", bottom: 144 });
     expect(itemPresentation(FIRE_METAL_BOW)?.world).toMatchObject({ layer: "HAND", width: 115, height: 63, top: 106, handAction: "BOW" });
+  });
+
+  it("uses the requested dark horned helmet asset", () => {
+    const helmet = readFileSync(new URL("../../public/assets/wildwood/player-parts/dark-metal-helmet.png", import.meta.url));
+    expect(createHash("sha256").update(helmet).digest("hex")).toBe("6417507209ab4d6e43564c5003c720992f4d07974640964f9007ef6334d31f65");
+    expect(itemPresentation(DARK_METAL_HELMET)?.world).toMatchObject({
+      kind: "SPRITE",
+      source: "assets/wildwood/player-parts/dark-metal-helmet.png",
+      layer: "HEAD",
+      bottom: 144,
+    });
   });
 
   it("uses the exact transparent FA_Chest_032_Blue vendor armor asset", () => {
