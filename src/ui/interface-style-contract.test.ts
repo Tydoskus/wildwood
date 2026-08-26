@@ -199,8 +199,10 @@ describe("interface style contracts", () => {
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
-    expect(cssRule(".connection-modal,")).toContain("calc(100svh - 24px)");
-    expect(cssRule(".connection-modal,")).toContain("calc((100svh - 586px) / 2)");
+    expect(cssRule(".connection-modal {")).toContain("top: 50dvh");
+    expect(cssRule(".connection-modal {")).toContain("transform: translate(-50%, -50%)");
+    expect(cssRule(".account-choice-modal {")).toContain("calc(100svh - 24px)");
+    expect(cssRule(".account-choice-modal {")).toContain("calc((100svh - 586px) / 2)");
     expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
   });
 
@@ -211,6 +213,7 @@ describe("interface style contracts", () => {
 
   it("turns the full minimap into a help target with a fullscreen map guide", () => {
     expect(html).toContain('id="minimapButton"');
+    expect(html).toContain('id="minimapPlayers" class="minimap-players">players online: 0</div>');
     expect(html).toContain('class="minimap-help-mark" aria-hidden="true">?</span>');
     expect(html).toContain('id="mapGuideCanvas"');
     expect(html).toContain('id="mapGuideDropItems"');
@@ -221,6 +224,7 @@ describe("interface style contracts", () => {
     expect(minimap).toContain("pointer-events: auto");
     const guide = cssRule("#mapGuide {");
     expect(guide).toContain("inset: 0 0 var(--toolbar-height)");
+    expect(cssRule(".map-guide-map-frame {")).toContain("width: min(75%, 420px)");
     expect(cssRule(".map-guide-scroll {")).toContain("touch-action: pan-y");
     expect(cssRule(".map-guide-back {")).toContain("width: min(220px, 80vw)");
   });
@@ -236,6 +240,7 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="dailyGemClaimBtn"');
     expect(html).toContain('>CLAIM</button>');
     expect(cssRule(".daily-gem-bonus {")).toContain("place-items: center");
+    expect(cssRule(".daily-gem-bonus-card {")).toContain("background: radial-gradient(circle at 50% 32%, #352a31, #252125 72%)");
     expect(cssRule(".daily-gem-claim-button {")).toContain("justify-self: center");
   });
 

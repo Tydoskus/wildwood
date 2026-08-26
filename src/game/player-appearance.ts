@@ -26,6 +26,15 @@ export type PlayerAppearanceAssets = {
   }>;
 };
 
+type PlayerAppearanceWarmupOptions = {
+  skinTone?: number;
+  headItem?: string;
+  chestItem?: string;
+  feetItem?: string;
+  rightHandItem?: string;
+  leftHandItem?: string;
+};
+
 const PLAYER_BODY_WIDTH = 180;
 const PLAYER_BODY_HEIGHT = 171;
 const PLAYER_BODY_CACHE_LIMIT = 128;
@@ -108,6 +117,41 @@ export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanc
 
 export function skinToneColor(value: number | undefined) {
   return PLAYER_SKIN_TONES[Math.max(0, Math.min(PLAYER_SKIN_TONES.length - 1, Math.floor(value ?? DEFAULT_SKIN_TONE)))] ?? PLAYER_SKIN_TONES[DEFAULT_SKIN_TONE];
+}
+
+/** Builds every idle/walk body composite while the loading screen is still visible. */
+export function warmPlayerAppearanceCache(assets: PlayerAppearanceAssets, options: PlayerAppearanceWarmupOptions) {
+  if (typeof document === "undefined") return;
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+
+  for (let idleFrame = 0; idleFrame < 4; idleFrame += 1) {
+    drawStartingPlayer(context, assets, {
+      ...options,
+      x: 0,
+      y: 0,
+      facing: 0,
+      moving: false,
+      gameTime: idleFrame / 2,
+      alpha: 0,
+    });
+    for (let walkFrame = 1; walkFrame <= 3; walkFrame += 1) {
+      let tenth = idleFrame * 5;
+      while (tenth % 3 !== walkFrame - 1) tenth += 1;
+      drawStartingPlayer(context, assets, {
+        ...options,
+        x: 0,
+        y: 0,
+        facing: 0,
+        moving: true,
+        gameTime: tenth / 10,
+        alpha: 0,
+      });
+    }
+  }
 }
 
 /** Converts the requested 125° right-hand pose into canvas rotation. */
@@ -238,13 +282,11 @@ export function drawStartingPlayer(
     heldX += 3 * (1 - settle);
     heldY -= Math.sin(settle * Math.PI) * 2;
   }
-  const runMotion = bowHeld
-    ? { x: 0, y: 0, rotation: 0 }
-    : heldWeaponRunMotion({
-      moving: options.moving,
-      gameTime: options.gameTime,
-      heldInLeftHand,
-    });
+  const runMotion = heldWeaponRunMotion({
+    moving: options.moving,
+    gameTime: options.gameTime,
+    heldInLeftHand,
+  });
   heldX += runMotion.x;
   heldY += runMotion.y;
   const feetAssets = options.feetItem ? assets.equipment[options.feetItem] : undefined;

@@ -20,4 +20,13 @@ describe("performance monitor", () => {
 
     expect(monitor.snapshot()).toMatchObject({ fps: 60, onePercentLowFps: 60, workFps: 2_000 });
   });
+
+  it("starts a clean gameplay sample after loading work", () => {
+    const monitor = createPerformanceMonitor();
+    monitor.record(50, 4, 8, 12);
+    monitor.reset();
+    monitor.record(1_000 / 60, 1, 2, .5);
+
+    expect(monitor.snapshot()).toMatchObject({ fps: 60, onePercentLowFps: 60, workFps: 2_000 });
+  });
 });

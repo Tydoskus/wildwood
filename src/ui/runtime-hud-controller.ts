@@ -18,6 +18,7 @@ type RuntimeHudElements = {
   playerName: HTMLElement;
   playerPower: HTMLElement;
   coopStatus: HTMLElement;
+  minimapPlayers: HTMLElement;
   playerIcon: HTMLElement;
   duelControls: HTMLElement;
   duelStatus: HTMLElement;
@@ -216,7 +217,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     const identity = dependencies.localIdentity();
     const displayName = dependencies.localDisplayName() || "WANDERER";
     renderPlayerHud(
-      { hpFill: elements.hpFill, hpText: elements.hpText, playerName: elements.playerName, playerPower: elements.playerPower, coopStatus: elements.coopStatus },
+      { hpFill: elements.hpFill, hpText: elements.hpText, playerName: elements.playerName, playerPower: elements.playerPower, coopStatus: elements.coopStatus, minimapPlayers: elements.minimapPlayers },
       dependencies.player,
       dependencies.isGuest(identity) ? `${displayName} (guest)` : displayName,
       playerCount,

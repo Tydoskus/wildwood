@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.514": [
+    "The minimap now shows the live player count above the version, while the World Map preview is 25% smaller and the Daily Gem Bonus uses a subtler gradient.",
+    "Equipped bows regain subtle running sway, and current player appearance frames are prewarmed so first movement avoids cache hitches and begins with a clean FPS sample.",
+    "The connection loading panel is centered independently of Safari background overscan, and overhead chat bubbles return to a light theme with an eight-second lifetime.",
+  ],
   "0.513": [
     "World Chat now replaces high-confidence abusive, explicit, threatening, scam, and invite content with an italic moderated notice.",
     "Closing fullscreen chat after using the mobile keyboard now restores the gameplay canvas correctly.",
@@ -1050,6 +1055,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.514": "2026-08-25",
   "0.513": "2026-08-25",
   "0.512": "2026-08-25",
   "0.511": "2026-08-25",

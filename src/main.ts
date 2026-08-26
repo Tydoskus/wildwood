@@ -34,7 +34,7 @@ import { applyPlayerMaxHealthMultiplier } from "./game/runtime/player-health";
 import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
 import { createResearchController } from "./game/runtime/research-controller";
 import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
-import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES } from "./game/player-appearance";
+import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES, warmPlayerAppearanceCache } from "./game/player-appearance";
 import type { DuelScene } from "./game/runtime/types";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -1252,6 +1252,17 @@ import {
   startupCoordinator.startVersionPolling();
 
   function startGame(markIntro = true, restoreServerPosition = true) {
+    const firstStart = !session.hasStarted();
+    const appearance = equipmentAppearance(inventory);
+    warmPlayerAppearanceCache(playerAppearanceAssets, {
+      skinTone: coop?.skinTone?.(coop?.localIdentity?.()) ?? DEFAULT_SKIN_TONE,
+      headItem: appearance.headItem,
+      chestItem: appearance.chestItem,
+      feetItem: appearance.feetItem,
+      rightHandItem: appearance.rightHandItem,
+      leftHandItem: appearance.leftHandItem,
+    });
+    if (firstStart) performanceMonitor.reset();
     session.start(markIntro, restoreServerPosition);
     dailyGemBonus.refresh();
     applyGameplayPauseState();

@@ -74,5 +74,16 @@ export function createPerformanceMonitor() {
     };
   }
 
-  return { record, snapshot };
+  function reset() {
+    frames.fill(0);
+    workFrames.fill(0);
+    frameCount = 0;
+    nextFrameIndex = 0;
+    updateMs = 0;
+    renderMs = 0;
+    longFrames = 0;
+    longestFrameMs = 0;
+  }
+
+  return { record, reset, snapshot };
 }

@@ -18,6 +18,7 @@ type HudElements = {
   playerName: HTMLElement | null;
   playerPower: HTMLElement;
   coopStatus: HTMLElement | null;
+  minimapPlayers: HTMLElement | null;
 };
 
 export function renderPlayerHud(
@@ -65,9 +66,9 @@ export function renderPlayerHud(
     elements.playerPower.replaceChildren(powerValue, powerIcon);
     elements.playerPower.dataset.renderedPower = powerText;
   }
-  if (elements.coopStatus) {
-    const status = `Players online: ${playerCount}`;
-    if (elements.coopStatus.textContent !== status) elements.coopStatus.textContent = status;
+  const status = `players online: ${playerCount}`;
+  for (const statusElement of [elements.coopStatus, elements.minimapPlayers]) {
+    if (statusElement && statusElement.textContent !== status) statusElement.textContent = status;
   }
 }
 

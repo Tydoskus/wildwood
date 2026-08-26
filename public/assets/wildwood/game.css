@@ -766,18 +766,29 @@
     transition: opacity .15s;
   }
 
-  .minimap-version {
+  .minimap-meta {
     position: absolute;
     top: calc(var(--hud-map-size) + 1px);
     right: 4px;
     z-index: 4;
+    display: grid;
+    justify-items: center;
     width: calc(var(--hud-map-size) - 8px);
+    pointer-events: none;
+    text-align: center;
+    text-shadow: 1px 1px 0 #000;
+  }
+
+  .minimap-players {
+    color: rgba(246, 246, 232, .9);
+    font: 900 8px/10px var(--font-rounded);
+    white-space: nowrap;
+  }
+
+  .minimap-version {
     color: rgba(246, 246, 232, .72);
     font: 900 8px/10px var(--font-rounded);
     letter-spacing: .06em;
-    text-align: center;
-    text-shadow: 1px 1px 0 #000;
-    pointer-events: none;
   }
 
   .minimap-button {
@@ -824,7 +835,7 @@
 
   .respawn-ad-button {
     position: absolute;
-    top: calc(var(--hud-map-size) + 17px);
+    top: calc(var(--hud-map-size) + 27px);
     right: 4px;
     z-index: 4;
     display: flex;
@@ -873,7 +884,7 @@
 
   .respawn-boost-status {
     position: absolute;
-    top: calc(var(--hud-map-size) + 19px);
+    top: calc(var(--hud-map-size) + 29px);
     right: 4px;
     z-index: 4;
     width: calc(var(--hud-map-size) - 8px);
@@ -1107,7 +1118,7 @@
 
   .daily-gem-bonus { position: fixed; inset: 0 0 var(--toolbar-height); z-index: 18; display: grid; place-items: center; padding: 18px; background: rgba(8, 7, 10, .78); pointer-events: auto; }
   .daily-gem-bonus[hidden] { display: none; }
-  .daily-gem-bonus-card { position: relative; display: grid; justify-items: center; gap: 7px; width: min(330px, calc(100vw - 36px)); padding: 19px 22px 22px; overflow: hidden; border: 2px solid #e89abd; border-radius: 13px; background: radial-gradient(circle at 50% 32%, #513547, #211a20 72%); box-shadow: 0 12px 0 rgba(0,0,0,.42), 0 0 30px rgba(241,130,187,.2); color: #fff; text-align: center; animation: daily-gem-card-enter .34s cubic-bezier(.2,.9,.24,1.24); }
+  .daily-gem-bonus-card { position: relative; display: grid; justify-items: center; gap: 7px; width: min(330px, calc(100vw - 36px)); padding: 19px 22px 22px; overflow: hidden; border: 2px solid #e89abd; border-radius: 13px; background: radial-gradient(circle at 50% 32%, #352a31, #252125 72%); box-shadow: 0 12px 0 rgba(0,0,0,.42), 0 0 30px rgba(241,130,187,.2); color: #fff; text-align: center; animation: daily-gem-card-enter .34s cubic-bezier(.2,.9,.24,1.24); }
   .daily-gem-bonus-kicker { color: #ffc2df; font-size: 10px; font-weight: 900; letter-spacing: .18em; }
   .daily-gem-bonus-art { position: relative; display: grid; width: 112px; height: 112px; place-items: center; }
   .daily-gem-bonus-art::before { position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(255,190,223,.24) 0 7deg, transparent 7deg 22deg); content: ""; animation: daily-gem-rays 12s linear infinite; }
@@ -1497,7 +1508,18 @@
 
   #connectionPanel[hidden], #accountChoicePanel[hidden], #newPlayerPanel[hidden] { display: none; }
 
-  .connection-modal,
+  .connection-modal {
+    position: fixed;
+    top: 50vh;
+    top: 50dvh;
+    left: 50%;
+    width: min(430px, calc(100vw - 36px));
+    max-height: calc(100svh - 24px);
+    margin: 0;
+    overflow-y: auto;
+    transform: translate(-50%, -50%);
+  }
+
   .account-choice-modal {
     width: min(430px, calc(100vw - 36px));
     height: min(586px, calc(100vh - 24px));
@@ -1507,7 +1529,6 @@
     align-self: start;
   }
 
-  .account-choice-modal {
     text-align: center;
   }
 
@@ -1959,7 +1980,7 @@
   .map-guide-map-frame {
     position: relative;
     justify-self: center;
-    width: min(100%, 560px);
+    width: min(75%, 420px);
     aspect-ratio: 1;
     overflow: hidden;
     border: 0;

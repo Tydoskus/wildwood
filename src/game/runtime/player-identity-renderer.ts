@@ -24,7 +24,7 @@ const DEVELOPER_BADGE = "[dev]";
 const PROFILE_PORTRAIT_ZOOM = 1.03;
 const PROFILE_PORTRAIT_GRID = 8;
 const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
-const SPEECH_BUBBLE_DURATION_MS = 6_000;
+const SPEECH_BUBBLE_DURATION_MS = 8_000;
 const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
@@ -215,24 +215,24 @@ export function createPlayerIdentityRenderer(options: {
       const left = Math.round(centerX - bubble.width / 2);
       const top = Math.round(bottom - bubble.height);
 
-      ctx.globalAlpha = opacity * .42;
+      ctx.globalAlpha = opacity * .28;
       ctx.fillStyle = "#050806";
       options.roundRect(left + 1, top + 3, bubble.width, bubble.height, 9);
       ctx.fill();
 
       ctx.globalAlpha = opacity;
-      ctx.fillStyle = "rgba(22, 30, 26, .96)";
-      ctx.strokeStyle = "#090d0b";
+      ctx.fillStyle = "#f4f0df";
+      ctx.strokeStyle = "#171b18";
       ctx.lineWidth = 2;
       options.roundRect(left, top, bubble.width, bubble.height, 9);
       ctx.fill();
       ctx.stroke();
-      ctx.strokeStyle = "rgba(174, 206, 187, .48)";
+      ctx.strokeStyle = "rgba(255, 255, 255, .58)";
       ctx.lineWidth = 1;
       options.roundRect(left + 1.5, top + 1.5, bubble.width - 3, bubble.height - 3, 7.5);
       ctx.stroke();
 
-      ctx.fillStyle = "#f7f3e7";
+      ctx.fillStyle = "#20251f";
       bubble.lines.forEach((line, index) => options.fillText(line, centerX, top + paddingY + lineHeight * (index + .5)));
       bottom = top - SPEECH_BUBBLE_STACK_GAP;
     }

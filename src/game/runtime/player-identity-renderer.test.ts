@@ -12,8 +12,8 @@ describe("player speech bubbles", () => {
   it("stacks the newest active message nearest the player and pushes older messages upward", () => {
     const now = 10_000;
     const active = activeSpeechBubbleMessages([
-      message("rymel", "expired", now - 6_000),
-      message("rymel", "oldest active", now - 4_000),
+      message("rymel", "expired", now - 8_000),
+      message("rymel", "oldest active", now - 7_000),
       message("rymel", "middle", now - 3_000),
       message("rymel", "newer", now - 2_000),
       message("rymel", "newest", now - 1_000),
