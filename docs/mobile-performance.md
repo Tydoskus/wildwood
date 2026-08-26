@@ -39,7 +39,7 @@ The two actionable findings were:
   evicted Canvas2D fallback tiles are resized to zero to release their backing
   stores without waiting for garbage collection.
 
-## Mobile motion pipeline
+## Mobile motion pipeline (v0.528)
 
 The original frame loop requested animation frames but then manually admitted
 only 60 of them per second. That is evenly divisible on 60 and 120 Hz panels,

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.528": [
+    "Smoothed mobile movement with native-refresh rendering, fixed-step interpolation, consistent pixel alignment, and a steadier analog joystick.",
+    "Prevented duplicate mobile viewport events from repeatedly rebuilding the game canvas.",
+  ],
   "0.527": [
     "Eliminated a background timer loop and reduced world-tile graphics memory.",
   ],
@@ -1106,6 +1110,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.528": "2026-08-26",
   "0.527": "2026-08-26",
   "0.526": "2026-08-26",
   "0.525": "2026-08-26",
