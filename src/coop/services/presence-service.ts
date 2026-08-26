@@ -3,12 +3,17 @@ import { tables, type SubscriptionHandle } from "../../module_bindings";
 import { remoteEquipmentFromRow, type RemoteEquipment } from "./remote-equipment";
 import {
   adaptiveRemoteRenderAt,
+  applyRemoteMotionCorrection,
+  appendRemoteCorrectionSample,
   appendRemoteTimelineSample,
+  createRemoteMotionCorrection,
   createRemoteInterpolationClock,
   createRestartRemoteInterpolationClock,
   observeRemoteSample,
   remoteMotionAt,
+  resetRemoteMotionCorrection,
   type RemoteInterpolationClock,
+  type RemoteMotionCorrection,
 } from "./remote-interpolation";
 import {
   createRemoteBossAttackState,
@@ -59,6 +64,7 @@ type RemotePlayerSample = {
 type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
   interpolationClock: RemoteInterpolationClock;
+  motionCorrection: RemoteMotionCorrection;
   lastInputSequence: number;
   bossAttackState?: RemoteBossAttackState;
 };
@@ -144,12 +150,15 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
     existing.samples.length = 0;
     existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
     existing.interpolationClock = createRestartRemoteInterpolationClock(sample.receivedAt);
+    resetRemoteMotionCorrection(existing.motionCorrection, sample.receivedAt);
   } else if (distance > REMOTE_SNAP_DISTANCE) {
     existing.samples.length = 0;
     existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
     existing.interpolationClock = createRemoteInterpolationClock(sample.receivedAt);
+    resetRemoteMotionCorrection(existing.motionCorrection, sample.receivedAt);
   } else {
-    appendRemoteTimelineSample(existing.samples, sample);
+    const renderAt = adaptiveRemoteRenderAt(existing.interpolationClock, sample.receivedAt);
+    appendRemoteCorrectionSample(existing.samples, sample, renderAt, existing.speed, existing.motionCorrection);
   }
   while (existing.samples.length > REMOTE_SAMPLE_LIMIT) existing.samples.shift();
   existing.moving = sample.moving;
@@ -275,6 +284,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         ...equipment,
         samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, dx: row.dx, dy: row.dy, facing: row.facing, moving: row.moving }],
         interpolationClock: createRemoteInterpolationClock(receivedAt),
+        motionCorrection: createRemoteMotionCorrection(receivedAt),
         lastInputSequence: row.lastInputSequence,
       });
       dependencies.changes.notify();
@@ -684,7 +694,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         for (const player of players.values()) {
           if (player.id === dependencies.localIdentity()) continue;
           const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
-          const motion = remoteMotionAt(player.samples, renderAt, player.speed);
+          const motion = applyRemoteMotionCorrection(
+            remoteMotionAt(player.samples, renderAt, player.speed),
+            player.motionCorrection,
+            now,
+            player.speed,
+          );
           player.x = motion.x;
           player.y = motion.y;
           player.facing = motion.facing;

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   adaptiveRemoteRenderAt,
+  applyRemoteMotionCorrection,
+  appendRemoteCorrectionSample,
   appendRemoteTimelineSample,
+  createRemoteMotionCorrection,
   createRemoteInterpolationClock,
   createRestartRemoteInterpolationClock,
   observeRemoteSample,
@@ -10,12 +13,12 @@ import {
 } from "./remote-interpolation";
 
 describe("adaptive remote interpolation", () => {
-  it("buffers a 3 Hz stream enough to keep a future sample available", () => {
+  it("does not mistake a sparse heartbeat for network jitter", () => {
     const clock = createRemoteInterpolationClock(0);
-    observeRemoteSample(clock, 333, 333);
+    observeRemoteSample(clock, 1_000, 1_000);
     for (let now = 16; now <= 500; now += 16) adaptiveRemoteRenderAt(clock, now);
-    expect(clock.targetDelayMs).toBeGreaterThan(400);
-    expect(clock.delayMs).toBeGreaterThan(400);
+    expect(clock.targetDelayMs).toBeLessThan(100);
+    expect(clock.delayMs).toBeLessThan(100);
   });
 
   it("returns smoothly to a responsive delay for a high-rate stream", () => {
@@ -88,12 +91,61 @@ describe("adaptive remote interpolation", () => {
     expect(remoteMotionAt(samples, 800, 180).x).toBeCloseTo(145.6);
   });
 
+  it("anchors a late correction to the pose already being presented", () => {
+    const samples: TimestampedRemoteMotionSample[] = [
+      { timelineAt: 0, serverAtMs: 0, receivedAt: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+    ];
+    const correction = createRemoteMotionCorrection(0);
+    const before = remoteMotionAt(samples, 920, 180);
+    appendRemoteCorrectionSample(samples, {
+      serverAtMs: 1_000,
+      receivedAt: 1_000,
+      x: 160,
+      y: 0,
+      dx: 1,
+      dy: 0,
+      facing: 0,
+      moving: true,
+    }, 920, 180, correction);
+    const corrected = applyRemoteMotionCorrection(remoteMotionAt(samples, 920, 180), correction, 1_000, 180);
+    expect(corrected.x).toBeCloseTo(before.x);
+    const initialError = Math.abs(corrected.x - remoteMotionAt(samples, 920, 180).x);
+    let previousX = corrected.x;
+    for (let now = 1_016; now <= 1_288; now += 16) {
+      const renderAt = now - 80;
+      const raw = remoteMotionAt(samples, renderAt, 180);
+      const presented = applyRemoteMotionCorrection(raw, correction, now, 180);
+      expect(presented.x).toBeGreaterThan(previousX);
+      previousX = presented.x;
+    }
+    const finalRaw = remoteMotionAt(samples, 1_208, 180);
+    expect(Math.abs(previousX - finalRaw.x)).toBeLessThan(initialError);
+  });
+
+  it("extrapolates with realized straight-line velocity instead of repeating drift", () => {
+    const samples: TimestampedRemoteMotionSample[] = [
+      { timelineAt: 0, serverAtMs: 0, receivedAt: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true },
+    ];
+    const correction = createRemoteMotionCorrection(0);
+    appendRemoteCorrectionSample(samples, {
+      serverAtMs: 1_000,
+      receivedAt: 1_000,
+      x: 160,
+      y: 0,
+      dx: 1,
+      dy: 0,
+      facing: 0,
+      moving: true,
+    }, 920, 180, correction);
+    expect(remoteMotionAt(samples, 1_500, 180).x).toBeCloseTo(240);
+  });
+
   it("drops a distant-rate delay when movement restarts", () => {
     const clock = createRemoteInterpolationClock(0);
     observeRemoteSample(clock, 333, 333);
     for (let now = 16; now <= 500; now += 16) adaptiveRemoteRenderAt(clock, now);
     const restarted = createRestartRemoteInterpolationClock(500);
-    expect(restarted.delayMs).toBe(125);
+    expect(restarted.delayMs).toBe(75);
     expect(restarted.delayMs).toBeLessThan(clock.delayMs);
   });
 });

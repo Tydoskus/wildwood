@@ -1334,7 +1334,7 @@
   #chatPanel:not(.is-large) #latencyStatus,
   #chatPanel:not(.is-large) #version { display: none; }
   #chatPanel:not(.is-large) .chat-size-toggle { margin-left: 0; }
-  #chatPanel:not(.is-large) #chatMessages { display: grid; align-content: end; height: 39px; min-height: 39px; max-height: 39px; }
+  #chatPanel:not(.is-large) #chatMessages { display: grid; align-content: end; height: 39px; min-height: 39px; max-height: 39px; padding: 0 3px 0 43px; background: 2px center / 38px 38px no-repeat url("icons/Icon_Misc_ETC_Chat01.png"); }
   #chatPanel:not(.is-large) .chat-line { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 18px; }
   #chatPanel:not(.is-large) .chat-message-content { display: flex; flex: 1 1 0; align-items: center; gap: 5px; min-width: 0; }
   #chatPanel:not(.is-large) .chat-time,

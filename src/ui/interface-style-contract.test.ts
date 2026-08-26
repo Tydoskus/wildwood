@@ -86,6 +86,10 @@ describe("interface style contracts", () => {
     expect(compactChat).toContain("rgba(61, 63, 64, .62)");
     expect(compactChat).toContain("linear-gradient");
     expect(compactChat).toContain("cursor: pointer");
+    const compactMessages = cssRule("#chatPanel:not(.is-large) #chatMessages {");
+    expect(compactMessages).toContain("padding: 0 3px 0 43px");
+    expect(compactMessages).toContain('url("icons/Icon_Misc_ETC_Chat01.png")');
+    expect(compactMessages).toContain("38px 38px");
     expect(cssRule("#chatPanel:not(.is-large) .chat-header {")).toContain("display: none");
     expect(cssRule("#chatPanel.is-large .chat-header {")).toContain("display: none");
     expect(cssRule("canvas#game {")).toContain("bottom: var(--gameplay-bottom-inset)");
