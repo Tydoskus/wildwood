@@ -17,8 +17,8 @@ Wildwood is mobile-first. Touch interaction, narrow portrait layouts, safe areas
 | Game modules | `src/game/` | Constants, enemy/catalog data, world generation, duel replay math, canvas primitives, and inventory logic. |
 | Runtime systems | `src/game/runtime/` | Strictly typed audio, assets, bootstrap, camera, combat effects, persistence, rendering, input, session, and browser contracts. |
 | UI modules | `src/ui/` | UI controller/view modules, DOM element contracts, chat runtime, and interaction bindings. |
-| Multiplayer client | `src/wildwood-coop.ts` | SpacetimeDB connection, guest/account authentication, subscriptions, durable progress, chat, duels, and shared dragon state. |
-| Multiplayer services | `src/coop/services/` | Isolated progress rules/storage migration and duel cooldown persistence. |
+| Multiplayer client | `src/wildwood-coop.ts` | Browser-facing composition, connection/reconnect policy, and stable `window.wildwoodCoop` API. |
+| Multiplayer services | `src/coop/services/` | Account, subscription hydration, presence, profiles, progression, chat, duels, bosses, and developer tooling. See `docs/wildwood-coop-modularization.md`. |
 | Server module | `spacetimedb/src/index.ts` | Authoritative player/boss state, persistence, reducer validation, contribution accounting, account linking, chat, and duels. |
 | Shared game values | `src/game/constants.ts` | World dimensions, player and boss tuning, and movement constants. |
 | Static site files | `public/index.html`, `public/assets/wildwood/game.css` | Static shell, overlays, controls, and visual styling. |

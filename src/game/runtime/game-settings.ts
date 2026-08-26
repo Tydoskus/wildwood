@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.525";
+export const GAME_VERSION = "0.526";
 export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";

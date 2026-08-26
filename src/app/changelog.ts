@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.526": [
+    "Reworked multiplayer internals for safer, more reliable future updates.",
+  ],
   "0.525": [
     "Duel replay chat rows now open the message drawer with Watch Replay, Reply, and eligible Report actions, while portraits continue to open player profiles directly.",
   ],
@@ -1100,6 +1103,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.526": "2026-08-26",
   "0.525": "2026-08-26",
   "0.524": "2026-08-26",
   "0.523": "2026-08-26",
