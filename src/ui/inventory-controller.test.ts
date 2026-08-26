@@ -2,8 +2,14 @@ import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, STARTER_STONE } from "../game/inventory";
 import { inventoryMoveActions } from "./hud";
 import { clearInventorySelection, inventorySelectionAfterMove, nextInventorySelection } from "./inventory-controller";
+import { itemInspectionButtonLabel } from "./item-inspection-controller";
 
 describe("inventory selection", () => {
+  it("presents inventory action labels in Camel Case", () => {
+    expect(itemInspectionButtonLabel("EQUIP RIGHT")).toBe("Equip Right");
+    expect(itemInspectionButtonLabel("REMOVE COSMETIC")).toBe("Remove Cosmetic");
+    expect(itemInspectionButtonLabel("Back")).toBe("Back");
+  });
   it("unselects an item when tapped twice", () => {
     expect(nextInventorySelection("starter_stone", "starter_stone")).toBe("");
   });

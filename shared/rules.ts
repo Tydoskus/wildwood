@@ -23,6 +23,8 @@ export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 1;
 export {
   BASIC_PAPER_HAT,
+  FIRE_METAL_BOW,
+  FIRE_METAL_HELMET,
   FROST_ARMOR,
   FROST_BOW,
   IRON_BOW,
@@ -66,7 +68,7 @@ export const MAP_IDS: readonly string[] = [
   INFERNAL_DEPTHS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 66;
+export const PROTOCOL_VERSION = 67;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

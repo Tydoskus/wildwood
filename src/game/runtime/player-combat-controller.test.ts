@@ -65,6 +65,7 @@ describe("player attack timing", () => {
       researchCriticalDamageMultiplier: () => 1,
       researchRewardMultiplier: () => 1,
       equippedWeapon: () => "starter_stone",
+      equippedHead: () => "",
       equippedChest: () => "",
       healthMultiplier: () => 1,
       minAttackInterval: .05,

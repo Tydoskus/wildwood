@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   FROST_ARMOR,
   FROST_BOW,
+  FIRE_METAL_BOW,
+  FIRE_METAL_HELMET,
   IRON_BOW,
   LAVA_BOW,
   MAGMA_ARMOR,
@@ -35,9 +37,12 @@ describe("map guide", () => {
     ]);
     expect(mapGuideDrops(ADVANCED_LAVA_WASTES_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
       [MAGMA_ARMOR, 30],
+      [FIRE_METAL_HELMET, 50],
       [LAVA_BOW, 25],
     ]);
-    expect(mapGuideDrops(INFERNAL_DEPTHS_MAP_ID)).toEqual([]);
+    expect(mapGuideDrops(INFERNAL_DEPTHS_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
+      [FIRE_METAL_BOW, 50],
+    ]);
     expect(mapGuideDropChance(25)).toBe("4%");
     expect(mapGuideDropChance(30)).toBe("3.3%");
   });
@@ -45,6 +50,8 @@ describe("map guide", () => {
   it("summarizes the stats players need when evaluating a drop", () => {
     expect(mapGuideItemStats(IRON_BOW)).toEqual(["Damage 1.5×", "Attack Speed 1.1×"]);
     expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Damage 2×", "Max Health 2.25×", "Regen 2.25×"]);
+    expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Damage 1.25×", "Max Health 1.25×", "Regen 1.5×"]);
+    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage 12×", "Attack Speed 1.3×"]);
   });
 
   it("groups live forest spawns into compact reward zones", () => {

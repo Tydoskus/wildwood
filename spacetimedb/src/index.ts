@@ -20,8 +20,11 @@ import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { moderatePublicChatMessage } from "./chat-moderation";
 import {
   DAILY_LOGIN_GEM_BONUS,
+  MAX_INVENTORY_SLOT_CAPACITY,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
   gemBalanceAfter,
+  inventorySlotCapacity,
+  inventorySlotUnlockCost,
   itemUpgradeSpeedUpGemCost,
   researchSpeedUpGemCost,
 } from "../../shared/gems";
@@ -34,21 +37,26 @@ import {
   DEVELOPER_ITEM_IDS,
   equipmentDamageMultiplier,
   equipmentMaxHealthMultiplier,
+  equipmentRegenerationMultiplier,
+  FIRE_METAL_BOW,
+  FIRE_METAL_HELMET,
   FOREST_ITEM_DROP_DENOMINATOR,
   FROST_ARMOR,
   FROST_BOW,
   inventoryJsonItemQuantity,
   itemDefinition,
   isUpgradeableItem,
-  itemRegenerationMultiplier,
   itemFitsEquipmentSlot,
   itemUpgradeDurationMs,
   IRON_BOW,
+  INFERNAL_DROP_ITEM_IDS,
+  INFERNAL_ITEM_DROP_DENOMINATOR,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
   LAVA_DROP_ITEM_IDS,
   LAVA_ITEM_DROP_DENOMINATOR,
+  LAVA_HELMET_ITEM_DROP_DENOMINATOR,
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAX_FOREST_ITEM_COUNT,
   MAX_ITEM_UPGRADE_LEVEL,
@@ -470,13 +478,24 @@ const dailyGemBonus = table(
   },
 );
 
-// Permanent paid upgrade-bench capacity is private account data. Slot one is
+// Permanent paid Upgrade Bench capacity is private account data. Slot one is
 // always available; this row exists only after slot two has been purchased.
 const playerUpgradeBench = table(
   { name: "player_upgrade_bench", public: false },
   {
     identity: t.identity().primaryKey(),
     secondSlotUnlocked: t.bool(),
+    updatedAt: t.timestamp(),
+  },
+);
+
+// Bag expansion is isolated from the established Upgrade Bench schema so it
+// can roll out additively without rewriting any existing paid-unlock rows.
+const playerInventoryCapacity = table(
+  { name: "player_inventory_capacity", public: false },
+  {
+    identity: t.identity().primaryKey(),
+    slotsUnlocked: t.u32(),
     updatedAt: t.timestamp(),
   },
 );
@@ -1295,6 +1314,7 @@ const spacetimedb = schema({
   gemTransaction,
   dailyGemBonus,
   playerUpgradeBench,
+  playerInventoryCapacity,
   playerProgress,
   playerLastLocation,
   playerResearch,
@@ -1408,6 +1428,15 @@ export const myUpgradeBench = spacetimedb.view(
   (ctx) => {
     const bench = ctx.db.playerUpgradeBench.identity.find(ctx.sender);
     return bench ? [bench] : [];
+  },
+);
+
+export const myInventoryCapacity = spacetimedb.view(
+  { name: "my_inventory_capacity", public: true },
+  t.array(playerInventoryCapacity.rowType),
+  (ctx) => {
+    const capacity = ctx.db.playerInventoryCapacity.identity.find(ctx.sender);
+    return capacity ? [capacity] : [];
   },
 );
 
@@ -1840,12 +1869,15 @@ function researchedDamage(ctx: any, identity: any, damage: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.warcraft ?? 0;
   const progress = ctx.db.playerProgress.identity.find(identity);
   const weaponItem = progress ? equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress) : "";
+  const headItem = progress ? equippedHeadForProgress(progress) : "";
   const chestItem = progress ? equippedChestForProgress(progress) : "";
   return damage * equipmentDamageMultiplier(
     weaponItem,
+    headItem,
     chestItem,
     1 + rank * .02,
     itemUpgradeLevelFor(ctx, identity, weaponItem),
+    itemUpgradeLevelFor(ctx, identity, headItem),
     itemUpgradeLevelFor(ctx, identity, chestItem),
   );
 }
@@ -1858,8 +1890,15 @@ function researchedArmor(ctx: any, identity: any, armor: number) {
 function researchedRegen(ctx: any, identity: any, regen: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.regeneration ?? 0;
   const progress = ctx.db.playerProgress.identity.find(identity);
+  const headItem = progress ? equippedHeadForProgress(progress) : "";
   const chestItem = progress ? equippedChestForProgress(progress) : "";
-  return regen * itemRegenerationMultiplier(chestItem, 1 + rank * .02, itemUpgradeLevelFor(ctx, identity, chestItem));
+  return regen * equipmentRegenerationMultiplier(
+    headItem,
+    chestItem,
+    1 + rank * .02,
+    itemUpgradeLevelFor(ctx, identity, headItem),
+    itemUpgradeLevelFor(ctx, identity, chestItem),
+  );
 }
 
 function duelDamage(ctx: any, identity: any, damage: number) {
@@ -2568,6 +2607,8 @@ function inventoryForProgress(progress: any) {
       Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
     ...LAVA_BOSS_DROP_ITEM_IDS.flatMap((itemId) =>
       Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
+    ...INFERNAL_DROP_ITEM_IDS.flatMap((itemId) =>
+      Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
   ];
 }
 
@@ -3135,6 +3176,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
   if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
   if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
+  if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
   if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
   if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
   if (ctx.db.duelRequestCooldown.identity.find(identity)) ctx.db.duelRequestCooldown.identity.delete(identity);
@@ -4820,6 +4862,17 @@ export const claimGuestAccount = spacetimedb.reducer(
       if (accountUpgradeBench) ctx.db.playerUpgradeBench.identity.update(transferred);
       else ctx.db.playerUpgradeBench.insert(transferred);
     }
+    const guestInventoryCapacity = ctx.db.playerInventoryCapacity.identity.find(link.guest);
+    const accountInventoryCapacity = ctx.db.playerInventoryCapacity.identity.find(ctx.sender);
+    if (guestInventoryCapacity) {
+      const transferred = {
+        identity: ctx.sender,
+        slotsUnlocked: Math.max(accountInventoryCapacity?.slotsUnlocked ?? 0, guestInventoryCapacity.slotsUnlocked),
+        updatedAt: ctx.timestamp,
+      };
+      if (accountInventoryCapacity) ctx.db.playerInventoryCapacity.identity.update(transferred);
+      else ctx.db.playerInventoryCapacity.insert(transferred);
+    }
 
     const guestLifetime = ctx.db.playerLifetime.identity.find(link.guest);
     const accountLifetime = ctx.db.playerLifetime.identity.find(ctx.sender);
@@ -4978,6 +5031,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     const guestGemWallet = ctx.db.playerGemWallet.identity.find(link.guest);
     if (guestGemWallet) ctx.db.playerGemWallet.identity.delete(link.guest);
     if (ctx.db.playerUpgradeBench.identity.find(link.guest)) ctx.db.playerUpgradeBench.identity.delete(link.guest);
+    if (ctx.db.playerInventoryCapacity.identity.find(link.guest)) ctx.db.playerInventoryCapacity.identity.delete(link.guest);
 
     const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
     for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
@@ -5577,9 +5631,38 @@ export const unlockSecondUpgradeSlot = spacetimedb.reducer((ctx) => {
     note: "Permanently unlocked Upgrade Bench slot two.",
     externalReference: `upgrade-bench-slot-two:${ctx.sender.toHexString()}`,
   });
-  const next = { identity: ctx.sender, secondSlotUnlocked: true, updatedAt: ctx.timestamp };
+  const next = {
+    identity: ctx.sender,
+    secondSlotUnlocked: true,
+    updatedAt: ctx.timestamp,
+  };
   if (current) ctx.db.playerUpgradeBench.identity.update(next);
   else ctx.db.playerUpgradeBench.insert(next);
+});
+
+export const unlockInventorySlot = spacetimedb.reducer((ctx) => {
+  requireControllingPlayer(ctx);
+  const current = ctx.db.playerInventoryCapacity.identity.find(ctx.sender);
+  const inventorySlotsUnlocked = current?.slotsUnlocked ?? 0;
+  if (inventorySlotCapacity(inventorySlotsUnlocked) >= MAX_INVENTORY_SLOT_CAPACITY) {
+    throw new SenderError("Maximum Bag capacity reached.");
+  }
+  const cost = inventorySlotUnlockCost(inventorySlotsUnlocked);
+  const capacity = inventorySlotCapacity(inventorySlotsUnlocked) + 1;
+  applyGemBalanceChange(ctx, {
+    identity: ctx.sender,
+    delta: -cost,
+    kind: "inventory_slot_unlock",
+    note: `Permanently unlocked Bag slot ${capacity}.`,
+    externalReference: `inventory-slot:${ctx.sender.toHexString()}:${capacity}`,
+  });
+  const next = {
+    identity: ctx.sender,
+    slotsUnlocked: inventorySlotsUnlocked + 1,
+    updatedAt: ctx.timestamp,
+  };
+  if (current) ctx.db.playerInventoryCapacity.identity.update(next);
+  else ctx.db.playerInventoryCapacity.insert(next);
 });
 
 export const startItemUpgrade = spacetimedb.reducer(
@@ -5745,17 +5828,39 @@ export const recordDesertEnemyDefeat = spacetimedb.reducer(
   },
 );
 
-/** Records one client-simulated Lava Wastes monster defeat; server RNG owns the 1/30 armor roll. */
+/** Records one regular late-game monster defeat; server RNG owns every independent item roll. */
 export const recordLavaEnemyDefeat = spacetimedb.reducer(
   {},
   (ctx) => {
     const activePlayer = requireControllingPlayer(ctx);
-    if (activePlayer.mapId !== ADVANCED_LAVA_WASTES_MAP_ID || activeDuelFor(ctx, ctx.sender)) return;
-    if (ctx.random.integerInRange(1, LAVA_ITEM_DROP_DENOMINATOR) !== 1) return;
+    if (activeDuelFor(ctx, ctx.sender)) return;
+    if (activePlayer.mapId === INFERNAL_DEPTHS_MAP_ID) {
+      if (ctx.random.integerInRange(1, INFERNAL_ITEM_DROP_DENOMINATOR) !== 1) return;
+      const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, FIRE_METAL_BOW);
+      publishItemDrop(ctx, ctx.sender, FIRE_METAL_BOW, alreadyOwned);
+      const next = alreadyOwned ? current : restoreItemToProgress(current, FIRE_METAL_BOW);
+      next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
+      if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
+      else ctx.db.playerProgress.insert(next);
+      return;
+    }
+    if (activePlayer.mapId !== ADVANCED_LAVA_WASTES_MAP_ID) return;
+    const armorDropped = ctx.random.integerInRange(1, LAVA_ITEM_DROP_DENOMINATOR) === 1;
+    const helmetDropped = ctx.random.integerInRange(1, LAVA_HELMET_ITEM_DROP_DENOMINATOR) === 1;
+    if (!armorDropped && !helmetDropped) return;
     const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
-    const alreadyOwned = playerOwnsItem(ctx, ctx.sender, MAGMA_ARMOR);
-    publishItemDrop(ctx, ctx.sender, MAGMA_ARMOR, alreadyOwned);
-    const next = alreadyOwned ? current : restoreItemToProgress(current, MAGMA_ARMOR);
+    let next = { ...current };
+    if (armorDropped) {
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, MAGMA_ARMOR);
+      publishItemDrop(ctx, ctx.sender, MAGMA_ARMOR, alreadyOwned);
+      if (!alreadyOwned) next = restoreItemToProgress(next, MAGMA_ARMOR);
+    }
+    if (helmetDropped) {
+      const alreadyOwned = playerOwnsItem(ctx, ctx.sender, FIRE_METAL_HELMET);
+      publishItemDrop(ctx, ctx.sender, FIRE_METAL_HELMET, alreadyOwned);
+      if (!alreadyOwned) next = restoreItemToProgress(next, FIRE_METAL_HELMET);
+    }
     next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
     if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
     else ctx.db.playerProgress.insert(next);

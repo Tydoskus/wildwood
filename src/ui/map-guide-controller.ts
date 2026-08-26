@@ -1,13 +1,17 @@
 import {
   DESERT_ITEM_DROP_DENOMINATOR,
+  FIRE_METAL_BOW,
+  FIRE_METAL_HELMET,
   FOREST_ITEM_DROP_DENOMINATOR,
   FROST_ARMOR,
   FROST_BOW,
   IRON_BOW,
+  INFERNAL_ITEM_DROP_DENOMINATOR,
   ITEM_DEFINITIONS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
   LAVA_ITEM_DROP_DENOMINATOR,
+  LAVA_HELMET_ITEM_DROP_DENOMINATOR,
   MAGMA_ARMOR,
   SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
@@ -87,9 +91,12 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
   ],
   [ADVANCED_LAVA_WASTES_MAP_ID]: [
     { itemId: MAGMA_ARMOR, denominator: LAVA_ITEM_DROP_DENOMINATOR, source: "Any regular lava enemy" },
+    { itemId: FIRE_METAL_HELMET, denominator: LAVA_HELMET_ITEM_DROP_DENOMINATOR, source: "Any regular lava enemy" },
     { itemId: LAVA_BOW, denominator: LAVA_BOSS_ITEM_DROP_DENOMINATOR, source: "Boss" },
   ],
-  [INFERNAL_DEPTHS_MAP_ID]: [],
+  [INFERNAL_DEPTHS_MAP_ID]: [
+    { itemId: FIRE_METAL_BOW, denominator: INFERNAL_ITEM_DROP_DENOMINATOR, source: "Any regular Infernal Depths enemy" },
+  ],
 };
 
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {

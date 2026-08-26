@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { equipmentAppearance, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -73,7 +73,7 @@ import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { effectivePlayerPower } from "../shared/player-power";
-import { equipmentMaxHealthMultiplier, isWeaponItem, itemDisplayName, itemRegenerationMultiplier, itemStats } from "../shared/items";
+import { equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_ARMOR,
@@ -95,7 +95,7 @@ import {
   const {
     canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, chatPanel, coopStatusEl, messageEl, pickupLog,
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
-    toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, itemInspectionBack, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
     duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -338,11 +338,16 @@ import {
     title: itemInspectionTitle,
     content: itemInspectionContent,
     close: closeItemInspectionBtn,
+    back: itemInspectionBack,
   });
   const inventoryController = createInventoryController({
     inventory,
     itemInspection: itemInspectionController,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
+    inventorySlotsUnlocked: () => coop?.inventorySlotsUnlocked?.() ?? 0,
+    gemBalance: () => coop?.gemBalance?.() ?? 0n,
+    unlockInventorySlot: async () => coop?.unlockInventorySlot?.(),
+    showMessage,
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return false;
       player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS);
@@ -431,9 +436,11 @@ import {
     criticalDamageMultiplier: researchCriticalDamageMultiplier,
     applyVitality: applyVitalityResearch,
   } = research;
-  const regenerationMultiplier = () => itemRegenerationMultiplier(
+  const regenerationMultiplier = () => equipmentRegenerationMultiplier(
+    inventory.equippedHead,
     inventory.equippedChest,
     researchRegenerationMultiplier(),
+    coop?.itemUpgradeLevel?.(inventory.equippedHead) ?? 0,
     coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
   );
   progress = createProgressController({
@@ -461,7 +468,7 @@ import {
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
-    isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
+    isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID || currentMapId === INFERNAL_DEPTHS_MAP_ID,
     engageEnemy,
     researchDamageMultiplier,
     researchCriticalChance,
@@ -470,6 +477,8 @@ import {
     researchAttackSpeedMultiplier: () => 1,
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
+    equippedHead: () => inventory.equippedHead,
+    equippedHeadUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedHead) ?? 0,
     equippedChest: () => inventory.equippedChest,
     equippedChestUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
     healthMultiplier,
@@ -1415,10 +1424,12 @@ import {
       renderInventory();
     }
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
-    const pickupColor = itemId === FROST_BOW || itemId === FROST_ARMOR
-      ? "#2d92ff"
-      : itemId === IRON_BOW ? "#aeb7c5"
-        : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
+    const pickupColor = itemId === FIRE_METAL_BOW || itemId === FIRE_METAL_HELMET
+      ? "#ff6557"
+      : itemId === FROST_BOW || itemId === FROST_ARMOR
+        ? "#2d92ff"
+        : itemId === IRON_BOW ? "#aeb7c5"
+          : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
     runtimeHud.showItemDrop({
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
       color: pickupColor,

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.516": [
+    "Fire Metal Helmet now drops from regular Advanced Lava Lake enemies, while Fire Metal Bow drops in Infernal Depths with its new high-damage equipment bonuses.",
+    "Bag capacity can now expand through progressively priced Gem slot unlocks, and the Upgrade Bench item picker shows five choices before scrolling.",
+    "Item inspection gains centered Camel Case actions and a bottom Back button, Infernal damage rewards are doubled, and equipped bows sit four pixels lower.",
+  ],
   "0.515": [
     "Infernal Depths now opens beyond Lava Lake after defeating Magmalisk, with a one-time portal reveal and five enemy camps that continue each archetype's established scaling curve.",
     "Mini chat now uses a translucent charcoal gradient over full-height gameplay, while the default page background is black and the toolbar's outside corners are square.",
@@ -1060,6 +1065,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.516": "2026-08-25",
   "0.515": "2026-08-25",
   "0.514": "2026-08-25",
   "0.513": "2026-08-25",

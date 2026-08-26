@@ -54,6 +54,7 @@ import StartItemUpgradeReducer from "../start_item_upgrade_reducer";
 import StartResearchReducer from "../start_research_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 import TakeOverSessionReducer from "../take_over_session_reducer";
+import UnlockInventorySlotReducer from "../unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "../unlock_second_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
 
@@ -105,6 +106,7 @@ export type StartItemUpgradeParams = __Infer<typeof StartItemUpgradeReducer>;
 export type StartResearchParams = __Infer<typeof StartResearchReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;
+export type UnlockInventorySlotParams = __Infer<typeof UnlockInventorySlotReducer>;
 export type UnlockSecondUpgradeSlotParams = __Infer<typeof UnlockSecondUpgradeSlotReducer>;
 export type UpdateMovementStateParams = __Infer<typeof UpdateMovementStateReducer>;
 

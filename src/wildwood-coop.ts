@@ -76,6 +76,7 @@ import {
   WORLD_WIDTH,
 } from "../shared/rules";
 import { itemUpgradeDurationMs, normalizeItemUpgradeLevel } from "../shared/items";
+import { normalizedInventorySlotsUnlocked } from "../shared/gems";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -492,6 +493,7 @@ let localDisplayName = "";
 let localGemBalance = 0n;
 let localDailyGemBonusClaimable = false;
 let localSecondUpgradeSlotUnlocked = false;
+let localInventorySlotsUnlocked = 0;
 let localProfileReady = false;
 let localProgress: PlayerProgress | null = null;
 let localResearch: PlayerResearch = createEmptyResearchRanks();
@@ -1406,6 +1408,18 @@ function upsertUpgradeBench(row: { identity: Identity; secondSlotUnlocked: boole
 function removeUpgradeBench(row: { identity: Identity }) {
   if (row.identity.toHexString() !== localIdentity) return;
   localSecondUpgradeSlotUnlocked = false;
+  onChange?.();
+}
+
+function upsertInventoryCapacity(row: { identity: Identity; slotsUnlocked: number }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localInventorySlotsUnlocked = normalizedInventorySlotsUnlocked(row.slotsUnlocked);
+  onChange?.();
+}
+
+function removeInventoryCapacity(row: { identity: Identity }) {
+  if (row.identity.toHexString() !== localIdentity) return;
+  localInventorySlotsUnlocked = 0;
   onChange?.();
 }
 
@@ -2597,6 +2611,7 @@ function clearRealtimeCaches() {
   localGemBalance = 0n;
   localDailyGemBonusClaimable = false;
   localSecondUpgradeSlotUnlocked = false;
+  localInventorySlotsUnlocked = 0;
   profileIdentities.clear();
   motionIdentities.clear();
   activeMotionIdentities.clear();
@@ -2784,6 +2799,7 @@ function connect() {
         localActiveResearch = null;
         localActiveItemUpgrades.clear();
         localSecondUpgradeSlotUnlocked = false;
+        localInventorySlotsUnlocked = 0;
       }
       speedSyncTracker.reset();
       lastDuelPulseAt = 0;
@@ -2898,6 +2914,9 @@ function connect() {
         conn.db.myUpgradeBench.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertUpgradeBench(row); });
         conn.db.myUpgradeBench.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertUpgradeBench(row); });
         conn.db.myUpgradeBench.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeUpgradeBench(row); });
+        conn.db.myInventoryCapacity.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertInventoryCapacity(row); });
+        conn.db.myInventoryCapacity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertInventoryCapacity(row); });
+        conn.db.myInventoryCapacity.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeInventoryCapacity(row); });
         conn.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandleTableEvent()) upsertAccessAudit(row); });
         conn.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandleTableEvent()) removeAccessAudit(row); });
@@ -2960,6 +2979,7 @@ function connect() {
             for (const row of conn.db.myGemWallet.iter()) upsertGemWallet(row);
             for (const row of conn.db.myDailyGemBonus.iter()) upsertDailyGemBonus(row);
             for (const row of conn.db.myUpgradeBench.iter()) upsertUpgradeBench(row);
+            for (const row of conn.db.myInventoryCapacity.iter()) upsertInventoryCapacity(row);
             for (const row of conn.db.devAccessAudit.iter()) upsertAccessAudit(row);
             for (const row of conn.db.devBugReports.iter()) upsertBugReport(row);
             for (const row of conn.db.playerAccountStatus.iter()) upsertPlayerAccountStatus(row);
@@ -3008,6 +3028,7 @@ function connect() {
           tables.myGemWallet,
           tables.myDailyGemBonus,
           tables.myUpgradeBench,
+          tables.myInventoryCapacity,
           ...(isDeveloperIdentity(connectedIdentity) ? [tables.devAccessAudit, tables.devBugReports] : []),
           tables.playerAccountStatus.where((status) => status.identity.eq(identity)),
           tables.worldStatus,
@@ -3059,6 +3080,7 @@ function connect() {
       localActiveResearch = null;
       localActiveItemUpgrades.clear();
       localSecondUpgradeSlotUnlocked = false;
+      localInventorySlotsUnlocked = 0;
       clearRealtimeCaches();
       if (hadActiveGame && !protocolBlocked) setNetworkReconnectVisible(true);
       else setNetworkReconnectVisible(false);
@@ -3548,6 +3570,26 @@ export const wildwoodCoop = {
   },
   secondUpgradeSlotUnlocked() {
     return localSecondUpgradeSlotUnlocked;
+  },
+  inventorySlotsUnlocked() {
+    return localInventorySlotsUnlocked;
+  },
+  async unlockInventorySlot() {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    const previous = localInventorySlotsUnlocked;
+    try {
+      await runWorldReducer(() => connection!.reducers.unlockInventorySlot({}));
+      if (localInventorySlotsUnlocked === previous) {
+        localInventorySlotsUnlocked = normalizedInventorySlotsUnlocked(previous + 1);
+        onChange?.();
+      }
+      return { ok: true };
+    } catch (error) {
+      const message = reducerErrorMessage(error);
+      handleReducerFailure("inventory slot unlock", error);
+      return { ok: false, error: message };
+    }
   },
   async unlockSecondUpgradeSlot() {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };

@@ -4,6 +4,7 @@
 export const BASIC_PAPER_HAT = "basic_paper_hat";
 export const SUPERIOR_GOLDEN_HELMET = "superior_golden_helmet";
 export const WOOD_FULL_HELM = "wood_full_helm";
+export const FIRE_METAL_HELMET = "fire_metal_helmet";
 export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
 export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
@@ -11,13 +12,16 @@ export const STARTER_BOW = "starter_bow";
 export const IRON_BOW = "iron_bow";
 export const FROST_BOW = "frost_bow";
 export const LAVA_BOW = "lava_bow";
+export const FIRE_METAL_BOW = "fire_metal_bow";
 export const FROST_ARMOR = "frost_armor";
 export const MAGMA_ARMOR = "magma_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
 export const DESERT_ITEM_DROP_DENOMINATOR = 50;
 export const LAVA_ITEM_DROP_DENOMINATOR = 30;
+export const LAVA_HELMET_ITEM_DROP_DENOMINATOR = 50;
 export const LAVA_BOSS_ITEM_DROP_DENOMINATOR = 25;
+export const INFERNAL_ITEM_DROP_DENOMINATOR = 50;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
 export const MAX_OWNED_ITEM_COUNT = 1;
@@ -32,7 +36,7 @@ export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -80,6 +84,19 @@ export const ITEM_DEFINITIONS = {
     description: "A sturdy wooden full helm carried by Beginner Desert monsters that increases maximum health.",
     stats: ["MAX HEALTH MULTIPLIER 1.25×"],
     modifiers: { maxHealthMultiplierBonus: .25 },
+  },
+  [FIRE_METAL_HELMET]: {
+    id: FIRE_METAL_HELMET,
+    name: "FIRE METAL HELMET",
+    slot: "HEAD",
+    acquisition: "LAVA_DROP",
+    description: "A red-hot metal helm carried by Advanced Lava Lake monsters that amplifies damage, health, and regeneration.",
+    stats: ["DAMAGE MULTIPLIER 1.25×", "MAX HEALTH MULTIPLIER 1.25×", "REGEN MULTIPLIER 1.50×"],
+    modifiers: {
+      damageMultiplierBonus: .25,
+      maxHealthMultiplierBonus: .25,
+      regenerationMultiplierBonus: .5,
+    },
   },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
     id: LEGENDARY_WHITE_GOLD_ARMOR,
@@ -162,6 +179,20 @@ export const ITEM_DEFINITIONS = {
       attackSpeedMultiplierBonus: .3,
     },
   },
+  [FIRE_METAL_BOW]: {
+    id: FIRE_METAL_BOW,
+    name: "FIRE METAL BOW",
+    slot: "HAND",
+    acquisition: "INFERNAL_DROP",
+    description: "A forged infernal bow carried by Infernal Depths monsters, built for extreme damage and rapid fire.",
+    stats: ["DAMAGE MULTIPLIER 12.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: 11,
+      attackSpeedMultiplierBonus: .3,
+    },
+  },
   [FROST_ARMOR]: {
     id: FROST_ARMOR,
     name: "FROST ARMOR",
@@ -220,6 +251,9 @@ export const LAVA_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .map((item) => item.id) as ItemId[];
 export const LAVA_BOSS_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "LAVA_BOSS_DROP")
+  .map((item) => item.id) as ItemId[];
+export const INFERNAL_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "INFERNAL_DROP")
   .map((item) => item.id) as ItemId[];
 
 export function itemDefinition(itemId: unknown): ItemDefinition | undefined {
@@ -353,15 +387,18 @@ export function itemDamageMultiplier(itemId: unknown, researchMultiplier = 1, up
   return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
 }
 
-/** Weapon, armor, and research damage bonuses are independent multipliers. */
+/** Weapon, head, chest, and research damage bonuses are independent multipliers. */
 export function equipmentDamageMultiplier(
   weaponItemId: unknown,
+  headItemId: unknown,
   chestItemId: unknown,
   researchMultiplier = 1,
   weaponUpgradeLevel = 0,
+  headUpgradeLevel = 0,
   chestUpgradeLevel = 0,
 ) {
   return weaponDamageMultiplier(weaponItemId, researchMultiplier, weaponUpgradeLevel) *
+    itemDamageMultiplier(headItemId, 1, headUpgradeLevel) *
     itemDamageMultiplier(chestItemId, 1, chestUpgradeLevel);
 }
 
@@ -395,4 +432,16 @@ export function equipmentMaxHealthMultiplier(
 export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus;
   return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+}
+
+/** Head, chest, and research regeneration bonuses are independent multipliers. */
+export function equipmentRegenerationMultiplier(
+  headItemId: unknown,
+  chestItemId: unknown,
+  researchMultiplier = 1,
+  headUpgradeLevel = 0,
+  chestUpgradeLevel = 0,
+) {
+  return itemRegenerationMultiplier(headItemId, researchMultiplier, headUpgradeLevel) *
+    itemRegenerationMultiplier(chestItemId, 1, chestUpgradeLevel);
 }

@@ -7,6 +7,9 @@ import {
   DEVELOPER_ITEM_IDS,
   equipmentDamageMultiplier,
   equipmentMaxHealthMultiplier,
+  equipmentRegenerationMultiplier,
+  FIRE_METAL_BOW,
+  FIRE_METAL_HELMET,
   FOREST_ITEM_DROP_DENOMINATOR,
   FOREST_DROP_ITEM_IDS,
   FROST_ARMOR,
@@ -23,11 +26,14 @@ import {
   itemUpgradeStatChanges,
   itemFitsEquipmentSlot,
   IRON_BOW,
+  INFERNAL_DROP_ITEM_IDS,
+  INFERNAL_ITEM_DROP_DENOMINATOR,
   MAX_ITEM_UPGRADE_LEVEL,
   LAVA_DROP_ITEM_IDS,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_ITEM_DROP_DENOMINATOR,
+  LAVA_HELMET_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
   MAGMA_ARMOR,
   STARTER_BOW,
@@ -50,14 +56,17 @@ describe("equipment catalog", () => {
     expect(FOREST_DROP_ITEM_IDS).toEqual([STARTER_BOW, WOODEN_ARMOR]);
     expect(DESERT_DROP_ITEM_IDS).toEqual([WOOD_FULL_HELM, IRON_BOW]);
     expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW, FROST_ARMOR]);
-    expect(LAVA_DROP_ITEM_IDS).toEqual([MAGMA_ARMOR]);
+    expect(LAVA_DROP_ITEM_IDS).toEqual([FIRE_METAL_HELMET, MAGMA_ARMOR]);
     expect(LAVA_BOSS_DROP_ITEM_IDS).toEqual([LAVA_BOW]);
+    expect(INFERNAL_DROP_ITEM_IDS).toEqual([FIRE_METAL_BOW]);
     expect(FOREST_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(DESERT_ITEM_DROP_DENOMINATOR).toBe(50);
     expect(SNOW_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(SNOW_BOSS_ARMOR_DROP_DENOMINATOR).toBe(5);
     expect(LAVA_ITEM_DROP_DENOMINATOR).toBe(30);
+    expect(LAVA_HELMET_ITEM_DROP_DENOMINATOR).toBe(50);
     expect(LAVA_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
+    expect(INFERNAL_ITEM_DROP_DENOMINATOR).toBe(50);
   });
 
   it("declares both bows as two-hand-slot-compatible ranged weapons", () => {
@@ -104,7 +113,7 @@ describe("equipment catalog", () => {
     expect(itemDamageMultiplier(MAGMA_ARMOR)).toBeCloseTo(2);
     expect(itemMaxHealthMultiplier(MAGMA_ARMOR)).toBeCloseTo(2.25);
     expect(itemRegenerationMultiplier(MAGMA_ARMOR)).toBeCloseTo(2.25);
-    expect(equipmentDamageMultiplier(FROST_BOW, MAGMA_ARMOR, 1.5)).toBeCloseTo(9);
+    expect(equipmentDamageMultiplier(FROST_BOW, "", MAGMA_ARMOR, 1.5)).toBeCloseTo(9);
     expect(itemStats(MAGMA_ARMOR)).toEqual([
       "DAMAGE MULTIPLIER 2.00×",
       "MAX HEALTH MULTIPLIER 2.25×",
@@ -117,6 +126,21 @@ describe("equipment catalog", () => {
     expect(weaponDamageMultiplier(LAVA_BOW)).toBeCloseTo(5);
     expect(weaponAttackSpeedMultiplier(LAVA_BOW)).toBeCloseTo(1.3);
     expect(weaponDamageMultiplier(LAVA_BOW, 1.5)).toBeCloseTo(7.5);
+  });
+
+  it("gives Fire Metal Bow 12x damage and 1.3x attack speed", () => {
+    expect(isWeaponItem(FIRE_METAL_BOW)).toBe(true);
+    expect(weaponDamageMultiplier(FIRE_METAL_BOW)).toBeCloseTo(12);
+    expect(weaponAttackSpeedMultiplier(FIRE_METAL_BOW)).toBeCloseTo(1.3);
+  });
+
+  it("applies every Fire Metal Helmet multiplier from the head slot", () => {
+    expect(itemFitsEquipmentSlot(FIRE_METAL_HELMET, "HEAD")).toBe(true);
+    expect(itemDamageMultiplier(FIRE_METAL_HELMET)).toBeCloseTo(1.25);
+    expect(itemMaxHealthMultiplier(FIRE_METAL_HELMET)).toBeCloseTo(1.25);
+    expect(itemRegenerationMultiplier(FIRE_METAL_HELMET)).toBeCloseTo(1.5);
+    expect(equipmentDamageMultiplier(FROST_BOW, FIRE_METAL_HELMET, MAGMA_ARMOR)).toBeCloseTo(7.5);
+    expect(equipmentRegenerationMultiplier(FIRE_METAL_HELMET, MAGMA_ARMOR)).toBeCloseTo(3.375);
   });
 
   it("gives the independent desert drops their requested equipment multipliers", () => {
@@ -148,6 +172,8 @@ describe("equipment catalog", () => {
     expect(isUpgradeableItem(LAVA_BOW)).toBe(true);
     expect(isUpgradeableItem(WOOD_FULL_HELM)).toBe(true);
     expect(isUpgradeableItem(IRON_BOW)).toBe(true);
+    expect(isUpgradeableItem(FIRE_METAL_HELMET)).toBe(true);
+    expect(isUpgradeableItem(FIRE_METAL_BOW)).toBe(true);
     expect(isUpgradeableItem(STARTER_STONE)).toBe(false);
     expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);
   });

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
-import { FROST_ARMOR, FROST_BOW, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
+import { FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import type { PlayerProgress } from "../wildwood-coop";
 import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows } from "./profile";
 
@@ -99,6 +99,13 @@ describe("effective profile equipment stats", () => {
     expect(stats.regen).toBeCloseTo(4.8);
     expect(stats.multipliers.regenEquipment).toBeCloseTo(2);
     expect(stats.multipliers.regenTotal).toBeCloseTo(2.4);
+  });
+
+  it("includes Fire Metal Helmet damage, health, and regeneration", () => {
+    const stats = effectiveProfileStats({ ...progress(FROST_BOW, FROST_ARMOR), equippedHead: FIRE_METAL_HELMET });
+    expect(stats.damage).toBeCloseTo(75);
+    expect(stats.maxHp).toBeCloseTo(250);
+    expect(stats.regen).toBeCloseTo(6);
   });
 
   it("includes completed item upgrade levels in profile stats", () => {

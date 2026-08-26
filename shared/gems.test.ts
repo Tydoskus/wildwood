@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DAILY_LOGIN_GEM_BONUS,
+  BASE_INVENTORY_SLOT_CAPACITY,
   MAX_GEM_BALANCE,
   RESEARCH_SPEED_UP_MS_PER_GEM,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
   gemBalanceAfter,
   itemUpgradeSpeedUpGemCost,
+  inventorySlotCapacity,
+  inventorySlotUnlockCost,
   researchSpeedUpGemCost,
 } from "./gems";
 
@@ -26,6 +29,15 @@ describe("Gem balance rules", () => {
 
   it("prices the permanent second upgrade slot at 150 Gems", () => {
     expect(UPGRADE_BENCH_SECOND_SLOT_GEM_COST).toBe(150n);
+  });
+
+  it("prices consecutive inventory slots at one, two, three Gems and expands the free 16 slots", () => {
+    expect(BASE_INVENTORY_SLOT_CAPACITY).toBe(16);
+    expect(inventorySlotCapacity(0)).toBe(16);
+    expect(inventorySlotCapacity(2)).toBe(18);
+    expect(inventorySlotUnlockCost(0)).toBe(1n);
+    expect(inventorySlotUnlockCost(1)).toBe(2n);
+    expect(inventorySlotUnlockCost(2)).toBe(3n);
   });
 
   it("prices research at one Gem per started ten-minute block", () => {

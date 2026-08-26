@@ -94,6 +94,8 @@ export function createPlayerCombatController(options: {
   researchRewardMultiplier: () => number;
   equippedWeapon: () => string;
   equippedWeaponUpgradeLevel?: () => number;
+  equippedHead: () => string;
+  equippedHeadUpgradeLevel?: () => number;
   equippedChest: () => string;
   equippedChestUpgradeLevel?: () => number;
   healthMultiplier: () => number;
@@ -185,9 +187,11 @@ export function createPlayerCombatController(options: {
       projectile.r = 6;
       projectile.damage = player.damage * equipmentDamageMultiplier(
         weaponItem,
+        options.equippedHead(),
         options.equippedChest(),
         researchDamageMultiplier(),
         options.equippedWeaponUpgradeLevel?.() ?? 0,
+        options.equippedHeadUpgradeLevel?.() ?? 0,
         options.equippedChestUpgradeLevel?.() ?? 0,
       ) * (critical ? researchCriticalDamageMultiplier() : 1);
       projectile.critical = critical;

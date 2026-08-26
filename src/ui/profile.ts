@@ -1,7 +1,7 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
-import { equipmentDamageMultiplier, equipmentMaxHealthMultiplier, itemRegenerationMultiplier, weaponAttackSpeedMultiplier } from "../../shared/items";
+import { equipmentDamageMultiplier, equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier, weaponAttackSpeedMultiplier } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
 
 export function formatPlayedTime(seconds: number) {
@@ -45,23 +45,39 @@ export function effectiveProfileStats(
   const damageResearchMultiplier = multiplier(research.warcraft, 2);
   const damageEquipmentMultiplier = equipmentDamageMultiplier(
     weaponItem,
+    progress.equippedHead,
     progress.equippedChest,
     1,
     weaponUpgradeLevel,
+    headUpgradeLevel,
     chestUpgradeLevel,
   );
   const damageTotalMultiplier = equipmentDamageMultiplier(
     weaponItem,
+    progress.equippedHead,
     progress.equippedChest,
     damageResearchMultiplier,
     weaponUpgradeLevel,
+    headUpgradeLevel,
     chestUpgradeLevel,
   );
   const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem, 1, weaponUpgradeLevel);
   const armorMultiplier = multiplier(research.precision, 2);
   const regenResearchMultiplier = multiplier(research.regeneration, 2);
-  const regenEquipmentMultiplier = itemRegenerationMultiplier(progress.equippedChest, 1, chestUpgradeLevel);
-  const regenTotalMultiplier = itemRegenerationMultiplier(progress.equippedChest, regenResearchMultiplier, chestUpgradeLevel);
+  const regenEquipmentMultiplier = equipmentRegenerationMultiplier(
+    progress.equippedHead,
+    progress.equippedChest,
+    1,
+    headUpgradeLevel,
+    chestUpgradeLevel,
+  );
+  const regenTotalMultiplier = equipmentRegenerationMultiplier(
+    progress.equippedHead,
+    progress.equippedChest,
+    regenResearchMultiplier,
+    headUpgradeLevel,
+    chestUpgradeLevel,
+  );
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   const baseSpeed = progress.speedOverride > 0 ? progress.speedOverride : progress.speed;
   const powerStats = effectivePlayerPowerStats(

@@ -27,7 +27,12 @@ describe("interface style contracts", () => {
     expect(cssRule(".inventory-content")).toContain("overflow: hidden");
     expect(cssRule(".item-inspection-panel")).toContain("position: fixed");
     expect(cssRule(".item-inspection-panel")).toContain("var(--toolbar-height)");
+    expect(cssRule(".item-inspection-panel")).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(cssRule(".item-inspection-panel[hidden]")).toContain("display: none");
+    expect(html).toContain('id="itemInspectionBack" class="item-inspection-back" type="button">Back</button>');
+    expect(cssRule(".item-inspection-actions { ")).toContain("justify-content: center");
+    expect(cssRule(".item-inspection-actions { ")).toContain("repeat(auto-fit");
+    expect(cssRule(".item-inspection-back { ")).toContain("justify-self: center");
     expect(css).not.toContain(".inventory-detail");
   });
 
@@ -306,6 +311,21 @@ describe("interface style contracts", () => {
     expect(backStyle).toContain("bottom: max(14px, env(safe-area-inset-bottom))");
     expect(backStyle).toContain("align-items: center");
     expect(backStyle).toContain("padding: 0 8px 2px");
+  });
+
+  it("shows five Upgrade Bench choices before scrolling and hides the scrollbar", () => {
+    expect(cssRule(".upgrade-bench-picker-sheet { ")).toContain("minmax(0, 388px)");
+    const pickerItems = cssRule(".upgrade-bench-picker-items { ");
+    expect(pickerItems).toContain("min-height: 0");
+    expect(pickerItems).toContain("overflow-y: auto");
+    expect(pickerItems).toContain("scrollbar-width: none");
+    expect(cssRule(".upgrade-bench-picker-items::-webkit-scrollbar")).toContain("display: none");
+    expect(cssRule(".upgrade-bench-picker-item { ")).toContain("height: 72px");
+  });
+
+  it("renders the next paid Bag slot as a compact lock inside the scrollable grid", () => {
+    expect(cssRule(".inventory-item.is-locked { ")).toContain("place-items: center");
+    expect(cssRule(".inventory-slot-unlock-cost img { ")).toContain("width: 15px");
   });
 
   it("centers every research action state in the detail card", () => {

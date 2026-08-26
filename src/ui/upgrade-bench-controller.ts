@@ -370,6 +370,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       return button;
     });
     elements.pickerItems.replaceChildren(...rows);
+    elements.pickerItems.scrollTop = 0;
     if (rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "upgrade-bench-picker-heading";

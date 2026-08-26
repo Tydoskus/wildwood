@@ -140,11 +140,11 @@ const enemyTypes = {
 
   // INFERNAL DEPTHS ENEMIES
   // Repeat each archetype's actual Snowlands-to-Lava multiplier, including
-  // Lava Lake's deliberate damage tuning, instead of flattening the curve.
+  // Lava Lake's deliberate damage tuning. Damage-reward tracks pay 2×.
   "Depth Raider": {
     hp: repeatTierMultiplier(2_700_000_000, 6_075_000_000_000), speed: 250,
     damage: repeatTierMultiplier(2_330_000, 8_143_350_000), attackSpeed: .65, r: 25,
-    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) },
+    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 2 },
   },
   "Abyss Archer": {
     hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000), speed: 235,
@@ -160,7 +160,7 @@ const enemyTypes = {
   "Doom Reaper": {
     hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000), speed: 255,
     damage: repeatTierMultiplier(8_400_000, 44_100_000_000), attackSpeed: .7, r: 39,
-    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) },
+    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 },
     ranged: true, elite: true, aggro: 420,
   },
   "Nether Oracle": {

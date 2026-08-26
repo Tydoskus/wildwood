@@ -4,6 +4,8 @@ export const GEM_DISPLAY_NAME = "Gems";
 export const DAILY_LOGIN_GEM_BONUS = 7n;
 export const RESEARCH_SPEED_UP_MS_PER_GEM = 10 * 60 * 1_000;
 export const UPGRADE_BENCH_SECOND_SLOT_GEM_COST = 150n;
+export const BASE_INVENTORY_SLOT_CAPACITY = 16;
+export const MAX_INVENTORY_SLOT_CAPACITY = 64;
 
 // Keep balances comfortably inside signed i64 transaction deltas while still
 // leaving far more headroom than the game economy should ever need.
@@ -17,6 +19,20 @@ export function gemBalanceAfter(currentBalance: bigint, delta: bigint) {
   if (nextBalance < 0n) throw new RangeError("Not enough Gems.");
   if (nextBalance > MAX_GEM_BALANCE) throw new RangeError("Gem balance limit reached.");
   return nextBalance;
+}
+
+export function normalizedInventorySlotsUnlocked(value: unknown) {
+  const maximum = MAX_INVENTORY_SLOT_CAPACITY - BASE_INVENTORY_SLOT_CAPACITY;
+  return Number.isFinite(value) ? Math.max(0, Math.min(maximum, Math.floor(Number(value)))) : 0;
+}
+
+export function inventorySlotCapacity(slotsUnlocked: unknown) {
+  return BASE_INVENTORY_SLOT_CAPACITY + normalizedInventorySlotsUnlocked(slotsUnlocked);
+}
+
+/** The first extra bag slot costs one Gem, the second two, and so on. */
+export function inventorySlotUnlockCost(slotsUnlocked: unknown) {
+  return BigInt(normalizedInventorySlotsUnlocked(slotsUnlocked) + 1);
 }
 
 /** Gems needed to finish a timer now; a partial final ten-minute block costs one Gem. */

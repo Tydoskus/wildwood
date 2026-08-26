@@ -82,6 +82,7 @@ import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
+import UnlockInventorySlotReducer from "./unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "./unlock_second_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
@@ -107,6 +108,7 @@ import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
+import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
@@ -532,6 +534,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyGemWalletRow),
+  myInventoryCapacity: __table({
+    name: 'my_inventory_capacity',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyInventoryCapacityRow),
   myUpgradeBench: __table({
     name: 'my_upgrade_bench',
     indexes: [
@@ -591,6 +600,7 @@ const reducersSchema = __reducers(
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
+  __reducerSchema("unlock_inventory_slot", UnlockInventorySlotReducer),
   __reducerSchema("unlock_second_upgrade_slot", UnlockSecondUpgradeSlotReducer),
   __reducerSchema("update_movement_state", UpdateMovementStateReducer),
 );

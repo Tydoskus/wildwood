@@ -290,18 +290,21 @@ export function renderInventoryView(
     onMove: (itemId: string, destination: EquipmentSlot | "BAG") => void;
     onInspect: (itemId: string, location: EquipmentSlot | "BAG") => void;
     upgradeLevel: (itemId: string) => number;
+    slotCapacity: number;
+    nextSlotCost?: bigint;
+    onUnlockSlot?: () => void;
   },
 ) {
   elements.items.replaceChildren();
   const bagStacks = bagInventoryStacks(inventory);
-  elements.count.textContent = `${bagStacks.length} / 16 ITEMS`;
+  elements.count.textContent = `${bagStacks.length} / ${actions.slotCapacity} ITEMS`;
   renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode, actions.upgradeLevel);
 
-  for (let index = 0; index < 16; index += 1) {
+  for (let index = 0; index < actions.slotCapacity; index += 1) {
     const stack = bagStacks[index];
     const itemId = stack?.itemId;
     const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === itemId;
@@ -355,5 +358,32 @@ export function renderInventoryView(
       });
     }
     elements.items.appendChild(button);
+  }
+  if (actions.nextSlotCost !== undefined) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "inventory-item is-locked";
+    button.disabled = !actions.onUnlockSlot;
+    button.setAttribute(
+      "aria-label",
+      `Unlock bag slot ${actions.slotCapacity + 1} for ${actions.nextSlotCost} ${actions.nextSlotCost === 1n ? "Gem" : "Gems"}`,
+    );
+    const lock = document.createElement("span");
+    lock.className = "inventory-slot-lock-symbol";
+    lock.textContent = "🔒";
+    lock.setAttribute("aria-hidden", "true");
+    const cost = document.createElement("span");
+    cost.className = "inventory-slot-unlock-cost";
+    const icon = document.createElement("img");
+    icon.src = "assets/wildwood/gems/gem-icon.png";
+    icon.alt = "";
+    icon.setAttribute("aria-hidden", "true");
+    icon.draggable = false;
+    const amount = document.createElement("strong");
+    amount.textContent = actions.nextSlotCost.toString();
+    cost.append(icon, amount);
+    button.append(lock, cost);
+    button.addEventListener("click", () => actions.onUnlockSlot?.());
+    elements.items.append(button);
   }
 }

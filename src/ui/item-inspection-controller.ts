@@ -28,7 +28,15 @@ type ItemInspectionElements = {
   title: HTMLElement;
   content: HTMLElement;
   close: HTMLButtonElement;
+  back: HTMLButtonElement;
 };
+
+export function itemInspectionButtonLabel(label: string) {
+  const trimmed = label.trim();
+  if (!trimmed || trimmed !== trimmed.toUpperCase()) return trimmed;
+  return trimmed.toLowerCase().replace(/(^|[\s/-])([a-z])/g, (_match, separator: string, letter: string) =>
+    `${separator}${letter.toUpperCase()}`);
+}
 
 /** Standalone item window shared by inventory and future item-bearing screens. */
 export function createItemInspectionController(elements: ItemInspectionElements) {
@@ -85,7 +93,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       const button = document.createElement("button");
       button.type = "button";
       button.className = action.kind === "SECONDARY" ? "item-inspection-action-secondary" : "item-inspection-action-primary";
-      button.textContent = action.label;
+      button.textContent = itemInspectionButtonLabel(action.label);
       button.disabled = action.disabled === true;
       button.addEventListener("click", action.onActivate);
       actionRow.append(button);
@@ -93,11 +101,12 @@ export function createItemInspectionController(elements: ItemInspectionElements)
 
     elements.content.replaceChildren(icon, copy, actionRow);
     elements.panel.hidden = false;
-    elements.close.focus({ preventScroll: true });
+    elements.back.focus({ preventScroll: true });
     return true;
   }
 
   elements.close.addEventListener("click", close);
+  elements.back.addEventListener("click", close);
 
   return {
     open,

@@ -9,6 +9,12 @@ import { inventoryMoveActions, renderInventoryView, type InventoryMode } from ".
 import type { ItemInspectionController } from "./item-inspection-controller";
 import { bindLongPress } from "./long-press";
 import { bindInventoryDrag } from "./inventory-drag";
+import {
+  MAX_INVENTORY_SLOT_CAPACITY,
+  inventorySlotCapacity,
+  inventorySlotUnlockCost,
+} from "../../shared/gems";
+import { gemSpendConfirmationText } from "./gem-spend-confirmation";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -20,6 +26,11 @@ type InventoryDependencies = {
   toggleCosmeticVisibility: (destination: EquipmentSlot) => boolean;
   upgradeLevel: (itemId: string) => number;
   itemInspection: ItemInspectionController;
+  inventorySlotsUnlocked: () => number;
+  gemBalance: () => bigint;
+  unlockInventorySlot: () => Promise<{ ok: boolean; error?: string } | undefined>;
+  confirmGemSpend?: (message: string) => boolean;
+  showMessage: (message: string, color?: string) => void;
 };
 
 export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
@@ -54,6 +65,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const bagSection = items.closest<HTMLElement>(".bag-section");
   let mode: InventoryMode = "EQUIPMENT";
   let cancelDrag = () => {};
+  let unlockingSlot = false;
+  const confirmGemSpend = dependencies.confirmGemSpend ?? ((message: string) => confirm(message));
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -129,6 +142,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     cosmeticsTab.tabIndex = cosmeticsActive ? 0 : -1;
     content.setAttribute("aria-labelledby", cosmeticsActive ? cosmeticsTab.id : equipmentTab.id);
     if (loadout) loadout.setAttribute("aria-label", cosmeticsActive ? "Cosmetic items" : "Equipped items");
+    const slotsUnlocked = dependencies.inventorySlotsUnlocked();
+    const slotCapacity = inventorySlotCapacity(slotsUnlocked);
     renderInventoryView(
       { items, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
       dependencies.inventory,
@@ -147,8 +162,35 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         },
         onInspect: inspect,
         upgradeLevel: dependencies.upgradeLevel,
+        slotCapacity,
+        nextSlotCost: slotCapacity < MAX_INVENTORY_SLOT_CAPACITY
+          ? inventorySlotUnlockCost(slotsUnlocked)
+          : undefined,
+        onUnlockSlot: unlockingSlot || slotCapacity >= MAX_INVENTORY_SLOT_CAPACITY
+          ? undefined
+          : () => { void unlockNextSlot(); },
       },
     );
+  }
+
+  async function unlockNextSlot() {
+    if (unlockingSlot) return;
+    const slotsUnlocked = dependencies.inventorySlotsUnlocked();
+    const capacity = inventorySlotCapacity(slotsUnlocked);
+    if (capacity >= MAX_INVENTORY_SLOT_CAPACITY) return;
+    const cost = inventorySlotUnlockCost(slotsUnlocked);
+    if (dependencies.gemBalance() < cost) {
+      dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${cost}`, "#ff9b91");
+      return;
+    }
+    if (!confirmGemSpend(gemSpendConfirmationText(`permanently unlock Bag slot ${capacity + 1}`, cost))) return;
+    unlockingSlot = true;
+    render();
+    const result = await dependencies.unlockInventorySlot();
+    unlockingSlot = false;
+    render();
+    if (result?.ok) dependencies.showMessage(`BAG SLOT ${capacity + 1} UNLOCKED`, "#f3a6ce");
+    else if (result?.error) dependencies.showMessage(result.error, "#ff9b91");
   }
 
   function itemInSlot(destination: EquipmentSlot) {

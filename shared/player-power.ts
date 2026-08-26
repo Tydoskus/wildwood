@@ -2,7 +2,7 @@ import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
 import {
   equipmentDamageMultiplier,
   equipmentMaxHealthMultiplier,
-  itemRegenerationMultiplier,
+  equipmentRegenerationMultiplier,
   weaponAttackInterval,
 } from "./items";
 
@@ -49,14 +49,22 @@ export function effectivePlayerPowerStats(
     maxHp: progress.maxHp * equipmentMaxHealthMultiplier(headItem, chestItem, 1, headLevel, chestLevel),
     damage: progress.damage * equipmentDamageMultiplier(
       weaponItem,
+      headItem,
       chestItem,
       1 + researchRank(research?.warcraft) * .02,
       weaponLevel,
+      headLevel,
       chestLevel,
     ),
     attackRate: weaponAttackInterval(weaponItem, progress.attackRate, 1, weaponLevel),
     armor: progress.armor * (1 + researchRank(research?.precision) * .02),
-    regen: progress.regen * itemRegenerationMultiplier(chestItem, 1 + researchRank(research?.regeneration) * .02, chestLevel),
+    regen: progress.regen * equipmentRegenerationMultiplier(
+      headItem,
+      chestItem,
+      1 + researchRank(research?.regeneration) * .02,
+      headLevel,
+      chestLevel,
+    ),
   };
 }
 

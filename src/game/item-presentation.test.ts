@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { FROST_ARMOR, FROST_BOW, IRON_BOW, LAVA_BOW, MAGMA_ARMOR, STARTER_BOW, STARTER_STONE, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
+import { FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, LAVA_BOW, MAGMA_ARMOR, STARTER_BOW, STARTER_STONE, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import { itemArtMarkup, itemPresentation, projectileKindForWeapon } from "./item-presentation";
 
 describe("item presentation", () => {
@@ -14,6 +14,8 @@ describe("item presentation", () => {
     expect(itemArtMarkup(WOOD_FULL_HELM)).toContain("player-parts/wood-full-helm.png");
     expect(itemArtMarkup(LAVA_BOW)).toContain("player-parts/lava-bow.png");
     expect(itemArtMarkup(MAGMA_ARMOR)).toContain("player-parts/magma-armor.png");
+    expect(itemArtMarkup(FIRE_METAL_HELMET)).toContain("player-parts/fire-metal-helmet.png");
+    expect(itemArtMarkup(FIRE_METAL_BOW)).toContain("player-parts/fire-metal-bow.png");
     expect(itemArtMarkup(WOODEN_ARMOR)).toContain("data:image/png;base64,");
     expect(itemArtMarkup(STARTER_STONE)).not.toContain("boot-pixel-icon");
     expect(itemArtMarkup(STARTER_BOW)).not.toContain("boot-pixel-icon");
@@ -43,7 +45,7 @@ describe("item presentation", () => {
       source: "assets/wildwood/player-parts/frost-bow.png",
       width: 115,
       height: 63,
-      top: 102,
+      top: 106,
       handAction: "BOW",
     });
   });
@@ -72,9 +74,18 @@ describe("item presentation", () => {
       layer: "HAND",
       width: 115,
       height: 63,
-      top: 102,
+      top: 106,
       handAction: "BOW",
     });
+  });
+
+  it("uses the exact requested Fire Metal equipment assets", () => {
+    const helmet = readFileSync(new URL("../../public/assets/wildwood/player-parts/fire-metal-helmet.png", import.meta.url));
+    const bow = readFileSync(new URL("../../public/assets/wildwood/player-parts/fire-metal-bow.png", import.meta.url));
+    expect(createHash("sha256").update(helmet).digest("hex")).toBe("3df17fa388f6273067c0320aeb00391730e67bfcc36d78e396a4c29edd300531");
+    expect(createHash("sha256").update(bow).digest("hex")).toBe("6d9427c5ebc29dbf8df188f029215a2453e8afd67a6358fe01b74cab5cb06867");
+    expect(itemPresentation(FIRE_METAL_HELMET)?.world).toMatchObject({ layer: "HEAD", bottom: 144 });
+    expect(itemPresentation(FIRE_METAL_BOW)?.world).toMatchObject({ layer: "HAND", width: 115, height: 63, top: 106, handAction: "BOW" });
   });
 
   it("uses the exact transparent FA_Chest_032_Blue vendor armor asset", () => {
