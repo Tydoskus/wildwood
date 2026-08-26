@@ -146,9 +146,11 @@ export function createBossController(options: {
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
   hasSeenLavaPortalCutscene: () => boolean;
+  hasSeenInfernalPortalCutscene: () => boolean;
   startDragonPortalCutscene: () => void;
   startSnowlandsPortalCutscene: () => void;
   startLavaPortalCutscene: () => void;
+  startInfernalPortalCutscene: () => void;
   elements: NoticeElements;
   renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
@@ -163,8 +165,8 @@ export function createBossController(options: {
     boss, spiderBoss, frostclawBoss, magmaliskBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, player, elements,
     getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult,
     localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, portalCutsceneActive,
-    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene,
-    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene,
+    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene,
+    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
   } = options;
   let dragonWorldNoticeTimer: number | null = null;
@@ -179,6 +181,7 @@ export function createBossController(options: {
   let queuedDragonResult: BossResult | null = null;
   let queuedSpiderResult: BossResult | null = null;
   let queuedFrostclawResult: BossResult | null = null;
+  let queuedMagmaliskResult: BossResult | null = null;
   let observedFrostclawEncounter: bigint | null = null;
   let frostclawWasAlive: boolean | null = null;
   let pendingFrostclawResultEncounter: bigint | null = null;
@@ -386,12 +389,17 @@ export function createBossController(options: {
   }
 
   function showMagmaliskResult(result: BossResult | null | undefined) {
-    if (!result || shownMagmaliskResultEncounter === result.encounter) return;
+    if (!result || shownMagmaliskResultEncounter === result.encounter || (portalCutsceneActive() && queuedMagmaliskResult?.encounter === result.encounter)) return;
     pendingMagmaliskResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (!localContribution) {
       shownMagmaliskResultEncounter = result.encounter;
       showWorldResult(result, "MAGMALISK DEFEATED");
+      return;
+    }
+    if (currentMapIsLava() && !hasSeenInfernalPortalCutscene()) {
+      queuedMagmaliskResult = result;
+      startInfernalPortalCutscene();
       return;
     }
     shownMagmaliskResultEncounter = result.encounter;
@@ -1056,6 +1064,9 @@ export function createBossController(options: {
       const frostclaw = queuedFrostclawResult;
       queuedFrostclawResult = null;
       if (frostclaw && !wasPreview) showFrostclawResult(frostclaw);
+      const magmalisk = queuedMagmaliskResult;
+      queuedMagmaliskResult = null;
+      if (magmalisk && !wasPreview) showMagmaliskResult(magmalisk);
     },
   };
 }

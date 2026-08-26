@@ -85,6 +85,7 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
@@ -140,13 +141,18 @@ const MAP_PORTALS = {
     { x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID },
     { x: 580, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID },
   ],
-  [ADVANCED_LAVA_WASTES_MAP_ID]: [{ x: 360, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID }],
+  [ADVANCED_LAVA_WASTES_MAP_ID]: [
+    { x: 360, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
+    { x: 580, y: 617, destination: INFERNAL_DEPTHS_MAP_ID },
+  ],
+  [INFERNAL_DEPTHS_MAP_ID]: [{ x: 360, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { x: 580, y: 770 },
   [ADVANCED_LAVA_WASTES_MAP_ID]: { x: 580, y: 770 },
+  [INFERNAL_DEPTHS_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -160,7 +166,7 @@ const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ)
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 12;
+const MODULE_MIGRATION_VERSION = 13;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -511,6 +517,9 @@ const playerProgress = table(
     // Zero derives speed from stat equipment. Positive values are durable,
     // developer-authored base-speed overrides and cannot be supplied by saves.
     speedOverride: t.f32().default(0),
+    // Appended default preserves existing rows while Magmalisk now owns the
+    // permanent unlock for the next map.
+    infernalUnlocked: t.bool().default(false),
   },
 );
 
@@ -1445,6 +1454,7 @@ function defaultPlayerProgress(identity: any) {
     desertUnlocked: false,
     snowlandsUnlocked: false,
     lavaUnlocked: false,
+    infernalUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
     cosmeticHead: "",
@@ -1617,6 +1627,26 @@ function runPendingModuleMigrations(ctx: any) {
         challengerBlocked: activeDuel.opponentBlocked,
         opponentBlocked: activeDuel.challengerBlocked,
       });
+    }
+  }
+  if (currentVersion < 13) {
+    // Preserve the unlock for players who contributed to the latest completed
+    // Magmalisk encounter before Infernal Depths existed.
+    const result = ctx.db.magmaliskResult.id.find(MAGMALISK_ID);
+    if (result) {
+      try {
+        const contributors = JSON.parse(result.contributorsJson);
+        if (Array.isArray(contributors)) {
+          for (const contributor of contributors) {
+            if (typeof contributor?.identity !== "string") continue;
+            const identity = new Identity(contributor.identity);
+            const progress = ctx.db.playerProgress.identity.find(identity);
+            if (progress && !progress.infernalUnlocked) {
+              ctx.db.playerProgress.identity.update({ ...progress, infernalUnlocked: true });
+            }
+          }
+        }
+      } catch {}
     }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
@@ -2128,6 +2158,12 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
   const saved = ctx.db.playerLastLocation.identity.find(identity);
   const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
   let mapId = requestedMap;
+  if (mapId === INFERNAL_DEPTHS_MAP_ID && !progress.infernalUnlocked) {
+    mapId = progress.lavaUnlocked
+      ? ADVANCED_LAVA_WASTES_MAP_ID
+      : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+        : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
   if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !progress.lavaUnlocked) {
     mapId = progress.snowlandsUnlocked
       ? INTERMEDIATE_SNOWLANDS_MAP_ID
@@ -2473,7 +2509,8 @@ function hasFreshProgress(progress: any) {
     progress.woodenArmorCount === defaultProgress.woodenArmorCount &&
     progress.desertUnlocked === defaultProgress.desertUnlocked &&
     progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked &&
-    progress.lavaUnlocked === defaultProgress.lavaUnlocked;
+    progress.lavaUnlocked === defaultProgress.lavaUnlocked &&
+    progress.infernalUnlocked === defaultProgress.infernalUnlocked;
 }
 
 function resultIncludesContributor(latest: any, identity: any) {
@@ -2493,6 +2530,10 @@ function contributedToLatestDragon(ctx: any, identity: any) {
 
 function contributedToLatestFrostclaw(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.frostclawResult.id.find(FROSTCLAW_ID), identity);
+}
+
+function contributedToLatestMagmalisk(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.magmaliskResult.id.find(MAGMALISK_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -3481,6 +3522,7 @@ function rewardMagmaliskContributor(ctx: any, identity: any) {
     maxHp: current.maxHp + MAGMALISK_REWARD_HEALTH * rewardMultiplier,
     armor: current.armor + MAGMALISK_REWARD_ARMOR * rewardMultiplier,
     regen: current.regen + MAGMALISK_REWARD_REGEN * rewardMultiplier,
+    infernalUnlocked: true,
   };
   if (lavaBowDropped) {
     const alreadyOwned = playerOwnsItem(ctx, identity, LAVA_BOW);
@@ -3892,17 +3934,21 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const existingPlayer = ctx.db.player.identity.find(ctx.sender);
     const latestDragonContributor = contributedToLatestDragon(ctx, ctx.sender);
     const latestFrostclawContributor = contributedToLatestFrostclaw(ctx, ctx.sender);
+    const latestMagmaliskContributor = contributedToLatestMagmalisk(ctx, ctx.sender);
     const isInDesert = existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID;
     const isInSnowlands = existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID;
     const isInLavaWastes = existingPlayer?.mapId === ADVANCED_LAVA_WASTES_MAP_ID;
-    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || latestDragonContributor || latestFrostclawContributor)) ||
-      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || latestFrostclawContributor)) ||
-      (!existingProgress.lavaUnlocked && (isInLavaWastes || latestFrostclawContributor))) {
+    const isInInfernalDepths = existingPlayer?.mapId === INFERNAL_DEPTHS_MAP_ID;
+    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor)) ||
+      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor)) ||
+      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor)) ||
+      (!existingProgress.infernalUnlocked && (isInInfernalDepths || latestMagmaliskContributor))) {
       existingProgress = {
         ...existingProgress,
-        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || latestDragonContributor || latestFrostclawContributor,
-        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || latestFrostclawContributor,
-        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || latestFrostclawContributor,
+        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor,
+        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor,
+        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor,
+        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || latestMagmaliskContributor,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -5408,6 +5454,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       desertUnlocked: base.desertUnlocked,
       snowlandsUnlocked: base.snowlandsUnlocked,
       lavaUnlocked: base.lavaUnlocked,
+      infernalUnlocked: base.infernalUnlocked,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
@@ -6036,6 +6083,9 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !currentProgress?.lavaUnlocked) {
       throw new SenderError(`Defeat Frostclaw before entering ${MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID]}.`);
+    }
+    if (mapId === INFERNAL_DEPTHS_MAP_ID && !currentProgress?.infernalUnlocked) {
+      throw new SenderError(`Defeat Magmalisk before entering ${MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID]}.`);
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

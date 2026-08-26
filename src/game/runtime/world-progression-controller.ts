@@ -15,6 +15,7 @@ export function createWorldProgressionController(hooks: {
   dragonCutsceneSeenKey: string;
   snowlandsCutsceneSeenKey: string;
   lavaCutsceneSeenKey: string;
+  infernalCutsceneSeenKey: string;
 }) {
   function hasSeen(key: string) {
     try { return localStorage.getItem(key) === "true"; } catch { return false; }
@@ -46,6 +47,7 @@ export function createWorldProgressionController(hooks: {
     hasSeenDragonPortalCutscene: () => hasSeen(hooks.dragonCutsceneSeenKey),
     hasSeenSnowlandsPortalCutscene: () => hasSeen(hooks.snowlandsCutsceneSeenKey),
     hasSeenLavaPortalCutscene: () => hasSeen(hooks.lavaCutsceneSeenKey),
+    hasSeenInfernalPortalCutscene: () => hasSeen(hooks.infernalCutsceneSeenKey),
     updateBootPickup,
     closeBootUpgrade,
     hideBootUpgrade: () => { hooks.bootUpgrade.hidden = true; },

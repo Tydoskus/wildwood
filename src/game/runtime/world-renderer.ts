@@ -5,6 +5,7 @@ import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
+import type { StaticWorldLayer, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
   paintStaticTilePlaceholder,
@@ -39,6 +40,7 @@ export function snapWorldRenderCoordinate(value: number, zoom: number, devicePix
 
 export type WorldRendererOptions = {
   ctx: CanvasRenderingContext2D;
+  staticWorldLayer?: StaticWorldLayer | null;
   camera: Camera;
   getViewport: () => Viewport;
   getDevicePixelRatio: () => number;
@@ -56,6 +58,7 @@ export type WorldRendererOptions = {
   desertMapId: MapId;
   snowMapId: MapId;
   lavaMapId: MapId;
+  infernalMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -119,21 +122,23 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
   const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
+  const isLavaTerrain = () => options.getMapId() === options.lavaMapId || options.getMapId() === options.infernalMapId;
 
   function mapColors() {
     const desert = options.getMapId() === options.desertMapId;
     const snow = options.getMapId() === options.snowMapId;
     const lava = options.getMapId() === options.lavaMapId;
+    const infernal = options.getMapId() === options.infernalMapId;
     return {
-      ground: lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+      ground: infernal ? "#8e3d2f" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: infernal ? "#5d2728" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: infernal ? "rgba(29,8,14,.28)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
     };
   }
 
   function staticScene() {
     if (cachedStaticScene && sceneGeneration === staticTileGeneration) return cachedStaticScene;
-    const lava = options.getMapId() === options.lavaMapId;
+    const lava = isLavaTerrain();
     cachedStaticScene = {
       tileSize: STATIC_TILE_SIZE,
       colors: mapColors(),
@@ -263,8 +268,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return tile;
   }
 
-  function drawStaticWorld() {
+  function drawStaticWorld(offsetX = 0, offsetY = 0) {
     if (options.isArenaScene()) {
+      options.staticWorldLayer?.hide();
       drawGround();
       return;
     }
@@ -280,6 +286,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       STATIC_TILE_MIN_LIMIT,
       (endX - startX + 1) * (endY - startY + 1) + STATIC_TILE_CACHE_PADDING,
     );
+    const gpuTiles: StaticWorldTileFrame[] = [];
+    const useWebGL = Boolean(options.staticWorldLayer?.active());
     for (let tileY = startY; tileY <= endY; tileY += 1) {
       for (let tileX = startX; tileX <= endX; tileX += 1) {
         if (tileX < 0 || tileY < 0 || tileX * STATIC_TILE_SIZE >= WORLD.w || tileY * STATIC_TILE_SIZE >= WORLD.h) continue;
@@ -287,13 +295,33 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         const top = snapToWorldPixel(tileY * STATIC_TILE_SIZE - camera.y);
         const right = snapToWorldPixel((tileX + 1) * STATIC_TILE_SIZE - camera.x);
         const bottom = snapToWorldPixel((tileY + 1) * STATIC_TILE_SIZE - camera.y);
-        ctx.drawImage(staticTile(tileX, tileY), left, top, right - left, bottom - top);
+        const key = `${options.getMapId()}:${tileX}:${tileY}`;
+        const source = staticTile(tileX, tileY);
+        if (useWebGL) gpuTiles.push({ key, source, left, top, width: right - left, height: bottom - top });
+        else ctx.drawImage(source, left, top, right - left, bottom - top);
+      }
+    }
+    if (useWebGL) {
+      const view = viewport();
+      const rendered = options.staticWorldLayer?.render({
+        backgroundColor: mapColors().ground,
+        width: view.width,
+        height: view.height,
+        dpr: options.getDevicePixelRatio(),
+        zoom: camera.zoom,
+        offsetX,
+        offsetY,
+        tiles: gpuTiles,
+      });
+      if (!rendered) {
+        for (const tile of gpuTiles) ctx.drawImage(tile.source, tile.left, tile.top, tile.width, tile.height);
       }
     }
     trimStaticTiles();
   }
 
   function invalidateStaticWorld() {
+    options.staticWorldLayer?.invalidate();
     for (const tile of staticTiles.values()) closeStaticTile(tile);
     staticTiles.clear();
     pendingStaticTiles.clear();
@@ -549,7 +577,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDecor() {
-    if (options.getMapId() !== options.lavaMapId) return;
+    if (!isLavaTerrain()) return;
     if (lavaRockBucketGeneration !== staticTileGeneration) {
       lavaRockBuckets.clear();
       for (const decor of options.decor) {

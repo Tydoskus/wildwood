@@ -8,6 +8,8 @@ export type PlayerInputController = {
   keys: { clear: () => void };
 };
 
+const JOYSTICK_RADIUS = 59;
+
 /** Owns keyboard, touch joystick, player taps, and browser zoom prevention. */
 export function createPlayerInputController(options: {
   canvas: HTMLCanvasElement;
@@ -32,8 +34,8 @@ export function createPlayerInputController(options: {
     touch.x = 0;
     touch.y = 0;
     touch.moved = false;
-    stick.style.transform = "translate(0,0)";
-    joystick.style.display = "none";
+    stick.style.transform = "translate3d(0, 0, 0)";
+    joystick.style.opacity = "0";
   }
 
   function beginTouch(event: TouchEvent) {
@@ -47,10 +49,8 @@ export function createPlayerInputController(options: {
     touch.x = 0;
     touch.y = 0;
     touch.moved = false;
-    joystick.style.left = `${point.clientX - 59}px`;
-    joystick.style.top = `${point.clientY - 59}px`;
-    joystick.style.bottom = "auto";
-    joystick.style.display = "block";
+    joystick.style.transform = `translate3d(${point.clientX - JOYSTICK_RADIUS}px, ${point.clientY - JOYSTICK_RADIUS}px, 0)`;
+    joystick.style.opacity = "1";
   }
 
   function moveTouch(event: TouchEvent) {
@@ -65,7 +65,7 @@ export function createPlayerInputController(options: {
       if (distance > maximum) { dx = dx / distance * maximum; dy = dy / distance * maximum; }
       touch.x = dx / maximum;
       touch.y = dy / maximum;
-      stick.style.transform = `translate(${dx}px, ${dy}px)`;
+      stick.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
       return;
     }
   }
@@ -91,11 +91,11 @@ export function createPlayerInputController(options: {
   window.addEventListener("blur", () => clear());
   window.addEventListener("wheel", (event) => { if (event.ctrlKey) event.preventDefault(); }, { passive: false });
   canvas.addEventListener("touchstart", (event) => {
-    if (event.touches.length > 1) event.preventDefault();
+    event.preventDefault();
     beginTouch(event);
   }, { passive: false });
   canvas.addEventListener("touchmove", (event) => {
-    if (event.touches.length > 1) event.preventDefault();
+    event.preventDefault();
     moveTouch(event);
   }, { passive: false });
   canvas.addEventListener("touchend", endTouch, { passive: false });

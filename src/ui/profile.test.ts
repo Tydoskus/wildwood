@@ -31,6 +31,7 @@ const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress =>
   desertUnlocked: false,
   snowlandsUnlocked: false,
   lavaUnlocked: false,
+  infernalUnlocked: false,
   bowCount: 0,
   woodenArmorCount: 0,
 });

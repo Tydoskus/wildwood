@@ -1,22 +1,22 @@
 import { createCanvasPrimitives } from "../canvas";
 import { requiredCanvasContext } from "./dom";
 
-export function gameplayBottomInset(toolbarHeight: number, compactChatHeight: number, compactChatVisible: boolean) {
-  const toolbar = Number.isFinite(toolbarHeight) ? Math.max(0, toolbarHeight) : 0;
-  const chat = Number.isFinite(compactChatHeight) ? Math.max(0, compactChatHeight) : 0;
-  return toolbar + (compactChatVisible ? chat : 0);
+export function gameplayBottomInset(toolbarHeight: number) {
+  return Number.isFinite(toolbarHeight) ? Math.max(0, toolbarHeight) : 0;
 }
 
 export function createCanvasRuntime({
   canvas,
   bottomInset,
+  transparent = false,
   getActorShadowSprite,
 }: {
   canvas: HTMLCanvasElement;
   bottomInset?: () => number;
+  transparent?: boolean;
   getActorShadowSprite: () => HTMLImageElement | null;
 }) {
-  const ctx = requiredCanvasContext(canvas, { alpha: false });
+  const ctx = requiredCanvasContext(canvas, { alpha: transparent });
   const primitives = createCanvasPrimitives(ctx);
   let dpr = 1;
   let width = innerWidth;

@@ -12,6 +12,7 @@ import type { PlayerGender } from "../../../shared/player-gender";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
+import type { StaticWorldLayer } from "./webgl-static-world-layer";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -21,6 +22,7 @@ type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 
 export type WorldRenderRuntimeOptions = {
   ctx: CanvasRenderingContext2D;
+  staticWorldLayer?: StaticWorldLayer | null;
   camera: Camera;
   viewport: () => Viewport;
   currentMapId: () => MapId;
@@ -34,6 +36,7 @@ export type WorldRenderRuntimeOptions = {
   desertMapId: MapId;
   snowMapId: MapId;
   lavaMapId: MapId;
+  infernalMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -130,6 +133,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   let invalidateDepthOrder = () => {};
   const world = createWorldRenderer({
     ctx: options.ctx,
+    staticWorldLayer: options.staticWorldLayer,
     camera: options.camera,
     getViewport: () => options.viewport(),
     getDevicePixelRatio: () => options.viewport().dpr,
@@ -147,6 +151,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     desertMapId: options.desertMapId,
     snowMapId: options.snowMapId,
     lavaMapId: options.lavaMapId,
+    infernalMapId: options.infernalMapId,
     paths: options.paths,
     decor: options.decor,
     enemies: options.enemies,

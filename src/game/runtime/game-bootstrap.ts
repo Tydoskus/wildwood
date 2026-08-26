@@ -2,7 +2,7 @@ import { WORLD } from "../constants";
 import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
@@ -58,6 +58,12 @@ export function createGameBootstrap() {
     [ADVANCED_LAVA_WASTES_MAP_ID]: {
       name: MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INFERNAL_DEPTHS_MAP_ID },
+      arrival: { x: 580, y: 770 },
+    },
+    [INFERNAL_DEPTHS_MAP_ID]: {
+      name: MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID],
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
       arrival: { x: 580, y: 770 },
     },
   } as const;

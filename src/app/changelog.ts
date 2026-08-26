@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.515": [
+    "Infernal Depths now opens beyond Lava Lake after defeating Magmalisk, with a one-time portal reveal and five enemy camps that continue each archetype's established scaling curve.",
+    "Mini chat now uses a translucent charcoal gradient over full-height gameplay, while the default page background is black and the toolbar's outside corners are square.",
+    "Static world tiles can now render through a lightweight native WebGL layer with automatic Canvas fallback, while permanent joystick compositing reduces first-movement frame hitches.",
+  ],
   "0.514": [
     "The minimap now shows the live player count above the version, while the World Map preview is 25% smaller and the Daily Gem Bonus uses a subtler gradient.",
     "Equipped bows regain subtle running sway, and current player appearance frames are prewarmed so first movement avoids cache hitches and begins with a clean FPS sample.",
@@ -1055,6 +1060,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.515": "2026-08-25",
   "0.514": "2026-08-25",
   "0.513": "2026-08-25",
   "0.512": "2026-08-25",

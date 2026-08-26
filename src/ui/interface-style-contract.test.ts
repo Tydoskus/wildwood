@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("../../public/assets/wildwood/game.css", import.meta.url), "utf8");
 const html = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
+const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
 
 function cssRule(selector: string) {
   const selectorIndex = css.indexOf(selector);
@@ -68,9 +69,12 @@ describe("interface style contracts", () => {
     expect(chat).toContain("height: var(--mini-chat-height)");
     expect(chat).toContain("border-bottom: 0");
     const compactChat = cssRule("#chatPanel:not(.is-large) {");
-    expect(cssRule(":root {")).toContain("--mini-chat-height: 58px");
+    const root = cssRule(":root {");
+    expect(root).toContain("--mini-chat-height: 58px");
+    expect(root).toContain("--gameplay-bottom-inset: var(--toolbar-height)");
     expect(compactChat).toContain("min-height: var(--mini-chat-height)");
     expect(compactChat).toContain("max-height: var(--mini-chat-height)");
+    expect(compactChat).toContain("rgba(61, 63, 64, .62)");
     expect(compactChat).toContain("linear-gradient");
     expect(compactChat).toContain("cursor: pointer");
     expect(cssRule("#chatPanel:not(.is-large) .chat-header {")).toContain("display: none");
@@ -95,6 +99,42 @@ describe("interface style contracts", () => {
     expect(root).toContain("--toolbar-height: calc(var(--toolbar-button-height) + env(safe-area-inset-bottom, 0px))");
     expect(root).not.toContain("--toolbar-bottom-padding");
     expect(cssRule(".settings-button {")).toContain("padding: 0 0 env(safe-area-inset-bottom, 0px)");
+    expect(cssRule(".settings-button {")).toContain("border-radius: 0");
+    expect(css).not.toContain("border-top-left-radius: 8px");
+    expect(css).not.toContain("border-top-right-radius: 8px");
+  });
+
+  it("keeps the touch joystick composited but invisible between touches", () => {
+    const joystick = cssRule("#joystick {");
+    expect(joystick).toContain("display: block");
+    expect(joystick).toContain("opacity: 0");
+    expect(joystick).toContain("transform: translate3d(");
+    expect(joystick).toContain("will-change: transform, opacity");
+    expect(joystick).toContain("contain: layout paint");
+    expect(joystick).not.toContain("bottom:");
+    expect(cssRule("#stick {")).toContain("will-change: transform");
+    expect(playerInputController).toContain('joystick.style.opacity = "1"');
+    expect(playerInputController).toContain('joystick.style.opacity = "0"');
+    expect(playerInputController).toContain("joystick.style.transform = `translate3d(");
+    expect(playerInputController).not.toContain("joystick.style.display");
+    expect(playerInputController).not.toContain("joystick.style.left");
+    expect(playerInputController).not.toContain("joystick.style.top");
+    expect(playerInputController).not.toContain("joystick.style.bottom");
+  });
+
+  it("stacks the native WebGL terrain beneath the transparent game canvas", () => {
+    expect(cssRule("#gameGpu { ")).toContain("z-index: 0");
+    expect(cssRule("#gameGpu { ")).toContain("pointer-events: none");
+    expect(cssRule("#game { ")).toContain("z-index: 1");
+    expect(cssRule("body.has-webgl-world #game { ")).toContain("background: transparent");
+  });
+
+  it("uses true black for every page-level fallback background", () => {
+    expect(html).toContain("html, body { min-height: 100vh; min-height: 100dvh; background: #000; }");
+    expect(cssRule("html, body {")).toContain("background: #000");
+    expect(cssRule("canvas {")).toContain("background: #000");
+    expect(cssRule("#start,\n  #gameUpdateGate {")).toContain("background-color: #000");
+    expect(cssRule(":fullscreen,\n  :-webkit-full-screen {")).toContain("background: #000");
   });
 
   it("keeps notifications above normal fullscreen windows", () => {

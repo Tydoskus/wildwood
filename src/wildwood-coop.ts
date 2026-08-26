@@ -63,6 +63,7 @@ import {
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   NAME_ADJECTIVES,
   NAME_CREATURES,
@@ -1659,7 +1660,7 @@ function upsertWorldStatus(row: { id: number; onlinePlayers: number }) {
   onChange?.();
 }
 
-function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "speedOverride" | "lavaUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand"> & { speedOverride?: number; lavaUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number; cosmeticHead?: string; cosmeticChest?: string; cosmeticFeet?: string; cosmeticRightHand?: string; cosmeticLeftHand?: string }) {
+function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "speedOverride" | "lavaUnlocked" | "infernalUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand"> & { speedOverride?: number; lavaUnlocked?: boolean; infernalUnlocked?: boolean; bowCount?: number; woodenArmorCount?: number; cosmeticHead?: string; cosmeticChest?: string; cosmeticFeet?: string; cosmeticRightHand?: string; cosmeticLeftHand?: string }) {
   const id = row.identity.toHexString();
   const progress = {
     maxHp: row.maxHp,
@@ -1688,6 +1689,7 @@ function upsertProgress(row: { identity: Identity } & Omit<PlayerProgress, "spee
     desertUnlocked: row.desertUnlocked,
     snowlandsUnlocked: row.snowlandsUnlocked,
     lavaUnlocked: row.lavaUnlocked ?? false,
+    infernalUnlocked: row.infernalUnlocked ?? false,
     bowCount: Math.max(0, Math.floor(row.bowCount ?? 0)),
     woodenArmorCount: Math.max(0, Math.floor(row.woodenArmorCount ?? 0)),
   };
@@ -3876,7 +3878,7 @@ export const wildwoodCoop = {
       !connection ||
       !Number.isFinite(x) ||
       !Number.isFinite(y) ||
-      ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID].includes(mapId)
+      ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID].includes(mapId)
     ) return false;
     try {
       await runWorldReducer(() => connection!.reducers.changeMap({ mapId, x, y }));

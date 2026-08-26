@@ -37,7 +37,7 @@
     --mini-chat-height: 58px;
     --toolbar-button-height: 58px;
     --toolbar-height: calc(var(--toolbar-button-height) + env(safe-area-inset-bottom, 0px));
-    --gameplay-bottom-inset: calc(var(--toolbar-height) + var(--mini-chat-height));
+    --gameplay-bottom-inset: var(--toolbar-height);
   }
 
   * {
@@ -68,7 +68,7 @@
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: #07100b;
+    background: #000;
     font-family: var(--font-rounded);
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -82,13 +82,17 @@
     height: 100%;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
-    background: #102819;
+    background: #000;
   }
 
   canvas#game {
     bottom: var(--gameplay-bottom-inset);
     height: auto;
   }
+
+  #gameGpu { z-index: 0; pointer-events: none; bottom: var(--gameplay-bottom-inset); height: auto; }
+  #game { z-index: 1; }
+  body.has-webgl-world #game { background: transparent; }
 
   #hud {
     position: fixed;
@@ -198,8 +202,6 @@
 
   .settings-button[hidden] { display: none; }
   .settings-button + .settings-button { border-left: 0; }
-  #leaderboardBtn { border-top-left-radius: 8px; }
-  #settingsBtn { border-top-right-radius: 8px; }
 
   .auto-attack-button {
     position: static;
@@ -1136,7 +1138,7 @@
   @keyframes daily-gem-claimed { 45% { transform: scale(1.42) rotate(-8deg); } 100% { transform: scale(1) rotate(0); } }
 
   #chatPanel[hidden] { display: none; }
-  #chatPanel:not(.is-large) { height: var(--mini-chat-height); min-height: var(--mini-chat-height); max-height: var(--mini-chat-height); border-radius: 0; background: linear-gradient(180deg, rgba(61, 65, 66, .94), rgba(37, 41, 42, .96)); backdrop-filter: none; cursor: pointer; }
+  #chatPanel:not(.is-large) { height: var(--mini-chat-height); min-height: var(--mini-chat-height); max-height: var(--mini-chat-height); border-radius: 0; background: linear-gradient(180deg, rgba(61, 63, 64, .62), rgba(29, 31, 32, .74)); backdrop-filter: none; cursor: pointer; }
   #chatPanel:not(.is-large) #topMeta { color: #fff; }
   .chat-header,
   #chatForm {
@@ -1349,7 +1351,7 @@
     width: 100vw;
     height: calc(100vh + 30px);
     height: calc(100dvh + 30px);
-    background-color: #284d20;
+    background-color: #000;
     background-image:
       linear-gradient(180deg, rgba(4, 12, 6, .24), rgba(4, 12, 6, .38)),
       url("signin/signin-progression-mobile-v2.png"),
@@ -2388,7 +2390,7 @@
   :-webkit-full-screen {
     width: 100%;
     height: 100%;
-    background: #07100b;
+    background: #000;
   }
 
 
@@ -2405,16 +2407,20 @@
   }
 
   #joystick {
-    display: none;
+    display: block;
     pointer-events: none;
     position: fixed;
-    left: 26px;
-    bottom: calc(var(--gameplay-bottom-inset) + 30px);
+    left: 0;
+    top: 0;
     width: 118px;
     height: 118px;
     border-radius: 50%;
     border: 3px solid rgba(255,255,255,.25);
     background: rgba(0,0,0,.24);
+    opacity: 0;
+    transform: translate3d(-160px, -160px, 0);
+    will-change: transform, opacity;
+    contain: layout paint;
     z-index: 4;
   }
 
@@ -2427,6 +2433,8 @@
     border-radius: 50%;
     background: rgba(255,255,255,.42);
     border: 2px solid rgba(0,0,0,.40);
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
   }
 
   @media (pointer: coarse), (max-width: 800px) {

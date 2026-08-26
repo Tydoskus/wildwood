@@ -23,7 +23,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -34,11 +34,13 @@ import { applyPlayerMaxHealthMultiplier } from "./game/runtime/player-health";
 import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
 import { createResearchController } from "./game/runtime/research-controller";
 import { createWorldRenderRuntime } from "./game/runtime/world-render-runtime";
+import { createWebGLStaticWorldLayer } from "./game/runtime/webgl-static-world-layer";
 import { DEFAULT_SKIN_TONE, PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES, warmPlayerAppearanceCache } from "./game/player-appearance";
 import type { DuelScene } from "./game/runtime/types";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   UPGRADE_BENCH_POSITION,
@@ -104,19 +106,13 @@ import {
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
-  const configuredMiniChatHeight = () => {
-    const value = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mini-chat-height"));
-    return Number.isFinite(value) ? value : 82;
-  };
+  const staticWorldLayer = createWebGLStaticWorldLayer(canvas);
   const canvasRuntime = createCanvasRuntime({
     canvas,
+    transparent: Boolean(staticWorldLayer),
     bottomInset: () => document.body.classList.contains("is-cutscene")
       ? 0
-      : gameplayBottomInset(
-        toolbar.getBoundingClientRect().height,
-        configuredMiniChatHeight(),
-        !chatPanel.hidden && !chatPanel.classList.contains("is-large"),
-      ),
+      : gameplayBottomInset(toolbar.getBoundingClientRect().height),
     getActorShadowSprite: () => actorShadowSprite,
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
@@ -396,6 +392,7 @@ import {
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
     lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
+    infernalCutsceneSeenKey: INFERNAL_PORTAL_CUTSCENE_SEEN_KEY,
   });
   let inputEscapeHandler = () => false;
   const playerInput = createPlayerInputController({
@@ -562,9 +559,11 @@ import {
     desertMapId: BEGINNER_DESERT_MAP_ID,
     snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
     lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
+    infernalMapId: INFERNAL_DEPTHS_MAP_ID,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
     lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
+    infernalCutsceneSeenKey: INFERNAL_PORTAL_CUTSCENE_SEEN_KEY,
     getCurrentMapId: () => currentMapId,
     setCurrentMapId: (mapId) => { currentMapId = mapId; },
     player,
@@ -586,6 +585,8 @@ import {
         ? Boolean(coop?.savedProgress?.()?.snowlandsUnlocked)
         : mapId === ADVANCED_LAVA_WASTES_MAP_ID
           ? Boolean(coop?.savedProgress?.()?.lavaUnlocked)
+        : mapId === INFERNAL_DEPTHS_MAP_ID
+          ? Boolean(coop?.savedProgress?.()?.infernalUnlocked)
         : true,
     syncMapMusic,
     rebuildWorld: () => playerController.rebuildWorld(),
@@ -605,7 +606,7 @@ import {
     showMapMessage: (mapId) => showMessage(MAP_CONFIG[mapId].name, "#ffe769"),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
-  const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene } = mapController;
+  const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene } = mapController;
 
   const bossController = createBossController({
     boss,
@@ -634,9 +635,11 @@ import {
     hasSeenDragonPortalCutscene: worldProgression.hasSeenDragonPortalCutscene,
     hasSeenSnowlandsPortalCutscene: worldProgression.hasSeenSnowlandsPortalCutscene,
     hasSeenLavaPortalCutscene: worldProgression.hasSeenLavaPortalCutscene,
+    hasSeenInfernalPortalCutscene: worldProgression.hasSeenInfernalPortalCutscene,
     startDragonPortalCutscene,
     startSnowlandsPortalCutscene,
     startLavaPortalCutscene,
+    startInfernalPortalCutscene,
     elements: {
       result: dragonResultEl,
       resultTitle: dragonResultTitle,
@@ -675,6 +678,7 @@ import {
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   const worldRenderRuntime = createWorldRenderRuntime({
     ctx,
+    staticWorldLayer,
     camera,
     viewport: canvasRuntime.renderViewport,
     currentMapId: () => currentMapId,
@@ -688,6 +692,7 @@ import {
     desertMapId: BEGINNER_DESERT_MAP_ID,
     snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
     lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
+    infernalMapId: INFERNAL_DEPTHS_MAP_ID,
     paths,
     decor,
     enemies,
@@ -1080,7 +1085,9 @@ import {
         ? { x: spiderBoss.x, y: spiderBoss.y, name: "Desert Spider", dead: spiderBoss.dead }
         : currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID
           ? { x: frostclawBoss.x, y: frostclawBoss.y, name: "Frostclaw", dead: frostclawBoss.dead }
-          : { x: magmaliskBoss.x, y: magmaliskBoss.y, name: "Magmalisk", dead: magmaliskBoss.dead },
+          : currentMapId === ADVANCED_LAVA_WASTES_MAP_ID
+            ? { x: magmaliskBoss.x, y: magmaliskBoss.y, name: "Magmalisk", dead: magmaliskBoss.dead }
+            : null,
     portals: () => {
       const portals = [activePortal()];
       const secondary = secondaryPortal();
@@ -1154,7 +1161,7 @@ import {
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
-    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID],
+    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
@@ -1262,6 +1269,7 @@ import {
       rightHandItem: appearance.rightHandItem,
       leftHandItem: appearance.leftHandItem,
     });
+    if (firstStart && staticWorldLayer?.prepare()) renderController.render();
     if (firstStart) performanceMonitor.reset();
     session.start(markIntro, restoreServerPosition);
     dailyGemBonus.refresh();

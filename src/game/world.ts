@@ -32,12 +32,14 @@ export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
+export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
 export const UPGRADE_BENCH_POSITION = { x: 800, y: 710 } as const;
 export type MapId =
   | typeof TUTORIAL_FOREST_MAP_ID
   | typeof BEGINNER_DESERT_MAP_ID
   | typeof INTERMEDIATE_SNOWLANDS_MAP_ID
-  | typeof ADVANCED_LAVA_WASTES_MAP_ID;
+  | typeof ADVANCED_LAVA_WASTES_MAP_ID
+  | typeof INFERNAL_DEPTHS_MAP_ID;
 
 const DESERT_CAMPS = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
@@ -61,6 +63,14 @@ const LAVA_CAMPS = [
   { name: "Obsidian Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Magma Guard"] as EnemyKind[] },
   { name: "Ashen Shelf", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Ash Reaper"] as EnemyKind[] },
   { name: "Inferno Caldera", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Inferno Oracle", "Inferno Oracle", "Ash Reaper"] as EnemyKind[] },
+];
+
+const INFERNAL_CAMPS = [
+  { name: "Depths Threshold", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Depth Raider"] as EnemyKind[] },
+  { name: "Abyss Causeway", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Abyss Archer"] as EnemyKind[] },
+  { name: "Blackglass Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Obsidian Colossus"] as EnemyKind[] },
+  { name: "Doom Shelf", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Doom Reaper"] as EnemyKind[] },
+  { name: "Nether Caldera", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Nether Oracle", "Nether Oracle", "Doom Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -211,7 +221,7 @@ function createLavaLayout() {
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
-  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID) return createLavaLayout();
+  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID) return createLavaLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -290,6 +300,8 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       ? SNOW_CAMPS
       : mapId === ADVANCED_LAVA_WASTES_MAP_ID
         ? LAVA_CAMPS
+        : mapId === INFERNAL_DEPTHS_MAP_ID
+          ? INFERNAL_CAMPS
         : CAMPS;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {

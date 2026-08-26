@@ -680,6 +680,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cosmeticRightHand: __t.string(),
   cosmeticLeftHand: __t.string(),
   speedOverride: __t.f32(),
+  infernalUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

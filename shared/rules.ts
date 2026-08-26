@@ -50,20 +50,23 @@ export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
+export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
 export const MAP_DISPLAY_NAMES = {
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "Intermediate Snowlands",
   [ADVANCED_LAVA_WASTES_MAP_ID]: "Advanced Lava Lake",
+  [INFERNAL_DEPTHS_MAP_ID]: "Infernal Depths",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   ADVANCED_LAVA_WASTES_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 65;
+export const PROTOCOL_VERSION = 66;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

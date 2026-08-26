@@ -92,4 +92,9 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Magma Guard": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 78 },
   "Ash Reaper": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 92 },
   "Inferno Oracle": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 84 },
+  "Depth Raider": { src: "assets/wildwood/enemies/slime-orange.png", size: 62 },
+  "Abyss Archer": { src: "assets/wildwood/enemies/slime-orange.png", size: 58 },
+  "Obsidian Colossus": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 84 },
+  "Doom Reaper": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 98 },
+  "Nether Oracle": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 90 },
 };

@@ -12,6 +12,7 @@ import {
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   createSpawnSites,
@@ -36,6 +37,7 @@ describe("map guide", () => {
       [MAGMA_ARMOR, 30],
       [LAVA_BOW, 25],
     ]);
+    expect(mapGuideDrops(INFERNAL_DEPTHS_MAP_ID)).toEqual([]);
     expect(mapGuideDropChance(25)).toBe("4%");
     expect(mapGuideDropChance(30)).toBe("3.3%");
   });

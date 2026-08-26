@@ -18,6 +18,7 @@ export type MapController = {
   startDragonPortalCutscene: (preview?: boolean) => void;
   startSnowlandsPortalCutscene: (preview?: boolean) => void;
   startLavaPortalCutscene: (preview?: boolean) => void;
+  startInfernalPortalCutscene: (preview?: boolean) => void;
   updatePortalCutscene: (dt: number) => boolean;
   isCutsceneActive: () => boolean;
   isMapTransitioning: () => boolean;
@@ -34,9 +35,11 @@ export function createMapController(options: {
   desertMapId: MapId;
   snowMapId: MapId;
   lavaMapId: MapId;
+  infernalMapId: MapId;
   dragonCutsceneSeenKey: string;
   snowlandsCutsceneSeenKey: string;
   lavaCutsceneSeenKey: string;
+  infernalCutsceneSeenKey: string;
   getCurrentMapId: () => MapId;
   setCurrentMapId: (mapId: MapId) => void;
   player: PlayerState;
@@ -72,7 +75,7 @@ export function createMapController(options: {
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
   const {
-    mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey,
+    mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey,
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
@@ -166,7 +169,7 @@ export function createMapController(options: {
     if (!running() || mapTransitioning || isDueling()) return;
     const state = localMapState();
     if (!state || state.mapId === getCurrentMapId()) return;
-    if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId) return;
+    if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId) return;
     mapTransitioning = true;
     fadeToWorld(() => {
       loadMap(state.mapId as MapId, state.x, state.y, state.facing);
@@ -199,6 +202,10 @@ export function createMapController(options: {
   function startLavaPortalCutscene(preview = false) {
     const portal = mapConfig[snowMapId].secondaryPortal;
     if (portal) startMapPortalCutscene(snowMapId, preview, portal, lavaCutsceneSeenKey);
+  }
+  function startInfernalPortalCutscene(preview = false) {
+    const portal = mapConfig[lavaMapId].secondaryPortal;
+    if (portal) startMapPortalCutscene(lavaMapId, preview, portal, infernalCutsceneSeenKey);
   }
 
   function updatePortalCutscene(dt: number) {
@@ -234,6 +241,7 @@ export function createMapController(options: {
     startDragonPortalCutscene,
     startSnowlandsPortalCutscene,
     startLavaPortalCutscene,
+    startInfernalPortalCutscene,
     updatePortalCutscene,
     isCutsceneActive: () => portalCutscene.active,
     isMapTransitioning: () => mapTransitioning,

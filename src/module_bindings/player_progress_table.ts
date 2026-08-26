@@ -40,4 +40,5 @@ export default __t.row({
   cosmeticRightHand: __t.string().name("cosmetic_right_hand"),
   cosmeticLeftHand: __t.string().name("cosmetic_left_hand"),
   speedOverride: __t.f32().name("speed_override"),
+  infernalUnlocked: __t.bool().name("infernal_unlocked"),
 });

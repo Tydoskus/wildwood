@@ -45,6 +45,24 @@ describe("enemy reward rules", () => {
     expect(rewardLabel({ type: "health", amount: 8_500 })).toBe("+8.50k MAX HEALTH");
     expect(rewardLabel({ type: "damage", amount: 240_000 })).toBe("+240k DAMAGE");
   });
+
+  it("repeats each archetype's Snowlands-to-Lava multiplier in Infernal Depths", () => {
+    const tracks = [
+      ["Frost Raider", "Ember Raider", "Depth Raider"],
+      ["Glacier Archer", "Cinder Archer", "Abyss Archer"],
+      ["Rime Guard", "Magma Guard", "Obsidian Colossus"],
+      ["Whiteout Reaper", "Ash Reaper", "Doom Reaper"],
+      ["Aurora Oracle", "Inferno Oracle", "Nether Oracle"],
+    ] as const;
+    for (const [snowKind, lavaKind, infernalKind] of tracks) {
+      const snow = ENEMY_TYPES[snowKind];
+      const lava = ENEMY_TYPES[lavaKind];
+      const infernal = ENEMY_TYPES[infernalKind];
+      expect(infernal.hp / lava.hp).toBeCloseTo(lava.hp / snow.hp, 8);
+      expect(infernal.damage / lava.damage).toBeCloseTo(lava.damage / snow.damage, 8);
+      expect(infernal.reward.amount / lava.reward.amount).toBeCloseTo(lava.reward.amount / snow.reward.amount, 8);
+    }
+  });
 });
 
 describe("enemy sprite loading", () => {

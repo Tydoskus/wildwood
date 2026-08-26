@@ -24,6 +24,7 @@ import { drawPortalMapMarker } from "../game/portal-presentation";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   type MapId,
@@ -42,7 +43,7 @@ type MapGuideElements = {
 };
 
 type MapGuidePoint = { x: number; y: number };
-type MapGuideBoss = MapGuidePoint & { name: string; dead?: boolean };
+type MapGuideBoss = (MapGuidePoint & { name: string; dead?: boolean }) | null;
 type MapGuidePortal = MapGuidePoint & { destination: MapId; unlocked: boolean };
 
 type MapGuideDependencies = {
@@ -88,6 +89,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
     { itemId: MAGMA_ARMOR, denominator: LAVA_ITEM_DROP_DENOMINATOR, source: "Any regular lava enemy" },
     { itemId: LAVA_BOW, denominator: LAVA_BOSS_ITEM_DROP_DENOMINATOR, source: "Boss" },
   ],
+  [INFERNAL_DEPTHS_MAP_ID]: [],
 };
 
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
@@ -95,6 +97,7 @@ const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: stri
   [BEGINNER_DESERT_MAP_ID]: { ground: "#d9a95f", path: "#c48b4b", glow: "#ffe09a" },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { ground: "#bfddeb", path: "#8fb7d0", glow: "#e9fbff" },
   [ADVANCED_LAVA_WASTES_MAP_ID]: { ground: "#f5b255", path: "#df754b", glow: "#ffd077" },
+  [INFERNAL_DEPTHS_MAP_ID]: { ground: "#8e3d2f", path: "#5d2728", glow: "#ff745e" },
 };
 
 const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {
@@ -183,13 +186,15 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
       label.append(rewards);
       return label;
     });
-    const bossLabel = document.createElement("div");
-    bossLabel.className = `map-guide-boss-label${boss.dead ? " is-defeated" : ""}`;
-    bossLabel.style.setProperty("--map-x", String(boss.x / WORLD.w));
-    bossLabel.style.setProperty("--map-y", String(boss.y / WORLD.h));
-    bossLabel.textContent = "Boss";
-    bossLabel.setAttribute("role", "listitem");
-    labels.push(bossLabel);
+    if (boss) {
+      const bossLabel = document.createElement("div");
+      bossLabel.className = `map-guide-boss-label${boss.dead ? " is-defeated" : ""}`;
+      bossLabel.style.setProperty("--map-x", String(boss.x / WORLD.w));
+      bossLabel.style.setProperty("--map-y", String(boss.y / WORLD.h));
+      bossLabel.textContent = "Boss";
+      bossLabel.setAttribute("role", "listitem");
+      labels.push(bossLabel);
+    }
     zoneLabels.replaceChildren(...labels);
   }
 
@@ -292,16 +297,18 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     }
 
     const boss = dependencies.boss();
-    context.save();
-    context.globalAlpha = boss.dead ? .45 : 1;
-    context.fillStyle = "#ff765c";
-    context.strokeStyle = "#38100d";
-    context.lineWidth = 3;
-    context.beginPath();
-    context.arc(boss.x * scaleX, boss.y * scaleY, 9, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-    context.restore();
+    if (boss) {
+      context.save();
+      context.globalAlpha = boss.dead ? .45 : 1;
+      context.fillStyle = "#ff765c";
+      context.strokeStyle = "#38100d";
+      context.lineWidth = 3;
+      context.beginPath();
+      context.arc(boss.x * scaleX, boss.y * scaleY, 9, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.restore();
+    }
 
     const playerX = dependencies.player.x * scaleX;
     const playerY = dependencies.player.y * scaleY;

@@ -57,9 +57,11 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
     hasSeenLavaPortalCutscene: () => true,
+    hasSeenInfernalPortalCutscene: () => true,
     startDragonPortalCutscene: () => undefined,
     startSnowlandsPortalCutscene: () => undefined,
     startLavaPortalCutscene: () => undefined,
+    startInfernalPortalCutscene: () => undefined,
     elements: {
       result: ignoredElement,
       resultTitle: ignoredElement,
@@ -188,5 +190,28 @@ describe("Magmalisk boss", () => {
     controller.updateMagmaliskBoss(2.5);
     expect(magmaliskEruptions).toHaveLength(11);
     expect(magmaliskBoss.nextAttack).toBe("bite");
+  });
+
+  it("reveals Infernal Depths after a local Magmalisk contribution", () => {
+    let shared = { encounter: 9n, hp: 3_750_000_000_000_000, maxHp: 3_750_000_000_000_000, alive: true };
+    const startInfernalPortalCutscene = vi.fn();
+    const { controller } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsLava: () => true,
+      getMagmaliskBoss: () => shared,
+      getMagmaliskResult: () => ({
+        encounter: 9n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      hasSeenInfernalPortalCutscene: () => false,
+      startInfernalPortalCutscene,
+    });
+
+    controller.syncMagmaliskState();
+    shared = { ...shared, hp: 0, alive: false };
+    controller.syncMagmaliskState();
+
+    expect(startInfernalPortalCutscene).toHaveBeenCalledOnce();
   });
 });

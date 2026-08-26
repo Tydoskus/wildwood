@@ -3,6 +3,7 @@ import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   createSpawnSites,
@@ -34,6 +35,18 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor
       .filter((item) => item.type === "charredTree")
       .every((item) => item.variant === 0 || item.variant === 1)).toBe(true);
+  });
+
+  it("connects Magmalisk's Lava Lake portal to scaled Infernal Depths camps", () => {
+    const config = createGameBootstrap().mapConfig;
+    const sites = createSpawnSites({ x: 4050, y: 4050 }, INFERNAL_DEPTHS_MAP_ID);
+    const infernalKinds = new Set(["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]);
+
+    expect(config[ADVANCED_LAVA_WASTES_MAP_ID].secondaryPortal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
+    expect(config[INFERNAL_DEPTHS_MAP_ID].portal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
+    expect(config[INFERNAL_DEPTHS_MAP_ID].name).toBe("Infernal Depths");
+    expect(sites).toHaveLength(30);
+    expect(sites.every((site) => infernalKinds.has(site.type))).toBe(true);
   });
 
   it("spawns only lava-tier enemies", () => {
