@@ -1,6 +1,7 @@
 import { TAU } from "../constants";
 import { clamp, rand, randi } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
+import { snapWorldRenderCoordinate } from "./render-space";
 
 export type Particle = {
   x: number;
@@ -24,7 +25,7 @@ export type DamageNumber = {
   critical: boolean;
 };
 
-type CameraPosition = { x: number; y: number };
+type CameraPosition = { x: number; y: number; zoom: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 
 export const MAX_PARTICLES = 320;
@@ -127,13 +128,13 @@ export function createCombatEffects() {
     }
   }
 
-  function drawParticles(ctx: CanvasRenderingContext2D, camera: CameraPosition) {
+  function drawParticles(ctx: CanvasRenderingContext2D, camera: CameraPosition, devicePixelRatio = 1) {
     for (const particle of particles) {
       ctx.globalAlpha = clamp(particle.life / (particle.maxLife || 1), 0, 1);
       ctx.fillStyle = particle.color;
       ctx.fillRect(
-        Math.floor(particle.x - camera.x),
-        Math.floor(particle.y - camera.y),
+        snapWorldRenderCoordinate(particle.x - camera.x, camera.zoom, devicePixelRatio),
+        snapWorldRenderCoordinate(particle.y - camera.y, camera.zoom, devicePixelRatio),
         particle.size,
         particle.size,
       );
@@ -141,7 +142,7 @@ export function createCombatEffects() {
     ctx.globalAlpha = 1;
   }
 
-  function drawDamageNumbers(ctx: CanvasRenderingContext2D, camera: CameraPosition, outlinedText: OutlinedText) {
+  function drawDamageNumbers(ctx: CanvasRenderingContext2D, camera: CameraPosition, outlinedText: OutlinedText, devicePixelRatio = 1) {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
@@ -150,7 +151,13 @@ export function createCombatEffects() {
       ctx.font = number.critical
         ? '900 22px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
         : '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(number.text, Math.floor(number.x - camera.x), Math.floor(number.y - camera.y), number.critical ? "#ffe36b" : "#ff5a5a", 4);
+      outlinedText(
+        number.text,
+        snapWorldRenderCoordinate(number.x - camera.x, camera.zoom, devicePixelRatio),
+        snapWorldRenderCoordinate(number.y - camera.y, camera.zoom, devicePixelRatio),
+        number.critical ? "#ffe36b" : "#ff5a5a",
+        4,
+      );
     }
     ctx.restore();
   }

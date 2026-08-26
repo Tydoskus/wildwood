@@ -39,6 +39,42 @@ The two actionable findings were:
   evicted Canvas2D fallback tiles are resized to zero to release their backing
   stores without waiting for garbage collection.
 
+## Mobile motion pipeline
+
+The original frame loop requested animation frames but then manually admitted
+only 60 of them per second. That is evenly divisible on 60 and 120 Hz panels,
+but it produces alternating frame gaps on common 90 and 144 Hz displays. The
+simulation also had a fixed-step accumulator without render interpolation, so
+high-refresh panels repeated a simulation pose and then jumped to the next one.
+
+The presentation path now:
+
+- keeps gameplay deterministic at a fixed 60 Hz;
+- renders every browser animation callback in normal mode and retains the
+  explicit 30 FPS cap in Low Performance mode;
+- interpolates the camera, local actors, enemies, projectiles, bosses, hazards,
+  particles, and damage numbers using the accumulator remainder;
+- restores authoritative simulation transforms immediately after each
+  synchronous render, including when drawing throws;
+- refuses to interpolate large transform jumps so portals, respawns, pooled
+  effects, and world transitions cannot streak across the map;
+- uses the same zoom-and-DPR physical-pixel snapping rule for static tiles,
+  Canvas2D actors, WebGL projectile/particle batches, bosses, effects, and
+  dynamic decor; and
+- avoids per-actor snapshot allocation in the steady render path so smoothing
+  does not introduce garbage-collection stutter.
+
+Touch input now has an eight-pixel radial dead zone and ramps analog magnitude
+between that boundary and the outer joystick radius. The local movement and
+compact multiplayer motion protocol both preserve magnitudes below one, while
+combined keyboard/touch input remains capped at full speed. One-pixel finger
+noise therefore no longer becomes full-speed movement.
+
+Window and `visualViewport` resize events are coalesced to one animation frame.
+The Canvas2D backing store, CSS dimensions, and transform are only rewritten
+when their values change; duplicate mobile viewport events no longer clear and
+reallocate an identical canvas.
+
 The removed per-tile placeholders alone avoid about 1.56 MiB of graphics
 allocation per pending tile (about 69 MiB for the 44-tile burst in the captured
 trace). Avoiding textures for the preload ring removes another device- and
@@ -49,8 +85,11 @@ viewport-dependent group of same-sized allocations.
 Capture the same login, world-entry, and movement route after deployment. Check
 that the continuous 4 ms timer is absent, worker paint tasks arrive in small
 batches, the 44-surface placeholder burst is gone, and steady graphics memory
-falls. Use the new trace to decide whether any of the following remains worth
-its visual or architectural cost:
+falls. On a high-refresh phone, presentation FPS should now match the panel
+while simulation remains 60 Hz. Inspect frame-gap variance rather than treating
+a higher presentation-frame count as extra gameplay work. Use the new trace to
+decide whether any of the following remains worth its visual or architectural
+cost:
 
 1. Lazy-load boss sheets by current or next biome. This can remove roughly
    6.9 MiB from an early cold visit, but map transitions need an explicit
@@ -75,6 +114,22 @@ its visual or architectural cost:
    WebGL texture cache to avoid retaining both representations. This requires a
    designed Canvas2D fallback and context-loss recovery path; closing bitmaps
    immediately after upload is unsafe with the current renderer contract.
+8. If native-refresh rendering is too expensive on a measured device, add an
+   explicit adaptive presentation tier (for example, native / 60 / 30) with a
+   cadence algorithm that spaces frames evenly for the detected panel. Do not
+   restore the old fixed 60 Hz deadline filter on arbitrary refresh rates.
+9. Standard fixed-step interpolation intentionally presents local motion up to
+   one simulation tick behind. If controlled tests show input latency rather
+   than uneven cadence is the remaining problem, evaluate short local-player
+   extrapolation while leaving camera/world interpolation buffered. It needs
+   collision and portal guards and should not mutate simulation state.
+10. Profile steady-frame allocation before micro-optimizing the renderer. Known
+    candidates include the per-frame WebGL retained-tile `Set`, sprite batch
+    vertex arrays, and repeated remote-player view objects. Pooling these is
+    worthwhile only if a new trace shows garbage-collection pauses.
+11. Keep presentation snapshots render-only. Network corrections, collision,
+    auto-attack targeting, portal detection, and saved positions must continue
+    to use the current fixed-step state rather than interpolated coordinates.
 
 ## Trace interpretation rules
 

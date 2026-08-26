@@ -18,6 +18,14 @@ export type PlayerController = {
   resetMovementSync: () => void;
 };
 
+/** Preserves analog magnitude while capping keyboard/touch combinations. */
+export function clampMovementVector(x: number, y: number) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { x: 0, y: 0 };
+  const length = Math.hypot(x, y);
+  if (length === 0 || length <= 1) return { x, y };
+  return { x: x / length, y: y / length };
+}
+
 /** Owns player world reset, movement, multiplayer sync, and duel return lifecycle. */
 export function createPlayerController(options: {
   player: PlayerState;
@@ -164,12 +172,11 @@ export function createPlayerController(options: {
     movementSyncActive = connected;
     const movementSpeed = player.speed * movementSpeedMultiplier();
     if (connected) syncSpeed(movementSpeed);
-    let { x: mx, y: my, source } = movement();
-    const length = Math.hypot(mx, my);
-    player.moving = length > 0;
+    const input = movement();
+    let { x: mx, y: my } = clampMovementVector(input.x, input.y);
+    const source = input.source;
+    player.moving = Math.hypot(mx, my) > 0;
     if (player.moving) {
-      mx /= length;
-      my /= length;
       player.x += mx * movementSpeed * dt;
       player.y += my * movementSpeed * dt;
       if (Math.abs(mx) > .1 && player.combatFacing === null) player.facing = Math.atan2(my, mx);

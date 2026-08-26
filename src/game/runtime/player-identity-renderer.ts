@@ -242,11 +242,11 @@ export function createPlayerIdentityRenderer(options: {
   function drawActorStatus({ x, y, identity, name, gender, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
     const ctx = options.ctx;
     ctx.save();
-    const centerX = Math.round(x);
+    const centerX = x;
     const barW = 94 * 1.05;
     const barH = options.healthBarHeight;
     const barX = centerX - Math.floor(barW / 2);
-    const barY = Math.round(y - 62);
+    const barY = y - 62;
     const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
     ctx.fillStyle = "rgba(0,0,0,.88)";
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
@@ -297,7 +297,7 @@ export function createPlayerIdentityRenderer(options: {
       : 0;
     const genderIconGap = hasGenderIcon ? 3 : 0;
     const labelWidth = nameWidth + genderIconGap + genderIconWidth;
-    const textLeft = Math.round(centerX - labelWidth / 2);
+    const textLeft = centerX - labelWidth / 2;
     const nameBottom = powerValue ? bottom - 18 : bottom;
     const developerPrefix = `${DEVELOPER_BADGE} `;
     if (displayName.startsWith(developerPrefix)) {
@@ -314,8 +314,8 @@ export function createPlayerIdentityRenderer(options: {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(
         genderIcon,
-        Math.round(textLeft + nameWidth + genderIconGap),
-        Math.round(nameBottom - genderIconHeight),
+        textLeft + nameWidth + genderIconGap,
+        nameBottom - genderIconHeight,
         Math.round(genderIconWidth),
         genderIconHeight,
       );
@@ -330,12 +330,12 @@ export function createPlayerIdentityRenderer(options: {
       const iconSize = hasPowerIcon ? 16 : 0;
       const iconGap = hasPowerIcon ? 3 : 0;
       const powerValueWidth = ctx.measureText(powerValue).width;
-      const left = Math.round(centerX - (iconSize + iconGap + powerValueWidth) / 2);
+      const left = centerX - (iconSize + iconGap + powerValueWidth) / 2;
       ctx.textAlign = "left";
       options.outlinedText(powerValue, left, bottom, "#ffffff", 4);
       if (hasPowerIcon) {
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(options.powerIcon, Math.round(left + powerValueWidth + iconGap), Math.round(bottom - iconSize), iconSize, iconSize);
+        ctx.drawImage(options.powerIcon, left + powerValueWidth + iconGap, bottom - iconSize, iconSize, iconSize);
       }
     }
     ctx.restore();

@@ -5,6 +5,26 @@ export function gameplayBottomInset(toolbarHeight: number) {
   return Number.isFinite(toolbarHeight) ? Math.max(0, toolbarHeight) : 0;
 }
 
+export function canvasViewportMetrics(
+  viewportWidth: number,
+  viewportHeight: number,
+  reservedBottom: number,
+  pixelRatio: number,
+) {
+  const width = Math.max(1, Math.round(Number.isFinite(viewportWidth) ? viewportWidth : 1));
+  const bottom = Math.max(0, Math.round(Number.isFinite(reservedBottom) ? reservedBottom : 0));
+  const height = Math.max(1, Math.round(Number.isFinite(viewportHeight) ? viewportHeight : 1) - bottom);
+  const dpr = Math.min(Math.max(1, Number.isFinite(pixelRatio) ? pixelRatio : 1), 3);
+  return {
+    width,
+    height,
+    reservedBottom: bottom,
+    dpr,
+    backingWidth: Math.round(width * dpr),
+    backingHeight: Math.round(height * dpr),
+  };
+}
+
 export function createCanvasRuntime({
   canvas,
   bottomInset,
@@ -21,20 +41,40 @@ export function createCanvasRuntime({
   let dpr = 1;
   let width = innerWidth;
   let height = innerHeight;
+  let initialized = false;
+  let resizeFrame = 0;
 
   function resize() {
-    width = innerWidth;
-    const reservedBottom = Math.max(0, Math.round(bottomInset?.() ?? 0));
-    height = Math.max(1, innerHeight - reservedBottom);
-    dpr = Math.min(devicePixelRatio || 1, 3);
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    canvas.style.bottom = `${reservedBottom}px`;
-    document.documentElement.style.setProperty("--gameplay-bottom-inset", `${reservedBottom}px`);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
+    const metrics = canvasViewportMetrics(innerWidth, innerHeight, bottomInset?.() ?? 0, devicePixelRatio || 1);
+    const backingChanged = canvas.width !== metrics.backingWidth || canvas.height !== metrics.backingHeight;
+    const transformChanged = !initialized || dpr !== metrics.dpr;
+    width = metrics.width;
+    height = metrics.height;
+    dpr = metrics.dpr;
+    if (canvas.width !== metrics.backingWidth) canvas.width = metrics.backingWidth;
+    if (canvas.height !== metrics.backingHeight) canvas.height = metrics.backingHeight;
+    const cssWidth = `${width}px`;
+    const cssHeight = `${height}px`;
+    const cssBottom = `${metrics.reservedBottom}px`;
+    if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth;
+    if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight;
+    if (canvas.style.bottom !== cssBottom) canvas.style.bottom = cssBottom;
+    if (document.documentElement.style.getPropertyValue("--gameplay-bottom-inset") !== cssBottom) {
+      document.documentElement.style.setProperty("--gameplay-bottom-inset", cssBottom);
+    }
+    if (backingChanged || transformChanged) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+    initialized = true;
+  }
+
+  function scheduleResize() {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      resize();
+    });
   }
 
   function drawActorShadow(x: number, y: number, shadowWidth: number, alpha = .38) {
@@ -43,7 +83,7 @@ export function createCanvasRuntime({
     ctx.save();
     ctx.globalAlpha = alpha;
     if (sprite?.complete && sprite.naturalWidth > 0) {
-      ctx.drawImage(sprite, Math.round(x - shadowWidth / 2), Math.round(y - shadowHeight / 2), Math.round(shadowWidth), shadowHeight);
+      ctx.drawImage(sprite, x - shadowWidth / 2, y - shadowHeight / 2, Math.round(shadowWidth), shadowHeight);
     } else {
       ctx.fillStyle = "#102719";
       ctx.beginPath();
@@ -53,8 +93,8 @@ export function createCanvasRuntime({
     ctx.restore();
   }
 
-  window.addEventListener("resize", resize);
-  window.visualViewport?.addEventListener("resize", resize);
+  window.addEventListener("resize", scheduleResize);
+  window.visualViewport?.addEventListener("resize", scheduleResize);
   resize();
 
   return {

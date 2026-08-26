@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   advanceFixedSimulationClock,
-  frameDeadlineReached,
   MAX_SIMULATION_CATCH_UP_SECONDS,
   MAX_SIMULATION_STEPS_PER_FRAME,
   SIMULATION_STEP_SECONDS,
+  presentationFrameDue,
 } from "./game-session-controller";
 
-function countScheduledFrames(callbackTimes: number[], targetFps: number) {
-  const interval = 1_000 / targetFps;
+function countScheduledFrames(callbackTimes: number[], lowPerformanceMode: boolean) {
+  const interval = 1_000 / 30;
   let nextFrameAt = 0;
   let frames = 0;
 
   for (const now of callbackTimes) {
-    if (!frameDeadlineReached(now, nextFrameAt)) continue;
+    if (!presentationFrameDue(lowPerformanceMode, now, nextFrameAt)) continue;
     frames += 1;
+    if (!lowPerformanceMode) continue;
     nextFrameAt += interval;
     if (nextFrameAt < now) nextFrameAt = now + interval;
   }
@@ -50,6 +51,23 @@ function attacksFor(renderFps: number, seconds: number, attackInterval: number) 
   return attacks;
 }
 
+function interpolatedMotionDeltas(refreshRate: number, frameCount: number) {
+  let accumulatorSeconds = 0;
+  let previous = 0;
+  let current = 0;
+  const positions: number[] = [];
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const result = advanceFixedSimulationClock(accumulatorSeconds, 1 / refreshRate);
+    accumulatorSeconds = result.accumulatorSeconds;
+    for (let step = 0; step < result.steps; step += 1) {
+      previous = current;
+      current += 1;
+    }
+    positions.push(previous + (current - previous) * result.interpolationAlpha);
+  }
+  return positions.slice(4).map((position, index) => position - positions[index + 3]);
+}
+
 describe("game session frame scheduling", () => {
   it("does not collapse 60 Hz rendering to every other callback when timestamps arrive slightly early", () => {
     const interval = 1_000 / 60;
@@ -57,19 +75,35 @@ describe("game session frame scheduling", () => {
       index === 0 ? 0 : index * interval - .25,
     );
 
-    expect(countScheduledFrames(callbacks, 60)).toBe(120);
+    expect(countScheduledFrames(callbacks, false)).toBe(120);
   });
 
-  it("still limits a 120 Hz callback stream to approximately 60 FPS", () => {
-    const callbacks = Array.from({ length: 121 }, (_, index) => index * (1_000 / 120));
-
-    expect(countScheduledFrames(callbacks, 60)).toBe(61);
+  it("presents every callback on 90, 120, and 144 Hz displays", () => {
+    for (const refreshRate of [90, 120, 144]) {
+      const callbacks = Array.from({ length: refreshRate + 1 }, (_, index) => index * (1_000 / refreshRate));
+      expect(countScheduledFrames(callbacks, false)).toBe(callbacks.length);
+    }
   });
 
   it("keeps Low Performance mode at approximately 30 FPS on a 60 Hz display", () => {
     const callbacks = Array.from({ length: 121 }, (_, index) => index * (1_000 / 60));
 
-    expect(countScheduledFrames(callbacks, 30)).toBe(61);
+    expect(countScheduledFrames(callbacks, true)).toBe(61);
+  });
+
+  it("exposes residual simulation time as presentation interpolation", () => {
+    const result = advanceFixedSimulationClock(0, SIMULATION_STEP_SECONDS * 1.5);
+    expect(result.steps).toBe(1);
+    expect(result.interpolationAlpha).toBeCloseTo(.5);
+  });
+
+  it("turns fixed 60 Hz motion into even native-refresh presentation deltas", () => {
+    for (const refreshRate of [90, 120, 144]) {
+      const expectedDelta = 60 / refreshRate;
+      for (const delta of interpolatedMotionDeltas(refreshRate, refreshRate)) {
+        expect(delta).toBeCloseTo(expectedDelta, 6);
+      }
+    }
   });
 
   it("advances the same 60 Hz simulation at fast, low-performance, and dropped render rates", () => {

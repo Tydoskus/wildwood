@@ -333,7 +333,9 @@ export function drawStartingPlayer(
 
   ctx.save();
   ctx.globalAlpha = options.alpha ?? 1;
-  ctx.translate(Math.round(options.x), Math.round(options.y + 29));
+  // World renderers already align the actor anchor to a physical pixel. Keep
+  // that fractional CSS coordinate intact at non-integer zoom and DPR.
+  ctx.translate(options.x, options.y + 29);
   if (facingLeft) ctx.scale(-1, 1);
   ctx.scale(scale, scale); ctx.translate(-90, -171);
   const drawHeldItem = () => {

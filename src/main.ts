@@ -17,6 +17,7 @@ import { createCoopSessionController } from "./game/runtime/coop-session-control
 import { createProgressController } from "./game/runtime/progress-controller";
 import { createGameSessionController } from "./game/runtime/game-session-controller";
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
+import { createPresentationInterpolator } from "./game/runtime/presentation-interpolator";
 import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from "./game/runtime/game-bootstrap";
 import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-renderer";
 import type { PlayerDeathAnimationState } from "./game/runtime/player-death-animation";
@@ -167,6 +168,10 @@ import {
     spiderVenom,
     startSpawn: START_SPAWN,
   } = bootstrap;
+  const presentation = createPresentationInterpolator({
+    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss],
+    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, particles, damageNumbers],
+  });
   const healthMultiplier = () => equipmentMaxHealthMultiplier(
     inventory.equippedHead,
     inventory.equippedChest,
@@ -690,6 +695,7 @@ import {
     staticWorldLayer,
     camera,
     viewport: canvasRuntime.renderViewport,
+    devicePixelRatio: canvasRuntime.dpr,
     currentMapId: () => currentMapId,
     gameTime: () => session.gameTime(),
     nowMs: () => performance.now(),
@@ -859,7 +865,7 @@ import {
     localIdentity: () => coop?.localIdentity?.(),
     localDisplayName: () => coop?.localDisplayName?.(),
     drawParticles: effects.drawParticles,
-    drawDamageNumbers: (context, activeCamera, outlined) => effects.drawDamageNumbers(context, activeCamera, outlined),
+    drawDamageNumbers: (context, activeCamera, outlined, devicePixelRatio) => effects.drawDamageNumbers(context, activeCamera, outlined, devicePixelRatio),
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     portalBlackoutOpacity: () => mapController.portalBlackoutOpacity(),
     screenShake: () => screenShake,
@@ -1208,7 +1214,9 @@ import {
     updateEffects: effects.update, updateHud: () => updateHud(),
     updateVisuals: (dt) => { flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt); },
     updateMessage: runtimeHud.updateMessage,
-    render: () => { upgradeBenchController.tick(); renderController.render(); }, recordPerformance: performanceMonitor.record,
+    capturePresentationState: presentation.capture,
+    resetPresentationState: presentation.reset,
+    render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => { upgradeBenchController.tick(); renderController.render(); }), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
     renderFpsDisplay: () => {
       const performance = performanceMonitor.snapshot();
@@ -1477,7 +1485,7 @@ import {
     camera,
     player,
     viewport: canvasRuntime.viewport,
-    render: renderController.render,
+    render: () => presentation.render(1, renderController.render),
     loop: session.loop,
   });
 })();

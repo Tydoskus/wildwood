@@ -12,6 +12,9 @@ import {
   type StaticTileScene,
   type StaticTileTreeBounds,
 } from "./static-tile-painter";
+import { snapWorldRenderCoordinate } from "./render-space";
+
+export { snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -48,12 +51,6 @@ export function staticWorldTileRange(
     endX: Math.min(maximumTileX, Math.floor((cameraX + visibleWidth) / STATIC_TILE_SIZE) + padding),
     endY: Math.min(maximumTileY, Math.floor((cameraY + visibleHeight) / STATIC_TILE_SIZE) + padding),
   };
-}
-
-export function snapWorldRenderCoordinate(value: number, zoom: number, devicePixelRatio: number) {
-  const scale = zoom * devicePixelRatio;
-  if (!Number.isFinite(scale) || scale <= 0) return Math.round(value);
-  return Math.round(value * scale) / scale;
 }
 
 export type WorldRendererOptions = {
@@ -557,8 +554,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.fillStyle = colors.ground;
     ctx.fillRect(0, 0, visible.width, visible.height);
     for (const path of options.paths) {
-      const x = Math.floor(path.x - camera.x);
-      const y = Math.floor(path.y - camera.y);
+      const x = snapToWorldPixel(path.x - camera.x);
+      const y = snapToWorldPixel(path.y - camera.y);
       ctx.fillStyle = colors.path;
       ctx.fillRect(x, y, path.w, path.h);
       ctx.fillStyle = colors.pathDetail;
@@ -570,8 +567,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawTree(tree: TreeDecor) {
     const visible = visibleSize();
-    const x = Math.floor(tree.x - camera.x);
-    const y = Math.floor(tree.y - camera.y);
+    const x = snapToWorldPixel(tree.x - camera.x);
+    const y = snapToWorldPixel(tree.y - camera.y);
     const drawSize = Math.round(154 * tree.s);
     const halfWidth = Math.ceil(drawSize / 2);
     const cullPadding = drawSize + 32;
@@ -582,13 +579,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const source = (night ? options.nightTreeSpriteBounds() : options.treeSpriteBounds())[tree.variant % 16];
     if (!source) return;
     const drawWidth = Math.round(drawSize * source.w / source.h);
-    ctx.drawImage(spritesheet, source.x, source.y, source.w, source.h, Math.round(x - drawWidth / 2), Math.round(y - drawSize), drawWidth, drawSize);
+    ctx.drawImage(spritesheet, source.x, source.y, source.w, source.h, x - drawWidth / 2, y - drawSize, drawWidth, drawSize);
   }
 
   function drawPortalAt(portal: Portal, cutscene = false) {
     if (!options.portalArch.complete || options.portalArch.naturalWidth <= 0) return;
-    const x = Math.round(portal.x - camera.x);
-    const y = Math.round(portal.y - camera.y);
+    const x = snapToWorldPixel(portal.x - camera.x);
+    const y = snapToWorldPixel(portal.y - camera.y);
     options.drawShadow(x, y - 4, Math.round(portal.width * .68), .14);
     const cutsceneIntensity = cutscene ? options.portalRevealIntensity() : -1;
     const cutsceneActive = cutsceneIntensity >= 0;
@@ -607,10 +604,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const height = Math.round(portal.height * .75 * 1.265);
       ctx.save();
       ctx.globalAlpha = portalIntensity;
-      ctx.drawImage(portalSwirl, (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell, Math.round(x - width / 2), Math.round(y - height - 5), width, height);
+      ctx.drawImage(portalSwirl, (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell, x - width / 2, y - height - 5, width, height);
       ctx.restore();
     }
-    ctx.drawImage(options.portalArch, Math.round(x - portal.width / 2), Math.round(y - portal.height), portal.width, portal.height);
+    ctx.drawImage(options.portalArch, x - portal.width / 2, y - portal.height, portal.width, portal.height);
     const destinationOpacity = cutsceneActive ? options.portalDestinationOpacity() : options.portalIsUnlocked(portal) ? 1 : 0;
     if (destinationOpacity <= 0) return;
     ctx.save();
@@ -618,7 +615,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(options.mapName(portal.destination), x, Math.round(y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3), portalDestinationTextColor(portal.destination), 4);
+    options.outlinedText(options.mapName(portal.destination), x, y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3, portalDestinationTextColor(portal.destination), 4);
     ctx.restore();
   }
 
@@ -637,8 +634,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawCactus(cactus: CactusDecor) {
     const visible = visibleSize();
-    const x = Math.round(cactus.x - camera.x);
-    const y = Math.round(cactus.y - camera.y);
+    const x = snapToWorldPixel(cactus.x - camera.x);
+    const y = snapToWorldPixel(cactus.y - camera.y);
     if (x < -90 || y < -100 || x > visible.width + 90 || y > visible.height + 50) return;
     const h = Math.round(68 * cactus.s);
     const w = Math.max(10, Math.round(15 * cactus.s));
@@ -655,7 +652,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawRock(rock: RockDecor) {
-    const visible = visibleSize(); const x = Math.round(rock.x - camera.x); const y = Math.round(rock.y - camera.y);
+    const visible = visibleSize(); const x = snapToWorldPixel(rock.x - camera.x); const y = snapToWorldPixel(rock.y - camera.y);
     if (x < -60 || y < -60 || x > visible.width + 60 || y > visible.height + 40) return;
     const w = Math.round(35 * rock.s); const h = Math.round(22 * rock.s);
     options.drawShadow(x, y, Math.round(w * 1.2), .11);
@@ -664,13 +661,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDesertGrass(grass: DesertGrassDecor) {
-    const visible = visibleSize(); const x = Math.round(grass.x - camera.x); const y = Math.round(grass.y - camera.y);
+    const visible = visibleSize(); const x = snapToWorldPixel(grass.x - camera.x); const y = snapToWorldPixel(grass.y - camera.y);
     if (x < -10 || y < -10 || x > visible.width + 10 || y > visible.height + 10) return;
     ctx.fillStyle = grass.variant % 2 ? "#8b7b3d" : "#a28a43"; ctx.fillRect(x - 1, y - 6, 2, 7); ctx.fillRect(x - 5, y - 3, 2, 5); ctx.fillRect(x + 3, y - 4, 2, 6);
   }
 
   function drawSnowPine(tree: SnowPineDecor) {
-    const visible = visibleSize(); const x = Math.round(tree.x - camera.x); const y = Math.round(tree.y - camera.y);
+    const visible = visibleSize(); const x = snapToWorldPixel(tree.x - camera.x); const y = snapToWorldPixel(tree.y - camera.y);
     if (x < -150 || y < -230 || x > visible.width + 150 || y > visible.height + 60) return;
     if (!options.snowPine.complete || options.snowPine.naturalWidth <= 0) return;
     const height = Math.round(185 * tree.s);
@@ -680,8 +677,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawUpgradeBench(bench: UpgradeBenchDecor) {
     const visible = visibleSize();
-    const x = Math.round(bench.x - camera.x);
-    const y = Math.round(bench.y - camera.y);
+    const x = snapToWorldPixel(bench.x - camera.x);
+    const y = snapToWorldPixel(bench.y - camera.y);
     if (x < -120 || y < -160 || x > visible.width + 120 || y > visible.height + 50) return;
     if (!options.upgradeBench.complete || options.upgradeBench.naturalWidth <= 0) return;
     const width = Math.round(180 * bench.s);
@@ -689,7 +686,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     // The generated sprite has generous transparent padding below its feet;
     // Lift the shadow into the sprite's padded feet so the bench stays planted.
     options.drawShadow(x, y - 27, Math.round(width * .75), .2);
-    ctx.drawImage(options.upgradeBench, Math.round(x - width / 2), Math.round(y - height), width, height);
+    ctx.drawImage(options.upgradeBench, x - width / 2, y - height, width, height);
     const upgrade = options.upgradeBenchStatus();
     if (upgrade?.itemSprite?.complete && upgrade.itemSprite.naturalWidth > 0) {
       const maxWidth = 88;
@@ -699,18 +696,18 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const itemHeight = Math.max(1, Math.round(upgrade.itemSprite.naturalHeight * scale));
       // Center the active item over the bench sprite's flat gray work plate.
       const itemCenterX = x - Math.round(width * .18);
-      const itemCenterY = Math.round(y - height + height * .32) - 6;
+      const itemCenterY = y - height + height * .32 - 6;
       ctx.save();
       ctx.shadowColor = "rgba(116,225,255,.8)";
       ctx.shadowBlur = 8;
-      ctx.drawImage(upgrade.itemSprite, Math.round(itemCenterX - itemWidth / 2), Math.round(itemCenterY - itemHeight / 2), itemWidth, itemHeight);
+      ctx.drawImage(upgrade.itemSprite, itemCenterX - itemWidth / 2, itemCenterY - itemHeight / 2, itemWidth, itemHeight);
       ctx.restore();
     }
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    const labelY = Math.round(y - height - (upgrade ? 21 : 7) + Math.sin(options.getGameTime() * 2.2) * 2);
+    const labelY = y - height - (upgrade ? 21 : 7) + Math.sin(options.getGameTime() * 2.2) * 2;
     options.outlinedText(bench.label, x, labelY, "#f5e9c4", 4);
     if (upgrade) {
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
@@ -756,20 +753,20 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawSnowTuft(tuft: SnowTuftDecor) {
-    const visible = visibleSize(); const x = Math.round(tuft.x - camera.x); const y = Math.round(tuft.y - camera.y);
+    const visible = visibleSize(); const x = snapToWorldPixel(tuft.x - camera.x); const y = snapToWorldPixel(tuft.y - camera.y);
     if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
     ctx.fillStyle = tuft.variant % 2 ? "rgba(255,255,255,.78)" : "rgba(221,242,255,.76)";
     ctx.fillRect(x - 2, y - 1, 5, 2); ctx.fillRect(x, y - 3, 2, 5);
   }
 
   function drawGrass(grass: GrassDecor) {
-    const visible = visibleSize(); const x = Math.floor(grass.x - camera.x); const y = Math.floor(grass.y - camera.y);
+    const visible = visibleSize(); const x = snapToWorldPixel(grass.x - camera.x); const y = snapToWorldPixel(grass.y - camera.y);
     if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
     ctx.fillStyle = grass.variant % 2 ? "#237b49" : "#267f4c"; ctx.fillRect(x - 1, y - 5, 2, 7); ctx.fillRect(x - 5, y - 2, 2, 5); ctx.fillRect(x + 3, y - 3, 2, 6); if (grass.variant > 1) ctx.fillRect(x + 6, y, 2, 3);
   }
 
   function drawPetal(petal: PetalDecor) {
-    const visible = visibleSize(); const x = Math.floor(petal.x - camera.x); const y = Math.floor(petal.y - camera.y);
+    const visible = visibleSize(); const x = snapToWorldPixel(petal.x - camera.x); const y = snapToWorldPixel(petal.y - camera.y);
     if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
     ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][petal.variant % 3]; ctx.fillRect(x - 3, y - 1, 7, 3); ctx.fillRect(x - 1, y - 3, 3, 7); ctx.fillStyle = "rgba(255,255,255,.72)"; ctx.fillRect(x, y, 1, 1);
   }

@@ -20,10 +20,16 @@ export type FixedSimulationClock = {
   accumulatorSeconds: number;
   steps: number;
   droppedSeconds: number;
+  interpolationAlpha: number;
 };
 
 export function frameDeadlineReached(now: number, nextFrameAt: number) {
   return now + FRAME_DEADLINE_TOLERANCE_MS >= nextFrameAt;
+}
+
+/** Default presentation follows every display callback; battery mode stays 30 FPS. */
+export function presentationFrameDue(lowPerformanceMode: boolean, now: number, nextFrameAt: number) {
+  return !lowPerformanceMode || frameDeadlineReached(now, nextFrameAt);
 }
 
 /**
@@ -40,10 +46,12 @@ export function advanceFixedSimulationClock(accumulatorSeconds: number, elapsedS
     MAX_SIMULATION_STEPS_PER_FRAME,
     Math.floor((retained + SIMULATION_STEP_SECONDS * 1e-7) / SIMULATION_STEP_SECONDS),
   );
+  const nextAccumulator = Math.max(0, retained - steps * SIMULATION_STEP_SECONDS);
   return {
-    accumulatorSeconds: Math.max(0, retained - steps * SIMULATION_STEP_SECONDS),
+    accumulatorSeconds: nextAccumulator,
     steps,
     droppedSeconds: Math.max(0, total - retained),
+    interpolationAlpha: Math.min(1, nextAccumulator / SIMULATION_STEP_SECONDS),
   };
 }
 
@@ -95,7 +103,9 @@ type SessionDependencies = {
   updateHud: () => void;
   updateVisuals: (dt: number) => void;
   updateMessage: (dt: number) => void;
-  render: () => void;
+  capturePresentationState: () => void;
+  resetPresentationState: () => void;
+  render: (interpolationAlpha: number) => void;
   recordPerformance: (frameMs: number, updateMs: number, renderMs: number, workMs: number) => void;
   renderPerformancePanel: () => void;
   performancePanelVisible: () => boolean;
@@ -112,6 +122,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let paused = false;
   let gameTime = 0;
   let lastFrameAt = performance.now();
+  let lastRenderedAt = lastFrameAt;
   let nextFrameAt = lastFrameAt;
   let simulationAccumulatorSeconds = 0;
   let nextPerformancePanelUpdateAt = 0;
@@ -154,13 +165,13 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   }
 
   function update(dt: number) {
+    dependencies.capturePresentationState();
     syncSharedWorldState();
     simulate(dt);
     dependencies.updateHud();
   }
 
   function updateFixedSimulation(elapsedSeconds: number) {
-    syncSharedWorldState();
     const clock = advanceFixedSimulationClock(simulationAccumulatorSeconds, elapsedSeconds);
     simulationAccumulatorSeconds = clock.accumulatorSeconds;
     for (let step = 0; step < clock.steps; step += 1) {
@@ -168,15 +179,20 @@ export function createGameSessionController(dependencies: SessionDependencies) {
         simulationAccumulatorSeconds = 0;
         break;
       }
+      dependencies.capturePresentationState();
+      if (step === 0) syncSharedWorldState();
       simulate(SIMULATION_STEP_SECONDS);
     }
-    dependencies.updateHud();
+    if (clock.steps > 0) dependencies.updateHud();
+    return Math.min(1, simulationAccumulatorSeconds / SIMULATION_STEP_SECONDS);
   }
 
   function refreshFrameClock() {
     lastFrameAt = performance.now();
+    lastRenderedAt = lastFrameAt;
     nextFrameAt = lastFrameAt;
     simulationAccumulatorSeconds = 0;
+    dependencies.resetPresentationState();
   }
 
   // Browsers can suspend animation frames for an arbitrary amount of time.
@@ -185,28 +201,36 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   document.addEventListener("visibilitychange", refreshFrameClock);
 
   function loop(now: number) {
-    const frameIntervalMs = 1_000 / (dependencies.lowPerformanceMode() ? 30 : 60);
-    if (!frameDeadlineReached(now, nextFrameAt)) {
+    const lowPerformanceMode = dependencies.lowPerformanceMode();
+    if (!presentationFrameDue(lowPerformanceMode, now, nextFrameAt)) {
       requestAnimationFrame(loop);
       return;
     }
-    nextFrameAt += frameIntervalMs;
-    if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
+    if (lowPerformanceMode) {
+      const frameIntervalMs = 1_000 / 30;
+      nextFrameAt += frameIntervalMs;
+      if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
+    } else {
+      nextFrameAt = now;
+    }
     const frameDeltaMs = Math.max(0, now - lastFrameAt);
     lastFrameAt = now;
+    const renderedFrameDeltaMs = Math.max(0, now - lastRenderedAt);
+    lastRenderedAt = now;
     const workStartedAt = performance.now();
     let updateMs = 0;
+    let interpolationAlpha = 1;
     if (running && !paused && !dependencies.accountInConflict() && !document.hidden) {
       const updateStartedAt = performance.now();
-      updateFixedSimulation(frameDeltaMs / 1_000);
+      interpolationAlpha = updateFixedSimulation(frameDeltaMs / 1_000);
       updateMs = performance.now() - updateStartedAt;
     } else {
       simulationAccumulatorSeconds = 0;
     }
     const renderStartedAt = performance.now();
-    dependencies.render();
+    dependencies.render(interpolationAlpha);
     const renderMs = performance.now() - renderStartedAt;
-    dependencies.recordPerformance(frameDeltaMs, updateMs, renderMs, performance.now() - workStartedAt);
+    dependencies.recordPerformance(renderedFrameDeltaMs, updateMs, renderMs, performance.now() - workStartedAt);
     if ((dependencies.performancePanelVisible() || dependencies.fpsDisplayVisible()) && now >= nextPerformancePanelUpdateAt) {
       nextPerformancePanelUpdateAt = now + 500;
       if (dependencies.performancePanelVisible()) dependencies.renderPerformancePanel();
@@ -241,6 +265,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   function end() {
     running = false;
     simulationAccumulatorSeconds = 0;
+    dependencies.resetPresentationState();
     dependencies.player.moving = false;
     if (dependencies.connected()) dependencies.syncStoppedPosition();
     dependencies.showGameOver();
@@ -256,6 +281,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     window.setTimeout(() => {
       onBlack();
       snapCameraToPlayer(dependencies.camera, dependencies.player, dependencies.viewport());
+      dependencies.resetPresentationState();
       requestAnimationFrame(() => {
         fade.classList.remove("is-visible");
         window.setTimeout(() => {
@@ -275,17 +301,17 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     isRunning: () => running,
     leaveDuelResult: () => fadeToWorld(dependencies.onLeaveDuelResult),
     loop,
-    pause: () => { paused = true; simulationAccumulatorSeconds = 0; },
+    pause: () => { paused = true; simulationAccumulatorSeconds = 0; dependencies.resetPresentationState(); },
     refreshFrameClock,
     resetFrameSchedule: () => { nextFrameAt = performance.now(); },
-    resetGameTime: () => { gameTime = 0; simulationAccumulatorSeconds = 0; },
+    resetGameTime: () => { gameTime = 0; simulationAccumulatorSeconds = 0; dependencies.resetPresentationState(); },
     setHasStarted: (started: boolean) => { hasStarted = started; },
     setPaused: (nextPaused: boolean) => {
       if (paused === nextPaused) return;
       paused = nextPaused;
       refreshFrameClock();
     },
-    stop: () => { running = false; simulationAccumulatorSeconds = 0; },
+    stop: () => { running = false; simulationAccumulatorSeconds = 0; dependencies.resetPresentationState(); },
     start,
     update,
   };

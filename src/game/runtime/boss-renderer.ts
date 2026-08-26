@@ -29,6 +29,7 @@ import {
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool } from "./types";
+import { snapWorldRenderCoordinate } from "./render-space";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -37,6 +38,7 @@ type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 export function createBossRenderer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
+  devicePixelRatio: () => number;
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
@@ -62,6 +64,8 @@ export function createBossRenderer(options: {
   rewardMultiplier: () => number;
 }) {
   const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss } = options;
+  const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
+  const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
     type,
     amount: baseAmount * options.rewardMultiplier(),
@@ -69,30 +73,30 @@ export function createBossRenderer(options: {
   function drawBossTelegraphs() {
     if (boss.dead) return;
     if (boss.cone) {
-      const x = boss.x - camera.x; const y = boss.y - camera.y; const cone = boss.cone;
+      const x = screenX(boss.x); const y = screenY(boss.y); const cone = boss.cone;
       ctx.save(); ctx.fillStyle = "rgba(255,52,42,.20)"; ctx.strokeStyle = "rgba(255,92,64,.92)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, BOSS_CONE_RANGE, cone.angle - BOSS_CONE_HALF_ANGLE, cone.angle + BOSS_CONE_HALF_ANGLE); ctx.closePath(); ctx.fill(); ctx.stroke();
       if (cone.windup <= 0) { const waveRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * clamp(1 - cone.timer / cone.duration, 0, 1); for (let index = 0; index < 9; index += 1) { const angle = cone.angle - BOSS_CONE_HALF_ANGLE + index / 8 * BOSS_CONE_HALF_ANGLE * 2; const fireX = x + Math.cos(angle) * waveRadius; const fireY = y + Math.sin(angle) * waveRadius; ctx.fillStyle = "#a83218"; options.pixelCircle(fireX, fireY, 15); ctx.fillStyle = "#ff6a28"; options.pixelCircle(fireX, fireY - 2, 11); ctx.fillStyle = "#ffd05c"; options.pixelCircle(fireX, fireY - 4, 6); } }
       ctx.restore();
     }
-    for (const strike of options.bossRain) { const x = strike.x - camera.x; const y = strike.y - camera.y; const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1); const fallY = y - 150 * (1 - progress); ctx.save(); ctx.strokeStyle = "rgba(255,70,54,.92)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, strike.r, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ff5b36"; options.pixelCircle(x, fallY, 9); ctx.fillStyle = "#ffd05c"; options.pixelCircle(x, fallY, 5); ctx.restore(); }
+    for (const strike of options.bossRain) { const x = screenX(strike.x); const y = screenY(strike.y); const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1); const fallY = y - 150 * (1 - progress); ctx.save(); ctx.strokeStyle = "rgba(255,70,54,.92)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, strike.r, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ff5b36"; options.pixelCircle(x, fallY, 9); ctx.fillStyle = "#ffd05c"; options.pixelCircle(x, fallY, 5); ctx.restore(); }
   }
   function drawBoss() {
     if (boss.dead || !options.dragonReady()) return;
-    const canvas = options.dragonSpriteCanvas; const cellW = canvas.width / 4; const drawW = 300; const drawH = 400; const x = Math.floor(boss.x - camera.x); const y = Math.floor(boss.y - camera.y);
-    options.drawShadow(x, y + 93, 188, .24); ctx.drawImage(canvas, Math.floor(options.gameTime() * 4) % 4 * cellW, 0, cellW, canvas.height, Math.floor(x - drawW / 2), Math.floor(y - drawH / 2), drawW, drawH);
+    const canvas = options.dragonSpriteCanvas; const cellW = canvas.width / 4; const drawW = 300; const drawH = 400; const x = screenX(boss.x); const y = screenY(boss.y);
+    options.drawShadow(x, y + 93, 188, .24); ctx.drawImage(canvas, Math.floor(options.gameTime() * 4) % 4 * cellW, 0, cellW, canvas.height, x - drawW / 2, y - drawH / 2, drawW, drawH);
     const barW = 220; const barH = 20; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 20; const ratio = clamp(boss.hp / boss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.86)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#4d1d1d"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#d8352d"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (boss.hpLossFlashTimer > 0 && boss.hpLossFlashFrom > boss.hp) { const flashRight = barX + Math.round(barW * clamp(boss.hpLossFlashFrom / boss.maxHp, ratio, 1)); ctx.save(); ctx.globalAlpha = clamp(boss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, flashRight - (barX + Math.round(barW * ratio))), barH); ctx.restore(); }
     ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(boss.hp)))} / ${formatCompactNumber(Math.ceil(boss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 4); options.outlinedText(rewardText("damage", DRAGON_REWARD_DAMAGE), x, barY - 5, "#ff655a", 4); ctx.restore();
   }
   function drawSpiderTelegraphs() {
-    if (spiderBoss.dead) return; const x = spiderBoss.x - camera.x; const y = spiderBoss.y - camera.y;
+    if (spiderBoss.dead) return; const x = screenX(spiderBoss.x); const y = screenY(spiderBoss.y);
     if (spiderBoss.web) { const radius = spiderBoss.r + (options.spiderWebRange - spiderBoss.r) * clamp(1 - spiderBoss.web.timer / spiderBoss.web.duration, 0, 1); ctx.save(); ctx.strokeStyle = "rgba(235,239,218,.9)"; ctx.lineWidth = 7; ctx.setLineDash([13, 10]); ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.stroke(); ctx.restore(); }
-    for (const pool of options.spiderVenom) { const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1); ctx.save(); ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`; ctx.strokeStyle = "rgba(155,238,88,.95)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(pool.x - camera.x, pool.y - camera.y, pool.r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore(); }
+    for (const pool of options.spiderVenom) { const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1); ctx.save(); ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`; ctx.strokeStyle = "rgba(155,238,88,.95)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(screenX(pool.x), screenY(pool.y), pool.r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore(); }
   }
   function drawSpiderBoss() {
-    if (spiderBoss.dead || !options.spiderReady()) return; const canvas = options.spiderSpriteCanvas; const cellW = canvas.width / 4; const cellH = canvas.height / 2; const frame = Math.floor(options.gameTime() * 5) % 8; const drawW = 310; const drawH = 155; const x = Math.floor(spiderBoss.x - camera.x); const y = Math.floor(spiderBoss.y - camera.y);
-    options.drawShadow(x, y + 55, 220, .24); ctx.drawImage(canvas, frame % 4 * cellW, Math.floor(frame / 4) * cellH, cellW, cellH, Math.floor(x - drawW / 2), Math.floor(y - drawH / 2), drawW, drawH);
+    if (spiderBoss.dead || !options.spiderReady()) return; const canvas = options.spiderSpriteCanvas; const cellW = canvas.width / 4; const cellH = canvas.height / 2; const frame = Math.floor(options.gameTime() * 5) % 8; const drawW = 310; const drawH = 155; const x = screenX(spiderBoss.x); const y = screenY(spiderBoss.y);
+    options.drawShadow(x, y + 55, 220, .24); ctx.drawImage(canvas, frame % 4 * cellW, Math.floor(frame / 4) * cellH, cellW, cellH, x - drawW / 2, y - drawH / 2, drawW, drawH);
     const barW = 250; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 32; const ratio = clamp(spiderBoss.hp / spiderBoss.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,.86)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#342027"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#9f5c2f"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
     if (spiderBoss.hpLossFlashTimer > 0 && spiderBoss.hpLossFlashFrom > spiderBoss.hp) { const fromRatio = clamp(spiderBoss.hpLossFlashFrom / spiderBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(spiderBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
@@ -101,8 +105,8 @@ export function createBossRenderer(options: {
 
   function drawFrostclawTelegraphs() {
     if (frostclawBoss.dead) return;
-    const x = frostclawBoss.x - camera.x;
-    const y = frostclawBoss.y - camera.y;
+    const x = screenX(frostclawBoss.x);
+    const y = screenY(frostclawBoss.y);
     const time = options.gameTime();
     if (frostclawBoss.roar) {
       const roar = frostclawBoss.roar;
@@ -163,8 +167,8 @@ export function createBossRenderer(options: {
     }
     for (const strike of options.frostclawIcefalls) {
       const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1);
-      const strikeX = strike.x - camera.x;
-      const strikeY = strike.y - camera.y;
+      const strikeX = screenX(strike.x);
+      const strikeY = screenY(strike.y);
       const fallY = strikeY - 220 * (1 - progress);
       ctx.save();
       ctx.fillStyle = `rgba(75,193,244,${.08 + progress * .18})`;
@@ -189,8 +193,8 @@ export function createBossRenderer(options: {
     const cellW = canvas.width / 4;
     const drawW = 330;
     const drawH = 440;
-    const x = Math.floor(frostclawBoss.x - camera.x);
-    const y = Math.floor(frostclawBoss.y - camera.y);
+    const x = screenX(frostclawBoss.x);
+    const y = screenY(frostclawBoss.y);
     const visualY = y + FROSTCLAW_SPRITE_Y_OFFSET;
     const frame = frostclawBoss.roar ? 2 : frostclawBoss.rift ? 1 : options.frostclawIcefalls.length ? 3 : Math.floor(options.gameTime() * 3.5) % 4;
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
@@ -205,8 +209,8 @@ export function createBossRenderer(options: {
 
   function drawMagmaliskTelegraphs() {
     if (magmaliskBoss.dead) return;
-    const x = magmaliskBoss.x - camera.x;
-    const y = magmaliskBoss.y - camera.y;
+    const x = screenX(magmaliskBoss.x);
+    const y = screenY(magmaliskBoss.y);
     const time = options.gameTime();
     if (magmaliskBoss.bite) {
       const bite = magmaliskBoss.bite;
@@ -232,8 +236,8 @@ export function createBossRenderer(options: {
     }
     for (const eruption of options.magmaliskEruptions) {
       const progress = 1 - clamp(eruption.timer / eruption.maxTimer, 0, 1);
-      const strikeX = eruption.x - camera.x;
-      const strikeY = eruption.y - camera.y;
+      const strikeX = screenX(eruption.x);
+      const strikeY = screenY(eruption.y);
       const fallY = strikeY - 230 * (1 - progress);
       ctx.save();
       ctx.fillStyle = `rgba(255,84,28,${.1 + progress * .2})`;
@@ -259,8 +263,8 @@ export function createBossRenderer(options: {
     // Preprocessing isolates and re-packs each connected pose before rendering.
     const drawW = 390;
     const drawH = 520;
-    const x = Math.floor(magmaliskBoss.x - camera.x);
-    const y = Math.floor(magmaliskBoss.y - camera.y);
+    const x = screenX(magmaliskBoss.x);
+    const y = screenY(magmaliskBoss.y);
     const visualY = y + MAGMALISK_SPRITE_Y_OFFSET;
     const pulse = options.magmaliskEruptions.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
     options.drawShadow(x, visualY + MAGMALISK_SPRITE_GROUND_OFFSET, 245, .29);

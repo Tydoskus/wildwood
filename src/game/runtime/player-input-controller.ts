@@ -9,6 +9,44 @@ export type PlayerInputController = {
 };
 
 const JOYSTICK_RADIUS = 59;
+export const JOYSTICK_DEAD_ZONE = 8;
+export const JOYSTICK_MAXIMUM = 38;
+
+export type RadialJoystickInput = {
+  x: number;
+  y: number;
+  stickX: number;
+  stickY: number;
+  moved: boolean;
+};
+
+/** Maps touch distance to analog speed after a radial noise dead zone. */
+export function radialJoystickInput(
+  dx: number,
+  dy: number,
+  deadZone = JOYSTICK_DEAD_ZONE,
+  maximum = JOYSTICK_MAXIMUM,
+): RadialJoystickInput {
+  const distance = Math.hypot(dx, dy);
+  if (!Number.isFinite(distance) || distance === 0) {
+    return { x: 0, y: 0, stickX: 0, stickY: 0, moved: false };
+  }
+  const safeMaximum = Math.max(1, maximum);
+  const safeDeadZone = Math.max(0, Math.min(deadZone, safeMaximum - Number.EPSILON));
+  const stickDistance = Math.min(distance, safeMaximum);
+  const directionX = dx / distance;
+  const directionY = dy / distance;
+  const magnitude = distance <= safeDeadZone
+    ? 0
+    : Math.min(1, (stickDistance - safeDeadZone) / (safeMaximum - safeDeadZone));
+  return {
+    x: directionX * magnitude,
+    y: directionY * magnitude,
+    stickX: directionX * stickDistance,
+    stickY: directionY * stickDistance,
+    moved: distance > safeDeadZone,
+  };
+}
 
 /** Owns keyboard, touch joystick, player taps, and browser zoom prevention. */
 export function createPlayerInputController(options: {
@@ -57,15 +95,11 @@ export function createPlayerInputController(options: {
     if (!touch.active) return;
     for (const point of event.changedTouches) {
       if (point.identifier !== touch.id) continue;
-      let dx = point.clientX - touch.originX;
-      let dy = point.clientY - touch.originY;
-      const distance = Math.hypot(dx, dy);
-      if (distance > 8) touch.moved = true;
-      const maximum = 38;
-      if (distance > maximum) { dx = dx / distance * maximum; dy = dy / distance * maximum; }
-      touch.x = dx / maximum;
-      touch.y = dy / maximum;
-      stick.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+      const input = radialJoystickInput(point.clientX - touch.originX, point.clientY - touch.originY);
+      if (input.moved) touch.moved = true;
+      touch.x = input.x;
+      touch.y = input.y;
+      stick.style.transform = `translate3d(${input.stickX}px, ${input.stickY}px, 0)`;
       return;
     }
   }

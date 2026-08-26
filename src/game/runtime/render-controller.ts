@@ -4,6 +4,7 @@ import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DuelScene, EnemyShot, PlayerState, Projectile } from "./types";
 import type { StaticWorldColorQuadFrame, StaticWorldSpriteFrame } from "./webgl-static-world-layer";
+import { snapWorldRenderCoordinate } from "./render-space";
 
 type BootsPickup = { x: number; y: number; r: number; collected: boolean };
 
@@ -86,11 +87,11 @@ export function createRenderController(options: {
 
   function drawBootPickup() {
     if (bootsPickup.collected) return;
-    const { width, height } = viewport();
+    const { width, height, dpr } = viewport();
     const visibleW = width / camera.zoom;
     const visibleH = height / camera.zoom;
-    const x = Math.floor(bootsPickup.x - camera.x);
-    const y = Math.floor(bootsPickup.y - camera.y);
+    const x = snapWorldRenderCoordinate(bootsPickup.x - camera.x, camera.zoom, dpr);
+    const y = snapWorldRenderCoordinate(bootsPickup.y - camera.y, camera.zoom, dpr);
     if (x < -40 || y < -40 || x > visibleW + 40 || y > visibleH + 40) return;
     ctx.save();
     ctx.translate(x, y);
@@ -110,8 +111,9 @@ export function createRenderController(options: {
 
   function drawAttackRange() {
     if (attackRangeVisible() && !isDueling()) {
-      const x = player.x - camera.x;
-      const y = player.y - camera.y;
+      const { dpr } = viewport();
+      const x = snapWorldRenderCoordinate(player.x - camera.x, camera.zoom, dpr);
+      const y = snapWorldRenderCoordinate(player.y - camera.y, camera.zoom, dpr);
       ctx.save();
       ctx.strokeStyle = "rgba(104,180,212,.33)";
       ctx.lineWidth = 2;
@@ -125,9 +127,9 @@ export function createRenderController(options: {
 
   function drawVignette() {
     if (currentMapIsInfernal() && !isDueling()) return;
-    const { width, height } = viewport();
-    const x = (player.x - camera.x) * camera.zoom;
-    const y = (player.y - camera.y) * camera.zoom;
+    const { width, height, dpr } = viewport();
+    const x = snapToDevicePixel((player.x - camera.x) * camera.zoom, dpr);
+    const y = snapToDevicePixel((player.y - camera.y) * camera.zoom, dpr);
     const farthestCorner = Math.max(Math.hypot(x, y), Math.hypot(width - x, y), Math.hypot(x, height - y), Math.hypot(width - x, height - y));
     const innerRadius = clamp(player.attackRange * camera.zoom * 1.08, 56, farthestCorner * .72);
     const gradient = ctx.createRadialGradient(x, y, innerRadius, x, y, farthestCorner);
@@ -139,9 +141,9 @@ export function createRenderController(options: {
 
   function drawNightMask() {
     if (!currentMapIsInfernal()) return;
-    const { width, height } = viewport();
-    const x = (player.x - camera.x) * camera.zoom;
-    const y = (player.y - camera.y) * camera.zoom;
+    const { width, height, dpr } = viewport();
+    const x = snapToDevicePixel((player.x - camera.x) * camera.zoom, dpr);
+    const y = snapToDevicePixel((player.y - camera.y) * camera.zoom, dpr);
     const fullRadius = Math.max(72, player.attackRange * camera.zoom * .92);
     const revealRadius = Math.max(fullRadius + 48, player.attackRange * camera.zoom * 1.8);
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, revealRadius);

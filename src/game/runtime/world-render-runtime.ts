@@ -15,6 +15,7 @@ import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity } from "./night-visibility";
+import { snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -27,6 +28,7 @@ export type WorldRenderRuntimeOptions = {
   staticWorldLayer?: StaticWorldLayer | null;
   camera: Camera;
   viewport: () => Viewport;
+  devicePixelRatio: () => number;
   currentMapId: () => MapId;
   gameTime: () => number;
   nowMs: () => number;
@@ -120,8 +122,8 @@ export type FrameRendererOptions = {
   updateSpeechBubbles: () => void;
   localIdentity: () => string | undefined;
   localDisplayName: () => string | undefined;
-  drawParticles: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
-  drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera, outlinedText: OutlinedText) => void;
+  drawParticles: (ctx: CanvasRenderingContext2D, camera: Camera, devicePixelRatio: number) => void;
+  drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera, outlinedText: OutlinedText, devicePixelRatio: number) => void;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   screenShake: () => number;
@@ -141,7 +143,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     staticWorldLayer: options.staticWorldLayer,
     camera: options.camera,
     getViewport: () => options.viewport(),
-    getDevicePixelRatio: () => options.viewport().dpr,
+    getDevicePixelRatio: options.devicePixelRatio,
     getMapId: options.currentMapId,
     getGameTime: options.gameTime,
     isArenaScene: options.isArenaScene,
@@ -175,7 +177,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ...options.assets,
   });
   const boss = createBossRenderer({
-    ctx: options.ctx, camera: options.camera, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss,
+    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss,
     bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions,
     dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas,
     dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady,
@@ -187,6 +189,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ctx: options.ctx,
     camera: options.camera,
     viewport: () => options.viewport(),
+    devicePixelRatio: options.devicePixelRatio,
     gameTime: options.gameTime,
     nowMs: options.nowMs,
     localDeath: options.localDeath,
@@ -264,6 +267,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       webGLParticleQuads.length = 0;
       webGLParticleBatchState.complete = Boolean(options.staticWorldLayer?.active());
       if (!webGLParticleBatchState.complete) return webGLParticleBatchState;
+      const devicePixelRatio = options.devicePixelRatio();
       for (const particle of frame.particles) {
         let color = webGLParticleColorCache.get(particle.color);
         if (color === undefined && !webGLParticleColorCache.has(particle.color)) {
@@ -284,8 +288,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
           color,
           opacity: 0,
         };
-        quad.left = Math.floor(particle.x - options.camera.x);
-        quad.top = Math.floor(particle.y - options.camera.y);
+        quad.left = snapWorldRenderCoordinate(particle.x - options.camera.x, options.camera.zoom, devicePixelRatio);
+        quad.top = snapWorldRenderCoordinate(particle.y - options.camera.y, options.camera.zoom, devicePixelRatio);
         quad.width = particle.size;
         quad.height = particle.size;
         quad.color = color;
@@ -366,8 +370,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawDepthSortedWorld: depth.drawDepthSortedWorld,
       drawMinimap: world.drawMinimap,
       drawCutscenePortal: world.drawCutscenePortal,
-      drawParticles: frame.drawParticles,
-      drawDamageNumbers: (ctx, camera) => frame.drawDamageNumbers(ctx, camera, options.outlinedText),
+      drawParticles: (ctx, camera) => frame.drawParticles(ctx, camera, options.devicePixelRatio()),
+      drawDamageNumbers: (ctx, camera) => frame.drawDamageNumbers(ctx, camera, options.outlinedText, options.devicePixelRatio()),
       currentMapIsTutorial: () => options.currentMapId() === options.tutorialMapId,
       currentMapIsDesert: () => options.currentMapId() === options.desertMapId,
       currentMapIsSnow: () => options.currentMapId() === options.snowMapId,

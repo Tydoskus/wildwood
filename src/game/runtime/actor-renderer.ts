@@ -9,6 +9,7 @@ import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, Playe
 import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
+import { snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -143,6 +144,7 @@ export function createActorRenderer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   viewport: () => Viewport;
+  devicePixelRatio: () => number;
   gameTime: () => number;
   nowMs: () => number;
   localDeath: () => PlayerDeathAnimationState | null;
@@ -173,6 +175,8 @@ export function createActorRenderer(options: {
   worldHealthBarHeight: number;
 }) {
   const { ctx, camera } = options;
+  const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
+  const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
   const enemyLabelFont = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
   const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
@@ -257,8 +261,8 @@ export function createActorRenderer(options: {
   }
 
   function webGLProjectileFrame(projectile: Projectile | EnemyShot, enemy = false): StaticWorldSpriteFrame | null {
-    const x = Math.floor(projectile.x - camera.x);
-    const y = Math.floor(projectile.y - camera.y);
+    const x = screenX(projectile.x);
+    const y = screenY(projectile.y);
     const weaponItem = options.localRightHandItem() || options.localLeftHandItem();
     const projectileKind = enemy ? undefined : projectileKindForWeapon(weaponItem);
     let source: HTMLCanvasElement | HTMLImageElement | null = null;
@@ -358,8 +362,8 @@ export function createActorRenderer(options: {
     const identity = actor.identity ?? actor.id ?? death.id;
     const pose = playerDeathPose(death.startedAtMs, options.nowMs(), identity);
     if (!pose.active) return false;
-    const x = Math.floor(death.x - camera.x);
-    const y = Math.floor(death.y - camera.y);
+    const x = screenX(death.x);
+    const y = screenY(death.y);
     const fallProgress = Math.min(1, Math.abs(pose.bodyRotation) / (Math.PI / 2));
     options.drawShadow(x + pose.direction * 22 * fallProgress, y + 32, 34 + 34 * fallProgress, .18 * alpha);
 
@@ -424,8 +428,8 @@ export function createActorRenderer(options: {
   function drawDuelArena(show: boolean, center: { x: number; y: number; r: number }) {
     if (!show) return;
 
-    const x = center.x - camera.x;
-    const y = center.y - camera.y;
+    const x = screenX(center.x);
+    const y = screenY(center.y);
     const radius = center.r * .75;
     if (options.duelPlatformArt.complete && options.duelPlatformArt.naturalWidth > 0) {
       const size = radius * 2.16;
@@ -452,8 +456,8 @@ export function createActorRenderer(options: {
 
   function drawDuelScene(scene: DuelScene) {
     for (const shot of scene.shots) {
-      const x = shot.x - camera.x;
-      const y = shot.y - camera.y;
+      const x = screenX(shot.x);
+      const y = screenY(shot.y);
       const projectileKind = projectileKindForWeapon(shot.weaponItem);
       if (projectileKind === "ARROW") {
         drawArrow(x, y, shot.angle);
@@ -468,8 +472,8 @@ export function createActorRenderer(options: {
   }
 
   function drawDuelCombatant(actor: DuelCombatant) {
-    const x = Math.floor(actor.x - camera.x);
-    const y = Math.floor(actor.y - camera.y);
+    const x = screenX(actor.x);
+    const y = screenY(actor.y);
     options.drawShadow(x, y + 29, 34, actor.isLocal ? .21 : .17);
     drawPlayerSprite({ ...options.equipmentForIdentity(actor.identity), ...actor, x, y }, 1);
     options.drawStatus({
@@ -497,8 +501,8 @@ export function createActorRenderer(options: {
     };
     const death = options.localDeath();
     if (death && drawDeadPlayer({ ...equipment, identity }, death, 1)) return;
-    const x = Math.floor(player.x - camera.x);
-    const y = Math.floor(player.y - camera.y);
+    const x = screenX(player.x);
+    const y = screenY(player.y);
     options.drawShadow(x, y + 29, 34, .21);
     drawPlayerSprite({ ...player, ...equipment, x, y, identity });
     options.drawStatus({
@@ -523,8 +527,8 @@ export function createActorRenderer(options: {
     const death = options.remoteDeath(other.id);
     const renderX = death?.x ?? other.x;
     const renderY = death?.y ?? other.y;
-    const x = Math.floor(renderX - camera.x);
-    const y = Math.floor(renderY - camera.y);
+    const x = screenX(renderX);
+    const y = screenY(renderY);
     if (x < -65 || y < -70 || x > width + 65 || y > height + 70) return;
 
     const equipment = options.equipmentForIdentity(other.id);
@@ -542,8 +546,8 @@ export function createActorRenderer(options: {
       const endX = attack.targetX - ux * attack.targetRadius * .72;
       const endY = attack.targetY - uy * attack.targetRadius * .72;
       const progress = attack.projectileProgress * (2 - attack.projectileProgress);
-      const projectileX = startX + (endX - startX) * progress - camera.x;
-      const projectileY = startY + (endY - startY) * progress - camera.y;
+      const projectileX = screenX(startX + (endX - startX) * progress);
+      const projectileY = screenY(startY + (endY - startY) * progress);
       const visibleHits = Math.min(5, attack.hits);
       const weaponItem = equipment.rightHandItem || equipment.leftHandItem;
       const projectileKind = projectileKindForWeapon(weaponItem);
@@ -570,7 +574,7 @@ export function createActorRenderer(options: {
       options.publicName(other.id, other.name),
       Number.isFinite(other.power) ? other.power : 0,
       x,
-      Math.round(y - 49),
+      y - 49,
       "#9eeeff",
     );
     options.drawSpeechBubble(other.id, x, y);
@@ -604,8 +608,8 @@ export function createActorRenderer(options: {
     const viewport = options.viewport();
     const width = viewport.width / camera.zoom;
     const height = viewport.height / camera.zoom;
-    const x = Math.floor(enemy.x - camera.x);
-    const y = Math.floor(enemy.y - camera.y);
+    const x = screenX(enemy.x);
+    const y = screenY(enemy.y);
     if (x < -80 || y < -80 || x > width + 80 || y > height + 80) return;
 
     const base = ENEMY_TYPES[enemy.type];
@@ -690,12 +694,12 @@ export function createActorRenderer(options: {
 
     const spriteTop = spriteBounds.top;
     const spriteBottom = spriteBounds.bottom;
-    const rewardY = Math.round(y + spriteBottom + 13);
+    const rewardY = y + spriteBottom + 13;
     const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26)) * 1.05;
     const barH = options.worldHealthBarHeight;
-    const barX = Math.round(x - barW / 2);
+    const barX = x - barW / 2;
     const barCenterX = barX + barW / 2;
-    const barY = Math.round(y + spriteTop - 14);
+    const barY = y + spriteTop - 14;
     const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
 
@@ -710,19 +714,19 @@ export function createActorRenderer(options: {
 
     ctx.textAlign = "center";
     const labels = enemyLabels(enemy.type, { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
-    ctx.drawImage(labels.name.canvas, Math.round(x - labels.name.width / 2), Math.round(barY - 4 - labels.name.anchorY), labels.name.width, labels.name.height);
+    ctx.drawImage(labels.name.canvas, x - labels.name.width / 2, barY - 4 - labels.name.anchorY, labels.name.width, labels.name.height);
 
     ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "middle";
     options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
 
-    ctx.drawImage(labels.reward.canvas, Math.round(x - labels.reward.width / 2), Math.round(rewardY - labels.reward.anchorY), labels.reward.width, labels.reward.height);
+    ctx.drawImage(labels.reward.canvas, x - labels.reward.width / 2, rewardY - labels.reward.anchorY, labels.reward.width, labels.reward.height);
     ctx.restore();
   }
 
   function drawProjectile(projectile: Projectile | EnemyShot, enemy = false) {
-    const x = Math.floor(projectile.x - camera.x);
-    const y = Math.floor(projectile.y - camera.y);
+    const x = screenX(projectile.x);
+    const y = screenY(projectile.y);
     const weaponItem = options.localRightHandItem() || options.localLeftHandItem();
     const projectileKind = !enemy
       ? projectileKindForWeapon(weaponItem)
