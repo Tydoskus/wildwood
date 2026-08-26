@@ -33,7 +33,7 @@ const TAU = Math.PI * 2;
 const TREE_SHADOW_CANOPY_WIDTH_RATIO = .9;
 const SNOW_PINE_GROUND_OFFSET_RATIO = .09;
 
-function paintGroundAndPaths(context: TileContext, scene: StaticTileScene, tileX: number, tileY: number, details: boolean) {
+function paintGroundAndPaths(context: TileContext, scene: StaticTileScene, tileX: number, tileY: number) {
   const originX = tileX * scene.tileSize;
   const originY = tileY * scene.tileSize;
   context.fillStyle = scene.colors.ground;
@@ -41,7 +41,6 @@ function paintGroundAndPaths(context: TileContext, scene: StaticTileScene, tileX
   for (const path of scene.paths) {
     context.fillStyle = scene.colors.path;
     context.fillRect(path.x - originX, path.y - originY, path.w, path.h);
-    if (!details) continue;
     context.fillStyle = scene.colors.pathDetail;
     for (let y = path.y + 7; y < path.y + path.h; y += 18) {
       for (let x = path.x + ((y / 18) % 2 ? 4 : 12); x < path.x + path.w; x += 24) {
@@ -49,11 +48,6 @@ function paintGroundAndPaths(context: TileContext, scene: StaticTileScene, tileX
       }
     }
   }
-}
-
-/** Cheap main-thread tile shown while a worker paints complete static art. */
-export function paintStaticTilePlaceholder(context: TileContext, scene: StaticTileScene, tileX: number, tileY: number) {
-  paintGroundAndPaths(context, scene, tileX, tileY, false);
 }
 
 /** Complete static tile painter shared by worker and compatibility fallback. */
@@ -68,7 +62,7 @@ export function paintStaticTile(
   const originX = tileX * scene.tileSize;
   const originY = tileY * scene.tileSize;
   context.imageSmoothingEnabled = false;
-  paintGroundAndPaths(context, scene, tileX, tileY, true);
+  paintGroundAndPaths(context, scene, tileX, tileY);
 
   for (const decor of scene.decor) {
     const x = Math.round(decor.x - originX);

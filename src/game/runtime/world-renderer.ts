@@ -8,7 +8,6 @@ import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
-  paintStaticTilePlaceholder,
   type StaticTileImage,
   type StaticTileScene,
   type StaticTileTreeBounds,
@@ -108,6 +107,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
   const STATIC_TILE_MIN_LIMIT = 12;
   const STATIC_TILE_CACHE_PADDING = 4;
+  const STATIC_TILE_WORKER_CONCURRENCY = 2;
   const LAVA_ROCK_BUCKET_SIZE = 640;
   const LAVA_ROCK_CULL_PADDING = 200;
   const MINIMAP_FRAME_INTERVAL_MS = 125;
@@ -116,9 +116,16 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     | { type: "tile"; generation: number; key: string; bitmap: ImageBitmap }
     | { type: "error"; generation: number; key: string }
     | { type: "unsupported" };
+  type StaticTileWorkerRequest = {
+    generation: number;
+    key: string;
+    tileX: number;
+    tileY: number;
+  };
   const staticTiles = new Map<string, CachedStaticTile>();
   const pendingStaticTiles = new Set<string>();
-  const staticTilePlaceholders = new Map<string, HTMLCanvasElement>();
+  const queuedStaticTileRequests: StaticTileWorkerRequest[] = [];
+  const activeStaticTileRequests = new Set<string>();
   const staticTileWaiters = new Set<() => void>();
   const minimapCanvas = document.createElement("canvas");
   const minimapCtx = minimapCanvas.getContext("2d");
@@ -138,6 +145,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   let minimapCacheKey = "";
   let nextMinimapFrameAt = 0;
   let staticTileLimit = STATIC_TILE_MIN_LIMIT;
+  let staticTilePlaceholder: HTMLCanvasElement | null = null;
+  let staticTilePlaceholderGeneration = -1;
   let lavaRockBucketGeneration = -1;
   const lavaRockBuckets = new Map<string, LavaRockDecor[]>();
   const visibleLavaRocks: LavaRockDecor[] = [];
@@ -181,7 +190,14 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function closeStaticTile(tile: CachedStaticTile) {
-    if (typeof ImageBitmap !== "undefined" && tile instanceof ImageBitmap) tile.close();
+    if ("close" in tile) {
+      tile.close();
+      return;
+    }
+    // Canvas backing stores are graphics resources too. Resizing to zero
+    // releases their pixel allocation immediately instead of waiting for GC.
+    tile.width = 0;
+    tile.height = 0;
   }
 
   function trimStaticTiles() {
@@ -203,13 +219,39 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     for (const notify of staticTileWaiters) notify();
   }
 
+  function touchStaticTile(key: string) {
+    const tile = staticTiles.get(key);
+    if (!tile) return;
+    staticTiles.delete(key);
+    staticTiles.set(key, tile);
+  }
+
   function disableStaticTileWorker() {
     if (!staticTileWorkerEnabled) return;
     staticTileWorkerEnabled = false;
     staticTileWorker?.terminate();
     pendingStaticTiles.clear();
-    staticTilePlaceholders.clear();
+    queuedStaticTileRequests.length = 0;
+    activeStaticTileRequests.clear();
     for (const notify of staticTileWaiters) notify();
+  }
+
+  function staticTileRequestId(generation: number, key: string) {
+    return `${generation}\u0000${key}`;
+  }
+
+  function dispatchStaticTileRequests() {
+    if (!staticTileWorkerEnabled || !staticTileWorker || document.hidden) return;
+    while (activeStaticTileRequests.size < STATIC_TILE_WORKER_CONCURRENCY && queuedStaticTileRequests.length > 0) {
+      const request = queuedStaticTileRequests.shift();
+      if (!request || request.generation !== staticTileGeneration) continue;
+      activeStaticTileRequests.add(staticTileRequestId(request.generation, request.key));
+      staticTileWorker.postMessage({ type: "paint", ...request });
+    }
+  }
+
+  function finishStaticTileRequest(generation: number, key: string) {
+    activeStaticTileRequests.delete(staticTileRequestId(generation, key));
   }
 
   staticTileWorker?.addEventListener("message", ({ data }: MessageEvent<StaticTileWorkerResult>) => {
@@ -218,17 +260,20 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       return;
     }
     if (data.type === "error") {
+      finishStaticTileRequest(data.generation, data.key);
       if (data.generation === staticTileGeneration) pendingStaticTiles.delete(data.key);
       disableStaticTileWorker();
       return;
     }
+    finishStaticTileRequest(data.generation, data.key);
     if (data.generation !== staticTileGeneration) {
       data.bitmap.close();
+      dispatchStaticTileRequests();
       return;
     }
     pendingStaticTiles.delete(data.key);
-    staticTilePlaceholders.delete(data.key);
     cacheStaticTile(data.key, data.bitmap);
+    dispatchStaticTileRequests();
   });
   staticTileWorker?.addEventListener("error", disableStaticTileWorker);
   if (!options.actorShadowSprite.complete) options.actorShadowSprite.addEventListener("load", invalidateStaticWorld, { once: true });
@@ -261,6 +306,24 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return tile;
   }
 
+  function sharedStaticTilePlaceholder(scene: StaticTileScene) {
+    if (staticTilePlaceholder && staticTilePlaceholderGeneration === staticTileGeneration) {
+      return staticTilePlaceholder;
+    }
+    if (staticTilePlaceholder) closeStaticTile(staticTilePlaceholder);
+    const placeholder = document.createElement("canvas");
+    placeholder.width = 1;
+    placeholder.height = 1;
+    const context = placeholder.getContext("2d");
+    if (context) {
+      context.fillStyle = scene.colors.ground;
+      context.fillRect(0, 0, 1, 1);
+    }
+    staticTilePlaceholder = placeholder;
+    staticTilePlaceholderGeneration = staticTileGeneration;
+    return placeholder;
+  }
+
   function tileKey(tileX: number, tileY: number) {
     return `${options.getMapId()}:${tileX}:${tileY}`;
   }
@@ -269,8 +332,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const key = tileKey(tileX, tileY);
     const cached = staticTiles.get(key);
     if (cached) {
-      staticTiles.delete(key);
-      staticTiles.set(key, cached);
+      touchStaticTile(key);
       return cached;
     }
     const scene = staticScene();
@@ -278,15 +340,14 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       configureStaticTileWorker(scene);
       if (!pendingStaticTiles.has(key)) {
         pendingStaticTiles.add(key);
-        staticTileWorker.postMessage({ type: "paint", generation: staticTileGeneration, key, tileX, tileY });
+        queuedStaticTileRequests.push({ generation: staticTileGeneration, key, tileX, tileY });
       }
-      const existingPlaceholder = staticTilePlaceholders.get(key);
-      if (existingPlaceholder) return existingPlaceholder;
-      const placeholder = createTileCanvas();
-      const placeholderContext = placeholder.getContext("2d");
-      if (placeholderContext) paintStaticTilePlaceholder(placeholderContext, scene, tileX, tileY);
-      staticTilePlaceholders.set(key, placeholder);
-      return placeholder;
+      // Also resumes a queue that paused while the page was hidden.
+      dispatchStaticTileRequests();
+      // A single ground-color pixel is enough while the worker paints. The old
+      // per-tile 640×640 placeholders duplicated the complete visible working
+      // set in graphics memory before any finished tiles arrived.
+      return sharedStaticTilePlaceholder(scene);
     }
     const tile = createTileCanvas();
     const tileContext = tile.getContext("2d");
@@ -313,28 +374,50 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       return false;
     }
     const visible = visibleSize();
-    const { startX, startY, endX, endY } = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
+    const preloadRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
+    const visibleRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 0);
     // Keep every tile required by this camera view plus a small movement edge.
     // A fixed limit below the visible count turns camera movement into an LRU
     // rebuild loop, repeatedly redrawing the world tiles each frame.
     staticTileLimit = Math.max(
       STATIC_TILE_MIN_LIMIT,
-      (endX - startX + 1) * (endY - startY + 1) + STATIC_TILE_CACHE_PADDING,
+      (preloadRange.endX - preloadRange.startX + 1)
+        * (preloadRange.endY - preloadRange.startY + 1)
+        + STATIC_TILE_CACHE_PADDING,
     );
     const gpuTiles: StaticWorldTileFrame[] = [];
+    const visibleTileKeys: string[] = [];
     const useWebGL = Boolean(options.staticWorldLayer?.active());
-    for (let tileY = startY; tileY <= endY; tileY += 1) {
-      for (let tileX = startX; tileX <= endX; tileX += 1) {
+    // Build the visible working set first so startup and camera movement never
+    // wait behind offscreen preload work.
+    for (let tileY = visibleRange.startY; tileY <= visibleRange.endY; tileY += 1) {
+      for (let tileX = visibleRange.startX; tileX <= visibleRange.endX; tileX += 1) {
         const left = snapToWorldPixel(tileX * STATIC_TILE_SIZE - camera.x);
         const top = snapToWorldPixel(tileY * STATIC_TILE_SIZE - camera.y);
         const right = snapToWorldPixel((tileX + 1) * STATIC_TILE_SIZE - camera.x);
         const bottom = snapToWorldPixel((tileY + 1) * STATIC_TILE_SIZE - camera.y);
         const key = tileKey(tileX, tileY);
+        visibleTileKeys.push(key);
         const source = staticTile(tileX, tileY);
         if (useWebGL) gpuTiles.push({ key, source, left, top, width: right - left, height: bottom - top });
         else ctx.drawImage(source, left, top, right - left, bottom - top);
       }
     }
+    // The edge ring is useful for movement, but it never needs a placeholder
+    // or GPU upload. Queue it only while the worker can fill it off-thread.
+    if (staticTileWorkerEnabled) {
+      for (let tileY = preloadRange.startY; tileY <= preloadRange.endY; tileY += 1) {
+        for (let tileX = preloadRange.startX; tileX <= preloadRange.endX; tileX += 1) {
+          if (tileX >= visibleRange.startX && tileX <= visibleRange.endX
+            && tileY >= visibleRange.startY && tileY <= visibleRange.endY) continue;
+          staticTile(tileX, tileY);
+        }
+      }
+    }
+    // Ring preloads run after visible work for request priority. Re-touch the
+    // visible set so asynchronous cache insertion still evicts distant tiles
+    // before anything needed by the current frame.
+    for (const key of visibleTileKeys) touchStaticTile(key);
     if (useWebGL) {
       const view = viewport();
       collectVisibleLavaRocks();
@@ -387,25 +470,33 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     });
   }
 
-  /** Builds and uploads the complete spawn-area tile ring before movement starts. */
+  /** Builds the visible spawn tiles first, then lets the movement ring finish in the background. */
   async function warmStaticWorld() {
     if (!options.staticWorldLayer?.active() || options.isArenaScene()) return;
     const visible = visibleSize();
     const range = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
+    const visibleRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 0);
     const keys: string[] = [];
     const tileCount = (range.endX - range.startX + 1) * (range.endY - range.startY + 1);
     staticTileLimit = Math.max(staticTileLimit, tileCount + STATIC_TILE_CACHE_PADDING);
+    for (let tileY = visibleRange.startY; tileY <= visibleRange.endY; tileY += 1) {
+      for (let tileX = visibleRange.startX; tileX <= visibleRange.endX; tileX += 1) {
+        keys.push(tileKey(tileX, tileY));
+        staticTile(tileX, tileY);
+      }
+    }
     for (let tileY = range.startY; tileY <= range.endY; tileY += 1) {
       for (let tileX = range.startX; tileX <= range.endX; tileX += 1) {
-        keys.push(tileKey(tileX, tileY));
+        if (tileX >= visibleRange.startX && tileX <= visibleRange.endX
+          && tileY >= visibleRange.startY && tileY <= visibleRange.endY) continue;
         staticTile(tileX, tileY);
       }
     }
     await waitForStaticTiles(keys);
     // A failed/unsupported worker switches staticTile() to its synchronous
     // Canvas fallback here, still keeping the first gameplay frame warm.
-    for (let tileY = range.startY; tileY <= range.endY; tileY += 1) {
-      for (let tileX = range.startX; tileX <= range.endX; tileX += 1) staticTile(tileX, tileY);
+    for (let tileY = visibleRange.startY; tileY <= visibleRange.endY; tileY += 1) {
+      for (let tileX = visibleRange.startX; tileX <= visibleRange.endX; tileX += 1) staticTile(tileX, tileY);
     }
     drawStaticWorld();
   }
@@ -415,7 +506,10 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     for (const tile of staticTiles.values()) closeStaticTile(tile);
     staticTiles.clear();
     pendingStaticTiles.clear();
-    staticTilePlaceholders.clear();
+    queuedStaticTileRequests.length = 0;
+    if (staticTilePlaceholder) closeStaticTile(staticTilePlaceholder);
+    staticTilePlaceholder = null;
+    staticTilePlaceholderGeneration = -1;
     staticTileGeneration += 1;
     configuredWorkerGeneration = -1;
     sceneGeneration = -1;

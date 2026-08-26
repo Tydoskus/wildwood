@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.527": [
+    "Eliminated a background timer loop and reduced world-tile graphics memory.",
+  ],
   "0.526": [
     "Reworked multiplayer internals for safer, more reliable future updates.",
   ],
@@ -1103,6 +1106,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.527": "2026-08-26",
   "0.526": "2026-08-26",
   "0.525": "2026-08-26",
   "0.524": "2026-08-26",

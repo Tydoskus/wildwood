@@ -2,7 +2,7 @@
 
 This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior.
 
-Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`. Mobile-first release constraints live in `docs/mobile-first.md`; equipment extension boundaries live in `docs/equipment.md`.
+Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`. Mobile-first release constraints live in `docs/mobile-first.md`; measured rendering risks and follow-ups live in `docs/mobile-performance.md`; equipment extension boundaries live in `docs/equipment.md`.
 
 ## Client structure
 

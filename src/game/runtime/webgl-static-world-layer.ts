@@ -540,6 +540,14 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
 
       const retainedKeys = new Set<string>();
       for (const tile of frame.tiles) {
+        const left = tile.left * frame.zoom + frame.offsetX;
+        const top = tile.top * frame.zoom + frame.offsetY;
+        const width = tile.width * frame.zoom;
+        const height = tile.height * frame.zoom;
+        // Callers may include a preload ring for smooth movement. Keep those
+        // sources warm, but do not allocate GPU textures until a tile actually
+        // intersects the viewport.
+        if (left + width <= 0 || top + height <= 0 || left >= frame.width || top >= frame.height) continue;
         retainedKeys.add(tile.key);
         let rendered = textures.get(tile.key);
         if (!rendered || rendered.source !== tile.source) {
@@ -549,11 +557,6 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
           rendered = { source: tile.source, texture };
           textures.set(tile.key, rendered);
         }
-        const left = tile.left * frame.zoom + frame.offsetX;
-        const top = tile.top * frame.zoom + frame.offsetY;
-        const width = tile.width * frame.zoom;
-        const height = tile.height * frame.zoom;
-        if (left + width <= 0 || top + height <= 0 || left >= frame.width || top >= frame.height) continue;
         gl.bindTexture(gl.TEXTURE_2D, rendered.texture);
         gl.uniform4f(rect, left, top, width, height);
         gl.drawArrays(gl.TRIANGLES, 0, 6);

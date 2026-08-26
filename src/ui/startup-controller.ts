@@ -155,6 +155,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function refreshLoading() {
+    if (loadingSequenceComplete) return;
     const connectionNotice = dependencies.accountState()?.notice || "";
     if (/active in another tab|logged in on another tab|signing out other tab|takeover failed/i.test(connectionNotice)) {
       loadingDetail.textContent = connectionNotice;
@@ -173,7 +174,7 @@ export function createStartupController(dependencies: StartupDependencies) {
         loadingStage += 1;
         loadingStageStartedAt = performance.now();
         refreshLoading();
-      } else {
+      } else if (!loadingSequenceComplete) {
         loadingSequenceComplete = true;
         dependencies.onLoadingComplete();
       }
