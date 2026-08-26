@@ -270,6 +270,8 @@ describe("interface style contracts", () => {
     expect(minimap).toContain("width: var(--hud-map-size)");
     expect(minimap).toContain("height: var(--hud-map-size)");
     expect(minimap).toContain("pointer-events: auto");
+    expect(cssRule(".minimap-players {")).toContain("font: 900 10px/12px");
+    expect(cssRule(".minimap-version {")).toContain("font: 900 9px/11px");
     const guide = cssRule("#mapGuide {");
     expect(guide).toContain("inset: 0 0 var(--toolbar-height)");
     expect(cssRule(".map-guide-map-frame {")).toContain("width: min(75%, 420px)");
@@ -337,17 +339,27 @@ describe("interface style contracts", () => {
     expect(action).toContain("text-align: center");
   });
 
-  it("marks completed research nodes gold with a green Max badge", () => {
+  it("marks completed research nodes gold with plain green Max text", () => {
     expect(cssRule(".tech-tree-node.is-complete {")).toContain("border-color: #f0c44f");
     const badge = cssRule(".tech-tree-node.is-complete::after {");
     expect(badge).toContain('content: "Max"');
-    expect(badge).toContain("background: #65d66d");
+    expect(badge).toContain("color: #65d66d");
+    expect(badge).toContain("text-shadow:");
+    expect(badge).not.toContain("background:");
+    expect(badge).not.toContain("border:");
   });
 
   it("defines and applies the 11px functional-text floor", () => {
     expect(css).toMatch(/--font-readable-min:\s*11px/);
     expect(css).toContain("-webkit-text-size-adjust: 100%");
     expect(css).toContain("@media (prefers-contrast: more)");
-    expect(css).toMatch(/\.toolbar-label,[\s\S]*#hpText,[\s\S]*font-size:\s*var\(--font-readable-min\)/);
+    expect(css).toMatch(/#hpText,[\s\S]*font-size:\s*var\(--font-readable-min\)/);
+  });
+
+  it("uses compact Camel Case toolbar labels for five-button layouts", () => {
+    expect(cssRule(".toolbar-label")).toContain("font: 900 10px/1");
+    for (const label of ["Leaderboard", "Tech Tree", "Inventory", "Dev", "Settings"]) {
+      expect(html).toContain(`<span class="toolbar-label">${label}</span>`);
+    }
   });
 });

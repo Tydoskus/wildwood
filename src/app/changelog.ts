@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.518": [
+    "Completed research nodes now show clean green Max text with only a subtle shadow.",
+    "Toolbar labels now use compact Camel Case text, while minimap player and version labels are easier to read.",
+  ],
   "0.517": [
     "Night Forest now has its own moonless woodland layout, black portal swirl, near-black terrain, and enemies that emerge only as they approach attack range.",
     "Dark Metal Helmet now drops independently from regular Night Forest enemies at 1/65, with 2.5× Damage, 2.5× Max Health, and 3× Regen.",
@@ -1071,6 +1075,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.518": "2026-08-25",
   "0.517": "2026-08-25",
   "0.516": "2026-08-25",
   "0.515": "2026-08-25",

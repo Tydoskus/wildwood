@@ -218,7 +218,7 @@
   .tech-tree-notice { position: absolute; top: 12%; left: calc(50% + 8px); width: 8px; height: 8px; border: 1px solid #fff; border-radius: 50%; background: #e63d3d; box-shadow: 0 1px 0 #000; pointer-events: none; }
   .tech-tree-notice[hidden] { display: none; }
 
-  .toolbar-label { max-width: 100%; overflow: hidden; color: #fff; font: 900 clamp(5px, 1.5vw, 8px)/1 var(--font-rounded); letter-spacing: .01em; text-align: center; text-overflow: clip; white-space: nowrap; -webkit-text-stroke: 0; text-shadow: 1px 1px 0 #000; }
+  .toolbar-label { max-width: 100%; overflow: hidden; color: #fff; font: 900 10px/1 var(--font-rounded); letter-spacing: .01em; text-align: center; text-overflow: clip; white-space: nowrap; -webkit-text-stroke: 0; text-shadow: 1px 1px 0 #000; }
 
   .settings-button.is-off {
     background: linear-gradient(#8c5555, #683334);
@@ -790,13 +790,13 @@
 
   .minimap-players {
     color: rgba(246, 246, 232, .9);
-    font: 900 8px/10px var(--font-rounded);
+    font: 900 10px/12px var(--font-rounded);
     white-space: nowrap;
   }
 
   .minimap-version {
     color: rgba(246, 246, 232, .72);
-    font: 900 8px/10px var(--font-rounded);
+    font: 900 9px/11px var(--font-rounded);
     letter-spacing: .06em;
   }
 
@@ -1764,7 +1764,7 @@
   .tech-tree-node.is-active { border-color: #f1f3f5; background: linear-gradient(145deg, #555d66, #20262c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 0 18px rgba(230,234,239,.28); }
   .tech-tree-node.is-complete { border-color: #f0c44f; background: linear-gradient(145deg, #66501d, #29200e); box-shadow: inset 0 0 0 2px rgba(54,34,4,.62), 0 0 14px rgba(240,196,79,.25), 0 5px 0 rgba(0,0,0,.42); }
   .tech-tree-node.is-complete::before { border-color: rgba(255,232,154,.42); }
-  .tech-tree-node.is-complete::after { position: absolute; top: -8px; right: -8px; z-index: 2; min-width: 34px; padding: 4px 6px; border: 2px solid #153b18; border-radius: 999px; background: #65d66d; box-shadow: 0 2px 0 rgba(0,0,0,.55); color: #071a09; content: "Max"; font: 900 11px/1 var(--font-rounded); text-align: center; }
+  .tech-tree-node.is-complete::after { position: absolute; top: -8px; right: -8px; z-index: 2; color: #65d66d; content: "Max"; font: 900 12px/1 var(--font-rounded); text-shadow: 0 2px 0 rgba(0,0,0,.78), 0 0 4px rgba(101,214,109,.35); }
   .tech-tree-node.is-complete strong { color: #fff1b0; }
   .tech-tree-node.is-complete small { color: #ffd963; }
   .tech-tree-node.is-locked { opacity: .56; }
@@ -2477,7 +2477,6 @@
    * at that minimum while the semantic tokens above leave room for text scaling.
    */
   .fps-status,
-  .toolbar-label,
   #musicVolumeValue,
   #sfxVolumeValue,
   .account-button,
