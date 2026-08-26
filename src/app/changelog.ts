@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.520": [
+    "Night Forest minimaps now retain every enemy marker while dimming the red dots to 50% opacity.",
+  ],
   "0.519": [
     "Night Forest darkness now fades across a wider area and leaves distant terrain faintly visible instead of becoming fully black.",
   ],
@@ -1078,6 +1081,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.520": "2026-08-25",
   "0.519": "2026-08-25",
   "0.518": "2026-08-25",
   "0.517": "2026-08-25",
