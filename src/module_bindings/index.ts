@@ -74,6 +74,7 @@ import SendChatReplyReducer from "./send_chat_reply_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetGenderReducer from "./set_gender_reducer";
+import SetPlayerMotionInterestReducer from "./set_player_motion_interest_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
@@ -120,6 +121,7 @@ import PlayerItemUpgradeRow from "./player_item_upgrade_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
 import PlayerMapFrameRow from "./player_map_frame_table";
 import PlayerMapMarkerRow from "./player_map_marker_table";
+import PlayerMotionDetailFrameRow from "./player_motion_detail_frame_table";
 import PlayerMotionFrameRow from "./player_motion_frame_table";
 import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerProfileRow from "./player_profile_table";
@@ -401,6 +403,17 @@ const tablesSchema = __schema({
       { name: 'player_map_marker_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerMapMarkerRow),
+  playerMotionDetailFrame: __table({
+    name: 'player_motion_detail_frame',
+    indexes: [
+      { accessor: 'byRecipient', name: 'player_motion_detail_frame_recipient_idx_btree', algorithm: 'btree', columns: [
+        'recipient',
+      ] },
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, PlayerMotionDetailFrameRow),
   playerMotionFrame: __table({
     name: 'player_motion_frame',
     indexes: [
@@ -594,6 +607,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_gender", SetGenderReducer),
+  __reducerSchema("set_player_motion_interest", SetPlayerMotionInterestReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),

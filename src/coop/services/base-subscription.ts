@@ -79,7 +79,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   });
   // Event-table rows are consumed directly by render buffers. Their handlers
   // intentionally do not trigger application-wide UI fanout.
-  connection.db.playerMotionFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionFrame(row); });
+  connection.db.playerMotionDetailFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionFrame(row); });
   connection.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.mapFrame(row); });
   connection.db.bossAttackFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.bossAttackFrame(row); });
   connection.db.playerDeathFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.deathFrame(row); });

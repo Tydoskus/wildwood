@@ -12,7 +12,6 @@
  * Identity/profile data travels in a cold presence table. Keeping strings out
  * of movement frames makes one zone update cheap even with hundreds of actors.
  */
-export const PLAYER_MOTION_FRAME_HZ = 10;
 export const PLAYER_MAP_FRAME_HZ = 1;
 export const PLAYER_MOTION_SAMPLE_BYTES = 16;
 export const PLAYER_MAP_SAMPLE_BYTES = 8;

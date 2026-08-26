@@ -455,6 +455,12 @@ export const ModuleMigrationState = __t.object("ModuleMigrationState", {
 });
 export type ModuleMigrationState = __Infer<typeof ModuleMigrationState>;
 
+export const MotionDetailFrameSchedule = __t.object("MotionDetailFrameSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type MotionDetailFrameSchedule = __Infer<typeof MotionDetailFrameSchedule>;
+
 export const MotionFrameSchedule = __t.object("MotionFrameSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
@@ -642,6 +648,14 @@ export const PlayerMotion = __t.object("PlayerMotion", {
 });
 export type PlayerMotion = __Infer<typeof PlayerMotion>;
 
+export const PlayerMotionDetailFrame = __t.object("PlayerMotionDetailFrame", {
+  recipient: __t.identity(),
+  emittedAt: __t.timestamp(),
+  playerCount: __t.u32(),
+  payload: __t.byteArray(),
+});
+export type PlayerMotionDetailFrame = __Infer<typeof PlayerMotionDetailFrame>;
+
 export const PlayerMotionFrame = __t.object("PlayerMotionFrame", {
   mapId: __t.string(),
   zoneX: __t.i32(),
@@ -667,6 +681,12 @@ export const PlayerMotionIdentity = __t.object("PlayerMotionIdentity", {
   gender: __t.u8(),
 });
 export type PlayerMotionIdentity = __Infer<typeof PlayerMotionIdentity>;
+
+export const PlayerMotionInterest = __t.object("PlayerMotionInterest", {
+  identity: __t.identity(),
+  networkIds: __t.array(__t.u32()),
+});
+export type PlayerMotionInterest = __Infer<typeof PlayerMotionInterest>;
 
 export const PlayerMotionMapState = __t.object("PlayerMotionMapState", {
   mapId: __t.string(),

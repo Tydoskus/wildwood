@@ -23,7 +23,15 @@ import {
   remoteBossAttackFrame,
   type RemoteBossAttackState,
 } from "./remote-boss-attack";
-import { decodePlayerMapFrame, decodePlayerMotionFrame } from "../../../shared/player-motion-frame";
+import {
+  decodePlayerMapFrame,
+  decodePlayerMotionFrame,
+  type PlayerMapSample,
+} from "../../../shared/player-motion-frame";
+import {
+  samePlayerMotionInterest,
+  selectPlayerMotionInterest,
+} from "../../../shared/player-motion-interest";
 import {
   movementUpdateReason,
   sanitizeMovementVelocity,
@@ -178,6 +186,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   const playerMaps = new Map<string, string>();
   const remotePlayerRenderBuffer: RemotePlayer[] = [];
   const mapPlayerMarkers = new Map<string, MapPlayerMarker>();
+  const detailedMotionIdentities = new Set<string>();
+  const detailedMotionReadyNetworkIds = new Set<number>();
   const remotePlayerDeaths = new Map<string, RemotePlayerDeath>();
   const speedSyncTracker = createSpeedSyncTracker();
   let mapPlayerSubscription: SubscriptionHandle | null = null;
@@ -189,6 +199,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let mapMarkerSubscriptionGeneration = 0;
   let currentMapId = TUTORIAL_FOREST_MAP_ID;
   let localMotionNetworkId: number | null = null;
+  let latestMapSamples: readonly PlayerMapSample[] = [];
+  let desiredMotionNetworkIds: number[] = [];
+  let submittedMotionNetworkIds: number[] = [];
+  let motionInterestInFlight = false;
   let lastSentMovement: SentMovementState | null = null;
   let nextPositionSequence = 0;
   let localSimulationTick = 0;
@@ -199,6 +213,74 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function advanceLocalMotionEpoch() {
     localMotionEpoch = (localMotionEpoch + 1) & 0xffff;
     if (localMotionEpoch === 0) localMotionEpoch = 1;
+  }
+
+  function rebuildDetailedMotionIdentities() {
+    detailedMotionIdentities.clear();
+    for (const networkId of desiredMotionNetworkIds) {
+      if (!detailedMotionReadyNetworkIds.has(networkId)) continue;
+      const identity = motionIdentities.get(networkId);
+      if (identity && identity !== dependencies.localIdentity()) detailedMotionIdentities.add(identity);
+    }
+  }
+
+  function submitMotionInterest() {
+    const connection = dependencies.reducers.connection();
+    if (
+      motionInterestInFlight ||
+      dependencies.reducers.protocolBlocked() ||
+      dependencies.reducers.worldEntryBlocked() ||
+      !connection?.isActive ||
+      !dependencies.hydrationReady() ||
+      !dependencies.worldEntryReady() ||
+      samePlayerMotionInterest(desiredMotionNetworkIds, submittedMotionNetworkIds)
+    ) return;
+    const submitted = [...desiredMotionNetworkIds];
+    submittedMotionNetworkIds = submitted;
+    motionInterestInFlight = true;
+    dependencies.reducers.sendReducer(
+      "motion interest",
+      (current) => current.reducers.setPlayerMotionInterest({ networkIds: submitted }),
+      () => {
+        motionInterestInFlight = false;
+        if (samePlayerMotionInterest(submittedMotionNetworkIds, submitted)) submittedMotionNetworkIds = [];
+      },
+      () => {
+        motionInterestInFlight = false;
+        submitMotionInterest();
+      },
+    );
+  }
+
+  function refreshMotionInterest() {
+    if (mapPlayerSubscriptionTransitioning) return;
+    const position = localState;
+    const next = position
+      ? selectPlayerMotionInterest({
+        samples: latestMapSamples,
+        originX: position.x,
+        originY: position.y,
+        localNetworkId: localMotionNetworkId,
+        availableNetworkIds: new Set(motionIdentities.keys()),
+        previousNetworkIds: desiredMotionNetworkIds,
+      })
+      : [];
+    if (samePlayerMotionInterest(next, desiredMotionNetworkIds)) return;
+    desiredMotionNetworkIds = next;
+    for (const networkId of detailedMotionReadyNetworkIds) {
+      if (!desiredMotionNetworkIds.includes(networkId)) detailedMotionReadyNetworkIds.delete(networkId);
+    }
+    rebuildDetailedMotionIdentities();
+    submitMotionInterest();
+  }
+
+  function resetMotionInterest() {
+    latestMapSamples = [];
+    desiredMotionNetworkIds = [];
+    submittedMotionNetworkIds = [];
+    detailedMotionIdentities.clear();
+    detailedMotionReadyNetworkIds.clear();
+    motionInterestInFlight = false;
   }
 
   function appendPlayerSample(existing: RemotePlayerTarget, row: PlayerRow, serverAtMs: number, receivedAt: number) {
@@ -253,6 +335,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapPlayerMarkers.clear();
         motionIdentities.clear();
         activeMotionIdentities.clear();
+        resetMotionInterest();
       }
       refreshMapPlayerSubscription(mapChanged);
       refreshMapMarkerSubscription(mapChanged);
@@ -349,22 +432,24 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       if (row.isVisible && row.mapId === currentMapId) playerMaps.set(identity, row.mapId);
       else playerMaps.delete(identity);
     });
+    refreshMotionInterest();
   }
 
   function removeMotionIdentity(row: { networkId: number; identity: Identity }) {
     const identity = row.identity.toHexString();
     if (identity === dependencies.localIdentity() && localMotionNetworkId === row.networkId) localMotionNetworkId = null;
     if (motionIdentities.get(row.networkId) === identity) motionIdentities.delete(row.networkId);
+    detailedMotionReadyNetworkIds.delete(row.networkId);
     activeMotionIdentities.delete(identity);
     const playerRemoved = players.delete(identity);
     remotePlayerDeaths.delete(identity);
     const markerRemoved = mapPlayerMarkers.delete(identity) || mapPlayerMarkers.delete(`network:${row.networkId}`);
     const mapRemoved = playerMaps.delete(identity);
+    refreshMotionInterest();
     if (playerRemoved || markerRemoved || mapRemoved) dependencies.changes.notify();
   }
 
-  function upsertPlayerMotionFrame(row: { mapId: string; emittedAt: { microsSinceUnixEpoch: bigint }; playerCount: number; payload: Uint8Array }) {
-    if (row.mapId !== currentMapId) return;
+  function upsertPlayerMotionFrame(row: { emittedAt: { microsSinceUnixEpoch: bigint }; playerCount: number; payload: Uint8Array }) {
     let samples;
     try {
       samples = decodePlayerMotionFrame(row.payload, row.playerCount);
@@ -374,7 +459,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     }
     const receivedAt = performance.now();
     const serverAtMs = serverTimestampMs(row.emittedAt);
+    let readinessChanged = false;
     for (const sample of samples) {
+      if (!desiredMotionNetworkIds.includes(sample.networkId)) continue;
       const identity = motionIdentities.get(sample.networkId);
       if (!identity || identity === dependencies.localIdentity()) continue;
       const existing = players.get(identity);
@@ -391,7 +478,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         facing: sample.vx < 0 ? Math.PI : sample.vx > 0 ? 0 : existing.facing,
         moving: sample.vx !== 0 || sample.vy !== 0,
       });
+      if (!detailedMotionReadyNetworkIds.has(sample.networkId)) {
+        detailedMotionReadyNetworkIds.add(sample.networkId);
+        readinessChanged = true;
+      }
     }
+    if (readinessChanged) rebuildDetailedMotionIdentities();
   }
 
   function upsertPlayerMapFrame(row: { mapId: string; playerCount: number; payload: Uint8Array }) {
@@ -403,12 +495,14 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       console.warn("Ignored malformed Wildwood minimap frame:", error);
       return;
     }
+    latestMapSamples = samples;
     mapPlayerMarkers.clear();
     for (const sample of samples) {
       if (sample.networkId === localMotionNetworkId) continue;
       const markerId = motionIdentities.get(sample.networkId) ?? `network:${sample.networkId}`;
       mapPlayerMarkers.set(markerId, { id: markerId, x: sample.x, y: sample.y });
     }
+    refreshMotionInterest();
   }
 
   function upsertBossAttackFrame(row: {
@@ -473,7 +567,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
 
   function refreshMapMarkerSubscription(force = false) {
     const connection = dependencies.reducers.connection();
-    if (!connection?.isActive || !dependencies.hydrationReady()) return;
+    const selfIdentity = dependencies.localDbIdentity();
+    if (!connection?.isActive || !dependencies.hydrationReady() || !selfIdentity) return;
     if (!force && mapMarkerSubscription) return;
 
     const previous = mapMarkerSubscription;
@@ -490,7 +585,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         console.error("Wildwood map marker subscription error:", ctx.event);
         mapMarkerSubscription = previous;
       })
-      .subscribe([tables.playerMapFrame.where((frame) => frame.mapId.eq(mapId))]);
+      .subscribe([
+        tables.playerMapFrame.where((frame) => frame.mapId.eq(mapId)),
+        tables.playerMotionDetailFrame.where((frame) => frame.recipient.eq(selfIdentity)),
+      ]);
     mapMarkerSubscription = next;
   }
 
@@ -518,6 +616,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       }
       for (const row of motionRows) upsertMotionIdentity(row);
       for (const row of playerRows) upsertPlayer(row);
+      refreshMotionInterest();
       if (removed) dependencies.changes.notify();
     });
   }
@@ -567,12 +666,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       .and(row.zoneX.lte(bounds.maxZoneX))
       .and(row.zoneY.gte(bounds.minZoneY))
       .and(row.zoneY.lte(bounds.maxZoneY)));
-    const nearbyMotionFrames = tables.playerMotionFrame.where((row) => row
-      .mapId.eq(currentMapId)
-      .and(row.zoneX.gte(bounds.minZoneX))
-      .and(row.zoneX.lte(bounds.maxZoneX))
-      .and(row.zoneY.gte(bounds.minZoneY))
-      .and(row.zoneY.lte(bounds.maxZoneY)));
     const nearbyMotionIdentities = tables.playerMotionIdentity.where((row) => row
       .mapId.eq(currentMapId)
       .and(row.isVisible.eq(true))
@@ -608,6 +701,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
             }
             reconcileMapPlayerSubscription(connection);
             mapPlayerSubscriptionTransitioning = false;
+            refreshMotionInterest();
             queueMicrotask(() => refreshMapPlayerSubscription(false));
           })
           .onError((ctx) => {
@@ -618,7 +712,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
             mapPlayerSubscriptionTransitioning = false;
             window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
           })
-          .subscribe([nearbyPlayers, nearbyMotionFrames, nearbyMotionIdentities, nearbyBossAttacks, nearbyPlayerDeaths]);
+          .subscribe([nearbyPlayers, nearbyMotionIdentities, nearbyBossAttacks, nearbyPlayerDeaths]);
         mapPlayerSubscription = next;
       } catch (error) {
         if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
@@ -735,7 +829,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         result.length = 0;
         const now = performance.now();
         for (const player of players.values()) {
-          if (player.id === dependencies.localIdentity()) continue;
+          if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id)) continue;
           const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
           const motion = applyRemoteMotionCorrection(
             remoteMotionAt(player.samples, renderAt),
@@ -762,9 +856,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         return result;
       },
       remotePlayerCount() {
-        let count = 0;
-        for (const player of players.values()) if (player.id !== dependencies.localIdentity()) count += 1;
-        return count;
+        return detailedMotionIdentities.size;
       },
       remotePlayerDeath(identity: string) {
         const death = remotePlayerDeaths.get(identity);
@@ -779,7 +871,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       onlinePlayerCount: () => onlinePlayerCount,
       hasRemotePlayerInArea(minX: number, minY: number, maxX: number, maxY: number) {
         for (const player of players.values()) {
-          if (player.id === dependencies.localIdentity()) continue;
+          if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id)) continue;
           const latest = player.samples[player.samples.length - 1];
           const x = latest?.x ?? player.x;
           const y = latest?.y ?? player.y;
@@ -823,6 +915,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       lastSentMovement = null;
       nextPositionSequence = 0;
       localSimulationTick = 0;
+      submittedMotionNetworkIds = [];
+      motionInterestInFlight = false;
       advanceLocalMotionEpoch();
       speedSyncTracker.reset();
       if (identityChanged) localState = null;
@@ -831,6 +925,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       lastSentMovement = null;
       nextPositionSequence = 0;
       localSimulationTick = 0;
+      submittedMotionNetworkIds = [];
+      motionInterestInFlight = false;
       speedSyncTracker.reset();
     },
     clearSession() {
@@ -841,6 +937,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       mapPlayerMarkers.clear();
       motionIdentities.clear();
       activeMotionIdentities.clear();
+      resetMotionInterest();
       localMotionNetworkId = null;
       onlinePlayerCount = 0;
       playerMaps.clear();

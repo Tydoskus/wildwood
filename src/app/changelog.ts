@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.533": [
+    "Nearby multiplayer now selects up to five relevant moving players before server fanout, while every other player remains visible through the all-map minimap dots.",
+    "Progress saves no longer rewrite an unchanged full progress row, reducing persistence compute and self-subscription traffic.",
+    "Virtual-player tests now isolate core, minimap, capped motion, persistence, realistic, and dense-crowd bandwidth costs.",
+  ],
+
   "0.532": [
     "Remote players now extrapolate from transmitted world velocity and use simulation ticks plus motion epochs to prevent speed drift and discontinuity snaps.",
     "Mobile steering keeps fully analog local control while a lightweight 24-direction network gate and 2 Hz heartbeat reduce noisy updates without a high-rate timer pump.",
@@ -1129,6 +1135,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.533": "2026-08-26",
   "0.532": "2026-08-26",
   "0.531": "2026-08-26",
   "0.530": "2026-08-26",

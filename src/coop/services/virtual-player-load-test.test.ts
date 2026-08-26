@@ -3,6 +3,8 @@ import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules"
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
   VIRTUAL_PLAYER_MOVEMENT_HZ,
+  VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
+  VIRTUAL_PLAYER_SAVE_STRESS_INTERVAL_MS,
   VIRTUAL_PLAYER_TICKET_HEX_LENGTH,
   advanceVirtualPlayerSimulationTick,
   isVirtualPlayerTicket,
@@ -43,6 +45,11 @@ describe("virtual-player motion protocol", () => {
     expect(advanceVirtualPlayerSimulationTick(100, .5)).toBe(109);
     expect(advanceVirtualPlayerSimulationTick(100, 0)).toBe(100);
     expect(advanceVirtualPlayerSimulationTick(0xffffffff, 1 / 60)).toBe(0);
+  });
+
+  it("keeps normal saves sparse while preserving an explicit stress cadence", () => {
+    expect(VIRTUAL_PLAYER_SAVE_INTERVAL_MS).toBe(30_000);
+    expect(VIRTUAL_PLAYER_SAVE_STRESS_INTERVAL_MS).toBe(2_500);
   });
 });
 

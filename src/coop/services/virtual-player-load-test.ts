@@ -32,6 +32,10 @@ import {
   startAfterSubscriptionEnds,
   unsubscribeIfActive,
 } from "./subscription-handoff";
+import {
+  samePlayerMotionInterest,
+  selectPlayerMotionInterest,
+} from "../../../shared/player-motion-interest";
 
 const MOVEMENT_HZ = VIRTUAL_PLAYER_MOVEMENT_HZ;
 const LOCAL_SIMULATION_HZ = 10;
@@ -84,6 +88,10 @@ type VirtualBot = VirtualPlayerMotion & {
   zoneKey: string;
   nearbySubscription: SubscriptionHandle | null;
   nearbyRefreshPending: boolean;
+  motionInterestNetworkIds: number[];
+  submittedMotionInterestNetworkIds: number[];
+  motionInterestInFlight: boolean;
+  nextMotionInterestAt: number;
 };
 
 type VirtualPlayerLoadTestDependencies = {
@@ -226,6 +234,10 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       zoneKey: "",
       nearbySubscription: null,
       nearbyRefreshPending: false,
+      motionInterestNetworkIds: [],
+      submittedMotionInterestNetworkIds: [],
+      motionInterestInFlight: false,
+      nextMotionInterestAt: performance.now(),
     };
   }
 
@@ -290,12 +302,6 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
               .mapId.eq(mapId)
               .and(row.isVisible.eq(true))
               .and(row.identity.ne(identity))
-              .and(row.zoneX.gte(minZoneX))
-              .and(row.zoneX.lte(maxZoneX))
-              .and(row.zoneY.gte(minZoneY))
-              .and(row.zoneY.lte(maxZoneY))),
-            tables.playerMotionFrame.where((row) => row
-              .mapId.eq(mapId)
               .and(row.zoneX.gte(minZoneX))
               .and(row.zoneX.lte(maxZoneX))
               .and(row.zoneY.gte(minZoneY))
@@ -369,6 +375,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         .onError(() => fail())
         .subscribe([
           tables.playerMapFrame.where((row) => row.mapId.eq(mapId)),
+          tables.playerMotionDetailFrame.where((row) => row.recipient.eq(identity)),
         ]);
       bot.subscriptions.push(markers);
       installNearbySubscription(bot, mapId, true, (applied) => applied ? ready() : fail());
@@ -380,11 +387,73 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     bot.subscriptions = [];
     bot.nearbySubscription = null;
     bot.nearbyRefreshPending = false;
+    bot.motionInterestNetworkIds = [];
+    bot.submittedMotionInterestNetworkIds = [];
+    bot.motionInterestInFlight = false;
+    bot.nextMotionInterestAt = Number.POSITIVE_INFINITY;
     const conn = bot.connection;
     bot.connection = null;
     if (conn) {
       try { conn.disconnect(); } catch {}
     }
+  }
+
+  function flushBotMotionInterest(bot: VirtualBot, runGeneration: number) {
+    const conn = bot.connection;
+    if (
+      !conn?.isActive ||
+      bot.motionInterestInFlight ||
+      samePlayerMotionInterest(bot.motionInterestNetworkIds, bot.submittedMotionInterestNetworkIds)
+    ) return;
+    const submitted = [...bot.motionInterestNetworkIds];
+    bot.submittedMotionInterestNetworkIds = submitted;
+    bot.motionInterestInFlight = true;
+    let accepted = false;
+    void conn.reducers.setPlayerMotionInterest({ networkIds: submitted })
+      .then(() => { accepted = true; })
+      .catch((error) => {
+        reportProtocolMismatch(error);
+        if (samePlayerMotionInterest(bot.submittedMotionInterestNetworkIds, submitted)) {
+          bot.submittedMotionInterestNetworkIds = [];
+        }
+        markBotFailed(bot, runGeneration);
+      })
+      .finally(() => {
+        bot.motionInterestInFlight = false;
+        if (accepted && !samePlayerMotionInterest(bot.motionInterestNetworkIds, submitted)) {
+          flushBotMotionInterest(bot, runGeneration);
+        }
+      });
+  }
+
+  function syncBotMotionInterest(bot: VirtualBot, runGeneration: number) {
+    const conn = bot.connection;
+    const ownIdentity = bot.identity?.toHexString();
+    if (!conn?.isActive || !ownIdentity) return;
+    const networkByIdentity = new Map<string, number>();
+    const availableNetworkIds = new Set<number>();
+    let localNetworkId: number | null = null;
+    for (const row of conn.db.playerMotionIdentity.iter()) {
+      const identity = row.identity.toHexString();
+      networkByIdentity.set(identity, row.networkId);
+      availableNetworkIds.add(row.networkId);
+      if (identity === ownIdentity) localNetworkId = row.networkId;
+    }
+    const samples = [...conn.db.player.iter()].flatMap((row) => {
+      const networkId = networkByIdentity.get(row.identity.toHexString());
+      return networkId === undefined ? [] : [{ networkId, x: row.x, y: row.y }];
+    });
+    const next = selectPlayerMotionInterest({
+      samples,
+      originX: bot.x,
+      originY: bot.y,
+      localNetworkId,
+      availableNetworkIds,
+      previousNetworkIds: bot.motionInterestNetworkIds,
+    });
+    if (samePlayerMotionInterest(next, bot.motionInterestNetworkIds)) return;
+    bot.motionInterestNetworkIds = next;
+    flushBotMotionInterest(bot, runGeneration);
   }
 
   function markBotFailed(bot: VirtualBot, runGeneration: number) {
@@ -414,6 +483,10 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         if (!bot.ready || bot.failed || !conn?.isActive) continue;
         Object.assign(bot, advanceVirtualPlayerMotion(bot, elapsedSeconds, now));
         installNearbySubscription(bot, mapId);
+        if (now >= bot.nextMotionInterestAt) {
+          bot.nextMotionInterestAt = now + 1_000;
+          syncBotMotionInterest(bot, runGeneration);
+        }
         bot.simulationTick = advanceVirtualPlayerSimulationTick(bot.simulationTick, elapsedSeconds);
         const velocity = sanitizeMovementVelocity(
           bot.moving ? Math.cos(bot.facing) * PLAYER_SPEED : 0,
@@ -513,6 +586,8 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
                 await installSubscriptions(bot, identity, mapId);
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
+                syncBotMotionInterest(bot, runGeneration);
+                bot.nextMotionInterestAt = performance.now() + 1_000;
                 attemptReady = true;
                 bot.ready = true;
                 connected += 1;

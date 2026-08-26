@@ -1,11 +1,23 @@
 import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../shared/rules";
+import {
+  VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
+  VIRTUAL_PLAYER_SAVE_STRESS_INTERVAL_MS,
+} from "../shared/virtual-player-load-test";
 
-export const VIRTUAL_PLAYER_LOAD_MODES = ["movement", "realistic", "dense"] as const;
+export const VIRTUAL_PLAYER_LOAD_MODES = [
+  "movement",
+  "core",
+  "map",
+  "capped",
+  "persistence",
+  "realistic",
+  "dense",
+] as const;
 export type VirtualPlayerLoadMode = typeof VIRTUAL_PLAYER_LOAD_MODES[number];
 
 export type VirtualPlayerLoadProfile = {
-  subscriptions: "none" | "full";
-  saves: boolean;
+  subscriptions: "none" | "core" | "map" | "capped";
+  saveIntervalMs: number | null;
   inputKind: "keyboard" | "touch";
   angularVelocity: number;
   lightMode: boolean;
@@ -15,23 +27,55 @@ export type VirtualPlayerLoadProfile = {
 const PROFILES: Record<VirtualPlayerLoadMode, VirtualPlayerLoadProfile> = {
   movement: {
     subscriptions: "none",
-    saves: false,
+    saveIntervalMs: null,
     inputKind: "keyboard",
     angularVelocity: 0,
     lightMode: true,
     defaultSpawnRate: 300,
   },
-  realistic: {
-    subscriptions: "full",
-    saves: true,
+  core: {
+    subscriptions: "core",
+    saveIntervalMs: null,
+    inputKind: "keyboard",
+    angularVelocity: 0,
+    lightMode: false,
+    defaultSpawnRate: 200,
+  },
+  map: {
+    subscriptions: "map",
+    saveIntervalMs: null,
+    inputKind: "keyboard",
+    angularVelocity: 0,
+    lightMode: false,
+    defaultSpawnRate: 175,
+  },
+  capped: {
+    subscriptions: "capped",
+    saveIntervalMs: null,
     inputKind: "touch",
-    angularVelocity: .65,
+    angularVelocity: .12,
+    lightMode: false,
+    defaultSpawnRate: 150,
+  },
+  persistence: {
+    subscriptions: "core",
+    saveIntervalMs: VIRTUAL_PLAYER_SAVE_STRESS_INTERVAL_MS,
+    inputKind: "keyboard",
+    angularVelocity: 0,
+    lightMode: false,
+    defaultSpawnRate: 150,
+  },
+  realistic: {
+    subscriptions: "capped",
+    saveIntervalMs: VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
+    inputKind: "touch",
+    angularVelocity: .12,
     lightMode: false,
     defaultSpawnRate: 150,
   },
   dense: {
-    subscriptions: "full",
-    saves: true,
+    subscriptions: "capped",
+    saveIntervalMs: null,
     inputKind: "touch",
     angularVelocity: 1.6,
     lightMode: false,

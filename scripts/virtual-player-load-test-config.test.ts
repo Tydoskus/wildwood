@@ -1,10 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../shared/rules";
 import {
+  VIRTUAL_PLAYER_LOAD_MODES,
+  virtualPlayerLoadProfile,
   virtualPlayerLoadSpawnPoint,
   virtualPlayerLoadWorkerCount,
   virtualPlayerWorkerIndices,
 } from "./virtual-player-load-test-config";
+
+describe("Node virtual-player isolation profiles", () => {
+  it("keeps each billed lane independently measurable", () => {
+    expect(VIRTUAL_PLAYER_LOAD_MODES).toEqual([
+      "movement",
+      "core",
+      "map",
+      "capped",
+      "persistence",
+      "realistic",
+      "dense",
+    ]);
+    expect(virtualPlayerLoadProfile("movement").subscriptions).toBe("none");
+    expect(virtualPlayerLoadProfile("core").subscriptions).toBe("core");
+    expect(virtualPlayerLoadProfile("map").subscriptions).toBe("map");
+    expect(virtualPlayerLoadProfile("capped").subscriptions).toBe("capped");
+    expect(virtualPlayerLoadProfile("capped").saveIntervalMs).toBeNull();
+    expect(virtualPlayerLoadProfile("persistence").saveIntervalMs).toBe(2_500);
+    expect(virtualPlayerLoadProfile("realistic").saveIntervalMs).toBe(30_000);
+  });
+});
 
 describe("Node virtual-player load configuration", () => {
   it("shards 3,000 sockets below common per-process descriptor ceilings", () => {

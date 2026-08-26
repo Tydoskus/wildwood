@@ -23,10 +23,13 @@ import {
 import {
   VIRTUAL_PLAYER_LIMIT,
   VIRTUAL_PLAYER_MAX_STEP_SECONDS,
-  VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
   VIRTUAL_PLAYER_TICKET_BYTES,
   advanceVirtualPlayerSimulationTick,
 } from "../shared/virtual-player-load-test";
+import {
+  samePlayerMotionInterest,
+  selectPlayerMotionInterest,
+} from "../shared/player-motion-interest";
 import {
   movementUpdateReason,
   sanitizeMovementVelocity,
@@ -112,6 +115,10 @@ type LoadBot = {
   saveInFlight: boolean;
   nextSaveAt: number;
   enemyKills: number;
+  motionInterestNetworkIds: number[];
+  submittedMotionInterestNetworkIds: number[];
+  motionInterestInFlight: boolean;
+  nextMotionInterestAt: number;
   ready: boolean;
   stopping: boolean;
 };
@@ -182,8 +189,12 @@ Options:
 
 Modes:
   movement   Sparse 2 Hz movement only; no subscriptions or saves
-  realistic  Normal subscriptions, smooth steering, and 2.5 s saves
-  dense      Full subscriptions; all bots in one zone; rapid steering
+  core       Identity-scoped baseline subscriptions only
+  map        Core plus the bounded 1 Hz all-map snapshot
+  capped     Map plus nearby presence and nearest-five detailed motion
+  persistence  Core plus deliberately harsh 2.5 s progress saves
+  realistic  Capped motion plus representative 30 s dirty saves
+  dense      Capped motion; all bots in one zone with rapid steering
 
 Keep the authenticated developer game open. Token is used only by the coordinator
 to create and clean a short-lived run; anonymous worker processes never receive it.`;
@@ -495,12 +506,6 @@ function installNearbySubscription(bot: LoadBot, config: WorkerStart, initial: b
               .and(row.zoneX.lte(maxZoneX))
               .and(row.zoneY.gte(minZoneY))
               .and(row.zoneY.lte(maxZoneY))),
-            tables.playerMotionFrame.where((row) => row
-              .mapId.eq(config.mapId)
-              .and(row.zoneX.gte(minZoneX))
-              .and(row.zoneX.lte(maxZoneX))
-              .and(row.zoneY.gte(minZoneY))
-              .and(row.zoneY.lte(maxZoneY))),
             tables.playerMotionIdentity.where((row) => row
               .mapId.eq(config.mapId)
               .and(row.isVisible.eq(true))
@@ -520,11 +525,14 @@ function installNearbySubscription(bot: LoadBot, config: WorkerStart, initial: b
   });
 }
 
-function installFullSubscriptions(bot: LoadBot, identity: Identity, config: WorkerStart) {
+function installLoadSubscriptions(bot: LoadBot, identity: Identity, config: WorkerStart) {
   const connection = bot.connection;
   if (!connection) return Promise.reject(new Error("Bot connection closed"));
+  const profile = virtualPlayerLoadProfile(config.mode);
+  const includeMap = profile.subscriptions === "map" || profile.subscriptions === "capped";
+  const includeCappedMotion = profile.subscriptions === "capped";
   return new Promise<void>((resolve, reject) => {
-    let remaining = 3;
+    let remaining = 1 + Number(includeMap) + Number(includeCappedMotion);
     let settled = false;
     const timeout = setTimeout(() => finish(new Error("Bot subscriptions timed out")), SUBSCRIPTION_TIMEOUT_MS);
     const ready = () => {
@@ -560,17 +568,24 @@ function installFullSubscriptions(bot: LoadBot, identity: Identity, config: Work
         tables.chatMessage,
         tables.duel.where((row) => row.challenger.eq(identity)),
       ]);
-    const markers = connection.subscriptionBuilder()
-      .onApplied(ready)
-      .onError((context) => finish(subscriptionError(context)))
-      .subscribe([tables.playerMapFrame.where((row) => row.mapId.eq(config.mapId))]);
-    bot.subscriptions.push(core, markers);
-    void installNearbySubscription(bot, config, true).then(ready, finish);
+    bot.subscriptions.push(core);
+    if (includeMap) {
+      const mapQueries = [tables.playerMapFrame.where((row) => row.mapId.eq(config.mapId))];
+      const markers = connection.subscriptionBuilder()
+        .onApplied(ready)
+        .onError((context) => finish(subscriptionError(context)))
+        .subscribe(includeCappedMotion
+          ? [...mapQueries, tables.playerMotionDetailFrame.where((row) => row.recipient.eq(identity))]
+          : mapQueries);
+      bot.subscriptions.push(markers);
+    }
+    if (includeCappedMotion) void installNearbySubscription(bot, config, true).then(ready, finish);
   });
 }
 
 function createBot(index: number, mode: VirtualPlayerLoadMode, count: number): LoadBot {
   const position = virtualPlayerLoadSpawnPoint(mode, index, count);
+  const saveIntervalMs = virtualPlayerLoadProfile(mode).saveIntervalMs;
   return {
     index,
     connection: null,
@@ -588,8 +603,14 @@ function createBot(index: number, mode: VirtualPlayerLoadMode, count: number): L
     lastSent: null,
     movementInFlight: false,
     saveInFlight: false,
-    nextSaveAt: performance.now() + VIRTUAL_PLAYER_SAVE_INTERVAL_MS * (.75 + index % 11 / 20),
+    nextSaveAt: saveIntervalMs === null
+      ? Number.POSITIVE_INFINITY
+      : performance.now() + saveIntervalMs * (.75 + index % 11 / 20),
     enemyKills: 0,
+    motionInterestNetworkIds: [],
+    submittedMotionInterestNetworkIds: [],
+    motionInterestInFlight: false,
+    nextMotionInterestAt: performance.now(),
     ready: false,
     stopping: false,
   };
@@ -601,9 +622,70 @@ function disconnectBot(bot: LoadBot) {
   bot.subscriptions = [];
   bot.nearbySubscription = null;
   bot.identity = null;
+  bot.motionInterestNetworkIds = [];
+  bot.submittedMotionInterestNetworkIds = [];
+  bot.motionInterestInFlight = false;
+  bot.nextMotionInterestAt = Number.POSITIVE_INFINITY;
   const connection = bot.connection;
   bot.connection = null;
   try { connection?.disconnect(); } catch {}
+}
+
+function flushBotMotionInterest(bot: LoadBot, counters: WorkerCounters) {
+  const connection = bot.connection;
+  if (
+    !connection?.isActive ||
+    bot.motionInterestInFlight ||
+    samePlayerMotionInterest(bot.motionInterestNetworkIds, bot.submittedMotionInterestNetworkIds)
+  ) return;
+  const submitted = [...bot.motionInterestNetworkIds];
+  bot.submittedMotionInterestNetworkIds = submitted;
+  bot.motionInterestInFlight = true;
+  let accepted = false;
+  void connection.reducers.setPlayerMotionInterest({ networkIds: submitted })
+    .then(() => { accepted = true; })
+    .catch(() => {
+      counters.reducerErrors += 1;
+      if (samePlayerMotionInterest(bot.submittedMotionInterestNetworkIds, submitted)) {
+        bot.submittedMotionInterestNetworkIds = [];
+      }
+    })
+    .finally(() => {
+      bot.motionInterestInFlight = false;
+      if (accepted && !samePlayerMotionInterest(bot.motionInterestNetworkIds, submitted)) {
+        flushBotMotionInterest(bot, counters);
+      }
+    });
+}
+
+function syncBotMotionInterest(bot: LoadBot, counters: WorkerCounters) {
+  const connection = bot.connection;
+  const ownIdentity = bot.identity?.toHexString();
+  if (!connection?.isActive || !ownIdentity) return;
+  const networkByIdentity = new Map<string, number>();
+  const availableNetworkIds = new Set<number>();
+  let localNetworkId: number | null = null;
+  for (const row of connection.db.playerMotionIdentity.iter()) {
+    const identity = row.identity.toHexString();
+    networkByIdentity.set(identity, row.networkId);
+    availableNetworkIds.add(row.networkId);
+    if (identity === ownIdentity) localNetworkId = row.networkId;
+  }
+  const samples = [...connection.db.player.iter()].flatMap((row) => {
+    const networkId = networkByIdentity.get(row.identity.toHexString());
+    return networkId === undefined ? [] : [{ networkId, x: row.x, y: row.y }];
+  });
+  const next = selectPlayerMotionInterest({
+    samples,
+    originX: bot.x,
+    originY: bot.y,
+    localNetworkId,
+    availableNetworkIds,
+    previousNetworkIds: bot.motionInterestNetworkIds,
+  });
+  if (samePlayerMotionInterest(next, bot.motionInterestNetworkIds)) return;
+  bot.motionInterestNetworkIds = next;
+  flushBotMotionInterest(bot, counters);
 }
 
 function connectBot(bot: LoadBot, config: WorkerStart, owner: Identity, counters: WorkerCounters) {
@@ -641,15 +723,19 @@ function connectBot(bot: LoadBot, config: WorkerStart, owner: Identity, counters
               y: bot.y,
             });
             await connected.reducers.enterWorld({ tabId: `node-load-${config.workerIndex}-${bot.index}` });
-            if (profile.subscriptions === "full") {
+            if (profile.subscriptions !== "none") {
               await Promise.all([
                 connected.reducers.setSkinTone({ skinTone: bot.index % 20 }),
                 connected.reducers.setPlayerSprite({ playerSprite: bot.index % 4 }),
                 connected.reducers.beginAdventure({}),
               ]);
-              await installFullSubscriptions(bot, identity, config);
+              await installLoadSubscriptions(bot, identity, config);
             }
-            bot.nextSaveAt = performance.now() + VIRTUAL_PLAYER_SAVE_INTERVAL_MS * (.75 + bot.index % 11 / 20);
+            if (profile.subscriptions === "capped") syncBotMotionInterest(bot, counters);
+            bot.nextMotionInterestAt = performance.now() + 1_000;
+            bot.nextSaveAt = profile.saveIntervalMs === null
+              ? Number.POSITIVE_INFINITY
+              : performance.now() + profile.saveIntervalMs * (.75 + bot.index % 11 / 20);
             bot.ready = true;
             counters.connected += 1;
             finish();
@@ -770,14 +856,18 @@ function updateBot(bot: LoadBot, config: WorkerStart, elapsedSeconds: number, no
       .finally(() => { bot.movementInFlight = false; });
   }
 
-  if (profile.subscriptions === "full" && !bot.nearbyRefreshPending) {
+  if (profile.subscriptions === "capped" && !bot.nearbyRefreshPending) {
     bot.nearbyRefreshPending = true;
     void installNearbySubscription(bot, config, false)
       .catch(() => { counters.reducerErrors += 1; })
       .finally(() => { bot.nearbyRefreshPending = false; });
+    if (now >= bot.nextMotionInterestAt) {
+      bot.nextMotionInterestAt = now + 1_000;
+      syncBotMotionInterest(bot, counters);
+    }
   }
-  if (profile.saves && now >= bot.nextSaveAt) {
-    bot.nextSaveAt = now + VIRTUAL_PLAYER_SAVE_INTERVAL_MS * (.75 + Math.random() * .5);
+  if (profile.saveIntervalMs !== null && now >= bot.nextSaveAt) {
+    bot.nextSaveAt = now + profile.saveIntervalMs * (.75 + Math.random() * .5);
     saveBot(bot, counters);
   }
 }

@@ -11,9 +11,11 @@ flowchart LR
   PositionGate -->|"touch: 24-direction-equivalent gate; max 10 Hz"| PositionReducer
   PositionGate -->|"moving heartbeat: 2 Hz"| PositionReducer
   PositionReducer --> PrivateMotion["private player_motion row"]
-  PrivateMotion -->|"2 players: direct compact event"| ZoneBatch["compact player_motion_frame per occupied zone"]
-  PrivateMotion -->|"3+ players: on-demand 10 Hz max batching"| ZoneBatch
-  ZoneBatch -->|"one camera-area subscription"| MotionCache["decode by network id into remote sample buffers"]
+  PrivateMotion --> DetailPublisher["2 Hz recipient-frame publisher"]
+  MapBatch --> Interest["client selects nearest five with hysteresis"]
+  Interest -->|"membership changes only"| InterestReducer["set_player_motion_interest"]
+  InterestReducer --> DetailPublisher
+  DetailPublisher -->|"one identity-filtered frame · ≤5 actors"| MotionCache["decode by network id into remote sample buffers"]
   MotionCache --> Interpolation["continuity anchor + transmitted-velocity extrapolation"]
   Interpolation --> Frame["render frame"]
 
@@ -30,7 +32,7 @@ flowchart LR
   Pending -->|"equipment / duel / page exit: ordered flush"| ProgressReducer
   ProgressReducer --> ProgressRow["player_progress"]
 
-  ZoneBatch -. "hot frames never trigger global UI fanout" .-> UiSignal["application UI change signal"]
+  DetailPublisher -. "hot frames never trigger global UI fanout" .-> UiSignal["application UI change signal"]
   ProgressRow --> UiSignal
   UiSignal --> Windows["HUD / profiles / tech / leaderboard"]
 ```
@@ -41,11 +43,11 @@ flowchart LR
 - Keyboard sends only velocity transitions plus a 500 ms moving heartbeat. Touch compares squared magnitudes and a dot product against a 24-direction-equivalent hysteresis gate, then sends exact `vx/vy`; local movement remains fully analog. Material steering is capped at 10 Hz. Stationary players send nothing.
 - Remote presentation treats the 2 Hz heartbeat as correction cadence, not network jitter. It keeps only a short jitter buffer, anchors each correction to the pose already being shown, and extrapolates directly from transmitted world velocity. The per-render predictor no longer reconstructs speed with repeated magnitudes, alignments, or old-position deltas.
 - `motionEpoch` is the only hard discontinuity guard. Respawns, world/session resets, map transitions, and duel teleports advance it and flush the old prediction buffer. Distance never decides whether valid fast travel was a teleport. The wrap-aware 16-bit hot `simulationTick` reconstructs sender cadence; server time remains the fallback across epochs.
-- `player_motion_frame` is an insert-only event table. Two-player maps use a direct compact-event fast path. At three or more players, one demand-driven scheduler packs changed movers by zone at no more than 10 Hz. One trailing empty tick ends a burst; no high-rate lease keeps scanning idle motion. Each sample is 16 bytes: network ID, quantized `x/y`, quantized `vx/vy`, low 16 bits of simulation tick, and low 16 bits of motion epoch.
+- `player_motion_detail_frame` is an insert-only event table filtered by recipient identity. One 2 Hz scheduler performs at most five indexed motion lookups per interested viewer and packs those samples into a single frame. Each sample is 16 bytes: network ID, quantized `x/y`, quantized `vx/vy`, low 16 bits of simulation tick, and low 16 bits of motion epoch.
 - `player` is cold presentation/interest state. It updates on movement start, stop, idle correction, zone crossing, equipment/stat presentation changes, teleports, and lifecycle changes—not every movement input.
 - `player_motion_identity` maps compact network IDs to identity, name, account kind, and appearance. Clients subscribe to their own row plus camera zones; distant minimap dots use network ID directly and do not require map-wide profile hydration. Base hydration subscribes only to the local durable profile, never every historical profile/account row.
 - `player_map_frame` is one compact 1 Hz snapshot per shared map. Its separate 8-byte sample carries only network ID and `x/y`; prediction-only velocity, tick, and epoch never inflate distant markers.
-- Detailed remote players use one subscription containing a rectangular player query and matching zone-frame query derived from actual camera bounds. Never add one subscription per player or one query per zone.
+- Detailed remote players use nearby cold identity/presentation rows plus one recipient-frame query. The all-map snapshot selects at most five relevant network IDs before server serialization; never create one subscription handle per selected player.
 - An invisible developer cannot appear in another client's visible-player query. Sparse state frames remain smooth through vector extrapolation; observation no longer asks every sender for a high-rate stream or requires stationary movement heartbeats.
 - Remote players render name and power only. Health remains local simulation state and never enters the realtime player row.
 - Normal progress mutations persist locally immediately, then coalesce into one server save. Anything that snapshots equipment, such as a duel, must drain pending progress first.
@@ -95,10 +97,11 @@ flowchart LR
   Workers["1–15 Node worker processes"] --> Browser["Anonymous bot websockets · max 200/process"]
   Browser --> Protocol["register protocol + enter world"]
   Authorize --> Protocol
-  Protocol --> Subs["core + nearby-frame + map-frame subscriptions"]
+  Protocol --> Subs["core + nearby cold presence + map snapshot"]
+  Subs --> Interest["nearest-five interest set"]
   Protocol --> Move["update_movement_state · changes + 2 Hz heartbeat"]
-  Protocol --> Save["save_player_progress · ~2.5 s"]
-  Move --> Hot["private motion rows + shared aggregate frames"]
+  Protocol --> Save["save_player_progress · 30 s realistic / 2.5 s stress"]
+  Move --> Hot["private motion rows + recipient detail frames"]
   Save --> Durable["tagged pretend progress"]
   Stop["stop / disconnect / orphan repair"] --> Cleanup["one server cleanup path"]
   Cleanup --> Erase["presence + profile + progress + lifetime + ranking deleted"]
@@ -108,14 +111,23 @@ flowchart LR
 - Authorization accepts only a connected, fresh anonymous identity and caps the test at 3,000 bots. An owner counter enforces that limit in O(1) per bot; never recount the full bot table during startup.
 - The browser harness is capped at 200 connections because Chromium limits same-group WebSockets to roughly 255. Large tests use `npm run loadtest:virtual`; automatic sharding keeps at most 200 sockets in each Node process.
 - A developer creates one private random capability per run. Node workers receive that capability but never the developer token. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Bots do not load the on-demand leaderboard during startup.
-- Test modes separate costs: `movement` has no subscriptions or saves, `realistic` uses normal subscriptions and saves, and `dense` deliberately concentrates full clients into one zone with rapid steering.
+- Test modes isolate `movement`, `core`, `map`, capped detail, persistence, realistic, and dense-crowd costs. The 2.5-second fabricated save belongs only to persistence stress; realistic saves dirty progress every 30 seconds.
 - Nearby-query replacements wait for the old unsubscribe acknowledgement before starting the new query set. This avoids overlapping moving result sets and TypeScript SDK cache-reference races. Socket shutdown does not send redundant per-query unsubscribes immediately before disconnect.
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 
 ## Why aggregation changes scaling
 
-With `N` clustered movers, direct public row updates create roughly `movement Hz × N × N` subscriber deliveries. Aggregate frames create roughly `frame Hz × N` frame deliveries, while each payload contains `N × 16` compact bytes. Sparse ingress still cuts steady straight-line reducer transactions by 80%:
+With `N` clustered movers, zone-wide detail creates roughly `N × (N - 1)` actor-to-viewer deliveries per sample interval. A five-actor recipient cap changes that term to at most `N × 5`:
+
+| Players | Zone-wide detail pairs | Five-actor pairs | Reduction |
+|---:|---:|---:|---:|
+| 100 | 9,900 | 500 | 19.8× |
+| 500 | 249,500 | 2,500 | 99.8× |
+| 1,000 | 999,000 | 5,000 | 199.8× |
+| 3,000 | 8,997,000 | 15,000 | 599.8× |
+
+Sparse ingress still cuts steady straight-line reducer transactions by 80%:
 
 | Movers | Former 10 Hz ingress | Sparse 2 Hz heartbeat |
 |---:|---:|---:|
@@ -124,7 +136,9 @@ With `N` clustered movers, direct public row updates create roughly `movement Hz
 | 1,000 | 10,000/s | 2,000/s |
 | 3,000 | 30,000/s | 6,000/s |
 
-Direction transitions add traffic only when they carry new information. Touch steering may legitimately rise to 3–6/s, or 8–10/s during tight turns. Camera-zone interest still bounds viewer × actor delivery cost.
+Direction transitions add ingress only when they carry new information. The
+recipient publisher keeps egress bounded independently of sender steering rate;
+camera-zone cold presence bounds which actors are eligible for the five slots.
 
 The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible players. Above that threshold, the server emits at most 256 spatial centroids. At 3,000 viewers its 8-byte samples are therefore bounded near 6.14 MB/s before protocol overhead instead of the former 8.45 MB/s. Runtime zone movement remains exact.
 

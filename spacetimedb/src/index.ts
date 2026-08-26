@@ -1,4 +1,4 @@
-import { Range, schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
+import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor, damageBlockedByArmor } from "./combat";
 import {
@@ -80,7 +80,6 @@ import {
 } from "../../shared/items";
 import {
   PLAYER_MAP_FRAME_HZ,
-  PLAYER_MOTION_FRAME_HZ,
   PLAYER_VELOCITY_SCALE,
   compactPlayerMapSamples,
   encodePlayerMapFrame,
@@ -88,6 +87,10 @@ import {
   type PlayerMapSample,
   type PlayerMotionSample,
 } from "../../shared/player-motion-frame";
+import {
+  PLAYER_MOTION_DETAIL_FRAME_HZ,
+  PLAYER_MOTION_INTEREST_LIMIT,
+} from "../../shared/player-motion-interest";
 import {
   ATTACK_BALANCE_VERSION,
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -178,9 +181,8 @@ const CHAT_HISTORY_MAX_ROWS = 200;
 const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
-const MOTION_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_FRAME_HZ);
+const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
-const DIRECT_MOTION_PLAYER_LIMIT = 2;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const MODULE_MIGRATION_VERSION = 13;
 const LEADERBOARD_LIMIT = 100;
@@ -366,6 +368,34 @@ const playerMotionFrame = table(
     mapId: t.string(),
     zoneX: t.i32(),
     zoneY: t.i32(),
+    emittedAt: t.timestamp(),
+    playerCount: t.u32(),
+    payload: t.byteArray(),
+  },
+);
+
+// One private, bounded interest set per controlling player. Clients derive it
+// from the all-map position snapshot, so the server publisher performs O(NK)
+// primary-key lookups instead of an O(N²) nearest-neighbor scan.
+const playerMotionInterest = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    networkIds: t.array(t.u32()),
+  },
+);
+
+// Each subscriber receives one packed frame addressed to its identity. The
+// recipient predicate is applied before delivery, so unselected zone actors
+// are never serialized or billed to that client.
+const playerMotionDetailFrame = table(
+  {
+    public: true,
+    event: true,
+    indexes: [{ accessor: "byRecipient", algorithm: "btree", columns: ["recipient"] as const }],
+  },
+  {
+    recipient: t.identity(),
     emittedAt: t.timestamp(),
     playerCount: t.u32(),
     payload: t.byteArray(),
@@ -1147,6 +1177,14 @@ const motionFrameSchedule = table(
   },
 );
 
+const motionDetailFrameSchedule = table(
+  { scheduled: (): any => publishMotionDetailFrames },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+  },
+);
+
 const mapFrameSchedule = table(
   { scheduled: (): any => publishMapFrames },
   {
@@ -1364,6 +1402,8 @@ const spacetimedb = schema({
   playerMotionMapState,
   playerMotionIdentity,
   playerMotionFrame,
+  playerMotionInterest,
+  playerMotionDetailFrame,
   playerMapFrame,
   bossAttackFrame,
   playerDeathFrame,
@@ -1413,6 +1453,7 @@ const spacetimedb = schema({
   dragonResult,
   maintenanceSchedule,
   motionFrameSchedule,
+  motionDetailFrameSchedule,
   mapFrameSchedule,
   researchCompletionSchedule,
   itemUpgradeCompletionSchedule,
@@ -1612,6 +1653,42 @@ function defaultPlayerProgress(identity: any) {
     cosmeticLeftHand: "",
     speedOverride: 0,
   };
+}
+
+const PLAYER_PROGRESS_VALUE_FIELDS = [
+  "maxHp",
+  "damage",
+  "attackRate",
+  "projectileSpeed",
+  "projectileCount",
+  "attackRange",
+  "armor",
+  "regen",
+  "speed",
+  "bootsCollected",
+  "inventoryJson",
+  "equippedHead",
+  "equippedChest",
+  "equippedFeet",
+  "equippedRightHand",
+  "equippedLeftHand",
+  "introComplete",
+  "desertUnlocked",
+  "snowlandsUnlocked",
+  "lavaUnlocked",
+  "infernalUnlocked",
+  "bowCount",
+  "woodenArmorCount",
+  "cosmeticHead",
+  "cosmeticChest",
+  "cosmeticFeet",
+  "cosmeticRightHand",
+  "cosmeticLeftHand",
+  "speedOverride",
+] as const;
+
+function samePlayerProgressValues(left: any, right: any) {
+  return PLAYER_PROGRESS_VALUE_FIELDS.every((field) => left[field] === right[field]);
 }
 
 function defaultPlayerResearch(identity: any) {
@@ -2244,6 +2321,7 @@ function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
 }
 
 function removePlayerRealtimeState(ctx: any, identity: any) {
+  if (ctx.db.playerMotionInterest.identity.find(identity)) ctx.db.playerMotionInterest.identity.delete(identity);
   const motion = ctx.db.playerMotion.identity.find(identity);
   if (motion) {
     ctx.db.playerMotion.networkId.delete(motion.networkId);
@@ -2264,57 +2342,19 @@ function hasSharedMap(ctx: any) {
   return false;
 }
 
-function hasMovingBatchedMap(ctx: any) {
-  const counts = sharedMapCounts(ctx);
-  for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
-    if (motion.moving && motion.isVisible && (counts.get(motion.mapId) ?? 0) > DIRECT_MOTION_PLAYER_LIMIT) return true;
-  }
-  return false;
-}
-
-function activeMotionSchedule(ctx: any) {
-  for (const _schedule of ctx.db.motionFrameSchedule.iter()) return true;
-  return false;
-}
-
 function boundedMapPopulation(ctx: any, mapId: string) {
   return ctx.db.playerMotionMapState.mapId.find(mapId)?.playerCount ?? 0;
 }
 
-function publishOrScheduleMotion(ctx: any, motion: any, isVisible: boolean) {
-  if (!motion.moving || !isVisible || activeMotionSchedule(ctx)) return;
-  const population = boundedMapPopulation(ctx, motion.mapId);
-  if (population < 2) return;
-  if (population <= DIRECT_MOTION_PLAYER_LIMIT) {
-    const sample = motionSample(motion);
-    ctx.db.playerMotionFrame.insert({
-      mapId: motion.mapId,
-      zoneX: motion.zoneX,
-      zoneY: motion.zoneY,
-      emittedAt: ctx.timestamp,
-      playerCount: 1,
-      payload: encodePlayerMotionFrame([sample]),
+function ensureMotionDetailFrameSchedule(ctx: any) {
+  for (const _schedule of ctx.db.motionDetailFrameSchedule.iter()) return;
+  for (const _interest of ctx.db.playerMotionInterest.iter()) {
+    ctx.db.motionDetailFrameSchedule.insert({
+      scheduledId: 0n,
+      scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_DETAIL_FRAME_INTERVAL_MICROS),
     });
     return;
   }
-  // Current input must be eligible for the first scheduled frame.
-  ctx.db.motionFrameSchedule.insert({
-    scheduledId: 0n,
-    scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_FRAME_INTERVAL_MICROS),
-    previousTickMicros: ctx.timestamp.microsSinceUnixEpoch - 1n,
-  });
-}
-
-function ensureMotionFrameSchedule(ctx: any) {
-  for (const _schedule of ctx.db.motionFrameSchedule.iter()) return;
-  // Hot sync calls hit this one-row lease first. Full player scans happen only
-  // when restarting an idle scheduler, never once per input packet.
-  if (!hasMovingBatchedMap(ctx)) return;
-  ctx.db.motionFrameSchedule.insert({
-    scheduledId: 0n,
-    scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_FRAME_INTERVAL_MICROS),
-    previousTickMicros: ctx.timestamp.microsSinceUnixEpoch,
-  });
 }
 
 function ensureMapFrameSchedule(ctx: any) {
@@ -2327,7 +2367,7 @@ function ensureMapFrameSchedule(ctx: any) {
 }
 
 function ensureRealtimeFrameSchedules(ctx: any) {
-  ensureMotionFrameSchedule(ctx);
+  ensureMotionDetailFrameSchedule(ctx);
   ensureMapFrameSchedule(ctx);
 }
 
@@ -4358,6 +4398,7 @@ export const runMaintenance = spacetimedb.reducer(
     clearOrphanVirtualPlayers(ctx);
     clearExpiredVirtualPlayerRuns(ctx);
     reconcileOnlinePlayers(ctx);
+    ensureMotionDetailFrameSchedule(ctx);
     runPendingModuleMigrations(ctx);
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
@@ -4373,51 +4414,48 @@ export const runMaintenance = spacetimedb.reducer(
 
 export const publishMotionFrames = spacetimedb.reducer(
   { schedule: motionFrameSchedule.rowType },
-  (ctx, { schedule }) => {
-    const mapCounts = sharedMapCounts(ctx);
-    const zones = new Map<string, { mapId: string; zoneX: number; zoneY: number; samples: PlayerMotionSample[] }>();
-    const changedSinceLastTick = new Range(
-      { tag: "excluded", value: new Timestamp(schedule.previousTickMicros) },
-      { tag: "included", value: ctx.timestamp },
-    );
-    for (const motion of ctx.db.playerMotion.lastInputAt.filter(changedSinceLastTick) as Iterable<any>) {
-      const mapPopulation = mapCounts.get(motion.mapId) ?? 0;
-      const sharedMap = mapPopulation > 1;
-      if (
-        !motion.moving ||
-        !sharedMap ||
-        !motion.isVisible
-      ) continue;
-      const key = `${motion.mapId}:${motion.zoneX}:${motion.zoneY}`;
-      const zone = zones.get(key) ?? {
-        mapId: motion.mapId,
-        zoneX: motion.zoneX,
-        zoneY: motion.zoneY,
-        samples: [] as PlayerMotionSample[],
-      };
-      zone.samples.push(motionSample(motion));
-      zones.set(key, zone);
-    }
+  (_ctx, { schedule }) => { void schedule; },
+);
 
-    for (const zone of zones.values()) {
-      ctx.db.playerMotionFrame.insert({
-        mapId: zone.mapId,
-        zoneX: zone.zoneX,
-        zoneY: zone.zoneY,
+export const publishMotionDetailFrames = spacetimedb.reducer(
+  { schedule: motionDetailFrameSchedule.rowType },
+  (ctx, _args) => {
+    let continuePublishing = false;
+    const staleIdentities: any[] = [];
+    for (const interest of ctx.db.playerMotionInterest.iter() as Iterable<any>) {
+      const observer = ctx.db.playerMotion.identity.find(interest.identity);
+      if (!observer) {
+        staleIdentities.push(interest.identity);
+        continue;
+      }
+      continuePublishing = true;
+      const samples: PlayerMotionSample[] = [];
+      const sampleLimit = Math.min(interest.networkIds.length, PLAYER_MOTION_INTEREST_LIMIT);
+      for (let index = 0; index < sampleLimit; index += 1) {
+        const networkId = interest.networkIds[index];
+        if (networkId === observer.networkId) continue;
+        const motion = ctx.db.playerMotion.networkId.find(networkId);
+        if (
+          !motion ||
+          motion.mapId !== observer.mapId ||
+          !motion.isVisible
+        ) continue;
+        samples.push(motionSample(motion));
+      }
+      if (samples.length === 0) continue;
+      ctx.db.playerMotionDetailFrame.insert({
+        recipient: interest.identity,
         emittedAt: ctx.timestamp,
-        playerCount: zone.samples.length,
-        payload: encodePlayerMotionFrame(zone.samples),
+        playerCount: samples.length,
+        payload: encodePlayerMotionFrame(samples),
       });
     }
+    for (const identity of staleIdentities) ctx.db.playerMotionInterest.identity.delete(identity);
 
-    // One trailing tick detects the end of a burst. Sustained steering keeps
-    // the shared lane at 10 Hz; a sparse heartbeat costs one empty follow-up
-    // scan instead of a continuously leased scheduler.
-    if (zones.size > 0) {
-      ctx.db.motionFrameSchedule.insert({
+    if (continuePublishing) {
+      ctx.db.motionDetailFrameSchedule.insert({
         scheduledId: 0n,
-        scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_FRAME_INTERVAL_MICROS),
-        previousTickMicros: ctx.timestamp.microsSinceUnixEpoch,
+        scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_DETAIL_FRAME_INTERVAL_MICROS),
       });
     }
   },
@@ -5661,8 +5699,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
-    if (current) ctx.db.playerProgress.identity.update(next);
-    else ctx.db.playerProgress.insert(next);
+    if (!current) ctx.db.playerProgress.insert(next);
+    else if (!samePlayerProgressValues(current, next)) ctx.db.playerProgress.identity.update(next);
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) {
       const appearance = leaderboardAppearanceForProgress(next, ctx.db.playerProfile.identity.find(ctx.sender));
@@ -6358,7 +6396,7 @@ function applyMovementState(
     lastInputAt: ctx.timestamp,
     lastInputSequence: sequence,
   };
-  const nextMotion = syncPlayerMotion(ctx, nextPlayer);
+  syncPlayerMotion(ctx, nextPlayer);
 
   // Cold player rows carry presentation and zone membership. Publish only
   // start/stop endpoints, idle corrections, or zone crossings. Direction and
@@ -6372,7 +6410,6 @@ function applyMovementState(
     ctx.db.player.identity.update(nextPlayer);
     syncPlayerMotionIdentity(ctx, nextPlayer);
   }
-  publishOrScheduleMotion(ctx, nextMotion, nextPlayer.isVisible);
 }
 
 export const updateMovementState = spacetimedb.reducer(
@@ -6387,6 +6424,40 @@ export const updateMovementState = spacetimedb.reducer(
   },
   (ctx, { x, y, vx, vy, simulationTick, motionEpoch, sequence }) =>
     applyMovementState(ctx, x, y, vx, vy, simulationTick, motionEpoch, sequence),
+);
+
+export const setPlayerMotionInterest = spacetimedb.reducer(
+  { networkIds: t.array(t.u32()) },
+  (ctx, { networkIds }) => {
+    const activePlayer = requireControllingPlayer(ctx);
+    const ownMotion = ctx.db.playerMotion.identity.find(ctx.sender);
+    if (!ownMotion) throw new SenderError("Player motion is unavailable.");
+    const selected: number[] = [];
+    const seen = new Set<number>();
+    for (const networkId of networkIds) {
+      if (selected.length >= PLAYER_MOTION_INTEREST_LIMIT) break;
+      if (seen.has(networkId) || networkId === ownMotion.networkId) continue;
+      seen.add(networkId);
+      const motion = ctx.db.playerMotion.networkId.find(networkId);
+      if (!motion || !motion.isVisible || motion.mapId !== activePlayer.mapId) continue;
+      selected.push(networkId);
+    }
+
+    const current = ctx.db.playerMotionInterest.identity.find(ctx.sender);
+    if (selected.length === 0) {
+      if (current) ctx.db.playerMotionInterest.identity.delete(ctx.sender);
+      return;
+    }
+    if (
+      current &&
+      current.networkIds.length === selected.length &&
+      current.networkIds.every((networkId: number, index: number) => networkId === selected[index])
+    ) return;
+    const next = { identity: ctx.sender, networkIds: selected };
+    if (current) ctx.db.playerMotionInterest.identity.update(next);
+    else ctx.db.playerMotionInterest.insert(next);
+    ensureMotionDetailFrameSchedule(ctx);
+  },
 );
 
 // Rollout bridge for pre-0.424 clients. Current clients never call this path.
@@ -6417,6 +6488,9 @@ function transitionPlayerMap(
   arrival: { x: number; y: number },
   facing = current.facing,
 ) {
+  if (ctx.db.playerMotionInterest.identity.find(current.identity)) {
+    ctx.db.playerMotionInterest.identity.delete(current.identity);
+  }
   const currentMotion = ctx.db.playerMotion.identity.find(current.identity);
   const nextPlayer = {
     ...current,
