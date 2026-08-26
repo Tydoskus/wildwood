@@ -1267,8 +1267,11 @@ import {
   finishStartup();
   startupCoordinator.startVersionPolling();
 
+  let firstStartWarmupPending = false;
+
   function startGame(markIntro = true, restoreServerPosition = true) {
     const firstStart = !session.hasStarted();
+    if (firstStart && firstStartWarmupPending) return;
     const appearance = equipmentAppearance(inventory);
     warmPlayerAppearanceCache(playerAppearanceAssets, {
       skinTone: coop?.skinTone?.(coop?.localIdentity?.()) ?? DEFAULT_SKIN_TONE,
@@ -1278,11 +1281,21 @@ import {
       rightHandItem: appearance.rightHandItem,
       leftHandItem: appearance.leftHandItem,
     });
-    if (firstStart && staticWorldLayer?.prepare()) renderController.render();
-    if (firstStart) performanceMonitor.reset();
-    session.start(markIntro, restoreServerPosition);
-    dailyGemBonus.refresh();
-    applyGameplayPauseState();
+    const finishStart = () => {
+      if (firstStart) performanceMonitor.reset();
+      session.start(markIntro, restoreServerPosition);
+      dailyGemBonus.refresh();
+      applyGameplayPauseState();
+    };
+    if (firstStart && staticWorldLayer?.prepare()) {
+      firstStartWarmupPending = true;
+      void worldRenderRuntime.warmStaticWorld().catch(() => {}).then(() => {
+        firstStartWarmupPending = false;
+        finishStart();
+      });
+      return;
+    }
+    finishStart();
   }
 
   function endGame() {

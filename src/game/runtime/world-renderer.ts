@@ -5,7 +5,7 @@ import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
-import type { StaticWorldLayer, StaticWorldTileFrame } from "./webgl-static-world-layer";
+import type { StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
   paintStaticTilePlaceholder,
@@ -31,6 +31,25 @@ type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
 type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
+
+const STATIC_TILE_SIZE = 640;
+
+export function staticWorldTileRange(
+  cameraX: number,
+  cameraY: number,
+  visibleWidth: number,
+  visibleHeight: number,
+  padding = 1,
+) {
+  const maximumTileX = Math.ceil(WORLD.w / STATIC_TILE_SIZE) - 1;
+  const maximumTileY = Math.ceil(WORLD.h / STATIC_TILE_SIZE) - 1;
+  return {
+    startX: Math.max(0, Math.floor(cameraX / STATIC_TILE_SIZE) - padding),
+    startY: Math.max(0, Math.floor(cameraY / STATIC_TILE_SIZE) - padding),
+    endX: Math.min(maximumTileX, Math.floor((cameraX + visibleWidth) / STATIC_TILE_SIZE) + padding),
+    endY: Math.min(maximumTileY, Math.floor((cameraY + visibleHeight) / STATIC_TILE_SIZE) + padding),
+  };
+}
 
 export function snapWorldRenderCoordinate(value: number, zoom: number, devicePixelRatio: number) {
   const scale = zoom * devicePixelRatio;
@@ -87,7 +106,6 @@ export type WorldRendererOptions = {
 
 export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
-  const STATIC_TILE_SIZE = 640;
   const STATIC_TILE_MIN_LIMIT = 12;
   const STATIC_TILE_CACHE_PADDING = 4;
   const LAVA_ROCK_BUCKET_SIZE = 640;
@@ -101,6 +119,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const staticTiles = new Map<string, CachedStaticTile>();
   const pendingStaticTiles = new Set<string>();
   const staticTilePlaceholders = new Map<string, HTMLCanvasElement>();
+  const staticTileWaiters = new Set<() => void>();
   const minimapCanvas = document.createElement("canvas");
   const minimapCtx = minimapCanvas.getContext("2d");
   const staticTileWorker = (() => {
@@ -121,6 +140,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   let staticTileLimit = STATIC_TILE_MIN_LIMIT;
   let lavaRockBucketGeneration = -1;
   const lavaRockBuckets = new Map<string, LavaRockDecor[]>();
+  const visibleLavaRocks: LavaRockDecor[] = [];
+  const gpuLavaRockSprites: StaticWorldSpriteFrame[] = [];
+  let lavaRocksRenderedByWebGL = false;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
   const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
@@ -178,6 +200,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     staticTiles.delete(key);
     staticTiles.set(key, tile);
     trimStaticTiles();
+    for (const notify of staticTileWaiters) notify();
   }
 
   function disableStaticTileWorker() {
@@ -186,6 +209,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     staticTileWorker?.terminate();
     pendingStaticTiles.clear();
     staticTilePlaceholders.clear();
+    for (const notify of staticTileWaiters) notify();
   }
 
   staticTileWorker?.addEventListener("message", ({ data }: MessageEvent<StaticTileWorkerResult>) => {
@@ -237,8 +261,12 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return tile;
   }
 
+  function tileKey(tileX: number, tileY: number) {
+    return `${options.getMapId()}:${tileX}:${tileY}`;
+  }
+
   function staticTile(tileX: number, tileY: number): CachedStaticTile {
-    const key = `${options.getMapId()}:${tileX}:${tileY}`;
+    const key = tileKey(tileX, tileY);
     const cached = staticTiles.get(key);
     if (cached) {
       staticTiles.delete(key);
@@ -273,16 +301,14 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawStaticWorld(offsetX = 0, offsetY = 0) {
+    lavaRocksRenderedByWebGL = false;
     if (options.isArenaScene()) {
       options.staticWorldLayer?.hide();
       drawGround();
       return;
     }
     const visible = visibleSize();
-    const startX = Math.floor(camera.x / STATIC_TILE_SIZE) - 1;
-    const startY = Math.floor(camera.y / STATIC_TILE_SIZE) - 1;
-    const endX = Math.floor((camera.x + visible.width) / STATIC_TILE_SIZE) + 1;
-    const endY = Math.floor((camera.y + visible.height) / STATIC_TILE_SIZE) + 1;
+    const { startX, startY, endX, endY } = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
     // Keep every tile required by this camera view plus a small movement edge.
     // A fixed limit below the visible count turns camera movement into an LRU
     // rebuild loop, repeatedly redrawing the world tiles each frame.
@@ -294,12 +320,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const useWebGL = Boolean(options.staticWorldLayer?.active());
     for (let tileY = startY; tileY <= endY; tileY += 1) {
       for (let tileX = startX; tileX <= endX; tileX += 1) {
-        if (tileX < 0 || tileY < 0 || tileX * STATIC_TILE_SIZE >= WORLD.w || tileY * STATIC_TILE_SIZE >= WORLD.h) continue;
         const left = snapToWorldPixel(tileX * STATIC_TILE_SIZE - camera.x);
         const top = snapToWorldPixel(tileY * STATIC_TILE_SIZE - camera.y);
         const right = snapToWorldPixel((tileX + 1) * STATIC_TILE_SIZE - camera.x);
         const bottom = snapToWorldPixel((tileY + 1) * STATIC_TILE_SIZE - camera.y);
-        const key = `${options.getMapId()}:${tileX}:${tileY}`;
+        const key = tileKey(tileX, tileY);
         const source = staticTile(tileX, tileY);
         if (useWebGL) gpuTiles.push({ key, source, left, top, width: right - left, height: bottom - top });
         else ctx.drawImage(source, left, top, right - left, bottom - top);
@@ -307,6 +332,12 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     }
     if (useWebGL) {
       const view = viewport();
+      collectVisibleLavaRocks();
+      gpuLavaRockSprites.length = 0;
+      for (const rock of visibleLavaRocks) {
+        const sprite = lavaRockSpriteFrame(rock);
+        if (sprite) gpuLavaRockSprites.push(sprite);
+      }
       const rendered = options.staticWorldLayer?.render({
         backgroundColor: mapColors().ground,
         width: view.width,
@@ -316,12 +347,57 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         offsetX,
         offsetY,
         tiles: gpuTiles,
+        sprites: gpuLavaRockSprites,
       });
+      lavaRocksRenderedByWebGL = Boolean(rendered);
       if (!rendered) {
         for (const tile of gpuTiles) ctx.drawImage(tile.source, tile.left, tile.top, tile.width, tile.height);
       }
     }
     trimStaticTiles();
+  }
+
+  function waitForStaticTiles(keys: readonly string[], timeoutMs = 1_500) {
+    if (!staticTileWorkerEnabled || keys.every((key) => staticTiles.has(key))) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        globalThis.clearTimeout(timeout);
+        staticTileWaiters.delete(check);
+        resolve();
+      };
+      const check = () => {
+        if (!staticTileWorkerEnabled || keys.every((key) => staticTiles.has(key))) finish();
+      };
+      const timeout = globalThis.setTimeout(finish, timeoutMs);
+      staticTileWaiters.add(check);
+      check();
+    });
+  }
+
+  /** Builds and uploads the complete spawn-area tile ring before movement starts. */
+  async function warmStaticWorld() {
+    if (!options.staticWorldLayer?.active() || options.isArenaScene()) return;
+    const visible = visibleSize();
+    const range = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
+    const keys: string[] = [];
+    const tileCount = (range.endX - range.startX + 1) * (range.endY - range.startY + 1);
+    staticTileLimit = Math.max(staticTileLimit, tileCount + STATIC_TILE_CACHE_PADDING);
+    for (let tileY = range.startY; tileY <= range.endY; tileY += 1) {
+      for (let tileX = range.startX; tileX <= range.endX; tileX += 1) {
+        keys.push(tileKey(tileX, tileY));
+        staticTile(tileX, tileY);
+      }
+    }
+    await waitForStaticTiles(keys);
+    // A failed/unsupported worker switches staticTile() to its synchronous
+    // Canvas fallback here, still keeping the first gameplay frame warm.
+    for (let tileY = range.startY; tileY <= range.endY; tileY += 1) {
+      for (let tileX = range.startX; tileX <= range.endX; tileX += 1) staticTile(tileX, tileY);
+    }
+    drawStaticWorld();
   }
 
   function invalidateStaticWorld() {
@@ -551,6 +627,18 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.drawImage(image, x - width / 2, y - height, width, height);
   }
 
+  function lavaRockSpriteFrame(rock: LavaRockDecor): StaticWorldSpriteFrame | null {
+    const source = options.lavaRocks[rock.variant % options.lavaRocks.length];
+    if (!source?.complete || source.naturalWidth <= 0) return null;
+    const visible = visibleSize();
+    const x = snapToWorldPixel(rock.x - camera.x);
+    const y = snapToWorldPixel(rock.y - camera.y);
+    const width = Math.round(150 * rock.s);
+    const height = Math.round(width * source.naturalHeight / source.naturalWidth);
+    if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return null;
+    return { source, left: x - width / 2, top: y - height, width, height };
+  }
+
   function drawCharredTree(tree: CharredTreeDecor) {
     const image = options.charredTrees[tree.variant % options.charredTrees.length];
     if (!image?.complete || image.naturalWidth <= 0) return;
@@ -582,8 +670,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][petal.variant % 3]; ctx.fillRect(x - 3, y - 1, 7, 3); ctx.fillRect(x - 1, y - 3, 3, 7); ctx.fillStyle = "rgba(255,255,255,.72)"; ctx.fillRect(x, y, 1, 1);
   }
 
-  function drawDecor() {
-    if (!isLavaTerrain()) return;
+  function collectVisibleLavaRocks() {
+    visibleLavaRocks.length = 0;
+    if (!isLavaTerrain()) return visibleLavaRocks;
     if (lavaRockBucketGeneration !== staticTileGeneration) {
       lavaRockBuckets.clear();
       for (const decor of options.decor) {
@@ -606,9 +695,15 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       for (let bucketX = startX; bucketX <= endX; bucketX += 1) {
         const bucket = lavaRockBuckets.get(`${bucketX}:${bucketY}`);
         if (!bucket) continue;
-        for (const rock of bucket) drawLavaRock(rock);
+        for (const rock of bucket) visibleLavaRocks.push(rock);
       }
     }
+    return visibleLavaRocks;
+  }
+
+  function drawDecor() {
+    if (!isLavaTerrain() || lavaRocksRenderedByWebGL) return;
+    for (const rock of collectVisibleLavaRocks()) drawLavaRock(rock);
   }
 
   function minimapRoundedRect(target: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -698,5 +793,5 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, view.width - size, 0, size, size);
   }
 
-  return { drawGround, drawStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawUpgradeBench, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
+  return { drawGround, drawStaticWorld, warmStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawUpgradeBench, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };
 }
