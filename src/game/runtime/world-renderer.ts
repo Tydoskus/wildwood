@@ -5,7 +5,7 @@ import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
-import type { StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
+import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
   paintStaticTilePlaceholder,
@@ -141,7 +141,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   let lavaRockBucketGeneration = -1;
   const lavaRockBuckets = new Map<string, LavaRockDecor[]>();
   const visibleLavaRocks: LavaRockDecor[] = [];
-  const gpuLavaRockSprites: StaticWorldSpriteFrame[] = [];
+  const gpuWorldSprites: StaticWorldSpriteFrame[] = [];
   let lavaRocksRenderedByWebGL = false;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
@@ -300,12 +300,17 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return tile;
   }
 
-  function drawStaticWorld(offsetX = 0, offsetY = 0) {
+  function drawStaticWorld(
+    offsetX = 0,
+    offsetY = 0,
+    extraSprites: readonly StaticWorldSpriteFrame[] = [],
+    colorQuads: readonly StaticWorldColorQuadFrame[] = [],
+  ) {
     lavaRocksRenderedByWebGL = false;
     if (options.isArenaScene()) {
       options.staticWorldLayer?.hide();
       drawGround();
-      return;
+      return false;
     }
     const visible = visibleSize();
     const { startX, startY, endX, endY } = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
@@ -333,11 +338,12 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (useWebGL) {
       const view = viewport();
       collectVisibleLavaRocks();
-      gpuLavaRockSprites.length = 0;
+      gpuWorldSprites.length = 0;
       for (const rock of visibleLavaRocks) {
         const sprite = lavaRockSpriteFrame(rock);
-        if (sprite) gpuLavaRockSprites.push(sprite);
+        if (sprite) gpuWorldSprites.push(sprite);
       }
+      for (const sprite of extraSprites) gpuWorldSprites.push(sprite);
       const rendered = options.staticWorldLayer?.render({
         backgroundColor: mapColors().ground,
         width: view.width,
@@ -347,14 +353,18 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         offsetX,
         offsetY,
         tiles: gpuTiles,
-        sprites: gpuLavaRockSprites,
+        sprites: gpuWorldSprites,
+        colorQuads,
       });
       lavaRocksRenderedByWebGL = Boolean(rendered);
       if (!rendered) {
         for (const tile of gpuTiles) ctx.drawImage(tile.source, tile.left, tile.top, tile.width, tile.height);
       }
+      trimStaticTiles();
+      return Boolean(rendered);
     }
     trimStaticTiles();
+    return false;
   }
 
   function waitForStaticTiles(keys: readonly string[], timeoutMs = 1_500) {

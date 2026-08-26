@@ -36,11 +36,13 @@ import RecordForestEnemyDefeatReducer from "../record_forest_enemy_defeat_reduce
 import RecordLavaEnemyDefeatReducer from "../record_lava_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "../record_player_death_reducer";
 import RegisterProtocolReducer from "../register_protocol_reducer";
+import ReportChatMessageReducer from "../report_chat_message_reducer";
 import RequestDuelReducer from "../request_duel_reducer";
 import ResetPlayerProgressReducer from "../reset_player_progress_reducer";
 import ResumeSessionReducer from "../resume_session_reducer";
 import SavePlayerProgressReducer from "../save_player_progress_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
+import SendChatReplyReducer from "../send_chat_reply_reducer";
 import SetDeveloperPresenceReducer from "../set_developer_presence_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
 import SetGenderReducer from "../set_gender_reducer";
@@ -88,11 +90,13 @@ export type RecordForestEnemyDefeatParams = __Infer<typeof RecordForestEnemyDefe
 export type RecordLavaEnemyDefeatParams = __Infer<typeof RecordLavaEnemyDefeatReducer>;
 export type RecordPlayerDeathParams = __Infer<typeof RecordPlayerDeathReducer>;
 export type RegisterProtocolParams = __Infer<typeof RegisterProtocolReducer>;
+export type ReportChatMessageParams = __Infer<typeof ReportChatMessageReducer>;
 export type RequestDuelParams = __Infer<typeof RequestDuelReducer>;
 export type ResetPlayerProgressParams = __Infer<typeof ResetPlayerProgressReducer>;
 export type ResumeSessionParams = __Infer<typeof ResumeSessionReducer>;
 export type SavePlayerProgressParams = __Infer<typeof SavePlayerProgressReducer>;
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
+export type SendChatReplyParams = __Infer<typeof SendChatReplyReducer>;
 export type SetDeveloperPresenceParams = __Infer<typeof SetDeveloperPresenceReducer>;
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
 export type SetGenderParams = __Infer<typeof SetGenderReducer>;

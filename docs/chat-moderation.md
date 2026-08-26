@@ -1,6 +1,6 @@
 # Chat Moderation Plan
 
-Status: first content-filtering slice implemented; remaining phases planned. Last reviewed: 2026-08-25.
+Status: lightweight content filtering and private message reports complete; remaining guardrails, blocking, profile reports, and review tools planned. Last reviewed: 2026-08-26.
 
 ## Decision
 
@@ -20,7 +20,7 @@ Wildwood already routes public chat through one `sendChatMessage` reducer and bo
 
 Global login and leave messages are currently disabled. If friend-only presence messages return later, they should use a separate targeted path rather than public World Chat.
 
-The first implementation slice now checks public messages against a small server-side, high-confidence set for severe hate, explicit sexual content, credible real-world threats, credential scams, and invite links. Flagged text is never stored publicly: the row carries a server-owned moderation marker and displays *Message moderated.* instead. Rate buckets, reports, blocks, and moderator tools remain planned.
+Public messages now pass through a small server-side, high-confidence set for severe hate, explicit sexual content and solicitation, credible real-world threats, personal-information or credential requests, scams, and invite links. Comparison-only normalization handles Unicode, obvious leetspeak, separator evasions, and repeated letters. Flagged original text is never stored publicly: the row carries a server-owned moderation marker and displays *Message moderated.* instead. The same check protects new display names, while older names are repaired lazily when their owner next enters the world. Full sender/global rate buckets, blocks, profile reports, and moderator review tools remain planned.
 
 ## Message path and cost
 
@@ -67,20 +67,21 @@ Raw block and report tables must not be public. Expose only the controlling play
 
 These are initial tuning values, not permanent balance constants. Adjust them from observed abuse and traffic rather than adding more machinery preemptively.
 
-### 2. Lightweight content filtering
+### 2. Lightweight content filtering (implemented)
 
 - Keep the filter as pure, deterministic server code with unit tests.
 - Build a comparison-only form by trimming, Unicode-normalizing, lowercasing, collapsing separators, folding a small set of obvious leetspeak substitutions, and bounding repeated letters.
 - Match a deliberately small, high-confidence list covering severe slurs, sexual content, credible threats, personal-information solicitation, and common scam or invite links.
-- Reject instead of silently rewriting, using the neutral response `Please revise your message.`
-- Apply the same filter to new display names. Recheck existing names lazily on their next login or rename instead of scanning the entire account table.
-- Do not store every rejected message. Store only small aggregate counters if later diagnostics show they are needed.
+- Replace moderated public content with *Message moderated.* and a server-owned marker; never retain the submitted original in public history.
+- Apply the same filter to new display names. Recheck existing names lazily on their next world entry or rename instead of scanning the entire account table; forced safety renames receive a generated name and may immediately choose a valid replacement.
+- Do not store every moderated original. Store only small aggregate counters if later diagnostics show they are needed.
 
 Favor low false-positive rates. The block list is a safety backstop, not a general dictionary of rude words.
 
-### 3. Player controls without menu clutter
+### 3. Player controls without menu clutter (message actions partially implemented)
 
-- Tapping a fullscreen message opens a compact action sheet with **Report Message**, **Block Player**, and **Cancel**.
+- Tapping a fullscreen message now opens a compact, swipe-dismissable action sheet with **Copy**, **Reply**, and **Report**. Replies carry a server-owned snapshot of the selected safe message for their dimmed inline preview. Usernames remain plain text; portraits alone open profiles.
+- Add **Block Player** to the same sheet when blocking is implemented.
 - Another player's profile exposes clearly labeled **Report Player** and **Block Player** actions.
 - Blocking immediately removes that player's visible World Chat messages and overhead speech bubbles.
 - Hold blocked identities in an in-memory client `Set`, so rendering checks are constant-time and require no server query per message.
@@ -90,7 +91,7 @@ Favor low false-positive rates. The block list is a safety backstop, not a gener
 
 Blocking is personal presentation filtering. The server continues broadcasting the bounded public chat stream; it does not build a custom stream for every recipient.
 
-### 4. Private report queue
+### 4. Private report queue (message reports implemented)
 
 Support both message reports and player-profile reports through one server-authorized reducer. A message report stores:
 
@@ -102,7 +103,7 @@ Support both message reports and player-profile reports through one server-autho
 
 Profile reports use the same shape with no selected message and a short optional note. The server must verify that a selected public message exists and matches the accused identity before copying its evidence.
 
-Limit each reporter to about five reports per hour and reject duplicate reports of the same message. Preserve the private snapshot after the public 24-hour row expires or is deleted.
+Message reports now use a private server table, verify the selected message and accused sender from server state, reject self/duplicate reports, and preserve the evidence snapshot after public history expires. A one-row-per-reporter guard enforces five reports per hour without scanning report history. Profile reports and their optional note remain to be added.
 
 ### 5. Developer moderation tools
 
@@ -150,7 +151,7 @@ If abuse becomes significant, make guest chat read-only first. If global chat ba
 - Unit-test normalization, evasions, allowed near-matches, duplicate detection, sender limits, and mute expiry.
 - Test report authorization, evidence snapshots, duplicate-report limits, and developer-only actions.
 - Test block hydration, immediate hiding, speech-bubble suppression, Undo, and account migration.
-- Confirm rejected messages never enter the public table.
+- Confirm moderated original text never enters the public table and only the marked replacement is broadcast.
 - Confirm block and report rows cannot be subscribed to by other players.
 - Load-test a global message burst and verify the singleton bucket bounds accepted inserts and fanout.
 - Before release, build and publish the server, regenerate bindings for schema or reducer changes, deploy the matching client, and recheck the current Apple and Google policies.

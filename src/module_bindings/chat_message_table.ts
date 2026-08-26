@@ -21,4 +21,7 @@ export default __t.row({
   powerLevel: __t.f32().name("power_level"),
   senderGender: __t.u8().name("sender_gender"),
   moderated: __t.bool(),
+  replyToMessageId: __t.u64().name("reply_to_message_id"),
+  replyToSenderName: __t.string().name("reply_to_sender_name"),
+  replyToMessage: __t.string().name("reply_to_message"),
 });

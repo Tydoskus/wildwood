@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.524": [
+    "Fullscreen chat messages now open a smooth swipe-down action drawer for Copy, Reply, and private Report controls, while only portraits open player profiles.",
+    "Replies now preserve a dimmed message reference above the response, and message bubbles fit their content while retaining a comfortable right-side scroll gutter.",
+    "Chat moderation now catches more high-confidence evasions, protects display names, and stores private server-verified reports without retaining moderated originals.",
+    "WebGL now batches projectiles and particles with safe Canvas fallback, and the respawn countdown remains clearly white over the game world.",
+  ],
   "0.523": [
     "WebGL now prewarms the spawn-area world tiles before gameplay and batches crisp Lava Lake rocks into a few GPU draws, with automatic Canvas fallback.",
   ],
@@ -1091,6 +1097,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.524": "2026-08-26",
   "0.523": "2026-08-26",
   "0.522": "2026-08-26",
   "0.521": "2026-08-25",

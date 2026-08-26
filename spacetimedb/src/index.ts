@@ -1,4 +1,4 @@
-import { Range, schema, SenderError, table, t } from "spacetimedb/server";
+import { Range, schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor, damageBlockedByArmor } from "./combat";
 import {
@@ -17,7 +17,9 @@ import {
   isSelectedPlayerGender,
 } from "../../shared/player-gender";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
-import { moderatePublicChatMessage } from "./chat-moderation";
+import { isPublicDisplayNameAllowed, moderatePublicChatMessage } from "./chat-moderation";
+import { isChatReportReason } from "../../shared/chat-report";
+import { nextChatReportRateState } from "./chat-report-rate-limit";
 import {
   DAILY_LOGIN_GEM_BONUS,
   MAX_INVENTORY_SLOT_CAPACITY,
@@ -905,6 +907,48 @@ const chatMessage = table(
     powerLevel: t.f32().default(0),
     senderGender: t.u8().default(PLAYER_GENDER_UNSET),
     moderated: t.bool().default(false),
+    replyToMessageId: t.u64().default(0n),
+    replyToSenderName: t.string().default(""),
+    replyToMessage: t.string().default(""),
+  },
+);
+
+// Message reports are intentionally private: ordinary clients never subscribe
+// to moderation evidence or learn who reported another player.
+const chatMessageReport = table(
+  {
+    public: false,
+    indexes: [
+      { accessor: "byReporterMessage", algorithm: "btree", columns: ["reporter", "messageId"] as const },
+      { accessor: "byStatus", algorithm: "btree", columns: ["status"] as const },
+    ],
+  },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    reporter: t.identity(),
+    reporterName: t.string(),
+    accused: t.identity(),
+    senderName: t.string(),
+    messageId: t.u64(),
+    message: t.string(),
+    messageModerated: t.bool(),
+    sentAt: t.timestamp(),
+    reason: t.string(),
+    status: t.string(),
+    reportedAt: t.timestamp(),
+    replyToSenderName: t.string().default(""),
+    replyToMessage: t.string().default(""),
+  },
+);
+
+// One row per reporter keeps the five-per-hour guard O(1), regardless of how
+// many historical reports the private review queue eventually contains.
+const chatMessageReportRateLimit = table(
+  { public: false },
+  {
+    reporter: t.identity().primaryKey(),
+    windowStartedAt: t.timestamp(),
+    reportCount: t.u8(),
   },
 );
 
@@ -1346,6 +1390,8 @@ const spacetimedb = schema({
   duelRequestCooldown,
   accountLink,
   chatMessage,
+  chatMessageReport,
+  chatMessageReportRateLimit,
   bugReport,
   duel,
   duelReplay,
@@ -1377,6 +1423,8 @@ const spacetimedb = schema({
   magmaliskRespawnSchedule,
 });
 export default spacetimedb;
+
+type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
 export const devAccessAudit = spacetimedb.view(
   { name: "dev_access_audit", public: true },
@@ -1460,6 +1508,63 @@ function isGeneratedDisplayName(displayName: string) {
     NAME_ADJECTIVES.includes(adjective) &&
     NAME_CREATURES.includes(creature) &&
     /^\d{3}$/.test(suffix ?? "");
+}
+
+function requireAllowedDisplayName(displayName: string) {
+  if (!isPublicDisplayNameAllowed(displayName)) {
+    throw new SenderError("Display name is not allowed.");
+  }
+}
+
+function syncDisplayNamePresentation(ctx: any, identity: any, displayName: string) {
+  const leaderboard = ctx.db.leaderboardEntry.identity.find(identity);
+  if (leaderboard && leaderboard.displayName !== displayName) {
+    ctx.db.leaderboardEntry.identity.update({ ...leaderboard, displayName });
+  }
+  const motionIdentity = ctx.db.playerMotionIdentity.identity.find(identity);
+  if (motionIdentity && motionIdentity.displayName !== displayName) {
+    ctx.db.playerMotionIdentity.networkId.update({ ...motionIdentity, displayName });
+  }
+  const audit = ctx.db.playerAccessAudit.identity.find(identity);
+  if (audit && audit.displayName !== displayName) {
+    ctx.db.playerAccessAudit.identity.update({ ...audit, displayName });
+  }
+  for (const table of [
+    ctx.db.dragonContribution,
+    ctx.db.spiderContribution,
+    ctx.db.frostclawContribution,
+    ctx.db.magmaliskContribution,
+  ]) {
+    const contribution = table.identity.find(identity);
+    if (contribution && contribution.displayName !== displayName) {
+      table.identity.update({ ...contribution, displayName });
+    }
+  }
+  for (const message of [...ctx.db.chatMessage.iter()] as any[]) {
+    if (sameIdentity(message.sender, identity) && message.senderName && message.senderName !== displayName) {
+      ctx.db.chatMessage.id.update({ ...message, senderName: displayName });
+    }
+  }
+  for (const duel of [...ctx.db.duel.byChallenger.filter(identity)] as any[]) {
+    if (duel.challengerName !== displayName) ctx.db.duel.id.update({ ...duel, challengerName: displayName });
+  }
+  for (const duel of [...ctx.db.duel.byOpponent.filter(identity)] as any[]) {
+    if (duel.opponentName !== displayName) ctx.db.duel.id.update({ ...duel, opponentName: displayName });
+  }
+}
+
+function repairModeratedDisplayName(ctx: any, profile: any) {
+  if (isPublicDisplayNameAllowed(profile.displayName)) return profile;
+  const displayName = generatedDisplayName(profile.identity);
+  const repaired = { ...profile, displayName };
+  ctx.db.playerProfile.identity.update(repaired);
+  // A forced safety rename must not make the player wait 30 days to choose a
+  // new valid name.
+  if (ctx.db.playerNameCooldown.identity.find(profile.identity)) {
+    ctx.db.playerNameCooldown.identity.delete(profile.identity);
+  }
+  syncDisplayNamePresentation(ctx, profile.identity, displayName);
+  return repaired;
 }
 
 function defaultPlayerProgress(identity: any) {
@@ -3682,6 +3787,7 @@ function insertChatMessage(
   message: string,
   replayId = 0n,
   moderated = false,
+  reply?: { messageId: bigint; senderName: string; message: string },
 ) {
   const progress = ctx.db.playerProgress.identity.find(sender);
   const profile = ctx.db.playerProfile.identity.find(sender);
@@ -3696,6 +3802,9 @@ function insertChatMessage(
     powerLevel: progress ? effectivePowerForProgress(ctx, progress) : 0,
     senderGender: profile?.gender ?? PLAYER_GENDER_UNSET,
     moderated,
+    replyToMessageId: reply?.messageId ?? 0n,
+    replyToSenderName: reply?.senderName ?? "",
+    replyToMessage: reply?.message ?? "",
   });
   trimChatHistory(ctx);
 }
@@ -3935,7 +4044,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId: normalizedTabId });
   }
 
-  const existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
+  let existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
     ctx.db.playerProfile.insert({
       identity: ctx.sender,
@@ -3945,6 +4054,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       skinTone: 3,
       gender: PLAYER_GENDER_UNSET,
     });
+  } else {
+    existingProfile = repairModeratedDisplayName(ctx, existingProfile);
   }
   ensureGemWallet(ctx, ctx.sender);
   if (hasSpacetimeAuthAccount(ctx)) ensureDailyGemBonusState(ctx, ctx.sender);
@@ -4881,9 +4992,10 @@ export const claimGuestAccount = spacetimedb.reducer(
     }
 
     const guestProfile = ctx.db.playerProfile.identity.find(link.guest);
-    const accountProfile = ctx.db.playerProfile.identity.find(ctx.sender);
+    let accountProfile = ctx.db.playerProfile.identity.find(ctx.sender);
+    if (accountProfile) accountProfile = repairModeratedDisplayName(ctx, accountProfile);
     const preserveAccountName = Boolean(accountProfile && !isGeneratedDisplayName(accountProfile.displayName));
-    const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName));
+    const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName) && isPublicDisplayNameAllowed(guestProfile.displayName));
     if (transferGuestName && guestProfile && accountProfile) {
       ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
     } else if (transferGuestName && guestProfile) {
@@ -4892,6 +5004,9 @@ export const claimGuestAccount = spacetimedb.reducer(
       ctx.db.playerProfile.identity.update({ ...accountProfile, gender: guestProfile.gender });
     } else if (guestProfile?.gender && !accountProfile) {
       ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: generatedDisplayName(ctx.sender), profileIcon: 0, playerSprite: 0, skinTone: 3, gender: guestProfile.gender });
+    }
+    if (transferGuestName && guestProfile) {
+      syncDisplayNamePresentation(ctx, ctx.sender, guestProfile.displayName);
     }
 
     // A freshly-created guest's generated name must never overwrite an existing
@@ -5043,6 +5158,7 @@ export const setDisplayName = spacetimedb.reducer(
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(normalized)) {
       throw new SenderError("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores");
     }
+    requireAllowedDisplayName(normalized);
 
     const existing = ctx.db.playerProfile.identity.find(ctx.sender);
     if (existing?.displayName === normalized) return;
@@ -5067,8 +5183,7 @@ export const setDisplayName = spacetimedb.reducer(
     }
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
-    const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
-    if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, displayName: normalized });
+    syncDisplayNamePresentation(ctx, ctx.sender, normalized);
     syncPlayerMotionIdentity(ctx, activePlayer);
     touchPlayerAccessAudit(ctx, activePlayer.protocolVersion);
   },
@@ -5360,6 +5475,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(displayName)) {
       throw new SenderError("Name must be 2-20 letters, numbers, spaces, hyphens, or underscores.");
     }
+    requireAllowedDisplayName(displayName);
     const bounded = (value: number, min: number, max: number, field: string) => {
       if (!Number.isFinite(value) || value < min || value > max) {
         throw new SenderError(`${field} must be between ${min} and ${max}.`);
@@ -5382,6 +5498,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       speedOverride: requestedSpeed === 0 || movementSpeedsMatch(requestedSpeed, equipmentSpeed) ? 0 : requestedSpeed,
     };
     ctx.db.playerProfile.identity.update({ ...profile, displayName });
+    syncDisplayNamePresentation(ctx, update.identity, displayName);
     ctx.db.playerProgress.identity.update(nextProgress);
     const active = ctx.db.player.identity.find(update.identity);
     if (active) {
@@ -5905,52 +6022,129 @@ export const resetPlayerProgress = spacetimedb.reducer(
   },
 );
 
+function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
+  requireControllingPlayer(ctx);
+  const profile = ctx.db.playerProfile.identity.find(ctx.sender);
+  if (!profile) return;
+
+  const normalized = message.trim();
+  if (!normalized) return;
+  if (normalized.length > CHAT_MESSAGE_MAX_LENGTH) {
+    throw new SenderError("Chat message is too long");
+  }
+
+  const bugCommand = /^\/bug(?:\s|$)/i.exec(normalized);
+  const bugReportText = bugCommand ? normalized.slice(bugCommand[0].length).trim() : "";
+  if (bugCommand && !bugReportText) throw new SenderError("Use /bug followed by a description.");
+
+  let reply: { messageId: bigint; senderName: string; message: string } | undefined;
+  if (!bugCommand && replyToMessageId > 0n) {
+    const target = ctx.db.chatMessage.id.find(replyToMessageId);
+    if (!target) throw new SenderError("The message you replied to is no longer available.");
+    if (!target.senderName || target.replayId > 0n) throw new SenderError("This message cannot be replied to.");
+    reply = {
+      messageId: target.id,
+      senderName: target.senderName,
+      message: target.message,
+    };
+  }
+
+  const cooldown = ctx.db.chatCooldown.identity.find(ctx.sender);
+  if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) {
+    const elapsed = ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch;
+    const remainingSeconds = Math.max(1, Math.ceil(Number(CHAT_COOLDOWN_MICROS - elapsed) / 1_000_000));
+    throw new SenderError(`Wait ${remainingSeconds} seconds before sending another chat message.`);
+  }
+  if (cooldown) ctx.db.chatCooldown.identity.update({ ...cooldown, lastSentAt: ctx.timestamp });
+  else ctx.db.chatCooldown.insert({ identity: ctx.sender, lastSentAt: ctx.timestamp });
+  if (bugCommand) {
+    ctx.db.bugReport.insert({
+      id: 0n,
+      reporter: ctx.sender,
+      reporterName: profile.displayName,
+      message: bugReportText,
+      protocolVersion: PROTOCOL_VERSION,
+      reportedAt: ctx.timestamp,
+    });
+    return;
+  }
+
+  const moderatedMessage = moderatePublicChatMessage(normalized);
+  insertChatMessage(
+    ctx,
+    ctx.sender,
+    profile.displayName,
+    moderatedMessage.message,
+    0n,
+    moderatedMessage.moderated,
+    reply,
+  );
+}
+
 export const sendChatMessage = spacetimedb.reducer(
   { message: t.string() },
-  (ctx, { message }) => {
+  (ctx, { message }) => sendPlayerChatMessage(ctx, message),
+);
+
+// Kept separate from sendChatMessage so already-deployed clients retain their
+// original reducer signature while newer clients can attach a server snapshot.
+export const sendChatReply = spacetimedb.reducer(
+  { message: t.string(), replyToMessageId: t.u64() },
+  (ctx, { message, replyToMessageId }) => sendPlayerChatMessage(ctx, message, replyToMessageId),
+);
+
+export const reportChatMessage = spacetimedb.reducer(
+  { messageId: t.u64(), reason: t.string() },
+  (ctx, { messageId, reason }) => {
     requireControllingPlayer(ctx);
-    const profile = ctx.db.playerProfile.identity.find(ctx.sender);
-    if (!profile) return;
+    if (!isChatReportReason(reason)) throw new SenderError("Choose a valid report reason.");
 
-    const normalized = message.trim();
-    if (!normalized) return;
-    if (normalized.length > CHAT_MESSAGE_MAX_LENGTH) {
-      throw new SenderError("Chat message is too long");
+    const message = ctx.db.chatMessage.id.find(messageId);
+    if (!message) throw new SenderError("Message is no longer available.");
+    if (sameIdentity(message.sender, ctx.sender)) throw new SenderError("You cannot report your own message.");
+    if (!message.senderName || message.replayId > 0n) throw new SenderError("This message cannot be reported.");
+
+    for (const _existing of ctx.db.chatMessageReport.byReporterMessage.filter([ctx.sender, messageId])) {
+      throw new SenderError("You already reported this message.");
     }
 
-    const bugCommand = /^\/bug(?:\s|$)/i.exec(normalized);
-    const report = bugCommand ? normalized.slice(bugCommand[0].length).trim() : "";
-    if (bugCommand && !report) throw new SenderError("Use /bug followed by a description.");
-
-    const cooldown = ctx.db.chatCooldown.identity.find(ctx.sender);
-    if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) {
-      const elapsed = ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch;
-      const remainingSeconds = Math.max(1, Math.ceil(Number(CHAT_COOLDOWN_MICROS - elapsed) / 1_000_000));
-      throw new SenderError(`Wait ${remainingSeconds} seconds before sending another chat message.`);
-    }
-    if (cooldown) ctx.db.chatCooldown.identity.update({ ...cooldown, lastSentAt: ctx.timestamp });
-    else ctx.db.chatCooldown.insert({ identity: ctx.sender, lastSentAt: ctx.timestamp });
-    if (bugCommand) {
-      ctx.db.bugReport.insert({
-        id: 0n,
-        reporter: ctx.sender,
-        reporterName: profile.displayName,
-        message: report,
-        protocolVersion: PROTOCOL_VERSION,
-        reportedAt: ctx.timestamp,
-      });
-      return;
-    }
-
-    const moderatedMessage = moderatePublicChatMessage(normalized);
-    insertChatMessage(
-      ctx,
-      ctx.sender,
-      profile.displayName,
-      moderatedMessage.message,
-      0n,
-      moderatedMessage.moderated,
+    const currentRate = ctx.db.chatMessageReportRateLimit.reporter.find(ctx.sender);
+    const nextRate = nextChatReportRateState(
+      ctx.timestamp.microsSinceUnixEpoch,
+      currentRate
+        ? {
+          windowStartedAtMicros: currentRate.windowStartedAt.microsSinceUnixEpoch,
+          reportCount: currentRate.reportCount,
+        }
+        : undefined,
     );
+    if (!nextRate.allowed) throw new SenderError("Report limit reached. Try again later.");
+
+    const rateRow = {
+      reporter: ctx.sender,
+      windowStartedAt: new Timestamp(nextRate.windowStartedAtMicros),
+      reportCount: nextRate.reportCount,
+    };
+    if (currentRate) ctx.db.chatMessageReportRateLimit.reporter.update(rateRow);
+    else ctx.db.chatMessageReportRateLimit.insert(rateRow);
+
+    const reporterName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+    ctx.db.chatMessageReport.insert({
+      id: 0n,
+      reporter: ctx.sender,
+      reporterName,
+      accused: message.sender,
+      senderName: message.senderName,
+      messageId: message.id,
+      message: message.message,
+      messageModerated: message.moderated,
+      sentAt: message.sentAt,
+      reason,
+      status: "pending",
+      reportedAt: ctx.timestamp,
+      replyToSenderName: message.replyToSenderName,
+      replyToMessage: message.replyToMessage,
+    });
   },
 );
 

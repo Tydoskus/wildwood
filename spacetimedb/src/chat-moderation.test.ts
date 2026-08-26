@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
 import {
+  isPublicDisplayNameAllowed,
   moderatePublicChatMessage,
+  normalizeModerationText,
   shouldModeratePublicChatMessage,
 } from "./chat-moderation";
 
@@ -15,6 +17,8 @@ describe("public chat moderation", () => {
       "The path is wet back near the portal",
       "The daily bonus gives free gems",
       "Message moderated.",
+      "Sex education is part of health class",
+      "That boss fucked me up",
     ];
 
     for (const message of allowed) {
@@ -33,6 +37,22 @@ describe("public chat moderation", () => {
     expect(shouldModeratePublicChatMessage("visit this porn page")).toBe(true);
   });
 
+  it("catches direct sexual solicitation without blocking standalone context", () => {
+    const blocked = [
+      "i want sex",
+      "have sex with me",
+      "i fuck you so hot",
+      "i want to fuck you",
+      "lets fuck and have sex",
+      "f.u.c.k you",
+      "f*ck you",
+      "I want s3x",
+    ];
+    for (const message of blocked) expect(shouldModeratePublicChatMessage(message)).toBe(true);
+    expect(shouldModeratePublicChatMessage("sex")).toBe(false);
+    expect(shouldModeratePublicChatMessage("sex education")).toBe(false);
+  });
+
   it("catches credible real-world threats without hiding normal combat talk", () => {
     expect(shouldModeratePublicChatMessage("I will kill you irl")).toBe(true);
     expect(shouldModeratePublicChatMessage("I know where you live")).toBe(true);
@@ -42,8 +62,28 @@ describe("public chat moderation", () => {
 
   it("catches invite links and high-confidence scams", () => {
     expect(shouldModeratePublicChatMessage("join https://discord.gg/example")).toBe(true);
+    expect(shouldModeratePublicChatMessage("join discord dot gg example")).toBe(true);
     expect(shouldModeratePublicChatMessage("free gems https://bad.example.xyz")).toBe(true);
     expect(shouldModeratePublicChatMessage("send me your password")).toBe(true);
+  });
+
+  it("catches high-confidence personal-information requests", () => {
+    expect(shouldModeratePublicChatMessage("send me your home address")).toBe(true);
+    expect(shouldModeratePublicChatMessage("what's your phone number")).toBe(true);
+    expect(shouldModeratePublicChatMessage("share your real name")).toBe(true);
+    expect(shouldModeratePublicChatMessage("where is the lava boss located")).toBe(false);
+  });
+
+  it("normalizes Unicode, leetspeak, separators, and long letter runs only for comparison", () => {
+    expect(normalizeModerationText("  F...U...C...K YOU!!!  ")).toBe("fuck you");
+    expect(normalizeModerationText("I want s333xxxx")).toBe("i want sex");
+  });
+
+  it("applies the same high-confidence filter to display names", () => {
+    expect(isPublicDisplayNameAllowed("F_u_c_k")).toBe(false);
+    expect(isPublicDisplayNameAllowed("WantSex")).toBe(false);
+    expect(isPublicDisplayNameAllowed("Sex Education")).toBe(true);
+    expect(isPublicDisplayNameAllowed("Niger Explorer")).toBe(true);
   });
 
   it("replaces moderated content without retaining the original text", () => {

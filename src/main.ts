@@ -868,6 +868,7 @@ import {
     flash: () => flash,
     projectiles,
     enemyShots,
+    particles: effects.particles,
   });
 
   function saveProgress(immediate = false) {

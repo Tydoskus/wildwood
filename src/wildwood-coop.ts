@@ -77,6 +77,7 @@ import {
 } from "../shared/rules";
 import { itemUpgradeDurationMs, normalizeItemUpgradeLevel } from "../shared/items";
 import { normalizedInventorySlotsUnlocked } from "../shared/gems";
+import type { ChatReportReason } from "../shared/chat-report";
 
 type WildwoodRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -130,6 +131,9 @@ export type ChatMessage = {
   powerLevel: number;
   senderGender: PlayerGender;
   moderated: boolean;
+  replyToMessageId: bigint;
+  replyToSenderName: string;
+  replyToMessage: string;
   sentAtMs: number;
 };
 
@@ -2007,6 +2011,9 @@ function upsertChatMessage(row: {
   powerLevel: number;
   senderGender: number;
   moderated: boolean;
+  replyToMessageId: bigint;
+  replyToSenderName: string;
+  replyToMessage: string;
   sentAt: { microsSinceUnixEpoch: bigint };
 }) {
   if (chatMessages.some((message) => message.id === row.id)) return;
@@ -2025,6 +2032,9 @@ function upsertChatMessage(row: {
     powerLevel: Number(row.powerLevel) || 0,
     senderGender: normalizePlayerGender(row.senderGender),
     moderated: row.moderated,
+    replyToMessageId: row.replyToMessageId,
+    replyToSenderName: row.replyToSenderName,
+    replyToMessage: row.replyToMessage,
     sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1000n),
   });
   chatMessages.sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -3819,15 +3829,31 @@ export const wildwoodCoop = {
   chatRevision() {
     return chatPresentationRevision;
   },
-  async sendChatMessage(message: string) {
+  async sendChatMessage(message: string, replyToMessageId = 0n) {
     if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
     if (!connection) return { ok: false, error: "NOT CONNECTED" };
     try {
-      await runWorldReducer(() => connection!.reducers.sendChatMessage({ message }));
+      if (replyToMessageId > 0n) {
+        await runWorldReducer(() => connection!.reducers.sendChatReply({ message, replyToMessageId }));
+      } else {
+        await runWorldReducer(() => connection!.reducers.sendChatMessage({ message }));
+      }
       return { ok: true };
     } catch (error) {
       const rejected = reducerErrorMessage(error);
       handleReducerFailure("chat message", error);
+      return { ok: false, error: rejected };
+    }
+  },
+  async reportChatMessage(messageId: bigint, reason: ChatReportReason) {
+    if (protocolBlocked) return { ok: false, error: "UPDATE REQUIRED" };
+    if (!connection) return { ok: false, error: "NOT CONNECTED" };
+    try {
+      await runWorldReducer(() => connection!.reducers.reportChatMessage({ messageId, reason }));
+      return { ok: true };
+    } catch (error) {
+      const rejected = reducerErrorMessage(error);
+      handleReducerFailure("chat report", error);
       return { ok: false, error: rejected };
     }
   },

@@ -2,12 +2,19 @@ import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
 import {
   duelReplayIsInteractive,
   formatChatTime,
+  formatChatReplyPreview,
   shouldShowGlobalChatMessage,
 } from "./chat-presentation";
 import { formatCompactNumber } from "./number-format";
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
 import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
+import { type ChatReportReason } from "../../shared/chat-report";
+import {
+  createChatMessageActionsController,
+  type ChatMessageActionElements,
+  type ChatMessageActionTarget,
+} from "./chat-message-actions";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
@@ -18,6 +25,7 @@ const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (8 * P
 const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
 
 type ChatMessage = {
+  id: bigint;
   sender: string;
   senderName: string;
   message: string;
@@ -25,16 +33,21 @@ type ChatMessage = {
   powerLevel: number;
   senderGender: PlayerGender;
   moderated: boolean;
+  replyToMessageId: bigint;
+  replyToSenderName: string;
+  replyToMessage: string;
   sentAtMs: number;
 };
 
 type CoopClient = {
+  localIdentity?: () => string;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
   playerGender?: (identity: string) => PlayerGender;
   chatRevision?: () => number;
   chatMessages?: () => ChatMessage[];
-  sendChatMessage?: (message: string) => Promise<{ ok: boolean; error?: string }>;
+  sendChatMessage?: (message: string, replyToMessageId?: bigint) => Promise<{ ok: boolean; error?: string }>;
+  reportChatMessage?: (messageId: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
 };
 
 type ChatElements = {
@@ -45,8 +58,13 @@ type ChatElements = {
   messages: HTMLElement;
   form: HTMLFormElement;
   input: HTMLTextAreaElement;
+  replyComposer: HTMLElement;
+  replyComposerName: HTMLElement;
+  replyComposerPreview: HTMLElement;
+  replyCancelButton: HTMLButtonElement;
   backButton: HTMLButtonElement;
   sendButton: HTMLButtonElement;
+  messageActions: ChatMessageActionElements;
 };
 
 type ChatOptions = {
@@ -66,14 +84,46 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   let chatCooldownUntil = 0;
   let chatCooldownTimer: number | null = null;
   let layoutRecoveryTimer: number | null = null;
+  let pendingReply: ChatMessageActionTarget | null = null;
+  const messageActions = createChatMessageActionsController({
+    elements: elements.messageActions,
+    getLocalIdentity: () => getCoop()?.localIdentity?.() ?? "",
+    onReply: (target) => setPendingReply(target, true),
+    reportMessage: async (messageId, reason) => {
+      const report = getCoop()?.reportChatMessage;
+      if (!report) return { ok: false, error: "NOT CONNECTED" };
+      return report(messageId, reason);
+    },
+    showMessage,
+  });
 
   try { enabled = localStorage.getItem(CHAT_ENABLED_KEY) !== "false"; } catch {}
+
+  function setPendingReply(target: ChatMessageActionTarget | null, focusInput = false) {
+    pendingReply = target;
+    elements.replyComposer.hidden = target === null;
+    if (target) {
+      elements.replyComposerName.textContent = `Replying to ${target.senderName}`;
+      elements.replyComposerPreview.textContent = target.message.replace(/\s+/g, " ");
+    } else {
+      elements.replyComposerName.textContent = "";
+      elements.replyComposerPreview.textContent = "";
+    }
+    if (focusInput) {
+      elements.input.focus({ preventScroll: true });
+      elements.input.setSelectionRange(elements.input.value.length, elements.input.value.length);
+    }
+  }
 
   function updateVisibility() {
     elements.toggle.textContent = enabled ? "ON" : "OFF";
     elements.toggle.setAttribute("aria-pressed", String(enabled));
     elements.toggle.classList.toggle("is-off", !enabled);
     elements.panel.hidden = !enabled;
+    if (!enabled) {
+      messageActions.close(false);
+      setPendingReply(null);
+    }
     try { localStorage.setItem(CHAT_ENABLED_KEY, String(enabled)); } catch {}
     requestAnimationFrame(() => onLayoutChange?.());
   }
@@ -99,6 +149,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const closingComposer = large && !nextLarge;
     if (closingComposer) elements.input.blur();
     large = nextLarge;
+    if (!large) {
+      messageActions.close(false);
+      setPendingReply(null);
+    }
     updateHeight();
     if (closingComposer) {
       if (layoutRecoveryTimer !== null) window.clearTimeout(layoutRecoveryTimer);
@@ -163,10 +217,20 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const time = document.createElement("span");
       time.className = "chat-time";
       time.textContent = formatChatTime(new Date(message.sentAtMs));
+      const shownMessage = message.moderated ? MODERATED_CHAT_MESSAGE : message.message;
       const text = document.createElement("span");
       text.className = "chat-text";
       text.classList.toggle("is-moderated", message.moderated);
-      text.textContent = message.moderated ? MODERATED_CHAT_MESSAGE : message.message;
+      if (message.replyToMessageId > 0n && message.replyToSenderName && message.replyToMessage) {
+        const replyPreview = document.createElement("span");
+        replyPreview.className = "chat-reply-preview";
+        replyPreview.textContent = formatChatReplyPreview(message.replyToSenderName, message.replyToMessage);
+        text.appendChild(replyPreview);
+      }
+      const messageBody = document.createElement("span");
+      messageBody.className = "chat-message-body";
+      messageBody.textContent = shownMessage;
+      text.appendChild(messageBody);
       const displayName = message.senderName || (message.replayId > 0n ? "DUEL" : "PLAYER");
       const displayIdentity = message.sender;
       const cachedGender = normalizePlayerGender(coop?.playerGender?.(displayIdentity));
@@ -206,9 +270,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         power.append(powerValue, powerIcon);
         name.appendChild(power);
       }
-      name.setAttribute("role", "button");
-      name.setAttribute("tabindex", large ? "0" : "-1");
-      name.setAttribute("aria-label", `View ${displayName}'s profile`);
       const openPlayer = (event: Event) => {
         event.stopPropagation();
         if (!large) {
@@ -222,12 +283,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         event.stopPropagation();
         onOpenReplay?.(message.replayId);
       };
-      name.addEventListener("click", openPlayer);
-      name.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        openPlayer(event);
-      });
       const icon = document.createElement("span");
       icon.className = "chat-profile-icon";
       icon.setAttribute("role", "button");
@@ -245,6 +300,28 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       content.className = "chat-message-content";
       content.append(name, text);
       line.append(time, icon, content);
+      if (large && message.replayId === 0n) {
+        const openMessageActions = (event: Event) => {
+          event.stopPropagation();
+          messageActions.open({
+            id: message.id,
+            sender: message.sender,
+            senderName: displayName,
+            message: shownMessage,
+            replayId: message.replayId,
+          });
+        };
+        text.classList.add("is-actionable");
+        text.setAttribute("role", "button");
+        text.setAttribute("tabindex", "0");
+        text.setAttribute("aria-label", `Message from ${displayName}. Open actions.`);
+        text.addEventListener("click", openMessageActions);
+        text.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openMessageActions(event);
+        });
+      }
       if (duelReplayIsInteractive(message.replayId, large)) {
         line.classList.add("has-replay");
         line.setAttribute("role", "button");
@@ -266,7 +343,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         replayIcon.setAttribute("aria-hidden", "true");
         replay.appendChild(replayIcon);
         replay.addEventListener("click", openReplay);
-        text.append(" ", replay);
+        messageBody.append(" ", replay);
       }
       elements.messages.appendChild(line);
     }
@@ -281,6 +358,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   }
 
   function init() {
+    messageActions.init();
     elements.toggle.addEventListener("click", () => {
       enabled = !enabled;
       updateVisibility();
@@ -310,13 +388,14 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         showMessage("USE /BUG FOLLOWED BY A DESCRIPTION", "#ff9b91");
         return;
       }
-      const result = await getCoop()?.sendChatMessage?.(message);
+      const result = await getCoop()?.sendChatMessage?.(message, pendingReply?.id ?? 0n);
       if (!result?.ok) {
         showMessage(result?.error || "MESSAGE FAILED", "#ff9b91");
         return;
       }
       elements.input.value = "";
       elements.input.style.height = "28px";
+      setPendingReply(null);
       startChatCooldown();
       if (bugCommand) showMessage("BUG REPORT SENT", "#c9f5c2");
     });
@@ -325,6 +404,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       event.preventDefault();
       elements.form.requestSubmit();
     });
+    elements.replyCancelButton.addEventListener("click", () => setPendingReply(null, true));
     elements.input.addEventListener("beforeinput", (event) => {
       if (event.inputType !== "insertLineBreak" && event.inputType !== "insertParagraph") return;
       event.preventDefault();

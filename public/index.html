@@ -13,7 +13,7 @@
   html, body { min-height: 100vh; min-height: 100dvh; background: #000; }
   #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: linear-gradient(180deg, rgba(4,12,6,.24), rgba(4,12,6,.38)), var(--signin-preview) center / cover no-repeat; }
 </style>
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.523" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.524" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -194,7 +194,7 @@
   </button>
   <div class="minimap-meta">
     <div id="minimapPlayers" class="minimap-players">players online: 0</div>
-    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.523">v0.523</div>
+    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.524">v0.524</div>
   </div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
@@ -210,12 +210,19 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.523</div>
+        <div id="version">v0.524</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
     <div id="chatMessages" aria-live="polite"></div>
     <form id="chatForm">
+      <div id="chatReplyComposer" class="chat-reply-composer" hidden>
+        <div class="chat-reply-composer-copy">
+          <strong id="chatReplyComposerName">Replying to Player</strong>
+          <span id="chatReplyComposerPreview"></span>
+        </div>
+        <button id="chatReplyCancelBtn" type="button" aria-label="Cancel reply">×</button>
+      </div>
       <textarea id="chatInput" maxlength="250" rows="1" autocomplete="off" enterkeyhint="send" placeholder="Say something…"></textarea>
       <button id="chatSendBtn" type="submit">SEND</button>
       <button id="chatBackBtn" class="chat-back-button" type="button" hidden>Back</button>
@@ -236,6 +243,34 @@
     <h2 id="dailyGemBonusTitle">+7 GEMS</h2>
     <p id="dailyGemBonusCopy">WELCOME BACK</p>
     <button id="dailyGemClaimBtn" class="daily-gem-claim-button" type="button">CLAIM</button>
+  </section>
+</div>
+
+<div id="chatMessageActions" class="chat-message-actions" hidden>
+  <button id="chatMessageActionsBackdrop" class="chat-message-actions-backdrop" type="button" aria-label="Close message actions" tabindex="-1"></button>
+  <section id="chatMessageActionSheet" class="chat-message-action-sheet" role="dialog" aria-modal="true" aria-labelledby="chatMessageActionTitle" aria-describedby="chatMessageActionPreview">
+    <div id="chatMessageActionDrag" class="chat-message-action-drag" aria-label="Swipe down to close">
+      <span class="chat-message-action-handle" aria-hidden="true"></span>
+    </div>
+    <header class="chat-message-action-header">
+      <h2 id="chatMessageActionTitle">Message</h2>
+      <p id="chatMessageActionPreview"></p>
+    </header>
+    <div id="chatMessageActionMenu" class="chat-message-action-menu">
+      <button id="chatMessageCopyBtn" class="chat-message-action-button" type="button"><span aria-hidden="true">⧉</span>Copy</button>
+      <button id="chatMessageReplyBtn" class="chat-message-action-button" type="button"><span aria-hidden="true">↩</span>Reply</button>
+      <button id="chatMessageReportBtn" class="chat-message-action-button is-danger" type="button"><span aria-hidden="true">!</span>Report</button>
+    </div>
+    <form id="chatMessageReportForm" class="chat-message-report-form" hidden>
+      <fieldset>
+        <legend>Why are you reporting this message?</legend>
+        <div id="chatMessageReportReasons" class="chat-message-report-reasons"></div>
+      </fieldset>
+      <div class="chat-message-report-actions">
+        <button id="chatMessageReportBackBtn" class="secondary-button" type="button">Back</button>
+        <button id="chatMessageReportSubmitBtn" class="danger" type="submit" disabled>Submit Report</button>
+      </div>
+    </form>
   </section>
 </div>
 
@@ -283,13 +318,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.523</strong></div>
+        <div><strong id="updateNoticeTitle">v0.524</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.523</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.524</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -598,7 +633,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.523"></script>
-<script src="assets/wildwood/game.js?v=0.523"></script>
+<script src="assets/wildwood/coop-client.js?v=0.524"></script>
+<script src="assets/wildwood/game.js?v=0.524"></script>
 </body>
 </html>

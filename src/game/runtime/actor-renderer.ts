@@ -8,6 +8,7 @@ import { healthBarTextY } from "./health-bar-layout";
 import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
+import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -174,27 +175,33 @@ export function createActorRenderer(options: {
   const { ctx, camera } = options;
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
   const enemyLabelFont = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+  const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
+  let arrowProjectileSprite: HTMLCanvasElement | null | undefined;
+
+  function paintArrow(target: CanvasRenderingContext2D, x: number, y: number, angle: number, offset = 0) {
+    target.save();
+    target.translate(x, y);
+    target.rotate(angle);
+    target.translate(0, offset);
+    target.lineCap = "round";
+    target.strokeStyle = "#160b07";
+    target.lineWidth = 5;
+    target.beginPath(); target.moveTo(-10, 0); target.lineTo(8, 0); target.stroke();
+    target.strokeStyle = "#f4ce84";
+    target.lineWidth = 2;
+    target.beginPath(); target.moveTo(-10, 0); target.lineTo(8, 0); target.stroke();
+    target.fillStyle = "#160b07";
+    target.beginPath(); target.moveTo(13, 0); target.lineTo(5, -6); target.lineTo(5, 6); target.closePath(); target.fill();
+    target.fillStyle = "#d7e8ee";
+    target.beginPath(); target.moveTo(10, 0); target.lineTo(6, -3); target.lineTo(6, 3); target.closePath(); target.fill();
+    target.strokeStyle = "#160b07";
+    target.lineWidth = 3;
+    target.beginPath(); target.moveTo(-9, 0); target.lineTo(-13, -4); target.moveTo(-9, 0); target.lineTo(-13, 4); target.stroke();
+    target.restore();
+  }
 
   function drawArrow(x: number, y: number, angle: number, offset = 0) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.translate(0, offset);
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "#160b07";
-    ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(8, 0); ctx.stroke();
-    ctx.strokeStyle = "#f4ce84";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(8, 0); ctx.stroke();
-    ctx.fillStyle = "#160b07";
-    ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(5, -6); ctx.lineTo(5, 6); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#d7e8ee";
-    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(6, -3); ctx.lineTo(6, 3); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#160b07";
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-13, -4); ctx.moveTo(-9, 0); ctx.lineTo(-13, 4); ctx.stroke();
-    ctx.restore();
+    paintArrow(ctx, x, y, angle, offset);
   }
 
   function drawRock(itemId: string | undefined, x: number, y: number, angle: number, offset = 0) {
@@ -206,6 +213,67 @@ export function createActorRenderer(options: {
     ctx.drawImage(image, -image.naturalWidth / 2, offset - image.naturalHeight / 2);
     ctx.restore();
     return true;
+  }
+
+  function arrowSprite() {
+    if (arrowProjectileSprite !== undefined) return arrowProjectileSprite;
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 18;
+    const target = canvas.getContext("2d");
+    if (!target) return (arrowProjectileSprite = null);
+    paintArrow(target, canvas.width / 2, canvas.height / 2, 0);
+    arrowProjectileSprite = canvas;
+    return canvas;
+  }
+
+  function paintPixelCircle(target: CanvasRenderingContext2D, x: number, y: number, radius: number) {
+    const step = 4;
+    const radiusSquared = radius * radius;
+    for (let offsetY = -radius; offsetY <= radius; offsetY += step) {
+      const halfWidth = Math.sqrt(Math.max(0, radiusSquared - offsetY * offsetY));
+      target.fillRect(Math.floor(x - halfWidth), Math.floor(y + offsetY), Math.ceil(halfWidth * 2), step);
+    }
+  }
+
+  function projectileCircleSprite(radius: number, enemy: boolean) {
+    const safeRadius = Math.max(1, Math.ceil(radius));
+    const key = `${enemy ? "enemy" : "player"}:${safeRadius}`;
+    const cached = projectileCircleSprites.get(key);
+    if (cached) return cached;
+    const outerRadius = safeRadius + 2;
+    const padding = 4;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = (outerRadius + padding) * 2;
+    const target = canvas.getContext("2d");
+    if (!target) return null;
+    const center = canvas.width / 2;
+    target.fillStyle = enemy ? "#d67cff" : "#5a250d";
+    paintPixelCircle(target, center, center, outerRadius);
+    target.fillStyle = enemy ? "#f3c5ff" : "#ffe76a";
+    paintPixelCircle(target, center, center, safeRadius);
+    projectileCircleSprites.set(key, canvas);
+    return canvas;
+  }
+
+  function webGLProjectileFrame(projectile: Projectile | EnemyShot, enemy = false): StaticWorldSpriteFrame | null {
+    const x = Math.floor(projectile.x - camera.x);
+    const y = Math.floor(projectile.y - camera.y);
+    const weaponItem = options.localRightHandItem() || options.localLeftHandItem();
+    const projectileKind = enemy ? undefined : projectileKindForWeapon(weaponItem);
+    let source: HTMLCanvasElement | HTMLImageElement | null = null;
+    if (projectileKind === "ARROW") source = arrowSprite();
+    else if (projectileKind === "ROCK") {
+      const image = options.itemSprite(weaponItem);
+      if (image?.complete && image.naturalWidth > 0) source = image;
+    } else source = projectileCircleSprite(projectile.r, enemy);
+    if (!source) return null;
+    const width = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+    const height = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+    const rotation = projectileKind === "ARROW" || projectileKind === "ROCK"
+      ? Math.atan2(projectile.vy, projectile.vx)
+      : undefined;
+    return { source, left: x - width / 2, top: y - height / 2, width, height, rotation };
   }
 
   function createLabelBitmap(segments: LabelSegment[], baseline: CanvasTextBaseline): LabelBitmap {
@@ -678,5 +746,6 @@ export function createActorRenderer(options: {
     drawRemotePlayers,
     drawEnemy,
     drawProjectile,
+    webGLProjectileFrame,
   };
 }

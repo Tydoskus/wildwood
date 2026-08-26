@@ -92,8 +92,36 @@ export const ChatMessage = __t.object("ChatMessage", {
   powerLevel: __t.f32(),
   senderGender: __t.u8(),
   moderated: __t.bool(),
+  replyToMessageId: __t.u64(),
+  replyToSenderName: __t.string(),
+  replyToMessage: __t.string(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
+
+export const ChatMessageReport = __t.object("ChatMessageReport", {
+  id: __t.u64(),
+  reporter: __t.identity(),
+  reporterName: __t.string(),
+  accused: __t.identity(),
+  senderName: __t.string(),
+  messageId: __t.u64(),
+  message: __t.string(),
+  messageModerated: __t.bool(),
+  sentAt: __t.timestamp(),
+  reason: __t.string(),
+  status: __t.string(),
+  reportedAt: __t.timestamp(),
+  replyToSenderName: __t.string(),
+  replyToMessage: __t.string(),
+});
+export type ChatMessageReport = __Infer<typeof ChatMessageReport>;
+
+export const ChatMessageReportRateLimit = __t.object("ChatMessageReportRateLimit", {
+  reporter: __t.identity(),
+  windowStartedAt: __t.timestamp(),
+  reportCount: __t.u8(),
+});
+export type ChatMessageReportRateLimit = __Infer<typeof ChatMessageReportRateLimit>;
 
 export const DailyGemBonus = __t.object("DailyGemBonus", {
   identity: __t.identity(),

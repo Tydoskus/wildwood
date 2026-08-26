@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const css = readFileSync(new URL("../../public/assets/wildwood/game.css", import.meta.url), "utf8");
 const html = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
 const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
+const chatController = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
 
 function cssRule(selector: string) {
   const selectorIndex = css.indexOf(selector);
@@ -159,7 +160,7 @@ describe("interface style contracts", () => {
     expect(username).toContain("font-weight: 900");
     expect(message).toContain("font-family: var(--player-name-font)");
     expect(message).toContain("font-weight: 900");
-    expect(cssRule(".chat-text.is-moderated { ")).toContain("font-style: italic");
+    expect(cssRule(".chat-text.is-moderated .chat-message-body { ")).toContain("font-style: italic");
     const fullscreenMessages = cssRule("#chatPanel.is-large #chatMessages {");
     expect(fullscreenMessages).toContain("grid-row: 1");
     expect(fullscreenMessages).toContain("display: flex");
@@ -180,6 +181,8 @@ describe("interface style contracts", () => {
     expect(cssRule("#chatPanel.is-large .chat-profile-icon {")).toContain("width: 66px");
     const fullscreenMessage = cssRule("#chatPanel.is-large .chat-text {");
     expect(fullscreenMessage).toContain("height: auto");
+    expect(fullscreenMessage).toContain("width: fit-content");
+    expect(fullscreenMessage).toContain("max-width: calc(100% - 50px)");
     expect(fullscreenMessage).toContain("margin: 0 0 10px");
     expect(fullscreenMessage).toContain("padding: 6px 12px");
     expect(fullscreenMessage).toContain("font-size: 15px");
@@ -188,12 +191,30 @@ describe("interface style contracts", () => {
     expect(fullscreenTime).toContain("justify-self: center");
     const fullscreenForm = cssRule("#chatPanel.is-large #chatForm {");
     expect(fullscreenForm).toContain("grid-row: 2");
-    expect(fullscreenForm).toContain('grid-template-areas: "input send" "back back"');
-    expect(fullscreenForm).toContain("grid-template-rows: max-content max-content");
+    expect(fullscreenForm).toContain('grid-template-areas: "reply reply" "input send" "back back"');
+    expect(fullscreenForm).toContain("grid-template-rows: max-content max-content max-content");
     expect(fullscreenForm).toContain("align-content: start");
     expect(fullscreenForm).toContain("env(safe-area-inset-bottom)");
     expect(cssRule("#chatPanel.is-large #chatBackBtn {")).toContain("grid-area: back");
     expect(cssRule("#chatPanel.is-large #chatMessages::before")).toContain("margin-top: auto");
+    expect(html).toContain('id="chatReplyComposer"');
+    expect(cssRule("\n  .chat-reply-preview { ")).toContain("rgba(235,232,226,.58)");
+    expect(cssRule("\n  .chat-reply-preview { ")).toContain("text-overflow: ellipsis");
+  });
+
+  it("opens a lightweight message drawer without making usernames interactive", () => {
+    expect(html).toContain('id="chatMessageActions"');
+    expect(html).toContain('id="chatMessageCopyBtn"');
+    expect(html).toContain('id="chatMessageReplyBtn"');
+    expect(html).toContain('id="chatMessageReportBtn"');
+    expect(cssRule(".chat-message-actions {")).toContain("z-index: 17");
+    expect(cssRule(".chat-message-action-sheet {")).toContain("40dvh");
+    expect(cssRule(".chat-message-action-sheet {")).toContain("translate3d(0, 100%, 0)");
+    expect(cssRule(".chat-message-action-drag {")).toContain("touch-action: none");
+    expect(cssRule("\n  .chat-name {")).toContain("cursor: default");
+    expect(cssRule("#chatPanel.is-large .chat-text.is-actionable {")).toContain("cursor: pointer");
+    expect(chatController).toContain('icon.addEventListener("click", openPlayer)');
+    expect(chatController).not.toContain('name.addEventListener("click", openPlayer)');
   });
 
   it("keeps the profile window to Stats and Info without ranking code", () => {
@@ -257,6 +278,7 @@ describe("interface style contracts", () => {
   it("shows the death message above the fallen player without covering the game", () => {
     expect(cssRule("#gameOver {")).toContain("background: transparent");
     expect(cssRule(".death-screen {")).toContain("transform: translateY(-25dvh)");
+    expect(cssRule(".death-countdown {")).toContain("color: #fff");
   });
 
   it("turns the full minimap into a help target with a fullscreen map guide", () => {

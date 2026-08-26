@@ -3,6 +3,7 @@ import { DUEL_ARENA } from "../duel";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DuelScene, EnemyShot, PlayerState, Projectile } from "./types";
+import type { StaticWorldColorQuadFrame, StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 
 type BootsPickup = { x: number; y: number; r: number; collected: boolean };
 
@@ -38,7 +39,12 @@ export function createRenderController(options: {
   drawProfileCharacterPreview: () => void;
   updateSpeechBubbles: () => void;
   drawGround: () => void;
-  drawStaticWorld: (offsetX?: number, offsetY?: number) => void;
+  drawStaticWorld: (
+    offsetX?: number,
+    offsetY?: number,
+    sprites?: readonly StaticWorldSpriteFrame[],
+    colorQuads?: readonly StaticWorldColorQuadFrame[],
+  ) => boolean;
   drawDuelArena: (active: boolean, arena: typeof DUEL_ARENA) => void;
   drawDuelScene: (scene: DuelScene) => void;
   drawDecor: () => void;
@@ -65,6 +71,8 @@ export function createRenderController(options: {
   flash: () => number;
   projectiles: Projectile[];
   enemyShots: EnemyShot[];
+  webGLProjectileBatch: () => { frames: readonly StaticWorldSpriteFrame[]; complete: boolean };
+  webGLParticleBatch: () => { frames: readonly StaticWorldColorQuadFrame[]; complete: boolean };
 }): RenderController {
   const {
     ctx, camera, player, bootsPickup, viewport, pixelCircle, remotePlayers, mapPlayerMarkers,
@@ -73,7 +81,7 @@ export function createRenderController(options: {
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
     drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
     drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, portalCutsceneActive,
-    portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots,
+    portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
   } = options;
 
   function drawBootPickup() {
@@ -189,7 +197,16 @@ export function createRenderController(options: {
     const shakeY = screenShakeEnabled() && shake > .2 ? snapToDevicePixel((Math.random() * 2 - 1) * shake, dpr) : 0;
     if (shakeX !== 0 || shakeY !== 0) ctx.translate(shakeX, shakeY);
     ctx.scale(camera.zoom, camera.zoom);
-    drawStaticWorld(shakeX, shakeY);
+    const projectileBatch = webGLProjectileBatch();
+    const particleBatch = webGLParticleBatch();
+    const staticWorldRenderedByWebGL = drawStaticWorld(
+      shakeX,
+      shakeY,
+      projectileBatch.complete ? projectileBatch.frames : [],
+      particleBatch.complete ? particleBatch.frames : [],
+    );
+    const projectilesRenderedByWebGL = staticWorldRenderedByWebGL && projectileBatch.complete;
+    const particlesRenderedByWebGL = staticWorldRenderedByWebGL && particleBatch.complete;
     drawDuelArena(isArenaScene(), DUEL_ARENA);
     if (!isDueling()) drawDecor();
     if (!isDueling() && currentMapIsTutorial()) drawBossTelegraphs();
@@ -197,11 +214,13 @@ export function createRenderController(options: {
     if (!isDueling() && currentMapIsSnow()) drawFrostclawTelegraphs();
     if (!isDueling() && currentMapIsLava()) drawMagmaliskTelegraphs();
     drawAttackRange();
-    for (const projectile of projectiles) drawProjectile(projectile, false);
-    for (const shot of enemyShots) drawProjectile(shot, true);
+    if (!projectilesRenderedByWebGL) {
+      for (const projectile of projectiles) drawProjectile(projectile, false);
+      for (const shot of enemyShots) drawProjectile(shot, true);
+    }
     const cutscene = portalCutsceneActive();
     drawDepthSortedWorld(remotes, !cutscene);
-    drawParticles(ctx, camera);
+    if (!particlesRenderedByWebGL) drawParticles(ctx, camera);
     drawDamageNumbers(ctx, camera);
     ctx.restore();
     if (!isDueling() && !cutscene) drawNightMask();

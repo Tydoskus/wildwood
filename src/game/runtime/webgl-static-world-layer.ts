@@ -7,12 +7,24 @@ export type StaticWorldTileFrame = {
   height: number;
 };
 
+export type StaticWorldSpriteSource = HTMLImageElement | HTMLCanvasElement;
+
 export type StaticWorldSpriteFrame = {
-  source: HTMLImageElement;
+  source: StaticWorldSpriteSource;
   left: number;
   top: number;
   width: number;
   height: number;
+  rotation?: number;
+};
+
+export type StaticWorldColorQuadFrame = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  color: readonly [number, number, number];
+  opacity: number;
 };
 
 export type StaticWorldLayerFrame = {
@@ -24,7 +36,8 @@ export type StaticWorldLayerFrame = {
   offsetX: number;
   offsetY: number;
   tiles: StaticWorldTileFrame[];
-  sprites?: StaticWorldSpriteFrame[];
+  sprites?: readonly StaticWorldSpriteFrame[];
+  colorQuads?: readonly StaticWorldColorQuadFrame[];
 };
 
 export type StaticWorldLayer = {
@@ -39,6 +52,11 @@ export type StaticWorldLayer = {
 type TileTexture = {
   source: HTMLCanvasElement | ImageBitmap;
   texture: WebGLTexture;
+};
+
+type SpriteGroup = {
+  source: StaticWorldSpriteSource;
+  sprites: StaticWorldSpriteFrame[];
 };
 
 const VERTEX_SHADER = `
@@ -78,8 +96,30 @@ void main() {
 }
 `;
 
+const COLOR_VERTEX_SHADER = `
+attribute vec2 a_screen_position;
+attribute vec4 a_color;
+uniform vec2 u_resolution;
+varying vec4 v_color;
+
+void main() {
+  vec2 clip = a_screen_position / u_resolution * 2.0 - 1.0;
+  gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+  v_color = a_color;
+}
+`;
+
+const COLOR_FRAGMENT_SHADER = `
+precision mediump float;
+varying vec4 v_color;
+
+void main() {
+  gl_FragColor = v_color;
+}
+`;
+
 export function webGLSpriteBatchVertices(
-  sprites: readonly Pick<StaticWorldSpriteFrame, "left" | "top" | "width" | "height">[],
+  sprites: readonly Pick<StaticWorldSpriteFrame, "left" | "top" | "width" | "height" | "rotation">[],
   zoom: number,
   offsetX = 0,
   offsetY = 0,
@@ -97,25 +137,103 @@ export function webGLSpriteBatchVertices(
     const top = sprite.top * zoom + offsetY;
     const right = left + sprite.width * zoom;
     const bottom = top + sprite.height * zoom;
-    vertex(left, top, 0, 0);
-    vertex(right, top, 1, 0);
-    vertex(left, bottom, 0, 1);
-    vertex(left, bottom, 0, 1);
-    vertex(right, top, 1, 0);
-    vertex(right, bottom, 1, 1);
+    const rotation = sprite.rotation ?? 0;
+    if (rotation === 0) {
+      vertex(left, top, 0, 0);
+      vertex(right, top, 1, 0);
+      vertex(left, bottom, 0, 1);
+      vertex(left, bottom, 0, 1);
+      vertex(right, top, 1, 0);
+      vertex(right, bottom, 1, 1);
+      continue;
+    }
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
+    const halfWidth = (right - left) / 2;
+    const halfHeight = (bottom - top) / 2;
+    const cosine = Math.cos(rotation);
+    const sine = Math.sin(rotation);
+    const leftCosine = -halfWidth * cosine;
+    const rightCosine = halfWidth * cosine;
+    const topSine = -halfHeight * sine;
+    const bottomSine = halfHeight * sine;
+    const leftSine = -halfWidth * sine;
+    const rightSine = halfWidth * sine;
+    const topCosine = -halfHeight * cosine;
+    const bottomCosine = halfHeight * cosine;
+    const topLeftX = centerX + leftCosine - topSine;
+    const topLeftY = centerY + leftSine + topCosine;
+    const topRightX = centerX + rightCosine - topSine;
+    const topRightY = centerY + rightSine + topCosine;
+    const bottomLeftX = centerX + leftCosine - bottomSine;
+    const bottomLeftY = centerY + leftSine + bottomCosine;
+    const bottomRightX = centerX + rightCosine - bottomSine;
+    const bottomRightY = centerY + rightSine + bottomCosine;
+    vertex(topLeftX, topLeftY, 0, 0);
+    vertex(topRightX, topRightY, 1, 0);
+    vertex(bottomLeftX, bottomLeftY, 0, 1);
+    vertex(bottomLeftX, bottomLeftY, 0, 1);
+    vertex(topRightX, topRightY, 1, 0);
+    vertex(bottomRightX, bottomRightY, 1, 1);
   }
   return vertices;
+}
+
+const COLOR_QUAD_FLOATS_PER_VERTEX = 6;
+const COLOR_QUAD_VERTICES = 6;
+const COLOR_QUAD_FLOATS = COLOR_QUAD_FLOATS_PER_VERTEX * COLOR_QUAD_VERTICES;
+
+export function writeWebGLColorQuadVertices(
+  quads: readonly StaticWorldColorQuadFrame[],
+  vertices: Float32Array,
+  zoom: number,
+  offsetX = 0,
+  offsetY = 0,
+) {
+  const requiredLength = quads.length * COLOR_QUAD_FLOATS;
+  if (vertices.length < requiredLength) throw new RangeError("WebGL color quad vertex buffer is too small");
+  let cursor = 0;
+  const vertex = (x: number, y: number, red: number, green: number, blue: number, opacity: number) => {
+    vertices[cursor++] = x;
+    vertices[cursor++] = y;
+    vertices[cursor++] = red;
+    vertices[cursor++] = green;
+    vertices[cursor++] = blue;
+    vertices[cursor++] = opacity;
+  };
+  for (const quad of quads) {
+    const left = quad.left * zoom + offsetX;
+    const top = quad.top * zoom + offsetY;
+    const right = left + quad.width * zoom;
+    const bottom = top + quad.height * zoom;
+    const [red, green, blue] = quad.color;
+    const opacity = Math.max(0, Math.min(1, quad.opacity));
+    vertex(left, top, red, green, blue, opacity);
+    vertex(right, top, red, green, blue, opacity);
+    vertex(left, bottom, red, green, blue, opacity);
+    vertex(left, bottom, red, green, blue, opacity);
+    vertex(right, top, red, green, blue, opacity);
+    vertex(right, bottom, red, green, blue, opacity);
+  }
+  return cursor;
 }
 
 export function webGLWorldRequested(search: string) {
   return new URLSearchParams(search).get("renderer") !== "canvas";
 }
 
-export function parseHexColor(color: string): [number, number, number] {
-  const match = /^#([0-9a-f]{6})$/i.exec(color);
-  if (!match) return [0, 0, 0];
-  const value = Number.parseInt(match[1], 16);
+export function parseHexColorOrNull(color: string): [number, number, number] | null {
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+  if (!match) return null;
+  const hex = match[1].length === 3
+    ? match[1].split("").map((character) => character + character).join("")
+    : match[1];
+  const value = Number.parseInt(hex, 16);
   return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
+}
+
+export function parseHexColor(color: string): [number, number, number] {
+  return parseHexColorOrNull(color) ?? [0, 0, 0];
 }
 
 export function createWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): StaticWorldLayer | null {
@@ -146,9 +264,9 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string) 
   return null;
 }
 
-function createProgram(gl: WebGLRenderingContext, vertexSource = VERTEX_SHADER) {
+function createProgram(gl: WebGLRenderingContext, vertexSource = VERTEX_SHADER, fragmentSource = FRAGMENT_SHADER) {
   const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
-  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
   if (!vertex || !fragment) {
     if (vertex) gl.deleteShader(vertex);
     if (fragment) gl.deleteShader(fragment);
@@ -172,10 +290,11 @@ function createProgram(gl: WebGLRenderingContext, vertexSource = VERTEX_SHADER) 
 }
 
 /**
- * Draws baked world tiles and explicitly non-layered decor beneath the existing
- * Canvas2D game layer. Dynamic actors and UI keep their established Canvas
- * rendering. Any setup, upload, or context failure immediately returns the
- * whole world layer to Canvas2D.
+ * Draws baked world tiles, explicitly non-layered decor, and compatible
+ * projectile and particle underlays beneath the existing Canvas2D game layer.
+ * Dynamic actors and UI keep their established Canvas rendering. Any setup,
+ * upload, or context failure immediately returns the whole world layer to
+ * Canvas2D.
  */
 function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): StaticWorldLayer | null {
   const canvas = document.createElement("canvas");
@@ -201,9 +320,11 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
   const gl: WebGLRenderingContext = context;
   const program = createProgram(gl);
   const spriteProgram = createProgram(gl, SPRITE_VERTEX_SHADER);
-  if (!program || !spriteProgram) {
+  const colorProgram = createProgram(gl, COLOR_VERTEX_SHADER, COLOR_FRAGMENT_SHADER);
+  if (!program || !spriteProgram || !colorProgram) {
     if (program) gl.deleteProgram(program);
     if (spriteProgram) gl.deleteProgram(spriteProgram);
+    if (colorProgram) gl.deleteProgram(colorProgram);
     canvas.remove();
     document.documentElement.dataset.worldRenderer = "canvas2d";
     return null;
@@ -219,11 +340,17 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
   const spriteResolution = gl.getUniformLocation(spriteProgram, "u_resolution");
   const spriteSampler = gl.getUniformLocation(spriteProgram, "u_texture");
   const spriteBuffer = gl.createBuffer();
-  if (position < 0 || !resolution || !rect || !sampler || !buffer || spritePosition < 0 || spriteTexturePosition < 0 || !spriteResolution || !spriteSampler || !spriteBuffer) {
+  const colorPosition = gl.getAttribLocation(colorProgram, "a_screen_position");
+  const colorValue = gl.getAttribLocation(colorProgram, "a_color");
+  const colorResolution = gl.getUniformLocation(colorProgram, "u_resolution");
+  const colorBuffer = gl.createBuffer();
+  if (position < 0 || !resolution || !rect || !sampler || !buffer || spritePosition < 0 || spriteTexturePosition < 0 || !spriteResolution || !spriteSampler || !spriteBuffer || colorPosition < 0 || colorValue < 0 || !colorResolution || !colorBuffer) {
     if (buffer) gl.deleteBuffer(buffer);
     if (spriteBuffer) gl.deleteBuffer(spriteBuffer);
+    if (colorBuffer) gl.deleteBuffer(colorBuffer);
     gl.deleteProgram(program);
     gl.deleteProgram(spriteProgram);
+    gl.deleteProgram(colorProgram);
     canvas.remove();
     document.documentElement.dataset.worldRenderer = "canvas2d";
     return null;
@@ -248,7 +375,10 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
 
   const textures = new Map<string, TileTexture>();
-  const spriteTextures = new Map<HTMLImageElement, WebGLTexture>();
+  const spriteTextures = new Map<StaticWorldSpriteSource, WebGLTexture>();
+  const activeSpriteGroups = new Map<StaticWorldSpriteSource, SpriteGroup>();
+  const spriteGroupPool: SpriteGroup[] = [];
+  let colorVertexData = new Float32Array(0);
   let enabled = true;
   let lastWidth = 0;
   let lastHeight = 0;
@@ -263,6 +393,8 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
     textures.clear();
     for (const texture of spriteTextures.values()) gl.deleteTexture(texture);
     spriteTextures.clear();
+    activeSpriteGroups.clear();
+    spriteGroupPool.length = 0;
   }
 
   function disable() {
@@ -291,7 +423,7 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
     }
   }
 
-  function spriteTextureFor(source: HTMLImageElement) {
+  function spriteTextureFor(source: StaticWorldSpriteSource) {
     const cached = spriteTextures.get(source);
     if (cached) return cached;
     const texture = gl.createTexture();
@@ -313,11 +445,19 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
 
   function drawSpriteBatches(frame: StaticWorldLayerFrame) {
     if (!frame.sprites?.length) return;
-    const groups = new Map<HTMLImageElement, StaticWorldSpriteFrame[]>();
+    activeSpriteGroups.clear();
+    let groupCount = 0;
     for (const sprite of frame.sprites) {
-      const group = groups.get(sprite.source);
-      if (group) group.push(sprite);
-      else groups.set(sprite.source, [sprite]);
+      let group = activeSpriteGroups.get(sprite.source);
+      if (!group) {
+        group = spriteGroupPool[groupCount] ?? { source: sprite.source, sprites: [] };
+        group.source = sprite.source;
+        group.sprites.length = 0;
+        spriteGroupPool[groupCount] = group;
+        activeSpriteGroups.set(sprite.source, group);
+        groupCount += 1;
+      }
+      group.sprites.push(sprite);
     }
     gl.useProgram(spriteProgram);
     gl.bindBuffer(gl.ARRAY_BUFFER, spriteBuffer);
@@ -328,14 +468,44 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
     gl.uniform2f(spriteResolution, frame.width, frame.height);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    for (const [source, sprites] of groups) {
-      const texture = spriteTextureFor(source);
+    for (let index = 0; index < groupCount; index += 1) {
+      const group = spriteGroupPool[index];
+      const texture = spriteTextureFor(group.source);
       if (!texture) throw new Error("Could not upload a static world sprite texture");
-      const vertices = webGLSpriteBatchVertices(sprites, frame.zoom, frame.offsetX, frame.offsetY);
+      const vertices = webGLSpriteBatchVertices(group.sprites, frame.zoom, frame.offsetX, frame.offsetY);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
       gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);
     }
+    gl.disable(gl.BLEND);
+  }
+
+  function drawColorQuads(frame: StaticWorldLayerFrame) {
+    if (!frame.colorQuads?.length) return;
+    const requiredLength = frame.colorQuads.length * COLOR_QUAD_FLOATS;
+    if (colorVertexData.length < requiredLength) {
+      let capacity = Math.max(COLOR_QUAD_FLOATS, colorVertexData.length);
+      while (capacity < requiredLength) capacity *= 2;
+      colorVertexData = new Float32Array(capacity);
+    }
+    const floatCount = writeWebGLColorQuadVertices(
+      frame.colorQuads,
+      colorVertexData,
+      frame.zoom,
+      frame.offsetX,
+      frame.offsetY,
+    );
+    gl.useProgram(colorProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.enableVertexAttribArray(colorPosition);
+    gl.enableVertexAttribArray(colorValue);
+    gl.vertexAttribPointer(colorPosition, 2, gl.FLOAT, false, 24, 0);
+    gl.vertexAttribPointer(colorValue, 4, gl.FLOAT, false, 24, 8);
+    gl.uniform2f(colorResolution, frame.width, frame.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bufferData(gl.ARRAY_BUFFER, colorVertexData.subarray(0, floatCount), gl.DYNAMIC_DRAW);
+    gl.drawArrays(gl.TRIANGLES, 0, floatCount / COLOR_QUAD_FLOATS_PER_VERTEX);
     gl.disable(gl.BLEND);
   }
 
@@ -394,6 +564,7 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
         textures.delete(key);
       }
       drawSpriteBatches(frame);
+      drawColorQuads(frame);
       return true;
     } catch (error) {
       console.warn("Wildwood WebGL world failed; returning to Canvas2D.", error);

@@ -12,7 +12,8 @@ import type { PlayerGender } from "../../../shared/player-gender";
 import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
-import type { StaticWorldLayer } from "./webgl-static-world-layer";
+import type { Particle } from "./combat-effects";
+import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity } from "./night-visibility";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -129,6 +130,7 @@ export type FrameRendererOptions = {
   flash: () => number;
   projectiles: Projectile[];
   enemyShots: EnemyShot[];
+  particles: readonly Particle[];
 };
 
 /** Wires the independent world, actor, boss, depth, and frame renderers. */
@@ -228,6 +230,71 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
 
   function createFrameRenderer(frame: FrameRendererOptions): RenderController {
     let renderer: RenderController;
+    const webGLProjectileFrames: StaticWorldSpriteFrame[] = [];
+    const webGLProjectileBatchState = { frames: webGLProjectileFrames, complete: false };
+    const webGLProjectileBatch = () => {
+      webGLProjectileFrames.length = 0;
+      webGLProjectileBatchState.complete = Boolean(options.staticWorldLayer?.active());
+      if (!webGLProjectileBatchState.complete) return webGLProjectileBatchState;
+      for (const projectile of frame.projectiles) {
+        const sprite = actor.webGLProjectileFrame(projectile, false);
+        if (!sprite) {
+          webGLProjectileFrames.length = 0;
+          webGLProjectileBatchState.complete = false;
+          return webGLProjectileBatchState;
+        }
+        webGLProjectileFrames.push(sprite);
+      }
+      for (const shot of frame.enemyShots) {
+        const sprite = actor.webGLProjectileFrame(shot, true);
+        if (!sprite) {
+          webGLProjectileFrames.length = 0;
+          webGLProjectileBatchState.complete = false;
+          return webGLProjectileBatchState;
+        }
+        webGLProjectileFrames.push(sprite);
+      }
+      return webGLProjectileBatchState;
+    };
+    const webGLParticleQuads: StaticWorldColorQuadFrame[] = [];
+    const webGLParticleQuadPool: StaticWorldColorQuadFrame[] = [];
+    const webGLParticleColorCache = new Map<string, [number, number, number] | null>();
+    const webGLParticleBatchState = { frames: webGLParticleQuads, complete: false };
+    const webGLParticleBatch = () => {
+      webGLParticleQuads.length = 0;
+      webGLParticleBatchState.complete = Boolean(options.staticWorldLayer?.active());
+      if (!webGLParticleBatchState.complete) return webGLParticleBatchState;
+      for (const particle of frame.particles) {
+        let color = webGLParticleColorCache.get(particle.color);
+        if (color === undefined && !webGLParticleColorCache.has(particle.color)) {
+          color = parseHexColorOrNull(particle.color);
+          webGLParticleColorCache.set(particle.color, color);
+        }
+        if (!color) {
+          webGLParticleQuads.length = 0;
+          webGLParticleBatchState.complete = false;
+          return webGLParticleBatchState;
+        }
+        const index = webGLParticleQuads.length;
+        const quad = webGLParticleQuadPool[index] ?? {
+          left: 0,
+          top: 0,
+          width: 0,
+          height: 0,
+          color,
+          opacity: 0,
+        };
+        quad.left = Math.floor(particle.x - options.camera.x);
+        quad.top = Math.floor(particle.y - options.camera.y);
+        quad.width = particle.size;
+        quad.height = particle.size;
+        quad.color = color;
+        quad.opacity = Math.max(0, Math.min(1, particle.life / (particle.maxLife || 1)));
+        webGLParticleQuadPool[index] = quad;
+        webGLParticleQuads.push(quad);
+      }
+      return webGLParticleBatchState;
+    };
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -314,6 +381,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       flash: frame.flash,
       projectiles: frame.projectiles,
       enemyShots: frame.enemyShots,
+      webGLProjectileBatch,
+      webGLParticleBatch,
     });
     return renderer;
   }

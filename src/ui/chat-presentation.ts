@@ -12,3 +12,7 @@ export function formatChatTime(date: Date) {
   const hour = date.getHours() % 12 || 12;
   return `${hour}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
+
+export function formatChatReplyPreview(senderName: string, message: string) {
+  return `Reply ${senderName.trim() || "Player"}: ${message.replace(/\s+/g, " ").trim()}`;
+}
