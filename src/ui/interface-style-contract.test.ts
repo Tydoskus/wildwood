@@ -204,6 +204,7 @@ describe("interface style contracts", () => {
 
   it("opens a lightweight message drawer without making usernames interactive", () => {
     expect(html).toContain('id="chatMessageActions"');
+    expect(html).toContain('id="chatMessageWatchReplayBtn"');
     expect(html).toContain('id="chatMessageCopyBtn"');
     expect(html).toContain('id="chatMessageReplyBtn"');
     expect(html).toContain('id="chatMessageReportBtn"');
@@ -214,6 +215,8 @@ describe("interface style contracts", () => {
     expect(cssRule("\n  .chat-name {")).toContain("cursor: default");
     expect(cssRule("#chatPanel.is-large .chat-text.is-actionable {")).toContain("cursor: pointer");
     expect(chatController).toContain('icon.addEventListener("click", openPlayer)');
+    expect(chatController).toContain('line.addEventListener("click", openMessageActions)');
+    expect(chatController).toContain('replay.addEventListener("click", openMessageActions)');
     expect(chatController).not.toContain('name.addEventListener("click", openPlayer)');
   });
 

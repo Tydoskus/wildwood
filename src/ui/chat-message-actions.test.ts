@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  messageActionAvailability,
   shouldDismissMessageActionSheet,
   shouldOfferMessageReport,
 } from "./chat-message-actions";
@@ -13,10 +14,25 @@ const target = {
 };
 
 describe("chat message actions", () => {
-  it("offers reports only for another player's ordinary message", () => {
+  it("offers reports for another player's ordinary or replay message", () => {
     expect(shouldOfferMessageReport(target, "local-player")).toBe(true);
     expect(shouldOfferMessageReport(target, "other-player")).toBe(false);
-    expect(shouldOfferMessageReport({ ...target, replayId: 2n }, "local-player")).toBe(false);
+    expect(shouldOfferMessageReport({ ...target, replayId: 2n }, "local-player")).toBe(true);
+  });
+
+  it("replaces Copy with Watch Replay while retaining Reply and Report", () => {
+    expect(messageActionAvailability(target, "local-player")).toEqual({
+      watchReplay: false,
+      copy: true,
+      reply: true,
+      report: true,
+    });
+    expect(messageActionAvailability({ ...target, replayId: 2n }, "local-player")).toEqual({
+      watchReplay: true,
+      copy: false,
+      reply: true,
+      report: true,
+    });
   });
 
   it("dismisses on a deliberate pull or a quick downward swipe", () => {

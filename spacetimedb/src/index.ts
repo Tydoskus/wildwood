@@ -6041,7 +6041,7 @@ function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMe
   if (!bugCommand && replyToMessageId > 0n) {
     const target = ctx.db.chatMessage.id.find(replyToMessageId);
     if (!target) throw new SenderError("The message you replied to is no longer available.");
-    if (!target.senderName || target.replayId > 0n) throw new SenderError("This message cannot be replied to.");
+    if (!target.senderName) throw new SenderError("This message cannot be replied to.");
     reply = {
       messageId: target.id,
       senderName: target.senderName,
@@ -6102,7 +6102,7 @@ export const reportChatMessage = spacetimedb.reducer(
     const message = ctx.db.chatMessage.id.find(messageId);
     if (!message) throw new SenderError("Message is no longer available.");
     if (sameIdentity(message.sender, ctx.sender)) throw new SenderError("You cannot report your own message.");
-    if (!message.senderName || message.replayId > 0n) throw new SenderError("This message cannot be reported.");
+    if (!message.senderName) throw new SenderError("This message cannot be reported.");
 
     for (const _existing of ctx.db.chatMessageReport.byReporterMessage.filter([ctx.sender, messageId])) {
       throw new SenderError("You already reported this message.");

@@ -88,6 +88,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   const messageActions = createChatMessageActionsController({
     elements: elements.messageActions,
     getLocalIdentity: () => getCoop()?.localIdentity?.() ?? "",
+    onWatchReplay: (replayId) => onOpenReplay?.(replayId),
     onReply: (target) => setPendingReply(target, true),
     reportMessage: async (messageId, reason) => {
       const report = getCoop()?.reportChatMessage;
@@ -279,9 +280,15 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         }
         onOpenPlayer?.(displayIdentity, displayName);
       };
-      const openReplay = (event: Event) => {
+      const openMessageActions = (event: Event) => {
         event.stopPropagation();
-        onOpenReplay?.(message.replayId);
+        messageActions.open({
+          id: message.id,
+          sender: message.sender,
+          senderName: displayName,
+          message: shownMessage,
+          replayId: message.replayId,
+        });
       };
       const icon = document.createElement("span");
       icon.className = "chat-profile-icon";
@@ -300,17 +307,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       content.className = "chat-message-content";
       content.append(name, text);
       line.append(time, icon, content);
-      if (large && message.replayId === 0n) {
-        const openMessageActions = (event: Event) => {
-          event.stopPropagation();
-          messageActions.open({
-            id: message.id,
-            sender: message.sender,
-            senderName: displayName,
-            message: shownMessage,
-            replayId: message.replayId,
-          });
-        };
+      if (large) {
         text.classList.add("is-actionable");
         text.setAttribute("role", "button");
         text.setAttribute("tabindex", "0");
@@ -326,23 +323,23 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         line.classList.add("has-replay");
         line.setAttribute("role", "button");
         line.setAttribute("tabindex", "0");
-        line.setAttribute("aria-label", "Watch duel replay");
-        line.addEventListener("click", openReplay);
+        line.setAttribute("aria-label", "Open duel replay actions");
+        line.addEventListener("click", openMessageActions);
         line.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
-          openReplay(event);
+          openMessageActions(event);
         });
         const replay = document.createElement("button");
         replay.className = "chat-replay";
         replay.type = "button";
-        replay.title = "Watch duel replay";
-        replay.setAttribute("aria-label", "Watch duel replay");
+        replay.title = "Open duel replay actions";
+        replay.setAttribute("aria-label", "Open duel replay actions");
         const replayIcon = document.createElement("span");
         replayIcon.className = "chat-replay-icon";
         replayIcon.setAttribute("aria-hidden", "true");
         replay.appendChild(replayIcon);
-        replay.addEventListener("click", openReplay);
+        replay.addEventListener("click", openMessageActions);
         messageBody.append(" ", replay);
       }
       elements.messages.appendChild(line);

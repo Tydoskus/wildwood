@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.525": [
+    "Duel replay chat rows now open the message drawer with Watch Replay, Reply, and eligible Report actions, while portraits continue to open player profiles directly.",
+  ],
   "0.524": [
     "Fullscreen chat messages now open a smooth swipe-down action drawer for Copy, Reply, and private Report controls, while only portraits open player profiles.",
     "Replies now preserve a dimmed message reference above the response, and message bubbles fit their content while retaining a comfortable right-side scroll gutter.",
@@ -1097,6 +1100,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.525": "2026-08-26",
   "0.524": "2026-08-26",
   "0.523": "2026-08-26",
   "0.522": "2026-08-26",

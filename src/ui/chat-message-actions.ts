@@ -21,6 +21,7 @@ export type ChatMessageActionElements = {
   title: HTMLElement;
   preview: HTMLElement;
   menu: HTMLElement;
+  watchReplayButton: HTMLButtonElement;
   copyButton: HTMLButtonElement;
   replyButton: HTMLButtonElement;
   reportButton: HTMLButtonElement;
@@ -33,16 +34,26 @@ export type ChatMessageActionElements = {
 type ChatMessageActionsOptions = {
   elements: ChatMessageActionElements;
   getLocalIdentity: () => string;
+  onWatchReplay: (replayId: bigint) => void;
   onReply: (target: ChatMessageActionTarget) => void;
   reportMessage: (messageId: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
   showMessage: (text: string, color?: string) => void;
 };
 
 export function shouldOfferMessageReport(target: ChatMessageActionTarget, localIdentity: string) {
-  return target.replayId === 0n
-    && Boolean(target.sender)
+  return Boolean(target.sender)
     && Boolean(target.senderName)
     && target.sender !== localIdentity;
+}
+
+export function messageActionAvailability(target: ChatMessageActionTarget, localIdentity: string) {
+  const isReplay = target.replayId > 0n;
+  return {
+    watchReplay: isReplay,
+    copy: !isReplay,
+    reply: Boolean(target.senderName),
+    report: shouldOfferMessageReport(target, localIdentity),
+  };
 }
 
 export function shouldDismissMessageActionSheet(deltaY: number, sheetHeight: number, elapsedMs: number) {
@@ -72,6 +83,7 @@ async function copyText(text: string) {
 export function createChatMessageActionsController({
   elements,
   getLocalIdentity,
+  onWatchReplay,
   onReply,
   reportMessage,
   showMessage,
@@ -107,14 +119,19 @@ export function createChatMessageActionsController({
 
   function showActionMenu() {
     if (!selectedMessage) return;
+    const availability = messageActionAvailability(selectedMessage, getLocalIdentity());
     reportPending = false;
     selectReason(null);
-    elements.title.textContent = `Message from ${selectedMessage.senderName || "Player"}`;
+    elements.title.textContent = selectedMessage.replayId > 0n
+      ? `Duel replay from ${selectedMessage.senderName || "Player"}`
+      : `Message from ${selectedMessage.senderName || "Player"}`;
     elements.preview.textContent = selectedMessage.message.replace(/\s+/g, " ");
     elements.menu.hidden = false;
     elements.reportForm.hidden = true;
-    elements.replyButton.hidden = selectedMessage.replayId > 0n || !selectedMessage.senderName;
-    elements.reportButton.hidden = !shouldOfferMessageReport(selectedMessage, getLocalIdentity());
+    elements.watchReplayButton.hidden = !availability.watchReplay;
+    elements.copyButton.hidden = !availability.copy;
+    elements.replyButton.hidden = !availability.reply;
+    elements.reportButton.hidden = !availability.report;
   }
 
   function showReportForm() {
@@ -159,7 +176,10 @@ export function createChatMessageActionsController({
     showActionMenu();
     requestAnimationFrame(() => {
       elements.layer.classList.add("is-open");
-      elements.copyButton.focus({ preventScroll: true });
+      const firstAction = elements.watchReplayButton.hidden
+        ? elements.copyButton
+        : elements.watchReplayButton;
+      firstAction.focus({ preventScroll: true });
     });
   }
 
@@ -189,6 +209,12 @@ export function createChatMessageActionsController({
     }));
 
     elements.backdrop.addEventListener("click", () => close());
+    elements.watchReplayButton.addEventListener("click", () => {
+      const replayId = selectedMessage?.replayId ?? 0n;
+      if (replayId <= 0n) return;
+      close(false);
+      onWatchReplay(replayId);
+    });
     elements.copyButton.addEventListener("click", () => {
       const message = selectedMessage?.message;
       if (!message) return;

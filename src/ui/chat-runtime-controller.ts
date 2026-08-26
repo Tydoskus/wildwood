@@ -30,6 +30,7 @@ export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop"
         title: requiredElement("chatMessageActionTitle"),
         preview: requiredElement("chatMessageActionPreview"),
         menu: requiredElement("chatMessageActionMenu"),
+        watchReplayButton: requiredElement<HTMLButtonElement>("chatMessageWatchReplayBtn"),
         copyButton: requiredElement<HTMLButtonElement>("chatMessageCopyBtn"),
         replyButton: requiredElement<HTMLButtonElement>("chatMessageReplyBtn"),
         reportButton: requiredElement<HTMLButtonElement>("chatMessageReportBtn"),

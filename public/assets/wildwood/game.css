@@ -1197,6 +1197,7 @@
   .chat-message-action-button:hover,
   .chat-message-action-button:focus-visible { background: rgba(255,255,255,.07); outline: 0; }
   .chat-message-action-button > span { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 7px; background: rgba(255,255,255,.1); color: #ddd9d1; font-size: 17px; -webkit-text-stroke: 0; text-shadow: none; }
+  .chat-message-action-button > .chat-message-watch-replay-icon { background: center / contain no-repeat url("duel-replay-play-medallion-v1.png"); mix-blend-mode: screen; }
   .chat-message-action-button.is-danger { color: #ff9a9a; }
   .chat-message-action-button.is-danger > span { background: rgba(201,69,69,.18); color: #ff9a9a; }
   .chat-message-report-form { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; padding: 8px 0 0; }
