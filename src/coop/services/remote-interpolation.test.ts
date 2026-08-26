@@ -9,6 +9,7 @@ import {
   createRestartRemoteInterpolationClock,
   observeRemoteSample,
   remoteMotionAt,
+  remoteMotionSnapDistance,
   type TimestampedRemoteMotionSample,
 } from "./remote-interpolation";
 
@@ -138,6 +139,25 @@ describe("adaptive remote interpolation", () => {
       moving: true,
     }, 920, 180, correction);
     expect(remoteMotionAt(samples, 1_500, 180).x).toBeCloseTo(240);
+  });
+
+  it("does not classify an upgraded player's one-second heartbeat as a teleport", () => {
+    const speed = 266.5;
+    const previous = { timelineAt: 0, serverAtMs: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true };
+    const next = { timelineAt: 1_000, serverAtMs: 1_000, x: speed, y: 0, dx: 1, dy: 0, facing: 0, moving: true };
+    expect(Math.hypot(next.x - previous.x, next.y - previous.y)).toBeLessThan(
+      remoteMotionSnapDistance(previous, next, speed),
+    );
+    expect(remoteMotionAt([previous, next], 1_500, speed).x).toBeCloseTo(speed * 1.5);
+  });
+
+  it("still identifies a large same-map discontinuity", () => {
+    const speed = 266.5;
+    const previous = { timelineAt: 0, serverAtMs: 0, x: 0, y: 0, dx: 1, dy: 0, facing: 0, moving: true };
+    const next = { timelineAt: 1_000, serverAtMs: 1_000, x: 900, y: 0, dx: 1, dy: 0, facing: 0, moving: true };
+    expect(Math.hypot(next.x - previous.x, next.y - previous.y)).toBeGreaterThan(
+      remoteMotionSnapDistance(previous, next, speed),
+    );
   });
 
   it("drops a distant-rate delay when movement restarts", () => {

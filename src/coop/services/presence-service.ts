@@ -11,6 +11,7 @@ import {
   createRestartRemoteInterpolationClock,
   observeRemoteSample,
   remoteMotionAt,
+  remoteMotionSnapDistance,
   resetRemoteMotionCorrection,
   type RemoteInterpolationClock,
   type RemoteMotionCorrection,
@@ -125,7 +126,6 @@ const MAP_PLAYER_ZONE_RADIUS = 2;
 const MAP_PLAYER_PREFETCH_ZONES = 1;
 const MAX_MAP_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_PLAYER_ZONE_SIZE);
 const MAX_MAP_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_PLAYER_ZONE_SIZE);
-const REMOTE_SNAP_DISTANCE = 260;
 const REMOTE_SAMPLE_LIMIT = 8;
 const REMOTE_PLAYER_DEATH_TTL_MS = 4_250;
 
@@ -151,7 +151,7 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
     existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
     existing.interpolationClock = createRestartRemoteInterpolationClock(sample.receivedAt);
     resetRemoteMotionCorrection(existing.motionCorrection, sample.receivedAt);
-  } else if (distance > REMOTE_SNAP_DISTANCE) {
+  } else if (distance > remoteMotionSnapDistance(latest, { ...sample, timelineAt: sample.receivedAt }, existing.speed)) {
     existing.samples.length = 0;
     existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
     existing.interpolationClock = createRemoteInterpolationClock(sample.receivedAt);

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.531": [
+    "Fixed upgraded players jumping on each movement heartbeat by making remote teleport detection account for elapsed time, input magnitude, and effective movement speed.",
+  ],
+
   "0.530": [
     "Updated Wildwood's browser favicon and added versioned favicon loading so the new icon replaces cached copies promptly.",
   ],
@@ -1119,6 +1123,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.531": "2026-08-26",
   "0.530": "2026-08-26",
   "0.529": "2026-08-26",
   "0.528": "2026-08-26",

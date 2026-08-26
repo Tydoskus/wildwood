@@ -7,6 +7,9 @@ const BASE_NETWORK_DELAY_MS = 80;
 const MIN_SAMPLE_INTERVAL_MS = 35;
 const MAX_SAMPLE_INTERVAL_MS = 1_200;
 const MAX_EXTRAPOLATION_MS = 1_500;
+const MIN_SNAP_DISTANCE = 260;
+const EXPECTED_TRAVEL_TOLERANCE = 1.35;
+const EXPECTED_TRAVEL_MARGIN = 48;
 const LIVE_CORRECTION_MIN_ARRIVAL_MS = 8;
 const CORRECTION_TIME_CONSTANT_MS = 180;
 const MAX_CORRECTION_SPEED_RATIO = .75;
@@ -128,6 +131,27 @@ export function resetRemoteMotionCorrection(correction: RemoteMotionCorrection, 
   correction.x = 0;
   correction.y = 0;
   correction.lastAt = now;
+}
+
+/**
+ * Distinguishes a teleport from valid travel between sparse corrections.
+ * A fixed distance cannot do this: upgraded players can move farther than the
+ * old 260-unit guard during one intentional one-second heartbeat.
+ */
+export function remoteMotionSnapDistance(
+  previous: RemoteMotionSample,
+  next: RemoteMotionSample,
+  maxSpeed: number,
+) {
+  const previousAt = Number.isFinite(previous.serverAtMs) ? Number(previous.serverAtMs) : previous.timelineAt;
+  const nextAt = Number.isFinite(next.serverAtMs) ? Number(next.serverAtMs) : next.timelineAt;
+  const elapsedSeconds = clamp(nextAt - previousAt, 0, MAX_EXTRAPOLATION_MS) / 1_000;
+  const inputMagnitude = Math.min(1, Math.max(
+    Math.hypot(previous.dx, previous.dy),
+    Math.hypot(next.dx, next.dy),
+  ));
+  const expectedTravel = Math.max(0, maxSpeed) * inputMagnitude * elapsedSeconds;
+  return Math.max(MIN_SNAP_DISTANCE, expectedTravel * EXPECTED_TRAVEL_TOLERANCE + EXPECTED_TRAVEL_MARGIN);
 }
 
 function advanceRemoteMotionCorrection(correction: RemoteMotionCorrection, now: number, maxSpeed: number) {
