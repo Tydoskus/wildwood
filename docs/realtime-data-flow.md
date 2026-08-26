@@ -7,14 +7,14 @@ Use this map before changing multiplayer state. Wildwood separates fast gameplay
 ```mermaid
 flowchart LR
   Input["Local input + simulation"] --> PositionGate["Movement rate gate"]
-  PositionGate -->|"keyboard change immediately"| PositionReducer["update_movement_state(x,y,dx,dy,sequence)"]
-  PositionGate -->|"touch delta ≥ 0.12; max 10 Hz"| PositionReducer
-  PositionGate -->|"moving heartbeat: 1 Hz"| PositionReducer
+  PositionGate -->|"keyboard change immediately"| PositionReducer["update_movement_state(x,y,vx,vy,tick,epoch,sequence)"]
+  PositionGate -->|"touch: 24-direction-equivalent gate; max 10 Hz"| PositionReducer
+  PositionGate -->|"moving heartbeat: 2 Hz"| PositionReducer
   PositionReducer --> PrivateMotion["private player_motion row"]
   PrivateMotion -->|"2 players: direct compact event"| ZoneBatch["compact player_motion_frame per occupied zone"]
   PrivateMotion -->|"3+ players: on-demand 10 Hz max batching"| ZoneBatch
   ZoneBatch -->|"one camera-area subscription"| MotionCache["decode by network id into remote sample buffers"]
-  MotionCache --> Interpolation["continuity anchor + realized-velocity extrapolation"]
+  MotionCache --> Interpolation["continuity anchor + transmitted-velocity extrapolation"]
   Interpolation --> Frame["render frame"]
 
   PositionReducer -->|"start / stop / zone boundary only"| PlayerRow["cold public player row"]
@@ -37,14 +37,14 @@ flowchart LR
 
 ### Lane rules
 
-- `player_motion` is private current motion: client-authoritative `x/y`, normalized `dx/dy`, sequence, and cold compatibility state. Each sender owns its reducer; writes have no public row fanout.
-- Keyboard sends only vector transitions plus a one-second moving heartbeat. Touch sends start/stop, vector deltas of at least `0.12`, and the same heartbeat, with material steering capped at 10 Hz. Stationary players send nothing.
-- Remote presentation treats that one-second heartbeat as correction cadence, not network jitter. It keeps only a short jitter buffer, anchors each live correction to the pose already being shown, and learns realized straight-line velocity from confirmed positions. A dropped mobile simulation step can therefore converge without a one-frame snap or another second of accumulated drift.
-- Teleport detection is based on elapsed server time, transmitted vector magnitude, and the player's effective speed. Never compare sparse heartbeat displacement to a fixed distance: an upgraded player can legitimately travel more than 260 world units between one-second corrections.
-- `player_motion_frame` is an insert-only event table. Two-player maps use a direct compact-event fast path. At three or more players, one demand-driven scheduler packs changed movers by zone at no more than 10 Hz. One trailing empty tick ends a burst; no high-rate lease keeps scanning idle motion. Each sample remains 11 bytes, with the retired facing bytes carrying signed `dx/dy`.
+- `player_motion` is private current motion: client-authoritative `x/y`, world-space `vx/vy`, sender simulation tick, motion epoch, sequence, and cold compatibility state. Each sender owns its reducer; writes have no public row fanout.
+- Keyboard sends only velocity transitions plus a 500 ms moving heartbeat. Touch compares squared magnitudes and a dot product against a 24-direction-equivalent hysteresis gate, then sends exact `vx/vy`; local movement remains fully analog. Material steering is capped at 10 Hz. Stationary players send nothing.
+- Remote presentation treats the 2 Hz heartbeat as correction cadence, not network jitter. It keeps only a short jitter buffer, anchors each correction to the pose already being shown, and extrapolates directly from transmitted world velocity. The per-render predictor no longer reconstructs speed with repeated magnitudes, alignments, or old-position deltas.
+- `motionEpoch` is the only hard discontinuity guard. Respawns, world/session resets, map transitions, and duel teleports advance it and flush the old prediction buffer. Distance never decides whether valid fast travel was a teleport. The wrap-aware 16-bit hot `simulationTick` reconstructs sender cadence; server time remains the fallback across epochs.
+- `player_motion_frame` is an insert-only event table. Two-player maps use a direct compact-event fast path. At three or more players, one demand-driven scheduler packs changed movers by zone at no more than 10 Hz. One trailing empty tick ends a burst; no high-rate lease keeps scanning idle motion. Each sample is 16 bytes: network ID, quantized `x/y`, quantized `vx/vy`, low 16 bits of simulation tick, and low 16 bits of motion epoch.
 - `player` is cold presentation/interest state. It updates on movement start, stop, idle correction, zone crossing, equipment/stat presentation changes, teleports, and lifecycle changes—not every movement input.
 - `player_motion_identity` maps compact network IDs to identity, name, account kind, and appearance. Clients subscribe to their own row plus camera zones; distant minimap dots use network ID directly and do not require map-wide profile hydration. Base hydration subscribes only to the local durable profile, never every historical profile/account row.
-- `player_map_frame` is one compact 1 Hz snapshot per shared map. It preserves distant minimap dots without N separately updated marker rows or map-wide identity subscriptions.
+- `player_map_frame` is one compact 1 Hz snapshot per shared map. Its separate 8-byte sample carries only network ID and `x/y`; prediction-only velocity, tick, and epoch never inflate distant markers.
 - Detailed remote players use one subscription containing a rectangular player query and matching zone-frame query derived from actual camera bounds. Never add one subscription per player or one query per zone.
 - An invisible developer cannot appear in another client's visible-player query. Sparse state frames remain smooth through vector extrapolation; observation no longer asks every sender for a high-rate stream or requires stationary movement heartbeats.
 - Remote players render name and power only. Health remains local simulation state and never enters the realtime player row.
@@ -96,7 +96,7 @@ flowchart LR
   Browser --> Protocol["register protocol + enter world"]
   Authorize --> Protocol
   Protocol --> Subs["core + nearby-frame + map-frame subscriptions"]
-  Protocol --> Move["update_movement_state · changes + ~1 Hz heartbeat"]
+  Protocol --> Move["update_movement_state · changes + 2 Hz heartbeat"]
   Protocol --> Save["save_player_progress · ~2.5 s"]
   Move --> Hot["private motion rows + shared aggregate frames"]
   Save --> Durable["tagged pretend progress"]
@@ -115,18 +115,18 @@ flowchart LR
 
 ## Why aggregation changes scaling
 
-With `N` clustered movers, direct public row updates create roughly `movement Hz × N × N` subscriber deliveries. Aggregate frames create roughly `frame Hz × N` frame deliveries, while each payload contains `N × 11` compact bytes. Sparse ingress also cuts steady straight-line reducer transactions by about 90%:
+With `N` clustered movers, direct public row updates create roughly `movement Hz × N × N` subscriber deliveries. Aggregate frames create roughly `frame Hz × N` frame deliveries, while each payload contains `N × 16` compact bytes. Sparse ingress still cuts steady straight-line reducer transactions by 80%:
 
-| Movers | Former 10 Hz ingress | Sparse 1 Hz heartbeat |
+| Movers | Former 10 Hz ingress | Sparse 2 Hz heartbeat |
 |---:|---:|---:|
-| 100 | 1,000/s | 100/s |
-| 500 | 5,000/s | 500/s |
-| 1,000 | 10,000/s | 1,000/s |
-| 3,000 | 30,000/s | 3,000/s |
+| 100 | 1,000/s | 200/s |
+| 500 | 5,000/s | 1,000/s |
+| 1,000 | 10,000/s | 2,000/s |
+| 3,000 | 30,000/s | 6,000/s |
 
 Direction transitions add traffic only when they carry new information. Touch steering may legitimately rise to 3–6/s, or 8–10/s during tight turns. Camera-zone interest still bounds viewer × actor delivery cost.
 
-The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible players. Above that threshold, the server emits at most 256 spatial centroids. At 3,000 viewers the compact payload is therefore bounded near 8.45 MB/s before protocol overhead instead of 99 MB/s. Runtime zone movement remains exact.
+The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible players. Above that threshold, the server emits at most 256 spatial centroids. At 3,000 viewers its 8-byte samples are therefore bounded near 6.14 MB/s before protocol overhead instead of the former 8.45 MB/s. Runtime zone movement remains exact.
 
 ## Server authority boundary
 
@@ -144,4 +144,4 @@ Server owns connection/controller identity, map portals, shared bosses, research
 
 ### Follow-up measurement note
 
-If remote motion still diverges on a representative phone, record predicted-versus-confirmed position error and the sender's dropped simulation time before increasing movement traffic. A nearby-only higher correction rate remains an option, but it should be justified against reducer ingress and dense-zone fanout rather than used to mask a presentation-clock error.
+If remote motion still diverges on a representative phone, record predicted-versus-confirmed position error, epoch changes, sender tick deltas, and dropped simulation time before increasing movement traffic beyond 2 Hz. A nearby-only adaptive correction rate remains an option, but it should be justified against reducer ingress and dense-zone fanout rather than used to mask a presentation-clock error.

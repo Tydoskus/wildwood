@@ -69,6 +69,46 @@ describe("enemy reward rules", () => {
   });
 });
 
+describe("enemy movement balance", () => {
+  it("slows every Tutorial Forest regular enemy by 50 percent", () => {
+    expect({
+      Bramble: ENEMY_TYPES.Bramble.speed,
+      Needle: ENEMY_TYPES.Needle.speed,
+      Mossback: ENEMY_TYPES.Mossback.speed,
+      Spitter: ENEMY_TYPES.Spitter.speed,
+      Brood: ENEMY_TYPES.Brood.speed,
+      Cindermaw: ENEMY_TYPES.Cindermaw.speed,
+      "King Slime": ENEMY_TYPES["King Slime"].speed,
+      "Dread Warden": ENEMY_TYPES["Dread Warden"].speed,
+    }).toEqual({
+      Bramble: 105,
+      Needle: 105,
+      Mossback: 105,
+      Spitter: 105,
+      Brood: 90,
+      Cindermaw: 105,
+      "King Slime": 95,
+      "Dread Warden": 110,
+    });
+  });
+
+  it("slows every Beginner Desert regular enemy by 25 percent", () => {
+    expect({
+      "Dune Raider": ENEMY_TYPES["Dune Raider"].speed,
+      "Dune Archer": ENEMY_TYPES["Dune Archer"].speed,
+      "Venom Guard": ENEMY_TYPES["Venom Guard"].speed,
+      "Wastes Reaper": ENEMY_TYPES["Wastes Reaper"].speed,
+      "Blight Oracle": ENEMY_TYPES["Blight Oracle"].speed,
+    }).toEqual({
+      "Dune Raider": 165,
+      "Dune Archer": 153.75,
+      "Venom Guard": 146.25,
+      "Wastes Reaper": 168.75,
+      "Blight Oracle": 157.5,
+    });
+  });
+});
+
 describe("enemy sprite loading", () => {
   it("keeps the approved Dune Archer bow alignment without a separate hand layer", () => {
     const duneArcher = ENEMY_SPRITE_LAYOUTS["Dune Archer"];

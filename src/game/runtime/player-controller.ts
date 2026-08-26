@@ -64,7 +64,7 @@ export function createPlayerController(options: {
   movementSpeedMultiplier: () => number;
   regenerationMultiplier: () => number;
   healthMultiplier?: () => number;
-  syncMovementState: (x: number, y: number, dx: number, dy: number, inputSource: Exclude<MovementInputSource, "none">, force: boolean, interestArea?: PlayerInterestArea) => void;
+  syncMovementState: (x: number, y: number, vx: number, vy: number, inputSource: Exclude<MovementInputSource, "none">, force: boolean, interestArea?: PlayerInterestArea) => void;
   autoAttack: () => void;
   isAutoAttackEnabled: () => boolean;
   activeDuel: () => RuntimeDuelState | null;
@@ -195,12 +195,20 @@ export function createPlayerController(options: {
       const visibleW = width / zoom;
       const visibleH = height / zoom;
       const camera = cameraPosition();
-      syncMovementState(player.x, player.y, player.moving ? mx : 0, player.moving ? my : 0, source === "touch" ? "touch" : "keyboard", started, {
-        left: camera.x,
-        top: camera.y,
-        right: camera.x + visibleW,
-        bottom: camera.y + visibleH,
-      });
+      syncMovementState(
+        player.x,
+        player.y,
+        player.moving ? mx * movementSpeed : 0,
+        player.moving ? my * movementSpeed : 0,
+        source === "touch" ? "touch" : "keyboard",
+        started,
+        {
+          left: camera.x,
+          top: camera.y,
+          right: camera.x + visibleW,
+          bottom: camera.y + visibleH,
+        },
+      );
     }
     player.hurtClock = Math.max(0, player.hurtClock - dt);
     if (player.regen > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.regen * regenerationMultiplier() * dt);

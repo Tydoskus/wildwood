@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules";
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
+  VIRTUAL_PLAYER_MOVEMENT_HZ,
   VIRTUAL_PLAYER_TICKET_HEX_LENGTH,
+  advanceVirtualPlayerSimulationTick,
   isVirtualPlayerTicket,
   normalizeVirtualPlayerCount,
 } from "../../../shared/virtual-player-load-test";
@@ -31,6 +33,16 @@ describe("virtual-player count", () => {
   it("keeps the in-browser harness below Chromium's socket ceiling", () => {
     expect(BROWSER_VIRTUAL_PLAYER_LIMIT).toBe(200);
     expect(BROWSER_VIRTUAL_PLAYER_LIMIT).toBeLessThan(255);
+  });
+});
+
+describe("virtual-player motion protocol", () => {
+  it("models the 2 Hz heartbeat on the real 60 Hz simulation clock", () => {
+    expect(VIRTUAL_PLAYER_MOVEMENT_HZ).toBe(2);
+    expect(advanceVirtualPlayerSimulationTick(100, .1)).toBe(106);
+    expect(advanceVirtualPlayerSimulationTick(100, .5)).toBe(109);
+    expect(advanceVirtualPlayerSimulationTick(100, 0)).toBe(100);
+    expect(advanceVirtualPlayerSimulationTick(0xffffffff, 1 / 60)).toBe(0);
   });
 });
 

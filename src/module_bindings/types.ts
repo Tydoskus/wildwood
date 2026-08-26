@@ -500,6 +500,10 @@ export const Player = __t.object("Player", {
   powerLevel: __t.f64(),
   rightHandItem: __t.string(),
   leftHandItem: __t.string(),
+  vx: __t.f32(),
+  vy: __t.f32(),
+  simulationTick: __t.u32(),
+  motionEpoch: __t.u32(),
 });
 export type Player = __Infer<typeof Player>;
 
@@ -631,6 +635,10 @@ export const PlayerMotion = __t.object("PlayerMotion", {
   dx: __t.f32(),
   dy: __t.f32(),
   isVisible: __t.bool(),
+  vx: __t.f32(),
+  vy: __t.f32(),
+  simulationTick: __t.u32(),
+  motionEpoch: __t.u32(),
 });
 export type PlayerMotion = __Infer<typeof PlayerMotion>;
 

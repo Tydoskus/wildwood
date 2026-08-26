@@ -823,7 +823,7 @@ import {
     movementSpeedMultiplier: researchMovementSpeedMultiplier,
     regenerationMultiplier,
     healthMultiplier,
-    syncMovementState: (x, y, dx, dy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, dx, dy, inputSource, force, interestArea),
+    syncMovementState: (x, y, vx, vy, inputSource, force, interestArea) => coop?.syncMovementState?.(x, y, vx, vy, inputSource, force, interestArea),
     autoAttack: () => playerCombat.attackNearest(),
     isAutoAttackEnabled: () => isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
@@ -1412,7 +1412,15 @@ import {
     syncPlayerState: () => {
       coop?.syncSpeed?.(player.speed * researchMovementSpeedMultiplier());
       const movement = playerInput.movement();
-      coop?.syncMovementState?.(player.x, player.y, movement.x, movement.y, movement.source === "touch" ? "touch" : "keyboard", true);
+      const movementSpeed = player.speed * researchMovementSpeedMultiplier();
+      coop?.syncMovementState?.(
+        player.x,
+        player.y,
+        movement.x * movementSpeed,
+        movement.y * movementSpeed,
+        movement.source === "touch" ? "touch" : "keyboard",
+        true,
+      );
     },
     reconcileMap: mapController.reconcileMapFromServer,
     syncBossState: () => {

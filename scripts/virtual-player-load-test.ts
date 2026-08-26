@@ -22,12 +22,14 @@ import {
 } from "../shared/rules";
 import {
   VIRTUAL_PLAYER_LIMIT,
+  VIRTUAL_PLAYER_MAX_STEP_SECONDS,
   VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
   VIRTUAL_PLAYER_TICKET_BYTES,
+  advanceVirtualPlayerSimulationTick,
 } from "../shared/virtual-player-load-test";
 import {
   movementUpdateReason,
-  normalizeMovementVector,
+  sanitizeMovementVelocity,
   type SentMovementState,
 } from "../src/coop/services/sparse-movement";
 import {
@@ -103,6 +105,8 @@ type LoadBot = {
   y: number;
   angle: number;
   sequence: number;
+  simulationTick: number;
+  motionEpoch: number;
   lastSent: SentMovementState | null;
   movementInFlight: boolean;
   saveInFlight: boolean;
@@ -177,7 +181,7 @@ Options:
   --bootstrap-concurrency <n> Concurrent connects per worker (default 16)
 
 Modes:
-  movement   Sparse 1 Hz movement only; no subscriptions or saves
+  movement   Sparse 2 Hz movement only; no subscriptions or saves
   realistic  Normal subscriptions, smooth steering, and 2.5 s saves
   dense      Full subscriptions; all bots in one zone; rapid steering
 
@@ -579,6 +583,8 @@ function createBot(index: number, mode: VirtualPlayerLoadMode, count: number): L
     y: position.y,
     angle: index * 2.399963229728653 % (Math.PI * 2),
     sequence: 0,
+    simulationTick: 0,
+    motionEpoch: 1,
     lastSent: null,
     movementInFlight: false,
     saveInFlight: false,
@@ -743,13 +749,22 @@ function updateBot(bot: LoadBot, config: WorkerStart, elapsedSeconds: number, no
   }
   bot.x = Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, nextX));
   bot.y = Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, nextY));
-  const vector = normalizeMovementVector(dx, dy);
-  const reason = movementUpdateReason({ now, vector, inputKind: profile.inputKind, lastSent: bot.lastSent });
+  bot.simulationTick = advanceVirtualPlayerSimulationTick(bot.simulationTick, elapsedSeconds);
+  const velocity = sanitizeMovementVelocity(dx * PLAYER_SPEED, dy * PLAYER_SPEED);
+  const reason = movementUpdateReason({ now, velocity, inputKind: profile.inputKind, lastSent: bot.lastSent });
   if (reason && !bot.movementInFlight) {
-    bot.lastSent = { ...vector, sentAt: now };
+    bot.lastSent = { ...velocity, sentAt: now };
     bot.movementInFlight = true;
     const sequence = ++bot.sequence;
-    void connection.reducers.updateMovementState({ x: bot.x, y: bot.y, dx: vector.dx, dy: vector.dy, sequence })
+    void connection.reducers.updateMovementState({
+      x: bot.x,
+      y: bot.y,
+      vx: velocity.vx,
+      vy: velocity.vy,
+      simulationTick: bot.simulationTick,
+      motionEpoch: bot.motionEpoch,
+      sequence,
+    })
       .then(() => { counters.movementAcks += 1; })
       .catch(() => { counters.reducerErrors += 1; })
       .finally(() => { bot.movementInFlight = false; });
@@ -777,7 +792,7 @@ async function runWorker(config: WorkerStart) {
   const movementTimer = setInterval(() => {
     if (paused) return;
     const now = performance.now();
-    const elapsedSeconds = Math.max(0, Math.min(.25, (now - lastMovementAt) / 1_000));
+    const elapsedSeconds = Math.max(0, Math.min(VIRTUAL_PLAYER_MAX_STEP_SECONDS, (now - lastMovementAt) / 1_000));
     lastMovementAt = now;
     for (const bot of bots) updateBot(bot, config, elapsedSeconds, now, counters);
   }, MOVEMENT_INTERVAL_MS);

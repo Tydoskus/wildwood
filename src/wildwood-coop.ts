@@ -408,7 +408,7 @@ const progressionService = createProgressionService({
   hydrationReady: () => hydrationReady,
   activeProfileIdentity: () => playerProfileService?.activeIdentity() ?? "",
   completeAccountReturn: () => accountService.completeAccountReturnWhenReady(),
-  reservePositionSequence: () => presenceService.reservePositionSequence(),
+  reserveStoppedMotion: () => presenceService.reserveStoppedMotion(),
   commitStoppedPosition: (position, sequence) => presenceService.commitStoppedPosition(position, sequence),
   storage: localStorage,
   pendingProgressKey,

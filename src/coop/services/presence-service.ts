@@ -9,9 +9,11 @@ import {
   createRemoteMotionCorrection,
   createRemoteInterpolationClock,
   createRestartRemoteInterpolationClock,
+  duplicateRemoteMotionSample,
   observeRemoteSample,
   remoteMotionAt,
-  remoteMotionSnapDistance,
+  remoteSampleIntervalMs,
+  remoteMotionTransition,
   resetRemoteMotionCorrection,
   type RemoteInterpolationClock,
   type RemoteMotionCorrection,
@@ -21,10 +23,10 @@ import {
   remoteBossAttackFrame,
   type RemoteBossAttackState,
 } from "./remote-boss-attack";
-import { decodePlayerMotionFrame } from "../../../shared/player-motion-frame";
+import { decodePlayerMapFrame, decodePlayerMotionFrame } from "../../../shared/player-motion-frame";
 import {
   movementUpdateReason,
-  normalizeMovementVector,
+  sanitizeMovementVelocity,
   type MovementInputKind,
   type SentMovementState,
 } from "./sparse-movement";
@@ -56,8 +58,10 @@ type RemotePlayerSample = {
   receivedAt: number;
   x: number;
   y: number;
-  dx: number;
-  dy: number;
+  vx: number;
+  vy: number;
+  simulationTick: number;
+  motionEpoch: number;
   facing: number;
   moving: boolean;
 };
@@ -95,6 +99,10 @@ type PlayerRow = RemoteEquipment & {
   facing: number;
   dx: number;
   dy: number;
+  vx: number;
+  vy: number;
+  simulationTick: number;
+  motionEpoch: number;
   moving: boolean;
   power: number;
   powerLevel: number;
@@ -136,25 +144,24 @@ function serverTimestampMs(timestamp: { microsSinceUnixEpoch: bigint }) {
 function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<RemotePlayerSample, "timelineAt">) {
   const latest = existing.samples[existing.samples.length - 1];
   if (!latest || sample.serverAtMs <= latest.serverAtMs) return;
+  if (duplicateRemoteMotionSample(latest, sample)) return;
 
-  const movementRestarted = !latest.moving && sample.moving;
-  if (!movementRestarted) {
+  const transition = remoteMotionTransition(latest, sample);
+  const movementRestarted = transition === "restart";
+  const motionDiscontinuity = transition === "discontinuity";
+  if (!movementRestarted && !motionDiscontinuity) {
     observeRemoteSample(
       existing.interpolationClock,
-      sample.serverAtMs - latest.serverAtMs,
+      remoteSampleIntervalMs(latest, sample),
       sample.receivedAt - latest.receivedAt,
     );
   }
-  const distance = Math.hypot(sample.x - latest.x, sample.y - latest.y);
-  if (movementRestarted) {
+  if (movementRestarted || motionDiscontinuity) {
     existing.samples.length = 0;
     existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
-    existing.interpolationClock = createRestartRemoteInterpolationClock(sample.receivedAt);
-    resetRemoteMotionCorrection(existing.motionCorrection, sample.receivedAt);
-  } else if (distance > remoteMotionSnapDistance(latest, { ...sample, timelineAt: sample.receivedAt }, existing.speed)) {
-    existing.samples.length = 0;
-    existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
-    existing.interpolationClock = createRemoteInterpolationClock(sample.receivedAt);
+    existing.interpolationClock = movementRestarted
+      ? createRestartRemoteInterpolationClock(sample.receivedAt)
+      : createRemoteInterpolationClock(sample.receivedAt);
     resetRemoteMotionCorrection(existing.motionCorrection, sample.receivedAt);
   } else {
     const renderAt = adaptiveRemoteRenderAt(existing.interpolationClock, sample.receivedAt);
@@ -184,19 +191,30 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let localMotionNetworkId: number | null = null;
   let lastSentMovement: SentMovementState | null = null;
   let nextPositionSequence = 0;
+  let localSimulationTick = 0;
+  let localMotionEpoch = 0;
   let localState: LocalPlayerState | null = null;
   let onlinePlayerCount = 0;
 
+  function advanceLocalMotionEpoch() {
+    localMotionEpoch = (localMotionEpoch + 1) & 0xffff;
+    if (localMotionEpoch === 0) localMotionEpoch = 1;
+  }
+
   function appendPlayerSample(existing: RemotePlayerTarget, row: PlayerRow, serverAtMs: number, receivedAt: number) {
-    if (row.lastInputSequence <= existing.lastInputSequence) return;
-    if (!row.moving || row.moving !== existing.moving) {
+    const latest = existing.samples[existing.samples.length - 1];
+    const motionDiscontinuity = latest?.motionEpoch !== row.motionEpoch;
+    if (!motionDiscontinuity && row.lastInputSequence <= existing.lastInputSequence) return;
+    if (motionDiscontinuity || !row.moving || row.moving !== existing.moving) {
       appendRemoteMotionSample(existing, {
         serverAtMs,
         receivedAt,
         x: row.x,
         y: row.y,
-        dx: row.dx,
-        dy: row.dy,
+        vx: row.vx,
+        vy: row.vy,
+        simulationTick: row.simulationTick,
+        motionEpoch: row.motionEpoch,
         facing: row.facing,
         moving: row.moving,
       });
@@ -207,6 +225,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function upsertPlayer(row: PlayerRow) {
     const id = row.identity.toHexString();
     if (id === dependencies.localIdentity()) {
+      localMotionEpoch = row.motionEpoch & 0xffff;
       speedSyncTracker.observe(row.speed);
       const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
       const firstLocalState = localState === null;
@@ -282,7 +301,19 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         facing: row.facing,
         moving: row.moving,
         ...equipment,
-        samples: [{ timelineAt: receivedAt, serverAtMs, receivedAt, x: row.x, y: row.y, dx: row.dx, dy: row.dy, facing: row.facing, moving: row.moving }],
+        samples: [{
+          timelineAt: receivedAt,
+          serverAtMs,
+          receivedAt,
+          x: row.x,
+          y: row.y,
+          vx: row.vx,
+          vy: row.vy,
+          simulationTick: row.simulationTick,
+          motionEpoch: row.motionEpoch,
+          facing: row.facing,
+          moving: row.moving,
+        }],
         interpolationClock: createRemoteInterpolationClock(receivedAt),
         motionCorrection: createRemoteMotionCorrection(receivedAt),
         lastInputSequence: row.lastInputSequence,
@@ -353,10 +384,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         receivedAt,
         x: sample.x,
         y: sample.y,
-        dx: sample.dx,
-        dy: sample.dy,
-        facing: sample.dx < 0 ? Math.PI : sample.dx > 0 ? 0 : existing.facing,
-        moving: sample.moving,
+        vx: sample.vx,
+        vy: sample.vy,
+        simulationTick: sample.simulationTick,
+        motionEpoch: sample.motionEpoch,
+        facing: sample.vx < 0 ? Math.PI : sample.vx > 0 ? 0 : existing.facing,
+        moving: sample.vx !== 0 || sample.vy !== 0,
       });
     }
   }
@@ -365,7 +398,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (row.mapId !== currentMapId) return;
     let samples;
     try {
-      samples = decodePlayerMotionFrame(row.payload, row.playerCount);
+      samples = decodePlayerMapFrame(row.payload, row.playerCount);
     } catch (error) {
       console.warn("Ignored malformed Wildwood minimap frame:", error);
       return;
@@ -607,32 +640,41 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function syncMovementState(
     x: number,
     y: number,
-    dx: number,
-    dy: number,
+    vx: number,
+    vy: number,
     inputKind: MovementInputKind = "keyboard",
     force = false,
     interestArea?: PlayerInterestArea,
   ) {
     const connection = dependencies.reducers.connection();
     if (dependencies.reducers.protocolBlocked() || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    localSimulationTick = (localSimulationTick + 1) >>> 0;
     refreshMapPlayerSubscription(false, interestArea);
     const now = performance.now();
-    const vector = normalizeMovementVector(dx, dy);
-    if (!movementUpdateReason({ now, vector, inputKind, lastSent: lastSentMovement, force })) return;
+    const velocity = sanitizeMovementVelocity(vx, vy);
+    if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force })) return;
 
-    lastSentMovement = { ...vector, sentAt: now };
+    lastSentMovement = { ...velocity, sentAt: now };
     const sequence = ++nextPositionSequence;
     if (localState) {
       localState.x = x;
       localState.y = y;
-      if (vector.dx < 0) localState.facing = Math.PI;
-      else if (vector.dx > 0) localState.facing = 0;
-      localState.moving = vector.moving;
+      if (velocity.vx < 0) localState.facing = Math.PI;
+      else if (velocity.vx > 0) localState.facing = 0;
+      localState.moving = velocity.moving;
       localState.lastInputSequence = sequence;
     }
     dependencies.reducers.sendReducer(
       "movement state",
-      (current) => current.reducers.updateMovementState({ x, y, dx: vector.dx, dy: vector.dy, sequence }),
+      (current) => current.reducers.updateMovementState({
+        x,
+        y,
+        vx: velocity.vx,
+        vy: velocity.vy,
+        simulationTick: localSimulationTick,
+        motionEpoch: localMotionEpoch,
+        sequence,
+      }),
     );
   }
 
@@ -666,8 +708,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       syncMovementState,
       correctMovementPosition(x: number, y: number, stop = false) {
-        const vector = stop || !lastSentMovement ? { dx: 0, dy: 0 } : { dx: lastSentMovement.dx, dy: lastSentMovement.dy };
-        syncMovementState(x, y, vector.dx, vector.dy, "keyboard", true);
+        if (stop) advanceLocalMotionEpoch();
+        const velocity = stop || !lastSentMovement ? { vx: 0, vy: 0 } : lastSentMovement;
+        syncMovementState(x, y, velocity.vx, velocity.vy, "keyboard", true);
       },
       async changeMap(mapId: string, x: number, y: number) {
         const connection = dependencies.reducers.connection();
@@ -695,7 +738,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           if (player.id === dependencies.localIdentity()) continue;
           const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
           const motion = applyRemoteMotionCorrection(
-            remoteMotionAt(player.samples, renderAt, player.speed),
+            remoteMotionAt(player.samples, renderAt),
             player.motionCorrection,
             now,
             player.speed,
@@ -753,9 +796,16 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       const player = players.get(identity);
       if (player) player.name = displayName;
     },
-    reservePositionSequence: () => ++nextPositionSequence,
+    reserveStoppedMotion() {
+      localSimulationTick = (localSimulationTick + 1) >>> 0;
+      return {
+        sequence: ++nextPositionSequence,
+        simulationTick: localSimulationTick,
+        motionEpoch: localMotionEpoch,
+      };
+    },
     commitStoppedPosition(position: { x: number; y: number }, sequence: number) {
-      lastSentMovement = { dx: 0, dy: 0, moving: false, sentAt: performance.now() };
+      lastSentMovement = { vx: 0, vy: 0, moving: false, sentAt: performance.now() };
       if (localState) {
         localState.x = position.x;
         localState.y = position.y;
@@ -772,12 +822,15 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     beginSession(identityChanged: boolean) {
       lastSentMovement = null;
       nextPositionSequence = 0;
+      localSimulationTick = 0;
+      advanceLocalMotionEpoch();
       speedSyncTracker.reset();
       if (identityChanged) localState = null;
     },
     markDisconnected() {
       lastSentMovement = null;
       nextPositionSequence = 0;
+      localSimulationTick = 0;
       speedSyncTracker.reset();
     },
     clearSession() {

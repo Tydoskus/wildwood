@@ -7,9 +7,9 @@ const BASE_NETWORK_DELAY_MS = 80;
 const MIN_SAMPLE_INTERVAL_MS = 35;
 const MAX_SAMPLE_INTERVAL_MS = 1_200;
 const MAX_EXTRAPOLATION_MS = 1_500;
-const MIN_SNAP_DISTANCE = 260;
-const EXPECTED_TRAVEL_TOLERANCE = 1.35;
-const EXPECTED_TRAVEL_MARGIN = 48;
+const SIMULATION_TICK_HZ = 60;
+const SIMULATION_TICK_MODULUS = 0x1_0000;
+const SIMULATION_TICK_HALF_RANGE = SIMULATION_TICK_MODULUS / 2;
 const LIVE_CORRECTION_MIN_ARRIVAL_MS = 8;
 const CORRECTION_TIME_CONSTANT_MS = 180;
 const MAX_CORRECTION_SPEED_RATIO = .75;
@@ -20,8 +20,10 @@ export type RemoteMotionSample = {
   serverAtMs?: number;
   x: number;
   y: number;
-  dx: number;
-  dy: number;
+  vx: number;
+  vy: number;
+  simulationTick: number;
+  motionEpoch: number;
   facing: number;
   moving: boolean;
 };
@@ -47,6 +49,27 @@ export type RemoteMotionCorrection = {
   lastAt: number;
 };
 
+export type RemoteMotionTransition = "continuous" | "restart" | "discontinuity";
+
+/** Epoch is the explicit hard-reset guard; distance never decides continuity. */
+export function remoteMotionTransition(
+  previous: Pick<RemoteMotionSample, "motionEpoch" | "moving">,
+  next: Pick<RemoteMotionSample, "motionEpoch" | "moving">,
+): RemoteMotionTransition {
+  if (previous.motionEpoch !== next.motionEpoch) return "discontinuity";
+  if (!previous.moving && next.moving) return "restart";
+  return "continuous";
+}
+
+export function duplicateRemoteMotionSample(
+  previous: Pick<RemoteMotionSample, "simulationTick" | "motionEpoch" | "moving">,
+  next: Pick<RemoteMotionSample, "simulationTick" | "motionEpoch" | "moving">,
+) {
+  return previous.motionEpoch === next.motionEpoch &&
+    previous.simulationTick === next.simulationTick &&
+    previous.moving === next.moving;
+}
+
 export function createRemoteInterpolationClock(now: number): RemoteInterpolationClock {
   return {
     expectedIntervalMs: 50,
@@ -57,7 +80,7 @@ export function createRemoteInterpolationClock(now: number): RemoteInterpolation
   };
 }
 
-/** A movement restart should not inherit the large buffer learned at 3 Hz. */
+/** A movement restart should not inherit a large delay learned during a burst. */
 export function createRestartRemoteInterpolationClock(now: number): RemoteInterpolationClock {
   return {
     ...createRemoteInterpolationClock(now),
@@ -78,8 +101,8 @@ export function appendRemoteTimelineSample<T extends TimestampedRemoteMotionSamp
 ): T {
   const previous = samples[samples.length - 1];
   if (previous) {
-    const serverIntervalMs = clamp(sample.serverAtMs - previous.serverAtMs, 1, 250);
-    const projectedTimelineAt = previous.timelineAt + serverIntervalMs;
+    const sourceIntervalMs = clamp(remoteSampleIntervalMs(previous, sample), 1, 250);
+    const projectedTimelineAt = previous.timelineAt + sourceIntervalMs;
     const futureLeadMs = projectedTimelineAt - sample.receivedAt;
     if (futureLeadMs > 0) {
       for (const buffered of samples) buffered.timelineAt -= futureLeadMs;
@@ -88,6 +111,18 @@ export function appendRemoteTimelineSample<T extends TimestampedRemoteMotionSamp
   const next = { ...sample, timelineAt: sample.receivedAt } as T;
   samples.push(next);
   return next;
+}
+
+/** Uses sender simulation time when it is unambiguous, then falls back to server order. */
+export function remoteSampleIntervalMs(
+  previous: Pick<TimestampedRemoteMotionSample, "simulationTick" | "motionEpoch" | "serverAtMs">,
+  next: Pick<TimestampedRemoteMotionSample, "simulationTick" | "motionEpoch" | "serverAtMs">,
+) {
+  if (previous.motionEpoch === next.motionEpoch) {
+    const tickDelta = (next.simulationTick - previous.simulationTick + SIMULATION_TICK_MODULUS) % SIMULATION_TICK_MODULUS;
+    if (tickDelta > 0 && tickDelta < SIMULATION_TICK_HALF_RANGE) return tickDelta * 1_000 / SIMULATION_TICK_HZ;
+  }
+  return Math.max(1, next.serverAtMs - previous.serverAtMs);
 }
 
 /** Learns network burstiness without mistaking sparse correction cadence for jitter. */
@@ -105,7 +140,7 @@ export function observeRemoteSample(
 
   const deviation = Math.abs(clamp(arrivalIntervalMs, 0, MAX_SAMPLE_INTERVAL_MS * 2) - interval);
   clock.jitterMs += (deviation - clock.jitterMs) * .2;
-  // Straight movement intentionally sends only a one-second correction. That
+  // Straight movement intentionally sends only a 500 ms correction. That
   // interval is sender cadence, not network latency, and must not place a
   // running remote player almost half a second behind the local player.
   clock.targetDelayMs = clamp(BASE_NETWORK_DELAY_MS + clock.jitterMs * 2, MIN_DELAY_MS, MAX_DELAY_MS);
@@ -133,38 +168,16 @@ export function resetRemoteMotionCorrection(correction: RemoteMotionCorrection, 
   correction.lastAt = now;
 }
 
-/**
- * Distinguishes a teleport from valid travel between sparse corrections.
- * A fixed distance cannot do this: upgraded players can move farther than the
- * old 260-unit guard during one intentional one-second heartbeat.
- */
-export function remoteMotionSnapDistance(
-  previous: RemoteMotionSample,
-  next: RemoteMotionSample,
-  maxSpeed: number,
-) {
-  const previousAt = Number.isFinite(previous.serverAtMs) ? Number(previous.serverAtMs) : previous.timelineAt;
-  const nextAt = Number.isFinite(next.serverAtMs) ? Number(next.serverAtMs) : next.timelineAt;
-  const elapsedSeconds = clamp(nextAt - previousAt, 0, MAX_EXTRAPOLATION_MS) / 1_000;
-  const inputMagnitude = Math.min(1, Math.max(
-    Math.hypot(previous.dx, previous.dy),
-    Math.hypot(next.dx, next.dy),
-  ));
-  const expectedTravel = Math.max(0, maxSpeed) * inputMagnitude * elapsedSeconds;
-  return Math.max(MIN_SNAP_DISTANCE, expectedTravel * EXPECTED_TRAVEL_TOLERANCE + EXPECTED_TRAVEL_MARGIN);
-}
-
 function advanceRemoteMotionCorrection(correction: RemoteMotionCorrection, now: number, maxSpeed: number) {
   const elapsedMs = clamp(now - correction.lastAt, 0, 100);
   correction.lastAt = now;
-  const distance = Math.hypot(correction.x, correction.y);
-  if (elapsedMs <= 0 || distance <= .01) {
-    if (distance <= .01) {
-      correction.x = 0;
-      correction.y = 0;
-    }
+  if (Math.abs(correction.x) <= .01 && Math.abs(correction.y) <= .01) {
+    correction.x = 0;
+    correction.y = 0;
     return;
   }
+  const distance = Math.hypot(correction.x, correction.y);
+  if (elapsedMs <= 0) return;
   const easedStep = distance * (1 - Math.exp(-elapsedMs / CORRECTION_TIME_CONSTANT_MS));
   const speedLimit = Math.max(MIN_CORRECTION_SPEED, Math.max(0, maxSpeed) * MAX_CORRECTION_SPEED_RATIO);
   const step = Math.min(distance, easedStep, speedLimit * elapsedMs / 1_000);
@@ -203,86 +216,44 @@ export function appendRemoteCorrectionSample<T extends TimestampedRemoteMotionSa
   }
 
   const continuity = applyRemoteMotionCorrection(
-    remoteMotionAt(samples, renderAt, maxSpeed),
+    remoteMotionAt(samples, renderAt),
     correction,
     sample.receivedAt,
     maxSpeed,
   );
   const next = appendRemoteTimelineSample(samples, sample);
-  const corrected = remoteMotionAt(samples, renderAt, maxSpeed);
+  const corrected = remoteMotionAt(samples, renderAt);
   correction.x = continuity.x - corrected.x;
   correction.y = continuity.y - corrected.y;
   correction.lastAt = sample.receivedAt;
   return next;
 }
 
-function normalizedInputVelocity(sample: RemoteMotionSample, maxSpeed: number) {
-  const length = Math.hypot(sample.dx, sample.dy);
-  const scale = length > 1 ? 1 / length : 1;
-  return {
-    x: sample.dx * scale * Math.max(0, maxSpeed),
-    y: sample.dy * scale * Math.max(0, maxSpeed),
-  };
-}
-
-/** Uses the last confirmed straight segment to avoid repeatedly overpredicting a stalled mobile client. */
-function remoteExtrapolationVelocity(
-  samples: readonly RemoteMotionSample[],
-  latest: RemoteMotionSample,
-  maxSpeed: number,
-) {
-  const fallback = normalizedInputVelocity(latest, maxSpeed);
-  const previous = samples[samples.length - 2];
-  if (!previous?.moving || !latest.moving) return fallback;
-
-  const latestLength = Math.hypot(latest.dx, latest.dy);
-  const previousLength = Math.hypot(previous.dx, previous.dy);
-  if (latestLength <= 1e-6 || previousLength <= 1e-6) return fallback;
-  const inputAlignment = (latest.dx * previous.dx + latest.dy * previous.dy) / (latestLength * previousLength);
-  if (inputAlignment < .95) return fallback;
-
-  const latestAt = Number.isFinite(latest.serverAtMs) ? Number(latest.serverAtMs) : latest.timelineAt;
-  const previousAt = Number.isFinite(previous.serverAtMs) ? Number(previous.serverAtMs) : previous.timelineAt;
-  const elapsedSeconds = (latestAt - previousAt) / 1_000;
-  if (elapsedSeconds < MIN_SAMPLE_INTERVAL_MS / 1_000 || elapsedSeconds > MAX_SAMPLE_INTERVAL_MS * 2 / 1_000) {
-    return fallback;
-  }
-
-  const x = (latest.x - previous.x) / elapsedSeconds;
-  const y = (latest.y - previous.y) / elapsedSeconds;
-  const observedSpeed = Math.hypot(x, y);
-  const speedLimit = Math.max(0, maxSpeed);
-  if (observedSpeed <= 1e-6) return { x: 0, y: 0 };
-  if (observedSpeed > speedLimit * 1.25 + 1) return fallback;
-  const displacementAlignment = (x * latest.dx + y * latest.dy) / (observedSpeed * latestLength);
-  return displacementAlignment >= .85 ? { x, y } : fallback;
-}
-
 /**
  * Samples buffered movement at a stable render time. Authoritative positions
  * interpolate corrections between sparse packets; the latest transmitted
- * vector carries motion through the one-second heartbeat interval.
+ * velocity carries motion through the 500 ms heartbeat interval.
  */
 export function remoteMotionAt(
   samples: readonly RemoteMotionSample[],
   renderAt: number,
-  maxSpeed: number,
 ): RemoteMotionTransform {
   const first = samples[0];
   const latest = samples[samples.length - 1];
-  if (!first || !latest) return { x: 0, y: 0, dx: 0, dy: 0, facing: 0, moving: false };
+  if (!first || !latest) return { x: 0, y: 0, vx: 0, vy: 0, simulationTick: 0, motionEpoch: 0, facing: 0, moving: false };
 
   if (renderAt >= latest.timelineAt) {
     if (!latest.moving) {
-      return { x: latest.x, y: latest.y, dx: 0, dy: 0, facing: latest.facing, moving: false };
+      return { x: latest.x, y: latest.y, vx: 0, vy: 0, simulationTick: latest.simulationTick, motionEpoch: latest.motionEpoch, facing: latest.facing, moving: false };
     }
-    const velocity = remoteExtrapolationVelocity(samples, latest, maxSpeed);
     const aheadSeconds = Math.min(MAX_EXTRAPOLATION_MS, renderAt - latest.timelineAt) / 1_000;
     return {
-      x: latest.x + velocity.x * aheadSeconds,
-      y: latest.y + velocity.y * aheadSeconds,
-      dx: latest.dx,
-      dy: latest.dy,
+      x: latest.x + latest.vx * aheadSeconds,
+      y: latest.y + latest.vy * aheadSeconds,
+      vx: latest.vx,
+      vy: latest.vy,
+      simulationTick: latest.simulationTick,
+      motionEpoch: latest.motionEpoch,
       facing: latest.facing,
       moving: true,
     };
@@ -299,15 +270,20 @@ export function remoteMotionAt(
   }
   const span = Math.max(1, after.timelineAt - before.timelineAt);
   const alpha = clamp((renderAt - before.timelineAt) / span, 0, 1);
+  const facing = before.facing === after.facing
+    ? before.facing
+    : before.facing + Math.atan2(
+      Math.sin(after.facing - before.facing),
+      Math.cos(after.facing - before.facing),
+    ) * alpha;
   return {
     x: before.x + (after.x - before.x) * alpha,
     y: before.y + (after.y - before.y) * alpha,
-    dx: before.dx + (after.dx - before.dx) * alpha,
-    dy: before.dy + (after.dy - before.dy) * alpha,
-    facing: before.facing + Math.atan2(
-      Math.sin(after.facing - before.facing),
-      Math.cos(after.facing - before.facing),
-    ) * alpha,
+    vx: before.vx + (after.vx - before.vx) * alpha,
+    vy: before.vy + (after.vy - before.vy) * alpha,
+    simulationTick: alpha < 1 ? before.simulationTick : after.simulationTick,
+    motionEpoch: alpha < 1 ? before.motionEpoch : after.motionEpoch,
+    facing,
     moving: alpha < 1 ? before.moving : after.moving,
   };
 }

@@ -81,8 +81,11 @@ import {
 import {
   PLAYER_MAP_FRAME_HZ,
   PLAYER_MOTION_FRAME_HZ,
+  PLAYER_VELOCITY_SCALE,
   compactPlayerMapSamples,
+  encodePlayerMapFrame,
   encodePlayerMotionFrame,
+  type PlayerMapSample,
   type PlayerMotionSample,
 } from "../../shared/player-motion-frame";
 import {
@@ -129,6 +132,7 @@ import {
 } from "../../shared/rules";
 
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
+const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 const PLAYER_ZONE_SIZE = 1_000;
 const VALID_MAP_IDS = new Set<string>(MAP_IDS);
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
@@ -263,6 +267,10 @@ const player = table(
     // migration-safe without expanding the hot aggregate movement frames.
     rightHandItem: t.string().default(""),
     leftHandItem: t.string().default(""),
+    vx: t.f32().default(0),
+    vy: t.f32().default(0),
+    simulationTick: t.u32().default(0),
+    motionEpoch: t.u32().default(0),
   },
 );
 
@@ -301,6 +309,10 @@ const playerMotion = table(
     dx: t.f32().default(0),
     dy: t.f32().default(0),
     isVisible: t.bool().default(true),
+    vx: t.f32().default(0),
+    vy: t.f32().default(0),
+    simulationTick: t.u32().default(0),
+    motionEpoch: t.u32().default(0),
   },
 );
 
@@ -2064,11 +2076,27 @@ function playerWithMotion(ctx: any, activePlayer: any) {
     moving: motion.moving,
     dx: motion.dx,
     dy: motion.dy,
+    vx: motion.vx,
+    vy: motion.vy,
+    simulationTick: motion.simulationTick,
+    motionEpoch: motion.motionEpoch,
     lastInputAt: motion.lastInputAt,
     lastInputSequence: motion.lastInputSequence,
     zoneX: motion.zoneX,
     zoneY: motion.zoneY,
     mapId: motion.mapId,
+  };
+}
+
+function stoppedMotionFields(current: any, advanceEpoch = false) {
+  return {
+    moving: false,
+    dx: 0,
+    dy: 0,
+    vx: 0,
+    vy: 0,
+    simulationTick: current.simulationTick ?? 0,
+    motionEpoch: ((current.motionEpoch ?? 0) + (advanceEpoch ? 1 : 0)) >>> 0,
   };
 }
 
@@ -2126,6 +2154,16 @@ function syncPlayerMotion(ctx: any, activePlayer: any) {
   const current = ctx.db.playerMotion.identity.find(activePlayer.identity);
   const moving = Boolean(activePlayer.moving);
   const isVisible = activePlayer.isVisible !== false;
+  const hasStoredVelocity = Number.isFinite(activePlayer.vx) && Number.isFinite(activePlayer.vy) && (
+    !moving || activePlayer.vx !== 0 || activePlayer.vy !== 0
+  );
+  const fallbackSpeed = Number.isFinite(activePlayer.speed) ? Math.max(0, activePlayer.speed) : 0;
+  const vx = moving
+    ? Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, hasStoredVelocity ? activePlayer.vx : (activePlayer.dx ?? 0) * fallbackSpeed))
+    : 0;
+  const vy = moving
+    ? Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, hasStoredVelocity ? activePlayer.vy : (activePlayer.dy ?? 0) * fallbackSpeed))
+    : 0;
   const next = {
     networkId: current?.networkId ?? 0,
     identity: activePlayer.identity,
@@ -2143,6 +2181,10 @@ function syncPlayerMotion(ctx: any, activePlayer: any) {
     dx: moving && Number.isFinite(activePlayer.dx) ? Math.max(-1, Math.min(1, activePlayer.dx)) : 0,
     dy: moving && Number.isFinite(activePlayer.dy) ? Math.max(-1, Math.min(1, activePlayer.dy)) : 0,
     isVisible,
+    vx,
+    vy,
+    simulationTick: Number.isFinite(activePlayer.simulationTick) ? Math.max(0, Math.min(0xffffffff, Math.floor(activePlayer.simulationTick))) : current?.simulationTick ?? 0,
+    motionEpoch: Number.isFinite(activePlayer.motionEpoch) ? Math.max(0, Math.min(0xffffffff, Math.floor(activePlayer.motionEpoch))) : current?.motionEpoch ?? 0,
   };
   const stored = current
     ? ctx.db.playerMotion.networkId.update(next)
@@ -2294,9 +2336,10 @@ function motionSample(motion: any): PlayerMotionSample {
     networkId: motion.networkId,
     x: motion.x,
     y: motion.y,
-    dx: motion.dx,
-    dy: motion.dy,
-    moving: motion.moving,
+    vx: motion.vx,
+    vy: motion.vy,
+    simulationTick: motion.simulationTick,
+    motionEpoch: motion.motionEpoch,
   };
 }
 
@@ -3817,7 +3860,7 @@ function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
     x,
     y,
     ...playerZone(x, y),
-    moving: false,
+    ...stoppedMotionFields(current, true),
     lastInputAt: ctx.timestamp,
   };
   ctx.db.player.identity.update(next);
@@ -4147,7 +4190,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         ...playerZone(existing.x, existing.y),
         ...powerFieldsForProgress(ctx, existingProgress),
         speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
-        moving: false,
+        ...stoppedMotionFields(existing, true),
         ...equipmentPresentation,
         isVisible: visibleOnEntry,
         protocolVersion: session.protocolVersion,
@@ -4178,7 +4221,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       y: entryPosition.y,
       ...playerZone(entryPosition.x, entryPosition.y),
       facing: Number.isFinite(existing.facing) ? existing.facing : 0,
-      moving: false,
+      ...stoppedMotionFields(existing, true),
       ...powerFieldsForProgress(ctx, existingProgress),
       speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
       protocolVersion: session.protocolVersion,
@@ -4218,7 +4261,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     ...powerFieldsForProgress(ctx, existingProgress),
     // Cosmetic boots never affect movement stats.
     speed: effectiveMovementSpeedForProgress(ctx, existingProgress),
-    moving: false,
+    ...stoppedMotionFields({ simulationTick: 0, motionEpoch: 0 }, true),
     lastInputAt: ctx.timestamp,
     lastInputSequence: 0,
     protocolVersion: session.protocolVersion,
@@ -4280,7 +4323,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
     if (currentPlayer) {
       const nextPlayer = {
         ...currentPlayer,
-        moving: false,
+        ...stoppedMotionFields(currentPlayer, true),
         lastInputAt: ctx.timestamp,
         lastInputSequence: replacement.lastInputSequence,
         protocolVersion: replacement.protocolVersion,
@@ -4391,7 +4434,7 @@ export const publishMapFrames = spacetimedb.reducer(
         break;
       }
     }
-    const maps = new Map<string, PlayerMotionSample[]>();
+    const maps = new Map<string, PlayerMapSample[]>();
     // Emit one final single-player/empty-visible snapshot before stopping so
     // clients clear dots belonging to players who just left or hid.
     for (const [mapId, count] of mapCounts) if (count > 0) maps.set(mapId, []);
@@ -4407,7 +4450,7 @@ export const publishMapFrames = spacetimedb.reducer(
         mapId,
         emittedAt: ctx.timestamp,
         playerCount: compacted.length,
-        payload: encodePlayerMotionFrame(compacted),
+        payload: encodePlayerMapFrame(compacted),
       });
     }
 
@@ -5868,6 +5911,8 @@ export const recordPlayerDeath = spacetimedb.reducer(
         ...motion,
         dx: 0,
         dy: 0,
+        vx: 0,
+        vy: 0,
         moving: false,
         lastInputAt: ctx.timestamp,
       });
@@ -6245,7 +6290,7 @@ export const requestDuel = spacetimedb.reducer(
       x: DUEL_ARENA.challenger.x,
       y: DUEL_ARENA.challenger.y,
       ...playerZone(DUEL_ARENA.challenger.x, DUEL_ARENA.challenger.y),
-      moving: false,
+      ...stoppedMotionFields(challenger, true),
       lastInputAt: ctx.timestamp,
     };
     ctx.db.player.identity.update(nextChallenger);
@@ -6273,17 +6318,29 @@ export const pulseDuel = spacetimedb.reducer(
   },
 );
 
-function applyMovementState(ctx: any, x: number, y: number, dx: number, dy: number, sequence: number) {
+function applyMovementState(
+  ctx: any,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  simulationTick: number,
+  motionEpoch: number,
+  sequence: number,
+) {
   const current = requireControllingPlayer(ctx);
   if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
-  if (![x, y, dx, dy].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
+  if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
 
   const clampedX = Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x));
   const clampedY = Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y));
-  const boundedDx = Math.max(-1, Math.min(1, dx));
-  const boundedDy = Math.max(-1, Math.min(1, dy));
-  const moving = boundedDx !== 0 || boundedDy !== 0;
-  const facing = boundedDx < 0 ? Math.PI : boundedDx > 0 ? 0 : current.facing;
+  const boundedVx = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vx));
+  const boundedVy = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vy));
+  const moving = Math.abs(boundedVx) > 1e-6 || Math.abs(boundedVy) > 1e-6;
+  const compatibilitySpeed = Math.max(1e-6, Number.isFinite(current.speed) ? current.speed : PLAYER_SPEED);
+  const boundedTick = Math.max(0, Math.min(0xffffffff, Math.floor(simulationTick)));
+  const boundedEpoch = Math.max(0, Math.min(0xffffffff, Math.floor(motionEpoch)));
+  const facing = boundedVx < 0 ? Math.PI : boundedVx > 0 ? 0 : current.facing;
   const nextPlayer = {
     ...current,
     x: clampedX,
@@ -6291,8 +6348,13 @@ function applyMovementState(ctx: any, x: number, y: number, dx: number, dy: numb
     ...playerZone(clampedX, clampedY),
     facing,
     moving,
-    dx: moving ? boundedDx : 0,
-    dy: moving ? boundedDy : 0,
+    // Retained only for physical compatibility with the older direction row.
+    dx: moving ? Math.max(-1, Math.min(1, boundedVx / compatibilitySpeed)) : 0,
+    dy: moving ? Math.max(-1, Math.min(1, boundedVy / compatibilitySpeed)) : 0,
+    vx: moving ? boundedVx : 0,
+    vy: moving ? boundedVy : 0,
+    simulationTick: boundedTick,
+    motionEpoch: boundedEpoch,
     lastInputAt: ctx.timestamp,
     lastInputSequence: sequence,
   };
@@ -6314,8 +6376,17 @@ function applyMovementState(ctx: any, x: number, y: number, dx: number, dy: numb
 }
 
 export const updateMovementState = spacetimedb.reducer(
-  { x: t.f64(), y: t.f64(), dx: t.f32(), dy: t.f32(), sequence: t.u32() },
-  (ctx, { x, y, dx, dy, sequence }) => applyMovementState(ctx, x, y, dx, dy, sequence),
+  {
+    x: t.f64(),
+    y: t.f64(),
+    vx: t.f32(),
+    vy: t.f32(),
+    simulationTick: t.u32(),
+    motionEpoch: t.u32(),
+    sequence: t.u32(),
+  },
+  (ctx, { x, y, vx, vy, simulationTick, motionEpoch, sequence }) =>
+    applyMovementState(ctx, x, y, vx, vy, simulationTick, motionEpoch, sequence),
 );
 
 // Rollout bridge for pre-0.424 clients. Current clients never call this path.
@@ -6323,13 +6394,17 @@ export const syncPosition = spacetimedb.reducer(
   { x: t.f64(), y: t.f64(), facing: t.f64(), moving: t.bool(), sequence: t.u32() },
   (ctx, { x, y, facing, moving, sequence }) => {
     if (!Number.isFinite(facing)) throw new SenderError("Movement state values must be finite");
+    const currentMotion = ctx.db.playerMotion.identity.find(ctx.sender);
+    const speed = Math.max(0, ctx.db.player.identity.find(ctx.sender)?.speed ?? PLAYER_SPEED);
     const horizontal = Math.cos(facing);
     applyMovementState(
       ctx,
       x,
       y,
-      moving && Math.abs(horizontal) >= 1e-6 ? horizontal : 0,
-      moving ? Math.sin(facing) : 0,
+      moving && Math.abs(horizontal) >= 1e-6 ? horizontal * speed : 0,
+      moving ? Math.sin(facing) * speed : 0,
+      (currentMotion?.simulationTick ?? 0) + 1 >>> 0,
+      currentMotion?.motionEpoch ?? 0,
       sequence,
     );
   },
@@ -6342,6 +6417,7 @@ function transitionPlayerMap(
   arrival: { x: number; y: number },
   facing = current.facing,
 ) {
+  const currentMotion = ctx.db.playerMotion.identity.find(current.identity);
   const nextPlayer = {
     ...current,
     mapId,
@@ -6352,6 +6428,10 @@ function transitionPlayerMap(
     moving: false,
     dx: 0,
     dy: 0,
+    vx: 0,
+    vy: 0,
+    simulationTick: currentMotion?.simulationTick ?? current.simulationTick ?? 0,
+    motionEpoch: ((currentMotion?.motionEpoch ?? current.motionEpoch ?? 0) + 1) >>> 0,
     lastInputAt: ctx.timestamp,
   };
   ctx.db.player.identity.update(nextPlayer);

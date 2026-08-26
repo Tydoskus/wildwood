@@ -28,7 +28,7 @@ type ProgressionServiceDependencies = {
   hydrationReady: () => boolean;
   activeProfileIdentity: () => string;
   completeAccountReturn: () => void;
-  reservePositionSequence: () => number;
+  reserveStoppedMotion: () => { sequence: number; simulationTick: number; motionEpoch: number };
   commitStoppedPosition: (position: { x: number; y: number }, sequence: number) => void;
   storage: Storage;
   pendingProgressKey: string;
@@ -477,22 +477,24 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           if (position && ![position.x, position.y].every(Number.isFinite)) {
             return { ok: false, error: "INVALID BENCH POSITION" };
           }
-          const positionSequence = position ? dependencies.reservePositionSequence() : 0;
+          const stoppedMotion = position ? dependencies.reserveStoppedMotion() : null;
           await dependencies.reducers.runWorldReducer(async () => {
             if (dependencies.reducers.connection() !== connection) throw new Error("CONNECTION CHANGED");
-            if (position) {
+            if (position && stoppedMotion) {
               await connection.reducers.updateMovementState({
                 x: position.x,
                 y: position.y,
-                dx: 0,
-                dy: 0,
-                sequence: positionSequence,
+                vx: 0,
+                vy: 0,
+                simulationTick: stoppedMotion.simulationTick,
+                motionEpoch: stoppedMotion.motionEpoch,
+                sequence: stoppedMotion.sequence,
               });
             }
             if (dependencies.reducers.connection() !== connection) throw new Error("CONNECTION CHANGED");
             await connection.reducers.startItemUpgrade({ slot, itemId });
           });
-          if (position) dependencies.commitStoppedPosition(position, positionSequence);
+          if (position && stoppedMotion) dependencies.commitStoppedPosition(position, stoppedMotion.sequence);
           const currentLevel = upgradeLevelsByIdentity.get(dependencies.localIdentity())?.get(itemId) ?? 0;
           const remainingMs = itemUpgradeDurationMs(currentLevel);
           const startedAtMs = Date.now();

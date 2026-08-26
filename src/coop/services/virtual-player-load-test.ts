@@ -3,9 +3,11 @@ import type { SubscriptionHandle } from "../../module_bindings";
 import type { Identity } from "spacetimedb";
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
+  VIRTUAL_PLAYER_MAX_STEP_SECONDS,
   VIRTUAL_PLAYER_MOVEMENT_HZ,
   VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
   VIRTUAL_PLAYER_TICKET_BYTES,
+  advanceVirtualPlayerSimulationTick,
   normalizeVirtualPlayerCount,
 } from "../../../shared/virtual-player-load-test";
 import {
@@ -23,7 +25,7 @@ import {
 } from "../../../shared/rules";
 import {
   movementUpdateReason,
-  normalizeMovementVector,
+  sanitizeMovementVelocity,
   type SentMovementState,
 } from "./sparse-movement";
 import {
@@ -72,6 +74,8 @@ type VirtualBot = VirtualPlayerMotion & {
   subscriptions: SubscriptionHandle[];
   identity: Identity | null;
   sequence: number;
+  simulationTick: number;
+  motionEpoch: number;
   lastSentMovement: SentMovementState | null;
   ready: boolean;
   failed: boolean;
@@ -133,7 +137,7 @@ export function advanceVirtualPlayerMotion(
   }
 
   if (moving) {
-    const distance = PLAYER_SPEED * Math.max(0, Math.min(.15, elapsedSeconds));
+    const distance = PLAYER_SPEED * Math.max(0, Math.min(VIRTUAL_PLAYER_MAX_STEP_SECONDS, elapsedSeconds));
     let nextX = x + Math.cos(facing) * distance;
     let nextY = y + Math.sin(facing) * distance;
     if (nextX < PLAYER_RADIUS || nextX > WORLD_WIDTH - PLAYER_RADIUS) {
@@ -207,6 +211,8 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       subscriptions: [],
       identity: null,
       sequence: 0,
+      simulationTick: 0,
+      motionEpoch: 0,
       lastSentMovement: null,
       ready: false,
       failed: false,
@@ -408,18 +414,21 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         if (!bot.ready || bot.failed || !conn?.isActive) continue;
         Object.assign(bot, advanceVirtualPlayerMotion(bot, elapsedSeconds, now));
         installNearbySubscription(bot, mapId);
-        const vector = normalizeMovementVector(
-          bot.moving ? Math.cos(bot.facing) : 0,
-          bot.moving ? Math.sin(bot.facing) : 0,
+        bot.simulationTick = advanceVirtualPlayerSimulationTick(bot.simulationTick, elapsedSeconds);
+        const velocity = sanitizeMovementVelocity(
+          bot.moving ? Math.cos(bot.facing) * PLAYER_SPEED : 0,
+          bot.moving ? Math.sin(bot.facing) * PLAYER_SPEED : 0,
         );
-        if (movementUpdateReason({ now, vector, inputKind: "keyboard", lastSent: bot.lastSentMovement })) {
-          bot.lastSentMovement = { ...vector, sentAt: now };
+        if (movementUpdateReason({ now, velocity, inputKind: "keyboard", lastSent: bot.lastSentMovement })) {
+          bot.lastSentMovement = { ...velocity, sentAt: now };
           const sequence = ++bot.sequence;
           void conn.reducers.updateMovementState({
             x: bot.x,
             y: bot.y,
-            dx: vector.dx,
-            dy: vector.dy,
+            vx: velocity.vx,
+            vy: velocity.vy,
+            simulationTick: bot.simulationTick,
+            motionEpoch: bot.motionEpoch,
             sequence,
           }).catch((error) => {
             reportProtocolMismatch(error);
@@ -562,6 +571,8 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       if (generation !== runGeneration) return { ready: false, bootstrapMs: totalBootstrapMs };
       bot.identity = null;
       bot.sequence = 0;
+      bot.simulationTick = 0;
+      bot.motionEpoch = (bot.motionEpoch + 1) >>> 0;
       bot.lastSentMovement = null;
       bot.zoneKey = "";
       bot.nearbySubscription = null;

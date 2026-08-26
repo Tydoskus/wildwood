@@ -13,7 +13,9 @@ import {
 export default {
   x: __t.f64(),
   y: __t.f64(),
-  dx: __t.f32(),
-  dy: __t.f32(),
+  vx: __t.f32(),
+  vy: __t.f32(),
+  simulationTick: __t.u32(),
+  motionEpoch: __t.u32(),
   sequence: __t.u32(),
 };

@@ -66,9 +66,19 @@ The presentation path now:
 
 Touch input now has an eight-pixel radial dead zone and ramps analog magnitude
 between that boundary and the outer joystick radius. The local movement and
-compact multiplayer motion protocol both preserve magnitudes below one, while
-combined keyboard/touch input remains capped at full speed. One-pixel finger
-noise therefore no longer becomes full-speed movement.
+world-velocity multiplayer protocol both preserve analog magnitude, while
+combined keyboard/touch input remains capped at full speed. Network steering
+uses a 24-direction-equivalent hysteresis gate without quantizing local motion.
+One-pixel finger noise therefore neither becomes full-speed movement nor emits
+a stream of tiny reducer changes.
+
+Remote motion packets now carry quantized world velocity, a wrap-aware sender
+simulation tick, and a motion epoch. The steady moving heartbeat is 2 Hz;
+transitions remain event-driven and stationary players send nothing. Rendering
+extrapolates directly from `vx/vy`, so it no longer performs repeated speed
+reconstruction, alignment checks, and distance-based teleport classification
+for every remote actor on every frame. Epoch changes explicitly flush old
+motion at respawns, map/session resets, and duel teleports.
 
 Window and `visualViewport` resize events are coalesced to one animation frame.
 The Canvas2D backing store, CSS dimensions, and transform are only rewritten
@@ -130,6 +140,21 @@ cost:
 11. Keep presentation snapshots render-only. Network corrections, collision,
     auto-attack targeting, portal detection, and saved positions must continue
     to use the current fixed-step state rather than interpolated coordinates.
+12. Measure movement reducer acknowledgements and server instruction count at
+    the new 2 Hz heartbeat before changing cadence again. If error is already
+    bounded, prefer a longer heartbeat on quiet/background clients over more
+    frequent snapshots.
+13. If touch steering still emits too often, record sector changes and radial
+    magnitude changes separately. Adjust hysteresis or magnitude thresholds;
+    do not quantize local movement or the transmitted velocity, because that
+    recreates lateral prediction drift.
+14. If many nearby players make the client motion lane measurable, add a
+    monotonic sample cursor so each render does not rescan the short buffer,
+    then consider structure-of-arrays storage. Keep the current readable buffer
+    until a representative trace attributes meaningful CPU to it.
+15. A nearby-only adaptive heartbeat can be tested later, but it must remain
+    subscription-driven and visibility-aware. Never restore a global timer or
+    make every distant mover publish at the higher rate.
 
 ## Trace interpretation rules
 

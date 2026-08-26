@@ -36,4 +36,8 @@ export default __t.row({
   powerLevel: __t.f64().name("power_level"),
   rightHandItem: __t.string().name("right_hand_item"),
   leftHandItem: __t.string().name("left_hand_item"),
+  vx: __t.f32(),
+  vy: __t.f32(),
+  simulationTick: __t.u32().name("simulation_tick"),
+  motionEpoch: __t.u32().name("motion_epoch"),
 });

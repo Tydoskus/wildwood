@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.532": [
+    "Remote players now extrapolate from transmitted world velocity and use simulation ticks plus motion epochs to prevent speed drift and discontinuity snaps.",
+    "Mobile steering keeps fully analog local control while a lightweight 24-direction network gate and 2 Hz heartbeat reduce noisy updates without a high-rate timer pump.",
+    "Regular enemies move 50% slower in Tutorial Forest and 25% slower in Beginner Desert; bosses and later regions are unchanged.",
+  ],
+
   "0.531": [
     "Fixed upgraded players jumping on each movement heartbeat by making remote teleport detection account for elapsed time, input magnitude, and effective movement speed.",
   ],
@@ -1123,6 +1129,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.532": "2026-08-26",
   "0.531": "2026-08-26",
   "0.530": "2026-08-26",
   "0.529": "2026-08-26",

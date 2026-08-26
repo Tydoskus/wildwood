@@ -1,17 +1,23 @@
 /**
  * Compact wire format shared by SpacetimeDB and browser clients.
  *
- * Each sample is 11 bytes:
+ * Nearby motion samples are 16 bytes:
  *   network id u32 | x deci-units u16 | y deci-units u16 |
- *   normalized dx i8 | normalized dy i8 | moving flags u8
+ *   vx deci-units/second i16 | vy deci-units/second i16 |
+ *   simulation tick u16 | motion epoch u16
+ *
+ * The independent all-map minimap snapshot stays position-only at 8 bytes:
+ *   network id u32 | x deci-units u16 | y deci-units u16
  *
  * Identity/profile data travels in a cold presence table. Keeping strings out
  * of movement frames makes one zone update cheap even with hundreds of actors.
  */
 export const PLAYER_MOTION_FRAME_HZ = 10;
 export const PLAYER_MAP_FRAME_HZ = 1;
-export const PLAYER_MOTION_SAMPLE_BYTES = 11;
+export const PLAYER_MOTION_SAMPLE_BYTES = 16;
+export const PLAYER_MAP_SAMPLE_BYTES = 8;
 export const PLAYER_POSITION_SCALE = 10;
+export const PLAYER_VELOCITY_SCALE = 10;
 // The minimap is roughly 120 CSS pixels wide and draws five-pixel player dots.
 // More than a 16x16 grid of exact markers is visually redundant, so large maps
 // transmit one centroid per occupied cell instead of one sample per player.
@@ -24,10 +30,13 @@ export type PlayerMotionSample = {
   networkId: number;
   x: number;
   y: number;
-  dx: number;
-  dy: number;
-  moving: boolean;
+  vx: number;
+  vy: number;
+  simulationTick: number;
+  motionEpoch: number;
 };
+
+export type PlayerMapSample = Pick<PlayerMotionSample, "networkId" | "x" | "y">;
 
 type MapSampleBucket = {
   key: number;
@@ -42,16 +51,26 @@ function boundedInteger(value: number, maximum: number) {
   return Math.max(0, Math.min(maximum, Math.round(value)));
 }
 
+function boundedSignedInteger(value: number, minimum: number, maximum: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(minimum, Math.min(maximum, Math.round(value)));
+}
+
+function wrappedUint16(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value) & UINT16_MAX;
+}
+
 /**
  * Keeps exact minimap markers at normal populations and spatially aggregates
  * large maps into a bounded grid. Runtime movement frames remain exact.
  */
 export function compactPlayerMapSamples(
-  samples: readonly PlayerMotionSample[],
+  samples: readonly PlayerMapSample[],
   worldWidth: number,
   worldHeight: number,
   maximum = PLAYER_MAP_FRAME_MAX_SAMPLES,
-): readonly PlayerMotionSample[] {
+): readonly PlayerMapSample[] {
   const limit = Number.isFinite(maximum) ? Math.max(1, Math.floor(maximum)) : PLAYER_MAP_FRAME_MAX_SAMPLES;
   if (samples.length <= limit) return samples;
   if (!(worldWidth > 0) || !(worldHeight > 0)) return samples.slice(0, limit);
@@ -88,10 +107,49 @@ export function compactPlayerMapSamples(
       networkId: bucket.networkId,
       x: bucket.x / bucket.count,
       y: bucket.y / bucket.count,
-      dx: 0,
-      dy: 0,
-      moving: false,
     }));
+}
+
+export function encodePlayerMapFrame(samples: readonly PlayerMapSample[]) {
+  const bytes = new Uint8Array(samples.length * PLAYER_MAP_SAMPLE_BYTES);
+  let offset = 0;
+  for (const sample of samples) {
+    const networkId = boundedInteger(sample.networkId, UINT32_MAX) >>> 0;
+    const x = boundedInteger(sample.x * PLAYER_POSITION_SCALE, UINT16_MAX);
+    const y = boundedInteger(sample.y * PLAYER_POSITION_SCALE, UINT16_MAX);
+    bytes[offset] = networkId & 0xff;
+    bytes[offset + 1] = networkId >>> 8 & 0xff;
+    bytes[offset + 2] = networkId >>> 16 & 0xff;
+    bytes[offset + 3] = networkId >>> 24 & 0xff;
+    bytes[offset + 4] = x & 0xff;
+    bytes[offset + 5] = x >>> 8;
+    bytes[offset + 6] = y & 0xff;
+    bytes[offset + 7] = y >>> 8;
+    offset += PLAYER_MAP_SAMPLE_BYTES;
+  }
+  return bytes;
+}
+
+export function decodePlayerMapFrame(payload: Uint8Array, playerCount: number): PlayerMapSample[] {
+  if (!Number.isSafeInteger(playerCount) || playerCount < 0) throw new RangeError("Invalid player map frame count");
+  const expectedBytes = playerCount * PLAYER_MAP_SAMPLE_BYTES;
+  if (payload.byteLength !== expectedBytes) {
+    throw new RangeError(`Invalid player map frame length: expected ${expectedBytes}, received ${payload.byteLength}`);
+  }
+  const samples: PlayerMapSample[] = [];
+  for (let offset = 0; offset < payload.length; offset += PLAYER_MAP_SAMPLE_BYTES) {
+    samples.push({
+      networkId: (
+        payload[offset] |
+        payload[offset + 1] << 8 |
+        payload[offset + 2] << 16 |
+        payload[offset + 3] << 24
+      ) >>> 0,
+      x: (payload[offset + 4] | payload[offset + 5] << 8) / PLAYER_POSITION_SCALE,
+      y: (payload[offset + 6] | payload[offset + 7] << 8) / PLAYER_POSITION_SCALE,
+    });
+  }
+  return samples;
 }
 
 export function encodePlayerMotionFrame(samples: readonly PlayerMotionSample[]) {
@@ -101,8 +159,10 @@ export function encodePlayerMotionFrame(samples: readonly PlayerMotionSample[]) 
     const networkId = boundedInteger(sample.networkId, UINT32_MAX) >>> 0;
     const x = boundedInteger(sample.x * PLAYER_POSITION_SCALE, UINT16_MAX);
     const y = boundedInteger(sample.y * PLAYER_POSITION_SCALE, UINT16_MAX);
-    const dx = Number.isFinite(sample.dx) ? Math.round(Math.max(-1, Math.min(1, sample.dx)) * 127) : 0;
-    const dy = Number.isFinite(sample.dy) ? Math.round(Math.max(-1, Math.min(1, sample.dy)) * 127) : 0;
+    const vx = boundedSignedInteger(sample.vx * PLAYER_VELOCITY_SCALE, -0x8000, 0x7fff);
+    const vy = boundedSignedInteger(sample.vy * PLAYER_VELOCITY_SCALE, -0x8000, 0x7fff);
+    const simulationTick = wrappedUint16(sample.simulationTick);
+    const motionEpoch = wrappedUint16(sample.motionEpoch);
 
     bytes[offset] = networkId & 0xff;
     bytes[offset + 1] = networkId >>> 8 & 0xff;
@@ -112,9 +172,14 @@ export function encodePlayerMotionFrame(samples: readonly PlayerMotionSample[]) 
     bytes[offset + 5] = x >>> 8;
     bytes[offset + 6] = y & 0xff;
     bytes[offset + 7] = y >>> 8;
-    bytes[offset + 8] = dx & 0xff;
-    bytes[offset + 9] = dy & 0xff;
-    bytes[offset + 10] = sample.moving ? 1 : 0;
+    bytes[offset + 8] = vx & 0xff;
+    bytes[offset + 9] = vx >>> 8 & 0xff;
+    bytes[offset + 10] = vy & 0xff;
+    bytes[offset + 11] = vy >>> 8 & 0xff;
+    bytes[offset + 12] = simulationTick & 0xff;
+    bytes[offset + 13] = simulationTick >>> 8;
+    bytes[offset + 14] = motionEpoch & 0xff;
+    bytes[offset + 15] = motionEpoch >>> 8;
     offset += PLAYER_MOTION_SAMPLE_BYTES;
   }
   return bytes;
@@ -139,15 +204,18 @@ export function decodePlayerMotionFrame(payload: Uint8Array, playerCount: number
     ) >>> 0;
     const x = payload[offset + 4] | payload[offset + 5] << 8;
     const y = payload[offset + 6] | payload[offset + 7] << 8;
-    const dx = payload[offset + 8] << 24 >> 24;
-    const dy = payload[offset + 9] << 24 >> 24;
+    const vx = (payload[offset + 8] | payload[offset + 9] << 8) << 16 >> 16;
+    const vy = (payload[offset + 10] | payload[offset + 11] << 8) << 16 >> 16;
+    const simulationTick = payload[offset + 12] | payload[offset + 13] << 8;
+    const motionEpoch = payload[offset + 14] | payload[offset + 15] << 8;
     samples.push({
       networkId,
       x: x / PLAYER_POSITION_SCALE,
       y: y / PLAYER_POSITION_SCALE,
-      dx: dx / 127,
-      dy: dy / 127,
-      moving: (payload[offset + 10] & 1) !== 0,
+      vx: vx / PLAYER_VELOCITY_SCALE,
+      vy: vy / PLAYER_VELOCITY_SCALE,
+      simulationTick,
+      motionEpoch,
     });
   }
   return samples;
