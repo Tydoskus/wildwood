@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.530": [
+    "Updated Wildwood's browser favicon and added versioned favicon loading so the new icon replaces cached copies promptly.",
+  ],
+
   "0.529": [
     "Remote players now hold a short true-jitter buffer, preserve visual continuity through position corrections, and learn realized running speed to eliminate repeating side-by-side drift and snap-back.",
     "Updated the Gem artwork and added the new compact Chat icon.",
@@ -1115,6 +1119,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.530": "2026-08-26",
   "0.529": "2026-08-26",
   "0.528": "2026-08-26",
   "0.527": "2026-08-26",
