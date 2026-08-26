@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.519": [
+    "Night Forest darkness now fades across a wider area and leaves distant terrain faintly visible instead of becoming fully black.",
+  ],
   "0.518": [
     "Completed research nodes now show clean green Max text with only a subtle shadow.",
     "Toolbar labels now use compact Camel Case text, while minimap player and version labels are easier to read.",
@@ -1075,6 +1078,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.519": "2026-08-25",
   "0.518": "2026-08-25",
   "0.517": "2026-08-25",
   "0.516": "2026-08-25",

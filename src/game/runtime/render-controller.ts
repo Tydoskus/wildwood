@@ -135,11 +135,11 @@ export function createRenderController(options: {
     const x = (player.x - camera.x) * camera.zoom;
     const y = (player.y - camera.y) * camera.zoom;
     const fullRadius = Math.max(72, player.attackRange * camera.zoom * .92);
-    const revealRadius = Math.max(fullRadius + 28, player.attackRange * camera.zoom * 1.25);
+    const revealRadius = Math.max(fullRadius + 48, player.attackRange * camera.zoom * 1.8);
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, revealRadius);
     gradient.addColorStop(0, "rgba(2,1,6,.12)");
     gradient.addColorStop(Math.min(.95, fullRadius / revealRadius), "rgba(2,1,6,.2)");
-    gradient.addColorStop(1, "rgba(2,1,6,.96)");
+    gradient.addColorStop(1, "rgba(2,1,6,.9)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
   }
