@@ -28,6 +28,11 @@ export function portalDestinationColor(destination: MapId) {
   return PORTAL_DESTINATION_COLORS[destination];
 }
 
+/** Keeps Night Forest's black portal label readable without changing its map marker. */
+export function portalDestinationTextColor(destination: MapId) {
+  return destination === INFERNAL_DEPTHS_MAP_ID ? "#ffffff" : portalDestinationColor(destination);
+}
+
 /** Draws the shared pixel-arch marker used by both map sizes. */
 export function drawPortalMapMarker(
   context: CanvasRenderingContext2D,

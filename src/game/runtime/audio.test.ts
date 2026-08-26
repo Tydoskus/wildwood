@@ -14,6 +14,7 @@ import {
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
 } from "../world";
@@ -39,6 +40,10 @@ describe("map music", () => {
 
   it("uses Night Ambient 5 for Lava Lake", () => {
     expect(musicSourceForMap(ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/lava.mp3");
+  });
+
+  it("uses Night Ambient 3 for Night Forest", () => {
+    expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/night-forest.mp3");
   });
 
   it("uses the Death sting for player death", () => {

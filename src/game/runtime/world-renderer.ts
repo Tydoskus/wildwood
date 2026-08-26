@@ -1,6 +1,6 @@
 import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
-import { drawPortalMapMarker, portalDestinationColor } from "../portal-presentation";
+import { drawPortalMapMarker, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
@@ -69,8 +69,10 @@ export type WorldRendererOptions = {
   magmaliskBoss: MagmaliskBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
+  nightTreeSpritesheet: HTMLImageElement;
   actorShadowSprite: HTMLImageElement;
   treeSpriteBounds: () => TreeSpriteBounds[];
+  nightTreeSpriteBounds: () => TreeSpriteBounds[];
   portalArch: HTMLImageElement;
   portalSwirls: Record<MapId, HTMLImageElement>;
   snowPine: HTMLImageElement;
@@ -144,7 +146,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       colors: mapColors(),
       paths: options.paths,
       decor: lava ? options.decor.filter((decor) => decor.type !== "lavaRock") : options.decor,
-      treeBounds: options.treeSpriteBounds(),
+      treeBounds: options.getMapId() === options.infernalMapId
+        ? options.nightTreeSpriteBounds()
+        : options.treeSpriteBounds(),
       snowPineAspect: options.snowPine.naturalWidth > 0
         ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
         : 0,
@@ -392,11 +396,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const halfWidth = Math.ceil(drawSize / 2);
     const cullPadding = drawSize + 32;
     if (x + halfWidth < -cullPadding || x - halfWidth > visible.width + cullPadding || y < -cullPadding || y - drawSize > visible.height + cullPadding) return;
-    if (!options.treeSpritesheet.complete || options.treeSpritesheet.naturalWidth <= 0) return;
-    const source = options.treeSpriteBounds()[tree.variant % 16];
+    const night = options.getMapId() === options.infernalMapId;
+    const spritesheet = night ? options.nightTreeSpritesheet : options.treeSpritesheet;
+    if (!spritesheet.complete || spritesheet.naturalWidth <= 0) return;
+    const source = (night ? options.nightTreeSpriteBounds() : options.treeSpriteBounds())[tree.variant % 16];
     if (!source) return;
     const drawWidth = Math.round(drawSize * source.w / source.h);
-    ctx.drawImage(options.treeSpritesheet, source.x, source.y, source.w, source.h, Math.round(x - drawWidth / 2), Math.round(y - drawSize), drawWidth, drawSize);
+    ctx.drawImage(spritesheet, source.x, source.y, source.w, source.h, Math.round(x - drawWidth / 2), Math.round(y - drawSize), drawWidth, drawSize);
   }
 
   function drawPortalAt(portal: Portal, cutscene = false) {
@@ -432,7 +438,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(options.mapName(portal.destination), x, Math.round(y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3), portalDestinationColor(portal.destination), 4);
+    options.outlinedText(options.mapName(portal.destination), x, Math.round(y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3), portalDestinationTextColor(portal.destination), 4);
     ctx.restore();
   }
 

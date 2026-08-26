@@ -48,9 +48,8 @@ describe("Advanced Lava Lake", () => {
     expect(config[INFERNAL_DEPTHS_MAP_ID].name).toBe("Night Forest");
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => infernalKinds.has(site.type))).toBe(true);
-    expect(layout.decor.filter((item) => item.type === "tree")).toHaveLength(128);
-    expect(layout.decor.filter((item) => item.type === "charredTree")).toHaveLength(38);
-    expect(layout.decor.some((item) => item.type === "lavaPool" || item.type === "lavaRock" || item.type === "grass" || item.type === "petal")).toBe(false);
+    expect(layout.decor.filter((item) => item.type === "tree")).toHaveLength(166);
+    expect(layout.decor.some((item) => item.type === "charredTree" || item.type === "lavaPool" || item.type === "lavaRock" || item.type === "grass" || item.type === "petal")).toBe(false);
   });
 
   it("spawns only lava-tier enemies", () => {

@@ -4,6 +4,7 @@ const FOREST_MUSIC_SOURCE = "assets/wildwood/audio/forest.mp3";
 const DESERT_MUSIC_SOURCE = "assets/wildwood/audio/desert.mp3";
 const SNOW_MUSIC_SOURCE = "assets/wildwood/audio/snow.mp3";
 const LAVA_MUSIC_SOURCE = "assets/wildwood/audio/lava.mp3";
+const NIGHT_FOREST_MUSIC_SOURCE = "assets/wildwood/audio/night-forest.mp3";
 export const SIGN_IN_MUSIC_SOURCE = "assets/wildwood/audio/signin.mp3";
 export const DEATH_SOUND_SOURCE = "assets/wildwood/audio/death.mp3";
 export const BOW_ATTACK_SOUND_SOURCE = "assets/wildwood/audio/bow-release.mp3";
@@ -22,7 +23,8 @@ type WebkitAudioWindow = Window & typeof globalThis & {
 };
 
 export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: MapId, lavaMapId: MapId) {
-  if (mapId === lavaMapId || mapId === INFERNAL_DEPTHS_MAP_ID) return LAVA_MUSIC_SOURCE;
+  if (mapId === INFERNAL_DEPTHS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
+  if (mapId === lavaMapId) return LAVA_MUSIC_SOURCE;
   if (mapId === desertMapId) return DESERT_MUSIC_SOURCE;
   if (mapId === snowMapId) return SNOW_MUSIC_SOURCE;
   return FOREST_MUSIC_SOURCE;

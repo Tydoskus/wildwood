@@ -158,36 +158,56 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     portalSwirls[destination] = portalSwirl;
   }
 
-  let treeReady = false;
-  let treeBounds: TreeSpriteBound[] = [];
-  const treeSpritesheet = loadTreeSpritesheet(() => {
-    const finishTreeLoad = (bounds: TreeSpriteBound[] = []) => {
-      treeBounds = bounds;
-      treeReady = true;
-      onWorldAssetReady();
-    };
-    if (treeSpritesheet.naturalWidth <= 0) {
-      finishTreeLoad();
+  const preprocessTreeBounds = (
+    spritesheet: HTMLImageElement,
+    finish: (bounds?: TreeSpriteBound[]) => void,
+  ) => {
+    if (spritesheet.naturalWidth <= 0) {
+      finish();
       return;
     }
     const canvas = document.createElement("canvas");
-    canvas.width = treeSpritesheet.naturalWidth;
-    canvas.height = treeSpritesheet.naturalHeight;
+    canvas.width = spritesheet.naturalWidth;
+    canvas.height = spritesheet.naturalHeight;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context || !worker) {
-      void yieldToUser().then(() => finishTreeLoad(measureTreeSpriteBounds(treeSpritesheet)));
+      void yieldToUser().then(() => finish(measureTreeSpriteBounds(spritesheet)));
       return;
     }
-    context.drawImage(treeSpritesheet, 0, 0);
+    context.drawImage(spritesheet, 0, 0);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
     const requestId = nextRequestId++;
     requests.set(requestId, (result) => {
-      if (result.type === "treeBounds") finishTreeLoad(result.bounds);
+      if (result.type === "treeBounds") finish(result.bounds);
     });
     scheduleBackgroundTask(() => {
       worker.postMessage({ type: "treeBounds", requestId, width: canvas.width, height: canvas.height, pixels: pixels.data.buffer }, [pixels.data.buffer]);
     });
+  };
+
+  let treeReady = false;
+  let treeBounds: TreeSpriteBound[] = [];
+  const treeSpritesheet = loadTreeSpritesheet(() => {
+    preprocessTreeBounds(treeSpritesheet, (bounds = []) => {
+      treeBounds = bounds;
+      treeReady = true;
+      onWorldAssetReady();
+    });
   });
+
+  let nightTreeReady = false;
+  let nightTreeBounds: TreeSpriteBound[] = [];
+  const nightTreeSpritesheet = new Image();
+  const settleNightTrees = () => {
+    preprocessTreeBounds(nightTreeSpritesheet, (bounds = []) => {
+      nightTreeBounds = bounds;
+      nightTreeReady = true;
+      onWorldAssetReady();
+    });
+  };
+  nightTreeSpritesheet.addEventListener("load", settleNightTrees, { once: true });
+  nightTreeSpritesheet.addEventListener("error", settleNightTrees, { once: true });
+  nightTreeSpritesheet.src = "assets/wildwood/night-tree-spritesheet-v1.png";
 
   let duelSpaceReady = false;
   const duelSpaceBackground = loadDuelSpaceBackground(() => {
@@ -240,13 +260,15 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     lavaRocks: lavaAssets.slice(3, 6),
     magmaliskReady: () => magmaliskReady,
     magmaliskSpriteCanvas,
+    nightTreeSpriteBounds: () => nightTreeBounds,
+    nightTreeSpritesheet,
     snowPine,
     upgradeBench,
     spiderReady: () => spiderReady,
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
     treeSpritesheet,
-    worldArtReady: () => treeReady && portalArchReady && settledPortalSwirls === Object.keys(PORTAL_SWIRL_SOURCES).length && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
+    worldArtReady: () => treeReady && nightTreeReady && portalArchReady && settledPortalSwirls === Object.keys(PORTAL_SWIRL_SOURCES).length && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
   };
 }
 

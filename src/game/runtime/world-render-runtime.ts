@@ -60,6 +60,8 @@ export type WorldRenderRuntimeOptions = {
     duelSpaceBackground: HTMLImageElement;
     treeSpritesheet: HTMLImageElement;
     treeSpriteBounds: () => { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number }[];
+    nightTreeSpritesheet: HTMLImageElement;
+    nightTreeSpriteBounds: () => { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number }[];
     portalArch: HTMLImageElement;
     portalSwirls: Record<MapId, HTMLImageElement>;
     snowPine: HTMLImageElement;

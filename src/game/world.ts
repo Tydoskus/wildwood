@@ -239,27 +239,22 @@ function createNightForestLayout() {
   const isNearCamp = (x: number, y: number) => INFERNAL_CAMPS.some((camp) =>
     Math.hypot(x - camp.x, y - camp.y) < camp.radius + 120);
   const placed: { x: number; y: number; radius: number }[] = [];
-  const placeTrees = (type: "tree" | "charredTree", target: number, salt: number) => {
+  const placeTrees = (target: number, salt: number) => {
     let count = 0;
     for (let index = 0; count < target && index < 5_000; index += 1) {
       const x = 85 + seededUnit(index, salt) * (WORLD.w - 170);
       const y = 100 + seededUnit(index, salt + 1) * (WORLD.h - 200);
-      const s = type === "tree"
-        ? .68 + seededUnit(index, salt + 2) * .5
-        : .72 + seededUnit(index, salt + 2) * .56;
-      const radius = (type === "tree" ? 47 : 34) * s;
+      const s = .68 + seededUnit(index, salt + 2) * .5;
+      const radius = 47 * s;
       if (isOnPath(x, y, 62) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
       if (placed.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 18)) continue;
       placed.push({ x, y, radius });
-      decor.push(type === "tree"
-        ? { type, x: Math.round(x), y: Math.round(y), s, variant: (index + count) % 16 }
-        : { type, x: Math.round(x), y: Math.round(y), s, variant: count % 2 });
+      decor.push({ type: "tree", x: Math.round(x), y: Math.round(y), s, variant: (index + count) % 16 });
       count += 1;
     }
   };
 
-  placeTrees("tree", 128, 51);
-  placeTrees("charredTree", 38, 61);
+  placeTrees(166, 51);
   return { decor, paths };
 }
 
