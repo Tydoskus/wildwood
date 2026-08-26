@@ -140,7 +140,7 @@ const enemyTypes = {
 
   // INFERNAL DEPTHS ENEMIES
   // Repeat each archetype's actual Snowlands-to-Lava multiplier, including
-  // Lava Lake's deliberate damage tuning. Damage-reward tracks pay 2×.
+  // Lava Lake's deliberate damage tuning. Damage- and health-reward tracks pay 2×.
   "Depth Raider": {
     hp: repeatTierMultiplier(2_700_000_000, 6_075_000_000_000), speed: 250,
     damage: repeatTierMultiplier(2_330_000, 8_143_350_000), attackSpeed: .65, r: 25,
@@ -149,7 +149,7 @@ const enemyTypes = {
   "Abyss Archer": {
     hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000), speed: 235,
     damage: repeatTierMultiplier(11_150_000, 149_187_000_000), attackSpeed: .55, r: 23,
-    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) },
+    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 },
     ranged: true,
   },
   "Obsidian Colossus": {

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.522": [
+    "Fire Metal Bow now deals 6× damage—exactly 1× more than Lava Bow—while retaining its 1.3× attack speed.",
+    "Night Forest Abyss Archers now grant twice as much permanent Max Health.",
+  ],
   "0.521": [
     "Night Forest now uses moonlit tree variants with all charred lava trees removed, looping Night Ambient 3 music, and a readable white portal label.",
   ],
@@ -1084,6 +1088,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.522": "2026-08-26",
   "0.521": "2026-08-25",
   "0.520": "2026-08-25",
   "0.519": "2026-08-25",

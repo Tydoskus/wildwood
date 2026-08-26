@@ -131,9 +131,10 @@ describe("equipment catalog", () => {
     expect(weaponDamageMultiplier(LAVA_BOW, 1.5)).toBeCloseTo(7.5);
   });
 
-  it("gives Fire Metal Bow 12x damage and 1.3x attack speed", () => {
+  it("gives Fire Metal Bow 1x more damage than Lava Bow and 1.3x attack speed", () => {
     expect(isWeaponItem(FIRE_METAL_BOW)).toBe(true);
-    expect(weaponDamageMultiplier(FIRE_METAL_BOW)).toBeCloseTo(12);
+    expect(weaponDamageMultiplier(FIRE_METAL_BOW)).toBeCloseTo(6);
+    expect(weaponDamageMultiplier(FIRE_METAL_BOW)).toBeCloseTo(weaponDamageMultiplier(LAVA_BOW) + 1);
     expect(weaponAttackSpeedMultiplier(FIRE_METAL_BOW)).toBeCloseTo(1.3);
   });
 

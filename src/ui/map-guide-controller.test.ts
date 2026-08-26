@@ -53,7 +53,7 @@ describe("map guide", () => {
     expect(mapGuideItemStats(IRON_BOW)).toEqual(["Damage 1.5×", "Attack Speed 1.1×"]);
     expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Damage 2×", "Max Health 2.25×", "Regen 2.25×"]);
     expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Damage 1.25×", "Max Health 1.25×", "Regen 1.5×"]);
-    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage 12×", "Attack Speed 1.3×"]);
+    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage 6×", "Attack Speed 1.3×"]);
     expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Damage 2.5×", "Max Health 2.5×", "Regen 3×"]);
   });
 

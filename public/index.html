@@ -13,7 +13,7 @@
   html, body { min-height: 100vh; min-height: 100dvh; background: #000; }
   #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: linear-gradient(180deg, rgba(4,12,6,.24), rgba(4,12,6,.38)), var(--signin-preview) center / cover no-repeat; }
 </style>
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.521" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.522" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -194,7 +194,7 @@
   </button>
   <div class="minimap-meta">
     <div id="minimapPlayers" class="minimap-players">players online: 0</div>
-    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.521">v0.521</div>
+    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.522">v0.522</div>
   </div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
@@ -210,7 +210,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.521</div>
+        <div id="version">v0.522</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -283,13 +283,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.521</strong></div>
+        <div><strong id="updateNoticeTitle">v0.522</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.521</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.522</div>
   </div>
   <div id="newPlayerPanel" class="modal onboarding-modal" hidden>
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildwood">
@@ -598,7 +598,7 @@
   </div>
 </div>
 
-<script src="assets/wildwood/coop-client.js?v=0.521"></script>
-<script src="assets/wildwood/game.js?v=0.521"></script>
+<script src="assets/wildwood/coop-client.js?v=0.522"></script>
+<script src="assets/wildwood/game.js?v=0.522"></script>
 </body>
 </html>

@@ -200,11 +200,11 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "INFERNAL_DROP",
     description: "A forged bow carried by Night Forest monsters, built for extreme damage and rapid fire.",
-    stats: ["DAMAGE MULTIPLIER 12.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
+    stats: ["DAMAGE MULTIPLIER 6.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
-      damageMultiplierBonus: 11,
+      damageMultiplierBonus: 5,
       attackSpeedMultiplierBonus: .3,
     },
   },
