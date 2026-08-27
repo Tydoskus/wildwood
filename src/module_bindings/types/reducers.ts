@@ -23,6 +23,7 @@ import DamageSpiderFromPositionReducer from "../damage_spider_from_position_redu
 import DevAdjustGemsReducer from "../dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "../dev_begin_virtual_player_load_test_reducer";
 import DevClearVirtualPlayersReducer from "../dev_clear_virtual_players_reducer";
+import DevCopyPlayerCombatStatsReducer from "../dev_copy_player_combat_stats_reducer";
 import DevDeleteBugReportReducer from "../dev_delete_bug_report_reducer";
 import DevRepairPlayerJoinedAtReducer from "../dev_repair_player_joined_at_reducer";
 import DevResetDailyGemBonusReducer from "../dev_reset_daily_gem_bonus_reducer";
@@ -78,6 +79,7 @@ export type DamageSpiderFromPositionParams = __Infer<typeof DamageSpiderFromPosi
 export type DevAdjustGemsParams = __Infer<typeof DevAdjustGemsReducer>;
 export type DevBeginVirtualPlayerLoadTestParams = __Infer<typeof DevBeginVirtualPlayerLoadTestReducer>;
 export type DevClearVirtualPlayersParams = __Infer<typeof DevClearVirtualPlayersReducer>;
+export type DevCopyPlayerCombatStatsParams = __Infer<typeof DevCopyPlayerCombatStatsReducer>;
 export type DevDeleteBugReportParams = __Infer<typeof DevDeleteBugReportReducer>;
 export type DevRepairPlayerJoinedAtParams = __Infer<typeof DevRepairPlayerJoinedAtReducer>;
 export type DevResetDailyGemBonusParams = __Infer<typeof DevResetDailyGemBonusReducer>;

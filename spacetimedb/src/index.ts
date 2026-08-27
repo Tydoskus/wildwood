@@ -5603,6 +5603,48 @@ export const devRepairPlayerJoinedAt = spacetimedb.reducer(
   },
 );
 
+// Maintenance-only stat normalization for accounts that need to be placed on
+// the same raw combat baseline. Equipment, upgrades, research, inventory, map
+// access, and profile data intentionally remain owned by the target account.
+export const devCopyPlayerCombatStats = spacetimedb.reducer(
+  { sourceIdentity: t.identity(), targetIdentity: t.identity() },
+  (ctx, { sourceIdentity, targetIdentity }) => {
+    if (!isDeveloperIdentity(ctx.sender) && !isDatabaseOwnerIdentity(ctx.sender)) {
+      throw new SenderError("Developer access required.");
+    }
+    if (sameIdentity(sourceIdentity, targetIdentity)) throw new SenderError("Source and target must differ.");
+    const source = ctx.db.playerProgress.identity.find(sourceIdentity);
+    const target = ctx.db.playerProgress.identity.find(targetIdentity);
+    if (!source || !target) throw new SenderError("Player progress row not found.");
+
+    const nextProgress = {
+      ...target,
+      maxHp: source.maxHp,
+      damage: source.damage,
+      attackRate: source.attackRate,
+      projectileSpeed: source.projectileSpeed,
+      projectileCount: source.projectileCount,
+      attackRange: source.attackRange,
+      armor: source.armor,
+      regen: source.regen,
+      speed: source.speed,
+      speedOverride: source.speedOverride,
+    };
+    ctx.db.playerProgress.identity.update(nextProgress);
+    const active = ctx.db.player.identity.find(targetIdentity);
+    if (active) {
+      const nextPlayer = {
+        ...active,
+        speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
+        ...powerFieldsForProgress(ctx, nextProgress),
+      };
+      ctx.db.player.identity.update(nextPlayer);
+      syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+    }
+    refreshLeaderboard(ctx);
+  },
+);
+
 export const setProfileIcon = spacetimedb.reducer(
   { profileIcon: t.u32() },
   (ctx, { profileIcon }) => {

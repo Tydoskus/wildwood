@@ -7,7 +7,6 @@ import {
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
 } from "../../shared/rules";
-import { damageAfterArmor } from "./combat";
 import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
 import { ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
 
@@ -47,7 +46,7 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE });
     expect(ENEMY_TYPES["Depth Raider"]).toMatchObject({
       hp: 3_668_750_000_000_000 * INFERNAL_DEPTHS_HEALTH_SCALE,
-      damage: 500_000_000_000_000,
+      damage: 2_500_000_000,
     });
     expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 57_600_000_000 * INFERNAL_DEPTHS_REWARD_SCALE });
     expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444 * INFERNAL_DEPTHS_REWARD_SCALE);
@@ -89,13 +88,15 @@ describe("enemy reward rules", () => {
     }
 
     const damages = tracks.map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
-    expect(ENEMY_TYPES["Depth Raider"].damage).toBe(500_000_000_000_000);
+    expect(damages).toEqual([
+      2_500_000_000,
+      5_125_000_000,
+      5_500_000_000,
+      5_250_000_000,
+      5_375_000_000,
+    ]);
     const nonRaiderDamages = tracks.slice(1).map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
     expect(Math.max(...nonRaiderDamages) / Math.min(...nonRaiderDamages)).toBeLessThan(1.08);
-    const hitsAfterNinetyOnePercentBlock = damages.map((damage) => damageAfterArmor(damage, 30_000_000_000));
-    expect(hitsAfterNinetyOnePercentBlock[0]).toBeGreaterThan(40_000_000_000_000);
-    expect(hitsAfterNinetyOnePercentBlock[0]).toBeLessThan(50_000_000_000_000);
-    expect(Math.max(...hitsAfterNinetyOnePercentBlock)).toBeLessThan(100_000_000_000_000);
   });
 });
 

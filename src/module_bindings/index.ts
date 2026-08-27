@@ -51,6 +51,7 @@ import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reduc
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
 import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
+import DevCopyPlayerCombatStatsReducer from "./dev_copy_player_combat_stats_reducer";
 import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
 import DevResetDailyGemBonusReducer from "./dev_reset_daily_gem_bonus_reducer";
@@ -584,6 +585,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),
   __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),
+  __reducerSchema("dev_copy_player_combat_stats", DevCopyPlayerCombatStatsReducer),
   __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
   __reducerSchema("dev_reset_daily_gem_bonus", DevResetDailyGemBonusReducer),

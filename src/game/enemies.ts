@@ -155,32 +155,34 @@ const enemyTypes = {
   // NIGHT FOREST ENEMIES
   // Base health repeats each archetype's Snowlands-to-Lava growth before the
   // shared Night Forest progression budget. Depth Raider keeps its 10qd cut.
+  // Damage is tuned against the simulated curve-entry build: the Raider takes
+  // about eleven hits to defeat it, while the heavier archetypes take five.
   // Base damage- and health-reward tracks pay 2×; Depth Raider pays 6×.
   "Depth Raider": {
     hp: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 250,
-    damage: 500_000_000_000_000, attackSpeed: .65, r: 25,
+    damage: 2_500_000_000, attackSpeed: .65, r: 25,
     color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 6 * INFERNAL_DEPTHS_REWARD_SCALE },
   },
   "Abyss Archer": {
     hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 235,
-    damage: 1_025_000_000_000_000, attackSpeed: .55, r: 23,
+    damage: 5_125_000_000, attackSpeed: .55, r: 23,
     color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE },
     ranged: true,
   },
   "Obsidian Colossus": {
     hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 225,
-    damage: 1_100_000_000_000_000, attackSpeed: .55, r: 32,
+    damage: 5_500_000_000, attackSpeed: .55, r: 32,
     color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) * INFERNAL_DEPTHS_REWARD_SCALE },
   },
   "Doom Reaper": {
     hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 255,
-    damage: 1_050_000_000_000_000, attackSpeed: .7, r: 39,
+    damage: 5_250_000_000, attackSpeed: .7, r: 39,
     color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE },
     ranged: true, elite: true, aggro: 420,
   },
   "Nether Oracle": {
     hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 240,
-    damage: 1_075_000_000_000_000, attackSpeed: .6, r: 37,
+    damage: 5_375_000_000, attackSpeed: .6, r: 37,
     color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE },
     elite: true, aggro: 420,
   },
