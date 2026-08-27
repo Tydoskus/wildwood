@@ -5,6 +5,10 @@ import {
   FROSTCLAW_ROAR_RANGE,
   FROSTCLAW_SPRITE_GROUND_OFFSET,
   FROSTCLAW_SPRITE_Y_OFFSET,
+  GLOOMROOT_SPRITE_GROUND_OFFSET,
+  GLOOMROOT_SPRITE_Y_OFFSET,
+  GLOOMROOT_SWEEP_HALF_ANGLE,
+  GLOOMROOT_SWEEP_RANGE,
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
   MAGMALISK_SPRITE_GROUND_OFFSET,
@@ -19,6 +23,10 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  GLOOMROOT_REWARD_ARMOR,
+  GLOOMROOT_REWARD_DAMAGE,
+  GLOOMROOT_REWARD_HEALTH,
+  GLOOMROOT_REWARD_REGEN,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
@@ -28,7 +36,7 @@ import {
 } from "../../../shared/rules";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool } from "./types";
 import { snapWorldRenderCoordinate } from "./render-space";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
@@ -43,18 +51,22 @@ export function createBossRenderer(options: {
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
+  gloomrootBoss: GloomrootBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
+  gloomrootBlooms: GloomrootBloom[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
   magmaliskSpriteCanvas: HTMLCanvasElement;
+  gloomrootSpriteCanvas: HTMLCanvasElement;
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
   magmaliskReady: () => boolean;
+  gloomrootReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -63,7 +75,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -293,6 +305,133 @@ export function createBossRenderer(options: {
     options.outlinedText(rewardText("regen", MAGMALISK_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
     ctx.restore();
   }
+
+  function drawGloomrootTelegraphs() {
+    if (gloomrootBoss.dead) return;
+    const x = screenX(gloomrootBoss.x);
+    const y = screenY(gloomrootBoss.y);
+    const time = options.gameTime();
+    if (gloomrootBoss.sweep) {
+      const sweep = gloomrootBoss.sweep;
+      ctx.save();
+      ctx.fillStyle = sweep.windup > 0 ? "rgba(63,214,221,.13)" : "rgba(73,239,238,.22)";
+      ctx.strokeStyle = "rgba(128,247,244,.95)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, GLOOMROOT_SWEEP_RANGE, sweep.angle - GLOOMROOT_SWEEP_HALF_ANGLE, sweep.angle + GLOOMROOT_SWEEP_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (sweep.windup <= 0) {
+        const radius = gloomrootBoss.r + (GLOOMROOT_SWEEP_RANGE - gloomrootBoss.r) * clamp(1 - sweep.timer / sweep.duration, 0, 1);
+        for (let root = 0; root < 13; root += 1) {
+          const angle = sweep.angle - GLOOMROOT_SWEEP_HALF_ANGLE + root / 12 * GLOOMROOT_SWEEP_HALF_ANGLE * 2;
+          ctx.fillStyle = root % 2 ? "#56e7e9" : "#173d55";
+          options.pixelCircle(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, root % 2 ? 10 : 15);
+        }
+      }
+      ctx.restore();
+    }
+    for (const bloom of options.gloomrootBlooms) {
+      const progress = 1 - clamp(bloom.timer / bloom.maxTimer, 0, 1);
+      const bloomX = screenX(bloom.x);
+      const bloomY = screenY(bloom.y);
+      ctx.save();
+      ctx.fillStyle = `rgba(36,196,210,${.08 + progress * .2})`;
+      ctx.strokeStyle = "rgba(116,244,239,.96)";
+      ctx.lineWidth = 4;
+      ctx.setLineDash([10, 7]);
+      ctx.lineDashOffset = -time * 35;
+      ctx.beginPath(); ctx.arc(bloomX, bloomY, bloom.r * (.72 + progress * .28), 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.setLineDash([]);
+      for (let thorn = 0; thorn < 7; thorn += 1) {
+        const angle = thorn * TAU / 7 + time * .45;
+        const radius = bloom.r * (.35 + progress * .45);
+        ctx.fillStyle = thorn % 2 ? "#7af5ee" : "#294d72";
+        options.pixelCircle(bloomX + Math.cos(angle) * radius, bloomY + Math.sin(angle) * radius, 6 + progress * 4);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawGloomrootBoss() {
+    if (gloomrootBoss.dead) return;
+    const canvas = options.gloomrootSpriteCanvas;
+    const frame = options.gloomrootBlooms.length > 0 ? 3 : gloomrootBoss.sweep ? 1 : 0;
+    const drawW = 430;
+    const drawH = 430;
+    const x = screenX(gloomrootBoss.x);
+    const y = screenY(gloomrootBoss.y);
+    const visualY = y + GLOOMROOT_SPRITE_Y_OFFSET;
+    const pulse = options.gloomrootBlooms.length > 0 ? 1 + Math.sin(options.gameTime() * 13) * .018 : 1;
+    options.drawShadow(x, visualY + GLOOMROOT_SPRITE_GROUND_OFFSET, 260, .3);
+
+    // A soft moon-sap aura separates the dark treant from the Night Forest,
+    // while the fallback guarantees a visible target if its art fails to load.
+    ctx.save();
+    const aura = ctx.createRadialGradient(x, visualY + 45, 22, x, visualY + 55, 205);
+    aura.addColorStop(0, "rgba(92,247,244,.3)");
+    aura.addColorStop(.55, "rgba(35,154,173,.13)");
+    aura.addColorStop(1, "rgba(14,45,65,0)");
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(x, visualY + 55, 205, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(x, visualY);
+    ctx.scale(pulse, pulse);
+    if (options.gloomrootReady() && canvas.width >= 2 && canvas.height >= 2) {
+      const cellW = canvas.width / 2;
+      const cellH = canvas.height / 2;
+      const sourceX = frame % 2 * cellW;
+      const sourceY = Math.floor(frame / 2) * cellH;
+      ctx.filter = "brightness(1.22) contrast(1.08) drop-shadow(0 0 12px rgba(88,238,240,.72))";
+      ctx.drawImage(canvas, sourceX, sourceY, cellW, cellH, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      ctx.fillStyle = "#172c3d";
+      ctx.strokeStyle = "#65eee9";
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.moveTo(-68, 176);
+      ctx.quadraticCurveTo(-118, 92, -70, 18);
+      ctx.lineTo(-132, -58);
+      ctx.lineTo(-42, -18);
+      ctx.quadraticCurveTo(-24, -138, 0, -184);
+      ctx.quadraticCurveTo(28, -132, 42, -18);
+      ctx.lineTo(132, -58);
+      ctx.lineTo(70, 18);
+      ctx.quadraticCurveTo(118, 92, 68, 176);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#9ffff9";
+      ctx.fillRect(-40, -78, 22, 14);
+      ctx.fillRect(18, -78, 22, 14);
+    }
+    ctx.restore();
+    const barW = 300; const barH = 23; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34;
+    const ratio = clamp(gloomrootBoss.hp / gloomrootBoss.maxHp, 0, 1);
+    ctx.fillStyle = "rgba(0,0,0,.9)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = "#14293a"; ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "#39cbd3"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
+    if (gloomrootBoss.hpLossFlashTimer > 0 && gloomrootBoss.hpLossFlashFrom > gloomrootBoss.hp) {
+      const fromRatio = clamp(gloomrootBoss.hpLossFlashFrom / gloomrootBoss.maxHp, ratio, 1);
+      ctx.save(); ctx.globalAlpha = clamp(gloomrootBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff";
+      ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore();
+    }
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(gloomrootBoss.hp)))} / ${formatCompactNumber(Math.ceil(gloomrootBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4);
+    ctx.textBaseline = "bottom";
+    options.outlinedText("GLOOMROOT", x, barY - 56, "#b9fbf5", 4);
+    options.outlinedText(rewardText("damage", GLOOMROOT_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
+    options.outlinedText(rewardText("health", GLOOMROOT_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
+    options.outlinedText(rewardText("armor", GLOOMROOT_REWARD_ARMOR), x, barY - 17, REWARD_DATA.armor.color, 4);
+    options.outlinedText(rewardText("regen", GLOOMROOT_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
+    ctx.restore();
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -302,5 +441,7 @@ export function createBossRenderer(options: {
     drawFrostclawBoss,
     drawMagmaliskTelegraphs,
     drawMagmaliskBoss,
+    drawGloomrootTelegraphs,
+    drawGloomrootBoss,
   };
 }

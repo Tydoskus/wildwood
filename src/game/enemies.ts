@@ -12,6 +12,10 @@ import {
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
+  WATER_REACH_HEALTH_REWARD_MULTIPLIER,
+  WATER_REACH_HEALTH_SCALE,
+  WATER_REACH_REWARD_SCALE,
   WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
 import { ENEMY_BOW_AIM_OFFSET_RADIANS, ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
@@ -191,6 +195,39 @@ const enemyTypes = {
     damage: 5_375_000_000, attackSpeed: .6, r: 37,
     color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE },
     elite: true, aggro: 420,
+  },
+
+  // WATER REACH ENEMIES
+  // This tier begins at the measured Night Forest exit build. Incoming damage
+  // stays in one narrow band; archetype identity comes from range, health,
+  // cadence, and rewards rather than surprise one-shots.
+  "Tide Raider": {
+    hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 255,
+    damage: 850_000_000_000, attackSpeed: .65, r: 27,
+    color: "#49c9d4", outline: "#123b58", reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+  },
+  "Reef Archer": {
+    hp: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 240,
+    damage: 1_150_000_000_000, attackSpeed: .55, r: 25,
+    color: "#69dce3", outline: "#17465d", reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER },
+    ranged: true,
+  },
+  "Coral Colossus": {
+    hp: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 225,
+    damage: 1_450_000_000_000, attackSpeed: .55, r: 35,
+    color: "#ff7f83", outline: "#573049", reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE },
+  },
+  "Drowned Reaper": {
+    hp: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 260,
+    damage: 1_250_000_000_000, attackSpeed: .7, r: 42,
+    color: "#3f93bd", outline: "#172c50", reward: { type: "damage", amount: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+    ranged: true, elite: true, aggro: 440,
+  },
+  "Tidal Oracle": {
+    hp: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 245,
+    damage: 1_350_000_000_000, attackSpeed: .6, r: 39,
+    color: "#7e9ee9", outline: "#29315d", reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE },
+    elite: true, aggro: 440,
   },
 } satisfies Record<string, EnemyDefinition>;
 

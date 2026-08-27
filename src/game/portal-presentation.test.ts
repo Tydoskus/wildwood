@@ -5,6 +5,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
+  WATER_REACH_MAP_ID,
 } from "./world";
 import { PORTAL_SWIRL_SOURCES, portalDestinationColor, portalDestinationTextColor } from "./portal-presentation";
 
@@ -15,6 +16,7 @@ describe("portal destination presentation", () => {
     expect(PORTAL_SWIRL_SOURCES[INTERMEDIATE_SNOWLANDS_MAP_ID]).toBe("assets/wildwood/portal-swirl-spritesheet.png");
     expect(PORTAL_SWIRL_SOURCES[ADVANCED_LAVA_WASTES_MAP_ID]).toContain("-red.png");
     expect(PORTAL_SWIRL_SOURCES[INFERNAL_DEPTHS_MAP_ID]).toContain("-black.png");
+    expect(PORTAL_SWIRL_SOURCES[WATER_REACH_MAP_ID]).toBe("assets/wildwood/portal-swirl-spritesheet.png");
   });
 
   it("uses matching destination colors for map markers", () => {
@@ -23,6 +25,7 @@ describe("portal destination presentation", () => {
     expect(portalDestinationColor(INTERMEDIATE_SNOWLANDS_MAP_ID)).toBe("#8deeff");
     expect(portalDestinationColor(ADVANCED_LAVA_WASTES_MAP_ID)).toBe("#ff6258");
     expect(portalDestinationColor(INFERNAL_DEPTHS_MAP_ID)).toBe("#625a70");
+    expect(portalDestinationColor(WATER_REACH_MAP_ID)).toBe("#54e3e9");
   });
 
   it("uses outlined white text for the Night Forest portal label", () => {

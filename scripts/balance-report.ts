@@ -89,7 +89,7 @@ function printHelp() {
 
 Usage: npm run balance:simulate -- [options]
 
-  --duration 13.64h            Simulation window (s, m, h, or d)
+  --duration 20.28h            Simulation window (s, m, h, or d)
   --trials 100                 Seeded loot campaigns
   --strategy boss-rush         boss-rush, efficient, or natural
   --research off               off, balanced, or damage-first

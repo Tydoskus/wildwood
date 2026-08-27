@@ -3,7 +3,7 @@ import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
@@ -74,6 +74,7 @@ export type WorldRendererOptions = {
   snowMapId: MapId;
   lavaMapId: MapId;
   infernalMapId: MapId;
+  waterMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -82,6 +83,7 @@ export type WorldRendererOptions = {
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
+  gloomrootBoss: GloomrootBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -159,10 +161,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const snow = options.getMapId() === options.snowMapId;
     const lava = options.getMapId() === options.lavaMapId;
     const infernal = options.getMapId() === options.infernalMapId;
+    const water = options.getMapId() === options.waterMapId;
     return {
-      ground: infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+      ground: water ? "#238c9a" : infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: water ? "#d5c58e" : infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: water ? "rgba(255,248,198,.26)" : infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
     };
   }
 
@@ -866,14 +869,25 @@ export function createWorldRenderer(options: WorldRendererOptions) {
           ? { state: options.frostclawBoss, color: "#67dcff" }
           : options.getMapId() === options.lavaMapId
             ? { state: options.magmaliskBoss, color: "#ff752f" }
-            : null;
+            : options.getMapId() === options.infernalMapId
+              ? { state: options.gloomrootBoss, color: "#69f0e7" }
+              : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
+      const isGloomroot = options.getMapId() === options.infernalMapId;
+      draw.save();
       draw.globalAlpha = mapBoss.state.dead ? .46 : 1;
+      if (isGloomroot) {
+        draw.fillStyle = "rgba(105,240,231,.28)";
+        draw.beginPath(); draw.arc(bx, by, 9, 0, Math.PI * 2); draw.fill();
+        draw.strokeStyle = "#c9fffb";
+        draw.lineWidth = 2;
+        draw.beginPath(); draw.arc(bx, by, 7, 0, Math.PI * 2); draw.stroke();
+      }
       draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
       draw.fillStyle = mapBoss.color; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
       draw.fillStyle = "#fff"; draw.fillRect(bx - 2, by - 1, 2, 2); draw.fillRect(bx + 2, by - 1, 2, 2);
-      draw.globalAlpha = 1;
+      draw.restore();
     }
 
     draw.fillStyle = "#58e878"; for (const player of remotePlayers) draw.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);

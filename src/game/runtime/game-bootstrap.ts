@@ -2,17 +2,18 @@ import { WORLD } from "../constants";
 import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   DRAGON_MAX_HP,
   FROSTCLAW_MAX_HP,
+  GLOOMROOT_MAX_HP,
   MAGMALISK_MAX_HP,
   MAP_DISPLAY_NAMES,
   PLAYER_BASE_HP,
@@ -39,6 +40,7 @@ export function createGameBootstrap() {
   const spiderVenom: SpiderVenomPool[] = [];
   const frostclawIcefalls: FrostclawIcefall[] = [];
   const magmaliskEruptions: MagmaliskEruption[] = [];
+  const gloomrootBlooms: GloomrootBloom[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: {
@@ -67,6 +69,12 @@ export function createGameBootstrap() {
     [INFERNAL_DEPTHS_MAP_ID]: {
       name: MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: WATER_REACH_MAP_ID },
+      arrival: { x: 580, y: 770 },
+    },
+    [WATER_REACH_MAP_ID]: {
+      name: MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID],
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INFERNAL_DEPTHS_MAP_ID },
       arrival: { x: 580, y: 770 },
     },
   } as const;
@@ -165,6 +173,24 @@ export function createGameBootstrap() {
     bite: null,
     encounter: null,
   };
+  const gloomrootBoss: GloomrootBossState = {
+    isBoss: true,
+    bossKind: "gloomroot",
+    x: 4050,
+    y: 4050,
+    r: 175,
+    maxHp: GLOOMROOT_MAX_HP,
+    hp: GLOOMROOT_MAX_HP,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: GLOOMROOT_MAX_HP,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "sweep",
+    sweep: null,
+    encounter: null,
+  };
   const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
     itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
@@ -191,6 +217,8 @@ export function createGameBootstrap() {
     enemyShots,
     frostclawBoss,
     frostclawIcefalls,
+    gloomrootBlooms,
+    gloomrootBoss,
     inventory,
     magmaliskBoss,
     magmaliskEruptions,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TUTORIAL_FOREST_MAP_ID, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
+import type { DragonBossState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 
 function renderer(decor: WorldDecor[], calls: string[]) {
   return createDepthWorldRenderer({
@@ -15,6 +15,7 @@ function renderer(decor: WorldDecor[], calls: string[]) {
     spiderBoss: { dead: true, y: 0 } as SpiderBossState,
     frostclawBoss: { dead: true, y: 0 } as FrostclawBossState,
     magmaliskBoss: { dead: true, y: 0 } as MagmaliskBossState,
+    gloomrootBoss: { dead: true, y: 0 } as GloomrootBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => TUTORIAL_FOREST_MAP_ID,
     activePortal: () => ({ depth: 0 }),
@@ -29,6 +30,7 @@ function renderer(decor: WorldDecor[], calls: string[]) {
     drawSpiderBoss: () => calls.push("spider"),
     drawFrostclawBoss: () => calls.push("frostclaw"),
     drawMagmaliskBoss: () => calls.push("magmalisk"),
+    drawGloomrootBoss: () => calls.push("gloomroot"),
     drawBootPickup: () => calls.push("boots"),
     drawPortal: () => calls.push("portal"),
     drawSecondaryPortal: () => calls.push("secondary"),

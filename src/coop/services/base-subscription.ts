@@ -50,6 +50,8 @@ export type BaseSubscriptionHandlers = {
   frostclawResult: RowHandler;
   magmaliskBoss: RowHandler;
   magmaliskResult: RowHandler;
+  gloomrootBoss: RowHandler;
+  gloomrootResult: RowHandler;
   chatMessage: RowHandler;
   duel: RowHandler;
   removeDuel: RowHandler;
@@ -156,6 +158,10 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.magmaliskBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.magmaliskBoss(row); });
   connection.db.magmaliskResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.magmaliskResult(row); });
   connection.db.magmaliskResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.magmaliskResult(row); });
+  connection.db.gloomrootBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gloomrootBoss(row); });
+  connection.db.gloomrootBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gloomrootBoss(row); });
+  connection.db.gloomrootResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gloomrootResult(row); });
+  connection.db.gloomrootResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gloomrootResult(row); });
   connection.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.duel.onInsert((_ctx, row) => { if (shouldHandle()) handlers.duel(row); });
   connection.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.duel(row); });
@@ -194,6 +200,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.frostclawResult.iter()) handlers.frostclawResult(row);
         for (const row of connection.db.magmaliskBoss.iter()) handlers.magmaliskBoss(row);
         for (const row of connection.db.magmaliskResult.iter()) handlers.magmaliskResult(row);
+        for (const row of connection.db.gloomrootBoss.iter()) handlers.gloomrootBoss(row);
+        for (const row of connection.db.gloomrootResult.iter()) handlers.gloomrootResult(row);
         for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
         for (const row of connection.db.duel.iter()) handlers.duel(row);
         dependencies.onHydrated();
@@ -232,6 +240,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.frostclawResult,
       tables.magmaliskBoss,
       tables.magmaliskResult,
+      tables.gloomrootBoss,
+      tables.gloomrootResult,
       tables.chatMessage,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
     ]);

@@ -7,6 +7,9 @@ import {
   FROSTCLAW_RIFT_HALF_ANGLE,
   FROSTCLAW_RIFT_RANGE,
   FROSTCLAW_ROAR_RANGE,
+  GLOOMROOT_AGGRO_RANGE,
+  GLOOMROOT_SWEEP_HALF_ANGLE,
+  GLOOMROOT_SWEEP_RANGE,
   MAGMALISK_AGGRO_RANGE,
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
@@ -17,6 +20,10 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  GLOOMROOT_REWARD_ARMOR,
+  GLOOMROOT_REWARD_DAMAGE,
+  GLOOMROOT_REWARD_HEALTH,
+  GLOOMROOT_REWARD_REGEN,
   DRAGON_REWARD_DAMAGE,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
@@ -33,6 +40,8 @@ import type {
   DragonBossState,
   FrostclawBossState,
   FrostclawIcefall,
+  GloomrootBloom,
+  GloomrootBossState,
   MagmaliskBossState,
   MagmaliskEruption,
   PlayerState,
@@ -69,6 +78,11 @@ const MAGMALISK_BITE_DURATION = .9;
 const MAGMALISK_BITE_DAMAGE = 260_000_000_000;
 const MAGMALISK_ERUPTION_DAMAGE = 200_000_000_000;
 const MAGMALISK_CONTACT_DAMAGE = 225_000_000_000;
+const GLOOMROOT_SWEEP_WINDUP = .85;
+const GLOOMROOT_SWEEP_DURATION = 1;
+const GLOOMROOT_SWEEP_DAMAGE = 4_200_000_000_000;
+const GLOOMROOT_BLOOM_DAMAGE = 3_500_000_000_000;
+const GLOOMROOT_CONTACT_DAMAGE = 3_800_000_000_000;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -98,18 +112,22 @@ export type BossController = {
   resetSpiderBoss: () => void;
   resetFrostclawBoss: () => void;
   resetMagmaliskBoss: () => void;
+  resetGloomrootBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
   syncMagmaliskState: () => void;
+  syncGloomrootState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
   updateMagmaliskBoss: (dt: number) => void;
+  updateGloomrootBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
   resolveMagmaliskCollision: () => void;
+  resolveGloomrootCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
@@ -124,33 +142,40 @@ export function createBossController(options: {
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
+  gloomrootBoss: GloomrootBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
+  gloomrootBlooms: GloomrootBloom[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
   getFrostclawBoss: () => SharedBossState | null | undefined;
   getMagmaliskBoss: () => SharedBossState | null | undefined;
+  getGloomrootBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
   getMagmaliskResult: () => BossResult | null | undefined;
+  getGloomrootResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   running: () => boolean;
   currentMapIsDesert: () => boolean;
   currentMapIsSnow: () => boolean;
   currentMapIsLava: () => boolean;
+  currentMapIsInfernal: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
   hasSeenLavaPortalCutscene: () => boolean;
   hasSeenInfernalPortalCutscene: () => boolean;
+  hasSeenWaterPortalCutscene: () => boolean;
   startDragonPortalCutscene: () => void;
   startSnowlandsPortalCutscene: () => void;
   startLavaPortalCutscene: () => void;
   startInfernalPortalCutscene: () => void;
+  startWaterPortalCutscene: () => void;
   elements: NoticeElements;
   renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
@@ -162,11 +187,11 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, portalCutsceneActive,
-    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene,
-    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, portalCutsceneActive,
+    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene,
+    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
   } = options;
   let dragonWorldNoticeTimer: number | null = null;
@@ -190,10 +215,16 @@ export function createBossController(options: {
   let magmaliskWasAlive: boolean | null = null;
   let pendingMagmaliskResultEncounter: bigint | null = null;
   let shownMagmaliskResultEncounter: bigint | null = null;
+  let queuedGloomrootResult: BossResult | null = null;
+  let observedGloomrootEncounter: bigint | null = null;
+  let gloomrootWasAlive: boolean | null = null;
+  let pendingGloomrootResultEncounter: bigint | null = null;
+  let shownGloomrootResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
   const locallyRewardedMagmaliskEncounters = new Set<string>();
+  const locallyRewardedGloomrootEncounters = new Set<string>();
 
   function scaledReward(type: RewardType, baseAmount: number) {
     const multiplier = options.rewardMultiplier?.() ?? 1;
@@ -274,6 +305,24 @@ export function createBossController(options: {
     magmaliskBoss.nextAttack = "bite";
     magmaliskBoss.bite = null;
     magmaliskEruptions.length = 0;
+  }
+
+  function resetGloomrootBoss() {
+    const shared = getGloomrootBoss();
+    if (shared) {
+      gloomrootBoss.encounter = shared.encounter;
+      gloomrootBoss.hp = shared.hp;
+      gloomrootBoss.maxHp = shared.maxHp;
+      gloomrootBoss.dead = !shared.alive;
+    }
+    gloomrootBoss.hurt = 0;
+    gloomrootBoss.hpLossFlashFrom = gloomrootBoss.hp;
+    gloomrootBoss.hpLossFlashTimer = 0;
+    gloomrootBoss.contactDamageClock = 0;
+    gloomrootBoss.attackClock = 3;
+    gloomrootBoss.nextAttack = "sweep";
+    gloomrootBoss.sweep = null;
+    gloomrootBlooms.length = 0;
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -423,6 +472,44 @@ export function createBossController(options: {
     showMessage(
       `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
       "#ffcf8f",
+    );
+  }
+
+  function showGloomrootResult(result: BossResult | null | undefined) {
+    if (!result || shownGloomrootResultEncounter === result.encounter || (portalCutsceneActive() && queuedGloomrootResult?.encounter === result.encounter)) return;
+    pendingGloomrootResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      shownGloomrootResultEncounter = result.encounter;
+      showWorldResult(result, "GLOOMROOT DEFEATED");
+      return;
+    }
+    if (currentMapIsInfernal() && !hasSeenWaterPortalCutscene()) {
+      queuedGloomrootResult = result;
+      startWaterPortalCutscene();
+      return;
+    }
+    shownGloomrootResultEncounter = result.encounter;
+    renderResult(result, "Gloomroot Defeated");
+    const damageReward = scaledReward("damage", GLOOMROOT_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", GLOOMROOT_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", GLOOMROOT_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", GLOOMROOT_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedGloomrootEncounters.has(encounterKey)) {
+      locallyRewardedGloomrootEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    showMessage(
+      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
+      "#8eefff",
     );
   }
 
@@ -615,6 +702,58 @@ export function createBossController(options: {
     if (pendingMagmaliskResultEncounter !== null) {
       const result = getMagmaliskResult();
       if (result?.encounter === pendingMagmaliskResultEncounter) showMagmaliskResult(result);
+    }
+  }
+
+  function syncGloomrootState() {
+    const shared = getGloomrootBoss();
+    if (!shared) return;
+    const initialized = observedGloomrootEncounter !== null;
+    const encounterChanged = initialized && observedGloomrootEncounter !== shared.encounter;
+    const previousHp = gloomrootBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedGloomrootEncounter = shared.encounter;
+      gloomrootWasAlive = shared.alive;
+      gloomrootBoss.dead = !shared.alive;
+      gloomrootBoss.attackClock = 3;
+      gloomrootBoss.nextAttack = "sweep";
+      gloomrootBoss.sweep = null;
+      gloomrootBlooms.length = 0;
+      gloomrootBoss.hpLossFlashFrom = shared.hp;
+      gloomrootBoss.hpLossFlashTimer = 0;
+    } else if (gloomrootWasAlive && !shared.alive) {
+      gloomrootWasAlive = false;
+      gloomrootBoss.dead = true;
+      gloomrootBoss.sweep = null;
+      gloomrootBlooms.length = 0;
+      pendingGloomrootResultEncounter = shared.encounter;
+      spawnBurst(gloomrootBoss.x, gloomrootBoss.y, "#43d9e6", 96, 290);
+    } else if (!gloomrootWasAlive && shared.alive) {
+      gloomrootWasAlive = true;
+      gloomrootBoss.dead = false;
+      gloomrootBoss.attackClock = 3;
+      gloomrootBoss.nextAttack = "sweep";
+    } else if (shared.alive && shared.hp < previousHp) {
+      gloomrootBoss.hpLossFlashFrom = gloomrootBoss.hpLossFlashTimer > 0
+        ? Math.max(gloomrootBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      gloomrootBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      gloomrootBoss.hpLossFlashFrom = shared.hp;
+      gloomrootBoss.hpLossFlashTimer = 0;
+    }
+    gloomrootBoss.encounter = shared.encounter;
+    gloomrootBoss.maxHp = shared.maxHp;
+    gloomrootBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsInfernal()) {
+      const result = getGloomrootResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        showGloomrootResult(result);
+      }
+    }
+    if (pendingGloomrootResultEncounter !== null) {
+      const result = getGloomrootResult();
+      if (result?.encounter === pendingGloomrootResultEncounter) showGloomrootResult(result);
     }
   }
 
@@ -1004,7 +1143,95 @@ export function createBossController(options: {
     else startMagmaliskEruption();
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState, damage: number, cooldown: number) {
+  function startGloomrootSweep() {
+    gloomrootBoss.sweep = {
+      angle: Math.atan2(player.y - gloomrootBoss.y, player.x - gloomrootBoss.x),
+      windup: GLOOMROOT_SWEEP_WINDUP,
+      timer: GLOOMROOT_SWEEP_DURATION,
+      duration: GLOOMROOT_SWEEP_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
+    gloomrootBoss.nextAttack = "bloom";
+  }
+
+  function startGloomrootBloom() {
+    for (let index = 0; index < 12; index += 1) {
+      const angle = index * TAU / 12 + rand(-.28, .28);
+      const radius = index === 0 ? 0 : rand(55, 255);
+      const timer = .9 + index * .1;
+      gloomrootBlooms.push({
+        x: clamp(player.x + Math.cos(angle) * radius, 74, WORLD.w - 74),
+        y: clamp(player.y + Math.sin(angle) * radius, 74, WORLD.h - 74),
+        r: 74,
+        timer,
+        maxTimer: timer,
+      });
+    }
+    gloomrootBoss.attackClock = 3.2;
+    gloomrootBoss.nextAttack = "sweep";
+  }
+
+  function updateGloomrootBoss(dt: number) {
+    gloomrootBoss.hpLossFlashTimer = Math.max(0, gloomrootBoss.hpLossFlashTimer - dt);
+    gloomrootBoss.contactDamageClock = Math.max(0, gloomrootBoss.contactDamageClock - dt);
+    if (gloomrootBoss.dead) return;
+    gloomrootBoss.hurt = Math.max(0, gloomrootBoss.hurt - dt);
+
+    for (let index = gloomrootBlooms.length - 1; index >= 0; index -= 1) {
+      const bloom = gloomrootBlooms[index];
+      bloom.timer -= dt;
+      if (bloom.timer > 0) continue;
+      const dx = player.x - bloom.x;
+      const dy = player.y - bloom.y;
+      if (dx * dx + dy * dy <= bloom.r * bloom.r) damagePlayer(GLOOMROOT_BLOOM_DAMAGE);
+      spawnBurst(bloom.x, bloom.y, "#58e2ee", 34, 225);
+      gloomrootBlooms.splice(index, 1);
+    }
+    if (gloomrootBlooms.length > 0) return;
+
+    if (gloomrootBoss.sweep) {
+      const sweep = gloomrootBoss.sweep;
+      if (sweep.windup > 0) {
+        sweep.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - sweep.timer / sweep.duration, 0, 1);
+      sweep.timer -= dt;
+      const progress = clamp(1 - sweep.timer / sweep.duration, 0, 1);
+      const minRadius = gloomrootBoss.r + (GLOOMROOT_SWEEP_RANGE - gloomrootBoss.r) * previousProgress;
+      const maxRadius = gloomrootBoss.r + (GLOOMROOT_SWEEP_RANGE - gloomrootBoss.r) * progress;
+      if (!sweep.hitPlayer) {
+        const dx = player.x - gloomrootBoss.x;
+        const dy = player.y - gloomrootBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - sweep.angle),
+          Math.cos(Math.atan2(dy, dx) - sweep.angle),
+        );
+        if (distance >= minRadius - 40 && distance <= maxRadius + 40 && Math.abs(angleDelta) <= GLOOMROOT_SWEEP_HALF_ANGLE) {
+          sweep.hitPlayer = true;
+          damagePlayer(GLOOMROOT_SWEEP_DAMAGE);
+          spawnBurst(player.x, player.y, "#8af4f3", 30, 235);
+        }
+      }
+      if (sweep.timer <= 0) {
+        gloomrootBoss.sweep = null;
+        gloomrootBoss.attackClock = 2.5;
+      }
+      return;
+    }
+
+    gloomrootBoss.attackClock -= dt;
+    if (gloomrootBoss.attackClock > 0) return;
+    const dx = player.x - gloomrootBoss.x;
+    const dy = player.y - gloomrootBoss.y;
+    if (dx * dx + dy * dy > GLOOMROOT_AGGRO_RANGE * GLOOMROOT_AGGRO_RANGE) return;
+    if (gloomrootBoss.nextAttack === "sweep") startGloomrootSweep();
+    else startGloomrootBloom();
+  }
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -1040,18 +1267,22 @@ export function createBossController(options: {
     resetSpiderBoss,
     resetFrostclawBoss,
     resetMagmaliskBoss,
+    resetGloomrootBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
     syncMagmaliskState,
+    syncGloomrootState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
     updateMagmaliskBoss,
+    updateGloomrootBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
     resolveMagmaliskCollision: () => resolveCollision(magmaliskBoss, MAGMALISK_CONTACT_DAMAGE, .75),
+    resolveGloomrootCollision: () => resolveCollision(gloomrootBoss, GLOOMROOT_CONTACT_DAMAGE, .75),
     applyDragonConePush,
     applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {
@@ -1067,6 +1298,9 @@ export function createBossController(options: {
       const magmalisk = queuedMagmaliskResult;
       queuedMagmaliskResult = null;
       if (magmalisk && !wasPreview) showMagmaliskResult(magmalisk);
+      const gloomroot = queuedGloomrootResult;
+      queuedGloomrootResult = null;
+      if (gloomroot && !wasPreview) showGloomrootResult(gloomroot);
     },
   };
 }

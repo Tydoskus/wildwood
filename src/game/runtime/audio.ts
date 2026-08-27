@@ -1,4 +1,4 @@
-import { INFERNAL_DEPTHS_MAP_ID, type MapId } from "../world";
+import { INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
 
 const FOREST_MUSIC_SOURCE = "assets/wildwood/audio/forest.mp3";
 const DESERT_MUSIC_SOURCE = "assets/wildwood/audio/desert.mp3";
@@ -24,6 +24,9 @@ type WebkitAudioWindow = Window & typeof globalThis & {
 
 export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: MapId, lavaMapId: MapId) {
   if (mapId === INFERNAL_DEPTHS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
+  // Water Reach deliberately borrows the airy snow arrangement until its own
+  // soundtrack is produced; it should never silently fall back to Forest.
+  if (mapId === WATER_REACH_MAP_ID) return SNOW_MUSIC_SOURCE;
   if (mapId === lavaMapId) return LAVA_MUSIC_SOURCE;
   if (mapId === desertMapId) return DESERT_MUSIC_SOURCE;
   if (mapId === snowMapId) return SNOW_MUSIC_SOURCE;

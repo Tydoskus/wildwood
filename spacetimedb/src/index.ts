@@ -108,6 +108,11 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  GLOOMROOT_MAX_HP,
+  GLOOMROOT_REWARD_ARMOR,
+  GLOOMROOT_REWARD_DAMAGE,
+  GLOOMROOT_REWARD_HEALTH,
+  GLOOMROOT_REWARD_REGEN,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MAGMALISK_MAX_HP,
@@ -137,6 +142,7 @@ import {
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
   TUTORIAL_FOREST_MAP_ID,
+  WATER_REACH_MAP_ID,
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../../shared/rules";
@@ -171,7 +177,11 @@ const MAP_PORTALS = {
     { x: 360, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
     { x: 580, y: 617, destination: INFERNAL_DEPTHS_MAP_ID },
   ],
-  [INFERNAL_DEPTHS_MAP_ID]: [{ x: 360, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID }],
+  [INFERNAL_DEPTHS_MAP_ID]: [
+    { x: 360, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID },
+    { x: 580, y: 617, destination: WATER_REACH_MAP_ID },
+  ],
+  [WATER_REACH_MAP_ID]: [{ x: 360, y: 617, destination: INFERNAL_DEPTHS_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -179,6 +189,7 @@ const MAP_ARRIVALS = {
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { x: 580, y: 770 },
   [ADVANCED_LAVA_WASTES_MAP_ID]: { x: 580, y: 770 },
   [INFERNAL_DEPTHS_MAP_ID]: { x: 580, y: 770 },
+  [WATER_REACH_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -227,6 +238,11 @@ const MAGMALISK_RADIUS = 165;
 const MAGMALISK_POSITION = { x: 4050, y: 4050 };
 const MAGMALISK_HIT_RANGE_TOLERANCE = 60;
 const MAGMALISK_RESPAWN_MICROS = 30_000_000n;
+const GLOOMROOT_ID = 1;
+const GLOOMROOT_RADIUS = 175;
+const GLOOMROOT_POSITION = { x: 4050, y: 4050 };
+const GLOOMROOT_HIT_RANGE_TOLERANCE = 60;
+const GLOOMROOT_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
@@ -612,6 +628,9 @@ const playerProgress = table(
     // Appended default preserves existing rows while Magmalisk now owns the
     // permanent unlock for the next map.
     infernalUnlocked: t.bool().default(false),
+    // Gloomroot owns the additive unlock for Water Reach. The default keeps
+    // every existing progress row migration-safe.
+    waterUnlocked: t.bool().default(false),
   },
 );
 
@@ -1422,6 +1441,59 @@ const magmaliskRespawnSchedule = table(
   },
 );
 
+const gloomrootBoss = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32(),
+    alive: t.bool(),
+    respawnAtMicros: t.u64(),
+    lastDamageAtMicros: t.u64().default(0n),
+  },
+);
+
+const gloomrootContribution = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    displayName: t.string(),
+    damage: t.f32(),
+  },
+);
+
+const gloomrootAttackWindow = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    startedAtMicros: t.u64(),
+    hits: t.u32(),
+  },
+);
+
+const gloomrootResult = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32(),
+    contributorsJson: t.string(),
+    createdAt: t.timestamp(),
+  },
+);
+
+const gloomrootRespawnSchedule = table(
+  { scheduled: (): any => respawnGloomroot },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
   player,
   playerMapMarker,
@@ -1502,6 +1574,11 @@ const spacetimedb = schema({
   magmaliskAttackWindow,
   magmaliskResult,
   magmaliskRespawnSchedule,
+  gloomrootBoss,
+  gloomrootContribution,
+  gloomrootAttackWindow,
+  gloomrootResult,
+  gloomrootRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1624,6 +1701,7 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     ctx.db.spiderContribution,
     ctx.db.frostclawContribution,
     ctx.db.magmaliskContribution,
+    ctx.db.gloomrootContribution,
   ]) {
     const contribution = table.identity.find(identity);
     if (contribution && contribution.displayName !== displayName) {
@@ -1681,6 +1759,7 @@ function defaultPlayerProgress(identity: any) {
     snowlandsUnlocked: false,
     lavaUnlocked: false,
     infernalUnlocked: false,
+    waterUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
     cosmeticHead: "",
@@ -1714,6 +1793,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "snowlandsUnlocked",
   "lavaUnlocked",
   "infernalUnlocked",
+  "waterUnlocked",
   "bowCount",
   "woodenArmorCount",
   "cosmeticHead",
@@ -2522,6 +2602,13 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
   const saved = ctx.db.playerLastLocation.identity.find(identity);
   const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
   let mapId = requestedMap;
+  if (mapId === WATER_REACH_MAP_ID && !progress.waterUnlocked) {
+    mapId = progress.infernalUnlocked
+      ? INFERNAL_DEPTHS_MAP_ID
+      : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+        : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+          : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
   if (mapId === INFERNAL_DEPTHS_MAP_ID && !progress.infernalUnlocked) {
     mapId = progress.lavaUnlocked
       ? ADVANCED_LAVA_WASTES_MAP_ID
@@ -2538,13 +2625,14 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
   }
   if (mapId === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked) mapId = TUTORIAL_FOREST_MAP_ID;
   const fallback = mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
-  const x = Number.isFinite(saved?.x)
+  const useSavedPosition = mapId === requestedMap;
+  const x = useSavedPosition && Number.isFinite(saved?.x)
     ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, saved.x))
     : fallback.x;
-  const y = Number.isFinite(saved?.y)
+  const y = useSavedPosition && Number.isFinite(saved?.y)
     ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, saved.y))
     : fallback.y;
-  return { mapId, x, y, facing: Number.isFinite(saved?.facing) ? saved.facing : 0 };
+  return { mapId, x, y, facing: useSavedPosition && Number.isFinite(saved?.facing) ? saved.facing : 0 };
 }
 
 function persistWorldLocation(ctx: any, activePlayer: any) {
@@ -2874,7 +2962,8 @@ function hasFreshProgress(progress: any) {
     progress.desertUnlocked === defaultProgress.desertUnlocked &&
     progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked &&
     progress.lavaUnlocked === defaultProgress.lavaUnlocked &&
-    progress.infernalUnlocked === defaultProgress.infernalUnlocked;
+    progress.infernalUnlocked === defaultProgress.infernalUnlocked &&
+    progress.waterUnlocked === defaultProgress.waterUnlocked;
 }
 
 function resultIncludesContributor(latest: any, identity: any) {
@@ -2898,6 +2987,10 @@ function contributedToLatestFrostclaw(ctx: any, identity: any) {
 
 function contributedToLatestMagmalisk(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.magmaliskResult.id.find(MAGMALISK_ID), identity);
+}
+
+function contributedToLatestGloomroot(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.gloomrootResult.id.find(GLOOMROOT_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -3552,6 +3645,8 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.frostclawAttackWindow.identity.find(identity)) ctx.db.frostclawAttackWindow.identity.delete(identity);
   if (ctx.db.magmaliskContribution.identity.find(identity)) ctx.db.magmaliskContribution.identity.delete(identity);
   if (ctx.db.magmaliskAttackWindow.identity.find(identity)) ctx.db.magmaliskAttackWindow.identity.delete(identity);
+  if (ctx.db.gloomrootContribution.identity.find(identity)) ctx.db.gloomrootContribution.identity.delete(identity);
+  if (ctx.db.gloomrootAttackWindow.identity.find(identity)) ctx.db.gloomrootAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -3774,6 +3869,25 @@ function ensureMagmaliskBoss(ctx: any) {
   });
 }
 
+function ensureGloomrootBoss(ctx: any) {
+  const existing = ctx.db.gloomrootBoss.id.find(GLOOMROOT_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, GLOOMROOT_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.gloomrootBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.gloomrootBoss.insert({
+    id: GLOOMROOT_ID,
+    encounter: 1n,
+    hp: GLOOMROOT_MAX_HP,
+    maxHp: GLOOMROOT_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
+
 function regenerateIdleBosses(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
@@ -3792,6 +3906,7 @@ function regenerateIdleBosses(ctx: any) {
   regenerate(ensureSpiderBoss(ctx), (next) => ctx.db.spiderBoss.id.update(next));
   regenerate(ensureFrostclawBoss(ctx), (next) => ctx.db.frostclawBoss.id.update(next));
   regenerate(ensureMagmaliskBoss(ctx), (next) => ctx.db.magmaliskBoss.id.update(next));
+  regenerate(ensureGloomrootBoss(ctx), (next) => ctx.db.gloomrootBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4005,6 +4120,71 @@ function finishMagmaliskEncounter(ctx: any, magmalisk: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: magmalisk.encounter,
+  });
+}
+
+function clearGloomrootCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.gloomrootContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.gloomrootAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.gloomrootContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.gloomrootAttackWindow.identity.delete(identity);
+}
+
+function rewardGloomrootContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const next = {
+    ...current,
+    damage: current.damage + GLOOMROOT_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + GLOOMROOT_REWARD_HEALTH * rewardMultiplier,
+    armor: current.armor + GLOOMROOT_REWARD_ARMOR * rewardMultiplier,
+    regen: current.regen + GLOOMROOT_REWARD_REGEN * rewardMultiplier,
+    waterUnlocked: true,
+  };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+
+function finishGloomrootEncounter(ctx: any, gloomroot: any) {
+  const contributions = [...ctx.db.gloomrootContribution.iter()]
+    .filter((row: any) => row.encounter === gloomroot.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: GLOOMROOT_ID,
+    encounter: gloomroot.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.gloomrootResult.id.find(GLOOMROOT_ID)) ctx.db.gloomrootResult.id.update(result);
+  else ctx.db.gloomrootResult.insert(result);
+
+  for (const row of contributions) rewardGloomrootContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + GLOOMROOT_RESPAWN_MICROS;
+  ctx.db.gloomrootBoss.id.update({ ...gloomroot, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.gloomrootRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: gloomroot.encounter,
   });
 }
 
@@ -4377,20 +4557,24 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const latestDragonContributor = contributedToLatestDragon(ctx, ctx.sender);
     const latestFrostclawContributor = contributedToLatestFrostclaw(ctx, ctx.sender);
     const latestMagmaliskContributor = contributedToLatestMagmalisk(ctx, ctx.sender);
+    const latestGloomrootContributor = contributedToLatestGloomroot(ctx, ctx.sender);
     const isInDesert = existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID;
     const isInSnowlands = existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID;
     const isInLavaWastes = existingPlayer?.mapId === ADVANCED_LAVA_WASTES_MAP_ID;
     const isInInfernalDepths = existingPlayer?.mapId === INFERNAL_DEPTHS_MAP_ID;
-    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor)) ||
-      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor)) ||
-      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor)) ||
-      (!existingProgress.infernalUnlocked && (isInInfernalDepths || latestMagmaliskContributor))) {
+    const isInWaterReach = existingPlayer?.mapId === WATER_REACH_MAP_ID;
+    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor)) ||
+      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor)) ||
+      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor)) ||
+      (!existingProgress.infernalUnlocked && (isInInfernalDepths || isInWaterReach || latestMagmaliskContributor || latestGloomrootContributor)) ||
+      (!existingProgress.waterUnlocked && (isInWaterReach || latestGloomrootContributor))) {
       existingProgress = {
         ...existingProgress,
-        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor,
-        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor,
-        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || latestFrostclawContributor || latestMagmaliskContributor,
-        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || latestMagmaliskContributor,
+        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor,
+        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor,
+        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor,
+        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || isInWaterReach || latestMagmaliskContributor || latestGloomrootContributor,
+        waterUnlocked: existingProgress.waterUnlocked || isInWaterReach || latestGloomrootContributor,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -4540,6 +4724,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureSpiderBoss(ctx);
   ensureFrostclawBoss(ctx);
   ensureMagmaliskBoss(ctx);
+  ensureGloomrootBoss(ctx);
   ensureWorldStatus(ctx);
   runPendingModuleMigrations(ctx);
 
@@ -4810,6 +4995,24 @@ export const respawnMagmalisk = spacetimedb.reducer(
       ...magmalisk,
       encounter: magmalisk.encounter + 1n,
       hp: magmalisk.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+
+export const respawnGloomroot = spacetimedb.reducer(
+  { schedule: gloomrootRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const gloomroot = ensureGloomrootBoss(ctx);
+    if (gloomroot.alive || gloomroot.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < gloomroot.respawnAtMicros) return;
+    clearGloomrootCombatRows(ctx);
+    ctx.db.gloomrootBoss.id.update({
+      ...gloomroot,
+      encounter: gloomroot.encounter + 1n,
+      hp: gloomroot.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -5126,6 +5329,80 @@ export const damageMagmaliskFromPosition = spacetimedb.reducer(
   (ctx, { hits, x, y }) => applyMagmaliskDamage(ctx, hits, { x, y }),
 );
 
+function applyGloomrootDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== INFERNAL_DEPTHS_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const gloomroot = ensureGloomrootBoss(ctx);
+  if (!gloomroot.alive || gloomroot.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - GLOOMROOT_POSITION.x, actionY - GLOOMROOT_POSITION.y);
+  if (centerDistance - GLOOMROOT_RADIUS > progress.attackRange + GLOOMROOT_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.gloomrootAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== gloomroot.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: gloomroot.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.gloomrootAttackWindow.identity.update(nextWindow);
+    else ctx.db.gloomrootAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.gloomrootAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(gloomroot.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.gloomrootContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === gloomroot.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: gloomroot.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.gloomrootContribution.identity.update(nextContribution);
+  else ctx.db.gloomrootContribution.insert(nextContribution);
+  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, GLOOMROOT_POSITION, GLOOMROOT_RADIUS, acceptedHits);
+
+  const nextGloomroot = {
+    ...gloomroot,
+    hp: Math.max(0, gloomroot.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextGloomroot.hp <= 0) finishGloomrootEncounter(ctx, nextGloomroot);
+  else ctx.db.gloomrootBoss.id.update(nextGloomroot);
+}
+
+export const damageGloomrootFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyGloomrootDamage(ctx, hits, { x, y }),
+);
+
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
@@ -5367,25 +5644,34 @@ export const claimGuestAccount = spacetimedb.reducer(
       else ctx.db.leaderboardEntry.insert(nextLeaderboardEntry);
     }
     if (guestLeaderboardEntry) ctx.db.leaderboardEntry.identity.delete(link.guest);
-    const guestContribution = ctx.db.dragonContribution.identity.find(link.guest);
-    const accountContribution = ctx.db.dragonContribution.identity.find(ctx.sender);
-    if (guestContribution) {
-      const nextContribution = {
-        identity: ctx.sender,
-        encounter: guestContribution.encounter,
-        displayName: finalDisplayName,
-        damage: accountContribution?.encounter === guestContribution.encounter
-          ? accountContribution.damage + guestContribution.damage
-          : guestContribution.damage,
-      };
-      if (accountContribution) ctx.db.dragonContribution.identity.update(nextContribution);
-      else ctx.db.dragonContribution.insert(nextContribution);
-      ctx.db.dragonContribution.identity.delete(link.guest);
+    // Linking during any boss fight keeps the guest's contribution under the
+    // authenticated identity. Attack windows are cleared so the next volley is
+    // authorized against the new identity and cannot inherit stale hit counts.
+    for (const [contributionTable, attackWindowTable] of [
+      [ctx.db.dragonContribution, ctx.db.dragonAttackWindow],
+      [ctx.db.spiderContribution, ctx.db.spiderAttackWindow],
+      [ctx.db.frostclawContribution, ctx.db.frostclawAttackWindow],
+      [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
+      [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
+    ] as any[]) {
+      const guestContribution = contributionTable.identity.find(link.guest);
+      const accountContribution = contributionTable.identity.find(ctx.sender);
+      if (guestContribution) {
+        const nextContribution = {
+          identity: ctx.sender,
+          encounter: guestContribution.encounter,
+          displayName: finalDisplayName,
+          damage: accountContribution?.encounter === guestContribution.encounter
+            ? accountContribution.damage + guestContribution.damage
+            : guestContribution.damage,
+        };
+        if (accountContribution) contributionTable.identity.update(nextContribution);
+        else contributionTable.insert(nextContribution);
+        contributionTable.identity.delete(link.guest);
+      }
+      if (attackWindowTable.identity.find(link.guest)) attackWindowTable.identity.delete(link.guest);
+      if (attackWindowTable.identity.find(ctx.sender)) attackWindowTable.identity.delete(ctx.sender);
     }
-    const guestDragonWindow = ctx.db.dragonAttackWindow.identity.find(link.guest);
-    if (guestDragonWindow) ctx.db.dragonAttackWindow.identity.delete(link.guest);
-    const accountDragonWindow = ctx.db.dragonAttackWindow.identity.find(ctx.sender);
-    if (accountDragonWindow) ctx.db.dragonAttackWindow.identity.delete(ctx.sender);
 
     const accountBalance = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
     const nextBalance = { identity: ctx.sender, version: ATTACK_BALANCE_VERSION };
@@ -5963,6 +6249,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       snowlandsUnlocked: base.snowlandsUnlocked,
       lavaUnlocked: base.lavaUnlocked,
       infernalUnlocked: base.infernalUnlocked,
+      waterUnlocked: base.waterUnlocked,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
@@ -6813,6 +7100,9 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === INFERNAL_DEPTHS_MAP_ID && !currentProgress?.infernalUnlocked) {
       throw new SenderError(`Defeat Magmalisk before entering ${MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID]}.`);
+    }
+    if (mapId === WATER_REACH_MAP_ID && !currentProgress?.waterUnlocked) {
+      throw new SenderError(`Defeat Gloomroot before entering ${MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID]}.`);
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

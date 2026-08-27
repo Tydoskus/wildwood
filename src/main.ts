@@ -24,7 +24,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -45,6 +45,7 @@ import {
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   UPGRADE_BENCH_POSITION,
+  WATER_REACH_MAP_ID,
   type MapId,
 } from "./game/world";
 import {
@@ -156,6 +157,8 @@ import {
     enemyShots,
     frostclawBoss,
     frostclawIcefalls,
+    gloomrootBlooms,
+    gloomrootBoss,
     inventory,
     magmaliskBoss,
     magmaliskEruptions,
@@ -170,8 +173,8 @@ import {
     startSpawn: START_SPAWN,
   } = bootstrap;
   const presentation = createPresentationInterpolator({
-    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss],
-    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, particles, damageNumbers],
+    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss],
+    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, particles, damageNumbers],
   });
   const healthMultiplier = () => equipmentMaxHealthMultiplier(
     inventory.equippedHead,
@@ -404,6 +407,7 @@ import {
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
     lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
     infernalCutsceneSeenKey: INFERNAL_PORTAL_CUTSCENE_SEEN_KEY,
+    waterCutsceneSeenKey: WATER_PORTAL_CUTSCENE_SEEN_KEY,
   });
   let inputEscapeHandler = () => false;
   const playerInput = createPlayerInputController({
@@ -469,12 +473,13 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss,
     nowSeconds: () => session?.gameTime() ?? 0,
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
-    isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID || currentMapId === INFERNAL_DEPTHS_MAP_ID,
+    isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
+    isInfernalMap: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     engageEnemy,
     researchDamageMultiplier,
     researchCriticalChance,
@@ -500,6 +505,7 @@ import {
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
     damageFrostclaw: (hits) => coop?.damageFrostclaw?.(hits, player.x, player.y),
     damageMagmalisk: (hits) => coop?.damageMagmalisk?.(hits, player.x, player.y),
+    damageGloomroot: (hits) => coop?.damageGloomroot?.(hits, player.x, player.y),
     spawnBurst,
     spawnParticle,
     spawnDamageNumber,
@@ -575,10 +581,12 @@ import {
     snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
     lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
     infernalMapId: INFERNAL_DEPTHS_MAP_ID,
+    waterMapId: WATER_REACH_MAP_ID,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
     lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
     infernalCutsceneSeenKey: INFERNAL_PORTAL_CUTSCENE_SEEN_KEY,
+    waterCutsceneSeenKey: WATER_PORTAL_CUTSCENE_SEEN_KEY,
     getCurrentMapId: () => currentMapId,
     setCurrentMapId: (mapId) => { currentMapId = mapId; },
     player,
@@ -602,6 +610,8 @@ import {
           ? Boolean(coop?.savedProgress?.()?.lavaUnlocked)
         : mapId === INFERNAL_DEPTHS_MAP_ID
           ? Boolean(coop?.savedProgress?.()?.infernalUnlocked)
+        : mapId === WATER_REACH_MAP_ID
+          ? Boolean(coop?.savedProgress?.()?.waterUnlocked)
         : true,
     syncMapMusic,
     rebuildWorld: () => playerController.rebuildWorld(),
@@ -613,48 +623,57 @@ import {
     spiderVenom,
     frostclawIcefalls,
     magmaliskEruptions,
+    gloomrootBlooms,
     boss,
     spiderBoss,
     frostclawBoss,
     magmaliskBoss,
+    gloomrootBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     showMapMessage: (mapId) => showMessage(MAP_CONFIG[mapId].name, "#ffe769"),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
-  const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene } = mapController;
+  const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene } = mapController;
 
   const bossController = createBossController({
     boss,
     spiderBoss,
     frostclawBoss,
     magmaliskBoss,
+    gloomrootBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
     magmaliskEruptions,
+    gloomrootBlooms,
     player,
     getDragonBoss: () => coop?.dragonBoss?.(),
     getSpiderBoss: () => coop?.spiderBoss?.(),
     getFrostclawBoss: () => coop?.frostclawBoss?.(),
     getMagmaliskBoss: () => coop?.magmaliskBoss?.(),
+    getGloomrootBoss: () => coop?.gloomrootBoss?.(),
     getDragonResult: () => coop?.dragonResult?.(),
     getSpiderResult: () => coop?.spiderResult?.(),
     getFrostclawResult: () => coop?.frostclawResult?.(),
     getMagmaliskResult: () => coop?.magmaliskResult?.(),
+    getGloomrootResult: () => coop?.gloomrootResult?.(),
     localIdentity: () => coop?.localIdentity?.(),
     running: () => session.isRunning(),
     currentMapIsDesert: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     currentMapIsSnow: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
     currentMapIsLava: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
+    currentMapIsInfernal: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     hasSeenDragonPortalCutscene: worldProgression.hasSeenDragonPortalCutscene,
     hasSeenSnowlandsPortalCutscene: worldProgression.hasSeenSnowlandsPortalCutscene,
     hasSeenLavaPortalCutscene: worldProgression.hasSeenLavaPortalCutscene,
     hasSeenInfernalPortalCutscene: worldProgression.hasSeenInfernalPortalCutscene,
+    hasSeenWaterPortalCutscene: worldProgression.hasSeenWaterPortalCutscene,
     startDragonPortalCutscene,
     startSnowlandsPortalCutscene,
     startLavaPortalCutscene,
     startInfernalPortalCutscene,
+    startWaterPortalCutscene,
     elements: {
       result: dragonResultEl,
       resultTitle: dragonResultTitle,
@@ -709,6 +728,7 @@ import {
     snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
     lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
     infernalMapId: INFERNAL_DEPTHS_MAP_ID,
+    waterMapId: WATER_REACH_MAP_ID,
     paths,
     decor,
     enemies,
@@ -717,10 +737,12 @@ import {
     spiderBoss,
     frostclawBoss,
     magmaliskBoss,
+    gloomrootBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
     magmaliskEruptions,
+    gloomrootBlooms,
     activePortal,
     cutscenePortal: () => mapController.cutscenePortal(),
     secondaryPortal,
@@ -795,7 +817,7 @@ import {
     invalidateStaticWorld,
     spawnFromSite,
     clearPlayerCombat: () => { playerCombat.clearPendingThrow(); playerCombat.clearPendingBossHits(); },
-    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); bossController.resetMagmaliskBoss(); },
+    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); bossController.resetMagmaliskBoss(); bossController.resetGloomrootBoss(); },
     onResetUI: () => {
       session.resetGameTime();
       flash = 0;
@@ -811,12 +833,14 @@ import {
     resolveSpiderCollision: () => bossController.resolveSpiderCollision(),
     resolveFrostclawCollision: () => bossController.resolveFrostclawCollision(),
     resolveMagmaliskCollision: () => bossController.resolveMagmaliskCollision(),
+    resolveGloomrootCollision: () => bossController.resolveGloomrootCollision(),
     applyDragonConePush: (dt) => bossController.applyDragonConePush(dt),
     applyFrostclawPush: (dt) => bossController.applyFrostclawPush(dt),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
     isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
+    isInfernalMap: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     viewport: () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     cameraPosition: () => camera,
     isConnected: () => Boolean(coop?.isConnected?.()),
@@ -1104,7 +1128,9 @@ import {
           ? { x: frostclawBoss.x, y: frostclawBoss.y, name: "Frostclaw", dead: frostclawBoss.dead }
           : currentMapId === ADVANCED_LAVA_WASTES_MAP_ID
             ? { x: magmaliskBoss.x, y: magmaliskBoss.y, name: "Magmalisk", dead: magmaliskBoss.dead }
-            : null,
+            : currentMapId === INFERNAL_DEPTHS_MAP_ID
+              ? { x: gloomrootBoss.x, y: gloomrootBoss.y, name: "Gloomroot", dead: gloomrootBoss.dead }
+              : null,
     portals: () => {
       const portals = [activePortal()];
       const secondary = secondaryPortal();
@@ -1177,8 +1203,8 @@ import {
 
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
-    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
-    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID],
+    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID,
+    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
@@ -1206,10 +1232,10 @@ import {
     },
     mapMusicSync: syncMapMusic,
     isDueling, activeDuel,
-    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState,
+    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     updatePlayer: playerController.update, updateUpgradeBench: upgradeBenchController.updateTouch, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
-    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss,
+    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),

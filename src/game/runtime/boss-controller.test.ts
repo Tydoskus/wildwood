@@ -7,6 +7,11 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  GLOOMROOT_MAX_HP,
+  GLOOMROOT_REWARD_ARMOR,
+  GLOOMROOT_REWARD_DAMAGE,
+  GLOOMROOT_REWARD_HEALTH,
+  GLOOMROOT_REWARD_REGEN,
   MAGMALISK_MAX_HP,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
@@ -37,33 +42,40 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     spiderBoss: state.spiderBoss,
     frostclawBoss: state.frostclawBoss,
     magmaliskBoss: state.magmaliskBoss,
+    gloomrootBoss: state.gloomrootBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
     magmaliskEruptions: state.magmaliskEruptions,
+    gloomrootBlooms: state.gloomrootBlooms,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
     getFrostclawBoss: () => null,
     getMagmaliskBoss: () => null,
+    getGloomrootBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
     getMagmaliskResult: () => null,
+    getGloomrootResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
     currentMapIsSnow: () => true,
     currentMapIsLava: () => false,
+    currentMapIsInfernal: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
     hasSeenLavaPortalCutscene: () => true,
     hasSeenInfernalPortalCutscene: () => true,
+    hasSeenWaterPortalCutscene: () => true,
     startDragonPortalCutscene: () => undefined,
     startSnowlandsPortalCutscene: () => undefined,
     startLavaPortalCutscene: () => undefined,
     startInfernalPortalCutscene: () => undefined,
+    startWaterPortalCutscene: () => undefined,
     elements: {
       result: ignoredElement,
       resultTitle: ignoredElement,
@@ -215,5 +227,58 @@ describe("Magmalisk boss", () => {
     controller.syncMagmaliskState();
 
     expect(startInfernalPortalCutscene).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Gloomroot boss", () => {
+  it("caps Night Forest with a four-stat Water Reach unlock reward", () => {
+    expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000);
+    expect(GLOOMROOT_REWARD_DAMAGE).toBe(120_000_000_000);
+    expect(GLOOMROOT_REWARD_HEALTH).toBe(250_000_000_000);
+    expect(GLOOMROOT_REWARD_ARMOR).toBe(10_000_000);
+    expect(GLOOMROOT_REWARD_REGEN).toBe(2_000_000_000);
+  });
+
+  it("cycles a readable root sweep into staggered Gloom Blooms", () => {
+    const { controller, gloomrootBoss, gloomrootBlooms, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsInfernal: () => true,
+    });
+    player.x = gloomrootBoss.x + 300;
+    player.y = gloomrootBoss.y;
+    gloomrootBoss.attackClock = 0;
+
+    controller.updateGloomrootBoss(.016);
+    expect(gloomrootBoss.sweep).not.toBeNull();
+    expect(gloomrootBoss.nextAttack).toBe("bloom");
+
+    controller.updateGloomrootBoss(.85);
+    controller.updateGloomrootBoss(1.1);
+    controller.updateGloomrootBoss(2.6);
+    expect(gloomrootBlooms.length).toBeGreaterThan(0);
+    expect(gloomrootBoss.nextAttack).toBe("sweep");
+  });
+
+  it("reveals Water Reach after a local Gloomroot contribution", () => {
+    let shared = { encounter: 10n, hp: GLOOMROOT_MAX_HP, maxHp: GLOOMROOT_MAX_HP, alive: true };
+    const startWaterPortalCutscene = vi.fn();
+    const { controller } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsInfernal: () => true,
+      getGloomrootBoss: () => shared,
+      getGloomrootResult: () => ({
+        encounter: 10n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      hasSeenWaterPortalCutscene: () => false,
+      startWaterPortalCutscene,
+    });
+
+    controller.syncGloomrootState();
+    shared = { ...shared, hp: 0, alive: false };
+    controller.syncGloomrootState();
+
+    expect(startWaterPortalCutscene).toHaveBeenCalledOnce();
   });
 });

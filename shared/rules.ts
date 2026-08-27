@@ -61,6 +61,13 @@ export const INFERNAL_DEPTHS_HEALTH_SCALE = .00001;
 export const INFERNAL_DEPTHS_REWARD_SCALE = .00115;
 export const INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER = .86;
 export const INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER = 3;
+// Water Reach starts from the measured Night Forest exit build. Keep the
+// authored values readable here; the Balance Lab owns any future whole-map
+// correction through these shared multipliers rather than hidden client math.
+export const WATER_REACH_HEALTH_SCALE = 1;
+export const WATER_REACH_REWARD_SCALE = .73;
+export const WATER_REACH_DAMAGE_REWARD_MULTIPLIER = .8;
+export const WATER_REACH_HEALTH_REWARD_MULTIPLIER = 1.5;
 
 export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE;
 export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE;
@@ -76,18 +83,25 @@ export const MAGMALISK_REWARD_DAMAGE = 14_400_000_000 * ADVANCED_LAVA_WASTES_REW
 export const MAGMALISK_REWARD_HEALTH = 81_945_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER;
 export const MAGMALISK_REWARD_ARMOR = 7_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
 export const MAGMALISK_REWARD_REGEN = 405_015_625 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
+export const GLOOMROOT_MAX_HP = 1_150_000_000_000_000;
+export const GLOOMROOT_REWARD_DAMAGE = 120_000_000_000;
+export const GLOOMROOT_REWARD_HEALTH = 250_000_000_000;
+export const GLOOMROOT_REWARD_ARMOR = 10_000_000;
+export const GLOOMROOT_REWARD_REGEN = 2_000_000_000;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
 export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
+export const WATER_REACH_MAP_ID = "water_reach";
 export const MAP_DISPLAY_NAMES = {
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "Intermediate Snowlands",
   [ADVANCED_LAVA_WASTES_MAP_ID]: "Advanced Lava Lake",
   [INFERNAL_DEPTHS_MAP_ID]: "Night Forest",
+  [WATER_REACH_MAP_ID]: "Water Reach",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
@@ -95,9 +109,10 @@ export const MAP_IDS: readonly string[] = [
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   ADVANCED_LAVA_WASTES_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
+  WATER_REACH_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 75;
+export const PROTOCOL_VERSION = 76;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

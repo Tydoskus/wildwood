@@ -151,6 +151,8 @@ export type FrostclawBossState = DragonBossState;
 export type FrostclawResult = DragonResult;
 export type MagmaliskBossState = DragonBossState;
 export type MagmaliskResult = DragonResult;
+export type GloomrootBossState = DragonBossState;
+export type GloomrootResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

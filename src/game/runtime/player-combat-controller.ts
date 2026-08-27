@@ -4,7 +4,7 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap, distanceSquared } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, RuntimeReward, SpiderBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, RuntimeReward, SpiderBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamageMultiplier, itemDefinition, weaponAttackInterval } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
@@ -22,6 +22,7 @@ const DRAGON_HIT_BATCH_DELAY = .1;
 const SPIDER_HIT_BATCH_DELAY = .1;
 const FROSTCLAW_HIT_BATCH_DELAY = .1;
 const MAGMALISK_HIT_BATCH_DELAY = .1;
+const GLOOMROOT_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 const IDLE_TARGET_RECHECK_SECONDS = .08;
@@ -81,11 +82,13 @@ export function createPlayerCombatController(options: {
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
+  gloomrootBoss: GloomrootBossState;
   nowSeconds: () => number;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
   isSnowMap: () => boolean;
   isLavaMap: () => boolean;
+  isInfernalMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchAttackSpeedMultiplier?: () => number;
@@ -111,6 +114,7 @@ export function createPlayerCombatController(options: {
   damageSpider: (hits: number) => void;
   damageFrostclaw: (hits: number) => void;
   damageMagmalisk: (hits: number) => void;
+  damageGloomroot: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
@@ -123,10 +127,10 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss,
+    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -143,12 +147,15 @@ export function createPlayerCombatController(options: {
   let frostclawHitBatchTimer = 0;
   let pendingMagmaliskHits = 0;
   let magmaliskHitBatchTimer = 0;
+  let pendingGloomrootHits = 0;
+  let gloomrootHitBatchTimer = 0;
 
   function activeMapBoss(): BossTarget | null {
     if (isTutorialMap()) return boss;
     if (isDesertMap()) return spiderBoss;
     if (isSnowMap()) return frostclawBoss;
     if (isLavaMap()) return magmaliskBoss;
+    if (isInfernalMap()) return gloomrootBoss;
     return null;
   }
 
@@ -280,7 +287,7 @@ export function createPlayerCombatController(options: {
     applyReward(enemy.reward, enemy.x, enemy.y);
     if (isTutorialMap()) recordForestEnemyDefeat();
     if (isDesertMap() && !base.elite) recordDesertEnemyDefeat();
-    if (isLavaMap()) recordLavaEnemyDefeat();
+    if (isLavaMap() || isInfernalMap()) recordLavaEnemyDefeat();
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
@@ -400,6 +407,9 @@ export function createPlayerCombatController(options: {
           } else if ("bossKind" in target && target.bossKind === "magmalisk") {
             pendingMagmaliskHits += 1;
             magmaliskHitBatchTimer = MAGMALISK_HIT_BATCH_DELAY;
+          } else if ("bossKind" in target && target.bossKind === "gloomroot") {
+            pendingGloomrootHits += 1;
+            gloomrootHitBatchTimer = GLOOMROOT_HIT_BATCH_DELAY;
           } else {
             pendingDragonHits += 1;
             dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
@@ -439,6 +449,10 @@ export function createPlayerCombatController(options: {
       magmaliskHitBatchTimer -= dt;
       if (magmaliskHitBatchTimer <= 0) { damageMagmalisk(pendingMagmaliskHits); pendingMagmaliskHits = 0; magmaliskHitBatchTimer = 0; }
     }
+    if (isInfernalMap() && pendingGloomrootHits > 0) {
+      gloomrootHitBatchTimer -= dt;
+      if (gloomrootHitBatchTimer <= 0) { damageGloomroot(pendingGloomrootHits); pendingGloomrootHits = 0; gloomrootHitBatchTimer = 0; }
+    }
     for (const shot of enemyShots) {
       shot.life -= dt;
       shot.x += shot.vx * dt;
@@ -461,6 +475,8 @@ export function createPlayerCombatController(options: {
       frostclawHitBatchTimer = 0;
       pendingMagmaliskHits = 0;
       magmaliskHitBatchTimer = 0;
+      pendingGloomrootHits = 0;
+      gloomrootHitBatchTimer = 0;
     },
     clearPendingThrow: () => {
       pendingPlayerAttack = null;

@@ -3,9 +3,10 @@ import {
   BALANCE_TARGET_DESERT_DURATION_SECONDS,
   BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
   BALANCE_TARGET_MAP_POWER_MULTIPLIER,
+  GLOOMROOT_MAX_HP,
   INFERNAL_DEPTHS_REWARD_SCALE,
 } from "../../shared/rules";
-import { BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, TUTORIAL_FOREST_MAP_ID } from "../game/world";
+import { BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
 import { defaultBalanceSimulationConfig, runBalanceSimulation } from "./simulator";
 
 const quickConfig = {
@@ -18,7 +19,7 @@ const quickConfig = {
 describe("balance simulator", () => {
   it("uses the intended campaign defaults when no overrides are supplied", () => {
     const defaults = defaultBalanceSimulationConfig();
-    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3);
+    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3 + 1.35 ** 4);
     expect(defaults.durationSeconds).toBeCloseTo(22.5 * 60 + targetedMapSeconds);
     expect(defaults.trials).toBe(100);
     expect(defaults.strategy).toBe("boss-rush");
@@ -32,6 +33,9 @@ describe("balance simulator", () => {
     const desert = result.maps.find((map) => map.mapId === BEGINNER_DESERT_MAP_ID);
     expect(desert?.targetDurationSeconds).toBe(BALANCE_TARGET_DESERT_DURATION_SECONDS);
     expect(desert?.targetPowerGrowthMultiplier).toBe(BALANCE_TARGET_MAP_POWER_MULTIPLIER);
+    expect(result.maps.find((map) => map.mapId === INFERNAL_DEPTHS_MAP_ID)?.hasBoss).toBe(true);
+    expect(result.maps.find((map) => map.mapId === WATER_REACH_MAP_ID)?.hasBoss).toBe(false);
+    expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000);
   });
 
   it("is deterministic for a fixed seed and configuration", () => {
@@ -72,7 +76,16 @@ describe("balance simulator", () => {
       expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(13);
       expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(28);
     }
-  }, 15_000);
+
+    const waterEnemies = result.enemyMetrics[WATER_REACH_MAP_ID];
+    expect(waterEnemies).toHaveLength(5);
+    for (const enemy of waterEnemies) {
+      expect(enemy.hitPercentOfHealth).toBeGreaterThanOrEqual(3);
+      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(8);
+      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(13);
+      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(28);
+    }
+  }, 30_000);
 
   it("applies sandbox reward and damage multipliers independently", () => {
     const defaults = defaultBalanceSimulationConfig();

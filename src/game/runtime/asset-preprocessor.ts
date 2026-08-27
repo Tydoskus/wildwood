@@ -134,6 +134,30 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   });
   magmaliskSprite.src = "assets/wildwood/magmalisk-boss-spritesheet.png";
 
+  const gloomrootSprite = new Image();
+  const gloomrootSpriteCanvas = document.createElement("canvas");
+  const gloomrootSpriteContext = requiredCanvasContext(gloomrootSpriteCanvas, { willReadFrequently: true });
+  let gloomrootReady = false;
+  gloomrootSprite.addEventListener("load", () => {
+    gloomrootSpriteCanvas.width = gloomrootSprite.naturalWidth;
+    gloomrootSpriteCanvas.height = gloomrootSprite.naturalHeight;
+    gloomrootSpriteContext.drawImage(gloomrootSprite, 0, 0);
+    // This one boss sheet is large and arranged in two rows. Process it
+    // synchronously once so a delayed/failed worker can never leave the boss
+    // permanently invisible; per-column cleanup would discard one row.
+    const pixels = gloomrootSpriteContext.getImageData(0, 0, gloomrootSpriteCanvas.width, gloomrootSpriteCanvas.height);
+    removeGreenPixels(pixels.data, 145, 1.45);
+    gloomrootSpriteContext.putImageData(pixels, 0, 0);
+    gloomrootReady = true;
+    onWorldAssetReady();
+  });
+  gloomrootSprite.addEventListener("error", () => {
+    // The renderer has a deliberate fallback silhouette for a failed asset.
+    gloomrootReady = true;
+    onWorldAssetReady();
+  }, { once: true });
+  gloomrootSprite.src = "assets/wildwood/gloomroot-boss-spritesheet-v1.png";
+
   let portalArchReady = false;
   const portalArch = new Image();
   const settlePortalArch = () => {
@@ -255,6 +279,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     portalSwirls,
     frostclawReady: () => frostclawReady,
     frostclawSpriteCanvas,
+    gloomrootReady: () => gloomrootReady,
+    gloomrootSpriteCanvas,
     charredTrees: lavaAssets.slice(6),
     lavaPools: lavaAssets.slice(0, 3),
     lavaRocks: lavaAssets.slice(3, 6),

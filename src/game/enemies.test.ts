@@ -10,6 +10,10 @@ import {
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
+  WATER_REACH_HEALTH_REWARD_MULTIPLIER,
+  WATER_REACH_HEALTH_SCALE,
+  WATER_REACH_REWARD_SCALE,
 } from "../../shared/rules";
 import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
 import { ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
@@ -56,6 +60,18 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 57_600_000_000 * INFERNAL_DEPTHS_REWARD_SCALE });
     expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER);
     expect(ENEMY_TYPES["Doom Reaper"].reward).toEqual({ type: "damage", amount: 2_500_470_000_000 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER });
+    expect(ENEMY_TYPES["Tide Raider"]).toMatchObject({
+      hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
+      damage: 850_000_000_000,
+      reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+    });
+    expect(ENEMY_TYPES["Reef Archer"].reward).toEqual({
+      type: "health",
+      amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER,
+    });
+    const waterDamage = ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]
+      .map((kind) => ENEMY_TYPES[kind as keyof typeof ENEMY_TYPES].damage);
+    expect(Math.max(...waterDamage) / Math.min(...waterDamage)).toBeLessThan(1.71);
   });
 
   it("formats reward labels without changing their numeric value", () => {

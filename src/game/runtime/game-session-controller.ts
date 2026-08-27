@@ -63,6 +63,7 @@ type SessionDependencies = {
   desertMapId: MapId;
   snowMapId: MapId;
   lavaMapId: MapId;
+  infernalMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -85,6 +86,7 @@ type SessionDependencies = {
   syncSpider: () => void;
   syncFrostclaw: () => void;
   syncMagmalisk: () => void;
+  syncGloomroot: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -96,6 +98,7 @@ type SessionDependencies = {
   updateSpider: (dt: number) => void;
   updateFrostclaw: (dt: number) => void;
   updateMagmalisk: (dt: number) => void;
+  updateGloomroot: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -133,6 +136,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (dependencies.getMapId() === dependencies.desertMapId) dependencies.syncSpider();
     if (dependencies.getMapId() === dependencies.snowMapId) dependencies.syncFrostclaw();
     if (dependencies.getMapId() === dependencies.lavaMapId) dependencies.syncMagmalisk();
+    if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.syncGloomroot();
   }
 
   function simulate(dt: number) {
@@ -155,6 +159,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       if (dependencies.getMapId() === dependencies.desertMapId) dependencies.updateSpider(dt);
       if (dependencies.getMapId() === dependencies.snowMapId) dependencies.updateFrostclaw(dt);
       if (dependencies.getMapId() === dependencies.lavaMapId) dependencies.updateMagmalisk(dt);
+      if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.updateGloomroot(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

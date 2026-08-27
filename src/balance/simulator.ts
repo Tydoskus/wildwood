@@ -9,6 +9,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
+  WATER_REACH_MAP_ID,
   type MapId,
 } from "../game/world";
 import {
@@ -60,6 +61,10 @@ import {
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  GLOOMROOT_REWARD_ARMOR,
+  GLOOMROOT_REWARD_DAMAGE,
+  GLOOMROOT_REWARD_HEALTH,
+  GLOOMROOT_REWARD_REGEN,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
@@ -80,6 +85,7 @@ export const BALANCE_MAP_IDS = [
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   ADVANCED_LAVA_WASTES_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
+  WATER_REACH_MAP_ID,
 ] as const;
 
 export type BalanceMapId = typeof BALANCE_MAP_IDS[number];
@@ -453,6 +459,25 @@ function createMapDefinitions(): BalanceMapDefinition[] {
         { itemId: FIRE_METAL_BOW, denominator: INFERNAL_ITEM_DROP_DENOMINATOR, eligible: always },
         { itemId: DARK_METAL_HELMET, denominator: NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR, eligible: always },
       ],
+      boss: {
+        name: "Gloomroot",
+        hp: bootstrap.gloomrootBoss.maxHp,
+        x: bootstrap.gloomrootBoss.x,
+        y: bootstrap.gloomrootBoss.y,
+        rewards: [
+          { type: "damage", amount: GLOOMROOT_REWARD_DAMAGE },
+          { type: "health", amount: GLOOMROOT_REWARD_HEALTH },
+          { type: "armor", amount: GLOOMROOT_REWARD_ARMOR },
+          { type: "regen", amount: GLOOMROOT_REWARD_REGEN },
+        ],
+        drops: [],
+      },
+    },
+    {
+      id: WATER_REACH_MAP_ID,
+      name: MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID],
+      arrival: bootstrap.mapConfig[WATER_REACH_MAP_ID].arrival,
+      regularDrops: [],
       boss: null,
     },
   ];
@@ -642,7 +667,7 @@ function selectSite(
   sites: SiteState[],
   state: MutableSimulationState,
   position: { x: number; y: number },
-  mapId: BalanceMapId,
+  map: BalanceMapDefinition,
   config: BalanceSimulationConfig,
 ) {
   const available = sites.filter((site) => site.availableAt <= state.time);
@@ -653,11 +678,14 @@ function selectSite(
   // progressing through the whole map instead of camping one instant-respawn
   // damage enemy forever.
   const lowestKills = Math.min(...sites.map((site) => site.kills));
-  const openMapCycle = config.strategy === "boss-rush" && mapId === INFERNAL_DEPTHS_MAP_ID
+  // Late-game maps carry five complementary permanent reward tracks. Cycling
+  // the least-cleared sites keeps boss readiness from collapsing into a single
+  // damage camp and preserves the authored damage/health/armor/regen curve.
+  const openMapCycle = config.strategy === "boss-rush" && (!map.boss || map.id === INFERNAL_DEPTHS_MAP_ID)
     ? available.filter((site) => site.kills === lowestKills)
     : [];
   const candidates = openMapCycle.length ? openMapCycle : pendingClear.length ? pendingClear : available;
-  const adjustment = config.mapAdjustments[mapId];
+  const adjustment = config.mapAdjustments[map.id];
   const combat = combatStats(state, true);
   return candidates.reduce((best, site) => {
     const enemy = ENEMY_TYPES[site.type];
@@ -771,7 +799,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
       continue;
     }
 
-    const selected = selectSite(sites, state, position, map.id, config);
+    const selected = selectSite(sites, state, position, map, config);
     if (!selected) {
       const nextAvailable = Math.min(...sites.map((site) => site.availableAt));
       advanceTime(state, Math.min(config.durationSeconds, nextAvailable), config.researchPlan, recordHistory);

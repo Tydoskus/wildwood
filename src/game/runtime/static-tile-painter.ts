@@ -98,6 +98,30 @@ export function paintStaticTile(
       context.fillStyle = "rgba(0,0,0,.11)"; context.beginPath(); context.ellipse(x, y + 2, width * .6, Math.max(3, width * .23), 0, 0, TAU); context.fill();
       context.fillStyle = "#79543d"; context.beginPath(); context.moveTo(x - width / 2, y); context.lineTo(x - width * .32, y - height * .72); context.lineTo(x + width * .2, y - height); context.lineTo(x + width / 2, y - height * .28); context.lineTo(x + width * .38, y); context.closePath(); context.fill();
       context.fillStyle = "#b77b4b"; context.beginPath(); context.moveTo(x - width * .32, y - height * .72); context.lineTo(x + width * .2, y - height); context.lineTo(x + width * .12, y - height * .45); context.closePath(); context.fill();
+    } else if (decor.type === "coral") {
+      const scale = Math.max(.65, decor.s);
+      const branch = Math.round(5 * scale);
+      const height = Math.round(24 * scale);
+      context.fillStyle = "rgba(11,70,78,.2)";
+      context.beginPath(); context.ellipse(x, y + 2, Math.round(18 * scale), Math.round(6 * scale), 0, 0, TAU); context.fill();
+      context.fillStyle = ["#ff7f87", "#f2a15f", "#b47be8"][decor.variant % 3];
+      context.fillRect(x - Math.ceil(branch / 2), y - height, branch, height);
+      context.fillRect(x - Math.round(12 * scale), y - Math.round(18 * scale), branch, Math.round(16 * scale));
+      context.fillRect(x + Math.round(8 * scale), y - Math.round(15 * scale), branch, Math.round(13 * scale));
+      context.fillRect(x - Math.round(12 * scale), y - Math.round(18 * scale), Math.round(10 * scale), branch);
+      context.fillRect(x + Math.round(2 * scale), y - Math.round(15 * scale), Math.round(11 * scale), branch);
+      context.fillStyle = "rgba(255,235,218,.62)";
+      context.fillRect(x - 1, y - height, 2, 3);
+    } else if (decor.type === "shell") {
+      const radius = Math.round(8 * Math.max(.7, decor.s));
+      context.fillStyle = "rgba(10,62,71,.18)";
+      context.beginPath(); context.ellipse(x, y + 2, radius + 3, Math.max(2, Math.round(radius * .42)), 0, 0, TAU); context.fill();
+      context.fillStyle = decor.variant % 2 ? "#f6d9b8" : "#f0bed0";
+      context.beginPath(); context.arc(x, y, radius, Math.PI, TAU); context.lineTo(x + radius, y + 2); context.lineTo(x - radius, y + 2); context.closePath(); context.fill();
+      context.strokeStyle = "rgba(126,76,83,.42)"; context.lineWidth = 1;
+      for (let offset = -radius + 3; offset < radius; offset += 4) {
+        context.beginPath(); context.moveTo(x, y - radius + 2); context.lineTo(x + offset, y + 1); context.stroke();
+      }
     }
   }
 

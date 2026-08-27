@@ -4,6 +4,8 @@ import type {
   DragonResult,
   FrostclawBossState,
   FrostclawResult,
+  GloomrootBossState,
+  GloomrootResult,
   MagmaliskBossState,
   MagmaliskResult,
   SpiderBossState,
@@ -85,6 +87,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let frostclawResult: FrostclawResult | null = null;
   let magmalisk: MagmaliskBossState | null = null;
   let magmaliskResult: MagmaliskResult | null = null;
+  let gloomroot: GloomrootBossState | null = null;
+  let gloomrootResult: GloomrootResult | null = null;
 
   function damage(
     action: string,
@@ -128,6 +132,13 @@ export function createBossService(dependencies: BossServiceDependencies) {
         magmaliskResult = bossResult(row);
         dependencies.notify();
       },
+      upsertGloomroot(row: BossRow) {
+        gloomroot = bossState(row);
+      },
+      upsertGloomrootResult(row: BossResultRow) {
+        gloomrootResult = bossResult(row);
+        dependencies.notify();
+      },
     },
     api: {
       dragonBoss: () => dragon ? { ...dragon } : null,
@@ -138,6 +149,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       frostclawResult: () => copyResult(frostclawResult),
       magmaliskBoss: () => magmalisk ? { ...magmalisk } : null,
       magmaliskResult: () => copyResult(magmaliskResult),
+      gloomrootBoss: () => gloomroot ? { ...gloomroot } : null,
+      gloomrootResult: () => copyResult(gloomrootResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -150,6 +163,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       damageMagmalisk(hits = 1, x?: number, y?: number) {
         damage("magmalisk damage", (connection, count, px, py) => connection.reducers.damageMagmaliskFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
+      damageGloomroot(hits = 1, x?: number, y?: number) {
+        damage("gloomroot damage", (connection, count, px, py) => connection.reducers.damageGloomrootFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      },
     },
     resetSession() {
       dragon = null;
@@ -160,6 +176,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       frostclawResult = null;
       magmalisk = null;
       magmaliskResult = null;
+      gloomroot = null;
+      gloomrootResult = null;
     },
   };
 }

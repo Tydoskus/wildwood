@@ -46,6 +46,7 @@ import {
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   PLAYER_SPEED,
   TUTORIAL_FOREST_MAP_ID,
+  WATER_REACH_MAP_ID,
 } from "../../../shared/rules";
 import type {
   LocalPlayerState,
@@ -796,7 +797,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           !connection ||
           !Number.isFinite(x) ||
           !Number.isFinite(y) ||
-          ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID].includes(mapId)
+          ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID].includes(mapId)
         ) return false;
         try {
           await dependencies.reducers.runWorldReducer(() => connection.reducers.changeMap({ mapId, x, y }));

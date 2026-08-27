@@ -119,6 +119,11 @@ export type MagmaliskEruption = Circle & {
   maxTimer: number;
 };
 
+export type GloomrootBloom = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
 export type FrostclawRoar = {
   windup: number;
   timer: number;
@@ -174,7 +179,13 @@ export type MagmaliskBossState = BossStateBase & {
   bite: BossCone | null;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState;
+export type GloomrootBossState = BossStateBase & {
+  bossKind: "gloomroot";
+  nextAttack: "sweep" | "bloom";
+  sweep: BossCone | null;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState;
 export type CombatTarget = EnemyState | BossTarget;
 
 export type DuelPresentation = {

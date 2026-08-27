@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.542": [
+    "Gloomroot now guards Night Forest, and defeating it unlocks Water Reach with five new enemy camps on the extended progression curve.",
+    "Night Forest enemies now remain visible through the vignette, while Gloomroot has reliable artwork and clearer minimap markers.",
+  ],
   "0.541": [
     "Duel finishes and replays now play death animations and clear remaining projectiles instead of freezing them midair.",
   ],
@@ -1162,6 +1166,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.542": "2026-08-27",
   "0.541": "2026-08-27",
   "0.538": "2026-08-27",
   "0.537": "2026-08-27",

@@ -358,6 +358,49 @@ export const GemTransaction = __t.object("GemTransaction", {
 });
 export type GemTransaction = __Infer<typeof GemTransaction>;
 
+export const GloomrootAttackWindow = __t.object("GloomrootAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type GloomrootAttackWindow = __Infer<typeof GloomrootAttackWindow>;
+
+export const GloomrootBoss = __t.object("GloomrootBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type GloomrootBoss = __Infer<typeof GloomrootBoss>;
+
+export const GloomrootContribution = __t.object("GloomrootContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type GloomrootContribution = __Infer<typeof GloomrootContribution>;
+
+export const GloomrootRespawnSchedule = __t.object("GloomrootRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type GloomrootRespawnSchedule = __Infer<typeof GloomrootRespawnSchedule>;
+
+export const GloomrootResult = __t.object("GloomrootResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type GloomrootResult = __Infer<typeof GloomrootResult>;
+
 export const ItemUpgradeCompletionSchedule = __t.object("ItemUpgradeCompletionSchedule", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
@@ -764,6 +807,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cosmeticLeftHand: __t.string(),
   speedOverride: __t.f32(),
   infernalUnlocked: __t.bool(),
+  waterUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAGMALISK_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, MAGMALISK_MAX_HP } from "../../shared/rules";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -7,6 +7,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
+  WATER_REACH_MAP_ID,
   createSpawnSites,
   createWorldLayout,
 } from "./world";
@@ -72,6 +73,24 @@ describe("Advanced Lava Lake", () => {
     expect(config[INTERMEDIATE_SNOWLANDS_MAP_ID].secondaryPortal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].portal.destination).toBe(INTERMEDIATE_SNOWLANDS_MAP_ID);
     expect(createGameBootstrap().magmaliskBoss).toMatchObject({ x: 4050, y: 4050, r: 165, maxHp: MAGMALISK_MAX_HP });
+  });
+
+  it("connects Gloomroot's Night Forest gate to deterministic Water Reach camps", () => {
+    const bootstrap = createGameBootstrap();
+    const sites = createSpawnSites(bootstrap.gloomrootBoss, WATER_REACH_MAP_ID);
+    const first = createWorldLayout(bootstrap.mapConfig[WATER_REACH_MAP_ID].arrival, WATER_REACH_MAP_ID);
+    const second = createWorldLayout(bootstrap.mapConfig[WATER_REACH_MAP_ID].arrival, WATER_REACH_MAP_ID);
+    const waterKinds = new Set(["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]);
+
+    expect(bootstrap.mapConfig[INFERNAL_DEPTHS_MAP_ID].secondaryPortal.destination).toBe(WATER_REACH_MAP_ID);
+    expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].portal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
+    expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].name).toBe("Water Reach");
+    expect(bootstrap.gloomrootBoss).toMatchObject({ x: 4050, y: 4050, r: 175, maxHp: GLOOMROOT_MAX_HP });
+    expect(sites).toHaveLength(30);
+    expect(sites.every((site) => waterKinds.has(site.type))).toBe(true);
+    expect(first).toEqual(second);
+    expect(first.decor.some((item) => item.type === "coral")).toBe(true);
+    expect(first.decor.some((item) => item.type === "shell")).toBe(true);
   });
 });
 

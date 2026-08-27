@@ -51,6 +51,8 @@ export type {
   LocalPlayerState,
   MagmaliskBossState,
   MagmaliskResult,
+  GloomrootBossState,
+  GloomrootResult,
   MapPlayerMarker,
   PlayerLifetime,
   PlayerProfileData,
@@ -349,6 +351,8 @@ const {
   upsertFrostclawResult,
   upsertMagmalisk: upsertMagmaliskBoss,
   upsertMagmaliskResult,
+  upsertGloomroot: upsertGloomrootBoss,
+  upsertGloomrootResult,
 } = bossService.tables;
 
 let chatService!: ChatService;
@@ -581,6 +585,8 @@ const baseSubscriptionHandlers = {
   frostclawResult: upsertFrostclawResult,
   magmaliskBoss: upsertMagmaliskBoss,
   magmaliskResult: upsertMagmaliskResult,
+  gloomrootBoss: upsertGloomrootBoss,
+  gloomrootResult: upsertGloomrootResult,
   chatMessage: upsertChatMessage,
   duel: upsertDuel,
   removeDuel,

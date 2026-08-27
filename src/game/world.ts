@@ -15,7 +15,9 @@ export type WorldDecor =
   | { type: "upgradeBench"; x: number; y: number; s: number; label: "Upgrade Bench" }
   | { type: "lavaPool"; x: number; y: number; s: number; variant: number }
   | { type: "lavaRock"; x: number; y: number; s: number; variant: number }
-  | { type: "charredTree"; x: number; y: number; s: number; variant: number };
+  | { type: "charredTree"; x: number; y: number; s: number; variant: number }
+  | { type: "coral"; x: number; y: number; s: number; variant: number }
+  | { type: "shell"; x: number; y: number; s: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -33,13 +35,15 @@ export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
 export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
 export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
+export const WATER_REACH_MAP_ID = "water_reach";
 export const UPGRADE_BENCH_POSITION = { x: 800, y: 710 } as const;
 export type MapId =
   | typeof TUTORIAL_FOREST_MAP_ID
   | typeof BEGINNER_DESERT_MAP_ID
   | typeof INTERMEDIATE_SNOWLANDS_MAP_ID
   | typeof ADVANCED_LAVA_WASTES_MAP_ID
-  | typeof INFERNAL_DEPTHS_MAP_ID;
+  | typeof INFERNAL_DEPTHS_MAP_ID
+  | typeof WATER_REACH_MAP_ID;
 
 const DESERT_CAMPS = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
@@ -71,6 +75,14 @@ const INFERNAL_CAMPS = [
   { name: "Hollow Grove", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Obsidian Colossus"] as EnemyKind[] },
   { name: "Dreadwood", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Doom Reaper"] as EnemyKind[] },
   { name: "Witching Glade", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Nether Oracle", "Nether Oracle", "Doom Reaper"] as EnemyKind[] },
+];
+
+const WATER_CAMPS = [
+  { name: "Shallows Landing", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Tide Raider"] as EnemyKind[] },
+  { name: "Kelp Channel", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Reef Archer"] as EnemyKind[] },
+  { name: "Coral Citadel", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Coral Colossus"] as EnemyKind[] },
+  { name: "Drowned Trench", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Drowned Reaper"] as EnemyKind[] },
+  { name: "Mooncurrent Shrine", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Tidal Oracle", "Tidal Oracle", "Drowned Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -238,6 +250,7 @@ function createNightForestLayout() {
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
   const isNearCamp = (x: number, y: number) => INFERNAL_CAMPS.some((camp) =>
     Math.hypot(x - camp.x, y - camp.y) < camp.radius + 120);
+  const isNearGloomroot = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 660;
   const placed: { x: number; y: number; radius: number }[] = [];
   const placeTrees = (target: number, salt: number) => {
     let count = 0;
@@ -246,7 +259,7 @@ function createNightForestLayout() {
       const y = 100 + seededUnit(index, salt + 1) * (WORLD.h - 200);
       const s = .68 + seededUnit(index, salt + 2) * .5;
       const radius = 47 * s;
-      if (isOnPath(x, y, 62) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
+      if (isOnPath(x, y, 62) || isNearArrival(x, y) || isNearCamp(x, y) || isNearGloomroot(x, y)) continue;
       if (placed.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 18)) continue;
       placed.push({ x, y, radius });
       decor.push({ type: "tree", x: Math.round(x), y: Math.round(y), s, variant: (index + count) % 16 });
@@ -258,11 +271,62 @@ function createNightForestLayout() {
   return { decor, paths };
 }
 
+function createWaterLayout() {
+  const decor: WorldDecor[] = [];
+  // Broad sandbars create a readable route while the open blue ground still
+  // feels like shallow water instead of a recolored land map.
+  const paths: WorldPath[] = [
+    { x: 300, y: 640, w: 920, h: 150 },
+    { x: 1040, y: 640, w: 150, h: 850 },
+    { x: 1040, y: 1120, w: 1900, h: 150 },
+    { x: 2760, y: 1120, w: 150, h: 1380 },
+    { x: 2760, y: 2350, w: 1370, h: 150 },
+    { x: 3980, y: 2350, w: 150, h: 430 },
+    { x: 1810, y: 2350, w: 1100, h: 150 },
+    { x: 1810, y: 2350, w: 150, h: 1450 },
+    { x: 1810, y: 3570, w: 1330, h: 150 },
+    { x: 2990, y: 3570, w: 150, h: 520 },
+  ];
+  const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
+  const isNearCamp = (x: number, y: number) => WATER_CAMPS.some((camp) =>
+    Math.hypot(x - camp.x, y - camp.y) < camp.radius + 105);
+
+  for (let index = 0; index < 130; index += 1) {
+    const x = 70 + seededUnit(index, 61) * (WORLD.w - 140);
+    const y = 70 + seededUnit(index, 62) * (WORLD.h - 140);
+    if (isOnPath(x, y, 42) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
+    decor.push({
+      type: "coral",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .55 + seededUnit(index, 63) * .72,
+      variant: index % 5,
+    });
+  }
+  for (let index = 0; index < 220; index += 1) {
+    const x = 45 + seededUnit(index, 64) * (WORLD.w - 90);
+    const y = 45 + seededUnit(index, 65) * (WORLD.h - 90);
+    if (!isOnPath(x, y, 6) || isNearArrival(x, y)) continue;
+    decor.push({
+      type: "shell",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .52 + seededUnit(index, 66) * .55,
+      variant: index % 4,
+    });
+  }
+  return { decor, paths };
+}
+
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
   if (mapId === ADVANCED_LAVA_WASTES_MAP_ID) return createLavaLayout();
   if (mapId === INFERNAL_DEPTHS_MAP_ID) return createNightForestLayout();
+  if (mapId === WATER_REACH_MAP_ID) return createWaterLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -343,6 +407,8 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
         ? LAVA_CAMPS
         : mapId === INFERNAL_DEPTHS_MAP_ID
           ? INFERNAL_CAMPS
+          : mapId === WATER_REACH_MAP_ID
+            ? WATER_CAMPS
         : CAMPS;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
@@ -353,8 +419,8 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
       let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
       let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID) {
-        const activeBoss = mapId === ADVANCED_LAVA_WASTES_MAP_ID ? { x: 4050, y: 4050 } : boss;
+      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID) {
+        const activeBoss = mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 };
         const bossDx = x - activeBoss.x;
         const bossDy = y - activeBoss.y;
         const bossDistance = Math.hypot(bossDx, bossDy) || 1;

@@ -51,12 +51,14 @@ export function createPlayerController(options: {
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
   resolveMagmaliskCollision: () => void;
+  resolveGloomrootCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
   isSnowMap: () => boolean;
   isLavaMap: () => boolean;
+  isInfernalMap: () => boolean;
   viewport: () => { width: number; height: number; zoom: number };
   cameraPosition: () => { x: number; y: number };
   isConnected: () => boolean;
@@ -84,7 +86,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     tutorialMapId, getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap,
+    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -188,6 +190,7 @@ export function createPlayerController(options: {
     if (isDesertMap()) resolveSpiderCollision();
     if (isSnowMap()) resolveFrostclawCollision();
     if (isLavaMap()) resolveMagmaliskCollision();
+    if (isInfernalMap()) resolveGloomrootCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
     if (connected) {

@@ -53,6 +53,7 @@ export function createRenderController(options: {
   drawSpiderTelegraphs: () => void;
   drawFrostclawTelegraphs: () => void;
   drawMagmaliskTelegraphs: () => void;
+  drawGloomrootTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
   drawMinimap: (players: MapPlayerMarker[]) => void;
@@ -80,7 +81,7 @@ export function createRenderController(options: {
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
-    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
+    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
     drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, portalCutsceneActive,
     portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
   } = options;
@@ -215,6 +216,7 @@ export function createRenderController(options: {
     if (!isDueling() && currentMapIsDesert()) drawSpiderTelegraphs();
     if (!isDueling() && currentMapIsSnow()) drawFrostclawTelegraphs();
     if (!isDueling() && currentMapIsLava()) drawMagmaliskTelegraphs();
+    if (!isDueling() && currentMapIsInfernal()) drawGloomrootTelegraphs();
     drawAttackRange();
     if (!projectilesRenderedByWebGL) {
       for (const projectile of projectiles) drawProjectile(projectile, false);

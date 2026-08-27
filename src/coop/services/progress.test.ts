@@ -29,7 +29,7 @@ const pending: ProgressSave = {
   enemyKills: 10,
 };
 
-const saved: PlayerProgress = { ...pending, speedOverride: 0, introComplete: true, desertUnlocked: false, snowlandsUnlocked: false, lavaUnlocked: false, infernalUnlocked: false, bowCount: 0, woodenArmorCount: 0 };
+const saved: PlayerProgress = { ...pending, speedOverride: 0, introComplete: true, desertUnlocked: false, snowlandsUnlocked: false, lavaUnlocked: false, infernalUnlocked: false, waterUnlocked: false, bowCount: 0, woodenArmorCount: 0 };
 
 function memoryStorage() {
   const values = new Map<string, string>();

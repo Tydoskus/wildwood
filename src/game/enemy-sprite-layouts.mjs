@@ -97,4 +97,61 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Obsidian Colossus": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 84 },
   "Doom Reaper": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 98 },
   "Nether Oracle": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 90 },
+  "Tide Raider": {
+    size: 76,
+    height: 84,
+    layers: [
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/leg.png", x: -15, y: 23, w: 17, h: 15 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/leg2.png", x: 1, y: 23, w: 17, h: 15 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/body.png", x: -28, y: -39, w: 56, h: 70 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/arm.png", x: -38, y: -16, w: 72, h: 31 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/arm2.png", x: 18, y: -8, w: 17, h: 17 },
+    ],
+  },
+  "Reef Archer": {
+    size: 74,
+    height: 82,
+    layers: [
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/leg.png", x: -14, y: 22, w: 15, h: 16 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/leg2.png", x: 1, y: 22, w: 15, h: 16 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/body.png", x: -25, y: -31, w: 50, h: 58 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/hat.png", x: -32, y: -43, w: 64, h: 39 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/bow.png", x: -27, y: 0, w: 50, h: 30, aimPivot: { x: 0, y: 18 }, aimOffsetRadians: 0 },
+    ],
+  },
+  "Coral Colossus": {
+    size: 90,
+    height: 100,
+    layers: [
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg.png", x: -16, y: 24, w: 18, h: 26 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg2.png", x: 1, y: 27, w: 17, h: 23 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/body.png", x: -25, y: -18, w: 50, h: 50 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/arm.png", x: -40, y: -10, w: 70, h: 44 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/head.png", x: -34, y: -49, w: 68, h: 57 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/shield.png", x: 18, y: -6, w: 32, h: 34 },
+    ],
+  },
+  "Drowned Reaper": {
+    size: 98,
+    height: 104,
+    layers: [
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg1.png", x: -18, y: 25, w: 19, h: 27 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg2.png", x: 1, y: 25, w: 20, h: 27 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/body.png", x: -26, y: -22, w: 52, h: 52 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43, aimPivot: { x: 26, y: 5 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 },
+    ],
+  },
+  "Tidal Oracle": {
+    size: 92,
+    height: 100,
+    layers: [
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg.png", x: -17, y: 25, w: 20, h: 27 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg2.png", x: 1, y: 27, w: 19, h: 25 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/body.png", x: -29, y: -23, w: 58, h: 59 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm.png", x: -35, y: -12, w: 25, h: 26 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm2.png", x: 10, y: -12, w: 25, h: 26 },
+      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/head.png", x: -34, y: -56, w: 68, h: 57 },
+    ],
+  },
 };

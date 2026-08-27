@@ -2,14 +2,15 @@ import type { RemotePlayer } from "../../wildwood-coop";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   type MapId,
   type WorldDecor,
 } from "../world";
-import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET } from "../constants";
+import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, GLOOMROOT_SPRITE_GROUND_OFFSET, GLOOMROOT_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET } from "../constants";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
 
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
@@ -20,7 +21,7 @@ type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "gloomroot" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer; opacity: number };
 
 /**
@@ -37,6 +38,7 @@ export function createDepthWorldRenderer(options: {
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
+  gloomrootBoss: GloomrootBossState;
   bootsPickup: BootsPickup;
   currentMapId: () => MapId;
   activePortal: () => Portal;
@@ -52,6 +54,7 @@ export function createDepthWorldRenderer(options: {
   drawSpiderBoss: () => void;
   drawFrostclawBoss: () => void;
   drawMagmaliskBoss: () => void;
+  drawGloomrootBoss: () => void;
   drawBootPickup: () => void;
   drawPortal: () => void;
   drawSecondaryPortal: () => void;
@@ -161,6 +164,7 @@ export function createDepthWorldRenderer(options: {
       case "spider": options.drawSpiderBoss(); break;
       case "frostclaw": options.drawFrostclawBoss(); break;
       case "magmalisk": options.drawMagmaliskBoss(); break;
+      case "gloomroot": options.drawGloomrootBoss(); break;
       case "boots": options.drawBootPickup(); break;
       case "portal": options.drawPortal(); break;
       case "secondaryPortal": options.drawSecondaryPortal(); break;
@@ -210,6 +214,9 @@ export function createDepthWorldRenderer(options: {
     }
     if (currentMapId === ADVANCED_LAVA_WASTES_MAP_ID && !options.magmaliskBoss.dead) {
       queueLayer(options.magmaliskBoss.y + MAGMALISK_SPRITE_Y_OFFSET + MAGMALISK_SPRITE_GROUND_OFFSET, 1, "magmalisk");
+    }
+    if (currentMapId === INFERNAL_DEPTHS_MAP_ID && !options.gloomrootBoss.dead) {
+      queueLayer(options.gloomrootBoss.y + GLOOMROOT_SPRITE_Y_OFFSET + GLOOMROOT_SPRITE_GROUND_OFFSET, 1, "gloomroot");
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.bootsPickup.collected) {
       queueLayer(options.bootsPickup.y + options.bootsPickup.r, 1, "boots");
