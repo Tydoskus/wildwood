@@ -168,10 +168,10 @@ describe("Frostclaw boss", () => {
 
 describe("Magmalisk boss", () => {
   it("continues Lava scaling with four stat rewards", () => {
-    expect(MAGMALISK_REWARD_DAMAGE).toBe(432_000_000);
-    expect(MAGMALISK_REWARD_HEALTH).toBe(2_458_350_000);
-    expect(MAGMALISK_REWARD_ARMOR).toBe(210_000);
-    expect(MAGMALISK_REWARD_REGEN).toBe(12_150_468.75);
+    expect(MAGMALISK_REWARD_DAMAGE).toBe(413_280_000);
+    expect(MAGMALISK_REWARD_HEALTH).toBe(6_719_490_000);
+    expect(MAGMALISK_REWARD_ARMOR).toBe(287_000);
+    expect(MAGMALISK_REWARD_REGEN).toBe(16_605_640.625);
   });
 
   it("cycles bite and eruption using the selected attack frames", () => {

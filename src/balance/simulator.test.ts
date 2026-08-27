@@ -59,15 +59,18 @@ describe("balance simulator", () => {
       const powerFit = map.powerGrowthMultiplier! / BALANCE_TARGET_MAP_POWER_MULTIPLIER;
       expect(powerFit).toBeGreaterThanOrEqual(.65);
       expect(powerFit).toBeLessThanOrEqual(1.5);
+      const damageToHealth = map.exitEffectiveStatsMedian!.damage / map.exitEffectiveStatsMedian!.maxHp;
+      expect(damageToHealth).toBeGreaterThanOrEqual(.6);
+      expect(damageToHealth).toBeLessThanOrEqual(1.25);
     }
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
     expect(nightEnemies).toHaveLength(5);
     for (const enemy of nightEnemies) {
-      expect(enemy.hitPercentOfHealth).toBeGreaterThanOrEqual(9);
-      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(23);
-      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(5);
-      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(12);
+      expect(enemy.hitPercentOfHealth).toBeGreaterThanOrEqual(3);
+      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(8);
+      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(13);
+      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(28);
     }
   }, 15_000);
 

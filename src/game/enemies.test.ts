@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_HEALTH_SCALE,
+  ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_REWARD_SCALE,
+  INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_HEALTH_SCALE,
+  INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
@@ -34,23 +38,24 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Ember Raider"]).toMatchObject({
       hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE,
       damage: 8_143_350_000,
-      reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
+      reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
     });
     expect(ENEMY_TYPES["Cinder Archer"].hp).toBeGreaterThan(ENEMY_TYPES["Glacier Archer"].hp);
     expect(ENEMY_TYPES["Cinder Archer"].damage).toBe(149_187_000_000);
+    expect(ENEMY_TYPES["Cinder Archer"].reward).toEqual({ type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER });
     expect(ENEMY_TYPES["Magma Guard"].damage).toBe(1_168_200_000_000);
     expect(ENEMY_TYPES["Ash Reaper"].damage).toBe(44_100_000_000);
     expect(ENEMY_TYPES["Inferno Oracle"].damage).toBe(613_470_000_000);
     expect(ENEMY_TYPES["Magma Guard"].reward).toEqual({ type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE });
-    expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE });
+    expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER });
     expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE });
     expect(ENEMY_TYPES["Depth Raider"]).toMatchObject({
       hp: 3_668_750_000_000_000 * INFERNAL_DEPTHS_HEALTH_SCALE,
       damage: 2_500_000_000,
     });
     expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 57_600_000_000 * INFERNAL_DEPTHS_REWARD_SCALE });
-    expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444 * INFERNAL_DEPTHS_REWARD_SCALE);
-    expect(ENEMY_TYPES["Doom Reaper"].reward).toEqual({ type: "damage", amount: 2_500_470_000_000 * INFERNAL_DEPTHS_REWARD_SCALE });
+    expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER);
+    expect(ENEMY_TYPES["Doom Reaper"].reward).toEqual({ type: "damage", amount: 2_500_470_000_000 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER });
   });
 
   it("formats reward labels without changing their numeric value", () => {
@@ -76,14 +81,22 @@ describe("enemy reward rules", () => {
       const snowBaseHp = snow.hp / INTERMEDIATE_SNOWLANDS_HEALTH_SCALE;
       const lavaBaseHp = lava.hp / ADVANCED_LAVA_WASTES_HEALTH_SCALE;
       const infernalBaseHp = infernal.hp / INFERNAL_DEPTHS_HEALTH_SCALE;
-      if (infernalKind === "Depth Raider") expect(infernalBaseHp).toBe(3_668_750_000_000_000);
+      if (infernalKind === "Depth Raider") expect(infernalBaseHp / 3_668_750_000_000_000).toBeCloseTo(1, 12);
       else expect(infernalBaseHp / lavaBaseHp).toBeCloseTo(lavaBaseHp / snowBaseHp, 8);
       const rewardBoost = infernalKind === "Depth Raider"
         ? 6
         : infernal.reward.type === "damage" || infernal.reward.type === "health" ? 2 : 1;
+      const lavaTrackMultiplier = lava.reward.type === "damage"
+        ? ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER
+        : lava.reward.type === "health" ? ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER : 1;
+      const infernalTrackMultiplier = infernalKind === "Depth Raider"
+        ? 1
+        : infernal.reward.type === "damage"
+          ? INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER
+          : infernal.reward.type === "health" ? INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER : 1;
       const snowBaseReward = snow.reward.amount / INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
-      const lavaBaseReward = lava.reward.amount / ADVANCED_LAVA_WASTES_REWARD_SCALE;
-      const infernalBaseReward = infernal.reward.amount / INFERNAL_DEPTHS_REWARD_SCALE;
+      const lavaBaseReward = lava.reward.amount / ADVANCED_LAVA_WASTES_REWARD_SCALE / lavaTrackMultiplier;
+      const infernalBaseReward = infernal.reward.amount / INFERNAL_DEPTHS_REWARD_SCALE / infernalTrackMultiplier;
       expect(infernalBaseReward / lavaBaseReward).toBeCloseTo(lavaBaseReward / snowBaseReward * rewardBoost, 8);
     }
 

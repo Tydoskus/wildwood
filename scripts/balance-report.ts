@@ -122,7 +122,7 @@ if (parsed.json) {
 console.log(`Wildwood Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy}`);
 console.log(`Final power ${formatCompactNumber(result.finalPower.median)} (${formatCompactNumber(result.finalPower.p10)}–${formatCompactNumber(result.finalPower.p90)}) · DPS ${formatCompactNumber(result.finalDps.median)}`);
 console.log("");
-console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time / target", 23)}${pad("Power entry → exit", 25)}${pad("Growth / target", 19)}${pad("Boss TTK", 12)}Time fit`);
+console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time / target", 23)}${pad("Power entry → exit", 25)}${pad("Growth / target", 19)}${pad("Dmg/HP", 10)}${pad("Boss TTK", 12)}Time fit`);
 for (const map of result.maps) {
   const clear = map.hasBoss ? `${Math.round(map.completedPercent)}%` : "open";
   const censored = map.hasBoss && map.durationCensoredPercent > 0 ? "+" : "";
@@ -132,10 +132,13 @@ for (const map of result.maps) {
     ? "—"
     : `${map.powerGrowthMultiplier.toFixed(map.powerGrowthMultiplier >= 10 ? 1 : 2)}× / ${map.targetPowerGrowthMultiplier?.toFixed(0) ?? "—"}×`;
   const fit = map.durationVsTarget === null ? "—" : `${map.durationVsTarget.toFixed(2)}×`;
+  const damageToHealth = map.exitEffectiveStatsMedian
+    ? `${(map.exitEffectiveStatsMedian.damage / Math.max(1, map.exitEffectiveStatsMedian.maxHp)).toFixed(2)}×`
+    : "—";
   console.log(
     `${pad(map.name, 26)}${pad(`${Math.round(map.reachedPercent)}%/${clear}`, 15)}` +
     `${pad(formatDuration(map.enteredAtMedianSeconds), 10)}${pad(mapTime, 23)}` +
-    `${pad(power, 25)}${pad(growth, 19)}${pad(formatDuration(map.bossTtkAtEntryMedianSeconds), 12)}${fit}`,
+    `${pad(power, 25)}${pad(growth, 19)}${pad(damageToHealth, 10)}${pad(formatDuration(map.bossTtkAtEntryMedianSeconds), 12)}${fit}`,
   );
 }
 console.log("");

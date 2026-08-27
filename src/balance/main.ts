@@ -309,7 +309,7 @@ function renderMapTable(next: BalanceSimulationResult) {
       : `${formatCompactNumber(map.entryPowerMedian)} → ${formatCompactNumber(map.exitPowerMedian ?? map.entryPowerMedian)}`;
     const powerGrowth = map.powerGrowthMultiplier === null
       ? ""
-      : `<span class="cell-sub">${formatRatio(map.powerGrowthMultiplier)} growth${map.targetPowerGrowthMultiplier === null ? " · onboarding" : ` · target ${formatRatio(map.targetPowerGrowthMultiplier)}`}</span>`;
+      : `<span class="cell-sub">${formatRatio(map.powerGrowthMultiplier)} growth${map.targetPowerGrowthMultiplier === null ? " · onboarding" : ` · target ${formatRatio(map.targetPowerGrowthMultiplier)}`}${map.exitEffectiveStatsMedian ? ` · ${(map.exitEffectiveStatsMedian.damage / Math.max(1, map.exitEffectiveStatsMedian.maxHp)).toFixed(2)}× D/HP` : ""}</span>`;
     const durationTarget = map.targetDurationSeconds === null
       ? `<span class="cell-sub">onboarding baseline</span>`
       : `<span class="cell-sub">target ${formatDuration(map.targetDurationSeconds)}</span>`;

@@ -20,7 +20,7 @@ import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { isPublicDisplayNameAllowed, moderatePublicChatMessage } from "./chat-moderation";
 import { isChatReportReason } from "../../shared/chat-report";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
-import { compressLegacyProgressionOutlier } from "../../shared/progression-balance";
+import { compressLegacyProgressionOutlier, rebalanceLegacyDamageHealth } from "../../shared/progression-balance";
 import {
   DAILY_LOGIN_GEM_BONUS,
   MAX_INVENTORY_SLOT_CAPACITY,
@@ -189,7 +189,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 15;
+const MODULE_MIGRATION_VERSION = 16;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1917,6 +1917,28 @@ function runPendingModuleMigrations(ctx: any) {
     }
     if (changedProgress) refreshLeaderboard(ctx);
   }
+  if (currentVersion < 16) {
+    // Version 4 corrects the late-game damage/health divergence without
+    // changing an account's raw damage-plus-health power budget. Accounts
+    // already at or below the authored ratio remain byte-for-byte unchanged.
+    let changedProgress = false;
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      if (!samePlayerProgressValues(progress, migrated)) {
+        ctx.db.playerProgress.identity.update(migrated);
+        changedProgress = true;
+        const active = ctx.db.player.identity.find(progress.identity);
+        if (active) {
+          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
+          ctx.db.player.identity.update(nextActive);
+          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
+        }
+      }
+      markPlayerBalanceCurrent(ctx, progress.identity);
+    }
+    if (changedProgress) refreshLeaderboard(ctx);
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2079,7 +2101,8 @@ function playerBalanceProgress(progress: any, version: number) {
       Math.min(DEFAULT_ATTACK_INTERVAL, version < 1 ? progress.attackRate * 2 : progress.attackRate),
     ),
   };
-  return version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
+  const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
+  return version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
 }
 
 function migratePlayerBalance(ctx: any, progress: any) {

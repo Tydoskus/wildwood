@@ -1,10 +1,14 @@
 import { formatCompactNumber } from "../ui/number-format";
 import {
   ADVANCED_LAVA_WASTES_HEALTH_SCALE,
+  ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_REWARD_SCALE,
   BEGINNER_DESERT_HEALTH_SCALE,
   BEGINNER_DESERT_REWARD_SCALE,
   INFERNAL_DEPTHS_HEALTH_SCALE,
+  INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
+  INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
@@ -130,11 +134,11 @@ const enemyTypes = {
   // Damage is intentionally 30x the original Lava Lake launch tuning.
   "Ember Raider": {
     hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 240, damage: 8_143_350_000, attackSpeed: .65, r: 23,
-    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
+    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
   },
   "Cinder Archer": {
     hp: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 225, damage: 149_187_000_000, attackSpeed: .55, r: 21,
-    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
+    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Magma Guard": {
@@ -143,7 +147,7 @@ const enemyTypes = {
   },
   "Ash Reaper": {
     hp: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 245, damage: 44_100_000_000, attackSpeed: .7, r: 37,
-    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
+    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 380,
   },
   "Inferno Oracle": {
@@ -156,8 +160,10 @@ const enemyTypes = {
   // Base health repeats each archetype's Snowlands-to-Lava growth before the
   // shared Night Forest progression budget. Depth Raider keeps its 10qd cut.
   // Damage is tuned against the simulated curve-entry build: the Raider takes
-  // about eleven hits to defeat it, while the heavier archetypes take five.
-  // Base damage- and health-reward tracks pay 2×; Depth Raider pays 6×.
+  // about twenty-seven hits to defeat it, while the heavier archetypes take
+  // about thirteen. This keeps the map dangerous without entry one-shots.
+  // Authored base damage and health tracks pay 2× before the per-stat curve
+  // correction. Depth Raider keeps its requested 6× damage payout unchanged.
   "Depth Raider": {
     hp: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 250,
     damage: 2_500_000_000, attackSpeed: .65, r: 25,
@@ -166,7 +172,7 @@ const enemyTypes = {
   "Abyss Archer": {
     hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 235,
     damage: 5_125_000_000, attackSpeed: .55, r: 23,
-    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE },
+    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Obsidian Colossus": {
@@ -177,7 +183,7 @@ const enemyTypes = {
   "Doom Reaper": {
     hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 255,
     damage: 5_250_000_000, attackSpeed: .7, r: 39,
-    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE },
+    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 420,
   },
   "Nether Oracle": {

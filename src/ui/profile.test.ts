@@ -89,7 +89,7 @@ describe("effective profile equipment stats", () => {
   it("shows Frost Bow's additive equipment and tech bonuses", () => {
     const research = { ...createEmptyResearchRanks(), warcraft: 10 };
     const stats = effectiveProfileStats(progress(FROST_BOW), research);
-    expect(stats.damage).toBeCloseTo(64);
+    expect(stats.damage).toBeCloseTo(44);
     expect(stats.attackRate).toBeCloseTo(1);
   });
 
@@ -102,16 +102,16 @@ describe("effective profile equipment stats", () => {
     expect(stats.multipliers.regenTotal).toBeCloseTo(2.2);
   });
 
-  it("includes Fire Metal Helmet damage, health, and regeneration", () => {
+  it("includes Fire Metal Helmet health and regeneration without adding damage", () => {
     const stats = effectiveProfileStats({ ...progress(FROST_BOW, FROST_ARMOR), equippedHead: FIRE_METAL_HELMET });
-    expect(stats.damage).toBeCloseTo(65);
+    expect(stats.damage).toBeCloseTo(40);
     expect(stats.maxHp).toBeCloseTo(225);
     expect(stats.regen).toBeCloseTo(5);
   });
 
   it("includes completed item upgrade levels in profile stats", () => {
     const bow = effectiveProfileStats(progress(FROST_BOW), createEmptyResearchRanks(), { [FROST_BOW]: 1 });
-    expect(bow.damage).toBeCloseTo(63.2);
+    expect(bow.damage).toBeCloseTo(41.6);
     expect(bow.attackRate).toBeCloseTo(1);
     const armor = effectiveProfileStats(progress("", FROST_ARMOR), createEmptyResearchRanks(), { [FROST_ARMOR]: 1 });
     expect(armor.maxHp).toBeCloseTo(208);
@@ -163,11 +163,11 @@ describe("profile stat display", () => {
       label: "Damage:",
       base: "20",
       equationOperator: "×",
-      multiplier: "3.08",
-      total: "62",
+      multiplier: "2.08",
+      total: "42",
       sources: [
         { label: "Tech", value: "+8%" },
-        { label: "Equipment", value: "+200%" },
+        { label: "Equipment", value: "+100%" },
       ],
     });
     expect(rows[2]).toEqual({

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   LEGACY_PROGRESSION_OUTLIER_THRESHOLDS,
+  MAX_PROGRESSION_DAMAGE_TO_HEALTH_RATIO,
   compressLegacyProgressionOutlier,
   compressProgressionStat,
   isLegacyProgressionOutlier,
+  rebalanceLegacyDamageHealth,
 } from "./progression-balance";
+import { DEFAULT_ATTACK_INTERVAL } from "./rules";
 
 describe("legacy progression outlier compression", () => {
   it("leaves the measured endgame envelope and nearby accounts untouched", () => {
@@ -39,5 +42,36 @@ describe("legacy progression outlier compression", () => {
       { damage: 76_563_496, maxHp: 310_817_380, armor: 125_715.49, regen: 56.47 },
     ];
     expect(cohort.filter(isLegacyProgressionOutlier)).toHaveLength(3);
+  });
+});
+
+describe("legacy damage and health curve correction", () => {
+  it("leaves accounts already inside the authored ratio unchanged", () => {
+    const progress = { damage: 100, maxHp: 100, attackRate: .5 };
+    expect(rebalanceLegacyDamageHealth(progress)).toBe(progress);
+  });
+
+  it("preserves ordinary offense-heavy builds below the legacy repair threshold", () => {
+    const progress = { damage: 300, maxHp: 100, attackRate: .5 };
+    expect(rebalanceLegacyDamageHealth(progress)).toBe(progress);
+  });
+
+  it("moves excess damage budget into health without changing raw power", () => {
+    const progress = { damage: 11_041_432_000_000, maxHp: 216_203_000_000, attackRate: .3809524 };
+    const migrated = rebalanceLegacyDamageHealth(progress);
+    const weight = DEFAULT_ATTACK_INTERVAL / progress.attackRate;
+    expect(migrated.damage / migrated.maxHp).toBeCloseTo(MAX_PROGRESSION_DAMAGE_TO_HEALTH_RATIO, 10);
+    expect(migrated.damage).toBeLessThan(progress.damage);
+    expect(migrated.maxHp).toBeGreaterThan(progress.maxHp);
+    const beforePower = progress.damage * weight + progress.maxHp;
+    const afterPower = migrated.damage * weight + migrated.maxHp;
+    expect(afterPower / beforePower).toBeCloseTo(1, 10);
+  });
+
+  it("preserves ordering for accounts with the same attack interval", () => {
+    const lower = rebalanceLegacyDamageHealth({ damage: 10_000, maxHp: 100, attackRate: .5 });
+    const higher = rebalanceLegacyDamageHealth({ damage: 20_000, maxHp: 100, attackRate: .5 });
+    expect(higher.damage).toBeGreaterThan(lower.damage);
+    expect(higher.maxHp).toBeGreaterThan(lower.maxHp);
   });
 });

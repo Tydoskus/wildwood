@@ -38,7 +38,7 @@ import {
   itemDefinition,
   type ItemId,
 } from "../../shared/items";
-import { effectivePlayerPowerStats, playerPowerForStats } from "../../shared/player-power";
+import { effectivePlayerPowerStats, playerPowerForStats, type PlayerPowerStats } from "../../shared/player-power";
 import {
   RESEARCH_DEFINITIONS,
   RESEARCH_IDS,
@@ -229,6 +229,7 @@ export type MapSummary = {
   exitPowerMedian: number | null;
   exitStatsMedian: Omit<PersistentStats, "attackRate"> | null;
   exitStatsP90: Omit<PersistentStats, "attackRate"> | null;
+  exitEffectiveStatsMedian: PlayerPowerStats | null;
   bossTtkAtEntryMedianSeconds: number | null;
   bossFightMedianSeconds: number | null;
   regularKillsMedian: number | null;
@@ -647,7 +648,15 @@ function selectSite(
   const available = sites.filter((site) => site.availableAt <= state.time);
   if (!available.length) return null;
   const pendingClear = available.filter((site) => site.kills < config.requiredClears);
-  const candidates = pendingClear.length ? pendingClear : available;
+  // A boss-rush has no meaningful single-stat target on an open-ended map.
+  // Keep its sites within one clear of each other so the forecast represents
+  // progressing through the whole map instead of camping one instant-respawn
+  // damage enemy forever.
+  const lowestKills = Math.min(...sites.map((site) => site.kills));
+  const openMapCycle = config.strategy === "boss-rush" && mapId === INFERNAL_DEPTHS_MAP_ID
+    ? available.filter((site) => site.kills === lowestKills)
+    : [];
+  const candidates = openMapCycle.length ? openMapCycle : pendingClear.length ? pendingClear : available;
   const adjustment = config.mapAdjustments[mapId];
   const combat = combatStats(state, true);
   return candidates.reduce((best, site) => {
@@ -841,6 +850,13 @@ function mapSummary(
     armor: numericQuantile(records.map((record) => record.exitState.stats.armor), probability),
     regen: numericQuantile(records.map((record) => record.exitState.stats.regen), probability),
   } : null;
+  const exitEffectiveStatsAt = (probability: number): PlayerPowerStats | null => records.length ? {
+    damage: numericQuantile(records.map((record) => effectiveStats(record.exitState).damage), probability),
+    maxHp: numericQuantile(records.map((record) => effectiveStats(record.exitState).maxHp), probability),
+    attackRate: numericQuantile(records.map((record) => effectiveStats(record.exitState).attackRate), probability),
+    armor: numericQuantile(records.map((record) => effectiveStats(record.exitState).armor), probability),
+    regen: numericQuantile(records.map((record) => effectiveStats(record.exitState).regen), probability),
+  } : null;
   return {
     mapId: map.id,
     name: map.name,
@@ -858,6 +874,7 @@ function mapSummary(
     exitPowerMedian: quantile(records.map((record) => record.exitPower), .5),
     exitStatsMedian: exitStatsAt(.5),
     exitStatsP90: exitStatsAt(.9),
+    exitEffectiveStatsMedian: exitEffectiveStatsAt(.5),
     bossTtkAtEntryMedianSeconds: quantile(records.flatMap((record) => record.entryBossTtkSeconds === null ? [] : [record.entryBossTtkSeconds]), .5),
     bossFightMedianSeconds: quantile(completed.flatMap((record) => record.bossFightSeconds === null ? [] : [record.bossFightSeconds]), .5),
     regularKillsMedian: quantile(records.map((record) => record.regularKills), .5),
@@ -922,6 +939,8 @@ function buildDiagnostics(
   let pacingTargetsOnTrack = 0;
   let measuredPowerTargets = 0;
   let powerTargetsOnTrack = 0;
+  let measuredStatMixes = 0;
+  let statMixesOnTrack = 0;
   for (let index = 1; index < maps.length; index += 1) {
     const current = maps[index];
     if (current.reachedPercent < 50) {
@@ -952,6 +971,17 @@ function buildDiagnostics(
         powerTargetsOnTrack += 1;
       }
     }
+    if (current.exitEffectiveStatsMedian) {
+      measuredStatMixes += 1;
+      const damageToHealth = current.exitEffectiveStatsMedian.damage / Math.max(1, current.exitEffectiveStatsMedian.maxHp);
+      if (damageToHealth > 1.5) {
+        diagnostics.push(`${current.name} exits at ${damageToHealth.toFixed(1)}× damage-to-health; damage is outrunning survivability.`);
+      } else if (damageToHealth < .25) {
+        diagnostics.push(`${current.name} exits at only ${damageToHealth.toFixed(2)}× damage-to-health; health is consuming too much of the progression budget.`);
+      } else {
+        statMixesOnTrack += 1;
+      }
+    }
     if (current.hasBoss && current.bossFightMedianSeconds !== null && current.durationMedianSeconds) {
       const bossShare = current.bossFightMedianSeconds / current.durationMedianSeconds;
       if (bossShare > .25) diagnostics.push(`${current.name}'s boss consumes ${(bossShare * 100).toFixed(0)}% of median map time; keep the boss as a capstone rather than the whole progression wall.`);
@@ -964,6 +994,9 @@ function buildDiagnostics(
   const powerCurveOnTrack = measuredPowerTargets > 0 && measuredPowerTargets === powerTargetsOnTrack;
   if (powerCurveOnTrack) {
     diagnostics.splice(pacingCurveOnTrack ? 1 : 0, 0, `Power curve: ${powerTargetsOnTrack}/${measuredPowerTargets} measured maps stay near the ${config.targetMapPowerMultiplier.toFixed(0)}× per-map growth budget.`);
+  }
+  if (measuredStatMixes > 0 && measuredStatMixes === statMixesOnTrack) {
+    diagnostics.splice((pacingCurveOnTrack ? 1 : 0) + (powerCurveOnTrack ? 1 : 0), 0, `Stat mix: ${statMixesOnTrack}/${measuredStatMixes} maps keep damage and health inside the authored combat envelope.`);
   }
   const spread = finalPower.p10 > 0 ? finalPower.p90 / finalPower.p10 : 1;
   if (spread > 1.75) diagnostics.push(`Random equipment drops create a ${spread.toFixed(1)}× P90-to-P10 final-power spread; inspect loot timing before changing base rewards.`);

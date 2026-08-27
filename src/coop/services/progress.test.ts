@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ATTACK_BALANCE_VERSION, DEFAULT_ATTACK_RANGE, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL } from "../../../shared/rules";
+import { MAX_PROGRESSION_DAMAGE_TO_HEALTH_RATIO } from "../../../shared/progression-balance";
 import { createProgressStore } from "./progress-store";
 import { copyProgress, mergeProgress, migrateProgressSave, progressCovers, type PlayerProgress, type ProgressSave } from "./progress";
 
@@ -80,6 +81,15 @@ describe("progress persistence rules", () => {
     expect(migrated.damage).toBeLessThan(outlier.damage);
     expect(migrated.maxHp).toBeLessThan(outlier.maxHp);
     expect(migrateProgressSave(outlier, ATTACK_BALANCE_VERSION)).toMatchObject(outlier);
+  });
+
+  it("rebalances a damage-heavy pending save only when crossing into balance version 4", () => {
+    const damageHeavy = { ...pending, damage: 11_041_432_000_000, maxHp: 216_203_000_000, attackRate: .3809524 };
+    const migrated = migrateProgressSave(damageHeavy, 3);
+    expect(migrated.damage / migrated.maxHp).toBeCloseTo(MAX_PROGRESSION_DAMAGE_TO_HEALTH_RATIO, 10);
+    expect(migrated.damage).toBeLessThan(damageHeavy.damage);
+    expect(migrated.maxHp).toBeGreaterThan(damageHeavy.maxHp);
+    expect(migrateProgressSave(damageHeavy, ATTACK_BALANCE_VERSION)).toMatchObject(damageHeavy);
   });
 
   it("moves a legacy identity-scoped save into current storage", () => {
