@@ -71,6 +71,24 @@ export const WATER_REACH_HEALTH_REWARD_MULTIPLIER = 1.5;
 export const SAMURAI_GARDEN_HEALTH_SCALE = 270;
 export const SAMURAI_GARDEN_DAMAGE_SCALE = 200;
 export const SAMURAI_GARDEN_REWARD_SCALE = 200;
+// Late maps keep the macro curve exact while giving individual archetypes a
+// small amount of texture. enemies.ts centers these readable profile values
+// against one complete 30-enemy clear, so total health, incoming DPS, and
+// reward power do not drift from the 270x / 200x progression budget.
+export const LATE_MAP_CLEAR_ARCHETYPE_COUNTS = {
+  raider: 6,
+  archer: 6,
+  guardian: 7,
+  reaper: 7,
+  oracle: 4,
+} as const;
+export const SAMURAI_GARDEN_ARCHETYPE_PROFILE = {
+  raider: { health: .94, damage: 1.08, reward: 1.12, attackSpeed: .7 },
+  archer: { health: 1.05, damage: 1.02, reward: .96, attackSpeed: .52 },
+  guardian: { health: 1.06, damage: .94, reward: 1.08, attackSpeed: .5 },
+  reaper: { health: .96, damage: 1.01, reward: 1, attackSpeed: .74 },
+  oracle: { health: 1.02, damage: .98, reward: 1.07, attackSpeed: .58 },
+} as const;
 
 export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE;
 export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE;

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.544": [
+    "Night Forest, Water Reach, and Samurai Garden now use distinct camp layouts and mixed formations, with less formulaic enemy scaling that preserves the full progression budget.",
+  ],
   "0.543": [
     "Tidewyrm now guards Water Reach, and defeating it unlocks Samurai Garden with pink sakura groves and five scaled enemy camps.",
     "Tidewyrm uses the established chunky boss-art style, while boss minimap markers stay clean and aura-free.",

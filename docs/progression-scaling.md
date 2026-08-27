@@ -9,6 +9,7 @@ This document is the durable balance contract for Wildwood's campaign. New maps,
 - **Each later map targets 1.35 times the previous map's duration.** For progression-map index `n`, where Desert is `n = 0`, use `7,200 × 1.35^n` seconds.
 - **Each post-Forest map targets about 200 times player-power growth from map entry to exit.** Measure effective power after equipment and research with the shared `playerPowerForStats` calculation. Do not substitute raw damage for power.
 - **Growth inside a map must be visible and smooth.** Distribute meaningful gains throughout the map, including its opening section. Avoid long flat stretches, one dominant farm camp, and a boss reward that supplies most of the map's total growth.
+- **Macro scaling should be consistent; individual encounters should not look formulaic.** Preserve each map's full-clear health, threat, and reward budgets while varying archetype ratios, camp coordinates, enemy mixes, and formations in a controlled range. Never clone the previous map's placement and simply rename its camps.
 - **The boss is a capstone and the unlock gate for the next map.** It should test the build earned in that map, not replace the regular-enemy progression runway.
 - **Equipment bonuses stack additively.** Add weapon, head, chest, and research bonuses to the base `1×` multiplier; never multiply equipment pieces into one another.
 - **An item upgrade adds 8% of that item's level-zero bonus per level.** Upgrades are linear and capped at level 10. For example, a `+100%` item bonus becomes `+108%` at level 1 and `+180%` at level 10; it does not compound.
@@ -30,14 +31,15 @@ Do not round the constants used by code. Rounded labels are fine in the UI.
 
 ## Water Reach to Samurai Garden
 
-Samurai Garden directly applies the shared progression contract to Water Reach's authored enemy families:
+Samurai Garden applies the shared progression contract to Water Reach at the full-clear level instead of copying every archetype at an obvious fixed ratio:
 
-- regular-enemy health is `270×` Water (`200×` expected player power multiplied by the `1.35×` duration target);
-- regular-enemy damage and rewards are `200×` Water, keeping incoming-hit readability and player growth aligned with the power step;
+- total regular-enemy health across one authored clear is exactly `270×` Water (`200×` expected player power multiplied by the `1.35×` duration target);
+- aggregate regular-enemy threat (`damage × attacks per second`) and canonical reward power across that clear are exactly `200×` Water;
+- individual health, hit damage, attack cadence, and reward ratios vary modestly around those targets so each family has its own combat texture;
 - Tidewyrm health is `270×` Gloomroot health; and
 - Tidewyrm's Damage, Max Health, Armor, and Regeneration rewards are each `200×` Gloomroot's corresponding reward.
 
-These relationships live in `SAMURAI_GARDEN_*` and `TIDEWYRM_*` constants in `shared/rules.ts`. Future tuning should change the shared multipliers or clearly document an intentional exception, not hide a second multiplier in map or enemy code. Boss attack damage remains encounter-tuned because telegraph timing and dodge space affect survivability; validate it against the representative Water-exit build and avoid unavoidable one-shots.
+These relationships live in `SAMURAI_GARDEN_*`, `SAMURAI_GARDEN_ARCHETYPE_PROFILE`, and `TIDEWYRM_*` constants in `shared/rules.ts`. The readable archetype profile is normalized against the authored 6/6/7/7/4 family mix; tests must verify the aggregate budgets whenever that mix changes. Future tuning should change the shared target or profile and clearly document an intentional exception, not hide a second multiplier in map or enemy code. Boss attack damage remains encounter-tuned because telegraph timing and dodge space affect survivability; validate it against the representative Water-exit build and avoid unavoidable one-shots.
 
 ## What “power” means
 

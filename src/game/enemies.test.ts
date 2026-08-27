@@ -10,6 +10,8 @@ import {
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+  SAMURAI_GARDEN_ARCHETYPE_PROFILE,
   SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_REWARD_SCALE,
@@ -131,23 +133,58 @@ describe("enemy reward rules", () => {
     expect(Math.max(...nonRaiderDamages) / Math.min(...nonRaiderDamages)).toBeLessThan(1.08);
   });
 
-  it("scales Samurai Garden from Water Reach with the documented curve", () => {
+  it("textures Samurai archetypes without drifting from the full-clear curve", () => {
     const tracks = [
-      ["Tide Raider", "Sakura Ronin"],
-      ["Reef Archer", "Petal Archer"],
-      ["Coral Colossus", "Bamboo Guardian"],
-      ["Drowned Reaper", "Moonblade Reaper"],
-      ["Tidal Oracle", "Shrine Oracle"],
+      ["raider", "Tide Raider", "Sakura Ronin"],
+      ["archer", "Reef Archer", "Petal Archer"],
+      ["guardian", "Coral Colossus", "Bamboo Guardian"],
+      ["reaper", "Drowned Reaper", "Moonblade Reaper"],
+      ["oracle", "Tidal Oracle", "Shrine Oracle"],
     ] as const;
-    for (const [waterKind, samuraiKind] of tracks) {
+    const rewardPower = (reward: (typeof ENEMY_TYPES)[keyof typeof ENEMY_TYPES]["reward"]) =>
+      reward.amount * (reward.type === "armor" ? 3 : reward.type === "regen" ? 10 : 1);
+    let waterHealth = 0;
+    let samuraiHealth = 0;
+    let waterThreat = 0;
+    let samuraiThreat = 0;
+    let waterRewards = 0;
+    let samuraiRewards = 0;
+    const healthRatios: number[] = [];
+    const damageRatios: number[] = [];
+    const rewardRatios: number[] = [];
+
+    for (const [archetype, waterKind, samuraiKind] of tracks) {
       const water = ENEMY_TYPES[waterKind];
       const samurai = ENEMY_TYPES[samuraiKind];
-      expect(samurai.hp / water.hp).toBeCloseTo(SAMURAI_GARDEN_HEALTH_SCALE, 10);
-      expect(samurai.damage / water.damage).toBeCloseTo(SAMURAI_GARDEN_DAMAGE_SCALE, 10);
+      const count = LATE_MAP_CLEAR_ARCHETYPE_COUNTS[archetype];
+      healthRatios.push(samurai.hp / water.hp);
+      damageRatios.push(samurai.damage / water.damage);
+      rewardRatios.push(samurai.reward.amount / water.reward.amount);
+      waterHealth += water.hp * count;
+      samuraiHealth += samurai.hp * count;
+      waterThreat += water.damage * water.attackSpeed * count;
+      samuraiThreat += samurai.damage * samurai.attackSpeed * count;
+      waterRewards += rewardPower(water.reward) * count;
+      samuraiRewards += rewardPower(samurai.reward) * count;
+
       expect(samurai.reward.type).toBe(water.reward.type);
-      expect(samurai.reward.amount / water.reward.amount).toBeCloseTo(SAMURAI_GARDEN_REWARD_SCALE, 10);
+      expect(samurai.attackSpeed).toBe(SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed);
     }
-    const damages = tracks.map(([, samuraiKind]) => ENEMY_TYPES[samuraiKind].damage);
+
+    expect(samuraiHealth / waterHealth).toBeCloseTo(SAMURAI_GARDEN_HEALTH_SCALE, 10);
+    expect(samuraiThreat / waterThreat).toBeCloseTo(SAMURAI_GARDEN_DAMAGE_SCALE, 10);
+    expect(samuraiRewards / waterRewards).toBeCloseTo(SAMURAI_GARDEN_REWARD_SCALE, 10);
+    expect(new Set(healthRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);
+    expect(new Set(damageRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);
+    expect(new Set(rewardRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);
+    expect(Math.min(...healthRatios)).toBeGreaterThan(SAMURAI_GARDEN_HEALTH_SCALE * .9);
+    expect(Math.max(...healthRatios)).toBeLessThan(SAMURAI_GARDEN_HEALTH_SCALE * 1.1);
+    expect(Math.min(...damageRatios)).toBeGreaterThan(SAMURAI_GARDEN_DAMAGE_SCALE * .9);
+    expect(Math.max(...damageRatios)).toBeLessThan(SAMURAI_GARDEN_DAMAGE_SCALE * 1.12);
+    expect(Math.min(...rewardRatios)).toBeGreaterThan(SAMURAI_GARDEN_REWARD_SCALE * .9);
+    expect(Math.max(...rewardRatios)).toBeLessThan(SAMURAI_GARDEN_REWARD_SCALE * 1.15);
+
+    const damages = tracks.map(([, , samuraiKind]) => ENEMY_TYPES[samuraiKind].damage);
     expect(Math.max(...damages) / Math.min(...damages)).toBeLessThan(1.71);
   });
 });

@@ -48,7 +48,20 @@ export type MapId =
   | typeof WATER_REACH_MAP_ID
   | typeof SAMURAI_GARDEN_MAP_ID;
 
-const DESERT_CAMPS = [
+type SpawnFormation = "scatter" | "crescent" | "shoal" | "ranks";
+type SpawnCamp = {
+  name: string;
+  x: number;
+  y: number;
+  minRadius: number;
+  radius: number;
+  count: number;
+  types: EnemyKind[];
+  formation?: SpawnFormation;
+  rotation?: number;
+};
+
+const DESERT_CAMPS: SpawnCamp[] = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
   { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] as EnemyKind[] },
   { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 230, count: 3, types: ["Blight Oracle"] as EnemyKind[] },
@@ -57,14 +70,14 @@ const DESERT_CAMPS = [
   { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard"] as EnemyKind[] },
 ];
 
-const SNOW_CAMPS = [
+const SNOW_CAMPS: SpawnCamp[] = [
   { name: "Rimegate Trail", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Frost Raider"] as EnemyKind[] },
   { name: "Glacier Crossing", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Glacier Archer"] as EnemyKind[] },
   { name: "Whiteout Hollow", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Rime Guard"] as EnemyKind[] },
   { name: "Aurora Shelf", x: 2120, y: 3650, minRadius: 170, radius: 430, count: 6, types: ["Aurora Oracle", "Aurora Oracle", "Aurora Oracle", "Whiteout Reaper"] as EnemyKind[] },
 ];
 
-const LAVA_CAMPS = [
+const LAVA_CAMPS: SpawnCamp[] = [
   { name: "Searing Approach", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Ember Raider"] as EnemyKind[] },
   { name: "Magma Causeway", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Cinder Archer"] as EnemyKind[] },
   { name: "Obsidian Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Magma Guard"] as EnemyKind[] },
@@ -72,33 +85,72 @@ const LAVA_CAMPS = [
   { name: "Inferno Caldera", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Inferno Oracle", "Inferno Oracle", "Ash Reaper"] as EnemyKind[] },
 ];
 
-const INFERNAL_CAMPS = [
-  { name: "Moonless Gate", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Depth Raider"] as EnemyKind[] },
-  { name: "Blackbough Trail", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Abyss Archer"] as EnemyKind[] },
-  { name: "Hollow Grove", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Obsidian Colossus"] as EnemyKind[] },
-  { name: "Dreadwood", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Doom Reaper"] as EnemyKind[] },
-  { name: "Witching Glade", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Nether Oracle", "Nether Oracle", "Doom Reaper"] as EnemyKind[] },
+const INFERNAL_CAMPS: SpawnCamp[] = [
+  { name: "Moonless Gate", x: 1080, y: 1260, minRadius: 125, radius: 315, count: 6, types: ["Depth Raider", "Depth Raider", "Abyss Archer"], formation: "crescent", rotation: -.35 },
+  { name: "Blackbough Trail", x: 2500, y: 980, minRadius: 150, radius: 385, count: 6, types: ["Abyss Archer", "Abyss Archer", "Nether Oracle"], formation: "crescent", rotation: .45 },
+  { name: "Hollow Grove", x: 3890, y: 2250, minRadius: 190, radius: 450, count: 7, types: ["Obsidian Colossus", "Obsidian Colossus", "Depth Raider"], formation: "crescent", rotation: 1.15 },
+  { name: "Dreadwood", x: 1420, y: 3390, minRadius: 155, radius: 410, count: 5, types: ["Doom Reaper", "Doom Reaper", "Obsidian Colossus"], formation: "crescent", rotation: -1 },
+  { name: "Witching Glade", x: 2940, y: 3860, minRadius: 165, radius: 440, count: 6, types: ["Doom Reaper", "Nether Oracle", "Obsidian Colossus", "Doom Reaper", "Nether Oracle", "Doom Reaper"], formation: "crescent", rotation: 2.4 },
 ];
 
-const WATER_CAMPS = [
-  { name: "Shallows Landing", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Tide Raider"] as EnemyKind[] },
-  { name: "Kelp Channel", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Reef Archer"] as EnemyKind[] },
-  { name: "Coral Citadel", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Coral Colossus"] as EnemyKind[] },
-  { name: "Drowned Trench", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Drowned Reaper"] as EnemyKind[] },
-  { name: "Mooncurrent Shrine", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Tidal Oracle", "Tidal Oracle", "Drowned Reaper"] as EnemyKind[] },
+const WATER_CAMPS: SpawnCamp[] = [
+  { name: "Shallows Landing", x: 1250, y: 1050, minRadius: 130, radius: 340, count: 6, types: ["Tide Raider", "Tide Raider", "Reef Archer"], formation: "shoal", rotation: .2 },
+  { name: "Kelp Channel", x: 3190, y: 1480, minRadius: 155, radius: 400, count: 6, types: ["Reef Archer", "Reef Archer", "Tidal Oracle"], formation: "shoal", rotation: 1 },
+  { name: "Coral Citadel", x: 3890, y: 2730, minRadius: 185, radius: 460, count: 7, types: ["Coral Colossus", "Coral Colossus", "Tide Raider"], formation: "shoal", rotation: -.4 },
+  { name: "Drowned Trench", x: 1250, y: 3240, minRadius: 160, radius: 420, count: 5, types: ["Drowned Reaper", "Drowned Reaper", "Coral Colossus"], formation: "shoal", rotation: .7 },
+  { name: "Mooncurrent Shrine", x: 2840, y: 3970, minRadius: 170, radius: 440, count: 6, types: ["Drowned Reaper", "Tidal Oracle", "Coral Colossus", "Drowned Reaper", "Tidal Oracle", "Drowned Reaper"], formation: "shoal", rotation: -.2 },
 ];
 
-const SAMURAI_CAMPS = [
-  { name: "Lantern Gate", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Sakura Ronin"] as EnemyKind[] },
-  { name: "Blossom Walk", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Petal Archer"] as EnemyKind[] },
-  { name: "Bamboo Court", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Bamboo Guardian"] as EnemyKind[] },
-  { name: "Moonbridge", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Moonblade Reaper"] as EnemyKind[] },
-  { name: "Sakura Shrine", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Shrine Oracle", "Shrine Oracle", "Moonblade Reaper"] as EnemyKind[] },
+const SAMURAI_CAMPS: SpawnCamp[] = [
+  { name: "Lantern Gate", x: 1020, y: 1320, minRadius: 130, radius: 340, count: 6, types: ["Sakura Ronin", "Sakura Ronin", "Petal Archer"], formation: "ranks", rotation: 0 },
+  { name: "Blossom Walk", x: 2380, y: 1040, minRadius: 155, radius: 400, count: 6, types: ["Petal Archer", "Petal Archer", "Shrine Oracle"], formation: "ranks", rotation: .35 },
+  { name: "Bamboo Court", x: 3660, y: 2100, minRadius: 185, radius: 460, count: 7, types: ["Bamboo Guardian", "Bamboo Guardian", "Sakura Ronin"], formation: "ranks", rotation: -.25 },
+  { name: "Moonbridge", x: 1480, y: 3330, minRadius: 160, radius: 420, count: 5, types: ["Moonblade Reaper", "Moonblade Reaper", "Bamboo Guardian"], formation: "ranks", rotation: .55 },
+  { name: "Sakura Shrine", x: 2880, y: 3740, minRadius: 170, radius: 440, count: 6, types: ["Moonblade Reaper", "Shrine Oracle", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle", "Moonblade Reaper"], formation: "ranks", rotation: 0 },
 ];
 
 function seededUnit(index: number, salt: number) {
   const value = Math.sin(index * 91.713 + salt * 37.119) * 43758.5453;
   return value - Math.floor(value);
+}
+
+function rotateOffset(x: number, y: number, rotation: number) {
+  return {
+    x: x * Math.cos(rotation) - y * Math.sin(rotation),
+    y: x * Math.sin(rotation) + y * Math.cos(rotation),
+  };
+}
+
+function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number) {
+  const rotation = camp.rotation ?? campIndex * .71;
+  if (camp.formation === "crescent") {
+    const progress = camp.count <= 1 ? .5 : index / (camp.count - 1);
+    const angle = rotation + (progress - .5) * 1.9;
+    const distance = camp.minRadius + (camp.radius - camp.minRadius) * (.55 + (index % 2) * .32);
+    return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
+  }
+  if (camp.formation === "shoal") {
+    const centeredIndex = index - (camp.count - 1) / 2;
+    const spacing = Math.min(96, camp.radius * .27);
+    const localX = centeredIndex * spacing;
+    const localY = Math.abs(centeredIndex) * spacing * .46 - camp.radius * .2;
+    return rotateOffset(localX, localY, rotation);
+  }
+  if (camp.formation === "ranks") {
+    const columns = 3;
+    const row = Math.floor(index / columns);
+    const rowStart = row * columns;
+    const itemsInRow = Math.min(columns, camp.count - rowStart);
+    const column = index - rowStart;
+    const rows = Math.ceil(camp.count / columns);
+    const localX = (column - (itemsInRow - 1) / 2) * Math.min(126, camp.radius * .34);
+    const localY = (row - (rows - 1) / 2) * Math.min(142, camp.radius * .4);
+    return rotateOffset(localX, localY, rotation);
+  }
+  const angle = index * 2.399963 + rotation;
+  const fraction = ((index * 37 + campIndex * 19) % 101) / 100;
+  const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
+  return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
 }
 
 function createDesertLayout() {
@@ -465,7 +517,7 @@ export function loadTreeSpritesheet(onSettled?: () => void) {
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   const sites: SpawnSite[] = [];
-  const camps = mapId === BEGINNER_DESERT_MAP_ID
+  const camps: readonly SpawnCamp[] = mapId === BEGINNER_DESERT_MAP_ID
     ? DESERT_CAMPS
     : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID
       ? SNOW_CAMPS
@@ -482,12 +534,10 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];
     for (let index = 0; index < camp.count; index += 1) {
-      const angle = index * 2.399963 + campIndex * 0.71;
-      const fraction = ((index * 37 + campIndex * 19) % 101) / 100;
-      const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
-      let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
-      let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID) {
+      const offset = campSpawnOffset(camp, index, campIndex);
+      let x = clamp(camp.x + offset.x, 45, WORLD.w - 45);
+      let y = clamp(camp.y + offset.y, 45, WORLD.h - 45);
+      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID) {
         const activeBoss = mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 };
         const bossDx = x - activeBoss.x;
         const bossDy = y - activeBoss.y;

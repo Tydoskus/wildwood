@@ -12,6 +12,8 @@ import {
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+  SAMURAI_GARDEN_ARCHETYPE_PROFILE,
   SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_REWARD_SCALE,
@@ -43,6 +45,92 @@ export type EnemyDefinition = {
 
 function repeatTierMultiplier(previous: number, current: number) {
   return current * (current / previous);
+}
+
+type LateMapArchetype = keyof typeof SAMURAI_GARDEN_ARCHETYPE_PROFILE;
+type EnemyBalance = Pick<EnemyDefinition, "hp" | "damage" | "attackSpeed" | "reward">;
+
+const LATE_MAP_ARCHETYPES = ["raider", "archer", "guardian", "reaper", "oracle"] as const satisfies readonly LateMapArchetype[];
+const WATER_REACH_BALANCE = {
+  raider: {
+    hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
+    damage: 850_000_000_000,
+    attackSpeed: .65,
+    reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+  },
+  archer: {
+    hp: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
+    damage: 1_150_000_000_000,
+    attackSpeed: .55,
+    reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER },
+  },
+  guardian: {
+    hp: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
+    damage: 1_450_000_000_000,
+    attackSpeed: .55,
+    reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE },
+  },
+  reaper: {
+    hp: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
+    damage: 1_250_000_000_000,
+    attackSpeed: .7,
+    reward: { type: "damage", amount: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+  },
+  oracle: {
+    hp: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
+    damage: 1_350_000_000_000,
+    attackSpeed: .6,
+    reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE },
+  },
+} satisfies Record<LateMapArchetype, EnemyBalance>;
+
+function rewardPower(reward: EnemyDefinition["reward"]) {
+  if (reward.type === "armor") return reward.amount * 3;
+  if (reward.type === "regen") return reward.amount * 10;
+  return reward.amount;
+}
+
+function centeredLateMapFactors(
+  rawFactor: (archetype: LateMapArchetype) => number,
+  shapedWeight: (archetype: LateMapArchetype) => number,
+  targetWeight: (archetype: LateMapArchetype) => number = shapedWeight,
+) {
+  const targetTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
+    total + LATE_MAP_CLEAR_ARCHETYPE_COUNTS[archetype] * targetWeight(archetype), 0);
+  const shapedTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
+    total + LATE_MAP_CLEAR_ARCHETYPE_COUNTS[archetype] * shapedWeight(archetype) * rawFactor(archetype), 0);
+  const center = shapedTotal / targetTotal;
+  return Object.fromEntries(LATE_MAP_ARCHETYPES.map((archetype) => [
+    archetype,
+    rawFactor(archetype) / center,
+  ])) as Record<LateMapArchetype, number>;
+}
+
+const SAMURAI_HEALTH_FACTORS = centeredLateMapFactors(
+  (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].health,
+  (archetype) => WATER_REACH_BALANCE[archetype].hp,
+);
+const SAMURAI_DAMAGE_FACTORS = centeredLateMapFactors(
+  (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].damage,
+  (archetype) => WATER_REACH_BALANCE[archetype].damage * SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
+  (archetype) => WATER_REACH_BALANCE[archetype].damage * WATER_REACH_BALANCE[archetype].attackSpeed,
+);
+const SAMURAI_REWARD_FACTORS = centeredLateMapFactors(
+  (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].reward,
+  (archetype) => rewardPower(WATER_REACH_BALANCE[archetype].reward),
+);
+
+function samuraiGardenBalance(archetype: LateMapArchetype): EnemyBalance {
+  const water = WATER_REACH_BALANCE[archetype];
+  return {
+    hp: water.hp * SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_HEALTH_FACTORS[archetype],
+    damage: water.damage * SAMURAI_GARDEN_DAMAGE_SCALE * SAMURAI_DAMAGE_FACTORS[archetype],
+    attackSpeed: SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
+    reward: {
+      ...water.reward,
+      amount: water.reward.amount * SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_REWARD_FACTORS[archetype],
+    },
+  };
 }
 
 const enemyTypes = {
@@ -205,64 +293,54 @@ const enemyTypes = {
   // stays in one narrow band; archetype identity comes from range, health,
   // cadence, and rewards rather than surprise one-shots.
   "Tide Raider": {
-    hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 255,
-    damage: 850_000_000_000, attackSpeed: .65, r: 27,
-    color: "#49c9d4", outline: "#123b58", reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+    ...WATER_REACH_BALANCE.raider, speed: 255, r: 27,
+    color: "#49c9d4", outline: "#123b58",
   },
   "Reef Archer": {
-    hp: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 240,
-    damage: 1_150_000_000_000, attackSpeed: .55, r: 25,
-    color: "#69dce3", outline: "#17465d", reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER },
+    ...WATER_REACH_BALANCE.archer, speed: 240, r: 25,
+    color: "#69dce3", outline: "#17465d",
     ranged: true,
   },
   "Coral Colossus": {
-    hp: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 225,
-    damage: 1_450_000_000_000, attackSpeed: .55, r: 35,
-    color: "#ff7f83", outline: "#573049", reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE },
+    ...WATER_REACH_BALANCE.guardian, speed: 225, r: 35,
+    color: "#ff7f83", outline: "#573049",
   },
   "Drowned Reaper": {
-    hp: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 260,
-    damage: 1_250_000_000_000, attackSpeed: .7, r: 42,
-    color: "#3f93bd", outline: "#172c50", reward: { type: "damage", amount: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+    ...WATER_REACH_BALANCE.reaper, speed: 260, r: 42,
+    color: "#3f93bd", outline: "#172c50",
     ranged: true, elite: true, aggro: 440,
   },
   "Tidal Oracle": {
-    hp: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE, speed: 245,
-    damage: 1_350_000_000_000, attackSpeed: .6, r: 39,
-    color: "#7e9ee9", outline: "#29315d", reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE },
+    ...WATER_REACH_BALANCE.oracle, speed: 245, r: 39,
+    color: "#7e9ee9", outline: "#29315d",
     elite: true, aggro: 440,
   },
 
   // SAMURAI GARDEN ENEMIES
-  // Follow the progression contract from Water Reach: 270× health budgets the
-  // 1.35× longer map at 200× player power, while incoming damage and rewards
-  // advance by 200×. The narrow damage band keeps each archetype readable.
+  // Individual ratios vary around the Water Reach baseline so the tier does
+  // not feel copied. The centered profiles above keep one full clear exactly
+  // at 270× health, 200× incoming DPS, and 200× reward power.
   "Sakura Ronin": {
-    hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 265,
-    damage: 850_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .65, r: 29,
-    color: "#ef75aa", outline: "#54233f", reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER * SAMURAI_GARDEN_REWARD_SCALE },
+    ...samuraiGardenBalance("raider"), speed: 270, r: 29,
+    color: "#ef75aa", outline: "#54233f",
   },
   "Petal Archer": {
-    hp: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 250,
-    damage: 1_150_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .55, r: 27,
-    color: "#ff9fc7", outline: "#60304d", reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER * SAMURAI_GARDEN_REWARD_SCALE },
+    ...samuraiGardenBalance("archer"), speed: 248, r: 27,
+    color: "#ff9fc7", outline: "#60304d",
     ranged: true,
   },
   "Bamboo Guardian": {
-    hp: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 230,
-    damage: 1_450_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .55, r: 37,
-    color: "#7cad70", outline: "#294936", reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE },
+    ...samuraiGardenBalance("guardian"), speed: 232, r: 37,
+    color: "#7cad70", outline: "#294936",
   },
   "Moonblade Reaper": {
-    hp: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 270,
-    damage: 1_250_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .7, r: 44,
-    color: "#8a70bd", outline: "#30264f", reward: { type: "damage", amount: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER * SAMURAI_GARDEN_REWARD_SCALE },
+    ...samuraiGardenBalance("reaper"), speed: 276, r: 44,
+    color: "#8a70bd", outline: "#30264f",
     ranged: true, elite: true, aggro: 460,
   },
   "Shrine Oracle": {
-    hp: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 255,
-    damage: 1_350_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .6, r: 41,
-    color: "#eeb1d4", outline: "#52334f", reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE },
+    ...samuraiGardenBalance("oracle"), speed: 252, r: 41,
+    color: "#eeb1d4", outline: "#52334f",
     elite: true, aggro: 460,
   },
 } satisfies Record<string, EnemyDefinition>;

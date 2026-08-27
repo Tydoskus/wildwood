@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_MAX_HP, MAGMALISK_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -51,6 +51,7 @@ describe("Advanced Lava Lake", () => {
     expect(config[INFERNAL_DEPTHS_MAP_ID].name).toBe("Night Forest");
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => infernalKinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
     expect(layout.decor.filter((item) => item.type === "tree")).toHaveLength(166);
     expect(layout.decor.some((item) => item.type === "charredTree" || item.type === "lavaPool" || item.type === "lavaRock" || item.type === "grass" || item.type === "petal")).toBe(false);
   });
@@ -112,10 +113,47 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].name).toBe("Samurai Garden");
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => samuraiKinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
     expect(first).toEqual(second);
     expect(first.paths.length).toBeGreaterThanOrEqual(10);
     expect(first.decor.filter((item) => item.type === "tree")).toHaveLength(148);
     expect(first.decor.some((item) => item.type === "cherryPetal")).toBe(true);
+  });
+
+  it("uses distinct late-map geometry and mixed camps without changing family totals", () => {
+    const boss = { x: 4050, y: 4050 };
+    const lavaSites = createSpawnSites(boss, ADVANCED_LAVA_WASTES_MAP_ID);
+    const lateMaps = [
+      {
+        sites: createSpawnSites(boss, INFERNAL_DEPTHS_MAP_ID),
+        kinds: ["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
+      },
+      {
+        sites: createSpawnSites(boss, WATER_REACH_MAP_ID),
+        kinds: ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
+      },
+      {
+        sites: createSpawnSites(boss, SAMURAI_GARDEN_MAP_ID),
+        kinds: ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+      },
+    ] as const;
+    const positionSignature = (sites: typeof lavaSites) => sites
+      .map((site) => `${site.x.toFixed(2)},${site.y.toFixed(2)}`)
+      .join("|");
+    const signatures = [positionSignature(lavaSites), ...lateMaps.map(({ sites }) => positionSignature(sites))];
+
+    expect(new Set(signatures).size).toBe(signatures.length);
+    for (const { sites, kinds } of lateMaps) {
+      const expectedCounts = Object.values(LATE_MAP_CLEAR_ARCHETYPE_COUNTS);
+      expect(kinds.map((kind) => sites.filter((site) => site.type === kind).length)).toEqual(expectedCounts);
+      const campKinds = new Map<string, Set<string>>();
+      for (const site of sites) {
+        const kindsAtCamp = campKinds.get(site.campName) ?? new Set<string>();
+        kindsAtCamp.add(site.type);
+        campKinds.set(site.campName, kindsAtCamp);
+      }
+      expect([...campKinds.values()].every((types) => types.size > 1)).toBe(true);
+    }
   });
 });
 
