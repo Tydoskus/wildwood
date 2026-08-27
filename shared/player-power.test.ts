@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "./items";
 import { effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power, playerPowerForStats } from "./player-power";
+import { MIN_ATTACK_INTERVAL } from "./rules";
 
 describe("player power", () => {
   it("uses the same research and equipped-item stats everywhere", () => {
@@ -18,8 +19,8 @@ describe("player power", () => {
     const effective = effectivePlayerPowerStats(progress, research);
 
     expect(effective.maxHp).toBeCloseTo(105);
-    expect(effective.damage).toBeCloseTo(109.2);
-    expect(effective.attackRate).toBeCloseTo(1.56 / 1.05);
+    expect(effective.damage).toBeCloseTo(109);
+    expect(effective.attackRate).toBeCloseTo(1.56);
     expect(effective.armor).toBeCloseTo(10.6);
     expect(effective.regen).toBeCloseTo(2.16);
     expect(effectivePlayerPower(progress, research)).toBe(playerPowerForStats(effective));
@@ -37,7 +38,18 @@ describe("player power", () => {
     expect(legacyU32Power(power)).toBe(0xffffffff);
   });
 
-  it("multiplies equipped head and chest health bonuses", () => {
+  it("never reports a legacy saved attack rate above the current base-speed cap", () => {
+    const effective = effectivePlayerPowerStats({
+      maxHp: 100,
+      damage: 10,
+      attackRate: .32,
+      armor: 0,
+      regen: 0,
+    });
+    expect(effective.attackRate).toBeCloseTo(MIN_ATTACK_INTERVAL);
+  });
+
+  it("adds equipped head and chest health bonuses", () => {
     const effective = effectivePlayerPowerStats({
       maxHp: 100,
       damage: 10,
@@ -47,7 +59,7 @@ describe("player power", () => {
       equippedHead: WOOD_FULL_HELM,
       equippedChest: FROST_ARMOR,
     });
-    expect(effective.maxHp).toBeCloseTo(250);
+    expect(effective.maxHp).toBeCloseTo(225);
   });
 
   it("bounds malformed totals", () => {

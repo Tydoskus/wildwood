@@ -31,8 +31,8 @@ export const MAX_OWNED_ITEM_COUNT = 1;
 // equipment is unique now, so every durable quantity is clamped to one.
 export const MAX_FOREST_ITEM_COUNT = MAX_OWNED_ITEM_COUNT;
 export const MAX_ITEM_UPGRADE_LEVEL = 10;
-// Each level adds this share of the stat's level-zero full multiplier.
-export const ITEM_UPGRADE_STAT_BONUS = .2;
+// Each level adds this share of the item's level-zero bonus.
+export const ITEM_UPGRADE_STAT_BONUS = .08;
 export const ITEM_UPGRADE_BASE_DURATION_MS = 3 * 60 * 1_000;
 export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
 
@@ -57,7 +57,6 @@ export type ItemDefinition = {
     mode: "RANGED";
     projectile: ProjectileKind;
     damageMultiplierBonus?: number;
-    attackSpeedMultiplierBonus?: number;
   };
 };
 
@@ -84,7 +83,7 @@ export const ITEM_DEFINITIONS = {
     slot: "HEAD",
     acquisition: "DESERT_DROP",
     description: "A sturdy wooden full helm carried by Beginner Desert monsters that increases maximum health.",
-    stats: ["MAX HEALTH MULTIPLIER 1.25×"],
+    stats: ["MAX HEALTH +25%"],
     modifiers: { maxHealthMultiplierBonus: .25 },
   },
   [FIRE_METAL_HELMET]: {
@@ -93,7 +92,7 @@ export const ITEM_DEFINITIONS = {
     slot: "HEAD",
     acquisition: "LAVA_DROP",
     description: "A red-hot metal helm carried by Advanced Lava Lake monsters that amplifies damage, health, and regeneration.",
-    stats: ["DAMAGE MULTIPLIER 1.25×", "MAX HEALTH MULTIPLIER 1.25×", "REGEN MULTIPLIER 1.50×"],
+    stats: ["DAMAGE +25%", "MAX HEALTH +25%", "REGEN +50%"],
     modifiers: {
       damageMultiplierBonus: .25,
       maxHealthMultiplierBonus: .25,
@@ -106,7 +105,7 @@ export const ITEM_DEFINITIONS = {
     slot: "HEAD",
     acquisition: "INFERNAL_DROP",
     description: "A horned dark-metal helm carried by Night Forest monsters that greatly amplifies damage, health, and regeneration.",
-    stats: ["DAMAGE MULTIPLIER 2.50×", "MAX HEALTH MULTIPLIER 2.50×", "REGEN MULTIPLIER 3.00×"],
+    stats: ["DAMAGE +150%", "MAX HEALTH +150%", "REGEN +200%"],
     modifiers: {
       damageMultiplierBonus: 1.5,
       maxHealthMultiplierBonus: 1.5,
@@ -144,12 +143,11 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "FOREST_DROP",
     description: "A dependable wooden bow for hunting Wildwood monsters.",
-    stats: ["DAMAGE MULTIPLIER +0.05×", "ATTACK SPEED MULTIPLIER +0.05×"],
+    stats: ["DAMAGE +5%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
       damageMultiplierBonus: .05,
-      attackSpeedMultiplierBonus: .05,
     },
   },
   [IRON_BOW]: {
@@ -157,13 +155,12 @@ export const ITEM_DEFINITIONS = {
     name: "IRON BOW",
     slot: "HAND",
     acquisition: "DESERT_DROP",
-    description: "A reinforced iron bow carried by Beginner Desert monsters, balancing stronger hits with faster attacks.",
-    stats: ["DAMAGE MULTIPLIER 1.50×", "ATTACK SPEED MULTIPLIER 1.10×"],
+    description: "A reinforced iron bow carried by Beginner Desert monsters that strengthens every shot.",
+    stats: ["DAMAGE +50%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
       damageMultiplierBonus: .5,
-      attackSpeedMultiplierBonus: .1,
     },
   },
   [FROST_BOW]: {
@@ -171,13 +168,12 @@ export const ITEM_DEFINITIONS = {
     name: "FROST BOW",
     slot: "HAND",
     acquisition: "SNOW_BOSS_DROP",
-    description: "A frozen bow claimed from Frostclaw, built for swift and devastating shots.",
-    stats: ["DAMAGE MULTIPLIER 3.00×", "ATTACK SPEED MULTIPLIER 1.20×"],
+    description: "A frozen bow claimed from Frostclaw, built for devastating shots.",
+    stats: ["DAMAGE +200%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
       damageMultiplierBonus: 2,
-      attackSpeedMultiplierBonus: .2,
     },
   },
   [LAVA_BOW]: {
@@ -185,13 +181,12 @@ export const ITEM_DEFINITIONS = {
     name: "LAVA BOW",
     slot: "HAND",
     acquisition: "LAVA_BOSS_DROP",
-    description: "A blazing red bow claimed from the Magmalisk, built for overwhelming damage and rapid fire.",
-    stats: ["DAMAGE MULTIPLIER 5.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
+    description: "A blazing red bow claimed from the Magmalisk, built for overwhelming damage.",
+    stats: ["DAMAGE +400%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
       damageMultiplierBonus: 4,
-      attackSpeedMultiplierBonus: .3,
     },
   },
   [FIRE_METAL_BOW]: {
@@ -199,13 +194,12 @@ export const ITEM_DEFINITIONS = {
     name: "FIRE METAL BOW",
     slot: "HAND",
     acquisition: "INFERNAL_DROP",
-    description: "A forged bow carried by Night Forest monsters, built for extreme damage and rapid fire.",
-    stats: ["DAMAGE MULTIPLIER 6.00×", "ATTACK SPEED MULTIPLIER 1.30×"],
+    description: "A forged bow carried by Night Forest monsters, built for extreme damage.",
+    stats: ["DAMAGE +500%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
       damageMultiplierBonus: 5,
-      attackSpeedMultiplierBonus: .3,
     },
   },
   [FROST_ARMOR]: {
@@ -214,7 +208,7 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "SNOW_BOSS_DROP",
     description: "Frozen blue armor claimed from Frostclaw that fortifies health and regeneration.",
-    stats: ["MAX HEALTH MULTIPLIER 2.00×", "REGEN MULTIPLIER 2.00×"],
+    stats: ["MAX HEALTH +100%", "REGEN +100%"],
     modifiers: {
       maxHealthMultiplierBonus: 1,
       regenerationMultiplierBonus: 1,
@@ -226,7 +220,7 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "LAVA_DROP",
     description: "Molten orange armor carried by Lava Wastes monsters that amplifies damage, health, and regeneration.",
-    stats: ["DAMAGE MULTIPLIER 2.00×", "MAX HEALTH MULTIPLIER 2.25×", "REGEN MULTIPLIER 2.25×"],
+    stats: ["DAMAGE +100%", "MAX HEALTH +125%", "REGEN +125%"],
     modifiers: {
       damageMultiplierBonus: 1,
       maxHealthMultiplierBonus: 1.25,
@@ -239,7 +233,7 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "FOREST_DROP",
     description: "Wooden forest plate that reinforces its wearer with extra health.",
-    stats: ["MAX HEALTH MULTIPLIER +0.05×"],
+    stats: ["MAX HEALTH +5%"],
     modifiers: { maxHealthMultiplierBonus: .05 },
   },
 } as const satisfies Record<string, ItemDefinition>;
@@ -324,16 +318,17 @@ export function isUpgradeableItem(itemId: unknown) {
   const item = itemDefinition(canonicalItemId(itemId));
   if (!item || (item.slot !== "HAND" && item.slot !== "HEAD" && item.slot !== "CHEST")) return false;
   return item.weapon?.damageMultiplierBonus !== undefined ||
-    item.weapon?.attackSpeedMultiplierBonus !== undefined ||
     item.modifiers?.damageMultiplierBonus !== undefined ||
     item.modifiers?.maxHealthMultiplierBonus !== undefined ||
     item.modifiers?.regenerationMultiplierBonus !== undefined;
 }
 
-function upgradedStatMultiplier(baseBonus: number, level: unknown) {
-  // Upgrades improve only the item's additive bonus. The universal baseline
-  // 1× is never itself amplified by item levels.
-  return 1 + baseBonus * (1 + normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS);
+function upgradedStatBonus(baseBonus: number, level: unknown) {
+  return baseBonus * (1 + normalizeItemUpgradeLevel(level) * ITEM_UPGRADE_STAT_BONUS);
+}
+
+function upgradedStatPercent(baseBonus: number, level: unknown) {
+  return `${(upgradedStatBonus(baseBonus, level) * 100).toFixed(0)}%`;
 }
 
 function upgradeBonus(itemId: unknown, level: unknown, baseBonus: number | undefined) {
@@ -355,19 +350,16 @@ export function itemStats(itemId: unknown, upgradeLevel: unknown = 0): readonly 
   const level = normalizeItemUpgradeLevel(upgradeLevel);
   const stats: string[] = [];
   if (item.weapon?.damageMultiplierBonus !== undefined) {
-    stats.push(`DAMAGE MULTIPLIER ${upgradedStatMultiplier(item.weapon.damageMultiplierBonus, level).toFixed(2)}×`);
-  }
-  if (item.weapon?.attackSpeedMultiplierBonus !== undefined) {
-    stats.push(`ATTACK SPEED MULTIPLIER ${upgradedStatMultiplier(item.weapon.attackSpeedMultiplierBonus, level).toFixed(2)}×`);
+    stats.push(`DAMAGE +${upgradedStatPercent(item.weapon.damageMultiplierBonus, level)}`);
   }
   if (item.modifiers?.damageMultiplierBonus !== undefined) {
-    stats.push(`DAMAGE MULTIPLIER ${upgradedStatMultiplier(item.modifiers.damageMultiplierBonus, level).toFixed(2)}×`);
+    stats.push(`DAMAGE +${upgradedStatPercent(item.modifiers.damageMultiplierBonus, level)}`);
   }
   if (item.modifiers?.maxHealthMultiplierBonus !== undefined) {
-    stats.push(`MAX HEALTH MULTIPLIER ${upgradedStatMultiplier(item.modifiers.maxHealthMultiplierBonus, level).toFixed(2)}×`);
+    stats.push(`MAX HEALTH +${upgradedStatPercent(item.modifiers.maxHealthMultiplierBonus, level)}`);
   }
   if (item.modifiers?.regenerationMultiplierBonus !== undefined) {
-    stats.push(`REGEN MULTIPLIER ${upgradedStatMultiplier(item.modifiers.regenerationMultiplierBonus, level).toFixed(2)}×`);
+    stats.push(`REGEN +${upgradedStatPercent(item.modifiers.regenerationMultiplierBonus, level)}`);
   }
   return stats;
 }
@@ -387,22 +379,22 @@ export function itemUpgradeStatChanges(itemId: unknown, currentLevel: unknown) {
   });
 }
 
-function equipmentStatMultiplier(itemId: unknown, upgradeLevel: unknown, bonus: number | undefined) {
-  return 1 + (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
+function equipmentStatBonus(itemId: unknown, upgradeLevel: unknown, bonus: number | undefined) {
+  return (bonus ?? 0) + upgradeBonus(itemId, upgradeLevel, bonus);
 }
 
-/** Research boosts the base stat, then equipment multiplies that boosted value. */
+/** Research and equipment bonuses add into one multiplier. */
 export function weaponDamageMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.damageMultiplierBonus;
-  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+  return researchMultiplier + equipmentStatBonus(itemId, upgradeLevel, bonus);
 }
 
 export function itemDamageMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.damageMultiplierBonus;
-  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+  return researchMultiplier + equipmentStatBonus(itemId, upgradeLevel, bonus);
 }
 
-/** Weapon, head, chest, and research damage bonuses are independent multipliers. */
+/** Weapon, head, chest, and research damage bonuses stack additively. */
 export function equipmentDamageMultiplier(
   weaponItemId: unknown,
   headItemId: unknown,
@@ -412,14 +404,18 @@ export function equipmentDamageMultiplier(
   headUpgradeLevel = 0,
   chestUpgradeLevel = 0,
 ) {
-  return weaponDamageMultiplier(weaponItemId, researchMultiplier, weaponUpgradeLevel) *
-    itemDamageMultiplier(headItemId, 1, headUpgradeLevel) *
-    itemDamageMultiplier(chestItemId, 1, chestUpgradeLevel);
+  const weaponBonus = itemDefinition(canonicalItemId(weaponItemId))?.weapon?.damageMultiplierBonus;
+  const headBonus = itemDefinition(canonicalItemId(headItemId))?.modifiers?.damageMultiplierBonus;
+  const chestBonus = itemDefinition(canonicalItemId(chestItemId))?.modifiers?.damageMultiplierBonus;
+  return researchMultiplier +
+    equipmentStatBonus(weaponItemId, weaponUpgradeLevel, weaponBonus) +
+    equipmentStatBonus(headItemId, headUpgradeLevel, headBonus) +
+    equipmentStatBonus(chestItemId, chestUpgradeLevel, chestBonus);
 }
 
-export function weaponAttackSpeedMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
-  const bonus = itemDefinition(canonicalItemId(itemId))?.weapon?.attackSpeedMultiplierBonus;
-  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+/** Equipment never changes attack speed; the arguments remain for shared call-site compatibility. */
+export function weaponAttackSpeedMultiplier(_itemId: unknown, researchMultiplier = 1, _upgradeLevel = 0) {
+  return researchMultiplier;
 }
 
 export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1, upgradeLevel = 0) {
@@ -428,10 +424,10 @@ export function weaponAttackInterval(itemId: unknown, baseInterval: number, rese
 
 export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus;
-  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+  return researchMultiplier + equipmentStatBonus(itemId, upgradeLevel, bonus);
 }
 
-/** Head, chest, and research max-health bonuses are independent multipliers. */
+/** Head, chest, and research max-health bonuses stack additively. */
 export function equipmentMaxHealthMultiplier(
   headItemId: unknown,
   chestItemId: unknown,
@@ -439,17 +435,20 @@ export function equipmentMaxHealthMultiplier(
   headUpgradeLevel = 0,
   chestUpgradeLevel = 0,
 ) {
-  return itemMaxHealthMultiplier(headItemId, researchMultiplier, headUpgradeLevel) *
-    itemMaxHealthMultiplier(chestItemId, 1, chestUpgradeLevel);
+  const headBonus = itemDefinition(canonicalItemId(headItemId))?.modifiers?.maxHealthMultiplierBonus;
+  const chestBonus = itemDefinition(canonicalItemId(chestItemId))?.modifiers?.maxHealthMultiplierBonus;
+  return researchMultiplier +
+    equipmentStatBonus(headItemId, headUpgradeLevel, headBonus) +
+    equipmentStatBonus(chestItemId, chestUpgradeLevel, chestBonus);
 }
 
-/** Regeneration uses the same research-then-equipment multiplication order. */
+/** Regeneration uses the same additive research-and-equipment rule. */
 export function itemRegenerationMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.regenerationMultiplierBonus;
-  return researchMultiplier * equipmentStatMultiplier(itemId, upgradeLevel, bonus);
+  return researchMultiplier + equipmentStatBonus(itemId, upgradeLevel, bonus);
 }
 
-/** Head, chest, and research regeneration bonuses are independent multipliers. */
+/** Head, chest, and research regeneration bonuses stack additively. */
 export function equipmentRegenerationMultiplier(
   headItemId: unknown,
   chestItemId: unknown,
@@ -457,6 +456,9 @@ export function equipmentRegenerationMultiplier(
   headUpgradeLevel = 0,
   chestUpgradeLevel = 0,
 ) {
-  return itemRegenerationMultiplier(headItemId, researchMultiplier, headUpgradeLevel) *
-    itemRegenerationMultiplier(chestItemId, 1, chestUpgradeLevel);
+  const headBonus = itemDefinition(canonicalItemId(headItemId))?.modifiers?.regenerationMultiplierBonus;
+  const chestBonus = itemDefinition(canonicalItemId(chestItemId))?.modifiers?.regenerationMultiplierBonus;
+  return researchMultiplier +
+    equipmentStatBonus(headItemId, headUpgradeLevel, headBonus) +
+    equipmentStatBonus(chestItemId, chestUpgradeLevel, chestBonus);
 }

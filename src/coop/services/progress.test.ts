@@ -68,8 +68,9 @@ describe("progress persistence rules", () => {
     });
   });
 
-  it("migrates the old attack-rate balance exactly once", () => {
-    expect(migrateProgressSave({ ...pending, attackRate: .5 }, ATTACK_BALANCE_VERSION - 1).attackRate).toBe(1);
+  it("migrates both attack-rate balance passes exactly once", () => {
+    expect(migrateProgressSave({ ...pending, attackRate: .5 }, 0).attackRate).toBe(1);
+    expect(migrateProgressSave({ ...pending, attackRate: .32 }, ATTACK_BALANCE_VERSION - 1).attackRate).toBe(MIN_ATTACK_INTERVAL);
     expect(migrateProgressSave({ ...pending, attackRate: .5 }, ATTACK_BALANCE_VERSION).attackRate).toBe(.5);
   });
 

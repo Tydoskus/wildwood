@@ -153,18 +153,17 @@ export function mapGuideDropChance(denominator: number) {
   return `${Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(1)}%`;
 }
 
-function multiplierLabel(value: number) {
-  return `${Number(value.toFixed(2))}×`;
+function bonusLabel(value: number) {
+  return `+${Number((value * 100).toFixed(2))}%`;
 }
 
 export function mapGuideItemStats(itemId: ItemId) {
   const item: ItemDefinition = ITEM_DEFINITIONS[itemId];
   const stats: string[] = [];
   const damageBonus = item.weapon?.damageMultiplierBonus ?? item.modifiers?.damageMultiplierBonus;
-  if (damageBonus !== undefined) stats.push(`Damage ${multiplierLabel(1 + damageBonus)}`);
-  if (item.weapon?.attackSpeedMultiplierBonus !== undefined) stats.push(`Attack Speed ${multiplierLabel(1 + item.weapon.attackSpeedMultiplierBonus)}`);
-  if (item.modifiers?.maxHealthMultiplierBonus !== undefined) stats.push(`Max Health ${multiplierLabel(1 + item.modifiers.maxHealthMultiplierBonus)}`);
-  if (item.modifiers?.regenerationMultiplierBonus !== undefined) stats.push(`Regen ${multiplierLabel(1 + item.modifiers.regenerationMultiplierBonus)}`);
+  if (damageBonus !== undefined) stats.push(`Damage ${bonusLabel(damageBonus)}`);
+  if (item.modifiers?.maxHealthMultiplierBonus !== undefined) stats.push(`Max Health ${bonusLabel(item.modifiers.maxHealthMultiplierBonus)}`);
+  if (item.modifiers?.regenerationMultiplierBonus !== undefined) stats.push(`Regen ${bonusLabel(item.modifiers.regenerationMultiplierBonus)}`);
   return stats;
 }
 

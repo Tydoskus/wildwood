@@ -141,17 +141,18 @@ export function profileStatDisplayRows(
   const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
   const researchBonus = (rank = 0, percentPerRank = 0) => rank * percentPerRank;
   const multiplierValue = (value: number) => value.toFixed(2);
-  const multiplierSourceValue = (value: number) => `${multiplierValue(value)}×`;
+  const equipmentBonusValue = (value: number) => `+${((value - 1) * 100).toFixed(0)}%`;
   const multiplierSources = (researchPercent?: number, equipmentMultiplier?: number): ProfileStatDisplaySource[] => {
     const sources: ProfileStatDisplaySource[] = [];
     if (researchPercent) sources.push({ label: "Tech", value: `+${researchPercent}%` });
     if (equipmentMultiplier !== undefined && Math.abs(equipmentMultiplier - 1) > .0001) {
-      sources.push({ label: "Equipment", value: multiplierSourceValue(equipmentMultiplier) });
+      sources.push({ label: "Equipment", value: equipmentBonusValue(equipmentMultiplier) });
     }
     return sources;
   };
-  const attackSpeedMaxed = progress.attackRate <= minAttackInterval + .0001;
-  const baseAttackSpeed = `${(1 / progress.attackRate).toFixed(2)}/s${attackSpeedMaxed ? " (Max)" : ""}`;
+  const baseAttackInterval = Math.max(minAttackInterval, progress.attackRate);
+  const attackSpeedMaxed = baseAttackInterval <= minAttackInterval + .0001;
+  const baseAttackSpeed = `${(1 / baseAttackInterval).toFixed(2)}/s${attackSpeedMaxed ? " (Max)" : ""}`;
   const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s`;
   const regen = `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`;
   const healthResearchBonus = researchBonus(ranks.vitality, 2);

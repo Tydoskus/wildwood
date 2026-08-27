@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { damageAfterArmor } from "./combat";
 import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
 import { ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
 
@@ -49,7 +50,7 @@ describe("enemy reward rules", () => {
     expect(rewardLabel({ type: "damage", amount: 240_000 })).toBe("+240k DAMAGE");
   });
 
-  it("repeats each archetype's Snowlands-to-Lava multiplier and doubles Infernal damage and health rewards", () => {
+  it("repeats Night Forest health and reward growth without repeating runaway damage", () => {
     const tracks = [
       ["Frost Raider", "Ember Raider", "Depth Raider"],
       ["Glacier Archer", "Cinder Archer", "Abyss Archer"],
@@ -62,10 +63,15 @@ describe("enemy reward rules", () => {
       const lava = ENEMY_TYPES[lavaKind];
       const infernal = ENEMY_TYPES[infernalKind];
       expect(infernal.hp / lava.hp).toBeCloseTo(lava.hp / snow.hp, 8);
-      expect(infernal.damage / lava.damage).toBeCloseTo(lava.damage / snow.damage, 8);
       const rewardBoost = infernal.reward.type === "damage" || infernal.reward.type === "health" ? 2 : 1;
       expect(infernal.reward.amount / lava.reward.amount).toBeCloseTo(lava.reward.amount / snow.reward.amount * rewardBoost, 8);
     }
+
+    const damages = tracks.map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
+    expect(Math.max(...damages) / Math.min(...damages)).toBeCloseTo(1.1);
+    const hitsAfterNinetyOnePercentBlock = damages.map((damage) => damageAfterArmor(damage, 30_000_000_000));
+    expect(Math.min(...hitsAfterNinetyOnePercentBlock)).toBeGreaterThan(85_000_000_000_000);
+    expect(Math.max(...hitsAfterNinetyOnePercentBlock)).toBeLessThan(100_000_000_000_000);
   });
 });
 

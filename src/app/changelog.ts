@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.535": [
+    "Equipment bonuses now stack additively, item upgrades grow by 8% of each item's base bonus per level, and equipment no longer increases attack speed.",
+    "Maximum base attack speed is now 2.625 attacks per second, with existing saves migrated safely to the new cap.",
+    "Night Forest enemy damage now stays in a tight range that lands near 90–100 trillion per hit at 91% block instead of producing multi-quadrillion spikes.",
+  ],
+
   "0.534": [
     "Multiplayer now caches each map's player names, appearances, equipment, speed, and power once instead of moving broad player subscriptions with the camera.",
     "Remote positions are sampled analytically at publication time, eliminating heartbeat-age catch-up jumps without adding server simulation ticks.",
@@ -1141,6 +1147,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.535": "2026-08-27",
   "0.534": "2026-08-26",
   "0.533": "2026-08-26",
   "0.532": "2026-08-26",

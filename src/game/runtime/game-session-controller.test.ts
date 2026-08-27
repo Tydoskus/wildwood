@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MIN_ATTACK_INTERVAL } from "../../../shared/rules";
 import {
   advanceFixedSimulationClock,
   MAX_SIMULATION_CATCH_UP_SECONDS,
@@ -110,9 +111,8 @@ describe("game session frame scheduling", () => {
     expect([120, 60, 30, 20, 9].map((fps) => simulationStepsFor(fps, 10))).toEqual([600, 600, 600, 600, 600]);
   });
 
-  it("keeps Frost Bow +9 attack totals independent of render FPS", () => {
-    const frostBowPlusNineInterval = .32 / 1.56;
-    expect([60, 30, 20, 9].map((fps) => attacksFor(fps, 10, frostBowPlusNineInterval))).toEqual([49, 49, 49, 49]);
+  it("keeps max base attack totals independent of render FPS", () => {
+    expect([60, 30, 20, 9].map((fps) => attacksFor(fps, 10, MIN_ATTACK_INTERVAL))).toEqual([27, 27, 27, 27]);
   });
 
   it("bounds catch-up after a long stall instead of creating a resume burst", () => {

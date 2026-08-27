@@ -56,7 +56,7 @@ export function effectivePlayerPowerStats(
       headLevel,
       chestLevel,
     ),
-    attackRate: weaponAttackInterval(weaponItem, progress.attackRate, 1, weaponLevel),
+    attackRate: weaponAttackInterval(weaponItem, Math.max(MIN_ATTACK_INTERVAL, progress.attackRate), 1, weaponLevel),
     armor: progress.armor * (1 + researchRank(research?.precision) * .02),
     regen: progress.regen * equipmentRegenerationMultiplier(
       headItem,

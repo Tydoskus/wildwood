@@ -2049,9 +2049,15 @@ function markAttackBalanceCurrent(ctx: any) {
 function migrateAttackBalance(ctx: any, progress: any) {
   const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
   if (current?.version === ATTACK_BALANCE_VERSION) return progress;
+  const version = current?.version ?? 0;
   const migrated = {
     ...progress,
-    attackRate: Math.max(MIN_ATTACK_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, progress.attackRate * 2)),
+    // Version 1 halved legacy attack speed once. Version 2 only enforces the
+    // lower base-speed cap for existing players.
+    attackRate: Math.max(
+      MIN_ATTACK_INTERVAL,
+      Math.min(DEFAULT_ATTACK_INTERVAL, version < 1 ? progress.attackRate * 2 : progress.attackRate),
+    ),
   };
   ctx.db.playerProgress.identity.update(migrated);
   markAttackBalanceCurrent(ctx);
@@ -3039,7 +3045,12 @@ function leaderboardAppearanceForProgress(progress: any, profile: any) {
 
 function attackIntervalForProgress(ctx: any, identity: any, progress: any) {
   const weaponItem = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
-  return weaponAttackInterval(weaponItem, progress.attackRate, 1, itemUpgradeLevelFor(ctx, identity, weaponItem));
+  return weaponAttackInterval(
+    weaponItem,
+    Math.max(MIN_ATTACK_INTERVAL, progress.attackRate),
+    1,
+    itemUpgradeLevelFor(ctx, identity, weaponItem),
+  );
 }
 
 function maxHealthForProgress(ctx: any, identity: any, progress: any) {
@@ -5045,7 +5056,14 @@ export const claimGuestAccount = spacetimedb.reducer(
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
     if (!guestProgress) throw new SenderError("Guest save unavailable. Return to guest mode and try again.");
     mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
-    const nextProgress = { ...guestProgress, identity: ctx.sender };
+    const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
+    const guestBalanceVersion = guestBalance?.version ?? 0;
+    const guestAttackRate = guestBalanceVersion >= 1 ? guestProgress.attackRate : guestProgress.attackRate * 2;
+    const nextProgress = {
+      ...guestProgress,
+      identity: ctx.sender,
+      attackRate: Math.max(MIN_ATTACK_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
+    };
     if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
     else ctx.db.playerProgress.insert(nextProgress);
 
@@ -5275,7 +5293,6 @@ export const claimGuestAccount = spacetimedb.reducer(
     }
     const guestDuelRequestCooldown = ctx.db.duelRequestCooldown.identity.find(link.guest);
     if (guestDuelRequestCooldown) ctx.db.duelRequestCooldown.identity.delete(link.guest);
-    const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     if (guestBalance) ctx.db.playerBalanceVersion.identity.delete(link.guest);
     const guestGemWallet = ctx.db.playerGemWallet.identity.find(link.guest);
     if (guestGemWallet) ctx.db.playerGemWallet.identity.delete(link.guest);
@@ -5633,7 +5650,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       ...progress,
       maxHp: bounded(update.maxHp, 1, MAX_PLAYER_STAT, "Max HP"),
       damage: bounded(update.damage, 1, MAX_PLAYER_STAT, "Damage"),
-      attackRate: bounded(update.attackRate, .05, 10, "Attack rate"),
+      attackRate: bounded(update.attackRate, MIN_ATTACK_INTERVAL, 10, "Attack rate"),
       projectileSpeed: PLAYER_PROJECTILE_SPEED,
       projectileCount: Math.max(1, Math.min(20, Math.floor(update.projectileCount))),
       attackRange: bounded(update.attackRange, 1, 5_000, "Attack range"),

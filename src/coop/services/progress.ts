@@ -104,9 +104,17 @@ export function isProgressSave(value: unknown): value is ProgressSave {
 
 export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion: unknown): ProgressSave {
   if (savedBalanceVersion === ATTACK_BALANCE_VERSION) return copyProgress(progress);
+  const version = Number.isFinite(savedBalanceVersion) ? Number(savedBalanceVersion) : 0;
   return copyProgress({
     ...progress,
-    attackRate: bounded(progress.attackRate * 2, MIN_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL, DEFAULT_ATTACK_INTERVAL),
+    // Version 1 halved legacy attack speed once. Version 2 only enforces the
+    // lower base-speed cap, including on already-maxed local pending saves.
+    attackRate: bounded(
+      version < 1 ? progress.attackRate * 2 : progress.attackRate,
+      MIN_ATTACK_INTERVAL,
+      DEFAULT_ATTACK_INTERVAL,
+      DEFAULT_ATTACK_INTERVAL,
+    ),
   });
 }
 

@@ -14,13 +14,14 @@ export const MOVEMENT_SPEED_EPSILON = .01;
 export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
-export const MIN_ATTACK_INTERVAL = .32;
+export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
+export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 // Scalable combat stats use f32 storage. One undecillion stays below f32's
 // finite limit with room for research and power multipliers. Movement and
 // attack speed retain their separate gameplay caps.
 export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
-export const ATTACK_BALANCE_VERSION = 1;
+export const ATTACK_BALANCE_VERSION = 2;
 export {
   BASIC_PAPER_HAT,
   DARK_METAL_HELMET,
@@ -69,7 +70,7 @@ export const MAP_IDS: readonly string[] = [
   INFERNAL_DEPTHS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 72;
+export const PROTOCOL_VERSION = 73;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

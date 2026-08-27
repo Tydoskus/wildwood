@@ -34,8 +34,7 @@ describe("upgrade bench touch latch", () => {
     expect(upgradePickerPreview(FROST_BOW, 0)).toEqual({
       name: "FROST BOW",
       changes: [
-        { label: "DAMAGE MULTIPLIER", current: "3.00×", next: "3.40×" },
-        { label: "ATTACK SPEED MULTIPLIER", current: "1.20×", next: "1.24×" },
+        { label: "DAMAGE", current: "+200%", next: "+216%" },
       ],
     });
   });

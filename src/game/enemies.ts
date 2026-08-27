@@ -141,34 +141,35 @@ const enemyTypes = {
     elite: true, aggro: 380,
   },
 
-  // INFERNAL DEPTHS ENEMIES
-  // Repeat each archetype's actual Snowlands-to-Lava multiplier, including
-  // Lava Lake's deliberate damage tuning. Damage- and health-reward tracks pay 2×.
+  // NIGHT FOREST ENEMIES
+  // Health repeats each archetype's Snowlands-to-Lava growth. Per-hit damage
+  // stays in a tight band so armor produces readable, predictable hits.
+  // Damage- and health-reward tracks pay 2×.
   "Depth Raider": {
     hp: repeatTierMultiplier(2_700_000_000, 6_075_000_000_000), speed: 250,
-    damage: repeatTierMultiplier(2_330_000, 8_143_350_000), attackSpeed: .65, r: 25,
+    damage: 1_000_000_000_000_000, attackSpeed: .65, r: 25,
     color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 2 },
   },
   "Abyss Archer": {
     hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000), speed: 235,
-    damage: repeatTierMultiplier(11_150_000, 149_187_000_000), attackSpeed: .55, r: 23,
+    damage: 1_025_000_000_000_000, attackSpeed: .55, r: 23,
     color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 },
     ranged: true,
   },
   "Obsidian Colossus": {
     hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000), speed: 225,
-    damage: repeatTierMultiplier(35_300_000, 1_168_200_000_000), attackSpeed: .55, r: 32,
+    damage: 1_100_000_000_000_000, attackSpeed: .55, r: 32,
     color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) },
   },
   "Doom Reaper": {
     hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000), speed: 255,
-    damage: repeatTierMultiplier(8_400_000, 44_100_000_000), attackSpeed: .7, r: 39,
+    damage: 1_050_000_000_000_000, attackSpeed: .7, r: 39,
     color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 },
     ranged: true, elite: true, aggro: 420,
   },
   "Nether Oracle": {
     hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000), speed: 240,
-    damage: repeatTierMultiplier(28_600_000, 613_470_000_000), attackSpeed: .6, r: 37,
+    damage: 1_075_000_000_000_000, attackSpeed: .6, r: 37,
     color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) },
     elite: true, aggro: 420,
   },
