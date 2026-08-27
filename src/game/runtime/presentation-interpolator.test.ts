@@ -40,6 +40,23 @@ describe("fixed-step presentation interpolation", () => {
     });
   });
 
+  it("does not interpolate a pooled collection member from a stale capture", () => {
+    const pooled = { x: 4, y: 6 };
+    const particles = [pooled];
+    const presentation = createPresentationInterpolator({ singletons: [], collections: [particles] });
+
+    presentation.capture();
+    particles.pop();
+    presentation.capture();
+    pooled.x = 40;
+    pooled.y = 60;
+    particles.push(pooled);
+
+    presentation.render(.25, () => {
+      expect(pooled).toEqual({ x: 40, y: 60 });
+    });
+  });
+
   it("restores transforms when drawing throws", () => {
     const actor = { x: 0, y: 0 };
     const presentation = createPresentationInterpolator({ singletons: [actor], collections: [] });

@@ -144,11 +144,11 @@ const enemyTypes = {
   // NIGHT FOREST ENEMIES
   // Health repeats each archetype's Snowlands-to-Lava growth. Per-hit damage
   // stays in a tight band so armor produces readable, predictable hits.
-  // Damage- and health-reward tracks pay 2×.
+  // Damage- and health-reward tracks pay 2×, except Depth Raider pays 6×.
   "Depth Raider": {
     hp: repeatTierMultiplier(2_700_000_000, 6_075_000_000_000), speed: 250,
     damage: 1_000_000_000_000_000, attackSpeed: .65, r: 25,
-    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 2 },
+    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 6 },
   },
   "Abyss Archer": {
     hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000), speed: 235,

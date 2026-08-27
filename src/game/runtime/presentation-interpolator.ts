@@ -10,6 +10,7 @@ type TransformSnapshot = {
   x: number;
   y: number;
   zoom?: number;
+  captureGeneration: number;
 };
 
 const DEFAULT_TELEPORT_DISTANCE = 160;
@@ -27,6 +28,7 @@ export function createPresentationInterpolator(options: {
   const teleportDistance = Math.max(0, options.teleportDistance ?? DEFAULT_TELEPORT_DISTANCE);
   const teleportDistanceSquared = teleportDistance * teleportDistance;
   let previous = new WeakMap<PresentationTransform, TransformSnapshot>();
+  let captureGeneration = 0;
   const restoreTransforms: PresentationTransform[] = [];
   const restoreX: number[] = [];
   const restoreY: number[] = [];
@@ -39,17 +41,20 @@ export function createPresentationInterpolator(options: {
       snapshot.x = transform.x;
       snapshot.y = transform.y;
       snapshot.zoom = Number.isFinite(transform.zoom) ? transform.zoom : undefined;
+      snapshot.captureGeneration = captureGeneration;
       return;
     }
     previous.set(transform, {
       x: transform.x,
       y: transform.y,
       zoom: Number.isFinite(transform.zoom) ? transform.zoom : undefined,
+      captureGeneration,
     });
   }
 
   /** Capture current state immediately before each fixed simulation step. */
   function capture() {
+    captureGeneration += 1;
     for (const transform of options.singletons) captureTransform(transform);
     for (const collection of options.collections) {
       for (const transform of collection) captureTransform(transform);
@@ -59,6 +64,7 @@ export function createPresentationInterpolator(options: {
   /** Forget stale pre-transition state and anchor presentation to simulation. */
   function reset() {
     previous = new WeakMap<PresentationTransform, TransformSnapshot>();
+    captureGeneration = 0;
     capture();
   }
 
@@ -68,7 +74,12 @@ export function createPresentationInterpolator(options: {
 
     function interpolateTransform(transform: PresentationTransform) {
       const before = previous.get(transform);
-      if (!before || !Number.isFinite(transform.x) || !Number.isFinite(transform.y)) return;
+      if (
+        !before
+        || before.captureGeneration !== captureGeneration
+        || !Number.isFinite(transform.x)
+        || !Number.isFinite(transform.y)
+      ) return;
       const currentX = transform.x;
       const currentY = transform.y;
       const currentZoom = transform.zoom;

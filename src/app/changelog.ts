@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.536": [
+    "Depth Raider now grants three times as much permanent Damage, increasing its reward from 19.2 billion to 57.6 billion.",
+    "Damage popups no longer jump from stale pooled positions on their first rendered frame.",
+  ],
   "0.535": [
     "Equipment bonuses now stack additively, item upgrades grow by 8% of each item's base bonus per level, and equipment no longer increases attack speed.",
     "Maximum base attack speed is now 2.625 attacks per second, with existing saves migrated safely to the new cap.",
@@ -1147,6 +1151,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.536": "2026-08-27",
   "0.535": "2026-08-27",
   "0.534": "2026-08-26",
   "0.533": "2026-08-26",

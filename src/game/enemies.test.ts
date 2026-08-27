@@ -37,7 +37,7 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Magma Guard"].reward).toEqual({ type: "armor", amount: 1_307_000 });
     expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 });
     expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 });
-    expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 19_200_000_000 });
+    expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 57_600_000_000 });
     expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444);
     expect(ENEMY_TYPES["Doom Reaper"].reward).toEqual({ type: "damage", amount: 2_500_470_000_000 });
   });
@@ -63,7 +63,9 @@ describe("enemy reward rules", () => {
       const lava = ENEMY_TYPES[lavaKind];
       const infernal = ENEMY_TYPES[infernalKind];
       expect(infernal.hp / lava.hp).toBeCloseTo(lava.hp / snow.hp, 8);
-      const rewardBoost = infernal.reward.type === "damage" || infernal.reward.type === "health" ? 2 : 1;
+      const rewardBoost = infernalKind === "Depth Raider"
+        ? 6
+        : infernal.reward.type === "damage" || infernal.reward.type === "health" ? 2 : 1;
       expect(infernal.reward.amount / lava.reward.amount).toBeCloseTo(lava.reward.amount / snow.reward.amount * rewardBoost, 8);
     }
 
