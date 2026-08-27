@@ -58,7 +58,9 @@ function parseArguments(args: string[]) {
       config.researchPlan = value as ResearchPlan;
     }
     else if (flag === "--boss-target") config.bossTargetSeconds = parseDuration(value);
+    else if (flag === "--target-desert") config.targetDesertDurationSeconds = parseDuration(value);
     else if (flag === "--target-step") config.targetMapDurationMultiplier = Number(value);
+    else if (flag === "--target-power") config.targetMapPowerMultiplier = Number(value);
     else if (flag === "--clears") config.requiredClears = Number(value);
     else if (flag === "--respawn") config.respawnSeconds = parseDuration(value);
     else if (flag === "--gear-level") config.itemUpgradeLevel = Number(value);
@@ -87,12 +89,14 @@ function printHelp() {
 
 Usage: npm run balance:simulate -- [options]
 
-  --duration 7d                Simulation window (s, m, h, or d)
-  --trials 20                  Seeded loot campaigns
+  --duration 13.64h            Simulation window (s, m, h, or d)
+  --trials 100                 Seeded loot campaigns
   --strategy boss-rush         boss-rush, efficient, or natural
   --research off               off, balanced, or damage-first
   --boss-target 5m             Solo TTK required before attempting a boss
+  --target-desert 2h           Explicit Beginner Desert duration target
   --target-step 1.35           Desired duration multiplier between maps
+  --target-power 200           Desired relative power growth inside each map
   --clears 1                   Full spawn-site clears required per map
   --respawn 30s                Regular enemy respawn time
   --gear-level 0               Shared equipped-item upgrade level (0–10)
@@ -118,16 +122,20 @@ if (parsed.json) {
 console.log(`Wildwood Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy}`);
 console.log(`Final power ${formatCompactNumber(result.finalPower.median)} (${formatCompactNumber(result.finalPower.p10)}–${formatCompactNumber(result.finalPower.p90)}) · DPS ${formatCompactNumber(result.finalDps.median)}`);
 console.log("");
-console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time", 17)}${pad("Power entry → exit", 25)}${pad("Boss TTK", 12)}Step`);
+console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time / target", 23)}${pad("Power entry → exit", 25)}${pad("Growth / target", 19)}${pad("Boss TTK", 12)}Time fit`);
 for (const map of result.maps) {
   const clear = map.hasBoss ? `${Math.round(map.completedPercent)}%` : "open";
   const censored = map.hasBoss && map.durationCensoredPercent > 0 ? "+" : "";
   const power = map.entryPowerMedian === null ? "—" : `${formatCompactNumber(map.entryPowerMedian)} → ${formatCompactNumber(map.exitPowerMedian ?? 0)}`;
-  const step = map.durationVsPrevious === null ? "—" : `${map.durationVsPrevious.toFixed(2)}×`;
+  const mapTime = `${formatDuration(map.durationMedianSeconds)}${censored} / ${formatDuration(map.targetDurationSeconds)}`;
+  const growth = map.powerGrowthMultiplier === null
+    ? "—"
+    : `${map.powerGrowthMultiplier.toFixed(map.powerGrowthMultiplier >= 10 ? 1 : 2)}× / ${map.targetPowerGrowthMultiplier?.toFixed(0) ?? "—"}×`;
+  const fit = map.durationVsTarget === null ? "—" : `${map.durationVsTarget.toFixed(2)}×`;
   console.log(
     `${pad(map.name, 26)}${pad(`${Math.round(map.reachedPercent)}%/${clear}`, 15)}` +
-    `${pad(formatDuration(map.enteredAtMedianSeconds), 10)}${pad(`${formatDuration(map.durationMedianSeconds)}${censored}`, 17)}` +
-    `${pad(power, 25)}${pad(formatDuration(map.bossTtkAtEntryMedianSeconds), 12)}${step}`,
+    `${pad(formatDuration(map.enteredAtMedianSeconds), 10)}${pad(mapTime, 23)}` +
+    `${pad(power, 25)}${pad(growth, 19)}${pad(formatDuration(map.bossTtkAtEntryMedianSeconds), 12)}${fit}`,
   );
 }
 console.log("");

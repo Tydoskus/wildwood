@@ -38,7 +38,7 @@
               <span class="field-hint">real-world days</span>
             </label>
             <div class="input-with-unit">
-              <input id="durationDays" name="durationDays" type="number" min="0.01" max="30" step="0.25" inputmode="decimal" />
+              <input id="durationDays" name="durationDays" type="number" min="0.0001" max="30" step="0.0001" inputmode="decimal" />
               <span>DAYS</span>
             </div>
 
@@ -69,7 +69,7 @@
               <div>
                 <label class="field-label" for="bossTargetMinutes">Boss readiness</label>
                 <div class="input-with-unit compact">
-                  <input id="bossTargetMinutes" name="bossTargetMinutes" type="number" min="0.1" max="1440" step="1" inputmode="decimal" />
+                  <input id="bossTargetMinutes" name="bossTargetMinutes" type="number" min="0.1" max="1440" step="0.1" inputmode="decimal" />
                   <span>MIN TTK</span>
                 </div>
               </div>
@@ -86,6 +86,23 @@
             <div class="input-with-unit compact">
               <input id="targetMapDurationMultiplier" name="targetMapDurationMultiplier" type="number" min="1" max="10" step="0.05" inputmode="decimal" />
               <span>× LONGER</span>
+            </div>
+
+            <div class="two-fields target-fields">
+              <div>
+                <label class="field-label" for="targetDesertHours">Desert target</label>
+                <div class="input-with-unit compact">
+                  <input id="targetDesertHours" name="targetDesertHours" type="number" min="0.02" max="720" step="any" inputmode="decimal" />
+                  <span>HOURS</span>
+                </div>
+              </div>
+              <div>
+                <label class="field-label" for="targetMapPowerMultiplier">Power budget</label>
+                <div class="input-with-unit compact">
+                  <input id="targetMapPowerMultiplier" name="targetMapPowerMultiplier" type="number" min="1" max="1000000" step="1" inputmode="decimal" />
+                  <span>× / MAP</span>
+                </div>
+              </div>
             </div>
 
             <details class="advanced-controls">
@@ -124,19 +141,19 @@
               <span>Enemy & boss health</span>
               <output id="mapHpValue" for="mapHpMultiplier">100%</output>
             </label>
-            <input id="mapHpMultiplier" type="range" min="10" max="300" step="5" />
+            <input id="mapHpMultiplier" type="number" min="0.0001" max="10000" step="any" inputmode="decimal" />
 
             <label class="multiplier-label" for="mapDamageMultiplier">
               <span>Enemy damage</span>
               <output id="mapDamageValue" for="mapDamageMultiplier">100%</output>
             </label>
-            <input id="mapDamageMultiplier" type="range" min="10" max="300" step="5" />
+            <input id="mapDamageMultiplier" type="number" min="0" max="10000" step="any" inputmode="decimal" />
 
             <label class="multiplier-label" for="mapRewardMultiplier">
               <span>All stat rewards</span>
               <output id="mapRewardValue" for="mapRewardMultiplier">100%</output>
             </label>
-            <input id="mapRewardMultiplier" type="range" min="10" max="300" step="5" />
+            <input id="mapRewardMultiplier" type="number" min="0" max="10000" step="any" inputmode="decimal" />
             <p class="tuning-note">Multipliers are sandbox-only. They do not edit the game.</p>
           </section>
 
@@ -167,6 +184,7 @@
             </div>
             <div class="chart-legend" aria-label="Chart legend">
               <span><i class="legend-line median"></i> MEDIAN</span>
+              <span><i class="legend-line target"></i> TARGET CURVE</span>
               <span><i class="legend-block range"></i> P10–P90</span>
               <span id="previousLegend" hidden><i class="legend-line previous"></i> PREVIOUS RUN</span>
             </div>
@@ -204,7 +222,7 @@
                   <th scope="col">Power entry → exit</th>
                   <th scope="col">Boss TTK at entry</th>
                   <th scope="col">Regular kills</th>
-                  <th scope="col">Step</th>
+                  <th scope="col">Target fit</th>
                 </tr>
               </thead>
               <tbody id="mapTableBody"></tbody>

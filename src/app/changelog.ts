@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.538": [
+    "Beginner Desert now targets about two hours, each later map about 1.35× longer, and post-Forest power follows a smooth roughly 200×-per-map growth curve.",
+    "Wastes Reaper now pays smaller, faster rewards so power starts climbing near the beginning of Desert instead of sitting flat for half an hour.",
+    "Only legacy accounts beyond the measured endgame curve receive a one-time rank-preserving soft compression; ordinary accounts remain unchanged and veteran advantage is preserved.",
+  ],
   "0.537": [
     "Depth Raider now has 10qd less health and deals half damage.",
   ],
@@ -1154,6 +1159,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.538": "2026-08-27",
   "0.537": "2026-08-27",
   "0.536": "2026-08-27",
   "0.535": "2026-08-27",

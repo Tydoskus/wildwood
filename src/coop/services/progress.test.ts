@@ -74,6 +74,14 @@ describe("progress persistence rules", () => {
     expect(migrateProgressSave({ ...pending, attackRate: .5 }, ATTACK_BALANCE_VERSION).attackRate).toBe(.5);
   });
 
+  it("compresses an outlier pending save only when crossing into balance version 3", () => {
+    const outlier = { ...pending, damage: 16_738_716_000_000, maxHp: 52_417_517_000_000, armor: 4_453_277_000, regen: 224_256_900_000 };
+    const migrated = migrateProgressSave(outlier, 2);
+    expect(migrated.damage).toBeLessThan(outlier.damage);
+    expect(migrated.maxHp).toBeLessThan(outlier.maxHp);
+    expect(migrateProgressSave(outlier, ATTACK_BALANCE_VERSION)).toMatchObject(outlier);
+  });
+
   it("moves a legacy identity-scoped save into current storage", () => {
     const storage = memoryStorage();
     storage.setItem("pending", JSON.stringify({ identity: "player-1", balanceVersion: ATTACK_BALANCE_VERSION, progress: pending }));

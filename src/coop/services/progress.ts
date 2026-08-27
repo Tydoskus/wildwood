@@ -8,6 +8,7 @@ import {
   movementSpeedsMatch,
   PLAYER_SPEED,
 } from "../../../shared/rules";
+import { compressLegacyProgressionOutlier } from "../../../shared/progression-balance";
 
 const MIN_PROJECTILE_SPEED = 390;
 const MAX_PROJECTILE_SPEED = 2730;
@@ -105,17 +106,18 @@ export function isProgressSave(value: unknown): value is ProgressSave {
 export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion: unknown): ProgressSave {
   if (savedBalanceVersion === ATTACK_BALANCE_VERSION) return copyProgress(progress);
   const version = Number.isFinite(savedBalanceVersion) ? Number(savedBalanceVersion) : 0;
-  return copyProgress({
+  const attackBalanced = {
     ...progress,
-    // Version 1 halved legacy attack speed once. Version 2 only enforces the
-    // lower base-speed cap, including on already-maxed local pending saves.
+    // Version 1 halved legacy attack speed once. Version 2 enforces the lower
+    // base-speed cap, including on already-maxed local pending saves.
     attackRate: bounded(
       version < 1 ? progress.attackRate * 2 : progress.attackRate,
       MIN_ATTACK_INTERVAL,
       DEFAULT_ATTACK_INTERVAL,
       DEFAULT_ATTACK_INTERVAL,
     ),
-  });
+  };
+  return copyProgress(version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced);
 }
 
 export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {

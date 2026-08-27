@@ -3,9 +3,11 @@ import { createGameBootstrap } from "./game-bootstrap";
 import { createBossController } from "./boss-controller";
 import {
   DRAGON_MAX_HP,
+  FROSTCLAW_MAX_HP,
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
+  MAGMALISK_MAX_HP,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
@@ -83,9 +85,9 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
 
 describe("Frostclaw boss", () => {
   it("grants the current third-boss reward without changing armor", () => {
-    expect(FROSTCLAW_REWARD_DAMAGE).toBe(72_000_000);
-    expect(FROSTCLAW_REWARD_HEALTH).toBe(270_000_000);
-    expect(FROSTCLAW_REWARD_ARMOR).toBe(75_000);
+    expect(FROSTCLAW_REWARD_DAMAGE).toBe(14_400_000);
+    expect(FROSTCLAW_REWARD_HEALTH).toBe(54_000_000);
+    expect(FROSTCLAW_REWARD_ARMOR).toBe(15_000);
   });
 
   it("cycles roar, icefall, and rift as three distinct attacks", () => {
@@ -124,7 +126,7 @@ describe("Frostclaw boss", () => {
   });
 
   it("reveals the Lava Lake portal after a local Frostclaw contribution", () => {
-    let shared = { encounter: 7n, hp: 750_000_000_000, maxHp: 750_000_000_000, alive: true };
+    let shared = { encounter: 7n, hp: FROSTCLAW_MAX_HP, maxHp: FROSTCLAW_MAX_HP, alive: true };
     const startLavaPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
       getFrostclawBoss: () => shared,
@@ -145,7 +147,7 @@ describe("Frostclaw boss", () => {
   });
 
   it("reveals the portal for an earlier Frostclaw winner after rollout", () => {
-    const shared = { encounter: 8n, hp: 0, maxHp: 750_000_000_000, alive: false };
+    const shared = { encounter: 8n, hp: 0, maxHp: FROSTCLAW_MAX_HP, alive: false };
     const startLavaPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
       getFrostclawBoss: () => shared,
@@ -166,10 +168,10 @@ describe("Frostclaw boss", () => {
 
 describe("Magmalisk boss", () => {
   it("continues Lava scaling with four stat rewards", () => {
-    expect(MAGMALISK_REWARD_DAMAGE).toBe(14_400_000_000);
-    expect(MAGMALISK_REWARD_HEALTH).toBe(81_945_000_000);
-    expect(MAGMALISK_REWARD_ARMOR).toBe(7_000_000);
-    expect(MAGMALISK_REWARD_REGEN).toBe(405_015_625);
+    expect(MAGMALISK_REWARD_DAMAGE).toBe(432_000_000);
+    expect(MAGMALISK_REWARD_HEALTH).toBe(2_458_350_000);
+    expect(MAGMALISK_REWARD_ARMOR).toBe(210_000);
+    expect(MAGMALISK_REWARD_REGEN).toBe(12_150_468.75);
   });
 
   it("cycles bite and eruption using the selected attack frames", () => {
@@ -193,7 +195,7 @@ describe("Magmalisk boss", () => {
   });
 
   it("reveals Infernal Depths after a local Magmalisk contribution", () => {
-    let shared = { encounter: 9n, hp: 3_750_000_000_000_000, maxHp: 3_750_000_000_000_000, alive: true };
+    let shared = { encounter: 9n, hp: MAGMALISK_MAX_HP, maxHp: MAGMALISK_MAX_HP, alive: true };
     const startInfernalPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
       currentMapIsSnow: () => false,

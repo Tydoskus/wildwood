@@ -50,6 +50,9 @@ import {
   type ResearchRanks,
 } from "../../shared/research";
 import {
+  BALANCE_TARGET_DESERT_DURATION_SECONDS,
+  BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
+  BALANCE_TARGET_MAP_POWER_MULTIPLIER,
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
@@ -95,7 +98,9 @@ export type BalanceSimulationConfig = {
   strategy: FarmingStrategy;
   researchPlan: ResearchPlan;
   bossTargetSeconds: number;
+  targetDesertDurationSeconds: number;
   targetMapDurationMultiplier: number;
+  targetMapPowerMultiplier: number;
   requiredClears: number;
   respawnSeconds: number;
   itemUpgradeLevel: number;
@@ -104,7 +109,7 @@ export type BalanceSimulationConfig = {
   mapAdjustments: Record<BalanceMapId, MapAdjustment>;
 };
 
-type PersistentStats = {
+export type PersistentStats = {
   damage: number;
   maxHp: number;
   attackRate: number;
@@ -191,6 +196,7 @@ export type TrialMapRecord = {
   regularKills: number;
   fullClears: number;
   entryState: SimulationStateSnapshot;
+  exitState: SimulationStateSnapshot;
 };
 
 type TrialResult = {
@@ -221,11 +227,17 @@ export type MapSummary = {
   durationP90Seconds: number | null;
   entryPowerMedian: number | null;
   exitPowerMedian: number | null;
+  exitStatsMedian: Omit<PersistentStats, "attackRate"> | null;
+  exitStatsP90: Omit<PersistentStats, "attackRate"> | null;
   bossTtkAtEntryMedianSeconds: number | null;
   bossFightMedianSeconds: number | null;
   regularKillsMedian: number | null;
   fullClearsMedian: number | null;
   durationVsPrevious: number | null;
+  targetDurationSeconds: number | null;
+  durationVsTarget: number | null;
+  powerGrowthMultiplier: number | null;
+  targetPowerGrowthMultiplier: number | null;
 };
 
 export type EnemyBalanceMetric = {
@@ -256,6 +268,10 @@ export type BalanceSimulationResult = {
 const SAMPLE_COUNT = 180;
 const MAP_TRANSITION_SECONDS = 6;
 const LOOT_AND_RETARGET_SECONDS = .3;
+const DEFAULT_FOREST_ONBOARDING_SECONDS = 22.5 * 60;
+const DEFAULT_CAMPAIGN_DURATION_SECONDS = DEFAULT_FOREST_ONBOARDING_SECONDS + BALANCE_MAP_IDS
+  .slice(1)
+  .reduce((total, _mapId, index) => total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0);
 const PROJECTILE_TRAVEL_SECONDS = DEFAULT_ATTACK_RANGE / PLAYER_PROJECTILE_SPEED * .5;
 const FIRST_HIT_SECONDS = ATTACK_WINDUP_SECONDS + PROJECTILE_TRAVEL_SECONDS;
 
@@ -274,12 +290,14 @@ function defaultMapAdjustments(): Record<BalanceMapId, MapAdjustment> {
 
 export function defaultBalanceSimulationConfig(): BalanceSimulationConfig {
   return {
-    durationSeconds: 7 * 24 * 60 * 60,
-    trials: 20,
+    durationSeconds: DEFAULT_CAMPAIGN_DURATION_SECONDS,
+    trials: 100,
     strategy: "boss-rush",
     researchPlan: "off",
     bossTargetSeconds: 5 * 60,
-    targetMapDurationMultiplier: 1.35,
+    targetDesertDurationSeconds: BALANCE_TARGET_DESERT_DURATION_SECONDS,
+    targetMapDurationMultiplier: BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
+    targetMapPowerMultiplier: BALANCE_TARGET_MAP_POWER_MULTIPLIER,
     requiredClears: 1,
     respawnSeconds: 30,
     itemUpgradeLevel: 0,
@@ -298,7 +316,7 @@ function normalizeConfig(config: Partial<BalanceSimulationConfig>): BalanceSimul
     const next = config.mapAdjustments?.[id];
     if (!next) continue;
     adjustments[id] = {
-      hp: finiteRange(next.hp, 1, .01, 100),
+      hp: finiteRange(next.hp, 1, .000_001, 100),
       damage: finiteRange(next.damage, 1, 0, 100),
       reward: finiteRange(next.reward, 1, 0, 100),
     };
@@ -309,11 +327,23 @@ function normalizeConfig(config: Partial<BalanceSimulationConfig>): BalanceSimul
     strategy: strategy === "natural" || strategy === "boss-rush" ? strategy : "efficient",
     researchPlan: researchPlan === "balanced" || researchPlan === "damage-first" ? researchPlan : "off",
     bossTargetSeconds: finiteRange(config.bossTargetSeconds, defaults.bossTargetSeconds, 1, 24 * 60 * 60),
+    targetDesertDurationSeconds: finiteRange(
+      config.targetDesertDurationSeconds,
+      defaults.targetDesertDurationSeconds,
+      60,
+      30 * 24 * 60 * 60,
+    ),
     targetMapDurationMultiplier: finiteRange(
       config.targetMapDurationMultiplier,
       defaults.targetMapDurationMultiplier,
       1,
       10,
+    ),
+    targetMapPowerMultiplier: finiteRange(
+      config.targetMapPowerMultiplier,
+      defaults.targetMapPowerMultiplier,
+      1,
+      1_000_000,
     ),
     requiredClears: Math.round(finiteRange(config.requiredClears, defaults.requiredClears, 0, 20)),
     respawnSeconds: finiteRange(config.respawnSeconds, defaults.respawnSeconds, 1, 300),
@@ -685,6 +715,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     regularKills: 0,
     fullClears: 0,
     entryState: stateSnapshot(state),
+    exitState: stateSnapshot(state),
   });
 
   records.push(beginMapRecord(MAP_DEFINITIONS[0]));
@@ -716,6 +747,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
       recordHistory();
       mapRecord.exitedAtSeconds = state.time;
       mapRecord.exitPower = powerForState(state);
+      mapRecord.exitState = stateSnapshot(state);
       mapRecord.bossFightSeconds = currentBossFight;
       mapRecord.fullClears = clears;
       if (state.mapIndex >= MAP_DEFINITIONS.length - 1) continue;
@@ -759,6 +791,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
   const activeRecord = records[records.length - 1];
   if (activeRecord && activeRecord.exitedAtSeconds === null) {
     activeRecord.exitPower = powerForState(state);
+    activeRecord.exitState = stateSnapshot(state);
     activeRecord.fullClears = sites.length ? Math.min(...sites.map((site) => site.kills)) : 0;
   }
 
@@ -791,10 +824,23 @@ function mapRecordFor(trial: TrialResult, mapId: BalanceMapId) {
   return trial.maps.find((record) => record.mapId === mapId);
 }
 
-function mapSummary(trials: TrialResult[], map: BalanceMapDefinition, durationSeconds: number): MapSummary {
+function mapSummary(
+  trials: TrialResult[],
+  map: BalanceMapDefinition,
+  durationSeconds: number,
+  targetDurationSeconds: number | null,
+  targetPowerGrowthMultiplier: number | null,
+): MapSummary {
   const records = trials.map((trial) => mapRecordFor(trial, map.id)).filter((record): record is TrialMapRecord => Boolean(record));
   const completed = records.filter((record) => record.exitedAtSeconds !== null);
   const durations = records.map((record) => (record.exitedAtSeconds ?? durationSeconds) - record.enteredAtSeconds);
+  const durationMedianSeconds = quantile(durations, .5);
+  const exitStatsAt = (probability: number): Omit<PersistentStats, "attackRate"> | null => records.length ? {
+    damage: numericQuantile(records.map((record) => record.exitState.stats.damage), probability),
+    maxHp: numericQuantile(records.map((record) => record.exitState.stats.maxHp), probability),
+    armor: numericQuantile(records.map((record) => record.exitState.stats.armor), probability),
+    regen: numericQuantile(records.map((record) => record.exitState.stats.regen), probability),
+  } : null;
   return {
     mapId: map.id,
     name: map.name,
@@ -806,15 +852,23 @@ function mapSummary(trials: TrialResult[], map: BalanceMapDefinition, durationSe
       : 100,
     enteredAtMedianSeconds: quantile(records.map((record) => record.enteredAtSeconds), .5),
     durationP10Seconds: quantile(durations, .1),
-    durationMedianSeconds: quantile(durations, .5),
+    durationMedianSeconds,
     durationP90Seconds: quantile(durations, .9),
     entryPowerMedian: quantile(records.map((record) => record.entryPower), .5),
     exitPowerMedian: quantile(records.map((record) => record.exitPower), .5),
+    exitStatsMedian: exitStatsAt(.5),
+    exitStatsP90: exitStatsAt(.9),
     bossTtkAtEntryMedianSeconds: quantile(records.flatMap((record) => record.entryBossTtkSeconds === null ? [] : [record.entryBossTtkSeconds]), .5),
     bossFightMedianSeconds: quantile(completed.flatMap((record) => record.bossFightSeconds === null ? [] : [record.bossFightSeconds]), .5),
     regularKillsMedian: quantile(records.map((record) => record.regularKills), .5),
     fullClearsMedian: quantile(records.map((record) => record.fullClears), .5),
     durationVsPrevious: null,
+    targetDurationSeconds,
+    durationVsTarget: durationMedianSeconds !== null && targetDurationSeconds !== null
+      ? durationMedianSeconds / targetDurationSeconds
+      : null,
+    powerGrowthMultiplier: quantile(records.map((record) => record.exitPower / Math.max(1, record.entryPower)), .5),
+    targetPowerGrowthMultiplier,
   };
 }
 
@@ -864,24 +918,52 @@ function buildDiagnostics(
   enemyMetrics: Record<BalanceMapId, EnemyBalanceMetric[]>,
 ) {
   const diagnostics: string[] = [];
+  let measuredPacingTargets = 0;
+  let pacingTargetsOnTrack = 0;
+  let measuredPowerTargets = 0;
+  let powerTargetsOnTrack = 0;
   for (let index = 1; index < maps.length; index += 1) {
-    const previous = maps[index - 1];
     const current = maps[index];
     if (current.reachedPercent < 50) {
       diagnostics.push(`${current.name} is reached in only ${current.reachedPercent.toFixed(0)}% of runs within the selected time window.`);
-      break;
-    }
-    if (!current.hasBoss) continue;
-    if (current.completedPercent < 50) {
-      diagnostics.push(`${current.name} is not completed by the median run; its displayed map time is a lower bound capped by the simulation window.`);
       continue;
     }
-    const ratio = current.durationVsPrevious;
-    if (ratio !== null && ratio > config.targetMapDurationMultiplier * 1.5) {
-      diagnostics.push(`${current.name} lasts ${ratio.toFixed(1)}× as long as ${previous.name}, well above the ${config.targetMapDurationMultiplier.toFixed(2)}× target; test lower HP or stronger damage-track rewards.`);
-    } else if (ratio !== null && ratio < config.targetMapDurationMultiplier * .75) {
-      diagnostics.push(`${current.name} lasts only ${ratio.toFixed(2)}× as long as ${previous.name}, below the ${config.targetMapDurationMultiplier.toFixed(2)}× target.`);
+    const durationIsCensored = current.hasBoss && current.completedPercent < 50;
+    if (durationIsCensored) {
+      diagnostics.push(`${current.name} is not completed by the median run; its displayed map time is a lower bound capped by the simulation window.`);
+    } else if (current.durationVsTarget !== null) {
+      measuredPacingTargets += 1;
+      if (current.durationVsTarget > 1.25) {
+        diagnostics.push(`${current.name} takes ${current.durationVsTarget.toFixed(2)}× its ${formatDiagnosticDuration(current.targetDurationSeconds)} target; lower health or improve reward cadence.`);
+      } else if (current.durationVsTarget < .75) {
+        diagnostics.push(`${current.name} takes only ${current.durationVsTarget.toFixed(2)}× its ${formatDiagnosticDuration(current.targetDurationSeconds)} target; it needs more progression runway.`);
+      } else {
+        pacingTargetsOnTrack += 1;
+      }
     }
+    if (!durationIsCensored && current.powerGrowthMultiplier !== null && current.targetPowerGrowthMultiplier !== null) {
+      measuredPowerTargets += 1;
+      const powerFit = current.powerGrowthMultiplier / current.targetPowerGrowthMultiplier;
+      if (powerFit > 1.5) {
+        diagnostics.push(`${current.name} grows power ${current.powerGrowthMultiplier.toFixed(1)}×, above the ${current.targetPowerGrowthMultiplier.toFixed(0)}× curve budget; flatten its reward spikes.`);
+      } else if (powerFit < .65) {
+        diagnostics.push(`${current.name} grows power only ${current.powerGrowthMultiplier.toFixed(1)}× against a ${current.targetPowerGrowthMultiplier.toFixed(0)}× curve budget; add smaller, more frequent gains.`);
+      } else {
+        powerTargetsOnTrack += 1;
+      }
+    }
+    if (current.hasBoss && current.bossFightMedianSeconds !== null && current.durationMedianSeconds) {
+      const bossShare = current.bossFightMedianSeconds / current.durationMedianSeconds;
+      if (bossShare > .25) diagnostics.push(`${current.name}'s boss consumes ${(bossShare * 100).toFixed(0)}% of median map time; keep the boss as a capstone rather than the whole progression wall.`);
+    }
+  }
+  const pacingCurveOnTrack = measuredPacingTargets > 0 && measuredPacingTargets === pacingTargetsOnTrack;
+  if (pacingCurveOnTrack) {
+    diagnostics.unshift(`Pacing curve: ${pacingTargetsOnTrack}/${measuredPacingTargets} measured maps land within ±25% of their explicit duration targets.`);
+  }
+  const powerCurveOnTrack = measuredPowerTargets > 0 && measuredPowerTargets === powerTargetsOnTrack;
+  if (powerCurveOnTrack) {
+    diagnostics.splice(pacingCurveOnTrack ? 1 : 0, 0, `Power curve: ${powerTargetsOnTrack}/${measuredPowerTargets} measured maps stay near the ${config.targetMapPowerMultiplier.toFixed(0)}× per-map growth budget.`);
   }
   const spread = finalPower.p10 > 0 ? finalPower.p90 / finalPower.p10 : 1;
   if (spread > 1.75) diagnostics.push(`Random equipment drops create a ${spread.toFixed(1)}× P90-to-P10 final-power spread; inspect loot timing before changing base rewards.`);
@@ -904,6 +986,12 @@ function buildDiagnostics(
   return diagnostics;
 }
 
+function formatDiagnosticDuration(seconds: number | null) {
+  if (seconds === null) return "selected";
+  if (seconds < 3_600) return `${(seconds / 60).toFixed(0)}m`;
+  return `${(seconds / 3_600).toFixed(seconds < 36_000 ? 2 : 1)}h`;
+}
+
 export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {}): BalanceSimulationResult {
   const config = normalizeConfig(input);
   const trials = Array.from({ length: config.trials }, (_, index) => simulateTrial(config, index));
@@ -918,7 +1006,19 @@ export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {
       dpsMedian: numericQuantile(dps, .5),
     };
   });
-  const maps = MAP_DEFINITIONS.map((map) => mapSummary(trials, map, config.durationSeconds));
+  const maps = MAP_DEFINITIONS.map((map, index) => {
+    const progressionIndex = index - 1;
+    const targetDurationSeconds = progressionIndex < 0
+      ? null
+      : config.targetDesertDurationSeconds * config.targetMapDurationMultiplier ** progressionIndex;
+    return mapSummary(
+      trials,
+      map,
+      config.durationSeconds,
+      targetDurationSeconds,
+      progressionIndex < 0 ? null : config.targetMapPowerMultiplier,
+    );
+  });
   for (let index = 1; index < maps.length; index += 1) {
     const previous = maps[index - 1].durationMedianSeconds;
     const current = maps[index].durationMedianSeconds;

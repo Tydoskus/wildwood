@@ -61,7 +61,7 @@ Run the high-speed, non-graphical progression simulator with:
 npm run balance:lab
 ```
 
-For a terminal report or machine-readable JSON, use `npm run balance:simulate`. The lab charts power over time across seeded loot trials, compares map duration and boss readiness, ranks enemy reward efficiency, reports survivability, and provides sandbox HP/damage/reward multipliers. See `docs/balance-lab.md` for model assumptions and CLI examples.
+For a terminal report or machine-readable JSON, use `npm run balance:simulate`. The lab charts median power against a configurable geometric target curve, grades each map against explicit duration and power-growth budgets, compares boss readiness, ranks enemy reward efficiency, reports survivability, and provides sandbox HP/damage/reward multipliers. See `docs/balance-lab.md` for model assumptions and CLI examples.
 
 ## Client change workflow
 

@@ -211,6 +211,7 @@ input[type="range"] {
 }
 
 .two-fields { display: grid; grid-template-columns: 1.3fr .7fr; gap: 10px; }
+.two-fields.target-fields { grid-template-columns: 1fr 1fr; }
 
 .advanced-controls {
   margin-top: 18px;
@@ -360,6 +361,7 @@ input[type="range"] {
 .chart-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; color: #6d796f; font-family: var(--mono); font-size: 8px; }
 .chart-legend span { display: flex; align-items: center; gap: 6px; }
 .legend-line { width: 18px; height: 0; border-top: 2px solid var(--lime); }
+.legend-line.target { border-top-color: var(--amber); border-top-style: dashed; }
 .legend-line.previous { border-top-color: var(--blue); border-top-style: dashed; }
 .legend-block { width: 18px; height: 8px; background: var(--lime-soft); border: 1px solid rgba(183, 243, 107, .22); }
 
@@ -369,6 +371,7 @@ input[type="range"] {
 .chart-axis-label { fill: #68746b; font-family: var(--mono); font-size: 9px; }
 .chart-range { fill: rgba(183, 243, 107, .095); stroke: none; }
 .chart-median { fill: none; stroke: var(--lime); stroke-width: 2.3; vector-effect: non-scaling-stroke; }
+.chart-target { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 7 5; opacity: .9; vector-effect: non-scaling-stroke; }
 .chart-previous { fill: none; stroke: var(--blue); stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .8; vector-effect: non-scaling-stroke; }
 .map-entry-line { stroke: rgba(195, 166, 255, .28); stroke-width: 1; stroke-dasharray: 3 5; vector-effect: non-scaling-stroke; }
 .map-entry-label { fill: #a88ee0; font-family: var(--mono); font-size: 8px; letter-spacing: .04em; }

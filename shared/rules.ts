@@ -21,7 +21,7 @@ export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 // attack speed retain their separate gameplay caps.
 export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
-export const ATTACK_BALANCE_VERSION = 2;
+export const ATTACK_BALANCE_VERSION = 3;
 export {
   BASIC_PAPER_HAT,
   DARK_METAL_HELMET,
@@ -38,17 +38,38 @@ export {
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
 } from "./items";
-export const SPIDER_REWARD_DAMAGE = 75_000;
-export const SPIDER_REWARD_HEALTH = 200_000;
+// Progression is budgeted around a two-hour Desert, then 1.35x longer per map.
+// Health and reward scales keep each late map near 200x relative power growth
+// without changing the authored archetype ratios inside that map.
+export const BALANCE_TARGET_DESERT_DURATION_SECONDS = 2 * 60 * 60;
+export const BALANCE_TARGET_MAP_DURATION_MULTIPLIER = 1.35;
+export const BALANCE_TARGET_MAP_POWER_MULTIPLIER = 200;
+export const BEGINNER_DESERT_HEALTH_SCALE = .77;
+export const BEGINNER_DESERT_REWARD_SCALE = 1;
+// Keep the elite's long-run reward efficiency while paying it out in smaller,
+// faster increments so early Desert power does not sit flat for half an hour.
+export const WASTES_REAPER_CADENCE_SCALE = .2;
+export const INTERMEDIATE_SNOWLANDS_HEALTH_SCALE = .0298;
+export const INTERMEDIATE_SNOWLANDS_REWARD_SCALE = .2;
+export const ADVANCED_LAVA_WASTES_HEALTH_SCALE = .002055;
+export const ADVANCED_LAVA_WASTES_REWARD_SCALE = .03;
+export const INFERNAL_DEPTHS_HEALTH_SCALE = .000078;
+export const INFERNAL_DEPTHS_REWARD_SCALE = .00115;
+
+export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE;
+export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE;
+export const MAGMALISK_MAX_HP = 3_750_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE;
+export const SPIDER_REWARD_DAMAGE = 75_000 * BEGINNER_DESERT_REWARD_SCALE;
+export const SPIDER_REWARD_HEALTH = 200_000 * BEGINNER_DESERT_REWARD_SCALE;
 export const DRAGON_MAX_HP = 300_000;
 export const DRAGON_REWARD_DAMAGE = 650;
-export const FROSTCLAW_REWARD_DAMAGE = 72_000_000;
-export const FROSTCLAW_REWARD_HEALTH = 270_000_000;
-export const FROSTCLAW_REWARD_ARMOR = 75_000;
-export const MAGMALISK_REWARD_DAMAGE = 14_400_000_000;
-export const MAGMALISK_REWARD_HEALTH = 81_945_000_000;
-export const MAGMALISK_REWARD_ARMOR = 7_000_000;
-export const MAGMALISK_REWARD_REGEN = 405_015_625;
+export const FROSTCLAW_REWARD_DAMAGE = 72_000_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
+export const FROSTCLAW_REWARD_HEALTH = 270_000_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
+export const FROSTCLAW_REWARD_ARMOR = 75_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
+export const MAGMALISK_REWARD_DAMAGE = 14_400_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
+export const MAGMALISK_REWARD_HEALTH = 81_945_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
+export const MAGMALISK_REWARD_ARMOR = 7_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
+export const MAGMALISK_REWARD_REGEN = 405_015_625 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -70,7 +91,7 @@ export const MAP_IDS: readonly string[] = [
   INFERNAL_DEPTHS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 73;
+export const PROTOCOL_VERSION = 74;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

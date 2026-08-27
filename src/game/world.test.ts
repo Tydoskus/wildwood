@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAGMALISK_MAX_HP } from "../../shared/rules";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -70,7 +71,7 @@ describe("Advanced Lava Lake", () => {
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].name).toBe("Advanced Lava Lake");
     expect(config[INTERMEDIATE_SNOWLANDS_MAP_ID].secondaryPortal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].portal.destination).toBe(INTERMEDIATE_SNOWLANDS_MAP_ID);
-    expect(createGameBootstrap().magmaliskBoss).toMatchObject({ x: 4050, y: 4050, r: 165, maxHp: 3_750_000_000_000_000 });
+    expect(createGameBootstrap().magmaliskBoss).toMatchObject({ x: 4050, y: 4050, r: 165, maxHp: MAGMALISK_MAX_HP });
   });
 });
 

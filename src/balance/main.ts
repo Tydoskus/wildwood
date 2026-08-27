@@ -17,7 +17,8 @@ type SimulationResponse =
   | { id: number; ok: true; elapsedMs: number; result: BalanceSimulationResult }
   | { id: number; ok: false; message: string };
 
-const STORAGE_KEY = "wildwood.balanceLab.config.v1";
+const STORAGE_KEY = "wildwood.balanceLab.config.v2";
+const STORAGE_SCHEMA_VERSION = 2;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function requiredElement<T extends Element>(id: string) {
@@ -33,7 +34,9 @@ const trialsValue = requiredElement<HTMLOutputElement>("trialsValue");
 const strategy = requiredElement<HTMLSelectElement>("strategy");
 const researchPlan = requiredElement<HTMLSelectElement>("researchPlan");
 const bossTargetMinutes = requiredElement<HTMLInputElement>("bossTargetMinutes");
+const targetDesertHours = requiredElement<HTMLInputElement>("targetDesertHours");
 const targetMapDurationMultiplier = requiredElement<HTMLInputElement>("targetMapDurationMultiplier");
+const targetMapPowerMultiplier = requiredElement<HTMLInputElement>("targetMapPowerMultiplier");
 const requiredClears = requiredElement<HTMLInputElement>("requiredClears");
 const respawnSeconds = requiredElement<HTMLInputElement>("respawnSeconds");
 const pathingMultiplier = requiredElement<HTMLInputElement>("pathingMultiplier");
@@ -69,6 +72,11 @@ function mergeStoredConfig(stored: unknown): BalanceSimulationConfig {
   const defaults = defaultBalanceSimulationConfig();
   if (!stored || typeof stored !== "object") return defaults;
   const candidate = stored as Partial<BalanceSimulationConfig>;
+  if (
+    !Number.isFinite(candidate.targetDesertDurationSeconds) ||
+    !Number.isFinite(candidate.targetMapDurationMultiplier) ||
+    !Number.isFinite(candidate.targetMapPowerMultiplier)
+  ) return defaults;
   const adjustments = { ...defaults.mapAdjustments };
   for (const mapId of BALANCE_MAP_IDS) {
     const adjustment = candidate.mapAdjustments?.[mapId];
@@ -79,7 +87,9 @@ function mergeStoredConfig(stored: unknown): BalanceSimulationConfig {
 
 function loadConfig() {
   try {
-    return mergeStoredConfig(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null"));
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as { schemaVersion?: number; config?: unknown } | null;
+    if (stored?.schemaVersion !== STORAGE_SCHEMA_VERSION) return defaultBalanceSimulationConfig();
+    return mergeStoredConfig(stored.config);
   } catch {
     return defaultBalanceSimulationConfig();
   }
@@ -108,13 +118,15 @@ function numberValue(input: HTMLInputElement, fallback: number) {
 }
 
 function syncControlsFromConfig() {
-  durationDays.value = String(Number((config.durationSeconds / 86_400).toFixed(2)));
+  durationDays.value = String(Number((config.durationSeconds / 86_400).toFixed(4)));
   trials.value = String(config.trials);
   trialsValue.value = String(config.trials);
   strategy.value = config.strategy;
   researchPlan.value = config.researchPlan;
   bossTargetMinutes.value = String(Number((config.bossTargetSeconds / 60).toFixed(2)));
+  targetDesertHours.value = String(Number((config.targetDesertDurationSeconds / 3_600).toFixed(2)));
   targetMapDurationMultiplier.value = String(config.targetMapDurationMultiplier);
+  targetMapPowerMultiplier.value = String(config.targetMapPowerMultiplier);
   requiredClears.value = String(config.requiredClears);
   respawnSeconds.value = String(config.respawnSeconds);
   pathingMultiplier.value = String(config.pathingMultiplier);
@@ -130,7 +142,9 @@ function syncConfigFromControls() {
   config.strategy = strategy.value as FarmingStrategy;
   config.researchPlan = researchPlan.value as ResearchPlan;
   config.bossTargetSeconds = numberValue(bossTargetMinutes, config.bossTargetSeconds / 60) * 60;
+  config.targetDesertDurationSeconds = numberValue(targetDesertHours, config.targetDesertDurationSeconds / 3_600) * 3_600;
   config.targetMapDurationMultiplier = numberValue(targetMapDurationMultiplier, config.targetMapDurationMultiplier);
+  config.targetMapPowerMultiplier = numberValue(targetMapPowerMultiplier, config.targetMapPowerMultiplier);
   config.requiredClears = Math.round(numberValue(requiredClears, config.requiredClears));
   config.respawnSeconds = numberValue(respawnSeconds, config.respawnSeconds);
   config.pathingMultiplier = numberValue(pathingMultiplier, config.pathingMultiplier);
@@ -141,12 +155,23 @@ function syncConfigFromControls() {
 
 function syncTuningControls() {
   const adjustment = config.mapAdjustments[selectedTuningMap];
-  mapHpMultiplier.value = String(Math.round(adjustment.hp * 100));
-  mapDamageMultiplier.value = String(Math.round(adjustment.damage * 100));
-  mapRewardMultiplier.value = String(Math.round(adjustment.reward * 100));
-  mapHpValue.value = `${mapHpMultiplier.value}%`;
-  mapDamageValue.value = `${mapDamageMultiplier.value}%`;
-  mapRewardValue.value = `${mapRewardMultiplier.value}%`;
+  mapHpMultiplier.value = percentInputValue(adjustment.hp);
+  mapDamageMultiplier.value = percentInputValue(adjustment.damage);
+  mapRewardMultiplier.value = percentInputValue(adjustment.reward);
+  mapHpValue.value = formatTuningPercent(numberValue(mapHpMultiplier, 100));
+  mapDamageValue.value = formatTuningPercent(numberValue(mapDamageMultiplier, 100));
+  mapRewardValue.value = formatTuningPercent(numberValue(mapRewardMultiplier, 100));
+}
+
+function percentInputValue(multiplier: number) {
+  return String(Number((multiplier * 100).toPrecision(8)));
+}
+
+function formatTuningPercent(percent: number) {
+  if (percent === 0) return "0%";
+  if (percent < .01) return `${Number(percent.toPrecision(3))}%`;
+  if (percent < 10) return `${Number(percent.toFixed(2))}%`;
+  return `${Number(percent.toFixed(1))}%`;
 }
 
 function syncTuningConfig() {
@@ -174,7 +199,9 @@ function markDirty() {
 }
 
 function saveConfig() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch { /* Local storage is optional. */ }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION, config }));
+  } catch { /* Local storage is optional. */ }
 }
 
 function formatDuration(seconds: number | null, compact = false) {
@@ -213,13 +240,18 @@ function deltaMarkup(current: number, previous: number | null) {
 }
 
 function renderSummary(next: BalanceSimulationResult) {
-  const initialPower = next.timeline[0]?.powerMedian ?? 1;
   const finalPower = next.finalPower.median;
-  const dailyGrowth = (finalPower / Math.max(1, initialPower)) ** (86_400 / next.config.durationSeconds);
   const furthestMap = [...next.maps].reverse().find((map) => map.reachedPercent >= 50) ?? next.maps[0];
   const previousFurthest = previousResult
     ? [...previousResult.maps].reverse().find((map) => map.reachedPercent >= 50)
     : null;
+  const pacingTargets = next.maps.filter((map) => map.durationVsTarget !== null && (!map.hasBoss || map.completedPercent >= 50));
+  const pacingHits = pacingTargets.filter((map) => map.durationVsTarget! >= .75 && map.durationVsTarget! <= 1.25).length;
+  const powerTargets = next.maps.filter((map) => map.powerGrowthMultiplier !== null && map.targetPowerGrowthMultiplier !== null && (!map.hasBoss || map.completedPercent >= 50));
+  const powerHits = powerTargets.filter((map) => {
+    const fit = map.powerGrowthMultiplier! / map.targetPowerGrowthMultiplier!;
+    return fit >= .65 && fit <= 1.5;
+  }).length;
   const cards = [
     {
       label: "FINAL MEDIAN POWER",
@@ -232,9 +264,9 @@ function renderSummary(next: BalanceSimulationResult) {
       detail: `${formatCompactNumber(next.finalDps.p10)}–${formatCompactNumber(next.finalDps.p90)} P10–P90 · ${deltaMarkup(next.finalDps.median, previousResult?.finalDps.median ?? null)}`,
     },
     {
-      label: "GEOMETRIC GROWTH / DAY",
-      value: formatRatio(dailyGrowth),
-      detail: `${formatRatio(finalPower / Math.max(1, initialPower))} across ${formatDuration(next.config.durationSeconds)}`,
+      label: "CURVE TARGETS",
+      value: `${pacingHits}/${pacingTargets.length} ON TIME`,
+      detail: `${powerHits}/${powerTargets.length} near ${formatRatio(next.config.targetMapPowerMultiplier)} power growth per map`,
     },
     {
       label: "FURTHEST MEDIAN MAP",
@@ -267,19 +299,26 @@ function renderMapTable(next: BalanceSimulationResult) {
     const reached = map.reachedPercent;
     const cleared = map.hasBoss ? formatPercent(map.completedPercent) : "OPEN";
     const bossTtk = map.hasBoss ? formatDuration(map.bossTtkAtEntryMedianSeconds) : "—";
-    const step = map.durationVsPrevious;
-    const stepMarkup = step === null
-      ? `<span class="neutral">${index === 0 ? "BASE" : map.hasBoss ? "CENSORED" : "ENDLESS"}</span>`
-      : `<span class="step-pill${step > next.config.targetMapDurationMultiplier * 1.5 ? " wall" : ""}">${step.toFixed(2)}×</span><span class="cell-sub">target ${next.config.targetMapDurationMultiplier.toFixed(2)}×</span>`;
+    const durationFit = map.durationVsTarget;
+    const durationWall = durationFit !== null && (durationFit < .75 || durationFit > 1.25);
+    const stepMarkup = durationFit === null
+      ? `<span class="neutral">${index === 0 ? "ONBOARDING" : "CENSORED"}</span>`
+      : `<span class="step-pill${durationWall ? " wall" : ""}">${durationFit.toFixed(2)}× TARGET</span><span class="cell-sub">${map.durationVsPrevious === null ? map.hasBoss ? "no reliable step" : "observed window" : `${map.durationVsPrevious.toFixed(2)}× previous map`}</span>`;
     const power = map.entryPowerMedian === null
       ? "—"
       : `${formatCompactNumber(map.entryPowerMedian)} → ${formatCompactNumber(map.exitPowerMedian ?? map.entryPowerMedian)}`;
+    const powerGrowth = map.powerGrowthMultiplier === null
+      ? ""
+      : `<span class="cell-sub">${formatRatio(map.powerGrowthMultiplier)} growth${map.targetPowerGrowthMultiplier === null ? " · onboarding" : ` · target ${formatRatio(map.targetPowerGrowthMultiplier)}`}</span>`;
+    const durationTarget = map.targetDurationSeconds === null
+      ? `<span class="cell-sub">onboarding baseline</span>`
+      : `<span class="cell-sub">target ${formatDuration(map.targetDurationSeconds)}</span>`;
     row.innerHTML = `
       <td><span class="map-rank">${index + 1}</span><span class="map-name">${map.name}</span></td>
       <td>${formatPercent(reached)} / ${cleared}<span class="cell-sub">${reached === 0 ? "not reached" : !map.hasBoss ? "open-ended window" : map.durationCensoredPercent ? `${Math.round(map.durationCensoredPercent)}% duration-censored` : "complete sample"}</span></td>
       <td>${formatDuration(map.enteredAtMedianSeconds)}</td>
-      <td>${mapDurationText(map)}</td>
-      <td>${power}</td>
+      <td>${mapDurationText(map)}${durationTarget}</td>
+      <td>${power}${powerGrowth}</td>
       <td>${bossTtk}</td>
       <td>${map.regularKillsMedian === null ? "—" : Math.round(map.regularKillsMedian).toLocaleString()}</td>
       <td>${stepMarkup}</td>`;
@@ -355,8 +394,22 @@ function renderChart(next: BalanceSimulationResult) {
   const plotWidth = width - left - right;
   const plotHeight = height - top - bottom;
   const previousPoints = previousResult?.timeline.filter((point) => point.timeSeconds <= next.config.durationSeconds) ?? [];
+  const desert = next.maps[1];
+  const targetCurve: Array<{ timeSeconds: number; power: number }> = [];
+  if (desert && desert.enteredAtMedianSeconds !== null && desert.entryPowerMedian !== null) {
+    let targetTime = desert.enteredAtMedianSeconds;
+    let targetPower = desert.entryPowerMedian;
+    targetCurve.push({ timeSeconds: targetTime, power: targetPower });
+    for (const map of next.maps.slice(1)) {
+      if (map.targetDurationSeconds === null || map.targetPowerGrowthMultiplier === null) continue;
+      targetTime += map.targetDurationSeconds;
+      targetPower *= map.targetPowerGrowthMultiplier;
+      targetCurve.push({ timeSeconds: targetTime, power: targetPower });
+    }
+  }
   const values = next.timeline.flatMap((point) => [point.powerP10, point.powerP90]);
   values.push(...previousPoints.map((point) => point.powerMedian));
+  values.push(...targetCurve.map((point) => point.power));
   const positive = values.filter((value) => value > 0 && Number.isFinite(value));
   let minExponent = Math.floor(Math.log10(Math.min(...positive)));
   let maxExponent = Math.ceil(Math.log10(Math.max(...positive)));
@@ -403,6 +456,10 @@ function renderChart(next: BalanceSimulationResult) {
       d: linePath(previousPoints, (point) => point.powerMedian, x, y),
       class: "chart-previous",
     }));
+  }
+  if (targetCurve.length > 1) {
+    const path = targetCurve.map((point, index) => `${index ? "L" : "M"}${x(point.timeSeconds).toFixed(2)},${y(point.power).toFixed(2)}`).join(" ");
+    powerChart.append(svgElement("path", { d: path, class: "chart-target" }));
   }
   powerChart.append(svgElement("path", {
     d: linePath(next.timeline, (point) => point.powerMedian, x, y),

@@ -20,6 +20,7 @@ import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { isPublicDisplayNameAllowed, moderatePublicChatMessage } from "./chat-moderation";
 import { isChatReportReason } from "../../shared/chat-report";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
+import { compressLegacyProgressionOutlier } from "../../shared/progression-balance";
 import {
   DAILY_LOGIN_GEM_BONUS,
   MAX_INVENTORY_SLOT_CAPACITY,
@@ -101,11 +102,13 @@ import {
   DRAGON_MAX_HP,
   DRAGON_REWARD_DAMAGE,
   effectivePlayerMovementSpeed,
+  FROSTCLAW_MAX_HP,
   FROSTCLAW_REWARD_ARMOR,
   FROSTCLAW_REWARD_DAMAGE,
   FROSTCLAW_REWARD_HEALTH,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  MAGMALISK_MAX_HP,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
@@ -126,6 +129,7 @@ import {
   PLAYER_SPEED,
   playerBaseMovementSpeed,
   PROTOCOL_VERSION,
+  SPIDER_MAX_HP,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   SPACETIME_AUTH_CLIENT_ID,
@@ -185,7 +189,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 14;
+const MODULE_MIGRATION_VERSION = 15;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -207,19 +211,16 @@ const DRAGON_POSITION = { x: WORLD.width - 760, y: WORLD.height - 560 };
 const DRAGON_HIT_RANGE_TOLERANCE = 60;
 const DRAGON_RESPAWN_MICROS = 30_000_000n;
 const SPIDER_ID = 1;
-const SPIDER_MAX_HP = 150_000_000;
 const SPIDER_RADIUS = 125;
 const SPIDER_POSITION = { x: 4050, y: 4050 };
 const SPIDER_HIT_RANGE_TOLERANCE = 60;
 const SPIDER_RESPAWN_MICROS = 30_000_000n;
 const FROSTCLAW_ID = 1;
-const FROSTCLAW_MAX_HP = 750_000_000_000;
 const FROSTCLAW_RADIUS = 150;
 const FROSTCLAW_POSITION = { x: 4050, y: 4050 };
 const FROSTCLAW_HIT_RANGE_TOLERANCE = 60;
 const FROSTCLAW_RESPAWN_MICROS = 30_000_000n;
 const MAGMALISK_ID = 1;
-const MAGMALISK_MAX_HP = 3_750_000_000_000_000;
 const MAGMALISK_RADIUS = 165;
 const MAGMALISK_POSITION = { x: 4050, y: 4050 };
 const MAGMALISK_HIT_RANGE_TOLERANCE = 60;
@@ -1894,6 +1895,28 @@ function runPendingModuleMigrations(ctx: any) {
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, active));
     }
   }
+  if (currentVersion < 15) {
+    // Version 3 is deliberately narrow: only legacy saves beyond the measured
+    // endgame envelope are soft-compressed. The logarithmic transform keeps
+    // their ordering and veteran advantage while returning them to the curve.
+    let changedProgress = false;
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      if (!samePlayerProgressValues(progress, migrated)) {
+        ctx.db.playerProgress.identity.update(migrated);
+        changedProgress = true;
+        const active = ctx.db.player.identity.find(progress.identity);
+        if (active) {
+          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
+          ctx.db.player.identity.update(nextActive);
+          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
+        }
+      }
+      markPlayerBalanceCurrent(ctx, progress.identity);
+    }
+    if (changedProgress) refreshLeaderboard(ctx);
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2039,28 +2062,32 @@ function effectiveMovementSpeedForProgress(ctx: any, progress: any, research?: a
   );
 }
 
-function markAttackBalanceCurrent(ctx: any) {
-  const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
-  const next = { identity: ctx.sender, version: ATTACK_BALANCE_VERSION };
+function markPlayerBalanceCurrent(ctx: any, identity = ctx.sender) {
+  const current = ctx.db.playerBalanceVersion.identity.find(identity);
+  const next = { identity, version: ATTACK_BALANCE_VERSION };
   if (current) ctx.db.playerBalanceVersion.identity.update(next);
   else ctx.db.playerBalanceVersion.insert(next);
 }
 
-function migrateAttackBalance(ctx: any, progress: any) {
-  const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
-  if (current?.version === ATTACK_BALANCE_VERSION) return progress;
-  const version = current?.version ?? 0;
-  const migrated = {
+function playerBalanceProgress(progress: any, version: number) {
+  const attackBalanced = {
     ...progress,
-    // Version 1 halved legacy attack speed once. Version 2 only enforces the
-    // lower base-speed cap for existing players.
+    // Version 1 halved legacy attack speed once. Version 2 enforces the lower
+    // base-speed cap for existing players.
     attackRate: Math.max(
       MIN_ATTACK_INTERVAL,
       Math.min(DEFAULT_ATTACK_INTERVAL, version < 1 ? progress.attackRate * 2 : progress.attackRate),
     ),
   };
+  return version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
+}
+
+function migratePlayerBalance(ctx: any, progress: any) {
+  const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
+  if ((current?.version ?? 0) >= ATTACK_BALANCE_VERSION) return progress;
+  const migrated = playerBalanceProgress(progress, current?.version ?? 0);
   ctx.db.playerProgress.identity.update(migrated);
-  markAttackBalanceCurrent(ctx);
+  markPlayerBalanceCurrent(ctx);
   return migrated;
 }
 
@@ -3571,11 +3598,18 @@ function ensureMaintenanceSchedule(ctx: any) {
   });
 }
 
+function bossRowAtMaxHealth(existing: any, maxHp: number) {
+  const tolerance = Math.max(1, maxHp * 1e-6);
+  if (Math.abs(existing.maxHp - maxHp) <= tolerance && existing.hp <= maxHp + tolerance) return existing;
+  const healthFraction = existing.maxHp > 0 ? Math.max(0, Math.min(1, existing.hp / existing.maxHp)) : 0;
+  return { ...existing, hp: maxHp * healthFraction, maxHp };
+}
+
 function ensureDragonBoss(ctx: any) {
   const existing = ctx.db.dragonBoss.id.find(DRAGON_ID);
   if (existing) {
-    if (existing.maxHp === DRAGON_MAX_HP && existing.hp <= DRAGON_MAX_HP) return existing;
-    const balanced = { ...existing, hp: Math.min(existing.hp, DRAGON_MAX_HP), maxHp: DRAGON_MAX_HP };
+    const balanced = bossRowAtMaxHealth(existing, DRAGON_MAX_HP);
+    if (balanced === existing) return existing;
     ctx.db.dragonBoss.id.update(balanced);
     return balanced;
   }
@@ -3592,7 +3626,12 @@ function ensureDragonBoss(ctx: any) {
 
 function ensureSpiderBoss(ctx: any) {
   const existing = ctx.db.spiderBoss.id.find(SPIDER_ID);
-  if (existing) return existing;
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, SPIDER_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.spiderBoss.id.update(balanced);
+    return balanced;
+  }
   return ctx.db.spiderBoss.insert({
     id: SPIDER_ID,
     encounter: 1n,
@@ -3606,7 +3645,12 @@ function ensureSpiderBoss(ctx: any) {
 
 function ensureFrostclawBoss(ctx: any) {
   const existing = ctx.db.frostclawBoss.id.find(FROSTCLAW_ID);
-  if (existing) return existing;
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, FROSTCLAW_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.frostclawBoss.id.update(balanced);
+    return balanced;
+  }
   return ctx.db.frostclawBoss.insert({
     id: FROSTCLAW_ID,
     encounter: 1n,
@@ -3620,7 +3664,12 @@ function ensureFrostclawBoss(ctx: any) {
 
 function ensureMagmaliskBoss(ctx: any) {
   const existing = ctx.db.magmaliskBoss.id.find(MAGMALISK_ID);
-  if (existing) return existing;
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, MAGMALISK_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.magmaliskBoss.id.update(balanced);
+    return balanced;
+  }
   return ctx.db.magmaliskBoss.insert({
     id: MAGMALISK_ID,
     encounter: 1n,
@@ -4228,9 +4277,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       existingProgress.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, true));
     }
     ctx.db.playerProgress.insert(existingProgress);
-    markAttackBalanceCurrent(ctx);
+    markPlayerBalanceCurrent(ctx);
   } else {
-    existingProgress = migrateAttackBalance(ctx, existingProgress);
+    existingProgress = migratePlayerBalance(ctx, existingProgress);
     const existingPlayer = ctx.db.player.identity.find(ctx.sender);
     const latestDragonContributor = contributedToLatestDragon(ctx, ctx.sender);
     const latestFrostclawContributor = contributedToLatestFrostclaw(ctx, ctx.sender);

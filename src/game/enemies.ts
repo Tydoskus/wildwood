@@ -1,4 +1,15 @@
 import { formatCompactNumber } from "../ui/number-format";
+import {
+  ADVANCED_LAVA_WASTES_HEALTH_SCALE,
+  ADVANCED_LAVA_WASTES_REWARD_SCALE,
+  BEGINNER_DESERT_HEALTH_SCALE,
+  BEGINNER_DESERT_REWARD_SCALE,
+  INFERNAL_DEPTHS_HEALTH_SCALE,
+  INFERNAL_DEPTHS_REWARD_SCALE,
+  INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
+  INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  WASTES_REAPER_CADENCE_SCALE,
+} from "../../shared/rules";
 import { ENEMY_BOW_AIM_OFFSET_RADIANS, ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
 
 export { ENEMY_BOW_AIM_OFFSET_RADIANS };
@@ -65,52 +76,52 @@ const enemyTypes = {
   // Movement speeds are the original balance values reduced by 25%.
   // Balance hp, damage, attackSpeed, and reward directly.
   "Dune Raider": {
-    hp: 1_200_000, speed: 165, damage: 20_000, attackSpeed: .65, r: 19,
-    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: 1200 },
+    hp: 1_200_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 165, damage: 20_000, attackSpeed: .65, r: 19,
+    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: 1200 * BEGINNER_DESERT_REWARD_SCALE },
   },
   "Dune Archer": {
-    hp: 900_000, speed: 153.75, damage: 25_000, attackSpeed: .55, r: 17,
-    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 },
+    hp: 900_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 153.75, damage: 25_000, attackSpeed: .55, r: 17,
+    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 * BEGINNER_DESERT_REWARD_SCALE },
     ranged: true,
   },
   "Venom Guard": {
-    hp: 2_600_000, speed: 146.25, damage: 32_000, attackSpeed: .55, r: 24,
-    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 },
+    hp: 2_600_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 146.25, damage: 32_000, attackSpeed: .55, r: 24,
+    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 * BEGINNER_DESERT_REWARD_SCALE },
   },
   "Wastes Reaper": {
-    hp: 5_000_000, speed: 168.75, damage: 48_000, attackSpeed: .7, r: 31,
-    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: 5_000 },
+    hp: 5_000_000 * BEGINNER_DESERT_HEALTH_SCALE * WASTES_REAPER_CADENCE_SCALE, speed: 168.75, damage: 48_000, attackSpeed: .7, r: 31,
+    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: 5_000 * BEGINNER_DESERT_REWARD_SCALE * WASTES_REAPER_CADENCE_SCALE },
     ranged: true, elite: true, aggro: 300,
   },
   "Blight Oracle": {
-    hp: 4_000_000, speed: 157.5, damage: 40_000, attackSpeed: .6, r: 29,
-    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 },
+    hp: 4_000_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 157.5, damage: 40_000, attackSpeed: .6, r: 29,
+    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 * BEGINNER_DESERT_REWARD_SCALE },
     elite: true, aggro: 300,
   },
 
   // INTERMEDIATE SNOWLANDS ENEMIES
   // Desert-to-snow uses the same archetype multipliers as forest-to-desert.
   "Frost Raider": {
-    hp: 2_700_000_000, speed: 230, damage: 2_330_000, attackSpeed: .65, r: 21,
-    color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: 240_000 },
+    hp: 2_700_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 230, damage: 2_330_000, attackSpeed: .65, r: 21,
+    color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: 240_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
   },
   "Glacier Archer": {
-    hp: 2_280_000_000, speed: 215, damage: 11_150_000, attackSpeed: .55, r: 19,
-    color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 },
+    hp: 2_280_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 215, damage: 11_150_000, attackSpeed: .55, r: 19,
+    color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
     ranged: true,
   },
   "Rime Guard": {
-    hp: 17_790_000_000, speed: 205, damage: 35_300_000, attackSpeed: .55, r: 27,
-    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 14_000 },
+    hp: 17_790_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 205, damage: 35_300_000, attackSpeed: .55, r: 27,
+    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 14_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
   },
   "Whiteout Reaper": {
-    hp: 25_000_000_000, speed: 235, damage: 8_400_000, attackSpeed: .7, r: 34,
-    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: 3_150_000 },
+    hp: 25_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 235, damage: 8_400_000, attackSpeed: .7, r: 34,
+    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: 3_150_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
     ranged: true, elite: true, aggro: 340,
   },
   "Aurora Oracle": {
-    hp: 16_000_000_000, speed: 220, damage: 28_600_000, attackSpeed: .6, r: 32,
-    color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 },
+    hp: 16_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 220, damage: 28_600_000, attackSpeed: .6, r: 32,
+    color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
     elite: true, aggro: 340,
   },
 
@@ -118,59 +129,59 @@ const enemyTypes = {
   // Snow-to-lava continues each archetype's desert-to-snow multiplier.
   // Damage is intentionally 30x the original Lava Lake launch tuning.
   "Ember Raider": {
-    hp: 6_075_000_000_000, speed: 240, damage: 8_143_350_000, attackSpeed: .65, r: 23,
-    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 },
+    hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 240, damage: 8_143_350_000, attackSpeed: .65, r: 23,
+    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
   },
   "Cinder Archer": {
-    hp: 5_776_000_000_000, speed: 225, damage: 149_187_000_000, attackSpeed: .55, r: 21,
-    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 },
+    hp: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 225, damage: 149_187_000_000, attackSpeed: .55, r: 21,
+    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
     ranged: true,
   },
   "Magma Guard": {
-    hp: 121_725_000_000_000, speed: 215, damage: 1_168_200_000_000, attackSpeed: .55, r: 30,
-    color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 },
+    hp: 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 215, damage: 1_168_200_000_000, attackSpeed: .55, r: 30,
+    color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
   },
   "Ash Reaper": {
-    hp: 125_000_000_000_000, speed: 245, damage: 44_100_000_000, attackSpeed: .7, r: 37,
-    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 },
+    hp: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 245, damage: 44_100_000_000, attackSpeed: .7, r: 37,
+    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
     ranged: true, elite: true, aggro: 380,
   },
   "Inferno Oracle": {
-    hp: 64_000_000_000_000, speed: 230, damage: 613_470_000_000, attackSpeed: .6, r: 35,
-    color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 },
+    hp: 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 230, damage: 613_470_000_000, attackSpeed: .6, r: 35,
+    color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
     elite: true, aggro: 380,
   },
 
   // NIGHT FOREST ENEMIES
-  // Health repeats each archetype's Snowlands-to-Lava growth. Per-hit damage
-  // stays in a tight band, except Depth Raider is the lower-damage entry target.
-  // Damage- and health-reward tracks pay 2×, except Depth Raider pays 6×.
+  // Base health repeats each archetype's Snowlands-to-Lava growth before the
+  // shared Night Forest progression budget. Depth Raider keeps its 10qd cut.
+  // Base damage- and health-reward tracks pay 2×; Depth Raider pays 6×.
   "Depth Raider": {
-    hp: repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000, speed: 250,
+    hp: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 250,
     damage: 500_000_000_000_000, attackSpeed: .65, r: 25,
-    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 6 },
+    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 6 * INFERNAL_DEPTHS_REWARD_SCALE },
   },
   "Abyss Archer": {
-    hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000), speed: 235,
+    hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 235,
     damage: 1_025_000_000_000_000, attackSpeed: .55, r: 23,
-    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 },
+    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE },
     ranged: true,
   },
   "Obsidian Colossus": {
-    hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000), speed: 225,
+    hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 225,
     damage: 1_100_000_000_000_000, attackSpeed: .55, r: 32,
-    color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) },
+    color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) * INFERNAL_DEPTHS_REWARD_SCALE },
   },
   "Doom Reaper": {
-    hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000), speed: 255,
+    hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 255,
     damage: 1_050_000_000_000_000, attackSpeed: .7, r: 39,
-    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 },
+    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE },
     ranged: true, elite: true, aggro: 420,
   },
   "Nether Oracle": {
-    hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000), speed: 240,
+    hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 240,
     damage: 1_075_000_000_000_000, attackSpeed: .6, r: 37,
-    color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) },
+    color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE },
     elite: true, aggro: 420,
   },
 } satisfies Record<string, EnemyDefinition>;
