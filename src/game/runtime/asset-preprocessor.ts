@@ -158,6 +158,30 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   }, { once: true });
   gloomrootSprite.src = "assets/wildwood/gloomroot-boss-spritesheet-v1.png";
 
+  const tidewyrmSprite = new Image();
+  const tidewyrmSpriteCanvas = document.createElement("canvas");
+  const tidewyrmSpriteContext = requiredCanvasContext(tidewyrmSpriteCanvas, { willReadFrequently: true });
+  let tidewyrmReady = false;
+  tidewyrmSprite.addEventListener("load", () => {
+    tidewyrmSpriteCanvas.width = tidewyrmSprite.naturalWidth;
+    tidewyrmSpriteCanvas.height = tidewyrmSprite.naturalHeight;
+    tidewyrmSpriteContext.drawImage(tidewyrmSprite, 0, 0);
+    // Boss art must be available on its first visit. Chroma-key synchronously
+    // so a delayed worker cannot leave Tidewyrm invisible until a reload.
+    const pixels = tidewyrmSpriteContext.getImageData(0, 0, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height);
+    removeGreenPixels(pixels.data, 145, 1.45);
+    keepLargestFrameComponents(pixels.data, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height, 4);
+    centerFramesOnGround(pixels.data, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height, 4);
+    tidewyrmSpriteContext.putImageData(pixels, 0, 0);
+    tidewyrmReady = true;
+    onWorldAssetReady();
+  });
+  tidewyrmSprite.addEventListener("error", () => {
+    tidewyrmReady = true;
+    onWorldAssetReady();
+  }, { once: true });
+  tidewyrmSprite.src = "assets/wildwood/tidewyrm-boss-spritesheet-v1.png";
+
   let portalArchReady = false;
   const portalArch = new Image();
   const settlePortalArch = () => {
@@ -294,6 +318,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
     treeSpritesheet,
+    tidewyrmReady: () => tidewyrmReady,
+    tidewyrmSpriteCanvas,
     worldArtReady: () => treeReady && nightTreeReady && portalArchReady && settledPortalSwirls === Object.keys(PORTAL_SWIRL_SOURCES).length && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
   };
 }

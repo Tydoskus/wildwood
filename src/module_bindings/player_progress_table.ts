@@ -42,4 +42,5 @@ export default __t.row({
   speedOverride: __t.f32().name("speed_override"),
   infernalUnlocked: __t.bool().name("infernal_unlocked"),
   waterUnlocked: __t.bool().name("water_unlocked"),
+  samuraiUnlocked: __t.bool().name("samurai_unlocked"),
 });

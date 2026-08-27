@@ -50,6 +50,7 @@ import DamageGloomrootFromPositionReducer from "./damage_gloomroot_from_position
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
+import DamageTidewyrmFromPositionReducer from "./damage_tidewyrm_from_position_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
 import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
@@ -135,6 +136,8 @@ import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
 import SpiderBossRow from "./spider_boss_table";
 import SpiderResultRow from "./spider_result_table";
+import TidewyrmBossRow from "./tidewyrm_boss_table";
+import TidewyrmResultRow from "./tidewyrm_result_table";
 import WorldStatusRow from "./world_status_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -531,6 +534,28 @@ const tablesSchema = __schema({
       { name: 'spider_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, SpiderResultRow),
+  tidewyrmBoss: __table({
+    name: 'tidewyrm_boss',
+    indexes: [
+      { accessor: 'id', name: 'tidewyrm_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'tidewyrm_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TidewyrmBossRow),
+  tidewyrmResult: __table({
+    name: 'tidewyrm_result',
+    indexes: [
+      { accessor: 'id', name: 'tidewyrm_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'tidewyrm_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TidewyrmResultRow),
   worldStatus: __table({
     name: 'world_status',
     indexes: [
@@ -618,6 +643,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
+  __reducerSchema("damage_tidewyrm_from_position", DamageTidewyrmFromPositionReducer),
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),
   __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),

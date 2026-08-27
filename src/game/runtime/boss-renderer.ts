@@ -13,6 +13,10 @@ import {
   MAGMALISK_BITE_RANGE,
   MAGMALISK_SPRITE_GROUND_OFFSET,
   MAGMALISK_SPRITE_Y_OFFSET,
+  TIDEWYRM_SPRITE_GROUND_OFFSET,
+  TIDEWYRM_SPRITE_Y_OFFSET,
+  TIDEWYRM_SURGE_HALF_ANGLE,
+  TIDEWYRM_SURGE_RANGE,
   TAU,
 } from "../constants";
 import { clamp } from "../math";
@@ -33,10 +37,14 @@ import {
   MAGMALISK_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
+  TIDEWYRM_REWARD_ARMOR,
+  TIDEWYRM_REWARD_DAMAGE,
+  TIDEWYRM_REWARD_HEALTH,
+  TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { snapWorldRenderCoordinate } from "./render-space";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
@@ -52,21 +60,25 @@ export function createBossRenderer(options: {
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
+  tidewyrmBoss: TidewyrmBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
   gloomrootBlooms: GloomrootBloom[];
+  tidewyrmWhirlpools: TidewyrmWhirlpool[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
   magmaliskSpriteCanvas: HTMLCanvasElement;
   gloomrootSpriteCanvas: HTMLCanvasElement;
+  tidewyrmSpriteCanvas: HTMLCanvasElement;
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
   magmaliskReady: () => boolean;
   gloomrootReady: () => boolean;
+  tidewyrmReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -75,7 +87,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -432,6 +444,130 @@ export function createBossRenderer(options: {
     options.outlinedText(rewardText("regen", GLOOMROOT_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
     ctx.restore();
   }
+
+  function drawTidewyrmTelegraphs() {
+    if (tidewyrmBoss.dead) return;
+    const x = screenX(tidewyrmBoss.x);
+    const y = screenY(tidewyrmBoss.y);
+    const time = options.gameTime();
+    if (tidewyrmBoss.surge) {
+      const surge = tidewyrmBoss.surge;
+      ctx.save();
+      ctx.fillStyle = surge.windup > 0 ? "rgba(62,211,232,.14)" : "rgba(83,230,250,.24)";
+      ctx.strokeStyle = "rgba(185,249,255,.96)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, TIDEWYRM_SURGE_RANGE, surge.angle - TIDEWYRM_SURGE_HALF_ANGLE, surge.angle + TIDEWYRM_SURGE_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (surge.windup <= 0) {
+        const radius = tidewyrmBoss.r + (TIDEWYRM_SURGE_RANGE - tidewyrmBoss.r) * clamp(1 - surge.timer / surge.duration, 0, 1);
+        for (let crest = 0; crest < 15; crest += 1) {
+          const angle = surge.angle - TIDEWYRM_SURGE_HALF_ANGLE + crest / 14 * TIDEWYRM_SURGE_HALF_ANGLE * 2;
+          const crestX = x + Math.cos(angle) * radius;
+          const crestY = y + Math.sin(angle) * radius;
+          ctx.fillStyle = crest % 2 ? "#baf8ff" : "#36c8e4";
+          options.pixelCircle(crestX, crestY, crest % 2 ? 10 : 15);
+          ctx.fillStyle = "#effeff";
+          options.pixelCircle(crestX, crestY - 5, 5);
+        }
+      }
+      ctx.restore();
+    }
+    for (const pool of options.tidewyrmWhirlpools) {
+      const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1);
+      const poolX = screenX(pool.x);
+      const poolY = screenY(pool.y);
+      ctx.save();
+      ctx.fillStyle = `rgba(28,151,198,${.1 + progress * .2})`;
+      ctx.strokeStyle = "rgba(171,247,255,.96)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([13, 8]);
+      ctx.lineDashOffset = time * 54;
+      ctx.beginPath();
+      ctx.ellipse(poolX, poolY, pool.r, pool.r * .62, time * .7, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "rgba(49,210,238,.9)";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.ellipse(poolX, poolY, pool.r * (.24 + progress * .36), pool.r * (.15 + progress * .22), -time, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawTidewyrmBoss() {
+    if (tidewyrmBoss.dead) return;
+    const canvas = options.tidewyrmSpriteCanvas;
+    const frame = options.tidewyrmWhirlpools.length > 0 ? 3 : tidewyrmBoss.surge ? (tidewyrmBoss.surge.windup > 0 ? 2 : 1) : 0;
+    const drawW = 440;
+    const drawH = 440;
+    const x = screenX(tidewyrmBoss.x);
+    const y = screenY(tidewyrmBoss.y);
+    const visualY = y + TIDEWYRM_SPRITE_Y_OFFSET;
+    const pulse = options.tidewyrmWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
+    options.drawShadow(x, visualY + TIDEWYRM_SPRITE_GROUND_OFFSET, 280, .3);
+    ctx.save();
+    ctx.translate(x, visualY);
+    ctx.scale(pulse, pulse);
+    if (options.tidewyrmReady() && canvas.width >= 4 && canvas.height >= 2) {
+      const cellW = canvas.width / 4;
+      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      ctx.fillStyle = "#147f9d";
+      ctx.strokeStyle = "#b9f8ff";
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.ellipse(0, 35, 150, 88, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#0d405d";
+      for (let fin = -2; fin <= 2; fin += 1) {
+        ctx.beginPath();
+        ctx.moveTo(fin * 42 - 12, -46);
+        ctx.lineTo(fin * 42 + 2, -91);
+        ctx.lineTo(fin * 42 + 20, -42);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = "#e7ffff";
+      ctx.fillRect(-76, -3, 18, 13);
+      ctx.fillRect(58, -3, 18, 13);
+    }
+    ctx.restore();
+    const barW = 310;
+    const barH = 23;
+    const barX = x - Math.floor(barW / 2);
+    const barY = visualY - drawH / 2 - 34;
+    const ratio = clamp(tidewyrmBoss.hp / tidewyrmBoss.maxHp, 0, 1);
+    ctx.fillStyle = "rgba(0,0,0,.9)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = "#123b56"; ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "#35cce5"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
+    if (tidewyrmBoss.hpLossFlashTimer > 0 && tidewyrmBoss.hpLossFlashFrom > tidewyrmBoss.hp) {
+      const fromRatio = clamp(tidewyrmBoss.hpLossFlashFrom / tidewyrmBoss.maxHp, ratio, 1);
+      ctx.save();
+      ctx.globalAlpha = clamp(tidewyrmBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(tidewyrmBoss.hp)))} / ${formatCompactNumber(Math.ceil(tidewyrmBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4);
+    ctx.textBaseline = "bottom";
+    options.outlinedText("TIDEWYRM", x, barY - 56, "#c7faff", 4);
+    options.outlinedText(rewardText("damage", TIDEWYRM_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
+    options.outlinedText(rewardText("health", TIDEWYRM_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
+    options.outlinedText(rewardText("armor", TIDEWYRM_REWARD_ARMOR), x, barY - 17, REWARD_DATA.armor.color, 4);
+    options.outlinedText(rewardText("regen", TIDEWYRM_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
+    ctx.restore();
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -443,5 +579,7 @@ export function createBossRenderer(options: {
     drawMagmaliskBoss,
     drawGloomrootTelegraphs,
     drawGloomrootBoss,
+    drawTidewyrmTelegraphs,
+    drawTidewyrmBoss,
   };
 }

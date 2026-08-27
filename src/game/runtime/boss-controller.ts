@@ -13,6 +13,9 @@ import {
   MAGMALISK_AGGRO_RANGE,
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
+  TIDEWYRM_AGGRO_RANGE,
+  TIDEWYRM_SURGE_HALF_ANGLE,
+  TIDEWYRM_SURGE_RANGE,
   TAU,
   WORLD,
 } from "../constants";
@@ -31,6 +34,10 @@ import {
   MAGMALISK_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
+  TIDEWYRM_REWARD_ARMOR,
+  TIDEWYRM_REWARD_DAMAGE,
+  TIDEWYRM_REWARD_HEALTH,
+  TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
 import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { clamp, rand } from "../math";
@@ -47,6 +54,8 @@ import type {
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
+  TidewyrmBossState,
+  TidewyrmWhirlpool,
 } from "./types";
 import { addPlayerBaseMaxHealth } from "./player-health";
 
@@ -83,6 +92,11 @@ const GLOOMROOT_SWEEP_DURATION = 1;
 const GLOOMROOT_SWEEP_DAMAGE = 4_200_000_000_000;
 const GLOOMROOT_BLOOM_DAMAGE = 3_500_000_000_000;
 const GLOOMROOT_CONTACT_DAMAGE = 3_800_000_000_000;
+const TIDEWYRM_SURGE_WINDUP = .82;
+const TIDEWYRM_SURGE_DURATION = 1.05;
+const TIDEWYRM_SURGE_DAMAGE = 180_000_000_000_000;
+const TIDEWYRM_WHIRLPOOL_DAMAGE = 150_000_000_000_000;
+const TIDEWYRM_CONTACT_DAMAGE = 165_000_000_000_000;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -113,21 +127,25 @@ export type BossController = {
   resetFrostclawBoss: () => void;
   resetMagmaliskBoss: () => void;
   resetGloomrootBoss: () => void;
+  resetTidewyrmBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
   syncMagmaliskState: () => void;
   syncGloomrootState: () => void;
+  syncTidewyrmState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
   updateMagmaliskBoss: (dt: number) => void;
   updateGloomrootBoss: (dt: number) => void;
+  updateTidewyrmBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
   resolveMagmaliskCollision: () => void;
   resolveGloomrootCollision: () => void;
+  resolveTidewyrmCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
@@ -143,39 +161,46 @@ export function createBossController(options: {
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
+  tidewyrmBoss: TidewyrmBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
   gloomrootBlooms: GloomrootBloom[];
+  tidewyrmWhirlpools: TidewyrmWhirlpool[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
   getFrostclawBoss: () => SharedBossState | null | undefined;
   getMagmaliskBoss: () => SharedBossState | null | undefined;
   getGloomrootBoss: () => SharedBossState | null | undefined;
+  getTidewyrmBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
   getMagmaliskResult: () => BossResult | null | undefined;
   getGloomrootResult: () => BossResult | null | undefined;
+  getTidewyrmResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   running: () => boolean;
   currentMapIsDesert: () => boolean;
   currentMapIsSnow: () => boolean;
   currentMapIsLava: () => boolean;
   currentMapIsInfernal: () => boolean;
+  currentMapIsWater: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
   hasSeenLavaPortalCutscene: () => boolean;
   hasSeenInfernalPortalCutscene: () => boolean;
   hasSeenWaterPortalCutscene: () => boolean;
+  hasSeenSamuraiPortalCutscene: () => boolean;
   startDragonPortalCutscene: () => void;
   startSnowlandsPortalCutscene: () => void;
   startLavaPortalCutscene: () => void;
   startInfernalPortalCutscene: () => void;
   startWaterPortalCutscene: () => void;
+  startSamuraiPortalCutscene: () => void;
   elements: NoticeElements;
   renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
@@ -187,11 +212,11 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, portalCutsceneActive,
-    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene,
-    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, portalCutsceneActive,
+    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
+    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
   } = options;
   let dragonWorldNoticeTimer: number | null = null;
@@ -220,11 +245,17 @@ export function createBossController(options: {
   let gloomrootWasAlive: boolean | null = null;
   let pendingGloomrootResultEncounter: bigint | null = null;
   let shownGloomrootResultEncounter: bigint | null = null;
+  let queuedTidewyrmResult: BossResult | null = null;
+  let observedTidewyrmEncounter: bigint | null = null;
+  let tidewyrmWasAlive: boolean | null = null;
+  let pendingTidewyrmResultEncounter: bigint | null = null;
+  let shownTidewyrmResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
   const locallyRewardedMagmaliskEncounters = new Set<string>();
   const locallyRewardedGloomrootEncounters = new Set<string>();
+  const locallyRewardedTidewyrmEncounters = new Set<string>();
 
   function scaledReward(type: RewardType, baseAmount: number) {
     const multiplier = options.rewardMultiplier?.() ?? 1;
@@ -323,6 +354,24 @@ export function createBossController(options: {
     gloomrootBoss.nextAttack = "sweep";
     gloomrootBoss.sweep = null;
     gloomrootBlooms.length = 0;
+  }
+
+  function resetTidewyrmBoss() {
+    const shared = getTidewyrmBoss();
+    if (shared) {
+      tidewyrmBoss.encounter = shared.encounter;
+      tidewyrmBoss.hp = shared.hp;
+      tidewyrmBoss.maxHp = shared.maxHp;
+      tidewyrmBoss.dead = !shared.alive;
+    }
+    tidewyrmBoss.hurt = 0;
+    tidewyrmBoss.hpLossFlashFrom = tidewyrmBoss.hp;
+    tidewyrmBoss.hpLossFlashTimer = 0;
+    tidewyrmBoss.contactDamageClock = 0;
+    tidewyrmBoss.attackClock = 3;
+    tidewyrmBoss.nextAttack = "surge";
+    tidewyrmBoss.surge = null;
+    tidewyrmWhirlpools.length = 0;
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -513,6 +562,44 @@ export function createBossController(options: {
     );
   }
 
+  function showTidewyrmResult(result: BossResult | null | undefined) {
+    if (!result || shownTidewyrmResultEncounter === result.encounter || (portalCutsceneActive() && queuedTidewyrmResult?.encounter === result.encounter)) return;
+    pendingTidewyrmResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      shownTidewyrmResultEncounter = result.encounter;
+      showWorldResult(result, "TIDEWYRM DEFEATED");
+      return;
+    }
+    if (currentMapIsWater() && !hasSeenSamuraiPortalCutscene()) {
+      queuedTidewyrmResult = result;
+      startSamuraiPortalCutscene();
+      return;
+    }
+    shownTidewyrmResultEncounter = result.encounter;
+    renderResult(result, "Tidewyrm Defeated");
+    const damageReward = scaledReward("damage", TIDEWYRM_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", TIDEWYRM_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", TIDEWYRM_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", TIDEWYRM_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedTidewyrmEncounters.has(encounterKey)) {
+      locallyRewardedTidewyrmEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    showMessage(
+      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
+      "#74e9ff",
+    );
+  }
+
   function killBoss() {
     if (boss.dead) return;
     boss.dead = true;
@@ -644,6 +731,7 @@ export function createBossController(options: {
     if (!initialized && !shared.alive && currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
       const result = getFrostclawResult();
       if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedFrostclawEncounters.add(String(result.encounter));
         showFrostclawResult(result);
       }
     }
@@ -696,6 +784,7 @@ export function createBossController(options: {
     if (!initialized && !shared.alive && currentMapIsLava()) {
       const result = getMagmaliskResult();
       if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedMagmaliskEncounters.add(String(result.encounter));
         showMagmaliskResult(result);
       }
     }
@@ -748,12 +837,66 @@ export function createBossController(options: {
     if (!initialized && !shared.alive && currentMapIsInfernal()) {
       const result = getGloomrootResult();
       if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedGloomrootEncounters.add(String(result.encounter));
         showGloomrootResult(result);
       }
     }
     if (pendingGloomrootResultEncounter !== null) {
       const result = getGloomrootResult();
       if (result?.encounter === pendingGloomrootResultEncounter) showGloomrootResult(result);
+    }
+  }
+
+  function syncTidewyrmState() {
+    const shared = getTidewyrmBoss();
+    if (!shared) return;
+    const initialized = observedTidewyrmEncounter !== null;
+    const encounterChanged = initialized && observedTidewyrmEncounter !== shared.encounter;
+    const previousHp = tidewyrmBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedTidewyrmEncounter = shared.encounter;
+      tidewyrmWasAlive = shared.alive;
+      tidewyrmBoss.dead = !shared.alive;
+      tidewyrmBoss.attackClock = 3;
+      tidewyrmBoss.nextAttack = "surge";
+      tidewyrmBoss.surge = null;
+      tidewyrmWhirlpools.length = 0;
+      tidewyrmBoss.hpLossFlashFrom = shared.hp;
+      tidewyrmBoss.hpLossFlashTimer = 0;
+    } else if (tidewyrmWasAlive && !shared.alive) {
+      tidewyrmWasAlive = false;
+      tidewyrmBoss.dead = true;
+      tidewyrmBoss.surge = null;
+      tidewyrmWhirlpools.length = 0;
+      pendingTidewyrmResultEncounter = shared.encounter;
+      spawnBurst(tidewyrmBoss.x, tidewyrmBoss.y, "#40d9f2", 104, 310);
+    } else if (!tidewyrmWasAlive && shared.alive) {
+      tidewyrmWasAlive = true;
+      tidewyrmBoss.dead = false;
+      tidewyrmBoss.attackClock = 3;
+      tidewyrmBoss.nextAttack = "surge";
+    } else if (shared.alive && shared.hp < previousHp) {
+      tidewyrmBoss.hpLossFlashFrom = tidewyrmBoss.hpLossFlashTimer > 0
+        ? Math.max(tidewyrmBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      tidewyrmBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      tidewyrmBoss.hpLossFlashFrom = shared.hp;
+      tidewyrmBoss.hpLossFlashTimer = 0;
+    }
+    tidewyrmBoss.encounter = shared.encounter;
+    tidewyrmBoss.maxHp = shared.maxHp;
+    tidewyrmBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsWater()) {
+      const result = getTidewyrmResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedTidewyrmEncounters.add(String(result.encounter));
+        showTidewyrmResult(result);
+      }
+    }
+    if (pendingTidewyrmResultEncounter !== null) {
+      const result = getTidewyrmResult();
+      if (result?.encounter === pendingTidewyrmResultEncounter) showTidewyrmResult(result);
     }
   }
 
@@ -1231,7 +1374,95 @@ export function createBossController(options: {
     else startGloomrootBloom();
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState, damage: number, cooldown: number) {
+  function startTidewyrmSurge() {
+    tidewyrmBoss.surge = {
+      angle: Math.atan2(player.y - tidewyrmBoss.y, player.x - tidewyrmBoss.x),
+      windup: TIDEWYRM_SURGE_WINDUP,
+      timer: TIDEWYRM_SURGE_DURATION,
+      duration: TIDEWYRM_SURGE_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
+    tidewyrmBoss.nextAttack = "whirlpool";
+  }
+
+  function startTidewyrmWhirlpools() {
+    for (let index = 0; index < 11; index += 1) {
+      const angle = index * TAU / 11 + rand(-.25, .25);
+      const radius = index === 0 ? 0 : rand(70, 290);
+      const timer = .85 + index * .11;
+      tidewyrmWhirlpools.push({
+        x: clamp(player.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
+        y: clamp(player.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
+        r: 82,
+        timer,
+        maxTimer: timer,
+      });
+    }
+    tidewyrmBoss.attackClock = 3.15;
+    tidewyrmBoss.nextAttack = "surge";
+  }
+
+  function updateTidewyrmBoss(dt: number) {
+    tidewyrmBoss.hpLossFlashTimer = Math.max(0, tidewyrmBoss.hpLossFlashTimer - dt);
+    tidewyrmBoss.contactDamageClock = Math.max(0, tidewyrmBoss.contactDamageClock - dt);
+    if (tidewyrmBoss.dead) return;
+    tidewyrmBoss.hurt = Math.max(0, tidewyrmBoss.hurt - dt);
+
+    for (let index = tidewyrmWhirlpools.length - 1; index >= 0; index -= 1) {
+      const pool = tidewyrmWhirlpools[index];
+      pool.timer -= dt;
+      if (pool.timer > 0) continue;
+      const dx = player.x - pool.x;
+      const dy = player.y - pool.y;
+      if (dx * dx + dy * dy <= pool.r * pool.r) damagePlayer(TIDEWYRM_WHIRLPOOL_DAMAGE);
+      spawnBurst(pool.x, pool.y, "#5eeaff", 38, 245);
+      tidewyrmWhirlpools.splice(index, 1);
+    }
+    if (tidewyrmWhirlpools.length > 0) return;
+
+    if (tidewyrmBoss.surge) {
+      const surge = tidewyrmBoss.surge;
+      if (surge.windup > 0) {
+        surge.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - surge.timer / surge.duration, 0, 1);
+      surge.timer -= dt;
+      const progress = clamp(1 - surge.timer / surge.duration, 0, 1);
+      const minRadius = tidewyrmBoss.r + (TIDEWYRM_SURGE_RANGE - tidewyrmBoss.r) * previousProgress;
+      const maxRadius = tidewyrmBoss.r + (TIDEWYRM_SURGE_RANGE - tidewyrmBoss.r) * progress;
+      if (!surge.hitPlayer) {
+        const dx = player.x - tidewyrmBoss.x;
+        const dy = player.y - tidewyrmBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - surge.angle),
+          Math.cos(Math.atan2(dy, dx) - surge.angle),
+        );
+        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= TIDEWYRM_SURGE_HALF_ANGLE) {
+          surge.hitPlayer = true;
+          damagePlayer(TIDEWYRM_SURGE_DAMAGE);
+          spawnBurst(player.x, player.y, "#b7f7ff", 32, 250);
+        }
+      }
+      if (surge.timer <= 0) {
+        tidewyrmBoss.surge = null;
+        tidewyrmBoss.attackClock = 2.45;
+      }
+      return;
+    }
+
+    tidewyrmBoss.attackClock -= dt;
+    if (tidewyrmBoss.attackClock > 0) return;
+    const dx = player.x - tidewyrmBoss.x;
+    const dy = player.y - tidewyrmBoss.y;
+    if (dx * dx + dy * dy > TIDEWYRM_AGGRO_RANGE * TIDEWYRM_AGGRO_RANGE) return;
+    if (tidewyrmBoss.nextAttack === "surge") startTidewyrmSurge();
+    else startTidewyrmWhirlpools();
+  }
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -1268,21 +1499,25 @@ export function createBossController(options: {
     resetFrostclawBoss,
     resetMagmaliskBoss,
     resetGloomrootBoss,
+    resetTidewyrmBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
     syncMagmaliskState,
     syncGloomrootState,
+    syncTidewyrmState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
     updateMagmaliskBoss,
     updateGloomrootBoss,
+    updateTidewyrmBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
     resolveMagmaliskCollision: () => resolveCollision(magmaliskBoss, MAGMALISK_CONTACT_DAMAGE, .75),
     resolveGloomrootCollision: () => resolveCollision(gloomrootBoss, GLOOMROOT_CONTACT_DAMAGE, .75),
+    resolveTidewyrmCollision: () => resolveCollision(tidewyrmBoss, TIDEWYRM_CONTACT_DAMAGE, .75),
     applyDragonConePush,
     applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {
@@ -1301,6 +1536,9 @@ export function createBossController(options: {
       const gloomroot = queuedGloomrootResult;
       queuedGloomrootResult = null;
       if (gloomroot && !wasPreview) showGloomrootResult(gloomroot);
+      const tidewyrm = queuedTidewyrmResult;
+      queuedTidewyrmResult = null;
+      if (tidewyrm && !wasPreview) showTidewyrmResult(tidewyrm);
     },
   };
 }

@@ -22,6 +22,7 @@ import DamageGloomrootFromPositionReducer from "../damage_gloomroot_from_positio
 import DamageMagmaliskFromPositionReducer from "../damage_magmalisk_from_position_reducer";
 import DamageSpiderBatchReducer from "../damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "../damage_spider_from_position_reducer";
+import DamageTidewyrmFromPositionReducer from "../damage_tidewyrm_from_position_reducer";
 import DevAdjustGemsReducer from "../dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "../dev_begin_virtual_player_load_test_reducer";
 import DevClearVirtualPlayersReducer from "../dev_clear_virtual_players_reducer";
@@ -80,6 +81,7 @@ export type DamageGloomrootFromPositionParams = __Infer<typeof DamageGloomrootFr
 export type DamageMagmaliskFromPositionParams = __Infer<typeof DamageMagmaliskFromPositionReducer>;
 export type DamageSpiderBatchParams = __Infer<typeof DamageSpiderBatchReducer>;
 export type DamageSpiderFromPositionParams = __Infer<typeof DamageSpiderFromPositionReducer>;
+export type DamageTidewyrmFromPositionParams = __Infer<typeof DamageTidewyrmFromPositionReducer>;
 export type DevAdjustGemsParams = __Infer<typeof DevAdjustGemsReducer>;
 export type DevBeginVirtualPlayerLoadTestParams = __Infer<typeof DevBeginVirtualPlayerLoadTestReducer>;
 export type DevClearVirtualPlayersParams = __Infer<typeof DevClearVirtualPlayersReducer>;

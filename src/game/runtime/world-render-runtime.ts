@@ -9,7 +9,7 @@ import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
-import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool } from "./types";
+import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
@@ -51,11 +51,13 @@ export type WorldRenderRuntimeOptions = {
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
+  tidewyrmBoss: TidewyrmBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
   gloomrootBlooms: GloomrootBloom[];
+  tidewyrmWhirlpools: TidewyrmWhirlpool[];
   activePortal: () => Portal;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
@@ -80,11 +82,13 @@ export type WorldRenderRuntimeOptions = {
     frostclawSpriteCanvas: HTMLCanvasElement;
     magmaliskSpriteCanvas: HTMLCanvasElement;
     gloomrootSpriteCanvas: HTMLCanvasElement;
+    tidewyrmSpriteCanvas: HTMLCanvasElement;
     dragonReady: () => boolean;
     spiderReady: () => boolean;
     frostclawReady: () => boolean;
     magmaliskReady: () => boolean;
     gloomrootReady: () => boolean;
+    tidewyrmReady: () => boolean;
     duelPlatformArt: HTMLImageElement;
   };
   actorShadowSprite: HTMLImageElement;
@@ -174,6 +178,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     frostclawBoss: options.frostclawBoss,
     magmaliskBoss: options.magmaliskBoss,
     gloomrootBoss: options.gloomrootBoss,
+    tidewyrmBoss: options.tidewyrmBoss,
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
@@ -184,10 +189,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ...options.assets,
   });
   const boss = createBossRenderer({
-    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss, gloomrootBoss: options.gloomrootBoss,
-    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions, gloomrootBlooms: options.gloomrootBlooms,
-    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas,
-    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady,
+    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss, gloomrootBoss: options.gloomrootBoss, tidewyrmBoss: options.tidewyrmBoss,
+    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions, gloomrootBlooms: options.gloomrootBlooms, tidewyrmWhirlpools: options.tidewyrmWhirlpools,
+    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas, tidewyrmSpriteCanvas: options.assets.tidewyrmSpriteCanvas,
+    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady, tidewyrmReady: options.assets.tidewyrmReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: options.drawShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
@@ -224,7 +229,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
           ? options.frostclawBoss
           : options.currentMapId() === options.lavaMapId
             ? options.magmaliskBoss
-            : options.currentMapId() === options.infernalMapId ? options.gloomrootBoss : null,
+            : options.currentMapId() === options.infernalMapId
+              ? options.gloomrootBoss
+              : options.currentMapId() === options.waterMapId ? options.tidewyrmBoss : null,
     remoteAttackRange: BASE_ATTACK_RANGE,
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,
@@ -319,6 +326,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       frostclawBoss: options.frostclawBoss,
       magmaliskBoss: options.magmaliskBoss,
       gloomrootBoss: options.gloomrootBoss,
+      tidewyrmBoss: options.tidewyrmBoss,
       bootsPickup: frame.bootsPickup,
       currentMapId: options.currentMapId,
       activePortal: options.activePortal,
@@ -337,6 +345,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawFrostclawBoss: boss.drawFrostclawBoss,
       drawMagmaliskBoss: boss.drawMagmaliskBoss,
       drawGloomrootBoss: boss.drawGloomrootBoss,
+      drawTidewyrmBoss: boss.drawTidewyrmBoss,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -378,6 +387,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawFrostclawTelegraphs: boss.drawFrostclawTelegraphs,
       drawMagmaliskTelegraphs: boss.drawMagmaliskTelegraphs,
       drawGloomrootTelegraphs: boss.drawGloomrootTelegraphs,
+      drawTidewyrmTelegraphs: boss.drawTidewyrmTelegraphs,
       drawProjectile: actor.drawProjectile,
       drawDepthSortedWorld: depth.drawDepthSortedWorld,
       drawMinimap: world.drawMinimap,
@@ -389,6 +399,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       currentMapIsSnow: () => options.currentMapId() === options.snowMapId,
       currentMapIsLava: () => options.currentMapId() === options.lavaMapId,
       currentMapIsInfernal: () => options.currentMapId() === options.infernalMapId,
+      currentMapIsWater: () => options.currentMapId() === options.waterMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
       screenShake: frame.screenShake,

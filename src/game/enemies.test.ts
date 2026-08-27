@@ -10,6 +10,9 @@ import {
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  SAMURAI_GARDEN_DAMAGE_SCALE,
+  SAMURAI_GARDEN_HEALTH_SCALE,
+  SAMURAI_GARDEN_REWARD_SCALE,
   WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
   WATER_REACH_HEALTH_REWARD_MULTIPLIER,
   WATER_REACH_HEALTH_SCALE,
@@ -126,6 +129,26 @@ describe("enemy reward rules", () => {
     ]);
     const nonRaiderDamages = tracks.slice(1).map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
     expect(Math.max(...nonRaiderDamages) / Math.min(...nonRaiderDamages)).toBeLessThan(1.08);
+  });
+
+  it("scales Samurai Garden from Water Reach with the documented curve", () => {
+    const tracks = [
+      ["Tide Raider", "Sakura Ronin"],
+      ["Reef Archer", "Petal Archer"],
+      ["Coral Colossus", "Bamboo Guardian"],
+      ["Drowned Reaper", "Moonblade Reaper"],
+      ["Tidal Oracle", "Shrine Oracle"],
+    ] as const;
+    for (const [waterKind, samuraiKind] of tracks) {
+      const water = ENEMY_TYPES[waterKind];
+      const samurai = ENEMY_TYPES[samuraiKind];
+      expect(samurai.hp / water.hp).toBeCloseTo(SAMURAI_GARDEN_HEALTH_SCALE, 10);
+      expect(samurai.damage / water.damage).toBeCloseTo(SAMURAI_GARDEN_DAMAGE_SCALE, 10);
+      expect(samurai.reward.type).toBe(water.reward.type);
+      expect(samurai.reward.amount / water.reward.amount).toBeCloseTo(SAMURAI_GARDEN_REWARD_SCALE, 10);
+    }
+    const damages = tracks.map(([, samuraiKind]) => ENEMY_TYPES[samuraiKind].damage);
+    expect(Math.max(...damages) / Math.min(...damages)).toBeLessThan(1.71);
   });
 });
 

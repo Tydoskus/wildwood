@@ -124,6 +124,11 @@ export type GloomrootBloom = Circle & {
   maxTimer: number;
 };
 
+export type TidewyrmWhirlpool = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
 export type FrostclawRoar = {
   windup: number;
   timer: number;
@@ -185,7 +190,13 @@ export type GloomrootBossState = BossStateBase & {
   sweep: BossCone | null;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState;
+export type TidewyrmBossState = BossStateBase & {
+  bossKind: "tidewyrm";
+  nextAttack: "surge" | "whirlpool";
+  surge: BossCone | null;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState;
 export type CombatTarget = EnemyState | BossTarget;
 
 export type DuelPresentation = {

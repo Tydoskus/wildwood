@@ -86,6 +86,12 @@ export function paintStaticTile(
     } else if (decor.type === "petal") {
       context.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][decor.variant % 3];
       context.fillRect(x - 3, y - 1, 7, 3); context.fillRect(x - 1, y - 3, 3, 7); context.fillStyle = "rgba(255,255,255,.72)"; context.fillRect(x, y, 1, 1);
+    } else if (decor.type === "cherryPetal") {
+      context.fillStyle = ["#ffd0e5", "#ff9fc9", "#f477ad", "#fff0f7"][decor.variant % 4];
+      context.fillRect(x - 3, y - 1, 6, 3);
+      context.fillRect(x - 1, y - 2, 2, 5);
+      context.fillStyle = "rgba(255,255,255,.68)";
+      context.fillRect(x, y - 1, 1, 1);
     } else if (decor.type === "desertGrass") {
       context.fillStyle = decor.variant % 2 ? "#8b7b3d" : "#a28a43";
       context.fillRect(x - 1, y - 6, 2, 7); context.fillRect(x - 5, y - 3, 2, 5); context.fillRect(x + 3, y - 4, 2, 6);

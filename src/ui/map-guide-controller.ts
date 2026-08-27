@@ -32,6 +32,7 @@ import {
   BEGINNER_DESERT_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   type MapId,
@@ -102,6 +103,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
     { itemId: DARK_METAL_HELMET, denominator: NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR, source: "Any regular Night Forest enemy" },
   ],
   [WATER_REACH_MAP_ID]: [],
+  [SAMURAI_GARDEN_MAP_ID]: [],
 };
 
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
@@ -111,6 +113,7 @@ const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: stri
   [ADVANCED_LAVA_WASTES_MAP_ID]: { ground: "#f5b255", path: "#df754b", glow: "#ffd077" },
   [INFERNAL_DEPTHS_MAP_ID]: { ground: "#100e17", path: "#261a26", glow: "#8f83a6" },
   [WATER_REACH_MAP_ID]: { ground: "#238c9a", path: "#d5c58e", glow: "#7af6f1" },
+  [SAMURAI_GARDEN_MAP_ID]: { ground: "#78a76f", path: "#d9c8ae", glow: "#ff91c4" },
 };
 
 const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {
@@ -313,8 +316,6 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
       const isGloomroot = mapId === INFERNAL_DEPTHS_MAP_ID;
       context.save();
       context.globalAlpha = boss.dead ? .45 : 1;
-      context.shadowColor = isGloomroot ? "#69f0e7" : "transparent";
-      context.shadowBlur = isGloomroot ? 12 : 0;
       context.fillStyle = isGloomroot ? "#69f0e7" : "#ff765c";
       context.strokeStyle = isGloomroot ? "#d5fffc" : "#38100d";
       context.lineWidth = 3;

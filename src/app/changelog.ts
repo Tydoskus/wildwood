@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.543": [
+    "Tidewyrm now guards Water Reach, and defeating it unlocks Samurai Garden with pink sakura groves and five scaled enemy camps.",
+    "Tidewyrm uses the established chunky boss-art style, while boss minimap markers stay clean and aura-free.",
+  ],
   "0.542": [
     "Gloomroot now guards Night Forest, and defeating it unlocks Water Reach with five new enemy camps on the extended progression curve.",
     "Night Forest enemies now remain visible through the vignette, while Gloomroot has reliable artwork and clearer minimap markers.",
@@ -1166,6 +1170,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.543": "2026-08-27",
   "0.542": "2026-08-27",
   "0.541": "2026-08-27",
   "0.538": "2026-08-27",

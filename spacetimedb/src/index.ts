@@ -136,12 +136,18 @@ import {
   PLAYER_SPEED,
   playerBaseMovementSpeed,
   PROTOCOL_VERSION,
+  SAMURAI_GARDEN_MAP_ID,
   SPIDER_MAX_HP,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
   TUTORIAL_FOREST_MAP_ID,
+  TIDEWYRM_MAX_HP,
+  TIDEWYRM_REWARD_ARMOR,
+  TIDEWYRM_REWARD_DAMAGE,
+  TIDEWYRM_REWARD_HEALTH,
+  TIDEWYRM_REWARD_REGEN,
   WATER_REACH_MAP_ID,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -181,7 +187,11 @@ const MAP_PORTALS = {
     { x: 360, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID },
     { x: 580, y: 617, destination: WATER_REACH_MAP_ID },
   ],
-  [WATER_REACH_MAP_ID]: [{ x: 360, y: 617, destination: INFERNAL_DEPTHS_MAP_ID }],
+  [WATER_REACH_MAP_ID]: [
+    { x: 360, y: 617, destination: INFERNAL_DEPTHS_MAP_ID },
+    { x: 580, y: 617, destination: SAMURAI_GARDEN_MAP_ID },
+  ],
+  [SAMURAI_GARDEN_MAP_ID]: [{ x: 360, y: 617, destination: WATER_REACH_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -190,6 +200,7 @@ const MAP_ARRIVALS = {
   [ADVANCED_LAVA_WASTES_MAP_ID]: { x: 580, y: 770 },
   [INFERNAL_DEPTHS_MAP_ID]: { x: 580, y: 770 },
   [WATER_REACH_MAP_ID]: { x: 580, y: 770 },
+  [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -243,6 +254,11 @@ const GLOOMROOT_RADIUS = 175;
 const GLOOMROOT_POSITION = { x: 4050, y: 4050 };
 const GLOOMROOT_HIT_RANGE_TOLERANCE = 60;
 const GLOOMROOT_RESPAWN_MICROS = 30_000_000n;
+const TIDEWYRM_ID = 1;
+const TIDEWYRM_RADIUS = 175;
+const TIDEWYRM_POSITION = { x: 4050, y: 4050 };
+const TIDEWYRM_HIT_RANGE_TOLERANCE = 60;
+const TIDEWYRM_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
@@ -631,6 +647,9 @@ const playerProgress = table(
     // Gloomroot owns the additive unlock for Water Reach. The default keeps
     // every existing progress row migration-safe.
     waterUnlocked: t.bool().default(false),
+    // Tidewyrm owns the additive unlock for Samurai Garden. Keep new progress
+    // columns appended so deployed PlayerProgress row order stays stable.
+    samuraiUnlocked: t.bool().default(false),
   },
 );
 
@@ -1494,6 +1513,59 @@ const gloomrootRespawnSchedule = table(
   },
 );
 
+const tidewyrmBoss = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    hp: t.f32(),
+    maxHp: t.f32(),
+    alive: t.bool(),
+    respawnAtMicros: t.u64(),
+    lastDamageAtMicros: t.u64().default(0n),
+  },
+);
+
+const tidewyrmContribution = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    displayName: t.string(),
+    damage: t.f32(),
+  },
+);
+
+const tidewyrmAttackWindow = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(),
+    startedAtMicros: t.u64(),
+    hits: t.u32(),
+  },
+);
+
+const tidewyrmResult = table(
+  { public: true },
+  {
+    id: t.u32().primaryKey(),
+    encounter: t.u64(),
+    totalDamage: t.f32(),
+    contributorsJson: t.string(),
+    createdAt: t.timestamp(),
+  },
+);
+
+const tidewyrmRespawnSchedule = table(
+  { scheduled: (): any => respawnTidewyrm },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
   player,
   playerMapMarker,
@@ -1579,6 +1651,11 @@ const spacetimedb = schema({
   gloomrootAttackWindow,
   gloomrootResult,
   gloomrootRespawnSchedule,
+  tidewyrmBoss,
+  tidewyrmContribution,
+  tidewyrmAttackWindow,
+  tidewyrmResult,
+  tidewyrmRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1702,6 +1779,7 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     ctx.db.frostclawContribution,
     ctx.db.magmaliskContribution,
     ctx.db.gloomrootContribution,
+    ctx.db.tidewyrmContribution,
   ]) {
     const contribution = table.identity.find(identity);
     if (contribution && contribution.displayName !== displayName) {
@@ -1760,6 +1838,7 @@ function defaultPlayerProgress(identity: any) {
     lavaUnlocked: false,
     infernalUnlocked: false,
     waterUnlocked: false,
+    samuraiUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
     cosmeticHead: "",
@@ -1794,6 +1873,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "lavaUnlocked",
   "infernalUnlocked",
   "waterUnlocked",
+  "samuraiUnlocked",
   "bowCount",
   "woodenArmorCount",
   "cosmeticHead",
@@ -2602,6 +2682,14 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
   const saved = ctx.db.playerLastLocation.identity.find(identity);
   const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
   let mapId = requestedMap;
+  if (mapId === SAMURAI_GARDEN_MAP_ID && !progress.samuraiUnlocked) {
+    mapId = progress.waterUnlocked
+      ? WATER_REACH_MAP_ID
+      : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+        : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+          : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+            : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
   if (mapId === WATER_REACH_MAP_ID && !progress.waterUnlocked) {
     mapId = progress.infernalUnlocked
       ? INFERNAL_DEPTHS_MAP_ID
@@ -2963,7 +3051,8 @@ function hasFreshProgress(progress: any) {
     progress.snowlandsUnlocked === defaultProgress.snowlandsUnlocked &&
     progress.lavaUnlocked === defaultProgress.lavaUnlocked &&
     progress.infernalUnlocked === defaultProgress.infernalUnlocked &&
-    progress.waterUnlocked === defaultProgress.waterUnlocked;
+    progress.waterUnlocked === defaultProgress.waterUnlocked &&
+    progress.samuraiUnlocked === defaultProgress.samuraiUnlocked;
 }
 
 function resultIncludesContributor(latest: any, identity: any) {
@@ -2991,6 +3080,10 @@ function contributedToLatestMagmalisk(ctx: any, identity: any) {
 
 function contributedToLatestGloomroot(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.gloomrootResult.id.find(GLOOMROOT_ID), identity);
+}
+
+function contributedToLatestTidewyrm(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.tidewyrmResult.id.find(TIDEWYRM_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -3647,6 +3740,8 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.magmaliskAttackWindow.identity.find(identity)) ctx.db.magmaliskAttackWindow.identity.delete(identity);
   if (ctx.db.gloomrootContribution.identity.find(identity)) ctx.db.gloomrootContribution.identity.delete(identity);
   if (ctx.db.gloomrootAttackWindow.identity.find(identity)) ctx.db.gloomrootAttackWindow.identity.delete(identity);
+  if (ctx.db.tidewyrmContribution.identity.find(identity)) ctx.db.tidewyrmContribution.identity.delete(identity);
+  if (ctx.db.tidewyrmAttackWindow.identity.find(identity)) ctx.db.tidewyrmAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -3888,6 +3983,25 @@ function ensureGloomrootBoss(ctx: any) {
   });
 }
 
+function ensureTidewyrmBoss(ctx: any) {
+  const existing = ctx.db.tidewyrmBoss.id.find(TIDEWYRM_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, TIDEWYRM_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.tidewyrmBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.tidewyrmBoss.insert({
+    id: TIDEWYRM_ID,
+    encounter: 1n,
+    hp: TIDEWYRM_MAX_HP,
+    maxHp: TIDEWYRM_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
+
 function regenerateIdleBosses(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
@@ -3907,6 +4021,7 @@ function regenerateIdleBosses(ctx: any) {
   regenerate(ensureFrostclawBoss(ctx), (next) => ctx.db.frostclawBoss.id.update(next));
   regenerate(ensureMagmaliskBoss(ctx), (next) => ctx.db.magmaliskBoss.id.update(next));
   regenerate(ensureGloomrootBoss(ctx), (next) => ctx.db.gloomrootBoss.id.update(next));
+  regenerate(ensureTidewyrmBoss(ctx), (next) => ctx.db.tidewyrmBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4185,6 +4300,71 @@ function finishGloomrootEncounter(ctx: any, gloomroot: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: gloomroot.encounter,
+  });
+}
+
+function clearTidewyrmCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.tidewyrmContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.tidewyrmAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.tidewyrmContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.tidewyrmAttackWindow.identity.delete(identity);
+}
+
+function rewardTidewyrmContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const next = {
+    ...current,
+    damage: current.damage + TIDEWYRM_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + TIDEWYRM_REWARD_HEALTH * rewardMultiplier,
+    armor: current.armor + TIDEWYRM_REWARD_ARMOR * rewardMultiplier,
+    regen: current.regen + TIDEWYRM_REWARD_REGEN * rewardMultiplier,
+    samuraiUnlocked: true,
+  };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+
+function finishTidewyrmEncounter(ctx: any, tidewyrm: any) {
+  const contributions = [...ctx.db.tidewyrmContribution.iter()]
+    .filter((row: any) => row.encounter === tidewyrm.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: TIDEWYRM_ID,
+    encounter: tidewyrm.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.tidewyrmResult.id.find(TIDEWYRM_ID)) ctx.db.tidewyrmResult.id.update(result);
+  else ctx.db.tidewyrmResult.insert(result);
+
+  for (const row of contributions) rewardTidewyrmContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + TIDEWYRM_RESPAWN_MICROS;
+  ctx.db.tidewyrmBoss.id.update({ ...tidewyrm, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.tidewyrmRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: tidewyrm.encounter,
   });
 }
 
@@ -4558,23 +4738,27 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const latestFrostclawContributor = contributedToLatestFrostclaw(ctx, ctx.sender);
     const latestMagmaliskContributor = contributedToLatestMagmalisk(ctx, ctx.sender);
     const latestGloomrootContributor = contributedToLatestGloomroot(ctx, ctx.sender);
+    const latestTidewyrmContributor = contributedToLatestTidewyrm(ctx, ctx.sender);
     const isInDesert = existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID;
     const isInSnowlands = existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID;
     const isInLavaWastes = existingPlayer?.mapId === ADVANCED_LAVA_WASTES_MAP_ID;
     const isInInfernalDepths = existingPlayer?.mapId === INFERNAL_DEPTHS_MAP_ID;
     const isInWaterReach = existingPlayer?.mapId === WATER_REACH_MAP_ID;
-    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor)) ||
-      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor)) ||
-      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor)) ||
-      (!existingProgress.infernalUnlocked && (isInInfernalDepths || isInWaterReach || latestMagmaliskContributor || latestGloomrootContributor)) ||
-      (!existingProgress.waterUnlocked && (isInWaterReach || latestGloomrootContributor))) {
+    const isInSamuraiGarden = existingPlayer?.mapId === SAMURAI_GARDEN_MAP_ID;
+    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor)) ||
+      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor)) ||
+      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor)) ||
+      (!existingProgress.infernalUnlocked && (isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor)) ||
+      (!existingProgress.waterUnlocked && (isInWaterReach || isInSamuraiGarden || latestGloomrootContributor || latestTidewyrmContributor)) ||
+      (!existingProgress.samuraiUnlocked && (isInSamuraiGarden || latestTidewyrmContributor))) {
       existingProgress = {
         ...existingProgress,
-        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor,
-        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor,
-        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || isInWaterReach || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor,
-        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || isInWaterReach || latestMagmaliskContributor || latestGloomrootContributor,
-        waterUnlocked: existingProgress.waterUnlocked || isInWaterReach || latestGloomrootContributor,
+        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor,
+        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor,
+        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor,
+        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor,
+        waterUnlocked: existingProgress.waterUnlocked || isInWaterReach || isInSamuraiGarden || latestGloomrootContributor || latestTidewyrmContributor,
+        samuraiUnlocked: existingProgress.samuraiUnlocked || isInSamuraiGarden || latestTidewyrmContributor,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -4725,6 +4909,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureFrostclawBoss(ctx);
   ensureMagmaliskBoss(ctx);
   ensureGloomrootBoss(ctx);
+  ensureTidewyrmBoss(ctx);
   ensureWorldStatus(ctx);
   runPendingModuleMigrations(ctx);
 
@@ -5013,6 +5198,24 @@ export const respawnGloomroot = spacetimedb.reducer(
       ...gloomroot,
       encounter: gloomroot.encounter + 1n,
       hp: gloomroot.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+
+export const respawnTidewyrm = spacetimedb.reducer(
+  { schedule: tidewyrmRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const tidewyrm = ensureTidewyrmBoss(ctx);
+    if (tidewyrm.alive || tidewyrm.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < tidewyrm.respawnAtMicros) return;
+    clearTidewyrmCombatRows(ctx);
+    ctx.db.tidewyrmBoss.id.update({
+      ...tidewyrm,
+      encounter: tidewyrm.encounter + 1n,
+      hp: tidewyrm.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -5403,6 +5606,80 @@ export const damageGloomrootFromPosition = spacetimedb.reducer(
   (ctx, { hits, x, y }) => applyGloomrootDamage(ctx, hits, { x, y }),
 );
 
+function applyTidewyrmDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== WATER_REACH_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const tidewyrm = ensureTidewyrmBoss(ctx);
+  if (!tidewyrm.alive || tidewyrm.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - TIDEWYRM_POSITION.x, actionY - TIDEWYRM_POSITION.y);
+  if (centerDistance - TIDEWYRM_RADIUS > progress.attackRange + TIDEWYRM_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.tidewyrmAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== tidewyrm.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: tidewyrm.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.tidewyrmAttackWindow.identity.update(nextWindow);
+    else ctx.db.tidewyrmAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.tidewyrmAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(tidewyrm.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.tidewyrmContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === tidewyrm.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: tidewyrm.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.tidewyrmContribution.identity.update(nextContribution);
+  else ctx.db.tidewyrmContribution.insert(nextContribution);
+  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, TIDEWYRM_POSITION, TIDEWYRM_RADIUS, acceptedHits);
+
+  const nextTidewyrm = {
+    ...tidewyrm,
+    hp: Math.max(0, tidewyrm.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextTidewyrm.hp <= 0) finishTidewyrmEncounter(ctx, nextTidewyrm);
+  else ctx.db.tidewyrmBoss.id.update(nextTidewyrm);
+}
+
+export const damageTidewyrmFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyTidewyrmDamage(ctx, hits, { x, y }),
+);
+
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
@@ -5653,6 +5930,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       [ctx.db.frostclawContribution, ctx.db.frostclawAttackWindow],
       [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
       [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
+      [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);
@@ -6250,6 +6528,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       lavaUnlocked: base.lavaUnlocked,
       infernalUnlocked: base.infernalUnlocked,
       waterUnlocked: base.waterUnlocked,
+      samuraiUnlocked: base.samuraiUnlocked,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
@@ -7103,6 +7382,9 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === WATER_REACH_MAP_ID && !currentProgress?.waterUnlocked) {
       throw new SenderError(`Defeat Gloomroot before entering ${MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID]}.`);
+    }
+    if (mapId === SAMURAI_GARDEN_MAP_ID && !currentProgress?.samuraiUnlocked) {
+      throw new SenderError(`Defeat Tidewyrm before entering ${MAP_DISPLAY_NAMES[SAMURAI_GARDEN_MAP_ID]}.`);
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

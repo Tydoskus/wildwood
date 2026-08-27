@@ -808,6 +808,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   speedOverride: __t.f32(),
   infernalUnlocked: __t.bool(),
   waterUnlocked: __t.bool(),
+  samuraiUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -903,6 +904,49 @@ export const SpiderResult = __t.object("SpiderResult", {
   createdAt: __t.timestamp(),
 });
 export type SpiderResult = __Infer<typeof SpiderResult>;
+
+export const TidewyrmAttackWindow = __t.object("TidewyrmAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type TidewyrmAttackWindow = __Infer<typeof TidewyrmAttackWindow>;
+
+export const TidewyrmBoss = __t.object("TidewyrmBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type TidewyrmBoss = __Infer<typeof TidewyrmBoss>;
+
+export const TidewyrmContribution = __t.object("TidewyrmContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type TidewyrmContribution = __Infer<typeof TidewyrmContribution>;
+
+export const TidewyrmRespawnSchedule = __t.object("TidewyrmRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type TidewyrmRespawnSchedule = __Infer<typeof TidewyrmRespawnSchedule>;
+
+export const TidewyrmResult = __t.object("TidewyrmResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type TidewyrmResult = __Infer<typeof TidewyrmResult>;
 
 export const VirtualPlayer = __t.object("VirtualPlayer", {
   identity: __t.identity(),

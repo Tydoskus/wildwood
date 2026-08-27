@@ -14,7 +14,7 @@ This document is the durable balance contract for Wildwood's campaign. New maps,
 - **An item upgrade adds 8% of that item's level-zero bonus per level.** Upgrades are linear and capped at level 10. For example, a `+100%` item bonus becomes `+108%` at level 1 and `+180%` at level 10; it does not compound.
 - **Equipment never grants attack speed.** Persisted/base attack speed is capped at 2.625 attacks per second (`MIN_ATTACK_INTERVAL = 1 / 2.625`). Keep attack-speed progression out of item definitions and item upgrades.
 
-The authored duration ladder through the Water map is:
+The authored duration ladder through Samurai Garden is:
 
 | Map | Progression index | Exact target | Decimal hours |
 | --- | ---: | ---: | ---: |
@@ -24,8 +24,20 @@ The authored duration ladder through the Water map is:
 | Advanced Lava Lake | 2 | 3:38:42 | 3.6450000 |
 | Night Forest | 3 | 4:55:14.700 | 4.9207500 |
 | Water Reach | 4 | 6:38:34.845 | 6.6430125 |
+| Samurai Garden | 5 | 8:58:05.041 | 8.968066875 |
 
 Do not round the constants used by code. Rounded labels are fine in the UI.
+
+## Water Reach to Samurai Garden
+
+Samurai Garden directly applies the shared progression contract to Water Reach's authored enemy families:
+
+- regular-enemy health is `270×` Water (`200×` expected player power multiplied by the `1.35×` duration target);
+- regular-enemy damage and rewards are `200×` Water, keeping incoming-hit readability and player growth aligned with the power step;
+- Tidewyrm health is `270×` Gloomroot health; and
+- Tidewyrm's Damage, Max Health, Armor, and Regeneration rewards are each `200×` Gloomroot's corresponding reward.
+
+These relationships live in `SAMURAI_GARDEN_*` and `TIDEWYRM_*` constants in `shared/rules.ts`. Future tuning should change the shared multipliers or clearly document an intentional exception, not hide a second multiplier in map or enemy code. Boss attack damage remains encounter-tuned because telegraph timing and dodge space affect survivability; validate it against the representative Water-exit build and avoid unavoidable one-shots.
 
 ## What “power” means
 

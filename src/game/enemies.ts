@@ -12,6 +12,9 @@ import {
   INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  SAMURAI_GARDEN_DAMAGE_SCALE,
+  SAMURAI_GARDEN_HEALTH_SCALE,
+  SAMURAI_GARDEN_REWARD_SCALE,
   WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
   WATER_REACH_HEALTH_REWARD_MULTIPLIER,
   WATER_REACH_HEALTH_SCALE,
@@ -228,6 +231,39 @@ const enemyTypes = {
     damage: 1_350_000_000_000, attackSpeed: .6, r: 39,
     color: "#7e9ee9", outline: "#29315d", reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE },
     elite: true, aggro: 440,
+  },
+
+  // SAMURAI GARDEN ENEMIES
+  // Follow the progression contract from Water Reach: 270× health budgets the
+  // 1.35× longer map at 200× player power, while incoming damage and rewards
+  // advance by 200×. The narrow damage band keeps each archetype readable.
+  "Sakura Ronin": {
+    hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 265,
+    damage: 850_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .65, r: 29,
+    color: "#ef75aa", outline: "#54233f", reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER * SAMURAI_GARDEN_REWARD_SCALE },
+  },
+  "Petal Archer": {
+    hp: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 250,
+    damage: 1_150_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .55, r: 27,
+    color: "#ff9fc7", outline: "#60304d", reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER * SAMURAI_GARDEN_REWARD_SCALE },
+    ranged: true,
+  },
+  "Bamboo Guardian": {
+    hp: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 230,
+    damage: 1_450_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .55, r: 37,
+    color: "#7cad70", outline: "#294936", reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE },
+  },
+  "Moonblade Reaper": {
+    hp: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 270,
+    damage: 1_250_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .7, r: 44,
+    color: "#8a70bd", outline: "#30264f", reward: { type: "damage", amount: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER * SAMURAI_GARDEN_REWARD_SCALE },
+    ranged: true, elite: true, aggro: 460,
+  },
+  "Shrine Oracle": {
+    hp: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE, speed: 255,
+    damage: 1_350_000_000_000 * SAMURAI_GARDEN_DAMAGE_SCALE, attackSpeed: .6, r: 41,
+    color: "#eeb1d4", outline: "#52334f", reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE },
+    elite: true, aggro: 460,
   },
 } satisfies Record<string, EnemyDefinition>;
 

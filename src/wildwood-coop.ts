@@ -62,6 +62,8 @@ export type {
   RemotePlayerDeath,
   SpiderBossState,
   SpiderResult,
+  TidewyrmBossState,
+  TidewyrmResult,
   UpgradeBenchSlot,
 } from "./coop/contracts";
 
@@ -353,6 +355,8 @@ const {
   upsertMagmaliskResult,
   upsertGloomroot: upsertGloomrootBoss,
   upsertGloomrootResult,
+  upsertTidewyrm: upsertTidewyrmBoss,
+  upsertTidewyrmResult,
 } = bossService.tables;
 
 let chatService!: ChatService;
@@ -587,6 +591,8 @@ const baseSubscriptionHandlers = {
   magmaliskResult: upsertMagmaliskResult,
   gloomrootBoss: upsertGloomrootBoss,
   gloomrootResult: upsertGloomrootResult,
+  tidewyrmBoss: upsertTidewyrmBoss,
+  tidewyrmResult: upsertTidewyrmResult,
   chatMessage: upsertChatMessage,
   duel: upsertDuel,
   removeDuel,

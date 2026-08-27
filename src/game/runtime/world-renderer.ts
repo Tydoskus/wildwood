@@ -3,8 +3,8 @@ import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
-import type { MapId, WorldDecor, WorldPath } from "../world";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
+import { SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
@@ -84,6 +84,7 @@ export type WorldRendererOptions = {
   frostclawBoss: FrostclawBossState;
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
+  tidewyrmBoss: TidewyrmBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -162,10 +163,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const lava = options.getMapId() === options.lavaMapId;
     const infernal = options.getMapId() === options.infernalMapId;
     const water = options.getMapId() === options.waterMapId;
+    const samurai = options.getMapId() === SAMURAI_GARDEN_MAP_ID;
     return {
-      ground: water ? "#238c9a" : infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: water ? "#d5c58e" : infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: water ? "rgba(255,248,198,.26)" : infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+      ground: samurai ? "#78a76f" : water ? "#238c9a" : infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: samurai ? "#d9c8ae" : water ? "#d5c58e" : infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: samurai ? "rgba(102,69,75,.2)" : water ? "rgba(255,248,198,.26)" : infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
     };
   }
 
@@ -576,6 +578,51 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const halfWidth = Math.ceil(drawSize / 2);
     const cullPadding = drawSize + 32;
     if (x + halfWidth < -cullPadding || x - halfWidth > visible.width + cullPadding || y < -cullPadding || y - drawSize > visible.height + cullPadding) return;
+    if (options.getMapId() === SAMURAI_GARDEN_MAP_ID) {
+      const scale = drawSize / 154;
+      const trunkWidth = Math.max(8, Math.round(14 * scale));
+      const trunkHeight = Math.round(82 * scale);
+      const crownY = y - trunkHeight;
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#49303a";
+      ctx.lineWidth = Math.max(4, Math.round(8 * scale));
+      ctx.beginPath();
+      ctx.moveTo(x, y - Math.round(6 * scale));
+      ctx.lineTo(x - Math.round(2 * scale), crownY + Math.round(18 * scale));
+      ctx.lineTo(x - Math.round(28 * scale), crownY - Math.round(7 * scale));
+      ctx.moveTo(x - Math.round(1 * scale), crownY + Math.round(24 * scale));
+      ctx.lineTo(x + Math.round(30 * scale), crownY - Math.round(10 * scale));
+      ctx.stroke();
+      ctx.fillStyle = "#6d4650";
+      ctx.fillRect(x - Math.floor(trunkWidth / 2), y - trunkHeight, trunkWidth, trunkHeight);
+      ctx.fillStyle = "#a16a68";
+      ctx.fillRect(x - Math.floor(trunkWidth / 2) + 2, y - trunkHeight + 4, Math.max(2, Math.round(trunkWidth * .24)), trunkHeight - 8);
+
+      const drift = (tree.variant % 3 - 1) * Math.round(4 * scale);
+      const clusters = [
+        { dx: -42 + drift, dy: -16, rx: 34, ry: 25 },
+        { dx: -16, dy: -37, rx: 39, ry: 29 },
+        { dx: 19, dy: -37, rx: 38, ry: 29 },
+        { dx: 45 + drift, dy: -14, rx: 31, ry: 24 },
+        { dx: 3, dy: -9, rx: 45, ry: 31 },
+      ];
+      for (let index = 0; index < clusters.length; index += 1) {
+        const cluster = clusters[index];
+        const cx = x + Math.round(cluster.dx * scale);
+        const cy = crownY + Math.round(cluster.dy * scale);
+        const rx = Math.round(cluster.rx * scale);
+        const ry = Math.round(cluster.ry * scale);
+        ctx.fillStyle = "#7b355c";
+        ctx.beginPath(); ctx.ellipse(cx, cy + Math.round(2 * scale), rx + Math.round(3 * scale), ry + Math.round(3 * scale), 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = ["#f47fb2", "#ff94c2", "#e96ca7"][index % 3];
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = "rgba(255,214,233,.82)";
+        ctx.fillRect(cx - Math.round(rx * .42), cy - Math.round(ry * .48), Math.max(2, Math.round(6 * scale)), Math.max(2, Math.round(4 * scale)));
+      }
+      ctx.restore();
+      return;
+    }
     const night = options.getMapId() === options.infernalMapId;
     const spritesheet = night ? options.nightTreeSpritesheet : options.treeSpritesheet;
     if (!spritesheet.complete || spritesheet.naturalWidth <= 0) return;
@@ -871,19 +918,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
             ? { state: options.magmaliskBoss, color: "#ff752f" }
             : options.getMapId() === options.infernalMapId
               ? { state: options.gloomrootBoss, color: "#69f0e7" }
-              : null;
+              : options.getMapId() === options.waterMapId
+                ? { state: options.tidewyrmBoss, color: "#55ddf4" }
+                : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
-      const isGloomroot = options.getMapId() === options.infernalMapId;
       draw.save();
       draw.globalAlpha = mapBoss.state.dead ? .46 : 1;
-      if (isGloomroot) {
-        draw.fillStyle = "rgba(105,240,231,.28)";
-        draw.beginPath(); draw.arc(bx, by, 9, 0, Math.PI * 2); draw.fill();
-        draw.strokeStyle = "#c9fffb";
-        draw.lineWidth = 2;
-        draw.beginPath(); draw.arc(bx, by, 7, 0, Math.PI * 2); draw.stroke();
-      }
       draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
       draw.fillStyle = mapBoss.color; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
       draw.fillStyle = "#fff"; draw.fillRect(bx - 2, by - 1, 2, 2); draw.fillRect(bx + 2, by - 1, 2, 2);

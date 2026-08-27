@@ -52,6 +52,8 @@ export type BaseSubscriptionHandlers = {
   magmaliskResult: RowHandler;
   gloomrootBoss: RowHandler;
   gloomrootResult: RowHandler;
+  tidewyrmBoss: RowHandler;
+  tidewyrmResult: RowHandler;
   chatMessage: RowHandler;
   duel: RowHandler;
   removeDuel: RowHandler;
@@ -162,6 +164,10 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.gloomrootBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gloomrootBoss(row); });
   connection.db.gloomrootResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gloomrootResult(row); });
   connection.db.gloomrootResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gloomrootResult(row); });
+  connection.db.tidewyrmBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.tidewyrmBoss(row); });
+  connection.db.tidewyrmBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.tidewyrmBoss(row); });
+  connection.db.tidewyrmResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.tidewyrmResult(row); });
+  connection.db.tidewyrmResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.tidewyrmResult(row); });
   connection.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.duel.onInsert((_ctx, row) => { if (shouldHandle()) handlers.duel(row); });
   connection.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.duel(row); });
@@ -202,6 +208,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.magmaliskResult.iter()) handlers.magmaliskResult(row);
         for (const row of connection.db.gloomrootBoss.iter()) handlers.gloomrootBoss(row);
         for (const row of connection.db.gloomrootResult.iter()) handlers.gloomrootResult(row);
+        for (const row of connection.db.tidewyrmBoss.iter()) handlers.tidewyrmBoss(row);
+        for (const row of connection.db.tidewyrmResult.iter()) handlers.tidewyrmResult(row);
         for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
         for (const row of connection.db.duel.iter()) handlers.duel(row);
         dependencies.onHydrated();
@@ -242,6 +250,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.magmaliskResult,
       tables.gloomrootBoss,
       tables.gloomrootResult,
+      tables.tidewyrmBoss,
+      tables.tidewyrmResult,
       tables.chatMessage,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
     ]);

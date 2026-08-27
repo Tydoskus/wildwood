@@ -17,6 +17,11 @@ import {
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
+  TIDEWYRM_MAX_HP,
+  TIDEWYRM_REWARD_ARMOR,
+  TIDEWYRM_REWARD_DAMAGE,
+  TIDEWYRM_REWARD_HEALTH,
+  TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
 
 describe("Dragon boss", () => {
@@ -43,39 +48,46 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     frostclawBoss: state.frostclawBoss,
     magmaliskBoss: state.magmaliskBoss,
     gloomrootBoss: state.gloomrootBoss,
+    tidewyrmBoss: state.tidewyrmBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
     magmaliskEruptions: state.magmaliskEruptions,
     gloomrootBlooms: state.gloomrootBlooms,
+    tidewyrmWhirlpools: state.tidewyrmWhirlpools,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
     getFrostclawBoss: () => null,
     getMagmaliskBoss: () => null,
     getGloomrootBoss: () => null,
+    getTidewyrmBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
     getMagmaliskResult: () => null,
     getGloomrootResult: () => null,
+    getTidewyrmResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
     currentMapIsSnow: () => true,
     currentMapIsLava: () => false,
     currentMapIsInfernal: () => false,
+    currentMapIsWater: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
     hasSeenLavaPortalCutscene: () => true,
     hasSeenInfernalPortalCutscene: () => true,
     hasSeenWaterPortalCutscene: () => true,
+    hasSeenSamuraiPortalCutscene: () => true,
     startDragonPortalCutscene: () => undefined,
     startSnowlandsPortalCutscene: () => undefined,
     startLavaPortalCutscene: () => undefined,
     startInfernalPortalCutscene: () => undefined,
     startWaterPortalCutscene: () => undefined,
+    startSamuraiPortalCutscene: () => undefined,
     elements: {
       result: ignoredElement,
       resultTitle: ignoredElement,
@@ -280,5 +292,83 @@ describe("Gloomroot boss", () => {
     controller.syncGloomrootState();
 
     expect(startWaterPortalCutscene).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Tidewyrm boss", () => {
+  it("caps Water Reach with the scaled Samurai Garden unlock reward", () => {
+    expect(TIDEWYRM_MAX_HP).toBe(310_500_000_000_000_000);
+    expect(TIDEWYRM_REWARD_DAMAGE).toBe(24_000_000_000_000);
+    expect(TIDEWYRM_REWARD_HEALTH).toBe(50_000_000_000_000);
+    expect(TIDEWYRM_REWARD_ARMOR).toBe(2_000_000_000);
+    expect(TIDEWYRM_REWARD_REGEN).toBe(400_000_000_000);
+  });
+
+  it("cycles a tidal surge into staggered whirlpools", () => {
+    const { controller, tidewyrmBoss, tidewyrmWhirlpools, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsWater: () => true,
+    });
+    player.x = tidewyrmBoss.x + 300;
+    player.y = tidewyrmBoss.y;
+    tidewyrmBoss.attackClock = 0;
+
+    controller.updateTidewyrmBoss(.016);
+    expect(tidewyrmBoss.surge).not.toBeNull();
+    expect(tidewyrmBoss.nextAttack).toBe("whirlpool");
+
+    controller.updateTidewyrmBoss(.82);
+    controller.updateTidewyrmBoss(1.1);
+    controller.updateTidewyrmBoss(2.5);
+    expect(tidewyrmWhirlpools.length).toBeGreaterThan(0);
+    expect(tidewyrmBoss.nextAttack).toBe("surge");
+  });
+
+  it("reveals Samurai Garden after a local Tidewyrm contribution", () => {
+    let shared = { encounter: 11n, hp: TIDEWYRM_MAX_HP, maxHp: TIDEWYRM_MAX_HP, alive: true };
+    const startSamuraiPortalCutscene = vi.fn();
+    const { controller } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsWater: () => true,
+      getTidewyrmBoss: () => shared,
+      getTidewyrmResult: () => ({
+        encounter: 11n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      hasSeenSamuraiPortalCutscene: () => false,
+      startSamuraiPortalCutscene,
+    });
+
+    controller.syncTidewyrmState();
+    shared = { ...shared, hp: 0, alive: false };
+    controller.syncTidewyrmState();
+
+    expect(startSamuraiPortalCutscene).toHaveBeenCalledOnce();
+  });
+
+  it("does not add rewards again when hydrating an already-dead encounter", () => {
+    const shared = { encounter: 12n, hp: 0, maxHp: TIDEWYRM_MAX_HP, alive: false };
+    const startSamuraiPortalCutscene = vi.fn();
+    const { controller, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsWater: () => true,
+      getTidewyrmBoss: () => shared,
+      getTidewyrmResult: () => ({
+        encounter: 12n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      hasSeenSamuraiPortalCutscene: () => false,
+      startSamuraiPortalCutscene,
+    });
+    const damageBefore = player.damage;
+    const maxHealthBefore = player.baseMaxHp;
+
+    controller.syncTidewyrmState();
+
+    expect(startSamuraiPortalCutscene).toHaveBeenCalledOnce();
+    expect(player.damage).toBe(damageBefore);
+    expect(player.baseMaxHp).toBe(maxHealthBefore);
   });
 });

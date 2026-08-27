@@ -29,7 +29,7 @@ const pending: ProgressSave = {
   enemyKills: 10,
 };
 
-const saved: PlayerProgress = { ...pending, speedOverride: 0, introComplete: true, desertUnlocked: false, snowlandsUnlocked: false, lavaUnlocked: false, infernalUnlocked: false, waterUnlocked: false, bowCount: 0, woodenArmorCount: 0 };
+const saved: PlayerProgress = { ...pending, speedOverride: 0, introComplete: true, desertUnlocked: false, snowlandsUnlocked: false, lavaUnlocked: false, infernalUnlocked: false, waterUnlocked: false, samuraiUnlocked: false, bowCount: 0, woodenArmorCount: 0 };
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -126,6 +126,10 @@ describe("progress persistence rules", () => {
     expect(progressCovers(merged, pending)).toBe(true);
     expect(progressCovers({ ...merged, inventoryJson: "[]" }, pending)).toBe(false);
     expect(progressCovers({ ...merged, cosmeticHead: "different" }, pending)).toBe(false);
+  });
+
+  it("preserves the server-owned Samurai Garden unlock while merging local gains", () => {
+    expect(mergeProgress({ ...saved, samuraiUnlocked: true }, pending).samuraiUnlocked).toBe(true);
   });
 
   it("acknowledges a server-owned movement override without resaving forever", () => {

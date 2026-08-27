@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { TUTORIAL_FOREST_MAP_ID, type WorldDecor } from "../world";
+import { TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState } from "./types";
+import type { DragonBossState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
 
-function renderer(decor: WorldDecor[], calls: string[]) {
+function renderer(decor: WorldDecor[], calls: string[], mapId: MapId = TUTORIAL_FOREST_MAP_ID, tidewyrmDead = true) {
   return createDepthWorldRenderer({
     camera: { x: 0, y: 0, zoom: 1 } as Camera,
     viewport: () => ({ width: 500, height: 500 }),
@@ -16,8 +16,9 @@ function renderer(decor: WorldDecor[], calls: string[]) {
     frostclawBoss: { dead: true, y: 0 } as FrostclawBossState,
     magmaliskBoss: { dead: true, y: 0 } as MagmaliskBossState,
     gloomrootBoss: { dead: true, y: 0 } as GloomrootBossState,
+    tidewyrmBoss: { dead: tidewyrmDead, y: 120 } as TidewyrmBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
-    currentMapId: () => TUTORIAL_FOREST_MAP_ID,
+    currentMapId: () => mapId,
     activePortal: () => ({ depth: 0 }),
     secondaryPortal: () => null,
     drawTree: (tree) => calls.push(`tree:${tree.y}`),
@@ -31,6 +32,7 @@ function renderer(decor: WorldDecor[], calls: string[]) {
     drawFrostclawBoss: () => calls.push("frostclaw"),
     drawMagmaliskBoss: () => calls.push("magmalisk"),
     drawGloomrootBoss: () => calls.push("gloomroot"),
+    drawTidewyrmBoss: () => calls.push("tidewyrm"),
     drawBootPickup: () => calls.push("boots"),
     drawPortal: () => calls.push("portal"),
     drawSecondaryPortal: () => calls.push("secondary"),
@@ -89,5 +91,14 @@ describe("depth world renderer", () => {
     depth.drawDepthSortedWorld([], false);
 
     expect(calls).toEqual(["player"]);
+  });
+
+  it("queues Tidewyrm in Water Reach depth order", () => {
+    const calls: string[] = [];
+    const depth = renderer([], calls, WATER_REACH_MAP_ID, false);
+
+    depth.drawDepthSortedWorld([], false);
+
+    expect(calls).toEqual(["player", "tidewyrm"]);
   });
 });

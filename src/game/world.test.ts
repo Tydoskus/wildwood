@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_MAX_HP, MAGMALISK_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, MAGMALISK_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   createSpawnSites,
@@ -86,11 +87,35 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].portal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].name).toBe("Water Reach");
     expect(bootstrap.gloomrootBoss).toMatchObject({ x: 4050, y: 4050, r: 175, maxHp: GLOOMROOT_MAX_HP });
+    expect(bootstrap.tidewyrmBoss).toMatchObject({ x: 4050, y: 4050, r: 175, maxHp: TIDEWYRM_MAX_HP });
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => waterKinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
     expect(first).toEqual(second);
     expect(first.decor.some((item) => item.type === "coral")).toBe(true);
     expect(first.decor.some((item) => item.type === "shell")).toBe(true);
+    expect(first.decor
+      .filter((item) => item.type === "coral" || item.type === "shell")
+      .every((item) => Math.hypot(item.x - 4050, item.y - 4050) >= 680)).toBe(true);
+    expect(first.paths.some((path) => 4050 >= path.x && 4050 <= path.x + path.w && 4050 >= path.y && 4050 <= path.y + path.h)).toBe(true);
+  });
+
+  it("connects Water Reach to a deterministic Samurai Garden", () => {
+    const bootstrap = createGameBootstrap();
+    const sites = createSpawnSites({ x: 4050, y: 4050 }, SAMURAI_GARDEN_MAP_ID);
+    const first = createWorldLayout({ x: 580, y: 770 }, SAMURAI_GARDEN_MAP_ID);
+    const second = createWorldLayout({ x: 580, y: 770 }, SAMURAI_GARDEN_MAP_ID);
+    const samuraiKinds = new Set(["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]);
+
+    expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].secondaryPortal.destination).toBe(SAMURAI_GARDEN_MAP_ID);
+    expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].portal.destination).toBe(WATER_REACH_MAP_ID);
+    expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].name).toBe("Samurai Garden");
+    expect(sites).toHaveLength(30);
+    expect(sites.every((site) => samuraiKinds.has(site.type))).toBe(true);
+    expect(first).toEqual(second);
+    expect(first.paths.length).toBeGreaterThanOrEqual(10);
+    expect(first.decor.filter((item) => item.type === "tree")).toHaveLength(148);
+    expect(first.decor.some((item) => item.type === "cherryPetal")).toBe(true);
   });
 });
 

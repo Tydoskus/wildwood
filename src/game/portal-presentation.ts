@@ -3,6 +3,7 @@ import {
   BEGINNER_DESERT_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   type MapId,
@@ -16,6 +17,7 @@ export const PORTAL_SWIRL_SOURCES: Record<MapId, string> = {
   [ADVANCED_LAVA_WASTES_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-red.png",
   [INFERNAL_DEPTHS_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-black.png",
   [WATER_REACH_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet.png",
+  [SAMURAI_GARDEN_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-red.png",
 };
 
 const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
@@ -25,6 +27,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [ADVANCED_LAVA_WASTES_MAP_ID]: "#ff6258",
   [INFERNAL_DEPTHS_MAP_ID]: "#625a70",
   [WATER_REACH_MAP_ID]: "#54e3e9",
+  [SAMURAI_GARDEN_MAP_ID]: "#ff83bd",
 };
 
 export function portalDestinationColor(destination: MapId) {

@@ -7,6 +7,7 @@ export type WorldDecor =
   | { type: "tree"; x: number; y: number; s: number; variant: number }
   | { type: "grass"; x: number; y: number; variant: number }
   | { type: "petal"; x: number; y: number; variant: number }
+  | { type: "cherryPetal"; x: number; y: number; variant: number }
   | { type: "cactus"; x: number; y: number; s: number; variant: number }
   | { type: "rock"; x: number; y: number; s: number; variant: number }
   | { type: "desertGrass"; x: number; y: number; variant: number }
@@ -36,6 +37,7 @@ export const INTERMEDIATE_SNOWLANDS_MAP_ID = "intermediate_snowlands";
 export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
 export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
 export const WATER_REACH_MAP_ID = "water_reach";
+export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
 export const UPGRADE_BENCH_POSITION = { x: 800, y: 710 } as const;
 export type MapId =
   | typeof TUTORIAL_FOREST_MAP_ID
@@ -43,7 +45,8 @@ export type MapId =
   | typeof INTERMEDIATE_SNOWLANDS_MAP_ID
   | typeof ADVANCED_LAVA_WASTES_MAP_ID
   | typeof INFERNAL_DEPTHS_MAP_ID
-  | typeof WATER_REACH_MAP_ID;
+  | typeof WATER_REACH_MAP_ID
+  | typeof SAMURAI_GARDEN_MAP_ID;
 
 const DESERT_CAMPS = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
@@ -83,6 +86,14 @@ const WATER_CAMPS = [
   { name: "Coral Citadel", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Coral Colossus"] as EnemyKind[] },
   { name: "Drowned Trench", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Drowned Reaper"] as EnemyKind[] },
   { name: "Mooncurrent Shrine", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Tidal Oracle", "Tidal Oracle", "Drowned Reaper"] as EnemyKind[] },
+];
+
+const SAMURAI_CAMPS = [
+  { name: "Lantern Gate", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Sakura Ronin"] as EnemyKind[] },
+  { name: "Blossom Walk", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Petal Archer"] as EnemyKind[] },
+  { name: "Bamboo Court", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Bamboo Guardian"] as EnemyKind[] },
+  { name: "Moonbridge", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Moonblade Reaper"] as EnemyKind[] },
+  { name: "Sakura Shrine", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Shrine Oracle", "Shrine Oracle", "Moonblade Reaper"] as EnemyKind[] },
 ];
 
 function seededUnit(index: number, salt: number) {
@@ -286,6 +297,7 @@ function createWaterLayout() {
     { x: 1810, y: 2350, w: 150, h: 1450 },
     { x: 1810, y: 3570, w: 1330, h: 150 },
     { x: 2990, y: 3570, w: 150, h: 520 },
+    { x: 2990, y: 3940, w: 1120, h: 150 },
   ];
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
@@ -293,11 +305,12 @@ function createWaterLayout() {
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
   const isNearCamp = (x: number, y: number) => WATER_CAMPS.some((camp) =>
     Math.hypot(x - camp.x, y - camp.y) < camp.radius + 105);
+  const isNearWaterBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 700;
 
   for (let index = 0; index < 130; index += 1) {
     const x = 70 + seededUnit(index, 61) * (WORLD.w - 140);
     const y = 70 + seededUnit(index, 62) * (WORLD.h - 140);
-    if (isOnPath(x, y, 42) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
+    if (isOnPath(x, y, 42) || isNearArrival(x, y) || isNearCamp(x, y) || isNearWaterBoss(x, y)) continue;
     decor.push({
       type: "coral",
       x: Math.round(x),
@@ -309,12 +322,64 @@ function createWaterLayout() {
   for (let index = 0; index < 220; index += 1) {
     const x = 45 + seededUnit(index, 64) * (WORLD.w - 90);
     const y = 45 + seededUnit(index, 65) * (WORLD.h - 90);
-    if (!isOnPath(x, y, 6) || isNearArrival(x, y)) continue;
+    if (!isOnPath(x, y, 6) || isNearArrival(x, y) || isNearWaterBoss(x, y)) continue;
     decor.push({
       type: "shell",
       x: Math.round(x),
       y: Math.round(y),
       s: .52 + seededUnit(index, 66) * .55,
+      variant: index % 4,
+    });
+  }
+  return { decor, paths };
+}
+
+function createSamuraiGardenLayout() {
+  const decor: WorldDecor[] = [];
+  // The path follows the same readable progression route as Water Reach, but
+  // wider intersections and a central crossroad make it feel like a formal
+  // garden instead of another wilderness corridor.
+  const paths: WorldPath[] = [
+    { x: 300, y: 640, w: 920, h: 150 },
+    { x: 1040, y: 640, w: 150, h: 850 },
+    { x: 1040, y: 1120, w: 1900, h: 150 },
+    { x: 2760, y: 1120, w: 150, h: 1380 },
+    { x: 2760, y: 2350, w: 1370, h: 150 },
+    { x: 3980, y: 2350, w: 150, h: 430 },
+    { x: 1810, y: 2350, w: 1100, h: 150 },
+    { x: 1810, y: 2350, w: 150, h: 1450 },
+    { x: 1810, y: 3570, w: 1330, h: 150 },
+    { x: 2990, y: 3570, w: 150, h: 520 },
+    { x: 2300, y: 1650, w: 150, h: 850 },
+    { x: 2300, y: 1650, w: 610, h: 150 },
+  ];
+  const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearCamp = (x: number, y: number) => SAMURAI_CAMPS.some((camp) =>
+    Math.hypot(x - camp.x, y - camp.y) < camp.radius + 115);
+  const placedTrees: { x: number; y: number; radius: number }[] = [];
+
+  for (let index = 0; placedTrees.length < 148 && index < 8_000; index += 1) {
+    const x = 80 + seededUnit(index, 71) * (WORLD.w - 160);
+    const y = 95 + seededUnit(index, 72) * (WORLD.h - 190);
+    const s = .7 + seededUnit(index, 73) * .48;
+    const radius = 45 * s;
+    if (isOnPath(x, y, 68) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
+    if (placedTrees.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 16)) continue;
+    placedTrees.push({ x, y, radius });
+    decor.push({ type: "tree", x: Math.round(x), y: Math.round(y), s, variant: placedTrees.length % 16 });
+  }
+
+  for (let index = 0; index < 360; index += 1) {
+    const x = 35 + seededUnit(index, 74) * (WORLD.w - 70);
+    const y = 35 + seededUnit(index, 75) * (WORLD.h - 70);
+    if (isNearArrival(x, y) || (!isOnPath(x, y, 18) && seededUnit(index, 76) > .42)) continue;
+    decor.push({
+      type: "cherryPetal",
+      x: Math.round(x),
+      y: Math.round(y),
       variant: index % 4,
     });
   }
@@ -327,6 +392,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   if (mapId === ADVANCED_LAVA_WASTES_MAP_ID) return createLavaLayout();
   if (mapId === INFERNAL_DEPTHS_MAP_ID) return createNightForestLayout();
   if (mapId === WATER_REACH_MAP_ID) return createWaterLayout();
+  if (mapId === SAMURAI_GARDEN_MAP_ID) return createSamuraiGardenLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -409,6 +475,8 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
           ? INFERNAL_CAMPS
           : mapId === WATER_REACH_MAP_ID
             ? WATER_CAMPS
+            : mapId === SAMURAI_GARDEN_MAP_ID
+              ? SAMURAI_CAMPS
         : CAMPS;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
@@ -419,14 +487,15 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
       let x = clamp(camp.x + Math.cos(angle) * distance, 45, WORLD.w - 45);
       let y = clamp(camp.y + Math.sin(angle) * distance, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID) {
+      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID) {
         const activeBoss = mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 };
         const bossDx = x - activeBoss.x;
         const bossDy = y - activeBoss.y;
         const bossDistance = Math.hypot(bossDx, bossDy) || 1;
         if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
-          x = clamp(activeBoss.x + bossDx / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.w - 45);
-          y = clamp(activeBoss.y + bossDy / bossDistance * BOSS_ENEMY_SAFE_DISTANCE, 45, WORLD.h - 45);
+          const safeDistance = BOSS_ENEMY_SAFE_DISTANCE + 1;
+          x = clamp(activeBoss.x + bossDx / bossDistance * safeDistance, 45, WORLD.w - 45);
+          y = clamp(activeBoss.y + bossDy / bossDistance * safeDistance, 45, WORLD.h - 45);
         }
       }
       const type = camp.types[index % camp.types.length];
