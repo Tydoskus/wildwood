@@ -53,6 +53,16 @@ Open `http://127.0.0.1:8000`.
 
 `localhost` connects to `ws://localhost:3000`. GitHub Pages connects to the production database at `wss://maincloud.spacetimedb.com`.
 
+### Balance Lab
+
+Run the high-speed, non-graphical progression simulator with:
+
+```sh
+npm run balance:lab
+```
+
+For a terminal report or machine-readable JSON, use `npm run balance:simulate`. The lab charts power over time across seeded loot trials, compares map duration and boss readiness, ranks enemy reward efficiency, reports survivability, and provides sandbox HP/damage/reward multipliers. See `docs/balance-lab.md` for model assumptions and CLI examples.
+
 ## Client change workflow
 
 1. Edit source files in `src/` or static files in `public/`.

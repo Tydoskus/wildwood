@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.537": [
+    "Depth Raider now has 10qd less health and deals half damage.",
+  ],
   "0.536": [
     "Depth Raider now grants three times as much permanent Damage, increasing its reward from 19.2 billion to 57.6 billion.",
     "Damage popups no longer jump from stale pooled positions on their first rendered frame.",
@@ -1151,6 +1154,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.537": "2026-08-27",
   "0.536": "2026-08-27",
   "0.535": "2026-08-27",
   "0.534": "2026-08-26",

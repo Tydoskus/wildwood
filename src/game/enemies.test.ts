@@ -37,6 +37,10 @@ describe("enemy reward rules", () => {
     expect(ENEMY_TYPES["Magma Guard"].reward).toEqual({ type: "armor", amount: 1_307_000 });
     expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 });
     expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 });
+    expect(ENEMY_TYPES["Depth Raider"]).toMatchObject({
+      hp: 3_668_750_000_000_000,
+      damage: 500_000_000_000_000,
+    });
     expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 57_600_000_000 });
     expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444);
     expect(ENEMY_TYPES["Doom Reaper"].reward).toEqual({ type: "damage", amount: 2_500_470_000_000 });
@@ -62,7 +66,8 @@ describe("enemy reward rules", () => {
       const snow = ENEMY_TYPES[snowKind];
       const lava = ENEMY_TYPES[lavaKind];
       const infernal = ENEMY_TYPES[infernalKind];
-      expect(infernal.hp / lava.hp).toBeCloseTo(lava.hp / snow.hp, 8);
+      if (infernalKind === "Depth Raider") expect(infernal.hp).toBe(3_668_750_000_000_000);
+      else expect(infernal.hp / lava.hp).toBeCloseTo(lava.hp / snow.hp, 8);
       const rewardBoost = infernalKind === "Depth Raider"
         ? 6
         : infernal.reward.type === "damage" || infernal.reward.type === "health" ? 2 : 1;
@@ -70,9 +75,12 @@ describe("enemy reward rules", () => {
     }
 
     const damages = tracks.map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
-    expect(Math.max(...damages) / Math.min(...damages)).toBeCloseTo(1.1);
+    expect(ENEMY_TYPES["Depth Raider"].damage).toBe(500_000_000_000_000);
+    const nonRaiderDamages = tracks.slice(1).map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
+    expect(Math.max(...nonRaiderDamages) / Math.min(...nonRaiderDamages)).toBeLessThan(1.08);
     const hitsAfterNinetyOnePercentBlock = damages.map((damage) => damageAfterArmor(damage, 30_000_000_000));
-    expect(Math.min(...hitsAfterNinetyOnePercentBlock)).toBeGreaterThan(85_000_000_000_000);
+    expect(hitsAfterNinetyOnePercentBlock[0]).toBeGreaterThan(40_000_000_000_000);
+    expect(hitsAfterNinetyOnePercentBlock[0]).toBeLessThan(50_000_000_000_000);
     expect(Math.max(...hitsAfterNinetyOnePercentBlock)).toBeLessThan(100_000_000_000_000);
   });
 });

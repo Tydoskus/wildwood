@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Wildwood Balance Lab</title>
+</head>
+<body>
+  <div class="lab-shell">
+    <header class="lab-header">
+      <div>
+        <p class="eyebrow">WILDWOOD · SYSTEMS TOOL</p>
+        <h1>Balance Lab</h1>
+        <p class="header-copy">Fast-forward the real combat economy, compare map pacing, and test tuning without rendering the game.</p>
+      </div>
+      <div class="model-badges" aria-label="Model details">
+        <span>EVENT SIM</span>
+        <span>SEEDED LOOT</span>
+        <span>REAL GAME DATA</span>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="control-rail">
+        <form id="simulationForm">
+          <section class="control-section">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">RUN MODEL</p>
+                <h2>Campaign</h2>
+              </div>
+              <button id="resetConfigButton" class="text-button" type="button">RESET</button>
+            </div>
+
+            <label class="field-label" for="durationDays">
+              <span>Simulation window</span>
+              <span class="field-hint">real-world days</span>
+            </label>
+            <div class="input-with-unit">
+              <input id="durationDays" name="durationDays" type="number" min="0.01" max="30" step="0.25" inputmode="decimal" />
+              <span>DAYS</span>
+            </div>
+
+            <label class="field-label" for="trials">
+              <span>Loot trials</span>
+              <span class="field-hint">P10 / median / P90</span>
+            </label>
+            <div class="range-row">
+              <input id="trials" name="trials" type="range" min="1" max="100" step="1" />
+              <output id="trialsValue" for="trials">20</output>
+            </div>
+
+            <label class="field-label" for="strategy">Farming behavior</label>
+            <select id="strategy" name="strategy">
+              <option value="boss-rush">Boss rush · prioritize DPS</option>
+              <option value="efficient">Max power per minute</option>
+              <option value="natural">Nearest available enemy</option>
+            </select>
+
+            <label class="field-label" for="researchPlan">Research queue</label>
+            <select id="researchPlan" name="researchPlan">
+              <option value="off">Off · combat only</option>
+              <option value="balanced">Balanced tree</option>
+              <option value="damage-first">Damage first</option>
+            </select>
+
+            <div class="two-fields">
+              <div>
+                <label class="field-label" for="bossTargetMinutes">Boss readiness</label>
+                <div class="input-with-unit compact">
+                  <input id="bossTargetMinutes" name="bossTargetMinutes" type="number" min="0.1" max="1440" step="1" inputmode="decimal" />
+                  <span>MIN TTK</span>
+                </div>
+              </div>
+              <div>
+                <label class="field-label" for="requiredClears">Required clears</label>
+                <input id="requiredClears" name="requiredClears" type="number" min="0" max="20" step="1" inputmode="numeric" />
+              </div>
+            </div>
+
+            <label class="field-label" for="targetMapDurationMultiplier">
+              <span>Desired map step</span>
+              <span class="field-hint">each map vs previous</span>
+            </label>
+            <div class="input-with-unit compact">
+              <input id="targetMapDurationMultiplier" name="targetMapDurationMultiplier" type="number" min="1" max="10" step="0.05" inputmode="decimal" />
+              <span>× LONGER</span>
+            </div>
+
+            <details class="advanced-controls">
+              <summary>Travel & progression assumptions</summary>
+              <div class="details-body">
+                <label class="field-label" for="respawnSeconds">Enemy respawn</label>
+                <div class="input-with-unit compact">
+                  <input id="respawnSeconds" name="respawnSeconds" type="number" min="1" max="300" step="1" inputmode="decimal" />
+                  <span>SEC</span>
+                </div>
+
+                <label class="field-label" for="pathingMultiplier">Pathing overhead</label>
+                <div class="input-with-unit compact">
+                  <input id="pathingMultiplier" name="pathingMultiplier" type="number" min="0.25" max="5" step="0.05" inputmode="decimal" />
+                  <span>× DIRECT</span>
+                </div>
+
+                <label class="field-label" for="itemUpgradeLevel">All equipped gear level</label>
+                <input id="itemUpgradeLevel" name="itemUpgradeLevel" type="number" min="0" max="10" step="1" inputmode="numeric" />
+              </div>
+            </details>
+          </section>
+
+          <section class="control-section tuning-section">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">WHAT-IF LAYER</p>
+                <h2>Map tuning</h2>
+              </div>
+              <button id="resetMapButton" class="text-button" type="button">RESET MAP</button>
+            </div>
+            <label class="field-label" for="tuningMap">Editing map</label>
+            <select id="tuningMap" name="tuningMap"></select>
+
+            <label class="multiplier-label" for="mapHpMultiplier">
+              <span>Enemy & boss health</span>
+              <output id="mapHpValue" for="mapHpMultiplier">100%</output>
+            </label>
+            <input id="mapHpMultiplier" type="range" min="10" max="300" step="5" />
+
+            <label class="multiplier-label" for="mapDamageMultiplier">
+              <span>Enemy damage</span>
+              <output id="mapDamageValue" for="mapDamageMultiplier">100%</output>
+            </label>
+            <input id="mapDamageMultiplier" type="range" min="10" max="300" step="5" />
+
+            <label class="multiplier-label" for="mapRewardMultiplier">
+              <span>All stat rewards</span>
+              <output id="mapRewardValue" for="mapRewardMultiplier">100%</output>
+            </label>
+            <input id="mapRewardMultiplier" type="range" min="10" max="300" step="5" />
+            <p class="tuning-note">Multipliers are sandbox-only. They do not edit the game.</p>
+          </section>
+
+          <div class="run-actions">
+            <button id="runButton" class="run-button" type="submit">
+              <span>RUN SIMULATION</span>
+              <small id="runEstimate">20 campaigns</small>
+            </button>
+            <button id="copyConfigButton" class="secondary-button" type="button">COPY CONFIG</button>
+          </div>
+        </form>
+      </aside>
+
+      <main class="results" aria-live="polite">
+        <div id="runStatus" class="status-strip" data-state="idle">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="runStatusText">Ready to simulate</span>
+          <span id="runMeta" class="status-meta"></span>
+        </div>
+
+        <section id="summaryCards" class="summary-cards" aria-label="Simulation summary"></section>
+
+        <section class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">GROWTH CURVE</p>
+              <h2>Power over real time</h2>
+            </div>
+            <div class="chart-legend" aria-label="Chart legend">
+              <span><i class="legend-line median"></i> MEDIAN</span>
+              <span><i class="legend-block range"></i> P10–P90</span>
+              <span id="previousLegend" hidden><i class="legend-line previous"></i> PREVIOUS RUN</span>
+            </div>
+          </div>
+          <div id="chartFrame" class="chart-frame">
+            <svg id="powerChart" viewBox="0 0 960 390" role="img" aria-labelledby="powerChartTitle powerChartDescription">
+              <title id="powerChartTitle">Power over time</title>
+              <desc id="powerChartDescription">Median simulated player power with a percentile range.</desc>
+            </svg>
+            <div id="chartTooltip" class="chart-tooltip" hidden></div>
+          </div>
+          <div class="chart-footnote">
+            <span>LOG POWER SCALE</span>
+            <span>MAP LABELS MARK MEDIAN ENTRY</span>
+            <span id="chartSampleNote"></span>
+          </div>
+        </section>
+
+        <section class="panel pacing-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">PACING LADDER</p>
+              <h2>Map-by-map progression</h2>
+            </div>
+            <p class="panel-help">A trailing + means the run ended before the map did.</p>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table pacing-table">
+              <thead>
+                <tr>
+                  <th scope="col">Map</th>
+                  <th scope="col">Reached / cleared</th>
+                  <th scope="col">Median entry</th>
+                  <th scope="col">Time in map P10 / M / P90</th>
+                  <th scope="col">Power entry → exit</th>
+                  <th scope="col">Boss TTK at entry</th>
+                  <th scope="col">Regular kills</th>
+                  <th scope="col">Step</th>
+                </tr>
+              </thead>
+              <tbody id="mapTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="analysis-grid">
+          <section class="panel insight-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="section-kicker">MODEL READOUT</p>
+                <h2>Scaling signals</h2>
+              </div>
+            </div>
+            <ol id="diagnosticList" class="diagnostic-list"></ol>
+          </section>
+
+          <section class="panel enemy-panel">
+            <div class="panel-heading enemy-heading">
+              <div>
+                <p class="section-kicker">AT MAP ENTRY</p>
+                <h2>Enemy economy</h2>
+              </div>
+              <select id="enemyMap" aria-label="Enemy economy map"></select>
+            </div>
+            <p id="enemyBasisNote" class="panel-help enemy-basis"></p>
+            <div class="table-scroll">
+              <table class="data-table enemy-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Enemy</th>
+                    <th scope="col">Count</th>
+                    <th scope="col">HP</th>
+                    <th scope="col">Reward</th>
+                    <th scope="col">TTK</th>
+                    <th scope="col">Power / combat min</th>
+                    <th scope="col">Hit after armor</th>
+                    <th scope="col">Hits to defeat</th>
+                  </tr>
+                </thead>
+                <tbody id="enemyTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section class="model-note">
+          <strong>What the clock models:</strong> real enemy HP/rewards/spawns, additive equipment, 8%-per-level gear upgrades, attack cap, research, loot odds, travel, respawns, and solo boss damage. It deliberately does not invent player dodging, deaths, idle time, boss mechanics, or multiplayer contribution.
+        </section>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="/src/balance/main.ts"></script>
+</body>
+</html>
