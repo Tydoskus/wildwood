@@ -2,6 +2,7 @@
 export const GEM_CURRENCY_ID = "gems";
 export const GEM_DISPLAY_NAME = "Gems";
 export const DAILY_LOGIN_GEM_BONUS = 7n;
+export const BALANCE_APOLOGY_GEM_GIFT = 10n;
 export const RESEARCH_SPEED_UP_MS_PER_GEM = 10 * 60 * 1_000;
 export const UPGRADE_BENCH_SECOND_SLOT_GEM_COST = 150n;
 export const BASE_INVENTORY_SLOT_CAPACITY = 16;

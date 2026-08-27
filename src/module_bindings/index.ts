@@ -35,6 +35,7 @@ import {
 
 // Import all reducer arg schemas
 import AcceptDuelReducer from "./accept_duel_reducer";
+import AcknowledgeBalanceApologyGiftReducer from "./acknowledge_balance_apology_gift_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
@@ -110,6 +111,7 @@ import LeaderboardEntryRow from "./leaderboard_entry_table";
 import LocalMovementDemandRow from "./local_movement_demand_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
+import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
@@ -536,6 +538,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, LocalMovementDemandRow),
+  myBalanceApologyNotice: __table({
+    name: 'my_balance_apology_notice',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyBalanceApologyNoticeRow),
   myDailyGemBonus: __table({
     name: 'my_daily_gem_bonus',
     indexes: [
@@ -569,6 +578,7 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
+  __reducerSchema("acknowledge_balance_apology_gift", AcknowledgeBalanceApologyGiftReducer),
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("cancel_item_upgrade", CancelItemUpgradeReducer),

@@ -20,8 +20,10 @@ import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { isPublicDisplayNameAllowed, moderatePublicChatMessage } from "./chat-moderation";
 import { isChatReportReason } from "../../shared/chat-report";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
+import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { compressLegacyProgressionOutlier, rebalanceLegacyDamageHealth } from "../../shared/progression-balance";
 import {
+  BALANCE_APOLOGY_GEM_GIFT,
   DAILY_LOGIN_GEM_BONUS,
   MAX_INVENTORY_SLOT_CAPACITY,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
@@ -189,7 +191,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 16;
+const MODULE_MIGRATION_VERSION = 17;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -534,6 +536,18 @@ const dailyGemBonus = table(
     claimCycle: t.u64(),
     revision: t.u64(),
     updatedAt: t.timestamp(),
+  },
+);
+
+// Row presence means the already-credited one-time apology still needs to be
+// shown. Keeping presentation state separate from the ledger makes dismissal
+// retryable without ever crediting the gift twice.
+const balanceApologyNotice = table(
+  { name: "balance_apology_notice", public: false },
+  {
+    identity: t.identity().primaryKey(),
+    amount: t.u64(),
+    createdAt: t.timestamp(),
   },
 );
 
@@ -1424,6 +1438,7 @@ const spacetimedb = schema({
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
+  balanceApologyNotice,
   playerUpgradeBench,
   playerInventoryCapacity,
   playerProgress,
@@ -1535,6 +1550,15 @@ export const myDailyGemBonus = spacetimedb.view(
   (ctx) => {
     const bonus = ctx.db.dailyGemBonus.identity.find(ctx.sender);
     return bonus ? [bonus] : [];
+  },
+);
+
+export const myBalanceApologyNotice = spacetimedb.view(
+  { name: "my_balance_apology_notice", public: true },
+  t.array(balanceApologyNotice.rowType),
+  (ctx) => {
+    const notice = ctx.db.balanceApologyNotice.identity.find(ctx.sender);
+    return notice ? [notice] : [];
   },
 );
 
@@ -1939,6 +1963,7 @@ function runPendingModuleMigrations(ctx: any) {
     }
     if (changedProgress) refreshLeaderboard(ctx);
   }
+  if (currentVersion < 17) grantBalanceApologyGifts(ctx);
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -3293,6 +3318,36 @@ function applyGemBalanceChange(ctx: any, input: {
   return nextWallet;
 }
 
+function grantBalanceApologyGifts(ctx: any) {
+  const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
+  for (const lifetime of ctx.db.playerLifetime.iter() as Iterable<any>) {
+    if (isVirtualPlayer(ctx, lifetime.identity)) continue;
+    const audit = ctx.db.playerAccessAudit.identity.find(lifetime.identity);
+    const currentlyActive = Boolean(ctx.db.player.identity.find(lifetime.identity)) ||
+      sameIdentity(lifetime.identity, ctx.sender);
+    if (!isBalanceApologyEligible(nowMicros, {
+      lastSeenAtMicros: audit?.lastSeenAt.microsSinceUnixEpoch,
+      sessionStartedAtMicros: lifetime.sessionStartedAt.microsSinceUnixEpoch,
+      currentlyActive,
+    })) continue;
+
+    applyGemBalanceChange(ctx, {
+      identity: lifetime.identity,
+      delta: BALANCE_APOLOGY_GEM_GIFT,
+      kind: "balance_apology_gift",
+      note: "One-time apology gift for the major balance changes.",
+      externalReference: balanceApologyTransactionReference(lifetime.identity.toHexString()),
+    });
+    if (!ctx.db.balanceApologyNotice.identity.find(lifetime.identity)) {
+      ctx.db.balanceApologyNotice.insert({
+        identity: lifetime.identity,
+        amount: BALANCE_APOLOGY_GEM_GIFT,
+        createdAt: ctx.timestamp,
+      });
+    }
+  }
+}
+
 const UTC_DAY_MICROS = 86_400_000_000n;
 
 function currentUtcDayKey(ctx: any) {
@@ -3354,6 +3409,20 @@ function mergeGuestGemWallet(ctx: any, guestIdentity: any, accountIdentity: any,
   }
   ctx.db.playerGemWallet.identity.delete(guestIdentity);
   return ctx.db.playerGemWallet.identity.find(accountIdentity);
+}
+
+function mergeBalanceApologyNotice(ctx: any, guestIdentity: any, accountIdentity: any) {
+  const guestNotice = ctx.db.balanceApologyNotice.identity.find(guestIdentity);
+  if (!guestNotice) return;
+  const accountNotice = ctx.db.balanceApologyNotice.identity.find(accountIdentity);
+  const transferred = {
+    identity: accountIdentity,
+    amount: guestNotice.amount + (accountNotice?.amount ?? 0n),
+    createdAt: accountNotice ? earlierTimestamp(accountNotice.createdAt, guestNotice.createdAt) : guestNotice.createdAt,
+  };
+  if (accountNotice) ctx.db.balanceApologyNotice.identity.update(transferred);
+  else ctx.db.balanceApologyNotice.insert(transferred);
+  ctx.db.balanceApologyNotice.identity.delete(guestIdentity);
 }
 
 function countOnlinePlayers(ctx: any) {
@@ -3469,6 +3538,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
   if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
   if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
+  if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
   if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
   if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
   if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
@@ -5128,6 +5198,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
     if (!guestProgress) throw new SenderError("Guest save unavailable. Return to guest mode and try again.");
     mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
+    mergeBalanceApologyNotice(ctx, link.guest, ctx.sender);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     const guestBalanceVersion = guestBalance?.version ?? 0;
     const guestAttackRate = guestBalanceVersion >= 1 ? guestProgress.attackRate : guestProgress.attackRate * 2;
@@ -6004,6 +6075,13 @@ export const claimDailyGemBonus = spacetimedb.reducer((ctx) => {
     revision: state.revision + 1n,
     updatedAt: ctx.timestamp,
   });
+});
+
+export const acknowledgeBalanceApologyGift = spacetimedb.reducer((ctx) => {
+  requireControllingPlayer(ctx);
+  if (ctx.db.balanceApologyNotice.identity.find(ctx.sender)) {
+    ctx.db.balanceApologyNotice.identity.delete(ctx.sender);
+  }
 });
 
 export const unlockSecondUpgradeSlot = spacetimedb.reducer((ctx) => {

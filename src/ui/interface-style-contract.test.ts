@@ -323,6 +323,14 @@ describe("interface style contracts", () => {
     expect(cssRule(".daily-gem-claim-button {")).toContain("justify-self: center");
   });
 
+  it("presents the one-time balance apology as a pending Gem window", () => {
+    expect(html).toContain('id="balanceApologyGift"');
+    expect(html).toContain('id="balanceApologyGiftTitle">+10 GEMS</h2>');
+    expect(html).toContain("WE’RE SORRY FOR THE RECENT MAJOR BALANCE CHANGES.");
+    expect(html).toContain('id="balanceApologyContinueBtn"');
+    expect(cssRule(".balance-apology-gift { ")).toContain("z-index: 19");
+  });
+
   it("opens the Upgrade Bench on two slots and orders active-job actions clearly", () => {
     const slotOne = html.indexOf('id="upgradeBenchSlot"');
     const slotTwo = html.indexOf('id="upgradeBenchSlotTwo"');

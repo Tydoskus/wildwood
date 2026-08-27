@@ -18,6 +18,8 @@ export type BaseSubscriptionHandlers = {
   removeGemWallet: RowHandler;
   dailyGemBonus: RowHandler;
   removeDailyGemBonus: RowHandler;
+  balanceApologyNotice: RowHandler;
+  removeBalanceApologyNotice: RowHandler;
   upgradeBench: RowHandler;
   removeUpgradeBench: RowHandler;
   inventoryCapacity: RowHandler;
@@ -97,6 +99,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.myDailyGemBonus.onInsert((_ctx, row) => { if (shouldHandle()) handlers.dailyGemBonus(row); });
   connection.db.myDailyGemBonus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.dailyGemBonus(row); });
   connection.db.myDailyGemBonus.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeDailyGemBonus(row); });
+  connection.db.myBalanceApologyNotice.onInsert((_ctx, row) => { if (shouldHandle()) handlers.balanceApologyNotice(row); });
+  connection.db.myBalanceApologyNotice.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.balanceApologyNotice(row); });
+  connection.db.myBalanceApologyNotice.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeBalanceApologyNotice(row); });
   connection.db.myUpgradeBench.onInsert((_ctx, row) => { if (shouldHandle()) handlers.upgradeBench(row); });
   connection.db.myUpgradeBench.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.upgradeBench(row); });
   connection.db.myUpgradeBench.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeUpgradeBench(row); });
@@ -164,6 +169,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.playerProfile.iter()) handlers.profile(row);
         for (const row of connection.db.myGemWallet.iter()) handlers.gemWallet(row);
         for (const row of connection.db.myDailyGemBonus.iter()) handlers.dailyGemBonus(row);
+        for (const row of connection.db.myBalanceApologyNotice.iter()) handlers.balanceApologyNotice(row);
         for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
         for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
         for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
@@ -204,6 +210,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
       tables.myGemWallet,
       tables.myDailyGemBonus,
+      tables.myBalanceApologyNotice,
       tables.myUpgradeBench,
       tables.myInventoryCapacity,
       ...(dependencies.includeDeveloperTables ? [tables.devAccessAudit, tables.devBugReports] : []),

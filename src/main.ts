@@ -62,6 +62,7 @@ import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
 import { createDeathScreenController } from "./ui/death-screen-controller";
 import { createDailyGemBonusController } from "./ui/daily-gem-bonus-controller";
+import { createBalanceApologyGiftController } from "./ui/balance-apology-gift-controller";
 import { createMapGuideController } from "./ui/map-guide-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
@@ -94,7 +95,7 @@ import {
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, chatPanel, coopStatusEl, messageEl, pickupLog,
+    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, balanceApologyGiftEl, balanceApologyGiftTitle, balanceApologyContinueBtn, chatPanel, coopStatusEl, messageEl, pickupLog,
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, itemInspectionBack, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
@@ -1227,16 +1228,31 @@ import {
     onLeaveDuelResult: () => { duelResultEl.hidden = true; playerController.finishDuelResult(); },
   });
 
+  let refreshDailyGemBonus = () => {};
+  const balanceApologyGift = createBalanceApologyGiftController({
+    overlay: balanceApologyGiftEl,
+    title: balanceApologyGiftTitle,
+    continueButton: balanceApologyContinueBtn,
+  }, {
+    canShow: () => session.hasStarted(),
+    amount: () => coop?.balanceApologyGiftAmount?.() ?? 0n,
+    acknowledge: async () => coop?.acknowledgeBalanceApologyGift?.(),
+    setPaused: (paused) => setGameplayPause("balance-apology-gift", paused),
+    showMessage,
+    afterDismiss: () => refreshDailyGemBonus(),
+  });
+
   const dailyGemBonus = createDailyGemBonusController({
     overlay: dailyGemBonusEl,
     claimButton: dailyGemClaimBtn,
   }, {
-    canShow: () => session.hasStarted() && coop?.accountState?.().signedIn === true,
+    canShow: () => session.hasStarted() && !balanceApologyGift.isOpen() && coop?.accountState?.().signedIn === true,
     claimable: () => coop?.dailyGemBonusClaimable?.() === true,
     claim: async () => coop?.claimDailyGemBonus?.(),
     setPaused: (paused) => setGameplayPause("daily-gem-bonus", paused),
     showMessage,
   });
+  refreshDailyGemBonus = dailyGemBonus.refresh;
 
   function refreshReconnectOverlay() {
     const reconnecting = Boolean(coop?.isReconnectingAfterWake?.());
@@ -1293,6 +1309,7 @@ import {
     const finishStart = () => {
       if (firstStart) performanceMonitor.reset();
       session.start(markIntro, restoreServerPosition);
+      balanceApologyGift.refresh();
       dailyGemBonus.refresh();
       applyGameplayPauseState();
     };
@@ -1311,6 +1328,7 @@ import {
     screenShake = 0;
     flash = 0;
     session.end();
+    balanceApologyGift.refresh();
     dailyGemBonus.refresh();
   }
 
@@ -1395,6 +1413,7 @@ import {
     coop,
     syncLifetimeKills: progress.syncLifetimeKills,
     refreshGemCounter,
+    refreshBalanceApologyGift: balanceApologyGift.refresh,
     refreshDailyGemBonus: dailyGemBonus.refresh,
     refreshOpenProfile: () => {
       const identity = profileWindow.identity();

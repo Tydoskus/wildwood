@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.541": [
+    "Duel finishes and replays now play death animations and clear remaining projectiles instead of freezing them midair.",
+  ],
   "0.538": [
     "Beginner Desert now targets about two hours, each later map about 1.35× longer, and post-Forest power follows a smooth roughly 200×-per-map growth curve.",
     "Wastes Reaper now pays smaller, faster rewards so power starts climbing near the beginning of Desert instead of sitting flat for half an hour.",
@@ -1159,6 +1162,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.541": "2026-08-27",
   "0.538": "2026-08-27",
   "0.537": "2026-08-27",
   "0.536": "2026-08-27",

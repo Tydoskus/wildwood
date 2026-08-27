@@ -50,6 +50,13 @@ export const ActiveResearch = __t.object("ActiveResearch", {
 });
 export type ActiveResearch = __Infer<typeof ActiveResearch>;
 
+export const BalanceApologyNotice = __t.object("BalanceApologyNotice", {
+  identity: __t.identity(),
+  amount: __t.u64(),
+  createdAt: __t.timestamp(),
+});
+export type BalanceApologyNotice = __Infer<typeof BalanceApologyNotice>;
+
 export const BossAttackFrame = __t.object("BossAttackFrame", {
   mapId: __t.string(),
   zoneX: __t.i32(),
@@ -467,6 +474,9 @@ export const MotionFrameSchedule = __t.object("MotionFrameSchedule", {
   previousTickMicros: __t.u64(),
 });
 export type MotionFrameSchedule = __Infer<typeof MotionFrameSchedule>;
+
+export const MyBalanceApologyNotice = __t.object("MyBalanceApologyNotice", {});
+export type MyBalanceApologyNotice = __Infer<typeof MyBalanceApologyNotice>;
 
 export const MyDailyGemBonus = __t.object("MyDailyGemBonus", {});
 export type MyDailyGemBonus = __Infer<typeof MyDailyGemBonus>;

@@ -194,6 +194,7 @@ export type DuelCombatant = Position & {
   gender: PlayerGender;
   hp: number;
   maxHp: number;
+  deathStartedAtMs?: number;
   facing: number;
   combatFacing: number;
   throwClock: number;
@@ -222,6 +223,8 @@ export type ReplayMode = {
   replay: RuntimeDuelReplay;
   start: number;
   lastElapsed: number;
+  challengerDeathStartedAtMs?: number;
+  opponentDeathStartedAtMs?: number;
   lastState: {
     challengerHp: number;
     opponentHp: number;

@@ -358,10 +358,11 @@ export function createActorRenderer(options: {
     actor: { identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
     death: PlayerDeathAnimationState,
     alpha: number,
+    persistFinalPose = false,
   ) {
     const identity = actor.identity ?? actor.id ?? death.id;
     const pose = playerDeathPose(death.startedAtMs, options.nowMs(), identity);
-    if (!pose.active) return false;
+    if (!pose.active && !persistFinalPose) return false;
     const x = screenX(death.x);
     const y = screenY(death.y);
     const fallProgress = Math.min(1, Math.abs(pose.bodyRotation) / (Math.PI / 2));
@@ -474,8 +475,18 @@ export function createActorRenderer(options: {
   function drawDuelCombatant(actor: DuelCombatant) {
     const x = screenX(actor.x);
     const y = screenY(actor.y);
-    options.drawShadow(x, y + 29, 34, actor.isLocal ? .21 : .17);
-    drawPlayerSprite({ ...options.equipmentForIdentity(actor.identity), ...actor, x, y }, 1);
+    const appearance = { ...options.equipmentForIdentity(actor.identity), ...actor };
+    const death = actor.deathStartedAtMs === undefined ? null : {
+      id: actor.identity ?? actor.name,
+      x: actor.x,
+      y: actor.y,
+      facing: actor.facing,
+      startedAtMs: actor.deathStartedAtMs,
+    };
+    if (!death || !drawDeadPlayer(appearance, death, 1, true)) {
+      options.drawShadow(x, y + 29, 34, actor.isLocal ? .21 : .17);
+      drawPlayerSprite({ ...appearance, x, y }, 1);
+    }
     options.drawStatus({
       x,
       y,

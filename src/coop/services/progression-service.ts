@@ -80,6 +80,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let activeResearch: ActiveResearch | null = null;
   let gemBalance = 0n;
   let dailyGemBonusClaimable = false;
+  let balanceApologyGiftAmount = 0n;
   let secondUpgradeSlotUnlocked = false;
   let inventorySlotsUnlocked = 0;
   let pendingProgress: ProgressSave | null = null;
@@ -380,6 +381,16 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         dailyGemBonusClaimable = false;
         dependencies.notify();
       },
+      upsertBalanceApologyNotice(row: { identity: Identity; amount: bigint }) {
+        if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+        balanceApologyGiftAmount = row.amount;
+        dependencies.notify();
+      },
+      removeBalanceApologyNotice(row: { identity: Identity }) {
+        if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+        balanceApologyGiftAmount = 0n;
+        dependencies.notify();
+      },
       upsertUpgradeBench(row: { identity: Identity; secondSlotUnlocked: boolean }) {
         if (row.identity.toHexString() !== dependencies.localIdentity()) return;
         secondUpgradeSlotUnlocked = row.secondSlotUnlocked;
@@ -415,6 +426,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       gemBalance: () => gemBalance,
       dailyGemBonusClaimable: () => dailyGemBonusClaimable,
       claimDailyGemBonus: reducerResult("daily Gem claim", (connection) => connection.reducers.claimDailyGemBonus({})),
+      balanceApologyGiftAmount: () => balanceApologyGiftAmount,
+      acknowledgeBalanceApologyGift: reducerResult("balance apology acknowledgement", (connection) => connection.reducers.acknowledgeBalanceApologyGift({})),
       savedProgress() {
         if (!localProgress) return null;
         const progress = pendingProgress ? mergeProgress(localProgress, pendingProgress) : localProgress;
@@ -590,6 +603,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       activeItemUpgrades.clear();
+      balanceApologyGiftAmount = 0n;
       secondUpgradeSlotUnlocked = false;
       inventorySlotsUnlocked = 0;
     },
@@ -602,6 +616,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     clearSession() {
       gemBalance = 0n;
       dailyGemBonusClaimable = false;
+      balanceApologyGiftAmount = 0n;
       secondUpgradeSlotUnlocked = false;
       inventorySlotsUnlocked = 0;
       progressByIdentity.clear();
@@ -614,6 +629,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       activeItemUpgrades.clear();
+      balanceApologyGiftAmount = 0n;
       secondUpgradeSlotUnlocked = false;
       inventorySlotsUnlocked = 0;
     },
