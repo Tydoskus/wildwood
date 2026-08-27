@@ -29,22 +29,18 @@ import {
   type SentMovementState,
 } from "./sparse-movement";
 import {
-  startAfterSubscriptionEnds,
-  unsubscribeIfActive,
-} from "./subscription-handoff";
-import {
   samePlayerMotionInterest,
   selectPlayerMotionInterest,
 } from "../../../shared/player-motion-interest";
+import {
+  decodePlayerMapFrame,
+  type PlayerMapSample,
+} from "../../../shared/player-motion-frame";
 
 const MOVEMENT_HZ = VIRTUAL_PLAYER_MOVEMENT_HZ;
 const LOCAL_SIMULATION_HZ = 10;
 const MOVEMENT_INTERVAL_MS = 1_000 / LOCAL_SIMULATION_HZ;
 const SAVE_INTERVAL_MS = VIRTUAL_PLAYER_SAVE_INTERVAL_MS;
-const MAP_ZONE_SIZE = 1_000;
-const MAP_ZONE_RADIUS = 2;
-const MAX_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_ZONE_SIZE);
-const MAX_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_ZONE_SIZE);
 const CONNECT_TIMEOUT_MS = 12_000;
 const SUBSCRIPTION_READY_TIMEOUT_MS = 8_000;
 const BOOTSTRAP_MAX_ATTEMPTS = 3;
@@ -85,9 +81,7 @@ type VirtualBot = VirtualPlayerMotion & {
   failed: boolean;
   nextSaveAt: number;
   enemyKills: number;
-  zoneKey: string;
-  nearbySubscription: SubscriptionHandle | null;
-  nearbyRefreshPending: boolean;
+  latestMapSamples: readonly PlayerMapSample[];
   motionInterestNetworkIds: number[];
   submittedMotionInterestNetworkIds: number[];
   motionInterestInFlight: boolean;
@@ -231,97 +225,12 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       nextTurnAt: performance.now() + Math.random() * 1_500,
       nextSaveAt: performance.now() + 800 + Math.random() * SAVE_INTERVAL_MS,
       enemyKills: 0,
-      zoneKey: "",
-      nearbySubscription: null,
-      nearbyRefreshPending: false,
+      latestMapSamples: [],
       motionInterestNetworkIds: [],
       submittedMotionInterestNetworkIds: [],
       motionInterestInFlight: false,
       nextMotionInterestAt: performance.now(),
     };
-  }
-
-  function untrackSubscription(bot: VirtualBot, subscription: SubscriptionHandle | null) {
-    if (!subscription) return;
-    const index = bot.subscriptions.indexOf(subscription);
-    if (index >= 0) bot.subscriptions.splice(index, 1);
-  }
-
-  function installNearbySubscription(bot: VirtualBot, mapId: string, force = false, onSettled?: (ready: boolean) => void) {
-    const conn = bot.connection;
-    const identity = bot.identity;
-    if (!conn?.isActive || !identity) {
-      onSettled?.(false);
-      return;
-    }
-    const zoneX = Math.floor(bot.x / MAP_ZONE_SIZE);
-    const zoneY = Math.floor(bot.y / MAP_ZONE_SIZE);
-    const minZoneX = Math.max(0, zoneX - MAP_ZONE_RADIUS);
-    const maxZoneX = Math.min(MAX_ZONE_X, zoneX + MAP_ZONE_RADIUS);
-    const minZoneY = Math.max(0, zoneY - MAP_ZONE_RADIUS);
-    const maxZoneY = Math.min(MAX_ZONE_Y, zoneY + MAP_ZONE_RADIUS);
-    const zoneKey = `${mapId}:${minZoneX}:${maxZoneX}:${minZoneY}:${maxZoneY}`;
-    if (!force && bot.zoneKey === zoneKey) {
-      onSettled?.(true);
-      return;
-    }
-    if (bot.nearbyRefreshPending) return;
-    bot.nearbyRefreshPending = true;
-
-    const previous = bot.nearbySubscription;
-    let next: SubscriptionHandle | null = null;
-    const settle = (ready: boolean) => {
-      bot.nearbyRefreshPending = false;
-      onSettled?.(ready);
-    };
-    const subscribeNext = () => {
-      untrackSubscription(bot, previous);
-      if (bot.nearbySubscription === previous) bot.nearbySubscription = null;
-      if (bot.connection !== conn || !conn.isActive || bot.failed) {
-        settle(false);
-        return;
-      }
-      try {
-        next = conn.subscriptionBuilder()
-          .onApplied(() => {
-            if (bot.connection !== conn || bot.nearbySubscription !== next) {
-              unsubscribeIfActive(next);
-              return;
-            }
-            bot.zoneKey = zoneKey;
-            settle(true);
-          })
-          .onError(() => {
-            untrackSubscription(bot, next);
-            if (bot.nearbySubscription === next) bot.nearbySubscription = null;
-            bot.zoneKey = "";
-            settle(false);
-          })
-          .subscribe([
-            tables.player.where((row) => row
-              .mapId.eq(mapId)
-              .and(row.isVisible.eq(true))
-              .and(row.identity.ne(identity))
-              .and(row.zoneX.gte(minZoneX))
-              .and(row.zoneX.lte(maxZoneX))
-              .and(row.zoneY.gte(minZoneY))
-              .and(row.zoneY.lte(maxZoneY))),
-            tables.playerMotionIdentity.where((row) => row
-              .mapId.eq(mapId)
-              .and(row.isVisible.eq(true))
-              .and(row.identity.ne(identity))
-              .and(row.zoneX.gte(minZoneX))
-              .and(row.zoneX.lte(maxZoneX))
-              .and(row.zoneY.gte(minZoneY))
-              .and(row.zoneY.lte(maxZoneY))),
-          ]);
-        bot.nearbySubscription = next;
-        bot.subscriptions.push(next);
-      } catch {
-        settle(false);
-      }
-    };
-    startAfterSubscriptionEnds(previous, subscribeNext, () => settle(false));
   }
 
   function installSubscriptions(bot: VirtualBot, identity: Identity, mapId: string) {
@@ -370,6 +279,15 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         ]);
       bot.subscriptions.push(core);
 
+      conn.db.playerMapFrame.onInsert((_ctx, row) => {
+        if (bot.connection !== conn || row.mapId !== mapId) return;
+        try {
+          bot.latestMapSamples = decodePlayerMapFrame(row.payload, row.playerCount);
+        } catch {
+          bot.latestMapSamples = [];
+        }
+      });
+
       const markers = conn.subscriptionBuilder()
         .onApplied(ready)
         .onError(() => fail())
@@ -378,15 +296,24 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
           tables.playerMotionDetailFrame.where((row) => row.recipient.eq(identity)),
         ]);
       bot.subscriptions.push(markers);
-      installNearbySubscription(bot, mapId, true, (applied) => applied ? ready() : fail());
+
+      const presentations = conn.subscriptionBuilder()
+        .onApplied(ready)
+        .onError(() => fail())
+        .subscribe([
+          tables.playerMotionIdentity.where((row) => row
+            .mapId.eq(mapId)
+            .and(row.isVisible.eq(true))
+            .and(row.identity.ne(identity))),
+        ]);
+      bot.subscriptions.push(presentations);
     });
   }
 
   function disconnectBot(bot: VirtualBot) {
     bot.ready = false;
     bot.subscriptions = [];
-    bot.nearbySubscription = null;
-    bot.nearbyRefreshPending = false;
+    bot.latestMapSamples = [];
     bot.motionInterestNetworkIds = [];
     bot.submittedMotionInterestNetworkIds = [];
     bot.motionInterestInFlight = false;
@@ -430,21 +357,15 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     const conn = bot.connection;
     const ownIdentity = bot.identity?.toHexString();
     if (!conn?.isActive || !ownIdentity) return;
-    const networkByIdentity = new Map<string, number>();
     const availableNetworkIds = new Set<number>();
     let localNetworkId: number | null = null;
     for (const row of conn.db.playerMotionIdentity.iter()) {
       const identity = row.identity.toHexString();
-      networkByIdentity.set(identity, row.networkId);
       availableNetworkIds.add(row.networkId);
       if (identity === ownIdentity) localNetworkId = row.networkId;
     }
-    const samples = [...conn.db.player.iter()].flatMap((row) => {
-      const networkId = networkByIdentity.get(row.identity.toHexString());
-      return networkId === undefined ? [] : [{ networkId, x: row.x, y: row.y }];
-    });
     const next = selectPlayerMotionInterest({
-      samples,
+      samples: bot.latestMapSamples,
       originX: bot.x,
       originY: bot.y,
       localNetworkId,
@@ -469,7 +390,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     notify();
   }
 
-  function startTimers(runGeneration: number, mapId: string) {
+  function startTimers(runGeneration: number) {
     if (movementTimer !== null) window.clearInterval(movementTimer);
     lastMovementAt = performance.now();
     movementTimer = window.setInterval(() => {
@@ -482,7 +403,6 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
         const conn = bot.connection;
         if (!bot.ready || bot.failed || !conn?.isActive) continue;
         Object.assign(bot, advanceVirtualPlayerMotion(bot, elapsedSeconds, now));
-        installNearbySubscription(bot, mapId);
         if (now >= bot.nextMotionInterestAt) {
           bot.nextMotionInterestAt = now + 1_000;
           syncBotMotionInterest(bot, runGeneration);
@@ -610,8 +530,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
             }
             bot.connection = null;
             bot.subscriptions = [];
-            bot.nearbySubscription = null;
-            bot.nearbyRefreshPending = false;
+            bot.latestMapSamples = [];
             if (!settled) {
               bot.ready = false;
               finish(false);
@@ -649,9 +568,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
       bot.simulationTick = 0;
       bot.motionEpoch = (bot.motionEpoch + 1) >>> 0;
       bot.lastSentMovement = null;
-      bot.zoneKey = "";
-      bot.nearbySubscription = null;
-      bot.nearbyRefreshPending = false;
+      bot.latestMapSamples = [];
       const startedAt = performance.now();
       const ready = await connectBotAttempt(bot, runGeneration, mapId, owner, ticket);
       totalBootstrapMs += performance.now() - startedAt;
@@ -702,7 +619,7 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
     if (generation !== runGeneration) return { ok: false, error: "VIRTUAL PLAYER START CANCELLED" };
 
     bots = Array.from({ length: normalizedCount }, (_, index) => createBot(spawn, index, normalizedCount));
-    startTimers(runGeneration, spawn.mapId);
+    startTimers(runGeneration);
     let nextBotIndex = 0;
     let consecutiveFailures = 0;
     const spawnWorker = async () => {

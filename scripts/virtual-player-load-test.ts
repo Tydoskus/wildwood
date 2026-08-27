@@ -36,9 +36,9 @@ import {
   type SentMovementState,
 } from "../src/coop/services/sparse-movement";
 import {
-  startAfterSubscriptionEnds,
-  unsubscribeIfActive,
-} from "../src/coop/services/subscription-handoff";
+  decodePlayerMapFrame,
+  type PlayerMapSample,
+} from "../shared/player-motion-frame";
 import {
   VIRTUAL_PLAYER_LOAD_MODES,
   isVirtualPlayerLoadMode,
@@ -54,10 +54,6 @@ const TOKEN_ENV = "WILDWOOD_LOAD_TEST_TOKEN";
 const CONNECT_TIMEOUT_MS = 20_000;
 const SUBSCRIPTION_TIMEOUT_MS = 15_000;
 const MOVEMENT_INTERVAL_MS = 100;
-const MAP_ZONE_SIZE = 1_000;
-const MAP_ZONE_RADIUS = 2;
-const MAX_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_ZONE_SIZE);
-const MAX_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_ZONE_SIZE);
 
 type CoordinatorConfig = {
   count: number;
@@ -100,10 +96,8 @@ type LoadBot = {
   index: number;
   connection: DbConnectionType | null;
   subscriptions: SubscriptionHandle[];
-  nearbySubscription: SubscriptionHandle | null;
   identity: Identity | null;
-  zoneKey: string;
-  nearbyRefreshPending: boolean;
+  latestMapSamples: readonly PlayerMapSample[];
   x: number;
   y: number;
   angle: number;
@@ -191,10 +185,10 @@ Modes:
   movement   Sparse 2 Hz movement only; no subscriptions or saves
   core       Identity-scoped baseline subscriptions only
   map        Core plus the bounded 1 Hz all-map snapshot
-  capped     Map plus nearby presence and nearest-five detailed motion
+  capped     Map plus stable presentation cache and nearest-five detailed motion
   persistence  Core plus deliberately harsh 2.5 s progress saves
   realistic  Capped motion plus representative 30 s dirty saves
-  dense      Capped motion; all bots in one zone with rapid steering
+  dense      Capped motion; all bots in one area with rapid steering
 
 Keep the authenticated developer game open. Token is used only by the coordinator
 to create and clean a short-lived run; anonymous worker processes never receive it.`;
@@ -440,91 +434,6 @@ function subscriptionError(context: { event?: unknown }) {
   return new Error(`Subscription failed: ${String(context.event ?? "unknown")}`);
 }
 
-function installNearbySubscription(bot: LoadBot, config: WorkerStart, initial: boolean) {
-  const connection = bot.connection;
-  if (!connection?.isActive) return Promise.reject(new Error("Bot connection closed"));
-  const identity = bot.identity;
-  if (!identity) return Promise.reject(new Error("Bot identity unavailable"));
-  const zoneX = Math.floor(bot.x / MAP_ZONE_SIZE);
-  const zoneY = Math.floor(bot.y / MAP_ZONE_SIZE);
-  const minZoneX = Math.max(0, zoneX - MAP_ZONE_RADIUS);
-  const maxZoneX = Math.min(MAX_ZONE_X, zoneX + MAP_ZONE_RADIUS);
-  const minZoneY = Math.max(0, zoneY - MAP_ZONE_RADIUS);
-  const maxZoneY = Math.min(MAX_ZONE_Y, zoneY + MAP_ZONE_RADIUS);
-  const zoneKey = `${config.mapId}:${minZoneX}:${maxZoneX}:${minZoneY}:${maxZoneY}`;
-  if (!initial && bot.zoneKey === zoneKey) return Promise.resolve();
-  const previous = bot.nearbySubscription;
-
-  return new Promise<void>((resolve, reject) => {
-    let settled = false;
-    let next: SubscriptionHandle | null = null;
-    const timeout = setTimeout(() => finish(new Error("Nearby subscription timed out")), SUBSCRIPTION_TIMEOUT_MS);
-    const removeTracked = (subscription: SubscriptionHandle | null) => {
-      if (!subscription) return;
-      const index = bot.subscriptions.indexOf(subscription);
-      if (index >= 0) bot.subscriptions.splice(index, 1);
-    };
-    const finish = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      if (error) {
-        unsubscribeIfActive(next);
-        removeTracked(next);
-        if (bot.nearbySubscription === next) bot.nearbySubscription = null;
-        reject(error);
-        return;
-      }
-      bot.zoneKey = zoneKey;
-      bot.nearbySubscription = next;
-      resolve();
-    };
-    const subscribeNext = () => {
-      removeTracked(previous);
-      if (bot.nearbySubscription === previous) bot.nearbySubscription = null;
-      if (settled) return;
-      if (bot.stopping || bot.connection !== connection || !connection.isActive) {
-        finish(new Error("Bot connection closed during subscription handoff"));
-        return;
-      }
-      try {
-        next = connection.subscriptionBuilder()
-          .onApplied(() => {
-            if (settled) {
-              unsubscribeIfActive(next);
-              return;
-            }
-            finish();
-          })
-          .onError((context) => finish(subscriptionError(context)))
-          .subscribe([
-            tables.player.where((row) => row
-              .mapId.eq(config.mapId)
-              .and(row.isVisible.eq(true))
-              .and(row.identity.ne(identity))
-              .and(row.zoneX.gte(minZoneX))
-              .and(row.zoneX.lte(maxZoneX))
-              .and(row.zoneY.gte(minZoneY))
-              .and(row.zoneY.lte(maxZoneY))),
-            tables.playerMotionIdentity.where((row) => row
-              .mapId.eq(config.mapId)
-              .and(row.isVisible.eq(true))
-              .and(row.identity.ne(identity))
-              .and(row.zoneX.gte(minZoneX))
-              .and(row.zoneX.lte(maxZoneX))
-              .and(row.zoneY.gte(minZoneY))
-              .and(row.zoneY.lte(maxZoneY))),
-          ]);
-        bot.nearbySubscription = next;
-        bot.subscriptions.push(next);
-      } catch (error) {
-        finish(new Error(errorMessage(error)));
-      }
-    };
-    startAfterSubscriptionEnds(previous, subscribeNext, (error) => finish(new Error(errorMessage(error))));
-  });
-}
-
 function installLoadSubscriptions(bot: LoadBot, identity: Identity, config: WorkerStart) {
   const connection = bot.connection;
   if (!connection) return Promise.reject(new Error("Bot connection closed"));
@@ -570,6 +479,14 @@ function installLoadSubscriptions(bot: LoadBot, identity: Identity, config: Work
       ]);
     bot.subscriptions.push(core);
     if (includeMap) {
+      connection.db.playerMapFrame.onInsert((_ctx, row) => {
+        if (bot.connection !== connection || row.mapId !== config.mapId) return;
+        try {
+          bot.latestMapSamples = decodePlayerMapFrame(row.payload, row.playerCount);
+        } catch {
+          bot.latestMapSamples = [];
+        }
+      });
       const mapQueries = [tables.playerMapFrame.where((row) => row.mapId.eq(config.mapId))];
       const markers = connection.subscriptionBuilder()
         .onApplied(ready)
@@ -579,7 +496,18 @@ function installLoadSubscriptions(bot: LoadBot, identity: Identity, config: Work
           : mapQueries);
       bot.subscriptions.push(markers);
     }
-    if (includeCappedMotion) void installNearbySubscription(bot, config, true).then(ready, finish);
+    if (includeCappedMotion) {
+      const presentations = connection.subscriptionBuilder()
+        .onApplied(ready)
+        .onError((context) => finish(subscriptionError(context)))
+        .subscribe([
+          tables.playerMotionIdentity.where((row) => row
+            .mapId.eq(config.mapId)
+            .and(row.isVisible.eq(true))
+            .and(row.identity.ne(identity))),
+        ]);
+      bot.subscriptions.push(presentations);
+    }
   });
 }
 
@@ -590,10 +518,8 @@ function createBot(index: number, mode: VirtualPlayerLoadMode, count: number): L
     index,
     connection: null,
     subscriptions: [],
-    nearbySubscription: null,
     identity: null,
-    zoneKey: "",
-    nearbyRefreshPending: false,
+    latestMapSamples: [],
     x: position.x,
     y: position.y,
     angle: index * 2.399963229728653 % (Math.PI * 2),
@@ -620,7 +546,7 @@ function disconnectBot(bot: LoadBot) {
   bot.stopping = true;
   bot.ready = false;
   bot.subscriptions = [];
-  bot.nearbySubscription = null;
+  bot.latestMapSamples = [];
   bot.identity = null;
   bot.motionInterestNetworkIds = [];
   bot.submittedMotionInterestNetworkIds = [];
@@ -662,21 +588,15 @@ function syncBotMotionInterest(bot: LoadBot, counters: WorkerCounters) {
   const connection = bot.connection;
   const ownIdentity = bot.identity?.toHexString();
   if (!connection?.isActive || !ownIdentity) return;
-  const networkByIdentity = new Map<string, number>();
   const availableNetworkIds = new Set<number>();
   let localNetworkId: number | null = null;
   for (const row of connection.db.playerMotionIdentity.iter()) {
     const identity = row.identity.toHexString();
-    networkByIdentity.set(identity, row.networkId);
     availableNetworkIds.add(row.networkId);
     if (identity === ownIdentity) localNetworkId = row.networkId;
   }
-  const samples = [...connection.db.player.iter()].flatMap((row) => {
-    const networkId = networkByIdentity.get(row.identity.toHexString());
-    return networkId === undefined ? [] : [{ networkId, x: row.x, y: row.y }];
-  });
   const next = selectPlayerMotionInterest({
-    samples,
+    samples: bot.latestMapSamples,
     originX: bot.x,
     originY: bot.y,
     localNetworkId,
@@ -856,11 +776,7 @@ function updateBot(bot: LoadBot, config: WorkerStart, elapsedSeconds: number, no
       .finally(() => { bot.movementInFlight = false; });
   }
 
-  if (profile.subscriptions === "capped" && !bot.nearbyRefreshPending) {
-    bot.nearbyRefreshPending = true;
-    void installNearbySubscription(bot, config, false)
-      .catch(() => { counters.reducerErrors += 1; })
-      .finally(() => { bot.nearbyRefreshPending = false; });
+  if (profile.subscriptions === "capped") {
     if (now >= bot.nextMotionInterestAt) {
       bot.nextMotionInterestAt = now + 1_000;
       syncBotMotionInterest(bot, counters);

@@ -9,8 +9,9 @@
  * The independent all-map minimap snapshot stays position-only at 8 bytes:
  *   network id u32 | x deci-units u16 | y deci-units u16
  *
- * Identity/profile data travels in a cold presence table. Keeping strings out
- * of movement frames makes one zone update cheap even with hundreds of actors.
+ * Identity/profile/equipment data travels in a stable map presentation cache.
+ * Keeping strings out of movement frames makes each publication cheap even
+ * with hundreds of actors.
  */
 export const PLAYER_MAP_FRAME_HZ = 1;
 export const PLAYER_MOTION_SAMPLE_BYTES = 16;

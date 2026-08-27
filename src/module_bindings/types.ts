@@ -679,6 +679,13 @@ export const PlayerMotionIdentity = __t.object("PlayerMotionIdentity", {
   skinTone: __t.u32(),
   isGuest: __t.bool(),
   gender: __t.u8(),
+  speed: __t.f32(),
+  powerLevel: __t.f64(),
+  feetItem: __t.string(),
+  headItem: __t.string(),
+  chestItem: __t.string(),
+  rightHandItem: __t.string(),
+  leftHandItem: __t.string(),
 });
 export type PlayerMotionIdentity = __Infer<typeof PlayerMotionIdentity>;
 

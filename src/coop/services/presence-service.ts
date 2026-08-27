@@ -5,7 +5,6 @@ import {
   adaptiveRemoteRenderAt,
   applyRemoteMotionCorrection,
   appendRemoteCorrectionSample,
-  appendRemoteTimelineSample,
   createRemoteMotionCorrection,
   createRemoteInterpolationClock,
   createRestartRemoteInterpolationClock,
@@ -45,9 +44,8 @@ import {
   BEGINNER_DESERT_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  PLAYER_SPEED,
   TUTORIAL_FOREST_MAP_ID,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
 } from "../../../shared/rules";
 import type {
   LocalPlayerState,
@@ -57,7 +55,6 @@ import type {
 } from "../contracts";
 import type { ChangePort, ReducerPort } from "../ports";
 import type { ProfileDirectory } from "./profile-directory";
-import type { PlayerProfileService } from "./player-profile-service";
 import type { DeveloperService } from "./developer-service";
 
 type RemotePlayerSample = {
@@ -78,12 +75,10 @@ type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
   interpolationClock: RemoteInterpolationClock;
   motionCorrection: RemoteMotionCorrection;
-  lastInputSequence: number;
   bossAttackState?: RemoteBossAttackState;
 };
 
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
-type MapZoneBounds = { mapId: string; minZoneX: number; maxZoneX: number; minZoneY: number; maxZoneY: number };
 
 type PresenceServiceDependencies = {
   reducers: ReducerPort;
@@ -96,33 +91,24 @@ type PresenceServiceDependencies = {
   authTabId: () => string;
   onControllerConflict: () => void;
   directory: ProfileDirectory;
-  profiles: PlayerProfileService;
   developer: DeveloperService;
 };
 
-type PlayerRow = RemoteEquipment & {
+type PlayerRow = {
   identity: Identity;
   x: number;
   y: number;
   facing: number;
-  dx: number;
-  dy: number;
-  vx: number;
-  vy: number;
-  simulationTick: number;
   motionEpoch: number;
   moving: boolean;
-  power: number;
-  powerLevel: number;
   speed: number;
   isVisible: boolean;
-  lastInputAt: { microsSinceUnixEpoch: bigint };
   lastInputSequence: number;
   controllerTabId: string;
   mapId: string;
 };
 
-type MotionIdentityRow = {
+type PlayerPresentationRow = RemoteEquipment & {
   networkId: number;
   identity: Identity;
   mapId: string;
@@ -135,13 +121,31 @@ type MotionIdentityRow = {
   skinTone: number;
   isGuest: boolean;
   gender: number;
+  speed: number;
+  powerLevel: number;
 };
 
-const MAP_PLAYER_ZONE_SIZE = 1_000;
-const MAP_PLAYER_ZONE_RADIUS = 2;
-const MAP_PLAYER_PREFETCH_ZONES = 1;
-const MAX_MAP_ZONE_X = Math.floor((WORLD_WIDTH - 1) / MAP_PLAYER_ZONE_SIZE);
-const MAX_MAP_ZONE_Y = Math.floor((WORLD_HEIGHT - 1) / MAP_PLAYER_ZONE_SIZE);
+function samePlayerPresentation(left: PlayerPresentationRow | undefined, right: PlayerPresentationRow) {
+  if (!left) return false;
+  // zoneX/zoneY are physical compatibility columns, not presentation state.
+  return left.networkId === right.networkId &&
+    left.mapId === right.mapId &&
+    left.isVisible === right.isVisible &&
+    left.displayName === right.displayName &&
+    left.profileIcon === right.profileIcon &&
+    left.playerSprite === right.playerSprite &&
+    left.skinTone === right.skinTone &&
+    left.isGuest === right.isGuest &&
+    left.gender === right.gender &&
+    left.speed === right.speed &&
+    left.powerLevel === right.powerLevel &&
+    left.feetItem === right.feetItem &&
+    left.headItem === right.headItem &&
+    left.chestItem === right.chestItem &&
+    left.rightHandItem === right.rightHandItem &&
+    left.leftHandItem === right.leftHandItem;
+}
+
 const REMOTE_SAMPLE_LIMIT = 8;
 const REMOTE_PLAYER_DEATH_TTL_MS = 4_250;
 
@@ -181,6 +185,7 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
 
 export function createPresenceService(dependencies: PresenceServiceDependencies) {
   const players = new Map<string, RemotePlayerTarget>();
+  const presentations = new Map<string, PlayerPresentationRow>();
   const motionIdentities = new Map<number, string>();
   const activeMotionIdentities = new Set<string>();
   const playerMaps = new Map<string, string>();
@@ -193,8 +198,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let mapPlayerSubscription: SubscriptionHandle | null = null;
   let mapSubscriptionGeneration = 0;
   let mapSubscriptionAreaKey = "";
-  let mapPlayerInterestBounds: MapZoneBounds | null = null;
   let mapPlayerSubscriptionTransitioning = false;
+  let mapSubscriptionRefreshPending = false;
   let mapMarkerSubscription: SubscriptionHandle | null = null;
   let mapMarkerSubscriptionGeneration = 0;
   let currentMapId = TUTORIAL_FOREST_MAP_ID;
@@ -283,27 +288,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     motionInterestInFlight = false;
   }
 
-  function appendPlayerSample(existing: RemotePlayerTarget, row: PlayerRow, serverAtMs: number, receivedAt: number) {
-    const latest = existing.samples[existing.samples.length - 1];
-    const motionDiscontinuity = latest?.motionEpoch !== row.motionEpoch;
-    if (!motionDiscontinuity && row.lastInputSequence <= existing.lastInputSequence) return;
-    if (motionDiscontinuity || !row.moving || row.moving !== existing.moving) {
-      appendRemoteMotionSample(existing, {
-        serverAtMs,
-        receivedAt,
-        x: row.x,
-        y: row.y,
-        vx: row.vx,
-        vy: row.vy,
-        simulationTick: row.simulationTick,
-        motionEpoch: row.motionEpoch,
-        facing: row.facing,
-        moving: row.moving,
-      });
-    }
-    existing.lastInputSequence = row.lastInputSequence;
-  }
-
   function upsertPlayer(row: PlayerRow) {
     const id = row.identity.toHexString();
     if (id === dependencies.localIdentity()) {
@@ -331,10 +315,22 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapId: currentMapId,
       };
       if (mapChanged) {
+        const stalePresentations = [...presentations.entries()]
+          .filter(([identity]) => identity !== id)
+          .map(([, presentation]) => presentation);
         players.clear();
+        presentations.clear();
         mapPlayerMarkers.clear();
         motionIdentities.clear();
         activeMotionIdentities.clear();
+        playerMaps.clear();
+        playerMaps.set(id, nextMapId);
+        dependencies.changes.batch(() => {
+          for (const presentation of stalePresentations) {
+            dependencies.directory.tables.removeProfile(presentation);
+            dependencies.directory.tables.removeAccountStatus(presentation);
+          }
+        });
         resetMotionInterest();
       }
       refreshMapPlayerSubscription(mapChanged);
@@ -344,94 +340,92 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       }
       return;
     }
-
-    if (!row.isVisible) {
-      dependencies.profiles.forgetPlayerMap(id);
-      const mapRemoved = playerMaps.delete(id);
-      const playerRemoved = players.delete(id);
-      if (mapRemoved || playerRemoved || dependencies.profiles.isActive(id)) dependencies.changes.notify();
-      return;
-    }
-
-    const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
-    dependencies.profiles.observePlayerMap(id, nextMapId);
-    const previousMapId = playerMaps.get(id);
-    playerMaps.set(id, nextMapId);
-
-    if (nextMapId !== currentMapId) {
-      const removed = players.delete(id);
-      if (removed || (previousMapId !== nextMapId && dependencies.profiles.isActive(id))) dependencies.changes.notify();
-      return;
-    }
-
-    const receivedAt = performance.now();
-    const serverAtMs = serverTimestampMs(row.lastInputAt);
-    const existing = players.get(id);
-    const equipment = remoteEquipmentFromRow(row);
-    if (existing) {
-      appendPlayerSample(existing, row, serverAtMs, receivedAt);
-      existing.speed = row.speed;
-      existing.power = row.powerLevel;
-      Object.assign(existing, equipment);
-    } else {
-      players.set(id, {
-        id,
-        name: dependencies.directory.api.playerDisplayName(id),
-        power: row.powerLevel,
-        x: row.x,
-        y: row.y,
-        speed: row.speed,
-        facing: row.facing,
-        moving: row.moving,
-        ...equipment,
-        samples: [{
-          timelineAt: receivedAt,
-          serverAtMs,
-          receivedAt,
-          x: row.x,
-          y: row.y,
-          vx: row.vx,
-          vy: row.vy,
-          simulationTick: row.simulationTick,
-          motionEpoch: row.motionEpoch,
-          facing: row.facing,
-          moving: row.moving,
-        }],
-        interpolationClock: createRemoteInterpolationClock(receivedAt),
-        motionCorrection: createRemoteMotionCorrection(receivedAt),
-        lastInputSequence: row.lastInputSequence,
-      });
-      dependencies.changes.notify();
-    }
   }
 
   function removePlayer(row: { identity: Identity }) {
     const identity = row.identity.toHexString();
-    const playerRemoved = players.delete(identity);
-    remotePlayerDeaths.delete(identity);
-    const mapRemoved = playerMaps.delete(identity);
-    const profileMapRemoved = dependencies.profiles.forgetPlayerMap(identity);
-    if (playerRemoved || mapRemoved || profileMapRemoved || dependencies.profiles.isActive(identity)) dependencies.changes.notify();
+    // Remote player rows may appear briefly for profile/debug subscriptions.
+    // Their lifecycle is owned exclusively by stable presentation rows.
+    if (identity !== dependencies.localIdentity()) return;
+    if (playerMaps.delete(identity)) dependencies.changes.notify();
   }
 
-  function upsertMotionIdentity(row: MotionIdentityRow) {
+  function applyPresentation(player: RemotePlayerTarget, row: PlayerPresentationRow) {
+    player.name = row.displayName || dependencies.directory.api.playerDisplayName(player.id);
+    player.power = Number.isFinite(row.powerLevel) ? Math.max(0, row.powerLevel) : 0;
+    player.speed = Number.isFinite(row.speed) && row.speed > 0 ? row.speed : PLAYER_SPEED;
+    Object.assign(player, remoteEquipmentFromRow(row));
+  }
+
+  function createRemotePlayer(
+    identity: string,
+    row: PlayerPresentationRow,
+    sample: ReturnType<typeof decodePlayerMotionFrame>[number],
+    serverAtMs: number,
+    receivedAt: number,
+  ) {
+    const moving = sample.vx !== 0 || sample.vy !== 0;
+    const facing = sample.vx < 0 ? Math.PI : 0;
+    const player: RemotePlayerTarget = {
+      id: identity,
+      name: row.displayName || dependencies.directory.api.playerDisplayName(identity),
+      power: Number.isFinite(row.powerLevel) ? Math.max(0, row.powerLevel) : 0,
+      x: sample.x,
+      y: sample.y,
+      speed: Number.isFinite(row.speed) && row.speed > 0 ? row.speed : PLAYER_SPEED,
+      facing,
+      moving,
+      ...remoteEquipmentFromRow(row),
+      samples: [{
+        timelineAt: receivedAt,
+        serverAtMs,
+        receivedAt,
+        x: sample.x,
+        y: sample.y,
+        vx: sample.vx,
+        vy: sample.vy,
+        simulationTick: sample.simulationTick,
+        motionEpoch: sample.motionEpoch,
+        facing,
+        moving,
+      }],
+      interpolationClock: createRemoteInterpolationClock(receivedAt),
+      motionCorrection: createRemoteMotionCorrection(receivedAt),
+    };
+    return player;
+  }
+
+  function upsertMotionIdentity(row: PlayerPresentationRow) {
     const identity = row.identity.toHexString();
+    const presentationChanged = !samePlayerPresentation(presentations.get(identity), row);
     if (identity === dependencies.localIdentity()) localMotionNetworkId = row.networkId;
     if (identity !== dependencies.localIdentity() && (!row.isVisible || row.mapId !== currentMapId)) {
       removeMotionIdentity(row);
       return;
     }
     for (const [networkId, mappedIdentity] of motionIdentities) {
-      if (mappedIdentity === identity && networkId !== row.networkId) motionIdentities.delete(networkId);
+      if (mappedIdentity !== identity || networkId === row.networkId) continue;
+      motionIdentities.delete(networkId);
+      detailedMotionReadyNetworkIds.delete(networkId);
     }
     motionIdentities.set(row.networkId, identity);
     activeMotionIdentities.add(identity);
-    dependencies.changes.batch(() => {
-      dependencies.directory.tables.upsertProfile(row);
-      dependencies.directory.tables.upsertAccountStatus(row);
-      if (row.isVisible && row.mapId === currentMapId) playerMaps.set(identity, row.mapId);
-      else playerMaps.delete(identity);
-    });
+    presentations.set(identity, row);
+    if (presentationChanged) {
+      const player = players.get(identity);
+      if (player) applyPresentation(player, row);
+      dependencies.changes.batch(() => {
+        dependencies.directory.tables.upsertProfile(row);
+        dependencies.directory.tables.upsertAccountStatus(row);
+        if (row.isVisible && row.mapId === currentMapId) playerMaps.set(identity, row.mapId);
+        else playerMaps.delete(identity);
+      });
+    }
+    const pendingMarker = mapPlayerMarkers.get(`network:${row.networkId}`);
+    if (pendingMarker) {
+      mapPlayerMarkers.delete(`network:${row.networkId}`);
+      mapPlayerMarkers.set(identity, { ...pendingMarker, id: identity });
+    }
     refreshMotionInterest();
   }
 
@@ -439,14 +433,20 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const identity = row.identity.toHexString();
     if (identity === dependencies.localIdentity() && localMotionNetworkId === row.networkId) localMotionNetworkId = null;
     if (motionIdentities.get(row.networkId) === identity) motionIdentities.delete(row.networkId);
+    presentations.delete(identity);
     detailedMotionReadyNetworkIds.delete(row.networkId);
     activeMotionIdentities.delete(identity);
     const playerRemoved = players.delete(identity);
     remotePlayerDeaths.delete(identity);
-    const markerRemoved = mapPlayerMarkers.delete(identity) || mapPlayerMarkers.delete(`network:${row.networkId}`);
+    const markerRemoved = mapPlayerMarkers.delete(identity);
+    const networkMarkerRemoved = mapPlayerMarkers.delete(`network:${row.networkId}`);
     const mapRemoved = playerMaps.delete(identity);
+    dependencies.changes.batch(() => {
+      dependencies.directory.tables.removeProfile(row);
+      dependencies.directory.tables.removeAccountStatus(row);
+    });
     refreshMotionInterest();
-    if (playerRemoved || markerRemoved || mapRemoved) dependencies.changes.notify();
+    if (playerRemoved || markerRemoved || networkMarkerRemoved || mapRemoved) dependencies.changes.notify();
   }
 
   function upsertPlayerMotionFrame(row: { emittedAt: { microsSinceUnixEpoch: bigint }; playerCount: number; payload: Uint8Array }) {
@@ -464,20 +464,27 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       if (!desiredMotionNetworkIds.includes(sample.networkId)) continue;
       const identity = motionIdentities.get(sample.networkId);
       if (!identity || identity === dependencies.localIdentity()) continue;
-      const existing = players.get(identity);
-      if (!existing) continue;
-      appendRemoteMotionSample(existing, {
-        serverAtMs,
-        receivedAt,
-        x: sample.x,
-        y: sample.y,
-        vx: sample.vx,
-        vy: sample.vy,
-        simulationTick: sample.simulationTick,
-        motionEpoch: sample.motionEpoch,
-        facing: sample.vx < 0 ? Math.PI : sample.vx > 0 ? 0 : existing.facing,
-        moving: sample.vx !== 0 || sample.vy !== 0,
-      });
+      let existing = players.get(identity);
+      if (!existing) {
+        const presentation = presentations.get(identity);
+        if (!presentation) continue;
+        existing = createRemotePlayer(identity, presentation, sample, serverAtMs, receivedAt);
+        players.set(identity, existing);
+        dependencies.changes.notify();
+      } else {
+        appendRemoteMotionSample(existing, {
+          serverAtMs,
+          receivedAt,
+          x: sample.x,
+          y: sample.y,
+          vx: sample.vx,
+          vy: sample.vy,
+          simulationTick: sample.simulationTick,
+          motionEpoch: sample.motionEpoch,
+          facing: sample.vx < 0 ? Math.PI : sample.vx > 0 ? 0 : existing.facing,
+          moving: sample.vx !== 0 || sample.vy !== 0,
+        });
+      }
       if (!detailedMotionReadyNetworkIds.has(sample.networkId)) {
         detailedMotionReadyNetworkIds.add(sample.networkId);
         readinessChanged = true;
@@ -555,8 +562,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     unsubscribeIfActive(mapPlayerSubscription);
     mapPlayerSubscription = null;
     mapSubscriptionAreaKey = "";
-    mapPlayerInterestBounds = null;
     mapPlayerSubscriptionTransitioning = false;
+    mapSubscriptionRefreshPending = false;
   }
 
   function releaseMapMarkerSubscription() {
@@ -594,63 +601,52 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
 
   function reconcileMapPlayerSubscription(connection: NonNullable<ReturnType<ReducerPort["connection"]>>) {
     const motionRows = [...connection.db.playerMotionIdentity.iter()];
-    const playerRows = [...connection.db.player.iter()];
     const currentNetworkIds = new Set(motionRows.map((row) => row.networkId));
-    const currentPlayerIds = new Set(playerRows.map((row) => row.identity.toHexString()));
+    const localIdentity = dependencies.localIdentity();
 
     dependencies.changes.batch(() => {
       let removed = false;
       for (const [networkId, identity] of motionIdentities) {
         if (currentNetworkIds.has(networkId)) continue;
+        if (identity === localIdentity) continue;
+        const presentation = presentations.get(identity);
         motionIdentities.delete(networkId);
+        detailedMotionReadyNetworkIds.delete(networkId);
         activeMotionIdentities.delete(identity);
+        presentations.delete(identity);
         playerMaps.delete(identity);
-        if (!currentPlayerIds.has(identity)) players.delete(identity);
+        players.delete(identity);
+        remotePlayerDeaths.delete(identity);
+        mapPlayerMarkers.delete(identity);
+        mapPlayerMarkers.delete(`network:${networkId}`);
+        if (presentation) {
+          dependencies.directory.tables.removeProfile(presentation);
+          dependencies.directory.tables.removeAccountStatus(presentation);
+        }
         removed = true;
       }
       for (const identity of players.keys()) {
-        if (identity === dependencies.localIdentity() || currentPlayerIds.has(identity)) continue;
+        if (identity === localIdentity || presentations.has(identity)) continue;
         players.delete(identity);
         playerMaps.delete(identity);
         removed = true;
       }
       for (const row of motionRows) upsertMotionIdentity(row);
-      for (const row of playerRows) upsertPlayer(row);
       refreshMotionInterest();
       if (removed) dependencies.changes.notify();
     });
   }
 
-  function refreshMapPlayerSubscription(force = false, interestArea?: PlayerInterestArea) {
+  function refreshMapPlayerSubscription(force = false) {
     const connection = dependencies.reducers.connection();
     const selfIdentity = dependencies.localDbIdentity();
     if (!connection?.isActive || !dependencies.hydrationReady() || !selfIdentity) return;
-    const centerX = Math.floor((localState?.x ?? 0) / MAP_PLAYER_ZONE_SIZE);
-    const centerY = Math.floor((localState?.y ?? 0) / MAP_PLAYER_ZONE_SIZE);
-    if (interestArea && [interestArea.left, interestArea.top, interestArea.right, interestArea.bottom].every(Number.isFinite)) {
-      const left = Math.min(interestArea.left, interestArea.right);
-      const right = Math.max(interestArea.left, interestArea.right);
-      const top = Math.min(interestArea.top, interestArea.bottom);
-      const bottom = Math.max(interestArea.top, interestArea.bottom);
-      mapPlayerInterestBounds = {
-        mapId: currentMapId,
-        minZoneX: Math.max(0, Math.floor(left / MAP_PLAYER_ZONE_SIZE) - MAP_PLAYER_PREFETCH_ZONES),
-        maxZoneX: Math.min(MAX_MAP_ZONE_X, Math.floor(right / MAP_PLAYER_ZONE_SIZE) + MAP_PLAYER_PREFETCH_ZONES),
-        minZoneY: Math.max(0, Math.floor(top / MAP_PLAYER_ZONE_SIZE) - MAP_PLAYER_PREFETCH_ZONES),
-        maxZoneY: Math.min(MAX_MAP_ZONE_Y, Math.floor(bottom / MAP_PLAYER_ZONE_SIZE) + MAP_PLAYER_PREFETCH_ZONES),
-      };
+    const mapId = currentMapId;
+    const areaKey = mapId;
+    if (mapPlayerSubscriptionTransitioning) {
+      if (force || mapSubscriptionAreaKey !== areaKey) mapSubscriptionRefreshPending = true;
+      return;
     }
-    const bounds = mapPlayerInterestBounds?.mapId === currentMapId
-      ? mapPlayerInterestBounds
-      : {
-        mapId: currentMapId,
-        minZoneX: Math.max(0, centerX - MAP_PLAYER_ZONE_RADIUS),
-        maxZoneX: Math.min(MAX_MAP_ZONE_X, centerX + MAP_PLAYER_ZONE_RADIUS),
-        minZoneY: Math.max(0, centerY - MAP_PLAYER_ZONE_RADIUS),
-        maxZoneY: Math.min(MAX_MAP_ZONE_Y, centerY + MAP_PLAYER_ZONE_RADIUS),
-      };
-    const areaKey = `${bounds.mapId}:${bounds.minZoneX}:${bounds.maxZoneX}:${bounds.minZoneY}:${bounds.maxZoneY}`;
-    if (mapPlayerSubscriptionTransitioning) return;
     if (!force && mapPlayerSubscription && mapSubscriptionAreaKey === areaKey) return;
 
     const previous = mapPlayerSubscription;
@@ -658,34 +654,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const generation = ++mapSubscriptionGeneration;
     mapSubscriptionAreaKey = areaKey;
     mapPlayerSubscriptionTransitioning = true;
-    const nearbyPlayers = tables.player.where((row) => row
-      .mapId.eq(currentMapId)
+    const mapPresentations = tables.playerMotionIdentity.where((row) => row
+      .mapId.eq(mapId)
       .and(row.isVisible.eq(true))
-      .and(row.identity.ne(selfIdentity))
-      .and(row.zoneX.gte(bounds.minZoneX))
-      .and(row.zoneX.lte(bounds.maxZoneX))
-      .and(row.zoneY.gte(bounds.minZoneY))
-      .and(row.zoneY.lte(bounds.maxZoneY)));
-    const nearbyMotionIdentities = tables.playerMotionIdentity.where((row) => row
-      .mapId.eq(currentMapId)
-      .and(row.isVisible.eq(true))
-      .and(row.identity.ne(selfIdentity))
-      .and(row.zoneX.gte(bounds.minZoneX))
-      .and(row.zoneX.lte(bounds.maxZoneX))
-      .and(row.zoneY.gte(bounds.minZoneY))
-      .and(row.zoneY.lte(bounds.maxZoneY)));
-    const nearbyBossAttacks = tables.bossAttackFrame.where((row) => row
-      .mapId.eq(currentMapId)
-      .and(row.zoneX.gte(bounds.minZoneX))
-      .and(row.zoneX.lte(bounds.maxZoneX))
-      .and(row.zoneY.gte(bounds.minZoneY))
-      .and(row.zoneY.lte(bounds.maxZoneY)));
-    const nearbyPlayerDeaths = tables.playerDeathFrame.where((row) => row
-      .mapId.eq(currentMapId)
-      .and(row.zoneX.gte(bounds.minZoneX))
-      .and(row.zoneX.lte(bounds.maxZoneX))
-      .and(row.zoneY.gte(bounds.minZoneY))
-      .and(row.zoneY.lte(bounds.maxZoneY)));
+      .and(row.identity.ne(selfIdentity)));
+    const mapBossAttacks = tables.bossAttackFrame.where((row) => row.mapId.eq(mapId));
+    const mapPlayerDeaths = tables.playerDeathFrame.where((row) => row.mapId.eq(mapId));
 
     let next: SubscriptionHandle | null = null;
     const subscribeNext = () => {
@@ -699,10 +673,13 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
               unsubscribeIfActive(next);
               return;
             }
-            reconcileMapPlayerSubscription(connection);
+            const staleMap = currentMapId !== mapId;
+            if (!staleMap) reconcileMapPlayerSubscription(connection);
             mapPlayerSubscriptionTransitioning = false;
-            refreshMotionInterest();
-            queueMicrotask(() => refreshMapPlayerSubscription(false));
+            const refreshPending = mapSubscriptionRefreshPending || staleMap;
+            mapSubscriptionRefreshPending = false;
+            if (refreshPending) queueMicrotask(() => refreshMapPlayerSubscription(true));
+            else refreshMotionInterest();
           })
           .onError((ctx) => {
             if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
@@ -710,9 +687,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
             mapPlayerSubscription = null;
             mapSubscriptionAreaKey = "";
             mapPlayerSubscriptionTransitioning = false;
+            mapSubscriptionRefreshPending = false;
             window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
           })
-          .subscribe([nearbyPlayers, nearbyMotionIdentities, nearbyBossAttacks, nearbyPlayerDeaths]);
+          .subscribe([mapPresentations, mapBossAttacks, mapPlayerDeaths]);
         mapPlayerSubscription = next;
       } catch (error) {
         if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
@@ -720,6 +698,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapPlayerSubscription = null;
         mapSubscriptionAreaKey = "";
         mapPlayerSubscriptionTransitioning = false;
+        mapSubscriptionRefreshPending = false;
       }
     };
     startAfterSubscriptionEnds(previous, subscribeNext, (error) => {
@@ -728,6 +707,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       mapPlayerSubscription = previous;
       mapSubscriptionAreaKey = previousAreaKey;
       mapPlayerSubscriptionTransitioning = false;
+      mapSubscriptionRefreshPending = false;
     });
   }
 
@@ -743,7 +723,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const connection = dependencies.reducers.connection();
     if (dependencies.reducers.protocolBlocked() || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
     localSimulationTick = (localSimulationTick + 1) >>> 0;
-    refreshMapPlayerSubscription(false, interestArea);
+    // Kept in the public signature for the renderer boundary; presentation is
+    // stable for the whole map and no longer churns subscriptions with camera motion.
+    void interestArea;
     const now = performance.now();
     const velocity = sanitizeMovementVelocity(vx, vy);
     if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force })) return;
@@ -933,6 +915,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       releaseMapPlayerSubscription();
       releaseMapMarkerSubscription();
       players.clear();
+      presentations.clear();
       remotePlayerDeaths.clear();
       mapPlayerMarkers.clear();
       motionIdentities.clear();

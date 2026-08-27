@@ -360,7 +360,11 @@ const profileDirectory = createProfileDirectory({
   localIsGuestFallback: () => connection?.isActive ? !connectedSignedIn : !accountService.accountToken(),
   shouldRetain: (identity) => shouldRetainProfilePresentation(
     identity,
-    { has: (candidate) => presenceService?.hasActiveMotion(candidate) ?? false },
+    {
+      has: (candidate) =>
+        (presenceService?.hasActiveMotion(candidate) ?? false) ||
+        playerProfileService?.activeIdentity() === candidate,
+    },
     { has: (candidate) => playerProfileService?.hasLeaderboard(candidate) ?? false },
     chatService.presentationRows(),
   ),
@@ -460,7 +464,6 @@ presenceService = createPresenceService({
     accountService.setNotice("SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB");
   },
   directory: profileDirectory,
-  profiles: playerProfileService,
   developer: developerService,
 });
 const {

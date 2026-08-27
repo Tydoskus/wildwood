@@ -10,8 +10,9 @@ flowchart LR
   PositionGate -->|"keyboard change immediately"| PositionReducer["update_movement_state(x,y,vx,vy,tick,epoch,sequence)"]
   PositionGate -->|"touch: 24-direction-equivalent gate; max 10 Hz"| PositionReducer
   PositionGate -->|"moving heartbeat: 2 Hz"| PositionReducer
-  PositionReducer --> PrivateMotion["private player_motion row"]
-  PrivateMotion --> DetailPublisher["2 Hz recipient-frame publisher"]
+  PositionReducer --> PrivateMotion["private player_motion analytical anchor"]
+  PrivateMotion --> Sample["sample x/y at publisher timestamp"]
+  Sample --> DetailPublisher["2 Hz recipient-frame publisher"]
   MapBatch --> Interest["client selects nearest five with hysteresis"]
   Interest -->|"membership changes only"| InterestReducer["set_player_motion_interest"]
   InterestReducer --> DetailPublisher
@@ -19,11 +20,11 @@ flowchart LR
   MotionCache --> Interpolation["continuity anchor + transmitted-velocity extrapolation"]
   Interpolation --> Frame["render frame"]
 
-  PositionReducer -->|"start / stop / zone boundary only"| PlayerRow["cold public player row"]
-  PrivateMotion -->|"one 1 Hz shared scheduler"| MapBatch["compact player_map_frame per map"]
+  PositionReducer -->|"start / stop / idle correction only"| PlayerRow["exact-own player row"]
+  Sample -->|"one 1 Hz shared scheduler"| MapBatch["compact player_map_frame per map"]
   MapBatch -->|"one map subscription"| Minimap["minimap dots"]
 
-  Presence["player_motion_identity"] -->|"camera zones + own row"| IdentityCache["network id + name + appearance"]
+  Presence["stable player_motion_identity presentation"] -->|"one map-scoped subscription"| IdentityCache["network id + name + appearance + equipment"]
   IdentityCache --> MotionCache
   IdentityCache --> Minimap
 
@@ -31,6 +32,7 @@ flowchart LR
   Pending -->|"normal: coalesced every 2.5 s"| ProgressReducer["save_player_progress"]
   Pending -->|"equipment / duel / page exit: ordered flush"| ProgressReducer
   ProgressReducer --> ProgressRow["player_progress"]
+  ProgressReducer -->|"visible stats/equipment changed"| Presence
 
   DetailPublisher -. "hot frames never trigger global UI fanout" .-> UiSignal["application UI change signal"]
   ProgressRow --> UiSignal
@@ -39,15 +41,16 @@ flowchart LR
 
 ### Lane rules
 
-- `player_motion` is private current motion: client-authoritative `x/y`, world-space `vx/vy`, sender simulation tick, motion epoch, sequence, and cold compatibility state. Each sender owns its reducer; writes have no public row fanout.
+- `player_motion` is a private analytical anchor: client-authoritative `x/y`, world-space `vx/vy`, sender simulation tick, motion epoch, sequence, and anchor time. Each sender owns its reducer; writes have no public row fanout.
 - Keyboard sends only velocity transitions plus a 500 ms moving heartbeat. Touch compares squared magnitudes and a dot product against a 24-direction-equivalent hysteresis gate, then sends exact `vx/vy`; local movement remains fully analog. Material steering is capped at 10 Hz. Stationary players send nothing.
 - Remote presentation treats the 2 Hz heartbeat as correction cadence, not network jitter. It keeps only a short jitter buffer, anchors each correction to the pose already being shown, and extrapolates directly from transmitted world velocity. The per-render predictor no longer reconstructs speed with repeated magnitudes, alignments, or old-position deltas.
 - `motionEpoch` is the only hard discontinuity guard. Respawns, world/session resets, map transitions, and duel teleports advance it and flush the old prediction buffer. Distance never decides whether valid fast travel was a teleport. The wrap-aware 16-bit hot `simulationTick` reconstructs sender cadence; server time remains the fallback across epochs.
+- Both publishers analytically advance anchors to their shared publication timestamp before packing them. The server does not run a per-player tick or write the sampled pose back. A 1.5-second grace horizon turns stale anchors into a bounded stopped pose.
 - `player_motion_detail_frame` is an insert-only event table filtered by recipient identity. One 2 Hz scheduler performs at most five indexed motion lookups per interested viewer and packs those samples into a single frame. Each sample is 16 bytes: network ID, quantized `x/y`, quantized `vx/vy`, low 16 bits of simulation tick, and low 16 bits of motion epoch.
-- `player` is cold presentation/interest state. It updates on movement start, stop, idle correction, zone crossing, equipment/stat presentation changes, teleports, and lifecycle changes—not every movement input.
-- `player_motion_identity` maps compact network IDs to identity, name, account kind, and appearance. Clients subscribe to their own row plus camera zones; distant minimap dots use network ID directly and do not require map-wide profile hydration. Base hydration subscribes only to the local durable profile, never every historical profile/account row.
+- `player` is exact-own lifecycle and compatibility state. It updates on movement start, stop, idle correction, presentation changes, teleports, and lifecycle changes—not on heartbeats or zone crossings. Current clients never subscribe to remote rows.
+- `player_motion_identity` is the stable map-wide presentation cache: compact network ID, identity, name, account kind, appearance, speed, power, and equipment. Clients subscribe once per map; movement and camera motion never update or replace this subscription. Physical zone columns remain migration compatibility only. Base hydration subscribes only to the local durable profile, never every historical profile/account row.
 - `player_map_frame` is one compact 1 Hz snapshot per shared map. Its separate 8-byte sample carries only network ID and `x/y`; prediction-only velocity, tick, and epoch never inflate distant markers.
-- Detailed remote players use nearby cold identity/presentation rows plus one recipient-frame query. The all-map snapshot selects at most five relevant network IDs before server serialization; never create one subscription handle per selected player.
+- Detailed remote players use the stable presentation cache plus one recipient-frame query. The all-map snapshot selects at most five relevant network IDs before server serialization; never create one subscription handle per selected player.
 - An invisible developer cannot appear in another client's visible-player query. Sparse state frames remain smooth through vector extrapolation; observation no longer asks every sender for a high-rate stream or requires stationary movement heartbeats.
 - Remote players render name and power only. Health remains local simulation state and never enters the realtime player row.
 - Normal progress mutations persist locally immediately, then coalesce into one server save. Anything that snapshots equipment, such as a duel, must drain pending progress first.
@@ -97,7 +100,7 @@ flowchart LR
   Workers["1–15 Node worker processes"] --> Browser["Anonymous bot websockets · max 200/process"]
   Browser --> Protocol["register protocol + enter world"]
   Authorize --> Protocol
-  Protocol --> Subs["core + nearby cold presence + map snapshot"]
+  Protocol --> Subs["core + stable map presentation + map snapshot"]
   Subs --> Interest["nearest-five interest set"]
   Protocol --> Move["update_movement_state · changes + 2 Hz heartbeat"]
   Protocol --> Save["save_player_progress · 30 s realistic / 2.5 s stress"]
@@ -112,7 +115,7 @@ flowchart LR
 - The browser harness is capped at 200 connections because Chromium limits same-group WebSockets to roughly 255. Large tests use `npm run loadtest:virtual`; automatic sharding keeps at most 200 sockets in each Node process.
 - A developer creates one private random capability per run. Node workers receive that capability but never the developer token. Each bot consumes it through its own protocol-confirmed socket, avoiding cross-connection lifecycle races. Bots do not load the on-demand leaderboard during startup.
 - Test modes isolate `movement`, `core`, `map`, capped detail, persistence, realistic, and dense-crowd costs. The 2.5-second fabricated save belongs only to persistence stress; realistic saves dirty progress every 30 seconds.
-- Nearby-query replacements wait for the old unsubscribe acknowledgement before starting the new query set. This avoids overlapping moving result sets and TypeScript SDK cache-reference races. Socket shutdown does not send redundant per-query unsubscribes immediately before disconnect.
+- Bots install the same stable map presentation cache as production and choose nearest-five interest from decoded `player_map_frame` events. They never derive selection from broad public player rows or move subscriptions with simulated camera zones.
 - `virtual_player` remains private. Ranking refresh and access-audit paths skip tagged identities while a test runs.
 - Never add a second bot cleanup implementation. Explicit stop, bot disconnect, and maintenance all call `removeVirtualPlayerData` so simulated saves cannot become permanent player data.
 
@@ -137,20 +140,21 @@ Sparse ingress still cuts steady straight-line reducer transactions by 80%:
 | 3,000 | 30,000/s | 6,000/s |
 
 Direction transitions add ingress only when they carry new information. The
-recipient publisher keeps egress bounded independently of sender steering rate;
-camera-zone cold presence bounds which actors are eligible for the five slots.
+recipient publisher keeps egress bounded independently of sender steering rate.
+The stable presentation cache makes every active-map network ID eligible without
+turning identity or equipment into hot movement data.
 
-The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible players. Above that threshold, the server emits at most 256 spatial centroids. At 3,000 viewers its 8-byte samples are therefore bounded near 6.14 MB/s before protocol overhead instead of the former 8.45 MB/s. Runtime zone movement remains exact.
+The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible players. Above that threshold, the server emits at most 256 spatial centroids. At 3,000 viewers its 8-byte samples are therefore bounded near 6.14 MB/s before protocol overhead instead of the former 8.45 MB/s. Selected detailed movement remains exact.
 
 ## Server authority boundary
 
-Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Movement stays deliberately client-authoritative. Discrete portal use carries the current client-authoritative `x/y` in the map-change transaction so validation never depends on a one-heartbeat-old motion sample. Server performs only finite-value and world-bound movement sanity checks; it never simulates movement, replays inputs, validates speed/distance, or runs shared player physics.
+Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Movement stays deliberately client-authoritative. Discrete portal use carries the current client-authoritative `x/y` in the map-change transaction so validation never depends on a one-heartbeat-old motion sample. Server performs only finite-value and world-bound movement sanity checks; it never runs an authoritative movement tick, replays inputs, validates speed/distance, or runs shared player physics. Constant-velocity anchor evaluation exists only to timestamp outgoing publications consistently.
 
 ## Change checklist
 
 1. Decide lane: private input, aggregate frame, cold presence, UI state, snapshot, or durable progress.
 2. Keep hot rows out of `onChange` and avoid adding fields that do not need hot cadence.
-3. Query only needed identities/maps/zones. Count both subscription handles and queries inside each handle.
+3. Query only needed identities and maps. Count both subscription handles and queries inside each handle.
 4. For scheduled state, add cleanup, idempotence, and maintenance reconciliation.
 5. For one-shot loads, cover success, error, close/switch, disconnect, stale connection, and timeout.
 6. For schema/reducer changes, bump protocol, build server, regenerate bindings, build client, publish server, then deploy matching client.
@@ -158,4 +162,6 @@ Server owns connection/controller identity, map portals, shared bosses, research
 
 ### Follow-up measurement note
 
-If remote motion still diverges on a representative phone, record predicted-versus-confirmed position error, epoch changes, sender tick deltas, and dropped simulation time before increasing movement traffic beyond 2 Hz. A nearby-only adaptive correction rate remains an option, but it should be justified against reducer ingress and dense-zone fanout rather than used to mask a presentation-clock error.
+If remote motion still diverges on a representative phone, record predicted-versus-confirmed position error, epoch changes, sender tick deltas, and dropped simulation time before increasing movement traffic beyond 2 Hz. An adaptive correction rate remains an option, but it should be justified against reducer ingress and dense-map fanout rather than used to mask a presentation-clock error.
+
+At much larger map populations, measure the one-time presentation snapshot separately from steady traffic. If that join cost becomes material, the next legitimate step is a revisioned request-once presentation catalog or a packed string dictionary—not movement-coupled identity updates, moving subscriptions, or a high-rate server tick. Also measure whether 0.5 Hz map repair plus small deltas beats the current bounded 1 Hz snapshot before changing it.

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.534": [
+    "Multiplayer now caches each map's player names, appearances, equipment, speed, and power once instead of moving broad player subscriptions with the camera.",
+    "Remote positions are sampled analytically at publication time, eliminating heartbeat-age catch-up jumps without adding server simulation ticks.",
+    "Steady movement fanout is bounded to the 2 Hz nearest-five detail frame and the 1 Hz compact map snapshot, and virtual players now test that same production path.",
+  ],
+
   "0.533": [
     "Nearby multiplayer now selects up to five relevant moving players before server fanout, while every other player remains visible through the all-map minimap dots.",
     "Progress saves no longer rewrite an unchanged full progress row, reducing persistence compute and self-subscription traffic.",
@@ -1135,6 +1141,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.534": "2026-08-26",
   "0.533": "2026-08-26",
   "0.532": "2026-08-26",
   "0.531": "2026-08-26",

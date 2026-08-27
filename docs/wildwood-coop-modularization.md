@@ -2,7 +2,7 @@
 
 `src/wildwood-coop.ts` is the browser-facing composition root. It preserves the existing `window.wildwoodCoop`, named export, default export, and Vite entry contract, but it must remain below 1,000 lines. `src/coop/wildwood-coop-boundary.test.ts` enforces that limit.
 
-The refactor is intentionally behavior-preserving. Protocol, generated bindings, reducer order, subscription queries, save cadence, and public method names did not change.
+The original extraction was behavior-preserving. Later realtime protocol work changed generated bindings and subscription queries without moving those responsibilities back into the composition root; public method names and ownership boundaries remain stable.
 
 ## Ownership
 
@@ -13,7 +13,7 @@ The refactor is intentionally behavior-preserving. Protocol, generated bindings,
 | `src/coop/ports.ts` | Narrow reducer and change-notification ports shared by services. |
 | `src/coop/services/account-service.ts` | Guest/account credentials, PKCE callback, account migration, session takeover intent, remembered character metadata, and account-facing API methods. |
 | `src/coop/services/base-subscription.ts` | Base query list, SDK table callback registration, one cache hydration boundary, and initial callback suppression. |
-| `src/coop/services/presence-service.ts` | Local/remote presence, interpolation, movement and speed reducers, map-zone subscription handoff, minimap/death/boss-attack frames, and online count. |
+| `src/coop/services/presence-service.ts` | Local state, stable map-wide presentation cache, nearest-five interpolation, movement and speed reducers, packed minimap/death/boss-attack frames, map handoff, and online count. |
 | `src/coop/services/player-profile-service.ts` | Temporary profile loads, leaderboard snapshots, profile-map presentation, timeout/cancellation, and cached profile assembly. |
 | `src/coop/services/profile-directory.ts` | Identity-to-name/appearance/account presentation and profile mutation reducers. |
 | `src/coop/services/progression-service.ts` | Identity-scoped pending saves, progress/research/upgrades/Gems/lifetime state, save cadence, drops, and progression reducers. |
@@ -27,7 +27,7 @@ The refactor is intentionally behavior-preserving. Protocol, generated bindings,
 1. Connection order is `connect -> register protocol -> claim guest account -> optional takeover -> enter world -> install listeners/subscription -> hydrate`.
 2. Base hydration reads SDK caches once inside one batched boundary. Initial insert callbacks remain suppressed until the microtask after `onApplied`.
 3. Movement, minimap, boss-attack, and death frame handlers update render-facing buffers without calling the application-wide change listener.
-4. Nearby player subscriptions use an ordered unsubscribe/subscribe handoff. Do not overlap detailed-player query regions to hide transition bugs.
+4. Remote presentation uses one stable subscription per map. Map changes use an ordered unsubscribe/subscribe handoff with a pending-transition guard; camera movement must never replace that subscription.
 5. Profile, leaderboard, and replay loads cancel on timeout, switch/close, disconnect, or stale connection.
 6. Pending progress is keyed by identity. It drains before guest-account migration and before duel snapshots, and remains stored when a protocol update blocks the old client.
 7. A websocket is not playable world presence. `enter_world` remains the single explicit gate.
@@ -53,7 +53,8 @@ These are notes for a future pass, not changes included in the modularization:
 - Add a shared disposable scheduler for intervals, timeouts, and page lifecycle listeners. Services currently expose or internally manage cleanup, but the singleton browser runtime has no unified teardown owner.
 - Inject clock, storage, location, and window adapters into account/progression/presence services to make reconnect, token expiry, save cadence, and visibility behavior deterministic in unit tests.
 - Evolve `ReducerPort` into a generated, typed command gateway so reducer error/latency policy stays centralized without repeating reducer signatures.
-- Replace profile presentation retention checks with explicit source leases (nearby, chat, leaderboard, open profile). This would make eviction ownership easier to inspect than cross-domain lookups.
+- Replace profile presentation retention checks with explicit source leases (active-map presentation, chat, leaderboard, open profile). This would make eviction ownership easier to inspect than cross-domain lookups.
 - Narrow game/UI consumers away from the full `wildwoodCoop` object toward typed per-feature ports. Preserve the public object until all callers and browser integrations have migrated.
 - Add development-only counters for active handles and queries per handle, plus assertions after disconnect. The current `subscriptionCount` is intentionally a lightweight UI diagnostic.
+- If map-entry presentation snapshots become expensive at much larger populations, prototype a revisioned request-once catalog or packed string dictionary. Keep it independent from analytical motion anchors and the two bounded packed publications.
 - Benchmark bundle output and reconnect/movement load after the structural change before attempting memoization, allocation pooling, or cadence changes. Those are performance changes and should not be bundled with ownership refactors.
