@@ -149,7 +149,7 @@ The 1 Hz minimap remains map-wide but exact payload growth stops at 256 visible 
 
 ## Server authority boundary
 
-Server owns connection/controller identity, map portals, shared bosses, research timers, duel snapshots/results, visibility, and online counts. Movement stays deliberately client-authoritative. Discrete portal use carries the current client-authoritative `x/y` in the map-change transaction so validation never depends on a one-heartbeat-old motion sample. Server performs only finite-value and world-bound movement sanity checks; it never runs an authoritative movement tick, replays inputs, validates speed/distance, or runs shared player physics. Constant-velocity anchor evaluation exists only to timestamp outgoing publications consistently.
+Server owns connection/controller identity, map portals, shared boss HP/damage validation/contributions/results, research timers, duel snapshots/results, visibility, and online counts. Boss pattern geometry and nearby remote-player boss-attack presentation use a versioned encounter seed locally; they never decide authoritative damage or rewards. Movement stays deliberately client-authoritative. Discrete portal use carries the current client-authoritative `x/y` in the map-change transaction so validation never depends on a one-heartbeat-old motion sample. Server performs only finite-value and world-bound movement sanity checks; it never runs an authoritative movement tick, replays inputs, validates speed/distance, or runs shared player physics. Constant-velocity anchor evaluation exists only to timestamp outgoing publications consistently.
 
 ## Change checklist
 

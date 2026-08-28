@@ -16,7 +16,6 @@ import {
   TIDEWYRM_AGGRO_RANGE,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
-  TAU,
   WORLD,
 } from "../constants";
 import {
@@ -39,8 +38,9 @@ import {
   TIDEWYRM_REWARD_HEALTH,
   TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
+import { seededBossHazardPolar } from "../../../shared/boss-simulation";
 import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
-import { clamp, rand } from "../math";
+import { clamp } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type {
   BossRainStrike,
@@ -256,6 +256,12 @@ export function createBossController(options: {
   const locallyRewardedMagmaliskEncounters = new Set<string>();
   const locallyRewardedGloomrootEncounters = new Set<string>();
   const locallyRewardedTidewyrmEncounters = new Set<string>();
+  let dragonRainPatternIndex = 0;
+  let spiderVenomPatternIndex = 0;
+  let frostclawIcefallPatternIndex = 0;
+  let magmaliskEruptionPatternIndex = 0;
+  let gloomrootBloomPatternIndex = 0;
+  let tidewyrmWhirlpoolPatternIndex = 0;
 
   function scaledReward(type: RewardType, baseAmount: number) {
     const multiplier = options.rewardMultiplier?.() ?? 1;
@@ -281,6 +287,7 @@ export function createBossController(options: {
     boss.nextAttack = "cone";
     boss.cone = null;
     bossRain.length = 0;
+    dragonRainPatternIndex = 0;
   }
 
   function resetSpiderBoss() {
@@ -298,6 +305,7 @@ export function createBossController(options: {
     spiderBoss.nextAttack = "web";
     spiderBoss.web = null;
     spiderVenom.length = 0;
+    spiderVenomPatternIndex = 0;
   }
 
   function resetFrostclawBoss() {
@@ -318,6 +326,7 @@ export function createBossController(options: {
     frostclawBoss.rift = null;
     frostclawBoss.pushTimer = 0;
     frostclawIcefalls.length = 0;
+    frostclawIcefallPatternIndex = 0;
   }
 
   function resetMagmaliskBoss() {
@@ -336,6 +345,7 @@ export function createBossController(options: {
     magmaliskBoss.nextAttack = "bite";
     magmaliskBoss.bite = null;
     magmaliskEruptions.length = 0;
+    magmaliskEruptionPatternIndex = 0;
   }
 
   function resetGloomrootBoss() {
@@ -354,6 +364,7 @@ export function createBossController(options: {
     gloomrootBoss.nextAttack = "sweep";
     gloomrootBoss.sweep = null;
     gloomrootBlooms.length = 0;
+    gloomrootBloomPatternIndex = 0;
   }
 
   function resetTidewyrmBoss() {
@@ -372,6 +383,7 @@ export function createBossController(options: {
     tidewyrmBoss.nextAttack = "surge";
     tidewyrmBoss.surge = null;
     tidewyrmWhirlpools.length = 0;
+    tidewyrmWhirlpoolPatternIndex = 0;
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -657,6 +669,7 @@ export function createBossController(options: {
       spiderBoss.nextAttack = "web";
       spiderBoss.web = null;
       spiderVenom.length = 0;
+      spiderVenomPatternIndex = 0;
       spiderBoss.hpLossFlashFrom = shared.hp;
       spiderBoss.hpLossFlashTimer = 0;
     } else if (spiderWasAlive && !shared.alive) {
@@ -671,6 +684,7 @@ export function createBossController(options: {
       spiderBoss.dead = false;
       spiderBoss.attackClock = 3;
       spiderBoss.nextAttack = "web";
+      spiderVenomPatternIndex = 0;
     } else if (shared.alive && shared.hp < previousHp) {
       spiderBoss.hpLossFlashFrom = spiderBoss.hpLossFlashTimer > 0 ? Math.max(spiderBoss.hpLossFlashFrom, previousHp) : previousHp;
       spiderBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
@@ -700,6 +714,7 @@ export function createBossController(options: {
       frostclawBoss.rift = null;
       frostclawBoss.pushTimer = 0;
       frostclawIcefalls.length = 0;
+      frostclawIcefallPatternIndex = 0;
       frostclawBoss.hpLossFlashFrom = shared.hp;
       frostclawBoss.hpLossFlashTimer = 0;
     } else if (frostclawWasAlive && !shared.alive) {
@@ -716,6 +731,7 @@ export function createBossController(options: {
       frostclawBoss.dead = false;
       frostclawBoss.attackClock = 3;
       frostclawBoss.nextAttack = "roar";
+      frostclawIcefallPatternIndex = 0;
     } else if (shared.alive && shared.hp < previousHp) {
       frostclawBoss.hpLossFlashFrom = frostclawBoss.hpLossFlashTimer > 0
         ? Math.max(frostclawBoss.hpLossFlashFrom, previousHp)
@@ -755,6 +771,7 @@ export function createBossController(options: {
       magmaliskBoss.nextAttack = "bite";
       magmaliskBoss.bite = null;
       magmaliskEruptions.length = 0;
+      magmaliskEruptionPatternIndex = 0;
       magmaliskBoss.hpLossFlashFrom = shared.hp;
       magmaliskBoss.hpLossFlashTimer = 0;
     } else if (magmaliskWasAlive && !shared.alive) {
@@ -769,6 +786,7 @@ export function createBossController(options: {
       magmaliskBoss.dead = false;
       magmaliskBoss.attackClock = 3;
       magmaliskBoss.nextAttack = "bite";
+      magmaliskEruptionPatternIndex = 0;
     } else if (shared.alive && shared.hp < previousHp) {
       magmaliskBoss.hpLossFlashFrom = magmaliskBoss.hpLossFlashTimer > 0
         ? Math.max(magmaliskBoss.hpLossFlashFrom, previousHp)
@@ -808,6 +826,7 @@ export function createBossController(options: {
       gloomrootBoss.nextAttack = "sweep";
       gloomrootBoss.sweep = null;
       gloomrootBlooms.length = 0;
+      gloomrootBloomPatternIndex = 0;
       gloomrootBoss.hpLossFlashFrom = shared.hp;
       gloomrootBoss.hpLossFlashTimer = 0;
     } else if (gloomrootWasAlive && !shared.alive) {
@@ -822,6 +841,7 @@ export function createBossController(options: {
       gloomrootBoss.dead = false;
       gloomrootBoss.attackClock = 3;
       gloomrootBoss.nextAttack = "sweep";
+      gloomrootBloomPatternIndex = 0;
     } else if (shared.alive && shared.hp < previousHp) {
       gloomrootBoss.hpLossFlashFrom = gloomrootBoss.hpLossFlashTimer > 0
         ? Math.max(gloomrootBoss.hpLossFlashFrom, previousHp)
@@ -861,6 +881,7 @@ export function createBossController(options: {
       tidewyrmBoss.nextAttack = "surge";
       tidewyrmBoss.surge = null;
       tidewyrmWhirlpools.length = 0;
+      tidewyrmWhirlpoolPatternIndex = 0;
       tidewyrmBoss.hpLossFlashFrom = shared.hp;
       tidewyrmBoss.hpLossFlashTimer = 0;
     } else if (tidewyrmWasAlive && !shared.alive) {
@@ -875,6 +896,7 @@ export function createBossController(options: {
       tidewyrmBoss.dead = false;
       tidewyrmBoss.attackClock = 3;
       tidewyrmBoss.nextAttack = "surge";
+      tidewyrmWhirlpoolPatternIndex = 0;
     } else if (shared.alive && shared.hp < previousHp) {
       tidewyrmBoss.hpLossFlashFrom = tidewyrmBoss.hpLossFlashTimer > 0
         ? Math.max(tidewyrmBoss.hpLossFlashFrom, previousHp)
@@ -911,6 +933,7 @@ export function createBossController(options: {
       dragonWasAlive = shared.alive;
       boss.dead = !shared.alive;
       if (boss.dead) { boss.cone = null; bossRain.length = 0; }
+      dragonRainPatternIndex = 0;
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
     } else if (encounterChanged) {
@@ -921,6 +944,7 @@ export function createBossController(options: {
       boss.nextAttack = "cone";
       boss.cone = null;
       bossRain.length = 0;
+      dragonRainPatternIndex = 0;
       boss.dead = !shared.alive;
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
@@ -935,6 +959,7 @@ export function createBossController(options: {
       boss.nextAttack = "cone";
       boss.cone = null;
       bossRain.length = 0;
+      dragonRainPatternIndex = 0;
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
     } else if (shared.alive && shared.hp < previousHp) {
@@ -961,11 +986,21 @@ export function createBossController(options: {
 
   function startBossRain() {
     for (let i = 0; i < 8; i++) {
-      const angle = i * TAU / 8 + rand(-.25, .25);
-      const radius = rand(24, BOSS_RAIN_RANGE);
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "dragon",
+        encounter: boss.encounter,
+        pattern: "rain",
+        patternIndex: dragonRainPatternIndex,
+        hazardIndex: i,
+        hazardCount: 8,
+        angleJitter: .25,
+        minimumRadius: 24,
+        maximumRadius: BOSS_RAIN_RANGE,
+      });
       const timer = .8 + i * .14;
       bossRain.push({ x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60), y: clamp(player.y + Math.sin(angle) * radius, 60, WORLD.h - 60), timer, maxTimer: timer, r: 52 });
     }
+    dragonRainPatternIndex += 1;
     boss.attackClock = 4.8;
     boss.nextAttack = "cone";
   }
@@ -1057,11 +1092,21 @@ export function createBossController(options: {
       spiderBoss.nextAttack = "venom";
     } else {
       for (let i = 0; i < 6; i++) {
-        const angle = i * TAU / 6 + rand(-.25, .25);
-        const radius = rand(15, 125);
+        const { angle, radius } = seededBossHazardPolar({
+          kind: "spider",
+          encounter: spiderBoss.encounter,
+          pattern: "venom",
+          patternIndex: spiderVenomPatternIndex,
+          hazardIndex: i,
+          hazardCount: 6,
+          angleJitter: .25,
+          minimumRadius: 15,
+          maximumRadius: 125,
+        });
         const timer = .9 + i * .13;
         spiderVenom.push({ x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60), y: clamp(player.y + Math.sin(angle) * radius, 60, WORLD.h - 60), timer, maxTimer: timer, r: 58 });
       }
+      spiderVenomPatternIndex += 1;
       spiderBoss.attackClock = 4.2;
       spiderBoss.nextAttack = "web";
     }
@@ -1079,8 +1124,18 @@ export function createBossController(options: {
 
   function startFrostclawIcefall() {
     for (let index = 0; index < 9; index += 1) {
-      const angle = index * TAU / 9 + rand(-.32, .32);
-      const radius = index === 0 ? 0 : rand(42, 185);
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "frostclaw",
+        encounter: frostclawBoss.encounter,
+        pattern: "icefall",
+        patternIndex: frostclawIcefallPatternIndex,
+        hazardIndex: index,
+        hazardCount: 9,
+        angleJitter: .32,
+        minimumRadius: 42,
+        maximumRadius: 185,
+        centerFirst: true,
+      });
       const timer = .8 + index * .13;
       frostclawIcefalls.push({
         x: clamp(player.x + Math.cos(angle) * radius, 70, WORLD.w - 70),
@@ -1090,6 +1145,7 @@ export function createBossController(options: {
         maxTimer: timer,
       });
     }
+    frostclawIcefallPatternIndex += 1;
     frostclawBoss.attackClock = 4.8;
     frostclawBoss.nextAttack = "rift";
   }
@@ -1212,8 +1268,18 @@ export function createBossController(options: {
 
   function startMagmaliskEruption() {
     for (let index = 0; index < 11; index += 1) {
-      const angle = index * TAU / 11 + rand(-.3, .3);
-      const radius = index === 0 ? 0 : rand(48, 230);
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "magmalisk",
+        encounter: magmaliskBoss.encounter,
+        pattern: "eruption",
+        patternIndex: magmaliskEruptionPatternIndex,
+        hazardIndex: index,
+        hazardCount: 11,
+        angleJitter: .3,
+        minimumRadius: 48,
+        maximumRadius: 230,
+        centerFirst: true,
+      });
       const timer = .8 + index * .11;
       magmaliskEruptions.push({
         x: clamp(player.x + Math.cos(angle) * radius, 72, WORLD.w - 72),
@@ -1223,6 +1289,7 @@ export function createBossController(options: {
         maxTimer: timer,
       });
     }
+    magmaliskEruptionPatternIndex += 1;
     magmaliskBoss.attackClock = 3.1;
     magmaliskBoss.nextAttack = "bite";
   }
@@ -1300,8 +1367,18 @@ export function createBossController(options: {
 
   function startGloomrootBloom() {
     for (let index = 0; index < 12; index += 1) {
-      const angle = index * TAU / 12 + rand(-.28, .28);
-      const radius = index === 0 ? 0 : rand(55, 255);
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "gloomroot",
+        encounter: gloomrootBoss.encounter,
+        pattern: "bloom",
+        patternIndex: gloomrootBloomPatternIndex,
+        hazardIndex: index,
+        hazardCount: 12,
+        angleJitter: .28,
+        minimumRadius: 55,
+        maximumRadius: 255,
+        centerFirst: true,
+      });
       const timer = .9 + index * .1;
       gloomrootBlooms.push({
         x: clamp(player.x + Math.cos(angle) * radius, 74, WORLD.w - 74),
@@ -1311,6 +1388,7 @@ export function createBossController(options: {
         maxTimer: timer,
       });
     }
+    gloomrootBloomPatternIndex += 1;
     gloomrootBoss.attackClock = 3.2;
     gloomrootBoss.nextAttack = "sweep";
   }
@@ -1388,8 +1466,18 @@ export function createBossController(options: {
 
   function startTidewyrmWhirlpools() {
     for (let index = 0; index < 11; index += 1) {
-      const angle = index * TAU / 11 + rand(-.25, .25);
-      const radius = index === 0 ? 0 : rand(70, 290);
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "tidewyrm",
+        encounter: tidewyrmBoss.encounter,
+        pattern: "whirlpool",
+        patternIndex: tidewyrmWhirlpoolPatternIndex,
+        hazardIndex: index,
+        hazardCount: 11,
+        angleJitter: .25,
+        minimumRadius: 70,
+        maximumRadius: 290,
+        centerFirst: true,
+      });
       const timer = .85 + index * .11;
       tidewyrmWhirlpools.push({
         x: clamp(player.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
@@ -1399,6 +1487,7 @@ export function createBossController(options: {
         maxTimer: timer,
       });
     }
+    tidewyrmWhirlpoolPatternIndex += 1;
     tidewyrmBoss.attackClock = 3.15;
     tidewyrmBoss.nextAttack = "surge";
   }

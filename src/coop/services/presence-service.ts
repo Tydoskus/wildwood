@@ -21,11 +21,6 @@ import {
 } from "./remote-interpolation";
 import { REGULAR_ENEMY_CONSENSUS_DELAY_MS } from "../../../shared/regular-enemy-simulation";
 import {
-  createRemoteBossAttackState,
-  remoteBossAttackFrame,
-  type RemoteBossAttackState,
-} from "./remote-boss-attack";
-import {
   decodePlayerMapFrame,
   decodePlayerMotionFrame,
   type PlayerMapSample,
@@ -86,7 +81,6 @@ type RemotePlayerTarget = RemotePlayer & {
   samples: RemotePlayerSample[];
   interpolationClock: RemoteInterpolationClock;
   motionCorrection: RemoteMotionCorrection;
-  bossAttackState?: RemoteBossAttackState;
 };
 
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
@@ -650,31 +644,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     refreshMotionInterest();
   }
 
-  function upsertBossAttackFrame(row: {
-    mapId: string;
-    networkId: number;
-    attackerX: number;
-    attackerY: number;
-    targetX: number;
-    targetY: number;
-    targetRadius: number;
-    hits: number;
-  }) {
-    if (row.mapId !== currentMapId) return;
-    const identity = motionIdentities.get(row.networkId);
-    if (!identity || identity === dependencies.localIdentity()) return;
-    const player = players.get(identity);
-    if (!player) return;
-    player.bossAttackState = createRemoteBossAttackState({
-      attackerX: row.attackerX,
-      attackerY: row.attackerY,
-      targetX: row.targetX,
-      targetY: row.targetY,
-      targetRadius: row.targetRadius,
-      hits: row.hits,
-    }, performance.now());
-  }
-
   function upsertPlayerDeathFrame(row: { mapId: string; networkId: number; playerX: number; playerY: number; facing: number }) {
     if (row.mapId !== currentMapId) return;
     const identity = motionIdentities.get(row.networkId);
@@ -796,7 +765,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       .mapId.eq(mapId)
       .and(row.isVisible.eq(true))
       .and(row.identity.ne(selfIdentity)));
-    const mapBossAttacks = tables.bossAttackFrame.where((row) => row.mapId.eq(mapId));
     const mapPlayerDeaths = tables.playerDeathFrame.where((row) => row.mapId.eq(mapId));
 
     let next: SubscriptionHandle | null = null;
@@ -828,7 +796,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
             mapSubscriptionRefreshPending = false;
             window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
           })
-          .subscribe([mapPresentations, mapBossAttacks, mapPlayerDeaths]);
+          .subscribe([mapPresentations, mapPlayerDeaths]);
         mapPlayerSubscription = next;
       } catch (error) {
         if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
@@ -900,7 +868,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       removeMotionIdentity,
       upsertPlayerMotionFrame,
       upsertPlayerMapFrame,
-      upsertBossAttackFrame,
       upsertPlayerDeathFrame,
       upsertWorldStatus,
     },
@@ -965,16 +932,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           const simulationMotion = remoteMotionAtServerTime(player.samples, consensusServerAtMs);
           player.simulationX = simulationMotion.x;
           player.simulationY = simulationMotion.y;
-          const bossAttack = remoteBossAttackFrame(player.bossAttackState, now);
-          if (bossAttack) {
-            player.facing = bossAttack.facing;
-            player.throwClock = bossAttack.throwClock;
-            player.bossAttack = bossAttack.visual;
-          } else {
-            player.bossAttackState = undefined;
-            player.throwClock = undefined;
-            player.bossAttack = undefined;
-          }
+          player.throwClock = undefined;
+          player.bossAttack = undefined;
           result.push(player);
         }
         return result;

@@ -8,7 +8,6 @@ export type BaseSubscriptionHandlers = {
   removePlayer: RowHandler;
   motionFrame: RowHandler;
   mapFrame: RowHandler;
-  bossAttackFrame: RowHandler;
   deathFrame: RowHandler;
   motionIdentity: RowHandler;
   removeMotionIdentity: RowHandler;
@@ -87,7 +86,6 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   // intentionally do not trigger application-wide UI fanout.
   connection.db.playerMotionDetailFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionFrame(row); });
   connection.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.mapFrame(row); });
-  connection.db.bossAttackFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.bossAttackFrame(row); });
   connection.db.playerDeathFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.deathFrame(row); });
   connection.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionIdentity(row); });
   connection.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.motionIdentity(row); });

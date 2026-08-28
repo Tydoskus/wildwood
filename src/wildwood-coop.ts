@@ -492,7 +492,6 @@ const {
   removeMotionIdentity,
   upsertPlayerMotionFrame,
   upsertPlayerMapFrame,
-  upsertBossAttackFrame,
   upsertPlayerDeathFrame,
   upsertWorldStatus,
 } = presenceService.tables;
@@ -556,7 +555,6 @@ const baseSubscriptionHandlers = {
   removePlayer,
   motionFrame: upsertPlayerMotionFrame,
   mapFrame: upsertPlayerMapFrame,
-  bossAttackFrame: upsertBossAttackFrame,
   deathFrame: upsertPlayerDeathFrame,
   motionIdentity: upsertMotionIdentity,
   removeMotionIdentity,

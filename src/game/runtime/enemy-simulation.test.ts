@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RemotePlayer } from "../../wildwood-coop";
+import { remoteBossAttackStartedAtMs } from "../../coop/services/remote-boss-attack";
+import { ENEMY_CROWD_SPACING_RATIO, separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createEnemySimulation } from "./enemy-simulation";
 import type { EnemyState, PlayerState } from "./types";
 
@@ -63,6 +65,79 @@ function engage(enemy: EnemyState, targetId: string | null = null, startedAtTick
 }
 
 describe("deterministic enemy simulation", () => {
+  it("deterministically separates enemies that reach the exact same position", () => {
+    const first = idleEnemyAt(300, 300);
+    const second = idleEnemyAt(300, 300);
+    second.siteId = 2;
+    const repeatFirst = { ...first };
+    const repeatSecond = { ...second };
+
+    separateEnemyCrowd([first, second]);
+    separateEnemyCrowd([repeatFirst, repeatSecond]);
+
+    expect(Math.hypot(second.x - first.x, second.y - first.y)).toBeCloseTo(
+      (first.r + second.r) * ENEMY_CROWD_SPACING_RATIO,
+      8,
+    );
+    expect([repeatFirst.x, repeatFirst.y, repeatSecond.x, repeatSecond.y]).toEqual([
+      first.x,
+      first.y,
+      second.x,
+      second.y,
+    ]);
+  });
+
+  it("breaks from the shared consensus pose and follows the actual local player after aggro", () => {
+    const enemy = idleEnemyAt(300, 300);
+    engage(enemy, "local-player");
+    const local = playerAt(100, 300);
+    const simulation = createEnemySimulation(
+      [enemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        localIdentity: () => "local-player",
+        localAggroPosition: () => ({ x: 500, y: 300 }),
+      },
+    );
+
+    simulation.update(1 / 60);
+
+    expect(enemy.x).toBeLessThan(300);
+    expect(enemy.combatTargetX).toBe(local.x);
+    expect(enemy.combatTargetY).toBe(local.y);
+  });
+
+  it("keeps locally engaged enemies visibly separated around the player", () => {
+    const first = idleEnemyAt(132, 100);
+    const second = idleEnemyAt(132, 100);
+    second.siteId = 2;
+    engage(first, "local-player");
+    engage(second, "local-player");
+    const local = playerAt(100, 100);
+    const simulation = createEnemySimulation(
+      [first, second],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      { localIdentity: () => "local-player", localAggroPosition: () => local },
+    );
+
+    simulation.update(1 / 60);
+
+    expect(Math.hypot(second.x - first.x, second.y - first.y)).toBeCloseTo(
+      (first.r + second.r) * ENEMY_CROWD_SPACING_RATIO,
+      8,
+    );
+    expect(Math.hypot(first.x - local.x, first.y - local.y)).toBeGreaterThanOrEqual(first.r + local.r);
+    expect(Math.hypot(second.x - local.x, second.y - local.y)).toBeGreaterThanOrEqual(second.r + local.r);
+  });
+
   it("evaluates the same ambient pose regardless of client update count", () => {
     const first = idleEnemyAt(1_000, 1_000);
     const second = idleEnemyAt(1_000, 1_000);
@@ -86,6 +161,53 @@ describe("deterministic enemy simulation", () => {
     expect(second.y).toBeCloseTo(first.y, 8);
     expect(second.phase).toBeCloseTo(first.phase, 8);
     expect(second.facingX).toBe(first.facingX);
+  });
+
+  it("reconstructs nearby remote boss attacks without a server attack event", () => {
+    const local = playerAt(1_000, 1_000);
+    const remote = remotePlayerAt(300, 500);
+    const sharedBoss = {
+      kind: "dragon" as const,
+      encounter: 8n,
+      alive: true,
+      x: 500,
+      y: 500,
+      radius: 100,
+    };
+    let now = 20_000;
+    now = remoteBossAttackStartedAtMs({
+      boss: sharedBoss,
+      playerId: remote.id,
+      attackInterval: remoteCombatStats.attackInterval,
+      serverNowMs: now,
+    }) + 50;
+    const simulation = createEnemySimulation(
+      [],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => now,
+        remotePlayers: () => [remote],
+        remoteCombatStats: () => remoteCombatStats,
+        remoteBoss: () => sharedBoss,
+      },
+    );
+
+    simulation.update(1 / 60);
+
+    expect(simulation.renderRemotePlayers([remote])[0]).toMatchObject({
+      facing: 0,
+      bossAttack: {
+        targetX: sharedBoss.x,
+        targetY: sharedBoss.y,
+        targetRadius: sharedBoss.radius,
+        hits: remoteCombatStats.projectileCount,
+      },
+    });
   });
 
   it("creates an independent remote ghost without taking over the local enemy", () => {

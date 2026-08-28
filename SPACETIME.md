@@ -60,6 +60,8 @@ Detailed remote state is now exactly two bounded packed publications: the recipi
 
 `player.hp` and `player.max_hp` remain only as inert physical migration columns because deleting them requires a destructive database replacement. They are initialized when presence is created, never synchronized afterward, and ignored by client state/rendering. Do not reuse them.
 
+Boss HP, accepted attack cadence/range, contributions, rewards, deaths, and respawns remain server-authoritative. Pattern geometry is versioned and seeded by boss encounter on the client. A nearby remote player's boss throw is presentation-only and derives from the shared encounter, estimated server clock, analytical player motion, and lazily loaded combat stats. `boss_attack_frame` remains an inert compatibility table because deleting it would require a destructive publish; reducers must not insert into it and clients must not subscribe to it. This removes one event write plus map fan-out from every accepted boss attack without trusting the client for boss outcomes.
+
 Optional latency display measures and smooths acknowledgement time from normal reducer calls. It does not create a ping reducer, timer, heartbeat, or additional server traffic.
 
 Developer Tools → Controls accepts 1–200 browser virtual players for smoke testing. Chromium limits same-group WebSockets to roughly 255, so the browser no longer pretends it can generate a valid 3,000-client test.

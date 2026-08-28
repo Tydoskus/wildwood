@@ -16,7 +16,9 @@ import {
   type RegularEnemyAggroCandidate,
 } from "../../../shared/regular-enemy-simulation";
 import type { RemoteCombatStats, RemotePlayer } from "../../wildwood-coop";
+import { separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createRemoteEnemyCombatShadows } from "./remote-enemy-combat-shadow";
+import type { RemoteBossSimulationTarget } from "../../coop/services/remote-boss-attack";
 import type { EnemyState, PlayerState, Position } from "./types";
 
 const FULL_SIMULATION_MARGIN = 220;
@@ -36,6 +38,7 @@ export type EnemySimulationSharedOptions = {
   localAggroPosition?: () => Position | null | undefined;
   remotePlayers?: () => readonly RemotePlayer[];
   remoteCombatStats?: (identity: string) => RemoteCombatStats | null | undefined;
+  remoteBoss?: () => RemoteBossSimulationTarget | null | undefined;
   spawnDamageNumber?: (x: number, y: number, amount: number, critical?: boolean) => void;
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
 };
@@ -58,6 +61,7 @@ export function createEnemySimulation(
   shared: EnemySimulationSharedOptions = {},
 ): EnemySimulation {
   const attackSequences = new WeakMap<EnemyState, number>();
+  const activeCrowd: EnemyState[] = [];
   const remoteCombat = createRemoteEnemyCombatShadows({
     spawnDamageNumber: shared.spawnDamageNumber ?? (() => {}),
     spawnBurst: shared.spawnBurst,
@@ -103,19 +107,42 @@ export function createEnemySimulation(
     const dy = target.y - enemy.y;
     const distance = Math.hypot(dx, dy) || 1;
     if (ranged) {
+      let rangedMove = 0;
       if (distance > RANGED_PREFERRED_DISTANCE + RANGED_APPROACH_DEAD_BAND) {
-        moveToward(enemy, target.x, target.y, currentMoveSpeed, dt, RANGED_PREFERRED_DISTANCE);
+        rangedMove = 1;
       } else if (distance < RANGED_PREFERRED_DISTANCE - RANGED_RETREAT_DEAD_BAND) {
-        const retreatDistance = Math.min(currentMoveSpeed * dt, RANGED_PREFERRED_DISTANCE - distance);
-        enemy.x -= dx / distance * retreatDistance;
-        enemy.y -= dy / distance * retreatDistance;
-        if (Math.abs(dx) > .5) enemy.facingX = dx < 0 ? -1 : 1;
-      } else if (Math.abs(dx) > .5) {
-        enemy.facingX = dx < 0 ? -1 : 1;
+        rangedMove = -1;
       }
-      return distance;
+      enemy.vx += dx / distance * currentMoveSpeed * rangedMove * dt * 6;
+      enemy.vy += dy / distance * currentMoveSpeed * rangedMove * dt * 6;
+    } else {
+      enemy.vx += dx / distance * currentMoveSpeed * dt * 7;
+      enemy.vy += dy / distance * currentMoveSpeed * dt * 7;
     }
-    return moveToward(enemy, target.x, target.y, currentMoveSpeed, dt, enemy.r + target.radius - 1);
+    if (Math.abs(dx) > .5) enemy.facingX = dx < 0 ? -1 : 1;
+    enemy.vx *= Math.pow(.002, dt);
+    enemy.vy *= Math.pow(.002, dt);
+    enemy.x += enemy.vx * dt;
+    enemy.y += enemy.vy * dt;
+    return distance;
+  }
+
+  function keepOutsidePlayer(enemy: EnemyState) {
+    const collisionX = enemy.x - player.x;
+    const collisionY = enemy.y - player.y;
+    const minimumDistance = player.r + enemy.r;
+    const collisionDistanceSquared = collisionX * collisionX + collisionY * collisionY;
+    if (collisionDistanceSquared >= minimumDistance * minimumDistance) return;
+    const collisionDistance = Math.sqrt(collisionDistanceSquared);
+    const normalX = collisionDistance > .001 ? collisionX / collisionDistance : (enemy.facingX || 1);
+    const normalY = collisionDistance > .001 ? collisionY / collisionDistance : 0;
+    enemy.x = clamp(player.x + normalX * minimumDistance, enemy.r, WORLD.w - enemy.r);
+    enemy.y = clamp(player.y + normalY * minimumDistance, enemy.r, WORLD.h - enemy.r);
+    const inwardSpeed = enemy.vx * normalX + enemy.vy * normalY;
+    if (inwardSpeed < 0) {
+      enemy.vx -= inwardSpeed * normalX;
+      enemy.vy -= inwardSpeed * normalY;
+    }
   }
 
   function beginLeashing(enemy: EnemyState) {
@@ -126,6 +153,8 @@ export function createEnemySimulation(
     enemy.combatTargetX = undefined;
     enemy.combatTargetY = undefined;
     enemy.attackClock = Math.max(enemy.attackClock, .5);
+    enemy.vx = 0;
+    enemy.vy = 0;
   }
 
   function update(dt: number) {
@@ -148,7 +177,15 @@ export function createEnemySimulation(
       local: true,
     };
     const remotePlayers = [...(shared.remotePlayers?.() ?? [])];
-    remoteCombat.beginFrame(mapId, serverNowMs, dt, remotePlayers);
+    remoteCombat.beginFrame(
+      mapId,
+      serverNowMs,
+      dt,
+      remotePlayers,
+      shared.remoteCombatStats ?? (() => null),
+      shared.remoteBoss?.() ?? null,
+    );
+    activeCrowd.length = 0;
 
     for (const enemy of enemies) {
       enemy.combatTargetX = undefined;
@@ -193,6 +230,8 @@ export function createEnemySimulation(
           enemy.leashing = false;
           enemy.x = ambient.x;
           enemy.y = ambient.y;
+          enemy.vx = 0;
+          enemy.vy = 0;
           enemy.facingX = ambient.facingX;
         }
       }
@@ -216,7 +255,16 @@ export function createEnemySimulation(
       }
 
       if (enemy.engaged) {
-        const target = enemy.aggroTargetId === id ? localCandidate : undefined;
+        // Seeded consensus determines when aggro starts. From this point on,
+        // the authoritative local fight follows the actual local player with
+        // the original responsive velocity-based movement.
+        const target: RegularEnemyAggroCandidate | undefined = enemy.aggroTargetId === id ? {
+          id,
+          x: player.x,
+          y: player.y,
+          radius: player.r,
+          local: true,
+        } : undefined;
         if (!target) {
           beginLeashing(enemy);
         } else {
@@ -230,12 +278,6 @@ export function createEnemySimulation(
             enemy.combatTargetX = target.x;
             enemy.combatTargetY = target.y;
             moveEngagedEnemy(enemy, target, currentMoveSpeed, dt, Boolean(base.ranged));
-            if (enemy.vx || enemy.vy) {
-              enemy.x += enemy.vx * dt;
-              enemy.y += enemy.vy * dt;
-              enemy.vx *= Math.pow(.002, dt);
-              enemy.vy *= Math.pow(.002, dt);
-            }
 
             const actualDx = player.x - enemy.x;
             const actualDy = player.y - enemy.y;
@@ -272,8 +314,12 @@ export function createEnemySimulation(
 
       enemy.x = clamp(enemy.x, enemy.r, WORLD.w - enemy.r);
       enemy.y = clamp(enemy.y, enemy.r, WORLD.h - enemy.r);
+      if (enemy.engaged) keepOutsidePlayer(enemy);
+      if (enemy.engaged || enemy.leashing) activeCrowd.push(enemy);
     }
 
+    separateEnemyCrowd(activeCrowd);
+    remoteCombat.finishFrame();
     for (let index = enemies.length - 1; index >= 0; index--) {
       if (enemies[index].dead) enemies.splice(index, 1);
     }

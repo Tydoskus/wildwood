@@ -464,9 +464,9 @@ const playerMapFrame = table(
   },
 );
 
-// Exact accepted boss attacks fan out as cacheless, map-filtered events.
-// Clients build short throw/projectile visuals locally instead of syncing
-// animation state or predicting attacks from nearby idle players.
+// Inert schema-compatibility table. Boss attack presentation is reconstructed
+// from the encounter seed, authoritative player motion, and saved combat stats;
+// deleting this populated table would require a destructive database publish.
 const bossAttackFrame = table(
   {
     public: true,
@@ -2375,33 +2375,6 @@ function playerZone(x: number, y: number) {
     zoneX: Math.floor(x / PLAYER_ZONE_SIZE),
     zoneY: Math.floor(y / PLAYER_ZONE_SIZE),
   };
-}
-
-function publishBossAttack(
-  ctx: any,
-  activePlayer: any,
-  attackerX: number,
-  attackerY: number,
-  target: { x: number; y: number },
-  targetRadius: number,
-  hits: number,
-) {
-  if (boundedMapPopulation(ctx, activePlayer.mapId) < 2) return;
-  const motion = ctx.db.playerMotion.identity.find(ctx.sender);
-  if (!motion?.isVisible) return;
-  const zone = playerZone(attackerX, attackerY);
-  ctx.db.bossAttackFrame.insert({
-    mapId: activePlayer.mapId,
-    ...zone,
-    networkId: motion.networkId,
-    attackerX,
-    attackerY,
-    targetX: target.x,
-    targetY: target.y,
-    targetRadius,
-    hits,
-    emittedAt: ctx.timestamp,
-  });
 }
 
 function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
@@ -5281,8 +5254,6 @@ function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x
   };
   if (currentContribution) ctx.db.dragonContribution.identity.update(nextContribution);
   else ctx.db.dragonContribution.insert(nextContribution);
-  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, DRAGON_POSITION, DRAGON_RADIUS, acceptedHits);
-
   const nextDragon = {
     ...dragon,
     hp: Math.max(0, dragon.hp - damage),
@@ -5363,8 +5334,6 @@ function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x
   };
   if (currentContribution) ctx.db.spiderContribution.identity.update(nextContribution);
   else ctx.db.spiderContribution.insert(nextContribution);
-  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, SPIDER_POSITION, SPIDER_RADIUS, acceptedHits);
-
   const nextSpider = {
     ...spider,
     hp: Math.max(0, spider.hp - damage),
@@ -5442,8 +5411,6 @@ function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: 
   };
   if (currentContribution) ctx.db.frostclawContribution.identity.update(nextContribution);
   else ctx.db.frostclawContribution.insert(nextContribution);
-  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, FROSTCLAW_POSITION, FROSTCLAW_RADIUS, acceptedHits);
-
   const nextFrostclaw = {
     ...frostclaw,
     hp: Math.max(0, frostclaw.hp - damage),
@@ -5516,8 +5483,6 @@ function applyMagmaliskDamage(ctx: any, requestedHits: number, clientPosition?: 
   };
   if (currentContribution) ctx.db.magmaliskContribution.identity.update(nextContribution);
   else ctx.db.magmaliskContribution.insert(nextContribution);
-  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, MAGMALISK_POSITION, MAGMALISK_RADIUS, acceptedHits);
-
   const nextMagmalisk = {
     ...magmalisk,
     hp: Math.max(0, magmalisk.hp - damage),
@@ -5590,8 +5555,6 @@ function applyGloomrootDamage(ctx: any, requestedHits: number, clientPosition?: 
   };
   if (currentContribution) ctx.db.gloomrootContribution.identity.update(nextContribution);
   else ctx.db.gloomrootContribution.insert(nextContribution);
-  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, GLOOMROOT_POSITION, GLOOMROOT_RADIUS, acceptedHits);
-
   const nextGloomroot = {
     ...gloomroot,
     hp: Math.max(0, gloomroot.hp - damage),
@@ -5664,8 +5627,6 @@ function applyTidewyrmDamage(ctx: any, requestedHits: number, clientPosition?: {
   };
   if (currentContribution) ctx.db.tidewyrmContribution.identity.update(nextContribution);
   else ctx.db.tidewyrmContribution.insert(nextContribution);
-  publishBossAttack(ctx, activePlayer, activePlayer.x, activePlayer.y, TIDEWYRM_POSITION, TIDEWYRM_RADIUS, acceptedHits);
-
   const nextTidewyrm = {
     ...tidewyrm,
     hp: Math.max(0, tidewyrm.hp - damage),

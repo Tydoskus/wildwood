@@ -156,10 +156,11 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Scheduled maintenance removes orphan public presence and duel state. Durable player progress and profiles are permanent.
 - Player profile details load by identity only when opened. Never add `player_progress` or `player_lifetime` back to a global client subscription.
 
-## Shared dragon performance invariants
+## Shared boss performance invariants
 
-- Batch projectile hits through `damage_dragon_batch`; never restore one reducer call per projectile. Server validation caps accepted hits to the saved projectile count and attack interval.
-- `dragon_boss` subscription updates only shared combat state. Do not trigger the global UI/auth/chat refresh callback for every HP update; the game loop consumes boss state directly.
+- Batch each attack's projectile hits through one boss-damage reducer; never restore one reducer call per projectile. Server validation caps accepted hits to the saved projectile count and attack interval.
+- Boss hazard layouts use the versioned encounter seed in `shared/boss-simulation.ts`. Nearby remote-player boss throws are reconstructed from that encounter, server time, analytical motion, and saved combat stats. Keep `boss_attack_frame` inert: do not restore per-attack event inserts or subscriptions.
+- Boss-state subscriptions update only shared combat state. Do not trigger the global UI/auth/chat refresh callback for every HP update; the game loop consumes boss state directly.
 - Duel membership checks use the `duel.byChallenger` and `duel.byOpponent` indexes. Do not replace them with a full duel-table scan in the dragon damage path.
 - Contribution-table scans and combat-row cleanup belong only at encounter death or respawn, never on ordinary hits.
 

@@ -439,6 +439,30 @@ import {
       remotePlayers: () => (coop?.remotePlayers?.() ?? [])
         .filter((remote) => !coop?.remotePlayerDeath?.(remote.id)),
       remoteCombatStats: (identity) => coop?.remoteCombatStats?.(identity),
+      remoteBoss: () => {
+        const target = currentMapId === TUTORIAL_FOREST_MAP_ID
+          ? { kind: "dragon" as const, state: boss }
+          : currentMapId === BEGINNER_DESERT_MAP_ID
+            ? { kind: "spider" as const, state: spiderBoss }
+            : currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID
+              ? { kind: "frostclaw" as const, state: frostclawBoss }
+              : currentMapId === ADVANCED_LAVA_WASTES_MAP_ID
+                ? { kind: "magmalisk" as const, state: magmaliskBoss }
+                : currentMapId === INFERNAL_DEPTHS_MAP_ID
+                  ? { kind: "gloomroot" as const, state: gloomrootBoss }
+                  : currentMapId === WATER_REACH_MAP_ID
+                    ? { kind: "tidewyrm" as const, state: tidewyrmBoss }
+                    : null;
+        if (!target || target.state.encounter === null) return null;
+        return {
+          kind: target.kind,
+          encounter: target.state.encounter,
+          alive: !target.state.dead,
+          x: target.state.x,
+          y: target.state.y,
+          radius: target.state.r,
+        };
+      },
       spawnDamageNumber,
       spawnBurst,
     },
