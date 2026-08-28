@@ -115,6 +115,49 @@ describe("startup auth gate", () => {
     expect(loadGame).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps OAuth return on loading and hides release notes", () => {
+    const ui = elements();
+    const releaseNotes = { show: vi.fn(), hide: vi.fn(), dispose: vi.fn() };
+    const gate = createStartupAuthGate({
+      accountState: () => ({ signInReady: true, returningFromSignIn: true, authInProgress: true }),
+      knownCharacter: () => "WANDERER",
+      signIn: () => ({ ok: true, redirecting: true }),
+      continueAsGuest: () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame: async () => {},
+      releaseNotes,
+    }, ui);
+
+    gate.start();
+
+    expect(ui.connectionPanel.hidden).toBe(false);
+    expect(ui.accountChoicePanel.hidden).toBe(true);
+    expect(ui.loadingDetail.textContent).toBe("VERIFYING SIGN-IN");
+    expect(releaseNotes.hide).toHaveBeenCalled();
+    expect(releaseNotes.show).not.toHaveBeenCalled();
+  });
+
+  it("shows release notes only while account choice is idle", async () => {
+    const ui = elements();
+    const releaseNotes = { show: vi.fn(), hide: vi.fn(), dispose: vi.fn() };
+    const gate = createStartupAuthGate({
+      accountState: () => ({ signInReady: true }),
+      knownCharacter: () => "WANDERER",
+      signIn: () => ({ ok: true, redirecting: true }),
+      continueAsGuest: () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame: async () => {},
+      releaseNotes,
+    }, ui);
+
+    gate.start();
+    expect(releaseNotes.show).toHaveBeenCalledTimes(1);
+
+    ui.signInButton.click();
+    await Promise.resolve();
+    expect(releaseNotes.hide).toHaveBeenCalled();
+  });
+
   it("switches to Guest before loading the game", async () => {
     const ui = elements();
     const order: string[] = [];

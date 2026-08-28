@@ -227,6 +227,24 @@ describe("enemy movement balance", () => {
       "Blight Oracle": 157.5,
     });
   });
+
+  it("keeps post-Snowlands movement and aggro at the Snowlands archetype values", () => {
+    const tracks = [
+      ["Frost Raider", "Ember Raider", "Depth Raider", "Tide Raider", "Sakura Ronin"],
+      ["Glacier Archer", "Cinder Archer", "Abyss Archer", "Reef Archer", "Petal Archer"],
+      ["Rime Guard", "Magma Guard", "Obsidian Colossus", "Coral Colossus", "Bamboo Guardian"],
+      ["Whiteout Reaper", "Ash Reaper", "Doom Reaper", "Drowned Reaper", "Moonblade Reaper"],
+      ["Aurora Oracle", "Inferno Oracle", "Nether Oracle", "Tidal Oracle", "Shrine Oracle"],
+    ] as const;
+
+    for (const [snowlandsKind, ...laterKinds] of tracks) {
+      const snowlands = ENEMY_TYPES[snowlandsKind];
+      for (const laterKind of laterKinds) {
+        expect(ENEMY_TYPES[laterKind].speed).toBe(snowlands.speed);
+        if (snowlands.elite) expect(ENEMY_TYPES[laterKind].aggro).toBe(snowlands.aggro);
+      }
+    }
+  });
 });
 
 describe("enemy sprite loading", () => {

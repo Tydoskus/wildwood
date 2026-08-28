@@ -1,6 +1,7 @@
 import {
   deterministicRemoteCritical,
   REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE,
+  regularEnemyAggroRetainRadius,
   regularEnemyAmbientPose,
   REGULAR_ENEMY_TICK_MS,
   selectRegularEnemyAggroTarget,
@@ -55,6 +56,7 @@ type ShadowState = {
   lastTargetX: number;
   lastTargetY: number;
   targetMissingSinceMs: number | null;
+  retainRadius: number;
 };
 
 type VisualSelection = {
@@ -430,8 +432,7 @@ export function createRemoteEnemyCombatShadows(options: {
     const dy = ghost.y - targetY;
     const distanceSquared = dx * dx + dy * dy;
     const distance = Math.sqrt(distanceSquared);
-    const leashRange = ghost.type === "Dune Archer" ? Math.max(900, ghost.leashRange) : ghost.leashRange;
-    if (distance > leashRange) {
+    if (distance > shadow.retainRadius) {
       shadows.delete(shadow.siteId);
       return;
     }
@@ -539,6 +540,11 @@ export function createRemoteEnemyCombatShadows(options: {
     const remote = targetById.get(target.id);
     const stats = combatStatsFor(target.id, options.statsFor);
     if (!remote || !stats) return;
+    const authoredLeash = enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange;
+    const retainRadius = regularEnemyAggroRetainRadius(
+      target.acquireRadius ?? options.acquireRadius,
+      authoredLeash,
+    );
     const ghost = createGhost(enemy, ambient, target.id, options.engagementTick);
     const shadow: ShadowState = {
       siteId: enemy.siteId,
@@ -555,6 +561,7 @@ export function createRemoteEnemyCombatShadows(options: {
       lastTargetX: remote.simulationX ?? remote.x,
       lastTargetY: remote.simulationY ?? remote.y,
       targetMissingSinceMs: null,
+      retainRadius,
     };
     fighterForNewEngagement(target.id, stats);
     shadows.set(enemy.siteId, shadow);

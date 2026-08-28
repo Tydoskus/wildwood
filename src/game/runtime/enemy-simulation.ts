@@ -11,6 +11,7 @@ import { circlesOverlap, clamp } from "../math";
 import {
   deterministicRegularEnemyAttackInterval,
   regularEnemyAmbientPose,
+  regularEnemyAggroRetainRadius,
   regularEnemySimulationTick,
   selectRegularEnemyAggroTarget,
   type RegularEnemyAggroCandidate,
@@ -81,6 +82,11 @@ export function createEnemySimulation(
     return base.elite
       ? enemy.aggroRadius
       : Math.max(0, BASE_ATTACK_RANGE - REGULAR_ENEMY_AGGRO_PADDING);
+  }
+
+  function regularRetainRadius(enemy: EnemyState) {
+    const authoredLeash = enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange;
+    return regularEnemyAggroRetainRadius(regularAggroRadius(enemy), authoredLeash);
   }
 
   function moveToward(enemy: EnemyState, targetX: number, targetY: number, speed: number, dt: number, stopDistance = 0) {
@@ -241,7 +247,7 @@ export function createEnemySimulation(
           enemyX: enemy.x,
           enemyY: enemy.y,
           acquireRadius: regularAggroRadius(enemy),
-          retainRadius: enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange,
+          retainRadius: regularRetainRadius(enemy),
           currentTargetId: enemy.engaged ? enemy.aggroTargetId : null,
           candidates: [localCandidate],
         });
@@ -271,7 +277,7 @@ export function createEnemySimulation(
           const targetDx = target.x - enemy.x;
           const targetDy = target.y - enemy.y;
           const targetDistance = Math.hypot(targetDx, targetDy) || 1;
-          const leashRange = enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange;
+          const leashRange = regularRetainRadius(enemy);
           if (targetDistance > leashRange) {
             beginLeashing(enemy);
           } else {

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.551": [
+    "Ranged enemies no longer flicker at aggro edges, and movement speed and aggro reach stop increasing after Snowlands.",
+    "Sign-in notes and OAuth loading are stable again, while resumed iOS web apps recover from stale reconnects.",
+  ],
   "0.550": [
     "Sign-in now happens before the game loads, with a stable loading screen and clean guest login.",
     "Reduced idle rendering and removed Night Forest character and world shadows.",
@@ -1196,6 +1200,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.551": "2026-08-28",
   "0.550": "2026-08-27",
   "0.549": "2026-08-27",
   "0.548": "2026-08-27",

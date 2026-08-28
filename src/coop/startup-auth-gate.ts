@@ -23,6 +23,11 @@ type StartupAuthGateDependencies = {
   continueAsGuest: () => Promise<StartupActionResult> | StartupActionResult;
   subscribe: (listener: () => void) => () => void;
   loadGame: () => Promise<void>;
+  releaseNotes?: {
+    show: () => void;
+    hide: () => void;
+    dispose: () => void;
+  };
 };
 
 type StartupAuthElements = {
@@ -72,6 +77,7 @@ export function createStartupAuthGate(
   let unsubscribe = () => {};
 
   function showLoading(detail = "LOADING YOUR CHARACTER") {
+    dependencies.releaseNotes?.hide();
     elements.start.style.display = "grid";
     elements.accountChoicePanel.classList.remove("is-signing-in");
     elements.accountChoicePanel.hidden = true;
@@ -94,6 +100,8 @@ export function createStartupAuthGate(
     elements.signInButton.textContent = name || knownAccount ? "SIGN IN" : "REGISTER";
     elements.signInButton.disabled = Boolean(pendingAction) || !ready;
     elements.guestButton.disabled = Boolean(pendingAction);
+    if (pendingAction) dependencies.releaseNotes?.hide();
+    else dependencies.releaseNotes?.show();
     elements.accountChoiceDetail.textContent = detailOverride || (pendingAction === "sign-in"
       ? (name || knownAccount ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…")
       : !ready
@@ -110,6 +118,7 @@ export function createStartupAuthGate(
     unsubscribe = () => {};
     elements.signInButton.removeEventListener("click", onSignIn);
     elements.guestButton.removeEventListener("click", onGuest);
+    dependencies.releaseNotes?.dispose();
   }
 
   function beginGameLoading(detail = "LOADING YOUR CHARACTER") {
@@ -129,6 +138,10 @@ export function createStartupAuthGate(
     const state = dependencies.accountState();
     if (shouldStartGame(state)) {
       beginGameLoading(state.guestSessionApproved ? "LOADING GUEST PROFILE" : "LOADING YOUR CHARACTER");
+      return;
+    }
+    if (state.authInProgress || state.returningFromSignIn) {
+      showLoading("VERIFYING SIGN-IN");
       return;
     }
     showAccountChoice();

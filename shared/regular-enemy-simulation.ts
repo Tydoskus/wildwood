@@ -8,6 +8,8 @@ export const REGULAR_ENEMY_CONSENSUS_DELAY_MS = 350;
 export const REGULAR_ENEMY_POSITION_QUANTUM = 4;
 /** Covers the worst radial error when both centers round to the position grid. */
 export const REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE = REGULAR_ENEMY_POSITION_QUANTUM * Math.SQRT2;
+/** Once acquired, a target must move meaningfully farther away before release. */
+export const REGULAR_ENEMY_AGGRO_RELEASE_PADDING = 48;
 
 const AMBIENT_SEGMENT_MS = 5_000;
 const AMBIENT_MIN_RADIUS = 22;
@@ -115,6 +117,13 @@ export function regularEnemyAmbientPose(
 export function quantizeRegularEnemyCoordinate(value: number) {
   const finite = Number.isFinite(value) ? value : 0;
   return Math.round(finite / REGULAR_ENEMY_POSITION_QUANTUM) * REGULAR_ENEMY_POSITION_QUANTUM;
+}
+
+/** Prevents acquire/release oscillation when an authored leash is too small. */
+export function regularEnemyAggroRetainRadius(acquireRadius: number, authoredLeashRadius: number) {
+  const acquire = Math.max(0, Number.isFinite(acquireRadius) ? acquireRadius : 0);
+  const leash = Math.max(0, Number.isFinite(authoredLeashRadius) ? authoredLeashRadius : 0);
+  return Math.max(leash, acquire + REGULAR_ENEMY_AGGRO_RELEASE_PADDING);
 }
 
 function distanceSquaredTo(enemyX: number, enemyY: number, candidate: RegularEnemyAggroCandidate) {

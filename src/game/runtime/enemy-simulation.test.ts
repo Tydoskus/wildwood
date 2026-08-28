@@ -138,6 +138,30 @@ describe("deterministic enemy simulation", () => {
     expect(Math.hypot(second.x - local.x, second.y - local.y)).toBeGreaterThanOrEqual(second.r + local.r);
   });
 
+  it("does not flicker an engaged ranged enemy when acquisition exceeds its authored leash", () => {
+    const enemy = idleEnemyAt(100, 100);
+    enemy.type = "Moonblade Reaper";
+    enemy.aggroRadius = 460;
+    enemy.leashRange = 420;
+    engage(enemy, "local-player");
+    const local = playerAt(550, 100);
+    const simulation = createEnemySimulation(
+      [enemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      { localIdentity: () => "local-player", localAggroPosition: () => local },
+    );
+
+    simulation.update(1 / 60);
+
+    expect(enemy.engaged).toBe(true);
+    expect(enemy.leashing).toBe(false);
+    expect(enemy.aggroTargetId).toBe("local-player");
+  });
+
   it("evaluates the same ambient pose regardless of client update count", () => {
     const first = idleEnemyAt(1_000, 1_000);
     const second = idleEnemyAt(1_000, 1_000);
@@ -292,6 +316,39 @@ describe("deterministic enemy simulation", () => {
     expect(simulation.remoteCombatGhosts()).toHaveLength(1);
     expect(simulation.remoteCombatGhosts()[0].aggroTargetId).toBe(remote.id);
     expect(enemy.engaged).toBe(false);
+  });
+
+  it("keeps a remote ghost past an authored leash when the player's attack edge acquired it", () => {
+    const enemy = idleEnemyAt(100, 100);
+    const local = playerAt(500, 500);
+    const remote = remotePlayerAt(1_800, 1_800);
+    const stats = { ...remoteCombatStats, attackRange: 500 };
+    const simulation = createEnemySimulation(
+      [enemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => 1_800_000_000_000,
+        localIdentity: () => "local-player",
+        localAggroPosition: () => local,
+        remotePlayers: () => [remote],
+        remoteCombatStats: () => stats,
+      },
+    );
+
+    simulation.update(1 / 60);
+    remote.x = enemy.x + 475;
+    remote.y = enemy.y;
+    remote.simulationX = remote.x;
+    remote.simulationY = remote.y;
+    simulation.update(1 / 60);
+
+    expect(simulation.remoteCombatGhosts()).toHaveLength(1);
+    expect(simulation.remoteCombatGhosts()[0].aggroTargetId).toBe(remote.id);
   });
 
   it("starts a later independent ghost engagement at full displayed player health", () => {

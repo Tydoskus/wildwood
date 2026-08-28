@@ -292,9 +292,25 @@ export function createGameBootstrapAssets(options: {
   };
 }
 
+type GameStartupAccountState = {
+  returningFromSignIn?: boolean;
+  signInRequired?: boolean;
+  signedIn?: boolean;
+  knownAccount?: boolean;
+  authInProgress?: boolean;
+  guestSessionApproved?: boolean;
+  gameSessionApproved?: boolean;
+};
+
+export function shouldShowGameStartupAccountChoice(account: GameStartupAccountState | undefined) {
+  if (account?.signedIn || account?.authInProgress || account?.returningFromSignIn
+    || account?.guestSessionApproved || account?.gameSessionApproved) return false;
+  return Boolean(account?.signInRequired || !account?.knownAccount);
+}
+
 /** Runs one-time client startup after controllers have been composed. */
 export function startGameRuntime(options: {
-  accountState: () => { returningFromSignIn?: boolean; signInRequired?: boolean; signedIn?: boolean; knownAccount?: boolean; authInProgress?: boolean; guestSessionApproved?: boolean } | undefined;
+  accountState: () => GameStartupAccountState | undefined;
   showAccountChoice: () => void;
   showConnecting: () => void;
   loadProgress: () => void;
@@ -306,9 +322,7 @@ export function startGameRuntime(options: {
   loop: FrameRequestCallback;
 }) {
   const account = options.accountState();
-  if (account?.signInRequired && !account?.returningFromSignIn) options.showAccountChoice();
-  else if (!account?.signedIn && !account?.knownAccount && !account?.authInProgress
-    && !account?.guestSessionApproved) options.showAccountChoice();
+  if (shouldShowGameStartupAccountChoice(account)) options.showAccountChoice();
   else options.showConnecting();
   options.loadProgress();
   options.rebuildWorld();

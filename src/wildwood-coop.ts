@@ -1,9 +1,12 @@
 import { DbConnection, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
-import { GAME_VERSION } from "./game/runtime/game-settings";
+import { recentReleaseNotes } from "./app/changelog";
+import { GAME_VERSION, SEEN_VERSION_KEY } from "./game/runtime/game-settings";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
 import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
+import { createReconnectScheduler } from "./coop/services/reconnect-scheduler";
+import { createPageWakeTracker } from "./coop/services/page-wake-tracker";
 import { connectionGateState } from "./coop/services/connection-gate-state";
 import { retryAfterMissingWorldPresence } from "./coop/services/world-presence-recovery";
 import { shouldRetainProfilePresentation } from "./coop/services/profile-presence";
@@ -36,6 +39,7 @@ import {
 } from "./coop/services/base-subscription";
 import { createAccountService, type AccountService } from "./coop/services/account-service";
 import { createStartupAuthGate, loadDeferredGameBundle } from "./coop/startup-auth-gate";
+import { createStartupReleaseNotes } from "./coop/startup-release-notes";
 import type { ReducerPort } from "./coop/ports";
 export type {
   AccessAuditEntry,
@@ -138,14 +142,11 @@ let localIdentity = "";
 let localDbIdentity: Identity | null = null;
 let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
-let reconnectTimer: number | null = null;
 let connecting = false;
 let connectionGeneration = 0;
 let sessionGeneration = 0;
 let hydrationReady = false;
 let connectedSignedIn = false;
-let pageWasHidden = false;
-let pageHiddenAt = 0;
 let lastServerActivityAt = performance.now();
 let changeListener: (() => void) | null = null;
 let startupChangeListener: (() => void) | null = null;
@@ -174,10 +175,26 @@ function onChange() {
 const reconnectWatchdog = createReconnectWatchdog({
   delayMs: WAKE_RECONNECT_WATCHDOG_MS,
   shouldWatch: () => (wakeReconnectVisible || networkReconnectVisible) &&
-    !document.hidden && navigator.onLine && !protocolBlocked && !worldEntryBlocked,
+    !document.hidden && !protocolBlocked && !worldEntryBlocked,
   onTimeout: restartStalledWakeConnection,
   schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
   cancel: (timer) => window.clearTimeout(timer),
+});
+
+const reconnectScheduler = createReconnectScheduler({
+  canAttempt: () => !protocolBlocked && !worldEntryBlocked && !document.hidden &&
+    !connection?.isActive && !connecting,
+  onlineHint: () => navigator.onLine,
+  connect,
+  scheduleTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
+  cancelTimer: (timer) => window.clearTimeout(timer),
+});
+
+const pageWakeTracker = createPageWakeTracker({
+  longWakeMs: 10_000,
+  nowMs: () => Date.now(),
+  onLongWake: () => setWakeReconnectVisible(true),
+  onResume: (force, hiddenForMs) => reconnectAfterWake(force, hiddenForMs),
 });
 
 function batchChanges(action: () => void) {
@@ -647,20 +664,17 @@ function restartConnectionForIdentityChange() {
   scheduleReconnect(100);
 }
 
-function scheduleReconnect(delay = 500) {
-  if (protocolBlocked || worldEntryBlocked || document.hidden || !navigator.onLine || reconnectTimer !== null || connection?.isActive || connecting) return;
-  reconnectTimer = window.setTimeout(() => {
-    reconnectTimer = null;
-    if (!navigator.onLine) return;
-    connect();
-  }, delay);
+function scheduleReconnect(delay = 500, bypassOnlineHint = false) {
+  reconnectScheduler.schedule(delay, bypassOnlineHint);
 }
 
 function restartStalledWakeConnection() {
   const staleConnection = connection;
+  reconnectScheduler.clear();
   connection = null;
   connecting = false;
   hydrationReady = false;
+  connectedSignedIn = false;
   localDbIdentity = null;
   resumeProbePromise = null;
   resumeProbeGeneration += 1;
@@ -670,7 +684,7 @@ function restartStalledWakeConnection() {
   connectionGeneration += 1;
   try { staleConnection?.disconnect(); } catch {}
   onChange();
-  scheduleReconnect(100);
+  scheduleReconnect(100, true);
 }
 
 function setWakeReconnectVisible(visible: boolean) {
@@ -687,7 +701,7 @@ function setNetworkReconnectVisible(visible: boolean) {
   onChange?.();
 }
 
-function reconnectAfterWake(force = false) {
+function reconnectAfterWake(force = false, hiddenForMs = 0) {
   if (protocolBlocked || worldEntryBlocked) {
     setWakeReconnectVisible(false);
     setNetworkReconnectVisible(false);
@@ -695,21 +709,19 @@ function reconnectAfterWake(force = false) {
   }
   if (document.hidden) return;
   reconnectWatchdog.refresh();
-  if (!navigator.onLine || connecting || resumeProbePromise) return;
+  if (force && (connecting || resumeProbePromise)) {
+    restartStalledWakeConnection();
+    return;
+  }
+  if (connecting || resumeProbePromise) return;
   const conn = connection;
   if (force || !conn?.isActive) {
-    if (conn) {
-      connection = null;
-      connecting = false;
-      conn.disconnect();
-    }
-    scheduleReconnect(200);
+    restartStalledWakeConnection();
     return;
   }
 
-  const hiddenFor = pageHiddenAt ? Date.now() - pageHiddenAt : 0;
   const activityAge = performance.now() - lastServerActivityAt;
-  if (hiddenFor < 10_000 && activityAge < 30_000) {
+  if (hiddenForMs < 10_000 && activityAge < 30_000) {
     onChange?.();
     return;
   }
@@ -734,10 +746,7 @@ function reconnectAfterWake(force = false) {
           setWakeReconnectVisible(false);
           return;
         }
-        connection = null;
-        connecting = false;
-        conn.disconnect();
-        scheduleReconnect(200);
+        restartStalledWakeConnection();
       }
     })
     .finally(() => {
@@ -769,8 +778,7 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       worldEntryBlocked = false;
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      reconnectTimer = null;
+      reconnectScheduler.clear();
       const connectedIdentity = identity.toHexString();
       const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
       localIdentity = connectedIdentity;
@@ -930,22 +938,20 @@ export const wildwoodCoop = {
 runtime.wildwoodCoop = wildwoodCoop;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    pageWasHidden = true;
-    pageHiddenAt = Date.now();
+    pageWakeTracker.hide();
     reconnectWatchdog.clear();
     return;
   }
-  if (pageWasHidden) {
-    const hiddenFor = pageHiddenAt ? Date.now() - pageHiddenAt : 0;
-    pageWasHidden = false;
-    if (hiddenFor >= 10_000) setWakeReconnectVisible(true);
-    reconnectAfterWake();
-  }
+  pageWakeTracker.show();
 });
 window.addEventListener("pageshow", (event) => {
-  if (event.persisted) reconnectAfterWake(true);
+  pageWakeTracker.show(event.persisted);
 });
-window.addEventListener("pagehide", () => virtualPlayerLoadTest.disconnectLocal());
+window.addEventListener("pagehide", () => {
+  pageWakeTracker.hide();
+  reconnectWatchdog.clear();
+  virtualPlayerLoadTest.disconnectLocal();
+});
 window.addEventListener("online", () => reconnectAfterWake());
 window.addEventListener("focus", () => reconnectAfterWake());
 window.setInterval(() => {
@@ -955,6 +961,18 @@ window.addEventListener("storage", (event) => {
   accountService.handleStorageEvent(event);
 });
 void accountService.restoreKnownAccount().then(() => {
+  const releaseNotes = createStartupReleaseNotes({
+    version: GAME_VERSION,
+    releases: () => recentReleaseNotes(2),
+    seenVersion: () => {
+      try { return localStorage.getItem(SEEN_VERSION_KEY) || ""; }
+      catch { return ""; }
+    },
+    markSeen: () => {
+      try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); }
+      catch {}
+    },
+  });
   const authGate = createStartupAuthGate({
     accountState: wildwoodCoop.accountState,
     knownCharacter: wildwoodCoop.knownCharacter,
@@ -967,6 +985,7 @@ void accountService.restoreKnownAccount().then(() => {
       };
     },
     loadGame: () => loadDeferredGameBundle(),
+    releaseNotes,
   });
   authGate.start();
 }).catch((error) => {

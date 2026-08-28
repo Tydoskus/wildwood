@@ -227,28 +227,29 @@ const enemyTypes = {
   // ADVANCED LAVA LAKE ENEMIES
   // Snow-to-lava continues each archetype's desert-to-snow multiplier.
   // Damage is intentionally 30x the original Lava Lake launch tuning.
+  // Movement and aggro reach stop increasing after Snowlands.
   "Ember Raider": {
-    hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 240, damage: 8_143_350_000, attackSpeed: .65, r: 23,
+    hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 230, damage: 8_143_350_000, attackSpeed: .65, r: 23,
     color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
   },
   "Cinder Archer": {
-    hp: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 225, damage: 149_187_000_000, attackSpeed: .55, r: 21,
+    hp: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 215, damage: 149_187_000_000, attackSpeed: .55, r: 21,
     color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Magma Guard": {
-    hp: 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 215, damage: 1_168_200_000_000, attackSpeed: .55, r: 30,
+    hp: 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 205, damage: 1_168_200_000_000, attackSpeed: .55, r: 30,
     color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
   },
   "Ash Reaper": {
-    hp: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 245, damage: 44_100_000_000, attackSpeed: .7, r: 37,
+    hp: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 235, damage: 44_100_000_000, attackSpeed: .7, r: 37,
     color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
-    ranged: true, elite: true, aggro: 380,
+    ranged: true, elite: true, aggro: 340,
   },
   "Inferno Oracle": {
-    hp: 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 230, damage: 613_470_000_000, attackSpeed: .6, r: 35,
+    hp: 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 220, damage: 613_470_000_000, attackSpeed: .6, r: 35,
     color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
-    elite: true, aggro: 380,
+    elite: true, aggro: 340,
   },
 
   // NIGHT FOREST ENEMIES
@@ -260,32 +261,32 @@ const enemyTypes = {
   // Authored base damage and health tracks pay 2× before the per-stat curve
   // correction. Depth Raider keeps its requested 6× damage payout unchanged.
   "Depth Raider": {
-    hp: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 250,
+    hp: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 230,
     damage: 2_500_000_000, attackSpeed: .65, r: 25,
     color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 6 * INFERNAL_DEPTHS_REWARD_SCALE },
   },
   "Abyss Archer": {
-    hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 235,
+    hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 215,
     damage: 5_125_000_000, attackSpeed: .55, r: 23,
     color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Obsidian Colossus": {
-    hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 225,
+    hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 205,
     damage: 5_500_000_000, attackSpeed: .55, r: 32,
     color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) * INFERNAL_DEPTHS_REWARD_SCALE },
   },
   "Doom Reaper": {
-    hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 255,
+    hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 235,
     damage: 5_250_000_000, attackSpeed: .7, r: 39,
     color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
-    ranged: true, elite: true, aggro: 420,
+    ranged: true, elite: true, aggro: 340,
   },
   "Nether Oracle": {
-    hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 240,
+    hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 220,
     damage: 5_375_000_000, attackSpeed: .6, r: 37,
     color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE },
-    elite: true, aggro: 420,
+    elite: true, aggro: 340,
   },
 
   // WATER REACH ENEMIES
@@ -293,27 +294,27 @@ const enemyTypes = {
   // stays in one narrow band; archetype identity comes from range, health,
   // cadence, and rewards rather than surprise one-shots.
   "Tide Raider": {
-    ...WATER_REACH_BALANCE.raider, speed: 255, r: 27,
+    ...WATER_REACH_BALANCE.raider, speed: 230, r: 27,
     color: "#49c9d4", outline: "#123b58",
   },
   "Reef Archer": {
-    ...WATER_REACH_BALANCE.archer, speed: 240, r: 25,
+    ...WATER_REACH_BALANCE.archer, speed: 215, r: 25,
     color: "#69dce3", outline: "#17465d",
     ranged: true,
   },
   "Coral Colossus": {
-    ...WATER_REACH_BALANCE.guardian, speed: 225, r: 35,
+    ...WATER_REACH_BALANCE.guardian, speed: 205, r: 35,
     color: "#ff7f83", outline: "#573049",
   },
   "Drowned Reaper": {
-    ...WATER_REACH_BALANCE.reaper, speed: 260, r: 42,
+    ...WATER_REACH_BALANCE.reaper, speed: 235, r: 42,
     color: "#3f93bd", outline: "#172c50",
-    ranged: true, elite: true, aggro: 440,
+    ranged: true, elite: true, aggro: 340,
   },
   "Tidal Oracle": {
-    ...WATER_REACH_BALANCE.oracle, speed: 245, r: 39,
+    ...WATER_REACH_BALANCE.oracle, speed: 220, r: 39,
     color: "#7e9ee9", outline: "#29315d",
-    elite: true, aggro: 440,
+    elite: true, aggro: 340,
   },
 
   // SAMURAI GARDEN ENEMIES
@@ -321,27 +322,27 @@ const enemyTypes = {
   // not feel copied. The centered profiles above keep one full clear exactly
   // at 270× health, 200× incoming DPS, and 200× reward power.
   "Sakura Ronin": {
-    ...samuraiGardenBalance("raider"), speed: 270, r: 29,
+    ...samuraiGardenBalance("raider"), speed: 230, r: 29,
     color: "#ef75aa", outline: "#54233f",
   },
   "Petal Archer": {
-    ...samuraiGardenBalance("archer"), speed: 248, r: 27,
+    ...samuraiGardenBalance("archer"), speed: 215, r: 27,
     color: "#ff9fc7", outline: "#60304d",
     ranged: true,
   },
   "Bamboo Guardian": {
-    ...samuraiGardenBalance("guardian"), speed: 232, r: 37,
+    ...samuraiGardenBalance("guardian"), speed: 205, r: 37,
     color: "#7cad70", outline: "#294936",
   },
   "Moonblade Reaper": {
-    ...samuraiGardenBalance("reaper"), speed: 276, r: 44,
+    ...samuraiGardenBalance("reaper"), speed: 235, r: 44,
     color: "#8a70bd", outline: "#30264f",
-    ranged: true, elite: true, aggro: 460,
+    ranged: true, elite: true, aggro: 340,
   },
   "Shrine Oracle": {
-    ...samuraiGardenBalance("oracle"), speed: 252, r: 41,
+    ...samuraiGardenBalance("oracle"), speed: 220, r: 41,
     color: "#eeb1d4", outline: "#52334f",
-    elite: true, aggro: 460,
+    elite: true, aggro: 340,
   },
 } satisfies Record<string, EnemyDefinition>;
 

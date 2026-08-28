@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   deterministicRemoteCritical,
   REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE,
+  REGULAR_ENEMY_AGGRO_RELEASE_PADDING,
+  regularEnemyAggroRetainRadius,
   regularEnemyAmbientPose,
   selectRegularEnemyAggroTarget,
 } from "./regular-enemy-simulation";
@@ -61,6 +63,11 @@ describe("regular enemy deterministic contract", () => {
         acquireRadius: 155 + REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE,
       }],
     })?.id).toBe("ranged-player");
+  });
+
+  it("keeps release beyond acquisition even when the authored leash is smaller", () => {
+    expect(regularEnemyAggroRetainRadius(460, 420)).toBe(460 + REGULAR_ENEMY_AGGRO_RELEASE_PADDING);
+    expect(regularEnemyAggroRetainRadius(140, 900)).toBe(900);
   });
 
   it("seeds remote critical hits from engagement and attack identity", () => {

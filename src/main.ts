@@ -341,7 +341,9 @@ import {
       const account = coop?.accountState?.();
       if (!session.hasStarted() && account?.sessionConflict) startup.showSessionConflict();
       else if (!session.hasStarted() && account?.returningFromSignIn) startup.showLoading();
-      else if (!session.hasStarted() && !account?.signedIn && !account?.authInProgress && !account?.guestSessionApproved) startup.showAccountChoice();
+      else if (!session.hasStarted() && !account?.signedIn && !account?.authInProgress
+        && !account?.returningFromSignIn && !account?.guestSessionApproved
+        && !account?.gameSessionApproved) startup.showAccountChoice();
     }, { once: true });
   }
 
@@ -1580,10 +1582,13 @@ import {
     shouldShowSigningIn: () => !session.hasStarted() && startup.isSignInPending(),
     showSigningIn: startup.showSigningIn,
     shouldShowLoading: (account) => !session.hasStarted()
-      && Boolean(account?.signedIn || account?.returningFromSignIn || account?.authInProgress || account?.guestSessionApproved)
+      && Boolean(account?.signedIn || account?.returningFromSignIn || account?.authInProgress
+        || account?.guestSessionApproved || account?.gameSessionApproved)
       && progress.startupKind() !== "new",
     showLoading: startup.showLoading,
-    shouldShowAccountChoice: (account) => !session.hasStarted() && !account?.signedIn && !account?.authInProgress && !account?.guestSessionApproved,
+    shouldShowAccountChoice: (account) => !session.hasStarted() && !account?.signedIn
+      && !account?.authInProgress && !account?.returningFromSignIn
+      && !account?.guestSessionApproved && !account?.gameSessionApproved,
     showAccountChoice: startup.showAccountChoice,
     refreshChat: chatRuntime.refresh,
     updateDuelControls,
