@@ -1,4 +1,8 @@
-import { playerPowerForStats } from "../../../shared/player-power";
+import {
+  playerPowerForStats,
+  type PlayerPowerProgress,
+  type PlayerPowerStats,
+} from "../../../shared/player-power";
 import { isPresenceChatMessage } from "../../../shared/presence-chat";
 import {
   PLAYER_GENDER_FEMALE,
@@ -28,6 +32,21 @@ const SPEECH_BUBBLE_DURATION_MS = 8_000;
 const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
+
+type DisplayedPlayerPowerEquipment = {
+  equippedHead: string;
+  equippedChest: string;
+  equippedRightHand: string;
+  equippedLeftHand: string;
+};
+
+/** Requires every power-bearing equipment slot for the local world and HUD labels. */
+export function displayedPlayerPowerProgress(
+  stats: PlayerPowerStats,
+  equipment: DisplayedPlayerPowerEquipment,
+): PlayerPowerProgress {
+  return { ...stats, ...equipment };
+}
 
 export function activeSpeechBubbleMessages(messages: readonly SpeechBubbleMessage[], now: number) {
   const active = new Map<string, SpeechBubbleMessage[]>();

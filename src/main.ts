@@ -19,7 +19,7 @@ import { createGameSessionController } from "./game/runtime/game-session-control
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
 import { createPresentationInterpolator } from "./game/runtime/presentation-interpolator";
 import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from "./game/runtime/game-bootstrap";
-import { createPlayerIdentityRenderer } from "./game/runtime/player-identity-renderer";
+import { createPlayerIdentityRenderer, displayedPlayerPowerProgress } from "./game/runtime/player-identity-renderer";
 import type { PlayerDeathAnimationState } from "./game/runtime/player-death-animation";
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
@@ -584,16 +584,22 @@ import {
     drawActorStatus,
     drawPlayerIdentity,
   } = playerIdentityRenderer;
-  const playerPower: typeof playerIdentityRenderer.playerPower = () => effectivePlayerPower({
-    maxHp: player.baseMaxHp,
-    damage: player.damage,
-    attackRate: player.attackRate,
-    armor: player.armor,
-    regen: player.regen,
-    equippedChest: inventory.equippedChest,
-    equippedRightHand: inventory.equippedRightHand,
-    equippedLeftHand: inventory.equippedLeftHand,
-  }, researchRanks(), (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0);
+  const playerPower: typeof playerIdentityRenderer.playerPower = () => effectivePlayerPower(
+    displayedPlayerPowerProgress({
+      maxHp: player.baseMaxHp,
+      damage: player.damage,
+      attackRate: player.attackRate,
+      armor: player.armor,
+      regen: player.regen,
+    }, {
+      equippedHead: inventory.equippedHead,
+      equippedChest: inventory.equippedChest,
+      equippedRightHand: inventory.equippedRightHand,
+      equippedLeftHand: inventory.equippedLeftHand,
+    }),
+    researchRanks(),
+    (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
+  );
 
   let playerController: PlayerController;
   const mapController = createMapController({

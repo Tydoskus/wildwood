@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.547": [
+    "Replying to chat messages now keeps the composer visible above the mobile keyboard.",
+    "Local overhead and HUD power now include equipped-head stats, matching profiles and leaderboards.",
+  ],
   "0.546": [
     "Remote combat ghosts are more transparent, survive brief player-detail gaps, and die independently as remote attacks focus one enemy at a time.",
   ],
@@ -1180,6 +1184,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.547": "2026-08-27",
   "0.546": "2026-08-27",
   "0.545": "2026-08-27",
   "0.543": "2026-08-27",

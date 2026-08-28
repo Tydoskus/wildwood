@@ -24,6 +24,13 @@ const PROFILE_PORTRAIT_POSITION_STEP = PROFILE_PORTRAIT_ZOOM / (8 * PROFILE_PORT
 const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (8 * PROFILE_PORTRAIT_ZOOM - 1) * 100;
 const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
 
+export function focusChatReplyInput(input: Pick<HTMLTextAreaElement, "focus" | "setSelectionRange" | "value">) {
+  // Native focus scrolling is required here: revealing the reply preview moves
+  // the textarea down just before the mobile keyboard opens.
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
 type ChatMessage = {
   id: bigint;
   sender: string;
@@ -111,8 +118,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.replyComposerPreview.textContent = "";
     }
     if (focusInput) {
-      elements.input.focus({ preventScroll: true });
-      elements.input.setSelectionRange(elements.input.value.length, elements.input.value.length);
+      focusChatReplyInput(elements.input);
     }
   }
 

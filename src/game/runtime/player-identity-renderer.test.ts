@@ -2,13 +2,34 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER,
   activeSpeechBubbleMessages,
+  displayedPlayerPowerProgress,
 } from "./player-identity-renderer";
 
 function message(sender: string, text: string, sentAtMs: number, senderName = sender, replayId = 0n) {
   return { id: BigInt(sentAtMs), sender, senderName, message: text, replayId, sentAtMs };
 }
 
-describe("player speech bubbles", () => {
+describe("player identity renderer", () => {
+  it("carries every combat equipment slot into the local displayed-power input", () => {
+    expect(displayedPlayerPowerProgress({
+      maxHp: 100,
+      damage: 10,
+      attackRate: 1.56,
+      armor: 0,
+      regen: 0,
+    }, {
+      equippedHead: "helmet",
+      equippedChest: "armor",
+      equippedRightHand: "bow",
+      equippedLeftHand: "",
+    })).toMatchObject({
+      equippedHead: "helmet",
+      equippedChest: "armor",
+      equippedRightHand: "bow",
+      equippedLeftHand: "",
+    });
+  });
+
   it("stacks the newest active message nearest the player and pushes older messages upward", () => {
     const now = 10_000;
     const active = activeSpeechBubbleMessages([

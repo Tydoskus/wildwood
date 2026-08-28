@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { focusChatReplyInput } from "./chat";
 import {
   messageActionAvailability,
   shouldDismissMessageActionSheet,
@@ -14,6 +15,16 @@ const target = {
 };
 
 describe("chat message actions", () => {
+  it("allows native viewport scrolling when reply mode focuses the composer", () => {
+    const focus = vi.fn();
+    const setSelectionRange = vi.fn();
+
+    focusChatReplyInput({ value: "draft", focus, setSelectionRange });
+
+    expect(focus.mock.calls).toEqual([[]]);
+    expect(setSelectionRange).toHaveBeenCalledWith(5, 5);
+  });
+
   it("offers reports for another player's ordinary or replay message", () => {
     expect(shouldOfferMessageReport(target, "local-player")).toBe(true);
     expect(shouldOfferMessageReport(target, "other-player")).toBe(false);
