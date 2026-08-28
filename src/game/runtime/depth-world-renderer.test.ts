@@ -125,6 +125,6 @@ describe("depth world renderer", () => {
     depth.drawDepthSortedWorld([], false);
 
     expect(calls).toEqual(["enemy", "player"]);
-    expect(opacities).toEqual([.56]);
+    expect(opacities).toEqual([.46]);
   });
 });

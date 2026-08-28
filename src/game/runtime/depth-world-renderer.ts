@@ -197,7 +197,7 @@ export function createDepthWorldRenderer(options: {
     const enemyCullPadding = 140;
     const queueEnemy = (enemy: EnemyState) => {
       if (enemy.dead) return;
-      const opacity = (options.enemyOpacity?.(enemy) ?? 1) * (enemy.remoteCombatGhost ? .56 : 1);
+      const opacity = (options.enemyOpacity?.(enemy) ?? 1) * (enemy.remoteCombatGhost ? .46 : 1);
       if (opacity <= 0) return;
       if (
         enemy.x + enemy.r < camera.x - enemyCullPadding ||

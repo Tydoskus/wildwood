@@ -259,4 +259,69 @@ describe("deterministic enemy simulation", () => {
     expect(simulation.remoteCombatGhosts()).toHaveLength(0);
     expect(enemy).toMatchObject({ hp: enemy.maxHp, dead: false });
   });
+
+  it("keeps living sibling ghosts through one death and a brief missing remote-player sample", () => {
+    const firstEnemy = idleEnemyAt(100, 100);
+    firstEnemy.maxHp = 10;
+    firstEnemy.hp = 10;
+    const secondEnemy = idleEnemyAt(200, 100);
+    secondEnemy.siteId = 2;
+    secondEnemy.maxHp = 10;
+    secondEnemy.hp = 10;
+    const local = playerAt(500, 500);
+    const remote = remotePlayerAt(100, 100);
+    let now = 1_800_000_000_000;
+    let remoteVisible = true;
+    const simulation = createEnemySimulation(
+      [firstEnemy, secondEnemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => now,
+        localIdentity: () => "local-player",
+        localAggroPosition: () => local,
+        remotePlayers: () => remoteVisible ? [remote] : [],
+        remoteCombatStats: () => ({ ...remoteCombatStats, damage: 100, attackInterval: .5 }),
+      },
+    );
+
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(2);
+
+    now += 1_000;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(2);
+    const defeatedGhost = simulation.remoteCombatGhosts().find((ghost) => ghost.remoteCombatHp === 0);
+    const survivingGhost = simulation.remoteCombatGhosts().find((ghost) => ghost.remoteCombatHp === 10);
+    expect(defeatedGhost).toMatchObject({
+      remoteCombatHp: 0,
+      remoteCombatDeathProgress: 0,
+    });
+    expect(survivingGhost).toBeDefined();
+
+    remoteVisible = false;
+    now += 100;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(2);
+
+    now += 600;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts().map((ghost) => ghost.siteId)).toEqual([survivingGhost?.siteId]);
+
+    remoteVisible = true;
+    now += 100;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts().map((ghost) => ghost.siteId)).toEqual([survivingGhost?.siteId]);
+
+    remoteVisible = false;
+    now += 100;
+    simulation.update(1 / 60);
+    now += 2_000;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(0);
+  });
 });

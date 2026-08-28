@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.546": [
+    "Remote combat ghosts are more transparent, survive brief player-detail gaps, and die independently as remote attacks focus one enemy at a time.",
+  ],
   "0.545": [
     "Nearby players now appear reliably on join and start and stop smoothly through a buffered 3 Hz detail stream.",
     "Remote regular-enemy fights now use translucent independent enemies with accurate stats, attack range, full starting health, damage, and deaths.",
@@ -1177,6 +1180,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.546": "2026-08-27",
   "0.545": "2026-08-27",
   "0.543": "2026-08-27",
   "0.542": "2026-08-27",

@@ -24,6 +24,7 @@ const PROJECTILE_RADIUS = 6;
 const PROJECTILE_SPREAD_RADIANS = .13;
 const GHOST_OPPONENT_DEATH_HOLD_MS = 850;
 export const REMOTE_GHOST_DEATH_ANIMATION_MS = 620;
+export const REMOTE_GHOST_TARGET_MISSING_GRACE_MS = 2_000;
 
 type FighterState = {
   hp: number;
@@ -45,11 +46,19 @@ type ShadowState = {
   lastEnemyHitIndex: number;
   defeatedAtMs: number;
   opponentDefeatedAtMs: number;
+  lastTargetX: number;
+  lastTargetY: number;
+  targetMissingSinceMs: number | null;
 };
 
 type VisualSelection = {
   distanceSquared: number;
   visual: RemoteRegularEnemyCombatVisual;
+};
+
+type PlayerAttackSelection = {
+  distanceSquared: number;
+  siteId: number;
 };
 
 function finitePositive(value: number, fallback: number) {
@@ -140,6 +149,7 @@ export function createRemoteEnemyCombatShadows(options: {
   const fighters = new Map<string, FighterState>();
   const suppressedUntilMs = new Map<number, number>();
   const visuals = new Map<string, VisualSelection>();
+  const playerAttackTargets = new Map<string, PlayerAttackSelection>();
   const renderBuffer: RemotePlayer[] = [];
   const ghostBuffer: EnemyState[] = [];
   let currentMapId = "";
@@ -154,6 +164,7 @@ export function createRemoteEnemyCombatShadows(options: {
     fighters.clear();
     suppressedUntilMs.clear();
     visuals.clear();
+    playerAttackTargets.clear();
     renderBuffer.length = 0;
     ghostBuffer.length = 0;
     targetStats.clear();
@@ -191,9 +202,16 @@ export function createRemoteEnemyCombatShadows(options: {
     return fighter;
   }
 
+  function hasShadowForTarget(targetId: string) {
+    for (const shadow of shadows.values()) {
+      if (shadow.targetId === targetId) return true;
+    }
+    return false;
+  }
+
   function fighterForNewEngagement(targetId: string, stats: RemoteCombatStats) {
     const fighter = fighterFor(targetId, stats);
-    const alreadyFighting = [...shadows.values()].some((shadow) => shadow.targetId === targetId);
+    const alreadyFighting = hasShadowForTarget(targetId);
     if (fighter.hp <= 0 && !alreadyFighting) {
       fighter.hp = fighter.maxHp;
       fighter.lastUpdatedAtMs = serverNowMs;
@@ -204,7 +222,8 @@ export function createRemoteEnemyCombatShadows(options: {
 
   function updateFighters() {
     for (const [targetId, fighter] of fighters) {
-      if (!targetById.has(targetId)) {
+      const stillFighting = hasShadowForTarget(targetId);
+      if (!targetById.has(targetId) && !stillFighting) {
         fighters.delete(targetId);
         continue;
       }
@@ -247,8 +266,8 @@ export function createRemoteEnemyCombatShadows(options: {
     };
   }
 
-  function applyPlayerHits(shadow: ShadowState, distance: number) {
-    if (distance > shadow.stats.attackRange || shadow.defeatedAtMs || shadow.opponentDefeatedAtMs) return;
+  function applyPlayerHits(shadow: ShadowState, distance: number, selected: boolean) {
+    if (shadow.defeatedAtMs || shadow.opponentDefeatedAtMs) return;
     const engagementSeconds = shadow.engagementTick * REGULAR_ENEMY_TICK_MS / 1_000;
     const elapsedSeconds = Math.max(0, serverNowMs / 1_000 - engagementSeconds);
     const timestamps = absoluteAttackTimestamps(engagementSeconds, shadow.stats.attackInterval);
@@ -259,6 +278,7 @@ export function createRemoteEnemyCombatShadows(options: {
 
     const first = Math.max(shadow.lastPlayerHitIndex + 1, latest - 7);
     shadow.lastPlayerHitIndex = latest;
+    if (!selected || distance > shadow.stats.attackRange) return;
     const hitSlots = remoteProjectileHitSlots(shadow.stats.projectileCount, distance, shadow.ghost.r);
     for (let attackIndex = first; attackIndex <= latest && shadow.enemyHp > 0; attackIndex += 1) {
       let normalDamage = 0;
@@ -289,6 +309,29 @@ export function createRemoteEnemyCombatShadows(options: {
         shadow.defeatedAtMs = serverNowMs;
         shadow.ghost.remoteCombatDeathProgress = 0;
         options.spawnBurst?.(shadow.ghost.x, shadow.ghost.y, "#9eeeff", 12, 90);
+      }
+    }
+  }
+
+  function selectPlayerAttackTargets() {
+    playerAttackTargets.clear();
+    for (const shadow of shadows.values()) {
+      if (shadow.defeatedAtMs || shadow.opponentDefeatedAtMs) continue;
+      const target = targetById.get(shadow.targetId);
+      if (!target) continue;
+      const targetX = target.simulationX ?? target.x;
+      const targetY = target.simulationY ?? target.y;
+      const dx = shadow.ghost.x - targetX;
+      const dy = shadow.ghost.y - targetY;
+      const distanceSquared = dx * dx + dy * dy;
+      if (distanceSquared > shadow.stats.attackRange * shadow.stats.attackRange) continue;
+      const selected = playerAttackTargets.get(shadow.targetId);
+      if (
+        !selected ||
+        distanceSquared < selected.distanceSquared ||
+        (distanceSquared === selected.distanceSquared && shadow.siteId < selected.siteId)
+      ) {
+        playerAttackTargets.set(shadow.targetId, { distanceSquared, siteId: shadow.siteId });
       }
     }
   }
@@ -335,11 +378,6 @@ export function createRemoteEnemyCombatShadows(options: {
   }
 
   function advanceShadow(shadow: ShadowState) {
-    const target = targetById.get(shadow.targetId);
-    if (!target) {
-      shadows.delete(shadow.siteId);
-      return;
-    }
     const ghost = shadow.ghost;
     ghost.hurt = Math.max(0, ghost.hurt - frameDt);
     ghost.phase = regularEnemyAmbientPose(currentMapId, ghost.siteId, ghost.homeX, ghost.homeY, serverNowMs).phase;
@@ -359,8 +397,21 @@ export function createRemoteEnemyCombatShadows(options: {
       return;
     }
 
-    const targetX = target.simulationX ?? target.x;
-    const targetY = target.simulationY ?? target.y;
+    const target = targetById.get(shadow.targetId);
+    if (target) {
+      shadow.lastTargetX = target.simulationX ?? target.x;
+      shadow.lastTargetY = target.simulationY ?? target.y;
+      shadow.targetMissingSinceMs = null;
+    } else {
+      shadow.targetMissingSinceMs ??= serverNowMs;
+      if (serverNowMs - shadow.targetMissingSinceMs >= REMOTE_GHOST_TARGET_MISSING_GRACE_MS) {
+        shadows.delete(shadow.siteId);
+        return;
+      }
+    }
+
+    const targetX = shadow.lastTargetX;
+    const targetY = shadow.lastTargetY;
     moveGhost(ghost, shadow.base, targetX, targetY, frameDt);
     ghost.combatTargetX = targetX;
     ghost.combatTargetY = targetY;
@@ -374,8 +425,14 @@ export function createRemoteEnemyCombatShadows(options: {
       return;
     }
 
+    const selectedForPlayerAttack = target
+      ? playerAttackTargets.get(target.id)?.siteId === shadow.siteId
+      : false;
+    // Always advance the attack cursor so an untargeted or temporarily hidden
+    // ghost cannot receive a burst of old shots when it becomes the target.
+    applyPlayerHits(shadow, distance, selectedForPlayerAttack);
+    if (!target) return;
     const fighter = fighterFor(target.id, shadow.stats);
-    applyPlayerHits(shadow, distance);
     applyEnemyHits(shadow, target, fighter, distance);
     selectVisual(shadow, target, fighter, distanceSquared, distance);
   }
@@ -392,6 +449,7 @@ export function createRemoteEnemyCombatShadows(options: {
     targetStats.clear();
     visuals.clear();
     updateFighters();
+    selectPlayerAttackTargets();
     for (const shadow of [...shadows.values()]) advanceShadow(shadow);
     for (const [siteId, untilMs] of suppressedUntilMs) {
       if (untilMs <= serverNowMs) suppressedUntilMs.delete(siteId);
@@ -450,6 +508,9 @@ export function createRemoteEnemyCombatShadows(options: {
       lastEnemyHitIndex: -1,
       defeatedAtMs: 0,
       opponentDefeatedAtMs: 0,
+      lastTargetX: remote.simulationX ?? remote.x,
+      lastTargetY: remote.simulationY ?? remote.y,
+      targetMissingSinceMs: null,
     };
     fighterForNewEngagement(target.id, stats);
     shadows.set(enemy.siteId, shadow);
