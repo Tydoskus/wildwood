@@ -71,6 +71,17 @@ export type EnemyState = Circle & {
   leashRange: number;
   engaged: boolean;
   leashing: boolean;
+  /** Stable identity selected by deterministic regular-enemy aggro. */
+  aggroTargetId?: string | null;
+  aggroStartedAtTick?: number;
+  combatTargetX?: number;
+  combatTargetY?: number;
+  /** Display-only HP from an observer's remote combat shadow. */
+  remoteCombatHp?: number;
+  /** Presentation-only copy used to show another player's regular-enemy fight. */
+  remoteCombatGhost?: boolean;
+  /** Zero-to-one squash/fade state for a defeated presentation-only copy. */
+  remoteCombatDeathProgress?: number;
   facingX: -1 | 1;
   wandering: boolean;
   wanderTargetX: number;

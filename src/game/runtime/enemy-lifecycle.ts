@@ -1,6 +1,6 @@
 import { TAU, ENEMY_HIT_SPEED_RECOVERY_SECONDS } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
-import { rand } from "../math";
+import { regularEnemySeededUnit } from "../../../shared/regular-enemy-simulation";
 import type { SpawnSite } from "../world";
 import type { EnemyState } from "./types";
 
@@ -34,23 +34,25 @@ export function createEnemyLifecycle(
       leashRange: site.leashRange,
       engaged: false,
       leashing: false,
-      facingX: Math.random() < .5 ? -1 : 1,
+      aggroTargetId: null,
+      aggroStartedAtTick: 0,
+      facingX: regularEnemySeededUnit("spawn-facing", site.campName, site.id, site.type) < .5 ? -1 : 1,
       wandering: false,
       wanderTargetX: site.x,
       wanderTargetY: site.y,
-      wanderWait: rand(1, 4),
-      attackClock: base.ranged ? rand(.2, 1.2) : 0,
+      wanderWait: 1 + regularEnemySeededUnit("spawn-wait", site.campName, site.id, site.type) * 3,
+      attackClock: base.ranged ? .2 + regularEnemySeededUnit("spawn-attack", site.campName, site.id, site.type) : 0,
       moveSpeedRecovery: ENEMY_HIT_SPEED_RECOVERY_SECONDS,
       hurt: 0,
       dead: false,
-      phase: Math.random() * TAU,
+      phase: regularEnemySeededUnit("spawn-phase", site.campName, site.id, site.type) * TAU,
       idleUpdateElapsed: 0,
     });
     site.alive = true;
     site.respawnAt = 0;
   }
 
-  function engageEnemy(enemy: EnemyState) {
+  function engageEnemy(enemy: EnemyState, targetId: string | null = null, startedAtTick = 0) {
     const group = enemy.type === "Dune Archer"
       ? enemies.filter((candidate) => !candidate.dead && candidate.type === "Dune Archer")
       : [enemy];
@@ -58,6 +60,8 @@ export function createEnemyLifecycle(
       candidate.engaged = true;
       candidate.leashing = false;
       candidate.wandering = false;
+      candidate.aggroTargetId = targetId;
+      candidate.aggroStartedAtTick = startedAtTick;
     }
   }
 

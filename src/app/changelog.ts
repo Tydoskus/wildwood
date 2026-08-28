@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.545": [
+    "Nearby players now appear reliably on join and start and stop smoothly through a buffered 3 Hz detail stream.",
+    "Remote regular-enemy fights now use translucent independent enemies with accurate stats, attack range, full starting health, damage, and deaths.",
+  ],
   "0.544": [
     "Night Forest, Water Reach, and Samurai Garden now use distinct camp layouts and mixed formations, with less formulaic enemy scaling that preserves the full progression budget.",
   ],
@@ -1173,6 +1177,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.545": "2026-08-27",
   "0.543": "2026-08-27",
   "0.542": "2026-08-27",
   "0.541": "2026-08-27",

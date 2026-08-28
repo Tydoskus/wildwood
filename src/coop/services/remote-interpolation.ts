@@ -1,9 +1,9 @@
 import { clamp } from "../../game/math";
 
-const DEFAULT_DELAY_MS = 100;
-const MIN_DELAY_MS = 75;
-const MAX_DELAY_MS = 200;
-const BASE_NETWORK_DELAY_MS = 80;
+const DEFAULT_DELAY_MS = 240;
+const MIN_DELAY_MS = 200;
+const MAX_DELAY_MS = 320;
+const BASE_NETWORK_DELAY_MS = 220;
 const MIN_SAMPLE_INTERVAL_MS = 35;
 const MAX_SAMPLE_INTERVAL_MS = 1_200;
 const MAX_EXTRAPOLATION_MS = 1_500;
@@ -49,7 +49,7 @@ export type RemoteMotionCorrection = {
   lastAt: number;
 };
 
-export type RemoteMotionTransition = "continuous" | "restart" | "discontinuity";
+export type RemoteMotionTransition = "continuous" | "restart" | "stop" | "discontinuity";
 
 /** Epoch is the explicit hard-reset guard; distance never decides continuity. */
 export function remoteMotionTransition(
@@ -58,6 +58,7 @@ export function remoteMotionTransition(
 ): RemoteMotionTransition {
   if (previous.motionEpoch !== next.motionEpoch) return "discontinuity";
   if (!previous.moving && next.moving) return "restart";
+  if (previous.moving && !next.moving) return "stop";
   return "continuous";
 }
 
@@ -80,7 +81,7 @@ export function createRemoteInterpolationClock(now: number): RemoteInterpolation
   };
 }
 
-/** A movement restart should not inherit a large delay learned during a burst. */
+/** A movement restart keeps enough history to interpolate its first visible step. */
 export function createRestartRemoteInterpolationClock(now: number): RemoteInterpolationClock {
   return {
     ...createRemoteInterpolationClock(now),
@@ -140,9 +141,8 @@ export function observeRemoteSample(
 
   const deviation = Math.abs(clamp(arrivalIntervalMs, 0, MAX_SAMPLE_INTERVAL_MS * 2) - interval);
   clock.jitterMs += (deviation - clock.jitterMs) * .2;
-  // Straight movement intentionally sends only a 500 ms correction. That
-  // interval is sender cadence, not network latency, and must not place a
-  // running remote player almost half a second behind the local player.
+  // The 3 Hz nearby stream is sparse by design. Keep most of one interval in
+  // hand so start/stop transitions arrive before their presentation time.
   clock.targetDelayMs = clamp(BASE_NETWORK_DELAY_MS + clock.jitterMs * 2, MIN_DELAY_MS, MAX_DELAY_MS);
 }
 
@@ -199,6 +199,42 @@ export function applyRemoteMotionCorrection(
 }
 
 /**
+ * A continuity correction may preserve a pose beyond a newly confirmed stop.
+ * Remove only that forward overshoot; lateral/behind correction still eases.
+ */
+export function constrainRemoteMotionToLatestStop(
+  motion: RemoteMotionTransform,
+  samples: readonly RemoteMotionSample[],
+): RemoteMotionTransform {
+  const latest = samples[samples.length - 1];
+  if (!latest || latest.moving) return motion;
+  let incoming: RemoteMotionSample | undefined;
+  for (let index = samples.length - 2; index >= 0; index -= 1) {
+    const candidate = samples[index];
+    if (candidate.motionEpoch !== latest.motionEpoch) break;
+    if (candidate.moving && Math.hypot(candidate.vx, candidate.vy) > .001) {
+      incoming = candidate;
+      break;
+    }
+  }
+  if (!incoming) return motion;
+  const speed = Math.hypot(incoming.vx, incoming.vy);
+  const directionX = incoming.vx / speed;
+  const directionY = incoming.vy / speed;
+  const ahead = (motion.x - latest.x) * directionX + (motion.y - latest.y) * directionY;
+  if (ahead <= 0) return motion;
+  return {
+    ...motion,
+    x: motion.x - directionX * ahead,
+    y: motion.y - directionY * ahead,
+    vx: 0,
+    vy: 0,
+    facing: latest.facing,
+    moving: false,
+  };
+}
+
+/**
  * Adds an authoritative sample without changing the pose already on screen.
  * The current predicted pose becomes a short synthetic anchor, so correction
  * error is consumed over the remaining jitter buffer instead of in one frame.
@@ -223,8 +259,9 @@ export function appendRemoteCorrectionSample<T extends TimestampedRemoteMotionSa
   );
   const next = appendRemoteTimelineSample(samples, sample);
   const corrected = remoteMotionAt(samples, renderAt);
-  correction.x = continuity.x - corrected.x;
-  correction.y = continuity.y - corrected.y;
+  const boundedContinuity = constrainRemoteMotionToLatestStop(continuity, samples);
+  correction.x = boundedContinuity.x - corrected.x;
+  correction.y = boundedContinuity.y - corrected.y;
   correction.lastAt = sample.receivedAt;
   return next;
 }
@@ -232,7 +269,7 @@ export function appendRemoteCorrectionSample<T extends TimestampedRemoteMotionSa
 /**
  * Samples buffered movement at a stable render time. Authoritative positions
  * interpolate corrections between sparse packets; the latest transmitted
- * velocity carries motion through the 500 ms heartbeat interval.
+ * velocity carries motion through the 333 ms nearby-frame interval.
  */
 export function remoteMotionAt(
   samples: readonly RemoteMotionSample[],
@@ -276,6 +313,9 @@ export function remoteMotionAt(
       Math.sin(after.facing - before.facing),
       Math.cos(after.facing - before.facing),
     ) * alpha;
+  const moving = before.moving === after.moving
+    ? before.moving
+    : after.moving ? alpha > 0 : alpha < 1;
   return {
     x: before.x + (after.x - before.x) * alpha,
     y: before.y + (after.y - before.y) * alpha,
@@ -283,6 +323,90 @@ export function remoteMotionAt(
     vy: before.vy + (after.vy - before.vy) * alpha,
     simulationTick: alpha < 1 ? before.simulationTick : after.simulationTick,
     motionEpoch: alpha < 1 ? before.motionEpoch : after.motionEpoch,
+    facing,
+    moving,
+  };
+}
+
+/**
+ * Samples the same server-time pose on every observer. This deliberately
+ * bypasses each client's adaptive presentation buffer and correction offset;
+ * it is for deterministic gameplay decisions, not drawing remote players.
+ */
+export function remoteMotionAtServerTime(
+  samples: readonly TimestampedRemoteMotionSample[],
+  serverAtMs: number,
+): RemoteMotionTransform {
+  const first = samples[0];
+  const latest = samples[samples.length - 1];
+  if (!first || !latest) return { x: 0, y: 0, vx: 0, vy: 0, simulationTick: 0, motionEpoch: 0, facing: 0, moving: false };
+  const sampledAt = Number.isFinite(serverAtMs) ? serverAtMs : latest.serverAtMs;
+  if (sampledAt <= first.serverAtMs) {
+    return {
+      x: first.x,
+      y: first.y,
+      vx: first.moving ? first.vx : 0,
+      vy: first.moving ? first.vy : 0,
+      simulationTick: first.simulationTick,
+      motionEpoch: first.motionEpoch,
+      facing: first.facing,
+      moving: first.moving,
+    };
+  }
+  if (sampledAt >= latest.serverAtMs) {
+    if (!latest.moving) {
+      return { x: latest.x, y: latest.y, vx: 0, vy: 0, simulationTick: latest.simulationTick, motionEpoch: latest.motionEpoch, facing: latest.facing, moving: false };
+    }
+    const aheadMs = Math.min(MAX_EXTRAPOLATION_MS, sampledAt - latest.serverAtMs);
+    const aheadSeconds = aheadMs / 1_000;
+    return {
+      x: latest.x + latest.vx * aheadSeconds,
+      y: latest.y + latest.vy * aheadSeconds,
+      vx: latest.vx,
+      vy: latest.vy,
+      simulationTick: latest.simulationTick,
+      motionEpoch: latest.motionEpoch,
+      facing: latest.facing,
+      moving: true,
+    };
+  }
+
+  let before = first;
+  let after = latest;
+  for (let index = 1; index < samples.length; index += 1) {
+    if (samples[index].serverAtMs >= sampledAt) {
+      before = samples[index - 1];
+      after = samples[index];
+      break;
+    }
+  }
+  if (before.motionEpoch !== after.motionEpoch) {
+    return {
+      x: before.x,
+      y: before.y,
+      vx: before.moving ? before.vx : 0,
+      vy: before.moving ? before.vy : 0,
+      simulationTick: before.simulationTick,
+      motionEpoch: before.motionEpoch,
+      facing: before.facing,
+      moving: before.moving,
+    };
+  }
+  const span = Math.max(1, after.serverAtMs - before.serverAtMs);
+  const alpha = clamp((sampledAt - before.serverAtMs) / span, 0, 1);
+  const facing = before.facing === after.facing
+    ? before.facing
+    : before.facing + Math.atan2(
+      Math.sin(after.facing - before.facing),
+      Math.cos(after.facing - before.facing),
+    ) * alpha;
+  return {
+    x: before.x + (after.x - before.x) * alpha,
+    y: before.y + (after.y - before.y) * alpha,
+    vx: before.vx + (after.vx - before.vx) * alpha,
+    vy: before.vy + (after.vy - before.vy) * alpha,
+    simulationTick: alpha < 1 ? before.simulationTick : after.simulationTick,
+    motionEpoch: before.motionEpoch,
     facing,
     moving: alpha < 1 ? before.moving : after.moving,
   };

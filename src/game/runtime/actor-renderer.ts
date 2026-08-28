@@ -545,7 +545,9 @@ export function createActorRenderer(options: {
     const equipment = options.equipmentForIdentity(other.id);
     if (death && drawDeadPlayer({ ...other, ...equipment }, death, 1)) return;
 
-    const attack = other.bossAttack;
+    const regularEnemyCombat = other.regularEnemyCombat;
+    const attack = other.bossAttack ?? regularEnemyCombat;
+    const attackCritical = !other.bossAttack && regularEnemyCombat?.critical;
     if (attack && attack.projectileProgress > 0 && attack.projectileProgress < 1) {
       const dx = attack.targetX - other.x;
       const dy = attack.targetY - other.y;
@@ -564,6 +566,13 @@ export function createActorRenderer(options: {
       const projectileKind = projectileKindForWeapon(weaponItem);
       for (let index = 0; index < visibleHits; index += 1) {
         const offset = (index - (visibleHits - 1) / 2) * 9;
+        if (attackCritical) {
+          ctx.save();
+          ctx.globalAlpha = .38;
+          ctx.fillStyle = "#ffe36b";
+          options.pixelCircle(projectileX, projectileY + offset, 10);
+          ctx.restore();
+        }
         if (projectileKind === "ARROW") drawArrow(projectileX, projectileY, Math.atan2(dy, dx), offset);
         else if (projectileKind !== "ROCK" || !drawRock(weaponItem, projectileX, projectileY, Math.atan2(dy, dx), offset)) {
           ctx.save(); ctx.translate(projectileX, projectileY);
@@ -580,14 +589,28 @@ export function createActorRenderer(options: {
       : weaponItem ? clientCombatFacing(other) : null;
     options.drawShadow(x, y + 29, 34, .16);
     drawPlayerSprite({ ...other, ...equipment, x, y, facing: combatFacing ?? other.facing, combatFacing }, 1);
-    options.drawIdentity(
-      other.id,
-      options.publicName(other.id, other.name),
-      Number.isFinite(other.power) ? other.power : 0,
-      x,
-      y - 49,
-      "#9eeeff",
-    );
+    if (regularEnemyCombat) {
+      options.drawStatus({
+        x,
+        y,
+        identity: other.id,
+        name: options.publicName(other.id, other.name),
+        nameColor: "#9eeeff",
+        hp: regularEnemyCombat.hp,
+        maxHp: regularEnemyCombat.maxHp,
+        power: Number.isFinite(other.power) ? other.power : 0,
+        fillColor: "#55a9c6",
+      });
+    } else {
+      options.drawIdentity(
+        other.id,
+        options.publicName(other.id, other.name),
+        Number.isFinite(other.power) ? other.power : 0,
+        x,
+        y - 49,
+        "#9eeeff",
+      );
+    }
     options.drawSpeechBubble(other.id, x, y);
   }
 
@@ -614,7 +637,8 @@ export function createActorRenderer(options: {
   }
 
   function drawEnemy(enemy: EnemyState, opacity = 1) {
-    const visibility = clamp(opacity, 0, 1);
+    const deathProgress = clamp(enemy.remoteCombatDeathProgress ?? 0, 0, 1);
+    const visibility = clamp(opacity * (1 - deathProgress), 0, 1);
     if (visibility <= 0) return;
     const viewport = options.viewport();
     const width = viewport.width / camera.zoom;
@@ -636,8 +660,17 @@ export function createActorRenderer(options: {
 
     ctx.save();
     ctx.translate(x, y);
+    if (deathProgress > 0) {
+      ctx.translate(0, deathProgress * 11);
+      ctx.rotate(deathProgress * .42 * enemy.facingX);
+      ctx.scale(1 + deathProgress * .16, Math.max(.08, 1 - deathProgress * .9));
+    }
     if (enemy.facingX < 0) ctx.scale(-1, 1);
 
+    const combatTarget = {
+      x: enemy.combatTargetX ?? options.player.x,
+      y: enemy.combatTargetY ?? options.player.y,
+    };
     if (layers && sprite) {
       ctx.globalAlpha = (enemy.hurt > 0 ? .7 : 1) * visibility;
       const layerPlan = cachedEnemyLayerPlan(sprite);
@@ -652,7 +685,7 @@ export function createActorRenderer(options: {
           if (!pivot) continue;
           ctx.save();
           ctx.translate(pivot.x, pivot.y + ENEMY_SPRITE_Y_OFFSET);
-          ctx.rotate(enemyWeaponLayerRotation(enemy, options.player, layer.aimOffsetRadians));
+          ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians));
           ctx.drawImage(
             layer.image,
             layer.x - pivot.x,
@@ -669,7 +702,7 @@ export function createActorRenderer(options: {
           if (layer.aimPivot) {
             ctx.save();
             ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
-            ctx.rotate(enemyWeaponLayerRotation(enemy, options.player, layer.aimOffsetRadians));
+            ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians));
             ctx.drawImage(
               layer.image,
               layer.x - layer.aimPivot.x,
@@ -701,7 +734,7 @@ export function createActorRenderer(options: {
     }
     ctx.restore();
 
-    if (!options.enemyTextVisible(enemy)) return;
+    if (!options.enemyTextVisible(enemy) || deathProgress > 0) return;
 
     const spriteTop = spriteBounds.top;
     const spriteBottom = spriteBounds.bottom;
@@ -711,8 +744,9 @@ export function createActorRenderer(options: {
     const barX = x - barW / 2;
     const barCenterX = barX + barW / 2;
     const barY = y + spriteTop - 14;
-    const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
-    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(enemy.hp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
+    const displayedHp = enemy.remoteCombatHp ?? enemy.hp;
+    const hpRatio = clamp(displayedHp / enemy.maxHp, 0, 1);
+    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(displayedHp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
 
     ctx.save();
     ctx.globalAlpha = visibility;
@@ -731,7 +765,9 @@ export function createActorRenderer(options: {
     ctx.textBaseline = "middle";
     options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
 
-    ctx.drawImage(labels.reward.canvas, x - labels.reward.width / 2, rewardY - labels.reward.anchorY, labels.reward.width, labels.reward.height);
+    if (!enemy.remoteCombatGhost) {
+      ctx.drawImage(labels.reward.canvas, x - labels.reward.width / 2, rewardY - labels.reward.anchorY, labels.reward.width, labels.reward.height);
+    }
     ctx.restore();
   }
 

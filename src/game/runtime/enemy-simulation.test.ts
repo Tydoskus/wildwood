@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RemotePlayer } from "../../wildwood-coop";
 import { createEnemySimulation } from "./enemy-simulation";
 import type { EnemyState, PlayerState } from "./types";
 
@@ -21,32 +22,241 @@ function idleEnemyAt(x: number, y: number): EnemyState {
   };
 }
 
-describe("enemy simulation LOD", () => {
-  it("ticks far idle enemies at the reduced cadence while nearby enemies stay full rate", () => {
-    const near = idleEnemyAt(100, 100);
-    const far = idleEnemyAt(3_000, 3_000);
-    const player = playerAt(100, 100);
-    const simulation = createEnemySimulation(
-      [near, far], () => {}, player, () => ({ width: 320, height: 600, zoom: 1 }), () => {}, () => false,
+function remotePlayerAt(x: number, y: number): RemotePlayer {
+  return {
+    id: "remote-player",
+    name: "REMOTE",
+    power: 500,
+    x,
+    y,
+    simulationX: x,
+    simulationY: y,
+    speed: 180,
+    facing: 0,
+    moving: false,
+    feetItem: "",
+    headItem: "",
+    chestItem: "",
+    rightHandItem: "starter_bow",
+    leftHandItem: "",
+  };
+}
+
+const remoteCombatStats = {
+  damage: 24,
+  maxHp: 220,
+  armor: 0,
+  regen: 0,
+  attackInterval: .5,
+  projectileSpeed: 780,
+  projectileCount: 1,
+  attackRange: 280,
+  criticalChance: 0,
+  criticalDamageMultiplier: 1.05,
+};
+
+function engage(enemy: EnemyState, targetId: string | null = null, startedAtTick = 0) {
+  enemy.engaged = true;
+  enemy.leashing = false;
+  enemy.aggroTargetId = targetId;
+  enemy.aggroStartedAtTick = startedAtTick;
+}
+
+describe("deterministic enemy simulation", () => {
+  it("evaluates the same ambient pose regardless of client update count", () => {
+    const first = idleEnemyAt(1_000, 1_000);
+    const second = idleEnemyAt(1_000, 1_000);
+    const now = 1_800_000_000_000;
+    const create = (enemy: EnemyState) => createEnemySimulation(
+      [enemy],
+      () => {},
+      playerAt(3_000, 3_000),
+      () => ({ width: 320, height: 600, zoom: 1 }),
+      engage,
+      () => false,
+      { currentMapId: () => "tutorial_forest", serverNowMs: () => now },
     );
+    const oneStep = create(first);
+    const manySteps = create(second);
 
-    simulation.update(1 / 60);
+    oneStep.update(1 / 60);
+    for (let index = 0; index < 20; index += 1) manySteps.update(1 / 60);
 
-    expect(near.phase).toBeCloseTo(.05);
-    expect(far.phase).toBe(0);
-    expect(far.idleUpdateElapsed).toBeCloseTo(1 / 60);
+    expect(second.x).toBeCloseTo(first.x, 8);
+    expect(second.y).toBeCloseTo(first.y, 8);
+    expect(second.phase).toBeCloseTo(first.phase, 8);
+    expect(second.facingX).toBe(first.facingX);
   });
 
-  it("separates overlapping enemies across a grid-cell boundary", () => {
-    const left = idleEnemyAt(127, 200);
-    const right = idleEnemyAt(130, 200);
-    right.siteId = 2;
+  it("creates an independent remote ghost without taking over the local enemy", () => {
+    const enemy = idleEnemyAt(100, 100);
+    const local = playerAt(500, 500);
+    const remote = remotePlayerAt(900, 900);
+    let now = 1_800_000_000_000;
     const simulation = createEnemySimulation(
-      [left, right], () => {}, playerAt(300, 300), () => ({ width: 600, height: 600, zoom: 1 }), () => {}, () => false,
+      [enemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => now,
+        localIdentity: () => "local-player",
+        localAggroPosition: () => local,
+        remotePlayers: () => [remote],
+        remoteCombatStats: () => remoteCombatStats,
+      },
     );
 
     simulation.update(1 / 60);
+    expect(enemy.engaged).toBe(false);
+    expect(simulation.renderRemotePlayers([remote])[0].regularEnemyCombat).toBeUndefined();
 
-    expect(Math.hypot(right.x - left.x, right.y - left.y)).toBeCloseTo((left.r + right.r) * .72);
+    remote.x = enemy.x + 30;
+    remote.y = enemy.y;
+    remote.simulationX = remote.x;
+    remote.simulationY = remote.y;
+    simulation.update(1 / 60);
+
+    expect(enemy).toMatchObject({ engaged: false });
+    expect(simulation.renderRemotePlayers([remote])[0].regularEnemyCombat).toMatchObject({
+      enemySiteId: enemy.siteId,
+      targetRadius: enemy.r,
+    });
+    expect(simulation.remoteCombatGhosts()[0]).toMatchObject({
+      siteId: enemy.siteId,
+      remoteCombatGhost: true,
+      engaged: true,
+      aggroTargetId: remote.id,
+    });
+
+    now += 2_000;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()[0].remoteCombatHp).toBeLessThan(enemy.maxHp);
+    expect(enemy.hp).toBe(enemy.maxHp);
+    expect(enemy.engaged).toBe(false);
+  });
+
+  it("creates a ghost when the remote player's real attack range reaches the enemy", () => {
+    const enemy = idleEnemyAt(100, 100);
+    const local = playerAt(500, 500);
+    const remote = remotePlayerAt(900, 900);
+    const simulation = createEnemySimulation(
+      [enemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => 1_800_000_000_000,
+        localIdentity: () => "local-player",
+        localAggroPosition: () => local,
+        remotePlayers: () => [remote],
+        remoteCombatStats: () => remoteCombatStats,
+      },
+    );
+
+    simulation.update(1 / 60);
+    remote.x = enemy.x + remoteCombatStats.attackRange - 1;
+    remote.y = enemy.y;
+    remote.simulationX = remote.x;
+    remote.simulationY = remote.y;
+    simulation.update(1 / 60);
+
+    expect(simulation.remoteCombatGhosts()).toHaveLength(1);
+    expect(simulation.remoteCombatGhosts()[0].aggroTargetId).toBe(remote.id);
+    expect(enemy.engaged).toBe(false);
+  });
+
+  it("starts a later independent ghost engagement at full displayed player health", () => {
+    const firstEnemy = idleEnemyAt(100, 100);
+    firstEnemy.damage = 1_000;
+    const secondEnemy = idleEnemyAt(900, 100);
+    secondEnemy.siteId = 2;
+    const local = playerAt(500, 500);
+    const remote = remotePlayerAt(1_800, 1_800);
+    let now = 1_800_000_000_000;
+    const stats = { ...remoteCombatStats, maxHp: 100, damage: 1, attackInterval: 10 };
+    const simulation = createEnemySimulation(
+      [firstEnemy, secondEnemy],
+      () => {},
+      local,
+      () => ({ width: 1_200, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => now,
+        localIdentity: () => "local-player",
+        localAggroPosition: () => local,
+        remotePlayers: () => [remote],
+        remoteCombatStats: () => stats,
+      },
+    );
+
+    simulation.update(1 / 60);
+    remote.x = firstEnemy.x;
+    remote.y = firstEnemy.y;
+    remote.simulationX = remote.x;
+    remote.simulationY = remote.y;
+    simulation.update(1 / 60);
+
+    now += 1_100;
+    simulation.update(1 / 60);
+    expect(simulation.renderRemotePlayers([remote])[0].regularEnemyCombat?.hp).toBe(0);
+
+    now += 900;
+    simulation.update(1 / 60);
+    remote.x = secondEnemy.x;
+    remote.y = secondEnemy.y;
+    remote.simulationX = remote.x;
+    remote.simulationY = remote.y;
+    simulation.update(1 / 60);
+
+    expect(simulation.renderRemotePlayers([remote])[0].regularEnemyCombat).toMatchObject({
+      hp: 100,
+      maxHp: 100,
+    });
+  });
+
+  it("lets a ghost reach zero, animate, and disappear without rewarding the observer", () => {
+    const enemy = idleEnemyAt(100, 100);
+    const local = playerAt(500, 500);
+    const remote = remotePlayerAt(100, 100);
+    let now = 1_800_000_000_000;
+    const simulation = createEnemySimulation(
+      [enemy],
+      () => {},
+      local,
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => now,
+        localIdentity: () => "local-player",
+        localAggroPosition: () => local,
+        remotePlayers: () => [remote],
+        remoteCombatStats: () => ({ ...remoteCombatStats, damage: 1_000, attackInterval: .5 }),
+      },
+    );
+
+    simulation.update(1 / 60);
+    now += 1_000;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()[0]).toMatchObject({
+      remoteCombatHp: 0,
+      remoteCombatDeathProgress: 0,
+    });
+    expect(enemy).toMatchObject({ hp: enemy.maxHp, dead: false, engaged: false });
+
+    now += 700;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(0);
+    expect(enemy).toMatchObject({ hp: enemy.maxHp, dead: false });
   });
 });

@@ -12,7 +12,7 @@ flowchart LR
   PositionGate -->|"moving heartbeat: 2 Hz"| PositionReducer
   PositionReducer --> PrivateMotion["private player_motion analytical anchor"]
   PrivateMotion --> Sample["sample x/y at publisher timestamp"]
-  Sample --> DetailPublisher["2 Hz recipient-frame publisher"]
+  Sample --> DetailPublisher["3 Hz recipient-frame publisher"]
   MapBatch --> Interest["client selects nearest five with hysteresis"]
   Interest -->|"membership changes only"| InterestReducer["set_player_motion_interest"]
   InterestReducer --> DetailPublisher
@@ -43,16 +43,17 @@ flowchart LR
 
 - `player_motion` is a private analytical anchor: client-authoritative `x/y`, world-space `vx/vy`, sender simulation tick, motion epoch, sequence, and anchor time. Each sender owns its reducer; writes have no public row fanout.
 - Keyboard sends only velocity transitions plus a 500 ms moving heartbeat. Touch compares squared magnitudes and a dot product against a 24-direction-equivalent hysteresis gate, then sends exact `vx/vy`; local movement remains fully analog. Material steering is capped at 10 Hz. Stationary players send nothing.
-- Remote presentation treats the 2 Hz heartbeat as correction cadence, not network jitter. It keeps only a short jitter buffer, anchors each correction to the pose already being shown, and extrapolates directly from transmitted world velocity. The per-render predictor no longer reconstructs speed with repeated magnitudes, alignments, or old-position deltas.
+- Remote presentation treats the 3 Hz nearby frame as correction cadence, not network jitter. It keeps a deliberate roughly 220–240 ms presentation buffer, anchors each correction to the pose already being shown, preserves the stationary anchor when movement starts, and clamps correction at a confirmed stop. The per-render predictor extrapolates directly from transmitted world velocity instead of reconstructing speed from old-position deltas.
 - `motionEpoch` is the only hard discontinuity guard. Respawns, world/session resets, map transitions, and duel teleports advance it and flush the old prediction buffer. Distance never decides whether valid fast travel was a teleport. The wrap-aware 16-bit hot `simulationTick` reconstructs sender cadence; server time remains the fallback across epochs.
 - Both publishers analytically advance anchors to their shared publication timestamp before packing them. The server does not run a per-player tick or write the sampled pose back. A 1.5-second grace horizon turns stale anchors into a bounded stopped pose.
-- `player_motion_detail_frame` is an insert-only event table filtered by recipient identity. One 2 Hz scheduler performs at most five indexed motion lookups per interested viewer and packs those samples into a single frame. Each sample is 16 bytes: network ID, quantized `x/y`, quantized `vx/vy`, low 16 bits of simulation tick, and low 16 bits of motion epoch.
+- `player_motion_detail_frame` is an insert-only event table filtered by recipient identity. One 3 Hz scheduler performs at most five indexed motion lookups per interested viewer and packs those samples into a single frame. Each sample is 16 bytes: network ID, quantized `x/y`, quantized `vx/vy`, low 16 bits of simulation tick, and low 16 bits of motion epoch.
 - `player` is exact-own lifecycle and compatibility state. It updates on movement start, stop, idle correction, presentation changes, teleports, and lifecycle changes—not on heartbeats or zone crossings. Current clients never subscribe to remote rows.
 - `player_motion_identity` is the stable map-wide presentation cache: compact network ID, identity, name, account kind, appearance, speed, power, and equipment. Clients subscribe once per map; movement and camera motion never update or replace this subscription. Physical zone columns remain migration compatibility only. Base hydration subscribes only to the local durable profile, never every historical profile/account row.
 - `player_map_frame` is one compact 1 Hz snapshot per shared map. Its separate 8-byte sample carries only network ID and `x/y`; prediction-only velocity, tick, and epoch never inflate distant markers.
-- Detailed remote players use the stable presentation cache plus one recipient-frame query. The all-map snapshot selects at most five relevant network IDs before server serialization; never create one subscription handle per selected player.
+- Detailed remote players use the stable presentation cache plus one recipient-frame query. The all-map snapshot selects at most five relevant network IDs before server serialization and may seed a fresh initial pose while detail connects; an unconfirmed detail lane resubmits its bounded interest and replaces the single recipient subscription. Never create one subscription handle per selected player.
 - An invisible developer cannot appear in another client's visible-player query. Sparse state frames remain smooth through vector extrapolation; observation no longer asks every sender for a high-rate stream or requires stationary movement heartbeats.
-- Remote players render name and power only. Health remains local simulation state and never enters the realtime player row.
+- Remote players normally render name and power only. Actual health remains local simulation state and never enters the realtime player row.
+- Regular enemies use the existing frame \`emittedAt\` timestamps and detailed motion samples for a versioned client-only deterministic timeline. A remote fight uses a separate translucent enemy copy created only when either enemy proximity or that player's exact saved attack range reaches the encounter; its short-lived stat snapshot comes from existing progress/research/upgrade tables and never changes the solid local enemy or durable combat state. See \`docs/regular-enemy-simulation.md\`.
 - Normal progress mutations persist locally immediately, then coalesce into one server save. Anything that snapshots equipment, such as a duel, must drain pending progress first.
 
 ## Connection state
@@ -162,6 +163,6 @@ Server owns connection/controller identity, map portals, shared bosses, research
 
 ### Follow-up measurement note
 
-If remote motion still diverges on a representative phone, record predicted-versus-confirmed position error, epoch changes, sender tick deltas, and dropped simulation time before increasing movement traffic beyond 2 Hz. An adaptive correction rate remains an option, but it should be justified against reducer ingress and dense-map fanout rather than used to mask a presentation-clock error.
+If remote motion still diverges on a representative phone, record predicted-versus-confirmed position error, epoch changes, sender tick deltas, and dropped simulation time before changing either the 2 Hz sender heartbeat or 3 Hz nearby publication. An adaptive correction rate remains an option, but it should be justified against reducer ingress and dense-map fanout rather than used to mask a presentation-clock error.
 
 At much larger map populations, measure the one-time presentation snapshot separately from steady traffic. If that join cost becomes material, the next legitimate step is a revisioned request-once presentation catalog or a packed string dictionary—not movement-coupled identity updates, moving subscriptions, or a high-rate server tick. Also measure whether 0.5 Hz map repair plus small deltas beats the current bounded 1 Hz snapshot before changing it.

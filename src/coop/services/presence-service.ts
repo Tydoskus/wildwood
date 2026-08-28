@@ -8,15 +8,18 @@ import {
   createRemoteMotionCorrection,
   createRemoteInterpolationClock,
   createRestartRemoteInterpolationClock,
+  constrainRemoteMotionToLatestStop,
   duplicateRemoteMotionSample,
   observeRemoteSample,
   remoteMotionAt,
+  remoteMotionAtServerTime,
   remoteSampleIntervalMs,
   remoteMotionTransition,
   resetRemoteMotionCorrection,
   type RemoteInterpolationClock,
   type RemoteMotionCorrection,
 } from "./remote-interpolation";
+import { REGULAR_ENEMY_CONSENSUS_DELAY_MS } from "../../../shared/regular-enemy-simulation";
 import {
   createRemoteBossAttackState,
   remoteBossAttackFrame,
@@ -28,8 +31,11 @@ import {
   type PlayerMapSample,
 } from "../../../shared/player-motion-frame";
 import {
+  hasMissingPlayerMotionDetail,
+  PLAYER_MOTION_DETAIL_RECOVERY_MS,
   samePlayerMotionInterest,
   selectPlayerMotionInterest,
+  shouldRecoverPlayerMotionDetail,
 } from "../../../shared/player-motion-interest";
 import {
   movementUpdateReason,
@@ -44,10 +50,13 @@ import {
   BEGINNER_DESERT_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  PLAYER_RADIUS,
   PLAYER_SPEED,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
 } from "../../../shared/rules";
 import type {
   LocalPlayerState,
@@ -94,6 +103,7 @@ type PresenceServiceDependencies = {
   onControllerConflict: () => void;
   directory: ProfileDirectory;
   developer: DeveloperService;
+  latencyMs: () => number | null;
 };
 
 type PlayerRow = {
@@ -170,14 +180,17 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
       sample.receivedAt - latest.receivedAt,
     );
   }
-  if (movementRestarted || motionDiscontinuity) {
+  if (motionDiscontinuity) {
     existing.samples.length = 0;
     existing.samples.push({ ...sample, timelineAt: sample.receivedAt });
-    existing.interpolationClock = movementRestarted
-      ? createRestartRemoteInterpolationClock(sample.receivedAt)
-      : createRemoteInterpolationClock(sample.receivedAt);
+    existing.interpolationClock = createRemoteInterpolationClock(sample.receivedAt);
     resetRemoteMotionCorrection(existing.motionCorrection, sample.receivedAt);
   } else {
+    if (movementRestarted) {
+      // Keep the confirmed stationary sample. It is the missing start anchor
+      // that lets the first moving frame slide forward instead of teleporting.
+      existing.interpolationClock = createRestartRemoteInterpolationClock(sample.receivedAt);
+    }
     const renderAt = adaptiveRemoteRenderAt(existing.interpolationClock, sample.receivedAt);
     appendRemoteCorrectionSample(existing.samples, sample, renderAt, existing.speed, existing.motionCorrection);
   }
@@ -207,15 +220,42 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let currentMapId = TUTORIAL_FOREST_MAP_ID;
   let localMotionNetworkId: number | null = null;
   let latestMapSamples: readonly PlayerMapSample[] = [];
+  let latestMapFrameServerAtMs = 0;
+  let latestMapFrameReceivedAt = 0;
   let desiredMotionNetworkIds: number[] = [];
   let submittedMotionNetworkIds: number[] = [];
   let motionInterestInFlight = false;
+  let missingMotionDetailSince: number | null = null;
+  let lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
   let lastSentMovement: SentMovementState | null = null;
   let nextPositionSequence = 0;
   let localSimulationTick = 0;
   let localMotionEpoch = 0;
   let localState: LocalPlayerState | null = null;
   let onlinePlayerCount = 0;
+  let serverClockAnchor: { serverAtMs: number; receivedAt: number } | null = null;
+
+  function observeServerClock(serverAtMs: number, receivedAt: number) {
+    if (!Number.isFinite(serverAtMs) || !Number.isFinite(receivedAt)) return;
+    if (serverClockAnchor && serverAtMs <= serverClockAnchor.serverAtMs) return;
+    serverClockAnchor = { serverAtMs, receivedAt };
+  }
+
+  function estimatedServerNowMs(now = performance.now()) {
+    if (!serverClockAnchor) return Date.now();
+    const oneWayLatencyMs = Math.max(0, Math.min(500, dependencies.latencyMs() ?? 0)) / 2;
+    return serverClockAnchor.serverAtMs + Math.max(0, now - serverClockAnchor.receivedAt) + oneWayLatencyMs;
+  }
+
+  function regularEnemyLocalPosition(now = performance.now()) {
+    if (!localState || !lastSentMovement?.moving) return localState ? { x: localState.x, y: localState.y } : null;
+    const consensusAt = now - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
+    const elapsedSeconds = Math.max(0, Math.min(1_500, consensusAt - lastSentMovement.sentAt)) / 1_000;
+    return {
+      x: Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, localState.x + lastSentMovement.vx * elapsedSeconds)),
+      y: Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, localState.y + lastSentMovement.vy * elapsedSeconds)),
+    };
+  }
 
   function advanceLocalMotionEpoch() {
     localMotionEpoch = (localMotionEpoch + 1) & 0xffff;
@@ -225,10 +265,87 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function rebuildDetailedMotionIdentities() {
     detailedMotionIdentities.clear();
     for (const networkId of desiredMotionNetworkIds) {
-      if (!detailedMotionReadyNetworkIds.has(networkId)) continue;
       const identity = motionIdentities.get(networkId);
-      if (identity && identity !== dependencies.localIdentity()) detailedMotionIdentities.add(identity);
+      if (identity && identity !== dependencies.localIdentity() && players.has(identity)) {
+        detailedMotionIdentities.add(identity);
+      }
     }
+  }
+
+  function seedSelectedPlayersFromMap() {
+    if (!latestMapFrameServerAtMs || !latestMapFrameReceivedAt) return;
+    let inserted = false;
+    for (const sample of latestMapSamples) {
+      if (
+        !desiredMotionNetworkIds.includes(sample.networkId) ||
+        detailedMotionReadyNetworkIds.has(sample.networkId)
+      ) continue;
+      const identity = motionIdentities.get(sample.networkId);
+      const presentation = identity ? presentations.get(identity) : undefined;
+      if (!identity || identity === dependencies.localIdentity() || !presentation) continue;
+      const existing = players.get(identity);
+      const latest = existing?.samples[existing.samples.length - 1];
+      if (latest && latest.serverAtMs >= latestMapFrameServerAtMs) continue;
+      if (!existing) {
+        players.set(identity, createRemotePlayer(identity, presentation, {
+          networkId: sample.networkId,
+          x: sample.x,
+          y: sample.y,
+          vx: 0,
+          vy: 0,
+          simulationTick: 0,
+          motionEpoch: 0,
+        }, latestMapFrameServerAtMs, latestMapFrameReceivedAt));
+        inserted = true;
+        continue;
+      }
+      existing.x = sample.x;
+      existing.y = sample.y;
+      existing.moving = false;
+      existing.samples.length = 0;
+      existing.samples.push({
+        timelineAt: latestMapFrameReceivedAt,
+        serverAtMs: latestMapFrameServerAtMs,
+        receivedAt: latestMapFrameReceivedAt,
+        x: sample.x,
+        y: sample.y,
+        vx: 0,
+        vy: 0,
+        simulationTick: 0,
+        motionEpoch: 0,
+        facing: existing.facing,
+        moving: false,
+      });
+      existing.interpolationClock = createRemoteInterpolationClock(latestMapFrameReceivedAt);
+      resetRemoteMotionCorrection(existing.motionCorrection, latestMapFrameReceivedAt);
+    }
+    rebuildDetailedMotionIdentities();
+    if (inserted) dependencies.changes.notify();
+  }
+
+  function recoverMissingMotionDetail(now: number) {
+    const missing = hasMissingPlayerMotionDetail(desiredMotionNetworkIds, detailedMotionReadyNetworkIds);
+    if (!missing) {
+      missingMotionDetailSince = null;
+      return;
+    }
+    if (missingMotionDetailSince === null) {
+      missingMotionDetailSince = now;
+      return;
+    }
+    if (
+      !shouldRecoverPlayerMotionDetail({
+        desiredNetworkIds: desiredMotionNetworkIds,
+        readyNetworkIds: detailedMotionReadyNetworkIds,
+        missingSince: missingMotionDetailSince,
+        now,
+      }) ||
+      now - lastMotionDetailRecoveryAt < PLAYER_MOTION_DETAIL_RECOVERY_MS
+    ) return;
+    lastMotionDetailRecoveryAt = now;
+    submittedMotionNetworkIds = [];
+    submitMotionInterest();
+    queueMicrotask(() => refreshMapMarkerSubscription(true));
   }
 
   function submitMotionInterest() {
@@ -261,6 +378,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
 
   function refreshMotionInterest() {
     if (mapPlayerSubscriptionTransitioning) return;
+    const now = performance.now();
     const position = localState;
     const next = position
       ? selectPlayerMotionInterest({
@@ -272,22 +390,29 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         previousNetworkIds: desiredMotionNetworkIds,
       })
       : [];
-    if (samePlayerMotionInterest(next, desiredMotionNetworkIds)) return;
-    desiredMotionNetworkIds = next;
-    for (const networkId of detailedMotionReadyNetworkIds) {
-      if (!desiredMotionNetworkIds.includes(networkId)) detailedMotionReadyNetworkIds.delete(networkId);
+    if (!samePlayerMotionInterest(next, desiredMotionNetworkIds)) {
+      desiredMotionNetworkIds = next;
+      missingMotionDetailSince = null;
+      for (const networkId of detailedMotionReadyNetworkIds) {
+        if (!desiredMotionNetworkIds.includes(networkId)) detailedMotionReadyNetworkIds.delete(networkId);
+      }
     }
-    rebuildDetailedMotionIdentities();
+    seedSelectedPlayersFromMap();
     submitMotionInterest();
+    recoverMissingMotionDetail(now);
   }
 
   function resetMotionInterest() {
     latestMapSamples = [];
+    latestMapFrameServerAtMs = 0;
+    latestMapFrameReceivedAt = 0;
     desiredMotionNetworkIds = [];
     submittedMotionNetworkIds = [];
     detailedMotionIdentities.clear();
     detailedMotionReadyNetworkIds.clear();
     motionInterestInFlight = false;
+    missingMotionDetailSince = null;
+    lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
   }
 
   function upsertPlayer(row: PlayerRow) {
@@ -461,6 +586,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     }
     const receivedAt = performance.now();
     const serverAtMs = serverTimestampMs(row.emittedAt);
+    observeServerClock(serverAtMs, receivedAt);
     let readinessChanged = false;
     for (const sample of samples) {
       if (!desiredMotionNetworkIds.includes(sample.networkId)) continue;
@@ -492,10 +618,15 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         readinessChanged = true;
       }
     }
-    if (readinessChanged) rebuildDetailedMotionIdentities();
+    if (readinessChanged) {
+      rebuildDetailedMotionIdentities();
+      if (!hasMissingPlayerMotionDetail(desiredMotionNetworkIds, detailedMotionReadyNetworkIds)) {
+        missingMotionDetailSince = null;
+      }
+    }
   }
 
-  function upsertPlayerMapFrame(row: { mapId: string; playerCount: number; payload: Uint8Array }) {
+  function upsertPlayerMapFrame(row: { mapId: string; emittedAt: { microsSinceUnixEpoch: bigint }; playerCount: number; payload: Uint8Array }) {
     if (row.mapId !== currentMapId) return;
     let samples;
     try {
@@ -504,6 +635,11 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       console.warn("Ignored malformed Wildwood minimap frame:", error);
       return;
     }
+    const receivedAt = performance.now();
+    const serverAtMs = serverTimestampMs(row.emittedAt);
+    observeServerClock(serverAtMs, receivedAt);
+    latestMapFrameServerAtMs = serverAtMs;
+    latestMapFrameReceivedAt = receivedAt;
     latestMapSamples = samples;
     mapPlayerMarkers.clear();
     for (const sample of samples) {
@@ -812,19 +948,23 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         const result = remotePlayerRenderBuffer;
         result.length = 0;
         const now = performance.now();
+        const consensusServerAtMs = estimatedServerNowMs(now) - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
         for (const player of players.values()) {
           if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id)) continue;
           const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
-          const motion = applyRemoteMotionCorrection(
+          const motion = constrainRemoteMotionToLatestStop(applyRemoteMotionCorrection(
             remoteMotionAt(player.samples, renderAt),
             player.motionCorrection,
             now,
             player.speed,
-          );
+          ), player.samples);
           player.x = motion.x;
           player.y = motion.y;
           player.facing = motion.facing;
           player.moving = motion.moving;
+          const simulationMotion = remoteMotionAtServerTime(player.samples, consensusServerAtMs);
+          player.simulationX = simulationMotion.x;
+          player.simulationY = simulationMotion.y;
           const bossAttack = remoteBossAttackFrame(player.bossAttackState, now);
           if (bossAttack) {
             player.facing = bossAttack.facing;
@@ -842,6 +982,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       remotePlayerCount() {
         return detailedMotionIdentities.size;
       },
+      serverNowMs: () => estimatedServerNowMs(),
+      regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
       remotePlayerDeath(identity: string) {
         const death = remotePlayerDeaths.get(identity);
         if (!death) return null;
@@ -896,6 +1038,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       refreshMapMarkerSubscription(true);
     },
     beginSession(identityChanged: boolean) {
+      serverClockAnchor = null;
       lastSentMovement = null;
       nextPositionSequence = 0;
       localSimulationTick = 0;
@@ -906,6 +1049,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       if (identityChanged) localState = null;
     },
     markDisconnected() {
+      serverClockAnchor = null;
       lastSentMovement = null;
       nextPositionSequence = 0;
       localSimulationTick = 0;
@@ -914,6 +1058,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       speedSyncTracker.reset();
     },
     clearSession() {
+      serverClockAnchor = null;
       releaseMapPlayerSubscription();
       releaseMapMarkerSubscription();
       players.clear();

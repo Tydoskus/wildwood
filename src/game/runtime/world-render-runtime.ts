@@ -45,6 +45,7 @@ export type WorldRenderRuntimeOptions = {
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
+  remoteEnemies?: () => readonly EnemyState[];
   player: PlayerState;
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
@@ -320,6 +321,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       viewport: () => options.viewport(),
       decor: options.decor,
       enemies: options.enemies,
+      remoteEnemies: options.remoteEnemies,
       player: options.player,
       boss: options.boss,
       spiderBoss: options.spiderBoss,

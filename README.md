@@ -51,7 +51,7 @@ npm run serve:dist
 
 Open `http://127.0.0.1:8000`.
 
-`localhost` connects to `ws://localhost:3000`. GitHub Pages connects to the production database at `wss://maincloud.spacetimedb.com`.
+`localhost` connects to `ws://localhost:3000`. A private Wi-Fi hostname/IP connects to port 3000 on that same host (for example `ws://192.168.0.137:3000`), so LAN test clients join the local database too. GitHub Pages connects to the production database at `wss://maincloud.spacetimedb.com`.
 
 ### Balance Lab
 

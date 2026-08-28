@@ -1,7 +1,8 @@
 import type { PlayerMapSample } from "./player-motion-frame";
 
 export const PLAYER_MOTION_INTEREST_LIMIT = 5;
-export const PLAYER_MOTION_DETAIL_FRAME_HZ = 2;
+export const PLAYER_MOTION_DETAIL_FRAME_HZ = 3;
+export const PLAYER_MOTION_DETAIL_RECOVERY_MS = 1_500;
 
 // A retained actor must be displaced by a candidate at least 20% closer.
 // Squared-distance scoring avoids a square root in the 1 Hz selection path.
@@ -66,4 +67,26 @@ export function selectPlayerMotionInterest(options: {
 
 export function samePlayerMotionInterest(left: readonly number[], right: readonly number[]) {
   return left.length === right.length && left.every((networkId, index) => networkId === right[index]);
+}
+
+export function hasMissingPlayerMotionDetail(
+  desiredNetworkIds: readonly number[],
+  readyNetworkIds: ReadonlySet<number>,
+) {
+  return desiredNetworkIds.some((networkId) => !readyNetworkIds.has(networkId));
+}
+
+export function shouldRecoverPlayerMotionDetail(options: {
+  desiredNetworkIds: readonly number[];
+  readyNetworkIds: ReadonlySet<number>;
+  missingSince: number | null;
+  now: number;
+  recoveryMs?: number;
+}) {
+  if (!hasMissingPlayerMotionDetail(options.desiredNetworkIds, options.readyNetworkIds)) return false;
+  if (options.missingSince === null || !Number.isFinite(options.now)) return false;
+  const recoveryMs = Number.isFinite(options.recoveryMs)
+    ? Math.max(0, Number(options.recoveryMs))
+    : PLAYER_MOTION_DETAIL_RECOVERY_MS;
+  return options.now - options.missingSince >= recoveryMs;
 }

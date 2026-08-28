@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasMissingPlayerMotionDetail,
   PLAYER_MOTION_DETAIL_FRAME_HZ,
   PLAYER_MOTION_INTEREST_LIMIT,
   samePlayerMotionInterest,
   selectPlayerMotionInterest,
+  shouldRecoverPlayerMotionDetail,
 } from "./player-motion-interest";
 
 const available = new Set(Array.from({ length: 20 }, (_, index) => index + 1));
@@ -21,7 +23,7 @@ describe("player motion interest", () => {
 
     expect(selected).toEqual([2, 3, 4, 5, 6]);
     expect(selected).toHaveLength(PLAYER_MOTION_INTEREST_LIMIT);
-    expect(PLAYER_MOTION_DETAIL_FRAME_HZ).toBe(2);
+    expect(PLAYER_MOTION_DETAIL_FRAME_HZ).toBe(3);
   });
 
   it("retains the boundary actor until a newcomer is materially closer", () => {
@@ -74,5 +76,28 @@ describe("player motion interest", () => {
     expect(samePlayerMotionInterest([2, 3, 4], [2, 3, 4])).toBe(true);
     expect(samePlayerMotionInterest([2, 3, 4], [3, 2, 4])).toBe(false);
     expect(samePlayerMotionInterest([2, 3], [2, 3, 4])).toBe(false);
+  });
+
+  it("recovers a selected actor when its detail frame never becomes ready", () => {
+    const desiredNetworkIds = [2, 3];
+    expect(hasMissingPlayerMotionDetail(desiredNetworkIds, new Set([2]))).toBe(true);
+    expect(shouldRecoverPlayerMotionDetail({
+      desiredNetworkIds,
+      readyNetworkIds: new Set([2]),
+      missingSince: 1_000,
+      now: 2_499,
+    })).toBe(false);
+    expect(shouldRecoverPlayerMotionDetail({
+      desiredNetworkIds,
+      readyNetworkIds: new Set([2]),
+      missingSince: 1_000,
+      now: 2_500,
+    })).toBe(true);
+    expect(shouldRecoverPlayerMotionDetail({
+      desiredNetworkIds,
+      readyNetworkIds: new Set([2, 3]),
+      missingSince: 1_000,
+      now: 9_000,
+    })).toBe(false);
   });
 });

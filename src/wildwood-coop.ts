@@ -28,6 +28,8 @@ import {
   type PlayerProfileService,
 } from "./coop/services/player-profile-service";
 import { createPresenceService, type PresenceService } from "./coop/services/presence-service";
+import { createRemoteCombatStatsService } from "./coop/services/remote-combat-stats-service";
+import { defaultRealtimeHost } from "./coop/services/realtime-host";
 import {
   startBaseSubscription,
   type BaseSubscriptionHandlers,
@@ -60,6 +62,8 @@ export type {
   PlayerResearch,
   RemotePlayer,
   RemotePlayerDeath,
+  RemoteCombatStats,
+  RemoteRegularEnemyCombatVisual,
   SpiderBossState,
   SpiderResult,
   TidewyrmBossState,
@@ -77,8 +81,7 @@ const LATENCY_SMOOTHING = .25;
 const WAKE_RECONNECT_WATCHDOG_MS = 10_000;
 
 const runtime = window as WildwoodRuntime;
-const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-const defaultHost = isLocalHost ? "ws://localhost:3000" : "wss://maincloud.spacetimedb.com";
+const defaultHost = defaultRealtimeHost(window.location.hostname);
 const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
 const tokenKey = `${host}/${databaseName}/auth_token`;
@@ -460,6 +463,11 @@ playerProfileService = createPlayerProfileService({
   developerIdentityFor: developerService.identityFor,
 });
 
+const remoteCombatStatsService = createRemoteCombatStatsService({
+  connection: () => connection,
+  identityFor: profileDirectory.identityFor,
+});
+
 presenceService = createPresenceService({
   reducers: reducerPort,
   changes: { notify: onChange, batch: batchChanges },
@@ -475,6 +483,7 @@ presenceService = createPresenceService({
   },
   directory: profileDirectory,
   developer: developerService,
+  latencyMs: () => latencyMs,
 });
 const {
   upsertPlayer,
@@ -599,6 +608,7 @@ const baseSubscriptionHandlers = {
 } satisfies BaseSubscriptionHandlers;
 
 function clearRealtimeCaches() {
+  remoteCombatStatsService.clearSession();
   playerProfileService.clearSession();
   presenceService.clearSession();
   profileDirectory.clearSession();
@@ -879,12 +889,13 @@ export const wildwoodCoop = {
   ...profileDirectory.api,
   ...developerService.api,
   ...playerProfileService.api,
+  ...remoteCombatStatsService.api,
   ...bossService.api,
   ...chatService.api,
   ...duelService.api,
   subscriptionCount() {
     if (!connection?.isActive) return 0;
-    return 1 + presenceService.activeSubscriptionCount() + playerProfileService.activeSubscriptionCount() + duelService.activeReplayLoadCount();
+    return 1 + presenceService.activeSubscriptionCount() + playerProfileService.activeSubscriptionCount() + remoteCombatStatsService.activeSubscriptionCount() + duelService.activeReplayLoadCount();
   },
 };
 

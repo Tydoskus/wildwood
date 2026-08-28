@@ -12,7 +12,7 @@ import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
-import { createEnemySimulation } from "./game/runtime/enemy-simulation";
+import { createEnemySimulation, LOCAL_REGULAR_ENEMY_TARGET_ID } from "./game/runtime/enemy-simulation";
 import { createCoopSessionController } from "./game/runtime/coop-session-controller";
 import { createProgressController } from "./game/runtime/progress-controller";
 import { createGameSessionController } from "./game/runtime/game-session-controller";
@@ -76,6 +76,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
+import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
 import { effectivePlayerPower } from "../shared/player-power";
 import { equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
 import {
@@ -430,6 +431,17 @@ import {
     () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     engageEnemy,
     (amount) => playerCombat.damagePlayer(amount),
+    {
+      currentMapId: () => currentMapId,
+      serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
+      localIdentity: () => coop?.localIdentity?.(),
+      localAggroPosition: () => coop?.regularEnemyLocalPosition?.() ?? coop?.localState?.() ?? player,
+      remotePlayers: () => (coop?.remotePlayers?.() ?? [])
+        .filter((remote) => !coop?.remotePlayerDeath?.(remote.id)),
+      remoteCombatStats: (identity) => coop?.remoteCombatStats?.(identity),
+      spawnDamageNumber,
+      spawnBurst,
+    },
   );
   const research = createResearchController({
     player,
@@ -485,7 +497,11 @@ import {
     isLavaMap: () => currentMapId === ADVANCED_LAVA_WASTES_MAP_ID,
     isInfernalMap: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     isWaterMap: () => currentMapId === WATER_REACH_MAP_ID,
-    engageEnemy,
+    engageEnemy: (enemy) => engageEnemy(
+      enemy,
+      coop?.localIdentity?.() || LOCAL_REGULAR_ENEMY_TARGET_ID,
+      regularEnemySimulationTick(coop?.serverNowMs?.() ?? Date.now()),
+    ),
     researchDamageMultiplier,
     researchCriticalChance,
     researchCriticalDamageMultiplier,
@@ -628,7 +644,7 @@ import {
     spawnFromSite,
     enemies,
     spawnSites,
-    clearTransientCombat: () => { projectileStore.clear(); effects.clear(); },
+    clearTransientCombat: () => { projectileStore.clear(); effects.clear(); enemySimulation.clearRemoteCombat(); },
     bossRain,
     spiderVenom,
     frostclawIcefalls,
@@ -751,6 +767,7 @@ import {
     paths,
     decor,
     enemies,
+    remoteEnemies: enemySimulation.remoteCombatGhosts,
     player,
     boss,
     spiderBoss,
@@ -830,7 +847,7 @@ import {
   });
   playerController = createPlayerController({
     player, boss, enemies, spawnSites, decor, paths,
-    clearTransientCombat: () => { projectileStore.clear(); effects.clear(); },
+    clearTransientCombat: () => { projectileStore.clear(); effects.clear(); enemySimulation.clearRemoteCombat(); },
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     getCurrentMapId: () => currentMapId,
     mapSpawn: (mapId) => mapId === TUTORIAL_FOREST_MAP_ID ? START_SPAWN : MAP_CONFIG[mapId].arrival,
@@ -889,7 +906,7 @@ import {
   });
   const renderController = worldRenderRuntime.createFrameRenderer({
     bootsPickup,
-    remotePlayers: () => coop?.remotePlayers?.() ?? [],
+    remotePlayers: () => enemySimulation.renderRemotePlayers(coop?.remotePlayers?.() ?? []),
     mapPlayerMarkers: () => coop?.mapPlayerMarkers?.() ?? [],
     isDueling,
     isArenaScene,

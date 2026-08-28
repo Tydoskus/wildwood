@@ -75,7 +75,9 @@ a stream of tiny reducer changes.
 Remote motion packets now carry quantized world velocity, a wrap-aware sender
 simulation tick, and a motion epoch. The steady moving heartbeat is 2 Hz;
 transitions remain event-driven and stationary players send nothing. Rendering
-extrapolates directly from `vx/vy`, so it no longer performs repeated speed
+receives nearby-player frames at 3 Hz and keeps roughly 220–240 ms buffered so
+the first moving frame interpolates and confirmed stops cannot overshoot.
+Rendering extrapolates directly from `vx/vy`, so it no longer performs repeated speed
 reconstruction, alignment checks, and distance-based teleport classification
 for every remote actor on every frame. Epoch changes explicitly flush old
 motion at respawns, map/session resets, and duel teleports.
@@ -140,10 +142,10 @@ cost:
 11. Keep presentation snapshots render-only. Network corrections, collision,
     auto-attack targeting, portal detection, and saved positions must continue
     to use the current fixed-step state rather than interpolated coordinates.
-12. Measure movement reducer acknowledgements and server instruction count at
-    the new 2 Hz heartbeat before changing cadence again. If error is already
-    bounded, prefer a longer heartbeat on quiet/background clients over more
-    frequent snapshots.
+12. Measure movement reducer acknowledgements at the 2 Hz sender heartbeat and
+    detailed-frame fanout at 3 Hz before changing either cadence again. If error
+    is already bounded, prefer a longer sender heartbeat on quiet/background
+    clients over more frequent snapshots.
 13. If touch steering still emits too often, record sector changes and radial
     magnitude changes separately. Adjust hysteresis or magnitude thresholds;
     do not quantize local movement or the transmitted velocity, because that

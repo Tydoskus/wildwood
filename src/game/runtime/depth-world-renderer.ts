@@ -34,6 +34,7 @@ export function createDepthWorldRenderer(options: {
   viewport: () => Viewport;
   decor: WorldDecor[];
   enemies: EnemyState[];
+  remoteEnemies?: () => readonly EnemyState[];
   player: PlayerState;
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
@@ -194,18 +195,20 @@ export function createDepthWorldRenderer(options: {
     const visibleH = viewport.height / camera.zoom;
     collectVisibleStaticDecor(visibleW, visibleH);
     const enemyCullPadding = 140;
-    for (const enemy of options.enemies) {
-      if (enemy.dead) continue;
-      const opacity = options.enemyOpacity?.(enemy) ?? 1;
-      if (opacity <= 0) continue;
+    const queueEnemy = (enemy: EnemyState) => {
+      if (enemy.dead) return;
+      const opacity = (options.enemyOpacity?.(enemy) ?? 1) * (enemy.remoteCombatGhost ? .56 : 1);
+      if (opacity <= 0) return;
       if (
         enemy.x + enemy.r < camera.x - enemyCullPadding ||
         enemy.x - enemy.r > camera.x + visibleW + enemyCullPadding ||
         enemy.y + enemy.r < camera.y - enemyCullPadding ||
         enemy.y - enemyCullPadding > camera.y + visibleH + enemyCullPadding
-      ) continue;
+      ) return;
       queueLayer(enemy.y + enemy.r, 1, "enemy", enemy, opacity);
-    }
+    };
+    for (const enemy of options.enemies) queueEnemy(enemy);
+    for (const enemy of options.remoteEnemies?.() ?? []) queueEnemy(enemy);
     const currentMapId = options.currentMapId();
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.boss.dead) {
       queueLayer(options.boss.y + 93, 1, "dragon");

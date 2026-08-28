@@ -7,7 +7,7 @@ system total rather than proof that any one lane costs 20.4 KB/s.
 ## Protocol 72 budget
 
 Detailed motion is now selected before fanout. Each client submits at most five
-relevant network IDs, and the server emits one recipient-filtered frame at 2 Hz.
+relevant network IDs, and the server emits one recipient-filtered frame at 3 Hz.
 All other players remain available as 8-byte dots in the bounded 1 Hz map
 snapshot.
 
@@ -15,12 +15,12 @@ At 100 visible players, the raw payload budget per client is:
 
 | Lane | Calculation | Raw payload |
 | --- | ---: | ---: |
-| Detailed motion | 5 actors × 16 bytes × 2 Hz | 160 B/s |
+| Detailed motion | 5 actors × 16 bytes × 3 Hz | 240 B/s |
 | All-map dots | 100 actors × 8 bytes × 1 Hz | 800 B/s |
-| Total | | 960 B/s |
+| Total | | 1,040 B/s |
 
 Wire framing, subscription transactions, and the identity-scoped core tables
-must fit in the remaining roughly 1.04 KB/s to meet the 2 KB/s target. Measure
+must fit in the remaining roughly 0.96 KB/s to meet the 2 KB/s target. Measure
 that overhead rather than estimating it from application payloads. The stable
 map presentation cache is a join-time snapshot plus rare appearance/stat
 deltas; exclude its initial snapshot when calculating steady-state bytes/sec,

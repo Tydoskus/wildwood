@@ -4,6 +4,33 @@ import type { PlayerProgress } from "./services/progress";
 import type { RemoteBossAttackVisual } from "./services/remote-boss-attack";
 import type { RemoteEquipment } from "./services/remote-equipment";
 
+export type RemoteRegularEnemyCombatVisual = {
+  enemySiteId: number;
+  targetX: number;
+  targetY: number;
+  targetRadius: number;
+  hits: number;
+  projectileProgress: number;
+  throwClock: number;
+  critical: boolean;
+  hp: number;
+  maxHp: number;
+};
+
+/** Existing saved stats needed to reproduce a remote regular-enemy fight locally. */
+export type RemoteCombatStats = {
+  damage: number;
+  maxHp: number;
+  armor: number;
+  regen: number;
+  attackInterval: number;
+  projectileSpeed: number;
+  projectileCount: number;
+  attackRange: number;
+  criticalChance: number;
+  criticalDamageMultiplier: number;
+};
+
 export type RemotePlayer = RemoteEquipment & {
   id: string;
   name: string;
@@ -13,8 +40,12 @@ export type RemotePlayer = RemoteEquipment & {
   speed: number;
   facing: number;
   moving: boolean;
+  /** Server-time pose used for deterministic regular-enemy decisions. */
+  simulationX?: number;
+  simulationY?: number;
   throwClock?: number;
   bossAttack?: RemoteBossAttackVisual;
+  regularEnemyCombat?: RemoteRegularEnemyCombatVisual;
 };
 
 export type MapPlayerMarker = {

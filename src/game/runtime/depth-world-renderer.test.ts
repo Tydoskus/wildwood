@@ -2,14 +2,22 @@ import { describe, expect, it } from "vitest";
 import { TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
 
-function renderer(decor: WorldDecor[], calls: string[], mapId: MapId = TUTORIAL_FOREST_MAP_ID, tidewyrmDead = true) {
+function renderer(
+  decor: WorldDecor[],
+  calls: string[],
+  mapId: MapId = TUTORIAL_FOREST_MAP_ID,
+  tidewyrmDead = true,
+  remoteEnemies: EnemyState[] = [],
+  enemyOpacities: number[] = [],
+) {
   return createDepthWorldRenderer({
     camera: { x: 0, y: 0, zoom: 1 } as Camera,
     viewport: () => ({ width: 500, height: 500 }),
     decor,
     enemies: [],
+    remoteEnemies: () => remoteEnemies,
     player: { y: 170 } as PlayerState,
     boss: { dead: true, y: 0 } as DragonBossState,
     spiderBoss: { dead: true, y: 0 } as SpiderBossState,
@@ -26,7 +34,7 @@ function renderer(decor: WorldDecor[], calls: string[], mapId: MapId = TUTORIAL_
     drawSnowPine: (tree) => calls.push(`pine:${tree.y}`),
     drawUpgradeBench: (bench) => calls.push(`bench:${bench.y}`),
     drawCharredTree: (tree) => calls.push(`charred-tree:${tree.y}`),
-    drawEnemy: () => calls.push("enemy"),
+    drawEnemy: (_enemy, opacity = 1) => { calls.push("enemy"); enemyOpacities.push(opacity); },
     drawBoss: () => calls.push("boss"),
     drawSpiderBoss: () => calls.push("spider"),
     drawFrostclawBoss: () => calls.push("frostclaw"),
@@ -100,5 +108,23 @@ describe("depth world renderer", () => {
     depth.drawDepthSortedWorld([], false);
 
     expect(calls).toEqual(["player", "tidewyrm"]);
+  });
+
+  it("depth-sorts remote combat copies at translucent opacity", () => {
+    const calls: string[] = [];
+    const opacities: number[] = [];
+    const ghost = {
+      x: 100,
+      y: 100,
+      r: 14,
+      dead: false,
+      remoteCombatGhost: true,
+    } as EnemyState;
+    const depth = renderer([], calls, TUTORIAL_FOREST_MAP_ID, true, [ghost], opacities);
+
+    depth.drawDepthSortedWorld([], false);
+
+    expect(calls).toEqual(["enemy", "player"]);
+    expect(opacities).toEqual([.56]);
   });
 });
