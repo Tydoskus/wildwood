@@ -216,9 +216,9 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     refreshFullscreen,
     refreshSettings,
     refreshStatus,
-    renderFps: (fps: number, onePercentLowFps: number, workFps: number) => {
+    renderFps: (fps: number, onePercentLowFps: number, workFps: number, idleThrottled = false) => {
       if (!fpsVisible) return;
-      gameFpsStatus.textContent = `GAME FPS: ${fps}`;
+      gameFpsStatus.textContent = `GAME FPS: ${fps}${idleThrottled ? " · IDLE" : ""}`;
       onePercentLowFpsStatus.textContent = `1% LOW: ${onePercentLowFps}`;
       workFpsStatus.textContent = `WORK FPS: ${workFps}`;
     },

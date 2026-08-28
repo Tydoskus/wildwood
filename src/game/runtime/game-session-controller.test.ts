@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MIN_ATTACK_INTERVAL } from "../../../shared/rules";
 import {
   advanceFixedSimulationClock,
+  IDLE_PRESENTATION_DELAY_MS,
+  idlePresentationThrottleActive,
   MAX_SIMULATION_CATCH_UP_SECONDS,
   MAX_SIMULATION_STEPS_PER_FRAME,
   SIMULATION_STEP_SECONDS,
@@ -90,6 +92,13 @@ describe("game session frame scheduling", () => {
     const callbacks = Array.from({ length: 121 }, (_, index) => index * (1_000 / 60));
 
     expect(countScheduledFrames(callbacks, true)).toBe(61);
+  });
+
+  it("enters idle presentation mode after two seconds and leaves immediately on input", () => {
+    const lastInputAt = 1_000;
+    expect(idlePresentationThrottleActive(false, lastInputAt + IDLE_PRESENTATION_DELAY_MS - 1, lastInputAt)).toBe(false);
+    expect(idlePresentationThrottleActive(false, lastInputAt + IDLE_PRESENTATION_DELAY_MS, lastInputAt)).toBe(true);
+    expect(idlePresentationThrottleActive(true, lastInputAt + IDLE_PRESENTATION_DELAY_MS, lastInputAt)).toBe(false);
   });
 
   it("exposes residual simulation time as presentation interpolation", () => {

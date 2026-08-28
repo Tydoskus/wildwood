@@ -15,6 +15,7 @@ export const SIMULATION_HZ = 60;
 export const SIMULATION_STEP_SECONDS = 1 / SIMULATION_HZ;
 export const MAX_SIMULATION_STEPS_PER_FRAME = 8;
 export const MAX_SIMULATION_CATCH_UP_SECONDS = SIMULATION_STEP_SECONDS * MAX_SIMULATION_STEPS_PER_FRAME;
+export const IDLE_PRESENTATION_DELAY_MS = 2_000;
 
 export type FixedSimulationClock = {
   accumulatorSeconds: number;
@@ -30,6 +31,16 @@ export function frameDeadlineReached(now: number, nextFrameAt: number) {
 /** Default presentation follows every display callback; battery mode stays 30 FPS. */
 export function presentationFrameDue(lowPerformanceMode: boolean, now: number, nextFrameAt: number) {
   return !lowPerformanceMode || frameDeadlineReached(now, nextFrameAt);
+}
+
+export function idlePresentationThrottleActive(
+  inputActive: boolean,
+  now: number,
+  lastInputAt: number,
+  delayMs = IDLE_PRESENTATION_DELAY_MS,
+) {
+  if (inputActive || !Number.isFinite(now) || !Number.isFinite(lastInputAt)) return false;
+  return now - lastInputAt >= Math.max(0, delayMs);
 }
 
 /**
@@ -73,6 +84,7 @@ type SessionDependencies = {
   connected: () => boolean;
   accountInConflict: () => boolean;
   lowPerformanceMode: () => boolean;
+  presentationInputActive: () => boolean;
   ensureMusicPlaying: () => void;
   hideStart: () => void;
   hideGameOver: () => void;
@@ -115,7 +127,7 @@ type SessionDependencies = {
   recordPerformance: (frameMs: number, updateMs: number, renderMs: number, workMs: number) => void;
   renderPerformancePanel: () => void;
   performancePanelVisible: () => boolean;
-  renderFpsDisplay: () => void;
+  renderFpsDisplay: (idleThrottled: boolean) => void;
   fpsDisplayVisible: () => boolean;
   fadeElement: HTMLElement;
   onLeaveDuelResult: () => void;
@@ -130,6 +142,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let lastFrameAt = performance.now();
   let lastRenderedAt = lastFrameAt;
   let nextFrameAt = lastFrameAt;
+  let lastPresentationInputAt = lastFrameAt;
   let simulationAccumulatorSeconds = 0;
   let nextPerformancePanelUpdateAt = 0;
   let fading = false;
@@ -201,6 +214,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     lastFrameAt = performance.now();
     lastRenderedAt = lastFrameAt;
     nextFrameAt = lastFrameAt;
+    lastPresentationInputAt = lastFrameAt;
     simulationAccumulatorSeconds = 0;
     dependencies.resetPresentationState();
   }
@@ -212,11 +226,16 @@ export function createGameSessionController(dependencies: SessionDependencies) {
 
   function loop(now: number) {
     const lowPerformanceMode = dependencies.lowPerformanceMode();
-    if (!presentationFrameDue(lowPerformanceMode, now, nextFrameAt)) {
+    const inputActive = dependencies.presentationInputActive();
+    if (inputActive) lastPresentationInputAt = now;
+    const idleThrottled = !lowPerformanceMode
+      && idlePresentationThrottleActive(inputActive, now, lastPresentationInputAt);
+    const reducedFrameRate = lowPerformanceMode || idleThrottled;
+    if (!presentationFrameDue(reducedFrameRate, now, nextFrameAt)) {
       requestAnimationFrame(loop);
       return;
     }
-    if (lowPerformanceMode) {
+    if (reducedFrameRate) {
       const frameIntervalMs = 1_000 / 30;
       nextFrameAt += frameIntervalMs;
       if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
@@ -244,7 +263,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if ((dependencies.performancePanelVisible() || dependencies.fpsDisplayVisible()) && now >= nextPerformancePanelUpdateAt) {
       nextPerformancePanelUpdateAt = now + 500;
       if (dependencies.performancePanelVisible()) dependencies.renderPerformancePanel();
-      if (dependencies.fpsDisplayVisible()) dependencies.renderFpsDisplay();
+      if (dependencies.fpsDisplayVisible()) dependencies.renderFpsDisplay(idleThrottled);
     }
     requestAnimationFrame(loop);
   }

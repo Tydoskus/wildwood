@@ -35,6 +35,7 @@ import {
   type BaseSubscriptionHandlers,
 } from "./coop/services/base-subscription";
 import { createAccountService, type AccountService } from "./coop/services/account-service";
+import { createStartupAuthGate, loadDeferredGameBundle } from "./coop/startup-auth-gate";
 import type { ReducerPort } from "./coop/ports";
 export type {
   AccessAuditEntry,
@@ -147,6 +148,7 @@ let pageWasHidden = false;
 let pageHiddenAt = 0;
 let lastServerActivityAt = performance.now();
 let changeListener: (() => void) | null = null;
+let startupChangeListener: (() => void) | null = null;
 let changeBatchDepth = 0;
 let batchedChangePending = false;
 let protocolBlocked = false;
@@ -166,6 +168,7 @@ function onChange() {
     return;
   }
   changeListener?.();
+  startupChangeListener?.();
 }
 
 const reconnectWatchdog = createReconnectWatchdog({
@@ -186,6 +189,7 @@ function batchChanges(action: () => void) {
     if (changeBatchDepth === 0 && batchedChangePending) {
       batchedChangePending = false;
       changeListener?.();
+      startupChangeListener?.();
     }
   }
 }
@@ -526,6 +530,7 @@ accountService = createAccountService({
   resetWorldEntryGeneration: () => { worldEntryGeneration = 0; },
   requestWorldEntry,
   connect,
+  restartConnectionForIdentityChange,
   scheduleReconnect,
   runWorldReducer,
   handleFailure: handleReducerFailure,
@@ -615,6 +620,31 @@ function clearRealtimeCaches() {
   chatService.resetSession();
   duelService.resetSession();
   bossService.resetSession();
+}
+
+function restartConnectionForIdentityChange() {
+  const staleConnection = connection;
+  connection = null;
+  connecting = false;
+  hydrationReady = false;
+  connectedSignedIn = false;
+  localDbIdentity = null;
+  resumeProbePromise = null;
+  resumeProbeGeneration += 1;
+  worldEntryPromise = null;
+  worldEntryGeneration = 0;
+  worldEntryBlocked = false;
+  latencyMs = null;
+  lastLatencyProbeStartedAt = 0;
+  connectionGeneration += 1;
+  presenceService.markDisconnected();
+  progressionService.markDisconnected();
+  clearRealtimeCaches();
+  setWakeReconnectVisible(false);
+  setNetworkReconnectVisible(false);
+  try { staleConnection?.disconnect(); } catch {}
+  onChange();
+  scheduleReconnect(100);
 }
 
 function scheduleReconnect(delay = 500) {
@@ -924,6 +954,25 @@ window.setInterval(() => {
 window.addEventListener("storage", (event) => {
   accountService.handleStorageEvent(event);
 });
-void accountService.restoreKnownAccount();
+void accountService.restoreKnownAccount().then(() => {
+  const authGate = createStartupAuthGate({
+    accountState: wildwoodCoop.accountState,
+    knownCharacter: wildwoodCoop.knownCharacter,
+    signIn: wildwoodCoop.signIn,
+    continueAsGuest: wildwoodCoop.continueAsGuest,
+    subscribe(listener) {
+      startupChangeListener = listener;
+      return () => {
+        if (startupChangeListener === listener) startupChangeListener = null;
+      };
+    },
+    loadGame: () => loadDeferredGameBundle(),
+  });
+  authGate.start();
+}).catch((error) => {
+  console.error("Wildwood account startup failed:", error);
+  const loadingDetail = document.getElementById("loadingDetail");
+  if (loadingDetail) loadingDetail.textContent = "ACCOUNT STARTUP FAILED · REFRESH TO TRY AGAIN";
+});
 
 export default wildwoodCoop;

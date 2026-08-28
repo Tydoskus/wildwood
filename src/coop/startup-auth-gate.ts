@@ -1,0 +1,199 @@
+type StartupAccountState = {
+  signedIn?: boolean;
+  knownAccount?: boolean;
+  signInRequired?: boolean;
+  guestSessionApproved?: boolean;
+  gameSessionApproved?: boolean;
+  authInProgress?: boolean;
+  returningFromSignIn?: boolean;
+  signInReady?: boolean;
+  notice?: string;
+};
+
+type StartupActionResult = {
+  ok?: boolean;
+  error?: string;
+  redirecting?: boolean;
+} | undefined;
+
+type StartupAuthGateDependencies = {
+  accountState: () => StartupAccountState;
+  knownCharacter: () => string;
+  signIn: () => Promise<StartupActionResult> | StartupActionResult;
+  continueAsGuest: () => Promise<StartupActionResult> | StartupActionResult;
+  subscribe: (listener: () => void) => () => void;
+  loadGame: () => Promise<void>;
+};
+
+type StartupAuthElements = {
+  start: HTMLElement;
+  connectionPanel: HTMLElement;
+  accountChoicePanel: HTMLElement;
+  accountCharacter: HTMLElement;
+  accountCharacterName: HTMLElement;
+  accountChoiceDetail: HTMLElement;
+  signInButton: HTMLButtonElement;
+  guestButton: HTMLButtonElement;
+  loadingDetail: HTMLElement;
+  loadingFill: HTMLElement;
+};
+
+function startupElements(documentValue: Document): StartupAuthElements {
+  function requireElement<T extends HTMLElement>(id: string) {
+    const element = documentValue.getElementById(id);
+    if (!element) throw new Error(`Missing startup element #${id}`);
+    return element as T;
+  }
+  return {
+    start: requireElement("start"),
+    connectionPanel: requireElement("connectionPanel"),
+    accountChoicePanel: requireElement("accountChoicePanel"),
+    accountCharacter: requireElement("accountCharacter"),
+    accountCharacterName: requireElement("accountCharacterName"),
+    accountChoiceDetail: requireElement("accountChoiceDetail"),
+    signInButton: requireElement<HTMLButtonElement>("signInFromStartBtn"),
+    guestButton: requireElement<HTMLButtonElement>("continueGuestBtn"),
+    loadingDetail: requireElement("loadingDetail"),
+    loadingFill: requireElement("loadingFill"),
+  };
+}
+
+function shouldStartGame(state: StartupAccountState) {
+  return Boolean(state.signedIn || state.guestSessionApproved || state.gameSessionApproved);
+}
+
+/** Owns the account screen before the much larger game bundle is requested. */
+export function createStartupAuthGate(
+  dependencies: StartupAuthGateDependencies,
+  elements = startupElements(document),
+) {
+  let pendingAction: "sign-in" | "guest" | null = null;
+  let gameLoading = false;
+  let unsubscribe = () => {};
+
+  function showLoading(detail = "LOADING YOUR CHARACTER") {
+    elements.start.style.display = "grid";
+    elements.accountChoicePanel.classList.remove("is-signing-in");
+    elements.accountChoicePanel.hidden = true;
+    elements.connectionPanel.hidden = false;
+    elements.loadingDetail.textContent = detail;
+    elements.loadingFill.style.width = "8%";
+  }
+
+  function showAccountChoice(detailOverride = "") {
+    const state = dependencies.accountState();
+    const name = dependencies.knownCharacter().trim();
+    const knownAccount = Boolean(state.knownAccount);
+    const ready = state.signInReady !== false;
+    elements.start.style.display = "grid";
+    elements.connectionPanel.hidden = true;
+    elements.accountChoicePanel.hidden = false;
+    elements.accountChoicePanel.classList.remove("is-signing-in");
+    elements.accountCharacterName.textContent = name || "none";
+    elements.accountCharacter.classList.toggle("is-empty", !name);
+    elements.signInButton.textContent = name || knownAccount ? "SIGN IN" : "REGISTER";
+    elements.signInButton.disabled = Boolean(pendingAction) || !ready;
+    elements.guestButton.disabled = Boolean(pendingAction);
+    elements.accountChoiceDetail.textContent = detailOverride || (pendingAction === "sign-in"
+      ? (name || knownAccount ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…")
+      : !ready
+        ? "PREPARING YOUR SAVED GUEST…"
+        : name
+          ? "SIGN IN TO THIS CHARACTER"
+          : knownAccount
+            ? "SIGN IN TO LOAD YOUR CHARACTER"
+            : "REGISTER OR PLAY AS GUEST");
+  }
+
+  function dispose() {
+    unsubscribe();
+    unsubscribe = () => {};
+    elements.signInButton.removeEventListener("click", onSignIn);
+    elements.guestButton.removeEventListener("click", onGuest);
+  }
+
+  function beginGameLoading(detail = "LOADING YOUR CHARACTER") {
+    if (gameLoading) return;
+    gameLoading = true;
+    showLoading(detail);
+    dispose();
+    void dependencies.loadGame().catch((error) => {
+      console.error("Wildwood game bundle failed to load:", error);
+      elements.loadingDetail.textContent = "GAME LOAD FAILED · REFRESH TO TRY AGAIN";
+      elements.loadingFill.style.width = "100%";
+    });
+  }
+
+  function render() {
+    if (gameLoading) return;
+    const state = dependencies.accountState();
+    if (shouldStartGame(state)) {
+      beginGameLoading(state.guestSessionApproved ? "LOADING GUEST PROFILE" : "LOADING YOUR CHARACTER");
+      return;
+    }
+    showAccountChoice();
+  }
+
+  async function onSignIn() {
+    if (pendingAction || gameLoading) return;
+    pendingAction = "sign-in";
+    showAccountChoice();
+    try {
+      const result = await dependencies.signIn();
+      if (result?.ok === false) {
+        pendingAction = null;
+        showAccountChoice(result.error === "WAIT FOR SERVER"
+          ? "PREPARING YOUR SAVED GUEST…"
+          : "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
+        return;
+      }
+      if (!result?.redirecting) beginGameLoading("LOADING YOUR CHARACTER");
+    } catch {
+      pendingAction = null;
+      showAccountChoice("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
+    }
+  }
+
+  async function onGuest() {
+    if (pendingAction || gameLoading) return;
+    pendingAction = "guest";
+    showLoading("LOADING GUEST PROFILE");
+    try {
+      const result = await dependencies.continueAsGuest();
+      if (result?.ok === false) throw new Error(result.error || "Guest startup failed");
+      beginGameLoading("LOADING GUEST PROFILE");
+    } catch {
+      pendingAction = null;
+      showAccountChoice("GUEST LOGIN FAILED · TRY AGAIN");
+    }
+  }
+
+  function start() {
+    elements.signInButton.addEventListener("click", onSignIn);
+    elements.guestButton.addEventListener("click", onGuest);
+    unsubscribe = dependencies.subscribe(render);
+    render();
+  }
+
+  return { dispose, render, start };
+}
+
+/** Loads game.js only after the auth gate has selected an account identity. */
+export function loadDeferredGameBundle(documentValue = document) {
+  const existing = documentValue.getElementById("wildwoodGameScript") as HTMLScriptElement | null;
+  if (existing) return Promise.resolve();
+  const bootstrapScript = documentValue.getElementById("wildwoodCoopScript") as HTMLScriptElement | null;
+  const source = bootstrapScript?.dataset.gameSrc;
+  if (!source) return Promise.reject(new Error("Missing deferred game bundle source"));
+  return new Promise<void>((resolve, reject) => {
+    const script = documentValue.createElement("script");
+    script.id = "wildwoodGameScript";
+    script.src = source;
+    script.async = false;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${source}`)), { once: true });
+    documentValue.body.append(script);
+  });
+}
+
+export type { StartupAccountState, StartupActionResult, StartupAuthElements };

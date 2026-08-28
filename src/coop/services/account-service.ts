@@ -48,6 +48,7 @@ type AccountServiceDependencies = {
   resetWorldEntryGeneration: () => void;
   requestWorldEntry: () => Promise<boolean>;
   connect: () => void;
+  restartConnectionForIdentityChange: () => void;
   scheduleReconnect: (delay?: number) => void;
   runWorldReducer: <T>(reducer: () => T | PromiseLike<T>) => Promise<T>;
   handleFailure: (action: string, error: unknown) => void;
@@ -405,7 +406,10 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       dependencies.notify();
       return;
     }
-    dependencies.connect();
+    // A brand-new visitor should be able to choose OAuth before we create even
+    // a temporary guest connection. Returning guests still connect here so an
+    // eventual account registration can safely link their existing save.
+    if (token || guestSessionExplicit || guestToken()) dependencies.connect();
   }
 
   const api = {
@@ -416,8 +420,10 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         knownAccount: hasKnownAccount(),
         signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
         guestSessionApproved: guestSessionExplicit,
+        gameSessionApproved: guestSessionExplicit || Boolean(accountToken() && sessionApproved),
         authInProgress: callbackPending,
         returningFromSignIn: returnPending || updateResumePending,
+        signInReady: hasKnownAccount() || !guestToken() || Boolean(dependencies.connection()?.isActive),
         hydrated: dependencies.hydrationReady(),
         updating: dependencies.updating(),
         sessionConflict: dependencies.worldEntryBlocked(),
@@ -444,22 +450,28 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     async signIn() {
       if (dependencies.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
       const connection = dependencies.connection();
-      if (connection?.isActive && dependencies.connectedSignedIn()) return { ok: true };
+      if (connection?.isActive && dependencies.connectedSignedIn()) return { ok: true, redirecting: false };
       clearTabValue(keys.authRetryKey);
       if (accountToken() && hasKnownAccount()) {
         sessionApproved = true;
         notice = "OPENING CHARACTER";
         dependencies.notify();
         dependencies.connect();
-        return { ok: true };
+        return { ok: true, redirecting: false };
       }
       if (hasKnownAccount() && !connection) {
         notice = "OPENING SIGN-IN";
         dependencies.notify();
         await startAccountSignIn();
-        return { ok: true };
+        return { ok: true, redirecting: true };
       }
       if (!connection) {
+        if (!guestToken()) {
+          notice = "OPENING REGISTRATION";
+          dependencies.notify();
+          await startAccountSignIn();
+          return { ok: true, redirecting: true };
+        }
         notice = "WAIT FOR SERVER";
         dependencies.notify();
         return { ok: false, error: "WAIT FOR SERVER" };
@@ -491,7 +503,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       notice = "PREPARING SIGN-IN";
       dependencies.notify();
       await startAccountSignIn();
-      return { ok: true };
+      return { ok: true, redirecting: true };
     },
     async takeOverSession() {
       if (dependencies.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
@@ -540,11 +552,26 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       window.location.reload();
     },
     continueAsGuest() {
+      const mustChangeIdentity = Boolean(
+        dependencies.connection()?.isActive && dependencies.connectedSignedIn(),
+      ) || Boolean(accountToken());
+      dependencies.disconnectVirtualPlayers();
+      clearStoredToken(keys.accountTokenKey);
+      clearTabValue(keys.accountLinkKey);
+      clearTabValue(keys.authStateKey);
+      clearTabValue(keys.authVerifierKey);
+      clearAccountMigrationPending();
+      clearAccountReturnPending();
+      callbackPending = false;
+      sessionApproved = false;
+      updateResumePending = false;
       guestSessionExplicit = true;
       notice = "GUEST SESSION";
-      if (dependencies.connection()?.isActive) void dependencies.requestWorldEntry();
+      if (mustChangeIdentity) dependencies.restartConnectionForIdentityChange();
+      else if (dependencies.connection()?.isActive) void dependencies.requestWorldEntry();
       else dependencies.connect();
       dependencies.notify();
+      return { ok: true };
     },
   };
 
@@ -628,6 +655,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       }
     },
     canConnect() {
+      if (!accountToken() && !guestToken() && !guestSessionExplicit) return false;
       if (accountToken() && hasKnownAccount() && !sessionApproved) {
         notice = "SIGN-IN REQUIRED";
         dependencies.notify();

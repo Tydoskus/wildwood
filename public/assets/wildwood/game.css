@@ -1603,27 +1603,25 @@
 
   #connectionPanel[hidden], #accountChoicePanel[hidden], #newPlayerPanel[hidden] { display: none; }
 
-  .connection-modal {
+  .modal.connection-modal,
+  .modal.account-choice-modal {
     position: fixed;
     top: 50vh;
     top: 50dvh;
     left: 50%;
     width: min(430px, calc(100vw - 36px));
+    height: min(586px, calc(100vh - 24px));
+    height: min(586px, calc(100svh - 24px));
     max-height: calc(100svh - 24px);
     margin: 0;
     overflow-y: auto;
     transform: translate(-50%, -50%);
   }
 
-  .account-choice-modal {
-    width: min(430px, calc(100vw - 36px));
-    height: min(586px, calc(100vh - 24px));
-    height: min(586px, calc(100svh - 24px));
-    margin-top: max(12px, calc((100svh - 586px) / 2));
-    overflow-y: auto;
-    align-self: start;
-  }
-
+  .connection-modal {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     text-align: center;
   }
 

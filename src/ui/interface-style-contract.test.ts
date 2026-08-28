@@ -275,11 +275,15 @@ describe("interface style contracts", () => {
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
-    expect(cssRule(".connection-modal {")).toContain("top: 50dvh");
-    expect(cssRule(".connection-modal {")).toContain("transform: translate(-50%, -50%)");
-    expect(cssRule(".account-choice-modal {")).toContain("calc(100svh - 24px)");
-    expect(cssRule(".account-choice-modal {")).toContain("calc((100svh - 586px) / 2)");
+    const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal {");
+    expect(stableStartupWindow).toContain("top: 50dvh");
+    expect(stableStartupWindow).toContain("transform: translate(-50%, -50%)");
+    expect(stableStartupWindow).toContain("height: min(586px, calc(100svh - 24px))");
+    expect(stableStartupWindow).toContain("width: min(430px, calc(100vw - 36px))");
     expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
+    expect(html).toContain('id="wildwoodCoopScript"');
+    expect(html).toContain('data-game-src="assets/wildwood/game.js?v=');
+    expect(html).not.toContain('<script src="assets/wildwood/game.js');
   });
 
   it("shows the death message above the fallen player without covering the game", () => {

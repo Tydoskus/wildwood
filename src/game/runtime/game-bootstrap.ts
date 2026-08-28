@@ -294,8 +294,7 @@ export function createGameBootstrapAssets(options: {
 
 /** Runs one-time client startup after controllers have been composed. */
 export function startGameRuntime(options: {
-  accountState: () => { returningFromSignIn?: boolean; signInRequired?: boolean; signedIn?: boolean; knownAccount?: boolean; authInProgress?: boolean } | undefined;
-  showSigningIn: () => void;
+  accountState: () => { returningFromSignIn?: boolean; signInRequired?: boolean; signedIn?: boolean; knownAccount?: boolean; authInProgress?: boolean; guestSessionApproved?: boolean } | undefined;
   showAccountChoice: () => void;
   showConnecting: () => void;
   loadProgress: () => void;
@@ -307,9 +306,9 @@ export function startGameRuntime(options: {
   loop: FrameRequestCallback;
 }) {
   const account = options.accountState();
-  if (account?.returningFromSignIn) options.showSigningIn();
-  else if (account?.signInRequired) options.showAccountChoice();
-  else if (!account?.signedIn && !account?.knownAccount && !account?.authInProgress) options.showAccountChoice();
+  if (account?.signInRequired && !account?.returningFromSignIn) options.showAccountChoice();
+  else if (!account?.signedIn && !account?.knownAccount && !account?.authInProgress
+    && !account?.guestSessionApproved) options.showAccountChoice();
   else options.showConnecting();
   options.loadProgress();
   options.rebuildWorld();

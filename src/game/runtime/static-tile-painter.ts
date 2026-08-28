@@ -22,6 +22,7 @@ export type StaticTileScene = {
   paths: WorldPath[];
   decor: WorldDecor[];
   treeBounds: StaticTileTreeBounds[];
+  treeShadowsVisible: boolean;
   snowPineAspect: number;
   lavaPoolUrls?: readonly string[];
 };
@@ -152,7 +153,7 @@ export function paintStaticTile(
   for (const decor of scene.decor) {
     const x = Math.round(decor.x - originX);
     const y = Math.round(decor.y - originY);
-    if (decor.type === "tree") {
+    if (decor.type === "tree" && scene.treeShadowsVisible) {
       const source = scene.treeBounds[decor.variant % 16];
       if (!source || source.h <= 0) continue;
       const drawSize = Math.round(154 * decor.s);

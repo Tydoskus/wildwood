@@ -26,7 +26,7 @@ type StartupDependencies = {
   onShowConnecting: () => void;
   onContinueGuest: () => void;
   onBeginAdventure: (name: string) => void;
-  signIn: () => Promise<{ ok?: boolean } | undefined> | undefined;
+  signIn: () => Promise<{ ok?: boolean; redirecting?: boolean } | undefined> | undefined;
   takeOverSession: () => Promise<{ ok?: boolean } | undefined> | undefined;
   showMessage: (message: string, color: string) => void;
 };
@@ -121,25 +121,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showSigningIn(detail = "LOADING YOUR CHARACTER…") {
-    if (!dependencies.isSignInScreenReady()) {
-      if (connectionPanel.hidden) showConnecting();
-      return;
-    }
-    if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
-    loadingStageTimer = null;
-    loadingSequenceComplete = true;
-    start.style.display = "grid";
-    connectionPanel.hidden = true;
-    accountChoicePanel.hidden = false;
-    newPlayerPanel.hidden = true;
-    accountCharacterName.textContent = "signing in…";
-    accountCharacter.classList.remove("is-empty");
-    accountChoicePanel.classList.add("is-signing-in");
-    signInButton.hidden = false;
-    signInButton.disabled = true;
-    guestButton.hidden = false;
-    guestButton.disabled = true;
-    accountChoiceDetail.textContent = detail;
+    showAccountChoice(detail);
   }
 
   /** Switch an authenticated account back to progress loading without restarting its timer sequence. */
@@ -205,7 +187,10 @@ export function createStartupController(dependencies: StartupDependencies) {
     signInPending = true;
     showSigningIn(characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…");
     void dependencies.signIn()?.then((result) => {
-      if (result?.ok !== false) return;
+      if (result?.ok !== false) {
+        if (!result?.redirecting) showLoading();
+        return;
+      }
       signInPending = false;
       showAccountChoice(characterFound
         ? "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN"

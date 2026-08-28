@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.550": [
+    "Sign-in now happens before the game loads, with a stable loading screen and clean guest login.",
+    "Reduced idle rendering and removed Night Forest character and world shadows.",
+  ],
   "0.549": [
     "Boss attack patterns and player projectiles now stay synchronized across nearby screens without extra server traffic.",
   ],
@@ -1192,6 +1196,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.550": "2026-08-27",
   "0.549": "2026-08-27",
   "0.548": "2026-08-27",
   "0.547": "2026-08-27",

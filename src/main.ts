@@ -340,7 +340,7 @@ import {
       finishStartup();
       const account = coop?.accountState?.();
       if (!session.hasStarted() && account?.sessionConflict) startup.showSessionConflict();
-      else if (!session.hasStarted() && account?.returningFromSignIn) startup.showSigningIn();
+      else if (!session.hasStarted() && account?.returningFromSignIn) startup.showLoading();
       else if (!session.hasStarted() && !account?.signedIn && !account?.authInProgress && !account?.guestSessionApproved) startup.showAccountChoice();
     }, { once: true });
   }
@@ -1305,7 +1305,9 @@ import {
     serverPlayerState: () => coop?.localState?.() ?? undefined,
     connected: () => Boolean(coop?.isConnected?.()),
     accountInConflict: () => Boolean(coop?.accountState?.().sessionConflict),
-    lowPerformanceMode: appShell.lowPerformanceMode, ensureMusicPlaying: appShell.ensureMusicPlaying,
+    lowPerformanceMode: appShell.lowPerformanceMode,
+    presentationInputActive: () => playerInput.movement().source !== "none",
+    ensureMusicPlaying: appShell.ensureMusicPlaying,
     hideStart: startup.hideStart,
     hideGameOver: () => { localPlayerDeath = null; deathScreen.hide(); },
     showGameOver: () => {
@@ -1340,9 +1342,9 @@ import {
     resetPresentationState: presentation.reset,
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => { upgradeBenchController.tick(); renderController.render(); }), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
-    renderFpsDisplay: () => {
+    renderFpsDisplay: (idleThrottled) => {
       const performance = performanceMonitor.snapshot();
-      appShell.renderFps(performance.fps, performance.onePercentLowFps, performance.workFps);
+      appShell.renderFps(performance.fps, performance.onePercentLowFps, performance.workFps, idleThrottled);
     },
     fpsDisplayVisible: appShell.fpsVisible,
     fadeElement: sceneFadeEl,
@@ -1575,12 +1577,10 @@ import {
     clearSignInPending: startup.clearSignInPending,
     updateProtocolGate,
     showSessionConflict: startup.showSessionConflict,
-    shouldShowSigningIn: (account) => !session.hasStarted() && !account?.signedIn && Boolean(
-      account?.returningFromSignIn || account?.authInProgress || startup.isSignInPending(),
-    ),
+    shouldShowSigningIn: () => !session.hasStarted() && startup.isSignInPending(),
     showSigningIn: startup.showSigningIn,
     shouldShowLoading: (account) => !session.hasStarted()
-      && account?.signedIn === true
+      && Boolean(account?.signedIn || account?.returningFromSignIn || account?.authInProgress || account?.guestSessionApproved)
       && progress.startupKind() !== "new",
     showLoading: startup.showLoading,
     shouldShowAccountChoice: (account) => !session.hasStarted() && !account?.signedIn && !account?.authInProgress && !account?.guestSessionApproved,
@@ -1628,7 +1628,6 @@ import {
 
   startGameRuntime({
     accountState: () => coop?.accountState?.(),
-    showSigningIn: startup.showSigningIn,
     showAccountChoice: startup.showAccountChoice,
     showConnecting: startup.showConnecting,
     loadProgress,

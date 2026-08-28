@@ -13,6 +13,7 @@ import {
   type StaticTileTreeBounds,
 } from "./static-tile-painter";
 import { snapWorldRenderCoordinate } from "./render-space";
+import { nightGroundShadowsVisible } from "./night-visibility";
 
 export { snapWorldRenderCoordinate } from "./render-space";
 
@@ -182,6 +183,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       treeBounds: options.getMapId() === options.infernalMapId
         ? options.nightTreeSpriteBounds()
         : options.treeSpriteBounds(),
+      treeShadowsVisible: nightGroundShadowsVisible(options.getMapId(), options.infernalMapId),
       snowPineAspect: options.snowPine.naturalWidth > 0
         ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
         : 0,

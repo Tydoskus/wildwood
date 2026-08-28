@@ -5,3 +5,8 @@
 export function nightEnemyOpacity(_distance: number, _attackRange: number, _enemyRadius = 0) {
   return 1;
 }
+
+/** Night Forest's vignette already grounds the scene without extra black ovals. */
+export function nightGroundShadowsVisible(currentMapId: string, nightMapId: string) {
+  return currentMapId !== nightMapId;
+}

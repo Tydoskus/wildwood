@@ -14,7 +14,7 @@ import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
-import { nightEnemyOpacity } from "./night-visibility";
+import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -148,6 +148,13 @@ export type FrameRendererOptions = {
 /** Wires the independent world, actor, boss, depth, and frame renderers. */
 export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   let invalidateDepthOrder = () => {};
+  const drawEntityShadow: DrawShadow = (x, y, width, alpha) => {
+    // Arena scenes are visually separate from the current world map and retain
+    // their shadows. Night Forest relies on its vignette to ground world actors.
+    if (options.isArenaScene() || nightGroundShadowsVisible(options.currentMapId(), options.infernalMapId)) {
+      options.drawShadow(x, y, width, alpha);
+    }
+  };
   const world = createWorldRenderer({
     ctx: options.ctx,
     staticWorldLayer: options.staticWorldLayer,
@@ -195,7 +202,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas, tidewyrmSpriteCanvas: options.assets.tidewyrmSpriteCanvas,
     dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady, tidewyrmReady: options.assets.tidewyrmReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
-    drawShadow: options.drawShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
+    drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
   });
   const actor = createActorRenderer({
@@ -240,7 +247,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     enemyTextVisible: options.enemyTextVisible,
     pixelCircle: options.pixelCircle,
     outlinedText: options.outlinedText,
-    drawShadow: options.drawShadow,
+    drawShadow: drawEntityShadow,
     drawStatus: options.drawStatus,
     drawIdentity: options.drawIdentity,
     drawSpeechBubble: options.drawSpeechBubble,
