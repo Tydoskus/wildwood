@@ -943,6 +943,11 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
+      bossTargets: () => latestMapSamples.map((sample) => ({
+        id: `network:${sample.networkId}`,
+        x: sample.x,
+        y: sample.y,
+      })),
       remotePlayerDeath(identity: string) {
         const death = remotePlayerDeaths.get(identity);
         if (!death) return null;

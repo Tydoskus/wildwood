@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.549": [
+    "Boss attack patterns and player projectiles now stay synchronized across nearby screens without extra server traffic.",
+  ],
+
   "0.548": [
     "Enemies now separate cleanly after aggro while keeping responsive local movement.",
     "Boss hazards and nearby player attacks now use deterministic client simulation, reducing server traffic.",
@@ -1188,6 +1192,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.549": "2026-08-27",
   "0.548": "2026-08-27",
   "0.547": "2026-08-27",
   "0.546": "2026-08-27",

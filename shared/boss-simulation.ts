@@ -17,6 +17,60 @@ export type BossSimulationKind =
   | "gloomroot"
   | "tidewyrm";
 
+export type BossAbilityName =
+  | "cone"
+  | "rain"
+  | "web"
+  | "venom"
+  | "roar"
+  | "icefall"
+  | "rift"
+  | "bite"
+  | "eruption"
+  | "sweep"
+  | "bloom"
+  | "surge"
+  | "whirlpool";
+
+type BossAbilityDefinition = {
+  ability: BossAbilityName;
+  /** Time from this ability starting until the next one starts. */
+  slotDurationMs: number;
+  /** Time during which this ability has a visible or damaging effect. */
+  activeDurationMs: number;
+};
+
+// These intervals preserve the existing hand-tuned boss pacing. Keeping them
+// here makes the ability order and start time addressable from server time,
+// instead of allowing each browser's local dt accumulator to choose the phase.
+const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefinition[]> = {
+  dragon: [
+    { ability: "cone", slotDurationMs: 4_750, activeDurationMs: 1_950 },
+    { ability: "rain", slotDurationMs: 4_800, activeDurationMs: 1_780 },
+  ],
+  spider: [
+    { ability: "web", slotDurationMs: 3_650, activeDurationMs: 1_150 },
+    { ability: "venom", slotDurationMs: 4_200, activeDurationMs: 1_550 },
+  ],
+  frostclaw: [
+    { ability: "roar", slotDurationMs: 4_400, activeDurationMs: 1_800 },
+    { ability: "icefall", slotDurationMs: 4_800, activeDurationMs: 1_840 },
+    { ability: "rift", slotDurationMs: 4_650, activeDurationMs: 1_750 },
+  ],
+  magmalisk: [
+    { ability: "bite", slotDurationMs: 4_020, activeDurationMs: 1_620 },
+    { ability: "eruption", slotDurationMs: 5_000, activeDurationMs: 1_900 },
+  ],
+  gloomroot: [
+    { ability: "sweep", slotDurationMs: 4_350, activeDurationMs: 1_850 },
+    { ability: "bloom", slotDurationMs: 5_200, activeDurationMs: 2_000 },
+  ],
+  tidewyrm: [
+    { ability: "surge", slotDurationMs: 4_320, activeDurationMs: 1_870 },
+    { ability: "whirlpool", slotDurationMs: 5_100, activeDurationMs: 1_950 },
+  ],
+};
+
 type BossSeedPart = string | number | bigint;
 
 function mixString(hash: number, value: string) {
@@ -57,6 +111,75 @@ export function bossSeededRange(
   const low = Number.isFinite(minimum) ? minimum : 0;
   const high = Number.isFinite(maximum) ? maximum : low;
   return low + (high - low) * bossSeededUnit(...parts);
+}
+
+/**
+ * Returns the boss ability occupying an absolute server-time slot. Two clients
+ * can join at different times or render at different frame rates and still
+ * recover the same ability, pattern index, and phase without another server row.
+ */
+export function bossAbilityTimelineAt(options: {
+  kind: BossSimulationKind;
+  serverNowMs: number;
+}) {
+  const definitions = BOSS_ABILITY_CYCLES[options.kind];
+  const cycleDurationMs = definitions.reduce((total, definition) => total + definition.slotDurationMs, 0);
+  const nowMs = Number.isFinite(options.serverNowMs) ? Math.max(0, options.serverNowMs) : 0;
+  // Timing is a hidden global metronome, not another random output. The seed
+  // varies targets and geometry, while every client shares these exact beats.
+  const cycleIndex = Math.floor(nowMs / cycleDurationMs);
+  const cycleStartedAtMs = cycleIndex * cycleDurationMs;
+  const elapsedInCycleMs = nowMs - cycleStartedAtMs;
+  let slotStartedInCycleMs = 0;
+  let sequenceIndex = 0;
+  for (let index = 0; index < definitions.length; index += 1) {
+    const definition = definitions[index];
+    if (elapsedInCycleMs < slotStartedInCycleMs + definition.slotDurationMs) {
+      sequenceIndex = index;
+      break;
+    }
+    slotStartedInCycleMs += definition.slotDurationMs;
+  }
+  const definition = definitions[sequenceIndex];
+  const startedAtMs = cycleStartedAtMs + slotStartedInCycleMs;
+  return {
+    ability: definition.ability,
+    attackIndex: cycleIndex * definitions.length + sequenceIndex,
+    sequenceIndex,
+    startedAtMs,
+    elapsedMs: Math.max(0, nowMs - startedAtMs),
+    slotDurationMs: definition.slotDurationMs,
+    activeDurationMs: definition.activeDurationMs,
+  };
+}
+
+/** Shared absolute cadence for one player's attacks against a boss. */
+export function bossPlayerAttackCycle(options: {
+  kind: BossSimulationKind;
+  encounter: bigint;
+  playerId: string;
+  attackInterval: number;
+  serverNowMs: number;
+}) {
+  const intervalMs = Math.max(
+    50,
+    (Number.isFinite(options.attackInterval) ? options.attackInterval : 1) * 1_000,
+  );
+  const nowMs = Number.isFinite(options.serverNowMs) ? Math.max(0, options.serverNowMs) : 0;
+  // Retain the original seed address so this correction does not reshuffle the
+  // observer-side phase introduced with simulation version 1.
+  const phaseOffsetMs = bossSeededUnit(
+    "remote-player-attack-phase",
+    options.kind,
+    options.encounter,
+    options.playerId,
+  ) * intervalMs;
+  const attackIndex = Math.floor((nowMs + phaseOffsetMs) / intervalMs);
+  return {
+    attackIndex,
+    intervalMs,
+    startedAtMs: attackIndex * intervalMs - phaseOffsetMs,
+  };
 }
 
 export function seededBossHazardPolar(options: {

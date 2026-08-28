@@ -38,7 +38,13 @@ import {
   TIDEWYRM_REWARD_HEALTH,
   TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
-import { seededBossHazardPolar } from "../../../shared/boss-simulation";
+import {
+  bossAbilityTimelineAt,
+  bossSeededUnit,
+  seededBossHazardPolar,
+  type BossAbilityName,
+  type BossSimulationKind,
+} from "../../../shared/boss-simulation";
 import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { clamp } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
@@ -121,6 +127,8 @@ type NoticeElements = {
   worldNoticeDetail: HTMLElement;
 };
 
+type BossAbilityTarget = { id: string; x: number; y: number };
+
 export type BossController = {
   resetBoss: () => void;
   resetSpiderBoss: () => void;
@@ -182,6 +190,10 @@ export function createBossController(options: {
   getGloomrootResult: () => BossResult | null | undefined;
   getTidewyrmResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
+  /** Estimated server clock used to keep boss abilities in one shared phase. */
+  serverNowMs?: () => number;
+  /** Consensus-time players already known by the client; no extra server state. */
+  bossTargets?: () => readonly BossAbilityTarget[];
   running: () => boolean;
   currentMapIsDesert: () => boolean;
   currentMapIsSnow: () => boolean;
@@ -262,6 +274,81 @@ export function createBossController(options: {
   let magmaliskEruptionPatternIndex = 0;
   let gloomrootBloomPatternIndex = 0;
   let tidewyrmWhirlpoolPatternIndex = 0;
+  const observedAbilityKeys = new Map<BossSimulationKind, string>();
+  const activatedAbilityKeys = new Map<BossSimulationKind, string>();
+
+  function resetAbilityTimeline(kind: BossSimulationKind) {
+    observedAbilityKeys.delete(kind);
+    activatedAbilityKeys.delete(kind);
+  }
+
+  function syncAbilityTimeline(options: {
+    kind: BossSimulationKind;
+    encounter: bigint | null;
+    targetForAttack: (attackIndex: number) => BossAbilityTarget | null;
+    clear: () => void;
+    start: (ability: BossAbilityName, elapsedSeconds: number, attackIndex: number, target: BossAbilityTarget) => void;
+    setAttackClock: (seconds: number) => void;
+  }) {
+    if (!hasSharedBossClock()) return false;
+    const phase = bossAbilityTimelineAt({
+      kind: options.kind,
+      serverNowMs: sharedServerNowMs(),
+    });
+    const key = `${options.encounter ?? 0n}:${phase.attackIndex}`;
+    if (observedAbilityKeys.get(options.kind) !== key) {
+      observedAbilityKeys.set(options.kind, key);
+      options.clear();
+    }
+    options.setAttackClock(Math.max(0, (phase.slotDurationMs - phase.elapsedMs) / 1_000));
+    const target = options.targetForAttack(phase.attackIndex);
+    if (
+      !target ||
+      phase.elapsedMs >= phase.activeDurationMs ||
+      activatedAbilityKeys.get(options.kind) === key
+    ) return true;
+    activatedAbilityKeys.set(options.kind, key);
+    options.start(phase.ability, phase.elapsedMs / 1_000, phase.attackIndex, target);
+    return true;
+  }
+
+  function selectAbilityTarget(
+    kind: BossSimulationKind,
+    encounter: bigint | null,
+    attackIndex: number,
+    bossX: number,
+    bossY: number,
+    aggroRange: number,
+  ) {
+    const supplied = options.bossTargets?.() ?? [{
+      id: localIdentity() ?? "local-player",
+      x: player.x,
+      y: player.y,
+    }];
+    const candidates = new Map<string, BossAbilityTarget>();
+    for (const target of supplied) {
+      if (!target.id || !Number.isFinite(target.x) || !Number.isFinite(target.y)) continue;
+      const dx = target.x - bossX;
+      const dy = target.y - bossY;
+      if (dx * dx + dy * dy > aggroRange * aggroRange) continue;
+      candidates.set(target.id, target);
+    }
+    const ordered = [...candidates.values()].sort((left, right) => left.id.localeCompare(right.id));
+    if (ordered.length === 0) return null;
+    const selectedIndex = Math.min(
+      ordered.length - 1,
+      Math.floor(bossSeededUnit("boss-ability-target", kind, encounter ?? 0n, attackIndex) * ordered.length),
+    );
+    return ordered[selectedIndex];
+  }
+
+  function hasSharedBossClock() {
+    return typeof options.serverNowMs === "function";
+  }
+
+  function sharedServerNowMs() {
+    return options.serverNowMs?.() ?? Date.now();
+  }
 
   function scaledReward(type: RewardType, baseAmount: number) {
     const multiplier = options.rewardMultiplier?.() ?? 1;
@@ -288,6 +375,7 @@ export function createBossController(options: {
     boss.cone = null;
     bossRain.length = 0;
     dragonRainPatternIndex = 0;
+    resetAbilityTimeline("dragon");
   }
 
   function resetSpiderBoss() {
@@ -306,6 +394,7 @@ export function createBossController(options: {
     spiderBoss.web = null;
     spiderVenom.length = 0;
     spiderVenomPatternIndex = 0;
+    resetAbilityTimeline("spider");
   }
 
   function resetFrostclawBoss() {
@@ -327,6 +416,7 @@ export function createBossController(options: {
     frostclawBoss.pushTimer = 0;
     frostclawIcefalls.length = 0;
     frostclawIcefallPatternIndex = 0;
+    resetAbilityTimeline("frostclaw");
   }
 
   function resetMagmaliskBoss() {
@@ -346,6 +436,7 @@ export function createBossController(options: {
     magmaliskBoss.bite = null;
     magmaliskEruptions.length = 0;
     magmaliskEruptionPatternIndex = 0;
+    resetAbilityTimeline("magmalisk");
   }
 
   function resetGloomrootBoss() {
@@ -365,6 +456,7 @@ export function createBossController(options: {
     gloomrootBoss.sweep = null;
     gloomrootBlooms.length = 0;
     gloomrootBloomPatternIndex = 0;
+    resetAbilityTimeline("gloomroot");
   }
 
   function resetTidewyrmBoss() {
@@ -384,6 +476,7 @@ export function createBossController(options: {
     tidewyrmBoss.surge = null;
     tidewyrmWhirlpools.length = 0;
     tidewyrmWhirlpoolPatternIndex = 0;
+    resetAbilityTimeline("tidewyrm");
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -670,6 +763,7 @@ export function createBossController(options: {
       spiderBoss.web = null;
       spiderVenom.length = 0;
       spiderVenomPatternIndex = 0;
+      resetAbilityTimeline("spider");
       spiderBoss.hpLossFlashFrom = shared.hp;
       spiderBoss.hpLossFlashTimer = 0;
     } else if (spiderWasAlive && !shared.alive) {
@@ -685,6 +779,7 @@ export function createBossController(options: {
       spiderBoss.attackClock = 3;
       spiderBoss.nextAttack = "web";
       spiderVenomPatternIndex = 0;
+      resetAbilityTimeline("spider");
     } else if (shared.alive && shared.hp < previousHp) {
       spiderBoss.hpLossFlashFrom = spiderBoss.hpLossFlashTimer > 0 ? Math.max(spiderBoss.hpLossFlashFrom, previousHp) : previousHp;
       spiderBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
@@ -715,6 +810,7 @@ export function createBossController(options: {
       frostclawBoss.pushTimer = 0;
       frostclawIcefalls.length = 0;
       frostclawIcefallPatternIndex = 0;
+      resetAbilityTimeline("frostclaw");
       frostclawBoss.hpLossFlashFrom = shared.hp;
       frostclawBoss.hpLossFlashTimer = 0;
     } else if (frostclawWasAlive && !shared.alive) {
@@ -732,6 +828,7 @@ export function createBossController(options: {
       frostclawBoss.attackClock = 3;
       frostclawBoss.nextAttack = "roar";
       frostclawIcefallPatternIndex = 0;
+      resetAbilityTimeline("frostclaw");
     } else if (shared.alive && shared.hp < previousHp) {
       frostclawBoss.hpLossFlashFrom = frostclawBoss.hpLossFlashTimer > 0
         ? Math.max(frostclawBoss.hpLossFlashFrom, previousHp)
@@ -772,6 +869,7 @@ export function createBossController(options: {
       magmaliskBoss.bite = null;
       magmaliskEruptions.length = 0;
       magmaliskEruptionPatternIndex = 0;
+      resetAbilityTimeline("magmalisk");
       magmaliskBoss.hpLossFlashFrom = shared.hp;
       magmaliskBoss.hpLossFlashTimer = 0;
     } else if (magmaliskWasAlive && !shared.alive) {
@@ -787,6 +885,7 @@ export function createBossController(options: {
       magmaliskBoss.attackClock = 3;
       magmaliskBoss.nextAttack = "bite";
       magmaliskEruptionPatternIndex = 0;
+      resetAbilityTimeline("magmalisk");
     } else if (shared.alive && shared.hp < previousHp) {
       magmaliskBoss.hpLossFlashFrom = magmaliskBoss.hpLossFlashTimer > 0
         ? Math.max(magmaliskBoss.hpLossFlashFrom, previousHp)
@@ -827,6 +926,7 @@ export function createBossController(options: {
       gloomrootBoss.sweep = null;
       gloomrootBlooms.length = 0;
       gloomrootBloomPatternIndex = 0;
+      resetAbilityTimeline("gloomroot");
       gloomrootBoss.hpLossFlashFrom = shared.hp;
       gloomrootBoss.hpLossFlashTimer = 0;
     } else if (gloomrootWasAlive && !shared.alive) {
@@ -842,6 +942,7 @@ export function createBossController(options: {
       gloomrootBoss.attackClock = 3;
       gloomrootBoss.nextAttack = "sweep";
       gloomrootBloomPatternIndex = 0;
+      resetAbilityTimeline("gloomroot");
     } else if (shared.alive && shared.hp < previousHp) {
       gloomrootBoss.hpLossFlashFrom = gloomrootBoss.hpLossFlashTimer > 0
         ? Math.max(gloomrootBoss.hpLossFlashFrom, previousHp)
@@ -882,6 +983,7 @@ export function createBossController(options: {
       tidewyrmBoss.surge = null;
       tidewyrmWhirlpools.length = 0;
       tidewyrmWhirlpoolPatternIndex = 0;
+      resetAbilityTimeline("tidewyrm");
       tidewyrmBoss.hpLossFlashFrom = shared.hp;
       tidewyrmBoss.hpLossFlashTimer = 0;
     } else if (tidewyrmWasAlive && !shared.alive) {
@@ -897,6 +999,7 @@ export function createBossController(options: {
       tidewyrmBoss.attackClock = 3;
       tidewyrmBoss.nextAttack = "surge";
       tidewyrmWhirlpoolPatternIndex = 0;
+      resetAbilityTimeline("tidewyrm");
     } else if (shared.alive && shared.hp < previousHp) {
       tidewyrmBoss.hpLossFlashFrom = tidewyrmBoss.hpLossFlashTimer > 0
         ? Math.max(tidewyrmBoss.hpLossFlashFrom, previousHp)
@@ -934,6 +1037,7 @@ export function createBossController(options: {
       boss.dead = !shared.alive;
       if (boss.dead) { boss.cone = null; bossRain.length = 0; }
       dragonRainPatternIndex = 0;
+      resetAbilityTimeline("dragon");
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
     } else if (encounterChanged) {
@@ -945,6 +1049,7 @@ export function createBossController(options: {
       boss.cone = null;
       bossRain.length = 0;
       dragonRainPatternIndex = 0;
+      resetAbilityTimeline("dragon");
       boss.dead = !shared.alive;
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
@@ -960,6 +1065,7 @@ export function createBossController(options: {
       boss.cone = null;
       bossRain.length = 0;
       dragonRainPatternIndex = 0;
+      resetAbilityTimeline("dragon");
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
     } else if (shared.alive && shared.hp < previousHp) {
@@ -979,28 +1085,39 @@ export function createBossController(options: {
     }
   }
 
-  function startBossCone() {
-    boss.cone = { angle: Math.atan2(player.y - boss.y, player.x - boss.x), windup: DRAGON_CONE_WINDUP, timer: DRAGON_CONE_DURATION, duration: DRAGON_CONE_DURATION, hitPlayer: false, pushAngle: null };
+  function startBossCone(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    boss.cone = {
+      angle: Math.atan2(target.y - boss.y, target.x - boss.x),
+      windup: Math.max(0, DRAGON_CONE_WINDUP - elapsed),
+      timer: Math.max(0, DRAGON_CONE_DURATION - Math.max(0, elapsed - DRAGON_CONE_WINDUP)),
+      duration: DRAGON_CONE_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
     boss.nextAttack = "rain";
   }
 
-  function startBossRain() {
+  function startBossRain(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? dragonRainPatternIndex;
     for (let i = 0; i < 8; i++) {
       const { angle, radius } = seededBossHazardPolar({
         kind: "dragon",
         encounter: boss.encounter,
         pattern: "rain",
-        patternIndex: dragonRainPatternIndex,
+        patternIndex,
         hazardIndex: i,
         hazardCount: 8,
         angleJitter: .25,
         minimumRadius: 24,
         maximumRadius: BOSS_RAIN_RANGE,
       });
-      const timer = .8 + i * .14;
-      bossRain.push({ x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60), y: clamp(player.y + Math.sin(angle) * radius, 60, WORLD.h - 60), timer, maxTimer: timer, r: 52 });
+      const maxTimer = .8 + i * .14;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      bossRain.push({ x: clamp(target.x + Math.cos(angle) * radius, 60, WORLD.w - 60), y: clamp(target.y + Math.sin(angle) * radius, 60, WORLD.h - 60), timer, maxTimer, r: 52 });
     }
-    dragonRainPatternIndex += 1;
+    if (deterministicPatternIndex === undefined) dragonRainPatternIndex += 1;
     boss.attackClock = 4.8;
     boss.nextAttack = "cone";
   }
@@ -1010,6 +1127,17 @@ export function createBossController(options: {
     boss.contactDamageClock = Math.max(0, boss.contactDamageClock - dt);
     if (boss.dead) return;
     boss.hurt = Math.max(0, boss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "dragon",
+      encounter: boss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("dragon", boss.encounter, attackIndex, boss.x, boss.y, BOSS_AGGRO_RANGE),
+      clear: () => { boss.cone = null; bossRain.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "cone") startBossCone(elapsedSeconds, target);
+        else if (ability === "rain") startBossRain(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { boss.attackClock = seconds; },
+    });
     for (let i = bossRain.length - 1; i >= 0; i--) {
       const strike = bossRain[i];
       strike.timer -= dt;
@@ -1048,6 +1176,7 @@ export function createBossController(options: {
       }
       return;
     }
+    if (sharedTimeline) return;
     if (boss.attackClock > 0) { boss.attackClock -= dt; return; }
     const dx = player.x - boss.x;
     const dy = player.y - boss.y;
@@ -1055,10 +1184,60 @@ export function createBossController(options: {
     if (boss.nextAttack === "cone") startBossCone(); else startBossRain();
   }
 
+  function startSpiderWeb(elapsedSeconds = 0) {
+    spiderBoss.web = {
+      timer: Math.max(0, 1.15 - Math.max(0, elapsedSeconds)),
+      duration: 1.15,
+      hitPlayer: false,
+    };
+    spiderBoss.nextAttack = "venom";
+  }
+
+  function startSpiderVenom(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? spiderVenomPatternIndex;
+    for (let index = 0; index < 6; index += 1) {
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "spider",
+        encounter: spiderBoss.encounter,
+        pattern: "venom",
+        patternIndex,
+        hazardIndex: index,
+        hazardCount: 6,
+        angleJitter: .25,
+        minimumRadius: 15,
+        maximumRadius: 125,
+      });
+      const maxTimer = .9 + index * .13;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      spiderVenom.push({
+        x: clamp(target.x + Math.cos(angle) * radius, 60, WORLD.w - 60),
+        y: clamp(target.y + Math.sin(angle) * radius, 60, WORLD.h - 60),
+        timer,
+        maxTimer,
+        r: 58,
+      });
+    }
+    if (deterministicPatternIndex === undefined) spiderVenomPatternIndex += 1;
+    spiderBoss.attackClock = 4.2;
+    spiderBoss.nextAttack = "web";
+  }
+
   function updateSpiderBoss(dt: number) {
     spiderBoss.hpLossFlashTimer = Math.max(0, spiderBoss.hpLossFlashTimer - dt);
     spiderBoss.contactDamageClock = Math.max(0, spiderBoss.contactDamageClock - dt);
     if (spiderBoss.dead) return;
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "spider",
+      encounter: spiderBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("spider", spiderBoss.encounter, attackIndex, spiderBoss.x, spiderBoss.y, SPIDER_AGGRO_RANGE),
+      clear: () => { spiderBoss.web = null; spiderVenom.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "web") startSpiderWeb(elapsedSeconds);
+        else if (ability === "venom") startSpiderVenom(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { spiderBoss.attackClock = seconds; },
+    });
     for (let i = spiderVenom.length - 1; i >= 0; i--) {
       const pool = spiderVenom[i];
       pool.timer -= dt;
@@ -1082,53 +1261,35 @@ export function createBossController(options: {
       if (web.timer <= 0) { spiderBoss.web = null; spiderBoss.attackClock = 2.5; }
       return;
     }
+    if (sharedTimeline) return;
     spiderBoss.attackClock -= dt;
     if (spiderBoss.attackClock > 0) return;
     const dx = player.x - spiderBoss.x;
     const dy = player.y - spiderBoss.y;
     if (dx * dx + dy * dy > SPIDER_AGGRO_RANGE * SPIDER_AGGRO_RANGE) return;
-    if (spiderBoss.nextAttack === "web") {
-      spiderBoss.web = { timer: 1.15, duration: 1.15, hitPlayer: false };
-      spiderBoss.nextAttack = "venom";
-    } else {
-      for (let i = 0; i < 6; i++) {
-        const { angle, radius } = seededBossHazardPolar({
-          kind: "spider",
-          encounter: spiderBoss.encounter,
-          pattern: "venom",
-          patternIndex: spiderVenomPatternIndex,
-          hazardIndex: i,
-          hazardCount: 6,
-          angleJitter: .25,
-          minimumRadius: 15,
-          maximumRadius: 125,
-        });
-        const timer = .9 + i * .13;
-        spiderVenom.push({ x: clamp(player.x + Math.cos(angle) * radius, 60, WORLD.w - 60), y: clamp(player.y + Math.sin(angle) * radius, 60, WORLD.h - 60), timer, maxTimer: timer, r: 58 });
-      }
-      spiderVenomPatternIndex += 1;
-      spiderBoss.attackClock = 4.2;
-      spiderBoss.nextAttack = "web";
-    }
+    if (spiderBoss.nextAttack === "web") startSpiderWeb();
+    else startSpiderVenom();
   }
 
-  function startFrostclawRoar() {
+  function startFrostclawRoar(elapsedSeconds = 0) {
+    const elapsed = Math.max(0, elapsedSeconds);
     frostclawBoss.roar = {
-      windup: FROSTCLAW_ROAR_WINDUP,
-      timer: FROSTCLAW_ROAR_DURATION,
+      windup: Math.max(0, FROSTCLAW_ROAR_WINDUP - elapsed),
+      timer: Math.max(0, FROSTCLAW_ROAR_DURATION - Math.max(0, elapsed - FROSTCLAW_ROAR_WINDUP)),
       duration: FROSTCLAW_ROAR_DURATION,
       hitPlayer: false,
     };
     frostclawBoss.nextAttack = "icefall";
   }
 
-  function startFrostclawIcefall() {
+  function startFrostclawIcefall(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? frostclawIcefallPatternIndex;
     for (let index = 0; index < 9; index += 1) {
       const { angle, radius } = seededBossHazardPolar({
         kind: "frostclaw",
         encounter: frostclawBoss.encounter,
         pattern: "icefall",
-        patternIndex: frostclawIcefallPatternIndex,
+        patternIndex,
         hazardIndex: index,
         hazardCount: 9,
         angleJitter: .32,
@@ -1136,25 +1297,28 @@ export function createBossController(options: {
         maximumRadius: 185,
         centerFirst: true,
       });
-      const timer = .8 + index * .13;
+      const maxTimer = .8 + index * .13;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
       frostclawIcefalls.push({
-        x: clamp(player.x + Math.cos(angle) * radius, 70, WORLD.w - 70),
-        y: clamp(player.y + Math.sin(angle) * radius, 70, WORLD.h - 70),
+        x: clamp(target.x + Math.cos(angle) * radius, 70, WORLD.w - 70),
+        y: clamp(target.y + Math.sin(angle) * radius, 70, WORLD.h - 70),
         r: 66,
         timer,
-        maxTimer: timer,
+        maxTimer,
       });
     }
-    frostclawIcefallPatternIndex += 1;
+    if (deterministicPatternIndex === undefined) frostclawIcefallPatternIndex += 1;
     frostclawBoss.attackClock = 4.8;
     frostclawBoss.nextAttack = "rift";
   }
 
-  function startFrostclawRift() {
+  function startFrostclawRift(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
     frostclawBoss.rift = {
-      angle: Math.atan2(player.y - frostclawBoss.y, player.x - frostclawBoss.x),
-      windup: FROSTCLAW_RIFT_WINDUP,
-      timer: FROSTCLAW_RIFT_DURATION,
+      angle: Math.atan2(target.y - frostclawBoss.y, target.x - frostclawBoss.x),
+      windup: Math.max(0, FROSTCLAW_RIFT_WINDUP - elapsed),
+      timer: Math.max(0, FROSTCLAW_RIFT_DURATION - Math.max(0, elapsed - FROSTCLAW_RIFT_WINDUP)),
       duration: FROSTCLAW_RIFT_DURATION,
       hitPlayer: false,
     };
@@ -1166,6 +1330,22 @@ export function createBossController(options: {
     frostclawBoss.contactDamageClock = Math.max(0, frostclawBoss.contactDamageClock - dt);
     if (frostclawBoss.dead) return;
     frostclawBoss.hurt = Math.max(0, frostclawBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "frostclaw",
+      encounter: frostclawBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("frostclaw", frostclawBoss.encounter, attackIndex, frostclawBoss.x, frostclawBoss.y, FROSTCLAW_AGGRO_RANGE),
+      clear: () => {
+        frostclawBoss.roar = null;
+        frostclawBoss.rift = null;
+        frostclawIcefalls.length = 0;
+      },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "roar") startFrostclawRoar(elapsedSeconds);
+        else if (ability === "icefall") startFrostclawIcefall(elapsedSeconds, attackIndex, target);
+        else if (ability === "rift") startFrostclawRift(elapsedSeconds, target);
+      },
+      setAttackClock: (seconds) => { frostclawBoss.attackClock = seconds; },
+    });
 
     for (let index = frostclawIcefalls.length - 1; index >= 0; index -= 1) {
       const strike = frostclawIcefalls[index];
@@ -1244,6 +1424,7 @@ export function createBossController(options: {
       return;
     }
 
+    if (sharedTimeline) return;
     frostclawBoss.attackClock -= dt;
     if (frostclawBoss.attackClock > 0) return;
     const dx = player.x - frostclawBoss.x;
@@ -1254,11 +1435,12 @@ export function createBossController(options: {
     else startFrostclawRift();
   }
 
-  function startMagmaliskBite() {
+  function startMagmaliskBite(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
     magmaliskBoss.bite = {
-      angle: Math.atan2(player.y - magmaliskBoss.y, player.x - magmaliskBoss.x),
-      windup: MAGMALISK_BITE_WINDUP,
-      timer: MAGMALISK_BITE_DURATION,
+      angle: Math.atan2(target.y - magmaliskBoss.y, target.x - magmaliskBoss.x),
+      windup: Math.max(0, MAGMALISK_BITE_WINDUP - elapsed),
+      timer: Math.max(0, MAGMALISK_BITE_DURATION - Math.max(0, elapsed - MAGMALISK_BITE_WINDUP)),
       duration: MAGMALISK_BITE_DURATION,
       hitPlayer: false,
       pushAngle: null,
@@ -1266,13 +1448,14 @@ export function createBossController(options: {
     magmaliskBoss.nextAttack = "eruption";
   }
 
-  function startMagmaliskEruption() {
+  function startMagmaliskEruption(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? magmaliskEruptionPatternIndex;
     for (let index = 0; index < 11; index += 1) {
       const { angle, radius } = seededBossHazardPolar({
         kind: "magmalisk",
         encounter: magmaliskBoss.encounter,
         pattern: "eruption",
-        patternIndex: magmaliskEruptionPatternIndex,
+        patternIndex,
         hazardIndex: index,
         hazardCount: 11,
         angleJitter: .3,
@@ -1280,16 +1463,18 @@ export function createBossController(options: {
         maximumRadius: 230,
         centerFirst: true,
       });
-      const timer = .8 + index * .11;
+      const maxTimer = .8 + index * .11;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
       magmaliskEruptions.push({
-        x: clamp(player.x + Math.cos(angle) * radius, 72, WORLD.w - 72),
-        y: clamp(player.y + Math.sin(angle) * radius, 72, WORLD.h - 72),
+        x: clamp(target.x + Math.cos(angle) * radius, 72, WORLD.w - 72),
+        y: clamp(target.y + Math.sin(angle) * radius, 72, WORLD.h - 72),
         r: 72,
         timer,
-        maxTimer: timer,
+        maxTimer,
       });
     }
-    magmaliskEruptionPatternIndex += 1;
+    if (deterministicPatternIndex === undefined) magmaliskEruptionPatternIndex += 1;
     magmaliskBoss.attackClock = 3.1;
     magmaliskBoss.nextAttack = "bite";
   }
@@ -1299,6 +1484,17 @@ export function createBossController(options: {
     magmaliskBoss.contactDamageClock = Math.max(0, magmaliskBoss.contactDamageClock - dt);
     if (magmaliskBoss.dead) return;
     magmaliskBoss.hurt = Math.max(0, magmaliskBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "magmalisk",
+      encounter: magmaliskBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("magmalisk", magmaliskBoss.encounter, attackIndex, magmaliskBoss.x, magmaliskBoss.y, MAGMALISK_AGGRO_RANGE),
+      clear: () => { magmaliskBoss.bite = null; magmaliskEruptions.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "bite") startMagmaliskBite(elapsedSeconds, target);
+        else if (ability === "eruption") startMagmaliskEruption(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { magmaliskBoss.attackClock = seconds; },
+    });
 
     for (let index = magmaliskEruptions.length - 1; index >= 0; index -= 1) {
       const eruption = magmaliskEruptions[index];
@@ -1344,6 +1540,7 @@ export function createBossController(options: {
       return;
     }
 
+    if (sharedTimeline) return;
     magmaliskBoss.attackClock -= dt;
     if (magmaliskBoss.attackClock > 0) return;
     const dx = player.x - magmaliskBoss.x;
@@ -1353,11 +1550,12 @@ export function createBossController(options: {
     else startMagmaliskEruption();
   }
 
-  function startGloomrootSweep() {
+  function startGloomrootSweep(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
     gloomrootBoss.sweep = {
-      angle: Math.atan2(player.y - gloomrootBoss.y, player.x - gloomrootBoss.x),
-      windup: GLOOMROOT_SWEEP_WINDUP,
-      timer: GLOOMROOT_SWEEP_DURATION,
+      angle: Math.atan2(target.y - gloomrootBoss.y, target.x - gloomrootBoss.x),
+      windup: Math.max(0, GLOOMROOT_SWEEP_WINDUP - elapsed),
+      timer: Math.max(0, GLOOMROOT_SWEEP_DURATION - Math.max(0, elapsed - GLOOMROOT_SWEEP_WINDUP)),
       duration: GLOOMROOT_SWEEP_DURATION,
       hitPlayer: false,
       pushAngle: null,
@@ -1365,13 +1563,14 @@ export function createBossController(options: {
     gloomrootBoss.nextAttack = "bloom";
   }
 
-  function startGloomrootBloom() {
+  function startGloomrootBloom(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? gloomrootBloomPatternIndex;
     for (let index = 0; index < 12; index += 1) {
       const { angle, radius } = seededBossHazardPolar({
         kind: "gloomroot",
         encounter: gloomrootBoss.encounter,
         pattern: "bloom",
-        patternIndex: gloomrootBloomPatternIndex,
+        patternIndex,
         hazardIndex: index,
         hazardCount: 12,
         angleJitter: .28,
@@ -1379,16 +1578,18 @@ export function createBossController(options: {
         maximumRadius: 255,
         centerFirst: true,
       });
-      const timer = .9 + index * .1;
+      const maxTimer = .9 + index * .1;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
       gloomrootBlooms.push({
-        x: clamp(player.x + Math.cos(angle) * radius, 74, WORLD.w - 74),
-        y: clamp(player.y + Math.sin(angle) * radius, 74, WORLD.h - 74),
+        x: clamp(target.x + Math.cos(angle) * radius, 74, WORLD.w - 74),
+        y: clamp(target.y + Math.sin(angle) * radius, 74, WORLD.h - 74),
         r: 74,
         timer,
-        maxTimer: timer,
+        maxTimer,
       });
     }
-    gloomrootBloomPatternIndex += 1;
+    if (deterministicPatternIndex === undefined) gloomrootBloomPatternIndex += 1;
     gloomrootBoss.attackClock = 3.2;
     gloomrootBoss.nextAttack = "sweep";
   }
@@ -1398,6 +1599,17 @@ export function createBossController(options: {
     gloomrootBoss.contactDamageClock = Math.max(0, gloomrootBoss.contactDamageClock - dt);
     if (gloomrootBoss.dead) return;
     gloomrootBoss.hurt = Math.max(0, gloomrootBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "gloomroot",
+      encounter: gloomrootBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("gloomroot", gloomrootBoss.encounter, attackIndex, gloomrootBoss.x, gloomrootBoss.y, GLOOMROOT_AGGRO_RANGE),
+      clear: () => { gloomrootBoss.sweep = null; gloomrootBlooms.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "sweep") startGloomrootSweep(elapsedSeconds, target);
+        else if (ability === "bloom") startGloomrootBloom(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { gloomrootBoss.attackClock = seconds; },
+    });
 
     for (let index = gloomrootBlooms.length - 1; index >= 0; index -= 1) {
       const bloom = gloomrootBlooms[index];
@@ -1443,6 +1655,7 @@ export function createBossController(options: {
       return;
     }
 
+    if (sharedTimeline) return;
     gloomrootBoss.attackClock -= dt;
     if (gloomrootBoss.attackClock > 0) return;
     const dx = player.x - gloomrootBoss.x;
@@ -1452,11 +1665,12 @@ export function createBossController(options: {
     else startGloomrootBloom();
   }
 
-  function startTidewyrmSurge() {
+  function startTidewyrmSurge(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
     tidewyrmBoss.surge = {
-      angle: Math.atan2(player.y - tidewyrmBoss.y, player.x - tidewyrmBoss.x),
-      windup: TIDEWYRM_SURGE_WINDUP,
-      timer: TIDEWYRM_SURGE_DURATION,
+      angle: Math.atan2(target.y - tidewyrmBoss.y, target.x - tidewyrmBoss.x),
+      windup: Math.max(0, TIDEWYRM_SURGE_WINDUP - elapsed),
+      timer: Math.max(0, TIDEWYRM_SURGE_DURATION - Math.max(0, elapsed - TIDEWYRM_SURGE_WINDUP)),
       duration: TIDEWYRM_SURGE_DURATION,
       hitPlayer: false,
       pushAngle: null,
@@ -1464,13 +1678,14 @@ export function createBossController(options: {
     tidewyrmBoss.nextAttack = "whirlpool";
   }
 
-  function startTidewyrmWhirlpools() {
+  function startTidewyrmWhirlpools(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? tidewyrmWhirlpoolPatternIndex;
     for (let index = 0; index < 11; index += 1) {
       const { angle, radius } = seededBossHazardPolar({
         kind: "tidewyrm",
         encounter: tidewyrmBoss.encounter,
         pattern: "whirlpool",
-        patternIndex: tidewyrmWhirlpoolPatternIndex,
+        patternIndex,
         hazardIndex: index,
         hazardCount: 11,
         angleJitter: .25,
@@ -1478,16 +1693,18 @@ export function createBossController(options: {
         maximumRadius: 290,
         centerFirst: true,
       });
-      const timer = .85 + index * .11;
+      const maxTimer = .85 + index * .11;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
       tidewyrmWhirlpools.push({
-        x: clamp(player.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(player.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
+        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
+        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
         r: 82,
         timer,
-        maxTimer: timer,
+        maxTimer,
       });
     }
-    tidewyrmWhirlpoolPatternIndex += 1;
+    if (deterministicPatternIndex === undefined) tidewyrmWhirlpoolPatternIndex += 1;
     tidewyrmBoss.attackClock = 3.15;
     tidewyrmBoss.nextAttack = "surge";
   }
@@ -1497,6 +1714,17 @@ export function createBossController(options: {
     tidewyrmBoss.contactDamageClock = Math.max(0, tidewyrmBoss.contactDamageClock - dt);
     if (tidewyrmBoss.dead) return;
     tidewyrmBoss.hurt = Math.max(0, tidewyrmBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "tidewyrm",
+      encounter: tidewyrmBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("tidewyrm", tidewyrmBoss.encounter, attackIndex, tidewyrmBoss.x, tidewyrmBoss.y, TIDEWYRM_AGGRO_RANGE),
+      clear: () => { tidewyrmBoss.surge = null; tidewyrmWhirlpools.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "surge") startTidewyrmSurge(elapsedSeconds, target);
+        else if (ability === "whirlpool") startTidewyrmWhirlpools(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { tidewyrmBoss.attackClock = seconds; },
+    });
 
     for (let index = tidewyrmWhirlpools.length - 1; index >= 0; index -= 1) {
       const pool = tidewyrmWhirlpools[index];
@@ -1542,6 +1770,7 @@ export function createBossController(options: {
       return;
     }
 
+    if (sharedTimeline) return;
     tidewyrmBoss.attackClock -= dt;
     if (tidewyrmBoss.attackClock > 0) return;
     const dx = player.x - tidewyrmBoss.x;

@@ -37,3 +37,16 @@ dist/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Local art library and work-in-progress sources #
+##################################################
+# Existing tracked source art stays tracked. New vendor packs, generated
+# candidates, and inbox art remain local until deliberately promoted.
+art-source/vendor/**
+art-source/generated/**
+art-source/inbox/**
+
+# Local profiling exports and machine-specific test captures #
+#############################################################
+local-data/**
+!local-data/README.md

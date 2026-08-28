@@ -515,6 +515,8 @@ import {
   playerCombat = createPlayerCombatController({
     player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss,
     nowSeconds: () => session?.gameTime() ?? 0,
+    serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
+    localIdentity: () => coop?.localIdentity?.(),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,
@@ -720,6 +722,27 @@ import {
     getGloomrootResult: () => coop?.gloomrootResult?.(),
     getTidewyrmResult: () => coop?.tidewyrmResult?.(),
     localIdentity: () => coop?.localIdentity?.(),
+    serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
+    bossTargets: () => {
+      const sharedTargets = coop?.bossTargets?.() ?? [];
+      if (sharedTargets.length > 0) return sharedTargets;
+      const targets: Array<{ id: string; x: number; y: number }> = [];
+      const localPosition = coop?.regularEnemyLocalPosition?.() ?? player;
+      targets.push({
+        id: coop?.localIdentity?.() ?? "local-player",
+        x: localPosition.x,
+        y: localPosition.y,
+      });
+      for (const remote of coop?.remotePlayers?.() ?? []) {
+        if (coop?.remotePlayerDeath?.(remote.id)) continue;
+        targets.push({
+          id: remote.id,
+          x: remote.simulationX ?? remote.x,
+          y: remote.simulationY ?? remote.y,
+        });
+      }
+      return targets;
+    },
     running: () => session.isRunning(),
     currentMapIsDesert: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     currentMapIsSnow: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,

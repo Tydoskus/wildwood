@@ -23,6 +23,7 @@ import {
   TIDEWYRM_REWARD_HEALTH,
   TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
+import { bossAbilityTimelineAt } from "../../../shared/boss-simulation";
 
 describe("Dragon boss", () => {
   it("starts at the shared 300K health balance", () => {
@@ -130,6 +131,49 @@ describe("Frostclaw boss", () => {
     controller.updateFrostclawBoss(5);
     expect(frostclawBoss.rift).not.toBeNull();
     expect(frostclawBoss.nextAttack).toBe("roar");
+  });
+
+  it("reconstructs the same shared attack after different client histories", () => {
+    const encounter = 77n;
+    const phase = bossAbilityTimelineAt({
+      kind: "frostclaw",
+      serverNowMs: 1_800_000_000_000,
+    });
+    let serverNowMs = phase.startedAtMs - 100;
+    const sharedTargets = [
+      { id: "network:1", x: 4_350, y: 4_050 },
+      { id: "network:2", x: 3_750, y: 4_050 },
+    ];
+    const first = createFrostclawHarness({
+      serverNowMs: () => serverNowMs,
+      bossTargets: () => sharedTargets,
+    });
+    first.frostclawBoss.encounter = encounter;
+    first.player.x = first.frostclawBoss.x + 300;
+    first.controller.updateFrostclawBoss(.016);
+
+    serverNowMs = phase.startedAtMs + 300;
+    const second = createFrostclawHarness({
+      serverNowMs: () => serverNowMs,
+      bossTargets: () => sharedTargets,
+    });
+    second.frostclawBoss.encounter = encounter;
+    second.player.x = second.frostclawBoss.x - 300;
+    first.controller.updateFrostclawBoss(.016);
+    second.controller.updateFrostclawBoss(.016);
+
+    const snapshot = (harness: typeof first) => ({
+      nextAttack: harness.frostclawBoss.nextAttack,
+      roar: harness.frostclawBoss.roar,
+      rift: harness.frostclawBoss.rift,
+      icefalls: harness.frostclawIcefalls,
+    });
+    expect(Boolean(
+      first.frostclawBoss.roar ||
+      first.frostclawBoss.rift ||
+      first.frostclawIcefalls.length,
+    )).toBe(true);
+    expect(snapshot(first)).toEqual(snapshot(second));
   });
 
   it("uses Glacial Roar to damage and push players away", () => {

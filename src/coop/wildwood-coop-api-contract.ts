@@ -14,6 +14,7 @@ type ExpectedApiKey =
   | "activeResearch"
   | "balanceApologyGiftAmount"
   | "beginAdventure"
+  | "bossTargets"
   | "bugReportEntries"
   | "cancelItemUpgrade"
   | "changeMap"

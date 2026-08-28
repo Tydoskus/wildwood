@@ -16,6 +16,10 @@ import {
   attackReleaseReached,
   type AbsoluteAttackTimestamps,
 } from "../attack-timeline";
+import {
+  bossPlayerAttackCycle,
+  type BossSimulationKind,
+} from "../../../shared/boss-simulation";
 
 const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
 const DRAGON_HIT_BATCH_DELAY = .1;
@@ -86,6 +90,8 @@ export function createPlayerCombatController(options: {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   nowSeconds: () => number;
+  serverNowMs?: () => number;
+  localIdentity?: () => string | undefined;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
   isSnowMap: () => boolean;
@@ -143,6 +149,7 @@ export function createPlayerCombatController(options: {
   let maxEnemyRadius = 0;
   let pendingPlayerAttack: PendingPlayerAttack | null = null;
   let nextAttackAtSeconds = 0;
+  let lastBossAttackCycleKey = "";
   let pendingDragonHits = 0;
   let dragonHitBatchTimer = 0;
   let pendingSpiderHits = 0;
@@ -166,17 +173,64 @@ export function createPlayerCombatController(options: {
     return null;
   }
 
-  function fireAt(target: AttackTarget, attackInterval: number, nowSeconds: number) {
+  function fireAt(
+    target: AttackTarget,
+    attackInterval: number,
+    nowSeconds: number,
+    scheduledAtSeconds?: number,
+  ) {
     if (pendingPlayerAttack) return false;
-    const scheduledAt = nextAttackAtSeconds > 0 && nowSeconds - nextAttackAtSeconds <= MAX_SCHEDULE_LATE_SECONDS
-      ? nextAttackAtSeconds
-      : nowSeconds;
+    const scheduledAt = scheduledAtSeconds ?? (
+      nextAttackAtSeconds > 0 && nowSeconds - nextAttackAtSeconds <= MAX_SCHEDULE_LATE_SECONDS
+        ? nextAttackAtSeconds
+        : nowSeconds
+    );
     const timestamps = absoluteAttackTimestamps(scheduledAt, attackInterval);
     player.facing = Math.atan2(target.y - player.y, target.x - player.x);
     player.throwClock = attackAnimationClockAt(timestamps, nowSeconds);
     pendingPlayerAttack = { target, timestamps, projectileReleased: false };
     nextAttackAtSeconds = timestamps.nextAttackAtSeconds;
     player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
+    return true;
+  }
+
+  function bossKindFor(target: BossTarget): BossSimulationKind {
+    return "bossKind" in target ? target.bossKind : "dragon";
+  }
+
+  /**
+   * Starts the real local throw from the same absolute slot observers render.
+   * Returning true means the shared boss cadence handled this frame, even when
+   * the current slot is already idle or another throw is still finishing.
+   */
+  function fireAtSharedBossCycle(
+    target: BossTarget,
+    attackInterval: number,
+    localNowSeconds: number,
+  ) {
+    const identity = options.localIdentity?.();
+    if (!options.serverNowMs || !identity || target.encounter === null) return false;
+    if (pendingPlayerAttack) return true;
+    const serverNowMs = options.serverNowMs();
+    const cycle = bossPlayerAttackCycle({
+      kind: bossKindFor(target),
+      encounter: target.encounter,
+      playerId: identity,
+      attackInterval,
+      serverNowMs,
+    });
+    const cycleKey = `${bossKindFor(target)}:${target.encounter}:${cycle.attackIndex}`;
+    if (lastBossAttackCycleKey === cycleKey) return true;
+    const serverTimestamps = absoluteAttackTimestamps(cycle.startedAtMs / 1_000, attackInterval);
+    const safeServerNowSeconds = (Number.isFinite(serverNowMs) ? Math.max(0, serverNowMs) : 0) / 1_000;
+    if (attackAnimationFinished(serverTimestamps, safeServerNowSeconds)) {
+      lastBossAttackCycleKey = cycleKey;
+      return true;
+    }
+    const localStartedAtSeconds = localNowSeconds - (safeServerNowSeconds - cycle.startedAtMs / 1_000);
+    if (fireAt(target, attackInterval, localNowSeconds, localStartedAtSeconds)) {
+      lastBossAttackCycleKey = cycleKey;
+    }
     return true;
   }
 
@@ -264,8 +318,9 @@ export function createPlayerCombatController(options: {
       player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
       return;
     }
-    if (nowSeconds < nextAttackAtSeconds) return;
     const attackInterval = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
+    if (target.isBoss && fireAtSharedBossCycle(target, attackInterval, nowSeconds)) return;
+    if (nowSeconds < nextAttackAtSeconds) return;
     fireAt(target, attackInterval, nowSeconds);
   }
 
@@ -497,6 +552,7 @@ export function createPlayerCombatController(options: {
     clearPendingThrow: () => {
       pendingPlayerAttack = null;
       nextAttackAtSeconds = 0;
+      lastBossAttackCycleKey = "";
       player.attackClock = 0;
       player.throwClock = 0;
       player.combatFacing = null;

@@ -23,6 +23,7 @@ Wildwood is mobile-first. Touch interaction, narrow portrait layouts, safe areas
 | Shared game values | `src/game/constants.ts` | World dimensions, player and boss tuning, and movement constants. |
 | Static site files | `public/index.html`, `public/assets/wildwood/game.css` | Static shell, overlays, controls, and visual styling. |
 | Art source files | `art-source/` | Original and unused vendor art. Never deployed. |
+| Local test data | `local-data/` | Ignored profiling exports and machine-specific captures. Only its README is tracked. |
 | Browser build output | `dist/assets/wildwood/game.js`, `dist/assets/wildwood/coop-client.js` | Generated during builds and deployments. Do not edit or commit. |
 | Generated server bindings | `src/module_bindings/` | TypeScript bindings from the deployed SpacetimeDB schema. Do not edit by hand. |
 
@@ -159,7 +160,7 @@ Publishing the server is a separate production operation; pushing `main` only de
 ## Shared boss performance invariants
 
 - Batch each attack's projectile hits through one boss-damage reducer; never restore one reducer call per projectile. Server validation caps accepted hits to the saved projectile count and attack interval.
-- Boss hazard layouts use the versioned encounter seed in `shared/boss-simulation.ts`. Nearby remote-player boss throws are reconstructed from that encounter, server time, analytical motion, and saved combat stats. Keep `boss_attack_frame` inert: do not restore per-attack event inserts or subscriptions.
+- Boss abilities, target selection, and hazard layouts use the versioned encounter simulation in `shared/boss-simulation.ts`. A hidden global server-time metronome controls ability phase; the seed varies targets and geometry without shifting the rhythm. Targets come from consensus-time player positions already available to the client, and both the real local throw and nearby observers use the same per-player boss attack slot. Keep `boss_attack_frame` inert: do not restore per-attack event inserts or subscriptions.
 - Boss-state subscriptions update only shared combat state. Do not trigger the global UI/auth/chat refresh callback for every HP update; the game loop consumes boss state directly.
 - Duel membership checks use the `duel.byChallenger` and `duel.byOpponent` indexes. Do not replace them with a full duel-table scan in the dragon damage path.
 - Contribution-table scans and combat-row cleanup belong only at encounter death or respawn, never on ordinary hits.

@@ -7,6 +7,67 @@ import {
   projectileSimulationSeconds,
 } from "./player-combat-controller";
 import { createGameBootstrap } from "./game-bootstrap";
+import { bossPlayerAttackCycle } from "../../../shared/boss-simulation";
+import { weaponAttackInterval } from "../../../shared/items";
+import { remoteBossAttackFrame } from "../../coop/services/remote-boss-attack";
+
+function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCombatController>[0]> = {}) {
+  const state = createGameBootstrap();
+  const noop = () => {};
+  const controller = createPlayerCombatController({
+    player: state.player,
+    enemies: state.enemies,
+    spawnSites: state.spawnSites,
+    projectileStore: state.projectileStore,
+    boss: state.boss,
+    spiderBoss: state.spiderBoss,
+    frostclawBoss: state.frostclawBoss,
+    magmaliskBoss: state.magmaliskBoss,
+    gloomrootBoss: state.gloomrootBoss,
+    tidewyrmBoss: state.tidewyrmBoss,
+    nowSeconds: () => 1,
+    isTutorialMap: () => true,
+    isDesertMap: () => false,
+    isSnowMap: () => false,
+    isLavaMap: () => false,
+    isInfernalMap: () => false,
+    isWaterMap: () => false,
+    engageEnemy: noop,
+    researchDamageMultiplier: () => 1,
+    researchCriticalChance: () => 0,
+    researchCriticalDamageMultiplier: () => 1,
+    researchRewardMultiplier: () => 1,
+    equippedWeapon: () => "starter_stone",
+    equippedHead: () => "",
+    equippedChest: () => "",
+    healthMultiplier: () => 1,
+    minAttackInterval: .05,
+    effectiveArmor: () => 0,
+    isDueling: () => false,
+    scheduleEnemyRespawn: noop,
+    incrementKills: noop,
+    recordForestEnemyDefeat: noop,
+    recordDesertEnemyDefeat: noop,
+    recordLavaEnemyDefeat: noop,
+    damageDragon: noop,
+    damageSpider: noop,
+    damageFrostclaw: noop,
+    damageMagmalisk: noop,
+    damageGloomroot: noop,
+    damageTidewyrm: noop,
+    spawnBurst: noop,
+    spawnParticle: noop,
+    spawnDamageNumber: noop,
+    logPickup: noop,
+    saveProgress: noop,
+    setHitFlash: noop,
+    addScreenShake: noop,
+    recordDeath: noop,
+    endGame: noop,
+    ...overrides,
+  });
+  return { ...state, controller };
+}
 
 describe("player attack timing", () => {
   it("keeps the normal windup for slower attacks", () => {
@@ -30,6 +91,58 @@ describe("player attack timing", () => {
     expect(attackReadyAtWithoutTarget(9.8, 10)).toBe(9.8);
     expect(attackReadyAtWithoutTarget(10.5, 10)).toBeCloseTo(10.08);
     expect(attackReadyAtWithoutTarget(9.8, 10.08)).toBe(9.8);
+  });
+
+  it("uses the same boss throw phase locally and on a remote observer", () => {
+    const encounter = 22n;
+    const identity = "shared-player";
+    const preview = createGameBootstrap();
+    const attackInterval = weaponAttackInterval("starter_stone", preview.player.attackRate, 1, 0);
+    const cycle = bossPlayerAttackCycle({
+      kind: "dragon",
+      encounter,
+      playerId: identity,
+      attackInterval,
+      serverNowMs: 1_800_000_000_000,
+    });
+    const serverNowMs = cycle.startedAtMs + 50;
+    const create = (localNowSeconds: number) => {
+      const harness = createCombatHarness({
+        nowSeconds: () => localNowSeconds,
+        serverNowMs: () => serverNowMs,
+        localIdentity: () => identity,
+      });
+      harness.enemies.length = 0;
+      harness.boss.encounter = encounter;
+      harness.boss.dead = false;
+      harness.player.x = harness.boss.x + harness.boss.r + harness.player.attackRange - 20;
+      harness.player.y = harness.boss.y;
+      harness.controller.attackNearest();
+      return harness;
+    };
+    const first = create(10);
+    const second = create(9_000);
+    const remote = remoteBossAttackFrame({
+      boss: {
+        kind: "dragon",
+        encounter,
+        alive: true,
+        x: first.boss.x,
+        y: first.boss.y,
+        radius: first.boss.r,
+      },
+      playerId: identity,
+      playerX: first.player.x,
+      playerY: first.player.y,
+      attackInterval,
+      attackRange: first.player.attackRange,
+      projectileCount: first.player.projectileCount,
+      serverNowMs,
+    });
+
+    expect(remote).not.toBeNull();
+    expect(first.player.throwClock).toBeCloseTo(remote?.throwClock ?? -1, 5);
+    expect(second.player.throwClock).toBeCloseTo(first.player.throwClock, 5);
   });
 
   it("collides projectiles with the Magmalisk and submits the hit batch", () => {

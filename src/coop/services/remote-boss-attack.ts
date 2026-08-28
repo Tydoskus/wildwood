@@ -1,4 +1,4 @@
-import { bossSeededUnit, type BossSimulationKind } from "../../../shared/boss-simulation";
+import { bossPlayerAttackCycle, type BossSimulationKind } from "../../../shared/boss-simulation";
 import {
   absoluteAttackTimestamps,
   attackAnimationClockAt,
@@ -45,16 +45,13 @@ export function remoteBossAttackStartedAtMs(options: Pick<
   RemoteBossAttackFrameOptions,
   "boss" | "playerId" | "attackInterval" | "serverNowMs"
 >) {
-  const intervalMs = safeAttackInterval(options.attackInterval) * 1_000;
-  const now = Number.isFinite(options.serverNowMs) ? Math.max(0, options.serverNowMs) : 0;
-  const phaseOffsetMs = bossSeededUnit(
-    "remote-player-attack-phase",
-    options.boss.kind,
-    options.boss.encounter,
-    options.playerId,
-  ) * intervalMs;
-  const attackIndex = Math.floor((now + phaseOffsetMs) / intervalMs);
-  return attackIndex * intervalMs - phaseOffsetMs;
+  return bossPlayerAttackCycle({
+    kind: options.boss.kind,
+    encounter: options.boss.encounter,
+    playerId: options.playerId,
+    attackInterval: safeAttackInterval(options.attackInterval),
+    serverNowMs: options.serverNowMs,
+  }).startedAtMs;
 }
 
 /**
