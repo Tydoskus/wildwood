@@ -108,6 +108,21 @@ describe("progress persistence rules", () => {
     expect(migrateProgressSave({ ...pending, damage: 1_000_000 }, 4).damage).toBe(1_000_000);
   });
 
+  it("corrects a version-5 pending save to the current-equipment Water anchor", () => {
+    const v5Save = {
+      ...pending,
+      maxHp: 3_238_349.2,
+      damage: 1_470_681.5,
+      attackRate: .3809524,
+      armor: 169.83337,
+      regen: 35_612.242,
+    };
+    const migrated = migrateProgressSave(v5Save, 5);
+    expect(migrated.damage).toBeGreaterThan(v5Save.damage);
+    expect(migrated.maxHp / v5Save.maxHp).toBeCloseTo(migrated.damage / v5Save.damage, 10);
+    expect(migrateProgressSave(v5Save, ATTACK_BALANCE_VERSION)).toMatchObject(v5Save);
+  });
+
   it("moves a legacy identity-scoped save into current storage", () => {
     const storage = memoryStorage();
     storage.setItem("pending", JSON.stringify({ identity: "player-1", balanceVersion: ATTACK_BALANCE_VERSION, progress: pending }));

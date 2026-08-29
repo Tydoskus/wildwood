@@ -11,6 +11,7 @@ import {
 import {
   compressLegacyProgressionOutlier,
   compressLegacyTopFiveProgression,
+  correctLegacyTopFiveV5Progression,
   rebalanceLegacyDamageHealth,
 } from "../../../shared/progression-balance";
 
@@ -125,7 +126,8 @@ export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion:
   };
   const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
   const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
-  return copyProgress(version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced);
+  const topFiveBalanced = version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
+  return copyProgress(version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced);
 }
 
 export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {

@@ -21,7 +21,7 @@ export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 // attack speed retain their separate gameplay caps.
 export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
-export const ATTACK_BALANCE_VERSION = 5;
+export const ATTACK_BALANCE_VERSION = 6;
 export {
   BASIC_PAPER_HAT,
   DARK_METAL_HELMET,

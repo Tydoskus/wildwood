@@ -65,7 +65,7 @@ export function compressLegacyProgressionOutlier<T extends ProgressionCurveStats
 // without needing equipment, research, or item-upgrade context.
 export const LEGACY_TOP_FIVE_RAW_POWER_THRESHOLD = 100_000_000;
 export const LEGACY_TOP_FIVE_REFERENCE_RAW_POWER = 15_216_770_651_672_028;
-export const LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER = 9_617_422;
+export const LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER = 17_282_975;
 export const LEGACY_TOP_FIVE_FLOOR_RAW_POWER = 610_739_360;
 export const LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER = 527_635;
 
@@ -96,6 +96,40 @@ export function compressLegacyTopFiveProgression<T extends LegacyLeaderboardCurv
   const rawPower = playerPowerForStats(progress);
   const targetRawPower = legacyTopFiveTargetRawPower(rawPower);
   if (!Number.isFinite(targetRawPower) || targetRawPower >= rawPower) return progress;
+  const scale = targetRawPower / rawPower;
+  return {
+    ...progress,
+    damage: progress.damage * scale,
+    maxHp: progress.maxHp * scale,
+    armor: progress.armor * scale,
+    regen: progress.regen * scale,
+  };
+}
+
+// The first v5 publish used a leaderboard row cached before the equipment
+// rebalance when deriving its raw-power anchor. These values describe only
+// that brief intermediate cohort. Version 6 moves the same five builds to the
+// corrected target without touching saves that migrate directly from v4.
+export const LEGACY_TOP_FIVE_V5_REFERENCE_RAW_POWER = 9_617_422;
+export const LEGACY_TOP_FIVE_V5_FLOOR_RAW_POWER = 527_635;
+export const LEGACY_TOP_FIVE_V5_CORRECTED_REFERENCE_RAW_POWER = LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER;
+export const LEGACY_TOP_FIVE_V5_CORRECTED_FLOOR_RAW_POWER = LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER;
+export const LEGACY_TOP_FIVE_V5_CORRECTION_THRESHOLD = 300_000;
+
+const LEGACY_TOP_FIVE_V5_CORRECTION_EXPONENT = Math.log(
+  LEGACY_TOP_FIVE_V5_CORRECTED_REFERENCE_RAW_POWER / LEGACY_TOP_FIVE_V5_CORRECTED_FLOOR_RAW_POWER,
+) / Math.log(
+  LEGACY_TOP_FIVE_V5_REFERENCE_RAW_POWER / LEGACY_TOP_FIVE_V5_FLOOR_RAW_POWER,
+);
+
+export function correctLegacyTopFiveV5Progression<T extends LegacyLeaderboardCurveStats>(progress: T): T {
+  const rawPower = playerPowerForStats(progress);
+  if (!Number.isFinite(rawPower) || rawPower <= LEGACY_TOP_FIVE_V5_CORRECTION_THRESHOLD) return progress;
+  const targetRawPower = LEGACY_TOP_FIVE_V5_CORRECTED_REFERENCE_RAW_POWER * Math.pow(
+    rawPower / LEGACY_TOP_FIVE_V5_REFERENCE_RAW_POWER,
+    LEGACY_TOP_FIVE_V5_CORRECTION_EXPONENT,
+  );
+  if (!Number.isFinite(targetRawPower) || targetRawPower === rawPower) return progress;
   const scale = targetRawPower / rawPower;
   return {
     ...progress,

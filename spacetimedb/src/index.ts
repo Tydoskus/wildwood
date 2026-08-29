@@ -24,6 +24,7 @@ import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./
 import {
   compressLegacyProgressionOutlier,
   compressLegacyTopFiveProgression,
+  correctLegacyTopFiveV5Progression,
   rebalanceLegacyDamageHealth,
 } from "../../shared/progression-balance";
 import {
@@ -217,7 +218,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 18;
+const MODULE_MIGRATION_VERSION = 19;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -2151,6 +2152,27 @@ function runPendingModuleMigrations(ctx: any) {
     }
     if (changedProgress) refreshLeaderboard(ctx);
   }
+  if (currentVersion < 19) {
+    // Balance version 6 corrects the short-lived v5 cohort from its cached
+    // pre-equipment anchor to the intended current-equipment map targets.
+    let changedProgress = false;
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      if (!samePlayerProgressValues(progress, migrated)) {
+        ctx.db.playerProgress.identity.update(migrated);
+        changedProgress = true;
+        const active = ctx.db.player.identity.find(progress.identity);
+        if (active) {
+          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
+          ctx.db.player.identity.update(nextActive);
+          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
+        }
+      }
+      markPlayerBalanceCurrent(ctx, progress.identity);
+    }
+    if (changedProgress) refreshLeaderboard(ctx);
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2315,7 +2337,8 @@ function playerBalanceProgress(progress: any, version: number) {
   };
   const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
   const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
-  return version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
+  const topFiveBalanced = version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
+  return version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced;
 }
 
 function migratePlayerBalance(ctx: any, progress: any) {

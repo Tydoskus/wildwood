@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.554": [
+    "Legacy leaderboard compression now lands on the intended current-equipment map-entry targets.",
+  ],
   "0.553": [
     "Five legacy leaderboard outliers were proportionally compressed onto the current progression curve while preserving rank and build ratios.",
   ],
@@ -1207,6 +1210,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.554": "2026-08-28",
   "0.553": "2026-08-28",
   "0.552": "2026-08-28",
   "0.551": "2026-08-28",

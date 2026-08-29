@@ -7,6 +7,7 @@ import {
   compressLegacyProgressionOutlier,
   compressLegacyTopFiveProgression,
   compressProgressionStat,
+  correctLegacyTopFiveV5Progression,
   isLegacyTopFiveProgressionOutlier,
   isLegacyProgressionOutlier,
   legacyTopFiveTargetRawPower,
@@ -91,6 +92,22 @@ describe("legacy top-five curve correction", () => {
       expect(after.regen / before.regen).toBeCloseTo(damageScale, 10);
       expect(compressLegacyTopFiveProgression(after)).toBe(after);
     }
+  });
+
+  it("corrects the short-lived v5 cohort to the current-equipment Water anchor", () => {
+    const v5Cohort = [
+      { maxHp: 1_142_773.6, damage: 2_940_956.2, attackRate: .3809524, armor: 112.038414, regen: 21_659.18 },
+      { maxHp: 3_238_349.2, damage: 1_470_681.5, attackRate: .3809524, armor: 169.83337, regen: 35_612.242 },
+      { maxHp: 2_379_315, damage: 860_451.5, attackRate: .3809524, armor: 58.596504, regen: 11_482.878 },
+      { maxHp: 262_004.33, damage: 163_881.22, attackRate: .3809524, armor: 143.839, regen: 5_632.196 },
+      { maxHp: 268_523.94, damage: 66_145.37, attackRate: .3987359, armor: 108.60917, regen: .04878776 },
+    ];
+    const corrected = v5Cohort.map(correctLegacyTopFiveV5Progression);
+    const powers = corrected.map(playerPowerForStats);
+    expect(powers).toEqual([...powers].sort((a, b) => b - a));
+    expect(Math.abs(powers[1] - LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER)).toBeLessThanOrEqual(2);
+    expect(Math.abs(powers[4] - LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER)).toBeLessThanOrEqual(2);
+    expect(corrected[1].damage / v5Cohort[1].damage).toBeCloseTo(corrected[1].maxHp / v5Cohort[1].maxHp, 10);
   });
 });
 
