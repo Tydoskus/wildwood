@@ -19,13 +19,13 @@ import {
 import type { RemoteCombatStats, RemotePlayer } from "../../wildwood-coop";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createRemoteEnemyCombatShadows } from "./remote-enemy-combat-shadow";
+import { rangedEnemyAttackRange, rangedEnemyPreferredDistance } from "./ranged-enemy-range";
 import type { RemoteBossSimulationTarget } from "../../coop/services/remote-boss-attack";
 import type { EnemyState, PlayerState, Position } from "./types";
 
 const FULL_SIMULATION_MARGIN = 220;
-const RANGED_PREFERRED_DISTANCE = 235;
-const RANGED_APPROACH_DEAD_BAND = 25;
-const RANGED_RETREAT_DEAD_BAND = 35;
+const RANGED_APPROACH_DEAD_BAND = 5;
+const RANGED_RETREAT_DEAD_BAND = 20;
 export const LOCAL_REGULAR_ENEMY_TARGET_ID = "local-player";
 
 type Viewport = { width: number; height: number; zoom: number };
@@ -113,10 +113,14 @@ export function createEnemySimulation(
     const dy = target.y - enemy.y;
     const distance = Math.hypot(dx, dy) || 1;
     if (ranged) {
+      const preferredDistance = rangedEnemyPreferredDistance(
+        player.attackRange,
+        player.r + enemy.r + 4,
+      );
       let rangedMove = 0;
-      if (distance > RANGED_PREFERRED_DISTANCE + RANGED_APPROACH_DEAD_BAND) {
+      if (distance > preferredDistance + RANGED_APPROACH_DEAD_BAND) {
         rangedMove = 1;
-      } else if (distance < RANGED_PREFERRED_DISTANCE - RANGED_RETREAT_DEAD_BAND) {
+      } else if (distance < preferredDistance - RANGED_RETREAT_DEAD_BAND) {
         rangedMove = -1;
       }
       enemy.vx += dx / distance * currentMoveSpeed * rangedMove * dt * 6;
@@ -288,7 +292,11 @@ export function createEnemySimulation(
             const actualDx = player.x - enemy.x;
             const actualDy = player.y - enemy.y;
             const actualDistance = Math.hypot(actualDx, actualDy) || 1;
-            if (base.ranged && enemy.attackClock <= 0 && actualDistance < 390) {
+            if (
+              base.ranged &&
+              enemy.attackClock <= 0 &&
+              actualDistance <= rangedEnemyAttackRange(player.attackRange)
+            ) {
               spawnEnemyShot(
                 enemy.x,
                 enemy.y,

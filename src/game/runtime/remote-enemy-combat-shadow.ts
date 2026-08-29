@@ -24,6 +24,7 @@ import {
 } from "../../coop/services/remote-boss-attack";
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "./regular-enemy-respawn";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
+import { rangedEnemyAttackRange, rangedEnemyPreferredDistance } from "./ranged-enemy-range";
 import type { EnemyState } from "./types";
 
 const PROJECTILE_RADIUS = 6;
@@ -104,21 +105,31 @@ function moveToward(ghost: EnemyState, targetX: number, targetY: number, speed: 
   return distance;
 }
 
-function moveGhost(ghost: EnemyState, base: EnemyDefinition, targetX: number, targetY: number, dt: number) {
+function moveGhost(
+  ghost: EnemyState,
+  base: EnemyDefinition,
+  targetX: number,
+  targetY: number,
+  targetAttackRange: number,
+  dt: number,
+) {
   const dx = targetX - ghost.x;
   const dy = targetY - ghost.y;
   const distance = Math.hypot(dx, dy) || 1;
   if (!base.ranged) {
     moveToward(ghost, targetX, targetY, ghost.speed, dt, ghost.r + 16);
-  } else if (distance > 260) {
-    moveToward(ghost, targetX, targetY, ghost.speed, dt, 235);
-  } else if (distance < 200) {
-    const retreat = Math.min(ghost.speed * dt, 235 - distance);
-    ghost.x -= dx / distance * retreat;
-    ghost.y -= dy / distance * retreat;
-    if (Math.abs(dx) > .5) ghost.facingX = dx < 0 ? -1 : 1;
-  } else if (Math.abs(dx) > .5) {
-    ghost.facingX = dx < 0 ? -1 : 1;
+  } else {
+    const preferredDistance = rangedEnemyPreferredDistance(targetAttackRange, ghost.r + 21);
+    if (distance > preferredDistance + 5) {
+      moveToward(ghost, targetX, targetY, ghost.speed, dt, preferredDistance);
+    } else if (distance < preferredDistance - 20) {
+      const retreat = Math.min(ghost.speed * dt, preferredDistance - distance);
+      ghost.x -= dx / distance * retreat;
+      ghost.y -= dy / distance * retreat;
+      if (Math.abs(dx) > .5) ghost.facingX = dx < 0 ? -1 : 1;
+    } else if (Math.abs(dx) > .5) {
+      ghost.facingX = dx < 0 ? -1 : 1;
+    }
   }
   ghost.x = clamp(ghost.x, ghost.r, WORLD.w - ghost.r);
   ghost.y = clamp(ghost.y, ghost.r, WORLD.h - ghost.r);
@@ -351,7 +362,9 @@ export function createRemoteEnemyCombatShadows(options: {
 
   function applyEnemyHits(shadow: ShadowState, target: RemotePlayer, fighter: FighterState, distance: number) {
     if (shadow.defeatedAtMs || shadow.opponentDefeatedAtMs) return;
-    const inRange = shadow.base.ranged ? distance <= 390 : distance <= shadow.ghost.r + 21;
+    const inRange = shadow.base.ranged
+      ? distance <= rangedEnemyAttackRange(shadow.stats.attackRange)
+      : distance <= shadow.ghost.r + 21;
     if (!inRange) return;
     const interval = 1 / Math.max(.01, shadow.base.attackSpeed);
     const elapsedSeconds = Math.max(0, serverNowMs / 1_000 - shadow.engagementTick * REGULAR_ENEMY_TICK_MS / 1_000);
@@ -425,7 +438,7 @@ export function createRemoteEnemyCombatShadows(options: {
 
     const targetX = shadow.lastTargetX;
     const targetY = shadow.lastTargetY;
-    moveGhost(ghost, shadow.base, targetX, targetY, frameDt);
+    moveGhost(ghost, shadow.base, targetX, targetY, shadow.stats.attackRange, frameDt);
     ghost.combatTargetX = targetX;
     ghost.combatTargetY = targetY;
     const dx = ghost.x - targetX;

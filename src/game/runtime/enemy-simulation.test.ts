@@ -65,6 +65,34 @@ function engage(enemy: EnemyState, targetId: string | null = null, startedAtTick
 }
 
 describe("deterministic enemy simulation", () => {
+  it("only lets ranged enemies fire from inside the player's attack edge", () => {
+    const shotsAtDistance = (distance: number) => {
+      const local = playerAt(100, 100);
+      local.attackRange = 200;
+      const enemy = idleEnemyAt(local.x + distance, local.y);
+      enemy.type = "Dune Archer";
+      enemy.r = 17;
+      enemy.speed = 0;
+      engage(enemy, "local-player");
+      const shots: unknown[] = [];
+      const simulation = createEnemySimulation(
+        [enemy],
+        (...shot) => { shots.push(shot); },
+        local,
+        () => ({ width: 800, height: 800, zoom: 1 }),
+        engage,
+        () => false,
+        { localIdentity: () => "local-player", localAggroPosition: () => local },
+      );
+
+      simulation.update(.001);
+      return shots.length;
+    };
+
+    expect(shotsAtDistance(186)).toBe(0);
+    expect(shotsAtDistance(185)).toBe(1);
+  });
+
   it("deterministically separates enemies that reach the exact same position", () => {
     const first = idleEnemyAt(300, 300);
     const second = idleEnemyAt(300, 300);
