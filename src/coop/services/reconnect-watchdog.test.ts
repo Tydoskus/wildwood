@@ -43,4 +43,36 @@ describe("reconnect watchdog", () => {
     watchdog.refresh();
     expect(watchdog.isArmed()).toBe(false);
   });
+
+  it("keeps one absolute deadline through repeated reconnect attempts", () => {
+    let nextTimer = 0;
+    const callbacks = new Map<number, () => void>();
+    const delays = new Map<number, number>();
+    const onDeadline = vi.fn();
+    const watchdog = createReconnectWatchdog({
+      delayMs: 10_000,
+      shouldWatch: () => true,
+      onTimeout: vi.fn(),
+      deadlineMs: 4_000,
+      shouldUseDeadline: () => true,
+      onDeadline,
+      schedule: (callback, delayMs) => {
+        nextTimer += 1;
+        callbacks.set(nextTimer, callback);
+        delays.set(nextTimer, delayMs);
+        return nextTimer;
+      },
+      cancel: (timer) => { callbacks.delete(timer); },
+    });
+
+    watchdog.refresh();
+    const deadlineTimer = [...delays].find(([, delay]) => delay === 4_000)?.[0];
+    watchdog.refresh();
+    watchdog.refresh();
+
+    expect(deadlineTimer).toBeDefined();
+    expect(callbacks.has(deadlineTimer!)).toBe(true);
+    callbacks.get(deadlineTimer!)?.();
+    expect(onDeadline).toHaveBeenCalledTimes(1);
+  });
 });

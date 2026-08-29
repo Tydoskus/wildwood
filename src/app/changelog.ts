@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.563": [
+    "Screen shake now remembers your preference, and toolbar colors are slightly richer.",
+    "Long mobile resumes now escape stuck reconnects through a clean startup reload after four seconds.",
+  ],
   "0.562": [
     "Boss names are 50% larger, with boss stat rewards 25% larger.",
     "Desktop sight distance now matches mobile.",
@@ -1238,6 +1242,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.563": "2026-08-29",
   "0.562": "2026-08-29",
   "0.561": "2026-08-29",
   "0.560": "2026-08-29",

@@ -83,6 +83,7 @@ type WildwoodRuntime = Window & {
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const WAKE_RECONNECT_WATCHDOG_MS = 10_000;
+const WAKE_RECONNECT_FALLBACK_MS = 4_000;
 
 const runtime = window as WildwoodRuntime;
 const defaultHost = defaultRealtimeHost(window.location.hostname);
@@ -178,6 +179,9 @@ const reconnectWatchdog = createReconnectWatchdog({
   shouldWatch: () => (wakeReconnectVisible || networkReconnectVisible) &&
     !document.hidden && !protocolBlocked && !worldEntryBlocked,
   onTimeout: restartStalledWakeConnection,
+  deadlineMs: WAKE_RECONNECT_FALLBACK_MS,
+  shouldUseDeadline: () => wakeReconnectVisible && !document.hidden && !protocolBlocked && !worldEntryBlocked,
+  onDeadline: () => window.location.reload(),
   schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
   cancel: (timer) => window.clearTimeout(timer),
 });

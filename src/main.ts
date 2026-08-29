@@ -24,7 +24,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -284,6 +284,7 @@ import {
       lowPerformance: LOW_PERFORMANCE_MODE_KEY,
       latency: LATENCY_VISIBLE_KEY,
       musicVolume: MUSIC_VOLUME_KEY,
+      screenShake: SCREEN_SHAKE_ENABLED_KEY,
       sfxVolume: SFX_VOLUME_KEY,
     },
     connected: () => Boolean(coop?.isConnected?.()),

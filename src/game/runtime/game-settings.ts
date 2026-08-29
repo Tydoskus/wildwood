@@ -1,6 +1,7 @@
-export const GAME_VERSION = "0.562";
+export const GAME_VERSION = "0.563";
 export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
+export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const ANTI_ALIASING_ENABLED_KEY = "wildwood-anti-aliasing-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
 export const FPS_VISIBLE_KEY = "wildwood-fps-visible-v1";

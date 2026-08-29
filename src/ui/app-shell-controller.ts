@@ -20,6 +20,7 @@ type AppShellDependencies = {
     lowPerformance: string;
     latency: string;
     musicVolume: string;
+    screenShake: string;
     sfxVolume: string;
   };
   connected: () => boolean;
@@ -56,7 +57,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const accountButton = requiredElement("accountButton");
   const accountStatus = requiredElement("accountStatus");
 
-  let screenShakeEnabled = true;
+  let screenShakeEnabled = readBoolean(dependencies.storageKeys.screenShake, true);
   let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
   let antiAliasingEnabled = readBoolean(dependencies.storageKeys.antiAliasing, true);
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
@@ -119,6 +120,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
 
   screenShakeToggle.addEventListener("click", () => {
     screenShakeEnabled = !screenShakeEnabled;
+    writeBoolean(dependencies.storageKeys.screenShake, screenShakeEnabled);
     if (!screenShakeEnabled) dependencies.onScreenShakeDisabled();
     refreshSettings();
   });
