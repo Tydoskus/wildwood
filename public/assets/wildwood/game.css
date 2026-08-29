@@ -1601,10 +1601,11 @@
     text-shadow: none;
   }
 
-  #connectionPanel[hidden], #accountChoicePanel[hidden], #newPlayerPanel[hidden] { display: none; }
+  #connectionPanel[hidden], #accountChoicePanel[hidden], #legalGatePanel[hidden], #newPlayerPanel[hidden] { display: none; }
 
   .modal.connection-modal,
-  .modal.account-choice-modal {
+  .modal.account-choice-modal,
+  .modal.legal-gate-modal {
     position: fixed;
     top: 50vh;
     top: 50dvh;
@@ -1618,11 +1619,168 @@
     transform: translate(-50%, -50%);
   }
 
+  .modal.account-choice-modal { scrollbar-width: none; }
+  .modal.account-choice-modal::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
   .connection-modal {
     display: flex;
     flex-direction: column;
     justify-content: center;
     text-align: center;
+  }
+
+  .legal-gate-modal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px clamp(18px, 6vw, 34px);
+    overflow-y: auto;
+    text-align: center;
+  }
+
+  .legal-wordmark-title {
+    width: min(260px, 78%);
+    margin-bottom: 8px;
+  }
+
+  .legal-gate-modal h2 {
+    margin: 0;
+    color: #f3f6f2;
+    font-size: clamp(23px, 6vw, 30px);
+    line-height: 1.05;
+  }
+
+  .legal-gate-modal #legalGateIntro {
+    margin: 7px 0 2px;
+    color: #aeb9b0;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .legal-age-output {
+    min-width: 3ch;
+    margin: 8px 0 10px;
+    color: #fff;
+    font: 900 clamp(34px, 10vw, 48px)/1 var(--font-rounded);
+    font-variant-numeric: tabular-nums;
+    -webkit-text-stroke: var(--text-outline-width) #000;
+    text-shadow: var(--text-shadow);
+  }
+
+  .legal-age-control { width: min(300px, 100%); }
+
+  #legalAgeSlider {
+    width: 100%;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  #legalAgeSlider::-webkit-slider-runnable-track {
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(220, 230, 222, .24);
+  }
+
+  #legalAgeSlider::-moz-range-track {
+    height: 5px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(220, 230, 222, .24);
+  }
+
+  #legalAgeSlider::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    margin-top: -9.5px;
+    border: 3px solid #071008;
+    border-radius: 50%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #7aec60;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .38);
+  }
+
+  #legalAgeSlider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #071008;
+    border-radius: 50%;
+    background: #7aec60;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .38);
+  }
+
+  #legalAgeSlider.is-unset::-webkit-slider-thumb { background: #78827a; }
+  #legalAgeSlider.is-unset::-moz-range-thumb { background: #78827a; }
+  #legalAgeSlider:focus-visible { outline: none; }
+  #legalAgeSlider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px #fff, 0 2px 8px rgba(0, 0, 0, .38); }
+  #legalAgeSlider:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px #fff, 0 2px 8px rgba(0, 0, 0, .38); }
+
+  .legal-age-limits {
+    display: flex;
+    justify-content: space-between;
+    margin-top: -2px;
+    color: #77827a;
+    font-size: 9px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .legal-agreement {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    width: min(330px, 100%);
+    margin: 22px auto 0;
+    color: #c9d1ca;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: left;
+  }
+
+  .legal-agreement input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: #68df4f;
+  }
+
+  .legal-agreement a { color: #9af080; text-underline-offset: 2px; }
+  .legal-agreement:has(input:disabled) { opacity: .48; }
+
+  #legalContinueBtn {
+    width: min(260px, 100%);
+    margin-top: 20px;
+  }
+
+  .legal-gate-status {
+    min-height: 1.4em;
+    margin: 9px 0 0;
+    color: #89958c;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+
+  .legal-gate-status.is-blocked { color: #ff9b91; }
+
+  .setting-legal {
+    margin: 6px 0 2px;
+    text-align: center;
+  }
+
+  .setting-legal a {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    text-underline-offset: 2px;
   }
 
   .account-choice-modal.is-signing-in #signInFromStartBtn,

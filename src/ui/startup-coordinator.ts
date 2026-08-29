@@ -21,6 +21,8 @@ type StartupCoordinatorDependencies = {
   setNewPlayerIntroShown: () => void;
   refreshLoading: () => void;
   showSessionConflict: () => void;
+  legalConsentAccepted: () => boolean;
+  showLegalGate: () => void;
   showAccountChoice: () => void;
   showNewPlayerIntro: () => void;
   isLoadingSequenceComplete: () => boolean;
@@ -60,6 +62,10 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
       return;
     }
     if (dependencies.hasStarted() || dependencies.isRunning()) return;
+    if (!dependencies.legalConsentAccepted()) {
+      if (isSignInScreenReady()) dependencies.showLegalGate();
+      return;
+    }
     if (!account?.signedIn && !account?.authInProgress && !account?.returningFromSignIn
       && !account?.guestSessionApproved && !dependencies.guestContinuationChosen() && isSignInScreenReady()) {
       dependencies.showAccountChoice();

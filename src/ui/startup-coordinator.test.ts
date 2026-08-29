@@ -19,6 +19,8 @@ function dependencies(running: boolean) {
       setNewPlayerIntroShown: () => {},
       refreshLoading: () => {},
       showSessionConflict: () => {},
+      legalConsentAccepted: () => true,
+      showLegalGate: () => {},
       showAccountChoice: () => {},
       showNewPlayerIntro: () => {},
       isLoadingSequenceComplete: () => true,

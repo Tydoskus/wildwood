@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.560": [
+    "A clean 13+ age and Terms step now appears immediately after sign-in or Guest Login, with private versioned acceptance required before entering the world.",
+    "The sign-in panel keeps short-screen scrolling without showing its large outer scrollbar.",
+  ],
   "0.559": [
     "Reduced the initial game page to under 24 KB and moved hidden windows into the cached client bundle.",
   ],
@@ -1227,6 +1231,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.560": "2026-08-29",
   "0.559": "2026-08-29",
   "0.558": "2026-08-29",
   "0.557": "2026-08-29",

@@ -4,6 +4,7 @@ import type { wildwoodCoop } from "../wildwood-coop";
 // removes, renames, or accidentally exposes a method without an intentional
 // contract update.
 type ExpectedApiKey =
+  | "acceptLegalTerms"
   | "acceptDuel"
   | "accessAuditEntries"
   | "accountState"
@@ -57,6 +58,7 @@ type ExpectedApiKey =
   | "knownCharacter"
   | "knownCharacterGender"
   | "latencyMs"
+  | "legalConsentAccepted"
   | "leaderboardEntries"
   | "loadDuelReplay"
   | "loadLeaderboardSnapshot"

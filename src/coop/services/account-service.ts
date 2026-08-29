@@ -15,6 +15,7 @@ import {
   type UpdateResumeMode,
 } from "./update-resume-store";
 import type { PlayerProgress } from "./progress";
+import { createLegalConsentService } from "./legal-consent-service";
 
 type AccountKeys = {
   tokenKey: string;
@@ -31,6 +32,7 @@ type AccountKeys = {
   knownGuestCharacterKey: string;
   authReturnUiKey: string;
   authTabKey: string;
+  legalConsentKey: string;
 };
 
 type AccountServiceDependencies = {
@@ -42,6 +44,7 @@ type AccountServiceDependencies = {
   connectedSignedIn: () => boolean;
   hydrationReady: () => boolean;
   protocolBlocked: () => boolean;
+  protocolReady: () => boolean;
   updating: () => boolean;
   worldEntryBlocked: () => boolean;
   setWorldEntryBlocked: (blocked: boolean) => void;
@@ -106,6 +109,17 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       return null;
     }
   }
+
+  const legalConsent = createLegalConsentService({
+    storage: localStorage,
+    storageKey: keys.legalConsentKey,
+    connection: dependencies.connection,
+    protocolReady: dependencies.protocolReady,
+    shouldEnterWorld: () => dependencies.connectedSignedIn() || guestSessionExplicit,
+    requestWorldEntry: dependencies.requestWorldEntry,
+    notify: dependencies.notify,
+    handleFailure: dependencies.handleFailure,
+  });
 
   function readTabValue(key: string) {
     try {
@@ -430,6 +444,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         notice,
       };
     },
+    legalConsentAccepted: legalConsent.accepted,
+    acceptLegalTerms: legalConsent.acceptAge,
     knownCharacter() {
       const accountCharacter = rememberedAccountCharacter();
       const signedIn = dependencies.connection()?.isActive ? dependencies.connectedSignedIn() : Boolean(accountToken());
@@ -568,7 +584,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       guestSessionExplicit = true;
       notice = "GUEST SESSION";
       if (mustChangeIdentity) dependencies.restartConnectionForIdentityChange();
-      else if (dependencies.connection()?.isActive) void dependencies.requestWorldEntry();
+      else if (dependencies.connection()?.isActive && legalConsent.accepted()) void dependencies.requestWorldEntry();
       else dependencies.connect();
       dependencies.notify();
       return { ok: true };
@@ -583,6 +599,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     isGuestSessionExplicit: () => guestSessionExplicit,
     isSessionApproved: () => sessionApproved,
     shouldEnterWorld: (signedIn: boolean) => signedIn || guestSessionExplicit,
+    legalConsentAccepted: legalConsent.accepted,
+    syncLegalConsent: legalConsent.syncConnection,
     tabId: authTabId,
     notice: () => notice,
     setNotice(value: string) { notice = value; },

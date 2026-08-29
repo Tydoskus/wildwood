@@ -4,10 +4,12 @@ import { createStartupAuthGate, type StartupAuthElements } from "./startup-auth-
 class FakeElement {
   hidden = false;
   disabled = false;
+  checked = false;
   textContent = "";
+  value = "50";
   style = { display: "", width: "" };
   private classes = new Set<string>();
-  private listeners = new Map<string, Set<() => void>>();
+  private listeners = new Map<string, Set<(event: Event) => void>>();
   classList = {
     add: (name: string) => this.classes.add(name),
     remove: (name: string) => this.classes.delete(name),
@@ -18,16 +20,17 @@ class FakeElement {
       return enabled;
     },
   };
-  addEventListener(name: string, listener: () => void) {
+  addEventListener(name: string, listener: (event: Event) => void) {
     const listeners = this.listeners.get(name) ?? new Set();
     listeners.add(listener);
     this.listeners.set(name, listeners);
   }
-  removeEventListener(name: string, listener: () => void) {
+  removeEventListener(name: string, listener: (event: Event) => void) {
     this.listeners.get(name)?.delete(listener);
   }
+  setAttribute() {}
   click() {
-    for (const listener of this.listeners.get("click") ?? []) listener();
+    for (const listener of this.listeners.get("click") ?? []) listener({ stopPropagation() {} } as Event);
   }
 }
 
@@ -43,6 +46,15 @@ function elements() {
     guestButton: new FakeElement(),
     loadingDetail: new FakeElement(),
     loadingFill: new FakeElement(),
+    legal: {
+      panel: new FakeElement(),
+      ageSlider: new FakeElement(),
+      ageOutput: new FakeElement(),
+      agreement: new FakeElement(),
+      termsLink: new FakeElement(),
+      continueButton: new FakeElement(),
+      status: new FakeElement(),
+    },
   } as unknown as StartupAuthElements & {
     signInButton: FakeElement;
     guestButton: FakeElement;
@@ -50,6 +62,62 @@ function elements() {
 }
 
 describe("startup auth gate", () => {
+  it("shows age and Terms immediately after Guest Login", async () => {
+    const ui = elements();
+    const loadGame = vi.fn(async () => {});
+    let state = { signInReady: true, guestSessionApproved: false };
+    const gate = createStartupAuthGate({
+      accountState: () => state,
+      knownCharacter: () => "",
+      signIn: async () => ({ ok: true, redirecting: true }),
+      continueAsGuest: () => {
+        state = { ...state, guestSessionApproved: true };
+        return { ok: true };
+      },
+      legalConsentAccepted: () => false,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame,
+    }, ui);
+
+    gate.start();
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+
+    ui.guestButton.click();
+    await Promise.resolve();
+
+    expect(ui.legal.panel.hidden).toBe(false);
+    expect(ui.accountChoicePanel.hidden).toBe(true);
+    expect(loadGame).not.toHaveBeenCalled();
+  });
+
+  it("shows age and Terms immediately after registration returns", async () => {
+    const ui = elements();
+    const loadGame = vi.fn(async () => {});
+    let state = { signInReady: true, gameSessionApproved: false };
+    const gate = createStartupAuthGate({
+      accountState: () => state,
+      knownCharacter: () => "",
+      signIn: async () => {
+        state = { ...state, gameSessionApproved: true };
+        return { ok: true, redirecting: false };
+      },
+      continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => false,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame,
+    }, ui);
+
+    gate.start();
+    ui.signInButton.click();
+    await Promise.resolve();
+
+    expect(ui.legal.panel.hidden).toBe(false);
+    expect(ui.accountChoicePanel.hidden).toBe(true);
+    expect(loadGame).not.toHaveBeenCalled();
+  });
+
   it("keeps the game unloaded while the player is choosing an identity", () => {
     const ui = elements();
     const loadGame = vi.fn(async () => {});
@@ -58,6 +126,8 @@ describe("startup auth gate", () => {
       knownCharacter: () => "",
       signIn: async () => ({ ok: true, redirecting: true }),
       continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
       subscribe: () => () => {},
       loadGame,
     }, ui);
@@ -77,6 +147,8 @@ describe("startup auth gate", () => {
       knownCharacter: () => "WANDERER",
       signIn: async () => ({ ok: true, redirecting: true }),
       continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
       subscribe: () => () => {},
       loadGame,
     }, ui);
@@ -100,6 +172,8 @@ describe("startup auth gate", () => {
       knownCharacter: () => "WANDERER",
       signIn: () => ({ ok: true }),
       continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
       subscribe: (listener) => { notify = listener; return () => {}; },
       loadGame,
     }, ui);
@@ -123,6 +197,8 @@ describe("startup auth gate", () => {
       knownCharacter: () => "WANDERER",
       signIn: () => ({ ok: true, redirecting: true }),
       continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
       subscribe: () => () => {},
       loadGame: async () => {},
       releaseNotes,
@@ -145,6 +221,8 @@ describe("startup auth gate", () => {
       knownCharacter: () => "WANDERER",
       signIn: () => ({ ok: true, redirecting: true }),
       continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
       subscribe: () => () => {},
       loadGame: async () => {},
       releaseNotes,
@@ -161,11 +239,18 @@ describe("startup auth gate", () => {
   it("switches to Guest before loading the game", async () => {
     const ui = elements();
     const order: string[] = [];
+    let state = { signInReady: true, guestSessionApproved: false };
     const gate = createStartupAuthGate({
-      accountState: () => ({ signInReady: true }),
+      accountState: () => state,
       knownCharacter: () => "ACCOUNT HERO",
       signIn: () => ({ ok: true, redirecting: true }),
-      continueAsGuest: () => { order.push("guest"); return { ok: true }; },
+      continueAsGuest: () => {
+        order.push("guest");
+        state = { ...state, guestSessionApproved: true };
+        return { ok: true };
+      },
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
       subscribe: () => () => {},
       loadGame: async () => { order.push("game"); },
     }, ui);

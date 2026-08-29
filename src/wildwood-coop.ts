@@ -2,8 +2,7 @@ import "./ui/game-shell";
 import { DbConnection, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "./app/developer";
-import { recentReleaseNotes } from "./app/changelog";
-import { GAME_VERSION, SEEN_VERSION_KEY } from "./game/runtime/game-settings";
+import { GAME_VERSION } from "./game/runtime/game-settings";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
 import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
 import { createReconnectScheduler } from "./coop/services/reconnect-scheduler";
@@ -39,8 +38,7 @@ import {
   type BaseSubscriptionHandlers,
 } from "./coop/services/base-subscription";
 import { createAccountService, type AccountService } from "./coop/services/account-service";
-import { createStartupAuthGate, loadDeferredGameBundle } from "./coop/startup-auth-gate";
-import { createStartupReleaseNotes } from "./coop/startup-release-notes";
+import { startStartupBootstrap } from "./coop/startup-bootstrap";
 import type { ReducerPort } from "./coop/ports";
 export type {
   AccessAuditEntry,
@@ -107,6 +105,7 @@ const updateResumeKey = `${tokenKey}/forced_update_resume_v1`;
 const updateResumeConsumedKey = `${updateResumeKey}/consumed_version`;
 const authTabKey = `${accountMigrationPendingKey}/tab_id`;
 const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
+const legalConsentKey = `${tokenKey}/legal_consent_v1`;
 const updateResumeStore = createUpdateResumeStore(sessionStorage, updateResumeKey);
 
 function consumeUpdateResumeMode(): UpdateResumeMode | null {
@@ -161,6 +160,7 @@ let networkReconnectVisible = false;
 let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
+let protocolReadyGeneration = 0;
 let accountService!: AccountService;
 
 /** Coalesces table hydration into one UI refresh instead of one per row. */
@@ -534,6 +534,7 @@ accountService = createAccountService({
     knownGuestCharacterKey,
     authReturnUiKey,
     authTabKey,
+    legalConsentKey,
   },
   updateResumeMode,
   updateResumeStore,
@@ -542,6 +543,7 @@ accountService = createAccountService({
   connectedSignedIn: () => connectedSignedIn,
   hydrationReady: () => hydrationReady,
   protocolBlocked: () => protocolBlocked,
+  protocolReady: () => protocolReadyGeneration === connectionGeneration,
   updating: () => connectionGateState(protocolBlocked, wakeReconnectVisible, networkReconnectVisible).updating,
   worldEntryBlocked: () => worldEntryBlocked,
   setWorldEntryBlocked: (blocked) => { worldEntryBlocked = blocked; },
@@ -646,6 +648,7 @@ function restartConnectionForIdentityChange() {
   connecting = false;
   hydrationReady = false;
   connectedSignedIn = false;
+  protocolReadyGeneration = 0;
   localDbIdentity = null;
   resumeProbePromise = null;
   resumeProbeGeneration += 1;
@@ -676,6 +679,7 @@ function restartStalledWakeConnection() {
   connecting = false;
   hydrationReady = false;
   connectedSignedIn = false;
+  protocolReadyGeneration = 0;
   localDbIdentity = null;
   resumeProbePromise = null;
   resumeProbeGeneration += 1;
@@ -774,6 +778,7 @@ function connect() {
       connecting = false;
       hydrationReady = false;
       connectedSignedIn = signedIn;
+      protocolReadyGeneration = 0;
       touchServerActivity();
       protocolBlocked = false;
       worldEntryPromise = null;
@@ -795,6 +800,7 @@ function connect() {
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
+        protocolReadyGeneration = generation;
         accountService.clearRetry();
         recordLatency(protocolStartedAt);
         const isCurrentConnection = () => {
@@ -803,12 +809,18 @@ function connect() {
           return current;
         };
 
+        await accountService.syncLegalConsent(conn);
+        if (!isCurrentConnection()) return;
         if (!await accountService.claimAccountLink(conn, signedIn, isCurrentConnection)) return;
         if (!await accountService.handlePendingTakeover(conn, isCurrentConnection)) return;
 
-        if (accountService.shouldEnterWorld(signedIn) && !await requestWorldEntry()) {
-          if (isCurrentConnection() && !worldEntryBlocked) conn.disconnect();
-          return;
+        if (accountService.shouldEnterWorld(signedIn)) {
+          if (!accountService.legalConsentAccepted()) {
+            accountService.setNotice("AGE & TERMS REQUIRED");
+          } else if (!await requestWorldEntry()) {
+            if (isCurrentConnection() && !worldEntryBlocked) conn.disconnect();
+            return;
+          }
         }
 
         startBaseSubscription({
@@ -850,6 +862,7 @@ function connect() {
       localDbIdentity = null;
       hydrationReady = false;
       connectedSignedIn = false;
+      protocolReadyGeneration = 0;
       presenceService.markDisconnected();
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
@@ -870,6 +883,7 @@ function connect() {
       localDbIdentity = null;
       hydrationReady = false;
       connectedSignedIn = false;
+      protocolReadyGeneration = 0;
       presenceService.markDisconnected();
       latencyMs = null;
       lastLatencyProbeStartedAt = 0;
@@ -961,38 +975,20 @@ window.setInterval(() => {
 window.addEventListener("storage", (event) => {
   accountService.handleStorageEvent(event);
 });
-void accountService.restoreKnownAccount().then(() => {
-  const releaseNotes = createStartupReleaseNotes({
-    version: GAME_VERSION,
-    releases: () => recentReleaseNotes(2),
-    seenVersion: () => {
-      try { return localStorage.getItem(SEEN_VERSION_KEY) || ""; }
-      catch { return ""; }
-    },
-    markSeen: () => {
-      try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); }
-      catch {}
-    },
-  });
-  const authGate = createStartupAuthGate({
-    accountState: wildwoodCoop.accountState,
-    knownCharacter: wildwoodCoop.knownCharacter,
-    signIn: wildwoodCoop.signIn,
-    continueAsGuest: wildwoodCoop.continueAsGuest,
-    subscribe(listener) {
-      startupChangeListener = listener;
-      return () => {
-        if (startupChangeListener === listener) startupChangeListener = null;
-      };
-    },
-    loadGame: () => loadDeferredGameBundle(),
-    releaseNotes,
-  });
-  authGate.start();
-}).catch((error) => {
-  console.error("Wildwood account startup failed:", error);
-  const loadingDetail = document.getElementById("loadingDetail");
-  if (loadingDetail) loadingDetail.textContent = "ACCOUNT STARTUP FAILED · REFRESH TO TRY AGAIN";
+startStartupBootstrap({
+  restoreKnownAccount: accountService.restoreKnownAccount,
+  accountState: wildwoodCoop.accountState,
+  knownCharacter: wildwoodCoop.knownCharacter,
+  signIn: wildwoodCoop.signIn,
+  continueAsGuest: wildwoodCoop.continueAsGuest,
+  legalConsentAccepted: wildwoodCoop.legalConsentAccepted,
+  acceptLegalTerms: wildwoodCoop.acceptLegalTerms,
+  subscribe(listener) {
+    startupChangeListener = listener;
+    return () => {
+      if (startupChangeListener === listener) startupChangeListener = null;
+    };
+  },
 });
 
 export default wildwoodCoop;

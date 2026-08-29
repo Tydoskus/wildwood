@@ -290,7 +290,7 @@ describe("interface style contracts", () => {
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
-    const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal {");
+    const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal,\n  .modal.legal-gate-modal {");
     expect(stableStartupWindow).toContain("top: 50dvh");
     expect(stableStartupWindow).toContain("transform: translate(-50%, -50%)");
     expect(stableStartupWindow).toContain("height: min(586px, calc(100svh - 24px))");

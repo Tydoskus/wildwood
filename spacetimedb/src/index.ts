@@ -19,6 +19,7 @@ import {
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { isPublicDisplayNameAllowed, moderatePublicChatMessage } from "./chat-moderation";
 import { isChatReportReason } from "../../shared/chat-report";
+import { TERMS_VERSION, isEligiblePlayerAgeBand } from "../../shared/legal";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import {
@@ -813,6 +814,19 @@ const playerAccountStatus = table(
   },
 );
 
+// Legal acceptance is private and stores only the self-declared age band,
+// never a birthday or exact age. The version makes renewed acceptance explicit
+// whenever the published Terms materially change.
+const playerLegalConsent = table(
+  { name: "player_legal_consent", public: false },
+  {
+    identity: t.identity().primaryKey(),
+    termsVersion: t.string(),
+    ageBand: t.u8(),
+    acceptedAt: t.timestamp(),
+  },
+);
+
 // One tiny public presence aggregate keeps the HUD accurate without making
 // every client subscribe to every active player row.
 const worldStatus = table(
@@ -1344,6 +1358,7 @@ const spacetimedb = schema({
   playerItemDrop,
   leaderboardEntry,
   playerAccountStatus,
+  playerLegalConsent,
   worldStatus,
   leaderboardRefreshState,
   moduleMigrationState,
@@ -2658,6 +2673,14 @@ function isSupportedProtocol(protocolVersion: number) {
   return protocolVersion === PROTOCOL_VERSION;
 }
 
+function requireCurrentLegalConsent(ctx: any) {
+  const consent = ctx.db.playerLegalConsent.identity.find(ctx.sender);
+  if (consent?.termsVersion !== TERMS_VERSION || !isEligiblePlayerAgeBand(consent?.ageBand ?? -1)) {
+    throw new SenderError("Review and accept the Wildwood Terms to continue.");
+  }
+  return consent;
+}
+
 function requireSupportedSessionProtocol(ctx: any) {
   const session = requireSession(ctx);
   if (!isSupportedProtocol(session.protocolVersion)) {
@@ -3470,6 +3493,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   removeResearchCompletionSchedules(ctx, identity);
   removePlayerItemUpgradeData(ctx, identity, true);
   if (ctx.db.playerAccountStatus.identity.find(identity)) ctx.db.playerAccountStatus.identity.delete(identity);
+  if (ctx.db.playerLegalConsent.identity.find(identity)) ctx.db.playerLegalConsent.identity.delete(identity);
   if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
   if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
@@ -4433,6 +4457,7 @@ function clearExpiredHistory(ctx: any) {
 
 function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   const session = requireSupportedSessionProtocol(ctx);
+  requireCurrentLegalConsent(ctx);
   if (!ctx.connectionId) return;
   const normalizedTabId = tabId.trim();
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(normalizedTabId)) throw new SenderError("Invalid Wildwood tab session.");
@@ -5439,6 +5464,22 @@ export const registerProtocol = spacetimedb.reducer(
   },
 );
 
+export const acceptTerms = spacetimedb.reducer(
+  { termsVersion: t.string(), ageBand: t.u8() },
+  (ctx, { termsVersion, ageBand }) => {
+    requireSession(ctx);
+    if (termsVersion !== TERMS_VERSION) throw new SenderError("Wildwood Terms changed. Review them again.");
+    if (!isEligiblePlayerAgeBand(ageBand)) {
+      throw new SenderError("Wildwood is currently available to players age 13 and older.");
+    }
+    const current = ctx.db.playerLegalConsent.identity.find(ctx.sender);
+    if (current?.termsVersion === termsVersion && current.ageBand === ageBand) return;
+    const next = { identity: ctx.sender, termsVersion, ageBand, acceptedAt: ctx.timestamp };
+    if (current) ctx.db.playerLegalConsent.identity.update(next);
+    else ctx.db.playerLegalConsent.insert(next);
+  },
+);
+
 export const enterWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
   requireSupportedSessionProtocol(ctx);
   enterWorldPresence(ctx, tabId);
@@ -5706,6 +5747,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (ctx.db.playerMapMarker.identity.find(link.guest)) ctx.db.playerMapMarker.identity.delete(link.guest);
     if (ctx.db.playerMovementDemand.identity.find(link.guest)) ctx.db.playerMovementDemand.identity.delete(link.guest);
     if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
+    if (ctx.db.playerLegalConsent.identity.find(link.guest)) ctx.db.playerLegalConsent.identity.delete(link.guest);
     if (guestLocation) ctx.db.playerLastLocation.identity.delete(link.guest);
     if (guestResearch) ctx.db.playerResearch.identity.delete(link.guest);
     if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);

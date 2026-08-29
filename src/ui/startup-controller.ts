@@ -1,6 +1,7 @@
 import { requiredElement } from "../game/runtime/dom";
 import { appendPlayerGenderIcon } from "./player-gender";
 import type { PlayerGender } from "../../shared/player-gender";
+import { createLegalGateController } from "./legal-gate";
 
 type AccountState = {
   signedIn?: boolean;
@@ -24,6 +25,9 @@ type StartupDependencies = {
   onLoadingComplete: () => void;
   onShowAccountChoice: () => void;
   onShowConnecting: () => void;
+  legalConsentAccepted: () => boolean;
+  acceptLegalTerms: (age: number) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
+  onLegalAccepted: () => void;
   onContinueGuest: () => void;
   onBeginAdventure: (name: string) => void;
   signIn: () => Promise<{ ok?: boolean; redirecting?: boolean } | undefined> | undefined;
@@ -45,6 +49,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   const accountCharacterName = requiredElement("accountCharacterName");
   const signInButton = requiredElement<HTMLButtonElement>("signInFromStartBtn");
   const guestButton = requiredElement<HTMLButtonElement>("continueGuestBtn");
+  const legalGatePanel = requiredElement("legalGatePanel");
   const newPlayerPanel = requiredElement("newPlayerPanel");
   const playerNameInput = requiredElement<HTMLInputElement>("newPlayerNameInput");
   const beginAdventureButton = requiredElement("beginAdventureBtn");
@@ -54,6 +59,10 @@ export function createStartupController(dependencies: StartupDependencies) {
   let loadingStageTimer: number | null = null;
   let loadingSequenceComplete = false;
   let signInPending = false;
+  const legalGate = createLegalGateController({
+    accept: dependencies.acceptLegalTerms,
+    onAccepted: dependencies.onLegalAccepted,
+  });
 
   function showConnecting() {
     if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
@@ -65,6 +74,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     start.style.display = "grid";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
+    legalGatePanel.hidden = true;
     newPlayerPanel.hidden = true;
     sessionTakeoverButton.hidden = true;
     sessionTakeoverButton.disabled = false;
@@ -78,6 +88,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     start.style.display = "grid";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
+    legalGatePanel.hidden = true;
     newPlayerPanel.hidden = true;
     loadingDetail.textContent = dependencies.accountState()?.notice || "LOGGED IN ON ANOTHER TAB";
     loadingFill.style.width = "100%";
@@ -88,6 +99,10 @@ export function createStartupController(dependencies: StartupDependencies) {
   function showAccountChoice(detailOverride = "") {
     if (!dependencies.isSignInScreenReady()) {
       if (connectionPanel.hidden) showConnecting();
+      return;
+    }
+    if (!dependencies.legalConsentAccepted()) {
+      showLegalGate();
       return;
     }
     const account = dependencies.accountState();
@@ -116,6 +131,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     start.style.display = "grid";
     connectionPanel.hidden = true;
     accountChoicePanel.hidden = false;
+    legalGatePanel.hidden = true;
     newPlayerPanel.hidden = true;
     dependencies.onShowAccountChoice();
   }
@@ -126,10 +142,15 @@ export function createStartupController(dependencies: StartupDependencies) {
 
   /** Switch an authenticated account back to progress loading without restarting its timer sequence. */
   function showLoading() {
+    if (!dependencies.legalConsentAccepted() && dependencies.isSignInScreenReady()) {
+      showLegalGate();
+      return;
+    }
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
     accountChoicePanel.hidden = true;
+    legalGatePanel.hidden = true;
     newPlayerPanel.hidden = true;
     sessionTakeoverButton.hidden = true;
     sessionTakeoverNote.hidden = true;
@@ -164,13 +185,29 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showNewPlayerIntro() {
+    if (!dependencies.legalConsentAccepted()) {
+      showLegalGate();
+      return;
+    }
     accountChoicePanel.classList.remove("is-signing-in");
     if (!playerNameInput.value) playerNameInput.value = dependencies.defaultPlayerName() || "WANDERER";
     start.style.display = "grid";
     connectionPanel.hidden = true;
     accountChoicePanel.hidden = true;
+    legalGatePanel.hidden = true;
     newPlayerPanel.hidden = false;
     requestAnimationFrame(() => playerNameInput.focus());
+  }
+
+  function showLegalGate() {
+    accountChoicePanel.classList.remove("is-signing-in");
+    start.style.display = "grid";
+    connectionPanel.hidden = true;
+    accountChoicePanel.hidden = true;
+    legalGate.show();
+    newPlayerPanel.hidden = true;
+    sessionTakeoverButton.hidden = true;
+    sessionTakeoverNote.hidden = true;
   }
 
   function beginAdventure() {
@@ -224,7 +261,6 @@ export function createStartupController(dependencies: StartupDependencies) {
   playerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") beginAdventure();
   });
-
   return {
     clearSignInPending: () => { signInPending = false; },
     hideStart: () => { start.style.display = "none"; },
@@ -234,6 +270,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     showAccountChoice,
     showConnecting,
     showLoading,
+    showLegalGate,
     showNewPlayerIntro,
     showSessionConflict,
     showSigningIn,

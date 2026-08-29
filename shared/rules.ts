@@ -277,7 +277,7 @@ export const MAP_IDS: readonly string[] = [
   SAMURAI_GARDEN_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 78;
+export const PROTOCOL_VERSION = 79;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

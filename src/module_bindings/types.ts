@@ -650,6 +650,14 @@ export const PlayerLastLocation = __t.object("PlayerLastLocation", {
 });
 export type PlayerLastLocation = __Infer<typeof PlayerLastLocation>;
 
+export const PlayerLegalConsent = __t.object("PlayerLegalConsent", {
+  identity: __t.identity(),
+  termsVersion: __t.string(),
+  ageBand: __t.u8(),
+  acceptedAt: __t.timestamp(),
+});
+export type PlayerLegalConsent = __Infer<typeof PlayerLegalConsent>;
+
 export const PlayerLifetime = __t.object("PlayerLifetime", {
   identity: __t.identity(),
   joinedAt: __t.timestamp(),

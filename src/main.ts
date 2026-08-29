@@ -319,6 +319,9 @@ import {
       dragonResultEl.hidden = true;
       dragonWorldNoticeEl.hidden = true;
     },
+    legalConsentAccepted: () => coop?.legalConsentAccepted?.() === true,
+    acceptLegalTerms: (age) => coop?.acceptLegalTerms?.(age),
+    onLegalAccepted: finishStartup,
     onContinueGuest: () => {
       guestContinuationChosen = true;
       coop?.continueAsGuest?.();
@@ -1400,6 +1403,8 @@ import {
     setNewPlayerIntroShown: () => { newPlayerIntroShown = true; },
     refreshLoading: startup.refreshLoading,
     showSessionConflict: startup.showSessionConflict,
+    legalConsentAccepted: () => coop?.legalConsentAccepted?.() === true,
+    showLegalGate: startup.showLegalGate,
     showAccountChoice: startup.showAccountChoice,
     showNewPlayerIntro: startup.showNewPlayerIntro,
     isLoadingSequenceComplete: startup.isLoadingSequenceComplete,

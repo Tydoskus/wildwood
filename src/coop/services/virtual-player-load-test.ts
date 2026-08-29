@@ -23,6 +23,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../../../shared/rules";
+import { AGE_BAND_ADULT, TERMS_VERSION } from "../../../shared/legal";
 import {
   movementUpdateReason,
   sanitizeMovementVelocity,
@@ -496,6 +497,8 @@ export function createVirtualPlayerLoadTest(dependencies: VirtualPlayerLoadTestD
                 await conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION });
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
                 await conn.reducers.joinVirtualPlayerLoadTest({ owner, ticket, mapId, x: bot.x, y: bot.y });
+                if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
+                await conn.reducers.acceptTerms({ termsVersion: TERMS_VERSION, ageBand: AGE_BAND_ADULT });
                 if (generation !== runGeneration) throw new Error("Virtual-player start cancelled");
                 await conn.reducers.enterWorld({ tabId: `load-test-${runGeneration}-${bot.index}` });
                 await Promise.all([

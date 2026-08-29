@@ -1,3 +1,5 @@
+import { createLegalGateController, legalGateElements, type LegalGateElements } from "../ui/legal-gate";
+
 type StartupAccountState = {
   signedIn?: boolean;
   knownAccount?: boolean;
@@ -21,6 +23,8 @@ type StartupAuthGateDependencies = {
   knownCharacter: () => string;
   signIn: () => Promise<StartupActionResult> | StartupActionResult;
   continueAsGuest: () => Promise<StartupActionResult> | StartupActionResult;
+  legalConsentAccepted: () => boolean;
+  acceptLegalTerms: (age: number) => Promise<StartupActionResult> | StartupActionResult;
   subscribe: (listener: () => void) => () => void;
   loadGame: () => Promise<void>;
   releaseNotes?: {
@@ -41,6 +45,7 @@ type StartupAuthElements = {
   guestButton: HTMLButtonElement;
   loadingDetail: HTMLElement;
   loadingFill: HTMLElement;
+  legal: LegalGateElements;
 };
 
 function startupElements(documentValue: Document): StartupAuthElements {
@@ -60,6 +65,7 @@ function startupElements(documentValue: Document): StartupAuthElements {
     guestButton: requireElement<HTMLButtonElement>("continueGuestBtn"),
     loadingDetail: requireElement("loadingDetail"),
     loadingFill: requireElement("loadingFill"),
+    legal: legalGateElements(documentValue),
   };
 }
 
@@ -75,12 +81,17 @@ export function createStartupAuthGate(
   let pendingAction: "sign-in" | "guest" | null = null;
   let gameLoading = false;
   let unsubscribe = () => {};
+  const legalGate = createLegalGateController({
+    accept: dependencies.acceptLegalTerms,
+    onAccepted: render,
+  }, elements.legal);
 
   function showLoading(detail = "LOADING YOUR CHARACTER") {
     dependencies.releaseNotes?.hide();
     elements.start.style.display = "grid";
     elements.accountChoicePanel.classList.remove("is-signing-in");
     elements.accountChoicePanel.hidden = true;
+    legalGate.hide();
     elements.connectionPanel.hidden = false;
     elements.loadingDetail.textContent = detail;
     elements.loadingFill.style.width = "8%";
@@ -93,6 +104,7 @@ export function createStartupAuthGate(
     const ready = state.signInReady !== false;
     elements.start.style.display = "grid";
     elements.connectionPanel.hidden = true;
+    legalGate.hide();
     elements.accountChoicePanel.hidden = false;
     elements.accountChoicePanel.classList.remove("is-signing-in");
     elements.accountCharacterName.textContent = name || "none";
@@ -113,11 +125,20 @@ export function createStartupAuthGate(
             : "REGISTER OR PLAY AS GUEST");
   }
 
+  function showLegalGate() {
+    dependencies.releaseNotes?.hide();
+    elements.start.style.display = "grid";
+    elements.connectionPanel.hidden = true;
+    elements.accountChoicePanel.hidden = true;
+    legalGate.show();
+  }
+
   function dispose() {
     unsubscribe();
     unsubscribe = () => {};
     elements.signInButton.removeEventListener("click", onSignIn);
     elements.guestButton.removeEventListener("click", onGuest);
+    legalGate.dispose();
     dependencies.releaseNotes?.dispose();
   }
 
@@ -137,6 +158,10 @@ export function createStartupAuthGate(
     if (gameLoading) return;
     const state = dependencies.accountState();
     if (shouldStartGame(state)) {
+      if (!dependencies.legalConsentAccepted()) {
+        showLegalGate();
+        return;
+      }
       beginGameLoading(state.guestSessionApproved ? "LOADING GUEST PROFILE" : "LOADING YOUR CHARACTER");
       return;
     }
@@ -160,7 +185,10 @@ export function createStartupAuthGate(
           : "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
         return;
       }
-      if (!result?.redirecting) beginGameLoading("LOADING YOUR CHARACTER");
+      if (!result?.redirecting) {
+        pendingAction = null;
+        render();
+      }
     } catch {
       pendingAction = null;
       showAccountChoice("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
@@ -174,7 +202,8 @@ export function createStartupAuthGate(
     try {
       const result = await dependencies.continueAsGuest();
       if (result?.ok === false) throw new Error(result.error || "Guest startup failed");
-      beginGameLoading("LOADING GUEST PROFILE");
+      pendingAction = null;
+      render();
     } catch {
       pendingAction = null;
       showAccountChoice("GUEST LOGIN FAILED · TRY AGAIN");

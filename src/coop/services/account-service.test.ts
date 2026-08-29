@@ -27,6 +27,7 @@ const keys = {
   knownGuestCharacterKey: "known-guest-character",
   authReturnUiKey: "auth-return",
   authTabKey: "auth-tab",
+  legalConsentKey: "legal-consent",
 };
 
 function setup(options: { accountToken?: string; guestToken?: string; knownAccount?: boolean; signedIn?: boolean } = {}) {
@@ -60,6 +61,7 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
     connectedSignedIn: () => Boolean(options.signedIn),
     hydrationReady: () => false,
     protocolBlocked: () => false,
+    protocolReady: () => true,
     updating: () => false,
     worldEntryBlocked: () => false,
     setWorldEntryBlocked: () => {},
