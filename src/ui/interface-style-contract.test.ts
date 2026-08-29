@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("../../public/assets/wildwood/game.css", import.meta.url), "utf8");
-const html = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
+const entryHtml = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
+const gameShell = readFileSync(new URL("./game-shell.ts", import.meta.url), "utf8");
+const html = `${entryHtml}\n${gameShell}`;
+const coopEntry = readFileSync(new URL("../wildwood-coop.ts", import.meta.url), "utf8");
 const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
 const chatController = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
 
@@ -15,6 +18,18 @@ function cssRule(selector: string) {
 }
 
 describe("interface style contracts", () => {
+  it("keeps the initial HTML response below 24 KB", () => {
+    expect(Buffer.byteLength(entryHtml, "utf8")).toBeLessThan(24_000);
+    expect(entryHtml).toContain('id="start"');
+    expect(entryHtml).toContain('id="gameUpdateGate"');
+    expect(gameShell).toContain('id="dailyGemBonus"');
+    expect(gameShell).toContain('id="gameOver"');
+    expect(coopEntry.startsWith('import "./ui/game-shell";')).toBe(true);
+
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("keeps item inspection in a standalone fullscreen window outside the bag", () => {
     const bagStart = html.indexOf('<section class="bag-section"');
     const bagEnd = html.indexOf("</section>", bagStart);

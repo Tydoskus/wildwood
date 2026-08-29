@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.559": [
+    "Reduced the initial game page to under 24 KB and moved hidden windows into the cached client bundle.",
+  ],
   "0.558": [
     "Ranged enemies now fire and hold position just inside each target player's attack range, including remote combat ghosts.",
   ],
@@ -1224,6 +1227,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.559": "2026-08-29",
   "0.558": "2026-08-29",
   "0.557": "2026-08-29",
   "0.556": "2026-08-28",
