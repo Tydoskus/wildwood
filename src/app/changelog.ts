@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.561": [
+    "The age-gate agreement now keeps its wording concise.",
+  ],
   "0.560": [
     "A clean 13+ age and Terms step now appears immediately after sign-in or Guest Login, with private versioned acceptance required before entering the world.",
     "The sign-in panel keeps short-screen scrolling without showing its large outer scrollbar.",
@@ -1231,6 +1234,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.561": "2026-08-29",
   "0.560": "2026-08-29",
   "0.559": "2026-08-29",
   "0.558": "2026-08-29",
