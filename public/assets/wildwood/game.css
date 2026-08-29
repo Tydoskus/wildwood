@@ -135,7 +135,7 @@
 
   .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: flex; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 7px 9px; overflow: hidden; border-color: #000; border-top: 0; border-left: 0; border-radius: 0; background: rgba(13,20,17,.62); }
   .player-hud-content { display: flex; flex: 1; flex-direction: column; justify-content: center; min-width: 0; }
-  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 47px; height: 47px; align-self: center; cursor: pointer; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { position: relative; border-color: #000; cursor: pointer; }
@@ -145,7 +145,7 @@
   .profile-icon-picker-modal { width: var(--game-window-width); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
   .profile-icon-picker-modal h2 { margin: 0; color: var(--gold); font-size: clamp(17px, 4vw, 24px); }
   .profile-icon-choices { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; max-height: min(74vh, 480px); margin-top: 10px; overflow-y: auto; }
-  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid #000; border-radius: 6px; background-color: #fff; background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; }
+  .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid #000; border-radius: 6px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; }
   .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
 
   #playerPower {
@@ -1350,7 +1350,10 @@
   #chatPanel:not(.is-large) .chat-replay { display: none; }
   .chat-line { display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 6px; align-items: start; overflow-wrap: anywhere; }
   .chat-message-content { min-width: 0; }
-  .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid #000; border-radius: 4px; background: #fff url("../../assets/wildwood/profile-portraits-grid-v2.png") no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
+  .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid #000; border-radius: 4px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
+  body.is-loading-game-assets .profile-icon,
+  body.is-loading-game-assets .profile-icon-choice,
+  body.is-loading-game-assets .chat-profile-icon { background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); }
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; }
   .chat-name { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--player-name-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; white-space: nowrap; cursor: default; }
@@ -2054,6 +2057,29 @@
   #sceneFade.is-visible { opacity: 1; pointer-events: auto; }
   #cutsceneOverlay { position: fixed; inset: 0; z-index: 21; background: transparent; pointer-events: auto; }
   #cutsceneOverlay[hidden] { display: none; }
+  #portalCloudTransition { position: fixed; inset: 0; z-index: 90; overflow: hidden; background: transparent; pointer-events: auto; contain: strict; }
+  #portalCloudTransition[hidden] { display: none; }
+  .portal-transition-cloud {
+    position: absolute;
+    top: var(--cloud-y);
+    width: clamp(360px, 65vw, 1200px);
+    max-width: none;
+    height: auto;
+    z-index: var(--cloud-layer);
+    pointer-events: none;
+    user-select: none;
+    will-change: transform;
+    transition: transform 500ms cubic-bezier(.2,.78,.18,1);
+    transition-delay: var(--cloud-delay);
+  }
+  .portal-transition-cloud.is-left { left: 0; transform: translate3d(-125%, -50%, 0) scale(var(--cloud-scale)); }
+  .portal-transition-cloud.is-right { right: 0; transform: translate3d(125%, -50%, 0) scaleX(-1) scale(var(--cloud-scale)); }
+  #portalCloudTransition.is-covered .portal-transition-cloud.is-left { transform: translate3d(-6%, -50%, 0) scale(var(--cloud-scale)); }
+  #portalCloudTransition.is-covered .portal-transition-cloud.is-right { transform: translate3d(6%, -50%, 0) scaleX(-1) scale(var(--cloud-scale)); }
+  #portalCloudTransition.is-revealing .portal-transition-cloud { transition-duration: 580ms; transition-timing-function: cubic-bezier(.5,0,.72,.24); }
+  @media (prefers-reduced-motion: reduce) {
+    .portal-transition-cloud { transition: none; }
+  }
   body.is-cutscene #hud { visibility: hidden; }
 
   .duel-modal { width: var(--game-window-width); border-color: rgba(198,208,210,.56); }

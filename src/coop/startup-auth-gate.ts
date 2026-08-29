@@ -223,7 +223,18 @@ export function createStartupAuthGate(
 }
 
 /** Loads game.js only after the auth gate has selected an account identity. */
+export function requestDeferredGameAssets(documentValue = document) {
+  documentValue.body.classList.add("is-loading-game-assets");
+  for (const image of documentValue.querySelectorAll<HTMLImageElement>("img[data-game-src]")) {
+    const source = image.dataset.gameSrc;
+    if (!source) continue;
+    image.src = source;
+    delete image.dataset.gameSrc;
+  }
+}
+
 export function loadDeferredGameBundle(documentValue = document) {
+  requestDeferredGameAssets(documentValue);
   const existing = documentValue.getElementById("wildwoodGameScript") as HTMLScriptElement | null;
   if (existing) return Promise.resolve();
   const bootstrapScript = documentValue.getElementById("wildwoodCoopScript") as HTMLScriptElement | null;

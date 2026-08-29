@@ -296,9 +296,20 @@ describe("interface style contracts", () => {
     expect(stableStartupWindow).toContain("height: min(586px, calc(100svh - 24px))");
     expect(stableStartupWindow).toContain("width: min(430px, calc(100vw - 36px))");
     expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
+    expect(entryHtml).toContain('id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite" hidden');
+    expect(entryHtml).toContain('id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle">');
     expect(html).toContain('id="wildwoodCoopScript"');
     expect(html).toContain('data-game-src="assets/wildwood/game.js?v=');
     expect(html).not.toContain('<script src="assets/wildwood/game.js');
+  });
+
+  it("defers profile portraits and gender icons until the game loading screen", () => {
+    expect(cssRule(".profile-icon {")).not.toContain("background-image");
+    expect(css).toContain("body.is-loading-game-assets .profile-icon");
+    expect(gameShell).toContain('data-game-src="assets/wildwood/gender/male.png"');
+    expect(gameShell).toContain('data-game-src="assets/wildwood/gender/female.png"');
+    expect(gameShell).not.toContain('<img src="assets/wildwood/gender/male.png"');
+    expect(gameShell).not.toContain('<img src="assets/wildwood/gender/female.png"');
   });
 
   it("shows the death message above the fallen player without covering the game", () => {

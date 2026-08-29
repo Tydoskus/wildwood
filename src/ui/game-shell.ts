@@ -120,10 +120,10 @@ const afterUpdateGateShell = String.raw`
       <button id="profileGenderEdit" class="profile-gender-edit" type="button" aria-label="Change gender" aria-expanded="false" aria-controls="profileGenderChoices">✎</button>
       <div id="profileGenderChoices" class="profile-gender-choices" role="group" aria-label="Gender" hidden>
         <button class="profile-gender-choice" type="button" data-gender="1" aria-label="Male" aria-pressed="false" title="Male">
-          <img src="assets/wildwood/gender/male.png" alt="" aria-hidden="true" draggable="false" />
+          <img data-game-src="assets/wildwood/gender/male.png" alt="" aria-hidden="true" draggable="false" />
         </button>
         <button class="profile-gender-choice" type="button" data-gender="2" aria-label="Female" aria-pressed="false" title="Female">
-          <img src="assets/wildwood/gender/female.png" alt="" aria-hidden="true" draggable="false" />
+          <img data-game-src="assets/wildwood/gender/female.png" alt="" aria-hidden="true" draggable="false" />
         </button>
       </div>
     </div>

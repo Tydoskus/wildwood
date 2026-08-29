@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createStartupAuthGate, type StartupAuthElements } from "./startup-auth-gate";
+import { createStartupAuthGate, requestDeferredGameAssets, type StartupAuthElements } from "./startup-auth-gate";
 
 class FakeElement {
   hidden = false;
@@ -310,5 +310,20 @@ describe("startup auth gate", () => {
 
     expect(order).toEqual(["guest", "game"]);
     expect(ui.loadingDetail.textContent).toBe("LOADING GUEST PROFILE");
+  });
+});
+
+describe("deferred game assets", () => {
+  it("requests game-only images when the loading screen hands off to game.js", () => {
+    const addClass = vi.fn();
+    const image = { dataset: { gameSrc: "assets/wildwood/gender/male.png" }, src: "" };
+    requestDeferredGameAssets({
+      body: { classList: { add: addClass } },
+      querySelectorAll: () => [image],
+    } as unknown as Document);
+
+    expect(addClass).toHaveBeenCalledWith("is-loading-game-assets");
+    expect(image.src).toBe("assets/wildwood/gender/male.png");
+    expect(image.dataset.gameSrc).toBeUndefined();
   });
 });
