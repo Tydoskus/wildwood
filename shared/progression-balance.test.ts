@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   LEGACY_PROGRESSION_OUTLIER_THRESHOLDS,
+  LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER,
+  LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER,
   MAX_PROGRESSION_DAMAGE_TO_HEALTH_RATIO,
   compressLegacyProgressionOutlier,
+  compressLegacyTopFiveProgression,
   compressProgressionStat,
+  isLegacyTopFiveProgressionOutlier,
   isLegacyProgressionOutlier,
+  legacyTopFiveTargetRawPower,
   rebalanceLegacyDamageHealth,
 } from "./progression-balance";
 import { DEFAULT_ATTACK_INTERVAL } from "./rules";
+import { playerPowerForStats } from "./player-power";
 
 describe("legacy progression outlier compression", () => {
   it("leaves the measured endgame envelope and nearby accounts untouched", () => {
@@ -42,6 +48,49 @@ describe("legacy progression outlier compression", () => {
       { damage: 76_563_496, maxHp: 310_817_380, armor: 125_715.49, regen: 56.47 },
     ];
     expect(cohort.filter(isLegacyProgressionOutlier)).toHaveLength(3);
+  });
+});
+
+describe("legacy top-five curve correction", () => {
+  const cohort = [
+    { name: "rymel", maxHp: 9.093538e15, damage: 2.3402444e16, attackRate: .3809524, armor: 891_537_460_000, regen: 1.7235133e14 },
+    { name: "Skittle", maxHp: 5.123745e15, damage: 2.3269255e15, attackRate: .3809524, armor: 268_711_870_000, regen: 5.6346007e13 },
+    { name: "TacoMel", maxHp: 3.8437075e14, damage: 1.3900319e14, attackRate: .3809524, armor: 9_466_078_000, regen: 1.8550222e12 },
+    { name: "Uncletaco", maxHp: 6_480_782_300, damage: 4_053_667_800, attackRate: .3809524, armor: 3_557_915.5, regen: 139_314_620 },
+    { name: "Lucky Hare 942", maxHp: 310_817_380, damage: 76_563_496, attackRate: .3987359, armor: 125_715.49, regen: 56.472004 },
+    { name: "ZebraFist", maxHp: 18_256, damage: 37_720, attackRate: .4692576, armor: 623, regen: 47.7 },
+  ];
+
+  it("selects exactly the measured top five without touching the next player", () => {
+    expect(cohort.filter(isLegacyTopFiveProgressionOutlier).map(({ name }) => name)).toEqual([
+      "rymel",
+      "Skittle",
+      "TacoMel",
+      "Uncletaco",
+      "Lucky Hare 942",
+    ]);
+  });
+
+  it("anchors Skittle at the Water-entry reference and rank five at the Lava-entry floor", () => {
+    const skittlePower = playerPowerForStats(cohort[1]);
+    const floorPower = playerPowerForStats(cohort[4]);
+    expect(legacyTopFiveTargetRawPower(skittlePower)).toBeCloseTo(LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER, 0);
+    expect(legacyTopFiveTargetRawPower(floorPower)).toBeCloseTo(LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER, 0);
+  });
+
+  it("preserves ordering and each account's internal stat proportions", () => {
+    const migrated = cohort.slice(0, 5).map(compressLegacyTopFiveProgression);
+    const migratedPowers = migrated.map(playerPowerForStats);
+    expect(migratedPowers).toEqual([...migratedPowers].sort((a, b) => b - a));
+    for (let index = 0; index < migrated.length; index += 1) {
+      const before = cohort[index];
+      const after = migrated[index];
+      const damageScale = after.damage / before.damage;
+      expect(after.maxHp / before.maxHp).toBeCloseTo(damageScale, 10);
+      expect(after.armor / before.armor).toBeCloseTo(damageScale, 10);
+      expect(after.regen / before.regen).toBeCloseTo(damageScale, 10);
+      expect(compressLegacyTopFiveProgression(after)).toBe(after);
+    }
   });
 });
 

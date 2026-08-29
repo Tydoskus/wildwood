@@ -8,7 +8,11 @@ import {
   movementSpeedsMatch,
   PLAYER_SPEED,
 } from "../../../shared/rules";
-import { compressLegacyProgressionOutlier, rebalanceLegacyDamageHealth } from "../../../shared/progression-balance";
+import {
+  compressLegacyProgressionOutlier,
+  compressLegacyTopFiveProgression,
+  rebalanceLegacyDamageHealth,
+} from "../../../shared/progression-balance";
 
 const MIN_PROJECTILE_SPEED = 390;
 const MAX_PROJECTILE_SPEED = 2730;
@@ -120,7 +124,8 @@ export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion:
     ),
   };
   const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
-  return copyProgress(version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced);
+  const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
+  return copyProgress(version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced);
 }
 
 export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {

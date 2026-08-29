@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.553": [
+    "Five legacy leaderboard outliers were proportionally compressed onto the current progression curve while preserving rank and build ratios.",
+  ],
   "0.552": [
     "Late-map progression now follows a smoother logarithmic rhythm, with meaningful travel, shorter regular fights, and bosses that remain real capstones.",
     "Equipment power has been scaled down, while the Balance Lab now exposes time spent on each stat, travel, bosses, and progression bottlenecks.",
@@ -1204,6 +1207,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.553": "2026-08-28",
   "0.552": "2026-08-28",
   "0.551": "2026-08-28",
   "0.550": "2026-08-27",

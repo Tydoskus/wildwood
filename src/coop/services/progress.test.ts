@@ -84,12 +84,28 @@ describe("progress persistence rules", () => {
   });
 
   it("rebalances a damage-heavy pending save only when crossing into balance version 4", () => {
-    const damageHeavy = { ...pending, damage: 11_041_432_000_000, maxHp: 216_203_000_000, attackRate: .3809524 };
+    const damageHeavy = { ...pending, damage: 20_000_000, maxHp: 1_000_000, attackRate: .3809524 };
     const migrated = migrateProgressSave(damageHeavy, 3);
     expect(migrated.damage / migrated.maxHp).toBeCloseTo(MAX_PROGRESSION_DAMAGE_TO_HEALTH_RATIO, 10);
     expect(migrated.damage).toBeLessThan(damageHeavy.damage);
     expect(migrated.maxHp).toBeGreaterThan(damageHeavy.maxHp);
     expect(migrateProgressSave(damageHeavy, ATTACK_BALANCE_VERSION)).toMatchObject(damageHeavy);
+  });
+
+  it("compresses only a legacy top-five pending save when crossing into balance version 5", () => {
+    const topFiveSave = {
+      ...pending,
+      maxHp: 5.123745e15,
+      damage: 2.3269255e15,
+      attackRate: .3809524,
+      armor: 268_711_870_000,
+      regen: 5.6346007e13,
+    };
+    const migrated = migrateProgressSave(topFiveSave, 4);
+    expect(migrated.damage).toBeLessThan(topFiveSave.damage);
+    expect(migrated.maxHp / topFiveSave.maxHp).toBeCloseTo(migrated.damage / topFiveSave.damage, 10);
+    expect(migrateProgressSave(topFiveSave, ATTACK_BALANCE_VERSION)).toMatchObject(topFiveSave);
+    expect(migrateProgressSave({ ...pending, damage: 1_000_000 }, 4).damage).toBe(1_000_000);
   });
 
   it("moves a legacy identity-scoped save into current storage", () => {

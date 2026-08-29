@@ -1,4 +1,5 @@
 import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
+import { playerPowerForStats } from "./player-power";
 
 export type ProgressionCurveStats = {
   maxHp: number;
@@ -10,6 +11,10 @@ export type ProgressionCurveStats = {
 export type DamageHealthCurveStats = {
   damage: number;
   maxHp: number;
+  attackRate: number;
+};
+
+export type LegacyLeaderboardCurveStats = ProgressionCurveStats & {
   attackRate: number;
 };
 
@@ -51,6 +56,53 @@ export function compressLegacyProgressionOutlier<T extends ProgressionCurveStats
     maxHp: compressProgressionStat(progress.maxHp, LEGACY_PROGRESSION_OUTLIER_THRESHOLDS.maxHp),
     armor: compressProgressionStat(progress.armor, LEGACY_PROGRESSION_OUTLIER_THRESHOLDS.armor),
     regen: compressProgressionStat(progress.regen, LEGACY_PROGRESSION_OUTLIER_THRESHOLDS.regen),
+  };
+}
+
+// Release 0.552 left exactly five legacy accounts above 100m raw power while
+// the next account remained below 150k. Use raw power for this one-time repair
+// so the server and an offline pending client save can run the same transform
+// without needing equipment, research, or item-upgrade context.
+export const LEGACY_TOP_FIVE_RAW_POWER_THRESHOLD = 100_000_000;
+export const LEGACY_TOP_FIVE_REFERENCE_RAW_POWER = 15_216_770_651_672_028;
+export const LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER = 9_617_422;
+export const LEGACY_TOP_FIVE_FLOOR_RAW_POWER = 610_739_360;
+export const LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER = 527_635;
+
+const LEGACY_TOP_FIVE_LOG_EXPONENT = Math.log(
+  LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER / LEGACY_TOP_FIVE_FLOOR_TARGET_RAW_POWER,
+) / Math.log(
+  LEGACY_TOP_FIVE_REFERENCE_RAW_POWER / LEGACY_TOP_FIVE_FLOOR_RAW_POWER,
+);
+
+export function legacyTopFiveTargetRawPower(rawPower: number) {
+  if (!Number.isFinite(rawPower) || rawPower <= LEGACY_TOP_FIVE_RAW_POWER_THRESHOLD) return rawPower;
+  return LEGACY_TOP_FIVE_REFERENCE_TARGET_RAW_POWER * Math.pow(
+    rawPower / LEGACY_TOP_FIVE_REFERENCE_RAW_POWER,
+    LEGACY_TOP_FIVE_LOG_EXPONENT,
+  );
+}
+
+export function isLegacyTopFiveProgressionOutlier(progress: LegacyLeaderboardCurveStats) {
+  return playerPowerForStats(progress) > LEGACY_TOP_FIVE_RAW_POWER_THRESHOLD;
+}
+
+/**
+ * One-time rank-preserving logarithmic compression for the measured top-five
+ * cohort. Every core stat receives the same factor, preserving each build's
+ * damage/health/armor/regen proportions and equipment value.
+ */
+export function compressLegacyTopFiveProgression<T extends LegacyLeaderboardCurveStats>(progress: T): T {
+  const rawPower = playerPowerForStats(progress);
+  const targetRawPower = legacyTopFiveTargetRawPower(rawPower);
+  if (!Number.isFinite(targetRawPower) || targetRawPower >= rawPower) return progress;
+  const scale = targetRawPower / rawPower;
+  return {
+    ...progress,
+    damage: progress.damage * scale,
+    maxHp: progress.maxHp * scale,
+    armor: progress.armor * scale,
+    regen: progress.regen * scale,
   };
 }
 

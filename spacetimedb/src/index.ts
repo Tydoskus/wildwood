@@ -21,7 +21,11 @@ import { isPublicDisplayNameAllowed, moderatePublicChatMessage } from "./chat-mo
 import { isChatReportReason } from "../../shared/chat-report";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
-import { compressLegacyProgressionOutlier, rebalanceLegacyDamageHealth } from "../../shared/progression-balance";
+import {
+  compressLegacyProgressionOutlier,
+  compressLegacyTopFiveProgression,
+  rebalanceLegacyDamageHealth,
+} from "../../shared/progression-balance";
 import {
   BALANCE_APOLOGY_GEM_GIFT,
   DAILY_LOGIN_GEM_BONUS,
@@ -213,7 +217,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 17;
+const MODULE_MIGRATION_VERSION = 18;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -2124,6 +2128,29 @@ function runPendingModuleMigrations(ctx: any) {
     if (changedProgress) refreshLeaderboard(ctx);
   }
   if (currentVersion < 17) grantBalanceApologyGifts(ctx);
+  if (currentVersion < 18) {
+    // Balance version 5 repairs only the five accounts separated from the
+    // campaign by the measured legacy power gap. The shared transform also
+    // migrates old pending browser saves, preventing them from restoring the
+    // pre-compression values on reconnect.
+    let changedProgress = false;
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      if (!samePlayerProgressValues(progress, migrated)) {
+        ctx.db.playerProgress.identity.update(migrated);
+        changedProgress = true;
+        const active = ctx.db.player.identity.find(progress.identity);
+        if (active) {
+          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
+          ctx.db.player.identity.update(nextActive);
+          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
+        }
+      }
+      markPlayerBalanceCurrent(ctx, progress.identity);
+    }
+    if (changedProgress) refreshLeaderboard(ctx);
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2287,7 +2314,8 @@ function playerBalanceProgress(progress: any, version: number) {
     ),
   };
   const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
-  return version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
+  const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
+  return version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
 }
 
 function migratePlayerBalance(ctx: any, progress: any) {
