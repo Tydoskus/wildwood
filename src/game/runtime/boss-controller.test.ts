@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "./game-bootstrap";
 import { createBossController } from "./boss-controller";
+import { BOSS_DAMAGE_PROFILES } from "../boss-damage";
 import {
   ADVANCED_LAVA_WASTES_BOSS_HEALTH_MULTIPLIER,
   ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER,
@@ -207,7 +208,7 @@ describe("Frostclaw boss", () => {
       controller.updateFrostclawBoss(.05);
     }
 
-    expect(damagePlayer).toHaveBeenCalledWith(28_000_000);
+    expect(damagePlayer).toHaveBeenCalledWith(BOSS_DAMAGE_PROFILES.frostclaw.roar);
     expect(frostclawBoss.pushTimer).toBeGreaterThan(0);
     const before = Math.hypot(player.x - frostclawBoss.x, player.y - frostclawBoss.y);
     controller.applyFrostclawPush(.25);

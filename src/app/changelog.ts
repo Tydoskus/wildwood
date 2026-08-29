@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.557": [
+    "Boss damage now scales with each map's regular enemies, preventing obsolete one-shot attacks while keeping telegraphed hits threatening.",
+  ],
   "0.556": [
     "Regular enemies now use one color-coded slime family per map, with bows for ranged variants and larger silhouettes for elites.",
     "Enemy camps are more spacious and stay on a single reward track while preserving each map's enemy and progression budgets.",
@@ -1218,6 +1221,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.557": "2026-08-29",
   "0.556": "2026-08-28",
   "0.555": "2026-08-28",
   "0.554": "2026-08-28",
