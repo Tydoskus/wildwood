@@ -22,6 +22,14 @@ import { isChatReportReason } from "../../shared/chat-report";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import {
+  dragonBossTables,
+  frostclawBossTables,
+  gloomrootBossTables,
+  magmaliskBossTables,
+  spiderBossTables,
+  tidewyrmBossTables,
+} from "./boss-tables";
+import {
   compressLegacyProgressionOutlier,
   compressLegacyTopFiveProgression,
   correctLegacyTopFiveV5Progression,
@@ -1186,50 +1194,6 @@ const duelReplay = table(
   },
 );
 
-const dragonBoss = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    hp: t.f32(),
-    maxHp: t.f32(),
-    alive: t.bool(),
-    respawnAtMicros: t.u64(),
-    lastDamageAtMicros: t.u64().default(0n),
-  },
-);
-
-const dragonContribution = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    displayName: t.string(),
-    damage: t.f32(),
-  },
-);
-
-const dragonAttackWindow = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    startedAtMicros: t.u64(),
-    hits: t.u32(),
-  },
-);
-
-const dragonResult = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    totalDamage: t.f32(),
-    contributorsJson: t.string(),
-    createdAt: t.timestamp(),
-  },
-);
-
 const maintenanceSchedule = table(
   { scheduled: (): any => runMaintenance },
   {
@@ -1306,100 +1270,12 @@ const dragonRespawnSchedule = table(
   },
 );
 
-const spiderBoss = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    hp: t.f32(),
-    maxHp: t.f32(),
-    alive: t.bool(),
-    respawnAtMicros: t.u64(),
-    lastDamageAtMicros: t.u64().default(0n),
-  },
-);
-
-const spiderContribution = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    displayName: t.string(),
-    damage: t.f32(),
-  },
-);
-
-const spiderAttackWindow = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    startedAtMicros: t.u64(),
-    hits: t.u32(),
-  },
-);
-
-const spiderResult = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    totalDamage: t.f32(),
-    contributorsJson: t.string(),
-    createdAt: t.timestamp(),
-  },
-);
-
 const spiderRespawnSchedule = table(
   { scheduled: (): any => respawnSpider },
   {
     scheduledId: t.u64().primaryKey().autoInc(),
     scheduledAt: t.scheduleAt(),
     encounter: t.u64(),
-  },
-);
-
-const frostclawBoss = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    hp: t.f32(),
-    maxHp: t.f32(),
-    alive: t.bool(),
-    respawnAtMicros: t.u64(),
-    lastDamageAtMicros: t.u64().default(0n),
-  },
-);
-
-const frostclawContribution = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    displayName: t.string(),
-    damage: t.f32(),
-  },
-);
-
-const frostclawAttackWindow = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    startedAtMicros: t.u64(),
-    hits: t.u32(),
-  },
-);
-
-const frostclawResult = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    totalDamage: t.f32(),
-    contributorsJson: t.string(),
-    createdAt: t.timestamp(),
   },
 );
 
@@ -1412,50 +1288,6 @@ const frostclawRespawnSchedule = table(
   },
 );
 
-const magmaliskBoss = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    hp: t.f32(),
-    maxHp: t.f32(),
-    alive: t.bool(),
-    respawnAtMicros: t.u64(),
-    lastDamageAtMicros: t.u64().default(0n),
-  },
-);
-
-const magmaliskContribution = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    displayName: t.string(),
-    damage: t.f32(),
-  },
-);
-
-const magmaliskAttackWindow = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    startedAtMicros: t.u64(),
-    hits: t.u32(),
-  },
-);
-
-const magmaliskResult = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    totalDamage: t.f32(),
-    contributorsJson: t.string(),
-    createdAt: t.timestamp(),
-  },
-);
-
 const magmaliskRespawnSchedule = table(
   { scheduled: (): any => respawnMagmalisk },
   {
@@ -1465,100 +1297,12 @@ const magmaliskRespawnSchedule = table(
   },
 );
 
-const gloomrootBoss = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    hp: t.f32(),
-    maxHp: t.f32(),
-    alive: t.bool(),
-    respawnAtMicros: t.u64(),
-    lastDamageAtMicros: t.u64().default(0n),
-  },
-);
-
-const gloomrootContribution = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    displayName: t.string(),
-    damage: t.f32(),
-  },
-);
-
-const gloomrootAttackWindow = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    startedAtMicros: t.u64(),
-    hits: t.u32(),
-  },
-);
-
-const gloomrootResult = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    totalDamage: t.f32(),
-    contributorsJson: t.string(),
-    createdAt: t.timestamp(),
-  },
-);
-
 const gloomrootRespawnSchedule = table(
   { scheduled: (): any => respawnGloomroot },
   {
     scheduledId: t.u64().primaryKey().autoInc(),
     scheduledAt: t.scheduleAt(),
     encounter: t.u64(),
-  },
-);
-
-const tidewyrmBoss = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    hp: t.f32(),
-    maxHp: t.f32(),
-    alive: t.bool(),
-    respawnAtMicros: t.u64(),
-    lastDamageAtMicros: t.u64().default(0n),
-  },
-);
-
-const tidewyrmContribution = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    displayName: t.string(),
-    damage: t.f32(),
-  },
-);
-
-const tidewyrmAttackWindow = table(
-  { public: false },
-  {
-    identity: t.identity().primaryKey(),
-    encounter: t.u64(),
-    startedAtMicros: t.u64(),
-    hits: t.u32(),
-  },
-);
-
-const tidewyrmResult = table(
-  { public: true },
-  {
-    id: t.u32().primaryKey(),
-    encounter: t.u64(),
-    totalDamage: t.f32(),
-    contributorsJson: t.string(),
-    createdAt: t.timestamp(),
   },
 );
 
@@ -1624,10 +1368,7 @@ const spacetimedb = schema({
   bugReport,
   duel,
   duelReplay,
-  dragonBoss,
-  dragonContribution,
-  dragonAttackWindow,
-  dragonResult,
+  ...dragonBossTables,
   maintenanceSchedule,
   motionFrameSchedule,
   motionDetailFrameSchedule,
@@ -1636,30 +1377,15 @@ const spacetimedb = schema({
   itemUpgradeCompletionSchedule,
   duelResolutionSchedule,
   dragonRespawnSchedule,
-  spiderBoss,
-  spiderContribution,
-  spiderAttackWindow,
-  spiderResult,
+  ...spiderBossTables,
   spiderRespawnSchedule,
-  frostclawBoss,
-  frostclawContribution,
-  frostclawAttackWindow,
-  frostclawResult,
+  ...frostclawBossTables,
   frostclawRespawnSchedule,
-  magmaliskBoss,
-  magmaliskContribution,
-  magmaliskAttackWindow,
-  magmaliskResult,
+  ...magmaliskBossTables,
   magmaliskRespawnSchedule,
-  gloomrootBoss,
-  gloomrootContribution,
-  gloomrootAttackWindow,
-  gloomrootResult,
+  ...gloomrootBossTables,
   gloomrootRespawnSchedule,
-  tidewyrmBoss,
-  tidewyrmContribution,
-  tidewyrmAttackWindow,
-  tidewyrmResult,
+  ...tidewyrmBossTables,
   tidewyrmRespawnSchedule,
 });
 export default spacetimedb;
