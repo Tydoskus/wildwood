@@ -45,7 +45,7 @@ import {
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
-import { snapWorldRenderCoordinate } from "./render-space";
+import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -94,6 +94,59 @@ export function createBossRenderer(options: {
     type,
     amount: baseAmount * options.rewardMultiplier(),
   });
+  function drawBossStatus(options_: {
+    x: number;
+    spriteTopY: number;
+    barGap: number;
+    barWidth: number;
+    barHeight: number;
+    hp: number;
+    maxHp: number;
+    hpLossFlashTimer: number;
+    hpLossFlashFrom: number;
+    backgroundColor: string;
+    fillColor: string;
+    labels: readonly { text: string; offsetY: number; color: string }[];
+  }) {
+    drawScreenSpaceAt(ctx, camera.zoom, options_.x, options_.spriteTopY, () => {
+      const barX = -Math.floor(options_.barWidth / 2);
+      const barY = -options_.barGap;
+      const ratio = clamp(options_.hp / options_.maxHp, 0, 1);
+      ctx.fillStyle = "rgba(0,0,0,.9)";
+      ctx.fillRect(barX - 2, barY - 2, options_.barWidth + 4, options_.barHeight + 4);
+      ctx.fillStyle = options_.backgroundColor;
+      ctx.fillRect(barX, barY, options_.barWidth, options_.barHeight);
+      ctx.fillStyle = options_.fillColor;
+      ctx.fillRect(barX, barY, Math.round(options_.barWidth * ratio), options_.barHeight);
+      if (options_.hpLossFlashTimer > 0 && options_.hpLossFlashFrom > options_.hp) {
+        const fromRatio = clamp(options_.hpLossFlashFrom / options_.maxHp, ratio, 1);
+        ctx.save();
+        ctx.globalAlpha = clamp(options_.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(
+          barX + Math.round(options_.barWidth * ratio),
+          barY,
+          Math.max(1, Math.round(options_.barWidth * (fromRatio - ratio))),
+          options_.barHeight,
+        );
+        ctx.restore();
+      }
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      options.outlinedText(
+        `${formatCompactNumber(Math.max(0, Math.ceil(options_.hp)))} / ${formatCompactNumber(Math.ceil(options_.maxHp))}`,
+        0,
+        healthBarTextY(barY, options_.barHeight),
+        "#fff",
+        4,
+      );
+      ctx.textBaseline = "bottom";
+      for (const label of options_.labels) {
+        options.outlinedText(label.text, 0, barY + label.offsetY, label.color, 4);
+      }
+    });
+  }
   function drawBossTelegraphs() {
     if (boss.dead) return;
     if (boss.cone) {
@@ -108,10 +161,23 @@ export function createBossRenderer(options: {
     if (boss.dead || !options.dragonReady()) return;
     const canvas = options.dragonSpriteCanvas; const cellW = canvas.width / 4; const drawW = 300; const drawH = 400; const x = screenX(boss.x); const y = screenY(boss.y);
     options.drawShadow(x, y + 93, 188, .24); ctx.drawImage(canvas, Math.floor(options.gameTime() * 4) % 4 * cellW, 0, cellW, canvas.height, x - drawW / 2, y - drawH / 2, drawW, drawH);
-    const barW = 220; const barH = 20; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 20; const ratio = clamp(boss.hp / boss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.86)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#4d1d1d"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#d8352d"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
-    if (boss.hpLossFlashTimer > 0 && boss.hpLossFlashFrom > boss.hp) { const flashRight = barX + Math.round(barW * clamp(boss.hpLossFlashFrom / boss.maxHp, ratio, 1)); ctx.save(); ctx.globalAlpha = clamp(boss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, flashRight - (barX + Math.round(barW * ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(boss.hp)))} / ${formatCompactNumber(Math.ceil(boss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DRAGON", x, barY - 18, "#f5e9c4", 4); options.outlinedText(rewardText("damage", DRAGON_REWARD_DAMAGE), x, barY - 5, "#ff655a", 4); ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: y - drawH / 2,
+      barGap: 20,
+      barWidth: 220,
+      barHeight: 20,
+      hp: boss.hp,
+      maxHp: boss.maxHp,
+      hpLossFlashTimer: boss.hpLossFlashTimer,
+      hpLossFlashFrom: boss.hpLossFlashFrom,
+      backgroundColor: "#4d1d1d",
+      fillColor: "#d8352d",
+      labels: [
+        { text: "DRAGON", offsetY: -18, color: "#f5e9c4" },
+        { text: rewardText("damage", DRAGON_REWARD_DAMAGE), offsetY: -5, color: "#ff655a" },
+      ],
+    });
   }
   function drawSpiderTelegraphs() {
     if (spiderBoss.dead) return; const x = screenX(spiderBoss.x); const y = screenY(spiderBoss.y);
@@ -121,10 +187,24 @@ export function createBossRenderer(options: {
   function drawSpiderBoss() {
     if (spiderBoss.dead || !options.spiderReady()) return; const canvas = options.spiderSpriteCanvas; const cellW = canvas.width / 4; const cellH = canvas.height / 2; const frame = Math.floor(options.gameTime() * 5) % 8; const drawW = 310; const drawH = 155; const x = screenX(spiderBoss.x); const y = screenY(spiderBoss.y);
     options.drawShadow(x, y + 55, 220, .24); ctx.drawImage(canvas, frame % 4 * cellW, Math.floor(frame / 4) * cellH, cellW, cellH, x - drawW / 2, y - drawH / 2, drawW, drawH);
-    const barW = 250; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = y - drawH / 2 - 32; const ratio = clamp(spiderBoss.hp / spiderBoss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.86)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#342027"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#9f5c2f"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
-    if (spiderBoss.hpLossFlashTimer > 0 && spiderBoss.hpLossFlashFrom > spiderBoss.hp) { const fromRatio = clamp(spiderBoss.hpLossFlashFrom / spiderBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(spiderBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(spiderBoss.hp)))} / ${formatCompactNumber(Math.ceil(spiderBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("DESERT SPIDER", x, barY - 30, "#f5e9c4", 4); options.outlinedText(rewardText("damage", SPIDER_REWARD_DAMAGE), x, barY - 17, "#ff655a", 4); options.outlinedText(rewardText("health", SPIDER_REWARD_HEALTH), x, barY - 5, "#6fe48e", 4); ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: y - drawH / 2,
+      barGap: 32,
+      barWidth: 250,
+      barHeight: 22,
+      hp: spiderBoss.hp,
+      maxHp: spiderBoss.maxHp,
+      hpLossFlashTimer: spiderBoss.hpLossFlashTimer,
+      hpLossFlashFrom: spiderBoss.hpLossFlashFrom,
+      backgroundColor: "#342027",
+      fillColor: "#9f5c2f",
+      labels: [
+        { text: "DESERT SPIDER", offsetY: -30, color: "#f5e9c4" },
+        { text: rewardText("damage", SPIDER_REWARD_DAMAGE), offsetY: -17, color: "#ff655a" },
+        { text: rewardText("health", SPIDER_REWARD_HEALTH), offsetY: -5, color: "#6fe48e" },
+      ],
+    });
   }
 
   function drawFrostclawTelegraphs() {
@@ -225,10 +305,25 @@ export function createBossRenderer(options: {
     options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, 215, .27);
     ctx.save(); ctx.translate(x, visualY + 2); ctx.scale(pulse, pulse);
     ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH); ctx.restore();
-    const barW = 270; const barH = 22; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34; const ratio = clamp(frostclawBoss.hp / frostclawBoss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4); ctx.fillStyle = "#17364b"; ctx.fillRect(barX, barY, barW, barH); ctx.fillStyle = "#42c9f5"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
-    if (frostclawBoss.hpLossFlashTimer > 0 && frostclawBoss.hpLossFlashFrom > frostclawBoss.hp) { const fromRatio = clamp(frostclawBoss.hpLossFlashFrom / frostclawBoss.maxHp, ratio, 1); ctx.save(); ctx.globalAlpha = clamp(frostclawBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff"; ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore(); }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'; options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(frostclawBoss.hp)))} / ${formatCompactNumber(Math.ceil(frostclawBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4); ctx.textBaseline = "bottom"; options.outlinedText("FROSTCLAW", x, barY - 43, "#dff8ff", 4); options.outlinedText(rewardText("damage", FROSTCLAW_REWARD_DAMAGE), x, barY - 30, "#ff655a", 4); options.outlinedText(rewardText("health", FROSTCLAW_REWARD_HEALTH), x, barY - 17, "#6fe48e", 4); options.outlinedText(rewardText("armor", FROSTCLAW_REWARD_ARMOR), x, barY - 4, REWARD_DATA.armor.color, 4); ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 270,
+      barHeight: 22,
+      hp: frostclawBoss.hp,
+      maxHp: frostclawBoss.maxHp,
+      hpLossFlashTimer: frostclawBoss.hpLossFlashTimer,
+      hpLossFlashFrom: frostclawBoss.hpLossFlashFrom,
+      backgroundColor: "#17364b",
+      fillColor: "#42c9f5",
+      labels: [
+        { text: "FROSTCLAW", offsetY: -43, color: "#dff8ff" },
+        { text: rewardText("damage", FROSTCLAW_REWARD_DAMAGE), offsetY: -30, color: "#ff655a" },
+        { text: rewardText("health", FROSTCLAW_REWARD_HEALTH), offsetY: -17, color: "#6fe48e" },
+        { text: rewardText("armor", FROSTCLAW_REWARD_ARMOR), offsetY: -4, color: REWARD_DATA.armor.color },
+      ],
+    });
   }
 
   function drawMagmaliskTelegraphs() {
@@ -297,25 +392,26 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
     ctx.restore();
-    const barW = 290; const barH = 23; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34;
-    const ratio = clamp(magmaliskBoss.hp / magmaliskBoss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.9)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#4b2119"; ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = "#ef6428"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
-    if (magmaliskBoss.hpLossFlashTimer > 0 && magmaliskBoss.hpLossFlashFrom > magmaliskBoss.hp) {
-      const fromRatio = clamp(magmaliskBoss.hpLossFlashFrom / magmaliskBoss.maxHp, ratio, 1);
-      ctx.save(); ctx.globalAlpha = clamp(magmaliskBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff";
-      ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore();
-    }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(magmaliskBoss.hp)))} / ${formatCompactNumber(Math.ceil(magmaliskBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4);
-    ctx.textBaseline = "bottom";
-    options.outlinedText("MAGMALISK", x, barY - 56, "#ffe0ad", 4);
-    options.outlinedText(rewardText("damage", MAGMALISK_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
-    options.outlinedText(rewardText("health", MAGMALISK_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
-    options.outlinedText(rewardText("armor", MAGMALISK_REWARD_ARMOR), x, barY - 17, REWARD_DATA.armor.color, 4);
-    options.outlinedText(rewardText("regen", MAGMALISK_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
-    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 290,
+      barHeight: 23,
+      hp: magmaliskBoss.hp,
+      maxHp: magmaliskBoss.maxHp,
+      hpLossFlashTimer: magmaliskBoss.hpLossFlashTimer,
+      hpLossFlashFrom: magmaliskBoss.hpLossFlashFrom,
+      backgroundColor: "#4b2119",
+      fillColor: "#ef6428",
+      labels: [
+        { text: "MAGMALISK", offsetY: -56, color: "#ffe0ad" },
+        { text: rewardText("damage", MAGMALISK_REWARD_DAMAGE), offsetY: -43, color: "#ff655a" },
+        { text: rewardText("health", MAGMALISK_REWARD_HEALTH), offsetY: -30, color: "#6fe48e" },
+        { text: rewardText("armor", MAGMALISK_REWARD_ARMOR), offsetY: -17, color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", MAGMALISK_REWARD_REGEN), offsetY: -4, color: REWARD_DATA.regen.color },
+      ],
+    });
   }
 
   function drawGloomrootTelegraphs() {
@@ -424,25 +520,26 @@ export function createBossRenderer(options: {
       ctx.fillRect(18, -78, 22, 14);
     }
     ctx.restore();
-    const barW = 300; const barH = 23; const barX = x - Math.floor(barW / 2); const barY = visualY - drawH / 2 - 34;
-    const ratio = clamp(gloomrootBoss.hp / gloomrootBoss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.9)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#14293a"; ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = "#39cbd3"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
-    if (gloomrootBoss.hpLossFlashTimer > 0 && gloomrootBoss.hpLossFlashFrom > gloomrootBoss.hp) {
-      const fromRatio = clamp(gloomrootBoss.hpLossFlashFrom / gloomrootBoss.maxHp, ratio, 1);
-      ctx.save(); ctx.globalAlpha = clamp(gloomrootBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1); ctx.fillStyle = "#fff";
-      ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH); ctx.restore();
-    }
-    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(gloomrootBoss.hp)))} / ${formatCompactNumber(Math.ceil(gloomrootBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4);
-    ctx.textBaseline = "bottom";
-    options.outlinedText("GLOOMROOT", x, barY - 56, "#b9fbf5", 4);
-    options.outlinedText(rewardText("damage", GLOOMROOT_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
-    options.outlinedText(rewardText("health", GLOOMROOT_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
-    options.outlinedText(rewardText("armor", GLOOMROOT_REWARD_ARMOR), x, barY - 17, REWARD_DATA.armor.color, 4);
-    options.outlinedText(rewardText("regen", GLOOMROOT_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
-    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 300,
+      barHeight: 23,
+      hp: gloomrootBoss.hp,
+      maxHp: gloomrootBoss.maxHp,
+      hpLossFlashTimer: gloomrootBoss.hpLossFlashTimer,
+      hpLossFlashFrom: gloomrootBoss.hpLossFlashFrom,
+      backgroundColor: "#14293a",
+      fillColor: "#39cbd3",
+      labels: [
+        { text: "GLOOMROOT", offsetY: -56, color: "#b9fbf5" },
+        { text: rewardText("damage", GLOOMROOT_REWARD_DAMAGE), offsetY: -43, color: "#ff655a" },
+        { text: rewardText("health", GLOOMROOT_REWARD_HEALTH), offsetY: -30, color: "#6fe48e" },
+        { text: rewardText("armor", GLOOMROOT_REWARD_ARMOR), offsetY: -17, color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", GLOOMROOT_REWARD_REGEN), offsetY: -4, color: REWARD_DATA.regen.color },
+      ],
+    });
   }
 
   function drawTidewyrmTelegraphs() {
@@ -539,34 +636,26 @@ export function createBossRenderer(options: {
       ctx.fillRect(58, -3, 18, 13);
     }
     ctx.restore();
-    const barW = 310;
-    const barH = 23;
-    const barX = x - Math.floor(barW / 2);
-    const barY = visualY - drawH / 2 - 34;
-    const ratio = clamp(tidewyrmBoss.hp / tidewyrmBoss.maxHp, 0, 1);
-    ctx.fillStyle = "rgba(0,0,0,.9)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#123b56"; ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = "#35cce5"; ctx.fillRect(barX, barY, Math.round(barW * ratio), barH);
-    if (tidewyrmBoss.hpLossFlashTimer > 0 && tidewyrmBoss.hpLossFlashFrom > tidewyrmBoss.hp) {
-      const fromRatio = clamp(tidewyrmBoss.hpLossFlashFrom / tidewyrmBoss.maxHp, ratio, 1);
-      ctx.save();
-      ctx.globalAlpha = clamp(tidewyrmBoss.hpLossFlashTimer / options.hpLossFlashDuration, 0, 1);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(barX + Math.round(barW * ratio), barY, Math.max(1, Math.round(barW * (fromRatio - ratio))), barH);
-      ctx.restore();
-    }
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(tidewyrmBoss.hp)))} / ${formatCompactNumber(Math.ceil(tidewyrmBoss.maxHp))}`, x, healthBarTextY(barY, barH), "#fff", 4);
-    ctx.textBaseline = "bottom";
-    options.outlinedText("TIDEWYRM", x, barY - 56, "#c7faff", 4);
-    options.outlinedText(rewardText("damage", TIDEWYRM_REWARD_DAMAGE), x, barY - 43, "#ff655a", 4);
-    options.outlinedText(rewardText("health", TIDEWYRM_REWARD_HEALTH), x, barY - 30, "#6fe48e", 4);
-    options.outlinedText(rewardText("armor", TIDEWYRM_REWARD_ARMOR), x, barY - 17, REWARD_DATA.armor.color, 4);
-    options.outlinedText(rewardText("regen", TIDEWYRM_REWARD_REGEN), x, barY - 4, REWARD_DATA.regen.color, 4);
-    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 310,
+      barHeight: 23,
+      hp: tidewyrmBoss.hp,
+      maxHp: tidewyrmBoss.maxHp,
+      hpLossFlashTimer: tidewyrmBoss.hpLossFlashTimer,
+      hpLossFlashFrom: tidewyrmBoss.hpLossFlashFrom,
+      backgroundColor: "#123b56",
+      fillColor: "#35cce5",
+      labels: [
+        { text: "TIDEWYRM", offsetY: -56, color: "#c7faff" },
+        { text: rewardText("damage", TIDEWYRM_REWARD_DAMAGE), offsetY: -43, color: "#ff655a" },
+        { text: rewardText("health", TIDEWYRM_REWARD_HEALTH), offsetY: -30, color: "#6fe48e" },
+        { text: rewardText("armor", TIDEWYRM_REWARD_ARMOR), offsetY: -17, color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", TIDEWYRM_REWARD_REGEN), offsetY: -4, color: REWARD_DATA.regen.color },
+      ],
+    });
   }
   return {
     drawBossTelegraphs,

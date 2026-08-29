@@ -1,7 +1,7 @@
 import { TAU } from "../constants";
 import { clamp, rand, randi } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
-import { snapWorldRenderCoordinate } from "./render-space";
+import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 
 export type Particle = {
   x: number;
@@ -147,17 +147,21 @@ export function createCombatEffects() {
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     for (const number of damageNumbers) {
-      ctx.globalAlpha = number.opacity;
-      ctx.font = number.critical
-        ? '900 22px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
-        : '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      outlinedText(
-        number.text,
-        snapWorldRenderCoordinate(number.x - camera.x, camera.zoom, devicePixelRatio),
-        snapWorldRenderCoordinate(number.y - camera.y, camera.zoom, devicePixelRatio),
-        number.critical ? "#ffe36b" : "#ff5a5a",
-        4,
-      );
+      const x = snapWorldRenderCoordinate(number.x - camera.x, camera.zoom, devicePixelRatio);
+      const y = snapWorldRenderCoordinate(number.y - camera.y, camera.zoom, devicePixelRatio);
+      drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
+        ctx.globalAlpha = number.opacity;
+        ctx.font = number.critical
+          ? '900 22px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
+          : '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+        outlinedText(
+          number.text,
+          0,
+          0,
+          number.critical ? "#ffe36b" : "#ff5a5a",
+          4,
+        );
+      });
     }
     ctx.restore();
   }

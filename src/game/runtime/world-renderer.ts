@@ -12,7 +12,7 @@ import {
   type StaticTileScene,
   type StaticTileTreeBounds,
 } from "./static-tile-painter";
-import { snapWorldRenderCoordinate } from "./render-space";
+import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { nightGroundShadowsVisible } from "./night-visibility";
 
 export { snapWorldRenderCoordinate } from "./render-space";
@@ -662,13 +662,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.drawImage(options.portalArch, x - portal.width / 2, y - portal.height, portal.width, portal.height);
     const destinationOpacity = cutsceneActive ? options.portalDestinationOpacity() : options.portalIsUnlocked(portal) ? 1 : 0;
     if (destinationOpacity <= 0) return;
-    ctx.save();
-    ctx.globalAlpha = destinationOpacity;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    options.outlinedText(options.mapName(portal.destination), x, y - portal.height - 8 + Math.sin(options.getGameTime() * 2.4) * 3, portalDestinationTextColor(portal.destination), 4);
-    ctx.restore();
+    drawScreenSpaceAt(ctx, camera.zoom, x, y - portal.height, () => {
+      ctx.globalAlpha = destinationOpacity;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      options.outlinedText(options.mapName(portal.destination), 0, -8 + Math.sin(options.getGameTime() * 2.4) * 3, portalDestinationTextColor(portal.destination), 4);
+    });
   }
 
   function drawPortal() {
@@ -755,17 +755,17 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       ctx.drawImage(upgrade.itemSprite, itemCenterX - itemWidth / 2, itemCenterY - itemHeight / 2, itemWidth, itemHeight);
       ctx.restore();
     }
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    const labelY = y - height - (upgrade ? 21 : 7) + Math.sin(options.getGameTime() * 2.2) * 2;
-    options.outlinedText(bench.label, x, labelY, "#f5e9c4", 4);
-    if (upgrade) {
-      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      options.outlinedText(upgrade.timer, x, labelY + 16, "#8fe7ff", 4);
-    }
-    ctx.restore();
+    drawScreenSpaceAt(ctx, camera.zoom, x, y - height, () => {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      const labelY = -(upgrade ? 21 : 7) + Math.sin(options.getGameTime() * 2.2) * 2;
+      options.outlinedText(bench.label, 0, labelY, "#f5e9c4", 4);
+      if (upgrade) {
+        ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+        options.outlinedText(upgrade.timer, 0, labelY + 16, "#8fe7ff", 4);
+      }
+    });
   }
 
   function drawLavaRock(rock: LavaRockDecor) {

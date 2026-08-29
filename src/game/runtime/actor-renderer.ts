@@ -9,7 +9,7 @@ import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, Playe
 import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
-import { snapWorldRenderCoordinate } from "./render-space";
+import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -738,37 +738,37 @@ export function createActorRenderer(options: {
 
     const spriteTop = spriteBounds.top;
     const spriteBottom = spriteBounds.bottom;
-    const rewardY = y + spriteBottom + 13;
+    const rewardY = spriteBottom * camera.zoom + 13;
     const barW = Math.max(56, Math.min(94, (sprite?.size ?? enemy.r * 2) * 1.26)) * 1.05;
     const barH = options.worldHealthBarHeight;
-    const barX = x - barW / 2;
+    const barX = -barW / 2;
     const barCenterX = barX + barW / 2;
-    const barY = y + spriteTop - 14;
+    const barY = spriteTop * camera.zoom - 14;
     const displayedHp = enemy.remoteCombatHp ?? enemy.hp;
     const hpRatio = clamp(displayedHp / enemy.maxHp, 0, 1);
     const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(displayedHp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
 
-    ctx.save();
-    ctx.globalAlpha = visibility;
-    ctx.fillStyle = "rgba(0,0,0,.86)";
-    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#472225";
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = enemy.hurt > 0 ? "#fff1b6" : "#55d568";
-    ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+    drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
+      ctx.globalAlpha = visibility;
+      ctx.fillStyle = "rgba(0,0,0,.86)";
+      ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+      ctx.fillStyle = "#472225";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = enemy.hurt > 0 ? "#fff1b6" : "#55d568";
+      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
 
-    ctx.textAlign = "center";
-    const labels = enemyLabels(enemy.type, { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
-    ctx.drawImage(labels.name.canvas, x - labels.name.width / 2, barY - 4 - labels.name.anchorY, labels.name.width, labels.name.height);
+      ctx.textAlign = "center";
+      const labels = enemyLabels(enemy.type, { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
+      ctx.drawImage(labels.name.canvas, -labels.name.width / 2, barY - 4 - labels.name.anchorY, labels.name.width, labels.name.height);
 
-    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textBaseline = "middle";
-    options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
+      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.textBaseline = "middle";
+      options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
 
-    if (!enemy.remoteCombatGhost) {
-      ctx.drawImage(labels.reward.canvas, x - labels.reward.width / 2, rewardY - labels.reward.anchorY, labels.reward.width, labels.reward.height);
-    }
-    ctx.restore();
+      if (!enemy.remoteCombatGhost) {
+        ctx.drawImage(labels.reward.canvas, -labels.reward.width / 2, rewardY - labels.reward.anchorY, labels.reward.width, labels.reward.height);
+      }
+    });
   }
 
   function drawProjectile(projectile: Projectile | EnemyShot, enemy = false) {

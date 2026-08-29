@@ -230,12 +230,12 @@ describe("balance simulator", () => {
     expect(result.config.mapAdjustments[BEGINNER_DESERT_MAP_ID].bossHp).toBe(tiny);
   });
 
-  it("frontloads Night Forest damage rewards into ordinary raiders", () => {
+  it("keeps Night Forest elite damage rewards above ordinary raiders", () => {
     const result = runBalanceSimulation({ durationSeconds: 60, trials: 1 });
     const raider = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID].find((metric) => metric.enemy === "Depth Raider");
     const reaper = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID].find((metric) => metric.enemy === "Doom Reaper");
     expect(raider?.rewardType).toBe("damage");
     expect(reaper?.rewardType).toBe("damage");
-    expect(raider?.rewardAmount).toBeGreaterThan(reaper?.rewardAmount ?? Number.POSITIVE_INFINITY);
+    expect(reaper?.rewardAmount).toBeGreaterThan(raider?.rewardAmount ?? Number.POSITIVE_INFINITY);
   });
 });

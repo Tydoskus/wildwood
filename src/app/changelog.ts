@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.555": [
+    "Mobile now sees 7% more world, while desktop matches the same visible area without shrinking combat labels or health bars.",
+    "Late-map elites now grant more Damage than regular enemies, with Night Forest damage kept inside its intended survivability curve.",
+  ],
   "0.554": [
     "Legacy leaderboard compression now lands on the intended current-equipment map-entry targets.",
   ],
@@ -1210,6 +1214,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.555": "2026-08-28",
   "0.554": "2026-08-28",
   "0.553": "2026-08-28",
   "0.552": "2026-08-28",

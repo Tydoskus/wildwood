@@ -6,13 +6,40 @@ export type Camera = { x: number; y: number; zoom: number };
 type CameraPlayer = { x: number; y: number; attackRange: number };
 type Viewport = { width: number; height: number };
 
+const BASE_CAMERA_ZOOM = .85;
+export const MOBILE_CAMERA_ZOOM_MULTIPLIER = .93;
+// Representative phone gameplay canvas after the fixed bottom toolbar is
+// removed from a 390×844 home-screen viewport.
+export const MOBILE_CAMERA_REFERENCE_VIEWPORT = { width: 390, height: 780 } as const;
+const MOBILE_CAMERA_MAX_SHORT_SIDE = 600;
+const MOBILE_CAMERA_MAX_AREA = 450_000;
+const MAX_CAMERA_ZOOM = 2;
+
 export function createCamera(): Camera {
   return { x: 0, y: 0, zoom: 1 };
 }
 
-function targetZoom(attackRange: number) {
+function isPhoneViewport(viewport: Viewport) {
+  const width = Math.max(1, viewport.width);
+  const height = Math.max(1, viewport.height);
+  return Math.min(width, height) <= MOBILE_CAMERA_MAX_SHORT_SIDE
+    && width * height <= MOBILE_CAMERA_MAX_AREA;
+}
+
+/**
+ * Uses a common phone viewport as the world-area anchor. Phones retain a
+ * predictable 7% zoom-out, while larger screens zoom in by the square root of
+ * their area so they expose roughly the same amount of world.
+ */
+export function targetCameraZoom(attackRange: number, viewport: Viewport) {
   const rangeIncrease = attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
-  return clamp((1 - rangeIncrease * .5) * .85, MIN_CAMERA_ZOOM, 1);
+  const attackRangeZoom = (1 - rangeIncrease * .5) * BASE_CAMERA_ZOOM;
+  const viewportArea = Math.max(1, viewport.width) * Math.max(1, viewport.height);
+  const referenceArea = MOBILE_CAMERA_REFERENCE_VIEWPORT.width * MOBILE_CAMERA_REFERENCE_VIEWPORT.height;
+  const areaMultiplier = isPhoneViewport(viewport)
+    ? MOBILE_CAMERA_ZOOM_MULTIPLIER
+    : MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.sqrt(viewportArea / referenceArea);
+  return clamp(attackRangeZoom * areaMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
 }
 
 function targetPosition(
@@ -41,7 +68,7 @@ export function updateCamera(
   dt: number,
 ) {
   const zoomFollow = 1 - Math.pow(.0008, dt);
-  camera.zoom += (targetZoom(player.attackRange) - camera.zoom) * zoomFollow;
+  camera.zoom += (targetCameraZoom(player.attackRange, viewport) - camera.zoom) * zoomFollow;
   const target = targetPosition(camera, player, viewport, duelCenter);
   const follow = 1 - Math.pow(.00006, dt);
   camera.x += (target.x - camera.x) * follow;
@@ -49,7 +76,7 @@ export function updateCamera(
 }
 
 export function snapCameraToPlayer(camera: Camera, player: CameraPlayer, viewport: Viewport) {
-  camera.zoom = targetZoom(player.attackRange);
+  camera.zoom = targetCameraZoom(player.attackRange, viewport);
   const target = targetPosition(camera, player, viewport, null);
   camera.x = target.x;
   camera.y = target.y;

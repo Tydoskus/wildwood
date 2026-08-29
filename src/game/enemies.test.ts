@@ -107,7 +107,7 @@ describe("enemy reward rules", () => {
     }
   });
 
-  it("moves damage progress out of late-map elite jackpots without changing its budget", () => {
+  it("keeps late-map elite damage rewards above regular rewards without changing the budget", () => {
     const repeated = (previous: number, current: number) => current * current / previous;
     const tracks = [
       {
@@ -132,9 +132,13 @@ describe("enemy reward rules", () => {
       const reaper = ENEMY_TYPES[track.reaper].reward;
       expect(raider.type).toBe("damage");
       expect(reaper.type).toBe("damage");
-      expect(raider.amount).toBeGreaterThan(reaper.amount);
+      expect(reaper.amount).toBeGreaterThan(raider.amount);
+      expect(reaper.amount / raider.amount).toBeCloseTo(1.25, 10);
       expect((raider.amount * 6 + reaper.amount * 7) / track.authored).toBeCloseTo(1, 10);
     }
+
+    expect(ENEMY_TYPES["Moonblade Reaper"].reward.amount)
+      .toBeGreaterThan(ENEMY_TYPES["Sakura Ronin"].reward.amount);
   });
 
   it("keeps regular-enemy hit damage closely grouped from Lava Lake onward", () => {

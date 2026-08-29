@@ -16,6 +16,7 @@ import { clamp } from "../math";
 import type { Camera } from "./camera";
 import type { ActorStatus } from "./actor-renderer";
 import { healthBarTextY } from "./health-bar-layout";
+import { drawScreenSpaceAt } from "./render-space";
 import type { PlayerState } from "./types";
 
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -219,83 +220,85 @@ export function createPlayerIdentityRenderer(options: {
     const paddingY = 7;
     const lineHeight = 15;
     const ctx = options.ctx;
-    ctx.save();
-    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    const visibleWidth = options.viewport().width / options.camera.zoom;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    const visibleWidth = options.viewport().width;
+    const anchorScreenX = x * options.camera.zoom;
+    const anchorScreenY = y * options.camera.zoom;
     const totalHeight = stack.reduce((height, bubble) => height + bubble.height, 0)
       + SPEECH_BUBBLE_STACK_GAP * (stack.length - 1);
-    let bottom = Math.max(totalHeight + 4, y - (options.isGuest(identity) ? 124 : 108));
-    for (const bubble of stack) {
-      const age = speechBubbleNow - bubble.sentAtMs;
-      const opacity = age <= fadeStart ? 1 : clamp(1 - (age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
-      const centerX = clamp(x, bubble.width / 2 + 4, visibleWidth - bubble.width / 2 - 4);
-      const left = Math.round(centerX - bubble.width / 2);
-      const top = Math.round(bottom - bubble.height);
+    drawScreenSpaceAt(ctx, options.camera.zoom, x, y, () => {
+      ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      let bottom = Math.max(totalHeight + 4, anchorScreenY - (options.isGuest(identity) ? 124 : 108)) - anchorScreenY;
+      for (const bubble of stack) {
+        const age = speechBubbleNow - bubble.sentAtMs;
+        const opacity = age <= fadeStart ? 1 : clamp(1 - (age - fadeStart) / SPEECH_BUBBLE_FADE_MS, 0, 1);
+        const centerX = clamp(anchorScreenX, bubble.width / 2 + 4, visibleWidth - bubble.width / 2 - 4) - anchorScreenX;
+        const left = Math.round(centerX - bubble.width / 2);
+        const top = Math.round(bottom - bubble.height);
 
-      ctx.globalAlpha = opacity * .28;
-      ctx.fillStyle = "#050806";
-      options.roundRect(left + 1, top + 3, bubble.width, bubble.height, 9);
-      ctx.fill();
+        ctx.globalAlpha = opacity * .28;
+        ctx.fillStyle = "#050806";
+        options.roundRect(left + 1, top + 3, bubble.width, bubble.height, 9);
+        ctx.fill();
 
-      ctx.globalAlpha = opacity;
-      ctx.fillStyle = "#f4f0df";
-      ctx.strokeStyle = "#171b18";
-      ctx.lineWidth = 2;
-      options.roundRect(left, top, bubble.width, bubble.height, 9);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(255, 255, 255, .58)";
-      ctx.lineWidth = 1;
-      options.roundRect(left + 1.5, top + 1.5, bubble.width - 3, bubble.height - 3, 7.5);
-      ctx.stroke();
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = "#f4f0df";
+        ctx.strokeStyle = "#171b18";
+        ctx.lineWidth = 2;
+        options.roundRect(left, top, bubble.width, bubble.height, 9);
+        ctx.fill();
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 255, 255, .58)";
+        ctx.lineWidth = 1;
+        options.roundRect(left + 1.5, top + 1.5, bubble.width - 3, bubble.height - 3, 7.5);
+        ctx.stroke();
 
-      ctx.fillStyle = "#20251f";
-      bubble.lines.forEach((line, index) => options.fillText(line, centerX, top + paddingY + lineHeight * (index + .5)));
-      bottom = top - SPEECH_BUBBLE_STACK_GAP;
-    }
-    ctx.restore();
+        ctx.fillStyle = "#20251f";
+        bubble.lines.forEach((line, index) => options.fillText(line, centerX, top + paddingY + lineHeight * (index + .5)));
+        bottom = top - SPEECH_BUBBLE_STACK_GAP;
+      }
+    });
   }
 
   function drawActorStatus({ x, y, identity, name, gender, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
     const ctx = options.ctx;
-    ctx.save();
-    const centerX = x;
-    const barW = 94 * 1.05;
-    const barH = options.healthBarHeight;
-    const barX = centerX - Math.floor(barW / 2);
-    const barY = y - 62;
-    const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
-    ctx.fillStyle = "rgba(0,0,0,.88)";
-    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-    ctx.fillStyle = "#402326";
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = fillColor;
-    ctx.fillRect(barX, barY, fillWidth, barH);
-    if (fillWidth > 0) {
-      ctx.fillStyle = "rgba(255,255,255,.25)";
-      ctx.fillRect(barX, barY, fillWidth, 1);
-    }
-    ctx.save();
-    ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`, centerX, healthBarTextY(barY, barH), "#ffffff", 2);
-    ctx.restore();
-    if (options.isLocallyInvisible(identity)) {
+    drawScreenSpaceAt(ctx, options.camera.zoom, x, y, () => {
+      const centerX = 0;
+      const barW = 94 * 1.05;
+      const barH = options.healthBarHeight;
+      const barX = centerX - Math.floor(barW / 2);
+      const barY = -62;
+      const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
+      ctx.fillStyle = "rgba(0,0,0,.88)";
+      ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+      ctx.fillStyle = "#402326";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = fillColor;
+      ctx.fillRect(barX, barY, fillWidth, barH);
+      if (fillWidth > 0) {
+        ctx.fillStyle = "rgba(255,255,255,.25)";
+        ctx.fillRect(barX, barY, fillWidth, 1);
+      }
       ctx.save();
       ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      options.outlinedText("Invisible", centerX, barY - (options.isGuest(identity) ? 55 : 39), "#c9a6ff", 4);
+      ctx.textBaseline = "middle";
+      options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`, centerX, healthBarTextY(barY, barH), "#ffffff", 2);
       ctx.restore();
-    }
-    drawPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor, gender);
-    ctx.restore();
+      if (options.isLocallyInvisible(identity)) {
+        ctx.save();
+        ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        options.outlinedText("Invisible", centerX, barY - (options.isGuest(identity) ? 55 : 39), "#c9a6ff", 4);
+        ctx.restore();
+      }
+      paintPlayerIdentity(identity, name, power, centerX, barY - 7, nameColor, gender);
+    });
   }
 
-  function drawPlayerIdentity(identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, explicitGender?: PlayerGender) {
+  function paintPlayerIdentity(identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, explicitGender?: PlayerGender) {
     if (!name) return;
     const ctx = options.ctx;
     const guest = options.isGuest(identity);
@@ -358,6 +361,13 @@ export function createPlayerIdentityRenderer(options: {
       }
     }
     ctx.restore();
+  }
+
+  function drawPlayerIdentity(identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, explicitGender?: PlayerGender) {
+    if (!name) return;
+    drawScreenSpaceAt(options.ctx, options.camera.zoom, centerX, bottom, () => {
+      paintPlayerIdentity(identity, name, power, 0, 0, color, explicitGender);
+    });
   }
 
   function playerPower(stats: Pick<PlayerState, "attackRate" | "damage" | "maxHp" | "armor" | "regen">) {
