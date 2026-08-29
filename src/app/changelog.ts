@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.564": [
+    "Portals now use one shared runtime-tinted swirl sheet instead of separate color files.",
+    "Bosses and map scenery now load only for the current or destination map, with travel waiting until destination art is ready.",
+  ],
   "0.563": [
     "Screen shake now remembers your preference, and toolbar colors are slightly richer.",
     "Long mobile resumes now escape stuck reconnects through a clean startup reload after four seconds.",
@@ -1242,6 +1246,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.564": "2026-08-29",
   "0.563": "2026-08-29",
   "0.562": "2026-08-29",
   "0.561": "2026-08-29",

@@ -9,16 +9,8 @@ import {
   type MapId,
 } from "./world";
 
-/** Portal swirls and marker colors communicate the map they lead to. */
-export const PORTAL_SWIRL_SOURCES: Record<MapId, string> = {
-  [TUTORIAL_FOREST_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-green.png",
-  [BEGINNER_DESERT_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-gold.png",
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet.png",
-  [ADVANCED_LAVA_WASTES_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-red.png",
-  [INFERNAL_DEPTHS_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-black.png",
-  [WATER_REACH_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet.png",
-  [SAMURAI_GARDEN_MAP_ID]: "assets/wildwood/portal-swirl-spritesheet-red.png",
-};
+/** One shaded sheet is recolored at runtime for every destination. */
+export const PORTAL_SWIRL_SOURCE = "assets/wildwood/portal-swirl-spritesheet.png";
 
 const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [TUTORIAL_FOREST_MAP_ID]: "#61e87c",

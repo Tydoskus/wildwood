@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -8,17 +9,15 @@ import {
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
 } from "./world";
-import { PORTAL_SWIRL_SOURCES, portalDestinationColor, portalDestinationTextColor } from "./portal-presentation";
+import { PORTAL_SWIRL_SOURCE, portalDestinationColor, portalDestinationTextColor } from "./portal-presentation";
 
 describe("portal destination presentation", () => {
-  it("maps each destination to its matching portal swirl", () => {
-    expect(PORTAL_SWIRL_SOURCES[TUTORIAL_FOREST_MAP_ID]).toContain("-green.png");
-    expect(PORTAL_SWIRL_SOURCES[BEGINNER_DESERT_MAP_ID]).toContain("-gold.png");
-    expect(PORTAL_SWIRL_SOURCES[INTERMEDIATE_SNOWLANDS_MAP_ID]).toBe("assets/wildwood/portal-swirl-spritesheet.png");
-    expect(PORTAL_SWIRL_SOURCES[ADVANCED_LAVA_WASTES_MAP_ID]).toContain("-red.png");
-    expect(PORTAL_SWIRL_SOURCES[INFERNAL_DEPTHS_MAP_ID]).toContain("-black.png");
-    expect(PORTAL_SWIRL_SOURCES[WATER_REACH_MAP_ID]).toBe("assets/wildwood/portal-swirl-spritesheet.png");
-    expect(PORTAL_SWIRL_SOURCES[SAMURAI_GARDEN_MAP_ID]).toContain("-red.png");
+  it("uses one shared portal sheet for every destination tint", () => {
+    expect(PORTAL_SWIRL_SOURCE).toBe("assets/wildwood/portal-swirl-spritesheet.png");
+    expect(existsSync(new URL("../../public/assets/wildwood/portal-swirl-spritesheet.png", import.meta.url))).toBe(true);
+    for (const color of ["green", "gold", "red", "black"]) {
+      expect(existsSync(new URL(`../../public/assets/wildwood/portal-swirl-spritesheet-${color}.png`, import.meta.url))).toBe(false);
+    }
   });
 
   it("uses matching destination colors for map markers", () => {

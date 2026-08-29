@@ -7,6 +7,18 @@ export type MapPortal = { x: number; y: number; width: number; height: number; d
 
 type MapConfig = Record<MapId, { portal: MapPortal; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
+/** Starts destination art beside the server move and gates arrival only after both succeed. */
+export async function prepareMapTransition(
+  changeMap: () => Promise<boolean | undefined> | boolean | undefined,
+  prepareAssets: () => Promise<void>,
+) {
+  const assetsReady = prepareAssets();
+  const changed = await changeMap();
+  if (!changed) return false;
+  await assetsReady;
+  return true;
+}
+
 export type MapController = {
   activePortal: () => MapPortal;
   secondaryPortal: () => MapPortal | null;
@@ -59,6 +71,7 @@ export function createMapController(options: {
   running: () => boolean;
   localMapState: () => { mapId: string; x: number; y: number; facing: number } | null | undefined;
   changeMap: (mapId: MapId, x: number, y: number) => Promise<boolean | undefined> | boolean | undefined;
+  prepareMapAssets: (mapId: MapId) => Promise<void>;
   syncStoppedPosition: () => void;
   fadeToWorld: (action: () => void) => void;
   mapUnlocked: (mapId: MapId) => boolean;
@@ -129,6 +142,7 @@ export function createMapController(options: {
   }
 
   function loadMap(mapId: MapId, x: number, y: number, facing = 0) {
+    void options.prepareMapAssets(mapId);
     setCurrentMapId(mapId);
     syncMapMusic();
     player.x = x;
@@ -166,7 +180,10 @@ export function createMapController(options: {
     if (!portal || !portalIsUnlocked(portal)) return;
     mapTransitioning = true;
     const destination = portal.destination;
-    void Promise.resolve(changeMap(destination, player.x, player.y)).then((changed) => {
+    void prepareMapTransition(
+      () => changeMap(destination, player.x, player.y),
+      () => options.prepareMapAssets(destination),
+    ).then((changed) => {
       if (!changed) { mapTransitioning = false; portalCooldown = 1; return; }
       fadeToWorld(() => {
         const arrival = mapConfig[destination].arrival;
@@ -176,6 +193,9 @@ export function createMapController(options: {
         showMapMessage(getCurrentMapId());
         syncStoppedPosition();
       });
+    }).catch(() => {
+      mapTransitioning = false;
+      portalCooldown = 1;
     });
   }
 
@@ -185,15 +205,18 @@ export function createMapController(options: {
     if (!state || state.mapId === getCurrentMapId()) return;
     if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId) return;
     mapTransitioning = true;
-    fadeToWorld(() => {
-      loadMap(state.mapId as MapId, state.x, state.y, state.facing);
-      portalCooldown = 1.5;
-      mapTransitioning = false;
-      showMapMessage(getCurrentMapId());
+    void options.prepareMapAssets(state.mapId as MapId).then(() => {
+      fadeToWorld(() => {
+        loadMap(state.mapId as MapId, state.x, state.y, state.facing);
+        portalCooldown = 1.5;
+        mapTransitioning = false;
+        showMapMessage(getCurrentMapId());
+      });
     });
   }
 
   function startMapPortalCutscene(mapId: MapId, preview = false, portal: MapPortal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
+    void options.prepareMapAssets(portal.destination);
     document.body.classList.add("is-cutscene");
     resizeViewport();
     portalCutscene.begin(camera, { x: portal.x, y: portal.y - portal.height * .48 }, viewport());

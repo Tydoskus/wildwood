@@ -1,6 +1,6 @@
 import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
-import { drawPortalMapMarker, portalDestinationTextColor } from "../portal-presentation";
+import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildwood-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
@@ -14,6 +14,7 @@ import {
 } from "./static-tile-painter";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { nightGroundShadowsVisible } from "./night-visibility";
+import { createTintedImageCanvas } from "./image-tint";
 
 export { snapWorldRenderCoordinate } from "./render-space";
 
@@ -36,6 +37,7 @@ type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
 type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
 
 const STATIC_TILE_SIZE = 640;
+const PORTAL_TINTED_SHEET_SIZE = 768;
 
 export function staticWorldTileRange(
   cameraX: number,
@@ -93,7 +95,7 @@ export type WorldRendererOptions = {
   treeSpriteBounds: () => TreeSpriteBounds[];
   nightTreeSpriteBounds: () => TreeSpriteBounds[];
   portalArch: HTMLImageElement;
-  portalSwirls: Record<MapId, HTMLImageElement>;
+  portalSwirl: HTMLImageElement;
   snowPine: HTMLImageElement;
   upgradeBench: HTMLImageElement;
   upgradeBenchStatus: () => { itemSprite?: HTMLImageElement; timer: string } | null;
@@ -152,11 +154,29 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const lavaRockBuckets = new Map<string, LavaRockDecor[]>();
   const visibleLavaRocks: LavaRockDecor[] = [];
   const gpuWorldSprites: StaticWorldSpriteFrame[] = [];
+  const tintedPortalSwirls = new Map<string, HTMLCanvasElement>();
   let lavaRocksRenderedByWebGL = false;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
   const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
   const isLavaTerrain = () => options.getMapId() === options.lavaMapId;
+
+  function tintedPortalSwirl(destination: MapId) {
+    const source = options.portalSwirl;
+    if (!source.complete || source.naturalWidth <= 0 || source.naturalHeight <= 0) return null;
+    const tint = portalDestinationColor(destination);
+    const cached = tintedPortalSwirls.get(tint);
+    if (cached) return cached;
+    const canvas = createTintedImageCanvas(
+      source,
+      Math.min(source.naturalWidth, PORTAL_TINTED_SHEET_SIZE),
+      Math.min(source.naturalHeight, PORTAL_TINTED_SHEET_SIZE),
+      tint,
+      true,
+    );
+    if (canvas) tintedPortalSwirls.set(tint, canvas);
+    return canvas;
+  }
 
   function mapColors() {
     const desert = options.getMapId() === options.desertMapId;
@@ -642,21 +662,20 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const cutsceneIntensity = cutscene ? options.portalRevealIntensity() : -1;
     const cutsceneActive = cutsceneIntensity >= 0;
     const portalIntensity = cutsceneActive ? cutsceneIntensity : options.portalIsUnlocked(portal) ? 1 : 0;
-    const requestedSwirl = options.portalSwirls[portal.destination];
-    const fallbackSwirl = options.portalSwirls[options.snowMapId];
-    const portalSwirl = requestedSwirl?.complete && requestedSwirl.naturalWidth > 0 ? requestedSwirl : fallbackSwirl;
-    if (portalIntensity > 0 && portalSwirl.complete && portalSwirl.naturalWidth > 0) {
+    const portalSwirl = tintedPortalSwirl(portal.destination);
+    if (portalIntensity > 0 && portalSwirl) {
       // Ease through the sprite sequence instead of abruptly reversing at
       // either end. The swirl now settles into and out of each turn.
       const cycle = options.getGameTime() / 3;
       const sweep = .5 - Math.cos(cycle * TAU) * .5;
       const frame = Math.round(sweep * 15);
-      const cell = portalSwirl.naturalWidth / 4;
+      const cellWidth = portalSwirl.width / 4;
+      const cellHeight = portalSwirl.height / 4;
       const width = Math.round(portal.width * .59 * 1.265 * 1.05);
       const height = Math.round(portal.height * .75 * 1.265);
       ctx.save();
       ctx.globalAlpha = portalIntensity;
-      ctx.drawImage(portalSwirl, (frame % 4) * cell, Math.floor(frame / 4) * cell, cell, cell, x - width / 2, y - height - 5, width, height);
+      ctx.drawImage(portalSwirl, (frame % 4) * cellWidth, Math.floor(frame / 4) * cellHeight, cellWidth, cellHeight, x - width / 2, y - height - 5, width, height);
       ctx.restore();
     }
     ctx.drawImage(options.portalArch, x - portal.width / 2, y - portal.height, portal.width, portal.height);

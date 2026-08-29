@@ -191,6 +191,18 @@ import {
   const enemyLifecycle = createEnemyLifecycle(enemies, spawnSites, spawnBurst);
   const { spawnFromSite, engageEnemy, updateRespawns } = enemyLifecycle;
   let currentMapId: MapId = TUTORIAL_FOREST_MAP_ID;
+  let prepareMapAssets: (mapId: MapId) => Promise<void> = () => Promise.resolve();
+
+  function setCurrentMap(mapId: MapId) {
+    currentMapId = mapId;
+    void prepareMapAssets(mapId);
+  }
+
+  function loadingMapId() {
+    const state = coop?.localState?.();
+    if (!state) return undefined;
+    return state.mapId in MAP_CONFIG ? state.mapId as MapId : currentMapId;
+  }
 
   function mapNameForPresence(mapId: string | undefined) {
     return mapId && mapId in MAP_CONFIG ? MAP_CONFIG[mapId as MapId].name : "";
@@ -310,7 +322,7 @@ import {
       ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
       ["LOADING SAVED PROGRESS", progress.isLoaded(), 60],
       ["LOADING PLAYER APPEARANCE", playerSpriteReady, 78],
-      ["LOADING WORLD ART", assets.worldArtReady(), 90],
+      ["LOADING WORLD ART", assets.worldArtReady(loadingMapId()), 90],
       ["LOADING PAGE ART", pageLoadComplete, 97],
       ["STARTING WILDWOOD", true, 100],
     ],
@@ -650,7 +662,8 @@ import {
     waterCutsceneSeenKey: WATER_PORTAL_CUTSCENE_SEEN_KEY,
     samuraiCutsceneSeenKey: SAMURAI_PORTAL_CUTSCENE_SEEN_KEY,
     getCurrentMapId: () => currentMapId,
-    setCurrentMapId: (mapId) => { currentMapId = mapId; },
+    setCurrentMapId: setCurrentMap,
+    prepareMapAssets: (mapId) => prepareMapAssets(mapId),
     player,
     camera,
     viewport: canvasRuntime.viewport,
@@ -802,6 +815,9 @@ import {
     onPlayerAppearanceAssetReady: markPlayerSpriteReady,
   });
   const { assets, inventoryCharacterPreview, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
+  prepareMapAssets = assets.ensureMapAssets;
+  const initialAssetMap = loadingMapId();
+  if (initialAssetMap) void prepareMapAssets(initialAssetMap);
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   const worldRenderRuntime = createWorldRenderRuntime({
@@ -1306,7 +1322,7 @@ import {
     player, camera, viewport: canvasRuntime.viewport,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID,
     validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID],
-    getMapId: () => currentMapId, setMapId: (mapId) => { currentMapId = mapId as MapId; },
+    getMapId: () => currentMapId, setMapId: (mapId) => { setCurrentMap(mapId as MapId); },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
     connected: () => Boolean(coop?.isConnected?.()),

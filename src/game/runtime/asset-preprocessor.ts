@@ -1,9 +1,10 @@
 import { loadDuelPlatformArt, loadDuelSpaceBackground } from "../duel";
 import { requiredCanvasContext } from "./dom";
 import { scheduleBackgroundTask, yieldToUser } from "./scheduler";
-import { PORTAL_SWIRL_SOURCES } from "../portal-presentation";
-import { loadTreeSpritesheet, type MapId } from "../world";
+import { PORTAL_SWIRL_SOURCE } from "../portal-presentation";
+import { type MapId } from "../world";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
+import { MAP_ASSET_GROUPS, type MapAssetGroup } from "./map-asset-groups";
 
 export type TreeSpriteBound = {
   x: number;
@@ -78,133 +79,139 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     });
   }
 
-  const dragonSprite = new Image();
+  type LazyImageAsset = {
+    image: HTMLImageElement;
+    load: () => Promise<void>;
+    settled: () => boolean;
+  };
+
+  function createLazyImageAsset(
+    source: string,
+    process: (image: HTMLImageElement, settle: () => void) => void = (_image, settle) => settle(),
+  ): LazyImageAsset {
+    const image = new Image();
+    image.decoding = "async";
+    let started = false;
+    let didSettle = false;
+    let retry = 0;
+    let resolve!: () => void;
+    const promise = new Promise<void>((complete) => { resolve = complete; });
+    const settle = () => {
+      if (didSettle) return;
+      didSettle = true;
+      onWorldAssetReady();
+      resolve();
+    };
+    image.addEventListener("load", () => {
+      try { process(image, settle); } catch { settle(); }
+    }, { once: true });
+    image.addEventListener("error", () => {
+      if (retry >= 2) {
+        settle();
+        return;
+      }
+      retry += 1;
+      globalThis.setTimeout(() => { image.src = `${source}?asset-retry=${retry}`; }, retry * 500);
+    });
+    return {
+      image,
+      load: () => {
+        if (!started) {
+          started = true;
+          image.src = source;
+        }
+        return promise;
+      },
+      settled: () => didSettle,
+    };
+  }
+
   const dragonSpriteCanvas = document.createElement("canvas");
   const dragonSpriteContext = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
   let dragonReady = false;
-  dragonSprite.addEventListener("load", () => {
-    dragonSpriteCanvas.width = dragonSprite.naturalWidth;
-    dragonSpriteCanvas.height = dragonSprite.naturalHeight;
-    dragonSpriteContext.drawImage(dragonSprite, 0, 0);
+  const dragonAsset = createLazyImageAsset("assets/wildwood/dragon_boss_spritesheet.png", (image, settle) => {
+    dragonSpriteCanvas.width = image.naturalWidth;
+    dragonSpriteCanvas.height = image.naturalHeight;
+    dragonSpriteContext.drawImage(image, 0, 0);
     removeGreen(dragonSpriteContext, dragonSpriteCanvas.width, dragonSpriteCanvas.height, 145, 1.45, () => {
       dragonReady = true;
+      settle();
     });
   });
-  dragonSprite.src = "assets/wildwood/dragon_boss_spritesheet.png";
 
-  const spiderSprite = new Image();
   const spiderSpriteCanvas = document.createElement("canvas");
   const spiderSpriteContext = requiredCanvasContext(spiderSpriteCanvas, { willReadFrequently: true });
   let spiderReady = false;
-  spiderSprite.addEventListener("load", () => {
-    spiderSpriteCanvas.width = spiderSprite.naturalWidth;
-    spiderSpriteCanvas.height = spiderSprite.naturalHeight;
-    spiderSpriteContext.drawImage(spiderSprite, 0, 0);
+  const spiderAsset = createLazyImageAsset("assets/wildwood/desert-spider-boss-spritesheet.png", (image, settle) => {
+    spiderSpriteCanvas.width = image.naturalWidth;
+    spiderSpriteCanvas.height = image.naturalHeight;
+    spiderSpriteContext.drawImage(image, 0, 0);
     removeGreen(spiderSpriteContext, spiderSpriteCanvas.width, spiderSpriteCanvas.height, 135, 1.35, () => {
       spiderReady = true;
+      settle();
     });
   });
-  spiderSprite.src = "assets/wildwood/desert-spider-boss-spritesheet.png";
 
-  const frostclawSprite = new Image();
   const frostclawSpriteCanvas = document.createElement("canvas");
   const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas, { willReadFrequently: true });
   let frostclawReady = false;
-  frostclawSprite.addEventListener("load", () => {
-    frostclawSpriteCanvas.width = frostclawSprite.naturalWidth;
-    frostclawSpriteCanvas.height = frostclawSprite.naturalHeight;
-    frostclawSpriteContext.drawImage(frostclawSprite, 0, 0);
+  const frostclawAsset = createLazyImageAsset("assets/wildwood/frostclaw-boss-spritesheet.png", (image, settle) => {
+    frostclawSpriteCanvas.width = image.naturalWidth;
+    frostclawSpriteCanvas.height = image.naturalHeight;
+    frostclawSpriteContext.drawImage(image, 0, 0);
     removeGreen(frostclawSpriteContext, frostclawSpriteCanvas.width, frostclawSpriteCanvas.height, 145, 1.45, () => {
       frostclawReady = true;
+      settle();
     }, 4);
   });
-  frostclawSprite.src = "assets/wildwood/frostclaw-boss-spritesheet.png";
 
-  const magmaliskSprite = new Image();
   const magmaliskSpriteCanvas = document.createElement("canvas");
   const magmaliskSpriteContext = requiredCanvasContext(magmaliskSpriteCanvas, { willReadFrequently: true });
   let magmaliskReady = false;
-  magmaliskSprite.addEventListener("load", () => {
-    magmaliskSpriteCanvas.width = magmaliskSprite.naturalWidth;
-    magmaliskSpriteCanvas.height = magmaliskSprite.naturalHeight;
-    magmaliskSpriteContext.drawImage(magmaliskSprite, 0, 0);
+  const magmaliskAsset = createLazyImageAsset("assets/wildwood/magmalisk-boss-spritesheet.png", (image, settle) => {
+    magmaliskSpriteCanvas.width = image.naturalWidth;
+    magmaliskSpriteCanvas.height = image.naturalHeight;
+    magmaliskSpriteContext.drawImage(image, 0, 0);
     removeGreen(magmaliskSpriteContext, magmaliskSpriteCanvas.width, magmaliskSpriteCanvas.height, 145, 1.45, () => {
       magmaliskReady = true;
+      settle();
     }, 4, true);
   });
-  magmaliskSprite.src = "assets/wildwood/magmalisk-boss-spritesheet.png";
 
-  const gloomrootSprite = new Image();
   const gloomrootSpriteCanvas = document.createElement("canvas");
   const gloomrootSpriteContext = requiredCanvasContext(gloomrootSpriteCanvas, { willReadFrequently: true });
   let gloomrootReady = false;
-  gloomrootSprite.addEventListener("load", () => {
-    gloomrootSpriteCanvas.width = gloomrootSprite.naturalWidth;
-    gloomrootSpriteCanvas.height = gloomrootSprite.naturalHeight;
-    gloomrootSpriteContext.drawImage(gloomrootSprite, 0, 0);
-    // This one boss sheet is large and arranged in two rows. Process it
-    // synchronously once so a delayed/failed worker can never leave the boss
-    // permanently invisible; per-column cleanup would discard one row.
+  const gloomrootAsset = createLazyImageAsset("assets/wildwood/gloomroot-boss-spritesheet-v1.png", (image, settle) => {
+    gloomrootSpriteCanvas.width = image.naturalWidth;
+    gloomrootSpriteCanvas.height = image.naturalHeight;
+    gloomrootSpriteContext.drawImage(image, 0, 0);
     const pixels = gloomrootSpriteContext.getImageData(0, 0, gloomrootSpriteCanvas.width, gloomrootSpriteCanvas.height);
     removeGreenPixels(pixels.data, 145, 1.45);
     gloomrootSpriteContext.putImageData(pixels, 0, 0);
     gloomrootReady = true;
-    onWorldAssetReady();
+    settle();
   });
-  gloomrootSprite.addEventListener("error", () => {
-    // The renderer has a deliberate fallback silhouette for a failed asset.
-    gloomrootReady = true;
-    onWorldAssetReady();
-  }, { once: true });
-  gloomrootSprite.src = "assets/wildwood/gloomroot-boss-spritesheet-v1.png";
 
-  const tidewyrmSprite = new Image();
   const tidewyrmSpriteCanvas = document.createElement("canvas");
   const tidewyrmSpriteContext = requiredCanvasContext(tidewyrmSpriteCanvas, { willReadFrequently: true });
   let tidewyrmReady = false;
-  tidewyrmSprite.addEventListener("load", () => {
-    tidewyrmSpriteCanvas.width = tidewyrmSprite.naturalWidth;
-    tidewyrmSpriteCanvas.height = tidewyrmSprite.naturalHeight;
-    tidewyrmSpriteContext.drawImage(tidewyrmSprite, 0, 0);
-    // Boss art must be available on its first visit. Chroma-key synchronously
-    // so a delayed worker cannot leave Tidewyrm invisible until a reload.
+  const tidewyrmAsset = createLazyImageAsset("assets/wildwood/tidewyrm-boss-spritesheet-v1.png", (image, settle) => {
+    tidewyrmSpriteCanvas.width = image.naturalWidth;
+    tidewyrmSpriteCanvas.height = image.naturalHeight;
+    tidewyrmSpriteContext.drawImage(image, 0, 0);
     const pixels = tidewyrmSpriteContext.getImageData(0, 0, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height);
     removeGreenPixels(pixels.data, 145, 1.45);
     keepLargestFrameComponents(pixels.data, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height, 4);
     centerFramesOnGround(pixels.data, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height, 4);
     tidewyrmSpriteContext.putImageData(pixels, 0, 0);
     tidewyrmReady = true;
-    onWorldAssetReady();
+    settle();
   });
-  tidewyrmSprite.addEventListener("error", () => {
-    tidewyrmReady = true;
-    onWorldAssetReady();
-  }, { once: true });
-  tidewyrmSprite.src = "assets/wildwood/tidewyrm-boss-spritesheet-v1.png";
 
-  let portalArchReady = false;
-  const portalArch = new Image();
-  const settlePortalArch = () => {
-    portalArchReady = true;
-    onWorldAssetReady();
-  };
-  portalArch.addEventListener("load", settlePortalArch, { once: true });
-  portalArch.addEventListener("error", settlePortalArch, { once: true });
-  portalArch.src = "assets/wildwood/stone-portal-arch.png";
-
-  let settledPortalSwirls = 0;
-  const portalSwirls = {} as Record<MapId, HTMLImageElement>;
-  for (const destination of Object.keys(PORTAL_SWIRL_SOURCES) as MapId[]) {
-    const portalSwirl = new Image();
-    const settlePortalSwirl = () => {
-      settledPortalSwirls += 1;
-      onWorldAssetReady();
-    };
-    portalSwirl.addEventListener("load", settlePortalSwirl, { once: true });
-    portalSwirl.addEventListener("error", settlePortalSwirl, { once: true });
-    portalSwirl.src = PORTAL_SWIRL_SOURCES[destination];
-    portalSwirls[destination] = portalSwirl;
-  }
+  const portalArchAsset = createLazyImageAsset("assets/wildwood/stone-portal-arch.png");
+  const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
+  void portalArchAsset.load();
+  void portalSwirlAsset.load();
 
   const preprocessTreeBounds = (
     spritesheet: HTMLImageElement,
@@ -233,29 +240,21 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     });
   };
 
-  let treeReady = false;
   let treeBounds: TreeSpriteBound[] = [];
-  const treeSpritesheet = loadTreeSpritesheet(() => {
-    preprocessTreeBounds(treeSpritesheet, (bounds = []) => {
+  const treeAsset = createLazyImageAsset("assets/wildwood/tree-spritesheet-v1.png", (image, settle) => {
+    preprocessTreeBounds(image, (bounds = []) => {
       treeBounds = bounds;
-      treeReady = true;
-      onWorldAssetReady();
+      settle();
     });
   });
 
-  let nightTreeReady = false;
   let nightTreeBounds: TreeSpriteBound[] = [];
-  const nightTreeSpritesheet = new Image();
-  const settleNightTrees = () => {
-    preprocessTreeBounds(nightTreeSpritesheet, (bounds = []) => {
+  const nightTreeAsset = createLazyImageAsset("assets/wildwood/night-tree-spritesheet-v1.png", (image, settle) => {
+    preprocessTreeBounds(image, (bounds = []) => {
       nightTreeBounds = bounds;
-      nightTreeReady = true;
-      onWorldAssetReady();
+      settle();
     });
-  };
-  nightTreeSpritesheet.addEventListener("load", settleNightTrees, { once: true });
-  nightTreeSpritesheet.addEventListener("error", settleNightTrees, { once: true });
-  nightTreeSpritesheet.src = "assets/wildwood/night-tree-spritesheet-v1.png";
+  });
 
   let duelSpaceReady = false;
   const duelSpaceBackground = loadDuelSpaceBackground(() => {
@@ -267,11 +266,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     duelPlatformReady = true;
     onWorldAssetReady();
   });
-  const snowPine = new Image();
-  snowPine.src = "assets/wildwood/snow-pine-tree-v1.png";
-  const upgradeBench = new Image();
-  upgradeBench.src = "assets/wildwood/workbench-upgrade-station-v1.png";
-  let settledLavaAssets = 0;
+  const snowPineAsset = createLazyImageAsset("assets/wildwood/snow-pine-tree-v1.png");
+  const upgradeBenchAsset = createLazyImageAsset("assets/wildwood/workbench-upgrade-station-v1.png");
   const lavaAssetSources = [
     "assets/wildwood/lava/lava-pool-1.png",
     "assets/wildwood/lava/lava-pool-2.png",
@@ -282,45 +278,65 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     "assets/wildwood/lava/charred-tree-1.png",
     "assets/wildwood/lava/charred-tree-2.png",
   ];
-  const lavaAssets = lavaAssetSources.map((source) => {
-    const image = new Image();
-    const settle = () => {
-      settledLavaAssets += 1;
-      onWorldAssetReady();
-    };
-    image.addEventListener("load", settle, { once: true });
-    image.addEventListener("error", settle, { once: true });
-    image.src = source;
-    return image;
-  });
+  const lavaAssets = lavaAssetSources.map((source) => createLazyImageAsset(source));
+  const assetGroups: Record<MapAssetGroup, LazyImageAsset[]> = {
+    forestBoss: [dragonAsset],
+    forestDecor: [treeAsset],
+    desertBoss: [spiderAsset],
+    snowBoss: [frostclawAsset],
+    snowDecor: [snowPineAsset, upgradeBenchAsset],
+    lavaBoss: [magmaliskAsset],
+    lavaDecor: lavaAssets,
+    nightBoss: [gloomrootAsset],
+    nightDecor: [nightTreeAsset],
+    waterBoss: [tidewyrmAsset],
+  };
+  const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
+  for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
+    mapAssets[mapId] = MAP_ASSET_GROUPS[mapId].flatMap((group) => assetGroups[group]);
+  }
+
+  function ensureMapAssets(mapId: MapId) {
+    return Promise.all(mapAssets[mapId].map((asset) => asset.load())).then(() => undefined);
+  }
+
+  function mapAssetsReady(mapId: MapId) {
+    return mapAssets[mapId].every((asset) => asset.settled());
+  }
 
   return {
     dragonReady: () => dragonReady,
     dragonSpriteCanvas,
     duelPlatformArt,
     duelSpaceBackground,
-    portalArch,
-    portalSwirls,
+    portalArch: portalArchAsset.image,
+    portalSwirl: portalSwirlAsset.image,
     frostclawReady: () => frostclawReady,
     frostclawSpriteCanvas,
     gloomrootReady: () => gloomrootReady,
     gloomrootSpriteCanvas,
-    charredTrees: lavaAssets.slice(6),
-    lavaPools: lavaAssets.slice(0, 3),
-    lavaRocks: lavaAssets.slice(3, 6),
+    charredTrees: lavaAssets.slice(6).map((asset) => asset.image),
+    lavaPools: lavaAssets.slice(0, 3).map((asset) => asset.image),
+    lavaRocks: lavaAssets.slice(3, 6).map((asset) => asset.image),
     magmaliskReady: () => magmaliskReady,
     magmaliskSpriteCanvas,
     nightTreeSpriteBounds: () => nightTreeBounds,
-    nightTreeSpritesheet,
-    snowPine,
-    upgradeBench,
+    nightTreeSpritesheet: nightTreeAsset.image,
+    snowPine: snowPineAsset.image,
+    upgradeBench: upgradeBenchAsset.image,
     spiderReady: () => spiderReady,
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
-    treeSpritesheet,
+    treeSpritesheet: treeAsset.image,
     tidewyrmReady: () => tidewyrmReady,
     tidewyrmSpriteCanvas,
-    worldArtReady: () => treeReady && nightTreeReady && portalArchReady && settledPortalSwirls === Object.keys(PORTAL_SWIRL_SOURCES).length && duelSpaceReady && duelPlatformReady && settledLavaAssets === lavaAssetSources.length,
+    ensureMapAssets,
+    mapAssetsReady,
+    worldArtReady: (mapId?: MapId) => {
+      if (mapId) void ensureMapAssets(mapId);
+      return portalArchAsset.settled() && portalSwirlAsset.settled() && duelSpaceReady && duelPlatformReady
+        && (!mapId || mapAssetsReady(mapId));
+    },
   };
 }
 

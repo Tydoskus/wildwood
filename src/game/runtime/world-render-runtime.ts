@@ -72,7 +72,7 @@ export type WorldRenderRuntimeOptions = {
     nightTreeSpritesheet: HTMLImageElement;
     nightTreeSpriteBounds: () => { x: number; y: number; w: number; h: number; groundCenter: number; groundWidth: number; canopyWidth: number }[];
     portalArch: HTMLImageElement;
-    portalSwirls: Record<MapId, HTMLImageElement>;
+    portalSwirl: HTMLImageElement;
     snowPine: HTMLImageElement;
     upgradeBench: HTMLImageElement;
     lavaPools: HTMLImageElement[];

@@ -10,6 +10,7 @@ import { itemPresentation, projectileKindForWeapon } from "../item-presentation"
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
+import { createTintedImageCanvas } from "./image-tint";
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -33,20 +34,8 @@ function tintedEnemyLayerImage(layer: LoadedSpriteLayer): CanvasImageSource {
   if (!layer.tint || typeof document === "undefined") return layer.image;
   const cached = enemyTintedLayerCache.get(layer);
   if (cached) return cached;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.ceil(layer.w));
-  canvas.height = Math.max(1, Math.ceil(layer.h));
-  const context = canvas.getContext("2d");
-  if (!context) return layer.image;
-  context.imageSmoothingEnabled = false;
-  context.drawImage(layer.image, 0, 0, canvas.width, canvas.height);
-  // Preserve the source sprite's shading while replacing its hue/saturation.
-  context.globalCompositeOperation = "color";
-  context.fillStyle = layer.tint;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.globalCompositeOperation = "destination-in";
-  context.drawImage(layer.image, 0, 0, canvas.width, canvas.height);
-  context.globalCompositeOperation = "source-over";
+  const canvas = createTintedImageCanvas(layer.image, layer.w, layer.h, layer.tint);
+  if (!canvas) return layer.image;
   enemyTintedLayerCache.set(layer, canvas);
   return canvas;
 }
