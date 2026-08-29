@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.567": [
+    "Portal clouds now arrive in a fuller diagonal stagger, sealing the center last with smoother easing.",
+  ],
   "0.566": [
     "Portal travel now uses mobile-first clouds to cover destination loading and reveal the new map only when ready.",
     "Normal launches open directly on sign-in, while profile portraits and gender art wait for the game loading screen.",
@@ -1253,6 +1256,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.567": "2026-08-29",
   "0.566": "2026-08-29",
   "0.565": "2026-08-29",
   "0.564": "2026-08-29",

@@ -2069,14 +2069,14 @@
     pointer-events: none;
     user-select: none;
     will-change: transform;
-    transition: transform 500ms cubic-bezier(.2,.78,.18,1);
-    transition-delay: var(--cloud-delay);
+    transition: transform 720ms cubic-bezier(.65,0,.35,1);
+    transition-delay: var(--cloud-cover-delay);
   }
-  .portal-transition-cloud.is-left { left: 0; transform: translate3d(-125%, -50%, 0) scale(var(--cloud-scale)); }
-  .portal-transition-cloud.is-right { right: 0; transform: translate3d(125%, -50%, 0) scaleX(-1) scale(var(--cloud-scale)); }
-  #portalCloudTransition.is-covered .portal-transition-cloud.is-left { transform: translate3d(-6%, -50%, 0) scale(var(--cloud-scale)); }
-  #portalCloudTransition.is-covered .portal-transition-cloud.is-right { transform: translate3d(6%, -50%, 0) scaleX(-1) scale(var(--cloud-scale)); }
-  #portalCloudTransition.is-revealing .portal-transition-cloud { transition-duration: 580ms; transition-timing-function: cubic-bezier(.5,0,.72,.24); }
+  .portal-transition-cloud.is-left { left: 0; transform: translate3d(-135%, -50%, 0) translateY(var(--cloud-entry-y)) rotate(var(--cloud-entry-rotation)) scale(var(--cloud-scale)); }
+  .portal-transition-cloud.is-right { right: 0; transform: translate3d(135%, -50%, 0) translateY(var(--cloud-entry-y)) rotate(var(--cloud-entry-rotation)) scaleX(-1) scale(var(--cloud-scale)); }
+  #portalCloudTransition.is-covered .portal-transition-cloud.is-left { transform: translate3d(-3%, -50%, 0) rotate(var(--cloud-rest-rotation)) scale(var(--cloud-scale)); }
+  #portalCloudTransition.is-covered .portal-transition-cloud.is-right { transform: translate3d(3%, -50%, 0) rotate(var(--cloud-rest-rotation)) scaleX(-1) scale(var(--cloud-scale)); }
+  #portalCloudTransition.is-revealing .portal-transition-cloud { transition-duration: 760ms; transition-delay: var(--cloud-reveal-delay); transition-timing-function: cubic-bezier(.4,0,.2,1); }
   @media (prefers-reduced-motion: reduce) {
     .portal-transition-cloud { transition: none; }
   }

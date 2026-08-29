@@ -1,17 +1,21 @@
 export const PORTAL_CLOUD_SOURCE = "assets/wildwood/portal-cloud-v1.png";
 
 const CLOUD_ROWS = [
-  { y: "0%", scale: ".9", delay: "0ms" },
-  { y: "17%", scale: "1.04", delay: "35ms" },
-  { y: "34%", scale: ".94", delay: "70ms" },
-  { y: "51%", scale: "1.06", delay: "45ms" },
-  { y: "68%", scale: ".92", delay: "75ms" },
-  { y: "85%", scale: "1.02", delay: "30ms" },
-  { y: "102%", scale: ".9", delay: "0ms" },
+  { y: "-4%", scale: ".9", entryY: -22, rotation: -7, coverDelay: 0, revealDelay: 100 },
+  { y: "7%", scale: "1.03", entryY: -19, rotation: -6, coverDelay: 25, revealDelay: 85 },
+  { y: "18%", scale: ".94", entryY: -16, rotation: -5, coverDelay: 55, revealDelay: 65 },
+  { y: "29%", scale: "1.07", entryY: -13, rotation: -4, coverDelay: 95, revealDelay: 45 },
+  { y: "40%", scale: ".96", entryY: -10, rotation: -3, coverDelay: 155, revealDelay: 20 },
+  { y: "50%", scale: "1.1", entryY: -8, rotation: -2, coverDelay: 220, revealDelay: 0 },
+  { y: "60%", scale: ".97", entryY: 10, rotation: 3, coverDelay: 155, revealDelay: 20 },
+  { y: "71%", scale: "1.05", entryY: 13, rotation: 4, coverDelay: 95, revealDelay: 45 },
+  { y: "82%", scale: ".92", entryY: 16, rotation: 5, coverDelay: 55, revealDelay: 65 },
+  { y: "93%", scale: "1.02", entryY: 19, rotation: 6, coverDelay: 25, revealDelay: 85 },
+  { y: "104%", scale: ".9", entryY: 22, rotation: 7, coverDelay: 0, revealDelay: 100 },
 ] as const;
 
-const COVER_DURATION_MS = 580;
-const REVEAL_DURATION_MS = 660;
+const COVER_DURATION_MS = 970;
+const REVEAL_DURATION_MS = 880;
 
 type PortalCloudTransition = {
   cover: () => Promise<void>;
@@ -47,7 +51,11 @@ export function createPortalCloudTransition(
         cloud.decoding = "async";
         cloud.style.setProperty("--cloud-y", row.y);
         cloud.style.setProperty("--cloud-scale", row.scale);
-        cloud.style.setProperty("--cloud-delay", row.delay);
+        cloud.style.setProperty("--cloud-entry-y", `${side === "left" ? row.entryY : -row.entryY}vh`);
+        cloud.style.setProperty("--cloud-entry-rotation", `${side === "left" ? row.rotation : -row.rotation}deg`);
+        cloud.style.setProperty("--cloud-rest-rotation", `${side === "left" ? row.rotation * .12 : row.rotation * -.12}deg`);
+        cloud.style.setProperty("--cloud-cover-delay", `${row.coverDelay}ms`);
+        cloud.style.setProperty("--cloud-reveal-delay", `${row.revealDelay}ms`);
         cloud.style.setProperty("--cloud-layer", String(index));
         fragment.append(cloud);
       });

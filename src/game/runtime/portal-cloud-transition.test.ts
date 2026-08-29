@@ -28,8 +28,12 @@ class FakeRoot {
   hidden = true;
   offsetWidth = 0;
   childElementCount = 0;
+  children: FakeImage[] = [];
   classList = new FakeClassList();
-  append(fragment: FakeFragment) { this.childElementCount += fragment.children.length; }
+  append(fragment: FakeFragment) {
+    this.children.push(...fragment.children);
+    this.childElementCount = this.children.length;
+  }
 }
 
 describe("portal cloud transition", () => {
@@ -47,7 +51,12 @@ describe("portal cloud transition", () => {
     });
 
     await transition.cover();
-    expect(root.childElementCount).toBe(14);
+    expect(root.childElementCount).toBe(22);
+    expect(root.children[0].style.values.get("--cloud-cover-delay")).toBe("0ms");
+    expect(root.children[5].style.values.get("--cloud-cover-delay")).toBe("220ms");
+    expect(root.children[5].style.values.get("--cloud-reveal-delay")).toBe("0ms");
+    expect(root.children[0].style.values.get("--cloud-entry-y")).toBe("-22vh");
+    expect(root.children[11].style.values.get("--cloud-entry-y")).toBe("22vh");
     expect(root.hidden).toBe(false);
     expect(root.classList.contains("is-covered")).toBe(true);
 
