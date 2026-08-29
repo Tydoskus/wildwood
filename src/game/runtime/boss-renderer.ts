@@ -43,6 +43,12 @@ import {
   TIDEWYRM_REWARD_REGEN,
 } from "../../../shared/rules";
 import type { Camera } from "./camera";
+import {
+  BOSS_NAME_FONT_SIZE,
+  BOSS_REWARD_FONT_SIZE,
+  BOSS_STATUS_HEALTH_FONT_SIZE,
+  bossStatusLabelOffsets,
+} from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
@@ -50,6 +56,9 @@ import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
+
+const BOSS_LABEL_FONT_FAMILY = '"Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+const bossLabelFont = (size: number) => `900 ${size}px ${BOSS_LABEL_FONT_FAMILY}`;
 
 export function createBossRenderer(options: {
   ctx: CanvasRenderingContext2D;
@@ -106,7 +115,9 @@ export function createBossRenderer(options: {
     hpLossFlashFrom: number;
     backgroundColor: string;
     fillColor: string;
-    labels: readonly { text: string; offsetY: number; color: string }[];
+    name: { text: string; color: string };
+    rewards: readonly { text: string; color: string }[];
+    rewardBottomOffsetY?: number;
   }) {
     drawScreenSpaceAt(ctx, camera.zoom, options_.x, options_.spriteTopY, () => {
       const barX = -Math.floor(options_.barWidth / 2);
@@ -133,7 +144,7 @@ export function createBossRenderer(options: {
       }
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = bossLabelFont(BOSS_STATUS_HEALTH_FONT_SIZE);
       options.outlinedText(
         `${formatCompactNumber(Math.max(0, Math.ceil(options_.hp)))} / ${formatCompactNumber(Math.ceil(options_.maxHp))}`,
         0,
@@ -142,8 +153,12 @@ export function createBossRenderer(options: {
         4,
       );
       ctx.textBaseline = "bottom";
-      for (const label of options_.labels) {
-        options.outlinedText(label.text, 0, barY + label.offsetY, label.color, 4);
+      const labelOffsets = bossStatusLabelOffsets(options_.rewards.length, options_.rewardBottomOffsetY);
+      ctx.font = bossLabelFont(BOSS_NAME_FONT_SIZE);
+      options.outlinedText(options_.name.text, 0, barY + labelOffsets.name, options_.name.color, 4);
+      ctx.font = bossLabelFont(BOSS_REWARD_FONT_SIZE);
+      for (const [index, reward] of options_.rewards.entries()) {
+        options.outlinedText(reward.text, 0, barY + labelOffsets.rewards[index], reward.color, 4);
       }
     });
   }
@@ -173,9 +188,10 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: boss.hpLossFlashFrom,
       backgroundColor: "#4d1d1d",
       fillColor: "#d8352d",
-      labels: [
-        { text: "DRAGON", offsetY: -18, color: "#f5e9c4" },
-        { text: rewardText("damage", DRAGON_REWARD_DAMAGE), offsetY: -5, color: "#ff655a" },
+      name: { text: "DRAGON", color: "#f5e9c4" },
+      rewardBottomOffsetY: -5,
+      rewards: [
+        { text: rewardText("damage", DRAGON_REWARD_DAMAGE), color: "#ff655a" },
       ],
     });
   }
@@ -199,10 +215,11 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: spiderBoss.hpLossFlashFrom,
       backgroundColor: "#342027",
       fillColor: "#9f5c2f",
-      labels: [
-        { text: "DESERT SPIDER", offsetY: -30, color: "#f5e9c4" },
-        { text: rewardText("damage", SPIDER_REWARD_DAMAGE), offsetY: -17, color: "#ff655a" },
-        { text: rewardText("health", SPIDER_REWARD_HEALTH), offsetY: -5, color: "#6fe48e" },
+      name: { text: "DESERT SPIDER", color: "#f5e9c4" },
+      rewardBottomOffsetY: -5,
+      rewards: [
+        { text: rewardText("damage", SPIDER_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", SPIDER_REWARD_HEALTH), color: "#6fe48e" },
       ],
     });
   }
@@ -317,11 +334,11 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: frostclawBoss.hpLossFlashFrom,
       backgroundColor: "#17364b",
       fillColor: "#42c9f5",
-      labels: [
-        { text: "FROSTCLAW", offsetY: -43, color: "#dff8ff" },
-        { text: rewardText("damage", FROSTCLAW_REWARD_DAMAGE), offsetY: -30, color: "#ff655a" },
-        { text: rewardText("health", FROSTCLAW_REWARD_HEALTH), offsetY: -17, color: "#6fe48e" },
-        { text: rewardText("armor", FROSTCLAW_REWARD_ARMOR), offsetY: -4, color: REWARD_DATA.armor.color },
+      name: { text: "FROSTCLAW", color: "#dff8ff" },
+      rewards: [
+        { text: rewardText("damage", FROSTCLAW_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", FROSTCLAW_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", FROSTCLAW_REWARD_ARMOR), color: REWARD_DATA.armor.color },
       ],
     });
   }
@@ -404,12 +421,12 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: magmaliskBoss.hpLossFlashFrom,
       backgroundColor: "#4b2119",
       fillColor: "#ef6428",
-      labels: [
-        { text: "MAGMALISK", offsetY: -56, color: "#ffe0ad" },
-        { text: rewardText("damage", MAGMALISK_REWARD_DAMAGE), offsetY: -43, color: "#ff655a" },
-        { text: rewardText("health", MAGMALISK_REWARD_HEALTH), offsetY: -30, color: "#6fe48e" },
-        { text: rewardText("armor", MAGMALISK_REWARD_ARMOR), offsetY: -17, color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", MAGMALISK_REWARD_REGEN), offsetY: -4, color: REWARD_DATA.regen.color },
+      name: { text: "MAGMALISK", color: "#ffe0ad" },
+      rewards: [
+        { text: rewardText("damage", MAGMALISK_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", MAGMALISK_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", MAGMALISK_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", MAGMALISK_REWARD_REGEN), color: REWARD_DATA.regen.color },
       ],
     });
   }
@@ -532,12 +549,12 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: gloomrootBoss.hpLossFlashFrom,
       backgroundColor: "#14293a",
       fillColor: "#39cbd3",
-      labels: [
-        { text: "GLOOMROOT", offsetY: -56, color: "#b9fbf5" },
-        { text: rewardText("damage", GLOOMROOT_REWARD_DAMAGE), offsetY: -43, color: "#ff655a" },
-        { text: rewardText("health", GLOOMROOT_REWARD_HEALTH), offsetY: -30, color: "#6fe48e" },
-        { text: rewardText("armor", GLOOMROOT_REWARD_ARMOR), offsetY: -17, color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", GLOOMROOT_REWARD_REGEN), offsetY: -4, color: REWARD_DATA.regen.color },
+      name: { text: "GLOOMROOT", color: "#b9fbf5" },
+      rewards: [
+        { text: rewardText("damage", GLOOMROOT_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", GLOOMROOT_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", GLOOMROOT_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", GLOOMROOT_REWARD_REGEN), color: REWARD_DATA.regen.color },
       ],
     });
   }
@@ -648,12 +665,12 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: tidewyrmBoss.hpLossFlashFrom,
       backgroundColor: "#123b56",
       fillColor: "#35cce5",
-      labels: [
-        { text: "TIDEWYRM", offsetY: -56, color: "#c7faff" },
-        { text: rewardText("damage", TIDEWYRM_REWARD_DAMAGE), offsetY: -43, color: "#ff655a" },
-        { text: rewardText("health", TIDEWYRM_REWARD_HEALTH), offsetY: -30, color: "#6fe48e" },
-        { text: rewardText("armor", TIDEWYRM_REWARD_ARMOR), offsetY: -17, color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", TIDEWYRM_REWARD_REGEN), offsetY: -4, color: REWARD_DATA.regen.color },
+      name: { text: "TIDEWYRM", color: "#c7faff" },
+      rewards: [
+        { text: rewardText("damage", TIDEWYRM_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", TIDEWYRM_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", TIDEWYRM_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", TIDEWYRM_REWARD_REGEN), color: REWARD_DATA.regen.color },
       ],
     });
   }

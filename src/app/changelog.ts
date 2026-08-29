@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.562": [
+    "Boss names are 50% larger, with boss stat rewards 25% larger.",
+    "Desktop sight distance now matches mobile.",
+  ],
   "0.561": [
     "The age-gate agreement now keeps its wording concise.",
   ],
@@ -1234,6 +1238,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.562": "2026-08-29",
   "0.561": "2026-08-29",
   "0.560": "2026-08-29",
   "0.559": "2026-08-29",

@@ -36,16 +36,27 @@ describe("runtime camera", () => {
     expect(zoom / legacyReferenceZoom).toBeCloseTo(MOBILE_CAMERA_ZOOM_MULTIPLIER, 10);
   });
 
-  it("matches desktop and reference-phone visible world area", () => {
+  it("matches desktop and reference-phone farthest visible world distance", () => {
     const phone = MOBILE_CAMERA_REFERENCE_VIEWPORT;
     const desktop = { width: 1440, height: 900 };
     const phoneZoom = targetCameraZoom(155, phone);
     const desktopZoom = targetCameraZoom(155, desktop);
-    const phoneWorldArea = phone.width * phone.height / phoneZoom ** 2;
-    const desktopWorldArea = desktop.width * desktop.height / desktopZoom ** 2;
+    const phoneWorldDiagonal = Math.hypot(phone.width, phone.height) / phoneZoom;
+    const desktopWorldDiagonal = Math.hypot(desktop.width, desktop.height) / desktopZoom;
 
     expect(desktopZoom).toBeGreaterThan(1);
-    expect(desktopWorldArea).toBeCloseTo(phoneWorldArea, 8);
+    expect(desktopWorldDiagonal).toBeCloseTo(phoneWorldDiagonal, 8);
+  });
+
+  it("does not shorten sight distance when a large desktop reaches the zoom cap", () => {
+    const phone = MOBILE_CAMERA_REFERENCE_VIEWPORT;
+    const desktop = { width: 2560, height: 1440 };
+    const phoneWorldDiagonal = Math.hypot(phone.width, phone.height)
+      / targetCameraZoom(155, phone);
+    const desktopWorldDiagonal = Math.hypot(desktop.width, desktop.height)
+      / targetCameraZoom(155, desktop);
+
+    expect(desktopWorldDiagonal).toBeGreaterThanOrEqual(phoneWorldDiagonal);
   });
 
   it("does not zoom smaller phones out by more than requested", () => {
