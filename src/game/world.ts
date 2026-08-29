@@ -114,6 +114,25 @@ function seededUnit(index: number, salt: number) {
   return value - Math.floor(value);
 }
 
+function stableStringSeed(value: string) {
+  let seed = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    seed ^= value.charCodeAt(index);
+    seed = Math.imul(seed, 16_777_619);
+  }
+  return seed >>> 0;
+}
+
+function seededCampTypes(camp: SpawnCamp, campIndex: number, mapSeed: number) {
+  const types = Array.from({ length: camp.count }, (_, index) => camp.types[index % camp.types.length]);
+  if (!mapSeed || types.length < 2) return types;
+  for (let index = types.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(seededUnit(index + campIndex * 31, mapSeed + 97) * (index + 1));
+    [types[index], types[swapIndex]] = [types[swapIndex], types[index]];
+  }
+  return types;
+}
+
 function rotateOffset(x: number, y: number, rotation: number) {
   return {
     x: x * Math.cos(rotation) - y * Math.sin(rotation),
@@ -121,19 +140,26 @@ function rotateOffset(x: number, y: number, rotation: number) {
   };
 }
 
-function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number) {
-  const rotation = camp.rotation ?? campIndex * .71;
+function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number, mapSeed: number) {
+  const variation = mapSeed ? 1 : 0;
+  const rotationJitter = (seededUnit(campIndex + 1, mapSeed + 11) - .5) * .36 * variation;
+  const rotation = (camp.rotation ?? campIndex * .71) + rotationJitter;
+  const angleJitter = (seededUnit(index + campIndex * 17, mapSeed + 23) - .5) * .18 * variation;
+  const distanceScale = 1 + (seededUnit(index + campIndex * 19, mapSeed + 41) - .5) * .12 * variation;
   if (camp.formation === "crescent") {
     const progress = camp.count <= 1 ? .5 : index / (camp.count - 1);
-    const angle = rotation + (progress - .5) * 1.9;
-    const distance = camp.minRadius + (camp.radius - camp.minRadius) * (.55 + (index % 2) * .32);
+    const angle = rotation + (progress - .5) * 1.9 + angleJitter;
+    const baseDistance = camp.minRadius + (camp.radius - camp.minRadius) * (.55 + (index % 2) * .32);
+    const distance = clamp(baseDistance * distanceScale, camp.minRadius, camp.radius);
     return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
   }
   if (camp.formation === "shoal") {
     const centeredIndex = index - (camp.count - 1) / 2;
     const spacing = Math.min(96, camp.radius * .27);
-    const localX = centeredIndex * spacing;
-    const localY = Math.abs(centeredIndex) * spacing * .46 - camp.radius * .2;
+    const jitter = Math.min(16, spacing * .16) * variation;
+    const localX = centeredIndex * spacing + (seededUnit(index, mapSeed + 53) - .5) * jitter * 2;
+    const localY = Math.abs(centeredIndex) * spacing * .46 - camp.radius * .2 +
+      (seededUnit(index, mapSeed + 59) - .5) * jitter * 2;
     return rotateOffset(localX, localY, rotation);
   }
   if (camp.formation === "ranks") {
@@ -143,12 +169,19 @@ function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number) {
     const itemsInRow = Math.min(columns, camp.count - rowStart);
     const column = index - rowStart;
     const rows = Math.ceil(camp.count / columns);
-    const localX = (column - (itemsInRow - 1) / 2) * Math.min(126, camp.radius * .34);
-    const localY = (row - (rows - 1) / 2) * Math.min(142, camp.radius * .4);
+    const spacingX = Math.min(126, camp.radius * .34);
+    const spacingY = Math.min(142, camp.radius * .4);
+    const jitter = Math.min(14, spacingX * .12) * variation;
+    const localX = (column - (itemsInRow - 1) / 2) * spacingX +
+      (seededUnit(index, mapSeed + 67) - .5) * jitter * 2;
+    const localY = (row - (rows - 1) / 2) * spacingY +
+      (seededUnit(index, mapSeed + 71) - .5) * jitter * 2;
     return rotateOffset(localX, localY, rotation);
   }
-  const angle = index * 2.399963 + rotation;
-  const fraction = ((index * 37 + campIndex * 19) % 101) / 100;
+  const angle = index * 2.399963 + rotation + angleJitter;
+  const fraction = mapSeed
+    ? seededUnit(index + campIndex * 29, mapSeed + 83)
+    : ((index * 37 + campIndex * 19) % 101) / 100;
   const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
   return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
 }
@@ -530,11 +563,15 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
             : mapId === SAMURAI_GARDEN_MAP_ID
               ? SAMURAI_CAMPS
         : CAMPS;
+  // Tutorial remains deliberately readable. Later maps use a fixed map seed:
+  // layouts gain variety, but every client still derives identical sites.
+  const mapSeed = mapId === TUTORIAL_FOREST_MAP_ID ? 0 : stableStringSeed(`wildwood-spawns-v2:${mapId}`);
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];
+    const campTypes = seededCampTypes(camp, campIndex, mapSeed);
     for (let index = 0; index < camp.count; index += 1) {
-      const offset = campSpawnOffset(camp, index, campIndex);
+      const offset = campSpawnOffset(camp, index, campIndex, mapSeed);
       let x = clamp(camp.x + offset.x, 45, WORLD.w - 45);
       let y = clamp(camp.y + offset.y, 45, WORLD.h - 45);
       if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID) {
@@ -548,7 +585,7 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
           y = clamp(activeBoss.y + bossDy / bossDistance * safeDistance, 45, WORLD.h - 45);
         }
       }
-      const type = camp.types[index % camp.types.length];
+      const type = campTypes[index];
       sites.push({
         id: id++, x, y, campName: camp.name, type,
         leashRange: Math.max(420, camp.radius * 0.9),

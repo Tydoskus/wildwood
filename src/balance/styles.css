@@ -356,7 +356,7 @@ input[type="range"] {
 .panel-heading .section-kicker { margin-bottom: 4px; }
 .panel-heading .panel-help { max-width: 260px; margin: 0; text-align: right; }
 
-.chart-panel, .pacing-panel { margin-bottom: 10px; }
+.chart-panel, .time-budget-panel, .stat-time-panel, .headroom-panel, .pacing-panel { margin-bottom: 10px; }
 
 .chart-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; color: #6d796f; font-family: var(--mono); font-size: 8px; }
 .chart-legend span { display: flex; align-items: center; gap: 6px; }
@@ -398,6 +398,69 @@ input[type="range"] {
 .chart-footnote { min-height: 35px; border-top: 1px solid var(--line); display: flex; gap: 20px; align-items: center; padding: 0 19px; color: #566159; font-family: var(--mono); font-size: 8px; letter-spacing: .06em; }
 .chart-footnote span:last-child { margin-left: auto; }
 
+.time-budget-legend,
+.stat-time-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  color: #6d796f;
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.time-budget-legend span,
+.stat-time-legend span { display: flex; align-items: center; gap: 5px; }
+.time-budget-legend span::before,
+.stat-time-legend span::before { width: 8px; height: 8px; border-radius: 2px; background: var(--lime); content: ""; }
+.time-budget-legend .bossCombatSeconds::before { background: var(--red); }
+.time-budget-legend .travelSeconds::before { background: var(--blue); }
+.time-budget-legend .respawnWaitSeconds::before { background: var(--amber); }
+.time-budget-legend .lootRetargetSeconds::before { background: var(--violet); }
+.stat-time-legend .health::before { background: var(--red); }
+.stat-time-legend .armor::before { background: var(--blue); }
+.stat-time-legend .regeneration::before { background: var(--amber); }
+.stat-time-legend .attackSpeed::before { background: var(--violet); }
+
+.time-budget-rows { padding: 10px 19px 14px; }
+.time-budget-row {
+  min-height: 35px;
+  display: grid;
+  grid-template-columns: 150px minmax(120px, 1fr) 58px;
+  align-items: center;
+  gap: 12px;
+}
+.time-budget-map { overflow: hidden; color: #aab5ad; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.time-budget-track { height: 12px; display: flex; overflow: hidden; border-radius: 3px; background: #202922; }
+.time-budget-segment { display: block; min-width: 1px; height: 100%; background: var(--lime); }
+.time-budget-segment.bossCombatSeconds { background: var(--red); }
+.time-budget-segment.travelSeconds { background: var(--blue); }
+.time-budget-segment.respawnWaitSeconds { background: var(--amber); }
+.time-budget-segment.lootRetargetSeconds { background: var(--violet); }
+.time-budget-total { color: #758178; font-family: var(--mono); font-size: 9px; text-align: right; }
+
+.stat-time-help { margin: 0; padding: 10px 19px 0; }
+.stat-time-rows { padding: 6px 19px 12px; }
+.stat-time-row {
+  min-height: 35px;
+  display: grid;
+  grid-template-columns: 150px minmax(120px, 1fr) 72px;
+  align-items: center;
+  gap: 12px;
+}
+.stat-time-track { height: 12px; display: flex; overflow: hidden; border-radius: 3px; background: #202922; }
+.stat-time-segment { display: block; min-width: 1px; height: 100%; background: var(--lime); }
+.stat-time-segment.health { background: var(--red); }
+.stat-time-segment.armor { background: var(--blue); }
+.stat-time-segment.regeneration { background: var(--amber); }
+.stat-time-segment.attackSpeed { background: var(--violet); }
+.stat-time-table { min-width: 970px; border-top: 1px solid var(--line); }
+.stat-time-table th:not(:first-child), .stat-time-table td:not(:first-child) { min-width: 164px; }
+.headroom-table { min-width: 820px; }
+.headroom-table th, .headroom-table td { padding-inline: 8px; }
+.headroom-table th:first-child, .headroom-table td:first-child { min-width: 190px; padding-left: 14px; }
+.headroom-table th:not(:first-child), .headroom-table td:not(:first-child) { min-width: 108px; }
+
 .table-scroll { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 10px; }
 .data-table th { height: 38px; padding: 0 12px; color: #68746b; background: #0e1310; font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .045em; text-align: right; }
@@ -424,6 +487,7 @@ input[type="range"] {
 .enemy-heading select { width: min(210px, 46%); }
 .enemy-basis { margin: 0; padding: 10px 18px; border-bottom: 1px solid var(--line); }
 .reward-type { display: inline-block; min-width: 46px; margin-left: 5px; color: #6e7a71; font-size: 8px; text-transform: uppercase; }
+.enemy-elite { margin-left: 7px; color: var(--amber); font-family: var(--mono); font-size: 7px; letter-spacing: .08em; }
 
 .model-note {
   margin-top: 10px;
@@ -463,10 +527,17 @@ input[type="range"] {
   .summary-card .value { font-size: 22px; }
   .panel-heading { align-items: flex-start; flex-direction: column; }
   .chart-legend { justify-content: flex-start; }
+  .time-budget-legend { justify-content: flex-start; }
+  .stat-time-legend { justify-content: flex-start; }
   .chart-frame { overflow-x: auto; }
   .chart-footnote { gap: 10px; overflow-x: auto; white-space: nowrap; }
   .chart-footnote span:last-child { margin-left: 0; }
   .enemy-heading select { width: 100%; }
+  .time-budget-rows { padding-inline: 13px; }
+  .time-budget-row { grid-template-columns: 94px minmax(100px, 1fr) 42px; gap: 8px; }
+  .stat-time-help { padding-inline: 13px; }
+  .stat-time-rows { padding-inline: 13px; }
+  .stat-time-row { grid-template-columns: 94px minmax(100px, 1fr) 58px; gap: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

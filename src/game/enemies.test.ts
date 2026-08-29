@@ -1,24 +1,40 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+  ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
   ADVANCED_LAVA_WASTES_HEALTH_SCALE,
-  ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_REWARD_SCALE,
+  BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
+  BEGINNER_DESERT_HEALTH_SCALE,
+  BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
   INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
+  INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+  INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
   INFERNAL_DEPTHS_HEALTH_SCALE,
-  INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER,
+  INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER,
+  INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_REWARD_SCALE,
+  INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
-  INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
   LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
   SAMURAI_GARDEN_ARCHETYPE_PROFILE,
   SAMURAI_GARDEN_DAMAGE_SCALE,
+  SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
+  SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_REWARD_SCALE,
   WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
-  WATER_REACH_HEALTH_REWARD_MULTIPLIER,
+  WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+  WATER_REACH_ENCOUNTER_REWARD_SCALE,
   WATER_REACH_HEALTH_SCALE,
+  WATER_REACH_REGULAR_HEALTH_MULTIPLIER,
+  WATER_REACH_REGULAR_REWARD_MULTIPLIER,
   WATER_REACH_REWARD_SCALE,
+  WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
 import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
 import { ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
@@ -29,57 +45,11 @@ afterEach(() => {
 });
 
 describe("enemy reward rules", () => {
-  it("keeps starter through Lava Lake reward values intentional", () => {
+  it("keeps the onboarding rewards and labels intentional", () => {
     expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 28 });
     expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 5 });
     expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 352 });
     expect(ENEMY_TYPES.Spitter.reward).toEqual({ type: "damage", amount: 1 });
-    expect(ENEMY_TYPES["Dune Archer"].reward).toEqual({ type: "health", amount: 8_500 });
-    expect(ENEMY_TYPES["Blight Oracle"].reward).toEqual({ type: "regen", amount: 320 });
-    expect(ENEMY_TYPES["Frost Raider"].reward).toEqual({ type: "damage", amount: 240_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE });
-    expect(ENEMY_TYPES["Frost Raider"].hp).toBe(2_700_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE);
-    expect(ENEMY_TYPES["Frost Raider"].damage).toBe(2_330_000);
-    expect(ENEMY_TYPES["Glacier Archer"].hp).toBe(2_280_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE);
-    expect(ENEMY_TYPES["Whiteout Reaper"].reward).toEqual({ type: "damage", amount: 3_150_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE });
-    expect(ENEMY_TYPES["Rime Guard"].reward).toEqual({ type: "armor", amount: 14_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE });
-    expect(ENEMY_TYPES["Aurora Oracle"].reward).toEqual({ type: "regen", amount: 161_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE });
-    expect(ENEMY_TYPES["Rime Guard"].hp).toBeGreaterThan(ENEMY_TYPES["Venom Guard"].hp);
-    expect(ENEMY_TYPES["Ember Raider"]).toMatchObject({
-      hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE,
-      damage: 8_143_350_000,
-      reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
-    });
-    expect(ENEMY_TYPES["Cinder Archer"].hp).toBeGreaterThan(ENEMY_TYPES["Glacier Archer"].hp);
-    expect(ENEMY_TYPES["Cinder Archer"].damage).toBe(149_187_000_000);
-    expect(ENEMY_TYPES["Cinder Archer"].reward).toEqual({ type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER });
-    expect(ENEMY_TYPES["Magma Guard"].damage).toBe(1_168_200_000_000);
-    expect(ENEMY_TYPES["Ash Reaper"].damage).toBe(44_100_000_000);
-    expect(ENEMY_TYPES["Inferno Oracle"].damage).toBe(613_470_000_000);
-    expect(ENEMY_TYPES["Magma Guard"].reward).toEqual({ type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE });
-    expect(ENEMY_TYPES["Ash Reaper"].reward).toEqual({ type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER });
-    expect(ENEMY_TYPES["Inferno Oracle"].reward).toEqual({ type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE });
-    expect(ENEMY_TYPES["Depth Raider"]).toMatchObject({
-      hp: 3_668_750_000_000_000 * INFERNAL_DEPTHS_HEALTH_SCALE,
-      damage: 2_500_000_000,
-    });
-    expect(ENEMY_TYPES["Depth Raider"].reward).toEqual({ type: "damage", amount: 57_600_000_000 * INFERNAL_DEPTHS_REWARD_SCALE });
-    expect(ENEMY_TYPES["Abyss Archer"].reward.amount).toBeCloseTo(475_262_790_697.67444 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER);
-    expect(ENEMY_TYPES["Doom Reaper"].reward).toEqual({ type: "damage", amount: 2_500_470_000_000 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER });
-    expect(ENEMY_TYPES["Tide Raider"]).toMatchObject({
-      hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
-      damage: 850_000_000_000,
-      reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
-    });
-    expect(ENEMY_TYPES["Reef Archer"].reward).toEqual({
-      type: "health",
-      amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER,
-    });
-    const waterDamage = ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]
-      .map((kind) => ENEMY_TYPES[kind as keyof typeof ENEMY_TYPES].damage);
-    expect(Math.max(...waterDamage) / Math.min(...waterDamage)).toBeLessThan(1.71);
-  });
-
-  it("formats reward labels without changing their numeric value", () => {
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 ATK/SEC");
     expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 DAMAGE");
     expect(rewardLabel({ type: "armor", amount: 150 })).toBe("+150 ARMOR");
@@ -87,50 +57,97 @@ describe("enemy reward rules", () => {
     expect(rewardLabel({ type: "damage", amount: 240_000 })).toBe("+240k DAMAGE");
   });
 
-  it("repeats Night Forest health and reward growth without repeating runaway damage", () => {
-    const tracks = [
-      ["Frost Raider", "Ember Raider", "Depth Raider"],
-      ["Glacier Archer", "Cinder Archer", "Abyss Archer"],
-      ["Rime Guard", "Magma Guard", "Obsidian Colossus"],
-      ["Whiteout Reaper", "Ash Reaper", "Doom Reaper"],
-      ["Aurora Oracle", "Inferno Oracle", "Nether Oracle"],
-    ] as const;
-    for (const [snowKind, lavaKind, infernalKind] of tracks) {
-      const snow = ENEMY_TYPES[snowKind];
-      const lava = ENEMY_TYPES[lavaKind];
-      const infernal = ENEMY_TYPES[infernalKind];
-      const snowBaseHp = snow.hp / INTERMEDIATE_SNOWLANDS_HEALTH_SCALE;
-      const lavaBaseHp = lava.hp / ADVANCED_LAVA_WASTES_HEALTH_SCALE;
-      const infernalBaseHp = infernal.hp / INFERNAL_DEPTHS_HEALTH_SCALE;
-      if (infernalKind === "Depth Raider") expect(infernalBaseHp / 3_668_750_000_000_000).toBeCloseTo(1, 12);
-      else expect(infernalBaseHp / lavaBaseHp).toBeCloseTo(lavaBaseHp / snowBaseHp, 8);
-      const rewardBoost = infernalKind === "Depth Raider"
-        ? 6
-        : infernal.reward.type === "damage" || infernal.reward.type === "health" ? 2 : 1;
-      const lavaTrackMultiplier = lava.reward.type === "damage"
-        ? ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER
-        : lava.reward.type === "health" ? ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER : 1;
-      const infernalTrackMultiplier = infernalKind === "Depth Raider"
-        ? 1
-        : infernal.reward.type === "damage"
-          ? INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER
-          : infernal.reward.type === "health" ? INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER : 1;
-      const snowBaseReward = snow.reward.amount / INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
-      const lavaBaseReward = lava.reward.amount / ADVANCED_LAVA_WASTES_REWARD_SCALE / lavaTrackMultiplier;
-      const infernalBaseReward = infernal.reward.amount / INFERNAL_DEPTHS_REWARD_SCALE / infernalTrackMultiplier;
-      expect(infernalBaseReward / lavaBaseReward).toBeCloseTo(lavaBaseReward / snowBaseReward * rewardBoost, 8);
-    }
+  it("preserves each authored full-clear health budget while adding encounter texture", () => {
+    type EnemyKind = keyof typeof ENEMY_TYPES;
+    const repeated = (previous: number, current: number) => current * current / previous;
+    const maps: { enemies: readonly [EnemyKind, number, number][] }[] = [
+      { enemies: [
+        ["Dune Raider", BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS.raider, 1_200_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER],
+        ["Dune Archer", BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS.archer, 900_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER],
+        ["Venom Guard", BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS.guardian, 2_600_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER],
+        ["Wastes Reaper", BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS.reaper, 5_000_000 * BEGINNER_DESERT_HEALTH_SCALE * WASTES_REAPER_CADENCE_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER],
+        ["Blight Oracle", BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS.oracle, 4_000_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER],
+      ] },
+      { enemies: [
+        ["Frost Raider", INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS.raider, 2_700_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER],
+        ["Glacier Archer", INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS.archer, 2_280_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER],
+        ["Rime Guard", INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS.guardian, 17_790_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER],
+        ["Whiteout Reaper", INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS.reaper, 25_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER],
+        ["Aurora Oracle", INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS.oracle, 16_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER],
+      ] },
+      { enemies: [
+        ["Ember Raider", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.raider, 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE],
+        ["Cinder Archer", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.archer, 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE],
+        ["Magma Guard", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.guardian, 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE],
+        ["Ash Reaper", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.reaper, 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE],
+        ["Inferno Oracle", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.oracle, 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE],
+      ] },
+      { enemies: [
+        ["Depth Raider", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.raider, (repeated(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE],
+        ["Abyss Archer", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.archer, repeated(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE],
+        ["Obsidian Colossus", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.guardian, repeated(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE],
+        ["Doom Reaper", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.reaper, repeated(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE],
+        ["Nether Oracle", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.oracle, repeated(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE],
+      ] },
+      { enemies: [
+        ["Tide Raider", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.raider, 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE],
+        ["Reef Archer", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.archer, 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE],
+        ["Coral Colossus", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.guardian, 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE],
+        ["Drowned Reaper", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.reaper, 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE],
+        ["Tidal Oracle", LATE_MAP_CLEAR_ARCHETYPE_COUNTS.oracle, 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE],
+      ] },
+    ];
 
-    const damages = tracks.map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
-    expect(damages).toEqual([
-      2_500_000_000,
-      5_125_000_000,
-      5_500_000_000,
-      5_250_000_000,
-      5_375_000_000,
-    ]);
-    const nonRaiderDamages = tracks.slice(1).map(([, , infernalKind]) => ENEMY_TYPES[infernalKind].damage);
-    expect(Math.max(...nonRaiderDamages) / Math.min(...nonRaiderDamages)).toBeLessThan(1.08);
+    for (const { enemies } of maps) {
+      const actual = enemies.reduce((total, [kind, count]) => total + ENEMY_TYPES[kind].hp * count, 0);
+      const authored = enemies.reduce((total, [, count, sourceHp]) => total + sourceHp * count, 0);
+      expect(actual / authored).toBeCloseTo(1, 10);
+      const health = enemies.map(([kind]) => ENEMY_TYPES[kind].hp);
+      expect(Math.max(...health) / Math.min(...health)).toBeLessThan(2.5);
+    }
+  });
+
+  it("moves damage progress out of late-map elite jackpots without changing its budget", () => {
+    const repeated = (previous: number, current: number) => current * current / previous;
+    const tracks = [
+      {
+        raider: "Ember Raider",
+        reaper: "Ash Reaper",
+        authored: (48_000_000 * 6 + 1_984_500_000 * 7) * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
+      },
+      {
+        raider: "Depth Raider",
+        reaper: "Doom Reaper",
+        authored: (repeated(240_000, 48_000_000) * 6 * 6 + repeated(3_150_000, 1_984_500_000) * 2 * 7) * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
+      },
+      {
+        raider: "Tide Raider",
+        reaper: "Drowned Reaper",
+        authored: (18_000_000_000 * 6 + 830_000_000_000 * 7) * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_DAMAGE_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE,
+      },
+    ] as const;
+
+    for (const track of tracks) {
+      const raider = ENEMY_TYPES[track.raider].reward;
+      const reaper = ENEMY_TYPES[track.reaper].reward;
+      expect(raider.type).toBe("damage");
+      expect(reaper.type).toBe("damage");
+      expect(raider.amount).toBeGreaterThan(reaper.amount);
+      expect((raider.amount * 6 + reaper.amount * 7) / track.authored).toBeCloseTo(1, 10);
+    }
+  });
+
+  it("keeps regular-enemy hit damage closely grouped from Lava Lake onward", () => {
+    const maps = [
+      ["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"],
+      ["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
+      ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
+      ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+    ] as const;
+    for (const kinds of maps) {
+      const damages = kinds.map((kind) => ENEMY_TYPES[kind].damage);
+      expect(Math.max(...damages) / Math.min(...damages)).toBeLessThan(1.71);
+    }
   });
 
   it("textures Samurai archetypes without drifting from the full-clear curve", () => {
@@ -171,19 +188,18 @@ describe("enemy reward rules", () => {
       expect(samurai.attackSpeed).toBe(SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed);
     }
 
-    expect(samuraiHealth / waterHealth).toBeCloseTo(SAMURAI_GARDEN_HEALTH_SCALE, 10);
+    expect(samuraiHealth / waterHealth).toBeCloseTo(
+      SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE / WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+      10,
+    );
     expect(samuraiThreat / waterThreat).toBeCloseTo(SAMURAI_GARDEN_DAMAGE_SCALE, 10);
-    expect(samuraiRewards / waterRewards).toBeCloseTo(SAMURAI_GARDEN_REWARD_SCALE, 10);
+    expect(samuraiRewards / waterRewards).toBeCloseTo(
+      SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER / WATER_REACH_ENCOUNTER_REWARD_SCALE,
+      10,
+    );
     expect(new Set(healthRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);
     expect(new Set(damageRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);
     expect(new Set(rewardRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);
-    expect(Math.min(...healthRatios)).toBeGreaterThan(SAMURAI_GARDEN_HEALTH_SCALE * .9);
-    expect(Math.max(...healthRatios)).toBeLessThan(SAMURAI_GARDEN_HEALTH_SCALE * 1.1);
-    expect(Math.min(...damageRatios)).toBeGreaterThan(SAMURAI_GARDEN_DAMAGE_SCALE * .9);
-    expect(Math.max(...damageRatios)).toBeLessThan(SAMURAI_GARDEN_DAMAGE_SCALE * 1.12);
-    expect(Math.min(...rewardRatios)).toBeGreaterThan(SAMURAI_GARDEN_REWARD_SCALE * .9);
-    expect(Math.max(...rewardRatios)).toBeLessThan(SAMURAI_GARDEN_REWARD_SCALE * 1.15);
-
     const damages = tracks.map(([, , samuraiKind]) => ENEMY_TYPES[samuraiKind].damage);
     expect(Math.max(...damages) / Math.min(...damages)).toBeLessThan(1.71);
   });

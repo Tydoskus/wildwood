@@ -8,6 +8,7 @@ import {
   createSpawnSites,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   type MapId,
@@ -51,9 +52,12 @@ import {
   type ResearchRanks,
 } from "../../shared/research";
 import {
+  BALANCE_LATE_BOSS_TARGET_DURATION_SHARE,
+  BALANCE_LATE_BOSS_TARGET_MAX_SECONDS,
   BALANCE_TARGET_DESERT_DURATION_SECONDS,
   BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
   BALANCE_TARGET_MAP_POWER_MULTIPLIER,
+  BALANCE_TARGET_POWER_ARC_BLEND,
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
@@ -77,6 +81,10 @@ import {
   PLAYER_SPEED,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
+  TIDEWYRM_REWARD_ARMOR,
+  TIDEWYRM_REWARD_DAMAGE,
+  TIDEWYRM_REWARD_HEALTH,
+  TIDEWYRM_REWARD_REGEN,
 } from "../../shared/rules";
 
 export const BALANCE_MAP_IDS = [
@@ -86,6 +94,7 @@ export const BALANCE_MAP_IDS = [
   ADVANCED_LAVA_WASTES_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   WATER_REACH_MAP_ID,
+  SAMURAI_GARDEN_MAP_ID,
 ] as const;
 
 export type BalanceMapId = typeof BALANCE_MAP_IDS[number];
@@ -94,8 +103,10 @@ export type ResearchPlan = "off" | "balanced" | "damage-first";
 
 export type MapAdjustment = {
   hp: number;
+  bossHp: number;
   damage: number;
   reward: number;
+  bossReward: number;
 };
 
 export type BalanceSimulationConfig = {
@@ -107,9 +118,12 @@ export type BalanceSimulationConfig = {
   targetDesertDurationSeconds: number;
   targetMapDurationMultiplier: number;
   targetMapPowerMultiplier: number;
+  targetPowerArcBlend: number;
+  futureSpeedupReserveMultiplier: number;
   requiredClears: number;
   respawnSeconds: number;
   itemUpgradeLevel: number;
+  equipmentStrengthMultiplier: number;
   pathingMultiplier: number;
   seed: number;
   mapAdjustments: Record<BalanceMapId, MapAdjustment>;
@@ -135,6 +149,7 @@ export type SimulationStateSnapshot = {
   equipped: EquippedItems;
   bootsEquipped: boolean;
   itemUpgradeLevel: number;
+  equipmentStrengthMultiplier: number;
 };
 
 type DropDefinition = {
@@ -176,6 +191,7 @@ type MutableSimulationState = {
   ownedItems: Set<string>;
   bootsEquipped: boolean;
   itemUpgradeLevel: number;
+  equipmentStrengthMultiplier: number;
   activeResearch: ActiveResearch | null;
 };
 
@@ -199,8 +215,13 @@ export type TrialMapRecord = {
   exitPower: number;
   entryBossTtkSeconds: number | null;
   bossFightSeconds: number | null;
+  bossRewardPowerGain: number | null;
   regularKills: number;
   fullClears: number;
+  timeBudget: MapTimeBudget;
+  statInvestments: Record<ProgressionStat, TrialStatInvestment>;
+  curveProgress: CurveProgress | null;
+  momentum: MomentumMetric | null;
   entryState: SimulationStateSnapshot;
   exitState: SimulationStateSnapshot;
 };
@@ -218,6 +239,74 @@ export type TimelinePoint = {
   powerMedian: number;
   powerP90: number;
   dpsMedian: number;
+};
+
+export type MapTimeBudget = {
+  regularCombatSeconds: number;
+  bossCombatSeconds: number;
+  travelSeconds: number;
+  respawnWaitSeconds: number;
+  lootRetargetSeconds: number;
+};
+
+export const PROGRESSION_STAT_IDS = ["damage", "health", "armor", "regeneration", "attackSpeed"] as const;
+export type ProgressionStat = typeof PROGRESSION_STAT_IDS[number];
+
+type TrialStatInvestment = {
+  investmentSeconds: number;
+  combatSeconds: number;
+  rewardPowerGain: number;
+  rewardEvents: number;
+};
+
+export type StatProgressionMetric = {
+  stat: ProgressionStat;
+  investmentSecondsMedian: number;
+  combatSecondsMedian: number;
+  investmentSharePercent: number;
+  rewardPowerGainMedian: number;
+  rewardGrowthSharePercent: number;
+  rewardEventsMedian: number;
+  secondsPerOnePercentPower: number | null;
+  entryValueMedian: number;
+  exitValueMedian: number;
+  growthMultiplier: number | null;
+  effectiveDoublingSecondsMedian: number | null;
+};
+
+export type PowerComponents = {
+  damage: number;
+  health: number;
+  armor: number;
+  regeneration: number;
+  total: number;
+  equipment: number;
+  equipmentSharePercent: number;
+};
+
+export type CurveProgress = {
+  p25: number;
+  p50: number;
+  p75: number;
+};
+
+export type MomentumMetric = {
+  meaningfulGainPercent: number;
+  meaningfulGainCount: number;
+  longestGainGapSeconds: number;
+  longestGainGapSharePercent: number;
+  largestSingleJumpPercent: number;
+  largestSingleJumpGrowthSharePercent: number;
+};
+
+export type ProgressionHeadroom = {
+  reserveMultiplier: number;
+  reservePass: boolean;
+  uniformSafeMultiplier: number;
+  projectedDurationAtReserveSeconds: number;
+  combatSafeMultiplier: number | null;
+  farmingSafeMultiplier: number | null;
+  movementSafeMultiplier: number | null;
 };
 
 export type MapSummary = {
@@ -238,8 +327,18 @@ export type MapSummary = {
   exitEffectiveStatsMedian: PlayerPowerStats | null;
   bossTtkAtEntryMedianSeconds: number | null;
   bossFightMedianSeconds: number | null;
+  bossRewardPowerGainMedian: number | null;
+  bossRewardGrowthSharePercent: number | null;
   regularKillsMedian: number | null;
   fullClearsMedian: number | null;
+  timeBudgetMedian: MapTimeBudget | null;
+  statProgression: StatProgressionMetric[];
+  momentum: MomentumMetric | null;
+  futureHeadroom: ProgressionHeadroom | null;
+  entryPowerComponentsMedian: PowerComponents | null;
+  exitPowerComponentsMedian: PowerComponents | null;
+  curveProgress: CurveProgress | null;
+  targetCurveProgress: CurveProgress | null;
   durationVsPrevious: number | null;
   targetDurationSeconds: number | null;
   durationVsTarget: number | null;
@@ -249,6 +348,7 @@ export type MapSummary = {
 
 export type EnemyBalanceMetric = {
   enemy: EnemyKind;
+  elite: boolean;
   spawnCount: number;
   hp: number;
   rewardType: RewardType;
@@ -259,6 +359,17 @@ export type EnemyBalanceMetric = {
   damageAfterArmor: number;
   hitPercentOfHealth: number;
   hitsToDefeatPlayer: number;
+  fullClearCombatSeconds: number;
+  fullClearCombatSharePercent: number;
+  ttkVsMapMedian: number;
+  efficiencyVsMapMedian: number;
+  powerGainPercentOfEntry: number;
+  combatSecondsPerOnePercentPower: number | null;
+};
+
+export type TargetCurvePoint = {
+  timeSeconds: number;
+  power: number;
 };
 
 export type BalanceSimulationResult = {
@@ -282,6 +393,65 @@ const DEFAULT_CAMPAIGN_DURATION_SECONDS = DEFAULT_FOREST_ONBOARDING_SECONDS + BA
 const PROJECTILE_TRAVEL_SECONDS = DEFAULT_ATTACK_RANGE / PLAYER_PROJECTILE_SPEED * .5;
 const FIRST_HIT_SECONDS = ATTACK_WINDUP_SECONDS + PROJECTILE_TRAVEL_SECONDS;
 
+export function targetPowerAtMapProgress(
+  entryPower: number,
+  growthMultiplier: number,
+  progress: number,
+  arcBlend = BALANCE_TARGET_POWER_ARC_BLEND,
+) {
+  const start = Math.max(1, entryPower);
+  const growth = Math.max(1, growthMultiplier);
+  const position = Math.max(0, Math.min(1, progress));
+  const blend = Math.max(0, Math.min(1, arcBlend));
+  if (position === 0) return start;
+  if (position === 1) return start * growth;
+  const geometric = start * growth ** position;
+  const logarithmicArc = start * (1 + (growth - 1) * position);
+  return geometric ** (1 - blend) * logarithmicArc ** blend;
+}
+
+export function targetCurveProgress(
+  growthMultiplier: number,
+  arcBlend = BALANCE_TARGET_POWER_ARC_BLEND,
+): CurveProgress {
+  const normalized = (progress: number) => {
+    const power = targetPowerAtMapProgress(1, growthMultiplier, progress, arcBlend);
+    return Math.log(power) / Math.log(Math.max(1 + Number.EPSILON, growthMultiplier));
+  };
+  return { p25: normalized(.25), p50: normalized(.5), p75: normalized(.75) };
+}
+
+export function buildStackedLogTargetCurve(
+  maps: readonly Pick<MapSummary, "enteredAtMedianSeconds" | "entryPowerMedian" | "targetDurationSeconds" | "targetPowerGrowthMultiplier">[],
+  samplesPerMap = 16,
+  arcBlend = BALANCE_TARGET_POWER_ARC_BLEND,
+): TargetCurvePoint[] {
+  const first = maps.find((map) =>
+    map.enteredAtMedianSeconds !== null &&
+    map.entryPowerMedian !== null &&
+    map.targetDurationSeconds !== null &&
+    map.targetPowerGrowthMultiplier !== null);
+  if (!first) return [];
+  let targetTime = first.enteredAtMedianSeconds!;
+  let targetPower = first.entryPowerMedian!;
+  const points: TargetCurvePoint[] = [{ timeSeconds: targetTime, power: targetPower }];
+  const startIndex = maps.indexOf(first);
+  for (const map of maps.slice(startIndex)) {
+    if (map.targetDurationSeconds === null || map.targetPowerGrowthMultiplier === null) continue;
+    const steps = Math.max(2, Math.floor(samplesPerMap));
+    for (let step = 1; step <= steps; step += 1) {
+      const progress = step / steps;
+      points.push({
+        timeSeconds: targetTime + map.targetDurationSeconds * progress,
+        power: targetPowerAtMapProgress(targetPower, map.targetPowerGrowthMultiplier, progress, arcBlend),
+      });
+    }
+    targetTime += map.targetDurationSeconds;
+    targetPower *= map.targetPowerGrowthMultiplier;
+  }
+  return points;
+}
+
 const balancedResearchOrder: ResearchId[] = [
   "foraging", "warcraft", "moveSpeed", "vitality", "precision",
   "regeneration", "prosperity", "criticalChance", "criticalDamage",
@@ -292,7 +462,13 @@ const damageResearchOrder: ResearchId[] = [
 ];
 
 function defaultMapAdjustments(): Record<BalanceMapId, MapAdjustment> {
-  return Object.fromEntries(BALANCE_MAP_IDS.map((id) => [id, { hp: 1, damage: 1, reward: 1 }])) as Record<BalanceMapId, MapAdjustment>;
+  return Object.fromEntries(BALANCE_MAP_IDS.map((id) => [id, {
+    hp: 1,
+    bossHp: 1,
+    damage: 1,
+    reward: 1,
+    bossReward: 1,
+  }])) as Record<BalanceMapId, MapAdjustment>;
 }
 
 export function defaultBalanceSimulationConfig(): BalanceSimulationConfig {
@@ -305,13 +481,37 @@ export function defaultBalanceSimulationConfig(): BalanceSimulationConfig {
     targetDesertDurationSeconds: BALANCE_TARGET_DESERT_DURATION_SECONDS,
     targetMapDurationMultiplier: BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
     targetMapPowerMultiplier: BALANCE_TARGET_MAP_POWER_MULTIPLIER,
+    targetPowerArcBlend: BALANCE_TARGET_POWER_ARC_BLEND,
+    futureSpeedupReserveMultiplier: 1.25,
     requiredClears: 1,
     respawnSeconds: 30,
     itemUpgradeLevel: 0,
+    equipmentStrengthMultiplier: 1,
     pathingMultiplier: 1.15,
     seed: 1_337,
     mapAdjustments: defaultMapAdjustments(),
   };
+}
+
+export function bossReadinessTargetSeconds(
+  mapId: BalanceMapId,
+  config: Pick<
+    BalanceSimulationConfig,
+    "bossTargetSeconds" | "targetDesertDurationSeconds" | "targetMapDurationMultiplier"
+  >,
+) {
+  const progressionIndex = BALANCE_MAP_IDS.indexOf(mapId) - 1;
+  const lavaProgressionIndex = BALANCE_MAP_IDS.indexOf(ADVANCED_LAVA_WASTES_MAP_ID) - 1;
+  if (progressionIndex < lavaProgressionIndex) return config.bossTargetSeconds;
+  const targetMapDuration = config.targetDesertDurationSeconds *
+    config.targetMapDurationMultiplier ** progressionIndex;
+  return Math.max(
+    config.bossTargetSeconds,
+    Math.min(
+      BALANCE_LATE_BOSS_TARGET_MAX_SECONDS,
+      targetMapDuration * BALANCE_LATE_BOSS_TARGET_DURATION_SHARE,
+    ),
+  );
 }
 
 function normalizeConfig(config: Partial<BalanceSimulationConfig>): BalanceSimulationConfig {
@@ -323,9 +523,11 @@ function normalizeConfig(config: Partial<BalanceSimulationConfig>): BalanceSimul
     const next = config.mapAdjustments?.[id];
     if (!next) continue;
     adjustments[id] = {
-      hp: finiteRange(next.hp, 1, .000_001, 100),
+      hp: finiteRange(next.hp, 1, 1e-15, 100),
+      bossHp: finiteRange(next.bossHp, 1, 1e-15, 100),
       damage: finiteRange(next.damage, 1, 0, 100),
       reward: finiteRange(next.reward, 1, 0, 100),
+      bossReward: finiteRange(next.bossReward, 1, 0, 100),
     };
   }
   return {
@@ -352,9 +554,22 @@ function normalizeConfig(config: Partial<BalanceSimulationConfig>): BalanceSimul
       1,
       1_000_000,
     ),
+    targetPowerArcBlend: finiteRange(config.targetPowerArcBlend, defaults.targetPowerArcBlend, 0, 1),
+    futureSpeedupReserveMultiplier: finiteRange(
+      config.futureSpeedupReserveMultiplier,
+      defaults.futureSpeedupReserveMultiplier,
+      1,
+      5,
+    ),
     requiredClears: Math.round(finiteRange(config.requiredClears, defaults.requiredClears, 0, 20)),
     respawnSeconds: finiteRange(config.respawnSeconds, defaults.respawnSeconds, 1, 300),
     itemUpgradeLevel: Math.round(finiteRange(config.itemUpgradeLevel, defaults.itemUpgradeLevel, 0, 10)),
+    equipmentStrengthMultiplier: finiteRange(
+      config.equipmentStrengthMultiplier,
+      defaults.equipmentStrengthMultiplier,
+      0,
+      2,
+    ),
     pathingMultiplier: finiteRange(config.pathingMultiplier, defaults.pathingMultiplier, .25, 5),
     seed: Math.round(finiteRange(config.seed, defaults.seed, 1, 0x7fffffff)),
     mapAdjustments: adjustments,
@@ -478,12 +693,34 @@ function createMapDefinitions(): BalanceMapDefinition[] {
       name: MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID],
       arrival: bootstrap.mapConfig[WATER_REACH_MAP_ID].arrival,
       regularDrops: [],
+      boss: {
+        name: "Tidewyrm",
+        hp: bootstrap.tidewyrmBoss.maxHp,
+        x: bootstrap.tidewyrmBoss.x,
+        y: bootstrap.tidewyrmBoss.y,
+        rewards: [
+          { type: "damage", amount: TIDEWYRM_REWARD_DAMAGE },
+          { type: "health", amount: TIDEWYRM_REWARD_HEALTH },
+          { type: "armor", amount: TIDEWYRM_REWARD_ARMOR },
+          { type: "regen", amount: TIDEWYRM_REWARD_REGEN },
+        ],
+        drops: [],
+      },
+    },
+    {
+      id: SAMURAI_GARDEN_MAP_ID,
+      name: MAP_DISPLAY_NAMES[SAMURAI_GARDEN_MAP_ID],
+      arrival: bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].arrival,
+      regularDrops: [],
       boss: null,
     },
   ];
 }
 
 const MAP_DEFINITIONS = createMapDefinitions();
+const LATE_COMPLEMENTARY_MAP_IDS = new Set<BalanceMapId>(
+  BALANCE_MAP_IDS.slice(BALANCE_MAP_IDS.indexOf(ADVANCED_LAVA_WASTES_MAP_ID)),
+);
 
 function seededRandom(seed: number) {
   let state = seed >>> 0;
@@ -503,29 +740,70 @@ function stateSnapshot(state: MutableSimulationState): SimulationStateSnapshot {
     equipped: { ...state.equipped },
     bootsEquipped: state.bootsEquipped,
     itemUpgradeLevel: state.itemUpgradeLevel,
+    equipmentStrengthMultiplier: state.equipmentStrengthMultiplier,
   };
 }
 
-function effectiveStats(state: Pick<SimulationStateSnapshot, "stats" | "research" | "equipped" | "itemUpgradeLevel">) {
-  return effectivePlayerPowerStats({
+type EffectiveStatsState = Pick<
+  SimulationStateSnapshot,
+  "stats" | "research" | "equipped" | "itemUpgradeLevel" | "equipmentStrengthMultiplier"
+>;
+
+function effectiveStats(state: EffectiveStatsState) {
+  const withEquipment = effectivePlayerPowerStats({
     ...state.stats,
     equippedHead: state.equipped.head,
     equippedChest: state.equipped.chest,
     equippedRightHand: state.equipped.weapon,
   }, state.research, () => state.itemUpgradeLevel);
+  const strength = Math.max(0, Math.min(2, state.equipmentStrengthMultiplier));
+  if (strength === 1) return withEquipment;
+  const withoutEquipment = effectivePlayerPowerStats({
+    ...state.stats,
+    equippedHead: "",
+    equippedChest: "",
+    equippedRightHand: "",
+  }, state.research, () => state.itemUpgradeLevel);
+  return {
+    damage: withoutEquipment.damage + (withEquipment.damage - withoutEquipment.damage) * strength,
+    maxHp: withoutEquipment.maxHp + (withEquipment.maxHp - withoutEquipment.maxHp) * strength,
+    attackRate: withoutEquipment.attackRate + (withEquipment.attackRate - withoutEquipment.attackRate) * strength,
+    armor: withoutEquipment.armor + (withEquipment.armor - withoutEquipment.armor) * strength,
+    regen: withoutEquipment.regen + (withEquipment.regen - withoutEquipment.regen) * strength,
+  };
 }
 
-function powerForState(state: Pick<SimulationStateSnapshot, "stats" | "research" | "equipped" | "itemUpgradeLevel">) {
+function powerForState(state: EffectiveStatsState) {
   return playerPowerForStats(effectiveStats(state));
 }
 
-function continuousPowerForState(state: Pick<SimulationStateSnapshot, "stats" | "research" | "equipped" | "itemUpgradeLevel">) {
-  const stats = effectiveStats(state);
-  return stats.damage * DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate) +
-    stats.maxHp + stats.armor * 3 + stats.regen * 10;
+function powerComponentsForStats(stats: PlayerPowerStats) {
+  const damage = stats.damage * DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
+  const health = stats.maxHp;
+  const armor = stats.armor * 3;
+  const regeneration = stats.regen * 10;
+  return { damage, health, armor, regeneration, total: damage + health + armor + regeneration };
 }
 
-function combatStats(state: Pick<SimulationStateSnapshot, "stats" | "research" | "equipped" | "itemUpgradeLevel">, bossesCanCrit: boolean) {
+function continuousPowerForState(state: EffectiveStatsState) {
+  return powerComponentsForStats(effectiveStats(state)).total;
+}
+
+function powerComponentsForState(state: EffectiveStatsState): PowerComponents {
+  const components = powerComponentsForStats(effectiveStats(state));
+  const equipmentFree = powerComponentsForStats(effectiveStats({
+    ...state,
+    equipped: { head: "", chest: "", weapon: "" },
+  }));
+  const equipment = Math.max(0, components.total - equipmentFree.total);
+  return {
+    ...components,
+    equipment,
+    equipmentSharePercent: components.total > 0 ? equipment / components.total * 100 : 0,
+  };
+}
+
+function combatStats(state: EffectiveStatsState, bossesCanCrit: boolean) {
   const effective = effectiveStats(state);
   const criticalChance = bossesCanCrit ? state.research.criticalChance * .01 : 0;
   const criticalMultiplier = 1.05 + state.research.criticalDamage * .05;
@@ -559,6 +837,29 @@ function applyRewardToStats(stats: PersistentStats, type: RewardType, amount: nu
       break;
     }
   }
+}
+
+function progressionStatForReward(type: RewardType): ProgressionStat {
+  if (type === "speed") return "attackSpeed";
+  if (type === "regen") return "regeneration";
+  return type;
+}
+
+function emptyStatInvestments(): Record<ProgressionStat, TrialStatInvestment> {
+  return Object.fromEntries(PROGRESSION_STAT_IDS.map((stat) => [stat, {
+    investmentSeconds: 0,
+    combatSeconds: 0,
+    rewardPowerGain: 0,
+    rewardEvents: 0,
+  }])) as Record<ProgressionStat, TrialStatInvestment>;
+}
+
+function effectiveStatValue(state: EffectiveStatsState, stat: ProgressionStat) {
+  const effective = effectiveStats(state);
+  if (stat === "health") return effective.maxHp;
+  if (stat === "regeneration") return effective.regen;
+  if (stat === "attackSpeed") return 1 / Math.max(MIN_ATTACK_INTERVAL, effective.attackRate);
+  return effective[stat];
 }
 
 function rewardAmount(state: MutableSimulationState, baseAmount: number, mapRewardMultiplier: number) {
@@ -681,7 +982,7 @@ function selectSite(
   // Late-game maps carry five complementary permanent reward tracks. Cycling
   // the least-cleared sites keeps boss readiness from collapsing into a single
   // damage camp and preserves the authored damage/health/armor/regen curve.
-  const openMapCycle = config.strategy === "boss-rush" && (!map.boss || map.id === INFERNAL_DEPTHS_MAP_ID)
+  const openMapCycle = config.strategy === "boss-rush" && (!map.boss || LATE_COMPLEMENTARY_MAP_IDS.has(map.id))
     ? available.filter((site) => site.kills === lowestKills)
     : [];
   const candidates = openMapCycle.length ? openMapCycle : pendingClear.length ? pendingClear : available;
@@ -705,14 +1006,88 @@ function selectSite(
 }
 
 function createSites(map: BalanceMapDefinition) {
-  const bossPoint = map.boss ?? { x: 4_040, y: 4_240 };
+  const bossPoint = map.boss ?? { x: 4_050, y: 4_050 };
   return createSpawnSites(bossPoint, map.id).map((site) => ({ ...site, availableAt: 0, kills: 0 }));
 }
 
 function bossFightSeconds(state: MutableSimulationState, map: BalanceMapDefinition, adjustment: MapAdjustment) {
   if (!map.boss) return null;
   const combat = combatStats(state, false);
-  return timeToKill(map.boss.hp * adjustment.hp, combat.averageHit, combat.attackRate);
+  return timeToKill(map.boss.hp * adjustment.bossHp, combat.averageHit, combat.attackRate);
+}
+
+function historyPowerAt(history: HistoryPoint[], timeSeconds: number) {
+  let low = 0;
+  let high = history.length - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (history[middle].timeSeconds <= timeSeconds) low = middle;
+    else high = middle - 1;
+  }
+  return history[low]?.power ?? 0;
+}
+
+function curveProgressForRecord(
+  record: TrialMapRecord,
+  history: HistoryPoint[],
+  simulationEndSeconds: number,
+): CurveProgress | null {
+  const exitTime = record.exitedAtSeconds ?? simulationEndSeconds;
+  const duration = exitTime - record.enteredAtSeconds;
+  const growth = record.exitPower / Math.max(1, record.entryPower);
+  if (duration <= 0 || growth <= 1 + Number.EPSILON) return null;
+  const logGrowth = Math.log(growth);
+  const progressAt = (position: number) => {
+    const power = historyPowerAt(history, record.enteredAtSeconds + duration * position);
+    const achieved = Math.log(Math.max(1, power) / Math.max(1, record.entryPower)) / logGrowth;
+    return Math.max(0, Math.min(1, achieved));
+  };
+  return { p25: progressAt(.25), p50: progressAt(.5), p75: progressAt(.75) };
+}
+
+const MEANINGFUL_GAIN_MULTIPLIER = 1.1;
+
+function momentumForRecord(
+  record: TrialMapRecord,
+  history: HistoryPoint[],
+  simulationEndSeconds: number,
+): MomentumMetric | null {
+  const exitTime = record.exitedAtSeconds ?? simulationEndSeconds;
+  const duration = exitTime - record.enteredAtSeconds;
+  if (duration <= 0) return null;
+  const points = history.filter((point) =>
+    point.timeSeconds > record.enteredAtSeconds && point.timeSeconds <= exitTime);
+  let previousPower = Math.max(1, record.entryPower);
+  let milestonePower = previousPower;
+  let lastMilestoneAt = record.enteredAtSeconds;
+  let longestGainGapSeconds = 0;
+  let meaningfulGainCount = 0;
+  let largestSingleJumpPercent = 0;
+  let largestSingleJumpLog = 0;
+  for (const point of points) {
+    const power = Math.max(previousPower, point.power);
+    if (power > previousPower) {
+      largestSingleJumpPercent = Math.max(largestSingleJumpPercent, (power / previousPower - 1) * 100);
+      largestSingleJumpLog = Math.max(largestSingleJumpLog, Math.log(power / previousPower));
+    }
+    if (power >= milestonePower * MEANINGFUL_GAIN_MULTIPLIER) {
+      longestGainGapSeconds = Math.max(longestGainGapSeconds, point.timeSeconds - lastMilestoneAt);
+      lastMilestoneAt = point.timeSeconds;
+      milestonePower = power;
+      meaningfulGainCount += 1;
+    }
+    previousPower = power;
+  }
+  longestGainGapSeconds = Math.max(longestGainGapSeconds, exitTime - lastMilestoneAt);
+  const totalLogGrowth = Math.log(Math.max(1, record.exitPower) / Math.max(1, record.entryPower));
+  return {
+    meaningfulGainPercent: (MEANINGFUL_GAIN_MULTIPLIER - 1) * 100,
+    meaningfulGainCount,
+    longestGainGapSeconds,
+    longestGainGapSharePercent: longestGainGapSeconds / duration * 100,
+    largestSingleJumpPercent,
+    largestSingleJumpGrowthSharePercent: totalLogGrowth > 0 ? largestSingleJumpLog / totalLogGrowth * 100 : 0,
+  };
 }
 
 function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): TrialResult {
@@ -726,6 +1101,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     ownedItems: new Set([BASIC_PAPER_HAT, STARTER_STONE]),
     bootsEquipped: false,
     itemUpgradeLevel: config.itemUpgradeLevel,
+    equipmentStrengthMultiplier: config.equipmentStrengthMultiplier,
     activeResearch: null,
   };
   const history: HistoryPoint[] = [];
@@ -741,6 +1117,81 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     else history.push(point);
   };
 
+  const spendTime = (
+    record: TrialMapRecord,
+    category: keyof MapTimeBudget,
+    requestedSeconds: number,
+  ) => {
+    const seconds = Math.max(0, requestedSeconds);
+    const actual = Math.min(seconds, Math.max(0, config.durationSeconds - state.time));
+    if (actual > 0) {
+      record.timeBudget[category] += actual;
+      advanceTime(state, state.time + actual, config.researchPlan, recordHistory);
+    }
+    return actual + 1e-7 >= seconds;
+  };
+
+  const addStatTime = (
+    record: TrialMapRecord,
+    stat: ProgressionStat,
+    seconds: number,
+    combat: boolean,
+  ) => {
+    if (seconds <= 0) return;
+    record.statInvestments[stat].investmentSeconds += seconds;
+    if (combat) record.statInvestments[stat].combatSeconds += seconds;
+  };
+
+  const spendTimeForStat = (
+    record: TrialMapRecord,
+    category: keyof MapTimeBudget,
+    stat: ProgressionStat,
+    requestedSeconds: number,
+  ) => {
+    const startedAt = state.time;
+    const completed = spendTime(record, category, requestedSeconds);
+    addStatTime(
+      record,
+      stat,
+      state.time - startedAt,
+      category === "regularCombatSeconds" || category === "bossCombatSeconds",
+    );
+    return completed;
+  };
+
+  const projectedBossStatWeights = (boss: BossDefinition, adjustment: MapAdjustment) => {
+    const projected = stateSnapshot(state);
+    const gains = new Map<ProgressionStat, number>();
+    for (const reward of boss.rewards) {
+      const stat = progressionStatForReward(reward.type);
+      const before = continuousPowerForState(projected);
+      const amount = reward.amount * researchStatRewardMultiplier(projected.research) * adjustment.bossReward;
+      applyRewardToStats(projected.stats, reward.type, amount);
+      gains.set(stat, (gains.get(stat) ?? 0) + Math.max(0, continuousPowerForState(projected) - before));
+    }
+    const total = [...gains.values()].reduce((sum, gain) => sum + gain, 0);
+    const fallback = gains.size ? 1 / gains.size : 0;
+    return [...gains.entries()].map(([stat, gain]) => ({
+      stat,
+      weight: total > 0 ? gain / total : fallback,
+    }));
+  };
+
+  const spendBossTime = (
+    record: TrialMapRecord,
+    category: "travelSeconds" | "bossCombatSeconds",
+    weights: Array<{ stat: ProgressionStat; weight: number }>,
+    requestedSeconds: number,
+  ) => {
+    const startedAt = state.time;
+    const completed = spendTime(record, category, requestedSeconds);
+    const actual = state.time - startedAt;
+    for (const { stat, weight } of weights) {
+      addStatTime(record, stat, actual * weight, category === "bossCombatSeconds");
+    }
+    return completed;
+  };
+
   const beginMapRecord = (map: BalanceMapDefinition): TrialMapRecord => ({
     mapId: map.id,
     enteredAtSeconds: state.time,
@@ -749,8 +1200,19 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     exitPower: powerForState(state),
     entryBossTtkSeconds: bossFightSeconds(state, map, config.mapAdjustments[map.id]),
     bossFightSeconds: null,
+    bossRewardPowerGain: null,
     regularKills: 0,
     fullClears: 0,
+    timeBudget: {
+      regularCombatSeconds: 0,
+      bossCombatSeconds: 0,
+      travelSeconds: 0,
+      respawnWaitSeconds: 0,
+      lootRetargetSeconds: 0,
+    },
+    statInvestments: emptyStatInvestments(),
+    curveProgress: null,
+    momentum: null,
     entryState: stateSnapshot(state),
     exitState: stateSnapshot(state),
   });
@@ -767,18 +1229,21 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     const adjustment = config.mapAdjustments[map.id];
     const clears = sites.length ? Math.min(...sites.map((site) => site.kills)) : 0;
     const currentBossFight = bossFightSeconds(state, map, adjustment);
+    const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
 
-    if (map.boss && clears >= config.requiredClears && currentBossFight !== null && currentBossFight <= config.bossTargetSeconds) {
+    if (map.boss && clears >= config.requiredClears && currentBossFight !== null && currentBossFight <= bossReadinessTarget) {
+      const statWeights = projectedBossStatWeights(map.boss, adjustment);
       const travel = travelSeconds(position, map.boss, state, config.pathingMultiplier);
-      const finishesAt = state.time + travel + currentBossFight;
-      if (finishesAt > config.durationSeconds) {
-        advanceTime(state, config.durationSeconds, config.researchPlan, recordHistory);
-        break;
-      }
-      advanceTime(state, finishesAt, config.researchPlan, recordHistory);
+      if (!spendBossTime(mapRecord, "travelSeconds", statWeights, travel)) break;
       position = { x: map.boss.x, y: map.boss.y };
+      if (!spendBossTime(mapRecord, "bossCombatSeconds", statWeights, currentBossFight)) break;
+      const powerBeforeBossReward = powerForState(state);
       for (const reward of map.boss.rewards) {
-        applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.reward));
+        const stat = progressionStatForReward(reward.type);
+        const directPowerBefore = continuousPowerForState(state);
+        applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward));
+        mapRecord.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
+        mapRecord.statInvestments[stat].rewardEvents += 1;
       }
       rollDrops(state, map.boss.drops, null, random, recordHistory);
       recordHistory();
@@ -786,6 +1251,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
       mapRecord.exitPower = powerForState(state);
       mapRecord.exitState = stateSnapshot(state);
       mapRecord.bossFightSeconds = currentBossFight;
+      mapRecord.bossRewardPowerGain = Math.max(0, mapRecord.exitPower - powerBeforeBossReward);
       mapRecord.fullClears = clears;
       if (state.mapIndex >= MAP_DEFINITIONS.length - 1) continue;
       advanceTime(state, Math.min(config.durationSeconds, state.time + MAP_TRANSITION_SECONDS), config.researchPlan, recordHistory);
@@ -802,20 +1268,21 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     const selected = selectSite(sites, state, position, map, config);
     if (!selected) {
       const nextAvailable = Math.min(...sites.map((site) => site.availableAt));
-      advanceTime(state, Math.min(config.durationSeconds, nextAvailable), config.researchPlan, recordHistory);
+      if (!spendTime(mapRecord, "respawnWaitSeconds", Math.max(0, nextAvailable - state.time))) break;
       continue;
     }
-    const finishesAt = state.time + selected.travel + selected.fight + LOOT_AND_RETARGET_SECONDS;
-    if (finishesAt > config.durationSeconds) {
-      advanceTime(state, config.durationSeconds, config.researchPlan, recordHistory);
-      break;
-    }
-    advanceTime(state, finishesAt, config.researchPlan, recordHistory);
+    const reward = ENEMY_TYPES[selected.site.type].reward;
+    const stat = progressionStatForReward(reward.type);
+    if (!spendTimeForStat(mapRecord, "travelSeconds", stat, selected.travel)) break;
     position = { x: selected.site.x, y: selected.site.y };
+    if (!spendTimeForStat(mapRecord, "regularCombatSeconds", stat, selected.fight)) break;
+    if (!spendTimeForStat(mapRecord, "lootRetargetSeconds", stat, LOOT_AND_RETARGET_SECONDS)) break;
     selected.site.kills += 1;
     selected.site.availableAt = state.time + config.respawnSeconds;
-    const reward = ENEMY_TYPES[selected.site.type].reward;
+    const directPowerBefore = continuousPowerForState(state);
     applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.reward));
+    mapRecord.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
+    mapRecord.statInvestments[stat].rewardEvents += 1;
     mapRecord.regularKills += 1;
     mapRecord.fullClears = Math.min(...sites.map((site) => site.kills));
     if (!state.bootsEquipped && map.id === TUTORIAL_FOREST_MAP_ID && mapRecord.fullClears >= 1) state.bootsEquipped = true;
@@ -830,6 +1297,10 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     activeRecord.exitPower = powerForState(state);
     activeRecord.exitState = stateSnapshot(state);
     activeRecord.fullClears = sites.length ? Math.min(...sites.map((site) => site.kills)) : 0;
+  }
+  for (const record of records) {
+    record.curveProgress = curveProgressForRecord(record, history, config.durationSeconds);
+    record.momentum = momentumForRecord(record, history, config.durationSeconds);
   }
 
   const samples: TrialResult["samples"] = [];
@@ -867,10 +1338,13 @@ function mapSummary(
   durationSeconds: number,
   targetDurationSeconds: number | null,
   targetPowerGrowthMultiplier: number | null,
+  targetPowerArcBlend: number,
 ): MapSummary {
   const records = trials.map((trial) => mapRecordFor(trial, map.id)).filter((record): record is TrialMapRecord => Boolean(record));
   const completed = records.filter((record) => record.exitedAtSeconds !== null);
-  const durations = records.map((record) => (record.exitedAtSeconds ?? durationSeconds) - record.enteredAtSeconds);
+  const durationForRecord = (record: TrialMapRecord) =>
+    (record.exitedAtSeconds ?? durationSeconds) - record.enteredAtSeconds;
+  const durations = records.map(durationForRecord);
   const durationMedianSeconds = quantile(durations, .5);
   const exitStatsAt = (probability: number): Omit<PersistentStats, "attackRate"> | null => records.length ? {
     damage: numericQuantile(records.map((record) => record.exitState.stats.damage), probability),
@@ -885,6 +1359,109 @@ function mapSummary(
     armor: numericQuantile(records.map((record) => effectiveStats(record.exitState).armor), probability),
     regen: numericQuantile(records.map((record) => effectiveStats(record.exitState).regen), probability),
   } : null;
+  const timeBudgetAt = (probability: number): MapTimeBudget | null => records.length ? {
+    regularCombatSeconds: numericQuantile(records.map((record) => record.timeBudget.regularCombatSeconds), probability),
+    bossCombatSeconds: numericQuantile(records.map((record) => record.timeBudget.bossCombatSeconds), probability),
+    travelSeconds: numericQuantile(records.map((record) => record.timeBudget.travelSeconds), probability),
+    respawnWaitSeconds: numericQuantile(records.map((record) => record.timeBudget.respawnWaitSeconds), probability),
+    lootRetargetSeconds: numericQuantile(records.map((record) => record.timeBudget.lootRetargetSeconds), probability),
+  } : null;
+  const powerComponentsAt = (
+    stateForRecord: (record: TrialMapRecord) => SimulationStateSnapshot,
+    probability: number,
+  ): PowerComponents | null => {
+    if (!records.length) return null;
+    const components = records.map((record) => powerComponentsForState(stateForRecord(record)));
+    return {
+      damage: numericQuantile(components.map((entry) => entry.damage), probability),
+      health: numericQuantile(components.map((entry) => entry.health), probability),
+      armor: numericQuantile(components.map((entry) => entry.armor), probability),
+      regeneration: numericQuantile(components.map((entry) => entry.regeneration), probability),
+      total: numericQuantile(components.map((entry) => entry.total), probability),
+      equipment: numericQuantile(components.map((entry) => entry.equipment), probability),
+      equipmentSharePercent: numericQuantile(components.map((entry) => entry.equipmentSharePercent), probability),
+    };
+  };
+  const curveProgressAt = (probability: number): CurveProgress | null => {
+    const curves = records.flatMap((record) => record.curveProgress ? [record.curveProgress] : []);
+    return curves.length ? {
+      p25: numericQuantile(curves.map((curve) => curve.p25), probability),
+      p50: numericQuantile(curves.map((curve) => curve.p50), probability),
+      p75: numericQuantile(curves.map((curve) => curve.p75), probability),
+    } : null;
+  };
+  const momentumAt = (probability: number): MomentumMetric | null => {
+    const metrics = records.flatMap((record) => record.momentum ? [record.momentum] : []);
+    return metrics.length ? {
+      meaningfulGainPercent: numericQuantile(metrics.map((metric) => metric.meaningfulGainPercent), probability),
+      meaningfulGainCount: numericQuantile(metrics.map((metric) => metric.meaningfulGainCount), probability),
+      longestGainGapSeconds: numericQuantile(metrics.map((metric) => metric.longestGainGapSeconds), probability),
+      longestGainGapSharePercent: numericQuantile(metrics.map((metric) => metric.longestGainGapSharePercent), probability),
+      largestSingleJumpPercent: numericQuantile(metrics.map((metric) => metric.largestSingleJumpPercent), probability),
+      largestSingleJumpGrowthSharePercent: numericQuantile(
+        metrics.map((metric) => metric.largestSingleJumpGrowthSharePercent),
+        probability,
+      ),
+    } : null;
+  };
+  const statProgression = PROGRESSION_STAT_IDS.map((stat): StatProgressionMetric => {
+    const trackedTimeShares = records.map((record) => {
+      const total = PROGRESSION_STAT_IDS.reduce(
+        (sum, id) => sum + record.statInvestments[id].investmentSeconds,
+        0,
+      );
+      return record.statInvestments[stat].investmentSeconds / Math.max(.01, total) * 100;
+    });
+    const rewardGrowthShares = records.map((record) => {
+      const growth = record.exitPower - record.entryPower;
+      return growth > 0 ? record.statInvestments[stat].rewardPowerGain / growth * 100 : 0;
+    });
+    const secondsPerOnePercentPower = records.flatMap((record) => {
+      const gainPercent = record.statInvestments[stat].rewardPowerGain / Math.max(1, record.entryPower) * 100;
+      return gainPercent > 0
+        ? [record.statInvestments[stat].investmentSeconds / gainPercent]
+        : [];
+    });
+    const entryValues = records.map((record) => effectiveStatValue(record.entryState, stat));
+    const exitValues = records.map((record) => effectiveStatValue(record.exitState, stat));
+    const growthMultipliers = records.flatMap((record) => {
+      const entry = effectiveStatValue(record.entryState, stat);
+      const exit = effectiveStatValue(record.exitState, stat);
+      return entry > 0 ? [exit / entry] : [];
+    });
+    const doublingSeconds = records.flatMap((record) => {
+      const entry = effectiveStatValue(record.entryState, stat);
+      const exit = effectiveStatValue(record.exitState, stat);
+      const doublings = entry > 0 && exit > entry ? Math.log2(exit / entry) : 0;
+      return doublings > 0 ? [durationForRecord(record) / doublings] : [];
+    });
+    return {
+      stat,
+      investmentSecondsMedian: numericQuantile(
+        records.map((record) => record.statInvestments[stat].investmentSeconds),
+        .5,
+      ),
+      combatSecondsMedian: numericQuantile(
+        records.map((record) => record.statInvestments[stat].combatSeconds),
+        .5,
+      ),
+      investmentSharePercent: numericQuantile(trackedTimeShares, .5),
+      rewardPowerGainMedian: numericQuantile(
+        records.map((record) => record.statInvestments[stat].rewardPowerGain),
+        .5,
+      ),
+      rewardGrowthSharePercent: numericQuantile(rewardGrowthShares, .5),
+      rewardEventsMedian: numericQuantile(
+        records.map((record) => record.statInvestments[stat].rewardEvents),
+        .5,
+      ),
+      secondsPerOnePercentPower: quantile(secondsPerOnePercentPower, .5),
+      entryValueMedian: numericQuantile(entryValues, .5),
+      exitValueMedian: numericQuantile(exitValues, .5),
+      growthMultiplier: quantile(growthMultipliers, .5),
+      effectiveDoublingSecondsMedian: quantile(doublingSeconds, .5),
+    };
+  });
   return {
     mapId: map.id,
     name: map.name,
@@ -905,8 +1482,25 @@ function mapSummary(
     exitEffectiveStatsMedian: exitEffectiveStatsAt(.5),
     bossTtkAtEntryMedianSeconds: quantile(records.flatMap((record) => record.entryBossTtkSeconds === null ? [] : [record.entryBossTtkSeconds]), .5),
     bossFightMedianSeconds: quantile(completed.flatMap((record) => record.bossFightSeconds === null ? [] : [record.bossFightSeconds]), .5),
+    bossRewardPowerGainMedian: quantile(completed.flatMap((record) =>
+      record.bossRewardPowerGain === null ? [] : [record.bossRewardPowerGain]), .5),
+    bossRewardGrowthSharePercent: quantile(completed.flatMap((record) => {
+      if (record.bossRewardPowerGain === null) return [];
+      const mapGrowth = record.exitPower - record.entryPower;
+      return mapGrowth > 0 ? [record.bossRewardPowerGain / mapGrowth * 100] : [];
+    }), .5),
     regularKillsMedian: quantile(records.map((record) => record.regularKills), .5),
     fullClearsMedian: quantile(records.map((record) => record.fullClears), .5),
+    timeBudgetMedian: timeBudgetAt(.5),
+    statProgression,
+    momentum: momentumAt(.5),
+    futureHeadroom: null,
+    entryPowerComponentsMedian: powerComponentsAt((record) => record.entryState, .5),
+    exitPowerComponentsMedian: powerComponentsAt((record) => record.exitState, .5),
+    curveProgress: curveProgressAt(.5),
+    targetCurveProgress: targetPowerGrowthMultiplier === null
+      ? null
+      : targetCurveProgress(targetPowerGrowthMultiplier, targetPowerArcBlend),
     durationVsPrevious: null,
     targetDurationSeconds,
     durationVsTarget: durationMedianSeconds !== null && targetDurationSeconds !== null
@@ -927,7 +1521,7 @@ function enemyMetricsForMap(
   for (const site of sites) counts.set(site.type, (counts.get(site.type) ?? 0) + 1);
   const combat = combatStats(snapshot, true);
   const beforePower = continuousPowerForState(snapshot);
-  return [...counts.entries()].map(([enemyKind, spawnCount]): EnemyBalanceMetric => {
+  const raw = [...counts.entries()].map(([enemyKind, spawnCount]) => {
     const enemy = ENEMY_TYPES[enemyKind];
     const projected: SimulationStateSnapshot = {
       ...snapshot,
@@ -940,8 +1534,10 @@ function enemyMetricsForMap(
     const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate);
     const powerGain = Math.max(0, continuousPowerForState(projected) - beforePower);
     const incomingHit = damageAfterArmor(enemy.damage * adjustment.damage, combat.armor);
+    const powerGainPercentOfEntry = powerGain / Math.max(1, beforePower) * 100;
     return {
       enemy: enemyKind,
+      elite: Boolean(enemy.elite),
       spawnCount,
       hp: enemy.hp * adjustment.hp,
       rewardType: enemy.reward.type,
@@ -952,8 +1548,58 @@ function enemyMetricsForMap(
       damageAfterArmor: incomingHit,
       hitPercentOfHealth: incomingHit / Math.max(1, combat.maxHp) * 100,
       hitsToDefeatPlayer: Math.max(1, Math.ceil(combat.maxHp / incomingHit)),
+      fullClearCombatSeconds: fight * spawnCount,
+      powerGainPercentOfEntry,
+      combatSecondsPerOnePercentPower: powerGainPercentOfEntry > 0
+        ? fight / powerGainPercentOfEntry
+        : null,
     };
-  }).sort((left, right) => right.combatPowerPerMinute - left.combatPowerPerMinute);
+  });
+  const totalFullClearCombatSeconds = raw.reduce((total, metric) => total + metric.fullClearCombatSeconds, 0);
+  const medianTtk = numericQuantile(raw.map((metric) => metric.timeToKillSeconds), .5);
+  const productive = raw.filter((metric) => metric.combatPowerPerMinute > 0);
+  const medianEfficiency = numericQuantile(productive.map((metric) => metric.combatPowerPerMinute), .5);
+  return raw.map((metric): EnemyBalanceMetric => ({
+    ...metric,
+    fullClearCombatSharePercent: metric.fullClearCombatSeconds / Math.max(.01, totalFullClearCombatSeconds) * 100,
+    ttkVsMapMedian: metric.timeToKillSeconds / Math.max(.01, medianTtk),
+    efficiencyVsMapMedian: metric.combatPowerPerMinute / Math.max(.01, medianEfficiency),
+  })).sort((left, right) => right.combatPowerPerMinute - left.combatPowerPerMinute);
+}
+
+function progressionHeadroomForMap(
+  map: MapSummary,
+  reserveMultiplier: number,
+): ProgressionHeadroom | null {
+  // An open map has no completion time, so its remaining simulation window is
+  // not evidence of progression headroom. Report it only after a capstone or
+  // another explicit completion condition exists.
+  if (!map.hasBoss) return null;
+  if (map.targetDurationSeconds === null || map.durationMedianSeconds === null || !map.timeBudgetMedian) return null;
+  if (map.completedPercent < 50) return null;
+  const total = Object.values(map.timeBudgetMedian).reduce((sum, seconds) => sum + seconds, 0);
+  const observedDuration = map.durationMedianSeconds;
+  const lowerDuration = map.targetDurationSeconds * .75;
+  if (total <= 0 || lowerDuration <= 0) return null;
+  const safeMultiplier = (scalableSeconds: number) => {
+    if (scalableSeconds <= 0) return null;
+    const fixedSeconds = total - scalableSeconds;
+    if (fixedSeconds >= lowerDuration) return null;
+    return Math.max(1, scalableSeconds / Math.max(.01, lowerDuration - fixedSeconds));
+  };
+  const combatSeconds = map.timeBudgetMedian.regularCombatSeconds + map.timeBudgetMedian.bossCombatSeconds;
+  const farmingSeconds = total - map.timeBudgetMedian.bossCombatSeconds;
+  const movementSeconds = map.timeBudgetMedian.travelSeconds;
+  const projectedDurationAtReserveSeconds = observedDuration / reserveMultiplier;
+  return {
+    reserveMultiplier,
+    reservePass: projectedDurationAtReserveSeconds >= lowerDuration,
+    uniformSafeMultiplier: Math.max(1, observedDuration / lowerDuration),
+    projectedDurationAtReserveSeconds,
+    combatSafeMultiplier: safeMultiplier(combatSeconds),
+    farmingSafeMultiplier: safeMultiplier(farmingSeconds),
+    movementSafeMultiplier: safeMultiplier(movementSeconds),
+  };
 }
 
 function buildDiagnostics(
@@ -969,15 +1615,23 @@ function buildDiagnostics(
   let powerTargetsOnTrack = 0;
   let measuredStatMixes = 0;
   let statMixesOnTrack = 0;
+  let measuredHeadroomMaps = 0;
+  let headroomMapsOnTrack = 0;
+  let measuredEncounterRhythmMaps = 0;
+  let encounterRhythmMapsOnTrack = 0;
   for (let index = 1; index < maps.length; index += 1) {
     const current = maps[index];
     if (current.reachedPercent < 50) {
       diagnostics.push(`${current.name} is reached in only ${current.reachedPercent.toFixed(0)}% of runs within the selected time window.`);
       continue;
     }
-    const durationIsCensored = current.hasBoss && current.completedPercent < 50;
-    if (durationIsCensored) {
+    const bossDurationIsCensored = current.hasBoss && current.completedPercent < 50;
+    const openWindowIsShort = !current.hasBoss && current.durationVsTarget !== null && current.durationVsTarget < .75;
+    const durationIsCensored = bossDurationIsCensored || openWindowIsShort;
+    if (bossDurationIsCensored) {
       diagnostics.push(`${current.name} is not completed by the median run; its displayed map time is a lower bound capped by the simulation window.`);
+    } else if (openWindowIsShort) {
+      diagnostics.push(`${current.name} has only ${formatDiagnosticDuration(current.durationMedianSeconds)} left in the selected campaign window; extend the simulation before judging its open-map pacing.`);
     } else if (current.durationVsTarget !== null) {
       measuredPacingTargets += 1;
       if (current.durationVsTarget > 1.25) {
@@ -988,13 +1642,21 @@ function buildDiagnostics(
         pacingTargetsOnTrack += 1;
       }
     }
+    if (current.futureHeadroom) {
+      measuredHeadroomMaps += 1;
+      if (current.futureHeadroom.reservePass) {
+        headroomMapsOnTrack += 1;
+      } else {
+        diagnostics.push(`${current.name} cannot absorb the reserved ${((current.futureHeadroom.reserveMultiplier - 1) * 100).toFixed(0)}% future progression speed-up without falling below the 75% duration floor; its uniform safe ceiling is only ${current.futureHeadroom.uniformSafeMultiplier.toFixed(2)}×.`);
+      }
+    }
     if (!durationIsCensored && current.powerGrowthMultiplier !== null && current.targetPowerGrowthMultiplier !== null) {
       measuredPowerTargets += 1;
       const powerFit = current.powerGrowthMultiplier / current.targetPowerGrowthMultiplier;
       if (powerFit > 1.5) {
-        diagnostics.push(`${current.name} grows power ${current.powerGrowthMultiplier.toFixed(1)}×, above the ${current.targetPowerGrowthMultiplier.toFixed(0)}× curve budget; flatten its reward spikes.`);
+        diagnostics.push(`${current.name} grows power ${current.powerGrowthMultiplier.toFixed(1)}×, above the ${current.targetPowerGrowthMultiplier.toFixed(1)}× curve budget; flatten its reward spikes.`);
       } else if (powerFit < .65) {
-        diagnostics.push(`${current.name} grows power only ${current.powerGrowthMultiplier.toFixed(1)}× against a ${current.targetPowerGrowthMultiplier.toFixed(0)}× curve budget; add smaller, more frequent gains.`);
+        diagnostics.push(`${current.name} grows power only ${current.powerGrowthMultiplier.toFixed(1)}× against a ${current.targetPowerGrowthMultiplier.toFixed(1)}× curve budget; add smaller, more frequent gains.`);
       } else {
         powerTargetsOnTrack += 1;
       }
@@ -1010,9 +1672,96 @@ function buildDiagnostics(
         statMixesOnTrack += 1;
       }
     }
+    if (!durationIsCensored && current.curveProgress && current.targetCurveProgress) {
+      const actual = current.curveProgress;
+      const target = current.targetCurveProgress;
+      if (actual.p25 < target.p25 - .1) {
+        diagnostics.push(`${current.name} has a flat opening: it earns ${(actual.p25 * 100).toFixed(0)}% of its log-power growth in the first quarter versus a ${(target.p25 * 100).toFixed(0)}% target.`);
+      } else if (actual.p25 > target.p25 + .15) {
+        diagnostics.push(`${current.name} is too front-loaded: it earns ${(actual.p25 * 100).toFixed(0)}% of its log-power growth in the first quarter versus a ${(target.p25 * 100).toFixed(0)}% target.`);
+      } else if (actual.p75 < target.p75 - .1) {
+        diagnostics.push(`${current.name} stalls late: it reaches ${(actual.p75 * 100).toFixed(0)}% of its log-power growth by three quarters versus a ${(target.p75 * 100).toFixed(0)}% target.`);
+      }
+    }
+    if (!durationIsCensored && current.momentum) {
+      if (current.momentum.longestGainGapSharePercent > 20) {
+        diagnostics.push(`${current.name}'s longest wait for a cumulative +${current.momentum.meaningfulGainPercent.toFixed(0)}% power gain is ${formatDiagnosticDuration(current.momentum.longestGainGapSeconds)} (${current.momentum.longestGainGapSharePercent.toFixed(0)}% of the map); future accelerators may skip nearby rewards instead of fixing this stall.`);
+      }
+      if (current.momentum.largestSingleJumpGrowthSharePercent > 25) {
+        diagnostics.push(`${current.name}'s largest single progression event supplies ${current.momentum.largestSingleJumpGrowthSharePercent.toFixed(0)}% of its logarithmic map growth; reserve smaller milestones around that spike.`);
+      }
+    }
+    if (current.timeBudgetMedian) {
+      const budget = current.timeBudgetMedian;
+      const total = Object.values(budget).reduce((sum, seconds) => sum + seconds, 0);
+      const waitShare = budget.respawnWaitSeconds / Math.max(1, total);
+      const travelShare = budget.travelSeconds / Math.max(1, total);
+      if (waitShare > .15) {
+        diagnostics.push(`${current.name} spends ${(waitShare * 100).toFixed(0)}% of measured map time waiting for respawns; this is delay rather than progression.`);
+      }
+      if (travelShare > .35) {
+        diagnostics.push(`${current.name} spends ${(travelShare * 100).toFixed(0)}% of measured map time traveling; check camp spacing before adding enemy health.`);
+      }
+    }
+    const activeStats = current.statProgression.filter((metric) => metric.investmentSecondsMedian >= 1);
+    const productiveStats = activeStats.filter(
+      (metric): metric is StatProgressionMetric & { secondsPerOnePercentPower: number } =>
+        metric.secondsPerOnePercentPower !== null && metric.rewardPowerGainMedian > 0,
+    );
+    if (productiveStats.length >= 2) {
+      const fastest = [...productiveStats].sort(
+        (left, right) => left.secondsPerOnePercentPower - right.secondsPerOnePercentPower,
+      )[0];
+      const slowest = [...productiveStats].sort(
+        (left, right) => right.secondsPerOnePercentPower - left.secondsPerOnePercentPower,
+      )[0];
+      const efficiencyGap = slowest.secondsPerOnePercentPower / Math.max(.01, fastest.secondsPerOnePercentPower);
+      if (efficiencyGap >= 4 && slowest.investmentSharePercent >= 8) {
+        diagnostics.push(`${current.name}: ${progressionStatLabel(slowest.stat)} takes ${formatDiagnosticDuration(slowest.secondsPerOnePercentPower)} per +1% entry power versus ${formatDiagnosticDuration(fastest.secondsPerOnePercentPower)} for ${progressionStatLabel(fastest.stat)}, while consuming ${slowest.investmentSharePercent.toFixed(0)}% of pursued-stat time.`);
+      }
+    }
+    const lowReturn = [...activeStats].sort(
+      (left, right) =>
+        (right.investmentSharePercent - right.rewardGrowthSharePercent) -
+        (left.investmentSharePercent - left.rewardGrowthSharePercent),
+    )[0];
+    if (lowReturn && lowReturn.investmentSharePercent - lowReturn.rewardGrowthSharePercent >= 20) {
+      diagnostics.push(`${current.name}: ${progressionStatLabel(lowReturn.stat)} uses ${lowReturn.investmentSharePercent.toFixed(0)}% of pursued-stat time but supplies only ${lowReturn.rewardGrowthSharePercent.toFixed(0)}% of measured map power growth.`);
+    }
+    const zeroReturn = activeStats.find((metric) => metric.rewardPowerGainMedian <= Number.EPSILON);
+    if (zeroReturn) {
+      diagnostics.push(`${current.name}: ${progressionStatLabel(zeroReturn.stat)} is still pursued for ${formatDiagnosticDuration(zeroReturn.investmentSecondsMedian)} after its direct reward has stopped increasing canonical power.`);
+    }
+    if (current.exitPowerComponentsMedian) {
+      const equipmentShare = current.exitPowerComponentsMedian.equipmentSharePercent;
+      const entryShare = current.entryPowerComponentsMedian?.equipmentSharePercent ?? 0;
+      if (equipmentShare > 50) {
+        diagnostics.push(`${current.name} exits with ${equipmentShare.toFixed(0)}% of canonical power supplied by equipment bonuses; test a lower equipment-strength what-if before changing enemy stats.`);
+      } else if (equipmentShare - entryShare > 20) {
+        diagnostics.push(`${current.name}'s equipment share jumps ${entryShare.toFixed(0)}% → ${equipmentShare.toFixed(0)}%; a drop may be acting as the map's dominant power spike.`);
+      }
+    }
     if (current.hasBoss && current.bossFightMedianSeconds !== null && current.durationMedianSeconds) {
       const bossShare = current.bossFightMedianSeconds / current.durationMedianSeconds;
       if (bossShare > .25) diagnostics.push(`${current.name}'s boss consumes ${(bossShare * 100).toFixed(0)}% of median map time; keep the boss as a capstone rather than the whole progression wall.`);
+      if (!durationIsCensored && current.timeBudgetMedian) {
+        measuredEncounterRhythmMaps += 1;
+        const measuredTime = Object.values(current.timeBudgetMedian).reduce((sum, seconds) => sum + seconds, 0);
+        const travelShare = current.timeBudgetMedian.travelSeconds / Math.max(1, measuredTime);
+        let rhythmIsOnTrack = true;
+        if (bossShare < .025) {
+          diagnostics.push(`${current.name}'s boss is only ${(bossShare * 100).toFixed(1)}% of median map time; it has stopped reading as a capstone.`);
+          rhythmIsOnTrack = false;
+        }
+        if (travelShare < .03) {
+          diagnostics.push(`${current.name} spends only ${(travelShare * 100).toFixed(1)}% of measured map time traveling; shorten encounter walls or require more reward cycles so the world does not disappear.`);
+          rhythmIsOnTrack = false;
+        }
+        if (rhythmIsOnTrack) encounterRhythmMapsOnTrack += 1;
+      }
+    }
+    if (current.bossRewardGrowthSharePercent !== null && current.bossRewardGrowthSharePercent > 25) {
+      diagnostics.push(`${current.name}'s boss reward or drop supplies ${current.bossRewardGrowthSharePercent.toFixed(0)}% of the map's total power gain; move more of that growth into regular encounters.`);
     }
   }
   const pacingCurveOnTrack = measuredPacingTargets > 0 && measuredPacingTargets === pacingTargetsOnTrack;
@@ -1021,13 +1770,23 @@ function buildDiagnostics(
   }
   const powerCurveOnTrack = measuredPowerTargets > 0 && measuredPowerTargets === powerTargetsOnTrack;
   if (powerCurveOnTrack) {
-    diagnostics.splice(pacingCurveOnTrack ? 1 : 0, 0, `Power curve: ${powerTargetsOnTrack}/${measuredPowerTargets} measured maps stay near the ${config.targetMapPowerMultiplier.toFixed(0)}× per-map growth budget.`);
+    diagnostics.splice(pacingCurveOnTrack ? 1 : 0, 0, `Power curve: ${powerTargetsOnTrack}/${measuredPowerTargets} measured maps stay near the ${config.targetMapPowerMultiplier.toFixed(1)}× per-map growth budget.`);
   }
   if (measuredStatMixes > 0 && measuredStatMixes === statMixesOnTrack) {
     diagnostics.splice((pacingCurveOnTrack ? 1 : 0) + (powerCurveOnTrack ? 1 : 0), 0, `Stat mix: ${statMixesOnTrack}/${measuredStatMixes} maps keep damage and health inside the authored combat envelope.`);
   }
+  if (measuredHeadroomMaps > 0) {
+    diagnostics.unshift(`Future-system reserve: ${headroomMapsOnTrack}/${measuredHeadroomMaps} measured maps stay above the 75% duration floor under a uniform ${((config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(0)}% progression speed-up.`);
+  }
+  if (measuredEncounterRhythmMaps > 0) {
+    diagnostics.unshift(`Encounter rhythm: ${encounterRhythmMapsOnTrack}/${measuredEncounterRhythmMaps} completed post-Forest maps keep bosses visible (≥2.5% of time) and travel present (≥3%).`);
+  }
   const spread = finalPower.p10 > 0 ? finalPower.p90 / finalPower.p10 : 1;
-  if (spread > 1.75) diagnostics.push(`Random equipment drops create a ${spread.toFixed(1)}× P90-to-P10 final-power spread; inspect loot timing before changing base rewards.`);
+  if (spread > 3) {
+    diagnostics.push(`Random equipment drops create a ${spread.toFixed(1)}× P90-to-P10 final-power spread, above the current 3× hard band; inspect loot timing before changing base rewards.`);
+  } else if (spread > 1.75) {
+    diagnostics.push(`Random equipment drops create a ${spread.toFixed(1)}× P90-to-P10 final-power spread; this is playable but remains above the 1.75× long-term ideal.`);
+  }
   for (const map of maps.filter((entry) => entry.reachedPercent >= 50)) {
     const metrics = enemyMetrics[map.mapId];
     const productive = metrics.filter((metric) => metric.combatPowerPerMinute > 0);
@@ -1040,15 +1799,34 @@ function buildDiagnostics(
     if (lethal.length >= Math.ceil(metrics.length / 2)) {
       diagnostics.push(`${map.name}: ${lethal.length}/${metrics.length} enemy types can one-hit the representative entry build; progression timing does not count deaths, dodges, or recovery.`);
     }
+    const wall = [...metrics].sort((left, right) => right.ttkVsMapMedian - left.ttkVsMapMedian)[0];
+    if (wall && wall.ttkVsMapMedian >= 2.5) {
+      diagnostics.push(`${map.name}: ${wall.enemy}${wall.elite ? " (elite)" : ""} takes ${wall.ttkVsMapMedian.toFixed(1)}× the map's median enemy TTK and consumes ${wall.fullClearCombatSharePercent.toFixed(0)}% of a full clear's combat time.`);
+    }
+    const eliteTtks = metrics.filter((metric) => metric.elite).map((metric) => metric.timeToKillSeconds);
+    const regularTtks = metrics.filter((metric) => !metric.elite).map((metric) => metric.timeToKillSeconds);
+    if (eliteTtks.length && regularTtks.length) {
+      const eliteGap = numericQuantile(eliteTtks, .5) / Math.max(.01, numericQuantile(regularTtks, .5));
+      if (eliteGap >= 3) {
+        diagnostics.push(`${map.name}'s median elite takes ${eliteGap.toFixed(1)}× as long to defeat as its median regular enemy; narrow that gap if elites feel like health walls.`);
+      }
+    }
   }
   const lastReached = [...maps].reverse().find((map) => map.reachedPercent >= 50);
-  if (lastReached) diagnostics.push(`The median run reaches ${lastReached.name}; map durations include travel, respawns, farming, and a solo boss fight capped at ${(config.bossTargetSeconds / 60).toFixed(1)} minutes.`);
+  if (lastReached) diagnostics.push(`The median run reaches ${lastReached.name}; map durations include travel, respawns, farming, and a solo boss attempted at the map-aware readiness target (${(config.bossTargetSeconds / 60).toFixed(1)}m minimum, ${(BALANCE_LATE_BOSS_TARGET_MAX_SECONDS / 60).toFixed(0)}m late-map cap).`);
   diagnostics.push("Regular-enemy damage is reported as hit size and hits-to-defeat, but player dodging and boss attack patterns are intentionally not guessed by the progression clock.");
   return diagnostics;
 }
 
+function progressionStatLabel(stat: ProgressionStat) {
+  if (stat === "attackSpeed") return "attack speed";
+  if (stat === "regeneration") return "regeneration";
+  return stat;
+}
+
 function formatDiagnosticDuration(seconds: number | null) {
   if (seconds === null) return "selected";
+  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
   if (seconds < 3_600) return `${(seconds / 60).toFixed(0)}m`;
   return `${(seconds / 3_600).toFixed(seconds < 36_000 ? 2 : 1)}h`;
 }
@@ -1078,6 +1856,7 @@ export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {
       config.durationSeconds,
       targetDurationSeconds,
       progressionIndex < 0 ? null : config.targetMapPowerMultiplier,
+      config.targetPowerArcBlend,
     );
   });
   for (let index = 1; index < maps.length; index += 1) {
@@ -1085,6 +1864,9 @@ export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {
     const current = maps[index].durationMedianSeconds;
     const reliable = maps[index].hasBoss && maps[index].completedPercent >= 50 && maps[index - 1].completedPercent >= 50;
     maps[index].durationVsPrevious = reliable && previous && current ? current / previous : null;
+  }
+  for (const map of maps) {
+    map.futureHeadroom = progressionHeadroomForMap(map, config.futureSpeedupReserveMultiplier);
   }
   const finalPowers = trials.map((trial) => trial.finalPower);
   const finalDpsValues = trials.map((trial) => trial.finalDps);

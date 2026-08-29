@@ -6,8 +6,12 @@ import {
   FIRE_METAL_BOW,
   FIRE_METAL_HELMET,
   IRON_BOW,
+  INFERNAL_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
+  LAVA_HELMET_ITEM_DROP_DENOMINATOR,
+  LAVA_ITEM_DROP_DENOMINATOR,
   MAGMA_ARMOR,
+  NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
   STARTER_BOW,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
@@ -37,24 +41,26 @@ describe("map guide", () => {
       [FROST_BOW, 25],
     ]);
     expect(mapGuideDrops(ADVANCED_LAVA_WASTES_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
-      [MAGMA_ARMOR, 30],
-      [FIRE_METAL_HELMET, 50],
+      [MAGMA_ARMOR, LAVA_ITEM_DROP_DENOMINATOR],
+      [FIRE_METAL_HELMET, LAVA_HELMET_ITEM_DROP_DENOMINATOR],
       [LAVA_BOW, 25],
     ]);
     expect(mapGuideDrops(INFERNAL_DEPTHS_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
-      [FIRE_METAL_BOW, 50],
-      [DARK_METAL_HELMET, 65],
+      [FIRE_METAL_BOW, INFERNAL_ITEM_DROP_DENOMINATOR],
+      [DARK_METAL_HELMET, NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR],
     ]);
     expect(mapGuideDropChance(25)).toBe("4%");
     expect(mapGuideDropChance(30)).toBe("3.3%");
+    expect(mapGuideDropChance(LAVA_ITEM_DROP_DENOMINATOR)).toBe("0.08%");
+    expect(mapGuideDropChance(LAVA_HELMET_ITEM_DROP_DENOMINATOR)).toBe("0.05%");
   });
 
   it("summarizes the stats players need when evaluating a drop", () => {
-    expect(mapGuideItemStats(IRON_BOW)).toEqual(["Damage +50%"]);
-    expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Max Health +125%", "Regen +125%"]);
-    expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Max Health +25%", "Regen +50%"]);
-    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage +150%"]);
-    expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Max Health +150%", "Regen +200%"]);
+    expect(mapGuideItemStats(IRON_BOW)).toEqual(["Damage +25%"]);
+    expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Max Health +50%", "Regen +50%"]);
+    expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Max Health +12%", "Regen +20%"]);
+    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage +60%"]);
+    expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Max Health +60%", "Regen +80%"]);
   });
 
   it("groups live forest spawns into compact reward zones", () => {

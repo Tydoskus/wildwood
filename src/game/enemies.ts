@@ -1,25 +1,66 @@
 import { formatCompactNumber } from "../ui/number-format";
 import {
+  ADVANCED_LAVA_WASTES_ARCHETYPE_HEALTH_PROFILE,
+  ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+  ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
   ADVANCED_LAVA_WASTES_HEALTH_SCALE,
   ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER,
+  ADVANCED_LAVA_WASTES_REGEN_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_REWARD_SCALE,
+  BEGINNER_DESERT_ARCHETYPE_HEALTH_PROFILE,
+  BEGINNER_DESERT_ARMOR_REWARD_MULTIPLIER,
+  BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
+  BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER,
   BEGINNER_DESERT_HEALTH_SCALE,
+  BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER,
+  BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+  BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
+  BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER,
   BEGINNER_DESERT_REWARD_SCALE,
+  INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE,
+  INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+  INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
   INFERNAL_DEPTHS_HEALTH_SCALE,
+  INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE,
   INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER,
+  INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER,
+  INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER,
+  INFERNAL_DEPTHS_REGEN_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_REWARD_SCALE,
+  INTERMEDIATE_SNOWLANDS_ARCHETYPE_HEALTH_PROFILE,
+  INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS,
+  INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
+  INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER,
+  INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
+  INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER,
+  INTERMEDIATE_SNOWLANDS_REGEN_REWARD_MULTIPLIER,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  LAVA_ARMOR_REWARD_MULTIPLIER,
   LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+  NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_ARCHETYPE_PROFILE,
   SAMURAI_GARDEN_DAMAGE_SCALE,
+  SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
+  SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
+  SAMURAI_GARDEN_REWARD_TRACK_PROFILE,
   SAMURAI_GARDEN_REWARD_SCALE,
+  SNOWLANDS_ARMOR_REWARD_MULTIPLIER,
+  WATER_REACH_ARCHETYPE_HEALTH_PROFILE,
+  WATER_REACH_ARMOR_REWARD_MULTIPLIER,
   WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
+  WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+  WATER_REACH_ENCOUNTER_REWARD_SCALE,
   WATER_REACH_HEALTH_REWARD_MULTIPLIER,
   WATER_REACH_HEALTH_SCALE,
+  WATER_REACH_REGULAR_HEALTH_MULTIPLIER,
+  WATER_REACH_REGULAR_REWARD_MULTIPLIER,
+  WATER_REACH_REGEN_REWARD_MULTIPLIER,
   WATER_REACH_REWARD_SCALE,
   WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
@@ -49,38 +90,132 @@ function repeatTierMultiplier(previous: number, current: number) {
 
 type LateMapArchetype = keyof typeof SAMURAI_GARDEN_ARCHETYPE_PROFILE;
 type EnemyBalance = Pick<EnemyDefinition, "hp" | "damage" | "attackSpeed" | "reward">;
+type ArchetypeVector = { readonly [Archetype in LateMapArchetype]: number };
 
 const LATE_MAP_ARCHETYPES = ["raider", "archer", "guardian", "reaper", "oracle"] as const satisfies readonly LateMapArchetype[];
+
+function centeredHealthBudget(
+  source: ArchetypeVector,
+  counts: ArchetypeVector,
+  profile: ArchetypeVector,
+) {
+  const sourceTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
+    total + source[archetype] * counts[archetype], 0);
+  const profileTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
+    total + profile[archetype] * counts[archetype], 0);
+  const profileUnit = sourceTotal / profileTotal;
+  return Object.fromEntries(LATE_MAP_ARCHETYPES.map((archetype) => [
+    archetype,
+    profile[archetype] * profileUnit,
+  ])) as Record<LateMapArchetype, number>;
+}
+
+const BEGINNER_DESERT_HEALTH = centeredHealthBudget({
+  raider: 1_200_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+  archer: 900_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+  guardian: 2_600_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+  reaper: 5_000_000 * BEGINNER_DESERT_HEALTH_SCALE * WASTES_REAPER_CADENCE_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+  oracle: 4_000_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+}, BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS, BEGINNER_DESERT_ARCHETYPE_HEALTH_PROFILE);
+
+const INTERMEDIATE_SNOWLANDS_HEALTH = centeredHealthBudget({
+  raider: 2_700_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
+  archer: 2_280_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
+  guardian: 17_790_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
+  reaper: 25_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
+  oracle: 16_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
+}, INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS, INTERMEDIATE_SNOWLANDS_ARCHETYPE_HEALTH_PROFILE);
+
+const ADVANCED_LAVA_WASTES_HEALTH = centeredHealthBudget({
+  raider: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+  archer: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+  guardian: 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+  reaper: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+  oracle: 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
+}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, ADVANCED_LAVA_WASTES_ARCHETYPE_HEALTH_PROFILE);
+
+const INFERNAL_DEPTHS_HEALTH = centeredHealthBudget({
+  raider: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+  archer: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+  guardian: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+  reaper: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+  oracle: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
+}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE);
+
+const WATER_REACH_HEALTH = centeredHealthBudget({
+  raider: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+  archer: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+  guardian: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+  reaper: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+  oracle: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
+}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, WATER_REACH_ARCHETYPE_HEALTH_PROFILE);
+
+type DamageRewardVector = { readonly raider: number; readonly reaper: number };
+
+// Preserve each map's complete damage-reward budget while moving the payout
+// out of one jackpot-like elite. The elite is still worth 25% more per kill,
+// but ordinary raiders now create visible progress throughout the runway.
+function centeredDamageRewardBudget(
+  source: DamageRewardVector,
+  counts: DamageRewardVector,
+  profile: DamageRewardVector = { raider: 1, reaper: 1.25 },
+) {
+  const sourceTotal = source.raider * counts.raider + source.reaper * counts.reaper;
+  const unit = sourceTotal / (profile.raider * counts.raider + profile.reaper * counts.reaper);
+  return { raider: unit * profile.raider, reaper: unit * profile.reaper };
+}
+
+const BEGINNER_DESERT_DAMAGE_REWARDS = centeredDamageRewardBudget({
+  raider: 1_200 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
+  reaper: 5_000 * BEGINNER_DESERT_REWARD_SCALE * WASTES_REAPER_CADENCE_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
+}, BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS);
+const INTERMEDIATE_SNOWLANDS_DAMAGE_REWARDS = centeredDamageRewardBudget({
+  raider: 240_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER,
+  reaper: 3_150_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER,
+}, INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS);
+const ADVANCED_LAVA_WASTES_DAMAGE_REWARDS = centeredDamageRewardBudget({
+  raider: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
+  reaper: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
+}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, { raider: 2.5, reaper: .6 });
+const INFERNAL_DEPTHS_DAMAGE_REWARDS = centeredDamageRewardBudget({
+  raider: repeatTierMultiplier(240_000, 48_000_000) * 6 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
+  reaper: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
+}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, { raider: 2.5, reaper: .6 });
+const WATER_REACH_DAMAGE_REWARDS = centeredDamageRewardBudget({
+  raider: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE,
+  reaper: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE,
+}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, { raider: 2.5, reaper: .6 });
+
 const WATER_REACH_BALANCE = {
   raider: {
-    hp: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
-    damage: 850_000_000_000,
+    hp: WATER_REACH_HEALTH.raider,
+    damage: 1_870_000,
     attackSpeed: .65,
-    reward: { type: "damage", amount: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+    reward: { type: "damage", amount: WATER_REACH_DAMAGE_REWARDS.raider * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
   },
   archer: {
-    hp: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
-    damage: 1_150_000_000_000,
+    hp: WATER_REACH_HEALTH.archer,
+    damage: 2_160_000,
     attackSpeed: .55,
-    reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER },
+    reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE },
   },
   guardian: {
-    hp: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
-    damage: 1_450_000_000_000,
+    hp: WATER_REACH_HEALTH.guardian,
+    damage: 2_700_000,
     attackSpeed: .55,
-    reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE },
+    reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_ARMOR_REWARD_MULTIPLIER * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE },
   },
   reaper: {
-    hp: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
-    damage: 1_250_000_000_000,
+    hp: WATER_REACH_HEALTH.reaper,
+    damage: 2_490_000,
     attackSpeed: .7,
-    reward: { type: "damage", amount: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
+    reward: { type: "damage", amount: WATER_REACH_DAMAGE_REWARDS.reaper * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
   },
   oracle: {
-    hp: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE,
-    damage: 1_350_000_000_000,
+    hp: WATER_REACH_HEALTH.oracle,
+    damage: 2_580_000,
     attackSpeed: .6,
-    reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE },
+    reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_REGEN_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE },
   },
 } satisfies Record<LateMapArchetype, EnemyBalance>;
 
@@ -116,19 +251,22 @@ const SAMURAI_DAMAGE_FACTORS = centeredLateMapFactors(
   (archetype) => WATER_REACH_BALANCE[archetype].damage * WATER_REACH_BALANCE[archetype].attackSpeed,
 );
 const SAMURAI_REWARD_FACTORS = centeredLateMapFactors(
-  (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].reward,
+  (archetype) => {
+    const reward = WATER_REACH_BALANCE[archetype].reward;
+    return SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].reward * SAMURAI_GARDEN_REWARD_TRACK_PROFILE[reward.type];
+  },
   (archetype) => rewardPower(WATER_REACH_BALANCE[archetype].reward),
 );
 
 function samuraiGardenBalance(archetype: LateMapArchetype): EnemyBalance {
   const water = WATER_REACH_BALANCE[archetype];
   return {
-    hp: water.hp * SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_HEALTH_FACTORS[archetype],
+    hp: water.hp / WATER_REACH_ENCOUNTER_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_HEALTH_FACTORS[archetype],
     damage: water.damage * SAMURAI_GARDEN_DAMAGE_SCALE * SAMURAI_DAMAGE_FACTORS[archetype],
     attackSpeed: SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...water.reward,
-      amount: water.reward.amount * SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_REWARD_FACTORS[archetype],
+      amount: water.reward.amount / WATER_REACH_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER * SAMURAI_REWARD_FACTORS[archetype],
     },
   };
 }
@@ -175,117 +313,115 @@ const enemyTypes = {
   // Movement speeds are the original balance values reduced by 25%.
   // Balance hp, damage, attackSpeed, and reward directly.
   "Dune Raider": {
-    hp: 1_200_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 165, damage: 20_000, attackSpeed: .65, r: 19,
-    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: 1200 * BEGINNER_DESERT_REWARD_SCALE },
+    hp: BEGINNER_DESERT_HEALTH.raider, speed: 165, damage: 425, attackSpeed: .65, r: 19,
+    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: BEGINNER_DESERT_DAMAGE_REWARDS.raider * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER },
   },
   "Dune Archer": {
-    hp: 900_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 153.75, damage: 25_000, attackSpeed: .55, r: 17,
-    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 * BEGINNER_DESERT_REWARD_SCALE },
+    hp: BEGINNER_DESERT_HEALTH.archer, speed: 153.75, damage: 490, attackSpeed: .55, r: 17,
+    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Venom Guard": {
-    hp: 2_600_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 146.25, damage: 32_000, attackSpeed: .55, r: 24,
-    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 * BEGINNER_DESERT_REWARD_SCALE },
+    hp: BEGINNER_DESERT_HEALTH.guardian, speed: 146.25, damage: 610, attackSpeed: .55, r: 24,
+    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_ARMOR_REWARD_MULTIPLIER },
   },
   "Wastes Reaper": {
-    hp: 5_000_000 * BEGINNER_DESERT_HEALTH_SCALE * WASTES_REAPER_CADENCE_SCALE, speed: 168.75, damage: 48_000, attackSpeed: .7, r: 31,
-    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: 5_000 * BEGINNER_DESERT_REWARD_SCALE * WASTES_REAPER_CADENCE_SCALE },
+    hp: BEGINNER_DESERT_HEALTH.reaper, speed: 168.75, damage: 670, attackSpeed: .7, r: 31,
+    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: BEGINNER_DESERT_DAMAGE_REWARDS.reaper * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 300,
   },
   "Blight Oracle": {
-    hp: 4_000_000 * BEGINNER_DESERT_HEALTH_SCALE, speed: 157.5, damage: 40_000, attackSpeed: .6, r: 29,
-    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 * BEGINNER_DESERT_REWARD_SCALE },
+    hp: BEGINNER_DESERT_HEALTH.oracle, speed: 157.5, damage: 550, attackSpeed: .6, r: 29,
+    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER },
     elite: true, aggro: 300,
   },
 
   // INTERMEDIATE SNOWLANDS ENEMIES
   // Desert-to-snow uses the same archetype multipliers as forest-to-desert.
   "Frost Raider": {
-    hp: 2_700_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 230, damage: 2_330_000, attackSpeed: .65, r: 21,
-    color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: 240_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
+    hp: INTERMEDIATE_SNOWLANDS_HEALTH.raider, speed: 230, damage: 1_590, attackSpeed: .65, r: 21,
+    color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: INTERMEDIATE_SNOWLANDS_DAMAGE_REWARDS.raider * INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER },
   },
   "Glacier Archer": {
-    hp: 2_280_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 215, damage: 11_150_000, attackSpeed: .55, r: 19,
-    color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
+    hp: INTERMEDIATE_SNOWLANDS_HEALTH.archer, speed: 215, damage: 1_860, attackSpeed: .55, r: 19,
+    color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER * INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Rime Guard": {
-    hp: 17_790_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 205, damage: 35_300_000, attackSpeed: .55, r: 27,
-    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 14_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
+    hp: INTERMEDIATE_SNOWLANDS_HEALTH.guardian, speed: 205, damage: 2_390, attackSpeed: .55, r: 27,
+    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 14_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER * SNOWLANDS_ARMOR_REWARD_MULTIPLIER },
   },
   "Whiteout Reaper": {
-    hp: 25_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 235, damage: 8_400_000, attackSpeed: .7, r: 34,
-    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: 3_150_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
+    hp: INTERMEDIATE_SNOWLANDS_HEALTH.reaper, speed: 235, damage: 2_120, attackSpeed: .7, r: 34,
+    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: INTERMEDIATE_SNOWLANDS_DAMAGE_REWARDS.reaper * INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 340,
   },
   "Aurora Oracle": {
-    hp: 16_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE, speed: 220, damage: 28_600_000, attackSpeed: .6, r: 32,
-    color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE },
+    hp: INTERMEDIATE_SNOWLANDS_HEALTH.oracle, speed: 220, damage: 2_255, attackSpeed: .6, r: 32,
+    color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER * INTERMEDIATE_SNOWLANDS_REGEN_REWARD_MULTIPLIER },
     elite: true, aggro: 340,
   },
 
   // ADVANCED LAVA LAKE ENEMIES
   // Snow-to-lava continues each archetype's desert-to-snow multiplier.
-  // Damage is intentionally 30x the original Lava Lake launch tuning.
   // Movement and aggro reach stop increasing after Snowlands.
   "Ember Raider": {
-    hp: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 230, damage: 8_143_350_000, attackSpeed: .65, r: 23,
-    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
+    hp: ADVANCED_LAVA_WASTES_HEALTH.raider, speed: 230, damage: 7_760, attackSpeed: .65, r: 23,
+    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: ADVANCED_LAVA_WASTES_DAMAGE_REWARDS.raider * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
   },
   "Cinder Archer": {
-    hp: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 215, damage: 149_187_000_000, attackSpeed: .55, r: 21,
-    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER },
+    hp: ADVANCED_LAVA_WASTES_HEALTH.archer, speed: 215, damage: 9_320, attackSpeed: .55, r: 21,
+    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE },
     ranged: true,
   },
   "Magma Guard": {
-    hp: 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 205, damage: 1_168_200_000_000, attackSpeed: .55, r: 30,
-    color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
+    hp: ADVANCED_LAVA_WASTES_HEALTH.guardian, speed: 205, damage: 12_420, attackSpeed: .55, r: 30,
+    color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * LAVA_ARMOR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE },
   },
   "Ash Reaper": {
-    hp: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 235, damage: 44_100_000_000, attackSpeed: .7, r: 37,
-    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
+    hp: ADVANCED_LAVA_WASTES_HEALTH.reaper, speed: 235, damage: 10_870, attackSpeed: .7, r: 37,
+    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: ADVANCED_LAVA_WASTES_DAMAGE_REWARDS.reaper * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 340,
   },
   "Inferno Oracle": {
-    hp: 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE, speed: 220, damage: 613_470_000_000, attackSpeed: .6, r: 35,
-    color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE },
+    hp: ADVANCED_LAVA_WASTES_HEALTH.oracle, speed: 220, damage: 11_650, attackSpeed: .6, r: 35,
+    color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_REGEN_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE },
     elite: true, aggro: 340,
   },
 
   // NIGHT FOREST ENEMIES
   // Base health repeats each archetype's Snowlands-to-Lava growth before the
   // shared Night Forest progression budget. Depth Raider keeps its 10qd cut.
-  // Damage is tuned against the simulated curve-entry build: the Raider takes
-  // about twenty-seven hits to defeat it, while the heavier archetypes take
-  // about thirteen. This keeps the map dangerous without entry one-shots.
-  // Authored base damage and health tracks pay 2× before the per-stat curve
-  // correction. Depth Raider keeps its requested 6× damage payout unchanged.
+  // Damage is tuned against the simulated curve-entry build so ordinary hits
+  // stay readable instead of inheriting the obsolete pre-curve one-shots.
+  // The damage budget still includes Depth Raider's requested 6× source value,
+  // then pays it out steadily across Raiders and Reapers.
   "Depth Raider": {
-    hp: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 230,
-    damage: 2_500_000_000, attackSpeed: .65, r: 25,
-    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: repeatTierMultiplier(240_000, 48_000_000) * 6 * INFERNAL_DEPTHS_REWARD_SCALE },
+    hp: INFERNAL_DEPTHS_HEALTH.raider, speed: 230,
+    damage: 296_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .65, r: 25,
+    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: INFERNAL_DEPTHS_DAMAGE_REWARDS.raider * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
   },
   "Abyss Archer": {
-    hp: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 215,
-    damage: 5_125_000_000, attackSpeed: .55, r: 23,
-    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER },
+    hp: INFERNAL_DEPTHS_HEALTH.archer, speed: 215,
+    damage: 342_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 23,
+    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE },
     ranged: true,
   },
   "Obsidian Colossus": {
-    hp: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 205,
-    damage: 5_500_000_000, attackSpeed: .55, r: 32,
-    color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) * INFERNAL_DEPTHS_REWARD_SCALE },
+    hp: INFERNAL_DEPTHS_HEALTH.guardian, speed: 205,
+    damage: 428_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 32,
+    color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) * INFERNAL_DEPTHS_REWARD_SCALE * NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE },
   },
   "Doom Reaper": {
-    hp: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 235,
-    damage: 5_250_000_000, attackSpeed: .7, r: 39,
-    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
+    hp: INFERNAL_DEPTHS_HEALTH.reaper, speed: 235,
+    damage: 395_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .7, r: 39,
+    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: INFERNAL_DEPTHS_DAMAGE_REWARDS.reaper * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 340,
   },
   "Nether Oracle": {
-    hp: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE, speed: 220,
-    damage: 5_375_000_000, attackSpeed: .6, r: 37,
-    color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE },
+    hp: INFERNAL_DEPTHS_HEALTH.oracle, speed: 220,
+    damage: 408_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .6, r: 37,
+    color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_REGEN_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE },
     elite: true, aggro: 340,
   },
 
@@ -320,7 +456,8 @@ const enemyTypes = {
   // SAMURAI GARDEN ENEMIES
   // Individual ratios vary around the Water Reach baseline so the tier does
   // not feel copied. The centered profiles above keep one full clear exactly
-  // at 270× health, 200× incoming DPS, and 200× reward power.
+  // at one fifth of the 11.475× health and 8.5× reward budgets, while incoming
+  // DPS remains 8.5×. Five smaller clears deliver the full macro runway.
   "Sakura Ronin": {
     ...samuraiGardenBalance("raider"), speed: 230, r: 29,
     color: "#ef75aa", outline: "#54233f",

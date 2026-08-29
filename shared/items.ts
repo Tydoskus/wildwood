@@ -19,11 +19,14 @@ export const MAGMA_ARMOR = "magma_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
 export const DESERT_ITEM_DROP_DENOMINATOR = 50;
-export const LAVA_ITEM_DROP_DENOMINATOR = 30;
-export const LAVA_HELMET_ITEM_DROP_DENOMINATOR = 50;
+// Late-map enemies now arrive in shorter reward slices. Preserve each old
+// macro-clear drop chance by matching per-kill odds to the map's cadence:
+// roughly forty slices in Lava and twenty in Night Forest.
+export const LAVA_ITEM_DROP_DENOMINATOR = 1_200;
+export const LAVA_HELMET_ITEM_DROP_DENOMINATOR = 2_000;
 export const LAVA_BOSS_ITEM_DROP_DENOMINATOR = 25;
-export const INFERNAL_ITEM_DROP_DENOMINATOR = 50;
-export const NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR = 65;
+export const INFERNAL_ITEM_DROP_DENOMINATOR = 1_000;
+export const NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR = 1_300;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
 export const MAX_OWNED_ITEM_COUNT = 1;
@@ -83,8 +86,8 @@ export const ITEM_DEFINITIONS = {
     slot: "HEAD",
     acquisition: "DESERT_DROP",
     description: "A sturdy wooden full helm carried by Beginner Desert monsters that increases maximum health.",
-    stats: ["MAX HEALTH +25%"],
-    modifiers: { maxHealthMultiplierBonus: .25 },
+    stats: ["MAX HEALTH +12%"],
+    modifiers: { maxHealthMultiplierBonus: .12 },
   },
   [FIRE_METAL_HELMET]: {
     id: FIRE_METAL_HELMET,
@@ -92,10 +95,10 @@ export const ITEM_DEFINITIONS = {
     slot: "HEAD",
     acquisition: "LAVA_DROP",
     description: "A red-hot metal helm carried by Advanced Lava Lake monsters that fortifies health and regeneration.",
-    stats: ["MAX HEALTH +25%", "REGEN +50%"],
+    stats: ["MAX HEALTH +12%", "REGEN +20%"],
     modifiers: {
-      maxHealthMultiplierBonus: .25,
-      regenerationMultiplierBonus: .5,
+      maxHealthMultiplierBonus: .12,
+      regenerationMultiplierBonus: .2,
     },
   },
   [DARK_METAL_HELMET]: {
@@ -104,10 +107,10 @@ export const ITEM_DEFINITIONS = {
     slot: "HEAD",
     acquisition: "INFERNAL_DROP",
     description: "A horned dark-metal helm carried by Night Forest monsters that greatly amplifies health and regeneration.",
-    stats: ["MAX HEALTH +150%", "REGEN +200%"],
+    stats: ["MAX HEALTH +60%", "REGEN +80%"],
     modifiers: {
-      maxHealthMultiplierBonus: 1.5,
-      regenerationMultiplierBonus: 2,
+      maxHealthMultiplierBonus: .6,
+      regenerationMultiplierBonus: .8,
     },
   },
   [LEGENDARY_WHITE_GOLD_ARMOR]: {
@@ -154,11 +157,11 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "DESERT_DROP",
     description: "A reinforced iron bow carried by Beginner Desert monsters that strengthens every shot.",
-    stats: ["DAMAGE +50%"],
+    stats: ["DAMAGE +25%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
-      damageMultiplierBonus: .5,
+      damageMultiplierBonus: .25,
     },
   },
   [FROST_BOW]: {
@@ -167,11 +170,11 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "SNOW_BOSS_DROP",
     description: "A frozen bow claimed from Frostclaw, built for devastating shots.",
-    stats: ["DAMAGE +100%"],
+    stats: ["DAMAGE +40%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
-      damageMultiplierBonus: 1,
+      damageMultiplierBonus: .4,
     },
   },
   [LAVA_BOW]: {
@@ -180,11 +183,11 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "LAVA_BOSS_DROP",
     description: "A blazing red bow claimed from the Magmalisk, built for overwhelming damage.",
-    stats: ["DAMAGE +125%"],
+    stats: ["DAMAGE +50%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
-      damageMultiplierBonus: 1.25,
+      damageMultiplierBonus: .5,
     },
   },
   [FIRE_METAL_BOW]: {
@@ -193,11 +196,11 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "INFERNAL_DROP",
     description: "A forged bow carried by Night Forest monsters, built for extreme damage.",
-    stats: ["DAMAGE +150%"],
+    stats: ["DAMAGE +60%"],
     weapon: {
       mode: "RANGED",
       projectile: "ARROW",
-      damageMultiplierBonus: 1.5,
+      damageMultiplierBonus: .6,
     },
   },
   [FROST_ARMOR]: {
@@ -206,10 +209,10 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "SNOW_BOSS_DROP",
     description: "Frozen blue armor claimed from Frostclaw that fortifies health and regeneration.",
-    stats: ["MAX HEALTH +100%", "REGEN +100%"],
+    stats: ["MAX HEALTH +40%", "REGEN +40%"],
     modifiers: {
-      maxHealthMultiplierBonus: 1,
-      regenerationMultiplierBonus: 1,
+      maxHealthMultiplierBonus: .4,
+      regenerationMultiplierBonus: .4,
     },
   },
   [MAGMA_ARMOR]: {
@@ -218,10 +221,10 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "LAVA_DROP",
     description: "Molten orange armor carried by Lava Wastes monsters that amplifies health and regeneration.",
-    stats: ["MAX HEALTH +125%", "REGEN +125%"],
+    stats: ["MAX HEALTH +50%", "REGEN +50%"],
     modifiers: {
-      maxHealthMultiplierBonus: 1.25,
-      regenerationMultiplierBonus: 1.25,
+      maxHealthMultiplierBonus: .5,
+      regenerationMultiplierBonus: .5,
     },
   },
   [WOODEN_ARMOR]: {

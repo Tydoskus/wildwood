@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.552": [
+    "Late-map progression now follows a smoother logarithmic rhythm, with meaningful travel, shorter regular fights, and bosses that remain real capstones.",
+    "Equipment power has been scaled down, while the Balance Lab now exposes time spent on each stat, travel, bosses, and progression bottlenecks.",
+  ],
   "0.551": [
     "Ranged enemies no longer flicker at aggro edges, and movement speed and aggro reach stop increasing after Snowlands.",
     "Sign-in notes and OAuth loading are stable again, while resumed iOS web apps recover from stale reconnects.",
@@ -1200,6 +1204,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.552": "2026-08-28",
   "0.551": "2026-08-28",
   "0.550": "2026-08-27",
   "0.549": "2026-08-27",

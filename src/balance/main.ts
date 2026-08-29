@@ -4,12 +4,15 @@ import { MAP_DISPLAY_NAMES } from "../../shared/rules";
 import { formatCompactNumber } from "../ui/number-format";
 import {
   BALANCE_MAP_IDS,
+  buildStackedLogTargetCurve,
   defaultBalanceSimulationConfig,
   type BalanceMapId,
   type BalanceSimulationConfig,
   type BalanceSimulationResult,
   type FarmingStrategy,
+  type ProgressionStat,
   type ResearchPlan,
+  type StatProgressionMetric,
   type TimelinePoint,
 } from "./simulator";
 
@@ -17,8 +20,8 @@ type SimulationResponse =
   | { id: number; ok: true; elapsedMs: number; result: BalanceSimulationResult }
   | { id: number; ok: false; message: string };
 
-const STORAGE_KEY = "wildwood.balanceLab.config.v2";
-const STORAGE_SCHEMA_VERSION = 2;
+const STORAGE_KEY = "wildwood.balanceLab.config.v5";
+const STORAGE_SCHEMA_VERSION = 5;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function requiredElement<T extends Element>(id: string) {
@@ -37,17 +40,24 @@ const bossTargetMinutes = requiredElement<HTMLInputElement>("bossTargetMinutes")
 const targetDesertHours = requiredElement<HTMLInputElement>("targetDesertHours");
 const targetMapDurationMultiplier = requiredElement<HTMLInputElement>("targetMapDurationMultiplier");
 const targetMapPowerMultiplier = requiredElement<HTMLInputElement>("targetMapPowerMultiplier");
+const targetPowerArcPercent = requiredElement<HTMLInputElement>("targetPowerArcPercent");
 const requiredClears = requiredElement<HTMLInputElement>("requiredClears");
 const respawnSeconds = requiredElement<HTMLInputElement>("respawnSeconds");
 const pathingMultiplier = requiredElement<HTMLInputElement>("pathingMultiplier");
 const itemUpgradeLevel = requiredElement<HTMLInputElement>("itemUpgradeLevel");
+const equipmentStrengthPercent = requiredElement<HTMLInputElement>("equipmentStrengthPercent");
+const futureSpeedupReservePercent = requiredElement<HTMLInputElement>("futureSpeedupReservePercent");
 const tuningMap = requiredElement<HTMLSelectElement>("tuningMap");
 const mapHpMultiplier = requiredElement<HTMLInputElement>("mapHpMultiplier");
+const mapBossHpMultiplier = requiredElement<HTMLInputElement>("mapBossHpMultiplier");
 const mapDamageMultiplier = requiredElement<HTMLInputElement>("mapDamageMultiplier");
 const mapRewardMultiplier = requiredElement<HTMLInputElement>("mapRewardMultiplier");
+const mapBossRewardMultiplier = requiredElement<HTMLInputElement>("mapBossRewardMultiplier");
 const mapHpValue = requiredElement<HTMLOutputElement>("mapHpValue");
+const mapBossHpValue = requiredElement<HTMLOutputElement>("mapBossHpValue");
 const mapDamageValue = requiredElement<HTMLOutputElement>("mapDamageValue");
 const mapRewardValue = requiredElement<HTMLOutputElement>("mapRewardValue");
+const mapBossRewardValue = requiredElement<HTMLOutputElement>("mapBossRewardValue");
 const resetConfigButton = requiredElement<HTMLButtonElement>("resetConfigButton");
 const resetMapButton = requiredElement<HTMLButtonElement>("resetMapButton");
 const copyConfigButton = requiredElement<HTMLButtonElement>("copyConfigButton");
@@ -58,6 +68,11 @@ const runStatusText = requiredElement<HTMLElement>("runStatusText");
 const runMeta = requiredElement<HTMLElement>("runMeta");
 const summaryCards = requiredElement<HTMLElement>("summaryCards");
 const mapTableBody = requiredElement<HTMLTableSectionElement>("mapTableBody");
+const timeBudgetRows = requiredElement<HTMLElement>("timeBudgetRows");
+const statTimeRows = requiredElement<HTMLElement>("statTimeRows");
+const statTimeTableBody = requiredElement<HTMLTableSectionElement>("statTimeTableBody");
+const headroomBasisNote = requiredElement<HTMLElement>("headroomBasisNote");
+const headroomTableBody = requiredElement<HTMLTableSectionElement>("headroomTableBody");
 const diagnosticList = requiredElement<HTMLOListElement>("diagnosticList");
 const enemyMap = requiredElement<HTMLSelectElement>("enemyMap");
 const enemyBasisNote = requiredElement<HTMLElement>("enemyBasisNote");
@@ -127,10 +142,13 @@ function syncControlsFromConfig() {
   targetDesertHours.value = String(Number((config.targetDesertDurationSeconds / 3_600).toFixed(2)));
   targetMapDurationMultiplier.value = String(config.targetMapDurationMultiplier);
   targetMapPowerMultiplier.value = String(config.targetMapPowerMultiplier);
+  targetPowerArcPercent.value = String(Number((config.targetPowerArcBlend * 100).toFixed(2)));
   requiredClears.value = String(config.requiredClears);
   respawnSeconds.value = String(config.respawnSeconds);
   pathingMultiplier.value = String(config.pathingMultiplier);
   itemUpgradeLevel.value = String(config.itemUpgradeLevel);
+  equipmentStrengthPercent.value = String(Number((config.equipmentStrengthMultiplier * 100).toFixed(2)));
+  futureSpeedupReservePercent.value = String(Number(((config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(2)));
   tuningMap.value = selectedTuningMap;
   syncTuningControls();
   updateRunEstimate();
@@ -145,10 +163,19 @@ function syncConfigFromControls() {
   config.targetDesertDurationSeconds = numberValue(targetDesertHours, config.targetDesertDurationSeconds / 3_600) * 3_600;
   config.targetMapDurationMultiplier = numberValue(targetMapDurationMultiplier, config.targetMapDurationMultiplier);
   config.targetMapPowerMultiplier = numberValue(targetMapPowerMultiplier, config.targetMapPowerMultiplier);
+  config.targetPowerArcBlend = numberValue(targetPowerArcPercent, config.targetPowerArcBlend * 100) / 100;
   config.requiredClears = Math.round(numberValue(requiredClears, config.requiredClears));
   config.respawnSeconds = numberValue(respawnSeconds, config.respawnSeconds);
   config.pathingMultiplier = numberValue(pathingMultiplier, config.pathingMultiplier);
   config.itemUpgradeLevel = Math.round(numberValue(itemUpgradeLevel, config.itemUpgradeLevel));
+  config.equipmentStrengthMultiplier = numberValue(
+    equipmentStrengthPercent,
+    config.equipmentStrengthMultiplier * 100,
+  ) / 100;
+  config.futureSpeedupReserveMultiplier = 1 + numberValue(
+    futureSpeedupReservePercent,
+    (config.futureSpeedupReserveMultiplier - 1) * 100,
+  ) / 100;
   trialsValue.value = String(config.trials);
   updateRunEstimate();
 }
@@ -156,11 +183,15 @@ function syncConfigFromControls() {
 function syncTuningControls() {
   const adjustment = config.mapAdjustments[selectedTuningMap];
   mapHpMultiplier.value = percentInputValue(adjustment.hp);
+  mapBossHpMultiplier.value = percentInputValue(adjustment.bossHp);
   mapDamageMultiplier.value = percentInputValue(adjustment.damage);
   mapRewardMultiplier.value = percentInputValue(adjustment.reward);
+  mapBossRewardMultiplier.value = percentInputValue(adjustment.bossReward);
   mapHpValue.value = formatTuningPercent(numberValue(mapHpMultiplier, 100));
+  mapBossHpValue.value = formatTuningPercent(numberValue(mapBossHpMultiplier, 100));
   mapDamageValue.value = formatTuningPercent(numberValue(mapDamageMultiplier, 100));
   mapRewardValue.value = formatTuningPercent(numberValue(mapRewardMultiplier, 100));
+  mapBossRewardValue.value = formatTuningPercent(numberValue(mapBossRewardMultiplier, 100));
 }
 
 function percentInputValue(multiplier: number) {
@@ -177,8 +208,10 @@ function formatTuningPercent(percent: number) {
 function syncTuningConfig() {
   config.mapAdjustments[selectedTuningMap] = {
     hp: numberValue(mapHpMultiplier, 100) / 100,
+    bossHp: numberValue(mapBossHpMultiplier, 100) / 100,
     damage: numberValue(mapDamageMultiplier, 100) / 100,
     reward: numberValue(mapRewardMultiplier, 100) / 100,
+    bossReward: numberValue(mapBossRewardMultiplier, 100) / 100,
   };
   syncTuningControls();
 }
@@ -245,13 +278,17 @@ function renderSummary(next: BalanceSimulationResult) {
   const previousFurthest = previousResult
     ? [...previousResult.maps].reverse().find((map) => map.reachedPercent >= 50)
     : null;
-  const pacingTargets = next.maps.filter((map) => map.durationVsTarget !== null && (!map.hasBoss || map.completedPercent >= 50));
+  const hasMeasuredWindow = (map: BalanceSimulationResult["maps"][number]) =>
+    map.hasBoss ? map.completedPercent >= 50 : map.durationVsTarget === null || map.durationVsTarget >= .75;
+  const pacingTargets = next.maps.filter((map) => map.durationVsTarget !== null && hasMeasuredWindow(map));
   const pacingHits = pacingTargets.filter((map) => map.durationVsTarget! >= .75 && map.durationVsTarget! <= 1.25).length;
-  const powerTargets = next.maps.filter((map) => map.powerGrowthMultiplier !== null && map.targetPowerGrowthMultiplier !== null && (!map.hasBoss || map.completedPercent >= 50));
+  const powerTargets = next.maps.filter((map) => map.powerGrowthMultiplier !== null && map.targetPowerGrowthMultiplier !== null && hasMeasuredWindow(map));
   const powerHits = powerTargets.filter((map) => {
     const fit = map.powerGrowthMultiplier! / map.targetPowerGrowthMultiplier!;
     return fit >= .65 && fit <= 1.5;
   }).length;
+  const headroomTargets = next.maps.filter((map) => map.futureHeadroom !== null);
+  const headroomHits = headroomTargets.filter((map) => map.futureHeadroom?.reservePass).length;
   const cards = [
     {
       label: "FINAL MEDIAN POWER",
@@ -266,12 +303,12 @@ function renderSummary(next: BalanceSimulationResult) {
     {
       label: "CURVE TARGETS",
       value: `${pacingHits}/${pacingTargets.length} ON TIME`,
-      detail: `${powerHits}/${powerTargets.length} near ${formatRatio(next.config.targetMapPowerMultiplier)} power growth per map`,
+      detail: `${powerHits}/${powerTargets.length} near ${formatRatio(next.config.targetMapPowerMultiplier)} power growth · ${headroomHits}/${headroomTargets.length} hold ${((next.config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(0)}% future reserve`,
     },
     {
       label: "FURTHEST MEDIAN MAP",
       value: furthestMap.name,
-      detail: `entered ${formatDuration(furthestMap.enteredAtMedianSeconds)} · ${previousFurthest && previousFurthest.mapId !== furthestMap.mapId ? `<span class="delta">was ${previousFurthest.name}</span>` : "50%+ of runs"}`,
+      detail: `entered ${formatDuration(furthestMap.enteredAtMedianSeconds)} · gear ${furthestMap.exitPowerComponentsMedian?.equipmentSharePercent.toFixed(0) ?? "—"}% of exit power · ${previousFurthest && previousFurthest.mapId !== furthestMap.mapId ? `<span class="delta">was ${previousFurthest.name}</span>` : "50%+ of runs"}`,
     },
   ];
   summaryCards.replaceChildren();
@@ -288,6 +325,174 @@ function mapDurationText(map: BalanceSimulationResult["maps"][number]) {
   if (!map.hasBoss) return `${formatDuration(map.durationMedianSeconds)} observed`;
   const suffix = map.durationCensoredPercent > 0 ? "+" : "";
   return `${formatDuration(map.durationP10Seconds)} / ${formatDuration(map.durationMedianSeconds)}${suffix} / ${formatDuration(map.durationP90Seconds)}${suffix}`;
+}
+
+function powerCompositionMarkup(map: BalanceSimulationResult["maps"][number]) {
+  const components = map.exitPowerComponentsMedian;
+  if (!components || components.total <= 0) return "";
+  const share = (value: number) => Math.round(value / components.total * 100);
+  return `<span class="cell-sub">budget D ${share(components.damage)}% · HP ${share(components.health)}% · A ${share(components.armor)}% · R ${share(components.regeneration)}%</span>` +
+    `<span class="cell-sub">equipment adds ${components.equipmentSharePercent.toFixed(0)}% of exit power${map.bossRewardGrowthSharePercent === null ? "" : ` · boss supplies ${map.bossRewardGrowthSharePercent.toFixed(0)}% of map gains`}</span>`;
+}
+
+function curveProgressMarkup(map: BalanceSimulationResult["maps"][number]) {
+  if (!map.curveProgress) return `<span class="neutral">${map.reachedPercent ? "NO GROWTH SAMPLE" : "NOT REACHED"}</span>`;
+  const triplet = (curve: NonNullable<typeof map.curveProgress>) =>
+    `${Math.round(curve.p25 * 100)} / ${Math.round(curve.p50 * 100)} / ${Math.round(curve.p75 * 100)}%`;
+  return `${triplet(map.curveProgress)}<span class="cell-sub">${map.targetCurveProgress ? `target ${triplet(map.targetCurveProgress)}` : "onboarding shape"}</span>`;
+}
+
+const TIME_BUDGET_CATEGORIES = [
+  { key: "regularCombatSeconds", label: "REGULAR COMBAT" },
+  { key: "bossCombatSeconds", label: "BOSS" },
+  { key: "travelSeconds", label: "TRAVEL" },
+  { key: "respawnWaitSeconds", label: "RESPAWN WAIT" },
+  { key: "lootRetargetSeconds", label: "LOOT / RETARGET" },
+] as const;
+
+const STAT_TIME_CATEGORIES: Array<{ key: ProgressionStat; label: string }> = [
+  { key: "damage", label: "DAMAGE" },
+  { key: "health", label: "HEALTH" },
+  { key: "armor", label: "ARMOR" },
+  { key: "regeneration", label: "REGEN" },
+  { key: "attackSpeed", label: "ATTACK SPEED" },
+];
+
+function renderTimeBudgets(next: BalanceSimulationResult) {
+  timeBudgetRows.replaceChildren();
+  for (const map of next.maps) {
+    const budget = map.timeBudgetMedian;
+    if (!budget) continue;
+    const total = TIME_BUDGET_CATEGORIES.reduce((sum, category) => sum + budget[category.key], 0);
+    if (total <= 0) continue;
+    const row = document.createElement("div");
+    row.className = "time-budget-row";
+    const label = document.createElement("span");
+    label.className = "time-budget-map";
+    label.textContent = map.name;
+    const track = document.createElement("div");
+    track.className = "time-budget-track";
+    track.setAttribute("role", "img");
+    const description = TIME_BUDGET_CATEGORIES
+      .filter((category) => budget[category.key] > 0)
+      .map((category) => `${category.label.toLowerCase()} ${Math.round(budget[category.key] / total * 100)}%`)
+      .join(", ");
+    track.setAttribute("aria-label", `${map.name}: ${description}`);
+    for (const category of TIME_BUDGET_CATEGORIES) {
+      const seconds = budget[category.key];
+      if (seconds <= 0) continue;
+      const segment = document.createElement("span");
+      segment.className = `time-budget-segment ${category.key}`;
+      segment.style.width = `${seconds / total * 100}%`;
+      track.append(segment);
+    }
+    const value = document.createElement("span");
+    value.className = "time-budget-total";
+    value.textContent = formatDuration(total);
+    row.append(label, track, value);
+    timeBudgetRows.append(row);
+  }
+}
+
+function statTimeCell(metric: StatProgressionMetric | undefined) {
+  if (!metric || metric.investmentSecondsMedian < .01) return `<span class="neutral">—</span>`;
+  const efficiency = metric.secondsPerOnePercentPower === null
+    ? "NO DIRECT POWER"
+    : `${formatDuration(metric.secondsPerOnePercentPower)} / +1%`;
+  const doubling = metric.effectiveDoublingSecondsMedian === null
+    ? "no effective 2×"
+    : `effective 2× ${formatDuration(metric.effectiveDoublingSecondsMedian)}`;
+  return `${formatDuration(metric.investmentSecondsMedian)}` +
+    `<span class="cell-sub">${metric.investmentSharePercent.toFixed(0)}% pursuit · ${metric.rewardGrowthSharePercent.toFixed(0)}% direct growth</span>` +
+    `<span class="cell-sub">${efficiency} · ${doubling}</span>`;
+}
+
+function renderStatProgression(next: BalanceSimulationResult) {
+  statTimeRows.replaceChildren();
+  statTimeTableBody.replaceChildren();
+  for (const map of next.maps) {
+    if (map.reachedPercent <= 0) continue;
+    const trackedSeconds = map.statProgression.reduce(
+      (sum, metric) => sum + metric.investmentSecondsMedian,
+      0,
+    );
+    if (trackedSeconds > 0) {
+      const row = document.createElement("div");
+      row.className = "stat-time-row";
+      const label = document.createElement("span");
+      label.className = "time-budget-map";
+      label.textContent = map.name;
+      const track = document.createElement("div");
+      track.className = "stat-time-track";
+      track.setAttribute("role", "img");
+      const description = STAT_TIME_CATEGORIES.flatMap((category) => {
+        const metric = map.statProgression.find((entry) => entry.stat === category.key);
+        return metric && metric.investmentSecondsMedian > 0
+          ? [`${category.label.toLowerCase()} ${Math.round(metric.investmentSecondsMedian / trackedSeconds * 100)}%`]
+          : [];
+      }).join(", ");
+      track.setAttribute("aria-label", `${map.name}: ${description} of active stat pursuit time`);
+      for (const category of STAT_TIME_CATEGORIES) {
+        const metric = map.statProgression.find((entry) => entry.stat === category.key);
+        if (!metric || metric.investmentSecondsMedian <= 0) continue;
+        const segment = document.createElement("span");
+        segment.className = `stat-time-segment ${category.key}`;
+        segment.style.width = `${metric.investmentSecondsMedian / trackedSeconds * 100}%`;
+        track.append(segment);
+      }
+      const value = document.createElement("span");
+      value.className = "time-budget-total";
+      value.textContent = `${formatDuration(trackedSeconds)} active`;
+      row.append(label, track, value);
+      statTimeRows.append(row);
+    }
+
+    const tableRow = document.createElement("tr");
+    const cells = STAT_TIME_CATEGORIES.map((category) =>
+      statTimeCell(map.statProgression.find((entry) => entry.stat === category.key)));
+    tableRow.innerHTML = `<td><span class="map-name">${map.name}</span></td>${cells.map((cell) => `<td>${cell}</td>`).join("")}`;
+    statTimeTableBody.append(tableRow);
+  }
+}
+
+function safeCeilingText(multiplier: number | null) {
+  if (multiplier === null) return `NOT LIMITING`;
+  return `${multiplier.toFixed(2)}×`;
+}
+
+function momentumMarkup(momentum: BalanceSimulationResult["maps"][number]["momentum"]) {
+  if (!momentum) return "";
+  return `<span class="cell-sub">+${momentum.meaningfulGainPercent.toFixed(0)}% gap ${formatDuration(momentum.longestGainGapSeconds)} (${momentum.longestGainGapSharePercent.toFixed(0)}%) · biggest ${formatRatio(1 + momentum.largestSingleJumpPercent / 100)} / ${momentum.largestSingleJumpGrowthSharePercent.toFixed(0)}% log</span>`;
+}
+
+function renderHeadroom(next: BalanceSimulationResult) {
+  const reservePercent = (next.config.futureSpeedupReserveMultiplier - 1) * 100;
+  headroomBasisNote.textContent = `Tests ${reservePercent.toFixed(0)}% uniform future speed. Category ceilings hold all other time fixed.`;
+  headroomTableBody.replaceChildren();
+  for (const map of next.maps.slice(1)) {
+    const row = document.createElement("tr");
+    const headroom = map.futureHeadroom;
+    const momentum = map.momentum;
+    if (!headroom) {
+      const unavailableLabel = map.hasBoss ? "CENSORED" : "OPEN WINDOW";
+      row.innerHTML = `
+        <td><span class="map-name">${map.name}</span>${momentumMarkup(momentum)}</td>
+        <td><span class="neutral">${unavailableLabel}</span></td>
+        <td>—</td><td>—</td><td>—</td><td>—</td>`;
+      headroomTableBody.append(row);
+      continue;
+    }
+    const reserveClass = headroom.reservePass ? "good" : "risk";
+    const reserveLabel = headroom.reservePass ? "ROOM HELD" : "NO ROOM";
+    row.innerHTML = `
+      <td><span class="map-name">${map.name}</span>${momentumMarkup(momentum)}</td>
+      <td class="${reserveClass}">${reserveLabel}<span class="cell-sub">projected ${formatDuration(headroom.projectedDurationAtReserveSeconds)} · floor ${formatDuration((map.targetDurationSeconds ?? 0) * .75)}</span></td>
+      <td>${safeCeilingText(headroom.uniformSafeMultiplier)}<span class="cell-sub">whole map</span></td>
+      <td>${safeCeilingText(headroom.combatSafeMultiplier)}<span class="cell-sub">same fights</span></td>
+      <td>${safeCeilingText(headroom.farmingSafeMultiplier)}<span class="cell-sub">rewards / clears</span></td>
+      <td>${safeCeilingText(headroom.movementSafeMultiplier)}<span class="cell-sub">travel</span></td>`;
+    headroomTableBody.append(row);
+  }
 }
 
 function renderMapTable(next: BalanceSimulationResult) {
@@ -318,7 +523,8 @@ function renderMapTable(next: BalanceSimulationResult) {
       <td>${formatPercent(reached)} / ${cleared}<span class="cell-sub">${reached === 0 ? "not reached" : !map.hasBoss ? "open-ended window" : map.durationCensoredPercent ? `${Math.round(map.durationCensoredPercent)}% duration-censored` : "complete sample"}</span></td>
       <td>${formatDuration(map.enteredAtMedianSeconds)}</td>
       <td>${mapDurationText(map)}${durationTarget}</td>
-      <td>${power}${powerGrowth}</td>
+      <td>${power}${powerGrowth}${powerCompositionMarkup(map)}</td>
+      <td>${curveProgressMarkup(map)}</td>
       <td>${bossTtk}</td>
       <td>${map.regularKillsMedian === null ? "—" : Math.round(map.regularKillsMedian).toLocaleString()}</td>
       <td>${stepMarkup}</td>`;
@@ -357,14 +563,15 @@ function renderEnemyTable(next: BalanceSimulationResult) {
   for (const metric of metrics) {
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td><span class="enemy-name">${metric.enemy}</span></td>
+      <td><span class="enemy-name">${metric.enemy}</span>${metric.elite ? `<span class="enemy-elite">ELITE</span>` : ""}</td>
       <td>${metric.spawnCount}</td>
       <td>${formatCompactNumber(metric.hp)}</td>
       <td>+${formatCompactNumber(metric.rewardAmount)}<span class="reward-type">${metric.rewardType}</span></td>
-      <td>${formatDuration(metric.timeToKillSeconds)}</td>
-      <td>${formatCompactNumber(metric.combatPowerPerMinute)}</td>
-      <td>${formatCompactNumber(metric.damageAfterArmor)}<span class="cell-sub">${metric.hitPercentOfHealth >= 1_000 ? formatCompactNumber(metric.hitPercentOfHealth) : metric.hitPercentOfHealth.toFixed(0)}% HP</span></td>
-      <td class="${metric.hitsToDefeatPlayer <= 1 ? "risk" : ""}">${metric.hitsToDefeatPlayer.toLocaleString()}</td>`;
+      <td>${formatDuration(metric.timeToKillSeconds)}<span class="cell-sub">${metric.ttkVsMapMedian.toFixed(2)}× map median</span></td>
+      <td>${formatDuration(metric.fullClearCombatSeconds)}<span class="cell-sub">${metric.fullClearCombatSharePercent.toFixed(0)}% of full-clear combat</span></td>
+      <td>+${formatCompactNumber(metric.powerGain)}<span class="cell-sub">${metric.powerGainPercentOfEntry.toFixed(3)}% entry power · ${metric.combatSecondsPerOnePercentPower === null ? "—" : formatDuration(metric.combatSecondsPerOnePercentPower)} / 1%</span></td>
+      <td>${formatCompactNumber(metric.combatPowerPerMinute)}<span class="cell-sub">${metric.efficiencyVsMapMedian.toFixed(2)}× map median</span></td>
+      <td class="${metric.hitsToDefeatPlayer <= 1 ? "risk" : ""}">${formatCompactNumber(metric.damageAfterArmor)}<span class="cell-sub">${metric.hitPercentOfHealth >= 1_000 ? formatCompactNumber(metric.hitPercentOfHealth) : metric.hitPercentOfHealth.toFixed(0)}% HP · ${metric.hitsToDefeatPlayer.toLocaleString()} hits</span></td>`;
     enemyTableBody.append(row);
   }
 }
@@ -394,19 +601,11 @@ function renderChart(next: BalanceSimulationResult) {
   const plotWidth = width - left - right;
   const plotHeight = height - top - bottom;
   const previousPoints = previousResult?.timeline.filter((point) => point.timeSeconds <= next.config.durationSeconds) ?? [];
-  const desert = next.maps[1];
-  const targetCurve: Array<{ timeSeconds: number; power: number }> = [];
-  if (desert && desert.enteredAtMedianSeconds !== null && desert.entryPowerMedian !== null) {
-    let targetTime = desert.enteredAtMedianSeconds;
-    let targetPower = desert.entryPowerMedian;
-    targetCurve.push({ timeSeconds: targetTime, power: targetPower });
-    for (const map of next.maps.slice(1)) {
-      if (map.targetDurationSeconds === null || map.targetPowerGrowthMultiplier === null) continue;
-      targetTime += map.targetDurationSeconds;
-      targetPower *= map.targetPowerGrowthMultiplier;
-      targetCurve.push({ timeSeconds: targetTime, power: targetPower });
-    }
-  }
+  const targetCurve = buildStackedLogTargetCurve(
+    next.maps.slice(1),
+    18,
+    next.config.targetPowerArcBlend,
+  ).filter((point) => point.timeSeconds <= next.config.durationSeconds);
   const values = next.timeline.flatMap((point) => [point.powerP10, point.powerP90]);
   values.push(...previousPoints.map((point) => point.powerMedian));
   values.push(...targetCurve.map((point) => point.power));
@@ -443,7 +642,7 @@ function renderChart(next: BalanceSimulationResult) {
     if (map.enteredAtMedianSeconds === null) return;
     const xPosition = x(map.enteredAtMedianSeconds);
     powerChart.append(svgElement("line", { x1: xPosition, y1: top, x2: xPosition, y2: height - bottom, class: "map-entry-line" }));
-    const label = svgElement("text", { x: xPosition + 5, y: 17 + index % 2 * 13, class: "map-entry-label" });
+    const label = svgElement("text", { x: xPosition + 5, y: 12 + index % 3 * 13, class: "map-entry-label" });
     label.textContent = map.name.toUpperCase();
     powerChart.append(label);
   });
@@ -506,6 +705,9 @@ function renderChart(next: BalanceSimulationResult) {
 function render(next: BalanceSimulationResult) {
   renderSummary(next);
   renderChart(next);
+  renderTimeBudgets(next);
+  renderStatProgression(next);
+  renderHeadroom(next);
   renderMapTable(next);
   renderDiagnostics(next);
   const medianMap = [...next.maps].reverse().find((map) => map.reachedPercent >= 50);
@@ -557,7 +759,13 @@ form.addEventListener("submit", (event) => {
 });
 
 form.addEventListener("input", (event) => {
-  if (event.target === mapHpMultiplier || event.target === mapDamageMultiplier || event.target === mapRewardMultiplier) {
+  if (
+    event.target === mapHpMultiplier ||
+    event.target === mapBossHpMultiplier ||
+    event.target === mapDamageMultiplier ||
+    event.target === mapRewardMultiplier ||
+    event.target === mapBossRewardMultiplier
+  ) {
     syncTuningConfig();
   }
   markDirty();
@@ -576,7 +784,7 @@ enemyMap.addEventListener("change", () => {
 });
 
 resetMapButton.addEventListener("click", () => {
-  config.mapAdjustments[selectedTuningMap] = { hp: 1, damage: 1, reward: 1 };
+  config.mapAdjustments[selectedTuningMap] = { hp: 1, bossHp: 1, damage: 1, reward: 1, bossReward: 1 };
   syncTuningControls();
   markDirty();
 });

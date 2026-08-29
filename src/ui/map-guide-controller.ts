@@ -156,7 +156,8 @@ export function mapGuideZones(spawnSites: readonly SpawnSite[]): MapGuideZone[] 
 
 export function mapGuideDropChance(denominator: number) {
   const percent = 100 / denominator;
-  return `${Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(1)}%`;
+  const precision = Number.isInteger(percent) ? 0 : percent < 1 ? 2 : 1;
+  return `${percent.toFixed(precision)}%`;
 }
 
 function bonusLabel(value: number) {

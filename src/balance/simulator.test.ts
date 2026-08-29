@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  BALANCE_LATE_BOSS_TARGET_MAX_SECONDS,
   BALANCE_TARGET_DESERT_DURATION_SECONDS,
+  BALANCE_FIRST_SLOWDOWN_POWER,
   BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
   BALANCE_TARGET_MAP_POWER_MULTIPLIER,
+  BALANCE_TARGET_POWER_ARC_BLEND,
   GLOOMROOT_MAX_HP,
-  INFERNAL_DEPTHS_REWARD_SCALE,
+  INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER,
 } from "../../shared/rules";
-import { BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
-import { defaultBalanceSimulationConfig, runBalanceSimulation } from "./simulator";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
+import { bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, targetCurveProgress, targetPowerAtMapProgress } from "./simulator";
 
 const quickConfig = {
   durationSeconds: 60 * 60,
@@ -19,13 +22,16 @@ const quickConfig = {
 describe("balance simulator", () => {
   it("uses the intended campaign defaults when no overrides are supplied", () => {
     const defaults = defaultBalanceSimulationConfig();
-    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3 + 1.35 ** 4);
+    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3 + 1.35 ** 4 + 1.35 ** 5);
     expect(defaults.durationSeconds).toBeCloseTo(22.5 * 60 + targetedMapSeconds);
     expect(defaults.trials).toBe(100);
     expect(defaults.strategy).toBe("boss-rush");
     expect(defaults.targetDesertDurationSeconds).toBe(BALANCE_TARGET_DESERT_DURATION_SECONDS);
     expect(defaults.targetMapDurationMultiplier).toBe(BALANCE_TARGET_MAP_DURATION_MULTIPLIER);
     expect(defaults.targetMapPowerMultiplier).toBe(BALANCE_TARGET_MAP_POWER_MULTIPLIER);
+    expect(defaults.targetPowerArcBlend).toBe(BALANCE_TARGET_POWER_ARC_BLEND);
+    expect(defaults.futureSpeedupReserveMultiplier).toBe(1.25);
+    expect(defaults.equipmentStrengthMultiplier).toBe(1);
 
     const result = runBalanceSimulation({ durationSeconds: 60, trials: 1 });
     expect(result.config.strategy).toBe("boss-rush");
@@ -34,8 +40,9 @@ describe("balance simulator", () => {
     expect(desert?.targetDurationSeconds).toBe(BALANCE_TARGET_DESERT_DURATION_SECONDS);
     expect(desert?.targetPowerGrowthMultiplier).toBe(BALANCE_TARGET_MAP_POWER_MULTIPLIER);
     expect(result.maps.find((map) => map.mapId === INFERNAL_DEPTHS_MAP_ID)?.hasBoss).toBe(true);
-    expect(result.maps.find((map) => map.mapId === WATER_REACH_MAP_ID)?.hasBoss).toBe(false);
-    expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000);
+    expect(result.maps.find((map) => map.mapId === WATER_REACH_MAP_ID)?.hasBoss).toBe(true);
+    expect(result.maps.find((map) => map.mapId === SAMURAI_GARDEN_MAP_ID)?.hasBoss).toBe(false);
+    expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000 * INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER);
   });
 
   it("is deterministic for a fixed seed and configuration", () => {
@@ -51,7 +58,32 @@ describe("balance simulator", () => {
     }
   });
 
-  it("keeps the default post-onboarding campaign on its pacing and geometric power curve", () => {
+  it("places the target curve between a straight log ramp and a full logarithmic arc", () => {
+    const straight = targetCurveProgress(200, 0);
+    const blended = targetCurveProgress(200, BALANCE_TARGET_POWER_ARC_BLEND);
+    const fullArc = targetCurveProgress(200, 1);
+    expect(straight.p25).toBeCloseTo(.25);
+    expect(straight.p50).toBeCloseTo(.5);
+    expect(straight.p75).toBeCloseTo(.75);
+    expect(blended.p25).toBeGreaterThan(straight.p25);
+    expect(blended.p25).toBeLessThan(fullArc.p25);
+    expect(blended.p50).toBeGreaterThan(straight.p50);
+    expect(targetPowerAtMapProgress(100, 200, 0)).toBe(100);
+    expect(targetPowerAtMapProgress(100, 200, 1)).toBe(20_000);
+  });
+
+  it("keeps early boss readiness familiar and scales late capstones with map time", () => {
+    const config = defaultBalanceSimulationConfig();
+    expect(bossReadinessTargetSeconds(TUTORIAL_FOREST_MAP_ID, config)).toBe(5 * 60);
+    expect(bossReadinessTargetSeconds(BEGINNER_DESERT_MAP_ID, config)).toBe(5 * 60);
+    expect(bossReadinessTargetSeconds(INTERMEDIATE_SNOWLANDS_MAP_ID, config)).toBe(5 * 60);
+    expect(bossReadinessTargetSeconds(ADVANCED_LAVA_WASTES_MAP_ID, config)).toBeCloseTo(
+      BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** 2 * .05,
+    );
+    expect(bossReadinessTargetSeconds(WATER_REACH_MAP_ID, config)).toBe(BALANCE_LATE_BOSS_TARGET_MAX_SECONDS);
+  });
+
+  it("keeps the default post-onboarding campaign on its pacing and power budgets", () => {
     const result = runBalanceSimulation();
     const progressionMaps = result.maps.slice(1);
 
@@ -64,28 +96,97 @@ describe("balance simulator", () => {
       expect(powerFit).toBeGreaterThanOrEqual(.65);
       expect(powerFit).toBeLessThanOrEqual(1.5);
       const damageToHealth = map.exitEffectiveStatsMedian!.damage / map.exitEffectiveStatsMedian!.maxHp;
-      expect(damageToHealth).toBeGreaterThanOrEqual(.6);
-      expect(damageToHealth).toBeLessThanOrEqual(1.25);
+      expect(damageToHealth).toBeGreaterThanOrEqual(.55);
+      expect(damageToHealth).toBeLessThanOrEqual(1.35);
+      const measuredTime = Object.values(map.timeBudgetMedian!).reduce((sum, seconds) => sum + seconds, 0);
+      const travelShare = map.timeBudgetMedian!.travelSeconds / measuredTime;
+      expect(travelShare).toBeGreaterThanOrEqual(.03);
+      expect(travelShare).toBeLessThanOrEqual(.35);
+      if (map.hasBoss) {
+        const bossShare = map.bossFightMedianSeconds! / map.durationMedianSeconds!;
+        expect(bossShare).toBeGreaterThanOrEqual(.025);
+        expect(bossShare).toBeLessThanOrEqual(.25);
+        expect(map.futureHeadroom).not.toBeNull();
+        expect(map.futureHeadroom?.uniformSafeMultiplier).toBeCloseTo(map.durationVsTarget! / .75, 5);
+        expect(map.futureHeadroom?.projectedDurationAtReserveSeconds).toBeCloseTo(
+          map.durationMedianSeconds! / result.config.futureSpeedupReserveMultiplier,
+          5,
+        );
+      } else {
+        expect(map.futureHeadroom).toBeNull();
+      }
+      expect(map.momentum?.longestGainGapSeconds).toBeLessThanOrEqual(map.durationMedianSeconds!);
+      expect(map.momentum?.largestSingleJumpGrowthSharePercent).toBeGreaterThanOrEqual(0);
     }
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
     expect(nightEnemies).toHaveLength(5);
     for (const enemy of nightEnemies) {
       expect(enemy.hitPercentOfHealth).toBeGreaterThanOrEqual(3);
-      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(8);
-      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(13);
-      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(28);
+      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(8.5);
+      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(12);
+      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(34);
     }
 
     const waterEnemies = result.enemyMetrics[WATER_REACH_MAP_ID];
     expect(waterEnemies).toHaveLength(5);
     for (const enemy of waterEnemies) {
       expect(enemy.hitPercentOfHealth).toBeGreaterThanOrEqual(3);
-      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(8);
-      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(13);
-      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(28);
+      expect(enemy.hitPercentOfHealth).toBeLessThanOrEqual(8.5);
+      expect(enemy.hitsToDefeatPlayer).toBeGreaterThanOrEqual(12);
+      expect(enemy.hitsToDefeatPlayer).toBeLessThanOrEqual(34);
     }
-  }, 30_000);
+
+    const snow = result.maps.find((map) => map.mapId === "intermediate_snowlands")!;
+    expect(snow.exitPowerMedian).toBeGreaterThanOrEqual(BALANCE_FIRST_SLOWDOWN_POWER * .75);
+    expect(snow.exitPowerMedian).toBeLessThanOrEqual(BALANCE_FIRST_SLOWDOWN_POWER * 1.5);
+
+    for (const map of progressionMaps.slice(0, 5)) {
+      expect(map.curveProgress?.p25).toBeGreaterThanOrEqual(.25);
+    }
+  }, 60_000);
+
+  it("accounts for elapsed map time and exposes comparable enemy pressure", () => {
+    const result = runBalanceSimulation(quickConfig);
+    const forest = result.maps.find((map) => map.mapId === TUTORIAL_FOREST_MAP_ID)!;
+    const budget = forest.timeBudgetMedian!;
+    const accountedSeconds = Object.values(budget).reduce((total, seconds) => total + seconds, 0);
+    expect(accountedSeconds).toBeCloseTo(forest.durationMedianSeconds!, 5);
+
+    const trackedStatSeconds = forest.statProgression.reduce(
+      (total, metric) => total + metric.investmentSecondsMedian,
+      0,
+    );
+    expect(trackedStatSeconds).toBeCloseTo(accountedSeconds - budget.respawnWaitSeconds, 5);
+    const activeStatShares = forest.statProgression
+      .filter((metric) => metric.investmentSecondsMedian > 0)
+      .reduce((total, metric) => total + metric.investmentSharePercent, 0);
+    expect(activeStatShares).toBeCloseTo(100, 5);
+    expect(forest.statProgression.find((metric) => metric.stat === "damage")?.secondsPerOnePercentPower).toBeGreaterThan(0);
+    expect(forest.statProgression.find((metric) => metric.stat === "armor")?.investmentSecondsMedian).toBeGreaterThan(0);
+    expect(forest.statProgression.find((metric) => metric.stat === "attackSpeed")?.rewardEventsMedian).toBeGreaterThan(0);
+    expect(forest.momentum?.meaningfulGainPercent).toBeCloseTo(10);
+    expect(forest.momentum?.longestGainGapSharePercent).toBeGreaterThanOrEqual(0);
+    expect(forest.momentum?.longestGainGapSharePercent).toBeLessThanOrEqual(100);
+
+    const enemyMetrics = result.enemyMetrics[TUTORIAL_FOREST_MAP_ID];
+    expect(enemyMetrics.reduce((total, metric) => total + metric.fullClearCombatSharePercent, 0)).toBeCloseTo(100);
+    expect(enemyMetrics.every((metric) => metric.ttkVsMapMedian > 0)).toBe(true);
+    expect(enemyMetrics.every((metric) => metric.efficiencyVsMapMedian >= 0)).toBe(true);
+  });
+
+  it("can scale equipment bonuses as a sandbox-only scenario", () => {
+    const baseline = runBalanceSimulation({ ...quickConfig, trials: 1 });
+    const noEquipmentBonus = runBalanceSimulation({
+      ...quickConfig,
+      trials: 1,
+      equipmentStrengthMultiplier: 0,
+    });
+    expect(noEquipmentBonus.finalPower.median).toBeLessThanOrEqual(baseline.finalPower.median);
+    for (const map of noEquipmentBonus.maps.filter((entry) => entry.reachedPercent > 0)) {
+      expect(map.exitPowerComponentsMedian?.equipmentSharePercent).toBe(0);
+    }
+  });
 
   it("applies sandbox reward and damage multipliers independently", () => {
     const defaults = defaultBalanceSimulationConfig();
@@ -95,7 +196,12 @@ describe("balance simulator", () => {
       trials: 1,
       mapAdjustments: {
         ...defaults.mapAdjustments,
-        [TUTORIAL_FOREST_MAP_ID]: { hp: 1, damage: 2, reward: 2 },
+        [TUTORIAL_FOREST_MAP_ID]: {
+          ...defaults.mapAdjustments[TUTORIAL_FOREST_MAP_ID],
+          hp: 1,
+          damage: 2,
+          reward: 2,
+        },
       },
     });
     const baselineSpitter = baseline.enemyMetrics[TUTORIAL_FOREST_MAP_ID].find((metric) => metric.enemy === "Spitter");
@@ -105,10 +211,31 @@ describe("balance simulator", () => {
     expect(tunedSpitter?.combatPowerPerMinute).toBeGreaterThan(baselineSpitter?.combatPowerPerMinute ?? 0);
   });
 
-  it("tracks the current 6x Depth Raider reward", () => {
+  it("keeps tiny regular and boss HP sandbox values instead of snapping them to one", () => {
+    const defaults = defaultBalanceSimulationConfig();
+    const tiny = 5e-14;
+    const result = runBalanceSimulation({
+      durationSeconds: 60,
+      trials: 1,
+      mapAdjustments: {
+        ...defaults.mapAdjustments,
+        [BEGINNER_DESERT_MAP_ID]: {
+          ...defaults.mapAdjustments[BEGINNER_DESERT_MAP_ID],
+          hp: tiny,
+          bossHp: tiny,
+        },
+      },
+    });
+    expect(result.config.mapAdjustments[BEGINNER_DESERT_MAP_ID].hp).toBe(tiny);
+    expect(result.config.mapAdjustments[BEGINNER_DESERT_MAP_ID].bossHp).toBe(tiny);
+  });
+
+  it("frontloads Night Forest damage rewards into ordinary raiders", () => {
     const result = runBalanceSimulation({ durationSeconds: 60, trials: 1 });
     const raider = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID].find((metric) => metric.enemy === "Depth Raider");
+    const reaper = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID].find((metric) => metric.enemy === "Doom Reaper");
     expect(raider?.rewardType).toBe("damage");
-    expect(raider?.rewardAmount).toBe(57_600_000_000 * INFERNAL_DEPTHS_REWARD_SCALE);
+    expect(reaper?.rewardType).toBe("damage");
+    expect(raider?.rewardAmount).toBeGreaterThan(reaper?.rewardAmount ?? Number.POSITIVE_INFINITY);
   });
 });

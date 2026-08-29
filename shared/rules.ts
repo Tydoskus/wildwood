@@ -39,48 +39,177 @@ export {
   WOODEN_ARMOR,
 } from "./items";
 // Progression is budgeted around a two-hour Desert, then 1.35x longer per map.
-// Health and reward scales keep each late map near 200x relative power growth
+// Health and reward scales keep each later map near 8.5x relative power growth
 // without changing the authored archetype ratios inside that map.
 export const BALANCE_TARGET_DESERT_DURATION_SECONDS = 2 * 60 * 60;
 export const BALANCE_TARGET_MAP_DURATION_MULTIPLIER = 1.35;
-export const BALANCE_TARGET_MAP_POWER_MULTIPLIER = 200;
+// Forest currently exits near 7k canonical power. An 8.5x map step places the
+// first global slowdown knee near 500k at the Snowlands -> Lava Lake handoff,
+// then restarts a smaller logarithmic surge inside each longer map.
+export const BALANCE_TARGET_MAP_POWER_MULTIPLIER = 8.5;
+export const BALANCE_FIRST_SLOWDOWN_POWER = 500_000;
+// Blend the old straight line on a log chart (0) with a full logarithmic
+// reward arc (1). Wildwood deliberately sits between the two: each map opens
+// with visible momentum, eases into a runway, then hands off to the next map's
+// breakthrough without Cookie Clicker-sized walls or vertical jumps.
+export const BALANCE_TARGET_POWER_ARC_BLEND = .35;
+// Bosses should remain a visible capstone as maps lengthen. The simulator
+// keeps the familiar five-minute readiness target through Snowlands, then
+// grows the late-map target toward 5% of authored map time, capped at fifteen
+// minutes so a boss never becomes another multi-hour health wall.
+export const BALANCE_LATE_BOSS_TARGET_DURATION_SHARE = .05;
+export const BALANCE_LATE_BOSS_TARGET_MAX_SECONDS = 15 * 60;
 export const BEGINNER_DESERT_HEALTH_SCALE = .77;
 export const BEGINNER_DESERT_REWARD_SCALE = 1;
+// Regular-enemy runway multipliers redistribute early boss power into the map
+// without changing boss health. The small health additions preserve the
+// authored duration after those earlier, more frequent rewards speed farming.
+export const BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER = .052;
+export const BEGINNER_DESERT_BOSS_HEALTH_MULTIPLIER = .08;
+export const BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER = .0495;
+export const BEGINNER_DESERT_BOSS_REWARD_MULTIPLIER = .02;
+export const BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER = .5;
+export const BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER = 1.3;
+export const BEGINNER_DESERT_ARMOR_REWARD_MULTIPLIER = 15;
+export const BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER = 4;
 // Keep the elite's long-run reward efficiency while paying it out in smaller,
 // faster increments so early Desert power does not sit flat for half an hour.
 export const WASTES_REAPER_CADENCE_SCALE = .2;
 export const INTERMEDIATE_SNOWLANDS_HEALTH_SCALE = .0298;
 export const INTERMEDIATE_SNOWLANDS_REWARD_SCALE = .2;
+export const INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER = .0045;
+export const INTERMEDIATE_SNOWLANDS_BOSS_HEALTH_MULTIPLIER = .003;
+export const INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER = .00265;
+export const INTERMEDIATE_SNOWLANDS_BOSS_REWARD_MULTIPLIER = .00065;
+export const INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER = .5;
+export const INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER = 2.4;
+export const INTERMEDIATE_SNOWLANDS_REGEN_REWARD_MULTIPLIER = 5;
 export const ADVANCED_LAVA_WASTES_HEALTH_SCALE = .0015;
 export const ADVANCED_LAVA_WASTES_REWARD_SCALE = .041;
+// Completed late maps spend their macro budget across many compact encounter
+// cycles. Health cadence controls individual fight length; reward cadence
+// controls how many of those fights are needed to reach the next boss. Keeping
+// them explicit prevents total duration, travel, and progression from being
+// accidentally coupled again.
+export const ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE = .015;
+export const ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE = .03125;
+export const ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER = .0054;
+export const ADVANCED_LAVA_WASTES_BOSS_HEALTH_MULTIPLIER = .0001716;
+export const ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER = .001725;
+export const ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER = .0000275;
 // Late-map reward tracks keep raw damage and max health near parity. Damage
 // otherwise accelerates its own farming rate and outruns defensive growth.
-export const ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER = .7;
+export const ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER = 1;
 export const ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER = 2;
+export const ADVANCED_LAVA_WASTES_REGEN_REWARD_MULTIPLIER = 3;
 export const INFERNAL_DEPTHS_HEALTH_SCALE = .00001;
 export const INFERNAL_DEPTHS_REWARD_SCALE = .00115;
-export const INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER = .86;
+export const INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE = .024375;
+export const INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE = .05;
+export const INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE = .85;
+export const INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER = 1;
 export const INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER = 3;
+export const INFERNAL_DEPTHS_REGEN_REWARD_MULTIPLIER = 5;
+export const INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER = .0011;
+export const INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER = .0000099;
+export const INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER = .00025;
+export const INFERNAL_DEPTHS_BOSS_REWARD_MULTIPLIER = .000002;
+// Armor is logarithmic in combat, but its old reward amounts did not follow
+// the campaign's map-power steps. These explicit corrections put one Guardian
+// payout back on the same broad ladder as health and damage.
+export const SNOWLANDS_ARMOR_REWARD_MULTIPLIER = 80;
+export const LAVA_ARMOR_REWARD_MULTIPLIER = 200;
+export const NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER = 8_000;
+export const WATER_REACH_ARMOR_REWARD_MULTIPLIER = 16_000;
 // Water Reach starts from the measured Night Forest exit build. Keep the
 // authored values readable here; the Balance Lab owns any future whole-map
 // correction through these shared multipliers rather than hidden client math.
 export const WATER_REACH_HEALTH_SCALE = 1;
 export const WATER_REACH_REWARD_SCALE = .73;
-export const WATER_REACH_DAMAGE_REWARD_MULTIPLIER = .8;
+export const WATER_REACH_DAMAGE_REWARD_MULTIPLIER = 1.2;
 export const WATER_REACH_HEALTH_REWARD_MULTIPLIER = 1.5;
-export const SAMURAI_GARDEN_HEALTH_SCALE = 270;
-export const SAMURAI_GARDEN_DAMAGE_SCALE = 200;
-export const SAMURAI_GARDEN_REWARD_SCALE = 200;
+export const WATER_REACH_REGEN_REWARD_MULTIPLIER = 8;
+export const WATER_REACH_ENCOUNTER_HEALTH_SCALE = .025;
+export const WATER_REACH_ENCOUNTER_REWARD_SCALE = .0325;
+export const WATER_REACH_REGULAR_HEALTH_MULTIPLIER = .0000375;
+export const WATER_REACH_REGULAR_REWARD_MULTIPLIER = .0000075;
+// Tidewyrm originally inherited Gloomroot's boss-health constant. This factor
+// keeps Water Reach at 34.5x its former boss budget while Night Forest uses 55x.
+export const WATER_REACH_BOSS_HEALTH_MULTIPLIER = 34.5 / 55;
+export const SAMURAI_GARDEN_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
+export const SAMURAI_GARDEN_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+export const SAMURAI_GARDEN_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+// Samurai Garden is currently open-ended, so its macro budget arrives as
+// fifty compact clears rather than one multi-hour clear. This keeps ordinary
+// fights near the completed late-map cadence and leaves travel visible while
+// a future boss is still absent.
+export const SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE = .02;
+// Samurai Garden has no boss or random equipment tier yet. Multiply its regular
+// payout so the open map still reaches the campaign curve; remove or retune
+// this explicit reserve when that guaranteed breakthrough is added.
+export const SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER = 2.5;
+// Relative per-enemy health shapes. enemies.ts centers each profile against
+// the authored clear counts, so encounter texture can change without silently
+// changing the map's aggregate health budget.
+export const BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS = {
+  raider: 6,
+  archer: 6,
+  guardian: 14,
+  reaper: 1,
+  oracle: 3,
+} as const;
+export const INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS = {
+  raider: 6,
+  archer: 6,
+  guardian: 7,
+  reaper: 1,
+  oracle: 5,
+} as const;
 // Late maps keep the macro curve exact while giving individual archetypes a
 // small amount of texture. enemies.ts centers these readable profile values
 // against one complete 30-enemy clear, so total health, incoming DPS, and
-// reward power do not drift from the 270x / 200x progression budget.
+// reward power do not drift from the explicit macro/cadence budget.
 export const LATE_MAP_CLEAR_ARCHETYPE_COUNTS = {
   raider: 6,
   archer: 6,
   guardian: 7,
   reaper: 7,
   oracle: 4,
+} as const;
+export const BEGINNER_DESERT_ARCHETYPE_HEALTH_PROFILE = {
+  raider: .9,
+  archer: .82,
+  guardian: .9,
+  reaper: 1.05,
+  oracle: 1.35,
+} as const;
+export const INTERMEDIATE_SNOWLANDS_ARCHETYPE_HEALTH_PROFILE = {
+  raider: .78,
+  archer: .72,
+  guardian: 1.05,
+  reaper: 1.58,
+  oracle: 1.16,
+} as const;
+export const ADVANCED_LAVA_WASTES_ARCHETYPE_HEALTH_PROFILE = {
+  raider: .74,
+  archer: .82,
+  guardian: 1.08,
+  reaper: 1.57,
+  oracle: 1.12,
+} as const;
+export const INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE = {
+  raider: .7,
+  archer: .88,
+  guardian: 1.1,
+  reaper: 1.6,
+  oracle: 1.14,
+} as const;
+export const WATER_REACH_ARCHETYPE_HEALTH_PROFILE = {
+  raider: .76,
+  archer: .86,
+  guardian: 1.15,
+  reaper: 1.52,
+  oracle: 1.12,
 } as const;
 export const SAMURAI_GARDEN_ARCHETYPE_PROFILE = {
   raider: { health: .94, damage: 1.08, reward: 1.12, attackSpeed: .7 },
@@ -89,29 +218,36 @@ export const SAMURAI_GARDEN_ARCHETYPE_PROFILE = {
   reaper: { health: .96, damage: 1.01, reward: 1, attackSpeed: .74 },
   oracle: { health: 1.02, damage: .98, reward: 1.07, attackSpeed: .58 },
 } as const;
+export const SAMURAI_GARDEN_REWARD_TRACK_PROFILE = {
+  damage: .7,
+  health: 2,
+  armor: 1.15,
+  regen: 1.4,
+  speed: 1,
+} as const;
 
-export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE;
-export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE;
-export const MAGMALISK_MAX_HP = 3_750_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE;
-export const SPIDER_REWARD_DAMAGE = 75_000 * BEGINNER_DESERT_REWARD_SCALE;
-export const SPIDER_REWARD_HEALTH = 200_000 * BEGINNER_DESERT_REWARD_SCALE;
+export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_BOSS_HEALTH_MULTIPLIER;
+export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_BOSS_HEALTH_MULTIPLIER;
+export const MAGMALISK_MAX_HP = 3_750_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_BOSS_HEALTH_MULTIPLIER;
+export const SPIDER_REWARD_DAMAGE = 75_000 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_BOSS_REWARD_MULTIPLIER * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER;
+export const SPIDER_REWARD_HEALTH = 200_000 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_BOSS_REWARD_MULTIPLIER * BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER;
 export const DRAGON_MAX_HP = 300_000;
 export const DRAGON_REWARD_DAMAGE = 650;
-export const FROSTCLAW_REWARD_DAMAGE = 72_000_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
-export const FROSTCLAW_REWARD_HEALTH = 270_000_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
-export const FROSTCLAW_REWARD_ARMOR = 75_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE;
-export const MAGMALISK_REWARD_DAMAGE = 14_400_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER;
-export const MAGMALISK_REWARD_HEALTH = 81_945_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER;
-export const MAGMALISK_REWARD_ARMOR = 7_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
-export const MAGMALISK_REWARD_REGEN = 405_015_625 * ADVANCED_LAVA_WASTES_REWARD_SCALE;
-export const GLOOMROOT_MAX_HP = 1_150_000_000_000_000;
-export const GLOOMROOT_REWARD_DAMAGE = 120_000_000_000;
-export const GLOOMROOT_REWARD_HEALTH = 250_000_000_000;
-export const GLOOMROOT_REWARD_ARMOR = 10_000_000;
-export const GLOOMROOT_REWARD_REGEN = 2_000_000_000;
-export const TIDEWYRM_MAX_HP = GLOOMROOT_MAX_HP * SAMURAI_GARDEN_HEALTH_SCALE;
-export const TIDEWYRM_REWARD_DAMAGE = GLOOMROOT_REWARD_DAMAGE * SAMURAI_GARDEN_REWARD_SCALE;
-export const TIDEWYRM_REWARD_HEALTH = GLOOMROOT_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE;
+export const FROSTCLAW_REWARD_DAMAGE = 72_000_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_BOSS_REWARD_MULTIPLIER * INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER;
+export const FROSTCLAW_REWARD_HEALTH = 270_000_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_BOSS_REWARD_MULTIPLIER * INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER;
+export const FROSTCLAW_REWARD_ARMOR = 75_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_BOSS_REWARD_MULTIPLIER;
+export const MAGMALISK_REWARD_DAMAGE = 14_400_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER;
+export const MAGMALISK_REWARD_HEALTH = 81_945_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER;
+export const MAGMALISK_REWARD_ARMOR = 7_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER;
+export const MAGMALISK_REWARD_REGEN = 405_015_625 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER;
+export const GLOOMROOT_MAX_HP = 1_150_000_000_000_000 * INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER;
+export const GLOOMROOT_REWARD_DAMAGE = 120_000_000_000 * INFERNAL_DEPTHS_BOSS_REWARD_MULTIPLIER * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER;
+export const GLOOMROOT_REWARD_HEALTH = 250_000_000_000 * INFERNAL_DEPTHS_BOSS_REWARD_MULTIPLIER * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER;
+export const GLOOMROOT_REWARD_ARMOR = 10_000_000 * INFERNAL_DEPTHS_BOSS_REWARD_MULTIPLIER;
+export const GLOOMROOT_REWARD_REGEN = 2_000_000_000 * INFERNAL_DEPTHS_BOSS_REWARD_MULTIPLIER;
+export const TIDEWYRM_MAX_HP = GLOOMROOT_MAX_HP * SAMURAI_GARDEN_HEALTH_SCALE * WATER_REACH_BOSS_HEALTH_MULTIPLIER;
+export const TIDEWYRM_REWARD_DAMAGE = GLOOMROOT_REWARD_DAMAGE * SAMURAI_GARDEN_REWARD_SCALE * WATER_REACH_DAMAGE_REWARD_MULTIPLIER;
+export const TIDEWYRM_REWARD_HEALTH = GLOOMROOT_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER;
 export const TIDEWYRM_REWARD_ARMOR = GLOOMROOT_REWARD_ARMOR * SAMURAI_GARDEN_REWARD_SCALE;
 export const TIDEWYRM_REWARD_REGEN = GLOOMROOT_REWARD_REGEN * SAMURAI_GARDEN_REWARD_SCALE;
 
