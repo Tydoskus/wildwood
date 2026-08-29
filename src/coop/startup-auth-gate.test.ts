@@ -157,9 +157,32 @@ describe("startup auth gate", () => {
     ui.signInButton.click();
     await Promise.resolve();
 
-    expect(ui.accountChoicePanel.hidden).toBe(false);
-    expect(ui.connectionPanel.hidden).toBe(true);
+    expect(ui.accountChoicePanel.hidden).toBe(true);
+    expect(ui.connectionPanel.hidden).toBe(false);
+    expect(ui.loadingDetail.textContent).toBe("OPENING SIGN-IN…");
     expect(loadGame).not.toHaveBeenCalled();
+  });
+
+  it("switches directly from registration choice to loading while OAuth opens", async () => {
+    const ui = elements();
+    const gate = createStartupAuthGate({
+      accountState: () => ({ signInReady: true }),
+      knownCharacter: () => "",
+      signIn: async () => ({ ok: true, redirecting: true }),
+      continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame: async () => {},
+    }, ui);
+    gate.start();
+
+    ui.signInButton.click();
+    await Promise.resolve();
+
+    expect(ui.accountChoicePanel.hidden).toBe(true);
+    expect(ui.connectionPanel.hidden).toBe(false);
+    expect(ui.loadingDetail.textContent).toBe("OPENING REGISTRATION…");
   });
 
   it("loads once after OAuth has approved the account session", () => {
@@ -234,6 +257,32 @@ describe("startup auth gate", () => {
     ui.signInButton.click();
     await Promise.resolve();
     expect(releaseNotes.hide).toHaveBeenCalled();
+  });
+
+  it("returns to account choice only when sign-in fails", async () => {
+    const ui = elements();
+    const releaseNotes = { show: vi.fn(), hide: vi.fn(), dispose: vi.fn() };
+    const gate = createStartupAuthGate({
+      accountState: () => ({ signInReady: true }),
+      knownCharacter: () => "WANDERER",
+      signIn: async () => ({ ok: false, error: "SIGN-IN FAILED" }),
+      continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame: async () => {},
+      releaseNotes,
+    }, ui);
+    gate.start();
+
+    ui.signInButton.click();
+    expect(ui.connectionPanel.hidden).toBe(false);
+    await Promise.resolve();
+
+    expect(ui.connectionPanel.hidden).toBe(true);
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+    expect(ui.accountChoiceDetail.textContent).toBe("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
+    expect(releaseNotes.show).toHaveBeenCalledTimes(2);
   });
 
   it("switches to Guest before loading the game", async () => {

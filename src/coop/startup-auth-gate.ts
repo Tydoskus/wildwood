@@ -175,7 +175,9 @@ export function createStartupAuthGate(
   async function onSignIn() {
     if (pendingAction || gameLoading) return;
     pendingAction = "sign-in";
-    showAccountChoice();
+    const state = dependencies.accountState();
+    const name = dependencies.knownCharacter().trim();
+    showLoading(name || state.knownAccount ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…");
     try {
       const result = await dependencies.signIn();
       if (result?.ok === false) {

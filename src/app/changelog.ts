@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.565": [
+    "Sign-in now switches directly to loading and returns to account choice only if authentication fails.",
+  ],
   "0.564": [
     "Portals now use one shared runtime-tinted swirl sheet instead of separate color files.",
     "Bosses and map scenery now load only for the current or destination map, with travel waiting until destination art is ready.",
@@ -1246,6 +1249,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.565": "2026-08-29",
   "0.564": "2026-08-29",
   "0.563": "2026-08-29",
   "0.562": "2026-08-29",
