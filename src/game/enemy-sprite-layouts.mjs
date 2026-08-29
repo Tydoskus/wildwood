@@ -1,214 +1,113 @@
 /**
  * Renderer source of truth for enemy sprite layout.
  *
- * This file intentionally stays valid browser JavaScript so the local enemy
- * sprite aligner can import the exact values used by the game.
+ * Every map deliberately reuses one slime body. Color distinguishes the map,
+ * a shared bow distinguishes ranged enemies, and scale distinguishes elites.
+ * This keeps new regions visually readable without requiring five bespoke
+ * regular-enemy drawings for every tier.
  */
-export const ENEMY_BOW_AIM_OFFSET_RADIANS = Math.PI / 2;
+export const ENEMY_BOW_AIM_OFFSET_RADIANS = 0;
+
+export const REGULAR_ENEMY_SPRITE_SIZE = 54;
+export const ELITE_ENEMY_SPRITE_SIZE = 78;
+
+const SLIME_BODY_SOURCE = "assets/wildwood/enemies/slime-green.png";
+const SLIME_BOW_SOURCE = "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png";
+
+export const MAP_ENEMY_FAMILY_TINTS = {
+  tutorial_forest: null,
+  beginner_desert: "#f3a13b",
+  intermediate_snowlands: "#9bdff5",
+  advanced_lava_wastes: "#f05c3f",
+  infernal_depths: "#8157bd",
+  water_reach: "#42cbd5",
+  samurai_garden: "#ef7eae",
+};
+
+function slimeSprite(tint, { elite = false, ranged = false } = {}) {
+  const size = elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE;
+  const bodyHeight = Math.round(size * 70 / 74);
+  const body = {
+    src: SLIME_BODY_SOURCE,
+    x: -size / 2,
+    y: -bodyHeight / 2,
+    w: size,
+    h: bodyHeight,
+    ...(tint ? { tint } : {}),
+  };
+  if (!ranged) return { size, height: bodyHeight, layers: [body] };
+
+  const bowWidth = elite ? 54 : 42;
+  const bowHeight = Math.round(bowWidth * 40 / 66);
+  return {
+    size,
+    height: bodyHeight,
+    layers: [
+      body,
+      {
+        src: SLIME_BOW_SOURCE,
+        x: -bowWidth * .54,
+        y: 0,
+        w: bowWidth,
+        h: bowHeight,
+        aimPivot: { x: 0, y: bowHeight * .6 },
+        aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS,
+      },
+    ],
+  };
+}
+
+const forest = MAP_ENEMY_FAMILY_TINTS.tutorial_forest;
+const desert = MAP_ENEMY_FAMILY_TINTS.beginner_desert;
+const snow = MAP_ENEMY_FAMILY_TINTS.intermediate_snowlands;
+const lava = MAP_ENEMY_FAMILY_TINTS.advanced_lava_wastes;
+const night = MAP_ENEMY_FAMILY_TINTS.infernal_depths;
+const water = MAP_ENEMY_FAMILY_TINTS.water_reach;
+const samurai = MAP_ENEMY_FAMILY_TINTS.samurai_garden;
 
 export const ENEMY_SPRITE_LAYOUTS = {
-  Bramble: { src: "assets/wildwood/enemies/slime-green.png", size: 46 },
-  Needle: { src: "assets/wildwood/enemies/slime-orange.png", size: 42 },
-  Mossback: { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-  Spitter: { src: "assets/wildwood/enemies/slime-orange.png", size: 50 },
-  Brood: {
-    size: 64,
-    height: 70,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg1.png", x: -16, y: 19, w: 15, h: 21 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/leg2.png", x: 1, y: 19, w: 17, h: 22 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/body.png", x: -20, y: -5, w: 40, h: 40 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/bow.png", x: 15, y: -6, w: 43, h: 33, aimPivot: { x: 20, y: 8 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull/skull_archer/head.png", x: -32, y: -37, w: 64, h: 46 },
-    ],
-  },
-  Cindermaw: { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 64 },
-  "King Slime": { src: "assets/wildwood/enemies/slime-green-king.png", size: 74 },
-  "Dread Warden": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 88 },
-  "Dune Raider": {
-    size: 70,
-    height: 78,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/leg.png", x: -15, y: 23, w: 17, h: 15 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/leg2.png", x: 1, y: 23, w: 17, h: 15 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/body.png", x: -28, y: -39, w: 56, h: 70 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/arm.png", x: -38, y: -16, w: 72, h: 31 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/arm2.png", x: 18, y: -8, w: 17, h: 17 },
-    ],
-  },
-  "Dune Archer": {
-    size: 68,
-    height: 76,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg.png", x: -14, y: 22, w: 15, h: 16 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg2.png", x: 1, y: 22, w: 15, h: 16 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/body.png", x: -25, y: -31, w: 50, h: 58 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/hat.png", x: -32, y: -43, w: 64, h: 39 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png", x: -27, y: 0, w: 50, h: 30, aimPivot: { x: 0, y: 18 }, aimOffsetRadians: 0 },
-    ],
-  },
-  "Venom Guard": {
-    size: 76,
-    height: 86,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg.png", x: -16, y: 24, w: 18, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg2.png", x: 1, y: 27, w: 17, h: 23 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/body.png", x: -25, y: -18, w: 50, h: 50 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/arm.png", x: -40, y: -10, w: 70, h: 44 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/head.png", x: -34, y: -49, w: 68, h: 57 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/shield.png", x: 18, y: -6, w: 32, h: 34 },
-    ],
-  },
-  "Wastes Reaper": {
-    size: 86,
-    height: 92,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg1.png", x: -18, y: 25, w: 19, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg2.png", x: 1, y: 25, w: 20, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/body.png", x: -26, y: -22, w: 52, h: 52 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43, aimPivot: { x: 26, y: 5 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 },
-    ],
-  },
-  "Blight Oracle": {
-    size: 82,
-    height: 92,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg.png", x: -17, y: 25, w: 20, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg2.png", x: 1, y: 27, w: 19, h: 25 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/body.png", x: -29, y: -23, w: 58, h: 59 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm.png", x: -35, y: -12, w: 25, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm2.png", x: 10, y: -12, w: 25, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/head.png", x: -34, y: -56, w: 68, h: 57 },
-    ],
-  },
-  "Frost Raider": { src: "assets/wildwood/enemies/slime-green-stone.png", size: 62 },
-  "Glacier Archer": { src: "assets/wildwood/enemies/slime-orange.png", size: 50 },
-  "Rime Guard": { src: "assets/wildwood/enemies/slime-green-stone.png", size: 70 },
-  "Whiteout Reaper": { src: "assets/wildwood/enemies/slime-orange.png", size: 66 },
-  "Aurora Oracle": { src: "assets/wildwood/enemies/slime-green.png", size: 68 },
-  "Ember Raider": { src: "assets/wildwood/enemies/slime-orange.png", size: 58 },
-  "Cinder Archer": { src: "assets/wildwood/enemies/slime-orange.png", size: 54 },
-  "Magma Guard": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 78 },
-  "Ash Reaper": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 92 },
-  "Inferno Oracle": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 84 },
-  "Depth Raider": { src: "assets/wildwood/enemies/slime-orange.png", size: 62 },
-  "Abyss Archer": { src: "assets/wildwood/enemies/slime-orange.png", size: 58 },
-  "Obsidian Colossus": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 84 },
-  "Doom Reaper": { src: "assets/wildwood/enemies/slime-orange-king.png", size: 98 },
-  "Nether Oracle": { src: "assets/wildwood/enemies/slime-orange-stone.png", size: 90 },
-  "Tide Raider": {
-    size: 76,
-    height: 84,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/leg.png", x: -15, y: 23, w: 17, h: 15 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/leg2.png", x: 1, y: 23, w: 17, h: 15 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/body.png", x: -28, y: -39, w: 56, h: 70 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/arm.png", x: -38, y: -16, w: 72, h: 31 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_warrior/arm2.png", x: 18, y: -8, w: 17, h: 17 },
-    ],
-  },
-  "Reef Archer": {
-    size: 74,
-    height: 82,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/leg.png", x: -14, y: 22, w: 15, h: 16 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/leg2.png", x: 1, y: 22, w: 15, h: 16 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/body.png", x: -25, y: -31, w: 50, h: 58 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/hat.png", x: -32, y: -43, w: 64, h: 39 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin_green/goblin_archer/bow.png", x: -27, y: 0, w: 50, h: 30, aimPivot: { x: 0, y: 18 }, aimOffsetRadians: 0 },
-    ],
-  },
-  "Coral Colossus": {
-    size: 90,
-    height: 100,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg.png", x: -16, y: 24, w: 18, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg2.png", x: 1, y: 27, w: 17, h: 23 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/body.png", x: -25, y: -18, w: 50, h: 50 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/arm.png", x: -40, y: -10, w: 70, h: 44 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/head.png", x: -34, y: -49, w: 68, h: 57 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/shield.png", x: 18, y: -6, w: 32, h: 34 },
-    ],
-  },
-  "Drowned Reaper": {
-    size: 98,
-    height: 104,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg1.png", x: -18, y: 25, w: 19, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg2.png", x: 1, y: 25, w: 20, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/body.png", x: -26, y: -22, w: 52, h: 52 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43, aimPivot: { x: 26, y: 5 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 },
-    ],
-  },
-  "Tidal Oracle": {
-    size: 92,
-    height: 100,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg.png", x: -17, y: 25, w: 20, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg2.png", x: 1, y: 27, w: 19, h: 25 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/body.png", x: -29, y: -23, w: 58, h: 59 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm.png", x: -35, y: -12, w: 25, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm2.png", x: 10, y: -12, w: 25, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/head.png", x: -34, y: -56, w: 68, h: 57 },
-    ],
-  },
-  "Sakura Ronin": {
-    size: 80,
-    height: 88,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/leg.png", x: -15, y: 23, w: 17, h: 15 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/leg2.png", x: 1, y: 23, w: 17, h: 15 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/body.png", x: -28, y: -39, w: 56, h: 70 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/arm.png", x: -38, y: -16, w: 72, h: 31 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_warrior/arm2.png", x: 18, y: -8, w: 17, h: 17 },
-    ],
-  },
-  "Petal Archer": {
-    size: 78,
-    height: 86,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg.png", x: -14, y: 22, w: 15, h: 16 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg2.png", x: 1, y: 22, w: 15, h: 16 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/body.png", x: -25, y: -31, w: 50, h: 58 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/hat.png", x: -32, y: -43, w: 64, h: 39 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png", x: -27, y: 0, w: 50, h: 30, aimPivot: { x: 0, y: 18 }, aimOffsetRadians: 0 },
-    ],
-  },
-  "Bamboo Guardian": {
-    size: 94,
-    height: 104,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg.png", x: -16, y: 24, w: 18, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/leg2.png", x: 1, y: 27, w: 17, h: 23 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/body.png", x: -25, y: -18, w: 50, h: 50 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/arm.png", x: -40, y: -10, w: 70, h: 44 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/head.png", x: -34, y: -49, w: 68, h: 57 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_warrior/shield.png", x: 18, y: -6, w: 32, h: 34 },
-    ],
-  },
-  "Moonblade Reaper": {
-    size: 102,
-    height: 108,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg1.png", x: -18, y: 25, w: 19, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/leg2.png", x: 1, y: 25, w: 20, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/body.png", x: -26, y: -22, w: 52, h: 52 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/bow.png", x: 19, y: -17, w: 56, h: 43, aimPivot: { x: 26, y: 5 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull_archer/head.png", x: -39, y: -56, w: 78, h: 56 },
-    ],
-  },
-  "Shrine Oracle": {
-    size: 96,
-    height: 104,
-    layers: [
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg.png", x: -17, y: 25, w: 20, h: 27 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/leg2.png", x: 1, y: 27, w: 19, h: 25 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/body.png", x: -29, y: -23, w: 58, h: 59 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm.png", x: -35, y: -12, w: 25, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/arm2.png", x: 10, y: -12, w: 25, h: 26 },
-      { src: "assets/wildwood/2D Character - Casual Monsters/_PNG/skull/skull_poison/skull/head.png", x: -34, y: -56, w: 68, h: 57 },
-    ],
-  },
+  Bramble: slimeSprite(forest),
+  Needle: slimeSprite(forest),
+  Mossback: slimeSprite(forest),
+  Spitter: slimeSprite(forest),
+  Brood: slimeSprite(forest, { ranged: true }),
+  Cindermaw: slimeSprite(forest),
+  "King Slime": slimeSprite(forest, { elite: true }),
+  "Dread Warden": slimeSprite(forest, { elite: true }),
+
+  "Dune Raider": slimeSprite(desert),
+  "Dune Archer": slimeSprite(desert, { ranged: true }),
+  "Venom Guard": slimeSprite(desert),
+  "Wastes Reaper": slimeSprite(desert, { elite: true, ranged: true }),
+  "Blight Oracle": slimeSprite(desert, { elite: true }),
+
+  "Frost Raider": slimeSprite(snow),
+  "Glacier Archer": slimeSprite(snow, { ranged: true }),
+  "Rime Guard": slimeSprite(snow),
+  "Whiteout Reaper": slimeSprite(snow, { elite: true, ranged: true }),
+  "Aurora Oracle": slimeSprite(snow, { elite: true }),
+
+  "Ember Raider": slimeSprite(lava),
+  "Cinder Archer": slimeSprite(lava, { ranged: true }),
+  "Magma Guard": slimeSprite(lava),
+  "Ash Reaper": slimeSprite(lava, { elite: true, ranged: true }),
+  "Inferno Oracle": slimeSprite(lava, { elite: true }),
+
+  "Depth Raider": slimeSprite(night),
+  "Abyss Archer": slimeSprite(night, { ranged: true }),
+  "Obsidian Colossus": slimeSprite(night),
+  "Doom Reaper": slimeSprite(night, { elite: true, ranged: true }),
+  "Nether Oracle": slimeSprite(night, { elite: true }),
+
+  "Tide Raider": slimeSprite(water),
+  "Reef Archer": slimeSprite(water, { ranged: true }),
+  "Coral Colossus": slimeSprite(water),
+  "Drowned Reaper": slimeSprite(water, { elite: true, ranged: true }),
+  "Tidal Oracle": slimeSprite(water, { elite: true }),
+
+  "Sakura Ronin": slimeSprite(samurai),
+  "Petal Archer": slimeSprite(samurai, { ranged: true }),
+  "Bamboo Guardian": slimeSprite(samurai),
+  "Moonblade Reaper": slimeSprite(samurai, { elite: true, ranged: true }),
+  "Shrine Oracle": slimeSprite(samurai, { elite: true }),
 };

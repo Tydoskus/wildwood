@@ -23,9 +23,32 @@ type EnemyLayerPlanPart =
 const ENEMY_SPRITE_Y_OFFSET = -3;
 const enemyLayerPlanCache = new WeakMap<LoadedEnemySprite, EnemyLayerPlanPart[]>();
 const enemyBoundsCache = new WeakMap<LoadedEnemySprite, { top: number; bottom: number; height: number }>();
+const enemyTintedLayerCache = new WeakMap<LoadedSpriteLayer, HTMLCanvasElement>();
 
 function enemyLayerReady(layer: LoadedSpriteLayer) {
   return layer.image.complete && layer.image.naturalWidth > 0 && layer.image.naturalHeight > 0;
+}
+
+function tintedEnemyLayerImage(layer: LoadedSpriteLayer): CanvasImageSource {
+  if (!layer.tint || typeof document === "undefined") return layer.image;
+  const cached = enemyTintedLayerCache.get(layer);
+  if (cached) return cached;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(layer.w));
+  canvas.height = Math.max(1, Math.ceil(layer.h));
+  const context = canvas.getContext("2d");
+  if (!context) return layer.image;
+  context.imageSmoothingEnabled = false;
+  context.drawImage(layer.image, 0, 0, canvas.width, canvas.height);
+  // Preserve the source sprite's shading while replacing its hue/saturation.
+  context.globalCompositeOperation = "color";
+  context.fillStyle = layer.tint;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.globalCompositeOperation = "destination-in";
+  context.drawImage(layer.image, 0, 0, canvas.width, canvas.height);
+  context.globalCompositeOperation = "source-over";
+  enemyTintedLayerCache.set(layer, canvas);
+  return canvas;
 }
 
 function cachedEnemyLayerPlan(sprite: LoadedEnemySprite) {
@@ -51,7 +74,7 @@ function cachedEnemyLayerPlan(sprite: LoadedEnemySprite) {
     context.imageSmoothingEnabled = false;
     for (const layer of staticLayers) {
       context.drawImage(
-        layer.image,
+        tintedEnemyLayerImage(layer),
         layer.x - left,
         layer.y + ENEMY_SPRITE_Y_OFFSET - top,
         layer.w,
@@ -687,7 +710,7 @@ export function createActorRenderer(options: {
           ctx.translate(pivot.x, pivot.y + ENEMY_SPRITE_Y_OFFSET);
           ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians));
           ctx.drawImage(
-            layer.image,
+            tintedEnemyLayerImage(layer),
             layer.x - pivot.x,
             layer.y - pivot.y,
             layer.w,
@@ -704,7 +727,7 @@ export function createActorRenderer(options: {
             ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
             ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians));
             ctx.drawImage(
-              layer.image,
+              tintedEnemyLayerImage(layer),
               layer.x - layer.aimPivot.x,
               layer.y - layer.aimPivot.y,
               layer.w,
@@ -712,7 +735,7 @@ export function createActorRenderer(options: {
             );
             ctx.restore();
           } else {
-            ctx.drawImage(layer.image, layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
+            ctx.drawImage(tintedEnemyLayerImage(layer), layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
           }
         }
       }

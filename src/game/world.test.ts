@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GLOOMROOT_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -120,7 +121,7 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor.some((item) => item.type === "cherryPetal")).toBe(true);
   });
 
-  it("uses distinct late-map geometry and mixed camps without changing family totals", () => {
+  it("uses distinct late-map geometry and reward-pure camps without changing family totals", () => {
     const boss = { x: 4050, y: 4050 };
     const lavaSites = createSpawnSites(boss, ADVANCED_LAVA_WASTES_MAP_ID);
     const lateMaps = [
@@ -152,7 +153,51 @@ describe("Advanced Lava Lake", () => {
         kindsAtCamp.add(site.type);
         campKinds.set(site.campName, kindsAtCamp);
       }
-      expect([...campKinds.values()].every((types) => types.size > 1)).toBe(true);
+      for (const types of campKinds.values()) {
+        const rewards = new Set([...types].map((type) => ENEMY_TYPES[type as keyof typeof ENEMY_TYPES].reward.type));
+        expect(rewards.size).toBe(1);
+      }
+    }
+  });
+
+  it("keeps every map's camps separated and every individual camp on one reward track", () => {
+    const boss = { x: 4050, y: 4050 };
+    const mapIds = [
+      TUTORIAL_FOREST_MAP_ID,
+      BEGINNER_DESERT_MAP_ID,
+      INTERMEDIATE_SNOWLANDS_MAP_ID,
+      ADVANCED_LAVA_WASTES_MAP_ID,
+      INFERNAL_DEPTHS_MAP_ID,
+      WATER_REACH_MAP_ID,
+      SAMURAI_GARDEN_MAP_ID,
+    ] as const;
+
+    for (const mapId of mapIds) {
+      const sites = createSpawnSites(boss, mapId);
+      const camps = new Map<string, typeof sites>();
+      for (const site of sites) {
+        const camp = camps.get(site.campName);
+        if (camp) camp.push(site);
+        else camps.set(site.campName, [site]);
+      }
+      for (const camp of camps.values()) {
+        expect(new Set(camp.map((site) => ENEMY_TYPES[site.type].reward.type)).size).toBe(1);
+      }
+
+      let closestCampPair = Number.POSITIVE_INFINITY;
+      let closestCampmatePair = Number.POSITIVE_INFINITY;
+      for (let left = 0; left < sites.length; left += 1) {
+        for (let right = left + 1; right < sites.length; right += 1) {
+          const distance = Math.hypot(sites[left].x - sites[right].x, sites[left].y - sites[right].y);
+          if (sites[left].campName === sites[right].campName) {
+            closestCampmatePair = Math.min(closestCampmatePair, distance);
+          } else {
+            closestCampPair = Math.min(closestCampPair, distance);
+          }
+        }
+      }
+      expect(closestCampmatePair).toBeGreaterThanOrEqual(70);
+      expect(closestCampPair).toBeGreaterThanOrEqual(160);
     }
   });
 });

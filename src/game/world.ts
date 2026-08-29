@@ -1,5 +1,5 @@
 import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
-import { CAMPS, type EnemyKind } from "./enemies";
+import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
 import { clamp, rand } from "./math";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
@@ -62,52 +62,79 @@ type SpawnCamp = {
 };
 
 const DESERT_CAMPS: SpawnCamp[] = [
-  { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] as EnemyKind[] },
-  { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] as EnemyKind[] },
-  { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 230, count: 3, types: ["Blight Oracle"] as EnemyKind[] },
-  { name: "Reaper Approach", x: 1740, y: 1420, minRadius: 0, radius: 0, count: 1, types: ["Wastes Reaper"] as EnemyKind[] },
-  { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] as EnemyKind[] },
-  { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard"] as EnemyKind[] },
+  { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] },
+  { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] },
+  { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 230, count: 3, types: ["Blight Oracle"] },
+  { name: "Reaper Approach", x: 1740, y: 1420, minRadius: 0, radius: 0, count: 1, types: ["Wastes Reaper"] },
+  { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] },
+  { name: "Drybone Basin", x: 2050, y: 3650, minRadius: 210, radius: 490, count: 7, types: ["Venom Guard"] },
 ];
 
 const SNOW_CAMPS: SpawnCamp[] = [
-  { name: "Rimegate Trail", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Frost Raider"] as EnemyKind[] },
-  { name: "Glacier Crossing", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Glacier Archer"] as EnemyKind[] },
-  { name: "Whiteout Hollow", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Rime Guard"] as EnemyKind[] },
-  { name: "Aurora Shelf", x: 2120, y: 3650, minRadius: 170, radius: 430, count: 6, types: ["Aurora Oracle", "Aurora Oracle", "Aurora Oracle", "Whiteout Reaper"] as EnemyKind[] },
+  { name: "Rimegate Trail", x: 950, y: 1350, minRadius: 250, radius: 440, count: 6, types: ["Frost Raider"], formation: "crescent", rotation: -.4 },
+  { name: "Glacier Crossing", x: 3000, y: 850, minRadius: 220, radius: 400, count: 6, types: ["Glacier Archer"], formation: "ranks", rotation: .25 },
+  { name: "Whiteout Hollow", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Rime Guard"], formation: "crescent", rotation: 1.3 },
+  { name: "Aurora Shelf", x: 1350, y: 3750, minRadius: 230, radius: 420, count: 5, types: ["Aurora Oracle"], formation: "ranks", rotation: -.15 },
+  { name: "Reaper's Rest", x: 2700, y: 2700, minRadius: 100, radius: 180, count: 1, types: ["Whiteout Reaper"], formation: "crescent", rotation: 1.8 },
 ];
 
 const LAVA_CAMPS: SpawnCamp[] = [
-  { name: "Searing Approach", x: 1120, y: 1160, minRadius: 140, radius: 330, count: 6, types: ["Ember Raider"] as EnemyKind[] },
-  { name: "Magma Causeway", x: 2800, y: 1240, minRadius: 170, radius: 390, count: 6, types: ["Cinder Archer"] as EnemyKind[] },
-  { name: "Obsidian Crater", x: 4050, y: 2570, minRadius: 180, radius: 440, count: 7, types: ["Magma Guard"] as EnemyKind[] },
-  { name: "Ashen Shelf", x: 1850, y: 3650, minRadius: 170, radius: 430, count: 5, types: ["Ash Reaper"] as EnemyKind[] },
-  { name: "Inferno Caldera", x: 3050, y: 3950, minRadius: 170, radius: 420, count: 6, types: ["Inferno Oracle", "Inferno Oracle", "Ash Reaper"] as EnemyKind[] },
+  { name: "Searing Approach", x: 950, y: 1350, minRadius: 230, radius: 400, count: 6, types: ["Ember Raider"], formation: "crescent", rotation: -.35 },
+  { name: "Magma Causeway", x: 3000, y: 850, minRadius: 230, radius: 400, count: 6, types: ["Cinder Archer"], formation: "ranks", rotation: .2 },
+  { name: "Obsidian Crater", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Magma Guard"], formation: "crescent", rotation: 1.2 },
+  { name: "Ashen Shelf", x: 1050, y: 3650, minRadius: 240, radius: 420, count: 7, types: ["Ash Reaper"], formation: "ranks", rotation: -.2 },
+  { name: "Inferno Caldera", x: 2700, y: 3900, minRadius: 210, radius: 380, count: 4, types: ["Inferno Oracle"], formation: "crescent", rotation: 2.4 },
 ];
 
 const INFERNAL_CAMPS: SpawnCamp[] = [
-  { name: "Moonless Gate", x: 1080, y: 1260, minRadius: 125, radius: 315, count: 6, types: ["Depth Raider", "Depth Raider", "Abyss Archer"], formation: "crescent", rotation: -.35 },
-  { name: "Blackbough Trail", x: 2500, y: 980, minRadius: 150, radius: 385, count: 6, types: ["Abyss Archer", "Abyss Archer", "Nether Oracle"], formation: "crescent", rotation: .45 },
-  { name: "Hollow Grove", x: 3890, y: 2250, minRadius: 190, radius: 450, count: 7, types: ["Obsidian Colossus", "Obsidian Colossus", "Depth Raider"], formation: "crescent", rotation: 1.15 },
-  { name: "Dreadwood", x: 1420, y: 3390, minRadius: 155, radius: 410, count: 5, types: ["Doom Reaper", "Doom Reaper", "Obsidian Colossus"], formation: "crescent", rotation: -1 },
-  { name: "Witching Glade", x: 2940, y: 3860, minRadius: 165, radius: 440, count: 6, types: ["Doom Reaper", "Nether Oracle", "Obsidian Colossus", "Doom Reaper", "Nether Oracle", "Doom Reaper"], formation: "crescent", rotation: 2.4 },
+  { name: "Moonless Gate", x: 1050, y: 1500, minRadius: 230, radius: 400, count: 6, types: ["Depth Raider"], formation: "crescent", rotation: -.45 },
+  { name: "Blackbough Trail", x: 3150, y: 950, minRadius: 230, radius: 400, count: 6, types: ["Abyss Archer"], formation: "ranks", rotation: .35 },
+  { name: "Hollow Grove", x: 4100, y: 2450, minRadius: 250, radius: 440, count: 7, types: ["Obsidian Colossus"], formation: "crescent", rotation: 1.1 },
+  { name: "Dreadwood", x: 950, y: 3500, minRadius: 240, radius: 420, count: 7, types: ["Doom Reaper"], formation: "ranks", rotation: -.3 },
+  { name: "Witching Glade", x: 2650, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Nether Oracle"], formation: "crescent", rotation: 2.35 },
 ];
 
 const WATER_CAMPS: SpawnCamp[] = [
-  { name: "Shallows Landing", x: 1250, y: 1050, minRadius: 130, radius: 340, count: 6, types: ["Tide Raider", "Tide Raider", "Reef Archer"], formation: "shoal", rotation: .2 },
-  { name: "Kelp Channel", x: 3190, y: 1480, minRadius: 155, radius: 400, count: 6, types: ["Reef Archer", "Reef Archer", "Tidal Oracle"], formation: "shoal", rotation: 1 },
-  { name: "Coral Citadel", x: 3890, y: 2730, minRadius: 185, radius: 460, count: 7, types: ["Coral Colossus", "Coral Colossus", "Tide Raider"], formation: "shoal", rotation: -.4 },
-  { name: "Drowned Trench", x: 1250, y: 3240, minRadius: 160, radius: 420, count: 5, types: ["Drowned Reaper", "Drowned Reaper", "Coral Colossus"], formation: "shoal", rotation: .7 },
-  { name: "Mooncurrent Shrine", x: 2840, y: 3970, minRadius: 170, radius: 440, count: 6, types: ["Drowned Reaper", "Tidal Oracle", "Coral Colossus", "Drowned Reaper", "Tidal Oracle", "Drowned Reaper"], formation: "shoal", rotation: -.2 },
+  { name: "Shallows Landing", x: 1100, y: 1200, minRadius: 230, radius: 400, count: 6, types: ["Tide Raider"], formation: "shoal", rotation: .2 },
+  { name: "Kelp Channel", x: 3050, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Reef Archer"], formation: "shoal", rotation: .9 },
+  { name: "Coral Citadel", x: 4150, y: 2450, minRadius: 250, radius: 440, count: 7, types: ["Coral Colossus"], formation: "shoal", rotation: -.35 },
+  { name: "Drowned Trench", x: 950, y: 3550, minRadius: 240, radius: 420, count: 7, types: ["Drowned Reaper"], formation: "shoal", rotation: .65 },
+  { name: "Mooncurrent Shrine", x: 2600, y: 4000, minRadius: 210, radius: 380, count: 4, types: ["Tidal Oracle"], formation: "shoal", rotation: -.2 },
 ];
 
 const SAMURAI_CAMPS: SpawnCamp[] = [
-  { name: "Lantern Gate", x: 1020, y: 1320, minRadius: 130, radius: 340, count: 6, types: ["Sakura Ronin", "Sakura Ronin", "Petal Archer"], formation: "ranks", rotation: 0 },
-  { name: "Blossom Walk", x: 2380, y: 1040, minRadius: 155, radius: 400, count: 6, types: ["Petal Archer", "Petal Archer", "Shrine Oracle"], formation: "ranks", rotation: .35 },
-  { name: "Bamboo Court", x: 3660, y: 2100, minRadius: 185, radius: 460, count: 7, types: ["Bamboo Guardian", "Bamboo Guardian", "Sakura Ronin"], formation: "ranks", rotation: -.25 },
-  { name: "Moonbridge", x: 1480, y: 3330, minRadius: 160, radius: 420, count: 5, types: ["Moonblade Reaper", "Moonblade Reaper", "Bamboo Guardian"], formation: "ranks", rotation: .55 },
-  { name: "Sakura Shrine", x: 2880, y: 3740, minRadius: 170, radius: 440, count: 6, types: ["Moonblade Reaper", "Shrine Oracle", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle", "Moonblade Reaper"], formation: "ranks", rotation: 0 },
+  { name: "Lantern Gate", x: 950, y: 1450, minRadius: 230, radius: 400, count: 6, types: ["Sakura Ronin"], formation: "ranks", rotation: 0 },
+  { name: "Blossom Walk", x: 2900, y: 850, minRadius: 230, radius: 400, count: 6, types: ["Petal Archer"], formation: "ranks", rotation: .35 },
+  { name: "Bamboo Court", x: 4050, y: 2300, minRadius: 250, radius: 440, count: 7, types: ["Bamboo Guardian"], formation: "ranks", rotation: -.25 },
+  { name: "Moonbridge", x: 1150, y: 3650, minRadius: 240, radius: 420, count: 7, types: ["Moonblade Reaper"], formation: "ranks", rotation: .55 },
+  { name: "Sakura Shrine", x: 2650, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Shrine Oracle"], formation: "ranks", rotation: 0 },
 ];
+
+const CAMP_CLEARANCE = 160;
+
+function assertCampContracts(camps: readonly SpawnCamp[]) {
+  for (const camp of camps) {
+    if (!camp.types.length) throw new Error(`${camp.name} has no enemy type.`);
+    const rewardTypes = new Set(camp.types.map((type) => ENEMY_TYPES[type].reward.type));
+    if (rewardTypes.size !== 1) {
+      throw new Error(`${camp.name} mixes reward types: ${[...rewardTypes].join(", ")}.`);
+    }
+  }
+  for (let left = 0; left < camps.length; left += 1) {
+    for (let right = left + 1; right < camps.length; right += 1) {
+      const first = camps[left];
+      const second = camps[right];
+      const distance = Math.hypot(first.x - second.x, first.y - second.y);
+      if (distance < first.radius + second.radius + CAMP_CLEARANCE) {
+        throw new Error(`${first.name} overlaps ${second.name}.`);
+      }
+    }
+  }
+}
+
+function isNearSpawnCamp(camps: readonly SpawnCamp[], x: number, y: number, padding: number) {
+  return camps.some((camp) => Math.hypot(x - camp.x, y - camp.y) < camp.radius + padding);
+}
 
 function seededUnit(index: number, salt: number) {
   const value = Math.sin(index * 91.713 + salt * 37.119) * 43758.5453;
@@ -148,14 +175,14 @@ function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number, mapS
   const distanceScale = 1 + (seededUnit(index + campIndex * 19, mapSeed + 41) - .5) * .12 * variation;
   if (camp.formation === "crescent") {
     const progress = camp.count <= 1 ? .5 : index / (camp.count - 1);
-    const angle = rotation + (progress - .5) * 1.9 + angleJitter;
-    const baseDistance = camp.minRadius + (camp.radius - camp.minRadius) * (.55 + (index % 2) * .32);
+    const angle = rotation + (progress - .5) * 2.35 + angleJitter;
+    const baseDistance = camp.minRadius + (camp.radius - camp.minRadius) * (.62 + (index % 2) * .33);
     const distance = clamp(baseDistance * distanceScale, camp.minRadius, camp.radius);
     return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
   }
   if (camp.formation === "shoal") {
     const centeredIndex = index - (camp.count - 1) / 2;
-    const spacing = Math.min(96, camp.radius * .27);
+    const spacing = Math.min(142, camp.radius * .36);
     const jitter = Math.min(16, spacing * .16) * variation;
     const localX = centeredIndex * spacing + (seededUnit(index, mapSeed + 53) - .5) * jitter * 2;
     const localY = Math.abs(centeredIndex) * spacing * .46 - camp.radius * .2 +
@@ -169,8 +196,8 @@ function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number, mapS
     const itemsInRow = Math.min(columns, camp.count - rowStart);
     const column = index - rowStart;
     const rows = Math.ceil(camp.count / columns);
-    const spacingX = Math.min(126, camp.radius * .34);
-    const spacingY = Math.min(142, camp.radius * .4);
+    const spacingX = Math.min(170, camp.radius * .42);
+    const spacingY = Math.min(185, camp.radius * .44);
     const jitter = Math.min(14, spacingX * .12) * variation;
     const localX = (column - (itemsInRow - 1) / 2) * spacingX +
       (seededUnit(index, mapSeed + 67) - .5) * jitter * 2;
@@ -201,7 +228,7 @@ function createDesertLayout() {
   for (let index = 0; index < 78; index += 1) {
     const x = 90 + seededUnit(index, 1) * (WORLD.w - 180);
     const y = 90 + seededUnit(index, 2) * (WORLD.h - 180);
-    if (isOnRoad(x, y, 55) || Math.hypot(x - 360, y - 680) < 340) continue;
+    if (isOnRoad(x, y, 55) || Math.hypot(x - 360, y - 680) < 340 || isNearSpawnCamp(DESERT_CAMPS, x, y, 70)) continue;
     decor.push({
       type: "cactus",
       x: Math.round(x),
@@ -214,7 +241,7 @@ function createDesertLayout() {
   for (let index = 0; index < 125; index += 1) {
     const x = 50 + seededUnit(index, 4) * (WORLD.w - 100);
     const y = 50 + seededUnit(index, 5) * (WORLD.h - 100);
-    if (isOnRoad(x, y, 18)) continue;
+    if (isOnRoad(x, y, 18) || isNearSpawnCamp(DESERT_CAMPS, x, y, 45)) continue;
     decor.push({
       type: "rock",
       x: Math.round(x),
@@ -252,13 +279,13 @@ function createSnowLayout() {
   for (let index = 0; index < 58; index += 1) {
     const x = 100 + seededUnit(index, 21) * (WORLD.w - 200);
     const y = 100 + seededUnit(index, 22) * (WORLD.h - 200);
-    if (isOnRoad(x, y, 70) || Math.hypot(x - 360, y - 770) < 360) continue;
+    if (isOnRoad(x, y, 70) || Math.hypot(x - 360, y - 770) < 360 || isNearSpawnCamp(SNOW_CAMPS, x, y, 70)) continue;
     decor.push({ type: "snowPine", x: Math.round(x), y: Math.round(y), s: .62 + seededUnit(index, 23) * .48 });
   }
   for (let index = 0; index < 400; index += 1) {
     const x = 26 + seededUnit(index, 24) * (WORLD.w - 52);
     const y = 26 + seededUnit(index, 25) * (WORLD.h - 52);
-    if (!isOnRoad(x, y, 10)) decor.push({ type: "snowTuft", x: Math.round(x), y: Math.round(y), variant: index % 4 });
+    if (!isOnRoad(x, y, 10) && !isNearSpawnCamp(SNOW_CAMPS, x, y, 20)) decor.push({ type: "snowTuft", x: Math.round(x), y: Math.round(y), variant: index % 4 });
   }
   return { decor, paths };
 }
@@ -281,7 +308,7 @@ function createLavaLayout() {
   for (let index = 0; index < 24; index += 1) {
     const x = 180 + seededUnit(index, 31) * (WORLD.w - 360);
     const y = 180 + seededUnit(index, 32) * (WORLD.h - 360);
-    if (isOnRoad(x, y, 150) || isNearArrival(x, y) || isNearMagmalisk(x, y)) continue;
+    if (isOnRoad(x, y, 150) || isNearArrival(x, y) || isNearMagmalisk(x, y) || isNearSpawnCamp(LAVA_CAMPS, x, y, 95)) continue;
     decor.push({
       type: "lavaPool",
       x: Math.round(x),
@@ -297,7 +324,7 @@ function createLavaLayout() {
     const y = 90 + seededUnit(index, 35) * (WORLD.h - 180);
     const s = .48 + seededUnit(index, 36) * .62;
     const radius = 75 * s;
-    if (isOnRoad(x, y, 60) || isNearArrival(x, y) || isNearMagmalisk(x, y)) continue;
+    if (isOnRoad(x, y, 60) || isNearArrival(x, y) || isNearMagmalisk(x, y) || isNearSpawnCamp(LAVA_CAMPS, x, y, 65)) continue;
     if (lavaRocks.some((rock) => Math.hypot(x - rock.x, y - rock.y) < radius + 75 * rock.s + 6)) continue;
     if (decor.some((item) => item.type === "lavaPool" && Math.hypot(x - item.x, y - item.y) < radius + 150 * item.s + 12)) continue;
     lavaRocks.push({
@@ -312,7 +339,7 @@ function createLavaLayout() {
   for (let index = 0; index < 48; index += 1) {
     const x = 100 + seededUnit(index, 37) * (WORLD.w - 200);
     const y = 100 + seededUnit(index, 38) * (WORLD.h - 200);
-    if (isOnRoad(x, y, 80) || isNearArrival(x, y) || isNearMagmalisk(x, y)) continue;
+    if (isOnRoad(x, y, 80) || isNearArrival(x, y) || isNearMagmalisk(x, y) || isNearSpawnCamp(LAVA_CAMPS, x, y, 75)) continue;
     const s = .72 + seededUnit(index, 39) * .62;
     if (lavaRocks.some((rock) => Math.hypot(x - rock.x, y - rock.y) < 75 * rock.s + 48 * s + 8)) continue;
     decor.push({
@@ -344,8 +371,6 @@ function createNightForestLayout() {
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
-  const isNearCamp = (x: number, y: number) => INFERNAL_CAMPS.some((camp) =>
-    Math.hypot(x - camp.x, y - camp.y) < camp.radius + 120);
   const isNearGloomroot = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 660;
   const placed: { x: number; y: number; radius: number }[] = [];
   const placeTrees = (target: number, salt: number) => {
@@ -355,7 +380,7 @@ function createNightForestLayout() {
       const y = 100 + seededUnit(index, salt + 1) * (WORLD.h - 200);
       const s = .68 + seededUnit(index, salt + 2) * .5;
       const radius = 47 * s;
-      if (isOnPath(x, y, 62) || isNearArrival(x, y) || isNearCamp(x, y) || isNearGloomroot(x, y)) continue;
+      if (isOnPath(x, y, 62) || isNearArrival(x, y) || isNearSpawnCamp(INFERNAL_CAMPS, x, y, 120) || isNearGloomroot(x, y)) continue;
       if (placed.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 18)) continue;
       placed.push({ x, y, radius });
       decor.push({ type: "tree", x: Math.round(x), y: Math.round(y), s, variant: (index + count) % 16 });
@@ -388,14 +413,12 @@ function createWaterLayout() {
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
-  const isNearCamp = (x: number, y: number) => WATER_CAMPS.some((camp) =>
-    Math.hypot(x - camp.x, y - camp.y) < camp.radius + 105);
   const isNearWaterBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 700;
 
   for (let index = 0; index < 130; index += 1) {
     const x = 70 + seededUnit(index, 61) * (WORLD.w - 140);
     const y = 70 + seededUnit(index, 62) * (WORLD.h - 140);
-    if (isOnPath(x, y, 42) || isNearArrival(x, y) || isNearCamp(x, y) || isNearWaterBoss(x, y)) continue;
+    if (isOnPath(x, y, 42) || isNearArrival(x, y) || isNearSpawnCamp(WATER_CAMPS, x, y, 105) || isNearWaterBoss(x, y)) continue;
     decor.push({
       type: "coral",
       x: Math.round(x),
@@ -407,7 +430,7 @@ function createWaterLayout() {
   for (let index = 0; index < 220; index += 1) {
     const x = 45 + seededUnit(index, 64) * (WORLD.w - 90);
     const y = 45 + seededUnit(index, 65) * (WORLD.h - 90);
-    if (!isOnPath(x, y, 6) || isNearArrival(x, y) || isNearWaterBoss(x, y)) continue;
+    if (!isOnPath(x, y, 6) || isNearArrival(x, y) || isNearSpawnCamp(WATER_CAMPS, x, y, 30) || isNearWaterBoss(x, y)) continue;
     decor.push({
       type: "shell",
       x: Math.round(x),
@@ -442,8 +465,6 @@ function createSamuraiGardenLayout() {
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
-  const isNearCamp = (x: number, y: number) => SAMURAI_CAMPS.some((camp) =>
-    Math.hypot(x - camp.x, y - camp.y) < camp.radius + 115);
   const placedTrees: { x: number; y: number; radius: number }[] = [];
 
   for (let index = 0; placedTrees.length < 148 && index < 8_000; index += 1) {
@@ -451,7 +472,7 @@ function createSamuraiGardenLayout() {
     const y = 95 + seededUnit(index, 72) * (WORLD.h - 190);
     const s = .7 + seededUnit(index, 73) * .48;
     const radius = 45 * s;
-    if (isOnPath(x, y, 68) || isNearArrival(x, y) || isNearCamp(x, y)) continue;
+    if (isOnPath(x, y, 68) || isNearArrival(x, y) || isNearSpawnCamp(SAMURAI_CAMPS, x, y, 115)) continue;
     if (placedTrees.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 16)) continue;
     placedTrees.push({ x, y, radius });
     decor.push({ type: "tree", x: Math.round(x), y: Math.round(y), s, variant: placedTrees.length % 16 });
@@ -514,6 +535,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
       const y = center.y + offset.y;
       if (isOnRoad(x, y, 78)) continue;
       if (Math.hypot(x - playerSpawn.x, y - playerSpawn.y) < 430) continue;
+      if (isNearSpawnCamp(CAMPS, x, y, 75)) continue;
       decor.push({
         type: "tree",
         x: Math.round(x),
@@ -563,6 +585,7 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
             : mapId === SAMURAI_GARDEN_MAP_ID
               ? SAMURAI_CAMPS
         : CAMPS;
+  assertCampContracts(camps);
   // Tutorial remains deliberately readable. Later maps use a fixed map seed:
   // layouts gain variety, but every client still derives identical sites.
   const mapSeed = mapId === TUTORIAL_FOREST_MAP_ID ? 0 : stableStringSeed(`wildwood-spawns-v2:${mapId}`);

@@ -25,10 +25,10 @@ describe("enemy weapon aiming", () => {
     )).toBeCloseTo(-Math.PI / 4);
   });
 
-  it("turns source-up archer bows to actor-local right before tracking a target", () => {
+  it("keeps the authored bow angle before tracking an engaged target", () => {
     const enemy = { x: 10, y: 10, facingX: 1 as const, engaged: false };
-    expect(enemyWeaponLayerRotation(enemy, { x: 30, y: 10 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(Math.PI / 2);
-    expect(enemyWeaponLayerRotation({ ...enemy, engaged: true }, { x: 30, y: 30 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(Math.PI * .75);
+    expect(enemyWeaponLayerRotation(enemy, { x: 30, y: 10 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(0);
+    expect(enemyWeaponLayerRotation({ ...enemy, engaged: true }, { x: 30, y: 30 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(Math.PI / 4);
   });
 });
 

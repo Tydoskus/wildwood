@@ -507,6 +507,8 @@ type SpriteLayerSource = {
   y: number;
   w: number;
   h: number;
+  /** Optional map-family recolor applied once when the layer is cached. */
+  tint?: string;
   /** Actor-local point held by the archer. The layer rotates around it while aiming. */
   aimPivot?: { x: number; y: number };
   /** Rotation needed to make the source art face actor-local right. */
@@ -532,18 +534,17 @@ export const REWARD_DATA: Record<RewardType, { color: string }> = {
 };
 
 export const CAMPS: EnemyCamp[] = [
-  // Starter: exact +health and +1 damage camps near the top-left spawn.
-  { name: "Ember Fen", x: 820, y: 1700, minRadius: 190, radius: 440, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
-  { name: "Thornshot Rise", x: 1650, y: 820, minRadius: 190, radius: 440, count: 5, types: ["Spitter"], ground: "#4b3545", ring: "#a86591" },
-  // Medium: attack-speed and regeneration camps across the top-right.
-  { name: "Glass Thicket", x: 3300, y: 900, minRadius: 230, radius: 520, count: 5, types: ["Needle"], ground: "#244f53", ring: "#64bdc5" },
-  { name: "Brine Marsh", x: 4050, y: 1700, minRadius: 230, radius: 520, count: 5, types: ["Brood"], ground: "#243e4d", ring: "#5f9eb5" },
-  // Hard: armor enemies occupy the lower-left and late-game routes.
-  { name: "Mossfall Ruins", x: 950, y: 3150, minRadius: 250, radius: 570, count: 6, types: ["Mossback"], ground: "#33423a", ring: "#8d9b75" },
-  // Elite locations stay unchanged; regular camp members share one reward type.
-  { name: "Cinder Quarry", x: 3830, y: 2790, minRadius: 280, radius: 610, count: 6, types: ["Cindermaw", "Cindermaw", "Cindermaw", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
-  { name: "Moonroot Grove", x: 1540, y: 4040, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#3d3157", ring: "#9a79d5" },
-  { name: "Sunken Yard", x: 3590, y: 4100, minRadius: 240, radius: 560, count: 5, types: ["Mossback", "Mossback", "King Slime"], ground: "#553334", ring: "#d37362" },
+  // Every camp is one reward track. The health elites keep a separate late
+  // destination instead of being folded into the fast starter-health route.
+  { name: "Ember Fen", x: 850, y: 1450, minRadius: 230, radius: 420, count: 6, types: ["Bramble"], ground: "#5b3b28", ring: "#b66a37" },
+  { name: "Thornshot Rise", x: 2300, y: 800, minRadius: 210, radius: 360, count: 5, types: ["Spitter"], ground: "#4b3545", ring: "#a86591" },
+  { name: "Glass Thicket", x: 4000, y: 900, minRadius: 210, radius: 360, count: 5, types: ["Needle"], ground: "#244f53", ring: "#64bdc5" },
+  { name: "Brine Marsh", x: 4150, y: 2300, minRadius: 220, radius: 380, count: 5, types: ["Brood"], ground: "#243e4d", ring: "#5f9eb5" },
+  { name: "Mossfall Ruins", x: 850, y: 2850, minRadius: 230, radius: 400, count: 6, types: ["Mossback"], ground: "#33423a", ring: "#8d9b75" },
+  { name: "Cinder Quarry", x: 2450, y: 2400, minRadius: 230, radius: 400, count: 6, types: ["Cindermaw", "Cindermaw", "Cindermaw", "Dread Warden"], ground: "#4b4039", ring: "#b5875c" },
+  { name: "Moonroot Grove", x: 1150, y: 4200, minRadius: 200, radius: 360, count: 4, types: ["Mossback"], ground: "#3d3157", ring: "#9a79d5" },
+  { name: "Sunken Yard", x: 2700, y: 4100, minRadius: 200, radius: 360, count: 4, types: ["Mossback"], ground: "#553334", ring: "#d37362" },
+  { name: "Royal Hollow", x: 3750, y: 3550, minRadius: 150, radius: 260, count: 2, types: ["King Slime"], ground: "#405438", ring: "#82bc68" },
 ];
 
 function loadEnemyImage(source: string, onSettled: () => void) {
@@ -572,21 +573,22 @@ function loadEnemyImage(source: string, onSettled: () => void) {
 }
 
 export function loadEnemySprites(onAssetSettled: () => void = () => {}) {
-  const expectedAssets = Object.values(ENEMY_SPRITE_SOURCES).reduce(
-    (count, source) => count + ("layers" in source ? source.layers.length : 1),
-    0,
-  );
+  const assetSources = Object.values(ENEMY_SPRITE_SOURCES).flatMap((source) =>
+    "layers" in source ? source.layers.map((layer) => layer.src) : [source.src]);
+  const uniqueAssetSources = [...new Set(assetSources)];
+  const expectedAssets = uniqueAssetSources.length;
   let settledAssets = 0;
   const settleAsset = () => {
     settledAssets += 1;
     onAssetSettled();
   };
+  const images = new Map(uniqueAssetSources.map((source) => [source, loadEnemyImage(source, settleAsset)]));
   const sprites = Object.fromEntries(Object.entries(ENEMY_SPRITE_SOURCES).map(([kind, source]) => {
     if ("layers" in source) {
-      const layers = source.layers.map((layer) => ({ ...layer, image: loadEnemyImage(layer.src, settleAsset) }));
+      const layers = source.layers.map((layer) => ({ ...layer, image: images.get(layer.src)! }));
       return [kind, { size: source.size, height: source.height, layers }];
     }
-    const image = loadEnemyImage(source.src, settleAsset);
+    const image = images.get(source.src)!;
     return [kind, { size: source.size, image }];
   })) as Record<EnemyKind, LoadedEnemySprite>;
   return {

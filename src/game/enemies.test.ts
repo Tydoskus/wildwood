@@ -37,7 +37,12 @@ import {
   WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
 import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
-import { ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
+import {
+  ELITE_ENEMY_SPRITE_SIZE,
+  ENEMY_SPRITE_LAYOUTS,
+  MAP_ENEMY_FAMILY_TINTS,
+  REGULAR_ENEMY_SPRITE_SIZE,
+} from "./enemy-sprite-layouts.mjs";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -268,19 +273,33 @@ describe("enemy movement balance", () => {
 });
 
 describe("enemy sprite loading", () => {
-  it("keeps the approved Dune Archer bow alignment without a separate hand layer", () => {
-    const duneArcher = ENEMY_SPRITE_LAYOUTS["Dune Archer"];
-    expect("layers" in duneArcher).toBe(true);
-    if (!("layers" in duneArcher)) return;
-    expect(duneArcher.layers.find((layer) => layer.src.endsWith("/bow.png"))).toMatchObject({
-      x: -27,
-      y: 0,
-      w: 50,
-      h: 30,
-      aimPivot: { x: 0, y: 18 },
-      aimOffsetRadians: 0,
-    });
-    expect(duneArcher.layers.some((layer) => layer.src.endsWith("/arm2.png"))).toBe(false);
+  it("uses one colored slime family per map, with bows for ranged enemies and larger elites", () => {
+    const families = [
+      [MAP_ENEMY_FAMILY_TINTS.tutorial_forest, ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"]],
+      [MAP_ENEMY_FAMILY_TINTS.beginner_desert, ["Dune Raider", "Dune Archer", "Venom Guard", "Wastes Reaper", "Blight Oracle"]],
+      [MAP_ENEMY_FAMILY_TINTS.intermediate_snowlands, ["Frost Raider", "Glacier Archer", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"]],
+      [MAP_ENEMY_FAMILY_TINTS.advanced_lava_wastes, ["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"]],
+      [MAP_ENEMY_FAMILY_TINTS.infernal_depths, ["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]],
+      [MAP_ENEMY_FAMILY_TINTS.water_reach, ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]],
+      [MAP_ENEMY_FAMILY_TINTS.samurai_garden, ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]],
+    ] as const;
+
+    for (const [tint, kinds] of families) {
+      const bodySources = new Set<string>();
+      for (const kind of kinds) {
+        const definition = ENEMY_TYPES[kind];
+        const sprite = ENEMY_SPRITE_LAYOUTS[kind];
+        const body = sprite.layers[0];
+        const bows = sprite.layers.filter((layer) => layer.src.endsWith("/bow.png"));
+        bodySources.add(body.src);
+        expect(body.src).toBe("assets/wildwood/enemies/slime-green.png");
+        expect(body.tint).toBe(tint ?? undefined);
+        expect(sprite.size).toBe(definition.elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE);
+        expect(bows).toHaveLength(definition.ranged ? 1 : 0);
+        expect(sprite.layers).toHaveLength(definition.ranged ? 2 : 1);
+      }
+      expect(bodySources.size).toBe(1);
+    }
   });
 
   it("omits separate hand and arm layers from every layered bow enemy", () => {
@@ -306,6 +325,7 @@ describe("enemy sprite loading", () => {
     const assets = loadEnemySprites(onSettled);
 
     expect(Object.keys(assets.sprites).sort()).toEqual(Object.keys(ENEMY_TYPES).sort());
+    expect(images).toHaveLength(2);
     expect(assets.ready()).toBe(false);
     images.slice(0, -1).forEach((image) => image.dispatchEvent(new Event("load")));
     expect(assets.ready()).toBe(false);
