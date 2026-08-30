@@ -92,6 +92,7 @@ type SessionDependencies = {
   beginAdventure: () => void;
   syncStoppedPosition: () => void;
   resetPlayer: (preserveStats: boolean) => void;
+  resolvePortalCollision: () => void;
   mapMusicSync: () => void;
   isDueling: () => boolean;
   activeDuel: () => RuntimeDuel;
@@ -283,6 +284,9 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       dependencies.player.facing = serverState.facing;
       snapCameraToPlayer(dependencies.camera, dependencies.player, dependencies.viewport());
     }
+    // Settle restored/spawned positions before input can move through a portal
+    // collider on the first simulation frame.
+    dependencies.resolvePortalCollision();
     hasStarted = true;
     running = true;
     if (markIntro) dependencies.beginAdventure();

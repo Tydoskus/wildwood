@@ -7,20 +7,15 @@ export type MapPortal = { x: number; y: number; width: number; height: number; d
 
 type MapConfig = Record<MapId, { portal: MapPortal; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
-/** Starts destination art beside the server move and gates arrival only after both succeed. */
+/** Keeps a defensive destination-art check beside the server move. Startup normally preloads it. */
 export async function prepareMapTransition(
   changeMap: () => Promise<boolean | undefined> | boolean | undefined,
   prepareAssets: () => Promise<void>,
-  coverWorld: () => Promise<void> = () => Promise.resolve(),
 ) {
   const assetsReady = prepareAssets();
-  const worldCovered = coverWorld();
   const changed = await changeMap();
-  if (!changed) {
-    await worldCovered;
-    return false;
-  }
-  await Promise.all([assetsReady, worldCovered]);
+  if (!changed) return false;
+  await assetsReady;
   return true;
 }
 
@@ -71,7 +66,6 @@ export function createMapController(options: {
   keys: { clear: () => void };
   stopTouchMove: () => void;
   cutsceneOverlay: HTMLElement;
-  portalCloudTransition: { cover: () => Promise<void>; reveal: () => Promise<void> };
   resizeViewport: () => void;
   isDueling: () => boolean;
   running: () => boolean;
@@ -101,15 +95,14 @@ export function createMapController(options: {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   clearPendingBossHits: () => void;
-  showMapMessage: (mapId: MapId) => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
   const {
     mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, waterMapId, samuraiMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey, waterCutsceneSeenKey, samuraiCutsceneSeenKey,
-    getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, portalCloudTransition, resizeViewport,
+    getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, clearPendingBossHits, showMapMessage, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, clearPendingBossHits, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -193,25 +186,22 @@ export function createMapController(options: {
     void prepareMapTransition(
       () => changeMap(destination, player.x, player.y),
       () => options.prepareMapAssets(destination),
-      () => portalCloudTransition.cover(),
-    ).then(async (changed) => {
+    ).then((changed) => {
       if (!changed) {
-        await portalCloudTransition.reveal();
         mapTransitioning = false;
         portalCooldown = 1;
         return;
       }
       const arrival = mapConfig[destination].arrival;
-      loadMap(destination, arrival.x, arrival.y, Math.PI / 2);
-      snapCameraToPlayer(camera, player, viewport());
-      resetPresentationState();
-      showMapMessage(getCurrentMapId());
-      syncStoppedPosition();
-      await portalCloudTransition.reveal();
-      portalCooldown = 1.5;
-      mapTransitioning = false;
-    }).catch(async () => {
-      await portalCloudTransition.reveal();
+      fadeToWorld(() => {
+        loadMap(destination, arrival.x, arrival.y, Math.PI / 2);
+        snapCameraToPlayer(camera, player, viewport());
+        resetPresentationState();
+        syncStoppedPosition();
+        portalCooldown = 1.5;
+        mapTransitioning = false;
+      });
+    }).catch(() => {
       mapTransitioning = false;
       portalCooldown = 1;
     });
@@ -228,7 +218,6 @@ export function createMapController(options: {
         loadMap(state.mapId as MapId, state.x, state.y, state.facing);
         portalCooldown = 1.5;
         mapTransitioning = false;
-        showMapMessage(getCurrentMapId());
       });
     });
   }

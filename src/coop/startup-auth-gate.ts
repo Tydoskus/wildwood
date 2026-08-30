@@ -86,7 +86,7 @@ export function createStartupAuthGate(
     onAccepted: render,
   }, elements.legal);
 
-  function showLoading(detail = "LOADING YOUR CHARACTER") {
+  function showLoading(detail = "Loading Your Character") {
     dependencies.releaseNotes?.hide();
     elements.start.style.display = "grid";
     elements.accountChoicePanel.classList.remove("is-signing-in");
@@ -142,14 +142,14 @@ export function createStartupAuthGate(
     dependencies.releaseNotes?.dispose();
   }
 
-  function beginGameLoading(detail = "LOADING YOUR CHARACTER") {
+  function beginGameLoading(detail = "Loading Your Character") {
     if (gameLoading) return;
     gameLoading = true;
     showLoading(detail);
     dispose();
     void dependencies.loadGame().catch((error) => {
       console.error("Wildwood game bundle failed to load:", error);
-      elements.loadingDetail.textContent = "GAME LOAD FAILED · REFRESH TO TRY AGAIN";
+      elements.loadingDetail.textContent = "Game Load Failed · Refresh to Try Again";
       elements.loadingFill.style.width = "100%";
     });
   }
@@ -162,11 +162,11 @@ export function createStartupAuthGate(
         showLegalGate();
         return;
       }
-      beginGameLoading(state.guestSessionApproved ? "LOADING GUEST PROFILE" : "LOADING YOUR CHARACTER");
+      beginGameLoading(state.guestSessionApproved ? "Loading Guest Profile" : "Loading Your Character");
       return;
     }
     if (state.authInProgress || state.returningFromSignIn) {
-      showLoading("VERIFYING SIGN-IN");
+      showLoading("Verifying Sign-In");
       return;
     }
     showAccountChoice();
@@ -177,7 +177,7 @@ export function createStartupAuthGate(
     pendingAction = "sign-in";
     const state = dependencies.accountState();
     const name = dependencies.knownCharacter().trim();
-    showLoading(name || state.knownAccount ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…");
+    showLoading(name || state.knownAccount ? "Opening Sign-In…" : "Opening Registration…");
     try {
       const result = await dependencies.signIn();
       if (result?.ok === false) {
@@ -200,7 +200,7 @@ export function createStartupAuthGate(
   async function onGuest() {
     if (pendingAction || gameLoading) return;
     pendingAction = "guest";
-    showLoading("LOADING GUEST PROFILE");
+    showLoading("Loading Guest Profile");
     try {
       const result = await dependencies.continueAsGuest();
       if (result?.ok === false) throw new Error(result.error || "Guest startup failed");

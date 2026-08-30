@@ -14,6 +14,13 @@ type AccountState = {
 
 type LoadingStage = readonly [label: string, ready: boolean, percent: number];
 
+export function loadingDescriptionCase(value: string) {
+  if (!value || value !== value.toUpperCase()) return value;
+  return value.toLowerCase().replace(/[a-z]+(?:-[a-z]+)*/g, (word) =>
+    word.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join("-"),
+  );
+}
+
 type StartupDependencies = {
   accountState: () => AccountState | undefined;
   connected: () => boolean;
@@ -90,7 +97,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     accountChoicePanel.hidden = true;
     legalGatePanel.hidden = true;
     newPlayerPanel.hidden = true;
-    loadingDetail.textContent = dependencies.accountState()?.notice || "LOGGED IN ON ANOTHER TAB";
+    loadingDetail.textContent = loadingDescriptionCase(dependencies.accountState()?.notice || "Logged In on Another Tab");
     loadingFill.style.width = "100%";
     sessionTakeoverButton.hidden = false;
     sessionTakeoverNote.hidden = false;
@@ -136,7 +143,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     dependencies.onShowAccountChoice();
   }
 
-  function showSigningIn(detail = "LOADING YOUR CHARACTER…") {
+  function showSigningIn(detail = "Loading Your Character…") {
     showAccountChoice(detail);
   }
 
@@ -161,7 +168,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     if (loadingSequenceComplete) return;
     const connectionNotice = dependencies.accountState()?.notice || "";
     if (/active in another tab|logged in on another tab|signing out other tab|takeover failed/i.test(connectionNotice)) {
-      loadingDetail.textContent = connectionNotice;
+      loadingDetail.textContent = loadingDescriptionCase(connectionNotice);
       loadingFill.style.width = "100%";
       return;
     }
@@ -244,17 +251,17 @@ export function createStartupController(dependencies: StartupDependencies) {
   });
   sessionTakeoverButton.addEventListener("click", () => {
     sessionTakeoverButton.disabled = true;
-    loadingDetail.textContent = "SIGNING OUT OTHER TAB…";
+    loadingDetail.textContent = "Signing Out Other Tab…";
     void dependencies.takeOverSession()?.then((result) => {
       if (result?.ok === false) {
         sessionTakeoverButton.disabled = false;
-        loadingDetail.textContent = "TAKEOVER FAILED · TRY AGAIN";
+        loadingDetail.textContent = "Takeover Failed · Try Again";
         return;
       }
       showConnecting();
     }).catch(() => {
       sessionTakeoverButton.disabled = false;
-      loadingDetail.textContent = "TAKEOVER FAILED · TRY AGAIN";
+      loadingDetail.textContent = "Takeover Failed · Try Again";
     });
   });
   beginAdventureButton.addEventListener("click", beginAdventure);

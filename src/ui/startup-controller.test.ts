@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createStartupController } from "./startup-controller";
+import { createStartupController, loadingDescriptionCase } from "./startup-controller";
 
 type FakeElement = {
   hidden: boolean;
@@ -22,6 +22,13 @@ function fakeElement(): FakeElement {
     addEventListener: () => {},
   };
 }
+
+describe("loading description case", () => {
+  it("turns legacy all-caps notices into readable title case", () => {
+    expect(loadingDescriptionCase("SIGNING OUT OTHER TAB…")).toBe("Signing Out Other Tab…");
+    expect(loadingDescriptionCase("Loading Map Artwork")).toBe("Loading Map Artwork");
+  });
+});
 
 describe("startup loading completion", () => {
   afterEach(() => {
@@ -55,7 +62,7 @@ describe("startup loading completion", () => {
       knownCharacterGender: () => 0,
       defaultPlayerName: () => "WANDERER",
       isSignInScreenReady: () => true,
-      getLoadingStages: () => [["STARTING WILDWOOD", true, 100]],
+      getLoadingStages: () => [["Starting Wildwood", true, 100]],
       onLoadingComplete: () => {
         completions += 1;
         startup.refreshLoading();

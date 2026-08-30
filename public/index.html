@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Wildwood</title>
-<link rel="icon" href="favicon.ico?v=0.568" sizes="any" />
+<link rel="icon" href="favicon.ico?v=0.569" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
 <link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high" />
 <link rel="preload" as="image" href="assets/wildwood/wildwood-wordmark.png" type="image/png" fetchpriority="high" />
@@ -13,13 +13,12 @@
   html, body { min-height: 100vh; min-height: 100dvh; background: #000; }
   #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: linear-gradient(180deg, rgba(4,12,6,.24), rgba(4,12,6,.38)), var(--signin-preview) center / cover no-repeat; }
 </style>
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.568" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.569" />
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="sceneFade" aria-hidden="true" hidden></div>
 <div id="cutsceneOverlay" aria-hidden="true" hidden></div>
-<div id="portalCloudTransition" aria-hidden="true" hidden></div>
 <div id="reconnectOverlay" hidden role="status" aria-live="assertive"><span>RECONNECTING<span class="reconnect-ellipsis" aria-hidden="true"></span></span></div>
 <div id="browserRewardedAd" role="dialog" aria-modal="true" aria-labelledby="browserRewardedAdLabel" hidden>
   <div id="browserRewardedAdLabel" class="browser-rewarded-ad-label">AD</div>
@@ -196,7 +195,7 @@
   </button>
   <div class="minimap-meta">
     <div id="minimapPlayers" class="minimap-players">players online: 0</div>
-    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.568">v0.568</div>
+    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.569">v0.569</div>
   </div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
@@ -212,7 +211,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.568</div>
+        <div id="version">v0.569</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -252,7 +251,7 @@
     </h1>
     <p>CONNECTING TO WILDWOOD</p>
     <div class="loading-track" aria-hidden="true"><div id="loadingFill" class="loading-fill"></div></div>
-    <p id="loadingDetail" class="loading-detail">LOADING CONNECTION</p>
+    <p id="loadingDetail" class="loading-detail">Loading Connection</p>
     <button id="sessionTakeoverBtn" type="button" hidden>SIGN IN ANYWAY</button>
     <p id="sessionTakeoverNote" class="session-takeover-note" hidden>This signs out the other tab.</p>
   </div>
@@ -268,13 +267,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.568</strong></div>
+        <div><strong id="updateNoticeTitle">v0.569</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.568</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.569</div>
   </div>
   <div id="legalGatePanel" class="modal legal-gate-modal" role="dialog" aria-modal="true" aria-labelledby="legalGateTitle" aria-describedby="legalGateIntro" hidden>
     <h1 class="wildwood-wordmark-title legal-wordmark-title" aria-label="Wildwood">
@@ -329,9 +328,9 @@
   if (/[?&](?:code|error)=/.test(location.search)) {
     document.getElementById("connectionPanel").hidden = false;
     document.getElementById("accountChoicePanel").hidden = true;
-    document.getElementById("loadingDetail").textContent = "VERIFYING SIGN-IN";
+    document.getElementById("loadingDetail").textContent = "Verifying Sign-In";
   }
 </script>
-<script id="wildwoodCoopScript" src="assets/wildwood/coop-client.js?v=0.568" data-game-src="assets/wildwood/game.js?v=0.568"></script>
+<script id="wildwoodCoopScript" src="assets/wildwood/coop-client.js?v=0.569" data-game-src="assets/wildwood/game.js?v=0.569"></script>
 </body>
 </html>

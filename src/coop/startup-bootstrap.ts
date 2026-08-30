@@ -38,6 +38,6 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
     const accountChoiceDetail = document.getElementById("accountChoiceDetail");
     const loadingDetail = document.getElementById("loadingDetail");
     if (accountChoiceDetail) accountChoiceDetail.textContent = "ACCOUNT STARTUP FAILED · REFRESH TO TRY AGAIN";
-    if (loadingDetail) loadingDetail.textContent = "ACCOUNT STARTUP FAILED · REFRESH TO TRY AGAIN";
+    if (loadingDetail) loadingDetail.textContent = "Account Startup Failed · Refresh to Try Again";
   });
 }

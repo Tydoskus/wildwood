@@ -8,6 +8,7 @@ import {
   bowAttackPlaybackRate,
   createMapMusicController,
   DEATH_SOUND_SOURCE,
+  GAME_MUSIC_SOURCES,
   musicSourceForMap,
   SIGN_IN_MUSIC_SOURCE,
 } from "./audio";
@@ -44,6 +45,16 @@ describe("map music", () => {
 
   it("uses Night Ambient 3 for Night Forest", () => {
     expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/night-forest.mp3");
+  });
+
+  it("warms each unique map soundtrack during the loading screen", () => {
+    expect(GAME_MUSIC_SOURCES).toEqual([
+      "assets/wildwood/audio/forest.mp3",
+      "assets/wildwood/audio/desert.mp3",
+      "assets/wildwood/audio/snow.mp3",
+      "assets/wildwood/audio/lava.mp3",
+      "assets/wildwood/audio/night-forest.mp3",
+    ]);
   });
 
   it("uses the Death sting for player death", () => {

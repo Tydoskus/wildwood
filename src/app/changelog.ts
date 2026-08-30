@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.569": [
+    "Game artwork and music now prepare on a clearer loading screen before play.",
+    "Fixed solo Tidewyrm attacks and portal collision immediately after spawning.",
+  ],
   "0.568": [
     "Portal transitions now close edge-to-edge with soft, staggered clouds.",
   ],
@@ -1259,6 +1263,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.569": "2026-08-29",
   "0.568": "2026-08-29",
   "0.567": "2026-08-29",
   "0.566": "2026-08-29",

@@ -28,7 +28,6 @@ import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTS
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
-import { createPortalCloudTransition } from "./game/runtime/portal-cloud-transition";
 import { createPlayerCombatController, type PlayerCombatController } from "./game/runtime/player-combat-controller";
 import { createPlayerInputController } from "./game/runtime/player-input-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
@@ -103,7 +102,7 @@ import {
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, itemInspectionBack, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
-    duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl, portalCloudTransitionEl,
+    duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
@@ -141,6 +140,7 @@ import {
   });
 
   const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, SFX_VOLUME_KEY);
+  let gameAudioReady = false;
 
   function syncMapMusic() {
     mapMusic.syncMap(currentMapId);
@@ -197,12 +197,6 @@ import {
   function setCurrentMap(mapId: MapId) {
     currentMapId = mapId;
     void prepareMapAssets(mapId);
-  }
-
-  function loadingMapId() {
-    const state = coop?.localState?.();
-    if (!state) return undefined;
-    return state.mapId in MAP_CONFIG ? state.mapId as MapId : currentMapId;
   }
 
   function mapNameForPresence(mapId: string | undefined) {
@@ -319,13 +313,15 @@ import {
     defaultPlayerName: () => coop?.localDisplayName?.() ?? "WANDERER",
     isSignInScreenReady,
     getLoadingStages: () => [
-      ["LOADING CONNECTION", Boolean(coop?.isConnected?.()), 12],
-      ["LOADING PLAYER PROFILE", Boolean(coop?.localState?.()), 35],
-      ["LOADING SAVED PROGRESS", progress.isLoaded(), 60],
-      ["LOADING PLAYER APPEARANCE", playerSpriteReady, 78],
-      ["LOADING WORLD ART", assets.worldArtReady(loadingMapId()), 90],
-      ["LOADING PAGE ART", pageLoadComplete, 97],
-      ["STARTING WILDWOOD", true, 100],
+      ["Loading Connection", Boolean(coop?.isConnected?.()), 12],
+      ["Loading Player Profile", Boolean(coop?.localState?.()), 35],
+      ["Loading Saved Progress", progress.isLoaded(), 56],
+      ["Loading Player Appearance", playerSpriteReady, 72],
+      ["Loading Core Artwork", assets.worldArtReady(), 84],
+      ["Loading Map Artwork", assets.allMapAssetsReady(), 92],
+      ["Loading Music", gameAudioReady, 97],
+      ["Loading Page Artwork", pageLoadComplete, 99],
+      ["Starting Wildwood", true, 100],
     ],
     onLoadingComplete: finishStartup,
     onShowAccountChoice: showCurrentUpdateNotice,
@@ -647,7 +643,6 @@ import {
   );
 
   let playerController: PlayerController;
-  const portalCloudTransition = createPortalCloudTransition(portalCloudTransitionEl);
   const mapController = createMapController({
     mapConfig: MAP_CONFIG,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
@@ -672,7 +667,6 @@ import {
     keys: playerInput.keys,
     stopTouchMove: playerInput.stopTouchMove,
     cutsceneOverlay: cutsceneOverlayEl,
-    portalCloudTransition,
     resizeViewport: canvasRuntime.resize,
     isDueling,
     running: () => session.isRunning(),
@@ -713,7 +707,6 @@ import {
     gloomrootBoss,
     tidewyrmBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
-    showMapMessage: (mapId) => showMessage(MAP_CONFIG[mapId].name, "#ffe769"),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
@@ -820,8 +813,12 @@ import {
   });
   const { assets, inventoryCharacterPreview, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
   prepareMapAssets = assets.ensureMapAssets;
-  const initialAssetMap = loadingMapId();
-  if (initialAssetMap) void prepareMapAssets(initialAssetMap);
+  void assets.ensureAllMapAssets();
+  void mapMusic.prepareGameAudio().finally(() => {
+    gameAudioReady = true;
+    startup.refreshLoading();
+    finishStartup();
+  });
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   const worldRenderRuntime = createWorldRenderRuntime({
@@ -940,7 +937,6 @@ import {
       flash = 0;
       screenShake = 0;
       runtimeHud.clearTransientUi();
-      showMessage(MAP_CONFIG[currentMapId].name, "#ffe769");
       updateHud(true);
     },
     movement: playerInput.movement,
@@ -1353,6 +1349,7 @@ import {
       worldProgression.hideBootUpgrade();
       playerController.reset(preserveStats, progress.hasSavedProgress());
     },
+    resolvePortalCollision: mapController.resolvePortalCollision,
     mapMusicSync: syncMapMusic,
     isDueling, activeDuel,
     syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState, syncTidewyrm: bossController.syncTidewyrmState,

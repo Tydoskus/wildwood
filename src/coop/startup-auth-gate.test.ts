@@ -159,7 +159,7 @@ describe("startup auth gate", () => {
 
     expect(ui.accountChoicePanel.hidden).toBe(true);
     expect(ui.connectionPanel.hidden).toBe(false);
-    expect(ui.loadingDetail.textContent).toBe("OPENING SIGN-IN…");
+    expect(ui.loadingDetail.textContent).toBe("Opening Sign-In…");
     expect(loadGame).not.toHaveBeenCalled();
   });
 
@@ -182,7 +182,7 @@ describe("startup auth gate", () => {
 
     expect(ui.accountChoicePanel.hidden).toBe(true);
     expect(ui.connectionPanel.hidden).toBe(false);
-    expect(ui.loadingDetail.textContent).toBe("OPENING REGISTRATION…");
+    expect(ui.loadingDetail.textContent).toBe("Opening Registration…");
   });
 
   it("loads once after OAuth has approved the account session", () => {
@@ -208,7 +208,7 @@ describe("startup auth gate", () => {
 
     expect(ui.connectionPanel.hidden).toBe(false);
     expect(ui.accountChoicePanel.hidden).toBe(true);
-    expect(ui.loadingDetail.textContent).toBe("LOADING YOUR CHARACTER");
+    expect(ui.loadingDetail.textContent).toBe("Loading Your Character");
     expect(loadGame).toHaveBeenCalledTimes(1);
   });
 
@@ -231,7 +231,7 @@ describe("startup auth gate", () => {
 
     expect(ui.connectionPanel.hidden).toBe(false);
     expect(ui.accountChoicePanel.hidden).toBe(true);
-    expect(ui.loadingDetail.textContent).toBe("VERIFYING SIGN-IN");
+    expect(ui.loadingDetail.textContent).toBe("Verifying Sign-In");
     expect(releaseNotes.hide).toHaveBeenCalled();
     expect(releaseNotes.show).not.toHaveBeenCalled();
   });
@@ -309,7 +309,7 @@ describe("startup auth gate", () => {
     await Promise.resolve();
 
     expect(order).toEqual(["guest", "game"]);
-    expect(ui.loadingDetail.textContent).toBe("LOADING GUEST PROFILE");
+    expect(ui.loadingDetail.textContent).toBe("Loading Guest Profile");
   });
 });
 

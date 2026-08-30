@@ -85,6 +85,19 @@ type RemotePlayerTarget = RemotePlayer & {
 
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
 
+/** Keeps solo boss targeting live after the low-cost map snapshot publisher goes idle. */
+export function bossTargetsFromMapSamples(
+  samples: readonly PlayerMapSample[],
+  localNetworkId: number | null,
+  localPosition: { x: number; y: number } | null,
+) {
+  return samples.map((sample) => ({
+    id: `network:${sample.networkId}`,
+    x: sample.networkId === localNetworkId && localPosition ? localPosition.x : sample.x,
+    y: sample.networkId === localNetworkId && localPosition ? localPosition.y : sample.y,
+  }));
+}
+
 type PresenceServiceDependencies = {
   reducers: ReducerPort;
   changes: ChangePort;
@@ -943,11 +956,11 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
-      bossTargets: () => latestMapSamples.map((sample) => ({
-        id: `network:${sample.networkId}`,
-        x: sample.x,
-        y: sample.y,
-      })),
+      bossTargets: () => bossTargetsFromMapSamples(
+        latestMapSamples,
+        localMotionNetworkId,
+        regularEnemyLocalPosition(),
+      ),
       remotePlayerDeath(identity: string) {
         const death = remotePlayerDeaths.get(identity);
         if (!death) return null;

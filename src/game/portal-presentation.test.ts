@@ -25,7 +25,7 @@ describe("portal destination presentation", () => {
     expect(portalDestinationColor(BEGINNER_DESERT_MAP_ID)).toBe("#ffd34d");
     expect(portalDestinationColor(INTERMEDIATE_SNOWLANDS_MAP_ID)).toBe("#8deeff");
     expect(portalDestinationColor(ADVANCED_LAVA_WASTES_MAP_ID)).toBe("#ff6258");
-    expect(portalDestinationColor(INFERNAL_DEPTHS_MAP_ID)).toBe("#625a70");
+    expect(portalDestinationColor(INFERNAL_DEPTHS_MAP_ID)).toBe("#000000");
     expect(portalDestinationColor(WATER_REACH_MAP_ID)).toBe("#54e3e9");
     expect(portalDestinationColor(SAMURAI_GARDEN_MAP_ID)).toBe("#ff83bd");
   });
