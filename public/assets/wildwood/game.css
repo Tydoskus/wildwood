@@ -32,6 +32,14 @@
     --text-shadow: .06em .10em 0 #000;
     --text-shadow-large: .06em .10em 0 #000;
     --game-window-width: min(420px, calc(100vw - 24px));
+    --hud-surface: rgba(18, 28, 22, .90);
+    --hud-frame: #050a06;
+    --hud-radius: 12px;
+    --hud-radius-small: 8px;
+    --hud-edge-gap: 8px;
+    --hud-safe-top: max(var(--hud-edge-gap), env(safe-area-inset-top, 0px));
+    --hud-safe-left: max(var(--hud-edge-gap), env(safe-area-inset-left, 0px));
+    --player-hud-height: clamp(72px, 22vw, 80px);
     --hud-row-height: clamp(59px, 8.5vw, 63px);
     --hud-map-size: calc(var(--hud-row-height) * 2);
     --mini-chat-height: 58px;
@@ -105,9 +113,9 @@
 
   .topbar {
     position: absolute;
-    left: 0;
-    top: 0;
-    right: 12px;
+    left: var(--hud-safe-left);
+    top: var(--hud-safe-top);
+    right: var(--hud-edge-gap);
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -122,21 +130,21 @@
     backdrop-filter: blur(4px);
   }
 
-  .player-hud-stack { display: grid; grid-template-rows: repeat(2, var(--hud-row-height)); width: min(420px, 68vw); height: var(--hud-map-size); }
+  .player-hud-stack { display: block; width: min(420px, 68vw); height: var(--player-hud-height); }
 
   .player-summary {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 5px;
+    justify-content: space-between;
+    gap: 7px;
     min-width: 0;
-    padding: 2px 3px 6px;
+    padding: 0 3px 5px 2px;
   }
 
-  .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: flex; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 7px 9px; overflow: hidden; border-color: #000; border-top: 0; border-left: 0; border-radius: 0; background: rgba(13,20,17,.62); }
+  .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: flex; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 6px 8px 6px 6px; overflow: hidden; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.42); }
   .player-hud-content { display: flex; flex: 1; flex-direction: column; justify-content: center; min-width: 0; }
   .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
-  .profile-icon-button { width: 47px; height: 47px; align-self: center; cursor: pointer; }
+  .profile-icon-button { width: clamp(52px, 17vw, 62px); height: clamp(52px, 17vw, 62px); align-self: center; border-radius: 9px; cursor: pointer; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { position: relative; border-color: #000; cursor: pointer; }
   .profile-window-icon.is-editable::after { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; border: 2px solid #080a08; border-radius: 50%; background: var(--green); color: #0a120c; content: "✎"; font: 900 11px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
@@ -154,6 +162,7 @@
     align-items: center;
     justify-content: flex-end;
     gap: 4px;
+    color: var(--gold);
     font-size: 12.5px;
     letter-spacing: .035em;
     text-align: right;
@@ -238,7 +247,7 @@
   #settingsBtn[aria-expanded="true"] { background: linear-gradient(#4f5854, #393f3c); box-shadow: inset 0 3px 0 #c3cac6, inset 0 0 0 2px rgba(195,202,198,.18); }
   .settings-button:active { filter: brightness(1.16); transform: none; }
 
-  .fps-status { position: fixed; top: calc(var(--hud-row-height) + 31px); bottom: auto; left: max(6px, env(safe-area-inset-left)); z-index: 5; display: flex; gap: 7px; padding: 5px 7px; border: 2px solid #000; border-radius: 5px; background: rgba(13,20,17,.82); color: #fff; font: 900 8px/1 var(--font-rounded); letter-spacing: .03em; white-space: nowrap; pointer-events: none; }
+  .fps-status { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-height) + 40px); bottom: auto; left: var(--hud-safe-left); z-index: 5; display: flex; gap: 7px; padding: 5px 7px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); color: #fff; font: 900 8px/1 var(--font-rounded); letter-spacing: .03em; white-space: nowrap; pointer-events: none; }
   .fps-status[hidden] { display: none; }
   #onePercentLowFpsStatus { color: #ffd85b; }
   #workFpsStatus { color: #a9e6b5; }
@@ -723,11 +732,14 @@
     position: relative;
     display: grid;
     place-items: center;
-    width: min(330px, 58vw);
-    height: 21px;
-    margin-bottom: 3px;
-    overflow: visible;
-    background: #372929;
+    width: 100%;
+    height: 24px;
+    margin: 0;
+    overflow: hidden;
+    border: 2px solid var(--hud-frame);
+    border-radius: var(--hud-radius-small);
+    background: linear-gradient(to bottom, #4a594a 0 49%, #303c31 50% 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
   }
 
   #hpFill {
@@ -735,7 +747,9 @@
     inset: 0 auto 0 0;
     width: 100%;
     overflow: hidden;
-    background: linear-gradient(#78ed7c, #2fbf4b);
+    border-radius: 5px;
+    background: linear-gradient(to bottom, #83f087 0 48%, #55d963 49% 58%, #2fbf4b 59% 100%);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.18), inset 0 -2px 0 rgba(21,91,35,.22);
     transition: width .12s linear;
   }
 
@@ -1078,14 +1092,15 @@
   #latencyStatus[data-quality="poor"] { color: #ff8f86; }
 
   #playerName {
+    flex: 1 1 auto;
     display: flex;
     align-items: center;
     gap: 3px;
     min-width: 0;
-    max-width: 230px;
+    max-width: none;
     min-height: 12px;
     overflow: hidden;
-    color: var(--gold);
+    color: #fff;
     font-size: 12.5px;
     letter-spacing: .05em;
     text-overflow: ellipsis;
@@ -1121,8 +1136,8 @@
     z-index: 6;
   }
 
-  .hud-gem-wallet { position: fixed; top: calc(var(--hud-row-height) + 4px); left: 6px; z-index: 5; display: flex; align-items: center; gap: 3px; min-height: 23px; padding: 2px 5px 2px 3px; border: 0; border-radius: 5px; background: rgba(92, 58, 79, .52); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
-  .hud-gem-icon { display: block; width: 17px; height: 17px; object-fit: contain; }
+  .hud-gem-wallet { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-height) + 6px); left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 8px 3px 5px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.35); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
+  .hud-gem-icon { display: block; width: 20px; height: 20px; object-fit: contain; }
   .hud-gem-balance { color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px #071c29; }
 
   .daily-gem-bonus { position: fixed; inset: 0 0 var(--toolbar-height); z-index: 18; display: grid; place-items: center; padding: 18px; background: rgba(8, 7, 10, .78); pointer-events: auto; }
@@ -2702,11 +2717,11 @@
     #status { min-width: 105px; font-size: 10px; }
     .card { padding: 6px 8px; }
     #pickupLog { bottom: 180px; }
-    .topbar { top: 0; right: 7px; left: 0; }
-    .player-hud-card { gap: 6px; padding: 5px 6px; background: rgba(13,20,17,.62); }
-    .profile-icon-button { width: 38px; height: 38px; border-radius: 6px; }
-    .player-summary { min-width: min(250px, 50vw); gap: 5px; padding: 0 2px 3px; }
-    .bar { width: min(250px, 50vw); height: 17px; margin-bottom: 1px; }
+    .topbar { top: var(--hud-safe-top); right: var(--hud-edge-gap); left: var(--hud-safe-left); }
+    .player-hud-card { gap: 7px; padding: 6px 7px 6px 6px; background: var(--hud-surface); }
+    .profile-icon-button { width: clamp(50px, 17vw, 60px); height: clamp(50px, 17vw, 60px); border-radius: 9px; }
+    .player-summary { min-width: 0; gap: 5px; padding: 0 2px 4px; }
+    .bar { width: 100%; height: 22px; margin: 0; }
     #playerName, #playerPower { font-size: 11.25px; }
     #hpText { font-size: 10px; line-height: 11px; transform: translateY(-1px); }
     .settings-button { font-size: 25px; }

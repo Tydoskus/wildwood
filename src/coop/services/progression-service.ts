@@ -108,8 +108,30 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   function persistPending(progress: ProgressSave) {
     pendingProgress = copyProgress(progress);
     const identity = dependencies.localIdentity();
-    if (!identity) return;
-    pendingProgress = store.write(identity, pendingProgress);
+    if (identity) pendingProgress = store.write(identity, pendingProgress);
+    // Local regular-enemy rewards are optimistic. Publish that snapshot now so
+    // an open own-profile view does not wait for the throttled reducer and its
+    // subscribed row to make the same progress visible.
+    dependencies.notify();
+  }
+
+  function promoteConfirmedStats(identity: string, snapshot: ProgressSave) {
+    if (identity !== dependencies.localIdentity() || !localProgress) return;
+    // A successful save confirms the monotonic combat fields even if the SDK's
+    // table update is delivered after the reducer promise. Keep server-owned
+    // inventory/equipment fields untouched; their subscribed row remains the
+    // authority for any normalization performed by the reducer.
+    localProgress = {
+      ...localProgress,
+      maxHp: Math.max(localProgress.maxHp, snapshot.maxHp),
+      damage: Math.max(localProgress.damage, snapshot.damage),
+      attackRate: Math.min(localProgress.attackRate, snapshot.attackRate),
+      projectileCount: Math.max(localProgress.projectileCount, snapshot.projectileCount),
+      armor: Math.max(localProgress.armor, snapshot.armor),
+      regen: Math.max(localProgress.regen, snapshot.regen),
+      bootsCollected: localProgress.bootsCollected || snapshot.bootsCollected,
+    };
+    progressByIdentity.set(identity, localProgress);
   }
 
   function flushAsync(force = false): Promise<boolean> {
@@ -136,7 +158,11 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           identity === dependencies.localIdentity() &&
           pendingProgress &&
           sameProgressSave(pendingProgress, snapshot)
-        ) clearPending(identity);
+        ) {
+          promoteConfirmedStats(identity, snapshot);
+          clearPending(identity);
+          dependencies.notify();
+        }
         return true;
       })
       .catch((error) => {
@@ -595,7 +621,11 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       },
     },
     localProgress: () => localProgress,
-    progressFor: (identity: string) => progressByIdentity.get(identity),
+    progressFor(identity: string) {
+      const progress = progressByIdentity.get(identity);
+      if (!progress || identity !== dependencies.localIdentity() || !pendingProgress) return progress;
+      return mergeProgress(progress, pendingProgress);
+    },
     researchFor: (identity: string) => researchByIdentity.get(identity),
     lifetimeFor: (identity: string) => lifetimeByIdentity.get(identity),
     upgradeLevelsFor,

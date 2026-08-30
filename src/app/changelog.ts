@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.571": [
+    "Guest attack-speed and regeneration rewards now update immediately in gameplay and profiles without requiring a restart.",
+    "The player HUD and Gem counter now share a polished framed style with improved spacing and a two-tone health bar while retaining Power.",
+  ],
   "0.570": [
     "Snowlands and Night Forest enemies now drop new map-balanced bows at 1/50 and 1/100 odds.",
   ],
@@ -1266,6 +1270,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.571": "2026-08-30",
   "0.570": "2026-08-29",
   "0.569": "2026-08-29",
   "0.568": "2026-08-29",

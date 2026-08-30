@@ -247,7 +247,7 @@ describe("interface style contracts", () => {
     expect(css).not.toContain(".profile-leaderboard-");
   });
 
-  it("places the unbordered Gem balance beneath the player HUD", () => {
+  it("places the Gem balance beneath the player HUD on the same framed surface", () => {
     const chat = html.indexOf('id="chatPanel"');
     const wallet = html.indexOf('id="hudGemWallet"');
     const profile = html.indexOf('id="playerProfile"');
@@ -257,11 +257,14 @@ describe("interface style contracts", () => {
     expect(html).not.toContain('class="profile-gem-label"');
     expect(html).toContain('src="assets/wildwood/gems/gem-icon.png"');
     const counter = cssRule(".hud-gem-wallet {");
-    expect(counter).toContain("top: calc(var(--hud-row-height) + 4px)");
-    expect(counter).toContain("left: 6px");
-    expect(counter).toContain("border: 0");
-    expect(counter).toContain("background: rgba(");
-    expect(counter).not.toContain("background: transparent");
+    const playerHud = cssRule(".player-hud-card {");
+    expect(counter).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-height) + 6px)");
+    expect(counter).toContain("left: var(--hud-safe-left)");
+    expect(counter).toContain("border: 2px solid var(--hud-frame)");
+    expect(counter).toContain("border-radius: var(--hud-radius-small)");
+    expect(counter).toContain("background: var(--hud-surface)");
+    expect(playerHud).toContain("border-radius: var(--hud-radius)");
+    expect(playerHud).toContain("background: var(--hud-surface)");
     const icon = cssRule(".hud-gem-icon {");
     expect(icon).not.toContain("gradient");
     expect(icon).not.toContain("box-shadow");
@@ -272,8 +275,18 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="onePercentLowFpsStatus">1% LOW: --</span>');
     const status = cssRule(".fps-status {");
     expect(status).toContain("position: fixed");
-    expect(status).toContain("top: calc(var(--hud-row-height) + 31px)");
+    expect(status).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-height) + 40px)");
     expect(status).toContain("bottom: auto");
+  });
+
+  it("frames the health bar with a rounded two-tone track and fill", () => {
+    const track = cssRule(".bar {");
+    const fill = cssRule("#hpFill {");
+    expect(track).toContain("border: 2px solid var(--hud-frame)");
+    expect(track).toContain("border-radius: var(--hud-radius-small)");
+    expect(track).toContain("linear-gradient");
+    expect(fill).toContain("border-radius: 5px");
+    expect(fill).toContain("linear-gradient");
   });
 
   it("centers profile equation operators in dedicated columns", () => {

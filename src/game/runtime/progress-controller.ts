@@ -91,7 +91,21 @@ export function createProgressController(dependencies: ProgressDependencies) {
     const progressIdentity = dependencies.localIdentity();
     const saved = dependencies.getSavedProgress();
     if (progressLoaded && progressLoadedIdentity === progressIdentity) {
-      if (saved) applyMovementSpeed(saved, dependencies.inventory.equippedFeet === TRAILBLAZER_BOOTS);
+      if (saved) {
+        // A local reward is persisted before its throttled server save. Reapply
+        // the monotonic combat fields on later co-op notifications so a startup
+        // or subscription race cannot leave attack speed or regeneration at an
+        // older runtime value until the next page load.
+        dependencies.player.attackRate = Math.min(
+          dependencies.player.attackRate,
+          boundedProgressValue(saved.attackRate, dependencies.player.attackRate, MIN_ATTACK_INTERVAL, 10),
+        );
+        dependencies.player.regen = Math.max(
+          dependencies.player.regen,
+          boundedProgressValue(saved.regen, dependencies.player.regen, 0, MAX_PLAYER_STAT),
+        );
+        applyMovementSpeed(saved, dependencies.inventory.equippedFeet === TRAILBLAZER_BOOTS);
+      }
       return;
     }
     if (!saved) return;
@@ -119,16 +133,14 @@ export function createProgressController(dependencies: ProgressDependencies) {
 
   function applyProgress(source: Partial<PlayerProgress>) {
     const { player, inventory, bootsPickup } = dependencies;
-    const bounded = (value: number | undefined, fallback: number, min: number, max: number) =>
-      Number.isFinite(value) ? clamp(value as number, min, max) : fallback;
-    player.baseMaxHp = bounded(source.maxHp, player.baseMaxHp, 1, MAX_PLAYER_STAT);
-    player.damage = bounded(source.damage, player.damage, 1, MAX_PLAYER_STAT);
-    player.attackRate = bounded(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
+    player.baseMaxHp = boundedProgressValue(source.maxHp, player.baseMaxHp, 1, MAX_PLAYER_STAT);
+    player.damage = boundedProgressValue(source.damage, player.damage, 1, MAX_PLAYER_STAT);
+    player.attackRate = boundedProgressValue(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
     player.projectileSpeed = BASE_PROJECTILE_SPEED;
-    player.projectileCount = Math.floor(bounded(source.projectileCount, player.projectileCount, 1, 20));
+    player.projectileCount = Math.floor(boundedProgressValue(source.projectileCount, player.projectileCount, 1, 20));
     player.attackRange = BASE_ATTACK_RANGE;
-    player.armor = bounded(source.armor, player.armor, 0, MAX_ARMOR);
-    player.regen = bounded(source.regen, player.regen, 0, MAX_PLAYER_STAT);
+    player.armor = boundedProgressValue(source.armor, player.armor, 0, MAX_ARMOR);
+    player.regen = boundedProgressValue(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;
     dependencies.setAppliedVitalityRank(dependencies.researchVitalityRank());
     const savedInventory = inventoryFromSave(
@@ -188,6 +200,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
     syncLifetimeKills,
     movementSpeedForEquipment: (bootsEquipped: boolean) => playerBaseMovementSpeed(bootsEquipped, movementSpeedOverride),
   };
+}
+
+function boundedProgressValue(value: number | undefined, fallback: number, min: number, max: number) {
+  return Number.isFinite(value) ? clamp(value as number, min, max) : fallback;
 }
 
 function readLegacyProgress(storageKey: string): LegacyProgress | null {
