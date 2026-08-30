@@ -31,8 +31,12 @@ import {
   LAVA_ITEM_DROP_DENOMINATOR,
   MAGMA_ARMOR,
   NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR,
+  NIGHT_BOW,
   SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
+  SNOW_BOW,
+  SNOW_ITEM_DROP_DENOMINATOR,
   STARTER_BOW,
   STARTER_STONE,
   WOODEN_ARMOR,
@@ -627,7 +631,9 @@ function createMapDefinitions(): BalanceMapDefinition[] {
       id: INTERMEDIATE_SNOWLANDS_MAP_ID,
       name: MAP_DISPLAY_NAMES[INTERMEDIATE_SNOWLANDS_MAP_ID],
       arrival: bootstrap.mapConfig[INTERMEDIATE_SNOWLANDS_MAP_ID].arrival,
-      regularDrops: [],
+      regularDrops: [
+        { itemId: SNOW_BOW, denominator: SNOW_ITEM_DROP_DENOMINATOR, eligible: always },
+      ],
       boss: {
         name: "Frostclaw",
         hp: bootstrap.frostclawBoss.maxHp,
@@ -671,6 +677,7 @@ function createMapDefinitions(): BalanceMapDefinition[] {
       name: MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID],
       arrival: bootstrap.mapConfig[INFERNAL_DEPTHS_MAP_ID].arrival,
       regularDrops: [
+        { itemId: NIGHT_BOW, denominator: NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR, eligible: always },
         { itemId: FIRE_METAL_BOW, denominator: INFERNAL_ITEM_DROP_DENOMINATOR, eligible: always },
         { itemId: DARK_METAL_HELMET, denominator: NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR, eligible: always },
       ],

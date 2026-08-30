@@ -40,6 +40,7 @@ import RecordDesertEnemyDefeatReducer from "../record_desert_enemy_defeat_reduce
 import RecordForestEnemyDefeatReducer from "../record_forest_enemy_defeat_reducer";
 import RecordLavaEnemyDefeatReducer from "../record_lava_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "../record_player_death_reducer";
+import RecordSnowEnemyDefeatReducer from "../record_snow_enemy_defeat_reducer";
 import RegisterProtocolReducer from "../register_protocol_reducer";
 import ReportChatMessageReducer from "../report_chat_message_reducer";
 import RequestDuelReducer from "../request_duel_reducer";
@@ -100,6 +101,7 @@ export type RecordDesertEnemyDefeatParams = __Infer<typeof RecordDesertEnemyDefe
 export type RecordForestEnemyDefeatParams = __Infer<typeof RecordForestEnemyDefeatReducer>;
 export type RecordLavaEnemyDefeatParams = __Infer<typeof RecordLavaEnemyDefeatReducer>;
 export type RecordPlayerDeathParams = __Infer<typeof RecordPlayerDeathReducer>;
+export type RecordSnowEnemyDefeatParams = __Infer<typeof RecordSnowEnemyDefeatReducer>;
 export type RegisterProtocolParams = __Infer<typeof RegisterProtocolReducer>;
 export type ReportChatMessageParams = __Infer<typeof ReportChatMessageReducer>;
 export type RequestDuelParams = __Infer<typeof RequestDuelReducer>;

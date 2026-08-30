@@ -6,7 +6,7 @@ import {
 } from "./game/constants";
 import { clamp, distanceSquared, rand } from "./game/math";
 import { damageAfterArmor, formatArmorReduction } from "./game/combat";
-import { DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -562,6 +562,7 @@ import {
     incrementKills: () => { totalKills += 1; },
     recordForestEnemyDefeat: () => coop?.recordForestEnemyDefeat?.(),
     recordDesertEnemyDefeat: () => coop?.recordDesertEnemyDefeat?.(),
+    recordSnowEnemyDefeat: () => coop?.recordSnowEnemyDefeat?.(),
     recordLavaEnemyDefeat: () => coop?.recordLavaEnemyDefeat?.(),
     damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
@@ -1627,8 +1628,12 @@ import {
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
     const pickupColor = itemId === DARK_METAL_HELMET
       ? "#8f83a6"
+      : itemId === NIGHT_BOW
+        ? "#a982ff"
       : itemId === FIRE_METAL_BOW || itemId === FIRE_METAL_HELMET
       ? "#ff6557"
+      : itemId === SNOW_BOW
+        ? "#e9fbff"
       : itemId === FROST_BOW || itemId === FROST_ARMOR
         ? "#2d92ff"
         : itemId === IRON_BOW ? "#aeb7c5"

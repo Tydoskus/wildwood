@@ -30,6 +30,8 @@ import {
   INFERNAL_DROP_ITEM_IDS,
   INFERNAL_ITEM_DROP_DENOMINATOR,
   NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR,
+  NIGHT_BOW,
   MAX_ITEM_UPGRADE_LEVEL,
   LAVA_DROP_ITEM_IDS,
   LAVA_BOSS_DROP_ITEM_IDS,
@@ -44,6 +46,9 @@ import {
   SNOW_BOSS_DROP_ITEM_IDS,
   SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
+  SNOW_BOW,
+  SNOW_DROP_ITEM_IDS,
+  SNOW_ITEM_DROP_DENOMINATOR,
   weaponAttackSpeedMultiplier,
   weaponDamageMultiplier,
   WOOD_FULL_HELM,
@@ -57,18 +62,21 @@ describe("equipment catalog", () => {
     expect(STARTER_ITEM_IDS).not.toContain(STARTER_BOW);
     expect(FOREST_DROP_ITEM_IDS).toEqual([STARTER_BOW, WOODEN_ARMOR]);
     expect(DESERT_DROP_ITEM_IDS).toEqual([WOOD_FULL_HELM, IRON_BOW]);
+    expect(SNOW_DROP_ITEM_IDS).toEqual([SNOW_BOW]);
     expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW, FROST_ARMOR]);
     expect(LAVA_DROP_ITEM_IDS).toEqual([FIRE_METAL_HELMET, MAGMA_ARMOR]);
     expect(LAVA_BOSS_DROP_ITEM_IDS).toEqual([LAVA_BOW]);
-    expect(INFERNAL_DROP_ITEM_IDS).toEqual([DARK_METAL_HELMET, FIRE_METAL_BOW]);
+    expect(INFERNAL_DROP_ITEM_IDS).toEqual([DARK_METAL_HELMET, NIGHT_BOW, FIRE_METAL_BOW]);
     expect(FOREST_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(DESERT_ITEM_DROP_DENOMINATOR).toBe(50);
+    expect(SNOW_ITEM_DROP_DENOMINATOR).toBe(50);
     expect(SNOW_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(SNOW_BOSS_ARMOR_DROP_DENOMINATOR).toBe(5);
     expect(LAVA_ITEM_DROP_DENOMINATOR).toBe(1_200);
     expect(LAVA_HELMET_ITEM_DROP_DENOMINATOR).toBe(2_000);
     expect(LAVA_BOSS_ITEM_DROP_DENOMINATOR).toBe(25);
     expect(INFERNAL_ITEM_DROP_DENOMINATOR).toBe(1_000);
+    expect(NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR).toBe(100);
     expect(NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR).toBe(1_300);
   });
 
@@ -80,6 +88,8 @@ describe("equipment catalog", () => {
     expect(isWeaponItem(FROST_BOW)).toBe(true);
     expect(itemFitsEquipmentSlot(FROST_BOW, "RIGHT_HAND")).toBe(true);
     expect(itemFitsEquipmentSlot(FROST_BOW, "LEFT_HAND")).toBe(true);
+    expect(isWeaponItem(SNOW_BOW)).toBe(true);
+    expect(isWeaponItem(NIGHT_BOW)).toBe(true);
   });
 
   it("keeps Rock, Bow, and Frost Bow as separate weapon IDs", () => {
@@ -137,6 +147,17 @@ describe("equipment catalog", () => {
     expect(weaponAttackSpeedMultiplier(FIRE_METAL_BOW)).toBeCloseTo(1);
   });
 
+  it("places regular Snowlands and Night Forest bows between their surrounding weapon tiers", () => {
+    expect(weaponDamageMultiplier(SNOW_BOW)).toBeCloseTo(1.35);
+    expect(weaponDamageMultiplier(SNOW_BOW)).toBeGreaterThan(weaponDamageMultiplier(IRON_BOW));
+    expect(weaponDamageMultiplier(SNOW_BOW)).toBeLessThan(weaponDamageMultiplier(FROST_BOW));
+    expect(weaponDamageMultiplier(NIGHT_BOW)).toBeCloseTo(1.5);
+    expect(weaponDamageMultiplier(NIGHT_BOW)).toBeCloseTo(weaponDamageMultiplier(LAVA_BOW));
+    expect(weaponDamageMultiplier(NIGHT_BOW)).toBeLessThan(weaponDamageMultiplier(FIRE_METAL_BOW));
+    expect(weaponAttackSpeedMultiplier(SNOW_BOW)).toBe(1);
+    expect(weaponAttackSpeedMultiplier(NIGHT_BOW)).toBe(1);
+  });
+
   it("keeps Fire Metal Helmet defensive in the head slot", () => {
     expect(itemFitsEquipmentSlot(FIRE_METAL_HELMET, "HEAD")).toBe(true);
     expect(itemDamageMultiplier(FIRE_METAL_HELMET)).toBeCloseTo(1);
@@ -189,6 +210,8 @@ describe("equipment catalog", () => {
     expect(isUpgradeableItem(FIRE_METAL_HELMET)).toBe(true);
     expect(isUpgradeableItem(DARK_METAL_HELMET)).toBe(true);
     expect(isUpgradeableItem(FIRE_METAL_BOW)).toBe(true);
+    expect(isUpgradeableItem(SNOW_BOW)).toBe(true);
+    expect(isUpgradeableItem(NIGHT_BOW)).toBe(true);
     expect(isUpgradeableItem(STARTER_STONE)).toBe(false);
     expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);
   });

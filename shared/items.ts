@@ -11,14 +11,17 @@ export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
 export const IRON_BOW = "iron_bow";
+export const SNOW_BOW = "snow_bow";
 export const FROST_BOW = "frost_bow";
 export const LAVA_BOW = "lava_bow";
+export const NIGHT_BOW = "night_bow";
 export const FIRE_METAL_BOW = "fire_metal_bow";
 export const FROST_ARMOR = "frost_armor";
 export const MAGMA_ARMOR = "magma_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
 export const DESERT_ITEM_DROP_DENOMINATOR = 50;
+export const SNOW_ITEM_DROP_DENOMINATOR = 50;
 // Late-map enemies now arrive in shorter reward slices. Preserve each old
 // macro-clear drop chance by matching per-kill odds to the map's cadence:
 // roughly forty slices in Lava and twenty in Night Forest.
@@ -26,6 +29,7 @@ export const LAVA_ITEM_DROP_DENOMINATOR = 1_200;
 export const LAVA_HELMET_ITEM_DROP_DENOMINATOR = 2_000;
 export const LAVA_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const INFERNAL_ITEM_DROP_DENOMINATOR = 1_000;
+export const NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR = 100;
 export const NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR = 1_300;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
@@ -41,7 +45,7 @@ export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -164,6 +168,19 @@ export const ITEM_DEFINITIONS = {
       damageMultiplierBonus: .25,
     },
   },
+  [SNOW_BOW]: {
+    id: SNOW_BOW,
+    name: "SNOW BOW",
+    slot: "HAND",
+    acquisition: "SNOW_DROP",
+    description: "A white bow carried by Snowlands monsters, balanced as a stepping stone toward Frostclaw's weapon.",
+    stats: ["DAMAGE +35%"],
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: .35,
+    },
+  },
   [FROST_BOW]: {
     id: FROST_BOW,
     name: "FROST BOW",
@@ -183,6 +200,19 @@ export const ITEM_DEFINITIONS = {
     slot: "HAND",
     acquisition: "LAVA_BOSS_DROP",
     description: "A blazing red bow claimed from the Magmalisk, built for overwhelming damage.",
+    stats: ["DAMAGE +50%"],
+    weapon: {
+      mode: "RANGED",
+      projectile: "ARROW",
+      damageMultiplierBonus: .5,
+    },
+  },
+  [NIGHT_BOW]: {
+    id: NIGHT_BOW,
+    name: "NIGHT BOW",
+    slot: "HAND",
+    acquisition: "INFERNAL_DROP",
+    description: "A purple bow carried by Night Forest monsters that provides a dependable bridge to rarer Night Forest equipment.",
     stats: ["DAMAGE +50%"],
     weapon: {
       mode: "RANGED",
@@ -251,6 +281,9 @@ export const FOREST_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .map((item) => item.id) as ItemId[];
 export const DESERT_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "DESERT_DROP")
+  .map((item) => item.id) as ItemId[];
+export const SNOW_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
+  .filter((item) => item.acquisition === "SNOW_DROP")
   .map((item) => item.id) as ItemId[];
 export const SNOW_BOSS_DROP_ITEM_IDS = Object.values(ITEM_DEFINITIONS)
   .filter((item) => item.acquisition === "SNOW_BOSS_DROP")

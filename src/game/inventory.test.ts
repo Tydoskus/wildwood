@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bagInventoryStacks, BASIC_PAPER_HAT, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
+import { bagInventoryStacks, BASIC_PAPER_HAT, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, normaliseInventory, ownedInventoryStacks, serialiseInventory, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
 
 const emptyCosmetics = {
   cosmeticHead: "",
@@ -186,7 +186,7 @@ describe("inventory rules", () => {
 
   it("restores and equips unique Night Forest drops", () => {
     const inventory = inventoryFromSave(
-      JSON.stringify([DARK_METAL_HELMET, FIRE_METAL_BOW]),
+      JSON.stringify([DARK_METAL_HELMET, NIGHT_BOW, FIRE_METAL_BOW]),
       "",
       DARK_METAL_HELMET,
       "",
@@ -199,6 +199,22 @@ describe("inventory rules", () => {
     expect(inventory.equippedRightHand).toBe(FIRE_METAL_BOW);
     expect(inventoryItemQuantity(inventory, DARK_METAL_HELMET)).toBe(1);
     expect(inventoryItemQuantity(inventory, FIRE_METAL_BOW)).toBe(1);
+    expect(inventoryItemQuantity(inventory, NIGHT_BOW)).toBe(1);
+  });
+
+  it("restores and equips the regular Snowlands bow", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([SNOW_BOW]),
+      "",
+      BASIC_PAPER_HAT,
+      "",
+      false,
+      false,
+      SNOW_BOW,
+      "",
+    );
+    expect(inventory.equippedRightHand).toBe(SNOW_BOW);
+    expect(inventoryItemQuantity(inventory, SNOW_BOW)).toBe(1);
   });
 
   it("keeps cosmetic overrides in the bag without changing stat equipment", () => {

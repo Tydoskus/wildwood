@@ -9,6 +9,8 @@ import {
   LEGENDARY_WHITE_GOLD_ARMOR,
   LAVA_BOW,
   MAGMA_ARMOR,
+  NIGHT_BOW,
+  SNOW_BOW,
   STARTER_BOW,
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
@@ -136,6 +138,19 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
     },
     projectile: "ARROW",
   },
+  [SNOW_BOW]: {
+    inventory: { source: `${PLAYER_PARTS}/snow-bow.png`, equippedWidth: 44, equippedHeight: 34 },
+    world: {
+      kind: "SPRITE",
+      source: `${PLAYER_PARTS}/snow-bow.png`,
+      layer: "HAND",
+      width: 115,
+      height: 63,
+      top: 106,
+      handAction: "BOW",
+    },
+    projectile: "ARROW",
+  },
   [FROST_BOW]: {
     inventory: { source: `${PLAYER_PARTS}/frost-bow.png`, equippedWidth: 44, equippedHeight: 34 },
     world: {
@@ -154,6 +169,19 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
     world: {
       kind: "SPRITE",
       source: `${PLAYER_PARTS}/lava-bow.png`,
+      layer: "HAND",
+      width: 115,
+      height: 63,
+      top: 106,
+      handAction: "BOW",
+    },
+    projectile: "ARROW",
+  },
+  [NIGHT_BOW]: {
+    inventory: { source: `${PLAYER_PARTS}/night-bow.png`, equippedWidth: 44, equippedHeight: 34 },
+    world: {
+      kind: "SPRITE",
+      source: `${PLAYER_PARTS}/night-bow.png`,
       layer: "HAND",
       width: 115,
       height: 63,

@@ -72,6 +72,8 @@ import {
   INFERNAL_DROP_ITEM_IDS,
   INFERNAL_ITEM_DROP_DENOMINATOR,
   NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR,
+  NIGHT_BOW,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
@@ -89,6 +91,9 @@ import {
   SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
   SNOW_BOSS_DROP_ITEM_IDS,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
+  SNOW_BOW,
+  SNOW_DROP_ITEM_IDS,
+  SNOW_ITEM_DROP_DENOMINATOR,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
   weaponAttackInterval,
@@ -2884,6 +2889,8 @@ function inventoryForProgress(progress: any) {
     ...Array(forestItemCountForProgress(progress, STARTER_BOW, "bowCount")).fill(STARTER_BOW),
     ...Array(forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
     ...DESERT_DROP_ITEM_IDS.flatMap((itemId) =>
+      Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
+    ...SNOW_DROP_ITEM_IDS.flatMap((itemId) =>
       Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
     ...SNOW_BOSS_DROP_ITEM_IDS.flatMap((itemId) =>
       Array(inventoryJsonItemQuantity(progress.inventoryJson, itemId)).fill(itemId)),
@@ -6641,6 +6648,24 @@ export const recordDesertEnemyDefeat = spacetimedb.reducer(
   },
 );
 
+/** Records one regular Snowlands defeat; the white bow has an exact 1/50 roll. */
+export const recordSnowEnemyDefeat = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const activePlayer = requireControllingPlayer(ctx);
+    if (activePlayer.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID || activeDuelFor(ctx, ctx.sender)) return;
+    if (ctx.random.integerInRange(1, SNOW_ITEM_DROP_DENOMINATOR) !== 1) return;
+
+    const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+    const alreadyOwned = playerOwnsItem(ctx, ctx.sender, SNOW_BOW);
+    publishItemDrop(ctx, ctx.sender, SNOW_BOW, alreadyOwned);
+    const next = alreadyOwned ? current : restoreItemToProgress(current, SNOW_BOW);
+    next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
+    else ctx.db.playerProgress.insert(next);
+  },
+);
+
 /** Records one regular late-game monster defeat; server RNG owns every independent item roll. */
 export const recordLavaEnemyDefeat = spacetimedb.reducer(
   {},
@@ -6648,12 +6673,18 @@ export const recordLavaEnemyDefeat = spacetimedb.reducer(
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId === INFERNAL_DEPTHS_MAP_ID) {
-      const bowDropped = ctx.random.integerInRange(1, INFERNAL_ITEM_DROP_DENOMINATOR) === 1;
+      const nightBowDropped = ctx.random.integerInRange(1, NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR) === 1;
+      const fireMetalBowDropped = ctx.random.integerInRange(1, INFERNAL_ITEM_DROP_DENOMINATOR) === 1;
       const helmetDropped = ctx.random.integerInRange(1, NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR) === 1;
-      if (!bowDropped && !helmetDropped) return;
+      if (!nightBowDropped && !fireMetalBowDropped && !helmetDropped) return;
       const current = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
       let next = { ...current };
-      if (bowDropped) {
+      if (nightBowDropped) {
+        const alreadyOwned = playerOwnsItem(ctx, ctx.sender, NIGHT_BOW);
+        publishItemDrop(ctx, ctx.sender, NIGHT_BOW, alreadyOwned);
+        if (!alreadyOwned) next = restoreItemToProgress(next, NIGHT_BOW);
+      }
+      if (fireMetalBowDropped) {
         const alreadyOwned = playerOwnsItem(ctx, ctx.sender, FIRE_METAL_BOW);
         publishItemDrop(ctx, ctx.sender, FIRE_METAL_BOW, alreadyOwned);
         if (!alreadyOwned) next = restoreItemToProgress(next, FIRE_METAL_BOW);

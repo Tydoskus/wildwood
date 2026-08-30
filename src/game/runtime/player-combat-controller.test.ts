@@ -10,6 +10,7 @@ import { createGameBootstrap } from "./game-bootstrap";
 import { bossPlayerAttackCycle } from "../../../shared/boss-simulation";
 import { weaponAttackInterval } from "../../../shared/items";
 import { remoteBossAttackFrame } from "../../coop/services/remote-boss-attack";
+import { createEnemyLifecycle } from "./enemy-lifecycle";
 
 function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCombatController>[0]> = {}) {
   const state = createGameBootstrap();
@@ -48,6 +49,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     incrementKills: noop,
     recordForestEnemyDefeat: noop,
     recordDesertEnemyDefeat: noop,
+    recordSnowEnemyDefeat: noop,
     recordLavaEnemyDefeat: noop,
     damageDragon: noop,
     damageSpider: noop,
@@ -192,6 +194,7 @@ describe("player attack timing", () => {
       incrementKills: noop,
       recordForestEnemyDefeat: noop,
       recordDesertEnemyDefeat: noop,
+      recordSnowEnemyDefeat: noop,
       recordLavaEnemyDefeat: noop,
       damageDragon: noop,
       damageSpider: noop,
@@ -214,5 +217,36 @@ describe("player attack timing", () => {
 
     expect(spawnDamageNumber).toHaveBeenCalledWith(200, 100, 25, false);
     expect(damageMagmalisk).toHaveBeenCalledWith(1);
+  });
+
+  it("records a Snowlands loot roll when a regular enemy dies", () => {
+    const recordSnowEnemyDefeat = vi.fn();
+    const state = createCombatHarness({
+      isTutorialMap: () => false,
+      isSnowMap: () => true,
+      recordSnowEnemyDefeat,
+    });
+    const site = {
+      id: 0,
+      x: 200,
+      y: 100,
+      campName: "Test Snow Camp",
+      type: "Frost Raider" as const,
+      leashRange: 300,
+      alive: false,
+      respawnAt: 0,
+    };
+    state.spawnSites.push(site);
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite(site);
+    state.enemies[0].hp = 1;
+    const projectile = state.projectileStore.acquirePlayerProjectile();
+    Object.assign(projectile, {
+      x: 0, y: 100, vx: 1_000, vy: 0, r: 6, damage: 25,
+      critical: false, hitLife: 1, life: 1, trail: 1,
+    });
+
+    state.controller.updateProjectiles(.2);
+
+    expect(recordSnowEnemyDefeat).toHaveBeenCalledOnce();
   });
 });

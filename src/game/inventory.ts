@@ -20,6 +20,9 @@ import {
   LEGENDARY_WHITE_GOLD_ARMOR,
   MAGMA_ARMOR,
   MAX_FOREST_ITEM_COUNT,
+  NIGHT_BOW,
+  SNOW_BOW,
+  SNOW_DROP_ITEM_IDS,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
@@ -51,6 +54,8 @@ export {
   LEGENDARY_WHITE_GOLD_ARMOR,
   LAVA_BOW,
   MAGMA_ARMOR,
+  NIGHT_BOW,
+  SNOW_BOW,
   STARTER_BOW,
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
@@ -259,13 +264,15 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
   const desertDropItems = DESERT_DROP_ITEM_IDS.flatMap((itemId) =>
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
+  const snowDropItems = SNOW_DROP_ITEM_IDS.flatMap((itemId) =>
+    Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
   const snowBossDropItems = SNOW_BOSS_DROP_ITEM_IDS.flatMap((itemId) =>
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
   const lavaDropItems = [...LAVA_DROP_ITEM_IDS, ...LAVA_BOSS_DROP_ITEM_IDS].flatMap((itemId) =>
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
   const infernalDropItems = INFERNAL_DROP_ITEM_IDS.flatMap((itemId) =>
     Array(Math.min(MAX_FOREST_ITEM_COUNT, requested.filter((requestedId) => canonicalItemId(requestedId) === itemId).length)).fill(itemId));
-  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems, ...desertDropItems, ...snowBossDropItems, ...lavaDropItems, ...infernalDropItems];
+  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...forestDropItems, ...desertDropItems, ...snowDropItems, ...snowBossDropItems, ...lavaDropItems, ...infernalDropItems];
   const headItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HEAD");
   const chestItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "CHEST");
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");

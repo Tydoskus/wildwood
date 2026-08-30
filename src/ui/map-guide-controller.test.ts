@@ -12,6 +12,10 @@ import {
   LAVA_ITEM_DROP_DENOMINATOR,
   MAGMA_ARMOR,
   NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR,
+  NIGHT_BOW,
+  SNOW_BOW,
+  SNOW_ITEM_DROP_DENOMINATOR,
   STARTER_BOW,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
@@ -37,6 +41,7 @@ describe("map guide", () => {
       [IRON_BOW, 50],
     ]);
     expect(mapGuideDrops(INTERMEDIATE_SNOWLANDS_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
+      [SNOW_BOW, SNOW_ITEM_DROP_DENOMINATOR],
       [FROST_ARMOR, 5],
       [FROST_BOW, 25],
     ]);
@@ -46,6 +51,7 @@ describe("map guide", () => {
       [LAVA_BOW, 25],
     ]);
     expect(mapGuideDrops(INFERNAL_DEPTHS_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
+      [NIGHT_BOW, NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR],
       [FIRE_METAL_BOW, INFERNAL_ITEM_DROP_DENOMINATOR],
       [DARK_METAL_HELMET, NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR],
     ]);
@@ -60,6 +66,8 @@ describe("map guide", () => {
     expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Max Health +50%", "Regen +50%"]);
     expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Max Health +12%", "Regen +20%"]);
     expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage +60%"]);
+    expect(mapGuideItemStats(SNOW_BOW)).toEqual(["Damage +35%"]);
+    expect(mapGuideItemStats(NIGHT_BOW)).toEqual(["Damage +50%"]);
     expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Max Health +60%", "Regen +80%"]);
   });
 

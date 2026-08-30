@@ -9,6 +9,8 @@ import {
   IRON_BOW,
   INFERNAL_ITEM_DROP_DENOMINATOR,
   NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
+  NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR,
+  NIGHT_BOW,
   ITEM_DEFINITIONS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
   LAVA_BOW,
@@ -17,6 +19,8 @@ import {
   MAGMA_ARMOR,
   SNOW_BOSS_ARMOR_DROP_DENOMINATOR,
   SNOW_BOSS_ITEM_DROP_DENOMINATOR,
+  SNOW_BOW,
+  SNOW_ITEM_DROP_DENOMINATOR,
   STARTER_BOW,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
@@ -90,6 +94,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
     { itemId: IRON_BOW, denominator: DESERT_ITEM_DROP_DENOMINATOR, source: "Any regular desert enemy" },
   ],
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: [
+    { itemId: SNOW_BOW, denominator: SNOW_ITEM_DROP_DENOMINATOR, source: "Any regular Snowlands enemy" },
     { itemId: FROST_ARMOR, denominator: SNOW_BOSS_ARMOR_DROP_DENOMINATOR, source: "Boss" },
     { itemId: FROST_BOW, denominator: SNOW_BOSS_ITEM_DROP_DENOMINATOR, source: "Boss" },
   ],
@@ -99,6 +104,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
     { itemId: LAVA_BOW, denominator: LAVA_BOSS_ITEM_DROP_DENOMINATOR, source: "Boss" },
   ],
   [INFERNAL_DEPTHS_MAP_ID]: [
+    { itemId: NIGHT_BOW, denominator: NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR, source: "Any regular Night Forest enemy" },
     { itemId: FIRE_METAL_BOW, denominator: INFERNAL_ITEM_DROP_DENOMINATOR, source: "Any regular Night Forest enemy" },
     { itemId: DARK_METAL_HELMET, denominator: NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR, source: "Any regular Night Forest enemy" },
   ],

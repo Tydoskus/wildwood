@@ -568,6 +568,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         dependencies.reducers.sendReducer("desert enemy defeat", (connection) => connection.reducers.recordDesertEnemyDefeat({}));
       },
+      recordSnowEnemyDefeat() {
+        if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
+        dependencies.reducers.sendReducer("snow enemy defeat", (connection) => connection.reducers.recordSnowEnemyDefeat({}));
+      },
       recordLavaEnemyDefeat() {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         dependencies.reducers.sendReducer("lava enemy defeat", (connection) => connection.reducers.recordLavaEnemyDefeat({}));

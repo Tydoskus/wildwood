@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DARK_METAL_HELMET, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, LAVA_BOW, MAGMA_ARMOR, STARTER_BOW, STARTER_STONE, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
+import { DARK_METAL_HELMET, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, LAVA_BOW, MAGMA_ARMOR, NIGHT_BOW, SNOW_BOW, STARTER_BOW, STARTER_STONE, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import { itemArtMarkup, itemPresentation, projectileKindForWeapon } from "./item-presentation";
 
 describe("item presentation", () => {
@@ -17,6 +17,8 @@ describe("item presentation", () => {
     expect(itemArtMarkup(FIRE_METAL_HELMET)).toContain("player-parts/fire-metal-helmet.png");
     expect(itemArtMarkup(DARK_METAL_HELMET)).toContain("player-parts/dark-metal-helmet.png");
     expect(itemArtMarkup(FIRE_METAL_BOW)).toContain("player-parts/fire-metal-bow.png");
+    expect(itemArtMarkup(SNOW_BOW)).toContain("player-parts/snow-bow.png");
+    expect(itemArtMarkup(NIGHT_BOW)).toContain("player-parts/night-bow.png");
     expect(itemArtMarkup(WOODEN_ARMOR)).toContain("data:image/png;base64,");
     expect(itemArtMarkup(STARTER_STONE)).not.toContain("boot-pixel-icon");
     expect(itemArtMarkup(STARTER_BOW)).not.toContain("boot-pixel-icon");
@@ -27,6 +29,8 @@ describe("item presentation", () => {
     expect(projectileKindForWeapon(STARTER_BOW)).toBe("ARROW");
     expect(projectileKindForWeapon(FROST_BOW)).toBe("ARROW");
     expect(projectileKindForWeapon(IRON_BOW)).toBe("ARROW");
+    expect(projectileKindForWeapon(SNOW_BOW)).toBe("ARROW");
+    expect(projectileKindForWeapon(NIGHT_BOW)).toBe("ARROW");
   });
 
   it("renders world bows twenty-five percent larger", () => {
@@ -56,6 +60,15 @@ describe("item presentation", () => {
     const armor = readFileSync(new URL("../../public/assets/wildwood/player-parts/magma-armor.png", import.meta.url));
     expect(createHash("sha256").update(bow).digest("hex")).toBe("cf6a4cd3cd27c9350decd21c06e09bbd495505ad4348bf90a1cda0e0d4240e5d");
     expect(createHash("sha256").update(armor).digest("hex")).toBe("b7ebe48ca52241e5c08e818af101c6c632a3534464cdc50d7e558cfd69273b04");
+  });
+
+  it("uses the exact requested white and purple vendor bow assets", () => {
+    const snowBow = readFileSync(new URL("../../public/assets/wildwood/player-parts/snow-bow.png", import.meta.url));
+    const nightBow = readFileSync(new URL("../../public/assets/wildwood/player-parts/night-bow.png", import.meta.url));
+    expect(createHash("sha256").update(snowBow).digest("hex")).toBe("0288a8475c0660fed7e213942925e44bd31b5d246aefcbb05f97962ac4a82005");
+    expect(createHash("sha256").update(nightBow).digest("hex")).toBe("82953550acb76622ac525df884a09f949858362cbce2a80cd0dcbfb8e5ba04f5");
+    expect(itemPresentation(SNOW_BOW)?.world).toMatchObject({ layer: "HAND", width: 115, height: 63, top: 106, handAction: "BOW" });
+    expect(itemPresentation(NIGHT_BOW)?.world).toMatchObject({ layer: "HAND", width: 115, height: 63, top: 106, handAction: "BOW" });
   });
 
   it("uses the requested Wood Full Helm and Iron Bow vendor assets", () => {

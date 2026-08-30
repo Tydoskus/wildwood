@@ -82,6 +82,7 @@ type ExpectedApiKey =
   | "recordDesertEnemyDefeat"
   | "recordForestEnemyDefeat"
   | "recordLavaEnemyDefeat"
+  | "recordSnowEnemyDefeat"
   | "recordPlayerDeath"
   | "regularEnemyLocalPosition"
   | "releasePlayerProfile"
