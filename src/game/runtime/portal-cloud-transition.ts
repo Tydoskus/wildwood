@@ -1,4 +1,4 @@
-export const PORTAL_CLOUD_SOURCE = "assets/wildwood/portal-cloud-v1.png";
+export const PORTAL_CLOUD_SOURCE = "assets/wildwood/portal-cloud-v2.png";
 
 const CLOUD_ROWS = [
   { y: "-4%", scale: ".9", entryY: -22, rotation: -7, coverDelay: 0, revealDelay: 100 },
@@ -14,8 +14,9 @@ const CLOUD_ROWS = [
   { y: "104%", scale: ".9", entryY: 22, rotation: 7, coverDelay: 0, revealDelay: 100 },
 ] as const;
 
-const COVER_DURATION_MS = 970;
-const REVEAL_DURATION_MS = 880;
+const SIDE_STAGGER_MS = 38;
+const COVER_DURATION_MS = 1030;
+const REVEAL_DURATION_MS = 920;
 
 type PortalCloudTransition = {
   cover: () => Promise<void>;
@@ -44,6 +45,8 @@ export function createPortalCloudTransition(
     for (const side of ["left", "right"] as const) {
       CLOUD_ROWS.forEach((row, index) => {
         const cloud = documentValue.createElement("img");
+        const landsFirst = index % 2 === 0 ? "left" : "right";
+        const coverDelay = row.coverDelay + (side === landsFirst ? 0 : SIDE_STAGGER_MS);
         cloud.className = `portal-transition-cloud is-${side}`;
         cloud.src = PORTAL_CLOUD_SOURCE;
         cloud.alt = "";
@@ -53,8 +56,7 @@ export function createPortalCloudTransition(
         cloud.style.setProperty("--cloud-scale", row.scale);
         cloud.style.setProperty("--cloud-entry-y", `${side === "left" ? row.entryY : -row.entryY}vh`);
         cloud.style.setProperty("--cloud-entry-rotation", `${side === "left" ? row.rotation : -row.rotation}deg`);
-        cloud.style.setProperty("--cloud-rest-rotation", `${side === "left" ? row.rotation * .12 : row.rotation * -.12}deg`);
-        cloud.style.setProperty("--cloud-cover-delay", `${row.coverDelay}ms`);
+        cloud.style.setProperty("--cloud-cover-delay", `${coverDelay}ms`);
         cloud.style.setProperty("--cloud-reveal-delay", `${row.revealDelay}ms`);
         cloud.style.setProperty("--cloud-layer", String(index));
         fragment.append(cloud);

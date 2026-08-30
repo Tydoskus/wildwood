@@ -53,7 +53,10 @@ describe("portal cloud transition", () => {
     await transition.cover();
     expect(root.childElementCount).toBe(22);
     expect(root.children[0].style.values.get("--cloud-cover-delay")).toBe("0ms");
-    expect(root.children[5].style.values.get("--cloud-cover-delay")).toBe("220ms");
+    expect(root.children[1].style.values.get("--cloud-cover-delay")).toBe("63ms");
+    expect(root.children[5].style.values.get("--cloud-cover-delay")).toBe("258ms");
+    expect(root.children[11].style.values.get("--cloud-cover-delay")).toBe("38ms");
+    expect(root.children[12].style.values.get("--cloud-cover-delay")).toBe("25ms");
     expect(root.children[5].style.values.get("--cloud-reveal-delay")).toBe("0ms");
     expect(root.children[0].style.values.get("--cloud-entry-y")).toBe("-22vh");
     expect(root.children[11].style.values.get("--cloud-entry-y")).toBe("22vh");
@@ -67,7 +70,7 @@ describe("portal cloud transition", () => {
   });
 
   it("keeps the generated single-cloud asset in the deployed tree", () => {
-    expect(PORTAL_CLOUD_SOURCE).toBe("assets/wildwood/portal-cloud-v1.png");
-    expect(existsSync(new URL("../../../public/assets/wildwood/portal-cloud-v1.png", import.meta.url))).toBe(true);
+    expect(PORTAL_CLOUD_SOURCE).toBe("assets/wildwood/portal-cloud-v2.png");
+    expect(existsSync(new URL("../../../public/assets/wildwood/portal-cloud-v2.png", import.meta.url))).toBe(true);
   });
 });

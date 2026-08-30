@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.568": [
+    "Portal transitions now close edge-to-edge with soft, staggered clouds.",
+  ],
   "0.567": [
     "Portal clouds now arrive in a fuller diagonal stagger, sealing the center last with smoother easing.",
   ],
@@ -1256,6 +1259,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.568": "2026-08-29",
   "0.567": "2026-08-29",
   "0.566": "2026-08-29",
   "0.565": "2026-08-29",
