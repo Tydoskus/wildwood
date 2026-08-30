@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { snapWorldRenderCoordinate, staticWorldTileRange } from "./world-renderer";
+import { minimapDrawLayout, snapWorldRenderCoordinate, staticWorldTileRange } from "./world-renderer";
 
 describe("world render coordinate snapping", () => {
   it("lands live decor and static tiles on the same physical-pixel grid", () => {
@@ -31,5 +31,18 @@ describe("world render coordinate snapping", () => {
       endX: 7,
       endY: 7,
     });
+  });
+
+  it("draws the minimap at the HUD overlay bounds instead of the canvas edge", () => {
+    expect(minimapDrawLayout(390, { left: 256, top: 8, width: 126, height: 126 })).toEqual({
+      x: 256,
+      y: 8,
+      size: 126,
+    });
+  });
+
+  it("keeps the legacy canvas-edge fallback when overlay bounds are unavailable", () => {
+    expect(minimapDrawLayout(390)).toEqual({ x: 272, y: 0, size: 118 });
+    expect(minimapDrawLayout(320, { left: 0, top: 0, width: 0, height: 0 })).toEqual({ x: 202, y: 0, size: 118 });
   });
 });

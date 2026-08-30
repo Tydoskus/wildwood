@@ -7,8 +7,6 @@ type StoredProgress = {
   progress?: unknown;
 };
 
-export type ProgressStore = ReturnType<typeof createProgressStore>;
-
 export function createProgressStore(storage: Storage, storageKey: string) {
   const scopedKey = (identity: string) => `${storageKey}/${identity}`;
 

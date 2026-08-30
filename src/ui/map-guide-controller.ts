@@ -222,7 +222,6 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
 
   function renderDrops(mapId: MapId) {
     const cards = mapGuideDrops(mapId).map((drop) => {
-      const item = ITEM_DEFINITIONS[drop.itemId];
       const card = document.createElement("article");
       card.className = "map-guide-drop-card";
       card.dataset.itemId = drop.itemId;

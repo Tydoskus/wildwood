@@ -650,5 +650,3 @@ export function createRemoteEnemyCombatShadows(options: {
 
   return { beginFrame, observeEnemySite, finishFrame, ghostEnemies, renderPlayers, clear };
 }
-
-export type RemoteEnemyCombatShadows = ReturnType<typeof createRemoteEnemyCombatShadows>;

@@ -560,16 +560,6 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   return { decor, paths };
 }
 
-export function loadTreeSpritesheet(onSettled?: () => void) {
-  const image = new Image();
-  if (onSettled) {
-    image.addEventListener("load", onSettled, { once: true });
-    image.addEventListener("error", onSettled, { once: true });
-  }
-  image.src = "assets/wildwood/tree-spritesheet-v1.png";
-  return image;
-}
-
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   const sites: SpawnSite[] = [];
   const camps: readonly SpawnCamp[] = mapId === BEGINNER_DESERT_MAP_ID

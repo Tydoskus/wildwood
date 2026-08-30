@@ -199,5 +199,3 @@ export function createBossService(dependencies: BossServiceDependencies) {
     },
   };
 }
-
-export type BossService = ReturnType<typeof createBossService>;

@@ -667,7 +667,7 @@ export function createActorRenderer(options: {
     const spriteBounds = enemySpriteVerticalBounds(sprite, enemy.r);
     const spriteHeight = spriteBounds.height;
     const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
-    const shadowY = y + Math.max(10, spriteBounds.bottom - 2);
+    const shadowY = y + enemyShadowOffsetY(sprite, enemy.r);
     options.drawShadow(x, shadowY, shadowWidth, .36 * visibility);
 
     ctx.save();

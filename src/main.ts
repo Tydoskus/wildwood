@@ -1,11 +1,10 @@
-import { recentReleaseNotes } from "./app/changelog";
 import { isDeveloperIdentity } from "./app/developer";
 import {
   BASE_ATTACK_RANGE,
   BASE_PROJECTILE_SPEED,
 } from "./game/constants";
-import { clamp, distanceSquared, rand } from "./game/math";
-import { damageAfterArmor, formatArmorReduction } from "./game/combat";
+import { distanceSquared } from "./game/math";
+import { formatArmorReduction } from "./game/combat";
 import { DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
@@ -24,7 +23,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_DEATH_PARTICLE_COLOR, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, NETWORK_NEAR_SCREEN_MARGIN_RATIO, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -49,17 +48,12 @@ import {
   WATER_REACH_MAP_ID,
   type MapId,
 } from "./game/world";
-import {
-  DUEL_COMBAT_Y,
-} from "./game/duel";
 import { createChatRuntimeController } from "./ui/chat-runtime-controller";
 import { createInventoryController } from "./ui/inventory-controller";
 import { createItemInspectionController } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
-import { createLeaderboardController } from "./ui/leaderboard-controller";
 import { createProfileWindowController } from "./ui/profile-window-controller";
 import { formatPlayedTime, profilePower, profilePresenceText, renderProfileStats } from "./ui/profile";
-import { createTechTreeController } from "./ui/tech-tree-controller";
 import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
 import { createDeathScreenController } from "./ui/death-screen-controller";
@@ -73,7 +67,7 @@ import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
-import type { LeaderboardEntry, wildwoodCoop } from "./wildwood-coop";
+import type { LeaderboardEntry } from "./wildwood-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
@@ -81,7 +75,6 @@ import { effectivePlayerPower } from "../shared/player-power";
 import { equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
-  MAX_ARMOR,
   MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP as BASE_PLAYER_HP,
@@ -94,21 +87,17 @@ import {
   // Architecture boundary: keep this file as composition root. New systems
   // belong in src/game, src/ui, or src/app and are only wired here.
 
-  type PlayerProfile = NonNullable<ReturnType<typeof wildwoodCoop.playerProfile>>;
-
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, gameOverEl, deathCountdownEl, hpFill, hpText, playerNameEl, playerPowerEl, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, balanceApologyGiftEl, balanceApologyGiftTitle, balanceApologyContinueBtn, chatPanel, coopStatusEl, messageEl, pickupLog,
+    canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, balanceApologyGiftEl, balanceApologyGiftTitle, balanceApologyContinueBtn,
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
-    toolbar, settingsBtn, inventoryBtn, settingsPanel, closeSettingsBtn, inventoryPanel, closeInventoryBtn, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, itemInspectionBack, resetProgressBtn, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
-    techTreeBtn, techTreeNotice, techTreeOverlay, closeTechTreeBtn, techTreeActive, techTreeCanvas, techTreeMap, techTreeDetail, techTreeDetailContent, closeTechTreeDetailBtn,
-    duelControls, duelStatusEl, duelRequestBtn, duelAcceptBtn, duelCountdownEl, duelResultEl, duelResultTitle, duelResultStats, watchDuelReplayBtn, closeDuelResultBtn, duelReplayEl, duelReplayTitle, closeDuelReplayBtn, sceneFadeEl, cutsceneOverlayEl,
-    dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, closeDragonResultBtn, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
+    toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
+    dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
-    leaderboardBtn, leaderboardEl, leaderboardPowerTab, leaderboardDamageTab, leaderboardHealthTab, leaderboardArmorTab, leaderboardRegenTab, leaderboardTimeTab, leaderboardValueHeading, leaderboardPodiumEl, leaderboardRowsEl, leaderboardLoadingEl, leaderboardEmptyEl, closeLeaderboardBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
-    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, updateNoticeEl, updateNoticeTitleEl, updateNoticeItemsEl, closeUpdateNoticeBtn, signinVersionEl, profileIconPickerEl, profileIconChoices, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
+    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
   const staticWorldLayer = createWebGLStaticWorldLayer(canvas);
@@ -822,11 +811,44 @@ import {
   });
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
+  let cachedMinimapBounds: { left: number; top: number; width: number; height: number } | null = null;
+  let minimapBoundsRefreshFrame = 0;
+  const refreshMinimapBounds = () => {
+    minimapBoundsRefreshFrame = 0;
+    const minimap = minimapButton.getBoundingClientRect();
+    const surface = canvas.getBoundingClientRect();
+    if (surface.width <= 0 || surface.height <= 0) {
+      cachedMinimapBounds = null;
+      return;
+    }
+    const view = canvasRuntime.renderViewport();
+    const scaleX = view.width / surface.width;
+    const scaleY = view.height / surface.height;
+    cachedMinimapBounds = {
+      left: (minimap.left - surface.left) * scaleX,
+      top: (minimap.top - surface.top) * scaleY,
+      width: minimap.width * scaleX,
+      height: minimap.height * scaleY,
+    };
+  };
+  const scheduleMinimapBoundsRefresh = () => {
+    if (minimapBoundsRefreshFrame) return;
+    minimapBoundsRefreshFrame = requestAnimationFrame(refreshMinimapBounds);
+  };
+  window.addEventListener("resize", scheduleMinimapBoundsRefresh);
+  window.visualViewport?.addEventListener("resize", scheduleMinimapBoundsRefresh);
+  if (typeof ResizeObserver !== "undefined") {
+    const minimapBoundsObserver = new ResizeObserver(scheduleMinimapBoundsRefresh);
+    minimapBoundsObserver.observe(canvas);
+    minimapBoundsObserver.observe(minimapButton);
+  }
+  refreshMinimapBounds();
   const worldRenderRuntime = createWorldRenderRuntime({
     ctx,
     staticWorldLayer,
     camera,
     viewport: canvasRuntime.renderViewport,
+    minimapBounds: () => cachedMinimapBounds,
     devicePixelRatio: canvasRuntime.dpr,
     currentMapId: () => currentMapId,
     gameTime: () => session.gameTime(),
@@ -925,7 +947,6 @@ import {
   playerController = createPlayerController({
     player, boss, enemies, spawnSites, decor, paths,
     clearTransientCombat: () => { projectileStore.clear(); effects.clear(); enemySimulation.clearRemoteCombat(); },
-    tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     getCurrentMapId: () => currentMapId,
     mapSpawn: (mapId) => mapId === TUTORIAL_FOREST_MAP_ID ? START_SPAWN : MAP_CONFIG[mapId].arrival,
     initialStats: { maxHp: BASE_PLAYER_HP, damage: 4, attackRate: STARTING_ATTACK_INTERVAL, projectileSpeed: BASE_PROJECTILE_SPEED, projectileCount: 1, attackRange: BASE_ATTACK_RANGE, armor: 0, regen: 0, speed: BASE_PLAYER_SPEED },

@@ -35,7 +35,6 @@ export function createPlayerController(options: {
   decor: WorldDecor[];
   paths: WorldPath[];
   clearTransientCombat: () => void;
-  tutorialMapId: MapId;
   getCurrentMapId: () => MapId;
   mapSpawn: (mapId: MapId) => { x: number; y: number };
   initialStats: Pick<PlayerState, "maxHp" | "damage" | "attackRate" | "projectileSpeed" | "projectileCount" | "attackRange" | "armor" | "regen" | "speed">;
@@ -86,7 +85,7 @@ export function createPlayerController(options: {
 }): PlayerController {
   const {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
-    tutorialMapId, getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
+    getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
     resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,

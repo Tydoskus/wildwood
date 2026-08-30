@@ -219,5 +219,3 @@ export function createRemoteCombatStatsService(dependencies: {
     clearSession,
   };
 }
-
-export type RemoteCombatStatsService = ReturnType<typeof createRemoteCombatStatsService>;

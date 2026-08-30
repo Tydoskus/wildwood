@@ -117,6 +117,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   }
 
   function clearTransientUi() {
+    document.body.classList.remove("is-dueling");
     messageClock = 0;
     elements.message.style.opacity = "0";
     elements.pickupLog.replaceChildren();
@@ -161,6 +162,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
 
   function updateDuelControls() {
     const duel = dependencies.activeDuel();
+    document.body.classList.toggle("is-dueling", Boolean(duel && ["countdown", "active", "finishing"].includes(duel.status)));
     elements.duelStatus.hidden = false;
     elements.duelRequest.hidden = true;
     elements.duelAccept.hidden = true;

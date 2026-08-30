@@ -19,22 +19,17 @@ import { createTintedImageCanvas } from "./image-tint";
 export { snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number };
+export type MinimapBounds = { left: number; top: number; width: number; height: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
-type EmptyArch = Omit<Portal, "destination">;
 type TreeSpriteBounds = StaticTileTreeBounds;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
 type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
-type RockDecor = Extract<WorldDecor, { type: "rock" }>;
-type DesertGrassDecor = Extract<WorldDecor, { type: "desertGrass" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
-type SnowTuftDecor = Extract<WorldDecor, { type: "snowTuft" }>;
 type UpgradeBenchDecor = Extract<WorldDecor, { type: "upgradeBench" }>;
 type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
-type GrassDecor = Extract<WorldDecor, { type: "grass" }>;
-type PetalDecor = Extract<WorldDecor, { type: "petal" }>;
 
 const STATIC_TILE_SIZE = 640;
 const PORTAL_TINTED_SHEET_SIZE = 768;
@@ -56,11 +51,26 @@ export function staticWorldTileRange(
   };
 }
 
+export function minimapDrawLayout(viewportWidth: number, bounds?: MinimapBounds | null) {
+  const fallbackSize = Math.round(Math.min(126, Math.max(118, viewportWidth * .17)));
+  if (!bounds || ![bounds.left, bounds.top, bounds.width, bounds.height].every(Number.isFinite)) {
+    return { x: viewportWidth - fallbackSize, y: 0, size: fallbackSize };
+  }
+  const size = Math.round(Math.min(bounds.width, bounds.height));
+  if (size <= 0) return { x: viewportWidth - fallbackSize, y: 0, size: fallbackSize };
+  return {
+    x: Math.round(Math.max(0, Math.min(viewportWidth - size, bounds.left))),
+    y: Math.round(Math.max(0, bounds.top)),
+    size,
+  };
+}
+
 export type WorldRendererOptions = {
   ctx: CanvasRenderingContext2D;
   staticWorldLayer?: StaticWorldLayer | null;
   camera: Camera;
   getViewport: () => Viewport;
+  getMinimapBounds?: () => MinimapBounds | null;
   getDevicePixelRatio: () => number;
   getMapId: () => MapId;
   getGameTime: () => number;
@@ -722,21 +732,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.fillRect(x + direction * Math.round(14 * cactus.s), armY - Math.round(16 * cactus.s), direction * Math.round(8 * cactus.s), Math.round(23 * cactus.s));
   }
 
-  function drawRock(rock: RockDecor) {
-    const visible = visibleSize(); const x = snapToWorldPixel(rock.x - camera.x); const y = snapToWorldPixel(rock.y - camera.y);
-    if (x < -60 || y < -60 || x > visible.width + 60 || y > visible.height + 40) return;
-    const w = Math.round(35 * rock.s); const h = Math.round(22 * rock.s);
-    options.drawShadow(x, y, Math.round(w * 1.2), .11);
-    ctx.fillStyle = "#79543d"; ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.lineTo(x - w * .32, y - h * .72); ctx.lineTo(x + w * .2, y - h); ctx.lineTo(x + w / 2, y - h * .28); ctx.lineTo(x + w * .38, y); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#b77b4b"; ctx.beginPath(); ctx.moveTo(x - w * .32, y - h * .72); ctx.lineTo(x + w * .2, y - h); ctx.lineTo(x + w * .12, y - h * .45); ctx.closePath(); ctx.fill();
-  }
-
-  function drawDesertGrass(grass: DesertGrassDecor) {
-    const visible = visibleSize(); const x = snapToWorldPixel(grass.x - camera.x); const y = snapToWorldPixel(grass.y - camera.y);
-    if (x < -10 || y < -10 || x > visible.width + 10 || y > visible.height + 10) return;
-    ctx.fillStyle = grass.variant % 2 ? "#8b7b3d" : "#a28a43"; ctx.fillRect(x - 1, y - 6, 2, 7); ctx.fillRect(x - 5, y - 3, 2, 5); ctx.fillRect(x + 3, y - 4, 2, 6);
-  }
-
   function drawSnowPine(tree: SnowPineDecor) {
     const visible = visibleSize(); const x = snapToWorldPixel(tree.x - camera.x); const y = snapToWorldPixel(tree.y - camera.y);
     if (x < -150 || y < -230 || x > visible.width + 150 || y > visible.height + 60) return;
@@ -823,25 +818,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     ctx.drawImage(image, x - width / 2, y - height, width, height);
   }
 
-  function drawSnowTuft(tuft: SnowTuftDecor) {
-    const visible = visibleSize(); const x = snapToWorldPixel(tuft.x - camera.x); const y = snapToWorldPixel(tuft.y - camera.y);
-    if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
-    ctx.fillStyle = tuft.variant % 2 ? "rgba(255,255,255,.78)" : "rgba(221,242,255,.76)";
-    ctx.fillRect(x - 2, y - 1, 5, 2); ctx.fillRect(x, y - 3, 2, 5);
-  }
-
-  function drawGrass(grass: GrassDecor) {
-    const visible = visibleSize(); const x = snapToWorldPixel(grass.x - camera.x); const y = snapToWorldPixel(grass.y - camera.y);
-    if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
-    ctx.fillStyle = grass.variant % 2 ? "#237b49" : "#267f4c"; ctx.fillRect(x - 1, y - 5, 2, 7); ctx.fillRect(x - 5, y - 2, 2, 5); ctx.fillRect(x + 3, y - 3, 2, 6); if (grass.variant > 1) ctx.fillRect(x + 6, y, 2, 3);
-  }
-
-  function drawPetal(petal: PetalDecor) {
-    const visible = visibleSize(); const x = snapToWorldPixel(petal.x - camera.x); const y = snapToWorldPixel(petal.y - camera.y);
-    if (x < -8 || y < -8 || x > visible.width + 8 || y > visible.height + 8) return;
-    ctx.fillStyle = ["#d9f4df", "#f3f0c6", "#ccebea"][petal.variant % 3]; ctx.fillRect(x - 3, y - 1, 7, 3); ctx.fillRect(x - 1, y - 3, 3, 7); ctx.fillStyle = "rgba(255,255,255,.72)"; ctx.fillRect(x, y, 1, 1);
-  }
-
   function collectVisibleLavaRocks() {
     visibleLavaRocks.length = 0;
     if (!isLavaTerrain()) return visibleLavaRocks;
@@ -904,7 +880,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     minimapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     minimapCtx.imageSmoothingEnabled = false;
     const draw = minimapCtx;
-    draw.save(); draw.fillStyle = "rgba(12,18,15,.82)"; draw.strokeStyle = "rgba(255,255,255,.25)"; draw.lineWidth = 2; minimapRoundedRect(draw, 0, 0, size, size, 10); draw.fill(); draw.stroke();
+    draw.save(); draw.fillStyle = "rgba(12,18,15,.82)"; draw.strokeStyle = "#050a06"; draw.lineWidth = 2; minimapRoundedRect(draw, 0, 0, size, size, 12); draw.fill(); draw.stroke();
     const innerX = 5; const innerY = 5; const innerSize = size - 10; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
     draw.save(); minimapRoundedRect(draw, 5, 5, size - 10, size - 10, 7); draw.clip();
     const desert = options.getMapId() === options.desertMapId;
@@ -960,14 +936,15 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function drawMinimap(remotePlayers: MapPlayerMarker[]) {
     const view = viewport();
-    const size = Math.round(Math.min(126, Math.max(118, view.width * .17)));
+    const layout = minimapDrawLayout(view.width, options.getMinimapBounds?.());
+    const { size } = layout;
     const cacheKey = `${options.getMapId()}:${size}:${options.getDevicePixelRatio()}`;
     const now = performance.now();
     if (cacheKey !== minimapCacheKey || now >= nextMinimapFrameAt) {
       renderMinimapFrame(remotePlayers, size, view);
       nextMinimapFrameAt = now + MINIMAP_FRAME_INTERVAL_MS;
     }
-    if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, view.width - size, 0, size, size);
+    if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, layout.x, layout.y, size, size);
   }
 
   return { drawGround, drawStaticWorld, warmStaticWorld, invalidateStaticWorld, drawTree, drawCactus, drawSnowPine, drawUpgradeBench, drawCharredTree, drawPortal, drawCutscenePortal, drawSecondaryPortal, drawDecor, drawMinimap };

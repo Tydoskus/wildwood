@@ -282,11 +282,22 @@ describe("interface style contracts", () => {
   it("frames the health bar with a rounded two-tone track and fill", () => {
     const track = cssRule(".bar {");
     const fill = cssRule("#hpFill {");
+    const card = cssRule(".player-hud-card {");
+    const content = cssRule(".player-hud-content {");
+    const portrait = cssRule(".profile-icon-button {");
     expect(track).toContain("border: 2px solid var(--hud-frame)");
     expect(track).toContain("border-radius: var(--hud-radius-small)");
     expect(track).toContain("linear-gradient");
     expect(fill).toContain("border-radius: 5px");
-    expect(fill).toContain("linear-gradient");
+    expect(fill).toContain("linear-gradient(to bottom, #83f087 0 49%, #2fbf4b 50% 100%)");
+    expect(fill).toContain("box-shadow: none");
+    expect(fill).not.toContain("#55d963");
+    expect(card).toContain("display: grid");
+    expect(card).toContain("grid-template-columns: auto minmax(0, 1fr)");
+    expect(content).toContain("grid-template-rows: minmax(0, 1fr) auto");
+    expect(content).toContain("gap: 4px");
+    expect(portrait).toContain("align-self: end");
+    expect(html).toContain('id="playerPower"');
   });
 
   it("centers profile equation operators in dedicated columns", () => {
@@ -341,7 +352,12 @@ describe("interface style contracts", () => {
     const minimap = cssRule(".minimap-button {");
     expect(minimap).toContain("width: var(--hud-map-size)");
     expect(minimap).toContain("height: var(--hud-map-size)");
+    expect(minimap).toContain("top: var(--hud-safe-top)");
+    expect(minimap).toContain("right: var(--hud-safe-right)");
+    expect(minimap).toContain("border: 2px solid var(--hud-frame)");
+    expect(minimap).toContain("border-radius: var(--hud-radius)");
     expect(minimap).toContain("pointer-events: auto");
+    expect(css).toContain("body:is(.is-dueling, .is-replaying) .minimap-button");
     expect(cssRule(".minimap-players {")).toContain("font: 900 10px/12px");
     expect(cssRule(".minimap-version {")).toContain("font: 900 9px/11px");
     const guide = cssRule("#mapGuide {");

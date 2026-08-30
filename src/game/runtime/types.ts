@@ -208,17 +208,12 @@ export type TidewyrmBossState = BossStateBase & {
 };
 
 export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState;
-export type CombatTarget = EnemyState | BossTarget;
 
 export type DuelPresentation = {
   id: bigint;
   elapsed: number;
   challengerHp: number;
   opponentHp: number;
-};
-
-export type DuelReturnState = Position & {
-  facing: number;
 };
 
 export type DuelCombatant = Position & {

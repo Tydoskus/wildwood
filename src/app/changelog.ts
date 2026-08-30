@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.572": [
+    "Refined the player HUD with aligned portrait and health bar geometry, a two-tone health fill, and the retained Power readout.",
+    "Matched the minimap edge padding, border, radius, and duel visibility behavior to the player HUD.",
+    "Updated the Power icon and removed audited legacy client code and retired runtime assets.",
+  ],
   "0.571": [
     "Guest attack-speed and regeneration rewards now update immediately in gameplay and profiles without requiring a restart.",
     "The player HUD and Gem counter now share a polished framed style with improved spacing and a two-tone health bar while retaining Power.",
@@ -1270,6 +1275,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.572": "2026-08-30",
   "0.571": "2026-08-30",
   "0.570": "2026-08-29",
   "0.569": "2026-08-29",

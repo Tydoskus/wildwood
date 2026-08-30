@@ -11,7 +11,6 @@ import {
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
-  type MapId,
 } from "../game/world";
 import {
   BASIC_PAPER_HAT,
@@ -41,7 +40,6 @@ import {
   STARTER_STONE,
   WOODEN_ARMOR,
   WOOD_FULL_HELM,
-  itemDefinition,
   type ItemId,
 } from "../../shared/items";
 import { effectivePlayerPowerStats, playerPowerForStats, type PlayerPowerStats } from "../../shared/player-power";

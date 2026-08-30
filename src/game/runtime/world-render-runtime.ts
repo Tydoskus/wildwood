@@ -3,7 +3,7 @@ import { createBossRenderer } from "./boss-renderer";
 import type { Camera } from "./camera";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import { createRenderController, type RenderController } from "./render-controller";
-import { createWorldRenderer } from "./world-renderer";
+import { createWorldRenderer, type MinimapBounds } from "./world-renderer";
 import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
@@ -28,6 +28,7 @@ export type WorldRenderRuntimeOptions = {
   staticWorldLayer?: StaticWorldLayer | null;
   camera: Camera;
   viewport: () => Viewport;
+  minimapBounds?: () => MinimapBounds | null;
   devicePixelRatio: () => number;
   currentMapId: () => MapId;
   gameTime: () => number;
@@ -160,6 +161,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     staticWorldLayer: options.staticWorldLayer,
     camera: options.camera,
     getViewport: () => options.viewport(),
+    getMinimapBounds: options.minimapBounds,
     getDevicePixelRatio: options.devicePixelRatio,
     getMapId: options.currentMapId,
     getGameTime: options.gameTime,

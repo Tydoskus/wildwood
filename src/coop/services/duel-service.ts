@@ -280,5 +280,3 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
     },
   };
 }
-
-export type DuelService = ReturnType<typeof createDuelService>;
