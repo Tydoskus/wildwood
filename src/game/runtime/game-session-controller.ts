@@ -128,7 +128,7 @@ type SessionDependencies = {
   recordPerformance: (frameMs: number, updateMs: number, renderMs: number, workMs: number) => void;
   renderPerformancePanel: () => void;
   performancePanelVisible: () => boolean;
-  renderFpsDisplay: (idleThrottled: boolean) => void;
+  renderFpsDisplay: () => void;
   fpsDisplayVisible: () => boolean;
   fadeElement: HTMLElement;
   onLeaveDuelResult: () => void;
@@ -264,7 +264,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if ((dependencies.performancePanelVisible() || dependencies.fpsDisplayVisible()) && now >= nextPerformancePanelUpdateAt) {
       nextPerformancePanelUpdateAt = now + 500;
       if (dependencies.performancePanelVisible()) dependencies.renderPerformancePanel();
-      if (dependencies.fpsDisplayVisible()) dependencies.renderFpsDisplay(idleThrottled);
+      if (dependencies.fpsDisplayVisible()) dependencies.renderFpsDisplay();
     }
     requestAnimationFrame(loop);
   }

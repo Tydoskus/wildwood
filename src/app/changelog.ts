@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.573": [
+    "Refined the player HUD with a portrait sized to half the minimap, equal text and health rows, and Gems restored beneath the left edge.",
+    "Simplified the optional performance readout to a single FPS value.",
+    "Replaced generic window titles and close icons with consistent bottom Back controls across game windows.",
+    "Removed the anti-aliasing setting while retaining the existing default portrait smoothing.",
+  ],
   "0.572": [
     "Refined the player HUD with aligned portrait and health bar geometry, a two-tone health fill, and the retained Power readout.",
     "Matched the minimap edge padding, border, radius, and duel visibility behavior to the player HUD.",
@@ -1275,6 +1281,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.573": "2026-08-30",
   "0.572": "2026-08-30",
   "0.571": "2026-08-30",
   "0.570": "2026-08-29",

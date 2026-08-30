@@ -21,7 +21,6 @@ import { gemSpendConfirmationText } from "./gem-spend-confirmation";
 
 type UpgradeBenchElements = {
   panel: HTMLElement;
-  close: HTMLButtonElement;
   prompt: HTMLElement;
   slot: HTMLButtonElement;
   slotTwo: HTMLButtonElement;
@@ -522,7 +521,6 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     if (transition.shouldOpen) open();
   }
 
-  elements.close.addEventListener("click", close);
   elements.back.addEventListener("click", close);
   elements.slot.addEventListener("click", () => selectSlot(1));
   elements.slotTwo.addEventListener("click", () => selectSlot(2));

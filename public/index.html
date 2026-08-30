@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Wildwood</title>
-<link rel="icon" href="favicon.ico?v=0.572" sizes="any" />
+<link rel="icon" href="favicon.ico?v=0.573" sizes="any" />
 <link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
 <link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high" />
 <link rel="preload" as="image" href="assets/wildwood/wildwood-wordmark.png" type="image/png" fetchpriority="high" />
@@ -13,7 +13,7 @@
   html, body { min-height: 100vh; min-height: 100dvh; background: #000; }
   #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: linear-gradient(180deg, rgba(4,12,6,.24), rgba(4,12,6,.38)), var(--signin-preview) center / cover no-repeat; }
 </style>
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.572" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.573" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -47,12 +47,8 @@
       <button id="inventoryBtn" class="settings-button inventory-button" type="button" aria-label="Open inventory" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Inventory.png" alt="" aria-hidden="true"><span class="toolbar-label">Inventory</span></button>
       <button id="devAuditBtn" class="settings-button dev-audit-button" type="button" aria-label="Open access audit" aria-expanded="false" hidden><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Dev.png" alt="" aria-hidden="true"><span class="toolbar-label">Dev</span></button>
       <button id="settingsBtn" class="settings-button" type="button" aria-label="Open settings" aria-expanded="false"><img class="toolbar-icon" src="assets/wildwood/icons/Icon_Settings.png" alt="" aria-hidden="true"><span class="toolbar-label">Settings</span></button>
-      <div id="fpsStatus" class="fps-status" aria-live="off" hidden><span id="gameFpsStatus">GAME FPS: --</span><span id="onePercentLowFpsStatus">1% LOW: --</span><span id="workFpsStatus">WORK FPS: --</span></div>
+      <div id="fpsStatus" class="fps-status" aria-live="off" hidden><span id="gameFpsStatus">FPS: --</span></div>
       <div id="settingsPanel" class="settings-panel card" role="dialog" aria-modal="true" aria-label="Settings" hidden>
-        <div class="settings-panel-header">
-          <div class="settings-title window-title">Settings</div>
-          <button id="closeSettingsBtn" class="profile-close-button secondary-button" type="button" aria-label="Close settings">×</button>
-        </div>
         <div class="setting-row">
           <span>SERVER</span>
           <span id="connectionStatus" class="connection-status">CONNECTING</span>
@@ -68,10 +64,6 @@
         <div class="setting-row">
           <span>ATTACK RANGE</span>
           <button id="attackRangeToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
-        </div>
-        <div class="setting-row">
-          <span>ANTI-ALIASING</span>
-          <button id="antiAliasingToggle" class="setting-toggle" type="button" aria-pressed="true">ON</button>
         </div>
         <div class="setting-row">
           <span>LOW PERFORMANCE</span>
@@ -112,12 +104,13 @@
         <div class="setting-reset">
           <button id="resetProgressBtn" class="setting-toggle danger" type="button">RESET SAVE</button>
         </div>
+        <footer class="window-back-footer">
+          <button id="closeSettingsBtn" class="window-back-button" type="button" aria-label="Back from settings">Back</button>
+        </footer>
       </div>
       <div id="inventoryPanel" class="inventory-panel card" role="dialog" aria-label="Inventory" hidden>
         <div class="inventory-panel-header">
-          <div class="inventory-title-block"><div class="settings-title window-title">Inventory</div></div>
           <div id="inventoryCount" class="inventory-capacity">0 / 16 ITEMS</div>
-          <button id="closeInventoryBtn" class="profile-close-button secondary-button" type="button" aria-label="Close inventory">×</button>
         </div>
         <div class="inventory-tabs" role="tablist" aria-label="Inventory view">
           <button id="inventoryEquipmentTab" class="inventory-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="inventoryContent">EQUIPMENT</button>
@@ -139,6 +132,9 @@
             <div id="inventoryItems" class="inventory-items"></div>
           </section>
         </div>
+        <footer class="window-back-footer">
+          <button id="closeInventoryBtn" class="window-back-button" type="button" aria-label="Back from inventory">Back</button>
+        </footer>
       </div>
       <div id="itemInspectionPanel" class="item-inspection-panel" role="dialog" aria-modal="true" aria-labelledby="itemInspectionTitle" hidden>
         <div class="item-inspection-header">
@@ -146,14 +142,14 @@
             <div class="item-inspection-kicker">ITEM DETAILS</div>
             <h2 id="itemInspectionTitle" class="window-title">ITEM</h2>
           </div>
-          <button id="closeItemInspectionBtn" class="profile-close-button secondary-button" type="button" aria-label="Close item details">×</button>
         </div>
         <div id="itemInspectionContent" class="item-inspection-content"></div>
-        <button id="itemInspectionBack" class="item-inspection-back" type="button">Back</button>
+        <footer class="window-back-footer">
+          <button id="itemInspectionBack" class="item-inspection-back window-back-button" type="button">Back</button>
+        </footer>
       </div>
       <div id="upgradeBenchPanel" class="upgrade-bench-panel" role="dialog" aria-modal="true" aria-labelledby="upgradeBenchTitle" hidden>
         <h2 id="upgradeBenchTitle" class="visually-hidden">Upgrade Bench</h2>
-        <button id="closeUpgradeBenchBtn" class="profile-close-button secondary-button upgrade-bench-close" type="button" aria-label="Close upgrade bench">×</button>
         <div class="upgrade-bench-content">
           <p id="upgradeBenchPrompt" class="upgrade-bench-prompt">Choose an upgrade slot</p>
           <div class="upgrade-bench-slots" role="group" aria-label="Upgrade slots">
@@ -169,13 +165,13 @@
           <div id="upgradeBenchTimer" class="upgrade-bench-timer" role="timer" hidden></div>
           <button id="upgradeBenchAction" class="upgrade-bench-action" type="button" disabled hidden>Upgrade</button>
           <button id="upgradeBenchSpeedUp" class="upgrade-bench-action upgrade-bench-speed-up" type="button" disabled hidden>Finish Now</button>
-          <button id="upgradeBenchBack" class="upgrade-bench-back" type="button">Back</button>
+          <button id="upgradeBenchBack" class="upgrade-bench-back window-back-button" type="button">Back</button>
         </div>
         <div id="upgradeBenchPicker" class="upgrade-bench-picker" hidden>
           <div class="upgrade-bench-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose an item to upgrade">
             <div class="upgrade-bench-picker-heading">ADD ITEM TO UPGRADE</div>
             <div id="upgradeBenchPickerItems" class="upgrade-bench-picker-items"></div>
-            <button id="closeUpgradeBenchPickerBtn" class="secondary-button upgrade-bench-picker-close" type="button">Back</button>
+            <button id="closeUpgradeBenchPickerBtn" class="upgrade-bench-picker-close window-back-button" type="button">Back</button>
           </div>
         </div>
       </div>
@@ -195,7 +191,7 @@
   </button>
   <div class="minimap-meta">
     <div id="minimapPlayers" class="minimap-players">players online: 0</div>
-    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.572">v0.572</div>
+    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.573">v0.573</div>
   </div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
@@ -211,7 +207,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.572</div>
+        <div id="version">v0.573</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -226,7 +222,7 @@
       </div>
       <textarea id="chatInput" maxlength="250" rows="1" autocomplete="off" enterkeyhint="send" placeholder="Say something…"></textarea>
       <button id="chatSendBtn" type="submit">SEND</button>
-      <button id="chatBackBtn" class="chat-back-button" type="button" hidden>Back</button>
+      <button id="chatBackBtn" class="chat-back-button window-back-button" type="button" hidden>Back</button>
     </form>
   </div>
   <div id="hudGemWallet" class="hud-gem-wallet" aria-label="Gem balance">
@@ -267,13 +263,13 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.572</strong></div>
+        <div><strong id="updateNoticeTitle">v0.573</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.572</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildwood version">v0.573</div>
   </div>
   <div id="legalGatePanel" class="modal legal-gate-modal" role="dialog" aria-modal="true" aria-labelledby="legalGateTitle" aria-describedby="legalGateIntro" hidden>
     <h1 class="wildwood-wordmark-title legal-wordmark-title" aria-label="Wildwood">
@@ -331,6 +327,6 @@
     document.getElementById("loadingDetail").textContent = "Verifying Sign-In";
   }
 </script>
-<script id="wildwoodCoopScript" src="assets/wildwood/coop-client.js?v=0.572" data-game-src="assets/wildwood/game.js?v=0.572"></script>
+<script id="wildwoodCoopScript" src="assets/wildwood/coop-client.js?v=0.573" data-game-src="assets/wildwood/game.js?v=0.573"></script>
 </body>
 </html>

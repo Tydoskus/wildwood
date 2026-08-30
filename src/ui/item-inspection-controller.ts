@@ -27,7 +27,6 @@ type ItemInspectionElements = {
   panel: HTMLElement;
   title: HTMLElement;
   content: HTMLElement;
-  close: HTMLButtonElement;
   back: HTMLButtonElement;
 };
 
@@ -105,7 +104,6 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     return true;
   }
 
-  elements.close.addEventListener("click", close);
   elements.back.addEventListener("click", close);
 
   return {

@@ -112,7 +112,6 @@ const afterUpdateGateShell = String.raw`
         </div>
         <div id="playerProfilePower"><span class="power-label">Power:</span> <span class="power-value">0</span></div>
       </div>
-      <button id="closePlayerProfileBtn" class="profile-close-button secondary-button" type="button" aria-label="Close player profile">×</button>
     </header>
     <div id="profileGenderSetting" class="profile-gender-setting" hidden>
       <span class="profile-gender-label">GENDER</span>
@@ -170,6 +169,9 @@ const afterUpdateGateShell = String.raw`
         <button id="savePlayerSaveEditBtn" type="button">SAVE DATABASE ROW</button>
       </div>
     </section>
+    <footer class="window-back-footer">
+      <button id="closePlayerProfileBtn" class="window-back-button" type="button" aria-label="Back from player profile">Back</button>
+    </footer>
   </div>
 </div>
 
@@ -184,21 +186,16 @@ const afterUpdateGateShell = String.raw`
 </div>
 
 <div id="profileIconPicker" hidden>
-  <div class="modal profile-icon-picker-modal" role="dialog" aria-modal="true" aria-labelledby="profileIconPickerTitle">
-    <header class="leaderboard-header">
-      <h2 id="profileIconPickerTitle" class="window-title">Choose Profile Icon</h2>
-      <button id="closeProfileIconPickerBtn" class="profile-close-button secondary-button" type="button" aria-label="Close profile icon picker">×</button>
-    </header>
+  <div class="modal profile-icon-picker-modal" role="dialog" aria-modal="true" aria-label="Choose profile icon">
     <div id="profileIconChoices" class="profile-icon-choices"></div>
+    <footer class="window-back-footer">
+      <button id="closeProfileIconPickerBtn" class="window-back-button" type="button" aria-label="Back from profile icon picker">Back</button>
+    </footer>
   </div>
 </div>
 
 <div id="leaderboard" hidden>
-  <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
-    <header class="leaderboard-header">
-      <h2 id="leaderboardTitle" class="window-title">Leaderboard</h2>
-      <button id="closeLeaderboardBtn" class="profile-close-button secondary-button" type="button" aria-label="Close leaderboard">×</button>
-    </header>
+  <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-label="Leaderboard">
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
       <button id="leaderboardPowerTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">POWER</button>
       <button id="leaderboardDamageTab" class="profile-tab" type="button" role="tab" aria-selected="false">DAMAGE</button>
@@ -212,6 +209,9 @@ const afterUpdateGateShell = String.raw`
     <ol id="leaderboardRows" class="leaderboard-rows"></ol>
     <div id="leaderboardLoading" class="leaderboard-loading" role="status" aria-label="Loading leaderboard" hidden><span class="leaderboard-spinner" aria-hidden="true"></span></div>
     <div id="leaderboardEmpty" class="profile-loading" hidden>NO RANKINGS YET</div>
+    <footer class="window-back-footer">
+      <button id="closeLeaderboardBtn" class="window-back-button" type="button" aria-label="Back from leaderboard">Back</button>
+    </footer>
   </div>
 </div>
 
@@ -238,17 +238,13 @@ const afterUpdateGateShell = String.raw`
       </div>
     </div>
     <footer class="map-guide-footer">
-      <button id="mapGuideBack" class="map-guide-back" type="button">Back</button>
+      <button id="mapGuideBack" class="map-guide-back window-back-button" type="button">Back</button>
     </footer>
   </section>
 </div>
 
 <div id="devAudit" hidden>
-  <div class="modal dev-audit-modal" role="dialog" aria-modal="true" aria-labelledby="devAuditTitle">
-    <header class="leaderboard-header">
-      <h2 id="devAuditTitle" class="window-title">Developer Tools</h2>
-      <button id="closeDevAuditBtn" class="profile-close-button secondary-button" type="button" aria-label="Close access audit">×</button>
-    </header>
+  <div class="modal dev-audit-modal" role="dialog" aria-modal="true" aria-label="Developer tools">
     <div class="dev-audit-tabs" role="tablist" aria-label="Developer tools">
       <button id="devControlsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">Controls</button>
       <button id="devBugReportsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Bug reports</button>
@@ -308,31 +304,31 @@ const afterUpdateGateShell = String.raw`
         <div><dt>SUBSCRIPTIONS</dt><dd id="perfSubscriptions">—</dd></div>
       </dl>
     </section>
+    <footer class="window-back-footer">
+      <button id="closeDevAuditBtn" class="window-back-button" type="button" aria-label="Back from developer tools">Back</button>
+    </footer>
   </div>
 </div>
 
 <div id="techTreeOverlay" hidden>
-  <section class="tech-tree-window" role="dialog" aria-modal="true" aria-labelledby="techTreeTitle">
+  <section class="tech-tree-window" role="dialog" aria-modal="true" aria-label="Tech tree">
     <header class="tech-tree-header">
-      <div>
-        <p class="tech-tree-kicker">ADVENTURER PROGRESSION</p>
-        <h2 id="techTreeTitle" class="window-title">Tech Tree</h2>
-      </div>
       <div id="techTreeActive" class="tech-tree-active" aria-live="polite">NO RESEARCH ACTIVE</div>
-      <button id="closeTechTreeBtn" class="profile-close-button secondary-button" type="button" aria-label="Close tech tree">×</button>
     </header>
     <div class="tech-tree-viewport">
       <div id="techTreeMap" class="tech-tree-map" aria-label="Technology tree">
         <canvas id="techTreeCanvas" aria-hidden="true"></canvas>
       </div>
     </div>
-    <section id="techTreeDetail" class="tech-tree-detail" role="dialog" aria-modal="true" aria-labelledby="techTreeDetailTitle" hidden>
+    <footer class="window-back-footer">
+      <button id="closeTechTreeBtn" class="window-back-button" type="button" aria-label="Back from tech tree">Back</button>
+    </footer>
+    <section id="techTreeDetail" class="tech-tree-detail" role="dialog" aria-modal="true" aria-label="Research details" hidden>
       <div class="tech-tree-detail-card">
-        <header class="tech-tree-detail-header">
-          <h3 id="techTreeDetailTitle" class="window-title">Research</h3>
-          <button id="closeTechTreeDetailBtn" class="profile-close-button secondary-button" type="button" aria-label="Close research details">×</button>
-        </header>
         <div id="techTreeDetailContent" class="tech-tree-detail-content" aria-live="polite"></div>
+        <footer class="window-back-footer">
+          <button id="closeTechTreeDetailBtn" class="window-back-button" type="button" aria-label="Back from research details">Back</button>
+        </footer>
       </div>
     </section>
   </section>

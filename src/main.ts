@@ -23,7 +23,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ANTI_ALIASING_ENABLED_KEY, ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SEEN_VERSION_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -91,7 +91,7 @@ import {
   const {
     canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, balanceApologyGiftEl, balanceApologyGiftTitle, balanceApologyContinueBtn,
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
-    toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, closeItemInspectionBtn, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
+    toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
@@ -274,7 +274,6 @@ import {
   const appShell = createAppShellController({
     mapMusic,
     storageKeys: {
-      antiAliasing: ANTI_ALIASING_ENABLED_KEY,
       attackRange: ATTACK_RANGE_VISIBLE_KEY,
       fps: FPS_VISIBLE_KEY,
       lowPerformance: LOW_PERFORMANCE_MODE_KEY,
@@ -354,7 +353,6 @@ import {
     panel: itemInspectionPanel,
     title: itemInspectionTitle,
     content: itemInspectionContent,
-    close: closeItemInspectionBtn,
     back: itemInspectionBack,
   });
   const inventoryController = createInventoryController({
@@ -592,7 +590,6 @@ import {
       [PLAYER_GENDER_MALE]: maleGenderIcon,
       [PLAYER_GENDER_FEMALE]: femaleGenderIcon,
     },
-    antiAliasingEnabled: () => appShell.antiAliasingEnabled(),
     isDeveloper: isDeveloperIdentity,
     isLocallyInvisible: (identity) => identity === coop?.localIdentity?.() && isDeveloperIdentity(identity) && coop?.developerPresenceVisible?.() === false,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
@@ -1190,7 +1187,6 @@ import {
 
   upgradeBenchController = createUpgradeBenchController({
     panel: gameElements.upgradeBenchPanel,
-    close: gameElements.closeUpgradeBenchBtn,
     prompt: gameElements.upgradeBenchPrompt,
     slot: gameElements.upgradeBenchSlot,
     slotTwo: gameElements.upgradeBenchSlotTwo,
@@ -1387,9 +1383,9 @@ import {
     resetPresentationState: presentation.reset,
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => { upgradeBenchController.tick(); renderController.render(); }), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
-    renderFpsDisplay: (idleThrottled) => {
+    renderFpsDisplay: () => {
       const performance = performanceMonitor.snapshot();
-      appShell.renderFps(performance.fps, performance.onePercentLowFps, performance.workFps, idleThrottled);
+      appShell.renderFps(performance.fps);
     },
     fpsDisplayVisible: appShell.fpsVisible,
     fadeElement: sceneFadeEl,

@@ -45,10 +45,10 @@ describe("interface style contracts", () => {
     expect(cssRule(".item-inspection-panel")).toContain("var(--toolbar-height)");
     expect(cssRule(".item-inspection-panel")).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(cssRule(".item-inspection-panel[hidden]")).toContain("display: none");
-    expect(html).toContain('id="itemInspectionBack" class="item-inspection-back" type="button">Back</button>');
+    expect(html).toContain('id="itemInspectionBack" class="item-inspection-back window-back-button" type="button">Back</button>');
     expect(cssRule(".item-inspection-actions { ")).toContain("justify-content: center");
     expect(cssRule(".item-inspection-actions { ")).toContain("repeat(auto-fit");
-    expect(cssRule(".item-inspection-back { ")).toContain("justify-self: center");
+    expect(cssRule(".window-back-footer {")).toContain("place-items: center");
     expect(css).not.toContain(".inventory-detail");
   });
 
@@ -258,6 +258,7 @@ describe("interface style contracts", () => {
     expect(html).toContain('src="assets/wildwood/gems/gem-icon.png"');
     const counter = cssRule(".hud-gem-wallet {");
     const playerHud = cssRule(".player-hud-card {");
+    expect(counter).toContain("position: fixed");
     expect(counter).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-height) + 6px)");
     expect(counter).toContain("left: var(--hud-safe-left)");
     expect(counter).toContain("border: 2px solid var(--hud-frame)");
@@ -271,12 +272,30 @@ describe("interface style contracts", () => {
     expect(icon).not.toContain("clip-path");
   });
 
-  it("places the complete FPS readout beneath the player HUD", () => {
-    expect(html).toContain('id="onePercentLowFpsStatus">1% LOW: --</span>');
+  it("places the compact FPS readout beneath the player HUD", () => {
+    expect(html).toContain('id="gameFpsStatus">FPS: --</span>');
+    expect(html).not.toContain('id="onePercentLowFpsStatus"');
+    expect(html).not.toContain('id="workFpsStatus"');
     const status = cssRule(".fps-status {");
     expect(status).toContain("position: fixed");
     expect(status).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-height) + 40px)");
     expect(status).toContain("bottom: auto");
+  });
+
+  it("uses titleless windows with one shared bottom Back control", () => {
+    for (const id of ["closeSettingsBtn", "closeInventoryBtn", "closePlayerProfileBtn", "closeLeaderboardBtn", "closeTechTreeBtn"]) {
+      expect(html).toMatch(new RegExp(`id="${id}" class="window-back-button"[^>]*>Back</button>`));
+    }
+    expect(entryHtml).not.toContain('class="settings-title window-title"');
+    for (const titleId of ["leaderboardTitle", "techTreeTitle", "techTreeDetailTitle", "devAuditTitle", "profileIconPickerTitle"]) {
+      expect(gameShell).not.toContain(`id="${titleId}"`);
+    }
+    expect(html).not.toContain('class="profile-close-button');
+    expect(entryHtml).not.toContain('id="antiAliasingToggle"');
+    const back = cssRule(".window-back-button {");
+    expect(back).toContain("width: min(150px, 44vw)");
+    expect(back).toContain("height: 44px");
+    expect(back).toContain("background: linear-gradient(#c85050, #842f34)");
   });
 
   it("frames the health bar with a rounded two-tone track and fill", () => {
@@ -293,10 +312,16 @@ describe("interface style contracts", () => {
     expect(fill).toContain("box-shadow: none");
     expect(fill).not.toContain("#55d963");
     expect(card).toContain("display: grid");
-    expect(card).toContain("grid-template-columns: auto minmax(0, 1fr)");
-    expect(content).toContain("grid-template-rows: minmax(0, 1fr) auto");
+    expect(css).toContain("--hud-map-size: calc(var(--hud-row-height) * 2)");
+    expect(css).toContain("--player-hud-height: calc(var(--hud-row-height) + 16px)");
+    expect(card).toContain("grid-template-columns: var(--hud-row-height) minmax(0, 1fr)");
+    expect(card).toContain("column-gap: 8px");
+    expect(content).toContain("grid-template-rows: repeat(2, minmax(0, 1fr))");
     expect(content).toContain("gap: 4px");
-    expect(portrait).toContain("align-self: end");
+    expect(portrait).toContain("width: 100%");
+    expect(portrait).toContain("height: 100%");
+    expect(portrait).toContain("align-self: stretch");
+    expect(track).toContain("height: 100%");
     expect(html).toContain('id="playerPower"');
   });
 
@@ -348,7 +373,7 @@ describe("interface style contracts", () => {
     expect(html).toContain('class="minimap-help-mark" aria-hidden="true">?</span>');
     expect(html).toContain('id="mapGuideCanvas"');
     expect(html).toContain('id="mapGuideDropItems"');
-    expect(html).toContain('id="mapGuideBack" class="map-guide-back" type="button">Back</button>');
+    expect(html).toContain('id="mapGuideBack" class="map-guide-back window-back-button" type="button">Back</button>');
     const minimap = cssRule(".minimap-button {");
     expect(minimap).toContain("width: var(--hud-map-size)");
     expect(minimap).toContain("height: var(--hud-map-size)");
@@ -364,7 +389,7 @@ describe("interface style contracts", () => {
     expect(guide).toContain("inset: 0 0 var(--toolbar-height)");
     expect(cssRule(".map-guide-map-frame {")).toContain("width: min(75%, 420px)");
     expect(cssRule(".map-guide-scroll {")).toContain("touch-action: pan-y");
-    expect(cssRule(".map-guide-back {")).toContain("width: min(220px, 80vw)");
+    expect(cssRule(".window-back-button {")).toContain("width: min(150px, 44vw)");
   });
 
   it("uses the existing cosmetic slots for the wear-nothing state", () => {
@@ -402,7 +427,7 @@ describe("interface style contracts", () => {
     expect(finishNow).toBeGreaterThan(cancel);
     expect(back).toBeGreaterThan(finishNow);
     expect(html).toContain('id="upgradeBenchSpeedUp" class="upgrade-bench-action upgrade-bench-speed-up" type="button" disabled hidden>Finish Now</button>');
-    expect(html).toContain('id="upgradeBenchBack" class="upgrade-bench-back" type="button">Back</button>');
+    expect(html).toContain('id="upgradeBenchBack" class="upgrade-bench-back window-back-button" type="button">Back</button>');
     expect(cssRule(".upgrade-bench-slots {")).toContain("justify-content: center");
     const actionStyle = cssRule(".upgrade-bench-action {");
     expect(actionStyle).toContain("align-items: center");

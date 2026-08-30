@@ -14,7 +14,6 @@ type AccountState = { signedIn: boolean; notice: string };
 type AppShellDependencies = {
   mapMusic: MapMusicController;
   storageKeys: {
-    antiAliasing: string;
     attackRange: string;
     fps: string;
     lowPerformance: string;
@@ -38,13 +37,10 @@ type AppShellDependencies = {
 export function createAppShellController(dependencies: AppShellDependencies) {
   const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
-  const antiAliasingToggle = requiredElement<HTMLButtonElement>("antiAliasingToggle");
   const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
   const gameFpsStatus = requiredElement("gameFpsStatus");
-  const onePercentLowFpsStatus = requiredElement("onePercentLowFpsStatus");
-  const workFpsStatus = requiredElement("workFpsStatus");
   const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
   const latencyStatus = requiredElement("latencyStatus");
   const musicVolumeInput = requiredElement<HTMLInputElement>("musicVolume");
@@ -59,7 +55,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
 
   let screenShakeEnabled = readBoolean(dependencies.storageKeys.screenShake, true);
   let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
-  let antiAliasingEnabled = readBoolean(dependencies.storageKeys.antiAliasing, true);
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
   let fpsVisible = readBoolean(dependencies.storageKeys.fps, false);
   let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
@@ -76,7 +71,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   function refreshSettings() {
     renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
-    renderBooleanSetting(antiAliasingToggle, antiAliasingEnabled);
     renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
     renderBooleanSetting(fpsToggle, fpsVisible);
     fpsStatus.hidden = !fpsVisible;
@@ -127,11 +121,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   attackRangeToggle.addEventListener("click", () => {
     attackRangeVisible = !attackRangeVisible;
     writeBoolean(dependencies.storageKeys.attackRange, attackRangeVisible);
-    refreshSettings();
-  });
-  antiAliasingToggle.addEventListener("click", () => {
-    antiAliasingEnabled = !antiAliasingEnabled;
-    writeBoolean(dependencies.storageKeys.antiAliasing, antiAliasingEnabled);
     refreshSettings();
   });
   lowPerformanceToggle.addEventListener("click", () => {
@@ -211,18 +200,15 @@ export function createAppShellController(dependencies: AppShellDependencies) {
 
   return {
     attackRangeVisible: () => attackRangeVisible,
-    antiAliasingEnabled: () => antiAliasingEnabled,
     fpsVisible: () => fpsVisible,
     lowPerformanceMode: () => lowPerformanceMode,
     screenShakeEnabled: () => screenShakeEnabled,
     refreshFullscreen,
     refreshSettings,
     refreshStatus,
-    renderFps: (fps: number, onePercentLowFps: number, workFps: number, idleThrottled = false) => {
+    renderFps: (fps: number) => {
       if (!fpsVisible) return;
-      gameFpsStatus.textContent = `GAME FPS: ${fps}${idleThrottled ? " · IDLE" : ""}`;
-      onePercentLowFpsStatus.textContent = `1% LOW: ${onePercentLowFps}`;
-      workFpsStatus.textContent = `WORK FPS: ${workFps}`;
+      gameFpsStatus.textContent = `FPS: ${fps}`;
     },
     ensureMusicPlaying,
   };

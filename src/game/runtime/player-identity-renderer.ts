@@ -72,7 +72,6 @@ export function createPlayerIdentityRenderer(options: {
   profileIconSheet: HTMLImageElement;
   powerIcon: HTMLImageElement;
   genderIcons: Record<typeof PLAYER_GENDER_MALE | typeof PLAYER_GENDER_FEMALE, HTMLImageElement>;
-  antiAliasingEnabled: () => boolean;
   isDeveloper: (identity: string | undefined) => boolean;
   isLocallyInvisible: (identity: string | undefined) => boolean;
   isGuest: (identity: string | undefined) => boolean;
@@ -139,7 +138,7 @@ export function createPlayerIdentityRenderer(options: {
     const cellHeight = sheet.naturalHeight / PROFILE_PORTRAIT_GRID;
     const insetX = cellWidth * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
     const insetY = cellHeight * (1 - 1 / PROFILE_PORTRAIT_ZOOM) / 2;
-    iconContext.imageSmoothingEnabled = options.antiAliasingEnabled();
+    iconContext.imageSmoothingEnabled = true;
     iconContext.drawImage(sheet, (index % PROFILE_PORTRAIT_GRID) * cellWidth + insetX, Math.floor(index / PROFILE_PORTRAIT_GRID) * cellHeight + insetY, cellWidth / PROFILE_PORTRAIT_ZOOM, cellHeight / PROFILE_PORTRAIT_ZOOM, 0, 0, canvas.width, canvas.height);
   }
 
