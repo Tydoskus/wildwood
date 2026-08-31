@@ -1440,9 +1440,10 @@
     height: calc(100vh + 30px);
     height: calc(100dvh + 30px);
     background-color: #000;
+    /* The versioned artwork URL from index.html resolves relative to this stylesheet. */
     background-image:
       linear-gradient(180deg, rgba(4, 12, 6, .24), rgba(4, 12, 6, .38)),
-      url("signin/signin-progression-mobile-v2.png"),
+      var(--signin-artwork, none),
       var(--signin-preview, none);
     background-position: center;
     background-repeat: no-repeat;

@@ -4,16 +4,17 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Wildstat</title>
-<link rel="icon" href="favicon.ico?v=0.575" sizes="any" />
-<link rel="apple-touch-icon" href="assets/wildwood/wildwood-app-icon.png" />
-<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high" />
-<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png?v=0.575" type="image/png" fetchpriority="high" />
+<link rel="icon" href="wildstat-favicon.ico?v=0.576" sizes="any" />
+<link rel="icon" href="assets/wildwood/wildstat-favicon-32.png?v=0.576" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="assets/wildwood/wildstat-apple-touch-icon.png?v=0.576" sizes="180x180" />
+<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png?v=0.576" type="image/png" fetchpriority="high" />
+<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png?v=0.576" type="image/png" fetchpriority="high" />
 <style>
-  :root { --signin-preview: url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAG6ADAAQAAAABAAAAMAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAMAAbAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMADAwMDAwMFAwMFB0UFBQdJx0dHR0nMScnJycnMTsxMTExMTE7Ozs7Ozs7O0dHR0dHR1NTU1NTXV1dXV1dXV1dXf/bAEMBDg8PGBYYKBYWKGFCNkJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYf/dAAQAAv/aAAwDAQACEQMRAD8AyRIpO0cn0FWECYfecEDimLGqsXAwx6mnY615ykkzCMb6CKNxAA5NNZkVirEAildC6lQcHsariz/vEk+vNJW6iP/QzEeYuEYYVc8+tTjvQPelQbiQK8xbkUVeVkQSv5ShsZHfFEbMyBiOtSZOSvp68UtBnJWdmf/RzENxuCufkXoe5rRsQTMAozmqZOV25p1tvii2Z/KvM8yaS1Jb5pIZ2ZV3FT0yT/OsotdSEuPlzziroG3jJP1oz700/Iyluf/Z"); }
+  :root { --signin-artwork: url("signin/signin-progression-mobile-v2.png?v=0.576"); --signin-preview: url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QCARXhpZgAATU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAIdpAAQAAAABAAAATgAAAAAAAABIAAAAAQAAAEgAAAABAAOgAQADAAAAAQABAACgAgAEAAAAAQAAABugAwAEAAAAAQAAADAAAAAA/+0AOFBob3Rvc2hvcCAzLjAAOEJJTQQEAAAAAAAAOEJJTQQlAAAAAAAQ1B2M2Y8AsgTpgAmY7PhCfv/AABEIADAAGwMBIgACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgv/xAC1EAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+fr/xAAfAQADAQEBAQEBAQEBAAAAAAAAAQIDBAUGBwgJCgv/xAC1EQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2wBDAAcHBwcHBwwHBwwRDAwMERcRERERFx4XFxcXFx4kHh4eHh4eJCQkJCQkJCQrKysrKysyMjIyMjg4ODg4ODg4ODj/2wBDAQkJCQ4NDhkNDRk7KCEoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/3QAEAAL/2gAMAwEAAhEDEQA/AOZWaNm2J8x54HXirqCMLIJDghcrx1NRpbxpI0iqA7dT61IB1NePTqKMr2uccafP7t7DI13lVCnLfpUUjQRyFJCoYHBp8sbSxlFYqexHaqQ0vIzIxZj1Jzz+tZxt1Yj/0Oeilu2mEMi4jTJ3euauDHNAx/FT4lLkgf5/CvBWr0RlhYtzSRSuZjbxh9pYZ5xSwSPJErkYz6+napstkp6dcgj+dLR0sYzi4tp7n//R52I3u8RzEGJM4Pc59a3tIDNdKEG7ccf5xzWUW3RlQe3H41Jp/nW1v5W7GepXvXhLuRhkrss6w81peO6JuZG+7knP581zTSajMxlHyBjnbg8fpWso2ZG4n3JyaQyKDgtTjK2tjnmtT//Z"); }
   html, body { min-height: 100vh; min-height: 100dvh; background: #000; }
   #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: linear-gradient(180deg, rgba(4,12,6,.24), rgba(4,12,6,.38)), var(--signin-preview) center / cover no-repeat; }
 </style>
-<link rel="stylesheet" href="assets/wildwood/game.css?v=0.575" />
+<link rel="stylesheet" href="assets/wildwood/game.css?v=0.576" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -191,7 +192,7 @@
   </button>
   <div class="minimap-meta">
     <div id="minimapPlayers" class="minimap-players">players online: 0</div>
-    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.575">v0.575</div>
+    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.576">v0.576</div>
   </div>
   <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
     <span class="respawn-ad-play" aria-hidden="true">▶</span>
@@ -207,7 +208,7 @@
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
         <div id="latencyStatus" hidden>PING: --</div>
-        <div id="version">v0.575</div>
+        <div id="version">v0.576</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -242,7 +243,7 @@
   <div id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite" hidden>
     <h1 class="wildwood-wordmark-title" aria-label="Wildstat">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildstat-wordmark.png?v=0.575" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildwood/wildstat-wordmark.png?v=0.576" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <p>CONNECTING TO WILDSTAT</p>
@@ -254,7 +255,7 @@
   <div id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle">
     <h1 id="accountChoiceTitle" class="wildwood-wordmark-title" aria-label="Wildstat">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildstat-wordmark.png?v=0.575" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildwood/wildstat-wordmark.png?v=0.576" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <p>This game is in beta, report bugs with /bug</p>
@@ -263,18 +264,18 @@
     <button id="continueGuestBtn" class="secondary-button" type="button">GUEST LOGIN</button>
     <aside id="updateNotice" class="signin-update-notice" aria-labelledby="updateNoticeTitle" hidden>
       <header>
-        <div><strong id="updateNoticeTitle">v0.575</strong></div>
+        <div><strong id="updateNoticeTitle">v0.576</strong></div>
         <button id="closeUpdateNoticeBtn" type="button" aria-label="Close update notes">×</button>
       </header>
       <ul id="updateNoticeItems" class="signin-update-history"></ul>
     </aside>
     <p id="accountChoiceDetail" class="loading-detail">SIGN IN OR USE GUEST LOGIN</p>
-    <div id="signinVersion" class="signin-version" aria-label="Wildstat version">v0.575</div>
+    <div id="signinVersion" class="signin-version" aria-label="Wildstat version">v0.576</div>
   </div>
   <div id="legalGatePanel" class="modal legal-gate-modal" role="dialog" aria-modal="true" aria-labelledby="legalGateTitle" aria-describedby="legalGateIntro" hidden>
     <h1 class="wildwood-wordmark-title legal-wordmark-title" aria-label="Wildstat">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildstat-wordmark.png?v=0.575" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildwood/wildstat-wordmark.png?v=0.576" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <h2 id="legalGateTitle">Before You Play</h2>
@@ -295,7 +296,7 @@
     <h1 class="wildwood-wordmark-title welcome-wordmark-title" aria-label="Welcome to Wildstat">
       <span class="welcome-wordmark-prefix" aria-hidden="true">WELCOME TO</span>
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildstat-wordmark.png?v=0.575" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildwood/wildstat-wordmark.png?v=0.576" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <label class="onboarding-name-label" for="newPlayerNameInput">PLAYER NAME</label>
@@ -310,7 +311,7 @@
   <div class="modal game-update-modal" role="status" aria-live="assertive">
     <h1 class="wildwood-wordmark-title" aria-label="Wildstat">
       <span class="wildwood-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildwood/wildstat-wordmark.png?v=0.575" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildwood/wildstat-wordmark.png?v=0.576" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <h2 class="window-title">Game Updating</h2>
@@ -327,6 +328,6 @@
     document.getElementById("loadingDetail").textContent = "Verifying Sign-In";
   }
 </script>
-<script id="wildwoodCoopScript" src="assets/wildwood/coop-client.js?v=0.575" data-game-src="assets/wildwood/game.js?v=0.575"></script>
+<script id="wildwoodCoopScript" src="assets/wildwood/coop-client.js?v=0.576" data-game-src="assets/wildwood/game.js?v=0.576"></script>
 </body>
 </html>

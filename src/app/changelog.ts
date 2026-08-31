@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.576": [
+    "Updated the sign-in background and its instant loading preview, with release-based artwork cache refreshes.",
+    "Added matching Wildstat Home Screen and browser icons using the new green-and-blue WS leaf mark.",
+  ],
   "0.575": [
     "Updated the Wildstat logo and refreshed its cache with each release so returning players receive the latest artwork.",
   ],
@@ -1287,6 +1291,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.576": "2026-08-30",
   "0.575": "2026-08-30",
   "0.574": "2026-08-30",
   "0.573": "2026-08-30",

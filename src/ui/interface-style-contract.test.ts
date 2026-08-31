@@ -335,11 +335,20 @@ describe("interface style contracts", () => {
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {
     expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
-    expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high"');
+    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
+    const artworkUrl = entryHtml.match(/--signin-artwork: url\("([^"]+)"\)/)?.[1];
+    expect(artworkUrl).toBe(`signin/signin-progression-mobile-v2.png?v=${releaseVersion}`);
+    for (const base of ["https://example.test/", "https://example.test/wildwood/"]) {
+      const stylesheetUrl = new URL("assets/wildwood/game.css", base);
+      const preloadUrl = new URL(`assets/wildwood/signin/signin-progression-mobile-v2.png?v=${releaseVersion}`, base);
+      expect(new URL(artworkUrl!, stylesheetUrl).href).toBe(preloadUrl.href);
+    }
     expect(html).toContain(`<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
+    expect(css).toContain("var(--signin-artwork, none)");
+    expect(css).not.toContain('url("signin/signin-progression-mobile-v2.png")');
     const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal,\n  .modal.legal-gate-modal {");
     expect(stableStartupWindow).toContain("top: 50dvh");
     expect(stableStartupWindow).toContain("transform: translate(-50%, -50%)");
@@ -374,6 +383,44 @@ describe("interface style contracts", () => {
     expect(cssRule(".wildwood-wordmark-frame {")).not.toContain("overflow: hidden");
     expect(cssRule(".wildwood-wordmark-frame img {")).toContain("object-fit: contain");
     expect(cssRule(".wildwood-wordmark-frame img {")).not.toContain("position: absolute");
+  });
+
+  it("uses opaque Wildstat Home Screen and multi-resolution browser icons", () => {
+    expect(entryHtml).toContain(`href="wildstat-favicon.ico?v=${releaseVersion}"`);
+    expect(entryHtml).toContain(`href="assets/wildwood/wildstat-favicon-32.png?v=${releaseVersion}" type="image/png" sizes="32x32"`);
+    expect(entryHtml).toContain(`href="assets/wildwood/wildstat-apple-touch-icon.png?v=${releaseVersion}" sizes="180x180"`);
+    expect(entryHtml).not.toContain("wildwood-app-icon.png");
+
+    const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const expectRgbPng = (png: Buffer, size: number) => {
+      expect(png.subarray(0, 8)).toEqual(pngSignature);
+      expect(png.readUInt32BE(16)).toBe(size);
+      expect(png.readUInt32BE(20)).toBe(size);
+      expect(png[24]).toBe(8);
+      expect(png[25]).toBe(2);
+    };
+    expectRgbPng(readFileSync(new URL("../../public/assets/wildwood/wildstat-apple-touch-icon.png", import.meta.url)), 180);
+    expectRgbPng(readFileSync(new URL("../../public/assets/wildwood/wildstat-favicon-32.png", import.meta.url)), 32);
+
+    const ico = readFileSync(new URL("../../public/wildstat-favicon.ico", import.meta.url));
+    const sizes = [16, 32, 48, 64, 128, 256];
+    expect(ico.readUInt16LE(0)).toBe(0);
+    expect(ico.readUInt16LE(2)).toBe(1);
+    expect(ico.readUInt16LE(4)).toBe(sizes.length);
+    let expectedOffset = 6 + sizes.length * 16;
+    sizes.forEach((size, index) => {
+      const entry = 6 + index * 16;
+      expect(ico[entry] || 256).toBe(size);
+      expect(ico[entry + 1] || 256).toBe(size);
+      expect(ico.readUInt16LE(entry + 4)).toBe(1);
+      expect(ico.readUInt16LE(entry + 6)).toBe(24);
+      const bytes = ico.readUInt32LE(entry + 8);
+      const offset = ico.readUInt32LE(entry + 12);
+      expect(offset).toBe(expectedOffset);
+      expectRgbPng(ico.subarray(offset, offset + bytes), size);
+      expectedOffset += bytes;
+    });
+    expect(expectedOffset).toBe(ico.length);
   });
 
   it("defers profile portraits and gender icons until the game loading screen", () => {
