@@ -1,6 +1,6 @@
 # Multiplayer client module map
 
-`src/wildwood-coop.ts` is the browser-facing composition root. It preserves the existing `window.wildwoodCoop`, named export, default export, and Vite entry contract, but it must remain below 1,000 lines. `src/coop/wildwood-coop-boundary.test.ts` enforces that limit.
+`src/wildstat-coop.ts` is the browser-facing composition root. It preserves the existing `window.wildstatCoop`, named export, default export, and Vite entry contract, but it must remain below 1,000 lines. `src/coop/wildstat-coop-boundary.test.ts` enforces that limit.
 
 The original extraction was behavior-preserving. Later realtime protocol work changed generated bindings and subscription queries without moving those responsibilities back into the composition root; public method names and ownership boundaries remain stable.
 
@@ -8,7 +8,7 @@ The original extraction was behavior-preserving. Later realtime protocol work ch
 
 | Module | Owns |
 | --- | --- |
-| `src/wildwood-coop.ts` | Runtime composition, reducer error policy, connection/reconnect orchestration, one world-entry gate, browser lifecycle wiring, and the public façade. |
+| `src/wildstat-coop.ts` | Runtime composition, reducer error policy, connection/reconnect orchestration, one world-entry gate, browser lifecycle wiring, and the public façade. |
 | `src/coop/contracts.ts` | Public multiplayer data contracts re-exported by the façade. |
 | `src/coop/ports.ts` | Narrow reducer and change-notification ports shared by services. |
 | `src/coop/services/account-service.ts` | Guest/account credentials, PKCE callback, account migration, session takeover intent, remembered character metadata, and account-facing API methods. |
@@ -54,7 +54,7 @@ These are notes for a future pass, not changes included in the modularization:
 - Inject clock, storage, location, and window adapters into account/progression/presence services to make reconnect, token expiry, save cadence, and visibility behavior deterministic in unit tests.
 - Evolve `ReducerPort` into a generated, typed command gateway so reducer error/latency policy stays centralized without repeating reducer signatures.
 - Replace profile presentation retention checks with explicit source leases (active-map presentation, chat, leaderboard, open profile). This would make eviction ownership easier to inspect than cross-domain lookups.
-- Narrow game/UI consumers away from the full `wildwoodCoop` object toward typed per-feature ports. Preserve the public object until all callers and browser integrations have migrated.
+- Narrow game/UI consumers away from the full `wildstatCoop` object toward typed per-feature ports. Preserve the public object until all callers and browser integrations have migrated.
 - Add development-only counters for active handles and queries per handle, plus assertions after disconnect. The current `subscriptionCount` is intentionally a lightweight UI diagnostic.
 - If map-entry presentation snapshots become expensive at much larger populations, prototype a revisioned request-once catalog or packed string dictionary. Keep it independent from analytical motion anchors and the two bounded packed publications.
 - Benchmark bundle output and reconnect/movement load after the structural change before attempting memoization, allocation pooling, or cadence changes. Those are performance changes and should not be bundled with ownership refactors.

@@ -9,6 +9,7 @@ import { createReconnectScheduler } from "./coop/services/reconnect-scheduler";
 import { createPageWakeTracker } from "./coop/services/page-wake-tracker";
 import { connectionGateState } from "./coop/services/connection-gate-state";
 import { retryAfterMissingWorldPresence } from "./coop/services/world-presence-recovery";
+import { reducerErrorMessage } from "./coop/services/reducer-errors";
 import { shouldRetainProfilePresentation } from "./coop/services/profile-presence";
 import {
   createUpdateResumeStore,
@@ -75,7 +76,7 @@ export type {
   UpgradeBenchSlot,
 } from "./coop/contracts";
 
-type WildwoodRuntime = Window & {
+type WildstatRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
   WILDWOOD_SPACETIMEDB_DB_NAME?: string;
 };
@@ -85,7 +86,7 @@ const LATENCY_SMOOTHING = .25;
 const WAKE_RECONNECT_WATCHDOG_MS = 10_000;
 const WAKE_RECONNECT_FALLBACK_MS = 4_000;
 
-const runtime = window as WildwoodRuntime;
+const runtime = window as WildstatRuntime;
 const defaultHost = defaultRealtimeHost(window.location.hostname);
 const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
@@ -240,10 +241,6 @@ const virtualPlayerLoadTest = createVirtualPlayerLoadTest({
   onStateChange: onChange,
 });
 
-function reducerErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function touchServerActivity() {
   lastServerActivityAt = performance.now();
 }
@@ -265,8 +262,8 @@ function handleReducerFailure(action: string, error: unknown) {
     onChange?.();
     return;
   }
-  if (!/wildwood updated\. refresh to continue\./i.test(message)) {
-    console.warn(`Wildwood ${action} rejected:`, message);
+  if (!/wildstat updated\. refresh to continue\./i.test(message)) {
+    console.warn(`Wildstat ${action} rejected:`, message);
     return;
   }
 
@@ -339,7 +336,7 @@ async function recoverMissingWorldPresence() {
   if (protocolBlocked || worldEntryBlocked || !connection) return false;
   const generation = connectionGeneration;
   worldEntryGeneration = 0;
-  accountService.setNotice("REJOINING WILDWOOD");
+  accountService.setNotice("REJOINING WILDSTAT");
   setNetworkReconnectVisible(true);
   const recovered = await requestWorldEntry();
   if (generation !== connectionGeneration) return false;
@@ -844,7 +841,7 @@ function connect() {
             sessionGeneration += 1;
             onChange();
           },
-          onError: (event) => console.error("Wildwood SpacetimeDB subscription error:", event),
+          onError: (event) => console.error("Wildstat SpacetimeDB subscription error:", event),
           afterHydrated: () => {
             void playerProfileService.loadLeaderboardSnapshot();
             progressionService.flushPendingProgress();
@@ -876,7 +873,7 @@ function connect() {
       clearRealtimeCaches();
       if (hadActiveGame && !protocolBlocked) setNetworkReconnectVisible(true);
       else setNetworkReconnectVisible(false);
-      if (error) console.warn("Wildwood SpacetimeDB disconnected:", error);
+      if (error) console.warn("Wildstat SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
     })
@@ -894,14 +891,14 @@ function connect() {
       worldEntryPromise = null;
       worldEntryGeneration = 0;
       if (accountService.onConnectError(signedIn, error)) return;
-      console.warn("Wildwood SpacetimeDB unavailable:", error.message);
+      console.warn("Wildstat SpacetimeDB unavailable:", error.message);
       onChange?.();
       scheduleReconnect(1_000);
     })
     .build();
 }
 
-export const wildwoodCoop = {
+export const wildstatCoop = {
   host,
   databaseName,
   connect,
@@ -954,7 +951,8 @@ export const wildwoodCoop = {
   },
 };
 
-runtime.wildwoodCoop = wildwoodCoop;
+runtime.wildstatCoop = wildstatCoop;
+runtime.wildwoodCoop = wildstatCoop; // Compatibility for existing browser integrations.
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pageWakeTracker.hide();
@@ -981,12 +979,12 @@ window.addEventListener("storage", (event) => {
 });
 startStartupBootstrap({
   restoreKnownAccount: accountService.restoreKnownAccount,
-  accountState: wildwoodCoop.accountState,
-  knownCharacter: wildwoodCoop.knownCharacter,
-  signIn: wildwoodCoop.signIn,
-  continueAsGuest: wildwoodCoop.continueAsGuest,
-  legalConsentAccepted: wildwoodCoop.legalConsentAccepted,
-  acceptLegalTerms: wildwoodCoop.acceptLegalTerms,
+  accountState: wildstatCoop.accountState,
+  knownCharacter: wildstatCoop.knownCharacter,
+  signIn: wildstatCoop.signIn,
+  continueAsGuest: wildstatCoop.continueAsGuest,
+  legalConsentAccepted: wildstatCoop.legalConsentAccepted,
+  acceptLegalTerms: wildstatCoop.acceptLegalTerms,
   subscribe(listener) {
     startupChangeListener = listener;
     return () => {
@@ -995,4 +993,4 @@ startStartupBootstrap({
   },
 });
 
-export default wildwoodCoop;
+export default wildstatCoop;

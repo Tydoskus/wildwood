@@ -253,7 +253,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       const label = document.createElement("span");
       label.textContent = "Finish Now";
       const icon = document.createElement("img");
-      icon.src = "assets/wildwood/gems/gem-icon.png";
+      icon.src = "assets/wildstat/gems/gem-icon.png";
       icon.alt = "";
       icon.setAttribute("aria-hidden", "true");
       icon.draggable = false;

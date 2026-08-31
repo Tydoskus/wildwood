@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LeaderboardEntry } from "../wildwood-coop";
+import type { LeaderboardEntry } from "../wildstat-coop";
 import { leaderboardPodiumEntries, leaderboardValueText, sortedLeaderboardEntries } from "./leaderboard";
 
 function entry(identity: string, name: string, values: Partial<LeaderboardEntry> = {}): LeaderboardEntry {

@@ -21,12 +21,12 @@ export PATH="${NPM_BIN:h}:${PATH}"
 GIT_BIN="$(command -v git 2>/dev/null || true)"
 [[ -n "$GIT_BIN" ]] || fail "git not found. Install Xcode Command Line Tools, then reopen this file."
 
-[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find Wildwood package.json beside this file."
+[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find Wildstat package.json beside this file."
 [[ -f "$PROJECT_DIR/scripts/release-live.mjs" ]] || fail "Could not find scripts/release-live.mjs."
 
-cd "$PROJECT_DIR" || fail "Could not open the Wildwood folder."
+cd "$PROJECT_DIR" || fail "Could not open the Wildstat folder."
 clear
-print "WILDWOOD LIVE RELEASE"
+print "WILDSTAT LIVE RELEASE"
 print "Folder: $PROJECT_DIR"
 print ""
 print "This will ask for next version and release notes, run all checks,"
@@ -48,7 +48,7 @@ fi
 
 # First run only: keep launcher and its helper together in the release commit.
 for bootstrap_file in \
-  "Release Wildwood.command" \
+  "Release Wildstat.command" \
   "scripts/release-live.mjs" \
   "scripts/release-live.test.mjs"; do
   if ! "$GIT_BIN" ls-files --error-unmatch -- "$bootstrap_file" >/dev/null 2>&1; then

@@ -1,4 +1,4 @@
-# Wildwood Engineering Notes
+# Wildstat Engineering Notes
 
 This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior.
 
@@ -21,8 +21,8 @@ Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`
 | `src/ui/` | UI controllers and views for HUD, inventory, profiles, leaderboard, developer tools, overlays, startup, chat, and interaction bindings. |
 | `src/ui/hud.ts` | HUD and inventory DOM rendering. |
 | `src/ui/chat.ts` | Chat UI behavior. |
-| `src/wildwood-coop.ts` | Browser-facing multiplayer composition root and connection/reconnect policy; kept below 1,000 lines by a test guard. |
-| `src/coop/services/` | Account, base-subscription, presence, profile, progression, chat, duel, boss, and developer service ownership. See `docs/wildwood-coop-modularization.md`. |
+| `src/wildstat-coop.ts` | Browser-facing multiplayer composition root and connection/reconnect policy; kept below 1,000 lines by a test guard. |
+| `src/coop/services/` | Account, base-subscription, presence, profile, progression, chat, duel, boss, and developer service ownership. See `docs/wildstat-coop-modularization.md`. |
 
 Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a composition root, not a feature destination. Add a runtime/UI controller with an explicit input/output boundary, then wire it from `main.ts`. Keep mutable combat state together until it has that boundary; splitting individual functions that share hidden state creates harder coupling, not useful modularity.
 
@@ -53,7 +53,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 
 ### Next architectural work
 
-1. Keep `src/wildwood-coop.ts` as the sub-1,000-line composition root. New multiplayer state belongs in the service map documented by `docs/wildwood-coop-modularization.md`; connection lifecycle and cross-service policy remain in the façade.
+1. Keep `src/wildstat-coop.ts` as the sub-1,000-line composition root. New multiplayer state belongs in the service map documented by `docs/wildstat-coop-modularization.md`; connection lifecycle and cross-service policy remain in the façade.
 2. Split `spacetimedb/src/index.ts` by table/reducer domain where the SpacetimeDB module toolchain permits it: identity/profile, presence, progression, chat, and duels.
 3. Consider splitting the base-subscription registry into gameplay and account/UI ownership modules only if both still share one hydration boundary and preserve the SDK initial-callback suppression rule.
 4. Add automated tests for reset/account migration, identity-scoped pending saves, scheduled research repair, subscription cancellation, projectile collision, and boss hitbox range.

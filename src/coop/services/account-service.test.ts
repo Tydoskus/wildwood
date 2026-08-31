@@ -41,8 +41,8 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
   const assign = vi.fn();
   vi.stubGlobal("window", {
     location: {
-      href: "https://wildwood.example/game",
-      origin: "https://wildwood.example",
+      href: "https://wildstat.example/game",
+      origin: "https://wildstat.example",
       pathname: "/game",
       assign,
       reload: vi.fn(),
@@ -82,11 +82,34 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
     clearPendingProgress: () => {},
     disconnectVirtualPlayers: vi.fn(),
   });
-  return { assign, connect, local, requestWorldEntry, restartConnectionForIdentityChange, service };
+  return { assign, connect, local, session, requestWorldEntry, restartConnectionForIdentityChange, service };
 }
 
 describe("account service startup identity selection", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["Wildstat", "Wildwood"])("keeps an existing signed-in save after a %s account-link rejection", async (name) => {
+    const { local, session, service } = setup({
+      accountToken: "existing-account-token",
+      guestToken: "existing-guest-token",
+      knownAccount: true,
+      signedIn: true,
+    });
+    session.setItem(keys.accountLinkKey, JSON.stringify({ code: "private-link", guestIdentity: "guest-identity" }));
+    session.setItem(keys.authTabKey, "test-tab");
+    local.setItem(keys.accountMigrationPendingKey, JSON.stringify({ "test-tab": Date.now() }));
+    const disconnect = vi.fn();
+    const connection = {
+      reducers: { claimGuestAccount: vi.fn().mockRejectedValue(new Error(`This account already has ${name} progress.`)) },
+      disconnect,
+    };
+
+    await expect(service.claimAccountLink(connection as never, true, () => true)).resolves.toBe(true);
+    expect(local.getItem(keys.accountTokenKey)).toBe("existing-account-token");
+    expect(session.getItem(keys.accountLinkKey)).toBeNull();
+    expect(local.getItem(keys.accountMigrationPendingKey)).toBeNull();
+    expect(disconnect).not.toHaveBeenCalled();
+  });
 
   it("does not create a guest connection before a fresh visitor chooses", async () => {
     const { connect, service } = setup();

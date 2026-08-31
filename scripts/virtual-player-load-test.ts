@@ -49,8 +49,8 @@ import {
   type VirtualPlayerLoadMode,
 } from "./virtual-player-load-test-config";
 
-const WORKER_FLAG = "WILDWOOD_LOAD_TEST_WORKER";
-const TOKEN_ENV = "WILDWOOD_LOAD_TEST_TOKEN";
+const WORKER_FLAG = "WILDSTAT_LOAD_TEST_WORKER";
+const TOKEN_ENV = "WILDSTAT_LOAD_TEST_TOKEN";
 const CONNECT_TIMEOUT_MS = 20_000;
 const SUBSCRIPTION_TIMEOUT_MS = 15_000;
 const MOVEMENT_INTERVAL_MS = 100;
@@ -165,7 +165,7 @@ function readArguments(argv: string[]) {
 }
 
 function helpText() {
-  return `Wildwood virtual-player load runner
+  return `Wildstat virtual-player load runner
 
 Usage:
   ${TOKEN_ENV}=<developer-id-token> npm run loadtest:virtual -- [options]
@@ -212,8 +212,8 @@ function parseCoordinatorConfig(argv: string[]): CoordinatorConfig | { help: tru
   return {
     count,
     mode,
-    host: values.get("host") ?? process.env.WILDWOOD_LOAD_TEST_HOST ?? "ws://localhost:3000",
-    database: values.get("database") ?? process.env.WILDWOOD_LOAD_TEST_DATABASE ?? "wildwood-coop",
+    host: values.get("host") ?? process.env.WILDSTAT_LOAD_TEST_HOST ?? process.env.WILDWOOD_LOAD_TEST_HOST ?? "ws://localhost:3000",
+    database: values.get("database") ?? process.env.WILDSTAT_LOAD_TEST_DATABASE ?? process.env.WILDWOOD_LOAD_TEST_DATABASE ?? "wildwood-coop",
     mapId,
     durationSeconds: nonNegativeNumber(values.get("duration"), 60, "duration"),
     workerCount,
@@ -313,7 +313,7 @@ async function waitForWorkerEvents(
 }
 
 async function runCoordinator(config: CoordinatorConfig) {
-  const token = process.env[TOKEN_ENV]?.trim();
+  const token = (process.env[TOKEN_ENV] ?? process.env.WILDWOOD_LOAD_TEST_TOKEN)?.trim();
   if (!token) throw new Error(`${TOKEN_ENV} is required. Run with --help for secure setup.`);
   const ticket = randomBytes(VIRTUAL_PLAYER_TICKET_BYTES).toString("hex");
   console.log(`Authorizing ${config.count} ${config.mode} bots on ${config.database} via ${config.workerCount} processes...`);
@@ -325,6 +325,7 @@ async function runCoordinator(config: CoordinatorConfig) {
   const children: ChildProcess[] = [];
   const workerEnvironment = { ...process.env };
   delete workerEnvironment[TOKEN_ENV];
+  delete workerEnvironment.WILDWOOD_LOAD_TEST_TOKEN;
   let stopping = false;
   let infrastructureFailure = false;
   let stopReason = "duration complete";
@@ -861,7 +862,7 @@ async function workerMain() {
 }
 
 async function main() {
-  if (process.env[WORKER_FLAG] === "1") {
+  if (process.env[WORKER_FLAG] === "1" || process.env.WILDWOOD_LOAD_TEST_WORKER === "1") {
     await workerMain();
     return;
   }

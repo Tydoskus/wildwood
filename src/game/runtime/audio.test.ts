@@ -27,44 +27,44 @@ describe("map music", () => {
   });
 
   it("uses Light Ambient 4 on sign-in", () => {
-    expect(SIGN_IN_MUSIC_SOURCE).toBe("assets/wildwood/audio/signin.mp3");
+    expect(SIGN_IN_MUSIC_SOURCE).toBe("assets/wildstat/audio/signin.mp3");
   });
 
   it("uses Ambient 10 for Snowlands", () => {
-    expect(musicSourceForMap(INTERMEDIATE_SNOWLANDS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/snow.mp3");
+    expect(musicSourceForMap(INTERMEDIATE_SNOWLANDS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/snow.mp3");
   });
 
   it("keeps existing forest and desert tracks", () => {
-    expect(musicSourceForMap(TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/forest.mp3");
-    expect(musicSourceForMap(BEGINNER_DESERT_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/desert.mp3");
+    expect(musicSourceForMap(TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/forest.mp3");
+    expect(musicSourceForMap(BEGINNER_DESERT_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/desert.mp3");
   });
 
   it("uses Night Ambient 5 for Lava Lake", () => {
-    expect(musicSourceForMap(ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/lava.mp3");
+    expect(musicSourceForMap(ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/lava.mp3");
   });
 
   it("uses Night Ambient 3 for Night Forest", () => {
-    expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildwood/audio/night-forest.mp3");
+    expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/night-forest.mp3");
   });
 
   it("warms each unique map soundtrack during the loading screen", () => {
     expect(GAME_MUSIC_SOURCES).toEqual([
-      "assets/wildwood/audio/forest.mp3",
-      "assets/wildwood/audio/desert.mp3",
-      "assets/wildwood/audio/snow.mp3",
-      "assets/wildwood/audio/lava.mp3",
-      "assets/wildwood/audio/night-forest.mp3",
+      "assets/wildstat/audio/forest.mp3",
+      "assets/wildstat/audio/desert.mp3",
+      "assets/wildstat/audio/snow.mp3",
+      "assets/wildstat/audio/lava.mp3",
+      "assets/wildstat/audio/night-forest.mp3",
     ]);
   });
 
   it("uses the Death sting for player death", () => {
-    expect(DEATH_SOUND_SOURCE).toBe("assets/wildwood/audio/death.mp3");
+    expect(DEATH_SOUND_SOURCE).toBe("assets/wildstat/audio/death.mp3");
   });
 
   it("ships the vendor bow release as the runtime attack sound", () => {
-    expect(BOW_ATTACK_SOUND_SOURCE).toBe("assets/wildwood/audio/bow-release.mp3");
+    expect(BOW_ATTACK_SOUND_SOURCE).toBe("assets/wildstat/audio/bow-release.mp3");
     const source = readFileSync(new URL("../../../art-source/sounds/bow-release-bow-and-arrow-4.mp3", import.meta.url));
-    const runtime = readFileSync(new URL("../../../public/assets/wildwood/audio/bow-release.mp3", import.meta.url));
+    const runtime = readFileSync(new URL("../../../public/assets/wildstat/audio/bow-release.mp3", import.meta.url));
     expect(runtime).toEqual(source);
   });
 

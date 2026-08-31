@@ -16,7 +16,7 @@ import {
   selectRegularEnemyAggroTarget,
   type RegularEnemyAggroCandidate,
 } from "../../../shared/regular-enemy-simulation";
-import type { RemoteCombatStats, RemotePlayer } from "../../wildwood-coop";
+import type { RemoteCombatStats, RemotePlayer } from "../../wildstat-coop";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createRemoteEnemyCombatShadows } from "./remote-enemy-combat-shadow";
 import { rangedEnemyAttackRange, rangedEnemyPreferredDistance } from "./ranged-enemy-range";

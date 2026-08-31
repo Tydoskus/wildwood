@@ -1,6 +1,6 @@
 import { clamp } from "../math";
 import { DUEL_ARENA } from "../duel";
-import type { MapPlayerMarker, RemotePlayer } from "../../wildwood-coop";
+import type { MapPlayerMarker, RemotePlayer } from "../../wildstat-coop";
 import type { Camera } from "./camera";
 import type { DuelScene, EnemyShot, PlayerState, Projectile } from "./types";
 import type { StaticWorldColorQuadFrame, StaticWorldSpriteFrame } from "./webgl-static-world-layer";

@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(new URL("../../public/assets/wildwood/game.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../../public/assets/wildstat/game.css", import.meta.url), "utf8");
 const entryHtml = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
 const releaseVersion = JSON.parse(readFileSync(new URL("../../public/version.json", import.meta.url), "utf8")).version;
 const gameShell = readFileSync(new URL("./game-shell.ts", import.meta.url), "utf8");
 const html = `${entryHtml}\n${gameShell}`;
-const coopEntry = readFileSync(new URL("../wildwood-coop.ts", import.meta.url), "utf8");
+const coopEntry = readFileSync(new URL("../wildstat-coop.ts", import.meta.url), "utf8");
 const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
 const chatController = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
 
@@ -256,7 +256,7 @@ describe("interface style contracts", () => {
     expect(wallet).toBeLessThan(profile);
     expect(html).not.toContain('id="profileGemWallet"');
     expect(html).not.toContain('class="profile-gem-label"');
-    expect(html).toContain('src="assets/wildwood/gems/gem-icon.png"');
+    expect(html).toContain('src="assets/wildstat/gems/gem-icon.png"');
     const counter = cssRule(".hud-gem-wallet {");
     const playerHud = cssRule(".player-hud-card {");
     expect(counter).toContain("position: fixed");
@@ -335,15 +335,15 @@ describe("interface style contracts", () => {
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {
     expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
-    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
+    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
     const artworkUrl = entryHtml.match(/--signin-artwork: url\("([^"]+)"\)/)?.[1];
     expect(artworkUrl).toBe(`signin/signin-progression-mobile-v2.png?v=${releaseVersion}`);
     for (const base of ["https://example.test/", "https://example.test/wildwood/"]) {
-      const stylesheetUrl = new URL("assets/wildwood/game.css", base);
-      const preloadUrl = new URL(`assets/wildwood/signin/signin-progression-mobile-v2.png?v=${releaseVersion}`, base);
+      const stylesheetUrl = new URL("assets/wildstat/game.css", base);
+      const preloadUrl = new URL(`assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}`, base);
       expect(new URL(artworkUrl!, stylesheetUrl).href).toBe(preloadUrl.href);
     }
-    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
+    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
@@ -357,16 +357,16 @@ describe("interface style contracts", () => {
     expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
     expect(entryHtml).toContain('id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite" hidden');
     expect(entryHtml).toContain('id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle">');
-    expect(html).toContain('id="wildwoodCoopScript"');
-    expect(html).toContain('data-game-src="assets/wildwood/game.js?v=');
-    expect(html).not.toContain('<script src="assets/wildwood/game.js');
+    expect(html).toContain('id="wildstatCoopScript"');
+    expect(html).toContain('data-game-src="assets/wildstat/game.js?v=');
+    expect(html).not.toContain('<script src="assets/wildstat/game.js');
   });
 
   it("shows the complete Wildstat wordmark across all startup screens", () => {
-    const wordmark = readFileSync(new URL("../../public/assets/wildwood/wildstat-wordmark.png", import.meta.url));
+    const wordmark = readFileSync(new URL("../../public/assets/wildstat/wildstat-wordmark.png", import.meta.url));
     const width = wordmark.readUInt32BE(16);
     const height = wordmark.readUInt32BE(20);
-    const images = [...entryHtml.matchAll(/<img src="assets\/wildwood\/wildstat-wordmark\.png\?v=([\d.]+)"[^>]*>/g)];
+    const images = [...entryHtml.matchAll(/<img src="assets\/wildstat\/wildstat-wordmark\.png\?v=([\d.]+)"[^>]*>/g)];
 
     expect(width / height).toBe(3);
     expect(images).toHaveLength(5);
@@ -379,16 +379,16 @@ describe("interface style contracts", () => {
     expect(entryHtml).toContain("<title>Wildstat</title>");
     expect(entryHtml).toContain("CONNECTING TO WILDSTAT");
     expect(entryHtml).toContain('aria-label="Welcome to Wildstat"');
-    expect(cssRule(".wildwood-wordmark-frame {")).toContain("aspect-ratio: 3 / 1");
-    expect(cssRule(".wildwood-wordmark-frame {")).not.toContain("overflow: hidden");
-    expect(cssRule(".wildwood-wordmark-frame img {")).toContain("object-fit: contain");
-    expect(cssRule(".wildwood-wordmark-frame img {")).not.toContain("position: absolute");
+    expect(cssRule(".wildstat-wordmark-frame {")).toContain("aspect-ratio: 3 / 1");
+    expect(cssRule(".wildstat-wordmark-frame {")).not.toContain("overflow: hidden");
+    expect(cssRule(".wildstat-wordmark-frame img {")).toContain("object-fit: contain");
+    expect(cssRule(".wildstat-wordmark-frame img {")).not.toContain("position: absolute");
   });
 
   it("uses opaque Wildstat Home Screen and multi-resolution browser icons", () => {
     expect(entryHtml).toContain(`href="wildstat-favicon.ico?v=${releaseVersion}"`);
-    expect(entryHtml).toContain(`href="assets/wildwood/wildstat-favicon-32.png?v=${releaseVersion}" type="image/png" sizes="32x32"`);
-    expect(entryHtml).toContain(`href="assets/wildwood/wildstat-apple-touch-icon.png?v=${releaseVersion}" sizes="180x180"`);
+    expect(entryHtml).toContain(`href="assets/wildstat/wildstat-favicon-32.png?v=${releaseVersion}" type="image/png" sizes="32x32"`);
+    expect(entryHtml).toContain(`href="assets/wildstat/wildstat-apple-touch-icon.png?v=${releaseVersion}" sizes="180x180"`);
     expect(entryHtml).not.toContain("wildwood-app-icon.png");
 
     const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -399,8 +399,8 @@ describe("interface style contracts", () => {
       expect(png[24]).toBe(8);
       expect(png[25]).toBe(2);
     };
-    expectRgbPng(readFileSync(new URL("../../public/assets/wildwood/wildstat-apple-touch-icon.png", import.meta.url)), 180);
-    expectRgbPng(readFileSync(new URL("../../public/assets/wildwood/wildstat-favicon-32.png", import.meta.url)), 32);
+    expectRgbPng(readFileSync(new URL("../../public/assets/wildstat/wildstat-apple-touch-icon.png", import.meta.url)), 180);
+    expectRgbPng(readFileSync(new URL("../../public/assets/wildstat/wildstat-favicon-32.png", import.meta.url)), 32);
 
     const ico = readFileSync(new URL("../../public/wildstat-favicon.ico", import.meta.url));
     const sizes = [16, 32, 48, 64, 128, 256];
@@ -426,10 +426,10 @@ describe("interface style contracts", () => {
   it("defers profile portraits and gender icons until the game loading screen", () => {
     expect(cssRule(".profile-icon {")).not.toContain("background-image");
     expect(css).toContain("body.is-loading-game-assets .profile-icon");
-    expect(gameShell).toContain('data-game-src="assets/wildwood/gender/male.png"');
-    expect(gameShell).toContain('data-game-src="assets/wildwood/gender/female.png"');
-    expect(gameShell).not.toContain('<img src="assets/wildwood/gender/male.png"');
-    expect(gameShell).not.toContain('<img src="assets/wildwood/gender/female.png"');
+    expect(gameShell).toContain('data-game-src="assets/wildstat/gender/male.png"');
+    expect(gameShell).toContain('data-game-src="assets/wildstat/gender/female.png"');
+    expect(gameShell).not.toContain('<img src="assets/wildstat/gender/male.png"');
+    expect(gameShell).not.toContain('<img src="assets/wildstat/gender/female.png"');
   });
 
   it("shows the death message above the fallen player without covering the game", () => {

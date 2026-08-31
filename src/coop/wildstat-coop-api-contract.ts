@@ -1,4 +1,4 @@
-import type { wildwoodCoop } from "../wildwood-coop";
+import type { wildstatCoop } from "../wildstat-coop";
 
 // This is the legacy browser API surface. Typechecking fails if a refactor
 // removes, renames, or accidentally exposes a method without an intentional
@@ -132,10 +132,10 @@ type ExpectedApiKey =
   | "updatePlayerSave"
   | "virtualPlayerLoadTestState";
 
-type ActualApiKey = keyof typeof wildwoodCoop;
+type ActualApiKey = keyof typeof wildstatCoop;
 type SameKeys<Left, Right> = [Left] extends [Right]
   ? [Right] extends [Left] ? true : false
   : false;
 type Assert<Condition extends true> = Condition;
 
-export type WildwoodCoopApiContract = Assert<SameKeys<ActualApiKey, ExpectedApiKey>>;
+export type WildstatCoopApiContract = Assert<SameKeys<ActualApiKey, ExpectedApiKey>>;

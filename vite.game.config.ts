@@ -7,9 +7,9 @@ export default defineConfig({
   build: {
     lib: {
       entry: "src/main.ts",
-      name: "WildwoodGame",
+      name: "WildstatGame",
       formats: ["iife"],
-      fileName: () => "assets/wildwood/game.js",
+      fileName: () => "assets/wildstat/game.js",
     },
     outDir: "dist",
     emptyOutDir: false,

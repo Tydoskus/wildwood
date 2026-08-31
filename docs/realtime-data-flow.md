@@ -1,6 +1,6 @@
 # Realtime Data Flow
 
-Use this map before changing multiplayer state. Wildwood separates fast gameplay data from UI and durable saves so one busy row cannot freeze unrelated windows.
+Use this map before changing multiplayer state. Wildstat separates fast gameplay data from UI and durable saves so one busy row cannot freeze unrelated windows.
 
 ## Runtime lanes
 

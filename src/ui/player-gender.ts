@@ -7,8 +7,8 @@ import {
 } from "../../shared/player-gender";
 
 const GENDER_ICON_PATHS = {
-  [PLAYER_GENDER_MALE]: "assets/wildwood/gender/male.png",
-  [PLAYER_GENDER_FEMALE]: "assets/wildwood/gender/female.png",
+  [PLAYER_GENDER_MALE]: "assets/wildstat/gender/male.png",
+  [PLAYER_GENDER_FEMALE]: "assets/wildstat/gender/female.png",
 } as const;
 
 export function playerGenderIconPath(gender: PlayerGender) {

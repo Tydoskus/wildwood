@@ -1,4 +1,4 @@
-# Wildwood project guidance
+# Wildstat project guidance
 
 ## Visual QA ownership
 

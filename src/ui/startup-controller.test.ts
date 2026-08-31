@@ -62,7 +62,7 @@ describe("startup loading completion", () => {
       knownCharacterGender: () => 0,
       defaultPlayerName: () => "WANDERER",
       isSignInScreenReady: () => true,
-      getLoadingStages: () => [["Starting Wildwood", true, 100]],
+      getLoadingStages: () => [["Starting Wildstat", true, 100]],
       onLoadingComplete: () => {
         completions += 1;
         startup.refreshLoading();

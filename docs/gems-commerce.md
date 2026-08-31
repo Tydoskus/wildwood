@@ -18,12 +18,12 @@ live yet.
 - Guest Gems transfer atomically when the guest save becomes a signed-in
   account. Real-money checkout should require a signed-in account so purchases
   can be recovered and shared across the player's devices.
-- Gem packs are consumable products. Gems can be spent only inside Wildwood and
+- Gem packs are consumable products. Gems can be spent only inside Wildstat and
   are never cashable, transferable between players, or usable for wagering.
 
 ## Purchase pipeline
 
-1. The signed-in client requests Wildwood's product catalog. The server maps
+1. The signed-in client requests Wildstat's product catalog. The server maps
    immutable platform product IDs to an exact Gem quantity; client metadata is
    display-only.
 2. iOS launches StoreKit, Android launches Google Play Billing, and web launches
@@ -32,7 +32,7 @@ live yet.
    verification service. Web checkout is fulfilled from a signed webhook, not
    from the success-page redirect.
 4. The service verifies the transaction directly with Apple, Google, or Stripe,
-   confirms the paid product and Wildwood account, and rejects pending,
+   confirms the paid product and Wildstat account, and rejects pending,
    canceled, mismatched, or previously credited purchases.
 5. One database transaction credits the wallet and inserts the ledger row using
    `apple:<transaction-id>`, `google:<purchase-token>`, or

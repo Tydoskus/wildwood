@@ -52,6 +52,7 @@ import {
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
+import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -201,11 +202,18 @@ export function createBossRenderer(options: {
     for (const pool of options.spiderVenom) { const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1); ctx.save(); ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`; ctx.strokeStyle = "rgba(155,238,88,.95)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(screenX(pool.x), screenY(pool.y), pool.r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore(); }
   }
   function drawSpiderBoss() {
-    if (spiderBoss.dead || !options.spiderReady()) return; const canvas = options.spiderSpriteCanvas; const cellW = canvas.width / 4; const cellH = canvas.height / 2; const frame = Math.floor(options.gameTime() * 5) % 8; const drawW = 310; const drawH = 155; const x = screenX(spiderBoss.x); const y = screenY(spiderBoss.y);
-    options.drawShadow(x, y + 55, 220, .24); ctx.drawImage(canvas, frame % 4 * cellW, Math.floor(frame / 4) * cellH, cellW, cellH, x - drawW / 2, y - drawH / 2, drawW, drawH);
+    if (spiderBoss.dead || !options.spiderReady()) return;
+    const canvas = options.spiderSpriteCanvas;
+    const frame = scorpionSpriteFrame(options.gameTime(), canvas.width, canvas.height);
+    const x = screenX(spiderBoss.x);
+    const y = screenY(spiderBoss.y);
+    const spriteTopY = y + frame.topOffset;
+    options.drawShadow(x, y + SCORPION_SPRITE.groundOffset, 220, .24);
+    ctx.drawImage(canvas, frame.sourceX, frame.sourceY, frame.sourceWidth, frame.sourceHeight,
+      x - frame.drawWidth / 2, spriteTopY, frame.drawWidth, frame.drawHeight);
     drawBossStatus({
       x,
-      spriteTopY: y - drawH / 2,
+      spriteTopY,
       barGap: 32,
       barWidth: 250,
       barHeight: 22,
@@ -215,7 +223,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: spiderBoss.hpLossFlashFrom,
       backgroundColor: "#342027",
       fillColor: "#9f5c2f",
-      name: { text: "DESERT SPIDER", color: "#f5e9c4" },
+      name: { text: "DESERT SCORPION", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
       rewards: [
         { text: rewardText("damage", SPIDER_REWARD_DAMAGE), color: "#ff655a" },

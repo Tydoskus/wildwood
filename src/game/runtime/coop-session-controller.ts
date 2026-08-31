@@ -1,6 +1,6 @@
-import { wildwoodCoop } from "../../wildwood-coop";
+import { wildstatCoop } from "../../wildstat-coop";
 
-type CoopClient = typeof wildwoodCoop;
+type CoopClient = typeof wildstatCoop;
 type AccountState = ReturnType<CoopClient["accountState"]>;
 
 type CoopSessionDependencies = {

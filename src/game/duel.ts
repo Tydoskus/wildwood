@@ -22,11 +22,11 @@ function loadDuelImage(source: string, onSettled?: () => void) {
 }
 
 export function loadDuelSpaceBackground(onSettled?: () => void) {
-  return loadDuelImage("assets/wildwood/duel-space-background-v1.png", onSettled);
+  return loadDuelImage("assets/wildstat/duel-space-background-v1.png", onSettled);
 }
 
 export function loadDuelPlatformArt(onSettled?: () => void) {
-  return loadDuelImage("assets/wildwood/duel-floating-platform-v1.png", onSettled);
+  return loadDuelImage("assets/wildstat/duel-floating-platform-v1.png", onSettled);
 }
 
 type ReplayCombatantFields = {

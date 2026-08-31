@@ -1,4 +1,4 @@
-name: Deploy Wildwood to GitHub Pages
+name: Deploy Wildstat to GitHub Pages
 
 on:
   push:
@@ -37,8 +37,8 @@ jobs:
           npm run typecheck:coop
           npm run test:unit
           npm run build:client
-          node --check dist/assets/wildwood/coop-client.js
-          node --check dist/assets/wildwood/game.js
+          node --check dist/assets/wildstat/coop-client.js
+          node --check dist/assets/wildstat/game.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

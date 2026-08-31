@@ -1,5 +1,5 @@
   @font-face {
-    font-family: "Wildwood Chat";
+    font-family: "Wildstat Chat";
     font-style: normal;
     font-weight: 400 900;
     font-display: swap;
@@ -19,7 +19,7 @@
     --stat-armor: #74d8ff;
     --stat-regen: #ff7ccb;
     --font-rounded: "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif;
-    --chat-font: "Arial Rounded MT Bold", "Arial Rounded MT", "Wildwood Chat", Arial, sans-serif;
+    --chat-font: "Arial Rounded MT Bold", "Arial Rounded MT", "Wildstat Chat", Arial, sans-serif;
     --player-name-font: var(--font-rounded);
     --font-readable-min: 11px;
     --font-readable-label: 12px;
@@ -1350,7 +1350,7 @@
   .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid #000; border-radius: 4px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
   body.is-loading-game-assets .profile-icon,
   body.is-loading-game-assets .profile-icon-choice,
-  body.is-loading-game-assets .chat-profile-icon { background-image: url("../../assets/wildwood/profile-portraits-grid-v2.png"); }
+  body.is-loading-game-assets .chat-profile-icon { background-image: url("../../assets/wildstat/profile-portraits-grid-v2.png"); }
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; }
   .chat-name { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--player-name-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; white-space: nowrap; cursor: default; }
@@ -1531,7 +1531,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .respawn-ad-button,
-    #accountChoicePanel .wildwood-wordmark-title,
+    #accountChoicePanel .wildstat-wordmark-title,
     .daily-gem-bonus-card,
     .daily-gem-bonus-art::before,
     .daily-gem-bonus-art img,
@@ -1789,27 +1789,27 @@
 
   .signin-version { position: fixed; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); color: var(--muted); font-size: 8px; letter-spacing: .08em; pointer-events: none; transform: translateX(-50%); }
 
-  .wildwood-wordmark-title {
+  .wildstat-wordmark-title {
     width: min(390px, 100%);
     margin: 0 auto 10px;
     -webkit-text-stroke: 0;
     text-shadow: none;
   }
 
-  .wildwood-wordmark-frame {
+  .wildstat-wordmark-frame {
     display: block;
     width: 100%;
     aspect-ratio: 3 / 1;
   }
 
-  .wildwood-wordmark-frame img {
+  .wildstat-wordmark-frame img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
   }
 
-  #accountChoicePanel .wildwood-wordmark-title { animation: signin-logo-float 3.2s ease-in-out infinite; }
+  #accountChoicePanel .wildstat-wordmark-title { animation: signin-logo-float 3.2s ease-in-out infinite; }
 
   @keyframes signin-logo-float {
     0%, 100% { transform: translateY(0); }

@@ -19,10 +19,12 @@ Boss respawns remain server-owned. Reward flow makes no SpacetimeDB calls.
 
 ## Native bridge contract
 
-Inject `window.wildwoodNative` before game startup. If SDK availability changes later, dispatch `wildwood:native-rewarded-ads-changed`.
+Inject `window.wildstatNative` before game startup. If SDK availability changes later, dispatch `wildstat:native-rewarded-ads-changed`.
+
+Older wrappers may continue using `window.wildwoodNative` and `wildwood:native-rewarded-ads-changed`; the browser accepts both while the wrappers migrate. A valid bridge under the new name takes precedence.
 
 ```js
-window.wildwoodNative = {
+window.wildstatNative = {
   platform: "ios", // or "android"
   rewardedAds: {
     isReady: async (placement) => nativeAdSdk.isReady(placement),
@@ -33,7 +35,7 @@ window.wildwoodNative = {
   },
 };
 
-window.dispatchEvent(new Event("wildwood:native-rewarded-ads-changed"));
+window.dispatchEvent(new Event("wildstat:native-rewarded-ads-changed"));
 ```
 
 Placement is `regular_enemy_respawn_2x`. Return `{ rewarded: true }` only after SDK reward callback. Dismissal, skip, load failure, or playback failure must return `{ rewarded: false }` or reject.

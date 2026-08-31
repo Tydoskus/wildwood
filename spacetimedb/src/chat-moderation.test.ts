@@ -67,6 +67,11 @@ describe("public chat moderation", () => {
     expect(shouldModeratePublicChatMessage("send me your password")).toBe(true);
   });
 
+  it.each(["Wildstat", "Wildwood", "WILDSTAT", "W1LDST4T"])("detects gem-scam links using %s without blocking normal reward discussion", (name) => {
+    expect(shouldModeratePublicChatMessage(`free ${name} gems https://bad.example.xyz`)).toBe(true);
+    expect(shouldModeratePublicChatMessage(`The daily bonus gives free ${name} gems`)).toBe(false);
+  });
+
   it("catches high-confidence personal-information requests", () => {
     expect(shouldModeratePublicChatMessage("send me your home address")).toBe(true);
     expect(shouldModeratePublicChatMessage("what's your phone number")).toBe(true);

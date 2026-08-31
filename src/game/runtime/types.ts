@@ -260,7 +260,7 @@ export type ReplayMode = {
 };
 
 /**
- * Narrow client boundary. Kept structural instead of importing wildwood-coop
+ * Narrow client boundary. Kept structural instead of importing wildstat-coop
  * so the core game runtime does not create a type cycle through Window.
  */
 export type RuntimeDuelState = {

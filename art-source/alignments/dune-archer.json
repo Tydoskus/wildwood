@@ -1,5 +1,5 @@
 {
-  "format": "wildwood-enemy-sprite-alignment",
+  "format": "wildstat-enemy-sprite-alignment",
   "version": 1,
   "enemy": "Dune Archer",
   "sprite": {
@@ -7,35 +7,35 @@
     "height": 76,
     "layers": [
       {
-        "src": "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg.png",
+        "src": "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg.png",
         "x": -14,
         "y": 22,
         "w": 15,
         "h": 16
       },
       {
-        "src": "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg2.png",
+        "src": "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/leg2.png",
         "x": 1,
         "y": 22,
         "w": 15,
         "h": 16
       },
       {
-        "src": "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/body.png",
+        "src": "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/body.png",
         "x": -25,
         "y": -31,
         "w": 50,
         "h": 58
       },
       {
-        "src": "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/hat.png",
+        "src": "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/hat.png",
         "x": -32,
         "y": -43,
         "w": 64,
         "h": 39
       },
       {
-        "src": "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png",
+        "src": "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png",
         "x": -27,
         "y": 0,
         "w": 50,
@@ -47,7 +47,7 @@
         "aimOffsetRadians": 0
       },
       {
-        "src": "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/arm2.png",
+        "src": "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/arm2.png",
         "x": 3,
         "y": 17,
         "w": 11,

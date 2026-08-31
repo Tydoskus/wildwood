@@ -8,7 +8,7 @@ PROJECT_DIR="${0:A:h:h}"
 SPACETIME_BIN="$(command -v spacetime 2>/dev/null || true)"
 
 clear
-print "WILDWOOD LOCAL DATABASE"
+print "WILDSTAT LOCAL DATABASE"
 print "Keep this window open while testing. Press Control-C to stop."
 print ""
 

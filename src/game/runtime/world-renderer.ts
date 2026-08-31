@@ -1,7 +1,7 @@
 import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
-import type { MapPlayerMarker } from "../../wildwood-coop";
+import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
 import { SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";

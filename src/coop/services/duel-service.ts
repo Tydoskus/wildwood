@@ -252,7 +252,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
           const cooldownSeconds = /duel cooldown:\s*(\d+) seconds/i.exec(message)?.[1];
           if (cooldownSeconds) rememberCooldown(Date.now() + Number(cooldownSeconds) * 1_000);
           dependencies.reducers.handleFailure("duel request", error);
-          console.warn("Wildwood duel request rejected:", message);
+          console.warn("Wildstat duel request rejected:", message);
           return { ok: false, error: message };
         }
       },

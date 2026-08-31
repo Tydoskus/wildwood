@@ -171,6 +171,14 @@ import {
   WORLD_WIDTH,
 } from "../../shared/rules";
 
+// Cached clients parse these exact wire messages. Current clients rebrand them
+// for display; changing them would break reconnects and account linking in old tabs.
+const LEGACY_CLIENT_ERRORS = {
+  protocolUpdate: "Wildwood updated. Refresh to continue.",
+  missingPresence: "Enter Wildwood first.",
+  existingAccountProgress: "This account already has Wildwood progress.",
+} as const;
+
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
 const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 const PLAYER_ZONE_SIZE = 1_000;
@@ -2668,7 +2676,7 @@ function sessionForContext(ctx: any) {
 function requireSession(ctx: any) {
   const session = sessionForContext(ctx);
   if (!session || !sameIdentity(session.identity, ctx.sender)) {
-    throw new SenderError("Wildwood updated. Refresh to continue.");
+    throw new SenderError(LEGACY_CLIENT_ERRORS.protocolUpdate);
   }
   return session;
 }
@@ -2680,7 +2688,7 @@ function isSupportedProtocol(protocolVersion: number) {
 function requireCurrentLegalConsent(ctx: any) {
   const consent = ctx.db.playerLegalConsent.identity.find(ctx.sender);
   if (consent?.termsVersion !== TERMS_VERSION || !isEligiblePlayerAgeBand(consent?.ageBand ?? -1)) {
-    throw new SenderError("Review and accept the Wildwood Terms to continue.");
+    throw new SenderError("Review and accept the Wildstat Terms to continue.");
   }
   return consent;
 }
@@ -2688,7 +2696,7 @@ function requireCurrentLegalConsent(ctx: any) {
 function requireSupportedSessionProtocol(ctx: any) {
   const session = requireSession(ctx);
   if (!isSupportedProtocol(session.protocolVersion)) {
-    throw new SenderError("Wildwood updated. Refresh to continue.");
+    throw new SenderError(LEGACY_CLIENT_ERRORS.protocolUpdate);
   }
   return session;
 }
@@ -2696,7 +2704,7 @@ function requireSupportedSessionProtocol(ctx: any) {
 function requireCurrentProtocol(ctx: any) {
   requireSupportedSessionProtocol(ctx);
   const current = ctx.db.player.identity.find(ctx.sender);
-  if (!current) throw new SenderError("Enter Wildwood first.");
+  if (!current) throw new SenderError(LEGACY_CLIENT_ERRORS.missingPresence);
   return playerWithMotion(ctx, current);
 }
 
@@ -2704,7 +2712,7 @@ function requireControllingPlayer(ctx: any) {
   const current = requireCurrentProtocol(ctx);
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (!ctx.connectionId || !controller || !sameConnection(controller.connectionId, ctx.connectionId)) {
-    throw new SenderError("Wildwood is active in another tab.");
+    throw new SenderError("Wildstat is active in another tab.");
   }
   return current;
 }
@@ -4466,14 +4474,14 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   requireCurrentLegalConsent(ctx);
   if (!ctx.connectionId) return;
   const normalizedTabId = tabId.trim();
-  if (!/^[A-Za-z0-9_-]{8,64}$/.test(normalizedTabId)) throw new SenderError("Invalid Wildwood tab session.");
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(normalizedTabId)) throw new SenderError("Invalid Wildstat tab session.");
   const virtualRegistration = ctx.db.virtualPlayer.identity.find(ctx.sender);
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (controller && !sameConnection(controller.connectionId, ctx.connectionId)) {
     const controllerSession = ctx.db.playerSession.connectionId.find(controller.connectionId);
     const sameTab = controllerSession?.tabId && controllerSession.tabId === normalizedTabId;
     if (controllerSession?.enteredWorld && !sameTab) {
-      if (!forceTakeover) throw new SenderError("Wildwood is active in another tab.");
+      if (!forceTakeover) throw new SenderError("Wildstat is active in another tab.");
       ctx.db.playerSession.connectionId.update({ ...controllerSession, enteredWorld: false });
     }
     ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: ctx.connectionId });
@@ -5453,7 +5461,7 @@ export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
     if (!isSupportedProtocol(protocolVersion)) {
-      throw new SenderError("Wildwood updated. Refresh to continue.");
+      throw new SenderError(LEGACY_CLIENT_ERRORS.protocolUpdate);
     }
     const session = requireSession(ctx);
     ctx.db.playerSession.connectionId.update({ ...session, protocolVersion });
@@ -5474,9 +5482,9 @@ export const acceptTerms = spacetimedb.reducer(
   { termsVersion: t.string(), ageBand: t.u8() },
   (ctx, { termsVersion, ageBand }) => {
     requireSession(ctx);
-    if (termsVersion !== TERMS_VERSION) throw new SenderError("Wildwood Terms changed. Review them again.");
+    if (termsVersion !== TERMS_VERSION) throw new SenderError("Wildstat Terms changed. Review them again.");
     if (!isEligiblePlayerAgeBand(ageBand)) {
-      throw new SenderError("Wildwood is currently available to players age 13 and older.");
+      throw new SenderError("Wildstat is currently available to players age 13 and older.");
     }
     const current = ctx.db.playerLegalConsent.identity.find(ctx.sender);
     if (current?.termsVersion === termsVersion && current.ageBand === ageBand) return;
@@ -5531,7 +5539,7 @@ export const claimGuestAccount = spacetimedb.reducer(
 
     const accountProgress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (accountProgress && !hasFreshProgress(accountProgress)) {
-      throw new SenderError("This account already has Wildwood progress.");
+      throw new SenderError(LEGACY_CLIENT_ERRORS.existingAccountProgress);
     }
 
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);

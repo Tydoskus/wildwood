@@ -8,8 +8,8 @@ Use these folders as a one-way promotion pipeline:
 - `vendor/` for original asset packs, preserving their relative paths.
 - `generated/` for generated candidates and working source images.
 - `alignments/` for small, human-authored sprite assembly recipes that should be reviewed and committed like code.
-- `public/assets/wildwood/` only for runtime art that is referenced by shipped code.
+- `public/assets/wildstat/` only for runtime art that is referenced by shipped code.
 
-New files under `inbox/`, `vendor/`, and `generated/` are ignored by Git. Existing files that were already committed remain tracked. When source art is worth preserving in the repository, add that specific file explicitly with `git add -f`; when art is ready for the game, copy the selected optimized runtime asset into `public/assets/wildwood/` and stage it normally.
+New files under `inbox/`, `vendor/`, and `generated/` are ignored by Git. Existing files that were already committed remain tracked. When source art is worth preserving in the repository, add that specific file explicitly with `git add -f`; when art is ready for the game, copy the selected optimized runtime asset into `public/assets/wildstat/` and stage it normally.
 
 The live release command excludes untracked files unless `--include-untracked` is explicitly supplied, so local art candidates never need to be staged and then removed from a normal release.

@@ -1,8 +1,8 @@
-# Wildwood SpacetimeDB
+# Wildstat SpacetimeDB
 
 ## Local development
 
-On macOS, double-click `Run Wildwood Local.command` in the repository root. It starts the database and web server in separate Terminal windows, publishes the local module, regenerates client bindings, builds the browser client, and opens the game.
+On macOS, double-click `Run Wildstat Local.command` in the repository root. It starts the database and web server in separate Terminal windows, publishes the local module, regenerates client bindings, builds the browser client, and opens the game.
 
 Or run SpacetimeDB and the built static site manually in separate terminals:
 
@@ -28,13 +28,13 @@ npm run spacetime:publish:cloud
 npm run build:coop
 ```
 
-Deployed Wildwood pages automatically use `wss://maincloud.spacetimedb.com`; localhost pages use `ws://localhost:3000`. Pages opened through a private LAN hostname/IP use port 3000 on that same host so Wi-Fi test clients stay on the local database.
+Deployed Wildstat pages automatically use `wss://maincloud.spacetimedb.com`; localhost pages use `ws://localhost:3000`. Pages opened through a private LAN hostname/IP use port 3000 on that same host so Wi-Fi test clients stay on the local database.
 
 Do not use `--delete-data=always` outside local development. It destroys the selected database contents.
 
 ## SpacetimeAuth
 
-Wildwood uses SpacetimeAuth Magic Link with public client ID `client_03426HMgkAEmdC23XTZRKZ`.
+Wildstat uses SpacetimeAuth Magic Link with public client ID `client_03426HMgkAEmdC23XTZRKZ`.
 
 Configure this exact redirect URI in the SpacetimeAuth project:
 
@@ -69,8 +69,8 @@ Developer Tools → Controls accepts 1–200 browser virtual players for smoke t
 Use the multi-process Node runner for larger tests. It automatically keeps each process at or below 200 sockets and uses 15 processes for 3,000 bots. Keep the signed-in developer game open, copy its SpacetimeAuth ID token from browser storage, then enter it into a shell without placing it in command history:
 
 ```bash
-read -s WILDWOOD_LOAD_TEST_TOKEN
-export WILDWOOD_LOAD_TEST_TOKEN
+read -s WILDSTAT_LOAD_TEST_TOKEN
+export WILDSTAT_LOAD_TEST_TOKEN
 npm run loadtest:virtual -- --count 3000 --mode movement --host wss://maincloud.spacetimedb.com --duration 60
 ```
 

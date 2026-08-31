@@ -1,5 +1,5 @@
 import { formatCompactNumber } from "./number-format";
-import type { LeaderboardEntry } from "../wildwood-coop";
+import type { LeaderboardEntry } from "../wildstat-coop";
 import { appendPlayerGenderIcon } from "./player-gender";
 
 export type LeaderboardStat = "power" | "damage" | "health" | "armor" | "regen" | "time";

@@ -34,7 +34,7 @@ export const NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR = 1_300;
 export const SNOW_BOSS_ITEM_DROP_DENOMINATOR = 25;
 export const SNOW_BOSS_ARMOR_DROP_DENOMINATOR = 5;
 export const MAX_OWNED_ITEM_COUNT = 1;
-// Kept as a compatibility export for older client/server call sites. Wildwood
+// Kept as a compatibility export for older client/server call sites. Wildstat
 // equipment is unique now, so every durable quantity is clamped to one.
 export const MAX_FOREST_ITEM_COUNT = MAX_OWNED_ITEM_COUNT;
 export const MAX_ITEM_UPGRADE_LEVEL = 10;
@@ -81,7 +81,7 @@ export const ITEM_DEFINITIONS = {
     name: "BETA TESTER GOLDEN HELMET",
     slot: "HEAD",
     acquisition: "DEVELOPER",
-    description: "A gleaming winged helmet for Wildwood beta testers.",
+    description: "A gleaming winged helmet for Wildstat beta testers.",
     stats: ["COSMETIC · NO STATS"],
   },
   [WOOD_FULL_HELM]: {
@@ -130,7 +130,7 @@ export const ITEM_DEFINITIONS = {
     name: "TRAILBLAZER BOOTS",
     slot: "FEET",
     acquisition: "PROGRESSION",
-    description: "Leather boots built for crossing Wildwood faster.",
+    description: "Leather boots built for crossing Wildstat faster.",
     stats: ["MOVE SPEED +25"],
   },
   [STARTER_STONE]: {
@@ -147,7 +147,7 @@ export const ITEM_DEFINITIONS = {
     name: "BOW",
     slot: "HAND",
     acquisition: "FOREST_DROP",
-    description: "A dependable wooden bow for hunting Wildwood monsters.",
+    description: "A dependable wooden bow for hunting Wildstat monsters.",
     stats: ["DAMAGE +5%"],
     weapon: {
       mode: "RANGED",

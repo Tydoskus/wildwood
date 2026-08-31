@@ -598,7 +598,7 @@ export function loadEnemySprites(onAssetSettled: () => void = () => {}) {
 }
 
 export function loadActorShadowSprite(onAssetSettled: () => void = () => {}) {
-  return loadEnemyImage("assets/wildwood/2D Character - Casual Monsters/_PNG/slime/shadow.png", onAssetSettled);
+  return loadEnemyImage("assets/wildstat/2D Character - Casual Monsters/_PNG/slime/shadow.png", onAssetSettled);
 }
 
 export function rewardLabel(reward: EnemyDefinition["reward"]) {

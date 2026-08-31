@@ -50,7 +50,7 @@ const INVITE_LINK_PATTERNS = [
 
 const CREDENTIAL_REQUEST_PATTERN = /(?:^|[^a-z0-9])(?:send|give|tell|share)[^a-z0-9]+(?:me[^a-z0-9]+)?(?:your[^a-z0-9]+)?(?:password|login[^a-z0-9]+code|verification[^a-z0-9]+code|recovery[^a-z0-9]+code)(?:$|[^a-z0-9])/;
 const LINK_PATTERN = /(?:https?:\/\/|www\.|[a-z0-9][a-z0-9-]*\.(?:com|net|org|gg|io|xyz|app|site|link)(?:\/|$))/;
-const GEM_SCAM_PATTERN = /(?:^|[^a-z0-9])(?:free|claim|generate|generator|cheap)[^a-z0-9]+(?:wildwood[^a-z0-9]+)?gems?(?:$|[^a-z0-9])/;
+const GEM_SCAM_PATTERN = /(?:^|[^a-z0-9])(?:free|claim|generate|generator|cheap)[^a-z0-9]+(?:(?:wildstat|wildwood)[^a-z0-9]+)?gems?(?:$|[^a-z0-9])/;
 
 // These run against the comparison-only normalized form. Exact "sex" remains
 // allowed so benign references such as "sex education" do not disappear, but

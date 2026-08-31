@@ -292,7 +292,7 @@ describe("enemy sprite loading", () => {
         const body = sprite.layers[0];
         const bows = sprite.layers.filter((layer) => layer.src.endsWith("/bow.png"));
         bodySources.add(body.src);
-        expect(body.src).toBe("assets/wildwood/enemies/slime-green.png");
+        expect(body.src).toBe("assets/wildstat/enemies/slime-green.png");
         expect(body.tint).toBe(tint ?? undefined);
         expect(sprite.size).toBe(definition.elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE);
         expect(bows).toHaveLength(definition.ranged ? 1 : 0);

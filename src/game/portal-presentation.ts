@@ -10,7 +10,7 @@ import {
 } from "./world";
 
 /** One shaded sheet is recolored at runtime for every destination. */
-export const PORTAL_SWIRL_SOURCE = "assets/wildwood/portal-swirl-spritesheet.png";
+export const PORTAL_SWIRL_SOURCE = "assets/wildstat/portal-swirl-spritesheet.png";
 
 const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [TUTORIAL_FOREST_MAP_ID]: "#61e87c",

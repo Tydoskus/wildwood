@@ -1,4 +1,4 @@
-import type { RemotePlayer } from "../../wildwood-coop";
+import type { RemotePlayer } from "../../wildstat-coop";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,

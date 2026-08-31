@@ -1,5 +1,5 @@
 import {
-  NATIVE_REWARDED_ADS_CHANGED_EVENT,
+  NATIVE_REWARDED_ADS_CHANGED_EVENTS,
   REGULAR_ENEMY_RESPAWN_AD_PLACEMENT,
   rewardedAdWasEarned,
   supportedNativeBridge,
@@ -178,7 +178,7 @@ export function createRewardedRespawnAdController(
 
   function init() {
     elements.button.addEventListener("click", onClick);
-    window.addEventListener(NATIVE_REWARDED_ADS_CHANGED_EVENT, refreshAvailability);
+    for (const event of NATIVE_REWARDED_ADS_CHANGED_EVENTS) window.addEventListener(event, refreshAvailability);
     void refreshAvailability();
   }
 
@@ -190,7 +190,7 @@ export function createRewardedRespawnAdController(
     showingAd = false;
     elements.browserAd.hidden = true;
     elements.button.removeEventListener("click", onClick);
-    window.removeEventListener(NATIVE_REWARDED_ADS_CHANGED_EVENT, refreshAvailability);
+    for (const event of NATIVE_REWARDED_ADS_CHANGED_EVENTS) window.removeEventListener(event, refreshAvailability);
   }
 
   return { init, refreshAvailability, destroy };

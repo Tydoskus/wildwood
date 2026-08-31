@@ -1,6 +1,6 @@
 # Balance Lab
 
-Balance Lab is a deterministic, non-graphical campaign simulator for evaluating Wildwood's power curve against real time. It imports the game's current enemy, spawn, boss, reward, equipment, research, armor, attack-speed, and player-power rules rather than maintaining a second hand-copied balance sheet.
+Balance Lab is a deterministic, non-graphical campaign simulator for evaluating Wildstat's power curve against real time. It imports the game's current enemy, spawn, boss, reward, equipment, research, armor, attack-speed, and player-power rules rather than maintaining a second hand-copied balance sheet.
 
 ## Run it
 
@@ -28,7 +28,7 @@ Use `npm run balance:simulate -- --help` for every CLI option.
 
 ## Reading the model
 
-- The chart uses a logarithmic power axis because Wildwood spans many numeric tiers. The shaded band is the P10–P90 equipment-drop range and the solid line is the median. The dashed amber reference is a configurable stacked-log arc: `0` is the old straight line on a log chart, `1` is a full linear-in-power arc, and Wildwood defaults between them at `0.35`.
+- The chart uses a logarithmic power axis because Wildstat spans many numeric tiers. The shaded band is the P10–P90 equipment-drop range and the solid line is the median. The dashed amber reference is a configurable stacked-log arc: `0` is the old straight line on a log chart, `1` is a full linear-in-power arc, and Wildstat defaults between them at `0.35`.
 - “Log growth at 25 / 50 / 75%” measures how much of a map's total logarithmic power growth has arrived by each checkpoint. It catches a flat opening or late boss spike even when entry and exit totals both pass.
 - “Where map time goes” divides median observed time into regular combat, boss combat, travel, respawn waiting, and loot/retarget overhead. These categories use the same event clock as the campaign instead of estimates derived after the run.
 - “Time spent earning each stat” assigns active travel, combat, and retarget time to the damage, health, armor, regeneration, or attack-speed reward being pursued. Each cell reports active investment time, its share of pursued-stat time, its share of direct map power growth, time per +1% entry power, and the effective stat doubling time. Direct efficiency excludes random equipment and passive research; effective doubling includes them, so the two views reveal when gear is masking a weak reward track.

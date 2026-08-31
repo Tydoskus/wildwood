@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { rewardedAdWasEarned, supportedNativeBridge } from "./native-ads";
+import { nativeBridgeForRuntime, rewardedAdWasEarned, supportedNativeBridge } from "./native-ads";
 
 describe("native rewarded ad contract", () => {
+  it("supports an older wrapper and prefers a valid bridge under the new name", () => {
+    const legacy = { platform: "ios", rewardedAds: { show: async () => ({ rewarded: true }) } };
+    const current = { platform: "android", rewardedAds: { show: async () => ({ rewarded: true }) } };
+    expect(nativeBridgeForRuntime({ wildwoodNative: legacy })).toBe(legacy);
+    expect(nativeBridgeForRuntime({ wildstatNative: current, wildwoodNative: legacy })).toBe(current);
+    expect(nativeBridgeForRuntime({ wildstatNative: {}, wildwoodNative: legacy })).toBe(legacy);
+    expect(nativeBridgeForRuntime({})).toBeNull();
+  });
+
   it("accepts iOS and Android bridges with a rewarded-ad show method", () => {
     const show = async () => ({ rewarded: true });
 

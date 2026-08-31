@@ -11,8 +11,8 @@ export const ENEMY_BOW_AIM_OFFSET_RADIANS = 0;
 export const REGULAR_ENEMY_SPRITE_SIZE = 54;
 export const ELITE_ENEMY_SPRITE_SIZE = 78;
 
-const SLIME_BODY_SOURCE = "assets/wildwood/enemies/slime-green.png";
-const SLIME_BOW_SOURCE = "assets/wildwood/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png";
+const SLIME_BODY_SOURCE = "assets/wildstat/enemies/slime-green.png";
+const SLIME_BOW_SOURCE = "assets/wildstat/2D Character - Casual Monsters/_PNG/goblin/goblin/goblin_archer/bow.png";
 
 export const MAP_ENEMY_FAMILY_TINTS = {
   tutorial_forest: null,

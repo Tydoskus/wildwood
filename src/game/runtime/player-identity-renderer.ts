@@ -11,7 +11,7 @@ import {
 } from "../../../shared/player-gender";
 import { formatCompactNumber } from "../../ui/number-format";
 import { appendPlayerGenderIcon } from "../../ui/player-gender";
-import type { ChatMessage } from "../../wildwood-coop";
+import type { ChatMessage } from "../../wildstat-coop";
 import { clamp } from "../math";
 import type { Camera } from "./camera";
 import type { ActorStatus } from "./actor-renderer";
@@ -120,7 +120,7 @@ export function createPlayerIdentityRenderer(options: {
     const column = index % PROFILE_PORTRAIT_GRID;
     const row = Math.floor(index / PROFILE_PORTRAIT_GRID);
     const positionStep = PROFILE_PORTRAIT_ZOOM / (PROFILE_PORTRAIT_GRID * PROFILE_PORTRAIT_ZOOM - 1) * 100;
-    element.style.backgroundImage = 'url("assets/wildwood/profile-portraits-grid-v2.png")';
+    element.style.backgroundImage = 'url("assets/wildstat/profile-portraits-grid-v2.png")';
     element.style.backgroundRepeat = "no-repeat";
     element.style.backgroundSize = "824% 824%";
     element.style.backgroundPosition = `${PROFILE_PORTRAIT_POSITION_START + column * positionStep}% ${PROFILE_PORTRAIT_POSITION_START + row * positionStep}%`;

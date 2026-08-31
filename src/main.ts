@@ -1,4 +1,5 @@
 import { isDeveloperIdentity } from "./app/developer";
+import { nativeBridgeForRuntime } from "./app/native-ads";
 import {
   BASE_ATTACK_RANGE,
   BASE_PROJECTILE_SPEED,
@@ -67,7 +68,7 @@ import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
-import type { LeaderboardEntry } from "./wildwood-coop";
+import type { LeaderboardEntry } from "./wildstat-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
@@ -110,7 +111,7 @@ import {
     getActorShadowSprite: () => actorShadowSprite,
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
-  const coop = window.wildwoodCoop || null;
+  const coop = window.wildstatCoop ?? window.wildwoodCoop ?? null;
   function refreshGemCounter() {
     const balance = formatGemAmount(coop?.gemBalance?.() ?? 0n);
     hudGemBalance.textContent = balance;
@@ -309,7 +310,7 @@ import {
       ["Loading Map Artwork", assets.allMapAssetsReady(), 92],
       ["Loading Music", gameAudioReady, 97],
       ["Loading Page Artwork", pageLoadComplete, 99],
-      ["Starting Wildwood", true, 100],
+      ["Starting Wildstat", true, 100],
     ],
     onLoadingComplete: finishStartup,
     onShowAccountChoice: showCurrentUpdateNotice,
@@ -573,9 +574,9 @@ import {
   profileIconSheet.addEventListener("load", () => {
     if (leaderboard.isOpen()) leaderboard.render();
   });
-  profileIconSheet.src = "assets/wildwood/profile-portraits-grid-v2.png";
+  profileIconSheet.src = "assets/wildstat/profile-portraits-grid-v2.png";
   const powerIcon = new Image();
-  powerIcon.src = "assets/wildwood/icons/Icon_Battle_Candy_v1.png";
+  powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v1.png";
   const maleGenderIcon = new Image();
   maleGenderIcon.src = playerGenderIconPath(PLAYER_GENDER_MALE);
   const femaleGenderIcon = new Image();
@@ -1256,7 +1257,7 @@ import {
     boss: () => currentMapId === TUTORIAL_FOREST_MAP_ID
       ? { x: boss.x, y: boss.y, name: "Dragon", dead: boss.dead }
       : currentMapId === BEGINNER_DESERT_MAP_ID
-        ? { x: spiderBoss.x, y: spiderBoss.y, name: "Desert Spider", dead: spiderBoss.dead }
+        ? { x: spiderBoss.x, y: spiderBoss.y, name: "Desert Scorpion", dead: spiderBoss.dead }
         : currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID
           ? { x: frostclawBoss.x, y: frostclawBoss.y, name: "Frostclaw", dead: frostclawBoss.dead }
           : currentMapId === ADVANCED_LAVA_WASTES_MAP_ID
@@ -1302,7 +1303,7 @@ import {
     browserAd: browserRewardedAd,
     browserAdTimer: browserRewardedAdTimer,
   }, {
-    getNativeBridge: () => window.wildwoodNative,
+    getNativeBridge: () => nativeBridgeForRuntime(window),
     activateBoost: activateRewardedRespawnBoost,
     isBoostActive: regularEnemyRespawnBoost.isActive,
     boostRemainingMs: regularEnemyRespawnBoost.remainingMs,

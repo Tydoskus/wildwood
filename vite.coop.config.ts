@@ -3,10 +3,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: {
     lib: {
-      entry: "src/wildwood-coop.ts",
-      name: "WildwoodCoop",
+      entry: "src/wildstat-coop.ts",
+      name: "WildstatCoop",
       formats: ["iife"],
-      fileName: () => "assets/wildwood/coop-client.js",
+      fileName: () => "assets/wildstat/coop-client.js",
     },
     outDir: "dist",
     // This build runs first. It recreates the deploy artifact and copies public/.

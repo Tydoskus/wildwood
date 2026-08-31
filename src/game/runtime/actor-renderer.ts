@@ -1,7 +1,7 @@
 import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite, type LoadedSpriteLayer } from "../enemies";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
-import type { RemotePlayer } from "../../wildwood-coop";
+import type { RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";

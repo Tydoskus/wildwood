@@ -614,7 +614,7 @@ function createMapDefinitions(): BalanceMapDefinition[] {
         { itemId: IRON_BOW, denominator: DESERT_ITEM_DROP_DENOMINATOR, eligible: nonElite },
       ],
       boss: {
-        name: "Desert Spider",
+        name: "Desert Scorpion",
         hp: bootstrap.spiderBoss.maxHp,
         x: bootstrap.spiderBoss.x,
         y: bootstrap.spiderBoss.y,

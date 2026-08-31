@@ -5,6 +5,7 @@ import { PORTAL_SWIRL_SOURCE } from "../portal-presentation";
 import { type MapId } from "../world";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
 import { MAP_ASSET_GROUPS, type MapAssetGroup } from "./map-asset-groups";
+import { SCORPION_SPRITE } from "./scorpion-sprite";
 
 export type TreeSpriteBound = {
   x: number;
@@ -129,7 +130,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const dragonSpriteCanvas = document.createElement("canvas");
   const dragonSpriteContext = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
   let dragonReady = false;
-  const dragonAsset = createLazyImageAsset("assets/wildwood/dragon_boss_spritesheet.png", (image, settle) => {
+  const dragonAsset = createLazyImageAsset("assets/wildstat/dragon_boss_spritesheet.png", (image, settle) => {
     dragonSpriteCanvas.width = image.naturalWidth;
     dragonSpriteCanvas.height = image.naturalHeight;
     dragonSpriteContext.drawImage(image, 0, 0);
@@ -142,20 +143,20 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const spiderSpriteCanvas = document.createElement("canvas");
   const spiderSpriteContext = requiredCanvasContext(spiderSpriteCanvas, { willReadFrequently: true });
   let spiderReady = false;
-  const spiderAsset = createLazyImageAsset("assets/wildwood/desert-spider-boss-spritesheet.png", (image, settle) => {
+  const spiderAsset = createLazyImageAsset(SCORPION_SPRITE.source, (image, settle) => {
     spiderSpriteCanvas.width = image.naturalWidth;
     spiderSpriteCanvas.height = image.naturalHeight;
     spiderSpriteContext.drawImage(image, 0, 0);
     removeGreen(spiderSpriteContext, spiderSpriteCanvas.width, spiderSpriteCanvas.height, 135, 1.35, () => {
       spiderReady = true;
       settle();
-    });
+    }, SCORPION_SPRITE.frames);
   });
 
   const frostclawSpriteCanvas = document.createElement("canvas");
   const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas, { willReadFrequently: true });
   let frostclawReady = false;
-  const frostclawAsset = createLazyImageAsset("assets/wildwood/frostclaw-boss-spritesheet.png", (image, settle) => {
+  const frostclawAsset = createLazyImageAsset("assets/wildstat/frostclaw-boss-spritesheet.png", (image, settle) => {
     frostclawSpriteCanvas.width = image.naturalWidth;
     frostclawSpriteCanvas.height = image.naturalHeight;
     frostclawSpriteContext.drawImage(image, 0, 0);
@@ -168,7 +169,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const magmaliskSpriteCanvas = document.createElement("canvas");
   const magmaliskSpriteContext = requiredCanvasContext(magmaliskSpriteCanvas, { willReadFrequently: true });
   let magmaliskReady = false;
-  const magmaliskAsset = createLazyImageAsset("assets/wildwood/magmalisk-boss-spritesheet.png", (image, settle) => {
+  const magmaliskAsset = createLazyImageAsset("assets/wildstat/magmalisk-boss-spritesheet.png", (image, settle) => {
     magmaliskSpriteCanvas.width = image.naturalWidth;
     magmaliskSpriteCanvas.height = image.naturalHeight;
     magmaliskSpriteContext.drawImage(image, 0, 0);
@@ -181,7 +182,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const gloomrootSpriteCanvas = document.createElement("canvas");
   const gloomrootSpriteContext = requiredCanvasContext(gloomrootSpriteCanvas, { willReadFrequently: true });
   let gloomrootReady = false;
-  const gloomrootAsset = createLazyImageAsset("assets/wildwood/gloomroot-boss-spritesheet-v1.png", (image, settle) => {
+  const gloomrootAsset = createLazyImageAsset("assets/wildstat/gloomroot-boss-spritesheet-v1.png", (image, settle) => {
     gloomrootSpriteCanvas.width = image.naturalWidth;
     gloomrootSpriteCanvas.height = image.naturalHeight;
     gloomrootSpriteContext.drawImage(image, 0, 0);
@@ -195,7 +196,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const tidewyrmSpriteCanvas = document.createElement("canvas");
   const tidewyrmSpriteContext = requiredCanvasContext(tidewyrmSpriteCanvas, { willReadFrequently: true });
   let tidewyrmReady = false;
-  const tidewyrmAsset = createLazyImageAsset("assets/wildwood/tidewyrm-boss-spritesheet-v1.png", (image, settle) => {
+  const tidewyrmAsset = createLazyImageAsset("assets/wildstat/tidewyrm-boss-spritesheet-v1.png", (image, settle) => {
     tidewyrmSpriteCanvas.width = image.naturalWidth;
     tidewyrmSpriteCanvas.height = image.naturalHeight;
     tidewyrmSpriteContext.drawImage(image, 0, 0);
@@ -208,7 +209,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     settle();
   });
 
-  const portalArchAsset = createLazyImageAsset("assets/wildwood/stone-portal-arch.png");
+  const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
   void portalArchAsset.load();
   void portalSwirlAsset.load();
@@ -241,7 +242,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   };
 
   let treeBounds: TreeSpriteBound[] = [];
-  const treeAsset = createLazyImageAsset("assets/wildwood/tree-spritesheet-v1.png", (image, settle) => {
+  const treeAsset = createLazyImageAsset("assets/wildstat/tree-spritesheet-v1.png", (image, settle) => {
     preprocessTreeBounds(image, (bounds = []) => {
       treeBounds = bounds;
       settle();
@@ -249,7 +250,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   });
 
   let nightTreeBounds: TreeSpriteBound[] = [];
-  const nightTreeAsset = createLazyImageAsset("assets/wildwood/night-tree-spritesheet-v1.png", (image, settle) => {
+  const nightTreeAsset = createLazyImageAsset("assets/wildstat/night-tree-spritesheet-v1.png", (image, settle) => {
     preprocessTreeBounds(image, (bounds = []) => {
       nightTreeBounds = bounds;
       settle();
@@ -266,17 +267,17 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     duelPlatformReady = true;
     onWorldAssetReady();
   });
-  const snowPineAsset = createLazyImageAsset("assets/wildwood/snow-pine-tree-v1.png");
-  const upgradeBenchAsset = createLazyImageAsset("assets/wildwood/workbench-upgrade-station-v1.png");
+  const snowPineAsset = createLazyImageAsset("assets/wildstat/snow-pine-tree-v1.png");
+  const upgradeBenchAsset = createLazyImageAsset("assets/wildstat/workbench-upgrade-station-v1.png");
   const lavaAssetSources = [
-    "assets/wildwood/lava/lava-pool-1.png",
-    "assets/wildwood/lava/lava-pool-2.png",
-    "assets/wildwood/lava/lava-pool-3.png",
-    "assets/wildwood/lava/lava-rock-1.png",
-    "assets/wildwood/lava/lava-rock-2.png",
-    "assets/wildwood/lava/lava-rock-3.png",
-    "assets/wildwood/lava/charred-tree-1.png",
-    "assets/wildwood/lava/charred-tree-2.png",
+    "assets/wildstat/lava/lava-pool-1.png",
+    "assets/wildstat/lava/lava-pool-2.png",
+    "assets/wildstat/lava/lava-pool-3.png",
+    "assets/wildstat/lava/lava-rock-1.png",
+    "assets/wildstat/lava/lava-rock-2.png",
+    "assets/wildstat/lava/lava-rock-3.png",
+    "assets/wildstat/lava/charred-tree-1.png",
+    "assets/wildstat/lava/charred-tree-2.png",
   ];
   const lavaAssets = lavaAssetSources.map((source) => createLazyImageAsset(source));
   const assetGroups: Record<MapAssetGroup, LazyImageAsset[]> = {

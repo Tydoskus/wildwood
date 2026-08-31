@@ -1,4 +1,4 @@
-import type { PlayerProfileData, PlayerResearch } from "../wildwood-coop";
+import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplier, equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier, weaponAttackSpeedMultiplier } from "../../shared/items";

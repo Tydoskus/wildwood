@@ -259,7 +259,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string) 
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
-  console.warn("Wildwood WebGL shader failed:", gl.getShaderInfoLog(shader));
+  console.warn("Wildstat WebGL shader failed:", gl.getShaderInfoLog(shader));
   gl.deleteShader(shader);
   return null;
 }
@@ -284,7 +284,7 @@ function createProgram(gl: WebGLRenderingContext, vertexSource = VERTEX_SHADER, 
   gl.deleteShader(vertex);
   gl.deleteShader(fragment);
   if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program;
-  console.warn("Wildwood WebGL program failed:", gl.getProgramInfoLog(program));
+  console.warn("Wildstat WebGL program failed:", gl.getProgramInfoLog(program));
   gl.deleteProgram(program);
   return null;
 }
@@ -570,7 +570,7 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
       drawColorQuads(frame);
       return true;
     } catch (error) {
-      console.warn("Wildwood WebGL world failed; returning to Canvas2D.", error);
+      console.warn("Wildstat WebGL world failed; returning to Canvas2D.", error);
       disable();
       return false;
     }

@@ -17,7 +17,7 @@ import type {
   RemoteCombatStats,
   RemotePlayer,
   RemoteRegularEnemyCombatVisual,
-} from "../../wildwood-coop";
+} from "../../wildstat-coop";
 import {
   remoteBossAttackFrame,
   type RemoteBossSimulationTarget,

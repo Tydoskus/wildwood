@@ -53,7 +53,7 @@ export type ItemPresentation = {
   projectile?: ProjectileKind;
 };
 
-const PLAYER_PARTS = "assets/wildwood/player-parts";
+const PLAYER_PARTS = "assets/wildstat/player-parts";
 
 /** Client-only art registry. New equipment gets one catalog entry and assets. */
 export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {

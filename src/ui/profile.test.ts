@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import { MIN_ATTACK_INTERVAL } from "../../shared/rules";
-import type { PlayerProgress } from "../wildwood-coop";
+import type { PlayerProgress } from "../wildstat-coop";
 import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows } from "./profile";
 
 const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress => ({

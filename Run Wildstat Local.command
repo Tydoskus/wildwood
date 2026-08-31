@@ -25,11 +25,11 @@ PYTHON_BIN="$(command -v python3 2>/dev/null || true)"
 [[ -n "$SPACETIME_BIN" ]] || fail "SpacetimeDB CLI not found. Install it, then reopen this file."
 [[ -n "$NPM_BIN" ]] || fail "npm not found. Install Node.js, then reopen this file."
 [[ -n "$PYTHON_BIN" ]] || fail "python3 not found. It is required by the local web server."
-[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find Wildwood package.json beside this file."
+[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find Wildstat package.json beside this file."
 
-cd "$PROJECT_DIR" || fail "Could not open the Wildwood folder."
+cd "$PROJECT_DIR" || fail "Could not open the Wildstat folder."
 clear
-print "WILDWOOD LOCAL TEST"
+print "WILDSTAT LOCAL TEST"
 print "Folder: $PROJECT_DIR"
 print ""
 
@@ -77,7 +77,7 @@ print "Browser client: building"
 "$NPM_BIN" run build:client || fail "Browser build failed."
 
 if /usr/bin/curl --silent --show-error --fail --max-time 2 "$LOCAL_URL" 2>/dev/null \
-  | /usr/bin/grep -q '<title>Wildwood</title>'; then
+  | /usr/bin/grep -q '<title>Wildstat</title>'; then
   print "Web server: already running"
   /usr/bin/open "$LOCAL_URL"
   print "Browser: opened $LOCAL_URL"
@@ -87,7 +87,7 @@ fi
 open_when_ready() {
   for attempt in {1..40}; do
     if /usr/bin/curl --silent --show-error --fail --max-time 1 "$LOCAL_URL" 2>/dev/null \
-      | /usr/bin/grep -q '<title>Wildwood</title>'; then
+      | /usr/bin/grep -q '<title>Wildstat</title>'; then
       /usr/bin/open "$LOCAL_URL"
       return
     fi

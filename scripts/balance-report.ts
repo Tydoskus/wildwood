@@ -109,7 +109,7 @@ function statTimeCell(map: BalanceSimulationResult["maps"][number], stat: Progre
 }
 
 function printHelp() {
-  console.log(`Wildwood Balance Lab CLI
+  console.log(`Wildstat Balance Lab CLI
 
 Usage: npm run balance:simulate -- [options]
 
@@ -146,7 +146,7 @@ if (parsed.json) {
   process.exit(0);
 }
 
-console.log(`Wildwood Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy}`);
+console.log(`Wildstat Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy}`);
 console.log(`Final power ${formatCompactNumber(result.finalPower.median)} (${formatCompactNumber(result.finalPower.p10)}–${formatCompactNumber(result.finalPower.p90)}) · DPS ${formatCompactNumber(result.finalDps.median)}`);
 console.log("");
 console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time / target", 23)}${pad("Power entry → exit", 25)}${pad("Growth / target", 19)}${pad("Curve 25/50/75", 20)}${pad("Gear/Boss", 14)}${pad("Dmg/HP", 10)}${pad("Boss TTK", 12)}Time fit`);

@@ -1,10 +1,10 @@
 import { INFERNAL_DEPTHS_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
 
-const FOREST_MUSIC_SOURCE = "assets/wildwood/audio/forest.mp3";
-const DESERT_MUSIC_SOURCE = "assets/wildwood/audio/desert.mp3";
-const SNOW_MUSIC_SOURCE = "assets/wildwood/audio/snow.mp3";
-const LAVA_MUSIC_SOURCE = "assets/wildwood/audio/lava.mp3";
-const NIGHT_FOREST_MUSIC_SOURCE = "assets/wildwood/audio/night-forest.mp3";
+const FOREST_MUSIC_SOURCE = "assets/wildstat/audio/forest.mp3";
+const DESERT_MUSIC_SOURCE = "assets/wildstat/audio/desert.mp3";
+const SNOW_MUSIC_SOURCE = "assets/wildstat/audio/snow.mp3";
+const LAVA_MUSIC_SOURCE = "assets/wildstat/audio/lava.mp3";
+const NIGHT_FOREST_MUSIC_SOURCE = "assets/wildstat/audio/night-forest.mp3";
 export const GAME_MUSIC_SOURCES = [
   FOREST_MUSIC_SOURCE,
   DESERT_MUSIC_SOURCE,
@@ -12,9 +12,9 @@ export const GAME_MUSIC_SOURCES = [
   LAVA_MUSIC_SOURCE,
   NIGHT_FOREST_MUSIC_SOURCE,
 ] as const;
-export const SIGN_IN_MUSIC_SOURCE = "assets/wildwood/audio/signin.mp3";
-export const DEATH_SOUND_SOURCE = "assets/wildwood/audio/death.mp3";
-export const BOW_ATTACK_SOUND_SOURCE = "assets/wildwood/audio/bow-release.mp3";
+export const SIGN_IN_MUSIC_SOURCE = "assets/wildstat/audio/signin.mp3";
+export const DEATH_SOUND_SOURCE = "assets/wildstat/audio/death.mp3";
+export const BOW_ATTACK_SOUND_SOURCE = "assets/wildstat/audio/bow-release.mp3";
 export const BOW_ATTACK_SOUND_GAIN = .22;
 export const BOW_ATTACK_SOUND_CLIP_SECONDS = .46;
 export const BOW_ATTACK_SOUND_RATE_MIN = .93;

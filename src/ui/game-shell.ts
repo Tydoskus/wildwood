@@ -3,7 +3,7 @@ const beforeStartShell = String.raw`
   <section class="daily-gem-bonus-card" role="dialog" aria-modal="true" aria-labelledby="dailyGemBonusTitle" aria-describedby="dailyGemBonusCopy">
     <div class="daily-gem-bonus-kicker">DAILY BONUS</div>
     <div class="daily-gem-bonus-art" aria-hidden="true">
-      <img src="assets/wildwood/gems/gem-icon.png" alt="" draggable="false" />
+      <img src="assets/wildstat/gems/gem-icon.png" alt="" draggable="false" />
     </div>
     <h2 id="dailyGemBonusTitle">+7 GEMS</h2>
     <p id="dailyGemBonusCopy">WELCOME BACK</p>
@@ -13,9 +13,9 @@ const beforeStartShell = String.raw`
 
 <div id="balanceApologyGift" class="daily-gem-bonus balance-apology-gift" hidden>
   <section class="daily-gem-bonus-card" role="dialog" aria-modal="true" aria-labelledby="balanceApologyGiftTitle" aria-describedby="balanceApologyGiftCopy">
-    <div class="daily-gem-bonus-kicker">A NOTE FROM WILDWOOD</div>
+    <div class="daily-gem-bonus-kicker">A NOTE FROM WILDSTAT</div>
     <div class="daily-gem-bonus-art" aria-hidden="true">
-      <img src="assets/wildwood/gems/gem-icon.png" alt="" draggable="false" />
+      <img src="assets/wildstat/gems/gem-icon.png" alt="" draggable="false" />
     </div>
     <h2 id="balanceApologyGiftTitle">+10 GEMS</h2>
     <p id="balanceApologyGiftCopy" class="balance-apology-gift-copy">WE’RE SORRY FOR THE RECENT MAJOR BALANCE CHANGES.<br />THANK YOU FOR STICKING WITH US.</p>
@@ -119,10 +119,10 @@ const afterUpdateGateShell = String.raw`
       <button id="profileGenderEdit" class="profile-gender-edit" type="button" aria-label="Change gender" aria-expanded="false" aria-controls="profileGenderChoices">✎</button>
       <div id="profileGenderChoices" class="profile-gender-choices" role="group" aria-label="Gender" hidden>
         <button class="profile-gender-choice" type="button" data-gender="1" aria-label="Male" aria-pressed="false" title="Male">
-          <img data-game-src="assets/wildwood/gender/male.png" alt="" aria-hidden="true" draggable="false" />
+          <img data-game-src="assets/wildstat/gender/male.png" alt="" aria-hidden="true" draggable="false" />
         </button>
         <button class="profile-gender-choice" type="button" data-gender="2" aria-label="Female" aria-pressed="false" title="Female">
-          <img data-game-src="assets/wildwood/gender/female.png" alt="" aria-hidden="true" draggable="false" />
+          <img data-game-src="assets/wildstat/gender/female.png" alt="" aria-hidden="true" draggable="false" />
         </button>
       </div>
     </div>
@@ -345,13 +345,13 @@ const afterUpdateGateShell = String.raw`
 
 export function installGameShell(doc: Document = document) {
   const start = doc.getElementById("start");
-  if (!start) throw new Error("Wildwood startup shell is missing #start");
+  if (!start) throw new Error("Wildstat startup shell is missing #start");
   if (!doc.getElementById("dailyGemBonus")) {
     start.insertAdjacentHTML("beforebegin", beforeStartShell);
   }
 
-  const coopScript = doc.getElementById("wildwoodCoopScript");
-  if (!coopScript) throw new Error("Wildwood startup shell is missing #wildwoodCoopScript");
+  const coopScript = doc.getElementById("wildstatCoopScript");
+  if (!coopScript) throw new Error("Wildstat startup shell is missing #wildstatCoopScript");
   if (!doc.getElementById("gameOver")) {
     coopScript.insertAdjacentHTML("beforebegin", afterUpdateGateShell);
   }

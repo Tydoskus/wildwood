@@ -1,7 +1,7 @@
 import { ENEMY_SPRITE_LAYOUTS } from "../src/game/enemy-sprite-layouts.mjs";
 
 const RENDER_Y_OFFSET = -3;
-const FILE_FORMAT = "wildwood-enemy-sprite-alignment";
+const FILE_FORMAT = "wildstat-enemy-sprite-alignment";
 const FILE_VERSION = 1;
 const canvas = document.getElementById("canvas");
 const context = canvas.getContext("2d");
@@ -412,7 +412,7 @@ function normalizeLoadedSprite(sprite) {
     layers: sprite.layers.map((layer) => {
       if (!layer || typeof layer.src !== "string") throw new Error("A layer is missing its source path.");
       const normalized = {
-        src: layer.src,
+        src: layer.src.replace(/^assets\/wildwood\//, "assets/wildstat/"),
         x: finiteNumber(layer.x), y: finiteNumber(layer.y),
         w: Math.max(1, finiteNumber(layer.w, 1)), h: Math.max(1, finiteNumber(layer.h, 1)),
       };
@@ -533,7 +533,7 @@ element("loadValues").addEventListener("change", async (event) => {
   if (!file) return;
   try {
     const payload = JSON.parse(await file.text());
-    if (payload.format !== FILE_FORMAT || payload.version !== FILE_VERSION) throw new Error("This is not a supported Wildwood alignment file.");
+    if (![FILE_FORMAT, "wildwood-enemy-sprite-alignment"].includes(payload.format) || payload.version !== FILE_VERSION) throw new Error("This is not a supported Wildstat alignment file.");
     if (!sourceLayouts[payload.enemy]) throw new Error(`Unknown layered enemy: ${payload.enemy}`);
     workingLayouts[payload.enemy] = normalizeLoadedSprite(payload.sprite);
     controls.enemy.value = payload.enemy;

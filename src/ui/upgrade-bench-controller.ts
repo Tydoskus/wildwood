@@ -16,7 +16,7 @@ import {
   type InventoryState,
 } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
-import type { ActiveItemUpgrade, UpgradeBenchSlot } from "../wildwood-coop";
+import type { ActiveItemUpgrade, UpgradeBenchSlot } from "../wildstat-coop";
 import { gemSpendConfirmationText } from "./gem-spend-confirmation";
 
 type UpgradeBenchElements = {
@@ -177,7 +177,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const cost = document.createElement("span");
     cost.className = "upgrade-bench-slot-cost";
     const icon = document.createElement("img");
-    icon.src = "assets/wildwood/gems/gem-icon.png";
+    icon.src = "assets/wildstat/gems/gem-icon.png";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.draggable = false;
@@ -248,7 +248,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const label = document.createElement("span");
     label.textContent = "Finish Now";
     const icon = document.createElement("img");
-    icon.src = "assets/wildwood/gems/gem-icon.png";
+    icon.src = "assets/wildstat/gems/gem-icon.png";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.draggable = false;

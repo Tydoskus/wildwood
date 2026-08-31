@@ -1,4 +1,4 @@
-import type { PlayerProfileData } from "../wildwood-coop";
+import type { PlayerProfileData } from "../wildstat-coop";
 import { PLAYER_GENDER_UNSET, isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
 import { appendPlayerGenderIcon } from "./player-gender";
 

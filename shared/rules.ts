@@ -51,7 +51,7 @@ export const BALANCE_TARGET_MAP_DURATION_MULTIPLIER = 1.35;
 export const BALANCE_TARGET_MAP_POWER_MULTIPLIER = 8.5;
 export const BALANCE_FIRST_SLOWDOWN_POWER = 500_000;
 // Blend the old straight line on a log chart (0) with a full logarithmic
-// reward arc (1). Wildwood deliberately sits between the two: each map opens
+// reward arc (1). Wildstat deliberately sits between the two: each map opens
 // with visible momentum, eases into a runway, then hands off to the next map's
 // breakthrough without Cookie Clicker-sized walls or vertical jumps.
 export const BALANCE_TARGET_POWER_ARC_BLEND = .35;

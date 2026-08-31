@@ -148,7 +148,7 @@ export function createStartupAuthGate(
     showLoading(detail);
     dispose();
     void dependencies.loadGame().catch((error) => {
-      console.error("Wildwood game bundle failed to load:", error);
+      console.error("Wildstat game bundle failed to load:", error);
       elements.loadingDetail.textContent = "Game Load Failed · Refresh to Try Again";
       elements.loadingFill.style.width = "100%";
     });
@@ -235,14 +235,14 @@ export function requestDeferredGameAssets(documentValue = document) {
 
 export function loadDeferredGameBundle(documentValue = document) {
   requestDeferredGameAssets(documentValue);
-  const existing = documentValue.getElementById("wildwoodGameScript") as HTMLScriptElement | null;
+  const existing = documentValue.getElementById("wildstatGameScript") as HTMLScriptElement | null;
   if (existing) return Promise.resolve();
-  const bootstrapScript = documentValue.getElementById("wildwoodCoopScript") as HTMLScriptElement | null;
+  const bootstrapScript = documentValue.getElementById("wildstatCoopScript") as HTMLScriptElement | null;
   const source = bootstrapScript?.dataset.gameSrc;
   if (!source) return Promise.reject(new Error("Missing deferred game bundle source"));
   return new Promise<void>((resolve, reject) => {
     const script = documentValue.createElement("script");
-    script.id = "wildwoodGameScript";
+    script.id = "wildstatGameScript";
     script.src = source;
     script.async = false;
     script.addEventListener("load", () => resolve(), { once: true });

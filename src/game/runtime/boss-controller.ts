@@ -535,7 +535,7 @@ export function createBossController(options: {
     pendingSpiderResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (!localContribution) {
-      showWorldResult(result, "DESERT SPIDER DEFEATED");
+      showWorldResult(result, "DESERT SCORPION DEFEATED");
       return;
     }
     if (currentMapIsDesert() && !hasSeenSnowlandsPortalCutscene()) {
@@ -544,7 +544,7 @@ export function createBossController(options: {
       return;
     }
     shownSpiderResultEncounter = result.encounter;
-    renderResult(result, "Desert Spider Defeated");
+    renderResult(result, "Desert Scorpion Defeated");
     const damageReward = scaledReward("damage", SPIDER_REWARD_DAMAGE);
     const healthReward = scaledReward("health", SPIDER_REWARD_HEALTH);
     const encounterKey = String(result.encounter);

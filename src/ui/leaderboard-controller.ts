@@ -1,5 +1,5 @@
 import { renderLeaderboard, renderLeaderboardPodium, setLeaderboardTab, type LeaderboardStat, type RenderedLeaderboardPodiumPlayer } from "./leaderboard";
-import type { LeaderboardEntry } from "../wildwood-coop";
+import type { LeaderboardEntry } from "../wildstat-coop";
 
 export type LeaderboardControllerElements = {
   button: HTMLElement;

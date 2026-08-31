@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RemotePlayer } from "../../wildwood-coop";
+import type { RemotePlayer } from "../../wildstat-coop";
 import { remoteBossAttackStartedAtMs } from "../../coop/services/remote-boss-attack";
 import { ENEMY_CROWD_SPACING_RATIO, separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createEnemySimulation } from "./enemy-simulation";

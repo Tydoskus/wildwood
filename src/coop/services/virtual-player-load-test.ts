@@ -1,4 +1,5 @@
 import { DbConnection, tables } from "../../module_bindings";
+import { reducerErrorMessage } from "./reducer-errors";
 import type { SubscriptionHandle } from "../../module_bindings";
 import type { Identity } from "spacetimedb";
 import {
@@ -101,8 +102,8 @@ type VirtualPlayerLoadTestDependencies = {
 };
 
 export function isVirtualPlayerProtocolMismatch(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /wildwood updated\. refresh to continue\./i.test(message);
+  const message = reducerErrorMessage(error);
+  return /wildstat updated\. refresh to continue\./i.test(message);
 }
 
 export function virtualPlayerTicketFromBytes(bytes: Uint8Array) {

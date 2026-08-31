@@ -6,7 +6,7 @@ describe("realtime host selection", () => {
     expect(defaultRealtimeHost("localhost")).toBe("ws://localhost:3000");
     expect(defaultRealtimeHost("192.168.1.24")).toBe("ws://192.168.1.24:3000");
     expect(defaultRealtimeHost("10.0.0.8")).toBe("ws://10.0.0.8:3000");
-    expect(defaultRealtimeHost("wildwood-mac")).toBe("ws://wildwood-mac:3000");
+    expect(defaultRealtimeHost("wildstat-mac")).toBe("ws://wildstat-mac:3000");
     expect(defaultRealtimeHost("[::1]")).toBe("ws://[::1]:3000");
   });
 

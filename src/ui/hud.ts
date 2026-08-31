@@ -58,7 +58,7 @@ export function renderPlayerHud(
   if (elements.playerPower.dataset.renderedPower !== powerText) {
     const powerIcon = document.createElement("img");
     powerIcon.className = "power-icon power-icon-hud";
-    powerIcon.src = "assets/wildwood/icons/Icon_Battle_Candy_v1.png";
+    powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v1.png";
     powerIcon.alt = "Power";
     const powerValue = document.createElement("span");
     powerValue.className = "power-value";
@@ -375,7 +375,7 @@ export function renderInventoryView(
     const cost = document.createElement("span");
     cost.className = "inventory-slot-unlock-cost";
     const icon = document.createElement("img");
-    icon.src = "assets/wildwood/gems/gem-icon.png";
+    icon.src = "assets/wildstat/gems/gem-icon.png";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.draggable = false;

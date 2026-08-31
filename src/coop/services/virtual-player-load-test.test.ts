@@ -55,6 +55,8 @@ describe("virtual-player motion protocol", () => {
 
 describe("virtual-player startup", () => {
   it("recognizes a server protocol cutover", () => {
+    expect(isVirtualPlayerProtocolMismatch(new Error("Wildstat updated. Refresh to continue."))).toBe(true);
+    expect(isVirtualPlayerProtocolMismatch("WILDSTAT UPDATED. REFRESH TO CONTINUE.")).toBe(true);
     expect(isVirtualPlayerProtocolMismatch(new Error("Wildwood updated. Refresh to continue."))).toBe(true);
     expect(isVirtualPlayerProtocolMismatch("WILDWOOD UPDATED. REFRESH TO CONTINUE.")).toBe(true);
     expect(isVirtualPlayerProtocolMismatch(new Error("Connection timed out"))).toBe(false);

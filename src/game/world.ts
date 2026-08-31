@@ -578,6 +578,7 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
   assertCampContracts(camps);
   // Tutorial remains deliberately readable. Later maps use a fixed map seed:
   // layouts gain variety, but every client still derives identical sites.
+  // This seed is part of the existing world layout, independent of the game's display name.
   const mapSeed = mapId === TUTORIAL_FOREST_MAP_ID ? 0 : stableStringSeed(`wildwood-spawns-v2:${mapId}`);
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
