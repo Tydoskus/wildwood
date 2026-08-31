@@ -1796,21 +1796,16 @@
   }
 
   .wildwood-wordmark-frame {
-    position: relative;
     display: block;
     width: 100%;
-    aspect-ratio: 4.15 / 1;
-    overflow: hidden;
+    aspect-ratio: 3 / 1;
   }
 
   .wildwood-wordmark-frame img {
-    position: absolute;
-    top: 50%;
-    left: 0;
     display: block;
     width: 100%;
-    height: auto;
-    transform: translateY(-50%);
+    height: 100%;
+    object-fit: contain;
   }
 
   #accountChoicePanel .wildwood-wordmark-title { animation: signin-logo-float 3.2s ease-in-out infinite; }

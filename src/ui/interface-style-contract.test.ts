@@ -335,7 +335,7 @@ describe("interface style contracts", () => {
   it("keeps sign-in artwork present and stable through authentication transitions", () => {
     expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
     expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high"');
-    expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/wildwood-wordmark.png" type="image/png" fetchpriority="high"');
+    expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png" type="image/png" fetchpriority="high"');
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
@@ -350,6 +350,26 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="wildwoodCoopScript"');
     expect(html).toContain('data-game-src="assets/wildwood/game.js?v=');
     expect(html).not.toContain('<script src="assets/wildwood/game.js');
+  });
+
+  it("shows the complete Wildstat wordmark across all startup screens", () => {
+    const wordmark = readFileSync(new URL("../../public/assets/wildwood/wildstat-wordmark.png", import.meta.url));
+    const width = wordmark.readUInt32BE(16);
+    const height = wordmark.readUInt32BE(20);
+    const images = [...entryHtml.matchAll(/<img src="assets\/wildwood\/wildstat-wordmark\.png"[^>]*>/g)];
+
+    expect(width / height).toBe(3);
+    expect(images).toHaveLength(5);
+    for (const [image] of images) expect(image).toContain(`width="${width}" height="${height}"`);
+    expect(entryHtml).not.toContain("wildwood-wordmark.png");
+    expect(entryHtml).not.toContain('aria-label="Wildwood');
+    expect(entryHtml).toContain("<title>Wildstat</title>");
+    expect(entryHtml).toContain("CONNECTING TO WILDSTAT");
+    expect(entryHtml).toContain('aria-label="Welcome to Wildstat"');
+    expect(cssRule(".wildwood-wordmark-frame {")).toContain("aspect-ratio: 3 / 1");
+    expect(cssRule(".wildwood-wordmark-frame {")).not.toContain("overflow: hidden");
+    expect(cssRule(".wildwood-wordmark-frame img {")).toContain("object-fit: contain");
+    expect(cssRule(".wildwood-wordmark-frame img {")).not.toContain("position: absolute");
   });
 
   it("defers profile portraits and gender icons until the game loading screen", () => {

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.574": [
+    "Replaced the Wildwood logo with the new Wildstat wordmark across sign-in, loading, onboarding, and update screens, with uncropped framing and matching startup labels.",
+  ],
   "0.573": [
     "Refined the player HUD with a portrait sized to half the minimap, equal text and health rows, and Gems restored beneath the left edge.",
     "Simplified the optional performance readout to a single FPS value.",
@@ -1281,6 +1284,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.574": "2026-08-30",
   "0.573": "2026-08-30",
   "0.572": "2026-08-30",
   "0.571": "2026-08-30",
