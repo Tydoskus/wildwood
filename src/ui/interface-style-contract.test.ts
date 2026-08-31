@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("../../public/assets/wildwood/game.css", import.meta.url), "utf8");
 const entryHtml = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
+const releaseVersion = JSON.parse(readFileSync(new URL("../../public/version.json", import.meta.url), "utf8")).version;
 const gameShell = readFileSync(new URL("./game-shell.ts", import.meta.url), "utf8");
 const html = `${entryHtml}\n${gameShell}`;
 const coopEntry = readFileSync(new URL("../wildwood-coop.ts", import.meta.url), "utf8");
@@ -335,7 +336,7 @@ describe("interface style contracts", () => {
   it("keeps sign-in artwork present and stable through authentication transitions", () => {
     expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
     expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/signin/signin-progression-mobile-v2.png" type="image/png" fetchpriority="high"');
-    expect(html).toContain('<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png" type="image/png" fetchpriority="high"');
+    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildwood/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
     expect(html).toContain('--signin-preview: url("data:image/jpeg;base64,');
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).toContain("var(--signin-preview, none)");
@@ -356,11 +357,14 @@ describe("interface style contracts", () => {
     const wordmark = readFileSync(new URL("../../public/assets/wildwood/wildstat-wordmark.png", import.meta.url));
     const width = wordmark.readUInt32BE(16);
     const height = wordmark.readUInt32BE(20);
-    const images = [...entryHtml.matchAll(/<img src="assets\/wildwood\/wildstat-wordmark\.png"[^>]*>/g)];
+    const images = [...entryHtml.matchAll(/<img src="assets\/wildwood\/wildstat-wordmark\.png\?v=([\d.]+)"[^>]*>/g)];
 
     expect(width / height).toBe(3);
     expect(images).toHaveLength(5);
-    for (const [image] of images) expect(image).toContain(`width="${width}" height="${height}"`);
+    for (const [image, version] of images) {
+      expect(image).toContain(`width="${width}" height="${height}"`);
+      expect(version).toBe(releaseVersion);
+    }
     expect(entryHtml).not.toContain("wildwood-wordmark.png");
     expect(entryHtml).not.toContain('aria-label="Wildwood');
     expect(entryHtml).toContain("<title>Wildstat</title>");
