@@ -177,7 +177,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const cost = document.createElement("span");
     cost.className = "upgrade-bench-slot-cost";
     const icon = document.createElement("img");
-    icon.src = "assets/wildstat/gems/gem-icon.png";
+    icon.src = "assets/wildstat/gems/gem-icon-v2.png";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.draggable = false;
@@ -248,7 +248,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const label = document.createElement("span");
     label.textContent = "Finish Now";
     const icon = document.createElement("img");
-    icon.src = "assets/wildstat/gems/gem-icon.png";
+    icon.src = "assets/wildstat/gems/gem-icon-v2.png";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.draggable = false;

@@ -755,15 +755,16 @@ export function createBossRenderer(options: {
     const canvas = options.koiShogunSpriteCanvas;
     const frame = options.koiShogunWhirlpools.length > 0 ? 3 : koiShogunBoss.slash ? (koiShogunBoss.slash.windup > 0 ? 2 : 1) : 0;
     const drawW = 440;
-    const drawH = 440;
+    const drawH = 470;
     const x = screenX(koiShogunBoss.x);
     const y = screenY(koiShogunBoss.y);
     const visualY = y + KOI_SHOGUN_SPRITE_Y_OFFSET;
     const pulse = options.koiShogunWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
+    const flipHorizontally = frame === 0 || frame === 1;
     options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 280, .3);
     ctx.save();
     ctx.translate(x, visualY);
-    ctx.scale(pulse, pulse);
+    ctx.scale(flipHorizontally ? -pulse : pulse, pulse);
     if (options.koiShogunReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
       ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);

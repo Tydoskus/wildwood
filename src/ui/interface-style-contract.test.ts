@@ -261,7 +261,7 @@ describe("interface style contracts", () => {
     expect(wallet).toBeLessThan(profile);
     expect(html).not.toContain('id="profileGemWallet"');
     expect(html).not.toContain('class="profile-gem-label"');
-    expect(html).toContain('src="assets/wildstat/gems/gem-icon.png"');
+    expect(html).toContain('src="assets/wildstat/gems/gem-icon-v2.png"');
     const counter = cssRule(".hud-gem-wallet {");
     const playerHud = cssRule(".player-hud-card {");
     expect(counter).toContain("position: fixed");
@@ -432,10 +432,10 @@ describe("interface style contracts", () => {
   it("defers profile portraits and gender icons until the game loading screen", () => {
     expect(cssRule(".profile-icon {")).not.toContain("background-image");
     expect(css).toContain("body.is-loading-game-assets .profile-icon");
-    expect(gameShell).toContain('data-game-src="assets/wildstat/gender/male.png"');
-    expect(gameShell).toContain('data-game-src="assets/wildstat/gender/female.png"');
-    expect(gameShell).not.toContain('<img src="assets/wildstat/gender/male.png"');
-    expect(gameShell).not.toContain('<img src="assets/wildstat/gender/female.png"');
+    expect(gameShell).toContain('data-game-src="assets/wildstat/gender/male-v2.png"');
+    expect(gameShell).toContain('data-game-src="assets/wildstat/gender/female-v2.png"');
+    expect(gameShell).not.toContain('<img src="assets/wildstat/gender/male-v2.png"');
+    expect(gameShell).not.toContain('<img src="assets/wildstat/gender/female-v2.png"');
   });
 
   it("shows the death message above the fallen player without covering the game", () => {

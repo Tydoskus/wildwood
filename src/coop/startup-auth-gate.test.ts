@@ -316,14 +316,14 @@ describe("startup auth gate", () => {
 describe("deferred game assets", () => {
   it("requests game-only images when the loading screen hands off to game.js", () => {
     const addClass = vi.fn();
-    const image = { dataset: { gameSrc: "assets/wildstat/gender/male.png" }, src: "" };
+    const image = { dataset: { gameSrc: "assets/wildstat/gender/male-v2.png" }, src: "" };
     requestDeferredGameAssets({
       body: { classList: { add: addClass } },
       querySelectorAll: () => [image],
     } as unknown as Document);
 
     expect(addClass).toHaveBeenCalledWith("is-loading-game-assets");
-    expect(image.src).toBe("assets/wildstat/gender/male.png");
+    expect(image.src).toBe("assets/wildstat/gender/male-v2.png");
     expect(image.dataset.gameSrc).toBeUndefined();
   });
 });
