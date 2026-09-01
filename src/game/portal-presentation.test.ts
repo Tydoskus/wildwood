@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -28,6 +29,7 @@ describe("portal destination presentation", () => {
     expect(portalDestinationColor(INFERNAL_DEPTHS_MAP_ID)).toBe("#000000");
     expect(portalDestinationColor(WATER_REACH_MAP_ID)).toBe("#54e3e9");
     expect(portalDestinationColor(SAMURAI_GARDEN_MAP_ID)).toBe("#ff83bd");
+    expect(portalDestinationColor(CLOUDSPIRE_MAP_ID)).toBe("#9fdfff");
   });
 
   it("uses outlined white text for the Night Forest portal label", () => {

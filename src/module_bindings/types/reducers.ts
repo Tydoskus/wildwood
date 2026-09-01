@@ -24,6 +24,7 @@ import DamageKoiShogunFromPositionReducer from "../damage_koi_shogun_from_positi
 import DamageMagmaliskFromPositionReducer from "../damage_magmalisk_from_position_reducer";
 import DamageSpiderBatchReducer from "../damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "../damage_spider_from_position_reducer";
+import DamageTempestKirinFromPositionReducer from "../damage_tempest_kirin_from_position_reducer";
 import DamageTidewyrmFromPositionReducer from "../damage_tidewyrm_from_position_reducer";
 import DevAdjustGemsReducer from "../dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "../dev_begin_virtual_player_load_test_reducer";
@@ -86,6 +87,7 @@ export type DamageKoiShogunFromPositionParams = __Infer<typeof DamageKoiShogunFr
 export type DamageMagmaliskFromPositionParams = __Infer<typeof DamageMagmaliskFromPositionReducer>;
 export type DamageSpiderBatchParams = __Infer<typeof DamageSpiderBatchReducer>;
 export type DamageSpiderFromPositionParams = __Infer<typeof DamageSpiderFromPositionReducer>;
+export type DamageTempestKirinFromPositionParams = __Infer<typeof DamageTempestKirinFromPositionReducer>;
 export type DamageTidewyrmFromPositionParams = __Infer<typeof DamageTidewyrmFromPositionReducer>;
 export type DevAdjustGemsParams = __Infer<typeof DevAdjustGemsReducer>;
 export type DevBeginVirtualPlayerLoadTestParams = __Infer<typeof DevBeginVirtualPlayerLoadTestReducer>;

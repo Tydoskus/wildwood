@@ -34,6 +34,7 @@ import { drawPortalMapMarker } from "../game/portal-presentation";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -110,6 +111,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
   ],
   [WATER_REACH_MAP_ID]: [],
   [SAMURAI_GARDEN_MAP_ID]: [],
+  [CLOUDSPIRE_MAP_ID]: [],
 };
 
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
@@ -120,6 +122,7 @@ const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: stri
   [INFERNAL_DEPTHS_MAP_ID]: { ground: "#100e17", path: "#261a26", glow: "#8f83a6" },
   [WATER_REACH_MAP_ID]: { ground: "#238c9a", path: "#d5c58e", glow: "#7af6f1" },
   [SAMURAI_GARDEN_MAP_ID]: { ground: "#78a76f", path: "#d9c8ae", glow: "#ff91c4" },
+  [CLOUDSPIRE_MAP_ID]: { ground: "#537eac", path: "#dbe7ef", glow: "#8edcff" },
 };
 
 const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {
@@ -320,13 +323,14 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     const boss = dependencies.boss();
     if (boss) {
       const isGloomroot = mapId === INFERNAL_DEPTHS_MAP_ID;
+      const isTempestKirin = mapId === CLOUDSPIRE_MAP_ID;
       context.save();
       context.globalAlpha = boss.dead ? .45 : 1;
-      context.fillStyle = isGloomroot ? "#69f0e7" : "#ff765c";
-      context.strokeStyle = isGloomroot ? "#d5fffc" : "#38100d";
+      context.fillStyle = isGloomroot ? "#69f0e7" : isTempestKirin ? "#72d4ff" : "#ff765c";
+      context.strokeStyle = isGloomroot || isTempestKirin ? "#e5fbff" : "#38100d";
       context.lineWidth = 3;
       context.beginPath();
-      context.arc(boss.x * scaleX, boss.y * scaleY, isGloomroot ? 12 : 9, 0, Math.PI * 2);
+      context.arc(boss.x * scaleX, boss.y * scaleY, isGloomroot || isTempestKirin ? 12 : 9, 0, Math.PI * 2);
       context.fill();
       context.stroke();
       context.restore();

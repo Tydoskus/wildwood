@@ -12,6 +12,8 @@ import type {
   MagmaliskResult,
   SpiderBossState,
   SpiderResult,
+  TempestKirinBossState,
+  TempestKirinResult,
   TidewyrmBossState,
   TidewyrmResult,
 } from "../contracts";
@@ -97,6 +99,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let tidewyrmResult: TidewyrmResult | null = null;
   let koiShogun: KoiShogunBossState | null = null;
   let koiShogunResult: KoiShogunResult | null = null;
+  let tempestKirin: TempestKirinBossState | null = null;
+  let tempestKirinResult: TempestKirinResult | null = null;
 
   function damage(
     action: string,
@@ -161,6 +165,13 @@ export function createBossService(dependencies: BossServiceDependencies) {
         koiShogunResult = bossResult(row);
         dependencies.notify();
       },
+      upsertTempestKirin(row: BossRow) {
+        tempestKirin = bossState(row);
+      },
+      upsertTempestKirinResult(row: BossResultRow) {
+        tempestKirinResult = bossResult(row);
+        dependencies.notify();
+      },
     },
     api: {
       dragonBoss: () => dragon ? { ...dragon } : null,
@@ -177,6 +188,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tidewyrmResult: () => copyResult(tidewyrmResult),
       koiShogunBoss: () => koiShogun ? { ...koiShogun } : null,
       koiShogunResult: () => copyResult(koiShogunResult),
+      tempestKirinBoss: () => tempestKirin ? { ...tempestKirin } : null,
+      tempestKirinResult: () => copyResult(tempestKirinResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -198,6 +211,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       damageKoiShogun(hits = 1, x?: number, y?: number) {
         damage("Koi Shogun damage", (connection, count, px, py) => connection.reducers.damageKoiShogunFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
+      damageTempestKirin(hits = 1, x?: number, y?: number) {
+        damage("Tempest Kirin damage", (connection, count, px, py) => connection.reducers.damageTempestKirinFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      },
     },
     resetSession() {
       dragon = null;
@@ -214,6 +230,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tidewyrmResult = null;
       koiShogun = null;
       koiShogunResult = null;
+      tempestKirin = null;
+      tempestKirinResult = null;
     },
   };
 }

@@ -188,6 +188,8 @@ export type TidewyrmBossState = DragonBossState;
 export type TidewyrmResult = DragonResult;
 export type KoiShogunBossState = DragonBossState;
 export type KoiShogunResult = DragonResult;
+export type TempestKirinBossState = DragonBossState;
+export type TempestKirinResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

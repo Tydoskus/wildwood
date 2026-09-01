@@ -32,6 +32,8 @@ const PROFILE_PORTRAIT_POSITION_START = (PROFILE_PORTRAIT_ZOOM - 1) / 2 / (PROFI
 const SPEECH_BUBBLE_DURATION_MS = 8_000;
 const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
+const OVERHEAD_GENDER_ICON_OFFSET_Y = -1;
+const OVERHEAD_POWER_ICON_OFFSET_Y = 1;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
 
 type DisplayedPlayerPowerEquipment = {
@@ -336,7 +338,7 @@ export function createPlayerIdentityRenderer(options: {
       ctx.drawImage(
         genderIcon,
         textLeft + nameWidth + genderIconGap,
-        nameBottom - genderIconHeight,
+        nameBottom - genderIconHeight + OVERHEAD_GENDER_ICON_OFFSET_Y,
         Math.round(genderIconWidth),
         genderIconHeight,
       );
@@ -356,7 +358,13 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText(powerValue, left, bottom, "#ffffff", 4);
       if (hasPowerIcon) {
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(options.powerIcon, left + powerValueWidth + iconGap, bottom - iconSize, iconSize, iconSize);
+        ctx.drawImage(
+          options.powerIcon,
+          left + powerValueWidth + iconGap,
+          bottom - iconSize + OVERHEAD_POWER_ICON_OFFSET_Y,
+          iconSize,
+          iconSize,
+        );
       }
     }
     ctx.restore();

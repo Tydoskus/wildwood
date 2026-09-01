@@ -147,6 +147,13 @@ export const SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE = .02;
 // Keep the existing open-map regular payout alongside the repeatable capstone.
 // This preserves established Samurai Garden progression for current players.
 export const SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER = 2.5;
+// Cloudspire continues the established late-map macro step from Samurai
+// Garden while retaining its compact encounter rhythm.
+export const CLOUDSPIRE_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
+export const CLOUDSPIRE_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+export const CLOUDSPIRE_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+export const CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER = 3.7;
+export const CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER = .75;
 // Relative per-enemy health shapes. enemies.ts centers each profile against
 // the authored clear counts, so encounter texture can change without silently
 // changing the map's aggregate health budget.
@@ -224,6 +231,20 @@ export const SAMURAI_GARDEN_REWARD_TRACK_PROFILE = {
   regen: 1.4,
   speed: 1,
 } as const;
+export const CLOUDSPIRE_ARCHETYPE_PROFILE = {
+  raider: { health: .88, damage: 1.1, reward: 1.08, attackSpeed: .72 },
+  archer: { health: .98, damage: 1.04, reward: .98, attackSpeed: .54 },
+  guardian: { health: 1.2, damage: .92, reward: 1.12, attackSpeed: .48 },
+  reaper: { health: 1.04, damage: 1.03, reward: 1.02, attackSpeed: .76 },
+  oracle: { health: .96, damage: .97, reward: 1.1, attackSpeed: .6 },
+} as const;
+export const CLOUDSPIRE_REWARD_TRACK_PROFILE = {
+  damage: 1.7,
+  health: .8,
+  armor: 1.22,
+  regen: 1.5,
+  speed: 1,
+} as const;
 
 export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_BOSS_HEALTH_MULTIPLIER;
 export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_BOSS_HEALTH_MULTIPLIER;
@@ -257,6 +278,13 @@ export const KOI_SHOGUN_REWARD_DAMAGE = TIDEWYRM_REWARD_DAMAGE * SAMURAI_GARDEN_
 export const KOI_SHOGUN_REWARD_HEALTH = TIDEWYRM_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE;
 export const KOI_SHOGUN_REWARD_ARMOR = TIDEWYRM_REWARD_ARMOR * SAMURAI_GARDEN_REWARD_SCALE;
 export const KOI_SHOGUN_REWARD_REGEN = TIDEWYRM_REWARD_REGEN * SAMURAI_GARDEN_REWARD_SCALE;
+// Cloudspire's damage-forward camps reach boss readiness quickly; this keeps
+// the first Tempest Kirin clear near the late-map campaign target.
+export const TEMPEST_KIRIN_MAX_HP = KOI_SHOGUN_MAX_HP * CLOUDSPIRE_DAMAGE_SCALE * 1.1;
+export const TEMPEST_KIRIN_REWARD_DAMAGE = KOI_SHOGUN_REWARD_DAMAGE * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER;
+export const TEMPEST_KIRIN_REWARD_HEALTH = KOI_SHOGUN_REWARD_HEALTH * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER;
+export const TEMPEST_KIRIN_REWARD_ARMOR = KOI_SHOGUN_REWARD_ARMOR * CLOUDSPIRE_REWARD_SCALE;
+export const TEMPEST_KIRIN_REWARD_REGEN = KOI_SHOGUN_REWARD_REGEN * CLOUDSPIRE_REWARD_SCALE;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -265,6 +293,7 @@ export const ADVANCED_LAVA_WASTES_MAP_ID = "advanced_lava_wastes";
 export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
 export const WATER_REACH_MAP_ID = "water_reach";
 export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
+export const CLOUDSPIRE_MAP_ID = "cloudspire";
 export const MAP_DISPLAY_NAMES = {
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
@@ -273,6 +302,7 @@ export const MAP_DISPLAY_NAMES = {
   [INFERNAL_DEPTHS_MAP_ID]: "Night Forest",
   [WATER_REACH_MAP_ID]: "Water Reach",
   [SAMURAI_GARDEN_MAP_ID]: "Samurai Garden",
+  [CLOUDSPIRE_MAP_ID]: "Cloudspire",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
@@ -282,9 +312,10 @@ export const MAP_IDS: readonly string[] = [
   INFERNAL_DEPTHS_MAP_ID,
   WATER_REACH_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 80;
+export const PROTOCOL_VERSION = 81;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

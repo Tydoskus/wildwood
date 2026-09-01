@@ -26,5 +26,6 @@ export const MAP_ENEMY_FAMILY_TINTS: {
   infernal_depths: string;
   water_reach: string;
   samurai_garden: string;
+  cloudspire: string;
 };
 export const ENEMY_SPRITE_LAYOUTS: Record<string, EnemySpriteLayout>;

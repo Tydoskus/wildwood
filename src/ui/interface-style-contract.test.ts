@@ -356,8 +356,10 @@ describe("interface style contracts", () => {
     expect(css).not.toContain("--signin-preview");
     expect(css).toContain("var(--signin-artwork, none)");
     expect(css).toContain("#start::before");
-    expect(css).toContain("transition: opacity 480ms ease");
+    expect(css).toContain("transition: opacity 2s ease");
     expect(css).toContain("html.signin-artwork-ready #start::before");
+    expect(css).toContain("transition: opacity 600ms ease 2s");
+    expect(css).toContain("html.signin-artwork-ready #accountChoicePanel .wildstat-wordmark-title { opacity: 1; }");
     expect(css).not.toContain('url("signin/signin-progression-mobile-v2.png")');
     const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal,\n  .modal.legal-gate-modal {");
     expect(stableStartupWindow).toContain("top: 50dvh");

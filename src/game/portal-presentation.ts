@@ -1,6 +1,7 @@
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -20,6 +21,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [INFERNAL_DEPTHS_MAP_ID]: "#000000",
   [WATER_REACH_MAP_ID]: "#54e3e9",
   [SAMURAI_GARDEN_MAP_ID]: "#ff83bd",
+  [CLOUDSPIRE_MAP_ID]: "#9fdfff",
 };
 
 export function portalDestinationColor(destination: MapId) {

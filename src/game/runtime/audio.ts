@@ -1,4 +1,4 @@
-import { INFERNAL_DEPTHS_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
+import { CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
 
 const FOREST_MUSIC_SOURCE = "assets/wildstat/audio/forest.mp3";
 const DESERT_MUSIC_SOURCE = "assets/wildstat/audio/desert.mp3";
@@ -29,6 +29,8 @@ export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: M
   if (mapId === WATER_REACH_MAP_ID) return SNOW_MUSIC_SOURCE;
   // Samurai Garden intentionally returns to the warmer Forest arrangement.
   if (mapId === SAMURAI_GARDEN_MAP_ID) return FOREST_MUSIC_SOURCE;
+  // Cloudspire shares Snowlands' airy arrangement until its own theme lands.
+  if (mapId === CLOUDSPIRE_MAP_ID) return SNOW_MUSIC_SOURCE;
   if (mapId === lavaMapId) return LAVA_MUSIC_SOURCE;
   if (mapId === desertMapId) return DESERT_MUSIC_SOURCE;
   if (mapId === snowMapId) return SNOW_MUSIC_SOURCE;
@@ -41,6 +43,7 @@ export type MapMusicController = {
   readonly sfxVolume: number;
   setVolume(volume: number): void;
   setSfxVolume(volume: number): void;
+  pause(): void;
   syncMap(mapId: MapId): void;
   ensurePlaying(allowed: boolean): void;
   playDeathSound(): void;
@@ -64,9 +67,9 @@ export function createMapMusicController(
   lavaMapId: MapId,
   sfxStorageKey?: string,
 ): MapMusicController {
-  const audio = new Audio(SIGN_IN_MUSIC_SOURCE);
+  const audio = new Audio();
   audio.loop = true;
-  audio.preload = "metadata";
+  audio.preload = "auto";
   const deathAudio = new Audio(DEATH_SOUND_SOURCE);
   deathAudio.preload = "auto";
 
@@ -97,6 +100,53 @@ export function createMapMusicController(
   let bowAttackBufferPromise: Promise<AudioBuffer | null> | null = null;
   let lastBowAttackAt = Number.NEGATIVE_INFINITY;
   const activeBowAttackVoices: BowAttackVoice[] = [];
+  const musicObjectUrls = new Map<string, string>();
+  let requestedMusicSource = SIGN_IN_MUSIC_SOURCE;
+  let attachedMusicSource = "";
+  let playbackRequested = false;
+  let pendingMusicLoad: {
+    source: string;
+    abortController: AbortController;
+    promise: Promise<string | null>;
+  } | null = null;
+
+  function loadMusicObjectUrl(source: string) {
+    const cachedObjectUrl = musicObjectUrls.get(source);
+    if (cachedObjectUrl) return Promise.resolve(cachedObjectUrl);
+    if (pendingMusicLoad?.source === source) return pendingMusicLoad.promise;
+
+    pendingMusicLoad?.abortController.abort();
+    const abortController = new AbortController();
+    const request = {
+      source,
+      abortController,
+      promise: Promise.resolve<string | null>(null),
+    };
+    request.promise = fetch(source, { cache: "force-cache", signal: abortController.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
+        return response.blob();
+      })
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        musicObjectUrls.set(source, objectUrl);
+        return objectUrl;
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (pendingMusicLoad === request) pendingMusicLoad = null;
+      });
+    pendingMusicLoad = request;
+    return request.promise;
+  }
+
+  async function attachRequestedMusic(source: string) {
+    const objectUrl = await loadMusicObjectUrl(source);
+    if (!objectUrl || requestedMusicSource !== source || attachedMusicSource === source) return;
+    audio.src = objectUrl;
+    attachedMusicSource = source;
+    if (playbackRequested && volume > 0) void audio.play().catch(() => {});
+  }
 
   function preloadBowAttackSound(context: AudioContext) {
     if (bowAttackBuffer) return Promise.resolve(bowAttackBuffer);
@@ -159,14 +209,20 @@ export function createMapMusicController(
     else deathAudio.volume = sfxVolume;
   }
 
+  function pause() {
+    playbackRequested = false;
+    audio.pause();
+  }
+
   function syncMap(mapId: MapId) {
     const nextSource = musicSourceForMap(mapId, desertMapId, snowMapId, lavaMapId);
-    if (audio.getAttribute("src") === nextSource) return;
-    const shouldResume = !audio.paused;
-    audio.src = nextSource;
-    // play() starts loading through this same element and resolves only when
-    // the browser can begin playback. Map changes never wait for that promise.
-    if (shouldResume && volume > 0) void audio.play().catch(() => {});
+    if (requestedMusicSource === nextSource) return;
+    playbackRequested = playbackRequested || !audio.paused;
+    requestedMusicSource = nextSource;
+    audio.pause();
+    // Fetch the complete encoded track without blocking the map transition.
+    // Looping the resulting Blob URL cannot trigger another HTTP range request.
+    void attachRequestedMusic(nextSource);
   }
 
   function ensurePlaying(allowed: boolean) {
@@ -175,8 +231,13 @@ export function createMapMusicController(
       if (context.state === "suspended") void context.resume().catch(() => {});
       void preloadBowAttackSound(context);
     }
-    if (!allowed || volume <= 0 || !audio.paused) return;
-    void audio.play().catch(() => {});
+    playbackRequested = allowed && volume > 0;
+    if (!playbackRequested) return;
+    if (attachedMusicSource !== requestedMusicSource) {
+      void attachRequestedMusic(requestedMusicSource);
+      return;
+    }
+    if (audio.paused) void audio.play().catch(() => {});
   }
 
   function playDeathSound() {
@@ -252,6 +313,7 @@ export function createMapMusicController(
     get sfxVolume() { return sfxVolume; },
     setVolume,
     setSfxVolume,
+    pause,
     syncMap,
     ensurePlaying,
     playDeathSound,

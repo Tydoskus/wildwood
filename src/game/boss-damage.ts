@@ -32,6 +32,7 @@ export const BOSS_DAMAGE_REFERENCE = {
   gloomroot: strongestEnemyDamage(["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]),
   tidewyrm: strongestEnemyDamage(["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]),
   koiShogun: strongestEnemyDamage(["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]),
+  tempestKirin: strongestEnemyDamage(["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"]),
 } as const;
 
 export const BOSS_DAMAGE_PROFILES = {
@@ -72,6 +73,11 @@ export const BOSS_DAMAGE_PROFILES = {
   koiShogun: scaledProfile(BOSS_DAMAGE_REFERENCE.koiShogun, {
     slash: 20,
     whirlpool: 14,
+    contact: 10,
+  }),
+  tempestKirin: scaledProfile(BOSS_DAMAGE_REFERENCE.tempestKirin, {
+    charge: 20,
+    thunder: 14,
     contact: 10,
   }),
 } as const;

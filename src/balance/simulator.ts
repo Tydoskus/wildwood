@@ -5,6 +5,7 @@ import { createGameBootstrap } from "../game/runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   createSpawnSites,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
@@ -91,6 +92,10 @@ import {
   TIDEWYRM_REWARD_DAMAGE,
   TIDEWYRM_REWARD_HEALTH,
   TIDEWYRM_REWARD_REGEN,
+  TEMPEST_KIRIN_REWARD_ARMOR,
+  TEMPEST_KIRIN_REWARD_DAMAGE,
+  TEMPEST_KIRIN_REWARD_HEALTH,
+  TEMPEST_KIRIN_REWARD_REGEN,
 } from "../../shared/rules";
 
 export const BALANCE_MAP_IDS = [
@@ -101,6 +106,7 @@ export const BALANCE_MAP_IDS = [
   INFERNAL_DEPTHS_MAP_ID,
   WATER_REACH_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
 ] as const;
 
 export type BalanceMapId = typeof BALANCE_MAP_IDS[number];
@@ -735,6 +741,25 @@ function createMapDefinitions(): BalanceMapDefinition[] {
         drops: [],
       },
     },
+    {
+      id: CLOUDSPIRE_MAP_ID,
+      name: MAP_DISPLAY_NAMES[CLOUDSPIRE_MAP_ID],
+      arrival: bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].arrival,
+      regularDrops: [],
+      boss: {
+        name: "Tempest Kirin",
+        hp: bootstrap.tempestKirinBoss.maxHp,
+        x: bootstrap.tempestKirinBoss.x,
+        y: bootstrap.tempestKirinBoss.y,
+        rewards: [
+          { type: "damage", amount: TEMPEST_KIRIN_REWARD_DAMAGE },
+          { type: "health", amount: TEMPEST_KIRIN_REWARD_HEALTH },
+          { type: "armor", amount: TEMPEST_KIRIN_REWARD_ARMOR },
+          { type: "regen", amount: TEMPEST_KIRIN_REWARD_REGEN },
+        ],
+        drops: [],
+      },
+    },
   ];
 }
 
@@ -1274,7 +1299,10 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
       mapRecord.bossFightSeconds = currentBossFight;
       mapRecord.bossRewardPowerGain = Math.max(0, mapRecord.exitPower - powerBeforeBossReward);
       mapRecord.fullClears = clears;
-      if (state.mapIndex >= MAP_DEFINITIONS.length - 1) continue;
+      // The campaign curve ends at the first defeat of its final boss. Bosses
+      // remain repeatable in the live game, but farming the capstone again in
+      // the same trial creates a reward feedback loop that is not progression.
+      if (state.mapIndex >= MAP_DEFINITIONS.length - 1) break;
       advanceTime(state, Math.min(config.durationSeconds, state.time + MAP_TRANSITION_SECONDS), config.researchPlan, recordHistory);
       if (state.time >= config.durationSeconds) break;
       state.mapIndex += 1;

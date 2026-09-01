@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -122,6 +123,26 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor.some((item) => item.type === "cherryPetal")).toBe(true);
   });
 
+  it("connects Samurai Garden to deterministic Cloudspire camps and its Tempest Kirin", () => {
+    const bootstrap = createGameBootstrap();
+    const sites = createSpawnSites(bootstrap.tempestKirinBoss, CLOUDSPIRE_MAP_ID);
+    const first = createWorldLayout(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].arrival, CLOUDSPIRE_MAP_ID);
+    const second = createWorldLayout(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].arrival, CLOUDSPIRE_MAP_ID);
+    const cloudspireKinds = new Set(["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"]);
+
+    expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].secondaryPortal.destination).toBe(CLOUDSPIRE_MAP_ID);
+    expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].portal.destination).toBe(SAMURAI_GARDEN_MAP_ID);
+    expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].name).toBe("Cloudspire");
+    expect(bootstrap.tempestKirinBoss).toMatchObject({ x: 4050, y: 4050, r: 180, maxHp: TEMPEST_KIRIN_MAX_HP });
+    expect(sites).toHaveLength(30);
+    expect(sites.every((site) => cloudspireKinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
+    expect(first).toEqual(second);
+    expect(first.paths.length).toBeGreaterThanOrEqual(9);
+    expect(first.decor.some((item) => item.type === "cloud")).toBe(true);
+    expect(first.decor.some((item) => item.type === "skyShard")).toBe(true);
+  });
+
   it("uses distinct late-map geometry and reward-pure camps without changing family totals", () => {
     const boss = { x: 4050, y: 4050 };
     const lavaSites = createSpawnSites(boss, ADVANCED_LAVA_WASTES_MAP_ID);
@@ -137,6 +158,10 @@ describe("Advanced Lava Lake", () => {
       {
         sites: createSpawnSites(boss, SAMURAI_GARDEN_MAP_ID),
         kinds: ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+      },
+      {
+        sites: createSpawnSites(boss, CLOUDSPIRE_MAP_ID),
+        kinds: ["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
       },
     ] as const;
     const positionSignature = (sites: typeof lavaSites) => sites
@@ -171,6 +196,7 @@ describe("Advanced Lava Lake", () => {
       INFERNAL_DEPTHS_MAP_ID,
       WATER_REACH_MAP_ID,
       SAMURAI_GARDEN_MAP_ID,
+      CLOUDSPIRE_MAP_ID,
     ] as const;
 
     for (const mapId of mapIds) {

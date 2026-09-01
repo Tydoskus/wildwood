@@ -2,6 +2,7 @@ import type { RemotePlayer } from "../../wildstat-coop";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -10,9 +11,9 @@ import {
   type MapId,
   type WorldDecor,
 } from "../world";
-import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, GLOOMROOT_SPRITE_GROUND_OFFSET, GLOOMROOT_SPRITE_Y_OFFSET, KOI_SHOGUN_SPRITE_GROUND_OFFSET, KOI_SHOGUN_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET, TIDEWYRM_SPRITE_GROUND_OFFSET, TIDEWYRM_SPRITE_Y_OFFSET } from "../constants";
+import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, GLOOMROOT_SPRITE_GROUND_OFFSET, GLOOMROOT_SPRITE_Y_OFFSET, KOI_SHOGUN_SPRITE_GROUND_OFFSET, KOI_SHOGUN_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET, TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, TEMPEST_KIRIN_SPRITE_Y_OFFSET, TIDEWYRM_SPRITE_GROUND_OFFSET, TIDEWYRM_SPRITE_Y_OFFSET } from "../constants";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
@@ -23,7 +24,7 @@ type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "gloomroot" | "tidewyrm" | "koiShogun" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "gloomroot" | "tidewyrm" | "koiShogun" | "tempestKirin" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer; opacity: number };
 
 /**
@@ -44,6 +45,7 @@ export function createDepthWorldRenderer(options: {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
+  tempestKirinBoss: TempestKirinBossState;
   bootsPickup: BootsPickup;
   currentMapId: () => MapId;
   activePortal: () => Portal;
@@ -62,6 +64,7 @@ export function createDepthWorldRenderer(options: {
   drawGloomrootBoss: () => void;
   drawTidewyrmBoss: () => void;
   drawKoiShogunBoss: () => void;
+  drawTempestKirinBoss: () => void;
   drawBootPickup: () => void;
   drawPortal: () => void;
   drawSecondaryPortal: () => void;
@@ -174,6 +177,7 @@ export function createDepthWorldRenderer(options: {
       case "gloomroot": options.drawGloomrootBoss(); break;
       case "tidewyrm": options.drawTidewyrmBoss(); break;
       case "koiShogun": options.drawKoiShogunBoss(); break;
+      case "tempestKirin": options.drawTempestKirinBoss(); break;
       case "boots": options.drawBootPickup(); break;
       case "portal": options.drawPortal(); break;
       case "secondaryPortal": options.drawSecondaryPortal(); break;
@@ -234,6 +238,9 @@ export function createDepthWorldRenderer(options: {
     }
     if (currentMapId === SAMURAI_GARDEN_MAP_ID && !options.koiShogunBoss.dead) {
       queueLayer(options.koiShogunBoss.y + KOI_SHOGUN_SPRITE_Y_OFFSET + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 1, "koiShogun");
+    }
+    if (currentMapId === CLOUDSPIRE_MAP_ID && !options.tempestKirinBoss.dead) {
+      queueLayer(options.tempestKirinBoss.y + TEMPEST_KIRIN_SPRITE_Y_OFFSET + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, 1, "tempestKirin");
     }
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.bootsPickup.collected) {
       queueLayer(options.bootsPickup.y + options.bootsPickup.r, 1, "boots");

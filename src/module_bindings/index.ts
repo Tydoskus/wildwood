@@ -52,6 +52,7 @@ import DamageKoiShogunFromPositionReducer from "./damage_koi_shogun_from_positio
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
+import DamageTempestKirinFromPositionReducer from "./damage_tempest_kirin_from_position_reducer";
 import DamageTidewyrmFromPositionReducer from "./damage_tidewyrm_from_position_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
@@ -141,6 +142,8 @@ import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
 import SpiderBossRow from "./spider_boss_table";
 import SpiderResultRow from "./spider_result_table";
+import TempestKirinBossRow from "./tempest_kirin_boss_table";
+import TempestKirinResultRow from "./tempest_kirin_result_table";
 import TidewyrmBossRow from "./tidewyrm_boss_table";
 import TidewyrmResultRow from "./tidewyrm_result_table";
 import WorldStatusRow from "./world_status_table";
@@ -561,6 +564,28 @@ const tablesSchema = __schema({
       { name: 'spider_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, SpiderResultRow),
+  tempestKirinBoss: __table({
+    name: 'tempest_kirin_boss',
+    indexes: [
+      { accessor: 'id', name: 'tempest_kirin_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'tempest_kirin_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TempestKirinBossRow),
+  tempestKirinResult: __table({
+    name: 'tempest_kirin_result',
+    indexes: [
+      { accessor: 'id', name: 'tempest_kirin_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'tempest_kirin_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TempestKirinResultRow),
   tidewyrmBoss: __table({
     name: 'tidewyrm_boss',
     indexes: [
@@ -672,6 +697,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
+  __reducerSchema("damage_tempest_kirin_from_position", DamageTempestKirinFromPositionReducer),
   __reducerSchema("damage_tidewyrm_from_position", DamageTidewyrmFromPositionReducer),
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),

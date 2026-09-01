@@ -22,6 +22,7 @@ export const MAP_ENEMY_FAMILY_TINTS = {
   infernal_depths: "#8157bd",
   water_reach: "#42cbd5",
   samurai_garden: "#ef7eae",
+  cloudspire: "#82bff3",
 };
 
 function slimeSprite(tint, { elite = false, ranged = false } = {}) {
@@ -64,6 +65,7 @@ const lava = MAP_ENEMY_FAMILY_TINTS.advanced_lava_wastes;
 const night = MAP_ENEMY_FAMILY_TINTS.infernal_depths;
 const water = MAP_ENEMY_FAMILY_TINTS.water_reach;
 const samurai = MAP_ENEMY_FAMILY_TINTS.samurai_garden;
+const cloudspire = MAP_ENEMY_FAMILY_TINTS.cloudspire;
 
 export const ENEMY_SPRITE_LAYOUTS = {
   Bramble: slimeSprite(forest),
@@ -110,4 +112,10 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Bamboo Guardian": slimeSprite(samurai),
   "Moonblade Reaper": slimeSprite(samurai, { elite: true, ranged: true }),
   "Shrine Oracle": slimeSprite(samurai, { elite: true }),
+
+  "Gale Prowler": slimeSprite(cloudspire),
+  "Nimbus Archer": slimeSprite(cloudspire, { ranged: true }),
+  "Skyguard Colossus": slimeSprite(cloudspire),
+  "Thunder Reaper": slimeSprite(cloudspire, { elite: true, ranged: true }),
+  "Tempest Oracle": slimeSprite(cloudspire, { elite: true }),
 };

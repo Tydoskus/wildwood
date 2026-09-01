@@ -41,6 +41,7 @@ import type { DuelScene } from "./game/runtime/types";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -153,6 +154,8 @@ import {
     gloomrootBoss,
     koiShogunBoss,
     koiShogunWhirlpools,
+    tempestKirinBoss,
+    tempestKirinThunderbolts,
     tidewyrmBoss,
     tidewyrmWhirlpools,
     inventory,
@@ -169,8 +172,8 @@ import {
     startSpawn: START_SPAWN,
   } = bootstrap;
   const presentation = createPresentationInterpolator({
-    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss],
-    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, particles, damageNumbers],
+    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss],
+    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, particles, damageNumbers],
   });
   const healthMultiplier = () => equipmentMaxHealthMultiplier(
     inventory.equippedHead,
@@ -457,7 +460,9 @@ import {
                     ? { kind: "tidewyrm" as const, state: tidewyrmBoss }
                     : currentMapId === SAMURAI_GARDEN_MAP_ID
                       ? { kind: "koiShogun" as const, state: koiShogunBoss }
-                      : null;
+                      : currentMapId === CLOUDSPIRE_MAP_ID
+                        ? { kind: "tempestKirin" as const, state: tempestKirinBoss }
+                        : null;
         if (!target || target.state.encounter === null) return null;
         return {
           kind: target.kind,
@@ -518,7 +523,7 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss,
     nowSeconds: () => session?.gameTime() ?? 0,
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
     localIdentity: () => coop?.localIdentity?.(),
@@ -529,6 +534,7 @@ import {
     isInfernalMap: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     isWaterMap: () => currentMapId === WATER_REACH_MAP_ID,
     isSamuraiMap: () => currentMapId === SAMURAI_GARDEN_MAP_ID,
+    isCloudspireMap: () => currentMapId === CLOUDSPIRE_MAP_ID,
     engageEnemy: (enemy) => engageEnemy(
       enemy,
       coop?.localIdentity?.() || LOCAL_REGULAR_ENEMY_TARGET_ID,
@@ -562,6 +568,7 @@ import {
     damageGloomroot: (hits) => coop?.damageGloomroot?.(hits, player.x, player.y),
     damageTidewyrm: (hits) => coop?.damageTidewyrm?.(hits, player.x, player.y),
     damageKoiShogun: (hits) => coop?.damageKoiShogun?.(hits, player.x, player.y),
+    damageTempestKirin: (hits) => coop?.damageTempestKirin?.(hits, player.x, player.y),
     spawnBurst,
     spawnParticle,
     spawnDamageNumber,
@@ -644,6 +651,7 @@ import {
     infernalMapId: INFERNAL_DEPTHS_MAP_ID,
     waterMapId: WATER_REACH_MAP_ID,
     samuraiMapId: SAMURAI_GARDEN_MAP_ID,
+    cloudspireMapId: CLOUDSPIRE_MAP_ID,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
     lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
@@ -679,6 +687,8 @@ import {
           ? Boolean(coop?.savedProgress?.()?.waterUnlocked)
         : mapId === SAMURAI_GARDEN_MAP_ID
           ? Boolean(coop?.savedProgress?.()?.samuraiUnlocked)
+        : mapId === CLOUDSPIRE_MAP_ID
+          ? Boolean(coop?.savedProgress?.()?.cloudspireUnlocked)
         : true,
     syncMapMusic,
     rebuildWorld: () => playerController.rebuildWorld(),
@@ -693,6 +703,7 @@ import {
     gloomrootBlooms,
     tidewyrmWhirlpools,
     koiShogunWhirlpools,
+    tempestKirinThunderbolts,
     boss,
     spiderBoss,
     frostclawBoss,
@@ -700,6 +711,7 @@ import {
     gloomrootBoss,
     tidewyrmBoss,
     koiShogunBoss,
+    tempestKirinBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
@@ -713,6 +725,7 @@ import {
     gloomrootBoss,
     tidewyrmBoss,
     koiShogunBoss,
+    tempestKirinBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
@@ -720,6 +733,7 @@ import {
     gloomrootBlooms,
     tidewyrmWhirlpools,
     koiShogunWhirlpools,
+    tempestKirinThunderbolts,
     player,
     getDragonBoss: () => coop?.dragonBoss?.(),
     getSpiderBoss: () => coop?.spiderBoss?.(),
@@ -728,6 +742,7 @@ import {
     getGloomrootBoss: () => coop?.gloomrootBoss?.(),
     getTidewyrmBoss: () => coop?.tidewyrmBoss?.(),
     getKoiShogunBoss: () => coop?.koiShogunBoss?.(),
+    getTempestKirinBoss: () => coop?.tempestKirinBoss?.(),
     getDragonResult: () => coop?.dragonResult?.(),
     getSpiderResult: () => coop?.spiderResult?.(),
     getFrostclawResult: () => coop?.frostclawResult?.(),
@@ -735,6 +750,7 @@ import {
     getGloomrootResult: () => coop?.gloomrootResult?.(),
     getTidewyrmResult: () => coop?.tidewyrmResult?.(),
     getKoiShogunResult: () => coop?.koiShogunResult?.(),
+    getTempestKirinResult: () => coop?.tempestKirinResult?.(),
     localIdentity: () => coop?.localIdentity?.(),
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
     bossTargets: () => {
@@ -764,6 +780,7 @@ import {
     currentMapIsInfernal: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     currentMapIsWater: () => currentMapId === WATER_REACH_MAP_ID,
     currentMapIsSamurai: () => currentMapId === SAMURAI_GARDEN_MAP_ID,
+    currentMapIsCloudspire: () => currentMapId === CLOUDSPIRE_MAP_ID,
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     hasSeenDragonPortalCutscene: worldProgression.hasSeenDragonPortalCutscene,
     hasSeenSnowlandsPortalCutscene: worldProgression.hasSeenSnowlandsPortalCutscene,
@@ -868,6 +885,7 @@ import {
     infernalMapId: INFERNAL_DEPTHS_MAP_ID,
     waterMapId: WATER_REACH_MAP_ID,
     samuraiMapId: SAMURAI_GARDEN_MAP_ID,
+    cloudspireMapId: CLOUDSPIRE_MAP_ID,
     paths,
     decor,
     enemies,
@@ -880,6 +898,7 @@ import {
     gloomrootBoss,
     tidewyrmBoss,
     koiShogunBoss,
+    tempestKirinBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
@@ -887,6 +906,7 @@ import {
     gloomrootBlooms,
     tidewyrmWhirlpools,
     koiShogunWhirlpools,
+    tempestKirinThunderbolts,
     activePortal,
     cutscenePortal: () => mapController.cutscenePortal(),
     secondaryPortal,
@@ -960,7 +980,7 @@ import {
     invalidateStaticWorld,
     spawnFromSite,
     clearPlayerCombat: () => { playerCombat.clearPendingThrow(); playerCombat.clearPendingBossHits(); },
-    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); bossController.resetMagmaliskBoss(); bossController.resetGloomrootBoss(); bossController.resetTidewyrmBoss(); bossController.resetKoiShogunBoss(); },
+    resetBosses: () => { bossController.resetBoss(); bossController.resetSpiderBoss(); bossController.resetFrostclawBoss(); bossController.resetMagmaliskBoss(); bossController.resetGloomrootBoss(); bossController.resetTidewyrmBoss(); bossController.resetKoiShogunBoss(); bossController.resetTempestKirinBoss(); },
     onResetUI: () => {
       session.resetGameTime();
       flash = 0;
@@ -978,6 +998,7 @@ import {
     resolveGloomrootCollision: () => bossController.resolveGloomrootCollision(),
     resolveTidewyrmCollision: () => bossController.resolveTidewyrmCollision(),
     resolveKoiShogunCollision: () => bossController.resolveKoiShogunCollision(),
+    resolveTempestKirinCollision: () => bossController.resolveTempestKirinCollision(),
     applyDragonConePush: (dt) => bossController.applyDragonConePush(dt),
     applyFrostclawPush: (dt) => bossController.applyFrostclawPush(dt),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
@@ -987,6 +1008,7 @@ import {
     isInfernalMap: () => currentMapId === INFERNAL_DEPTHS_MAP_ID,
     isWaterMap: () => currentMapId === WATER_REACH_MAP_ID,
     isSamuraiMap: () => currentMapId === SAMURAI_GARDEN_MAP_ID,
+    isCloudspireMap: () => currentMapId === CLOUDSPIRE_MAP_ID,
     viewport: () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     cameraPosition: () => camera,
     isConnected: () => Boolean(coop?.isConnected?.()),
@@ -1284,7 +1306,9 @@ import {
                 ? { x: tidewyrmBoss.x, y: tidewyrmBoss.y, name: "Tidewyrm", dead: tidewyrmBoss.dead }
                 : currentMapId === SAMURAI_GARDEN_MAP_ID
                   ? { x: koiShogunBoss.x, y: koiShogunBoss.y, name: "Koi Shogun", dead: koiShogunBoss.dead }
-                  : null,
+                  : currentMapId === CLOUDSPIRE_MAP_ID
+                    ? { x: tempestKirinBoss.x, y: tempestKirinBoss.y, name: "Tempest Kirin", dead: tempestKirinBoss.dead }
+                    : null,
     portals: () => {
       const portals = [activePortal()];
       const secondary = secondaryPortal();
@@ -1328,7 +1352,7 @@ import {
     onBoostExpired: clearExpiredRespawnBoost,
     setAdPlaybackActive: (active) => {
       setGameplayPause("rewarded-ad", active);
-      if (active) mapMusic.audio.pause();
+      if (active) mapMusic.pause();
       else appShell.ensureMusicPlaying();
     },
     showMessage,
@@ -1353,8 +1377,8 @@ import {
 
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
-    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID, samuraiMapId: SAMURAI_GARDEN_MAP_ID,
-    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID],
+    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID, samuraiMapId: SAMURAI_GARDEN_MAP_ID, cloudspireMapId: CLOUDSPIRE_MAP_ID,
+    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { setCurrentMap(mapId as MapId); },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
@@ -1385,10 +1409,10 @@ import {
     resolvePortalCollision: mapController.resolvePortalCollision,
     mapMusicSync: syncMapMusic,
     isDueling, activeDuel,
-    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState, syncTidewyrm: bossController.syncTidewyrmState, syncKoiShogun: bossController.syncKoiShogunState,
+    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState, syncTidewyrm: bossController.syncTidewyrmState, syncKoiShogun: bossController.syncKoiShogunState, syncTempestKirin: bossController.syncTempestKirinState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     updatePlayer: playerController.update, updateUpgradeBench: upgradeBenchController.updateTouch, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
-    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss, updateTidewyrm: bossController.updateTidewyrmBoss, updateKoiShogun: bossController.updateKoiShogunBoss,
+    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss, updateTidewyrm: bossController.updateTidewyrmBoss, updateKoiShogun: bossController.updateKoiShogunBoss, updateTempestKirin: bossController.updateTempestKirinBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
@@ -1631,6 +1655,7 @@ import {
       if (currentMapId === INFERNAL_DEPTHS_MAP_ID) bossController.syncGloomrootState();
       if (currentMapId === WATER_REACH_MAP_ID) bossController.syncTidewyrmState();
       if (currentMapId === SAMURAI_GARDEN_MAP_ID) bossController.syncKoiShogunState();
+      if (currentMapId === CLOUDSPIRE_MAP_ID) bossController.syncTempestKirinState();
     },
     finishStartup,
     clearSignInPending: startup.clearSignInPending,

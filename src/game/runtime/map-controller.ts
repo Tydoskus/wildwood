@@ -1,6 +1,6 @@
 import { createPortalCutscene } from "./cutscene";
 import { snapCameraToPlayer, type Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -52,6 +52,7 @@ export function createMapController(options: {
   infernalMapId: MapId;
   waterMapId: MapId;
   samuraiMapId: MapId;
+  cloudspireMapId: MapId;
   dragonCutsceneSeenKey: string;
   snowlandsCutsceneSeenKey: string;
   lavaCutsceneSeenKey: string;
@@ -89,6 +90,7 @@ export function createMapController(options: {
   gloomrootBlooms: GloomrootBloom[];
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
   koiShogunWhirlpools: KoiShogunWhirlpool[];
+  tempestKirinThunderbolts: TempestKirinThunderbolt[];
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
@@ -96,15 +98,16 @@ export function createMapController(options: {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
+  tempestKirinBoss: TempestKirinBossState;
   clearPendingBossHits: () => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
   const {
-    mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, waterMapId, samuraiMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey, waterCutsceneSeenKey, samuraiCutsceneSeenKey,
+    mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, waterMapId, samuraiMapId, cloudspireMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey, waterCutsceneSeenKey, samuraiCutsceneSeenKey,
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, clearPendingBossHits, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, clearPendingBossHits, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -171,6 +174,8 @@ export function createMapController(options: {
     tidewyrmBoss.surge = null;
     koiShogunWhirlpools.length = 0;
     koiShogunBoss.slash = null;
+    tempestKirinThunderbolts.length = 0;
+    tempestKirinBoss.charge = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }
@@ -215,7 +220,7 @@ export function createMapController(options: {
     if (!running() || mapTransitioning || isDueling()) return;
     const state = localMapState();
     if (!state || state.mapId === getCurrentMapId()) return;
-    if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId) return;
+    if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId && state.mapId !== cloudspireMapId) return;
     mapTransitioning = true;
     void options.prepareMapAssets(state.mapId as MapId).then(() => {
       fadeToWorld(() => {

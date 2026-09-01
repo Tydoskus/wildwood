@@ -860,6 +860,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   infernalUnlocked: __t.bool(),
   waterUnlocked: __t.bool(),
   samuraiUnlocked: __t.bool(),
+  cloudspireUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -955,6 +956,49 @@ export const SpiderResult = __t.object("SpiderResult", {
   createdAt: __t.timestamp(),
 });
 export type SpiderResult = __Infer<typeof SpiderResult>;
+
+export const TempestKirinAttackWindow = __t.object("TempestKirinAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type TempestKirinAttackWindow = __Infer<typeof TempestKirinAttackWindow>;
+
+export const TempestKirinBoss = __t.object("TempestKirinBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type TempestKirinBoss = __Infer<typeof TempestKirinBoss>;
+
+export const TempestKirinContribution = __t.object("TempestKirinContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type TempestKirinContribution = __Infer<typeof TempestKirinContribution>;
+
+export const TempestKirinRespawnSchedule = __t.object("TempestKirinRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type TempestKirinRespawnSchedule = __Infer<typeof TempestKirinRespawnSchedule>;
+
+export const TempestKirinResult = __t.object("TempestKirinResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type TempestKirinResult = __Infer<typeof TempestKirinResult>;
 
 export const TidewyrmAttackWindow = __t.object("TidewyrmAttackWindow", {
   identity: __t.identity(),

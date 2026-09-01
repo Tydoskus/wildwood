@@ -71,7 +71,7 @@ export type {
   RemoteRegularEnemyCombatVisual,
   SpiderBossState,
   SpiderResult,
-  TidewyrmBossState, TidewyrmResult, KoiShogunBossState, KoiShogunResult,
+  TidewyrmBossState, TidewyrmResult, KoiShogunBossState, KoiShogunResult, TempestKirinBossState, TempestKirinResult,
   UpgradeBenchSlot,
 } from "./coop/contracts";
 
@@ -370,12 +370,9 @@ const bossService = createBossService({
   localPosition: () => presenceService?.localState() ?? null,
 });
 const {
-  upsertDragon: upsertDragonBoss,
-  upsertDragonResult,
-  upsertSpider: upsertSpiderBoss,
-  upsertSpiderResult,
-  upsertFrostclaw: upsertFrostclawBoss,
-  upsertFrostclawResult,
+  upsertDragon: upsertDragonBoss, upsertDragonResult,
+  upsertSpider: upsertSpiderBoss, upsertSpiderResult,
+  upsertFrostclaw: upsertFrostclawBoss, upsertFrostclawResult,
   upsertMagmalisk: upsertMagmaliskBoss,
   upsertMagmaliskResult,
   upsertGloomroot: upsertGloomrootBoss,
@@ -384,6 +381,7 @@ const {
   upsertTidewyrmResult,
   upsertKoiShogun: upsertKoiShogunBoss,
   upsertKoiShogunResult,
+  upsertTempestKirin: upsertTempestKirinBoss, upsertTempestKirinResult,
 } = bossService.tables;
 
 let chatService!: ChatService;
@@ -629,6 +627,8 @@ const baseSubscriptionHandlers = {
   tidewyrmResult: upsertTidewyrmResult,
   koiShogunBoss: upsertKoiShogunBoss,
   koiShogunResult: upsertKoiShogunResult,
+  tempestKirinBoss: upsertTempestKirinBoss,
+  tempestKirinResult: upsertTempestKirinResult,
   chatMessage: upsertChatMessage,
   duel: upsertDuel,
   removeDuel,

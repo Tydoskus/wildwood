@@ -179,12 +179,12 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   document.addEventListener("webkitfullscreenchange", refreshFullscreen);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      dependencies.mapMusic.audio.pause();
+      dependencies.mapMusic.pause();
       return;
     }
     ensureMusicPlaying();
   });
-  window.addEventListener("pagehide", () => dependencies.mapMusic.audio.pause());
+  window.addEventListener("pagehide", () => dependencies.mapMusic.pause());
   document.addEventListener("pointerdown", (event) => {
     if (event.target instanceof Element && event.target.closest("#signInMuteButton")) return;
     ensureMusicPlaying();

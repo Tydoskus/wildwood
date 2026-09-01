@@ -46,15 +46,23 @@ describe("map music", () => {
     expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/night-forest.mp3");
   });
 
-  it("loads a map soundtrack on demand through the playback element", () => {
+  it("loads a map soundtrack once into a Blob URL before looping it", async () => {
     const instances: FakeAudio[] = [];
     vi.stubGlobal("Audio", class extends FakeAudio {
-      constructor(source: string) {
+      constructor(source = "") {
         super(source);
         instances.push(this);
       }
     });
     vi.stubGlobal("localStorage", { getItem: () => null });
+    const fetchMusic = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(["forest soundtrack"], { type: "audio/mpeg" }),
+    }));
+    const createObjectURL = vi.fn(() => "blob:forest-soundtrack");
+    vi.stubGlobal("fetch", fetchMusic);
+    vi.stubGlobal("URL", { createObjectURL });
 
     const controller = createMapMusicController(
       "test-volume",
@@ -67,11 +75,17 @@ describe("map music", () => {
     controller.syncMap(TUTORIAL_FOREST_MAP_ID);
 
     expect(instances).toHaveLength(2);
-    expect(music.src).toBe("assets/wildstat/audio/forest.mp3");
+    expect(music.pause).toHaveBeenCalledOnce();
     expect(music.load).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(music.src).toBe("blob:forest-soundtrack"));
+    expect(fetchMusic).toHaveBeenCalledOnce();
+    expect(fetchMusic).toHaveBeenCalledWith("assets/wildstat/audio/forest.mp3", expect.objectContaining({ cache: "force-cache" }));
+    expect(createObjectURL).toHaveBeenCalledOnce();
     expect(music.play).toHaveBeenCalledOnce();
+    expect(music.loop).toBe(true);
 
     controller.syncMap(TUTORIAL_FOREST_MAP_ID);
+    expect(fetchMusic).toHaveBeenCalledOnce();
     expect(music.play).toHaveBeenCalledOnce();
   });
 
@@ -169,10 +183,11 @@ class FakeAudio {
   preload = "";
   src: string;
   volume = 1;
-  play = vi.fn(async () => {});
+  play = vi.fn(async () => { this.paused = false; });
+  pause = vi.fn(() => { this.paused = true; });
   load = vi.fn();
 
-  constructor(source: string) {
+  constructor(source = "") {
     this.src = source;
   }
 

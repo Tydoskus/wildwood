@@ -19,6 +19,9 @@ import {
   TIDEWYRM_AGGRO_RANGE,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
+  TEMPEST_KIRIN_AGGRO_RANGE,
+  TEMPEST_KIRIN_CHARGE_HALF_ANGLE,
+  TEMPEST_KIRIN_CHARGE_RANGE,
   WORLD,
 } from "../constants";
 import {
@@ -33,6 +36,10 @@ import {
   KOI_SHOGUN_REWARD_DAMAGE,
   KOI_SHOGUN_REWARD_HEALTH,
   KOI_SHOGUN_REWARD_REGEN,
+  TEMPEST_KIRIN_REWARD_ARMOR,
+  TEMPEST_KIRIN_REWARD_DAMAGE,
+  TEMPEST_KIRIN_REWARD_HEALTH,
+  TEMPEST_KIRIN_REWARD_REGEN,
   DRAGON_REWARD_DAMAGE,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
@@ -70,6 +77,8 @@ import type {
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
+  TempestKirinBossState,
+  TempestKirinThunderbolt,
   TidewyrmBossState,
   TidewyrmWhirlpool,
 } from "./types";
@@ -118,6 +127,11 @@ const KOI_SHOGUN_SLASH_DURATION = 1.04;
 const KOI_SHOGUN_SLASH_DAMAGE = BOSS_DAMAGE_PROFILES.koiShogun.slash;
 const KOI_SHOGUN_WHIRLPOOL_DAMAGE = BOSS_DAMAGE_PROFILES.koiShogun.whirlpool;
 const KOI_SHOGUN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.koiShogun.contact;
+const TEMPEST_KIRIN_CHARGE_WINDUP = .74;
+const TEMPEST_KIRIN_CHARGE_DURATION = 1.02;
+const TEMPEST_KIRIN_CHARGE_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.charge;
+const TEMPEST_KIRIN_THUNDER_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.thunder;
+const TEMPEST_KIRIN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.contact;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -152,6 +166,7 @@ export type BossController = {
   resetGloomrootBoss: () => void;
   resetTidewyrmBoss: () => void;
   resetKoiShogunBoss: () => void;
+  resetTempestKirinBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
@@ -159,6 +174,7 @@ export type BossController = {
   syncGloomrootState: () => void;
   syncTidewyrmState: () => void;
   syncKoiShogunState: () => void;
+  syncTempestKirinState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
@@ -166,6 +182,7 @@ export type BossController = {
   updateGloomrootBoss: (dt: number) => void;
   updateTidewyrmBoss: (dt: number) => void;
   updateKoiShogunBoss: (dt: number) => void;
+  updateTempestKirinBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
@@ -173,6 +190,7 @@ export type BossController = {
   resolveGloomrootCollision: () => void;
   resolveTidewyrmCollision: () => void;
   resolveKoiShogunCollision: () => void;
+  resolveTempestKirinCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
@@ -190,6 +208,7 @@ export function createBossController(options: {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
+  tempestKirinBoss: TempestKirinBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -197,6 +216,7 @@ export function createBossController(options: {
   gloomrootBlooms: GloomrootBloom[];
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
   koiShogunWhirlpools: KoiShogunWhirlpool[];
+  tempestKirinThunderbolts: TempestKirinThunderbolt[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
@@ -205,6 +225,7 @@ export function createBossController(options: {
   getGloomrootBoss: () => SharedBossState | null | undefined;
   getTidewyrmBoss: () => SharedBossState | null | undefined;
   getKoiShogunBoss: () => SharedBossState | null | undefined;
+  getTempestKirinBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
@@ -212,6 +233,7 @@ export function createBossController(options: {
   getGloomrootResult: () => BossResult | null | undefined;
   getTidewyrmResult: () => BossResult | null | undefined;
   getKoiShogunResult: () => BossResult | null | undefined;
+  getTempestKirinResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
@@ -224,6 +246,7 @@ export function createBossController(options: {
   currentMapIsInfernal: () => boolean;
   currentMapIsWater: () => boolean;
   currentMapIsSamurai: () => boolean;
+  currentMapIsCloudspire: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -248,9 +271,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
@@ -290,6 +313,10 @@ export function createBossController(options: {
   let koiShogunWasAlive: boolean | null = null;
   let pendingKoiShogunResultEncounter: bigint | null = null;
   let shownKoiShogunResultEncounter: bigint | null = null;
+  let observedTempestKirinEncounter: bigint | null = null;
+  let tempestKirinWasAlive: boolean | null = null;
+  let pendingTempestKirinResultEncounter: bigint | null = null;
+  let shownTempestKirinResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
@@ -297,6 +324,7 @@ export function createBossController(options: {
   const locallyRewardedGloomrootEncounters = new Set<string>();
   const locallyRewardedTidewyrmEncounters = new Set<string>();
   const locallyRewardedKoiShogunEncounters = new Set<string>();
+  const locallyRewardedTempestKirinEncounters = new Set<string>();
   let dragonRainPatternIndex = 0;
   let spiderVenomPatternIndex = 0;
   let frostclawIcefallPatternIndex = 0;
@@ -304,6 +332,7 @@ export function createBossController(options: {
   let gloomrootBloomPatternIndex = 0;
   let tidewyrmWhirlpoolPatternIndex = 0;
   let koiShogunWhirlpoolPatternIndex = 0;
+  let tempestKirinThunderPatternIndex = 0;
   const observedAbilityKeys = new Map<BossSimulationKind, string>();
   const activatedAbilityKeys = new Map<BossSimulationKind, string>();
 
@@ -527,6 +556,26 @@ export function createBossController(options: {
     koiShogunWhirlpools.length = 0;
     koiShogunWhirlpoolPatternIndex = 0;
     resetAbilityTimeline("koiShogun");
+  }
+
+  function resetTempestKirinBoss() {
+    const shared = getTempestKirinBoss();
+    if (shared) {
+      tempestKirinBoss.encounter = shared.encounter;
+      tempestKirinBoss.hp = shared.hp;
+      tempestKirinBoss.maxHp = shared.maxHp;
+      tempestKirinBoss.dead = !shared.alive;
+    }
+    tempestKirinBoss.hurt = 0;
+    tempestKirinBoss.hpLossFlashFrom = tempestKirinBoss.hp;
+    tempestKirinBoss.hpLossFlashTimer = 0;
+    tempestKirinBoss.contactDamageClock = 0;
+    tempestKirinBoss.attackClock = 3;
+    tempestKirinBoss.nextAttack = "charge";
+    tempestKirinBoss.charge = null;
+    tempestKirinThunderbolts.length = 0;
+    tempestKirinThunderPatternIndex = 0;
+    resetAbilityTimeline("tempestKirin");
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -785,6 +834,39 @@ export function createBossController(options: {
     showMessage(
       `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
       "#ffd17d",
+    );
+  }
+
+  function showTempestKirinResult(result: BossResult | null | undefined) {
+    if (!result || shownTempestKirinResultEncounter === result.encounter) return;
+    pendingTempestKirinResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      shownTempestKirinResultEncounter = result.encounter;
+      showWorldResult(result, "TEMPEST KIRIN DEFEATED");
+      return;
+    }
+    shownTempestKirinResultEncounter = result.encounter;
+    renderResult(result, "Tempest Kirin Defeated");
+    const damageReward = scaledReward("damage", TEMPEST_KIRIN_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", TEMPEST_KIRIN_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", TEMPEST_KIRIN_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", TEMPEST_KIRIN_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedTempestKirinEncounters.has(encounterKey)) {
+      locallyRewardedTempestKirinEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    showMessage(
+      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
+      "#a9e8ff",
     );
   }
 
@@ -1162,6 +1244,63 @@ export function createBossController(options: {
     if (pendingKoiShogunResultEncounter !== null) {
       const result = getKoiShogunResult();
       if (result?.encounter === pendingKoiShogunResultEncounter) showKoiShogunResult(result);
+    }
+  }
+
+  function syncTempestKirinState() {
+    const shared = getTempestKirinBoss();
+    if (!shared) return;
+    const initialized = observedTempestKirinEncounter !== null;
+    const encounterChanged = initialized && observedTempestKirinEncounter !== shared.encounter;
+    const previousHp = tempestKirinBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedTempestKirinEncounter = shared.encounter;
+      tempestKirinWasAlive = shared.alive;
+      tempestKirinBoss.dead = !shared.alive;
+      tempestKirinBoss.attackClock = 3;
+      tempestKirinBoss.nextAttack = "charge";
+      tempestKirinBoss.charge = null;
+      tempestKirinThunderbolts.length = 0;
+      tempestKirinThunderPatternIndex = 0;
+      resetAbilityTimeline("tempestKirin");
+      tempestKirinBoss.hpLossFlashFrom = shared.hp;
+      tempestKirinBoss.hpLossFlashTimer = 0;
+    } else if (tempestKirinWasAlive && !shared.alive) {
+      tempestKirinWasAlive = false;
+      tempestKirinBoss.dead = true;
+      tempestKirinBoss.charge = null;
+      tempestKirinThunderbolts.length = 0;
+      pendingTempestKirinResultEncounter = shared.encounter;
+      spawnBurst(tempestKirinBoss.x, tempestKirinBoss.y, "#9fe9ff", 120, 340);
+    } else if (!tempestKirinWasAlive && shared.alive) {
+      tempestKirinWasAlive = true;
+      tempestKirinBoss.dead = false;
+      tempestKirinBoss.attackClock = 3;
+      tempestKirinBoss.nextAttack = "charge";
+      tempestKirinThunderPatternIndex = 0;
+      resetAbilityTimeline("tempestKirin");
+    } else if (shared.alive && shared.hp < previousHp) {
+      tempestKirinBoss.hpLossFlashFrom = tempestKirinBoss.hpLossFlashTimer > 0
+        ? Math.max(tempestKirinBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      tempestKirinBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      tempestKirinBoss.hpLossFlashFrom = shared.hp;
+      tempestKirinBoss.hpLossFlashTimer = 0;
+    }
+    tempestKirinBoss.encounter = shared.encounter;
+    tempestKirinBoss.maxHp = shared.maxHp;
+    tempestKirinBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsCloudspire()) {
+      const result = getTempestKirinResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedTempestKirinEncounters.add(String(result.encounter));
+        showTempestKirinResult(result);
+      }
+    }
+    if (pendingTempestKirinResultEncounter !== null) {
+      const result = getTempestKirinResult();
+      if (result?.encounter === pendingTempestKirinResultEncounter) showTempestKirinResult(result);
     }
   }
 
@@ -2035,7 +2174,122 @@ export function createBossController(options: {
     else startKoiShogunWhirlpools();
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState, damage: number, cooldown: number) {
+  function startTempestKirinCharge(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    tempestKirinBoss.charge = {
+      angle: Math.atan2(target.y - tempestKirinBoss.y, target.x - tempestKirinBoss.x),
+      windup: Math.max(0, TEMPEST_KIRIN_CHARGE_WINDUP - elapsed),
+      timer: Math.max(0, TEMPEST_KIRIN_CHARGE_DURATION - Math.max(0, elapsed - TEMPEST_KIRIN_CHARGE_WINDUP)),
+      duration: TEMPEST_KIRIN_CHARGE_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
+    tempestKirinBoss.nextAttack = "thunder";
+  }
+
+  function startTempestKirinThunder(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? tempestKirinThunderPatternIndex;
+    for (let index = 0; index < 12; index += 1) {
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "tempestKirin",
+        encounter: tempestKirinBoss.encounter,
+        pattern: "thunder",
+        patternIndex,
+        hazardIndex: index,
+        hazardCount: 12,
+        angleJitter: .22,
+        minimumRadius: 64,
+        maximumRadius: 320,
+        centerFirst: true,
+      });
+      const maxTimer = .72 + index * .1;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      tempestKirinThunderbolts.push({
+        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
+        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
+        r: 82,
+        timer,
+        maxTimer,
+      });
+    }
+    if (deterministicPatternIndex === undefined) tempestKirinThunderPatternIndex += 1;
+    tempestKirinBoss.attackClock = 3.1;
+    tempestKirinBoss.nextAttack = "charge";
+  }
+
+  function updateTempestKirinBoss(dt: number) {
+    tempestKirinBoss.hpLossFlashTimer = Math.max(0, tempestKirinBoss.hpLossFlashTimer - dt);
+    tempestKirinBoss.contactDamageClock = Math.max(0, tempestKirinBoss.contactDamageClock - dt);
+    if (tempestKirinBoss.dead) return;
+    tempestKirinBoss.hurt = Math.max(0, tempestKirinBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "tempestKirin",
+      encounter: tempestKirinBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("tempestKirin", tempestKirinBoss.encounter, attackIndex, tempestKirinBoss.x, tempestKirinBoss.y, TEMPEST_KIRIN_AGGRO_RANGE),
+      clear: () => { tempestKirinBoss.charge = null; tempestKirinThunderbolts.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "charge") startTempestKirinCharge(elapsedSeconds, target);
+        else if (ability === "thunder") startTempestKirinThunder(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { tempestKirinBoss.attackClock = seconds; },
+    });
+
+    for (let index = tempestKirinThunderbolts.length - 1; index >= 0; index -= 1) {
+      const bolt = tempestKirinThunderbolts[index];
+      bolt.timer -= dt;
+      if (bolt.timer > 0) continue;
+      const dx = player.x - bolt.x;
+      const dy = player.y - bolt.y;
+      if (dx * dx + dy * dy <= bolt.r * bolt.r) damagePlayer(TEMPEST_KIRIN_THUNDER_DAMAGE);
+      spawnBurst(bolt.x, bolt.y, "#d6f7ff", 44, 270);
+      tempestKirinThunderbolts.splice(index, 1);
+    }
+    if (tempestKirinThunderbolts.length > 0) return;
+
+    if (tempestKirinBoss.charge) {
+      const charge = tempestKirinBoss.charge;
+      if (charge.windup > 0) {
+        charge.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - charge.timer / charge.duration, 0, 1);
+      charge.timer -= dt;
+      const progress = clamp(1 - charge.timer / charge.duration, 0, 1);
+      const minRadius = tempestKirinBoss.r + (TEMPEST_KIRIN_CHARGE_RANGE - tempestKirinBoss.r) * previousProgress;
+      const maxRadius = tempestKirinBoss.r + (TEMPEST_KIRIN_CHARGE_RANGE - tempestKirinBoss.r) * progress;
+      if (!charge.hitPlayer) {
+        const dx = player.x - tempestKirinBoss.x;
+        const dy = player.y - tempestKirinBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - charge.angle),
+          Math.cos(Math.atan2(dy, dx) - charge.angle),
+        );
+        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= TEMPEST_KIRIN_CHARGE_HALF_ANGLE) {
+          charge.hitPlayer = true;
+          damagePlayer(TEMPEST_KIRIN_CHARGE_DAMAGE);
+          spawnBurst(player.x, player.y, "#f3fdff", 38, 280);
+        }
+      }
+      if (charge.timer <= 0) {
+        tempestKirinBoss.charge = null;
+        tempestKirinBoss.attackClock = 2.35;
+      }
+      return;
+    }
+
+    if (sharedTimeline) return;
+    tempestKirinBoss.attackClock -= dt;
+    if (tempestKirinBoss.attackClock > 0) return;
+    const dx = player.x - tempestKirinBoss.x;
+    const dy = player.y - tempestKirinBoss.y;
+    if (dx * dx + dy * dy > TEMPEST_KIRIN_AGGRO_RANGE * TEMPEST_KIRIN_AGGRO_RANGE) return;
+    if (tempestKirinBoss.nextAttack === "charge") startTempestKirinCharge();
+    else startTempestKirinThunder();
+  }
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -2074,6 +2328,7 @@ export function createBossController(options: {
     resetGloomrootBoss,
     resetTidewyrmBoss,
     resetKoiShogunBoss,
+    resetTempestKirinBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
@@ -2081,6 +2336,7 @@ export function createBossController(options: {
     syncGloomrootState,
     syncTidewyrmState,
     syncKoiShogunState,
+    syncTempestKirinState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
@@ -2088,6 +2344,7 @@ export function createBossController(options: {
     updateGloomrootBoss,
     updateTidewyrmBoss,
     updateKoiShogunBoss,
+    updateTempestKirinBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
@@ -2095,6 +2352,7 @@ export function createBossController(options: {
     resolveGloomrootCollision: () => resolveCollision(gloomrootBoss, GLOOMROOT_CONTACT_DAMAGE, .75),
     resolveTidewyrmCollision: () => resolveCollision(tidewyrmBoss, TIDEWYRM_CONTACT_DAMAGE, .75),
     resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
+    resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, TEMPEST_KIRIN_CONTACT_DAMAGE, .75),
     applyDragonConePush,
     applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {

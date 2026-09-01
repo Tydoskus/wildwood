@@ -222,6 +222,17 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     }, 4);
   });
 
+  const tempestKirinSpriteCanvas = document.createElement("canvas");
+  const tempestKirinSpriteContext = requiredCanvasContext(tempestKirinSpriteCanvas, { willReadFrequently: true });
+  let tempestKirinReady = false;
+  const tempestKirinAsset = createLazyImageAsset("assets/wildstat/tempest-kirin-boss-spritesheet-v1.png", (image, settle) => {
+    tempestKirinSpriteCanvas.width = image.naturalWidth;
+    tempestKirinSpriteCanvas.height = image.naturalHeight;
+    tempestKirinSpriteContext.drawImage(image, 0, 0);
+    tempestKirinReady = true;
+    settle();
+  });
+
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
   void portalArchAsset.load();
@@ -305,6 +316,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     nightDecor: [nightTreeAsset],
     waterBoss: [tidewyrmAsset],
     samuraiBoss: [koiShogunAsset],
+    cloudspireBoss: [tempestKirinAsset],
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
@@ -356,6 +368,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tidewyrmSpriteCanvas,
     koiShogunReady: () => koiShogunReady,
     koiShogunSpriteCanvas,
+    tempestKirinReady: () => tempestKirinReady,
+    tempestKirinSpriteCanvas,
     allMapAssetsReady,
     ensureAllMapAssets,
     ensureMapAssets,

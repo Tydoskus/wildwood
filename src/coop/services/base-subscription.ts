@@ -55,6 +55,8 @@ export type BaseSubscriptionHandlers = {
   tidewyrmResult: RowHandler;
   koiShogunBoss: RowHandler;
   koiShogunResult: RowHandler;
+  tempestKirinBoss: RowHandler;
+  tempestKirinResult: RowHandler;
   chatMessage: RowHandler;
   duel: RowHandler;
   removeDuel: RowHandler;
@@ -172,6 +174,10 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.koiShogunBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.koiShogunBoss(row); });
   connection.db.koiShogunResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.koiShogunResult(row); });
   connection.db.koiShogunResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.koiShogunResult(row); });
+  connection.db.tempestKirinBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.tempestKirinBoss(row); });
+  connection.db.tempestKirinBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.tempestKirinBoss(row); });
+  connection.db.tempestKirinResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.tempestKirinResult(row); });
+  connection.db.tempestKirinResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.tempestKirinResult(row); });
   connection.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.duel.onInsert((_ctx, row) => { if (shouldHandle()) handlers.duel(row); });
   connection.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.duel(row); });
@@ -216,6 +222,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.tidewyrmResult.iter()) handlers.tidewyrmResult(row);
         for (const row of connection.db.koiShogunBoss.iter()) handlers.koiShogunBoss(row);
         for (const row of connection.db.koiShogunResult.iter()) handlers.koiShogunResult(row);
+        for (const row of connection.db.tempestKirinBoss.iter()) handlers.tempestKirinBoss(row);
+        for (const row of connection.db.tempestKirinResult.iter()) handlers.tempestKirinResult(row);
         for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
         for (const row of connection.db.duel.iter()) handlers.duel(row);
         dependencies.onHydrated();
@@ -260,6 +268,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.tidewyrmResult,
       tables.koiShogunBoss,
       tables.koiShogunResult,
+      tables.tempestKirinBoss,
+      tables.tempestKirinResult,
       tables.chatMessage,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
     ]);

@@ -9,7 +9,7 @@ import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
-import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, PlayerState, Projectile, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
@@ -44,6 +44,7 @@ export type WorldRenderRuntimeOptions = {
   infernalMapId: MapId;
   waterMapId: MapId;
   samuraiMapId: MapId;
+  cloudspireMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -56,6 +57,7 @@ export type WorldRenderRuntimeOptions = {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
+  tempestKirinBoss: TempestKirinBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -63,6 +65,7 @@ export type WorldRenderRuntimeOptions = {
   gloomrootBlooms: GloomrootBloom[];
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
   koiShogunWhirlpools: KoiShogunWhirlpool[];
+  tempestKirinThunderbolts: TempestKirinThunderbolt[];
   activePortal: () => Portal;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
@@ -89,6 +92,7 @@ export type WorldRenderRuntimeOptions = {
     gloomrootSpriteCanvas: HTMLCanvasElement;
     tidewyrmSpriteCanvas: HTMLCanvasElement;
     koiShogunSpriteCanvas: HTMLCanvasElement;
+    tempestKirinSpriteCanvas: HTMLCanvasElement;
     dragonReady: () => boolean;
     spiderReady: () => boolean;
     frostclawReady: () => boolean;
@@ -96,6 +100,7 @@ export type WorldRenderRuntimeOptions = {
     gloomrootReady: () => boolean;
     tidewyrmReady: () => boolean;
     koiShogunReady: () => boolean;
+    tempestKirinReady: () => boolean;
     duelPlatformArt: HTMLImageElement;
   };
   actorShadowSprite: HTMLImageElement;
@@ -196,6 +201,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     gloomrootBoss: options.gloomrootBoss,
     tidewyrmBoss: options.tidewyrmBoss,
     koiShogunBoss: options.koiShogunBoss,
+    tempestKirinBoss: options.tempestKirinBoss,
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
@@ -206,10 +212,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ...options.assets,
   });
   const boss = createBossRenderer({
-    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss, gloomrootBoss: options.gloomrootBoss, tidewyrmBoss: options.tidewyrmBoss, koiShogunBoss: options.koiShogunBoss,
-    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions, gloomrootBlooms: options.gloomrootBlooms, tidewyrmWhirlpools: options.tidewyrmWhirlpools, koiShogunWhirlpools: options.koiShogunWhirlpools,
-    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas, tidewyrmSpriteCanvas: options.assets.tidewyrmSpriteCanvas, koiShogunSpriteCanvas: options.assets.koiShogunSpriteCanvas,
-    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady, tidewyrmReady: options.assets.tidewyrmReady, koiShogunReady: options.assets.koiShogunReady,
+    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss, gloomrootBoss: options.gloomrootBoss, tidewyrmBoss: options.tidewyrmBoss, koiShogunBoss: options.koiShogunBoss, tempestKirinBoss: options.tempestKirinBoss,
+    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions, gloomrootBlooms: options.gloomrootBlooms, tidewyrmWhirlpools: options.tidewyrmWhirlpools, koiShogunWhirlpools: options.koiShogunWhirlpools, tempestKirinThunderbolts: options.tempestKirinThunderbolts,
+    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas, tidewyrmSpriteCanvas: options.assets.tidewyrmSpriteCanvas, koiShogunSpriteCanvas: options.assets.koiShogunSpriteCanvas, tempestKirinSpriteCanvas: options.assets.tempestKirinSpriteCanvas,
+    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady, tidewyrmReady: options.assets.tidewyrmReady, koiShogunReady: options.assets.koiShogunReady, tempestKirinReady: options.assets.tempestKirinReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
@@ -250,7 +256,11 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
               ? options.gloomrootBoss
               : options.currentMapId() === options.waterMapId
                 ? options.tidewyrmBoss
-                : options.currentMapId() === options.samuraiMapId ? options.koiShogunBoss : null,
+                : options.currentMapId() === options.samuraiMapId
+                  ? options.koiShogunBoss
+                  : options.currentMapId() === options.cloudspireMapId
+                    ? options.tempestKirinBoss
+                    : null,
     remoteAttackRange: BASE_ATTACK_RANGE,
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,
@@ -348,6 +358,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       gloomrootBoss: options.gloomrootBoss,
       tidewyrmBoss: options.tidewyrmBoss,
       koiShogunBoss: options.koiShogunBoss,
+      tempestKirinBoss: options.tempestKirinBoss,
       bootsPickup: frame.bootsPickup,
       currentMapId: options.currentMapId,
       activePortal: options.activePortal,
@@ -368,6 +379,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawGloomrootBoss: boss.drawGloomrootBoss,
       drawTidewyrmBoss: boss.drawTidewyrmBoss,
       drawKoiShogunBoss: boss.drawKoiShogunBoss,
+      drawTempestKirinBoss: boss.drawTempestKirinBoss,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -411,6 +423,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawGloomrootTelegraphs: boss.drawGloomrootTelegraphs,
       drawTidewyrmTelegraphs: boss.drawTidewyrmTelegraphs,
       drawKoiShogunTelegraphs: boss.drawKoiShogunTelegraphs,
+      drawTempestKirinTelegraphs: boss.drawTempestKirinTelegraphs,
       drawProjectile: actor.drawProjectile,
       drawDepthSortedWorld: depth.drawDepthSortedWorld,
       drawMinimap: world.drawMinimap,
@@ -424,6 +437,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       currentMapIsInfernal: () => options.currentMapId() === options.infernalMapId,
       currentMapIsWater: () => options.currentMapId() === options.waterMapId,
       currentMapIsSamurai: () => options.currentMapId() === options.samuraiMapId,
+      currentMapIsCloudspire: () => options.currentMapId() === options.cloudspireMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
       screenShake: frame.screenShake,

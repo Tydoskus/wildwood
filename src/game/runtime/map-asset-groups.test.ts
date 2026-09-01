@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -19,6 +20,7 @@ describe("lazy map asset groups", () => {
     expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID]).toContain("nightBoss");
     expect(MAP_ASSET_GROUPS[WATER_REACH_MAP_ID]).toContain("waterBoss");
     expect(MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID]).toContain("samuraiBoss");
+    expect(MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID]).toContain("cloudspireBoss");
   });
 
   it("keeps image-based scenery with only the maps that use it", () => {

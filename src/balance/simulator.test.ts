@@ -9,7 +9,7 @@ import {
   GLOOMROOT_MAX_HP,
   INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER,
 } from "../../shared/rules";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
 import { bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, targetCurveProgress, targetPowerAtMapProgress } from "./simulator";
 
 const quickConfig = {
@@ -22,7 +22,7 @@ const quickConfig = {
 describe("balance simulator", () => {
   it("uses the intended campaign defaults when no overrides are supplied", () => {
     const defaults = defaultBalanceSimulationConfig();
-    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3 + 1.35 ** 4 + 1.35 ** 5);
+    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3 + 1.35 ** 4 + 1.35 ** 5 + 1.35 ** 6);
     expect(defaults.durationSeconds).toBeCloseTo(22.5 * 60 + targetedMapSeconds);
     expect(defaults.trials).toBe(100);
     expect(defaults.strategy).toBe("boss-rush");
@@ -42,6 +42,7 @@ describe("balance simulator", () => {
     expect(result.maps.find((map) => map.mapId === INFERNAL_DEPTHS_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === WATER_REACH_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === SAMURAI_GARDEN_MAP_ID)?.hasBoss).toBe(true);
+    expect(result.maps.find((map) => map.mapId === CLOUDSPIRE_MAP_ID)?.hasBoss).toBe(true);
     expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000 * INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER);
   });
 

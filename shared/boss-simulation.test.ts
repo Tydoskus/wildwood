@@ -77,6 +77,14 @@ describe("deterministic boss simulation", () => {
     expect(second.ability).toBe("whirlpool");
   });
 
+  it("cycles the Tempest Kirin between charge and thunder", () => {
+    const first = bossAbilityTimelineAt({ kind: "tempestKirin", serverNowMs: 0 });
+    const second = bossAbilityTimelineAt({ kind: "tempestKirin", serverNowMs: first.slotDurationMs });
+
+    expect(first.ability).toBe("charge");
+    expect(second.ability).toBe("thunder");
+  });
+
   it("shares a player's exact boss attack slot across clients", () => {
     const options = {
       kind: "magmalisk" as const,

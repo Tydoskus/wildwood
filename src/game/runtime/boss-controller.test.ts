@@ -42,6 +42,15 @@ import {
   SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_REWARD_SCALE,
+  CLOUDSPIRE_DAMAGE_SCALE,
+  CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER,
+  CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER,
+  CLOUDSPIRE_REWARD_SCALE,
+  TEMPEST_KIRIN_MAX_HP,
+  TEMPEST_KIRIN_REWARD_ARMOR,
+  TEMPEST_KIRIN_REWARD_DAMAGE,
+  TEMPEST_KIRIN_REWARD_HEALTH,
+  TEMPEST_KIRIN_REWARD_REGEN,
   TIDEWYRM_MAX_HP,
   TIDEWYRM_REWARD_ARMOR,
   TIDEWYRM_REWARD_DAMAGE,
@@ -79,6 +88,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     gloomrootBoss: state.gloomrootBoss,
     tidewyrmBoss: state.tidewyrmBoss,
     koiShogunBoss: state.koiShogunBoss,
+    tempestKirinBoss: state.tempestKirinBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
@@ -86,6 +96,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     gloomrootBlooms: state.gloomrootBlooms,
     tidewyrmWhirlpools: state.tidewyrmWhirlpools,
     koiShogunWhirlpools: state.koiShogunWhirlpools,
+    tempestKirinThunderbolts: state.tempestKirinThunderbolts,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
@@ -94,6 +105,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getGloomrootBoss: () => null,
     getTidewyrmBoss: () => null,
     getKoiShogunBoss: () => null,
+    getTempestKirinBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
@@ -101,6 +113,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getGloomrootResult: () => null,
     getTidewyrmResult: () => null,
     getKoiShogunResult: () => null,
+    getTempestKirinResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
@@ -109,6 +122,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     currentMapIsInfernal: () => false,
     currentMapIsWater: () => false,
     currentMapIsSamurai: () => false,
+    currentMapIsCloudspire: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -479,5 +493,35 @@ describe("Koi Shogun boss", () => {
     controller.updateKoiShogunBoss(2.5);
     expect(koiShogunWhirlpools.length).toBeGreaterThan(0);
     expect(koiShogunBoss.nextAttack).toBe("slash");
+  });
+});
+
+describe("Tempest Kirin boss", () => {
+  it("caps Cloudspire with the next repeatable late-map reward", () => {
+    expect(TEMPEST_KIRIN_MAX_HP).toBe(KOI_SHOGUN_MAX_HP * CLOUDSPIRE_DAMAGE_SCALE * 1.1);
+    expect(TEMPEST_KIRIN_REWARD_DAMAGE).toBe(KOI_SHOGUN_REWARD_DAMAGE * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER);
+    expect(TEMPEST_KIRIN_REWARD_HEALTH).toBe(KOI_SHOGUN_REWARD_HEALTH * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER);
+    expect(TEMPEST_KIRIN_REWARD_ARMOR).toBe(KOI_SHOGUN_REWARD_ARMOR * CLOUDSPIRE_REWARD_SCALE);
+    expect(TEMPEST_KIRIN_REWARD_REGEN).toBe(KOI_SHOGUN_REWARD_REGEN * CLOUDSPIRE_REWARD_SCALE);
+  });
+
+  it("cycles a charge wave into targeted thunder circles", () => {
+    const { controller, tempestKirinBoss, tempestKirinThunderbolts, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsCloudspire: () => true,
+    });
+    player.x = tempestKirinBoss.x + 300;
+    player.y = tempestKirinBoss.y;
+    tempestKirinBoss.attackClock = 0;
+
+    controller.updateTempestKirinBoss(.016);
+    expect(tempestKirinBoss.charge).not.toBeNull();
+    expect(tempestKirinBoss.nextAttack).toBe("thunder");
+
+    controller.updateTempestKirinBoss(.75);
+    controller.updateTempestKirinBoss(1.05);
+    controller.updateTempestKirinBoss(2.4);
+    expect(tempestKirinThunderbolts.length).toBeGreaterThan(0);
+    expect(tempestKirinBoss.nextAttack).toBe("charge");
   });
 });

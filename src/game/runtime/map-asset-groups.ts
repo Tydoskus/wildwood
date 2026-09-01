@@ -1,6 +1,7 @@
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
@@ -20,7 +21,8 @@ export type MapAssetGroup =
   | "nightBoss"
   | "nightDecor"
   | "waterBoss"
-  | "samuraiBoss";
+  | "samuraiBoss"
+  | "cloudspireBoss";
 
 /** Source-of-truth for art that should begin loading only when its map is needed. */
 export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
@@ -31,4 +33,5 @@ export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
   [INFERNAL_DEPTHS_MAP_ID]: ["nightBoss", "nightDecor"],
   [WATER_REACH_MAP_ID]: ["waterBoss"],
   [SAMURAI_GARDEN_MAP_ID]: ["samuraiBoss"],
+  [CLOUDSPIRE_MAP_ID]: ["cloudspireBoss"],
 };

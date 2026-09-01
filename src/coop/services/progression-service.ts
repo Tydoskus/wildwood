@@ -41,6 +41,7 @@ type ProgressRow = { identity: Identity } & Omit<
   | "infernalUnlocked"
   | "waterUnlocked"
   | "samuraiUnlocked"
+  | "cloudspireUnlocked"
   | "bowCount"
   | "woodenArmorCount"
   | "cosmeticHead"
@@ -54,6 +55,7 @@ type ProgressRow = { identity: Identity } & Omit<
   infernalUnlocked?: boolean;
   waterUnlocked?: boolean;
   samuraiUnlocked?: boolean;
+  cloudspireUnlocked?: boolean;
   bowCount?: number;
   woodenArmorCount?: number;
   cosmeticHead?: string;
@@ -228,6 +230,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       infernalUnlocked: row.infernalUnlocked ?? false,
       waterUnlocked: row.waterUnlocked ?? false,
       samuraiUnlocked: row.samuraiUnlocked ?? false,
+      cloudspireUnlocked: row.cloudspireUnlocked ?? false,
       bowCount: Math.max(0, Math.floor(row.bowCount ?? 0)),
       woodenArmorCount: Math.max(0, Math.floor(row.woodenArmorCount ?? 0)),
     };

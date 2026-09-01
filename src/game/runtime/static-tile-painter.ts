@@ -129,6 +129,37 @@ export function paintStaticTile(
       for (let offset = -radius + 3; offset < radius; offset += 4) {
         context.beginPath(); context.moveTo(x, y - radius + 2); context.lineTo(x + offset, y + 1); context.stroke();
       }
+    } else if (decor.type === "cloud") {
+      const scale = Math.max(.55, decor.s);
+      const width = Math.round(48 * scale);
+      const height = Math.round(18 * scale);
+      context.fillStyle = "rgba(20,48,91,.16)";
+      context.beginPath(); context.ellipse(x, y + Math.round(height * .36), width * .62, height * .44, 0, 0, TAU); context.fill();
+      context.fillStyle = decor.variant % 2 ? "rgba(235,248,255,.86)" : "rgba(214,239,255,.82)";
+      context.beginPath();
+      context.ellipse(x, y, width * .52, height * .52, 0, 0, TAU);
+      context.ellipse(x - width * .28, y + 2, width * .34, height * .42, 0, 0, TAU);
+      context.ellipse(x + width * .3, y + 3, width * .38, height * .46, 0, 0, TAU);
+      context.fill();
+      context.fillStyle = "rgba(255,255,255,.52)";
+      context.beginPath(); context.ellipse(x - width * .08, y - height * .18, width * .27, height * .22, 0, 0, TAU); context.fill();
+    } else if (decor.type === "skyShard") {
+      const scale = Math.max(.6, decor.s);
+      const width = Math.round(16 * scale);
+      const height = Math.round(34 * scale);
+      context.fillStyle = "rgba(22,42,83,.2)";
+      context.beginPath(); context.ellipse(x, y + 3, width, Math.max(3, width * .36), 0, 0, TAU); context.fill();
+      context.fillStyle = ["#8de5ff", "#f3d778", "#c9b8ff"][decor.variant % 3];
+      context.beginPath();
+      context.moveTo(x, y - height);
+      context.lineTo(x + width * .58, y - height * .38);
+      context.lineTo(x + width * .34, y);
+      context.lineTo(x - width * .42, y);
+      context.lineTo(x - width * .62, y - height * .42);
+      context.closePath();
+      context.fill();
+      context.fillStyle = "rgba(255,255,255,.55)";
+      context.beginPath(); context.moveTo(x, y - height); context.lineTo(x, y - height * .18); context.lineTo(x - width * .42, y); context.closePath(); context.fill();
     }
   }
 

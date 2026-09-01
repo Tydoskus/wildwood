@@ -35,6 +35,7 @@ const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress =>
   infernalUnlocked: false,
   waterUnlocked: false,
   samuraiUnlocked: false,
+  cloudspireUnlocked: false,
   bowCount: 0,
   woodenArmorCount: 0,
 });

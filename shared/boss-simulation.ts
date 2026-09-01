@@ -16,7 +16,8 @@ export type BossSimulationKind =
   | "magmalisk"
   | "gloomroot"
   | "tidewyrm"
-  | "koiShogun";
+  | "koiShogun"
+  | "tempestKirin";
 
 export type BossAbilityName =
   | "cone"
@@ -32,7 +33,9 @@ export type BossAbilityName =
   | "bloom"
   | "surge"
   | "slash"
-  | "whirlpool";
+  | "whirlpool"
+  | "charge"
+  | "thunder";
 
 type BossAbilityDefinition = {
   ability: BossAbilityName;
@@ -74,6 +77,10 @@ const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefini
   koiShogun: [
     { ability: "slash", slotDurationMs: 4_200, activeDurationMs: 1_820 },
     { ability: "whirlpool", slotDurationMs: 5_000, activeDurationMs: 1_900 },
+  ],
+  tempestKirin: [
+    { ability: "charge", slotDurationMs: 4_100, activeDurationMs: 1_760 },
+    { ability: "thunder", slotDurationMs: 4_900, activeDurationMs: 1_880 },
   ],
 };
 

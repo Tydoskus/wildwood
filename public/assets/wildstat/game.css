@@ -1462,7 +1462,7 @@
     content: "";
     opacity: 1;
     pointer-events: none;
-    transition: opacity 480ms ease;
+    transition: opacity 2s ease;
   }
 
   html.signin-artwork-ready #start::before,
@@ -1563,6 +1563,7 @@
     .daily-gem-bonus-art::before,
     .daily-gem-bonus-art img,
     .daily-gem-bonus.is-claimed .daily-gem-bonus-art img { animation: none; }
+    #accountChoicePanel .wildstat-wordmark-title,
     .chat-message-actions-backdrop,
     .chat-message-action-sheet { transition: none; }
   }
@@ -1874,7 +1875,11 @@
     margin-right: 0;
     margin-left: calc((100% - min(390px, calc(100vw - 36px))) / 2);
     animation: signin-logo-float 3.2s ease-in-out infinite;
+    opacity: 0;
+    transition: opacity 600ms ease 2s;
   }
+
+  html.signin-artwork-ready #accountChoicePanel .wildstat-wordmark-title { opacity: 1; }
 
   @keyframes signin-logo-float {
     0%, 100% { transform: translateY(0); }

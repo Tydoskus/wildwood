@@ -21,6 +21,10 @@ import {
   TIDEWYRM_SPRITE_Y_OFFSET,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
+  TEMPEST_KIRIN_CHARGE_HALF_ANGLE,
+  TEMPEST_KIRIN_CHARGE_RANGE,
+  TEMPEST_KIRIN_SPRITE_GROUND_OFFSET,
+  TEMPEST_KIRIN_SPRITE_Y_OFFSET,
   TAU,
 } from "../constants";
 import { clamp } from "../math";
@@ -49,6 +53,10 @@ import {
   TIDEWYRM_REWARD_DAMAGE,
   TIDEWYRM_REWARD_HEALTH,
   TIDEWYRM_REWARD_REGEN,
+  TEMPEST_KIRIN_REWARD_ARMOR,
+  TEMPEST_KIRIN_REWARD_DAMAGE,
+  TEMPEST_KIRIN_REWARD_HEALTH,
+  TEMPEST_KIRIN_REWARD_REGEN,
 } from "../../../shared/rules";
 import type { Camera } from "./camera";
 import {
@@ -58,7 +66,7 @@ import {
   bossStatusLabelOffsets,
 } from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
 
@@ -80,6 +88,7 @@ export function createBossRenderer(options: {
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
+  tempestKirinBoss: TempestKirinBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -87,6 +96,7 @@ export function createBossRenderer(options: {
   gloomrootBlooms: GloomrootBloom[];
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
   koiShogunWhirlpools: KoiShogunWhirlpool[];
+  tempestKirinThunderbolts: TempestKirinThunderbolt[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
@@ -94,6 +104,7 @@ export function createBossRenderer(options: {
   gloomrootSpriteCanvas: HTMLCanvasElement;
   tidewyrmSpriteCanvas: HTMLCanvasElement;
   koiShogunSpriteCanvas: HTMLCanvasElement;
+  tempestKirinSpriteCanvas: HTMLCanvasElement;
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
@@ -101,6 +112,7 @@ export function createBossRenderer(options: {
   gloomrootReady: () => boolean;
   tidewyrmReady: () => boolean;
   koiShogunReady: () => boolean;
+  tempestKirinReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -109,7 +121,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -807,6 +819,118 @@ export function createBossRenderer(options: {
       ],
     });
   }
+
+  function drawTempestKirinTelegraphs() {
+    if (tempestKirinBoss.dead) return;
+    const x = screenX(tempestKirinBoss.x);
+    const y = screenY(tempestKirinBoss.y);
+    const time = options.gameTime();
+    if (tempestKirinBoss.charge) {
+      const charge = tempestKirinBoss.charge;
+      ctx.save();
+      ctx.fillStyle = charge.windup > 0 ? "rgba(104,194,255,.13)" : "rgba(228,249,255,.25)";
+      ctx.strokeStyle = charge.windup > 0 ? "rgba(151,220,255,.96)" : "rgba(255,232,139,.98)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, TEMPEST_KIRIN_CHARGE_RANGE, charge.angle - TEMPEST_KIRIN_CHARGE_HALF_ANGLE, charge.angle + TEMPEST_KIRIN_CHARGE_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (charge.windup <= 0) {
+        const radius = tempestKirinBoss.r + (TEMPEST_KIRIN_CHARGE_RANGE - tempestKirinBoss.r) * clamp(1 - charge.timer / charge.duration, 0, 1);
+        ctx.strokeStyle = "rgba(242,253,255,.98)";
+        ctx.lineWidth = 12;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, charge.angle - TEMPEST_KIRIN_CHARGE_HALF_ANGLE, charge.angle + TEMPEST_KIRIN_CHARGE_HALF_ANGLE);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    for (const bolt of options.tempestKirinThunderbolts) {
+      const progress = 1 - clamp(bolt.timer / bolt.maxTimer, 0, 1);
+      const boltX = screenX(bolt.x);
+      const boltY = screenY(bolt.y);
+      ctx.save();
+      ctx.fillStyle = `rgba(92,190,255,${.1 + progress * .2})`;
+      ctx.strokeStyle = "rgba(255,231,133,.98)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([11, 7]);
+      ctx.lineDashOffset = -time * 70;
+      ctx.beginPath();
+      ctx.arc(boltX, boltY, bolt.r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "rgba(219,249,255,.94)";
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.arc(boltX, boltY, bolt.r * (.2 + progress * .55), 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawTempestKirinBoss() {
+    if (tempestKirinBoss.dead) return;
+    const canvas = options.tempestKirinSpriteCanvas;
+    const frame = options.tempestKirinThunderbolts.length > 0
+      ? 3
+      : tempestKirinBoss.charge
+        ? (tempestKirinBoss.charge.windup > 0 ? 1 : 2)
+        : 0;
+    const drawW = 356;
+    const drawH = 542;
+    const x = screenX(tempestKirinBoss.x);
+    const y = screenY(tempestKirinBoss.y);
+    const visualY = y + TEMPEST_KIRIN_SPRITE_Y_OFFSET;
+    const pulse = options.tempestKirinThunderbolts.length > 0 ? 1 + Math.sin(options.gameTime() * 15) * .016 : 1;
+    options.drawShadow(x, visualY + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, 235, .3);
+    ctx.save();
+    ctx.translate(x, visualY);
+    ctx.scale(pulse, pulse);
+    if (options.tempestKirinReady() && canvas.width >= 4 && canvas.height >= 2) {
+      const cellW = canvas.width / 4;
+      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      ctx.fillStyle = "#ecfaff";
+      ctx.strokeStyle = "#23466e";
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.ellipse(0, 36, 144, 88, -.08, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#74c8ff";
+      ctx.beginPath();
+      ctx.moveTo(-95, -15);
+      ctx.lineTo(-12, -150);
+      ctx.lineTo(45, -15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 320,
+      barHeight: 23,
+      hp: tempestKirinBoss.hp,
+      maxHp: tempestKirinBoss.maxHp,
+      hpLossFlashTimer: tempestKirinBoss.hpLossFlashTimer,
+      hpLossFlashFrom: tempestKirinBoss.hpLossFlashFrom,
+      backgroundColor: "#193a67",
+      fillColor: "#65c8ff",
+      name: { text: "TEMPEST KIRIN", color: "#e9fbff" },
+      rewards: [
+        { text: rewardText("damage", TEMPEST_KIRIN_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", TEMPEST_KIRIN_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", TEMPEST_KIRIN_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", TEMPEST_KIRIN_REWARD_REGEN), color: REWARD_DATA.regen.color },
+      ],
+    });
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -822,5 +946,7 @@ export function createBossRenderer(options: {
     drawTidewyrmBoss,
     drawKoiShogunTelegraphs,
     drawKoiShogunBoss,
+    drawTempestKirinTelegraphs,
+    drawTempestKirinBoss,
   };
 }

@@ -77,6 +77,7 @@ type SessionDependencies = {
   infernalMapId: MapId;
   waterMapId: MapId;
   samuraiMapId: MapId;
+  cloudspireMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -104,6 +105,7 @@ type SessionDependencies = {
   syncGloomroot: () => void;
   syncTidewyrm: () => void;
   syncKoiShogun: () => void;
+  syncTempestKirin: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -118,6 +120,7 @@ type SessionDependencies = {
   updateGloomroot: (dt: number) => void;
   updateTidewyrm: (dt: number) => void;
   updateKoiShogun: (dt: number) => void;
+  updateTempestKirin: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -159,6 +162,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.syncGloomroot();
     if (dependencies.getMapId() === dependencies.waterMapId) dependencies.syncTidewyrm();
     if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.syncKoiShogun();
+    if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.syncTempestKirin();
   }
 
   function simulate(dt: number) {
@@ -184,6 +188,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.updateGloomroot(dt);
       if (dependencies.getMapId() === dependencies.waterMapId) dependencies.updateTidewyrm(dt);
       if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.updateKoiShogun(dt);
+      if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.updateTempestKirin(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

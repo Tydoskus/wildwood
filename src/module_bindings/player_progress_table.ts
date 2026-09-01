@@ -43,4 +43,5 @@ export default __t.row({
   infernalUnlocked: __t.bool().name("infernal_unlocked"),
   waterUnlocked: __t.bool().name("water_unlocked"),
   samuraiUnlocked: __t.bool().name("samurai_unlocked"),
+  cloudspireUnlocked: __t.bool().name("cloudspire_unlocked"),
 });

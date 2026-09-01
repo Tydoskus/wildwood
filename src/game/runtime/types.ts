@@ -145,6 +145,11 @@ export type KoiShogunWhirlpool = Circle & {
   maxTimer: number;
 };
 
+export type TempestKirinThunderbolt = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
 export type FrostclawRoar = {
   windup: number;
   timer: number;
@@ -218,7 +223,13 @@ export type KoiShogunBossState = BossStateBase & {
   slash: BossCone | null;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState;
+export type TempestKirinBossState = BossStateBase & {
+  bossKind: "tempestKirin";
+  nextAttack: "charge" | "thunder";
+  charge: BossCone | null;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState;
 
 export type DuelPresentation = {
   id: bigint;

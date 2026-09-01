@@ -20,6 +20,11 @@ import {
   BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
   BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER,
   BEGINNER_DESERT_REWARD_SCALE,
+  CLOUDSPIRE_ARCHETYPE_PROFILE,
+  CLOUDSPIRE_DAMAGE_SCALE,
+  CLOUDSPIRE_HEALTH_SCALE,
+  CLOUDSPIRE_REWARD_SCALE,
+  CLOUDSPIRE_REWARD_TRACK_PROFILE,
   INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE,
   INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
   INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
@@ -274,6 +279,36 @@ function samuraiGardenBalance(archetype: LateMapArchetype): EnemyBalance {
   };
 }
 
+const CLOUDSPIRE_HEALTH_FACTORS = centeredLateMapFactors(
+  (archetype) => CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].health,
+  (archetype) => samuraiGardenBalance(archetype).hp,
+);
+const CLOUDSPIRE_DAMAGE_FACTORS = centeredLateMapFactors(
+  (archetype) => CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].damage,
+  (archetype) => samuraiGardenBalance(archetype).damage * CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].attackSpeed,
+  (archetype) => samuraiGardenBalance(archetype).damage * samuraiGardenBalance(archetype).attackSpeed,
+);
+const CLOUDSPIRE_REWARD_FACTORS = centeredLateMapFactors(
+  (archetype) => {
+    const reward = samuraiGardenBalance(archetype).reward;
+    return CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].reward * CLOUDSPIRE_REWARD_TRACK_PROFILE[reward.type];
+  },
+  (archetype) => rewardPower(samuraiGardenBalance(archetype).reward),
+);
+
+function cloudspireBalance(archetype: LateMapArchetype): EnemyBalance {
+  const samurai = samuraiGardenBalance(archetype);
+  return {
+    hp: samurai.hp * CLOUDSPIRE_HEALTH_SCALE * CLOUDSPIRE_HEALTH_FACTORS[archetype],
+    damage: samurai.damage * CLOUDSPIRE_DAMAGE_SCALE * CLOUDSPIRE_DAMAGE_FACTORS[archetype],
+    attackSpeed: CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].attackSpeed,
+    reward: {
+      ...samurai.reward,
+      amount: samurai.reward.amount * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_REWARD_FACTORS[archetype],
+    },
+  };
+}
+
 const enemyTypes = {
   // TUTORIAL FOREST ENEMIES
   // Movement speeds are the original balance values reduced by 50%.
@@ -483,6 +518,31 @@ const enemyTypes = {
     ...samuraiGardenBalance("oracle"), speed: 220, r: 41,
     color: "#eeb1d4", outline: "#52334f",
     elite: true, aggro: 340,
+  },
+
+  // CLOUDSPIRE ENEMIES
+  "Gale Prowler": {
+    ...cloudspireBalance("raider"), speed: 242, r: 30,
+    color: "#72c9f4", outline: "#203f68",
+  },
+  "Nimbus Archer": {
+    ...cloudspireBalance("archer"), speed: 224, r: 28,
+    color: "#b9e8ff", outline: "#365a78",
+    ranged: true,
+  },
+  "Skyguard Colossus": {
+    ...cloudspireBalance("guardian"), speed: 212, r: 39,
+    color: "#e8cb72", outline: "#5b4722",
+  },
+  "Thunder Reaper": {
+    ...cloudspireBalance("reaper"), speed: 246, r: 45,
+    color: "#7184db", outline: "#29305d",
+    ranged: true, elite: true, aggro: 350,
+  },
+  "Tempest Oracle": {
+    ...cloudspireBalance("oracle"), speed: 230, r: 42,
+    color: "#cbbcf4", outline: "#44345f",
+    elite: true, aggro: 350,
   },
 } satisfies Record<string, EnemyDefinition>;
 

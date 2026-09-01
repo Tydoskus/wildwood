@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.584": [
+    "Added Cloudspire with five storm enemies and the Tempest Kirin world boss.",
+    "The sign-in background now fades in over two seconds before revealing the logo.",
+    "Aligned the floating Gender and Power icons above player health bars.",
+    "Map music now finishes loading silently and loops from memory without requesting the soundtrack again.",
+  ],
   "0.583": [
     "The sign-in screen now stays black until the full background is ready, then fades it in without the blurry embedded preview.",
     "Corrected the Koi Shogun's proportions and reduced its in-game size.",
@@ -1317,6 +1323,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.584": "2026-09-01",
   "0.583": "2026-09-01",
   "0.582": "2026-09-01",
   "0.581": "2026-09-01",
