@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.583": [
+    "The sign-in screen now stays black until the full background is ready, then fades it in without the blurry embedded preview.",
+    "Corrected the Koi Shogun's proportions and reduced its in-game size.",
+  ],
   "0.582": [
     "Updated the Player Power icon across the HUD, player labels, and chat.",
   ],
@@ -1313,6 +1317,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.583": "2026-09-01",
   "0.582": "2026-09-01",
   "0.581": "2026-09-01",
   "0.580": "2026-09-01",

@@ -1442,15 +1442,34 @@
     width: 100vw;
     height: calc(100vh + 30px);
     height: calc(100dvh + 30px);
+    isolation: isolate;
     background-color: #000;
     /* The versioned artwork URL from index.html resolves relative to this stylesheet. */
     background-image:
       linear-gradient(180deg, rgba(4, 12, 6, .06), rgba(4, 12, 6, .095)),
-      var(--signin-artwork, none),
-      var(--signin-preview, none);
+      var(--signin-artwork, none);
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
+  }
+
+  #start::before,
+  #gameUpdateGate::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: #000;
+    content: "";
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 480ms ease;
+  }
+
+  html.signin-artwork-ready #start::before,
+  html.signin-artwork-ready #gameUpdateGate::before { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #start::before, #gameUpdateGate::before { transition: none; }
   }
 
   .signin-mute-button {

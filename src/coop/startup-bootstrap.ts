@@ -6,6 +6,7 @@ import {
   type StartupAccountState,
   type StartupActionResult,
 } from "./startup-auth-gate";
+import { startStartupArtworkReveal } from "./startup-artwork-reveal";
 import { createStartupReleaseNotes } from "./startup-release-notes";
 import { createStartupMusicToggle } from "./startup-music-toggle";
 
@@ -22,6 +23,7 @@ type StartupBootstrapDependencies = {
 
 /** Keeps the account/consent shell independent from the deferred game bundle. */
 export function startStartupBootstrap(dependencies: StartupBootstrapDependencies) {
+  const artworkReveal = startStartupArtworkReveal();
   const musicToggle = createStartupMusicToggle({ storageKey: MUSIC_VOLUME_KEY });
   const releaseNotes = createStartupReleaseNotes({
     releases: () => recentReleaseNotes(2),
@@ -30,6 +32,7 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
     ...dependencies,
     loadGame: async () => {
       await loadDeferredGameBundle();
+      artworkReveal.dispose();
       musicToggle.dispose();
     },
     releaseNotes,

@@ -754,14 +754,14 @@ export function createBossRenderer(options: {
     if (koiShogunBoss.dead) return;
     const canvas = options.koiShogunSpriteCanvas;
     const frame = options.koiShogunWhirlpools.length > 0 ? 3 : koiShogunBoss.slash ? (koiShogunBoss.slash.windup > 0 ? 2 : 1) : 0;
-    const drawW = 440;
-    const drawH = 470;
+    const drawW = 330;
+    const drawH = 440;
     const x = screenX(koiShogunBoss.x);
     const y = screenY(koiShogunBoss.y);
     const visualY = y + KOI_SHOGUN_SPRITE_Y_OFFSET;
     const pulse = options.koiShogunWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
     const flipHorizontally = frame === 0 || frame === 1;
-    options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 280, .3);
+    options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 210, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(flipHorizontally ? -pulse : pulse, pulse);
