@@ -1799,7 +1799,7 @@
     position: fixed;
     z-index: 3;
     left: 50%;
-    bottom: max(0px, env(safe-area-inset-bottom));
+    bottom: 0;
     display: block;
     width: auto;
     min-width: 0;

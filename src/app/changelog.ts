@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.580": [
+    "The sign-in version tab now sits flush with the bottom edge on every screen.",
+  ],
   "0.579": [
     "Added the Koi Shogun to Samurai Garden, with water-sword attacks, shared health, contribution rewards, and repeatable respawns.",
     "Polished the sign-in screen with roomier buttons, a cleaner version-notes panel, and updated sound controls.",
@@ -1303,6 +1306,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.580": "2026-09-01",
   "0.579": "2026-09-01",
   "0.578": "2026-09-01",
   "0.577": "2026-08-30",
