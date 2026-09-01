@@ -29,11 +29,17 @@ import {
   INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
+  KOI_SHOGUN_MAX_HP,
+  KOI_SHOGUN_REWARD_ARMOR,
+  KOI_SHOGUN_REWARD_DAMAGE,
+  KOI_SHOGUN_REWARD_HEALTH,
+  KOI_SHOGUN_REWARD_REGEN,
   MAGMALISK_MAX_HP,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
+  SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_REWARD_SCALE,
   TIDEWYRM_MAX_HP,
@@ -72,12 +78,14 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     magmaliskBoss: state.magmaliskBoss,
     gloomrootBoss: state.gloomrootBoss,
     tidewyrmBoss: state.tidewyrmBoss,
+    koiShogunBoss: state.koiShogunBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
     magmaliskEruptions: state.magmaliskEruptions,
     gloomrootBlooms: state.gloomrootBlooms,
     tidewyrmWhirlpools: state.tidewyrmWhirlpools,
+    koiShogunWhirlpools: state.koiShogunWhirlpools,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
@@ -85,12 +93,14 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getMagmaliskBoss: () => null,
     getGloomrootBoss: () => null,
     getTidewyrmBoss: () => null,
+    getKoiShogunBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
     getMagmaliskResult: () => null,
     getGloomrootResult: () => null,
     getTidewyrmResult: () => null,
+    getKoiShogunResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
@@ -98,6 +108,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     currentMapIsLava: () => false,
     currentMapIsInfernal: () => false,
     currentMapIsWater: () => false,
+    currentMapIsSamurai: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -438,5 +449,35 @@ describe("Tidewyrm boss", () => {
     expect(startSamuraiPortalCutscene).toHaveBeenCalledOnce();
     expect(player.damage).toBe(damageBefore);
     expect(player.baseMaxHp).toBe(maxHealthBefore);
+  });
+});
+
+describe("Koi Shogun boss", () => {
+  it("caps Samurai Garden with a repeatable late-map reward", () => {
+    expect(KOI_SHOGUN_MAX_HP).toBe(TIDEWYRM_MAX_HP * SAMURAI_GARDEN_DAMAGE_SCALE * .75);
+    expect(KOI_SHOGUN_REWARD_DAMAGE).toBe(TIDEWYRM_REWARD_DAMAGE * SAMURAI_GARDEN_REWARD_SCALE);
+    expect(KOI_SHOGUN_REWARD_HEALTH).toBe(TIDEWYRM_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE);
+    expect(KOI_SHOGUN_REWARD_ARMOR).toBe(TIDEWYRM_REWARD_ARMOR * SAMURAI_GARDEN_REWARD_SCALE);
+    expect(KOI_SHOGUN_REWARD_REGEN).toBe(TIDEWYRM_REWARD_REGEN * SAMURAI_GARDEN_REWARD_SCALE);
+  });
+
+  it("cycles a water slash into staggered whirlpools", () => {
+    const { controller, koiShogunBoss, koiShogunWhirlpools, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsSamurai: () => true,
+    });
+    player.x = koiShogunBoss.x + 300;
+    player.y = koiShogunBoss.y;
+    koiShogunBoss.attackClock = 0;
+
+    controller.updateKoiShogunBoss(.016);
+    expect(koiShogunBoss.slash).not.toBeNull();
+    expect(koiShogunBoss.nextAttack).toBe("whirlpool");
+
+    controller.updateKoiShogunBoss(.78);
+    controller.updateKoiShogunBoss(1.1);
+    controller.updateKoiShogunBoss(2.5);
+    expect(koiShogunWhirlpools.length).toBeGreaterThan(0);
+    expect(koiShogunBoss.nextAttack).toBe("slash");
   });
 });

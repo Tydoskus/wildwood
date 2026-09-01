@@ -19,7 +19,8 @@ export type MapAssetGroup =
   | "lavaDecor"
   | "nightBoss"
   | "nightDecor"
-  | "waterBoss";
+  | "waterBoss"
+  | "samuraiBoss";
 
 /** Source-of-truth for art that should begin loading only when its map is needed. */
 export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
@@ -29,5 +30,5 @@ export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
   [ADVANCED_LAVA_WASTES_MAP_ID]: ["lavaBoss", "lavaDecor"],
   [INFERNAL_DEPTHS_MAP_ID]: ["nightBoss", "nightDecor"],
   [WATER_REACH_MAP_ID]: ["waterBoss"],
-  [SAMURAI_GARDEN_MAP_ID]: [],
+  [SAMURAI_GARDEN_MAP_ID]: ["samuraiBoss"],
 };

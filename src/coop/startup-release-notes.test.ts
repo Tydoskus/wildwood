@@ -6,7 +6,14 @@ import {
 
 class FakeElement {
   hidden = true;
+  private attributeValues = new Map<string, string>();
   private listeners = new Map<string, Set<() => void>>();
+  setAttribute(name: string, value: string) {
+    this.attributeValues.set(name, value);
+  }
+  getAttribute(name: string) {
+    return this.attributeValues.get(name) ?? null;
+  }
   addEventListener(name: string, listener: () => void) {
     const listeners = this.listeners.get(name) ?? new Set();
     listeners.add(listener);
@@ -23,51 +30,49 @@ class FakeElement {
 function elements() {
   return {
     overlay: new FakeElement(),
-    title: new FakeElement(),
     items: new FakeElement(),
-    close: new FakeElement(),
+    toggle: new FakeElement(),
   } as unknown as StartupReleaseNotesElements & {
     overlay: FakeElement;
-    close: FakeElement;
+    toggle: FakeElement;
   };
 }
 
 describe("startup release notes", () => {
-  it("renders unseen notes before the game bundle owns the startup screen", () => {
+  it("prepares release notes closed before the game bundle owns the startup screen", () => {
     const ui = elements();
-    const render = vi.fn(({ overlay }: { overlay: FakeElement }) => { overlay.hidden = false; });
+    const render = vi.fn();
     const notes = createStartupReleaseNotes({
-      version: "0.550",
       releases: () => [{ version: "0.550", notes: ["A smoother sign-in."] }],
-      seenVersion: () => "0.549",
-      markSeen: vi.fn(),
       render: render as never,
     }, ui);
 
     notes.show();
 
     expect(render).toHaveBeenCalledTimes(1);
-    expect(ui.overlay.hidden).toBe(false);
+    expect(ui.overlay.hidden).toBe(true);
+    expect(ui.toggle.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("marks notes seen only when they are explicitly closed", () => {
+  it("toggles the notes from the version button and closes them during startup transitions", () => {
     const ui = elements();
-    const markSeen = vi.fn();
     const notes = createStartupReleaseNotes({
-      version: "0.550",
       releases: () => [{ version: "0.550", notes: ["A smoother sign-in."] }],
-      seenVersion: () => "0.549",
-      markSeen,
-      render: (({ overlay }: { overlay: FakeElement }) => { overlay.hidden = false; }) as never,
+      render: vi.fn() as never,
     }, ui);
 
     notes.show();
-    notes.hide();
-    expect(markSeen).not.toHaveBeenCalled();
+    ui.toggle.click();
+    expect(ui.overlay.hidden).toBe(false);
+    expect(ui.toggle.getAttribute("aria-expanded")).toBe("true");
 
-    notes.show();
-    ui.close.click();
+    ui.toggle.click();
     expect(ui.overlay.hidden).toBe(true);
-    expect(markSeen).toHaveBeenCalledTimes(1);
+    expect(ui.toggle.getAttribute("aria-expanded")).toBe("false");
+
+    ui.toggle.click();
+    notes.hide();
+    expect(ui.overlay.hidden).toBe(true);
+    expect(ui.toggle.getAttribute("aria-expanded")).toBe("false");
   });
 });

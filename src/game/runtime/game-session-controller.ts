@@ -76,6 +76,7 @@ type SessionDependencies = {
   lavaMapId: MapId;
   infernalMapId: MapId;
   waterMapId: MapId;
+  samuraiMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -102,6 +103,7 @@ type SessionDependencies = {
   syncMagmalisk: () => void;
   syncGloomroot: () => void;
   syncTidewyrm: () => void;
+  syncKoiShogun: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -115,6 +117,7 @@ type SessionDependencies = {
   updateMagmalisk: (dt: number) => void;
   updateGloomroot: (dt: number) => void;
   updateTidewyrm: (dt: number) => void;
+  updateKoiShogun: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -155,6 +158,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (dependencies.getMapId() === dependencies.lavaMapId) dependencies.syncMagmalisk();
     if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.syncGloomroot();
     if (dependencies.getMapId() === dependencies.waterMapId) dependencies.syncTidewyrm();
+    if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.syncKoiShogun();
   }
 
   function simulate(dt: number) {
@@ -179,6 +183,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       if (dependencies.getMapId() === dependencies.lavaMapId) dependencies.updateMagmalisk(dt);
       if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.updateGloomroot(dt);
       if (dependencies.getMapId() === dependencies.waterMapId) dependencies.updateTidewyrm(dt);
+      if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.updateKoiShogun(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

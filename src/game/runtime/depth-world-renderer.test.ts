@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
 
 function renderer(
   decor: WorldDecor[],
@@ -25,6 +25,7 @@ function renderer(
     magmaliskBoss: { dead: true, y: 0 } as MagmaliskBossState,
     gloomrootBoss: { dead: true, y: 0 } as GloomrootBossState,
     tidewyrmBoss: { dead: tidewyrmDead, y: 120 } as TidewyrmBossState,
+    koiShogunBoss: { dead: true, y: 120 } as KoiShogunBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => mapId,
     activePortal: () => ({ depth: 0 }),
@@ -41,6 +42,7 @@ function renderer(
     drawMagmaliskBoss: () => calls.push("magmalisk"),
     drawGloomrootBoss: () => calls.push("gloomroot"),
     drawTidewyrmBoss: () => calls.push("tidewyrm"),
+    drawKoiShogunBoss: () => calls.push("koi-shogun"),
     drawBootPickup: () => calls.push("boots"),
     drawPortal: () => calls.push("portal"),
     drawSecondaryPortal: () => calls.push("secondary"),

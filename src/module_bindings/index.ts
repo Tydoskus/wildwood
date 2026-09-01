@@ -48,6 +48,7 @@ import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reducer";
 import DamageFrostclawFromPositionReducer from "./damage_frostclaw_from_position_reducer";
 import DamageGloomrootFromPositionReducer from "./damage_gloomroot_from_position_reducer";
+import DamageKoiShogunFromPositionReducer from "./damage_koi_shogun_from_position_reducer";
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
@@ -113,6 +114,8 @@ import FrostclawBossRow from "./frostclaw_boss_table";
 import FrostclawResultRow from "./frostclaw_result_table";
 import GloomrootBossRow from "./gloomroot_boss_table";
 import GloomrootResultRow from "./gloomroot_result_table";
+import KoiShogunBossRow from "./koi_shogun_boss_table";
+import KoiShogunResultRow from "./koi_shogun_result_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
 import LocalMovementDemandRow from "./local_movement_demand_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
@@ -297,6 +300,28 @@ const tablesSchema = __schema({
       { name: 'gloomroot_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GloomrootResultRow),
+  koiShogunBoss: __table({
+    name: 'koi_shogun_boss',
+    indexes: [
+      { accessor: 'id', name: 'koi_shogun_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'koi_shogun_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, KoiShogunBossRow),
+  koiShogunResult: __table({
+    name: 'koi_shogun_result',
+    indexes: [
+      { accessor: 'id', name: 'koi_shogun_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'koi_shogun_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, KoiShogunResultRow),
   leaderboardEntry: __table({
     name: 'leaderboard_entry',
     indexes: [
@@ -643,6 +668,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dragon_from_position", DamageDragonFromPositionReducer),
   __reducerSchema("damage_frostclaw_from_position", DamageFrostclawFromPositionReducer),
   __reducerSchema("damage_gloomroot_from_position", DamageGloomrootFromPositionReducer),
+  __reducerSchema("damage_koi_shogun_from_position", DamageKoiShogunFromPositionReducer),
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),

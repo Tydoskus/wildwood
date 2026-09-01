@@ -13,6 +13,10 @@ import {
   MAGMALISK_BITE_RANGE,
   MAGMALISK_SPRITE_GROUND_OFFSET,
   MAGMALISK_SPRITE_Y_OFFSET,
+  KOI_SHOGUN_SLASH_HALF_ANGLE,
+  KOI_SHOGUN_SLASH_RANGE,
+  KOI_SHOGUN_SPRITE_GROUND_OFFSET,
+  KOI_SHOGUN_SPRITE_Y_OFFSET,
   TIDEWYRM_SPRITE_GROUND_OFFSET,
   TIDEWYRM_SPRITE_Y_OFFSET,
   TIDEWYRM_SURGE_HALF_ANGLE,
@@ -31,6 +35,10 @@ import {
   GLOOMROOT_REWARD_DAMAGE,
   GLOOMROOT_REWARD_HEALTH,
   GLOOMROOT_REWARD_REGEN,
+  KOI_SHOGUN_REWARD_ARMOR,
+  KOI_SHOGUN_REWARD_DAMAGE,
+  KOI_SHOGUN_REWARD_HEALTH,
+  KOI_SHOGUN_REWARD_REGEN,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
@@ -50,7 +58,7 @@ import {
   bossStatusLabelOffsets,
 } from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
 
@@ -71,24 +79,28 @@ export function createBossRenderer(options: {
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
+  koiShogunBoss: KoiShogunBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
   gloomrootBlooms: GloomrootBloom[];
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
+  koiShogunWhirlpools: KoiShogunWhirlpool[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
   magmaliskSpriteCanvas: HTMLCanvasElement;
   gloomrootSpriteCanvas: HTMLCanvasElement;
   tidewyrmSpriteCanvas: HTMLCanvasElement;
+  koiShogunSpriteCanvas: HTMLCanvasElement;
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
   magmaliskReady: () => boolean;
   gloomrootReady: () => boolean;
   tidewyrmReady: () => boolean;
+  koiShogunReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -97,7 +109,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -682,6 +694,118 @@ export function createBossRenderer(options: {
       ],
     });
   }
+
+  function drawKoiShogunTelegraphs() {
+    if (koiShogunBoss.dead) return;
+    const x = screenX(koiShogunBoss.x);
+    const y = screenY(koiShogunBoss.y);
+    const time = options.gameTime();
+    if (koiShogunBoss.slash) {
+      const slash = koiShogunBoss.slash;
+      ctx.save();
+      ctx.fillStyle = slash.windup > 0 ? "rgba(242,183,68,.13)" : "rgba(72,205,235,.23)";
+      ctx.strokeStyle = slash.windup > 0 ? "rgba(255,221,137,.94)" : "rgba(193,250,255,.98)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, KOI_SHOGUN_SLASH_RANGE, slash.angle - KOI_SHOGUN_SLASH_HALF_ANGLE, slash.angle + KOI_SHOGUN_SLASH_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (slash.windup <= 0) {
+        const radius = koiShogunBoss.r + (KOI_SHOGUN_SLASH_RANGE - koiShogunBoss.r) * clamp(1 - slash.timer / slash.duration, 0, 1);
+        for (let crest = 0; crest < 15; crest += 1) {
+          const angle = slash.angle - KOI_SHOGUN_SLASH_HALF_ANGLE + crest / 14 * KOI_SHOGUN_SLASH_HALF_ANGLE * 2;
+          const crestX = x + Math.cos(angle) * radius;
+          const crestY = y + Math.sin(angle) * radius;
+          ctx.fillStyle = crest % 2 ? "#d6fbff" : "#42cbe7";
+          options.pixelCircle(crestX, crestY, crest % 2 ? 10 : 15);
+          ctx.fillStyle = "#ffffff";
+          options.pixelCircle(crestX, crestY - 5, 5);
+        }
+      }
+      ctx.restore();
+    }
+    for (const pool of options.koiShogunWhirlpools) {
+      const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1);
+      const poolX = screenX(pool.x);
+      const poolY = screenY(pool.y);
+      ctx.save();
+      ctx.fillStyle = `rgba(28,151,198,${.1 + progress * .2})`;
+      ctx.strokeStyle = "rgba(255,224,146,.96)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([13, 8]);
+      ctx.lineDashOffset = time * 54;
+      ctx.beginPath();
+      ctx.ellipse(poolX, poolY, pool.r, pool.r * .62, time * .7, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "rgba(49,210,238,.9)";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.ellipse(poolX, poolY, pool.r * (.24 + progress * .36), pool.r * (.15 + progress * .22), -time, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawKoiShogunBoss() {
+    if (koiShogunBoss.dead) return;
+    const canvas = options.koiShogunSpriteCanvas;
+    const frame = options.koiShogunWhirlpools.length > 0 ? 3 : koiShogunBoss.slash ? (koiShogunBoss.slash.windup > 0 ? 2 : 1) : 0;
+    const drawW = 440;
+    const drawH = 440;
+    const x = screenX(koiShogunBoss.x);
+    const y = screenY(koiShogunBoss.y);
+    const visualY = y + KOI_SHOGUN_SPRITE_Y_OFFSET;
+    const pulse = options.koiShogunWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
+    options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 280, .3);
+    ctx.save();
+    ctx.translate(x, visualY);
+    ctx.scale(pulse, pulse);
+    if (options.koiShogunReady() && canvas.width >= 4 && canvas.height >= 2) {
+      const cellW = canvas.width / 4;
+      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      ctx.fillStyle = "#d87825";
+      ctx.strokeStyle = "#4c2917";
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.ellipse(0, 30, 145, 90, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#e6b84d";
+      ctx.beginPath();
+      ctx.moveTo(-145, -28);
+      ctx.lineTo(0, -112);
+      ctx.lineTo(145, -28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 310,
+      barHeight: 23,
+      hp: koiShogunBoss.hp,
+      maxHp: koiShogunBoss.maxHp,
+      hpLossFlashTimer: koiShogunBoss.hpLossFlashTimer,
+      hpLossFlashFrom: koiShogunBoss.hpLossFlashFrom,
+      backgroundColor: "#482719",
+      fillColor: "#e2832d",
+      name: { text: "KOI SHOGUN", color: "#ffe6a4" },
+      rewards: [
+        { text: rewardText("damage", KOI_SHOGUN_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", KOI_SHOGUN_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", KOI_SHOGUN_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", KOI_SHOGUN_REWARD_REGEN), color: REWARD_DATA.regen.color },
+      ],
+    });
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -695,5 +819,7 @@ export function createBossRenderer(options: {
     drawGloomrootBoss,
     drawTidewyrmTelegraphs,
     drawTidewyrmBoss,
+    drawKoiShogunTelegraphs,
+    drawKoiShogunBoss,
   };
 }

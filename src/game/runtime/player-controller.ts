@@ -52,6 +52,7 @@ export function createPlayerController(options: {
   resolveMagmaliskCollision: () => void;
   resolveGloomrootCollision: () => void;
   resolveTidewyrmCollision: () => void;
+  resolveKoiShogunCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   isTutorialMap: () => boolean;
@@ -60,6 +61,7 @@ export function createPlayerController(options: {
   isLavaMap: () => boolean;
   isInfernalMap: () => boolean;
   isWaterMap: () => boolean;
+  isSamuraiMap: () => boolean;
   viewport: () => { width: number; height: number; zoom: number };
   cameraPosition: () => { x: number; y: number };
   isConnected: () => boolean;
@@ -87,7 +89,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap,
+    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -193,6 +195,7 @@ export function createPlayerController(options: {
     if (isLavaMap()) resolveMagmaliskCollision();
     if (isInfernalMap()) resolveGloomrootCollision();
     if (isWaterMap()) resolveTidewyrmCollision();
+    if (isSamuraiMap()) resolveKoiShogunCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
     if (connected) {

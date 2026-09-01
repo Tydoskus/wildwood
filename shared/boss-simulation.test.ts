@@ -69,6 +69,14 @@ describe("deterministic boss simulation", () => {
     });
   });
 
+  it("cycles the Koi Shogun between slash and whirlpool", () => {
+    const first = bossAbilityTimelineAt({ kind: "koiShogun", serverNowMs: 0 });
+    const second = bossAbilityTimelineAt({ kind: "koiShogun", serverNowMs: first.slotDurationMs });
+
+    expect(first.ability).toBe("slash");
+    expect(second.ability).toBe("whirlpool");
+  });
+
   it("shares a player's exact boss attack slot across clients", () => {
     const options = {
       kind: "magmalisk" as const,

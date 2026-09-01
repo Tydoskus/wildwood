@@ -14,10 +14,11 @@ import { createTechTreeController } from "./tech-tree-controller";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createGameOverlays(d: Record<string, any>) {
   const { e, coop } = d;
-  const overlays = createOverlaysController({ update: { overlay: e.updateNoticeEl, title: e.updateNoticeTitleEl, items: e.updateNoticeItemsEl, close: e.closeUpdateNoticeBtn }, iconPicker: { overlay: e.profileIconPickerEl, choices: e.profileIconChoices, close: e.closeProfileIconPickerBtn } }, {
-    version: d.version, releases: () => recentReleaseNotes(2), seenVersion: () => { try { return localStorage.getItem(d.seenVersionKey) || ""; } catch { return ""; } }, markSeen: () => { try { localStorage.setItem(d.seenVersionKey, d.version); } catch {} }, connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
+  const overlays = createOverlaysController({ update: { overlay: e.updateNoticeEl, items: e.updateNoticeItemsEl, toggle: e.signinVersionButton }, iconPicker: { overlay: e.profileIconPickerEl, choices: e.profileIconChoices, close: e.closeProfileIconPickerBtn } }, {
+    releases: () => recentReleaseNotes(2), connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
   });
-  e.signinVersionEl.textContent = `v${d.version}`;
+  e.signinVersionButton.textContent = `v${d.version}`;
+  e.signinVersionButton.setAttribute("aria-label", `Wildstat version ${d.version}. Toggle release notes`);
   e.minimapVersionEl.textContent = `v${d.version}`;
   e.minimapVersionEl.setAttribute("aria-label", `Game version ${d.version}`);
   return overlays;
@@ -72,7 +73,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
       resetProgressButton: e.resetProgressBtn, bootUpgrade: e.bootUpgradeEl,
       bootUpgradeClose: e.bootUpgradeClose, closeDuelResultButton: e.closeDuelResultBtn,
       closeDragonResultButton: e.closeDragonResultBtn, dragonResult: e.dragonResultEl,
-      closeUpdateNoticeButton: e.closeUpdateNoticeBtn, closeDuelReplayButton: e.closeDuelReplayBtn,
+      closeDuelReplayButton: e.closeDuelReplayBtn,
     },
     inventory: d.inventory,
     closeCompetingWindows: d.closeCompetingWindows,
@@ -82,7 +83,6 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     renderInventory: d.renderInventory,
     logPickup: d.logPickup,
     leaveDuelResult: d.leaveDuelResult,
-    closeUpdateNotice: d.closeUpdateNotice,
     closeDuelReplay: d.closeDuelReplay,
     closeBootUpgrade: d.closeBootUpgrade,
     resetServerProgress: d.resetServerProgress,

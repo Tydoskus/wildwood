@@ -6,6 +6,8 @@ import type {
   FrostclawResult,
   GloomrootBossState,
   GloomrootResult,
+  KoiShogunBossState,
+  KoiShogunResult,
   MagmaliskBossState,
   MagmaliskResult,
   SpiderBossState,
@@ -93,6 +95,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let gloomrootResult: GloomrootResult | null = null;
   let tidewyrm: TidewyrmBossState | null = null;
   let tidewyrmResult: TidewyrmResult | null = null;
+  let koiShogun: KoiShogunBossState | null = null;
+  let koiShogunResult: KoiShogunResult | null = null;
 
   function damage(
     action: string,
@@ -150,6 +154,13 @@ export function createBossService(dependencies: BossServiceDependencies) {
         tidewyrmResult = bossResult(row);
         dependencies.notify();
       },
+      upsertKoiShogun(row: BossRow) {
+        koiShogun = bossState(row);
+      },
+      upsertKoiShogunResult(row: BossResultRow) {
+        koiShogunResult = bossResult(row);
+        dependencies.notify();
+      },
     },
     api: {
       dragonBoss: () => dragon ? { ...dragon } : null,
@@ -164,6 +175,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       gloomrootResult: () => copyResult(gloomrootResult),
       tidewyrmBoss: () => tidewyrm ? { ...tidewyrm } : null,
       tidewyrmResult: () => copyResult(tidewyrmResult),
+      koiShogunBoss: () => koiShogun ? { ...koiShogun } : null,
+      koiShogunResult: () => copyResult(koiShogunResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -182,6 +195,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       damageTidewyrm(hits = 1, x?: number, y?: number) {
         damage("tidewyrm damage", (connection, count, px, py) => connection.reducers.damageTidewyrmFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
+      damageKoiShogun(hits = 1, x?: number, y?: number) {
+        damage("Koi Shogun damage", (connection, count, px, py) => connection.reducers.damageKoiShogunFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      },
     },
     resetSession() {
       dragon = null;
@@ -196,6 +212,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       gloomrootResult = null;
       tidewyrm = null;
       tidewyrmResult = null;
+      koiShogun = null;
+      koiShogunResult = null;
     },
   };
 }

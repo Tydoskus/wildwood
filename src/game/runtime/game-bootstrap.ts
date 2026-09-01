@@ -8,12 +8,13 @@ import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   DRAGON_MAX_HP,
   FROSTCLAW_MAX_HP,
   GLOOMROOT_MAX_HP,
+  KOI_SHOGUN_MAX_HP,
   MAGMALISK_MAX_HP,
   MAP_DISPLAY_NAMES,
   PLAYER_BASE_HP,
@@ -43,6 +44,7 @@ export function createGameBootstrap() {
   const magmaliskEruptions: MagmaliskEruption[] = [];
   const gloomrootBlooms: GloomrootBloom[] = [];
   const tidewyrmWhirlpools: TidewyrmWhirlpool[] = [];
+  const koiShogunWhirlpools: KoiShogunWhirlpool[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: {
@@ -217,6 +219,24 @@ export function createGameBootstrap() {
     surge: null,
     encounter: null,
   };
+  const koiShogunBoss: KoiShogunBossState = {
+    isBoss: true,
+    bossKind: "koiShogun",
+    x: 4050,
+    y: 4050,
+    r: 175,
+    maxHp: KOI_SHOGUN_MAX_HP,
+    hp: KOI_SHOGUN_MAX_HP,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: KOI_SHOGUN_MAX_HP,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "slash",
+    slash: null,
+    encounter: null,
+  };
   const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
     itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
@@ -245,6 +265,8 @@ export function createGameBootstrap() {
     frostclawIcefalls,
     gloomrootBlooms,
     gloomrootBoss,
+    koiShogunBoss,
+    koiShogunWhirlpools,
     inventory,
     magmaliskBoss,
     magmaliskEruptions,

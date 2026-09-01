@@ -71,8 +71,7 @@ export type {
   RemoteRegularEnemyCombatVisual,
   SpiderBossState,
   SpiderResult,
-  TidewyrmBossState,
-  TidewyrmResult,
+  TidewyrmBossState, TidewyrmResult, KoiShogunBossState, KoiShogunResult,
   UpgradeBenchSlot,
 } from "./coop/contracts";
 
@@ -383,6 +382,8 @@ const {
   upsertGloomrootResult,
   upsertTidewyrm: upsertTidewyrmBoss,
   upsertTidewyrmResult,
+  upsertKoiShogun: upsertKoiShogunBoss,
+  upsertKoiShogunResult,
 } = bossService.tables;
 
 let chatService!: ChatService;
@@ -626,6 +627,8 @@ const baseSubscriptionHandlers = {
   gloomrootResult: upsertGloomrootResult,
   tidewyrmBoss: upsertTidewyrmBoss,
   tidewyrmResult: upsertTidewyrmResult,
+  koiShogunBoss: upsertKoiShogunBoss,
+  koiShogunResult: upsertKoiShogunResult,
   chatMessage: upsertChatMessage,
   duel: upsertDuel,
   removeDuel,

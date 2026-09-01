@@ -28,6 +28,10 @@ const encounters = {
     kinds: ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
     build: { maxHp: 60_000_000, armor: 25_000_000 },
   },
+  koiShogun: {
+    kinds: ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+    build: { maxHp: 400_000_000, armor: 200_000_000 },
+  },
 } as const satisfies Record<keyof typeof BOSS_DAMAGE_PROFILES, {
   kinds: readonly EnemyKind[];
   build: { maxHp: number; armor: number };

@@ -18,7 +18,7 @@ describe("lazy map asset groups", () => {
     expect(MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID]).toContain("lavaBoss");
     expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID]).toContain("nightBoss");
     expect(MAP_ASSET_GROUPS[WATER_REACH_MAP_ID]).toContain("waterBoss");
-    expect(MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID]).toEqual([]);
+    expect(MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID]).toContain("samuraiBoss");
   });
 
   it("keeps image-based scenery with only the maps that use it", () => {

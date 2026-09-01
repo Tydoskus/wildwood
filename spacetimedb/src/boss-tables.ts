@@ -51,6 +51,7 @@ const frostclaw = createBossTableSet();
 const magmalisk = createBossTableSet();
 const gloomroot = createBossTableSet();
 const tidewyrm = createBossTableSet();
+const koiShogun = createBossTableSet();
 
 export const dragonBossTables = {
   dragonBoss: dragon.boss,
@@ -92,4 +93,11 @@ export const tidewyrmBossTables = {
   tidewyrmContribution: tidewyrm.contribution,
   tidewyrmAttackWindow: tidewyrm.attackWindow,
   tidewyrmResult: tidewyrm.result,
+};
+
+export const koiShogunBossTables = {
+  koiShogunBoss: koiShogun.boss,
+  koiShogunContribution: koiShogun.contribution,
+  koiShogunAttackWindow: koiShogun.attackWindow,
+  koiShogunResult: koiShogun.result,
 };

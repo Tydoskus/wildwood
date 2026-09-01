@@ -209,6 +209,19 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     settle();
   });
 
+  const koiShogunSpriteCanvas = document.createElement("canvas");
+  const koiShogunSpriteContext = requiredCanvasContext(koiShogunSpriteCanvas, { willReadFrequently: true });
+  let koiShogunReady = false;
+  const koiShogunAsset = createLazyImageAsset("assets/wildstat/koi-shogun-boss-spritesheet-v1.png", (image, settle) => {
+    koiShogunSpriteCanvas.width = image.naturalWidth;
+    koiShogunSpriteCanvas.height = image.naturalHeight;
+    koiShogunSpriteContext.drawImage(image, 0, 0);
+    removeGreen(koiShogunSpriteContext, koiShogunSpriteCanvas.width, koiShogunSpriteCanvas.height, 145, 1.45, () => {
+      koiShogunReady = true;
+      settle();
+    }, 4);
+  });
+
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
   void portalArchAsset.load();
@@ -291,6 +304,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     nightBoss: [gloomrootAsset],
     nightDecor: [nightTreeAsset],
     waterBoss: [tidewyrmAsset],
+    samuraiBoss: [koiShogunAsset],
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
@@ -340,6 +354,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     treeSpritesheet: treeAsset.image,
     tidewyrmReady: () => tidewyrmReady,
     tidewyrmSpriteCanvas,
+    koiShogunReady: () => koiShogunReady,
+    koiShogunSpriteCanvas,
     allMapAssetsReady,
     ensureAllMapAssets,
     ensureMapAssets,

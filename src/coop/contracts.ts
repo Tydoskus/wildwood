@@ -186,6 +186,8 @@ export type GloomrootBossState = DragonBossState;
 export type GloomrootResult = DragonResult;
 export type TidewyrmBossState = DragonBossState;
 export type TidewyrmResult = DragonResult;
+export type KoiShogunBossState = DragonBossState;
+export type KoiShogunResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

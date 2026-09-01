@@ -10,6 +10,16 @@ describe("release-note dates", () => {
     expect(releases.some(({ version }) => version === "0.458")).toBe(false);
   });
 
+  it("always includes at least the latest ten releases after the date window expires", () => {
+    const releases = recentReleaseNotes(1, new Date(2030, 0, 1, 12));
+
+    expect(releases).toHaveLength(10);
+    expect(releases.map(({ version }) => version)).toEqual([
+      "0.579", "0.578", "0.577", "0.576", "0.575",
+      "0.574", "0.573", "0.572", "0.571", "0.570",
+    ]);
+  });
+
   it("formats recorded ISO release days for display", () => {
     expect(releaseDate("0.474")).toBe("AUG 22, 2026");
     expect(releaseDate("0.431")).toBe("AUG 17, 2026");

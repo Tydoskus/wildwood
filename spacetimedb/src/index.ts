@@ -26,6 +26,7 @@ import {
   dragonBossTables,
   frostclawBossTables,
   gloomrootBossTables,
+  koiShogunBossTables,
   magmaliskBossTables,
   spiderBossTables,
   tidewyrmBossTables,
@@ -131,6 +132,11 @@ import {
   GLOOMROOT_REWARD_DAMAGE,
   GLOOMROOT_REWARD_HEALTH,
   GLOOMROOT_REWARD_REGEN,
+  KOI_SHOGUN_MAX_HP,
+  KOI_SHOGUN_REWARD_ARMOR,
+  KOI_SHOGUN_REWARD_DAMAGE,
+  KOI_SHOGUN_REWARD_HEALTH,
+  KOI_SHOGUN_REWARD_REGEN,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MAGMALISK_MAX_HP,
@@ -285,6 +291,11 @@ const TIDEWYRM_RADIUS = 175;
 const TIDEWYRM_POSITION = { x: 4050, y: 4050 };
 const TIDEWYRM_HIT_RANGE_TOLERANCE = 60;
 const TIDEWYRM_RESPAWN_MICROS = 30_000_000n;
+const KOI_SHOGUN_ID = 1;
+const KOI_SHOGUN_RADIUS = 175;
+const KOI_SHOGUN_POSITION = { x: 4050, y: 4050 };
+const KOI_SHOGUN_HIT_RANGE_TOLERANCE = 60;
+const KOI_SHOGUN_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
@@ -1341,6 +1352,15 @@ const tidewyrmRespawnSchedule = table(
   },
 );
 
+const koiShogunRespawnSchedule = table(
+  { scheduled: (): any => respawnKoiShogun },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
   player,
   playerMapMarker,
@@ -1414,6 +1434,8 @@ const spacetimedb = schema({
   gloomrootRespawnSchedule,
   ...tidewyrmBossTables,
   tidewyrmRespawnSchedule,
+  ...koiShogunBossTables,
+  koiShogunRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1538,6 +1560,7 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     ctx.db.magmaliskContribution,
     ctx.db.gloomrootContribution,
     ctx.db.tidewyrmContribution,
+    ctx.db.koiShogunContribution,
   ]) {
     const contribution = table.identity.find(identity);
     if (contribution && contribution.displayName !== displayName) {
@@ -3530,6 +3553,8 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.gloomrootAttackWindow.identity.find(identity)) ctx.db.gloomrootAttackWindow.identity.delete(identity);
   if (ctx.db.tidewyrmContribution.identity.find(identity)) ctx.db.tidewyrmContribution.identity.delete(identity);
   if (ctx.db.tidewyrmAttackWindow.identity.find(identity)) ctx.db.tidewyrmAttackWindow.identity.delete(identity);
+  if (ctx.db.koiShogunContribution.identity.find(identity)) ctx.db.koiShogunContribution.identity.delete(identity);
+  if (ctx.db.koiShogunAttackWindow.identity.find(identity)) ctx.db.koiShogunAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -3790,6 +3815,25 @@ function ensureTidewyrmBoss(ctx: any) {
   });
 }
 
+function ensureKoiShogunBoss(ctx: any) {
+  const existing = ctx.db.koiShogunBoss.id.find(KOI_SHOGUN_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, KOI_SHOGUN_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.koiShogunBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.koiShogunBoss.insert({
+    id: KOI_SHOGUN_ID,
+    encounter: 1n,
+    hp: KOI_SHOGUN_MAX_HP,
+    maxHp: KOI_SHOGUN_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
+
 function regenerateIdleBosses(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
@@ -3810,6 +3854,7 @@ function regenerateIdleBosses(ctx: any) {
   regenerate(ensureMagmaliskBoss(ctx), (next) => ctx.db.magmaliskBoss.id.update(next));
   regenerate(ensureGloomrootBoss(ctx), (next) => ctx.db.gloomrootBoss.id.update(next));
   regenerate(ensureTidewyrmBoss(ctx), (next) => ctx.db.tidewyrmBoss.id.update(next));
+  regenerate(ensureKoiShogunBoss(ctx), (next) => ctx.db.koiShogunBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4098,6 +4143,13 @@ function clearTidewyrmCombatRows(ctx: any) {
   for (const identity of attackIdentities) ctx.db.tidewyrmAttackWindow.identity.delete(identity);
 }
 
+function clearKoiShogunCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.koiShogunContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.koiShogunAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.koiShogunContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.koiShogunAttackWindow.identity.delete(identity);
+}
+
 function rewardTidewyrmContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
@@ -4108,6 +4160,30 @@ function rewardTidewyrmContributor(ctx: any, identity: any) {
     maxHp: current.maxHp + TIDEWYRM_REWARD_HEALTH * rewardMultiplier,
     armor: current.armor + TIDEWYRM_REWARD_ARMOR * rewardMultiplier,
     regen: current.regen + TIDEWYRM_REWARD_REGEN * rewardMultiplier,
+    samuraiUnlocked: true,
+  };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+
+function rewardKoiShogunContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const next = {
+    ...current,
+    damage: current.damage + KOI_SHOGUN_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + KOI_SHOGUN_REWARD_HEALTH * rewardMultiplier,
+    armor: current.armor + KOI_SHOGUN_REWARD_ARMOR * rewardMultiplier,
+    regen: current.regen + KOI_SHOGUN_REWARD_REGEN * rewardMultiplier,
     samuraiUnlocked: true,
   };
   ctx.db.playerProgress.identity.update(next);
@@ -4153,6 +4229,40 @@ function finishTidewyrmEncounter(ctx: any, tidewyrm: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: tidewyrm.encounter,
+  });
+}
+
+function finishKoiShogunEncounter(ctx: any, koiShogun: any) {
+  const contributions = [...ctx.db.koiShogunContribution.iter()]
+    .filter((row: any) => row.encounter === koiShogun.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: KOI_SHOGUN_ID,
+    encounter: koiShogun.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.koiShogunResult.id.find(KOI_SHOGUN_ID)) ctx.db.koiShogunResult.id.update(result);
+  else ctx.db.koiShogunResult.insert(result);
+
+  for (const row of contributions) rewardKoiShogunContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + KOI_SHOGUN_RESPAWN_MICROS;
+  ctx.db.koiShogunBoss.id.update({ ...koiShogun, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.koiShogunRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: koiShogun.encounter,
   });
 }
 
@@ -4699,6 +4809,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMagmaliskBoss(ctx);
   ensureGloomrootBoss(ctx);
   ensureTidewyrmBoss(ctx);
+  ensureKoiShogunBoss(ctx);
   ensureWorldStatus(ctx);
   runPendingModuleMigrations(ctx);
 
@@ -5005,6 +5116,24 @@ export const respawnTidewyrm = spacetimedb.reducer(
       ...tidewyrm,
       encounter: tidewyrm.encounter + 1n,
       hp: tidewyrm.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+
+export const respawnKoiShogun = spacetimedb.reducer(
+  { schedule: koiShogunRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const koiShogun = ensureKoiShogunBoss(ctx);
+    if (koiShogun.alive || koiShogun.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < koiShogun.respawnAtMicros) return;
+    clearKoiShogunCombatRows(ctx);
+    ctx.db.koiShogunBoss.id.update({
+      ...koiShogun,
+      encounter: koiShogun.encounter + 1n,
+      hp: koiShogun.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -5457,6 +5586,78 @@ export const damageTidewyrmFromPosition = spacetimedb.reducer(
   (ctx, { hits, x, y }) => applyTidewyrmDamage(ctx, hits, { x, y }),
 );
 
+function applyKoiShogunDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== SAMURAI_GARDEN_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const koiShogun = ensureKoiShogunBoss(ctx);
+  if (!koiShogun.alive || koiShogun.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - KOI_SHOGUN_POSITION.x, actionY - KOI_SHOGUN_POSITION.y);
+  if (centerDistance - KOI_SHOGUN_RADIUS > progress.attackRange + KOI_SHOGUN_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.koiShogunAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== koiShogun.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: koiShogun.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.koiShogunAttackWindow.identity.update(nextWindow);
+    else ctx.db.koiShogunAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.koiShogunAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(koiShogun.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.koiShogunContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === koiShogun.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: koiShogun.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.koiShogunContribution.identity.update(nextContribution);
+  else ctx.db.koiShogunContribution.insert(nextContribution);
+  const nextKoiShogun = {
+    ...koiShogun,
+    hp: Math.max(0, koiShogun.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextKoiShogun.hp <= 0) finishKoiShogunEncounter(ctx, nextKoiShogun);
+  else ctx.db.koiShogunBoss.id.update(nextKoiShogun);
+}
+
+export const damageKoiShogunFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyKoiShogunDamage(ctx, hits, { x, y }),
+);
+
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
@@ -5724,6 +5925,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
       [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
       [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
+      [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);

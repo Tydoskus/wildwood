@@ -4,7 +4,7 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap, distanceSquared } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, RuntimeReward, SpiderBossState, TidewyrmBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, PlayerState, RuntimeReward, SpiderBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamageMultiplier, itemDefinition, weaponAttackInterval } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
@@ -28,6 +28,7 @@ const FROSTCLAW_HIT_BATCH_DELAY = .1;
 const MAGMALISK_HIT_BATCH_DELAY = .1;
 const GLOOMROOT_HIT_BATCH_DELAY = .1;
 const TIDEWYRM_HIT_BATCH_DELAY = .1;
+const KOI_SHOGUN_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 const IDLE_TARGET_RECHECK_SECONDS = .08;
@@ -89,6 +90,7 @@ export function createPlayerCombatController(options: {
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
+  koiShogunBoss: KoiShogunBossState;
   nowSeconds: () => number;
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
@@ -98,6 +100,7 @@ export function createPlayerCombatController(options: {
   isLavaMap: () => boolean;
   isInfernalMap: () => boolean;
   isWaterMap: () => boolean;
+  isSamuraiMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchAttackSpeedMultiplier?: () => number;
@@ -126,6 +129,7 @@ export function createPlayerCombatController(options: {
   damageMagmalisk: (hits: number) => void;
   damageGloomroot: (hits: number) => void;
   damageTidewyrm: (hits: number) => void;
+  damageKoiShogun: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
@@ -138,10 +142,10 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss,
+    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -163,6 +167,8 @@ export function createPlayerCombatController(options: {
   let gloomrootHitBatchTimer = 0;
   let pendingTidewyrmHits = 0;
   let tidewyrmHitBatchTimer = 0;
+  let pendingKoiShogunHits = 0;
+  let koiShogunHitBatchTimer = 0;
 
   function activeMapBoss(): BossTarget | null {
     if (isTutorialMap()) return boss;
@@ -171,6 +177,7 @@ export function createPlayerCombatController(options: {
     if (isLavaMap()) return magmaliskBoss;
     if (isInfernalMap()) return gloomrootBoss;
     if (isWaterMap()) return tidewyrmBoss;
+    if (isSamuraiMap()) return koiShogunBoss;
     return null;
   }
 
@@ -477,6 +484,9 @@ export function createPlayerCombatController(options: {
           } else if ("bossKind" in target && target.bossKind === "tidewyrm") {
             pendingTidewyrmHits += 1;
             tidewyrmHitBatchTimer = TIDEWYRM_HIT_BATCH_DELAY;
+          } else if ("bossKind" in target && target.bossKind === "koiShogun") {
+            pendingKoiShogunHits += 1;
+            koiShogunHitBatchTimer = KOI_SHOGUN_HIT_BATCH_DELAY;
           } else {
             pendingDragonHits += 1;
             dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
@@ -524,6 +534,10 @@ export function createPlayerCombatController(options: {
       tidewyrmHitBatchTimer -= dt;
       if (tidewyrmHitBatchTimer <= 0) { damageTidewyrm(pendingTidewyrmHits); pendingTidewyrmHits = 0; tidewyrmHitBatchTimer = 0; }
     }
+    if (isSamuraiMap() && pendingKoiShogunHits > 0) {
+      koiShogunHitBatchTimer -= dt;
+      if (koiShogunHitBatchTimer <= 0) { damageKoiShogun(pendingKoiShogunHits); pendingKoiShogunHits = 0; koiShogunHitBatchTimer = 0; }
+    }
     for (const shot of enemyShots) {
       shot.life -= dt;
       shot.x += shot.vx * dt;
@@ -550,6 +564,8 @@ export function createPlayerCombatController(options: {
       gloomrootHitBatchTimer = 0;
       pendingTidewyrmHits = 0;
       tidewyrmHitBatchTimer = 0;
+      pendingKoiShogunHits = 0;
+      koiShogunHitBatchTimer = 0;
     },
     clearPendingThrow: () => {
       pendingPlayerAttack = null;

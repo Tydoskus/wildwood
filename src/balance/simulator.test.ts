@@ -41,7 +41,7 @@ describe("balance simulator", () => {
     expect(desert?.targetPowerGrowthMultiplier).toBe(BALANCE_TARGET_MAP_POWER_MULTIPLIER);
     expect(result.maps.find((map) => map.mapId === INFERNAL_DEPTHS_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === WATER_REACH_MAP_ID)?.hasBoss).toBe(true);
-    expect(result.maps.find((map) => map.mapId === SAMURAI_GARDEN_MAP_ID)?.hasBoss).toBe(false);
+    expect(result.maps.find((map) => map.mapId === SAMURAI_GARDEN_MAP_ID)?.hasBoss).toBe(true);
     expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000 * INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER);
   });
 

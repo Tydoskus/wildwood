@@ -49,7 +49,12 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="itemInspectionBack" class="item-inspection-back window-back-button" type="button">Back</button>');
     expect(cssRule(".item-inspection-actions { ")).toContain("justify-content: center");
     expect(cssRule(".item-inspection-actions { ")).toContain("repeat(auto-fit");
-    expect(cssRule(".window-back-footer {")).toContain("place-items: center");
+    const backFooter = cssRule(".window-back-footer {");
+    const backButton = cssRule(".window-back-button {");
+    expect(backFooter).toContain("place-items: center");
+    expect(backFooter).toContain("var(--window-back-bottom-gap)");
+    expect(backButton).toContain("text-shadow: var(--text-shadow)");
+    expect(backButton).toContain("-webkit-text-stroke: var(--text-outline-width) #000");
     expect(css).not.toContain(".inventory-detail");
   });
 
@@ -110,7 +115,7 @@ describe("interface style contracts", () => {
     expect(cssRule("#chatPanel.is-large .chat-header {")).toContain("display: none");
     expect(cssRule("canvas#game {")).toContain("bottom: var(--gameplay-bottom-inset)");
     const fullscreenChat = cssRule("#chatPanel.is-large {");
-    expect(fullscreenChat).toContain("inset: 0");
+    expect(fullscreenChat).toContain("inset: 0 0 var(--toolbar-height)");
     expect(fullscreenChat).toContain("z-index: 8");
     expect(fullscreenChat).toContain("grid-template-rows: minmax(0, 1fr) auto");
     expect(fullscreenChat).toContain("row-gap: 6px");
@@ -214,7 +219,7 @@ describe("interface style contracts", () => {
     expect(fullscreenForm).toContain('grid-template-areas: "reply reply" "input send" "back back"');
     expect(fullscreenForm).toContain("grid-template-rows: max-content max-content max-content");
     expect(fullscreenForm).toContain("align-content: start");
-    expect(fullscreenForm).toContain("env(safe-area-inset-bottom)");
+    expect(fullscreenForm).toContain("var(--window-back-bottom-gap)");
     expect(cssRule("#chatPanel.is-large #chatBackBtn {")).toContain("grid-area: back");
     expect(cssRule("#chatPanel.is-large #chatMessages::before")).toContain("margin-top: auto");
     expect(html).toContain('id="chatReplyComposer"');
@@ -322,6 +327,7 @@ describe("interface style contracts", () => {
     expect(portrait).toContain("width: 100%");
     expect(portrait).toContain("height: 100%");
     expect(portrait).toContain("align-self: stretch");
+    expect(cssRule("#playerHudProfileIcon:active {")).toContain("transform: none");
     expect(track).toContain("height: 100%");
     expect(html).toContain('id="playerPower"');
   });
@@ -505,7 +511,7 @@ describe("interface style contracts", () => {
     expect(actionStyle).toContain("padding: 0 8px 2px");
     const backStyle = cssRule(".upgrade-bench-back {");
     expect(backStyle).toContain("position: absolute");
-    expect(backStyle).toContain("bottom: max(14px, env(safe-area-inset-bottom))");
+    expect(backStyle).toContain("bottom: var(--window-back-bottom-gap)");
     expect(backStyle).toContain("align-items: center");
     expect(backStyle).toContain("padding: 0 8px 2px");
   });

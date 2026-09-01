@@ -20,7 +20,6 @@ type WindowActionsElements = {
   closeDuelResultButton: HTMLElement;
   closeDragonResultButton: HTMLElement;
   dragonResult: HTMLElement;
-  closeUpdateNoticeButton: HTMLElement;
   closeDuelReplayButton: HTMLElement;
 };
 
@@ -53,7 +52,6 @@ type GameActionsDependencies = {
   renderInventory: () => void;
   logPickup: (message: string, color: string) => void;
   leaveDuelResult: () => void;
-  closeUpdateNotice: () => void;
   closeDuelReplay: () => void;
   closeBootUpgrade: () => void;
   resetServerProgress: () => void;
@@ -168,7 +166,6 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   elements.closeDuelResultButton.addEventListener("click", dependencies.leaveDuelResult);
   elements.closeDragonResultButton.addEventListener("click", closeDragonResult);
-  elements.closeUpdateNoticeButton.addEventListener("click", dependencies.closeUpdateNotice);
   elements.closeDuelReplayButton.addEventListener("click", dependencies.closeDuelReplay);
   elements.bootUpgradeClose.addEventListener("click", () => {
     dependencies.closeBootUpgrade();

@@ -1,5 +1,5 @@
 import { recentReleaseNotes } from "../app/changelog";
-import { GAME_VERSION, SEEN_VERSION_KEY } from "../game/runtime/game-settings";
+import { MUSIC_VOLUME_KEY } from "../game/runtime/game-settings";
 import {
   createStartupAuthGate,
   loadDeferredGameBundle,
@@ -7,6 +7,7 @@ import {
   type StartupActionResult,
 } from "./startup-auth-gate";
 import { createStartupReleaseNotes } from "./startup-release-notes";
+import { createStartupMusicToggle } from "./startup-music-toggle";
 
 type StartupBootstrapDependencies = {
   restoreKnownAccount: () => Promise<void>;
@@ -21,15 +22,16 @@ type StartupBootstrapDependencies = {
 
 /** Keeps the account/consent shell independent from the deferred game bundle. */
 export function startStartupBootstrap(dependencies: StartupBootstrapDependencies) {
+  const musicToggle = createStartupMusicToggle({ storageKey: MUSIC_VOLUME_KEY });
   const releaseNotes = createStartupReleaseNotes({
-    version: GAME_VERSION,
     releases: () => recentReleaseNotes(2),
-    seenVersion: () => { try { return localStorage.getItem(SEEN_VERSION_KEY) || ""; } catch { return ""; } },
-    markSeen: () => { try { localStorage.setItem(SEEN_VERSION_KEY, GAME_VERSION); } catch {} },
   });
   createStartupAuthGate({
     ...dependencies,
-    loadGame: () => loadDeferredGameBundle(),
+    loadGame: async () => {
+      await loadDeferredGameBundle();
+      musicToggle.dispose();
+    },
     releaseNotes,
   }).start();
 

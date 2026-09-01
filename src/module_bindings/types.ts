@@ -412,6 +412,49 @@ export const ItemUpgradeCompletionSchedule = __t.object("ItemUpgradeCompletionSc
 });
 export type ItemUpgradeCompletionSchedule = __Infer<typeof ItemUpgradeCompletionSchedule>;
 
+export const KoiShogunAttackWindow = __t.object("KoiShogunAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type KoiShogunAttackWindow = __Infer<typeof KoiShogunAttackWindow>;
+
+export const KoiShogunBoss = __t.object("KoiShogunBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type KoiShogunBoss = __Infer<typeof KoiShogunBoss>;
+
+export const KoiShogunContribution = __t.object("KoiShogunContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type KoiShogunContribution = __Infer<typeof KoiShogunContribution>;
+
+export const KoiShogunRespawnSchedule = __t.object("KoiShogunRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type KoiShogunRespawnSchedule = __Infer<typeof KoiShogunRespawnSchedule>;
+
+export const KoiShogunResult = __t.object("KoiShogunResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type KoiShogunResult = __Infer<typeof KoiShogunResult>;
+
 export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   identity: __t.identity(),
   displayName: __t.string(),

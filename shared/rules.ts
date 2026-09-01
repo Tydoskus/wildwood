@@ -141,14 +141,11 @@ export const WATER_REACH_BOSS_HEALTH_MULTIPLIER = 34.5 / 55;
 export const SAMURAI_GARDEN_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
 export const SAMURAI_GARDEN_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const SAMURAI_GARDEN_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
-// Samurai Garden is currently open-ended, so its macro budget arrives as
-// fifty compact clears rather than one multi-hour clear. This keeps ordinary
-// fights near the completed late-map cadence and leaves travel visible while
-// a future boss is still absent.
+// Samurai Garden uses compact regular-enemy clears so its final-map travel and
+// combat cadence remain readable around the Koi Shogun arena.
 export const SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE = .02;
-// Samurai Garden has no boss or random equipment tier yet. Multiply its regular
-// payout so the open map still reaches the campaign curve; remove or retune
-// this explicit reserve when that guaranteed breakthrough is added.
+// Keep the existing open-map regular payout alongside the repeatable capstone.
+// This preserves established Samurai Garden progression for current players.
 export const SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER = 2.5;
 // Relative per-enemy health shapes. enemies.ts centers each profile against
 // the authored clear counts, so encounter texture can change without silently
@@ -252,6 +249,14 @@ export const TIDEWYRM_REWARD_DAMAGE = GLOOMROOT_REWARD_DAMAGE * SAMURAI_GARDEN_R
 export const TIDEWYRM_REWARD_HEALTH = GLOOMROOT_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER;
 export const TIDEWYRM_REWARD_ARMOR = GLOOMROOT_REWARD_ARMOR * SAMURAI_GARDEN_REWARD_SCALE;
 export const TIDEWYRM_REWARD_REGEN = GLOOMROOT_REWARD_REGEN * SAMURAI_GARDEN_REWARD_SCALE;
+// Samurai's compact encounter cadence reaches its intended exit damage before
+// the full map-health multiplier. This keeps the capstone near the late-map
+// 15-minute readiness target instead of turning it into another farm wall.
+export const KOI_SHOGUN_MAX_HP = TIDEWYRM_MAX_HP * SAMURAI_GARDEN_DAMAGE_SCALE * .75;
+export const KOI_SHOGUN_REWARD_DAMAGE = TIDEWYRM_REWARD_DAMAGE * SAMURAI_GARDEN_REWARD_SCALE;
+export const KOI_SHOGUN_REWARD_HEALTH = TIDEWYRM_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE;
+export const KOI_SHOGUN_REWARD_ARMOR = TIDEWYRM_REWARD_ARMOR * SAMURAI_GARDEN_REWARD_SCALE;
+export const KOI_SHOGUN_REWARD_REGEN = TIDEWYRM_REWARD_REGEN * SAMURAI_GARDEN_REWARD_SCALE;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -279,7 +284,7 @@ export const MAP_IDS: readonly string[] = [
   SAMURAI_GARDEN_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 79;
+export const PROTOCOL_VERSION = 80;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

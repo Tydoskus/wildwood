@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.579": [
+    "Added the Koi Shogun to Samurai Garden, with water-sword attacks, shared health, contribution rewards, and repeatable respawns.",
+    "Polished the sign-in screen with roomier buttons, a cleaner version-notes panel, and updated sound controls.",
+    "Duel requests now minimize full-screen chat before opening.",
+  ],
   "0.578": [
     "Map music now loads on demand so startup and portal transitions continue without waiting on soundtrack downloads.",
   ],
@@ -1298,6 +1303,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.579": "2026-09-01",
   "0.578": "2026-09-01",
   "0.577": "2026-08-30",
   "0.576": "2026-08-30",
@@ -1431,13 +1437,15 @@ export function releaseNotes(version: string) {
   return RELEASE_NOTES[version] ?? [];
 }
 
-export function recentReleaseNotes(days = 2, today = new Date()) {
+export function recentReleaseNotes(days = 2, today = new Date(), minimumReleases = 10) {
   const cutoff = new Date(today);
   cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - Math.max(0, days - 1));
+  const minimum = Math.max(0, Math.floor(minimumReleases));
   return Object.entries(RELEASE_NOTES)
     .sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }))
-    .filter(([version]) => {
+    .filter(([version], index) => {
+      if (index < minimum) return true;
       const day = releaseDay(version);
       return day !== null && new Date(`${day}T00:00:00`).getTime() >= cutoff.getTime();
     })

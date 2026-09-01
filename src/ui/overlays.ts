@@ -1,11 +1,9 @@
 type ReleaseNote = { version: string; notes: readonly string[]; date?: string };
 
 export function renderUpdateNotice(
-  elements: { overlay: HTMLElement; title: HTMLElement; items: HTMLElement },
-  version: string,
+  elements: { items: HTMLElement },
   releases: readonly ReleaseNote[],
 ) {
-  elements.title.textContent = `v${version}`;
   elements.items.replaceChildren();
   for (const release of releases) {
     const group = document.createElement("li");
@@ -29,5 +27,4 @@ export function renderUpdateNotice(
     group.append(heading, notes);
     elements.items.appendChild(group);
   }
-  elements.overlay.hidden = false;
 }

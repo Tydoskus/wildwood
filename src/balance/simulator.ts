@@ -71,6 +71,10 @@ import {
   GLOOMROOT_REWARD_DAMAGE,
   GLOOMROOT_REWARD_HEALTH,
   GLOOMROOT_REWARD_REGEN,
+  KOI_SHOGUN_REWARD_ARMOR,
+  KOI_SHOGUN_REWARD_DAMAGE,
+  KOI_SHOGUN_REWARD_HEALTH,
+  KOI_SHOGUN_REWARD_REGEN,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
@@ -717,7 +721,19 @@ function createMapDefinitions(): BalanceMapDefinition[] {
       name: MAP_DISPLAY_NAMES[SAMURAI_GARDEN_MAP_ID],
       arrival: bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].arrival,
       regularDrops: [],
-      boss: null,
+      boss: {
+        name: "Koi Shogun",
+        hp: bootstrap.koiShogunBoss.maxHp,
+        x: bootstrap.koiShogunBoss.x,
+        y: bootstrap.koiShogunBoss.y,
+        rewards: [
+          { type: "damage", amount: KOI_SHOGUN_REWARD_DAMAGE },
+          { type: "health", amount: KOI_SHOGUN_REWARD_HEALTH },
+          { type: "armor", amount: KOI_SHOGUN_REWARD_ARMOR },
+          { type: "regen", amount: KOI_SHOGUN_REWARD_REGEN },
+        ],
+        drops: [],
+      },
     },
   ];
 }

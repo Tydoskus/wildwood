@@ -1,13 +1,10 @@
 import { renderUpdateNotice } from "./overlays";
 
 export function createOverlaysController(elements: {
-  update: { overlay: HTMLElement; title: HTMLElement; items: HTMLElement; close: HTMLElement };
+  update: { overlay: HTMLElement; items: HTMLElement; toggle: HTMLElement };
   iconPicker: { overlay: HTMLElement; choices: HTMLElement; close: HTMLElement };
 }, hooks: {
-  version: string;
   releases: () => Array<{ version: string; date: string; notes: string[] }>;
-  seenVersion: () => string;
-  markSeen: () => void;
   connected: () => boolean;
   selectedIcon: () => number;
   setIcon: (index: number) => Promise<{ ok: boolean; error?: string } | undefined>;
@@ -15,12 +12,28 @@ export function createOverlaysController(elements: {
   afterIconSet: () => void;
   showMessage: (message: string, color: string) => void;
 }) {
-  function showUpdateNotice() {
-    if (hooks.seenVersion() === hooks.version) return;
-    const releases = hooks.releases();
-    if (releases.length) renderUpdateNotice({ overlay: elements.update.overlay, title: elements.update.title, items: elements.update.items }, hooks.version, releases);
+  let hasUpdateNotes = false;
+
+  function setUpdateNoticeOpen(open: boolean) {
+    const expanded = open && hasUpdateNotes;
+    elements.update.overlay.hidden = !expanded;
+    elements.update.toggle.setAttribute("aria-expanded", String(expanded));
   }
-  function closeUpdateNotice() { elements.update.overlay.hidden = true; hooks.markSeen(); }
+
+  function showUpdateNotice() {
+    const releases = hooks.releases();
+    hasUpdateNotes = releases.length > 0;
+    if (!hasUpdateNotes) {
+      setUpdateNoticeOpen(false);
+      return;
+    }
+    renderUpdateNotice({ items: elements.update.items }, releases);
+  }
+  function closeUpdateNotice() { setUpdateNoticeOpen(false); }
+  function toggleUpdateNotice() {
+    if (!hasUpdateNotes) showUpdateNotice();
+    setUpdateNoticeOpen(elements.update.overlay.hidden);
+  }
   function openIconPicker() {
     if (!hooks.connected()) return;
     const selected = hooks.selectedIcon();
@@ -42,7 +55,8 @@ export function createOverlaysController(elements: {
     elements.iconPicker.overlay.hidden = false;
   }
   function closeIconPicker() { elements.iconPicker.overlay.hidden = true; }
-  elements.update.close.addEventListener("click", closeUpdateNotice);
+  setUpdateNoticeOpen(false);
+  elements.update.toggle.addEventListener("click", toggleUpdateNotice);
   elements.iconPicker.close.addEventListener("click", closeIconPicker);
   return { showUpdateNotice, closeUpdateNotice, openIconPicker, closeIconPicker, isIconPickerOpen: () => !elements.iconPicker.overlay.hidden };
 }

@@ -10,6 +10,9 @@ import {
   GLOOMROOT_AGGRO_RANGE,
   GLOOMROOT_SWEEP_HALF_ANGLE,
   GLOOMROOT_SWEEP_RANGE,
+  KOI_SHOGUN_AGGRO_RANGE,
+  KOI_SHOGUN_SLASH_HALF_ANGLE,
+  KOI_SHOGUN_SLASH_RANGE,
   MAGMALISK_AGGRO_RANGE,
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
@@ -26,6 +29,10 @@ import {
   GLOOMROOT_REWARD_DAMAGE,
   GLOOMROOT_REWARD_HEALTH,
   GLOOMROOT_REWARD_REGEN,
+  KOI_SHOGUN_REWARD_ARMOR,
+  KOI_SHOGUN_REWARD_DAMAGE,
+  KOI_SHOGUN_REWARD_HEALTH,
+  KOI_SHOGUN_REWARD_REGEN,
   DRAGON_REWARD_DAMAGE,
   MAGMALISK_REWARD_ARMOR,
   MAGMALISK_REWARD_DAMAGE,
@@ -56,6 +63,8 @@ import type {
   FrostclawIcefall,
   GloomrootBloom,
   GloomrootBossState,
+  KoiShogunBossState,
+  KoiShogunWhirlpool,
   MagmaliskBossState,
   MagmaliskEruption,
   PlayerState,
@@ -104,6 +113,11 @@ const TIDEWYRM_SURGE_DURATION = 1.05;
 const TIDEWYRM_SURGE_DAMAGE = BOSS_DAMAGE_PROFILES.tidewyrm.surge;
 const TIDEWYRM_WHIRLPOOL_DAMAGE = BOSS_DAMAGE_PROFILES.tidewyrm.whirlpool;
 const TIDEWYRM_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.tidewyrm.contact;
+const KOI_SHOGUN_SLASH_WINDUP = .78;
+const KOI_SHOGUN_SLASH_DURATION = 1.04;
+const KOI_SHOGUN_SLASH_DAMAGE = BOSS_DAMAGE_PROFILES.koiShogun.slash;
+const KOI_SHOGUN_WHIRLPOOL_DAMAGE = BOSS_DAMAGE_PROFILES.koiShogun.whirlpool;
+const KOI_SHOGUN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.koiShogun.contact;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -137,24 +151,28 @@ export type BossController = {
   resetMagmaliskBoss: () => void;
   resetGloomrootBoss: () => void;
   resetTidewyrmBoss: () => void;
+  resetKoiShogunBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
   syncMagmaliskState: () => void;
   syncGloomrootState: () => void;
   syncTidewyrmState: () => void;
+  syncKoiShogunState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
   updateMagmaliskBoss: (dt: number) => void;
   updateGloomrootBoss: (dt: number) => void;
   updateTidewyrmBoss: (dt: number) => void;
+  updateKoiShogunBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
   resolveMagmaliskCollision: () => void;
   resolveGloomrootCollision: () => void;
   resolveTidewyrmCollision: () => void;
+  resolveKoiShogunCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
@@ -171,12 +189,14 @@ export function createBossController(options: {
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
+  koiShogunBoss: KoiShogunBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
   magmaliskEruptions: MagmaliskEruption[];
   gloomrootBlooms: GloomrootBloom[];
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
+  koiShogunWhirlpools: KoiShogunWhirlpool[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
@@ -184,12 +204,14 @@ export function createBossController(options: {
   getMagmaliskBoss: () => SharedBossState | null | undefined;
   getGloomrootBoss: () => SharedBossState | null | undefined;
   getTidewyrmBoss: () => SharedBossState | null | undefined;
+  getKoiShogunBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
   getMagmaliskResult: () => BossResult | null | undefined;
   getGloomrootResult: () => BossResult | null | undefined;
   getTidewyrmResult: () => BossResult | null | undefined;
+  getKoiShogunResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
@@ -201,6 +223,7 @@ export function createBossController(options: {
   currentMapIsLava: () => boolean;
   currentMapIsInfernal: () => boolean;
   currentMapIsWater: () => boolean;
+  currentMapIsSamurai: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -225,9 +248,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
@@ -263,18 +286,24 @@ export function createBossController(options: {
   let tidewyrmWasAlive: boolean | null = null;
   let pendingTidewyrmResultEncounter: bigint | null = null;
   let shownTidewyrmResultEncounter: bigint | null = null;
+  let observedKoiShogunEncounter: bigint | null = null;
+  let koiShogunWasAlive: boolean | null = null;
+  let pendingKoiShogunResultEncounter: bigint | null = null;
+  let shownKoiShogunResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
   const locallyRewardedMagmaliskEncounters = new Set<string>();
   const locallyRewardedGloomrootEncounters = new Set<string>();
   const locallyRewardedTidewyrmEncounters = new Set<string>();
+  const locallyRewardedKoiShogunEncounters = new Set<string>();
   let dragonRainPatternIndex = 0;
   let spiderVenomPatternIndex = 0;
   let frostclawIcefallPatternIndex = 0;
   let magmaliskEruptionPatternIndex = 0;
   let gloomrootBloomPatternIndex = 0;
   let tidewyrmWhirlpoolPatternIndex = 0;
+  let koiShogunWhirlpoolPatternIndex = 0;
   const observedAbilityKeys = new Map<BossSimulationKind, string>();
   const activatedAbilityKeys = new Map<BossSimulationKind, string>();
 
@@ -478,6 +507,26 @@ export function createBossController(options: {
     tidewyrmWhirlpools.length = 0;
     tidewyrmWhirlpoolPatternIndex = 0;
     resetAbilityTimeline("tidewyrm");
+  }
+
+  function resetKoiShogunBoss() {
+    const shared = getKoiShogunBoss();
+    if (shared) {
+      koiShogunBoss.encounter = shared.encounter;
+      koiShogunBoss.hp = shared.hp;
+      koiShogunBoss.maxHp = shared.maxHp;
+      koiShogunBoss.dead = !shared.alive;
+    }
+    koiShogunBoss.hurt = 0;
+    koiShogunBoss.hpLossFlashFrom = koiShogunBoss.hp;
+    koiShogunBoss.hpLossFlashTimer = 0;
+    koiShogunBoss.contactDamageClock = 0;
+    koiShogunBoss.attackClock = 3;
+    koiShogunBoss.nextAttack = "slash";
+    koiShogunBoss.slash = null;
+    koiShogunWhirlpools.length = 0;
+    koiShogunWhirlpoolPatternIndex = 0;
+    resetAbilityTimeline("koiShogun");
   }
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -703,6 +752,39 @@ export function createBossController(options: {
     showMessage(
       `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
       "#74e9ff",
+    );
+  }
+
+  function showKoiShogunResult(result: BossResult | null | undefined) {
+    if (!result || shownKoiShogunResultEncounter === result.encounter) return;
+    pendingKoiShogunResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      shownKoiShogunResultEncounter = result.encounter;
+      showWorldResult(result, "KOI SHOGUN DEFEATED");
+      return;
+    }
+    shownKoiShogunResultEncounter = result.encounter;
+    renderResult(result, "Koi Shogun Defeated");
+    const damageReward = scaledReward("damage", KOI_SHOGUN_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", KOI_SHOGUN_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", KOI_SHOGUN_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", KOI_SHOGUN_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedKoiShogunEncounters.has(encounterKey)) {
+      locallyRewardedKoiShogunEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    showMessage(
+      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
+      "#ffd17d",
     );
   }
 
@@ -1023,6 +1105,63 @@ export function createBossController(options: {
     if (pendingTidewyrmResultEncounter !== null) {
       const result = getTidewyrmResult();
       if (result?.encounter === pendingTidewyrmResultEncounter) showTidewyrmResult(result);
+    }
+  }
+
+  function syncKoiShogunState() {
+    const shared = getKoiShogunBoss();
+    if (!shared) return;
+    const initialized = observedKoiShogunEncounter !== null;
+    const encounterChanged = initialized && observedKoiShogunEncounter !== shared.encounter;
+    const previousHp = koiShogunBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedKoiShogunEncounter = shared.encounter;
+      koiShogunWasAlive = shared.alive;
+      koiShogunBoss.dead = !shared.alive;
+      koiShogunBoss.attackClock = 3;
+      koiShogunBoss.nextAttack = "slash";
+      koiShogunBoss.slash = null;
+      koiShogunWhirlpools.length = 0;
+      koiShogunWhirlpoolPatternIndex = 0;
+      resetAbilityTimeline("koiShogun");
+      koiShogunBoss.hpLossFlashFrom = shared.hp;
+      koiShogunBoss.hpLossFlashTimer = 0;
+    } else if (koiShogunWasAlive && !shared.alive) {
+      koiShogunWasAlive = false;
+      koiShogunBoss.dead = true;
+      koiShogunBoss.slash = null;
+      koiShogunWhirlpools.length = 0;
+      pendingKoiShogunResultEncounter = shared.encounter;
+      spawnBurst(koiShogunBoss.x, koiShogunBoss.y, "#f0a044", 112, 320);
+    } else if (!koiShogunWasAlive && shared.alive) {
+      koiShogunWasAlive = true;
+      koiShogunBoss.dead = false;
+      koiShogunBoss.attackClock = 3;
+      koiShogunBoss.nextAttack = "slash";
+      koiShogunWhirlpoolPatternIndex = 0;
+      resetAbilityTimeline("koiShogun");
+    } else if (shared.alive && shared.hp < previousHp) {
+      koiShogunBoss.hpLossFlashFrom = koiShogunBoss.hpLossFlashTimer > 0
+        ? Math.max(koiShogunBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      koiShogunBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      koiShogunBoss.hpLossFlashFrom = shared.hp;
+      koiShogunBoss.hpLossFlashTimer = 0;
+    }
+    koiShogunBoss.encounter = shared.encounter;
+    koiShogunBoss.maxHp = shared.maxHp;
+    koiShogunBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsSamurai()) {
+      const result = getKoiShogunResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedKoiShogunEncounters.add(String(result.encounter));
+        showKoiShogunResult(result);
+      }
+    }
+    if (pendingKoiShogunResultEncounter !== null) {
+      const result = getKoiShogunResult();
+      if (result?.encounter === pendingKoiShogunResultEncounter) showKoiShogunResult(result);
     }
   }
 
@@ -1781,7 +1920,122 @@ export function createBossController(options: {
     else startTidewyrmWhirlpools();
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState, damage: number, cooldown: number) {
+  function startKoiShogunSlash(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    koiShogunBoss.slash = {
+      angle: Math.atan2(target.y - koiShogunBoss.y, target.x - koiShogunBoss.x),
+      windup: Math.max(0, KOI_SHOGUN_SLASH_WINDUP - elapsed),
+      timer: Math.max(0, KOI_SHOGUN_SLASH_DURATION - Math.max(0, elapsed - KOI_SHOGUN_SLASH_WINDUP)),
+      duration: KOI_SHOGUN_SLASH_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
+    koiShogunBoss.nextAttack = "whirlpool";
+  }
+
+  function startKoiShogunWhirlpools(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? koiShogunWhirlpoolPatternIndex;
+    for (let index = 0; index < 11; index += 1) {
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "koiShogun",
+        encounter: koiShogunBoss.encounter,
+        pattern: "whirlpool",
+        patternIndex,
+        hazardIndex: index,
+        hazardCount: 11,
+        angleJitter: .25,
+        minimumRadius: 70,
+        maximumRadius: 300,
+        centerFirst: true,
+      });
+      const maxTimer = .82 + index * .105;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      koiShogunWhirlpools.push({
+        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
+        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
+        r: 84,
+        timer,
+        maxTimer,
+      });
+    }
+    if (deterministicPatternIndex === undefined) koiShogunWhirlpoolPatternIndex += 1;
+    koiShogunBoss.attackClock = 3.1;
+    koiShogunBoss.nextAttack = "slash";
+  }
+
+  function updateKoiShogunBoss(dt: number) {
+    koiShogunBoss.hpLossFlashTimer = Math.max(0, koiShogunBoss.hpLossFlashTimer - dt);
+    koiShogunBoss.contactDamageClock = Math.max(0, koiShogunBoss.contactDamageClock - dt);
+    if (koiShogunBoss.dead) return;
+    koiShogunBoss.hurt = Math.max(0, koiShogunBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "koiShogun",
+      encounter: koiShogunBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("koiShogun", koiShogunBoss.encounter, attackIndex, koiShogunBoss.x, koiShogunBoss.y, KOI_SHOGUN_AGGRO_RANGE),
+      clear: () => { koiShogunBoss.slash = null; koiShogunWhirlpools.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "slash") startKoiShogunSlash(elapsedSeconds, target);
+        else if (ability === "whirlpool") startKoiShogunWhirlpools(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { koiShogunBoss.attackClock = seconds; },
+    });
+
+    for (let index = koiShogunWhirlpools.length - 1; index >= 0; index -= 1) {
+      const pool = koiShogunWhirlpools[index];
+      pool.timer -= dt;
+      if (pool.timer > 0) continue;
+      const dx = player.x - pool.x;
+      const dy = player.y - pool.y;
+      if (dx * dx + dy * dy <= pool.r * pool.r) damagePlayer(KOI_SHOGUN_WHIRLPOOL_DAMAGE);
+      spawnBurst(pool.x, pool.y, "#71e9ff", 40, 250);
+      koiShogunWhirlpools.splice(index, 1);
+    }
+    if (koiShogunWhirlpools.length > 0) return;
+
+    if (koiShogunBoss.slash) {
+      const slash = koiShogunBoss.slash;
+      if (slash.windup > 0) {
+        slash.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - slash.timer / slash.duration, 0, 1);
+      slash.timer -= dt;
+      const progress = clamp(1 - slash.timer / slash.duration, 0, 1);
+      const minRadius = koiShogunBoss.r + (KOI_SHOGUN_SLASH_RANGE - koiShogunBoss.r) * previousProgress;
+      const maxRadius = koiShogunBoss.r + (KOI_SHOGUN_SLASH_RANGE - koiShogunBoss.r) * progress;
+      if (!slash.hitPlayer) {
+        const dx = player.x - koiShogunBoss.x;
+        const dy = player.y - koiShogunBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - slash.angle),
+          Math.cos(Math.atan2(dy, dx) - slash.angle),
+        );
+        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= KOI_SHOGUN_SLASH_HALF_ANGLE) {
+          slash.hitPlayer = true;
+          damagePlayer(KOI_SHOGUN_SLASH_DAMAGE);
+          spawnBurst(player.x, player.y, "#d7fbff", 34, 255);
+        }
+      }
+      if (slash.timer <= 0) {
+        koiShogunBoss.slash = null;
+        koiShogunBoss.attackClock = 2.4;
+      }
+      return;
+    }
+
+    if (sharedTimeline) return;
+    koiShogunBoss.attackClock -= dt;
+    if (koiShogunBoss.attackClock > 0) return;
+    const dx = player.x - koiShogunBoss.x;
+    const dy = player.y - koiShogunBoss.y;
+    if (dx * dx + dy * dy > KOI_SHOGUN_AGGRO_RANGE * KOI_SHOGUN_AGGRO_RANGE) return;
+    if (koiShogunBoss.nextAttack === "slash") startKoiShogunSlash();
+    else startKoiShogunWhirlpools();
+  }
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -1819,24 +2073,28 @@ export function createBossController(options: {
     resetMagmaliskBoss,
     resetGloomrootBoss,
     resetTidewyrmBoss,
+    resetKoiShogunBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
     syncMagmaliskState,
     syncGloomrootState,
     syncTidewyrmState,
+    syncKoiShogunState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
     updateMagmaliskBoss,
     updateGloomrootBoss,
     updateTidewyrmBoss,
+    updateKoiShogunBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
     resolveMagmaliskCollision: () => resolveCollision(magmaliskBoss, MAGMALISK_CONTACT_DAMAGE, .75),
     resolveGloomrootCollision: () => resolveCollision(gloomrootBoss, GLOOMROOT_CONTACT_DAMAGE, .75),
     resolveTidewyrmCollision: () => resolveCollision(tidewyrmBoss, TIDEWYRM_CONTACT_DAMAGE, .75),
+    resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
     applyDragonConePush,
     applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {

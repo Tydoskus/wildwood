@@ -140,6 +140,11 @@ export type TidewyrmWhirlpool = Circle & {
   maxTimer: number;
 };
 
+export type KoiShogunWhirlpool = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
 export type FrostclawRoar = {
   windup: number;
   timer: number;
@@ -207,7 +212,13 @@ export type TidewyrmBossState = BossStateBase & {
   surge: BossCone | null;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState;
+export type KoiShogunBossState = BossStateBase & {
+  bossKind: "koiShogun";
+  nextAttack: "slash" | "whirlpool";
+  slash: BossCone | null;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState;
 
 export type DuelPresentation = {
   id: bigint;

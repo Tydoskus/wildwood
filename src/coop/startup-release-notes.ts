@@ -8,16 +8,12 @@ type StartupReleaseNote = {
 
 export type StartupReleaseNotesElements = {
   overlay: HTMLElement;
-  title: HTMLElement;
   items: HTMLElement;
-  close: HTMLElement;
+  toggle: HTMLElement;
 };
 
 type StartupReleaseNotesHooks = {
-  version: string;
   releases: () => readonly StartupReleaseNote[];
-  seenVersion: () => string;
-  markSeen: () => void;
   render?: typeof renderUpdateNotice;
 };
 
@@ -29,9 +25,8 @@ function startupReleaseNotesElements(documentValue: Document): StartupReleaseNot
   }
   return {
     overlay: requireElement("updateNotice"),
-    title: requireElement("updateNoticeTitle"),
     items: requireElement("updateNoticeItems"),
-    close: requireElement("closeUpdateNoticeBtn"),
+    toggle: requireElement("signinVersion"),
   };
 }
 
@@ -41,37 +36,38 @@ export function createStartupReleaseNotes(
   elements = startupReleaseNotesElements(document),
 ) {
   const render = hooks.render ?? renderUpdateNotice;
+  let hasNotes = false;
+
+  function setOpen(open: boolean) {
+    const expanded = open && hasNotes;
+    elements.overlay.hidden = !expanded;
+    elements.toggle.setAttribute("aria-expanded", String(expanded));
+  }
 
   function hide() {
-    elements.overlay.hidden = true;
+    setOpen(false);
   }
 
   function show() {
-    if (hooks.seenVersion() === hooks.version) {
-      hide();
-      return;
-    }
     const releases = hooks.releases();
-    if (!releases.length) {
+    hasNotes = releases.length > 0;
+    if (!hasNotes) {
       hide();
       return;
     }
-    render(
-      { overlay: elements.overlay, title: elements.title, items: elements.items },
-      hooks.version,
-      releases,
-    );
+    render({ items: elements.items }, releases);
   }
 
-  function close() {
-    hide();
-    hooks.markSeen();
+  function toggle() {
+    if (!hasNotes) show();
+    setOpen(elements.overlay.hidden);
   }
 
   function dispose() {
-    elements.close.removeEventListener("click", close);
+    elements.toggle.removeEventListener("click", toggle);
   }
 
-  elements.close.addEventListener("click", close);
+  setOpen(false);
+  elements.toggle.addEventListener("click", toggle);
   return { dispose, hide, show };
 }

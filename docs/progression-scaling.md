@@ -54,10 +54,11 @@ Samurai Garden applies the shared progression contract to Water Reach's unsliced
 
 - total regular-enemy health across one authored clear is `0.2295×` unsliced Water (`11.475 × 0.02`), or `9.18×` one currently sliced Water clear;
 - aggregate regular-enemy threat (`damage × attacks per second`) across a clear is exactly `8.5×` Water;
-- canonical reward power across a clear is `0.425×` unsliced Water (`8.5 × 0.02 × 2.5`), or about `13.08×` one currently sliced Water clear, while Samurai Garden has no boss or equipment tier; revisit the explicit `2.5×` open-map reserve when a guaranteed capstone is added;
+- canonical reward power across one regular clear is `0.425×` unsliced Water (`8.5 × 0.02 × 2.5`), or about `13.08×` one currently sliced Water clear; the repeatable Koi Shogun is a separate guaranteed capstone;
 - individual health, hit damage, attack cadence, and reward ratios vary modestly around those targets so each family has its own combat texture;
 - Tidewyrm health is about `6.26×` current Gloomroot health (`11.475 × 34.5 / 55`); and
 - Tidewyrm's rewards start from `8.5×` Gloomroot, with the Water damage and health track corrections applied where appropriate.
+- Koi Shogun health and rewards take one further `8.5×` Samurai Garden step from Tidewyrm.
 
 These relationships live in `SAMURAI_GARDEN_*`, `SAMURAI_GARDEN_ARCHETYPE_PROFILE`, and `TIDEWYRM_*` constants in `shared/rules.ts`. The readable archetype profile is normalized against the authored 6/6/7/7/4 family mix; tests must verify the aggregate budgets whenever that mix changes. Future tuning should change the shared target or profile and clearly document an intentional exception, not hide a second multiplier in map or enemy code. Boss attack damage remains encounter-tuned because telegraph timing and dodge space affect survivability; validate it against the representative Water-exit build and avoid unavoidable one-shots.
 
@@ -70,7 +71,7 @@ The values below slice each map's readable source health and regular-reward budg
 | Advanced Lava Lake | 1.5% | 3.125% | 10:56 (5% of target) |
 | Night Forest | 2.4375% | 5% | 14:46 (5% of target) |
 | Water Reach | 2.5% | 3.25% | 15:00 cap |
-| Samurai Garden (open) | 2% of its derived source | 2% of its derived source | no boss yet |
+| Samurai Garden | 2% of its derived source | 2% of its derived source | 15:00 cap |
 
 Health and reward slices may differ because map layout, respawn timing, and inherited source values determine how many enemies are needed to earn the target power. Tune them together in Balance Lab. The release guardrail is the outcome: roughly 3%–15% boss time, 5%–20% travel when topology supports it, ordinary fights measured in seconds rather than minutes, map duration inside its band, and power growth near 8.5×. Preserve late-map equipment odds per macro progression when kill cadence changes; otherwise shorter fights silently become an equipment buff.
 

@@ -31,6 +31,7 @@ export const BOSS_DAMAGE_REFERENCE = {
   magmalisk: strongestEnemyDamage(["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"]),
   gloomroot: strongestEnemyDamage(["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]),
   tidewyrm: strongestEnemyDamage(["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]),
+  koiShogun: strongestEnemyDamage(["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]),
 } as const;
 
 export const BOSS_DAMAGE_PROFILES = {
@@ -65,6 +66,11 @@ export const BOSS_DAMAGE_PROFILES = {
   }),
   tidewyrm: scaledProfile(BOSS_DAMAGE_REFERENCE.tidewyrm, {
     surge: 20,
+    whirlpool: 14,
+    contact: 10,
+  }),
+  koiShogun: scaledProfile(BOSS_DAMAGE_REFERENCE.koiShogun, {
+    slash: 20,
     whirlpool: 14,
     contact: 10,
   }),

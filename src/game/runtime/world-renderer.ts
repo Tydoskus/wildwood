@@ -3,7 +3,7 @@ import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, PlayerState, SpiderBossState, TidewyrmBossState } from "./types";
 import { SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
@@ -88,6 +88,7 @@ export type WorldRendererOptions = {
   lavaMapId: MapId;
   infernalMapId: MapId;
   waterMapId: MapId;
+  samuraiMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -98,6 +99,7 @@ export type WorldRendererOptions = {
   magmaliskBoss: MagmaliskBossState;
   gloomrootBoss: GloomrootBossState;
   tidewyrmBoss: TidewyrmBossState;
+  koiShogunBoss: KoiShogunBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -917,7 +919,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
               ? { state: options.gloomrootBoss, color: "#69f0e7" }
               : options.getMapId() === options.waterMapId
                 ? { state: options.tidewyrmBoss, color: "#55ddf4" }
-                : null;
+                : options.getMapId() === options.samuraiMapId
+                  ? { state: options.koiShogunBoss, color: "#e48a35" }
+                  : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
       draw.save();
