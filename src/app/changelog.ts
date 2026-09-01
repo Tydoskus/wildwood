@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.582": [
+    "Updated the Player Power icon across the HUD, player labels, and chat.",
+  ],
   "0.581": [
     "Refreshed the male and female profile icons and Gem artwork.",
     "Adjusted the Koi Shogun artwork so it keeps its intended proportions and faces left consistently.",
@@ -1310,6 +1313,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.582": "2026-09-01",
   "0.581": "2026-09-01",
   "0.580": "2026-09-01",
   "0.579": "2026-09-01",

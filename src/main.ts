@@ -580,7 +580,7 @@ import {
   });
   profileIconSheet.src = "assets/wildstat/profile-portraits-grid-v2.png";
   const powerIcon = new Image();
-  powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v1.png";
+  powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.png";
   const maleGenderIcon = new Image();
   maleGenderIcon.src = playerGenderIconPath(PLAYER_GENDER_MALE);
   const femaleGenderIcon = new Image();

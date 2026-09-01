@@ -269,7 +269,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         power.setAttribute("aria-label", `Power ${formatCompactNumber(displayedPower)}`);
         const powerIcon = document.createElement("img");
         powerIcon.className = "power-icon chat-power-icon";
-        powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v1.png";
+        powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.png";
         powerIcon.alt = "";
         powerIcon.setAttribute("aria-hidden", "true");
         const powerValue = document.createElement("span");

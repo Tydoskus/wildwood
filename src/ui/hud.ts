@@ -58,7 +58,7 @@ export function renderPlayerHud(
   if (elements.playerPower.dataset.renderedPower !== powerText) {
     const powerIcon = document.createElement("img");
     powerIcon.className = "power-icon power-icon-hud";
-    powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v1.png";
+    powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.png";
     powerIcon.alt = "Power";
     const powerValue = document.createElement("span");
     powerValue.className = "power-value";
