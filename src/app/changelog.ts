@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.578": [
+    "Map music now loads on demand so startup and portal transitions continue without waiting on soundtrack downloads.",
+  ],
   "0.577": [
     "Updated remaining game text, item descriptions, and Terms to use the Wildstat name.",
     "Updated the desert boss with an animated Desert Scorpion sprite and matching labels.",
@@ -1295,6 +1298,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.578": "2026-09-01",
   "0.577": "2026-08-30",
   "0.576": "2026-08-30",
   "0.575": "2026-08-30",

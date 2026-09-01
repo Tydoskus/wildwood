@@ -5,13 +5,6 @@ const DESERT_MUSIC_SOURCE = "assets/wildstat/audio/desert.mp3";
 const SNOW_MUSIC_SOURCE = "assets/wildstat/audio/snow.mp3";
 const LAVA_MUSIC_SOURCE = "assets/wildstat/audio/lava.mp3";
 const NIGHT_FOREST_MUSIC_SOURCE = "assets/wildstat/audio/night-forest.mp3";
-export const GAME_MUSIC_SOURCES = [
-  FOREST_MUSIC_SOURCE,
-  DESERT_MUSIC_SOURCE,
-  SNOW_MUSIC_SOURCE,
-  LAVA_MUSIC_SOURCE,
-  NIGHT_FOREST_MUSIC_SOURCE,
-] as const;
 export const SIGN_IN_MUSIC_SOURCE = "assets/wildstat/audio/signin.mp3";
 export const DEATH_SOUND_SOURCE = "assets/wildstat/audio/death.mp3";
 export const BOW_ATTACK_SOUND_SOURCE = "assets/wildstat/audio/bow-release.mp3";
@@ -48,7 +41,6 @@ export type MapMusicController = {
   readonly sfxVolume: number;
   setVolume(volume: number): void;
   setSfxVolume(volume: number): void;
-  prepareGameAudio(): Promise<void>;
   syncMap(mapId: MapId): void;
   ensurePlaying(allowed: boolean): void;
   playDeathSound(): void;
@@ -105,32 +97,6 @@ export function createMapMusicController(
   let bowAttackBufferPromise: Promise<AudioBuffer | null> | null = null;
   let lastBowAttackAt = Number.NEGATIVE_INFINITY;
   const activeBowAttackVoices: BowAttackVoice[] = [];
-  const musicWarmers: HTMLAudioElement[] = [];
-  let gameAudioPromise: Promise<void> | null = null;
-
-  function prepareGameAudio() {
-    if (gameAudioPromise) return gameAudioPromise;
-    gameAudioPromise = Promise.all(GAME_MUSIC_SOURCES.map((source) => new Promise<void>((resolve) => {
-      const warmer = new Audio();
-      musicWarmers.push(warmer);
-      warmer.preload = "metadata";
-      warmer.src = source;
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        globalThis.clearTimeout(timeout);
-        warmer.removeEventListener("loadedmetadata", finish);
-        warmer.removeEventListener("error", finish);
-        resolve();
-      };
-      const timeout = globalThis.setTimeout(finish, 4_000);
-      warmer.addEventListener("loadedmetadata", finish, { once: true });
-      warmer.addEventListener("error", finish, { once: true });
-      warmer.load();
-    }))).then(() => undefined);
-    return gameAudioPromise;
-  }
 
   function preloadBowAttackSound(context: AudioContext) {
     if (bowAttackBuffer) return Promise.resolve(bowAttackBuffer);
@@ -198,7 +164,8 @@ export function createMapMusicController(
     if (audio.getAttribute("src") === nextSource) return;
     const shouldResume = !audio.paused;
     audio.src = nextSource;
-    audio.load();
+    // play() starts loading through this same element and resolves only when
+    // the browser can begin playback. Map changes never wait for that promise.
     if (shouldResume && volume > 0) void audio.play().catch(() => {});
   }
 
@@ -285,7 +252,6 @@ export function createMapMusicController(
     get sfxVolume() { return sfxVolume; },
     setVolume,
     setSfxVolume,
-    prepareGameAudio,
     syncMap,
     ensurePlaying,
     playDeathSound,

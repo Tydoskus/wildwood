@@ -130,7 +130,6 @@ import {
   });
 
   const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, SFX_VOLUME_KEY);
-  let gameAudioReady = false;
 
   function syncMapMusic() {
     mapMusic.syncMap(currentMapId);
@@ -308,7 +307,6 @@ import {
       ["Loading Player Appearance", playerSpriteReady, 72],
       ["Loading Core Artwork", assets.worldArtReady(), 84],
       ["Loading Map Artwork", assets.allMapAssetsReady(), 92],
-      ["Loading Music", gameAudioReady, 97],
       ["Loading Page Artwork", pageLoadComplete, 99],
       ["Starting Wildstat", true, 100],
     ],
@@ -802,11 +800,6 @@ import {
   const { assets, inventoryCharacterPreview, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
   prepareMapAssets = assets.ensureMapAssets;
   void assets.ensureAllMapAssets();
-  void mapMusic.prepareGameAudio().finally(() => {
-    gameAudioReady = true;
-    startup.refreshLoading();
-    finishStartup();
-  });
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   let cachedMinimapBounds: { left: number; top: number; width: number; height: number } | null = null;

@@ -8,7 +8,6 @@ import {
   bowAttackPlaybackRate,
   createMapMusicController,
   DEATH_SOUND_SOURCE,
-  GAME_MUSIC_SOURCES,
   musicSourceForMap,
   SIGN_IN_MUSIC_SOURCE,
 } from "./audio";
@@ -47,14 +46,33 @@ describe("map music", () => {
     expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/night-forest.mp3");
   });
 
-  it("warms each unique map soundtrack during the loading screen", () => {
-    expect(GAME_MUSIC_SOURCES).toEqual([
-      "assets/wildstat/audio/forest.mp3",
-      "assets/wildstat/audio/desert.mp3",
-      "assets/wildstat/audio/snow.mp3",
-      "assets/wildstat/audio/lava.mp3",
-      "assets/wildstat/audio/night-forest.mp3",
-    ]);
+  it("loads a map soundtrack on demand through the playback element", () => {
+    const instances: FakeAudio[] = [];
+    vi.stubGlobal("Audio", class extends FakeAudio {
+      constructor(source: string) {
+        super(source);
+        instances.push(this);
+      }
+    });
+    vi.stubGlobal("localStorage", { getItem: () => null });
+
+    const controller = createMapMusicController(
+      "test-volume",
+      BEGINNER_DESERT_MAP_ID,
+      INTERMEDIATE_SNOWLANDS_MAP_ID,
+      ADVANCED_LAVA_WASTES_MAP_ID,
+    );
+    const music = instances[0]!;
+    music.paused = false;
+    controller.syncMap(TUTORIAL_FOREST_MAP_ID);
+
+    expect(instances).toHaveLength(2);
+    expect(music.src).toBe("assets/wildstat/audio/forest.mp3");
+    expect(music.load).not.toHaveBeenCalled();
+    expect(music.play).toHaveBeenCalledOnce();
+
+    controller.syncMap(TUTORIAL_FOREST_MAP_ID);
+    expect(music.play).toHaveBeenCalledOnce();
   });
 
   it("uses the Death sting for player death", () => {
@@ -152,6 +170,7 @@ class FakeAudio {
   src: string;
   volume = 1;
   play = vi.fn(async () => {});
+  load = vi.fn();
 
   constructor(source: string) {
     this.src = source;
@@ -161,7 +180,6 @@ class FakeAudio {
     return name === "src" ? this.src : null;
   }
 
-  load() {}
 }
 
 class FakeAudioParam {
