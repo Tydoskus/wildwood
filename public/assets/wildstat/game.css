@@ -1566,7 +1566,6 @@
     .daily-gem-bonus-art::before,
     .daily-gem-bonus-art img,
     .daily-gem-bonus.is-claimed .daily-gem-bonus-art img { animation: none; }
-    #accountChoicePanel .wildstat-wordmark-title,
     .chat-message-actions-backdrop,
     .chat-message-action-sheet { transition: none; }
   }
@@ -1648,7 +1647,12 @@
     transform: translate(-50%, -50%);
   }
 
-  .modal.account-choice-modal { scrollbar-width: none; }
+  .modal.account-choice-modal {
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    scrollbar-width: none;
+  }
   .modal.account-choice-modal::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
   .connection-modal {
@@ -1878,11 +1882,8 @@
     margin-right: 0;
     margin-left: calc((100% - min(390px, calc(100vw - 36px))) / 2);
     animation: signin-logo-float 3.2s ease-in-out infinite;
-    opacity: 0;
-    transition: opacity 600ms ease 2s;
+    opacity: 1;
   }
-
-  html.signin-artwork-ready #accountChoicePanel .wildstat-wordmark-title { opacity: 1; }
 
   @keyframes signin-logo-float {
     0%, 100% { transform: translateY(0); }

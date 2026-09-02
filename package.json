@@ -28,7 +28,7 @@
     "art:enemy-align": "python3 -m http.server --directory . 4173"
   },
   "dependencies": {
-    "spacetimedb": "2.8.1"
+    "spacetimedb": "2.9.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

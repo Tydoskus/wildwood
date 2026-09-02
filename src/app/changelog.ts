@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.588": [
+    "Updated Wildstat to SpacetimeDB 2.9.0 for more reliable identity-preserving reconnects.",
+    "The sign-in logo and buttons now stay fixed in place, and the logo appears immediately without fading in.",
+  ],
   "0.587": [
     "Moonfen is now open beyond Cloudspire, with five new enemies and five marsh camps.",
     "Defeat Tempest Kirin to enter Moonfen and face Miremaw's tongue lash and bog burst attacks.",
@@ -1333,6 +1337,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.588": "2026-09-02",
   "0.587": "2026-09-02",
   "0.586": "2026-09-02",
   "0.585": "2026-09-02",
