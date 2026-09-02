@@ -23,13 +23,6 @@ type CoopSessionDependencies = {
   finishStartup: () => void;
   clearSignInPending: () => void;
   updateProtocolGate: (account: AccountState) => void;
-  showSessionConflict: () => void;
-  shouldShowSigningIn: (account: AccountState) => boolean;
-  showSigningIn: () => void;
-  shouldShowLoading: (account: AccountState) => boolean;
-  showLoading: () => void;
-  shouldShowAccountChoice: (account: AccountState) => boolean;
-  showAccountChoice: () => void;
   refreshChat: () => void;
   updateDuelControls: () => void;
   refreshAppStatus: () => void;
@@ -67,10 +60,6 @@ export function createCoopSessionController(dependencies: CoopSessionDependencie
     const account = coop.accountState?.();
     if (account?.signedIn) dependencies.clearSignInPending();
     dependencies.updateProtocolGate(account);
-    if (account?.sessionConflict) dependencies.showSessionConflict();
-    else if (dependencies.shouldShowSigningIn(account)) dependencies.showSigningIn();
-    else if (dependencies.shouldShowLoading(account)) dependencies.showLoading();
-    else if (dependencies.shouldShowAccountChoice(account)) dependencies.showAccountChoice();
     dependencies.refreshChat();
     dependencies.updateDuelControls();
     dependencies.refreshAppStatus();

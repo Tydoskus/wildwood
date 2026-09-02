@@ -64,6 +64,141 @@ export type BaseSubscriptionHandlers = {
   removeDuel: RowHandler;
 };
 
+type BaseSubscriptionHandlerSources = {
+  presence: {
+    upsertPlayer: BaseSubscriptionHandlers["player"];
+    removePlayer: BaseSubscriptionHandlers["removePlayer"];
+    upsertPlayerMotionFrame: BaseSubscriptionHandlers["motionFrame"];
+    upsertPlayerMapFrame: BaseSubscriptionHandlers["mapFrame"];
+    upsertPlayerDeathFrame: BaseSubscriptionHandlers["deathFrame"];
+    upsertMotionIdentity: BaseSubscriptionHandlers["motionIdentity"];
+    removeMotionIdentity: BaseSubscriptionHandlers["removeMotionIdentity"];
+    upsertWorldStatus: BaseSubscriptionHandlers["worldStatus"];
+  };
+  profile: {
+    upsertProfile: BaseSubscriptionHandlers["profile"];
+    removeProfile: BaseSubscriptionHandlers["removeProfile"];
+    upsertAccountStatus: BaseSubscriptionHandlers["accountStatus"];
+    removeAccountStatus: BaseSubscriptionHandlers["removeAccountStatus"];
+  };
+  progression: {
+    upsertProgress: BaseSubscriptionHandlers["progress"];
+    upsertResearch: BaseSubscriptionHandlers["research"];
+    removeResearch: BaseSubscriptionHandlers["removeResearch"];
+    upsertActiveResearch: BaseSubscriptionHandlers["activeResearch"];
+    removeActiveResearch: BaseSubscriptionHandlers["removeActiveResearch"];
+    upsertItemUpgrade: BaseSubscriptionHandlers["itemUpgrade"];
+    removeItemUpgrade: BaseSubscriptionHandlers["removeItemUpgrade"];
+    upsertActiveItemUpgrade: BaseSubscriptionHandlers["activeItemUpgrade"];
+    removeActiveItemUpgrade: BaseSubscriptionHandlers["removeActiveItemUpgrade"];
+    upsertLifetime: BaseSubscriptionHandlers["lifetime"];
+    upsertGemWallet: BaseSubscriptionHandlers["gemWallet"];
+    removeGemWallet: BaseSubscriptionHandlers["removeGemWallet"];
+    upsertDailyGemBonus: BaseSubscriptionHandlers["dailyGemBonus"];
+    removeDailyGemBonus: BaseSubscriptionHandlers["removeDailyGemBonus"];
+    upsertBalanceApologyNotice: BaseSubscriptionHandlers["balanceApologyNotice"];
+    removeBalanceApologyNotice: BaseSubscriptionHandlers["removeBalanceApologyNotice"];
+    upsertUpgradeBench: BaseSubscriptionHandlers["upgradeBench"];
+    removeUpgradeBench: BaseSubscriptionHandlers["removeUpgradeBench"];
+    upsertInventoryCapacity: BaseSubscriptionHandlers["inventoryCapacity"];
+    removeInventoryCapacity: BaseSubscriptionHandlers["removeInventoryCapacity"];
+    upsertItemDrop: BaseSubscriptionHandlers["itemDrop"];
+  };
+  developer: {
+    upsertAccessAudit: BaseSubscriptionHandlers["accessAudit"];
+    removeAccessAudit: BaseSubscriptionHandlers["removeAccessAudit"];
+    upsertBugReport: BaseSubscriptionHandlers["bugReport"];
+    removeBugReport: BaseSubscriptionHandlers["removeBugReport"];
+  };
+  boss: {
+    upsertDragon: BaseSubscriptionHandlers["dragonBoss"];
+    upsertDragonResult: BaseSubscriptionHandlers["dragonResult"];
+    upsertSpider: BaseSubscriptionHandlers["spiderBoss"];
+    upsertSpiderResult: BaseSubscriptionHandlers["spiderResult"];
+    upsertFrostclaw: BaseSubscriptionHandlers["frostclawBoss"];
+    upsertFrostclawResult: BaseSubscriptionHandlers["frostclawResult"];
+    upsertMagmalisk: BaseSubscriptionHandlers["magmaliskBoss"];
+    upsertMagmaliskResult: BaseSubscriptionHandlers["magmaliskResult"];
+    upsertGloomroot: BaseSubscriptionHandlers["gloomrootBoss"];
+    upsertGloomrootResult: BaseSubscriptionHandlers["gloomrootResult"];
+    upsertTidewyrm: BaseSubscriptionHandlers["tidewyrmBoss"];
+    upsertTidewyrmResult: BaseSubscriptionHandlers["tidewyrmResult"];
+    upsertKoiShogun: BaseSubscriptionHandlers["koiShogunBoss"];
+    upsertKoiShogunResult: BaseSubscriptionHandlers["koiShogunResult"];
+    upsertTempestKirin: BaseSubscriptionHandlers["tempestKirinBoss"];
+    upsertTempestKirinResult: BaseSubscriptionHandlers["tempestKirinResult"];
+    upsertMiremaw: BaseSubscriptionHandlers["miremawBoss"];
+    upsertMiremawResult: BaseSubscriptionHandlers["miremawResult"];
+  };
+  chat: { upsert: BaseSubscriptionHandlers["chatMessage"] };
+  duel: { upsert: BaseSubscriptionHandlers["duel"]; remove: BaseSubscriptionHandlers["removeDuel"] };
+};
+
+/** Adapts service-owned table handlers to the subscription's table names. */
+export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerSources): BaseSubscriptionHandlers {
+  const { presence, profile, progression, developer, boss, chat, duel } = sources;
+  return {
+    player: presence.upsertPlayer,
+    removePlayer: presence.removePlayer,
+    motionFrame: presence.upsertPlayerMotionFrame,
+    mapFrame: presence.upsertPlayerMapFrame,
+    deathFrame: presence.upsertPlayerDeathFrame,
+    motionIdentity: presence.upsertMotionIdentity,
+    removeMotionIdentity: presence.removeMotionIdentity,
+    profile: profile.upsertProfile,
+    removeProfile: profile.removeProfile,
+    gemWallet: progression.upsertGemWallet,
+    removeGemWallet: progression.removeGemWallet,
+    dailyGemBonus: progression.upsertDailyGemBonus,
+    removeDailyGemBonus: progression.removeDailyGemBonus,
+    balanceApologyNotice: progression.upsertBalanceApologyNotice,
+    removeBalanceApologyNotice: progression.removeBalanceApologyNotice,
+    upgradeBench: progression.upsertUpgradeBench,
+    removeUpgradeBench: progression.removeUpgradeBench,
+    inventoryCapacity: progression.upsertInventoryCapacity,
+    removeInventoryCapacity: progression.removeInventoryCapacity,
+    accessAudit: developer.upsertAccessAudit,
+    removeAccessAudit: developer.removeAccessAudit,
+    bugReport: developer.upsertBugReport,
+    removeBugReport: developer.removeBugReport,
+    accountStatus: profile.upsertAccountStatus,
+    removeAccountStatus: profile.removeAccountStatus,
+    worldStatus: presence.upsertWorldStatus,
+    progress: progression.upsertProgress,
+    research: progression.upsertResearch,
+    removeResearch: progression.removeResearch,
+    activeResearch: progression.upsertActiveResearch,
+    removeActiveResearch: progression.removeActiveResearch,
+    itemUpgrade: progression.upsertItemUpgrade,
+    removeItemUpgrade: progression.removeItemUpgrade,
+    activeItemUpgrade: progression.upsertActiveItemUpgrade,
+    removeActiveItemUpgrade: progression.removeActiveItemUpgrade,
+    itemDrop: progression.upsertItemDrop,
+    lifetime: progression.upsertLifetime,
+    dragonBoss: boss.upsertDragon,
+    dragonResult: boss.upsertDragonResult,
+    spiderBoss: boss.upsertSpider,
+    spiderResult: boss.upsertSpiderResult,
+    frostclawBoss: boss.upsertFrostclaw,
+    frostclawResult: boss.upsertFrostclawResult,
+    magmaliskBoss: boss.upsertMagmalisk,
+    magmaliskResult: boss.upsertMagmaliskResult,
+    gloomrootBoss: boss.upsertGloomroot,
+    gloomrootResult: boss.upsertGloomrootResult,
+    tidewyrmBoss: boss.upsertTidewyrm,
+    tidewyrmResult: boss.upsertTidewyrmResult,
+    koiShogunBoss: boss.upsertKoiShogun,
+    koiShogunResult: boss.upsertKoiShogunResult,
+    tempestKirinBoss: boss.upsertTempestKirin,
+    tempestKirinResult: boss.upsertTempestKirinResult,
+    miremawBoss: boss.upsertMiremaw,
+    miremawResult: boss.upsertMiremawResult,
+    chatMessage: chat.upsert,
+    duel: duel.upsert,
+    removeDuel: duel.remove,
+  };
+}
+
 type BaseSubscriptionDependencies = {
   connection: DbConnection;
   identity: Identity;

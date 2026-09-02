@@ -10,6 +10,7 @@ type AccountState = {
   signInRequired?: boolean;
   knownAccount?: boolean;
   notice?: string;
+  connectionIssue?: { message: string } | null;
 };
 
 type LoadingStage = readonly [label: string, ready: boolean, percent: number];
@@ -39,6 +40,7 @@ type StartupDependencies = {
   onBeginAdventure: (name: string) => void;
   signIn: () => Promise<{ ok?: boolean; redirecting?: boolean } | undefined> | undefined;
   takeOverSession: () => Promise<{ ok?: boolean } | undefined> | undefined;
+  retryConnection: () => boolean | void;
   showMessage: (message: string, color: string) => void;
 };
 
@@ -50,6 +52,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   const sessionTakeoverNote = requiredElement("sessionTakeoverNote");
   const loadingDetail = requiredElement("loadingDetail");
   const loadingFill = requiredElement("loadingFill");
+  const connectionRetryButton = requiredElement<HTMLButtonElement>("connectionRetryBtn");
   const accountChoicePanel = requiredElement("accountChoicePanel");
   const accountChoiceDetail = requiredElement("accountChoiceDetail");
   const accountCharacter = requiredElement("accountCharacter");
@@ -62,9 +65,9 @@ export function createStartupController(dependencies: StartupDependencies) {
   const beginAdventureButton = requiredElement("beginAdventureBtn");
 
   let loadingStage = 0;
-  let loadingStageStartedAt = performance.now();
-  let loadingStageTimer: number | null = null;
   let loadingSequenceComplete = false;
+  let loadingCompletionPending = false;
+  let loadingCompletionTimer: number | null = null;
   let signInPending = false;
   const legalGate = createLegalGateController({
     accept: dependencies.acceptLegalTerms,
@@ -72,11 +75,11 @@ export function createStartupController(dependencies: StartupDependencies) {
   });
 
   function showConnecting() {
-    if (loadingStageTimer !== null) window.clearTimeout(loadingStageTimer);
+    if (loadingCompletionTimer !== null) window.clearTimeout(loadingCompletionTimer);
     loadingStage = 0;
-    loadingStageStartedAt = performance.now();
-    loadingStageTimer = null;
     loadingSequenceComplete = false;
+    loadingCompletionPending = false;
+    loadingCompletionTimer = null;
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
@@ -86,6 +89,8 @@ export function createStartupController(dependencies: StartupDependencies) {
     sessionTakeoverButton.hidden = true;
     sessionTakeoverButton.disabled = false;
     sessionTakeoverNote.hidden = true;
+    connectionRetryButton.hidden = true;
+    connectionRetryButton.disabled = false;
     dependencies.onShowConnecting();
     refreshLoading();
   }
@@ -101,15 +106,12 @@ export function createStartupController(dependencies: StartupDependencies) {
     loadingFill.style.width = "100%";
     sessionTakeoverButton.hidden = false;
     sessionTakeoverNote.hidden = false;
+    connectionRetryButton.hidden = true;
   }
 
   function showAccountChoice(detailOverride = "") {
     if (!dependencies.isSignInScreenReady()) {
       if (connectionPanel.hidden) showConnecting();
-      return;
-    }
-    if (!dependencies.legalConsentAccepted()) {
-      showLegalGate();
       return;
     }
     const account = dependencies.accountState();
@@ -140,6 +142,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     accountChoicePanel.hidden = false;
     legalGatePanel.hidden = true;
     newPlayerPanel.hidden = true;
+    connectionRetryButton.hidden = true;
     dependencies.onShowAccountChoice();
   }
 
@@ -149,10 +152,6 @@ export function createStartupController(dependencies: StartupDependencies) {
 
   /** Switch an authenticated account back to progress loading without restarting its timer sequence. */
   function showLoading() {
-    if (!dependencies.legalConsentAccepted() && dependencies.isSignInScreenReady()) {
-      showLegalGate();
-      return;
-    }
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
@@ -161,34 +160,41 @@ export function createStartupController(dependencies: StartupDependencies) {
     newPlayerPanel.hidden = true;
     sessionTakeoverButton.hidden = true;
     sessionTakeoverNote.hidden = true;
+    connectionRetryButton.hidden = true;
     refreshLoading();
   }
 
   function refreshLoading() {
     if (loadingSequenceComplete) return;
-    const connectionNotice = dependencies.accountState()?.notice || "";
+    const account = dependencies.accountState();
+    const connectionNotice = account?.notice || "";
     if (/active in another tab|logged in on another tab|signing out other tab|takeover failed/i.test(connectionNotice)) {
+      connectionRetryButton.hidden = true;
       loadingDetail.textContent = loadingDescriptionCase(connectionNotice);
       loadingFill.style.width = "100%";
       return;
     }
+    if (account?.connectionIssue && !dependencies.connected()) {
+      loadingDetail.textContent = loadingDescriptionCase(account.connectionIssue.message);
+      loadingFill.style.width = "12%";
+      connectionRetryButton.hidden = false;
+      connectionRetryButton.disabled = false;
+      return;
+    }
+    connectionRetryButton.hidden = true;
     const stages = dependencies.getLoadingStages();
-    const [label, ready, percent] = stages[loadingStage];
+    while (loadingStage < stages.length - 1 && stages[loadingStage][1]) loadingStage += 1;
+    const [label, ready, percent] = stages[loadingStage] ?? ["Starting Wildstat", true, 100];
     loadingDetail.textContent = label;
     loadingFill.style.width = `${percent}%`;
-    if (loadingStageTimer !== null || !ready) return;
-    const delay = Math.max(0, 200 - (performance.now() - loadingStageStartedAt));
-    loadingStageTimer = window.setTimeout(() => {
-      loadingStageTimer = null;
-      if (loadingStage < stages.length - 1) {
-        loadingStage += 1;
-        loadingStageStartedAt = performance.now();
-        refreshLoading();
-      } else if (!loadingSequenceComplete) {
-        loadingSequenceComplete = true;
-        dependencies.onLoadingComplete();
-      }
-    }, delay);
+    if (!ready || loadingStage < stages.length - 1 || loadingSequenceComplete || loadingCompletionPending) return;
+    loadingCompletionPending = true;
+    loadingCompletionTimer = window.setTimeout(() => {
+      loadingCompletionTimer = null;
+      loadingCompletionPending = false;
+      loadingSequenceComplete = true;
+      dependencies.onLoadingComplete();
+    }, 0);
   }
 
   function showNewPlayerIntro() {
@@ -203,6 +209,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     accountChoicePanel.hidden = true;
     legalGatePanel.hidden = true;
     newPlayerPanel.hidden = false;
+    connectionRetryButton.hidden = true;
     requestAnimationFrame(() => playerNameInput.focus());
   }
 
@@ -215,6 +222,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     newPlayerPanel.hidden = true;
     sessionTakeoverButton.hidden = true;
     sessionTakeoverNote.hidden = true;
+    connectionRetryButton.hidden = true;
   }
 
   function beginAdventure() {
@@ -264,6 +272,11 @@ export function createStartupController(dependencies: StartupDependencies) {
       loadingDetail.textContent = "Takeover Failed · Try Again";
     });
   });
+  connectionRetryButton.addEventListener("click", () => {
+    connectionRetryButton.disabled = true;
+    loadingDetail.textContent = "Retrying Connection…";
+    dependencies.retryConnection();
+  });
   beginAdventureButton.addEventListener("click", beginAdventure);
   playerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") beginAdventure();
@@ -272,7 +285,6 @@ export function createStartupController(dependencies: StartupDependencies) {
     clearSignInPending: () => { signInPending = false; },
     hideStart: () => { start.style.display = "none"; },
     isLoadingSequenceComplete: () => loadingSequenceComplete,
-    isSignInPending: () => signInPending,
     refreshLoading,
     showAccountChoice,
     showConnecting,
@@ -280,6 +292,5 @@ export function createStartupController(dependencies: StartupDependencies) {
     showLegalGate,
     showNewPlayerIntro,
     showSessionConflict,
-    showSigningIn,
   };
 }

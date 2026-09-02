@@ -11,8 +11,11 @@ The original extraction was behavior-preserving. Later realtime protocol work ch
 | `src/wildstat-coop.ts` | Runtime composition, reducer error policy, connection/reconnect orchestration, one world-entry gate, browser lifecycle wiring, and the public façade. |
 | `src/coop/contracts.ts` | Public multiplayer data contracts re-exported by the façade. |
 | `src/coop/ports.ts` | Narrow reducer and change-notification ports shared by services. |
+| `src/coop/startup-route.ts` | Shared screen precedence for the lightweight auth shell and full game startup. |
 | `src/coop/services/account-service.ts` | Guest/account credentials, PKCE callback, account migration, session takeover intent, remembered character metadata, and account-facing API methods. |
-| `src/coop/services/base-subscription.ts` | Base query list, SDK table callback registration, one cache hydration boundary, and initial callback suppression. |
+| `src/coop/services/base-subscription.ts` | Service-handler adaptation, base query list, SDK table callback registration, one cache hydration boundary, and initial callback suppression. |
+| `src/coop/services/connection-lifecycle.ts` | Timed connection phases and structured, user-safe failure diagnostics. |
+| `src/coop/services/reconnect-scheduler.ts` | Visibility-aware capped exponential retry backoff and jitter. |
 | `src/coop/services/presence-service.ts` | Local state, stable map-wide presentation cache, nearest-five interpolation, movement and speed reducers, packed minimap/death/boss-attack frames, map handoff, and online count. |
 | `src/coop/services/player-profile-service.ts` | Temporary profile loads, leaderboard snapshots, profile-map presentation, timeout/cancellation, and cached profile assembly. |
 | `src/coop/services/profile-directory.ts` | Identity-to-name/appearance/account presentation and profile mutation reducers. |
@@ -32,6 +35,7 @@ The original extraction was behavior-preserving. Later realtime protocol work ch
 6. Pending progress is keyed by identity. It drains before guest-account migration and before duel snapshots, and remains stored when a protocol update blocks the old client.
 7. A websocket is not playable world presence. `enter_world` remains the single explicit gate.
 8. Short visibility resumes retain a healthy socket; long resumes perform one reducer probe before reconnecting.
+9. Connection, session setup, and hydration must time out into capped retry backoff; only successful hydration resets consecutive retry state.
 
 ## Adding a multiplayer feature
 

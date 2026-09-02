@@ -1,11 +1,7 @@
 import { enforceLatestVersion } from "../app/version";
+import { resolveStartupRoute, type StartupRouteAccount } from "../coop/startup-route";
 
-type AccountState = {
-  signedIn?: boolean;
-  authInProgress?: boolean;
-  returningFromSignIn?: boolean;
-  guestSessionApproved?: boolean;
-  sessionConflict?: boolean;
+type AccountState = StartupRouteAccount & {
   updating?: boolean;
 };
 
@@ -24,6 +20,7 @@ type StartupCoordinatorDependencies = {
   legalConsentAccepted: () => boolean;
   showLegalGate: () => void;
   showAccountChoice: () => void;
+  showLoading: () => void;
   showNewPlayerIntro: () => void;
   isLoadingSequenceComplete: () => boolean;
   hasStarted: () => boolean;
@@ -57,34 +54,50 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
   function finishStartup() {
     dependencies.refreshLoading();
     const account = dependencies.accountState();
-    if (account?.sessionConflict) {
-      dependencies.showSessionConflict();
-      return;
-    }
-    if (dependencies.hasStarted() || dependencies.isRunning()) return;
-    if (!dependencies.legalConsentAccepted()) {
-      if (isSignInScreenReady()) dependencies.showLegalGate();
-      return;
-    }
-    if (!account?.signedIn && !account?.authInProgress && !account?.returningFromSignIn
-      && !account?.guestSessionApproved && !dependencies.guestContinuationChosen() && isSignInScreenReady()) {
-      dependencies.showAccountChoice();
-      return;
-    }
-    if (!dependencies.pageLoadComplete() || !dependencies.isLoadingSequenceComplete() || !dependencies.playerSpriteReady()
-      || !dependencies.worldArtReady() || !dependencies.connected()) return;
-    if (!dependencies.progressLoaded() || !dependencies.hasLocalState()) return;
-    if (account?.signedIn && !dependencies.localProfileReady()) return;
-    if (dependencies.startupKind() === "new") {
-      if (!dependencies.newPlayerIntroShown()) {
-        dependencies.setNewPlayerIntroShown();
-        dependencies.showNewPlayerIntro();
-      }
-      return;
-    }
-    if (dependencies.startupKind() === "returning") {
-      dependencies.beginAdventure();
-      dependencies.startGame();
+    const runtimeReady = dependencies.pageLoadComplete()
+      && dependencies.isLoadingSequenceComplete()
+      && dependencies.playerSpriteReady()
+      && dependencies.worldArtReady()
+      && dependencies.connected()
+      && dependencies.progressLoaded()
+      && dependencies.hasLocalState()
+      && (!account?.signedIn || dependencies.localProfileReady());
+    const route = resolveStartupRoute({
+      mode: "game-runtime",
+      account,
+      guestContinuationChosen: dependencies.guestContinuationChosen(),
+      legalAccepted: dependencies.legalConsentAccepted(),
+      shellReady: isSignInScreenReady(),
+      runtimeReady,
+      started: dependencies.hasStarted() || dependencies.isRunning(),
+      startupKind: dependencies.startupKind(),
+    });
+    switch (route) {
+      case "session-conflict":
+        dependencies.showSessionConflict();
+        return;
+      case "legal":
+        dependencies.showLegalGate();
+        return;
+      case "account-choice":
+        dependencies.showAccountChoice();
+        return;
+      case "verifying-sign-in":
+      case "loading":
+        dependencies.showLoading();
+        return;
+      case "new-player":
+        if (!dependencies.newPlayerIntroShown()) {
+          dependencies.setNewPlayerIntroShown();
+          dependencies.showNewPlayerIntro();
+        }
+        return;
+      case "enter-game":
+        dependencies.beginAdventure();
+        dependencies.startGame();
+        return;
+      default:
+        return;
     }
   }
 

@@ -22,6 +22,7 @@ function dependencies(running: boolean) {
       legalConsentAccepted: () => true,
       showLegalGate: () => {},
       showAccountChoice: () => {},
+      showLoading: () => {},
       showNewPlayerIntro: () => {},
       isLoadingSequenceComplete: () => true,
       hasStarted: () => running,
@@ -49,5 +50,67 @@ describe("startup update handoff", () => {
     expect(active.prepareUpdateReload).toHaveBeenCalledWith("0.420");
     expect(active.gameUpdateGate.hidden).toBe(false);
     expect(inactive.prepareUpdateReload).not.toHaveBeenCalled();
+  });
+});
+
+describe("startup screen coordination", () => {
+  it("keeps account choice ahead of legal consent for an unapproved visitor", () => {
+    const base = dependencies(false).values;
+    const showAccountChoice = vi.fn();
+    const showLegalGate = vi.fn();
+    createStartupCoordinator({
+      ...base,
+      accountState: () => ({}),
+      legalConsentAccepted: () => false,
+      showAccountChoice,
+      showLegalGate,
+    }).finishStartup();
+
+    expect(showAccountChoice).toHaveBeenCalledTimes(1);
+    expect(showLegalGate).not.toHaveBeenCalled();
+  });
+
+  it("moves an approved visitor from legal consent to loading through one router", () => {
+    const base = dependencies(false).values;
+    const showLegalGate = vi.fn();
+    const showLoading = vi.fn();
+    const approved = { guestSessionApproved: true };
+    const coordinator = createStartupCoordinator({
+      ...base,
+      accountState: () => approved,
+      legalConsentAccepted: () => false,
+      showLegalGate,
+      showLoading,
+    });
+    coordinator.finishStartup();
+    expect(showLegalGate).toHaveBeenCalledTimes(1);
+
+    createStartupCoordinator({
+      ...base,
+      accountState: () => approved,
+      legalConsentAccepted: () => true,
+      showLoading,
+    }).finishStartup();
+    expect(showLoading).toHaveBeenCalledTimes(1);
+  });
+
+  it("enters a fully ready returning session once", () => {
+    const base = dependencies(false).values;
+    const beginAdventure = vi.fn();
+    const startGame = vi.fn();
+    createStartupCoordinator({
+      ...base,
+      accountState: () => ({ signedIn: true }),
+      connected: () => true,
+      progressLoaded: () => true,
+      hasLocalState: () => true,
+      localProfileReady: () => true,
+      startupKind: () => "returning" as const,
+      beginAdventure,
+      startGame,
+    }).finishStartup();
+
+    expect(beginAdventure).toHaveBeenCalledTimes(1);
+    expect(startGame).toHaveBeenCalledTimes(1);
   });
 });

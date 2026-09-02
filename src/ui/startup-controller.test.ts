@@ -36,7 +36,7 @@ describe("startup loading completion", () => {
     vi.unstubAllGlobals();
   });
 
-  it("emits final-stage completion once even when completion refreshes startup", () => {
+  it("skips per-stage delays and emits completion only once", () => {
     vi.useFakeTimers();
     const elements = new Map<string, FakeElement>();
     vi.stubGlobal("document", {
@@ -76,12 +76,15 @@ describe("startup loading completion", () => {
       onBeginAdventure: () => {},
       signIn: () => undefined,
       takeOverSession: () => undefined,
+      retryConnection: () => true,
       showMessage: () => {},
     });
 
     startup.refreshLoading();
-    vi.advanceTimersByTime(200);
-
+    expect(startup.isLoadingSequenceComplete()).toBe(false);
+    expect(completions).toBe(0);
+    vi.advanceTimersByTime(0);
+    expect(startup.isLoadingSequenceComplete()).toBe(true);
     expect(completions).toBe(1);
     expect(startup.isLoadingSequenceComplete()).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
@@ -89,5 +92,51 @@ describe("startup loading completion", () => {
     startup.refreshLoading();
     vi.runOnlyPendingTimers();
     expect(completions).toBe(1);
+  });
+
+  it("surfaces a retryable connection failure instead of an indefinite loading label", () => {
+    const elements = new Map<string, FakeElement>();
+    vi.stubGlobal("document", {
+      getElementById(id: string) {
+        const existing = elements.get(id);
+        if (existing) return existing;
+        const element = fakeElement();
+        elements.set(id, element);
+        return element;
+      },
+    });
+    vi.stubGlobal("window", {
+      setTimeout: globalThis.setTimeout,
+      clearTimeout: globalThis.clearTimeout,
+    });
+
+    const startup = createStartupController({
+      accountState: () => ({ connectionIssue: { message: "World sync timed out" } }),
+      connected: () => false,
+      knownCharacter: () => "",
+      knownCharacterGender: () => 0,
+      defaultPlayerName: () => "WANDERER",
+      isSignInScreenReady: () => true,
+      getLoadingStages: () => [["Loading Connection", false, 12]],
+      onLoadingComplete: () => {},
+      onShowAccountChoice: () => {},
+      onShowConnecting: () => {},
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
+      onLegalAccepted: () => {},
+      onContinueGuest: () => {},
+      onBeginAdventure: () => {},
+      signIn: () => undefined,
+      takeOverSession: () => undefined,
+      retryConnection: () => true,
+      showMessage: () => {},
+    });
+    elements.get("connectionRetryBtn")!.hidden = true;
+
+    startup.refreshLoading();
+
+    expect(elements.get("loadingDetail")!.textContent).toBe("World sync timed out");
+    expect(elements.get("loadingFill")!.style.width).toBe("12%");
+    expect(elements.get("connectionRetryBtn")!.hidden).toBe(false);
   });
 });

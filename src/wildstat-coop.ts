@@ -6,6 +6,11 @@ import { GAME_VERSION } from "./game/runtime/game-settings";
 import { createVirtualPlayerLoadTest } from "./coop/services/virtual-player-load-test";
 import { createReconnectWatchdog } from "./coop/services/reconnect-watchdog";
 import { createReconnectScheduler } from "./coop/services/reconnect-scheduler";
+import {
+  createConnectionLifecycle,
+  type ConnectionIssueCode,
+  type ConnectionPhase,
+} from "./coop/services/connection-lifecycle";
 import { createPageWakeTracker } from "./coop/services/page-wake-tracker";
 import { connectionGateState } from "./coop/services/connection-gate-state";
 import { retryAfterMissingWorldPresence } from "./coop/services/world-presence-recovery";
@@ -30,43 +35,11 @@ import {
 import { createPresenceService, type PresenceService } from "./coop/services/presence-service";
 import { createRemoteCombatStatsService } from "./coop/services/remote-combat-stats-service";
 import { defaultRealtimeHost } from "./coop/services/realtime-host";
-import { startBaseSubscription, type BaseSubscriptionHandlers } from "./coop/services/base-subscription";
+import { createBaseSubscriptionHandlers, startBaseSubscription } from "./coop/services/base-subscription";
 import { createAccountService, type AccountService } from "./coop/services/account-service";
 import { startStartupBootstrap } from "./coop/startup-bootstrap";
 import type { ReducerPort } from "./coop/ports";
-export type {
-  AccessAuditEntry,
-  ActiveItemUpgrade,
-  ActiveResearch,
-  BugReportEntry,
-  ChatMessage,
-  DragonBossState,
-  DragonContributor,
-  DragonResult,
-  DuelReplay,
-  DuelState,
-  FrostclawBossState,
-  FrostclawResult,
-  LeaderboardEntry,
-  LocalPlayerState,
-  MagmaliskBossState,
-  MagmaliskResult,
-  GloomrootBossState,
-  GloomrootResult,
-  MapPlayerMarker,
-  PlayerLifetime,
-  PlayerProfileData,
-  PlayerProgress,
-  PlayerResearch,
-  RemotePlayer,
-  RemotePlayerDeath,
-  RemoteCombatStats,
-  RemoteRegularEnemyCombatVisual,
-  SpiderBossState,
-  SpiderResult,
-  TidewyrmBossState, TidewyrmResult, KoiShogunBossState, KoiShogunResult, TempestKirinBossState, TempestKirinResult, MiremawBossState, MiremawResult,
-  UpgradeBenchSlot,
-} from "./coop/contracts";
+export type * from "./coop/contracts";
 
 type WildstatRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
@@ -77,6 +50,9 @@ const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
 const LATENCY_SMOOTHING = .25;
 const WAKE_RECONNECT_WATCHDOG_MS = 10_000;
 const WAKE_RECONNECT_FALLBACK_MS = 4_000;
+const CONNECTION_OPEN_TIMEOUT_MS = 15_000;
+const SESSION_PREPARE_TIMEOUT_MS = 20_000;
+const SUBSCRIPTION_HYDRATION_TIMEOUT_MS = 20_000;
 
 const runtime = window as WildstatRuntime;
 const defaultHost = defaultRealtimeHost(window.location.hostname);
@@ -169,8 +145,7 @@ function onChange() {
 
 const reconnectWatchdog = createReconnectWatchdog({
   delayMs: WAKE_RECONNECT_WATCHDOG_MS,
-  shouldWatch: () => (wakeReconnectVisible || networkReconnectVisible) &&
-    !document.hidden && !protocolBlocked && !worldEntryBlocked,
+  shouldWatch: () => wakeReconnectVisible && !document.hidden && !protocolBlocked && !worldEntryBlocked,
   onTimeout: restartStalledWakeConnection,
   deadlineMs: WAKE_RECONNECT_FALLBACK_MS,
   shouldUseDeadline: () => wakeReconnectVisible && !document.hidden && !protocolBlocked && !worldEntryBlocked,
@@ -186,6 +161,14 @@ const reconnectScheduler = createReconnectScheduler({
   connect,
   scheduleTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
   cancelTimer: (timer) => window.clearTimeout(timer),
+});
+
+const connectionLifecycle = createConnectionLifecycle({
+  now: () => performance.now(),
+  scheduleTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
+  cancelTimer: (timer) => window.clearTimeout(timer),
+  onTimeout: (phase) => handleConnectionTimeout(phase),
+  onIssue: (issue) => console.warn("Wildstat connection lifecycle failure:", issue),
 });
 
 const pageWakeTracker = createPageWakeTracker({
@@ -248,6 +231,7 @@ function handleReducerFailure(action: string, error: unknown) {
   const message = reducerErrorMessage(error);
   if (/active in another tab/i.test(message)) {
     worldEntryBlocked = true;
+    connectionLifecycle.transition("blocked");
     accountService.setNotice("SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB");
     setWakeReconnectVisible(false);
     setNetworkReconnectVisible(false);
@@ -263,6 +247,7 @@ function handleReducerFailure(action: string, error: unknown) {
   // moved to a new protocol. Pending progress stays in local storage so the
   // freshly loaded client can submit it safely.
   protocolBlocked = true;
+  connectionLifecycle.transition("blocked");
   progressionService.blockSaves();
   virtualPlayerLoadTest.disconnectLocal();
   accountService.setNotice("GAME UPDATING · WAITING FOR DEPLOY");
@@ -311,6 +296,7 @@ function requestWorldEntry(): Promise<boolean> {
     .catch((error) => {
       if (/active in another tab/i.test(reducerErrorMessage(error))) {
         worldEntryBlocked = true;
+        connectionLifecycle.transition("blocked");
         accountService.setNotice("LOGGED IN ON ANOTHER TAB");
         onChange?.();
         return false;
@@ -362,21 +348,6 @@ const bossService = createBossService({
   notify: onChange,
   localPosition: () => presenceService?.localState() ?? null,
 });
-const {
-  upsertDragon: upsertDragonBoss, upsertDragonResult,
-  upsertSpider: upsertSpiderBoss, upsertSpiderResult,
-  upsertFrostclaw: upsertFrostclawBoss, upsertFrostclawResult,
-  upsertMagmalisk: upsertMagmaliskBoss,
-  upsertMagmaliskResult,
-  upsertGloomroot: upsertGloomrootBoss,
-  upsertGloomrootResult,
-  upsertTidewyrm: upsertTidewyrmBoss,
-  upsertTidewyrmResult,
-  upsertKoiShogun: upsertKoiShogunBoss,
-  upsertKoiShogunResult,
-  upsertTempestKirin: upsertTempestKirinBoss, upsertTempestKirinResult,
-  upsertMiremaw: upsertMiremawBoss, upsertMiremawResult,
-} = bossService.tables;
 
 let chatService!: ChatService;
 let playerProfileService!: PlayerProfileService;
@@ -403,12 +374,6 @@ const profileDirectory = createProfileDirectory({
   completeAccountReturn: () => accountService.completeAccountReturnWhenReady(),
   markChatPresentationChanged: () => chatService.markPresentationChanged(),
 });
-const {
-  upsertProfile,
-  removeProfile,
-  upsertAccountStatus: upsertPlayerAccountStatus,
-  removeAccountStatus: removePlayerAccountStatus,
-} = profileDirectory.tables;
 
 const developerService = createDeveloperService({
   reducers: reducerPort,
@@ -417,19 +382,12 @@ const developerService = createDeveloperService({
   localDbIdentity: () => localDbIdentity,
   profileIdentityFor: profileDirectory.identityFor,
 });
-const {
-  upsertAccessAudit,
-  removeAccessAudit,
-  upsertBugReport,
-  removeBugReport,
-} = developerService.tables;
 
 chatService = createChatService({
   reducers: reducerPort,
   notify: onChange,
   rememberSender: profileDirectory.rememberChatSender,
 });
-const { upsert: upsertChatMessage } = chatService.tables;
 
 const progressionService = createProgressionService({
   reducers: reducerPort,
@@ -444,29 +402,6 @@ const progressionService = createProgressionService({
   storage: localStorage,
   pendingProgressKey,
 });
-const {
-  upsertProgress,
-  upsertResearch,
-  removeResearch,
-  upsertActiveResearch,
-  removeActiveResearch,
-  upsertItemUpgrade,
-  removeItemUpgrade,
-  upsertActiveItemUpgrade,
-  removeActiveItemUpgrade,
-  upsertLifetime: upsertPlayerLifetime,
-  upsertGemWallet,
-  removeGemWallet,
-  upsertDailyGemBonus,
-  removeDailyGemBonus,
-  upsertBalanceApologyNotice,
-  removeBalanceApologyNotice,
-  upsertUpgradeBench,
-  removeUpgradeBench,
-  upsertInventoryCapacity,
-  removeInventoryCapacity,
-  upsertItemDrop,
-} = progressionService.tables;
 
 playerProfileService = createPlayerProfileService({
   connection: () => connection,
@@ -495,22 +430,13 @@ presenceService = createPresenceService({
   authTabId: () => accountService.tabId(),
   onControllerConflict: () => {
     worldEntryBlocked = true;
+    connectionLifecycle.transition("blocked");
     accountService.setNotice("SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB");
   },
   directory: profileDirectory,
   developer: developerService,
   latencyMs: () => latencyMs,
 });
-const {
-  upsertPlayer,
-  removePlayer,
-  upsertMotionIdentity,
-  removeMotionIdentity,
-  upsertPlayerMotionFrame,
-  upsertPlayerMapFrame,
-  upsertPlayerDeathFrame,
-  upsertWorldStatus,
-} = presenceService.tables;
 
 accountService = createAccountService({
   keys: {
@@ -567,68 +493,15 @@ const duelService = createDuelService({
   drainPendingProgress: progressionService.drainPendingProgress,
   storage: localStorage,
 });
-const { upsert: upsertDuel, remove: removeDuel } = duelService.tables;
-
-const baseSubscriptionHandlers = {
-  player: upsertPlayer,
-  removePlayer,
-  motionFrame: upsertPlayerMotionFrame,
-  mapFrame: upsertPlayerMapFrame,
-  deathFrame: upsertPlayerDeathFrame,
-  motionIdentity: upsertMotionIdentity,
-  removeMotionIdentity,
-  profile: upsertProfile,
-  removeProfile,
-  gemWallet: upsertGemWallet,
-  removeGemWallet,
-  dailyGemBonus: upsertDailyGemBonus,
-  removeDailyGemBonus,
-  balanceApologyNotice: upsertBalanceApologyNotice,
-  removeBalanceApologyNotice,
-  upgradeBench: upsertUpgradeBench,
-  removeUpgradeBench,
-  inventoryCapacity: upsertInventoryCapacity,
-  removeInventoryCapacity,
-  accessAudit: upsertAccessAudit,
-  removeAccessAudit,
-  bugReport: upsertBugReport,
-  removeBugReport,
-  accountStatus: upsertPlayerAccountStatus,
-  removeAccountStatus: removePlayerAccountStatus,
-  worldStatus: upsertWorldStatus,
-  progress: upsertProgress,
-  research: upsertResearch,
-  removeResearch,
-  activeResearch: upsertActiveResearch,
-  removeActiveResearch,
-  itemUpgrade: upsertItemUpgrade,
-  removeItemUpgrade,
-  activeItemUpgrade: upsertActiveItemUpgrade,
-  removeActiveItemUpgrade,
-  itemDrop: upsertItemDrop,
-  lifetime: upsertPlayerLifetime,
-  dragonBoss: upsertDragonBoss,
-  dragonResult: upsertDragonResult,
-  spiderBoss: upsertSpiderBoss,
-  spiderResult: upsertSpiderResult,
-  frostclawBoss: upsertFrostclawBoss,
-  frostclawResult: upsertFrostclawResult,
-  magmaliskBoss: upsertMagmaliskBoss,
-  magmaliskResult: upsertMagmaliskResult,
-  gloomrootBoss: upsertGloomrootBoss,
-  gloomrootResult: upsertGloomrootResult,
-  tidewyrmBoss: upsertTidewyrmBoss,
-  tidewyrmResult: upsertTidewyrmResult,
-  koiShogunBoss: upsertKoiShogunBoss,
-  koiShogunResult: upsertKoiShogunResult,
-  tempestKirinBoss: upsertTempestKirinBoss,
-  tempestKirinResult: upsertTempestKirinResult,
-  miremawBoss: upsertMiremawBoss,
-  miremawResult: upsertMiremawResult,
-  chatMessage: upsertChatMessage,
-  duel: upsertDuel,
-  removeDuel,
-} satisfies BaseSubscriptionHandlers;
+const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
+  presence: presenceService.tables,
+  profile: profileDirectory.tables,
+  progression: progressionService.tables,
+  developer: developerService.tables,
+  boss: bossService.tables,
+  chat: chatService.tables,
+  duel: duelService.tables,
+});
 
 function clearRealtimeCaches() {
   remoteCombatStatsService.clearSession();
@@ -642,7 +515,7 @@ function clearRealtimeCaches() {
   bossService.resetSession();
 }
 
-function restartConnectionForIdentityChange() {
+function abandonConnection(disconnectTransport: boolean) {
   const staleConnection = connection;
   connection = null;
   connecting = false;
@@ -654,42 +527,79 @@ function restartConnectionForIdentityChange() {
   resumeProbeGeneration += 1;
   worldEntryPromise = null;
   worldEntryGeneration = 0;
-  worldEntryBlocked = false;
   latencyMs = null;
   lastLatencyProbeStartedAt = 0;
   connectionGeneration += 1;
+  virtualPlayerLoadTest.disconnectLocal();
   presenceService.markDisconnected();
   progressionService.markDisconnected();
   clearRealtimeCaches();
+  if (disconnectTransport) {
+    try { staleConnection?.disconnect(); } catch {}
+  }
+}
+
+function restartConnectionForIdentityChange() {
+  reconnectScheduler.reset();
+  connectionLifecycle.reset();
+  worldEntryBlocked = false;
+  abandonConnection(true);
   setWakeReconnectVisible(false);
   setNetworkReconnectVisible(false);
-  try { staleConnection?.disconnect(); } catch {}
   onChange();
   scheduleReconnect(100);
 }
 
-function scheduleReconnect(delay = 500, bypassOnlineHint = false) {
+function scheduleReconnect(delay?: number, bypassOnlineHint = false) {
   reconnectScheduler.schedule(delay, bypassOnlineHint);
 }
 
 function restartStalledWakeConnection() {
-  const staleConnection = connection;
   reconnectScheduler.clear();
-  connection = null;
-  connecting = false;
-  hydrationReady = false;
-  connectedSignedIn = false;
-  protocolReadyGeneration = 0;
-  localDbIdentity = null;
-  resumeProbePromise = null;
-  resumeProbeGeneration += 1;
-  worldEntryPromise = null;
-  worldEntryGeneration = 0;
-  presenceService.markDisconnected();
-  connectionGeneration += 1;
-  try { staleConnection?.disconnect(); } catch {}
+  connectionLifecycle.transition("retrying");
+  abandonConnection(true);
   onChange();
   scheduleReconnect(100, true);
+}
+
+function retryFailedConnection(code: ConnectionIssueCode, message: string) {
+  if (protocolBlocked || worldEntryBlocked) {
+    connectionLifecycle.transition("blocked");
+    return;
+  }
+  const hadPlayableSession = hydrationReady || sessionGeneration > 0;
+  connectionLifecycle.fail(code, message);
+  reconnectScheduler.clear();
+  abandonConnection(true);
+  if (hadPlayableSession) setNetworkReconnectVisible(true);
+  onChange();
+  scheduleReconnect();
+}
+
+function handleConnectionTimeout(phase: ConnectionPhase) {
+  if (phase === "connecting") {
+    retryFailedConnection("connection-timeout", "Server connection timed out");
+    return;
+  }
+  if (phase === "preparing-session") {
+    retryFailedConnection("session-timeout", "Session setup timed out");
+    return;
+  }
+  if (phase === "hydrating") {
+    retryFailedConnection("hydration-timeout", "World sync timed out");
+  }
+}
+
+function retryConnection() {
+  if (protocolBlocked || worldEntryBlocked || document.hidden) return false;
+  const hadPlayableSession = hydrationReady || sessionGeneration > 0;
+  reconnectScheduler.reset();
+  if (connection || connecting) abandonConnection(true);
+  connectionLifecycle.transition("retrying");
+  if (hadPlayableSession) setNetworkReconnectVisible(true);
+  onChange();
+  scheduleReconnect(0, true);
+  return true;
 }
 
 function setWakeReconnectVisible(visible: boolean) {
@@ -765,7 +675,10 @@ function connect() {
   connecting = true;
   const generation = ++connectionGeneration;
   const signedIn = Boolean(accountService.accountToken());
-  connection = DbConnection.builder()
+  connectionLifecycle.beginAttempt(CONNECTION_OPEN_TIMEOUT_MS);
+  onChange();
+  try {
+    connection = DbConnection.builder()
     .withUri(host)
     .withDatabaseName(databaseName)
     .withToken(accountService.accountToken() || accountService.guestToken() || undefined)
@@ -785,6 +698,8 @@ function connect() {
       worldEntryGeneration = 0;
       worldEntryBlocked = false;
       reconnectScheduler.clear();
+      connectionLifecycle.transition("preparing-session", SESSION_PREPARE_TIMEOUT_MS);
+      onChange();
       const connectedIdentity = identity.toHexString();
       const identityChanged = Boolean(localIdentity && localIdentity !== connectedIdentity);
       localIdentity = connectedIdentity;
@@ -818,11 +733,15 @@ function connect() {
           if (!accountService.legalConsentAccepted()) {
             accountService.setNotice("AGE & TERMS REQUIRED");
           } else if (!await requestWorldEntry()) {
-            if (isCurrentConnection() && !worldEntryBlocked) conn.disconnect();
+            if (isCurrentConnection() && !worldEntryBlocked) {
+              connectionLifecycle.fail("session-error", "World entry failed");
+              conn.disconnect();
+            }
             return;
           }
         }
 
+        connectionLifecycle.transition("hydrating", SUBSCRIPTION_HYDRATION_TIMEOUT_MS);
         startBaseSubscription({
           connection: conn,
           identity,
@@ -833,6 +752,8 @@ function connect() {
           handlers: baseSubscriptionHandlers,
           onHydrated: () => {
             hydrationReady = true;
+            connectionLifecycle.ready();
+            reconnectScheduler.reset();
             accountService.finishHydration();
             setWakeReconnectVisible(false);
             setNetworkReconnectVisible(false);
@@ -840,7 +761,10 @@ function connect() {
             sessionGeneration += 1;
             onChange();
           },
-          onError: (event) => console.error("Wildstat SpacetimeDB subscription error:", event),
+          onError: (event) => {
+            console.error("Wildstat SpacetimeDB subscription error:", event);
+            retryFailedConnection("subscription-error", "World sync failed");
+          },
           afterHydrated: () => {
             void playerProfileService.loadLeaderboardSnapshot();
             progressionService.flushPendingProgress();
@@ -849,28 +773,23 @@ function connect() {
         onChange?.();
       }).catch((error) => {
         if (generation !== connectionGeneration) return;
-        handleReducerFailure("protocol registration", error);
+        handleReducerFailure("session preparation", error);
+        if (protocolBlocked || worldEntryBlocked) connectionLifecycle.transition("blocked");
+        else connectionLifecycle.fail("session-error", "Session setup failed");
         conn.disconnect();
       });
     })
     .onDisconnect((_ctx, error) => {
       if (generation !== connectionGeneration) return;
-      virtualPlayerLoadTest.disconnectLocal();
-      const hadActiveGame = hydrationReady;
-      connecting = false;
-      connection = null;
-      localDbIdentity = null;
-      hydrationReady = false;
-      connectedSignedIn = false;
-      protocolReadyGeneration = 0;
-      presenceService.markDisconnected();
-      latencyMs = null;
-      lastLatencyProbeStartedAt = 0;
-      worldEntryPromise = null;
-      worldEntryGeneration = 0;
-      progressionService.markDisconnected();
-      clearRealtimeCaches();
-      if (hadActiveGame && !protocolBlocked) setNetworkReconnectVisible(true);
+      const hadActiveGame = hydrationReady || sessionGeneration > 0;
+      const diagnostics = connectionLifecycle.snapshot();
+      if (protocolBlocked || worldEntryBlocked) connectionLifecycle.transition("blocked");
+      else if (diagnostics.phase === "blocked") connectionLifecycle.transition("retrying");
+      else if (diagnostics.phase !== "retrying") {
+        connectionLifecycle.fail("connection-closed", "Connection closed");
+      }
+      abandonConnection(false);
+      if (hadActiveGame && !protocolBlocked && !worldEntryBlocked) setNetworkReconnectVisible(true);
       else setNetworkReconnectVisible(false);
       if (error) console.warn("Wildstat SpacetimeDB disconnected:", error);
       onChange?.();
@@ -878,23 +797,25 @@ function connect() {
     })
     .onConnectError((_ctx: ErrorContext, error: Error) => {
       if (generation !== connectionGeneration) return;
-      connecting = false;
-      connection = null;
-      localDbIdentity = null;
-      hydrationReady = false;
-      connectedSignedIn = false;
-      protocolReadyGeneration = 0;
-      presenceService.markDisconnected();
-      latencyMs = null;
-      lastLatencyProbeStartedAt = 0;
-      worldEntryPromise = null;
-      worldEntryGeneration = 0;
-      if (accountService.onConnectError(signedIn, error)) return;
+      const hadPlayableSession = hydrationReady || sessionGeneration > 0;
+      abandonConnection(false);
+      if (accountService.onConnectError(signedIn, error)) {
+        connectionLifecycle.reset();
+        onChange?.();
+        return;
+      }
+      connectionLifecycle.fail("connection-error", "Could not reach Wildstat");
+      if (hadPlayableSession) setNetworkReconnectVisible(true);
       console.warn("Wildstat SpacetimeDB unavailable:", error.message);
       onChange?.();
-      scheduleReconnect(1_000);
+      scheduleReconnect();
     })
     .build();
+  } catch (error) {
+    if (generation !== connectionGeneration) return;
+    console.warn("Wildstat SpacetimeDB connection setup failed:", error);
+    retryFailedConnection("connection-error", "Connection setup failed");
+  }
 }
 
 export const wildstatCoop = {
@@ -905,6 +826,14 @@ export const wildstatCoop = {
     changeListener = callback;
   },
   ...progressionService.api,
+  connectionDiagnostics() {
+    return {
+      ...connectionLifecycle.snapshot(),
+      retryAttempt: reconnectScheduler.attemptCount(),
+      retryScheduled: reconnectScheduler.isScheduled(),
+      retryDelayMs: reconnectScheduler.pendingDelayMs(),
+    };
+  },
   isConnected() {
     return Boolean(connection?.isActive && hydrationReady);
   },
@@ -914,6 +843,7 @@ export const wildstatCoop = {
   latencyMs() {
     return latencyMs;
   },
+  retryConnection,
   prepareUpdateReload(version: string) {
     accountService.prepareUpdateReload(version);
   },
@@ -930,6 +860,14 @@ export const wildstatCoop = {
     return virtualPlayerLoadTest.stop(Boolean(connection?.isActive && isDeveloperIdentity(localIdentity)));
   },
   ...accountService.api,
+  accountState() {
+    const diagnostics = connectionLifecycle.snapshot();
+    return {
+      ...accountService.api.accountState(),
+      connectionPhase: diagnostics.phase,
+      connectionIssue: diagnostics.phase === "retrying" ? diagnostics.issue : null,
+    };
+  },
   localIdentity() {
     return localIdentity;
   },

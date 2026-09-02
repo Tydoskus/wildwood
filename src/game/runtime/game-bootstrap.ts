@@ -26,6 +26,7 @@ import {
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
+import { hasApprovedGameSession } from "../../coop/startup-route";
 
 export type BootstrapInventory = InventoryState & {
   selectedItemId: string;
@@ -381,8 +382,7 @@ type GameStartupAccountState = {
 };
 
 export function shouldShowGameStartupAccountChoice(account: GameStartupAccountState | undefined) {
-  if (account?.signedIn || account?.authInProgress || account?.returningFromSignIn
-    || account?.guestSessionApproved || account?.gameSessionApproved) return false;
+  if (hasApprovedGameSession(account) || account?.authInProgress || account?.returningFromSignIn) return false;
   return Boolean(account?.signInRequired || !account?.knownAccount);
 }
 

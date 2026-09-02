@@ -333,22 +333,12 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
     mapAssets[mapId] = MAP_ASSET_GROUPS[mapId].flatMap((group) => assetGroups[group]);
   }
-  const allMapAssets = [...new Set(Object.values(mapAssets).flat())];
-
   function ensureMapAssets(mapId: MapId) {
     return Promise.all(mapAssets[mapId].map((asset) => asset.load())).then(() => undefined);
   }
 
-  function ensureAllMapAssets() {
-    return Promise.all(allMapAssets.map((asset) => asset.load())).then(() => undefined);
-  }
-
   function mapAssetsReady(mapId: MapId) {
     return mapAssets[mapId].every((asset) => asset.settled());
-  }
-
-  function allMapAssetsReady() {
-    return allMapAssets.every((asset) => asset.settled());
   }
 
   return {
@@ -383,8 +373,6 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tempestKirinSpriteCanvas,
     miremawReady: () => miremawReady,
     miremawSpriteCanvas,
-    allMapAssetsReady,
-    ensureAllMapAssets,
     ensureMapAssets,
     mapAssetsReady,
     worldArtReady: (mapId?: MapId) => {

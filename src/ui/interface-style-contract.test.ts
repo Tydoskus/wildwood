@@ -376,8 +376,13 @@ describe("interface style contracts", () => {
     expect(accountChoiceScroll).toContain("overflow: hidden");
     expect(accountChoiceScroll).toContain("overscroll-behavior: none");
     expect(accountChoiceScroll).toContain("touch-action: none");
+    const connectionScroll = cssRule(".connection-modal {");
+    expect(connectionScroll).toContain("overflow: hidden");
+    expect(connectionScroll).toContain("overscroll-behavior: none");
     expect(cssRule(".account-choice-modal.is-signing-in #signInFromStartBtn,")).toContain("visibility: hidden");
     expect(entryHtml).toContain('id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite" hidden');
+    expect(entryHtml).toContain('id="connectionRetryBtn"');
+    expect(entryHtml).toContain('id="reconnectRetryBtn"');
     expect(entryHtml).toContain('id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle">');
     expect(html).toContain('id="wildstatCoopScript"');
     expect(html).toContain('data-game-src="assets/wildstat/game.js?v=');

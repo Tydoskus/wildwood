@@ -61,17 +61,22 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
   [*] --> Connecting
-  Connecting --> Hydrating: socket + protocol accepted
+  Connecting --> PreparingSession: socket accepted
+  PreparingSession --> Hydrating: protocol + world entry accepted
   Hydrating --> Live: base subscription applied
-  Live --> GameUpdating: active socket disconnects
-  GameUpdating --> Reconnecting: replacement socket connects
-  Reconnecting --> Live: base state hydrates
-  Connecting --> GameUpdating: protocol rejected
-  GameUpdating --> GameUpdating: old bundle retries
+  Connecting --> RetryBackoff: error or 15s timeout
+  PreparingSession --> RetryBackoff: error or 20s timeout
+  Hydrating --> RetryBackoff: error or 20s timeout
+  Live --> RetryBackoff: disconnect or subscription error
+  RetryBackoff --> Connecting: exponential retry or Retry Now
+  PreparingSession --> Blocked: protocol mismatch or tab conflict
+  Blocked --> Connecting: updated client or approved takeover
 ```
 
-- `GAME UPDATING` means the server ended or rejected the prior session. Simulation stays paused.
-- `RECONNECTING` begins only after a replacement server socket exists and lasts until base data is hydrated.
+- `GAME UPDATING` is reserved for a protocol mismatch. An ordinary transport failure uses the reconnect path instead.
+- Connection open, session preparation, and base hydration are independently timed so none can leave startup pending forever.
+- Automatic retries use exponential backoff with jitter from 1 second up to 30 seconds. A successful hydration resets the backoff; `RETRY NOW` starts an immediate user-requested attempt.
+- `RECONNECTING` covers an active game's entire recovery, from socket loss through replacement hydration. Simulation stays paused until base state is safe again.
 - Initial subscription rows are read once from the SDK cache in `onApplied`. SpacetimeDB dispatches the same rows' insert callbacks immediately afterward; those duplicate callbacks must stay suppressed.
 - Every temporary snapshot/profile/replay subscription needs cancellation on close, switch, disconnect, and a bounded timeout.
 - Final disconnect writes private `player_last_location` before removing ephemeral presence. Duel arena coordinates must never become a saved world location.

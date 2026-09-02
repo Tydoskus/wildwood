@@ -1,13 +1,9 @@
 import { createLegalGateController, legalGateElements, type LegalGateElements } from "../ui/legal-gate";
+import { resolveStartupRoute, type StartupRouteAccount } from "./startup-route";
 
-type StartupAccountState = {
-  signedIn?: boolean;
+type StartupAccountState = StartupRouteAccount & {
   knownAccount?: boolean;
   signInRequired?: boolean;
-  guestSessionApproved?: boolean;
-  gameSessionApproved?: boolean;
-  authInProgress?: boolean;
-  returningFromSignIn?: boolean;
   signInReady?: boolean;
   notice?: string;
 };
@@ -67,10 +63,6 @@ function startupElements(documentValue: Document): StartupAuthElements {
     loadingFill: requireElement("loadingFill"),
     legal: legalGateElements(documentValue),
   };
-}
-
-function shouldStartGame(state: StartupAccountState) {
-  return Boolean(state.signedIn || state.guestSessionApproved || state.gameSessionApproved);
 }
 
 /** Owns the account screen before the much larger game bundle is requested. */
@@ -160,19 +152,28 @@ export function createStartupAuthGate(
   function render() {
     if (gameLoading) return;
     const state = dependencies.accountState();
-    if (shouldStartGame(state)) {
-      if (!dependencies.legalConsentAccepted()) {
+    const route = resolveStartupRoute({
+      mode: "auth-shell",
+      account: state,
+      legalAccepted: dependencies.legalConsentAccepted(),
+      shellReady: true,
+    });
+    switch (route) {
+      case "legal":
         showLegalGate();
         return;
-      }
-      beginGameLoading(state.guestSessionApproved ? "Loading Guest Profile" : "Loading Your Character");
-      return;
+      case "load-game":
+        beginGameLoading(state.guestSessionApproved ? "Loading Guest Profile" : "Loading Your Character");
+        return;
+      case "session-conflict":
+        beginGameLoading("Opening Session Recovery");
+        return;
+      case "verifying-sign-in":
+        showLoading("Verifying Sign-In");
+        return;
+      default:
+        showAccountChoice();
     }
-    if (state.authInProgress || state.returningFromSignIn) {
-      showLoading("Verifying Sign-In");
-      return;
-    }
-    showAccountChoice();
   }
 
   async function onSignIn() {

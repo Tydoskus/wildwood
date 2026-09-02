@@ -7,7 +7,7 @@ export type MapPortal = { x: number; y: number; width: number; height: number; d
 
 type MapConfig = Record<MapId, { portal: MapPortal; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
-/** Keeps a defensive destination-art check beside the server move. Startup normally preloads it. */
+/** Loads lazy destination art beside the server move and waits before revealing the new map. */
 export async function prepareMapTransition(
   changeMap: () => Promise<boolean | undefined> | boolean | undefined,
   prepareAssets: () => Promise<void>,

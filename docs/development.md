@@ -116,6 +116,12 @@ Manual release steps remain available:
 
 Then run `npm run build:client` to verify the artifact. CI runs `npm run check:release` and rejects mismatched release references. Missing a `public/index.html` cache parameter can leave a browser running an old `coop-client.js` against a newer server protocol.
 
+## Startup assets
+
+- Startup waits for common render assets plus only the map reported by the hydrated local player state. Do not restore an all-map artwork gate.
+- `MAP_ASSET_GROUPS` is the source of truth for lazy boss and decor sheets. Portal transitions begin the destination load beside the server move and await it before revealing the map.
+- Static world tiles warm at background priority after the game session starts; tile-cache warmup must not hold the entry screen open.
+
 ## Enemy balance
 
 Regular enemy balance lives in `src/game/enemies.ts`. Each displayed enemy name is the configuration key. `reward.type` selects the upgraded stat, `reward.amount` is the exact final increase with no hidden multiplier, and `score` only affects the run score. Editing regular enemies is client-only; build the browser bundles, bump the release version, and deploy. Dragon multiplayer balance remains server-side.
@@ -156,6 +162,8 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Disconnecting a secondary tab must not delete the shared public player row or cancel a duel. Controller ownership transfers to another live session.
 - Every connection registers its own protocol version before reducers or subscriptions run.
 - Returning from a short tab hide keeps a healthy socket. Longer resumes use one reducer probe and reconnect only when stale or unreachable; never restore a per-user heartbeat.
+- Socket open, session setup, and base hydration each have a bounded timeout. Retry transport failures with capped exponential backoff and jitter, and reset that backoff only after base hydration succeeds.
+- A base-subscription error must rebuild the connection; logging it without leaving the pending state is not a valid failure path.
 - Scheduled maintenance removes orphan public presence and duel state. Durable player progress and profiles are permanent.
 - Player profile details load by identity only when opened. Never add `player_progress` or `player_lifetime` back to a global client subscription.
 

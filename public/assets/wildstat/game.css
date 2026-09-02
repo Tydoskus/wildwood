@@ -1538,6 +1538,27 @@
   }
 
   #reconnectOverlay[hidden] { display: none; }
+  .reconnect-content {
+    display: grid;
+    width: min(360px, calc(100vw - 40px));
+    justify-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+  #reconnectDetail {
+    margin: 0;
+    color: rgba(255, 255, 255, .78);
+    font: 700 13px/1.35 var(--font-rounded);
+    letter-spacing: .02em;
+  }
+  #reconnectRetryBtn,
+  #connectionRetryBtn {
+    width: min(220px, 100%);
+  }
+  #reconnectRetryBtn { margin: 4px 0 0; }
+  #connectionRetryBtn { margin: 12px auto 0; }
+  #reconnectRetryBtn[hidden],
+  #connectionRetryBtn[hidden] { display: none; }
   .reconnect-ellipsis::after { content: "..."; display: inline-block; width: 0; overflow: hidden; vertical-align: bottom; animation: reconnect-ellipsis 1s steps(4, end) infinite; }
 
   @keyframes reconnect-ellipsis { to { width: 1.15em; } }
@@ -1659,6 +1680,8 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    overflow: hidden;
+    overscroll-behavior: none;
     text-align: center;
   }
 

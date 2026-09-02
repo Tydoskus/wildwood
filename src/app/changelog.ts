@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.589": [
+    "Made startup and sign-in recovery faster and more reliable, with clearer connection errors and a Retry Now option.",
+    "Improved reconnection with bounded timeouts, gradual retry backoff, and better diagnostics.",
+    "Loads only the current map's artwork during startup and refreshes the Desert Scorpion and Koi Shogun boss sprites.",
+  ],
   "0.588": [
     "Updated Wildstat to SpacetimeDB 2.9.0 for more reliable identity-preserving reconnects.",
     "The sign-in logo and buttons now stay fixed in place, and the logo appears immediately without fading in.",
@@ -1337,6 +1342,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.589": "2026-09-02",
   "0.588": "2026-09-02",
   "0.587": "2026-09-02",
   "0.586": "2026-09-02",

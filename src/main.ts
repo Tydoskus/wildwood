@@ -19,6 +19,7 @@ import { createGameSessionController } from "./game/runtime/game-session-control
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
 import { createPresentationInterpolator } from "./game/runtime/presentation-interpolator";
 import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from "./game/runtime/game-bootstrap";
+import { scheduleBackgroundTask } from "./game/runtime/scheduler";
 import { createPlayerIdentityRenderer, displayedPlayerPowerProgress } from "./game/runtime/player-identity-renderer";
 import type { PlayerDeathAnimationState } from "./game/runtime/player-death-animation";
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
@@ -64,6 +65,7 @@ import { createDailyGemBonusController } from "./ui/daily-gem-bonus-controller";
 import { createBalanceApologyGiftController } from "./ui/balance-apology-gift-controller";
 import { createMapGuideController } from "./ui/map-guide-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
+import { hasApprovedGameSession } from "./coop/startup-route";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
@@ -100,7 +102,7 @@ import {
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
-    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl,
+    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl, reconnectDetailEl, reconnectRetryBtn,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
   const staticWorldLayer = createWebGLStaticWorldLayer(canvas);
@@ -198,6 +200,14 @@ import {
 
   function mapNameForPresence(mapId: string | undefined) {
     return mapId && mapId in MAP_CONFIG ? MAP_CONFIG[mapId as MapId].name : "";
+  }
+
+  function startupMapAssetsReady() {
+    const serverMapId = coop?.localState?.()?.mapId;
+    if (!serverMapId) return false;
+    const mapId = serverMapId in MAP_CONFIG ? serverMapId as MapId : currentMapId;
+    void prepareMapAssets(mapId);
+    return assets.mapAssetsReady(mapId);
   }
 
   let totalKills = 0;
@@ -314,7 +324,7 @@ import {
       ["Loading Saved Progress", progress.isLoaded(), 56],
       ["Loading Player Appearance", playerSpriteReady, 72],
       ["Loading Core Artwork", assets.worldArtReady(), 84],
-      ["Loading Map Artwork", assets.allMapAssetsReady(), 92],
+      ["Loading Current Map", startupMapAssetsReady(), 92],
       ["Loading Page Artwork", pageLoadComplete, 99],
       ["Starting Wildstat", true, 100],
     ],
@@ -338,6 +348,7 @@ import {
     },
     signIn: () => coop?.signIn?.(),
     takeOverSession: () => coop?.takeOverSession?.(),
+    retryConnection: () => coop?.retryConnection?.(),
     showMessage,
   });
 
@@ -346,12 +357,6 @@ import {
       pageLoadComplete = true;
       startup.refreshLoading();
       finishStartup();
-      const account = coop?.accountState?.();
-      if (!session.hasStarted() && account?.sessionConflict) startup.showSessionConflict();
-      else if (!session.hasStarted() && account?.returningFromSignIn) startup.showLoading();
-      else if (!session.hasStarted() && !account?.signedIn && !account?.authInProgress
-        && !account?.returningFromSignIn && !account?.guestSessionApproved
-        && !account?.gameSessionApproved) startup.showAccountChoice();
     }, { once: true });
   }
 
@@ -846,7 +851,6 @@ import {
   });
   const { assets, inventoryCharacterPreview, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
   prepareMapAssets = assets.ensureMapAssets;
-  void assets.ensureAllMapAssets();
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   let cachedMinimapBounds: { left: number; top: number; width: number; height: number } | null = null;
@@ -1483,12 +1487,31 @@ import {
 
   function refreshReconnectOverlay() {
     const reconnecting = Boolean(coop?.isReconnectingAfterWake?.());
-    const waitingForServer = Boolean(coop?.accountState?.().updating);
-    reconnectOverlayEl.hidden = !reconnecting || waitingForServer;
+    const account = coop?.accountState?.();
+    const waitingForServer = Boolean(account?.updating);
+    const accountRecoveryRequired = session.hasStarted() && !hasApprovedGameSession(account);
+    const diagnostics = coop?.connectionDiagnostics?.();
+    const showReconnectOverlay = reconnecting && !waitingForServer && !accountRecoveryRequired;
+    reconnectOverlayEl.hidden = !showReconnectOverlay;
+    reconnectDetailEl.textContent = diagnostics?.phase === "connecting"
+      ? "Connecting to Wildstat…"
+      : diagnostics?.phase === "preparing-session"
+        ? "Restoring your session…"
+        : diagnostics?.phase === "hydrating"
+          ? "Syncing the world…"
+          : diagnostics?.issue?.message || "Restoring your connection";
+    reconnectRetryBtn.hidden = !showReconnectOverlay;
+    reconnectRetryBtn.disabled = false;
     // Pause reasons compose: ending an ad, reward window, or reconnect cannot
     // accidentally resume gameplay while another blocking surface remains.
-    setGameplayPause("connection-gate", reconnecting || waitingForServer);
+    setGameplayPause("connection-gate", reconnecting || waitingForServer || accountRecoveryRequired);
   }
+
+  reconnectRetryBtn.addEventListener("click", () => {
+    reconnectRetryBtn.disabled = true;
+    reconnectDetailEl.textContent = "Retrying connection now…";
+    coop?.retryConnection?.();
+  });
 
   startupCoordinator = createStartupCoordinator({
     version: GAME_VERSION,
@@ -1505,6 +1528,7 @@ import {
     legalConsentAccepted: () => coop?.legalConsentAccepted?.() === true,
     showLegalGate: startup.showLegalGate,
     showAccountChoice: startup.showAccountChoice,
+    showLoading: startup.showLoading,
     showNewPlayerIntro: startup.showNewPlayerIntro,
     isLoadingSequenceComplete: startup.isLoadingSequenceComplete,
     hasStarted: session.hasStarted,
@@ -1521,11 +1545,8 @@ import {
   finishStartup();
   startupCoordinator.startVersionPolling();
 
-  let firstStartWarmupPending = false;
-
   function startGame(markIntro = true, restoreServerPosition = true) {
     const firstStart = !session.hasStarted();
-    if (firstStart && firstStartWarmupPending) return;
     const appearance = equipmentAppearance(inventory);
     warmPlayerAppearanceCache(playerAppearanceAssets, {
       skinTone: coop?.skinTone?.(coop?.localIdentity?.()) ?? DEFAULT_SKIN_TONE,
@@ -1542,15 +1563,11 @@ import {
       dailyGemBonus.refresh();
       applyGameplayPauseState();
     };
-    if (firstStart && staticWorldLayer?.prepare()) {
-      firstStartWarmupPending = true;
-      void worldRenderRuntime.warmStaticWorld().catch(() => {}).then(() => {
-        firstStartWarmupPending = false;
-        finishStart();
-      });
-      return;
-    }
+    const shouldWarmStaticWorld = firstStart && Boolean(staticWorldLayer?.prepare());
     finishStart();
+    if (shouldWarmStaticWorld) {
+      scheduleBackgroundTask(() => { void worldRenderRuntime.warmStaticWorld().catch(() => {}); });
+    }
   }
 
   function endGame() {
@@ -1685,18 +1702,6 @@ import {
     finishStartup,
     clearSignInPending: startup.clearSignInPending,
     updateProtocolGate,
-    showSessionConflict: startup.showSessionConflict,
-    shouldShowSigningIn: () => !session.hasStarted() && startup.isSignInPending(),
-    showSigningIn: startup.showSigningIn,
-    shouldShowLoading: (account) => !session.hasStarted()
-      && Boolean(account?.signedIn || account?.returningFromSignIn || account?.authInProgress
-        || account?.guestSessionApproved || account?.gameSessionApproved)
-      && progress.startupKind() !== "new",
-    showLoading: startup.showLoading,
-    shouldShowAccountChoice: (account) => !session.hasStarted() && !account?.signedIn
-      && !account?.authInProgress && !account?.returningFromSignIn
-      && !account?.guestSessionApproved && !account?.gameSessionApproved,
-    showAccountChoice: startup.showAccountChoice,
     refreshChat: chatRuntime.refresh,
     updateDuelControls,
     refreshAppStatus: appShell.refreshStatus,
