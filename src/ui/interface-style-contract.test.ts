@@ -341,13 +341,14 @@ describe("interface style contracts", () => {
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {
     expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
-    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}" type="image/png" fetchpriority="high" data-signin-artwork`);
+    expect(html).toContain(`<meta data-signin-artwork content="assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}"`);
+    expect(html).not.toContain(`<link rel="preload" as="image" href="assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}"`);
     const artworkUrl = entryHtml.match(/--signin-artwork: url\("([^"]+)"\)/)?.[1];
     expect(artworkUrl).toBe(`signin/signin-progression-mobile-v2.png?v=${releaseVersion}`);
     for (const base of ["https://example.test/", "https://example.test/wildwood/"]) {
       const stylesheetUrl = new URL("assets/wildstat/game.css", base);
-      const preloadUrl = new URL(`assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}`, base);
-      expect(new URL(artworkUrl!, stylesheetUrl).href).toBe(preloadUrl.href);
+      const descriptorUrl = new URL(`assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}`, base);
+      expect(new URL(artworkUrl!, stylesheetUrl).href).toBe(descriptorUrl.href);
     }
     expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
     expect(html).not.toContain("--signin-preview");
@@ -355,6 +356,9 @@ describe("interface style contracts", () => {
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).not.toContain("--signin-preview");
     expect(css).toContain("var(--signin-artwork, none)");
+    expect(html).toContain('classList.add("signin-auth-return")');
+    expect(css).toContain("html.signin-auth-return #start");
+    expect(css).toContain("background-image: none");
     expect(css).toContain("#start::before");
     expect(css).toContain("transition: opacity 2s ease");
     expect(css).toContain("html.signin-artwork-ready #start::before");

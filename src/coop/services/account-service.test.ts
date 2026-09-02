@@ -12,6 +12,29 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string) { this.values.set(key, String(value)); }
 }
 
+class FakeTokenRequest {
+  timeout = 0;
+  status: number;
+  responseText: string;
+  onload: ((event: ProgressEvent) => void) | null = null;
+  onerror: ((event: ProgressEvent) => void) | null = null;
+  ontimeout: ((event: ProgressEvent) => void) | null = null;
+  onabort: ((event: ProgressEvent) => void) | null = null;
+  open = vi.fn();
+  setRequestHeader = vi.fn();
+  send = vi.fn();
+
+  constructor(status = 200, response: unknown = {}, autoLoad = true) {
+    this.status = status;
+    this.responseText = JSON.stringify(response);
+    if (autoLoad) this.send.mockImplementation(() => queueMicrotask(() => this.onload?.({} as ProgressEvent)));
+  }
+}
+
+function stubTokenRequest(request: FakeTokenRequest) {
+  vi.stubGlobal("XMLHttpRequest", vi.fn(function XMLHttpRequestMock() { return request; }));
+}
+
 const keys = {
   tokenKey: "token",
   guestTokenKey: "guest-token",
@@ -102,40 +125,50 @@ describe("account service startup identity selection", () => {
   });
 
   it("returns a fresh browser from Verifying Sign-In after a rejected OAuth callback", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      ok: false,
-      json: async () => ({ error: "invalid_grant" }),
-    })));
-    const { notify, replaceState, service } = setup({ authCallback: true });
+    stubTokenRequest(new FakeTokenRequest(400, { error: "invalid_grant" }));
+    const { notify, replaceState, service } = setup({ authCallback: true, knownAccount: true });
 
     await service.restoreKnownAccount();
 
     expect(service.api.accountState()).toMatchObject({
       authInProgress: false,
       returningFromSignIn: false,
-      notice: "SIGN-IN FAILED",
+      notice: "SIGN-IN FAILED · TRY AGAIN",
     });
     expect(notify).toHaveBeenCalled();
     expect(replaceState).toHaveBeenCalledWith({}, "", "/game");
   });
 
   it("times out a stalled OAuth token exchange instead of verifying forever", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
-    })));
-    const { notify, service } = setup({ authCallback: true });
+    const request = new FakeTokenRequest(0, {}, false);
+    stubTokenRequest(request);
+    const { notify, service } = setup({ authCallback: true, knownAccount: true });
 
     const restore = service.restoreKnownAccount();
-    await vi.advanceTimersByTimeAsync(15_000);
+    expect(request.timeout).toBe(15_000);
+    request.ontimeout?.({} as ProgressEvent);
     await restore;
 
     expect(service.api.accountState()).toMatchObject({
       authInProgress: false,
       returningFromSignIn: false,
-      notice: "SIGN-IN FAILED",
+      notice: "SIGN-IN TIMED OUT · TRY AGAIN",
     });
     expect(notify).toHaveBeenCalled();
+  });
+
+  it("exchanges the callback with a form POST before connecting the account", async () => {
+    const request = new FakeTokenRequest(200, { id_token: "fresh-account-token" });
+    stubTokenRequest(request);
+    const { connect, local, service } = setup({ authCallback: true });
+
+    await service.restoreKnownAccount();
+
+    expect(request.open).toHaveBeenCalledWith("POST", "https://auth.spacetimedb.com/oidc/token", true);
+    expect(request.setRequestHeader).toHaveBeenCalledWith("content-type", "application/x-www-form-urlencoded");
+    expect(request.send).toHaveBeenCalledWith(expect.stringContaining("code_verifier=expected-verifier"));
+    expect(local.getItem(keys.accountTokenKey)).toBe("fresh-account-token");
+    expect(connect).toHaveBeenCalledOnce();
   });
 
   it.each(["Wildstat", "Wildwood"])("keeps an existing signed-in save after a %s account-link rejection", async (name) => {

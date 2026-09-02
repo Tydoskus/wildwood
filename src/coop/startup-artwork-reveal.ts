@@ -3,6 +3,8 @@ type StartupArtworkRevealOptions = {
   source: string;
   image: HTMLImageElement;
   readyClass?: string;
+  waitClass?: string;
+  deferred?: boolean;
 };
 
 /** Reveals the full sign-in artwork only after its pixels are loaded and decoded. */
@@ -11,8 +13,11 @@ export function createStartupArtworkReveal({
   source,
   image,
   readyClass = "signin-artwork-ready",
+  waitClass = "signin-auth-return",
+  deferred = false,
 }: StartupArtworkRevealOptions) {
   let disposed = false;
+  let started = false;
   let decodeStarted = false;
 
   function revealAfterDecode() {
@@ -29,12 +34,20 @@ export function createStartupArtworkReveal({
     });
   }
 
-  image.decoding = "async";
-  image.addEventListener("load", revealAfterDecode, { once: true });
-  image.src = source;
-  if (image.complete && image.naturalWidth > 0) revealAfterDecode();
+  function start() {
+    if (disposed || started) return;
+    started = true;
+    image.decoding = "async";
+    image.addEventListener("load", revealAfterDecode, { once: true });
+    image.src = source;
+    root.classList.remove(waitClass);
+    if (image.complete && image.naturalWidth > 0) revealAfterDecode();
+  }
+
+  if (!deferred) start();
 
   return {
+    start,
     dispose() {
       disposed = true;
       image.removeEventListener("load", revealAfterDecode);
@@ -43,11 +56,14 @@ export function createStartupArtworkReveal({
 }
 
 export function startStartupArtworkReveal(documentValue = document) {
-  const preload = documentValue.querySelector<HTMLLinkElement>("link[data-signin-artwork]");
-  if (!preload?.href) return { dispose() {} };
+  const descriptor = documentValue.querySelector<HTMLMetaElement>("meta[data-signin-artwork]");
+  const source = descriptor?.content;
+  if (!source) return { start() {}, dispose() {} };
+  const root = documentValue.documentElement;
   return createStartupArtworkReveal({
-    root: documentValue.documentElement,
-    source: preload.href,
+    root,
+    source: new URL(source, documentValue.baseURI).href,
     image: new Image(),
+    deferred: root.classList.contains("signin-auth-return"),
   });
 }

@@ -1453,6 +1453,9 @@
     background-size: cover;
   }
 
+  html.signin-auth-return #start,
+  html.signin-auth-return #gameUpdateGate { background-image: none; }
+
   #start::before,
   #gameUpdateGate::before {
     position: absolute;

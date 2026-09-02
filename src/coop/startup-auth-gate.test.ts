@@ -285,6 +285,28 @@ describe("startup auth gate", () => {
     expect(releaseNotes.show).toHaveBeenCalledTimes(2);
   });
 
+  it("shows the callback timeout instead of replacing it with the normal sign-in prompt", () => {
+    const ui = elements();
+    const gate = createStartupAuthGate({
+      accountState: () => ({
+        knownAccount: true,
+        signInReady: true,
+        notice: "SIGN-IN TIMED OUT · TRY AGAIN",
+      }),
+      knownCharacter: () => "TACOMEL",
+      signIn: () => ({ ok: true, redirecting: true }),
+      continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: () => () => {},
+      loadGame: async () => {},
+    }, ui);
+
+    gate.start();
+
+    expect(ui.accountChoiceDetail.textContent).toBe("SIGN-IN TIMED OUT · TRY AGAIN OR USE GUEST LOGIN");
+  });
+
   it("switches to Guest before loading the game", async () => {
     const ui = elements();
     const order: string[] = [];

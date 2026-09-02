@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.586": [
+    "Sign-in verification now finishes before the large background artwork loads, preventing browser tabs from stalling during account return.",
+  ],
   "0.585": [
     "Sign-in now recovers from rejected or stalled authentication instead of remaining on Verifying Sign-In.",
   ],
@@ -1326,6 +1329,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.586": "2026-09-02",
   "0.585": "2026-09-02",
   "0.584": "2026-09-01",
   "0.583": "2026-09-01",

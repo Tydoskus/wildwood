@@ -73,6 +73,60 @@ const TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const AUTH_SCOPE = "openid profile email";
 const TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
 
+type TokenResponse = {
+  id_token?: unknown;
+  error?: unknown;
+  error_description?: unknown;
+};
+
+class TokenExchangeRequestError extends Error {
+  constructor(readonly reason: "network" | "timeout" | "response") {
+    super(`Token exchange ${reason}`);
+    this.name = "TokenExchangeRequestError";
+  }
+}
+
+/**
+ * Uses the browser's long-established form request path for the small OAuth
+ * exchange. Some mobile browser tabs can leave a fetch POST pending while
+ * other startup resources are being decoded; XMLHttpRequest has an independent
+ * native timeout and preserves the same CORS + PKCE security properties.
+ */
+function exchangeAuthorizationCode(body: URLSearchParams) {
+  return new Promise<{ ok: boolean; result: TokenResponse }>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    let settled = false;
+    const rejectOnce = (reason: TokenExchangeRequestError["reason"]) => {
+      if (settled) return;
+      settled = true;
+      reject(new TokenExchangeRequestError(reason));
+    };
+    try {
+      request.open("POST", TOKEN_ENDPOINT, true);
+      request.timeout = TOKEN_EXCHANGE_TIMEOUT_MS;
+      request.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+      request.onload = () => {
+        if (settled) return;
+        let result: TokenResponse;
+        try {
+          result = JSON.parse(request.responseText) as TokenResponse;
+        } catch {
+          rejectOnce("response");
+          return;
+        }
+        settled = true;
+        resolve({ ok: request.status >= 200 && request.status < 300, result });
+      };
+      request.onerror = () => rejectOnce("network");
+      request.ontimeout = () => rejectOnce("timeout");
+      request.onabort = () => rejectOnce("network");
+      request.send(body.toString());
+    } catch {
+      rejectOnce("network");
+    }
+  });
+}
+
 export function createAccountService(dependencies: AccountServiceDependencies) {
   const { keys } = dependencies;
   let notice = "";
@@ -306,11 +360,11 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     return `${window.location.origin}${window.location.pathname}`;
   }
 
-  async function completeAccountCallback() {
+  async function completeAccountCallback(): Promise<"none" | "success" | "failed"> {
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
     const authError = url.searchParams.get("error");
-    if (!code && !authError) return;
+    if (!code && !authError) return "none";
     const state = url.searchParams.get("state");
     const expectedState = readTabValue(keys.authStateKey);
     const verifier = readTabValue(keys.authVerifierKey);
@@ -323,7 +377,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       clearTabValue(keys.authStateKey);
       clearTabValue(keys.authVerifierKey);
       history.replaceState({}, "", cleanUrl);
-      return;
+      return "failed";
     }
     if (authError) {
       callbackPending = false;
@@ -333,44 +387,47 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       clearTabValue(keys.authStateKey);
       clearTabValue(keys.authVerifierKey);
       history.replaceState({}, "", cleanUrl);
-      return;
+      return "failed";
     }
-    if (!code) return;
+    if (!code) return "failed";
 
-    const abortController = new AbortController();
-    const timeout = globalThis.setTimeout(() => abortController.abort(), TOKEN_EXCHANGE_TIMEOUT_MS);
+    let outcome: "success" | "failed" = "failed";
     try {
-      const response = await fetch(TOKEN_ENDPOINT, {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        signal: abortController.signal,
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          client_id: SPACETIME_AUTH_CLIENT_ID,
-          code,
-          redirect_uri: redirectUri(),
-          code_verifier: verifier,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok || typeof result.id_token !== "string") {
-        throw new Error(result.error_description || result.error || "Token exchange failed");
+      const { ok, result } = await exchangeAuthorizationCode(new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: SPACETIME_AUTH_CLIENT_ID,
+        code,
+        redirect_uri: redirectUri(),
+        code_verifier: verifier,
+      }));
+      if (!ok || typeof result.id_token !== "string") {
+        const detail = typeof result.error_description === "string"
+          ? result.error_description
+          : typeof result.error === "string"
+            ? result.error
+            : "Token exchange failed";
+        throw new Error(detail);
       }
       localStorage.setItem(keys.accountTokenKey, result.id_token);
       rememberAccount();
       notice = "SIGNED IN";
+      outcome = "success";
     } catch (error) {
-      notice = "SIGN-IN FAILED";
+      notice = error instanceof TokenExchangeRequestError && error.reason === "timeout"
+        ? "SIGN-IN TIMED OUT · TRY AGAIN"
+        : error instanceof TokenExchangeRequestError && error.reason === "network"
+          ? "SIGN-IN NETWORK FAILED · TRY AGAIN"
+          : "SIGN-IN FAILED · TRY AGAIN";
       if (readAccountLinkTransaction()) clearAccountMigrationPending();
       clearAccountReturnPending();
       console.warn("Wildstat account sign-in failed:", error);
     } finally {
-      globalThis.clearTimeout(timeout);
       callbackPending = false;
       clearTabValue(keys.authStateKey);
       clearTabValue(keys.authVerifierKey);
       history.replaceState({}, "", cleanUrl);
     }
+    return outcome;
   }
 
   async function startAccountSignIn() {
@@ -398,10 +455,11 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   }
 
   async function restoreKnownAccount() {
-    await completeAccountCallback();
+    const callbackOutcome = await completeAccountCallback();
     // Callback failures and invalid/expired OAuth state must repaint the
     // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
     dependencies.notify();
+    if (callbackOutcome === "failed") return;
     const token = accountToken();
     if (!token && hasKnownAccount() && !guestSessionExplicit) {
       if (dependencies.updateResumeMode === "account") {

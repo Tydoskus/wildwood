@@ -17,11 +17,13 @@ function fixture(complete = false) {
     removeEventListener: vi.fn(),
   } as unknown as HTMLImageElement;
   const add = vi.fn();
-  const root = { classList: { add } } as unknown as HTMLElement;
+  const remove = vi.fn();
+  const root = { classList: { add, remove } } as unknown as HTMLElement;
   return {
     image,
     root,
     add,
+    remove,
     decode,
     emitLoad: () => loadListener?.({} as Event),
     finishDecode: () => finishDecode(),
@@ -67,5 +69,23 @@ describe("startup artwork reveal", () => {
     await flushPromises();
 
     expect(scene.add).not.toHaveBeenCalled();
+  });
+
+  it("does not request the artwork until a pending sign-in callback finishes", () => {
+    const scene = fixture();
+    const reveal = createStartupArtworkReveal({
+      root: scene.root,
+      source: "/wallpaper.png",
+      image: scene.image,
+      deferred: true,
+    });
+
+    expect(scene.image.src).toBe("");
+    expect(scene.image.addEventListener).not.toHaveBeenCalled();
+
+    reveal.start();
+
+    expect(scene.image.src).toBe("/wallpaper.png");
+    expect(scene.remove).toHaveBeenCalledWith("signin-auth-return");
   });
 });

@@ -114,7 +114,10 @@ export function createStartupAuthGate(
     elements.guestButton.disabled = Boolean(pendingAction);
     if (pendingAction) dependencies.releaseNotes?.hide();
     else dependencies.releaseNotes?.show();
-    elements.accountChoiceDetail.textContent = detailOverride || (pendingAction === "sign-in"
+    const callbackFailure = /^(?:SIGN-IN (?:CHECK FAILED|FAILED|NETWORK FAILED|TIMED OUT)|AUTO SIGN-IN UNAVAILABLE)/.test(state.notice || "")
+      ? `${state.notice}${/TRY AGAIN/.test(state.notice || "") ? "" : " · TRY AGAIN"} OR USE GUEST LOGIN`
+      : "";
+    elements.accountChoiceDetail.textContent = detailOverride || callbackFailure || (pendingAction === "sign-in"
       ? (name || knownAccount ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…")
       : !ready
         ? "PREPARING YOUR SAVED GUEST…"
