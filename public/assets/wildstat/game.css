@@ -1979,8 +1979,8 @@
   }
 
   @keyframes signin-logo-float {
-    0%, 100% { transform: translateY(-40%); }
-    50% { transform: translateY(calc(-40% - 8px)); }
+    0%, 100% { transform: translateY(-20%); }
+    50% { transform: translateY(calc(-20% - 8px)); }
   }
 
   .welcome-wordmark-title {
@@ -2028,7 +2028,7 @@
     min-height: 70px;
     margin: 13px 0 0 50%;
     border-width: 2px;
-    border-radius: 0;
+    border-radius: 999px;
     font-size: 22px;
     line-height: 1;
     -webkit-text-stroke: .035em rgba(8, 16, 10, .32);

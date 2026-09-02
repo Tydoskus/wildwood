@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.596": [
+    "Refined the sign-in screen with a better-balanced logo position and pill-shaped authentication buttons.",
+  ],
   "0.595": [
     "Added an Add to Home Screen button with native browser installation and iPhone/iPad guidance.",
     "Refined the sign-in layout with a raised logo, clearer white labels, and slimmer square authentication buttons.",
@@ -1366,6 +1369,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.596": "2026-09-02",
   "0.595": "2026-09-02",
   "0.594": "2026-09-02",
   "0.592": "2026-09-02",
