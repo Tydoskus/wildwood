@@ -405,6 +405,13 @@ describe("interface style contracts", () => {
     const accountChoiceLogo = cssRule("#accountChoicePanel .wildstat-wordmark-title {");
     expect(accountChoiceLogo).toContain("opacity: 1");
     expect(accountChoiceLogo).not.toContain("transition:");
+    expect(css).toContain("0%, 100% { transform: translateY(-40%); }");
+    expect(css).toContain("50% { transform: translateY(calc(-40% - 8px)); }");
+    expect(cssRule(".account-choice-modal .account-beta-note {")).toContain("color: #fff");
+    expect(cssRule(".account-choice-modal .account-character {")).toContain("color: #fff");
+    expect(cssRule(".account-choice-modal button {")).toContain("min-height: 70px");
+    expect(cssRule(".account-choice-modal button {")).toContain("border-radius: 0");
+    expect(cssRule(".account-choice-modal #signInFromStartBtn {")).toContain("background: linear-gradient(180deg, #82ea03 0%, #12ca02 52%, #019304 100%)");
     expect(css).not.toContain("html.signin-artwork-ready #accountChoicePanel .wildstat-wordmark-title");
     expect(css).not.toContain('url("signin/signin-progression-mobile-4k-v3.webp")');
     const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal,\n  .modal.legal-gate-modal {");
@@ -424,6 +431,10 @@ describe("interface style contracts", () => {
     expect(entryHtml).toContain('id="connectionRetryBtn"');
     expect(entryHtml).toContain('id="reconnectRetryBtn"');
     expect(entryHtml).toContain('id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle">');
+    expect(entryHtml).toContain('id="installAppBtn" class="signin-install-button"');
+    expect(entryHtml).toContain('id="installAppHint" class="signin-install-hint" role="status" aria-live="polite"');
+    expect(cssRule(".signin-install-button {")).toContain("position: fixed");
+    expect(cssRule(".signin-install-button[hidden], .signin-install-hint[hidden] {")).toContain("display: none");
     expect(html).toContain('id="wildstatCoopScript"');
     expect(html).toContain('data-game-src="assets/wildstat/game.js?v=');
     expect(html).not.toContain('<script src="assets/wildstat/game.js');

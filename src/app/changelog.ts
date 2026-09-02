@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.595": [
+    "Added an Add to Home Screen button with native browser installation and iPhone/iPad guidance.",
+    "Refined the sign-in layout with a raised logo, clearer white labels, and slimmer square authentication buttons.",
+  ],
   "0.594": [
     "Upgraded the sign-in screen with a sharper 4K WebP forest backdrop and refined login controls.",
     "Added equipment slots to player profiles so worn gear and cosmetics can be viewed and inspected.",
@@ -1362,6 +1366,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.595": "2026-09-02",
   "0.594": "2026-09-02",
   "0.592": "2026-09-02",
   "0.591": "2026-09-02",

@@ -7,6 +7,7 @@ import {
   type StartupActionResult,
 } from "./startup-auth-gate";
 import { startStartupArtworkReveal } from "./startup-artwork-reveal";
+import { createStartupInstallControl } from "./startup-install";
 import { createStartupReleaseNotes } from "./startup-release-notes";
 import { createStartupMusicToggle } from "./startup-music-toggle";
 import type { StartupStageTimer } from "./services/startup-telemetry";
@@ -27,6 +28,7 @@ type StartupBootstrapDependencies = {
 export function startStartupBootstrap(dependencies: StartupBootstrapDependencies) {
   const artworkReveal = startStartupArtworkReveal();
   let gameBundleRequested = false;
+  const installControl = createStartupInstallControl();
   const musicToggle = createStartupMusicToggle({ storageKey: MUSIC_VOLUME_KEY });
   const releaseNotes = createStartupReleaseNotes({
     releases: () => recentReleaseNotes(2),
@@ -40,6 +42,7 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
         await loadDeferredGameBundle();
         telemetry?.finish();
         artworkReveal.dispose();
+        installControl.dispose();
         musicToggle.dispose();
       } catch (error) {
         telemetry?.finish("failure", "bundle-load-error");
