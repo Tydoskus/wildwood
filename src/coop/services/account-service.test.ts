@@ -30,25 +30,35 @@ const keys = {
   legalConsentKey: "legal-consent",
 };
 
-function setup(options: { accountToken?: string; guestToken?: string; knownAccount?: boolean; signedIn?: boolean } = {}) {
+function setup(options: { accountToken?: string; guestToken?: string; knownAccount?: boolean; signedIn?: boolean; authCallback?: boolean } = {}) {
   const local = new MemoryStorage();
   const session = new MemoryStorage();
   if (options.accountToken) local.setItem(keys.accountTokenKey, options.accountToken);
   if (options.guestToken) local.setItem(keys.guestTokenKey, options.guestToken);
   if (options.knownAccount) local.setItem(keys.knownAccountKey, "true");
+  if (options.authCallback) {
+    session.setItem(keys.authStateKey, "expected-state");
+    session.setItem(keys.authVerifierKey, "expected-verifier");
+    session.setItem(keys.authReturnUiKey, "true");
+  }
   vi.stubGlobal("localStorage", local);
   vi.stubGlobal("sessionStorage", session);
   const assign = vi.fn();
+  const replaceState = vi.fn();
   vi.stubGlobal("window", {
     location: {
-      href: "https://wildstat.example/game",
+      href: options.authCallback
+        ? "https://wildstat.example/game?code=authorization-code&state=expected-state"
+        : "https://wildstat.example/game",
       origin: "https://wildstat.example",
       pathname: "/game",
       assign,
       reload: vi.fn(),
     },
   });
+  vi.stubGlobal("history", { replaceState });
   const connect = vi.fn();
+  const notify = vi.fn();
   const restartConnectionForIdentityChange = vi.fn();
   const requestWorldEntry = vi.fn(async () => true);
   const connection = options.signedIn ? { isActive: true, reducers: {} } : null;
@@ -56,7 +66,7 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
     keys,
     updateResumeMode: null,
     updateResumeStore: createUpdateResumeStore(session, "update-resume"),
-    notify: vi.fn(),
+    notify,
     connection: () => connection as never,
     connectedSignedIn: () => Boolean(options.signedIn),
     hydrationReady: () => false,
@@ -82,11 +92,51 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
     clearPendingProgress: () => {},
     disconnectVirtualPlayers: vi.fn(),
   });
-  return { assign, connect, local, session, requestWorldEntry, restartConnectionForIdentityChange, service };
+  return { assign, connect, local, session, notify, replaceState, requestWorldEntry, restartConnectionForIdentityChange, service };
 }
 
 describe("account service startup identity selection", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns a fresh browser from Verifying Sign-In after a rejected OAuth callback", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: "invalid_grant" }),
+    })));
+    const { notify, replaceState, service } = setup({ authCallback: true });
+
+    await service.restoreKnownAccount();
+
+    expect(service.api.accountState()).toMatchObject({
+      authInProgress: false,
+      returningFromSignIn: false,
+      notice: "SIGN-IN FAILED",
+    });
+    expect(notify).toHaveBeenCalled();
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/game");
+  });
+
+  it("times out a stalled OAuth token exchange instead of verifying forever", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+    })));
+    const { notify, service } = setup({ authCallback: true });
+
+    const restore = service.restoreKnownAccount();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await restore;
+
+    expect(service.api.accountState()).toMatchObject({
+      authInProgress: false,
+      returningFromSignIn: false,
+      notice: "SIGN-IN FAILED",
+    });
+    expect(notify).toHaveBeenCalled();
+  });
 
   it.each(["Wildstat", "Wildwood"])("keeps an existing signed-in save after a %s account-link rejection", async (name) => {
     const { local, session, service } = setup({

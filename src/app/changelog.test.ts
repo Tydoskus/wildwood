@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recentReleaseNotes, releaseDate } from "./changelog";
+import { RELEASE_NOTES, recentReleaseNotes, releaseDate } from "./changelog";
 
 describe("release-note dates", () => {
   it("keeps current releases visible on the sign-in screen", () => {
@@ -14,10 +14,7 @@ describe("release-note dates", () => {
     const releases = recentReleaseNotes(1, new Date(2030, 0, 1, 12));
 
     expect(releases).toHaveLength(10);
-    expect(releases.map(({ version }) => version)).toEqual([
-      "0.584", "0.583", "0.582", "0.581", "0.580",
-      "0.579", "0.578", "0.577", "0.576", "0.575",
-    ]);
+    expect(releases.map(({ version }) => version)).toEqual(Object.keys(RELEASE_NOTES).slice(0, 10));
   });
 
   it("formats recorded ISO release days for display", () => {

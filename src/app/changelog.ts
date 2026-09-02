@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.585": [
+    "Sign-in now recovers from rejected or stalled authentication instead of remaining on Verifying Sign-In.",
+  ],
   "0.584": [
     "Added Cloudspire with five storm enemies and the Tempest Kirin world boss.",
     "The sign-in background now fades in over two seconds before revealing the logo.",
@@ -1323,6 +1326,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.585": "2026-09-02",
   "0.584": "2026-09-01",
   "0.583": "2026-09-01",
   "0.582": "2026-09-01",

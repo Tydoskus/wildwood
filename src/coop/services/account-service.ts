@@ -71,6 +71,7 @@ type AccountLinkTransaction = { code: string; guestIdentity: string };
 const AUTHORIZATION_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/auth`;
 const TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const AUTH_SCOPE = "openid profile email";
+const TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
 
 export function createAccountService(dependencies: AccountServiceDependencies) {
   const { keys } = dependencies;
@@ -336,10 +337,13 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     }
     if (!code) return;
 
+    const abortController = new AbortController();
+    const timeout = globalThis.setTimeout(() => abortController.abort(), TOKEN_EXCHANGE_TIMEOUT_MS);
     try {
       const response = await fetch(TOKEN_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
+        signal: abortController.signal,
         body: new URLSearchParams({
           grant_type: "authorization_code",
           client_id: SPACETIME_AUTH_CLIENT_ID,
@@ -361,6 +365,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       clearAccountReturnPending();
       console.warn("Wildstat account sign-in failed:", error);
     } finally {
+      globalThis.clearTimeout(timeout);
       callbackPending = false;
       clearTabValue(keys.authStateKey);
       clearTabValue(keys.authVerifierKey);
@@ -394,6 +399,9 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
 
   async function restoreKnownAccount() {
     await completeAccountCallback();
+    // Callback failures and invalid/expired OAuth state must repaint the
+    // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
+    dependencies.notify();
     const token = accountToken();
     if (!token && hasKnownAccount() && !guestSessionExplicit) {
       if (dependencies.updateResumeMode === "account") {
