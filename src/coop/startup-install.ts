@@ -42,12 +42,6 @@ function isIosDevice(value: StartupInstallNavigator) {
     || (/Mac/i.test(value.platform ?? "") && (value.maxTouchPoints ?? 0) > 1);
 }
 
-function isIosSafari(value: StartupInstallNavigator) {
-  return isIosDevice(value)
-    && /Safari/i.test(value.userAgent)
-    && !/(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(value.userAgent);
-}
-
 /** Exposes browser-native installation when available and iOS Home Screen guidance otherwise. */
 export function createStartupInstallControl(
   environment: StartupInstallEnvironment = {},
@@ -57,7 +51,6 @@ export function createStartupInstallControl(
   const navigatorValue: StartupInstallNavigator = environment.navigatorValue
     ?? (navigator as Navigator & { standalone?: boolean });
   const iosDevice = isIosDevice(navigatorValue);
-  const iosSafari = isIosSafari(navigatorValue);
   let installPrompt: StartupInstallPromptEvent | null = null;
 
   function isStandalone() {
@@ -103,9 +96,7 @@ export function createStartupInstallControl(
     const pendingPrompt = installPrompt;
     if (!pendingPrompt) {
       if (!iosDevice) return;
-      setHint(iosSafari
-        ? "TAP SHARE, THEN ADD TO HOME SCREEN."
-        : "OPEN THIS PAGE IN SAFARI, TAP SHARE, THEN ADD TO HOME SCREEN.");
+      setHint("TAP SHARE, THEN ADD TO HOME SCREEN.");
       return;
     }
 

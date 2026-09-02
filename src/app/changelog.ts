@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.598": [
+    "Refined sign-in button labels with larger, cleaner type and a softer shadow.",
+    "Corrected Add to Home Screen guidance for Chrome and other browsers on iPhone and iPad.",
+  ],
   "0.597": [
     "Kept the animated sign-in logo fully visible and restored bright white beta and character labels.",
   ],
@@ -1372,6 +1376,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.598": "2026-09-02",
   "0.597": "2026-09-02",
   "0.596": "2026-09-02",
   "0.595": "2026-09-02",

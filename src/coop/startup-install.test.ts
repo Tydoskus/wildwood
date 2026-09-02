@@ -88,13 +88,16 @@ describe("startup install control", () => {
     control.dispose();
   });
 
-  it("gives Safari's manual Home Screen instruction on iPhone", async () => {
+  it.each([
+    ["Safari", "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Version/26.0 Mobile/15E148 Safari/604.1"],
+    ["Chrome", "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/140.0.7339.122 Mobile/15E148 Safari/604.1"],
+  ])("gives %s the manual Home Screen instruction on iPhone", async (_browserName, userAgent) => {
     const ui = elements();
     const browser = new FakeWindow();
     createStartupInstallControl({
       windowValue: browser,
       navigatorValue: {
-        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Version/26.0 Mobile/15E148 Safari/604.1",
+        userAgent,
         platform: "iPhone",
         maxTouchPoints: 5,
       },

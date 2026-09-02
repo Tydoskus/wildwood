@@ -411,6 +411,9 @@ describe("interface style contracts", () => {
     expect(cssRule(".account-choice-modal p.account-character {")).toContain("color: #fff");
     expect(cssRule(".account-choice-modal button {")).toContain("min-height: 70px");
     expect(cssRule(".account-choice-modal button {")).toContain("border-radius: 999px");
+    expect(cssRule(".account-choice-modal button {")).toContain("font-size: 24px");
+    expect(cssRule(".account-choice-modal button {")).toContain("-webkit-text-stroke: 0 rgba(255, 255, 255, 0)");
+    expect(cssRule(".account-choice-modal button {")).toContain("text-shadow: 0 -.7px 2px rgba(0, 0, 0, 1)");
     expect(cssRule(".account-choice-modal #signInFromStartBtn {")).toContain("background: linear-gradient(180deg, #82ea03 0%, #12ca02 52%, #019304 100%)");
     expect(css).not.toContain("html.signin-artwork-ready #accountChoicePanel .wildstat-wordmark-title");
     expect(css).not.toContain('url("signin/signin-progression-mobile-4k-v3.webp")');
