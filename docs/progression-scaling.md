@@ -1,6 +1,6 @@
 # Progression Scaling Contract
 
-This document is the durable balance contract for Wildstat's campaign. New maps, enemies, bosses, equipment, and migrations should preserve these rules unless the design direction is deliberately changed. The canonical runtime constants live in `shared/rules.ts` and `shared/items.ts`; the Balance Lab is the executable check on this contract.
+This document is the durable balance contract for WildStat's campaign. New maps, enemies, bosses, equipment, and migrations should preserve these rules unless the design direction is deliberately changed. The canonical runtime constants live in `shared/rules.ts` and `shared/items.ts`; the Balance Lab is the executable check on this contract.
 
 ## Hard progression contract
 
@@ -42,9 +42,9 @@ Do not round the constants used by code. Rounded labels are fine in the UI.
 
 The game should use motivational research as a quality check, not as a recipe for compulsion:
 
-- Reward-prediction-error research shows that learned cues can carry anticipation before the reward arrives. In Wildstat, the ethical application is a clearly visible next upgrade or map breakthrough backed by dependable progress—not an opaque chance to win. See [Schultz, Dayan, and Montague (1997)](https://pubmed.ncbi.nlm.nih.gov/9054347/) and [Fiorillo, Tobler, and Schultz (2003)](https://research.pdn.cam.ac.uk/staff/schultz/pdfs%20website/2003%20Fiorillo%20Science.pdf).
+- Reward-prediction-error research shows that learned cues can carry anticipation before the reward arrives. In WildStat, the ethical application is a clearly visible next upgrade or map breakthrough backed by dependable progress—not an opaque chance to win. See [Schultz, Dayan, and Montague (1997)](https://pubmed.ncbi.nlm.nih.gov/9054347/) and [Fiorillo, Tobler, and Schultz (2003)](https://research.pdn.cam.ac.uk/staff/schultz/pdfs%20website/2003%20Fiorillo%20Science.pdf).
 - Self-determination research connects game engagement with competence, autonomy, and relatedness. Reward tracks should therefore produce understandable mastery and meaningful build choices, not merely more frequent stimuli. See [Przybylski, Rigby, and Ryan (2010)](https://journals.sagepub.com/doi/pdf/10.1037/a0019440?download=true).
-- Near misses can increase gambling motivation even though they are losses. Wildstat must not use near-miss presentation, essential random gating, or paid random rewards to manufacture that response. See [Clark et al. (2009)](https://motivation.site.wesleyan.edu/files/2016/06/Clark-2009-Neuron1.pdf). The observed association between loot-box spending and problem gambling is an additional reason to keep core progression dependable; see [Zendle and Cairns (2019)](https://pubmed.ncbi.nlm.nih.gov/30845155/).
+- Near misses can increase gambling motivation even though they are losses. WildStat must not use near-miss presentation, essential random gating, or paid random rewards to manufacture that response. See [Clark et al. (2009)](https://motivation.site.wesleyan.edu/files/2016/06/Clark-2009-Neuron1.pdf). The observed association between loot-box spending and problem gambling is an additional reason to keep core progression dependable; see [Zendle and Cairns (2019)](https://pubmed.ncbi.nlm.nih.gov/30845155/).
 
 The resulting rule is: **guaranteed core growth + a visible next breakthrough + bounded novelty**. Seeded randomness may vary camps, formations, and ordering. It must not randomly change enemy stats, permanent reward amounts, whether a build remains viable, or the macro duration/power budget. Equipment can create a pleasant breakthrough, but the base reward economy must remain playable when a drop is late.
 

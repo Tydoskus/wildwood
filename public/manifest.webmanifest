@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Wildstat",
-  "short_name": "Wildstat",
+  "name": "WildStat",
+  "short_name": "WildStat",
   "description": "Fight monsters, collect gear, and explore new worlds in a multiplayer action RPG.",
   "start_url": "./",
   "scope": "./",

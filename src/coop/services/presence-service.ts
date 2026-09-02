@@ -590,7 +590,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     try {
       samples = decodePlayerMotionFrame(row.payload, row.playerCount);
     } catch (error) {
-      console.warn("Ignored malformed Wildstat movement frame:", error);
+      console.warn("Ignored malformed WildStat movement frame:", error);
       return;
     }
     const receivedAt = performance.now();
@@ -641,7 +641,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     try {
       samples = decodePlayerMapFrame(row.payload, row.playerCount);
     } catch (error) {
-      console.warn("Ignored malformed Wildstat minimap frame:", error);
+      console.warn("Ignored malformed WildStat minimap frame:", error);
       return;
     }
     const receivedAt = performance.now();
@@ -711,7 +711,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       })
       .onError((ctx) => {
         if (dependencies.reducers.connection() !== connection || generation !== mapMarkerSubscriptionGeneration) return;
-        console.error("Wildstat map marker subscription error:", ctx.event);
+        console.error("WildStat map marker subscription error:", ctx.event);
         mapMarkerSubscription = previous;
       })
       .subscribe([
@@ -804,7 +804,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           })
           .onError((ctx) => {
             if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
-            console.error("Wildstat map player subscription error:", ctx.event);
+            console.error("WildStat map player subscription error:", ctx.event);
             mapPlayerSubscription = null;
             mapSubscriptionAreaKey = "";
             mapPlayerSubscriptionTransitioning = false;
@@ -815,7 +815,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapPlayerSubscription = next;
       } catch (error) {
         if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
-        console.error("Wildstat map player subscription error:", error);
+        console.error("WildStat map player subscription error:", error);
         mapPlayerSubscription = null;
         mapSubscriptionAreaKey = "";
         mapPlayerSubscriptionTransitioning = false;
@@ -824,7 +824,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     };
     startAfterSubscriptionEnds(previous, subscribeNext, (error) => {
       if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
-      console.error("Wildstat map player subscription handoff error:", error);
+      console.error("WildStat map player subscription handoff error:", error);
       mapPlayerSubscription = previous;
       mapSubscriptionAreaKey = previousAreaKey;
       mapPlayerSubscriptionTransitioning = false;

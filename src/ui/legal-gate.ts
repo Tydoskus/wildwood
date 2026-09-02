@@ -58,7 +58,7 @@ export function createLegalGateController(
     elements.status.textContent = statusOverride || (!ageSelected
       ? "Select your age to continue."
       : !eligible
-        ? `Wildstat is currently available to players age ${MINIMUM_PLAYER_AGE} and older.`
+        ? `WildStat is currently available to players age ${MINIMUM_PLAYER_AGE} and older.`
         : !elements.agreement.checked
           ? "Review and agree to the Terms to continue."
           : "");

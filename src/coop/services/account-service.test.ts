@@ -171,7 +171,7 @@ describe("account service startup identity selection", () => {
     expect(connect).toHaveBeenCalledOnce();
   });
 
-  it.each(["Wildstat", "Wildwood"])("keeps an existing signed-in save after a %s account-link rejection", async (name) => {
+  it.each(["WildStat", "Wildstat", "Wildwood"])("keeps an existing signed-in save after a %s account-link rejection", async (name) => {
     const { local, session, service } = setup({
       accountToken: "existing-account-token",
       guestToken: "existing-guest-token",

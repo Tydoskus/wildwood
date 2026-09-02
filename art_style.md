@@ -1,8 +1,8 @@
-# Wildstat Art Style
+# WildStat Art Style
 
-All new Wildstat art should use this visual language unless a feature-specific art direction document explicitly overrides it.
+All new WildStat art should use this visual language unless a feature-specific art direction document explicitly overrides it.
 
-Wildstat is mobile-first. Judge silhouettes, contrast, detail, and labels at portrait-phone gameplay size before desktop presentation; desktop is a secondary compatibility target.
+WildStat is mobile-first. Judge silhouettes, contrast, detail, and labels at portrait-phone gameplay size before desktop presentation; desktop is a secondary compatibility target.
 
 ## Core direction
 

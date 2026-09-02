@@ -18,7 +18,7 @@ export function createGameOverlays(d: Record<string, any>) {
     releases: () => recentReleaseNotes(2), connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
   });
   e.signinVersionButton.textContent = `v${d.version}`;
-  e.signinVersionButton.setAttribute("aria-label", `Wildstat version ${d.version}. Toggle release notes`);
+  e.signinVersionButton.setAttribute("aria-label", `WildStat version ${d.version}. Toggle release notes`);
   e.minimapVersionEl.textContent = `v${d.version}`;
   e.minimapVersionEl.setAttribute("aria-label", `Game version ${d.version}`);
   return overlays;

@@ -143,7 +143,7 @@ export function createStartupAuthGate(
     showLoading(detail);
     dispose();
     void dependencies.loadGame().catch((error) => {
-      console.error("Wildstat game bundle failed to load:", error);
+      console.error("WildStat game bundle failed to load:", error);
       elements.loadingDetail.textContent = "Game Load Failed · Refresh to Try Again";
       elements.loadingFill.style.width = "100%";
     });

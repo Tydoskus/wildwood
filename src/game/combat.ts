@@ -2,7 +2,7 @@ const ARMOR_TIER_MAGNITUDE = 1_000;
 const ARMOR_TIER_REMAINING_DAMAGE = .5;
 
 /**
- * Wildstat armor curve anchors:
+ * WildStat armor curve anchors:
  * 1,000 = 50%, 1,000,000 = 75%, then every 1,000x tier halves
  * the remaining incoming damage without reaching complete immunity.
  */

@@ -184,7 +184,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     connectionRetryButton.hidden = true;
     const stages = dependencies.getLoadingStages();
     while (loadingStage < stages.length - 1 && stages[loadingStage][1]) loadingStage += 1;
-    const [label, ready, percent] = stages[loadingStage] ?? ["Starting Wildstat", true, 100];
+    const [label, ready, percent] = stages[loadingStage] ?? ["Starting WildStat", true, 100];
     loadingDetail.textContent = label;
     loadingFill.style.width = `${percent}%`;
     if (!ready || loadingStage < stages.length - 1 || loadingSequenceComplete || loadingCompletionPending) return;

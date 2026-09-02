@@ -41,7 +41,7 @@ import { startStartupBootstrap } from "./coop/startup-bootstrap";
 import type { ReducerPort } from "./coop/ports";
 export type * from "./coop/contracts";
 
-type WildstatRuntime = Window & {
+type WildStatRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
   WILDWOOD_SPACETIMEDB_DB_NAME?: string;
 };
@@ -54,7 +54,7 @@ const CONNECTION_OPEN_TIMEOUT_MS = 15_000;
 const SESSION_PREPARE_TIMEOUT_MS = 20_000;
 const SUBSCRIPTION_HYDRATION_TIMEOUT_MS = 20_000;
 
-const runtime = window as WildstatRuntime;
+const runtime = window as WildStatRuntime;
 const defaultHost = defaultRealtimeHost(window.location.hostname);
 const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
@@ -168,7 +168,7 @@ const connectionLifecycle = createConnectionLifecycle({
   scheduleTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
   cancelTimer: (timer) => window.clearTimeout(timer),
   onTimeout: (phase) => handleConnectionTimeout(phase),
-  onIssue: (issue) => console.warn("Wildstat connection lifecycle failure:", issue),
+  onIssue: (issue) => console.warn("WildStat connection lifecycle failure:", issue),
 });
 
 const pageWakeTracker = createPageWakeTracker({
@@ -239,7 +239,7 @@ function handleReducerFailure(action: string, error: unknown) {
     return;
   }
   if (!/wildstat updated\. refresh to continue\./i.test(message)) {
-    console.warn(`Wildstat ${action} rejected:`, message);
+    console.warn(`WildStat ${action} rejected:`, message);
     return;
   }
 
@@ -762,7 +762,7 @@ function connect() {
             onChange();
           },
           onError: (event) => {
-            console.error("Wildstat SpacetimeDB subscription error:", event);
+            console.error("WildStat SpacetimeDB subscription error:", event);
             retryFailedConnection("subscription-error", "World sync failed");
           },
           afterHydrated: () => {
@@ -791,7 +791,7 @@ function connect() {
       abandonConnection(false);
       if (hadActiveGame && !protocolBlocked && !worldEntryBlocked) setNetworkReconnectVisible(true);
       else setNetworkReconnectVisible(false);
-      if (error) console.warn("Wildstat SpacetimeDB disconnected:", error);
+      if (error) console.warn("WildStat SpacetimeDB disconnected:", error);
       onChange?.();
       scheduleReconnect();
     })
@@ -804,16 +804,16 @@ function connect() {
         onChange?.();
         return;
       }
-      connectionLifecycle.fail("connection-error", "Could not reach Wildstat");
+      connectionLifecycle.fail("connection-error", "Could not reach WildStat");
       if (hadPlayableSession) setNetworkReconnectVisible(true);
-      console.warn("Wildstat SpacetimeDB unavailable:", error.message);
+      console.warn("WildStat SpacetimeDB unavailable:", error.message);
       onChange?.();
       scheduleReconnect();
     })
     .build();
   } catch (error) {
     if (generation !== connectionGeneration) return;
-    console.warn("Wildstat SpacetimeDB connection setup failed:", error);
+    console.warn("WildStat SpacetimeDB connection setup failed:", error);
     retryFailedConnection("connection-error", "Connection setup failed");
   }
 }

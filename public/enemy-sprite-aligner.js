@@ -533,7 +533,7 @@ element("loadValues").addEventListener("change", async (event) => {
   if (!file) return;
   try {
     const payload = JSON.parse(await file.text());
-    if (![FILE_FORMAT, "wildwood-enemy-sprite-alignment"].includes(payload.format) || payload.version !== FILE_VERSION) throw new Error("This is not a supported Wildstat alignment file.");
+    if (![FILE_FORMAT, "wildwood-enemy-sprite-alignment"].includes(payload.format) || payload.version !== FILE_VERSION) throw new Error("This is not a supported WildStat alignment file.");
     if (!sourceLayouts[payload.enemy]) throw new Error(`Unknown layered enemy: ${payload.enemy}`);
     workingLayouts[payload.enemy] = normalizeLoadedSprite(payload.sprite);
     controls.enemy.value = payload.enemy;

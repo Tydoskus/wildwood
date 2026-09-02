@@ -165,7 +165,7 @@ function readArguments(argv: string[]) {
 }
 
 function helpText() {
-  return `Wildstat virtual-player load runner
+  return `WildStat virtual-player load runner
 
 Usage:
   ${TOKEN_ENV}=<developer-id-token> npm run loadtest:virtual -- [options]

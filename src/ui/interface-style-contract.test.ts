@@ -390,7 +390,7 @@ describe("interface style contracts", () => {
     expect(html).not.toContain('<script src="assets/wildstat/game.js');
   });
 
-  it("shows the complete Wildstat wordmark across all startup screens", () => {
+  it("shows the complete WildStat wordmark across all startup screens", () => {
     const wordmark = readFileSync(new URL("../../public/assets/wildstat/wildstat-wordmark.png", import.meta.url));
     const width = wordmark.readUInt32BE(16);
     const height = wordmark.readUInt32BE(20);
@@ -404,16 +404,16 @@ describe("interface style contracts", () => {
     }
     expect(entryHtml).not.toContain("wildwood-wordmark.png");
     expect(entryHtml).not.toContain('aria-label="Wildwood');
-    expect(entryHtml).toContain("<title>Wildstat</title>");
+    expect(entryHtml).toContain("<title>WildStat</title>");
     expect(entryHtml).toContain("CONNECTING TO WILDSTAT");
-    expect(entryHtml).toContain('aria-label="Welcome to Wildstat"');
+    expect(entryHtml).toContain('aria-label="Welcome to WildStat"');
     expect(cssRule(".wildstat-wordmark-frame {")).toContain("aspect-ratio: 3 / 1");
     expect(cssRule(".wildstat-wordmark-frame {")).not.toContain("overflow: hidden");
     expect(cssRule(".wildstat-wordmark-frame img {")).toContain("object-fit: contain");
     expect(cssRule(".wildstat-wordmark-frame img {")).not.toContain("position: absolute");
   });
 
-  it("uses opaque Wildstat Home Screen and multi-resolution browser icons", () => {
+  it("uses opaque WildStat Home Screen and multi-resolution browser icons", () => {
     expect(entryHtml).toContain(`href="wildstat-favicon.ico?v=${releaseVersion}"`);
     expect(entryHtml).toContain(`href="assets/wildstat/wildstat-favicon-32.png?v=${releaseVersion}" type="image/png" sizes="32x32"`);
     expect(entryHtml).toContain(`href="assets/wildstat/wildstat-apple-touch-icon.png?v=${releaseVersion}" sizes="180x180"`);
@@ -423,8 +423,8 @@ describe("interface style contracts", () => {
 
     expect(webAppManifest).toMatchObject({
       id: "./",
-      name: "Wildstat",
-      short_name: "Wildstat",
+      name: "WildStat",
+      short_name: "WildStat",
       start_url: "./",
       scope: "./",
       display: "standalone",

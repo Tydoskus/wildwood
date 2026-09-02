@@ -6,12 +6,13 @@ import {
 
 describe("world presence recovery", () => {
   it("recognizes the server's missing-presence rejection", () => {
+    expect(isMissingWorldPresenceError(new Error("update_movement_state: Enter WildStat first."))).toBe(true);
     expect(isMissingWorldPresenceError(new Error("update_movement_state: Enter Wildstat first."))).toBe(true);
     expect(isMissingWorldPresenceError(new Error("update_movement_state: Enter Wildwood first."))).toBe(true);
     expect(isMissingWorldPresenceError(new Error("Touch the Upgrade Bench first."))).toBe(false);
   });
 
-  it.each(["Wildstat", "Wildwood"])("re-enters and retries exactly once after a %s rejection", async (name) => {
+  it.each(["WildStat", "Wildstat", "Wildwood"])("re-enters and retries exactly once after a %s rejection", async (name) => {
     const attempt = vi.fn()
       .mockRejectedValueOnce(new Error(`Enter ${name} first.`))
       .mockResolvedValueOnce("accepted");
@@ -28,8 +29,8 @@ describe("world presence recovery", () => {
     await expect(retryAfterMissingWorldPresence(unrelatedAttempt, recover)).rejects.toThrow("Not enough Gems.");
     expect(recover).not.toHaveBeenCalled();
 
-    const missingAttempt = vi.fn().mockRejectedValue(new Error("Enter Wildstat first."));
-    await expect(retryAfterMissingWorldPresence(missingAttempt, () => false)).rejects.toThrow("Enter Wildstat first.");
+    const missingAttempt = vi.fn().mockRejectedValue(new Error("Enter WildStat first."));
+    await expect(retryAfterMissingWorldPresence(missingAttempt, () => false)).rejects.toThrow("Enter WildStat first.");
     expect(missingAttempt).toHaveBeenCalledOnce();
   });
 });

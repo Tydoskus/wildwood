@@ -437,7 +437,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
           : "SIGN-IN FAILED · TRY AGAIN";
       if (readAccountLinkTransaction()) clearAccountMigrationPending();
       clearAccountReturnPending();
-      console.warn("Wildstat account sign-in failed:", error);
+      console.warn("WildStat account sign-in failed:", error);
     } finally {
       callbackPending = false;
       clearTabValue(keys.authStateKey);
@@ -490,7 +490,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
           sessionApproved = false;
           clearAccountReturnPending();
           notice = "SIGN-IN FAILED · TRY AGAIN";
-          console.warn("Wildstat update sign-in failed:", error);
+          console.warn("WildStat update sign-in failed:", error);
           dependencies.notify();
         }
         return;
@@ -784,7 +784,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
             clearAccountReturnPending();
             sessionApproved = false;
             notice = "SIGN-IN FAILED · TRY AGAIN";
-            console.warn("Wildstat account reauthentication failed:", signInError);
+            console.warn("WildStat account reauthentication failed:", signInError);
             dependencies.notify();
           });
           dependencies.notify();
@@ -796,7 +796,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         dependencies.notify();
         return true;
       }
-      console.warn("Wildstat token rejected; reconnecting with a fresh guest session.");
+      console.warn("WildStat token rejected; reconnecting with a fresh guest session.");
       dependencies.notify();
       dependencies.scheduleReconnect(100);
       return true;

@@ -1,6 +1,6 @@
-# Wildstat branding
+# WildStat branding
 
-The game name is **Wildstat**. Runtime art lives in `public/assets/wildstat/`; the browser entry is `src/wildstat-coop.ts`, exposed as `window.wildstatCoop`. Retired branding is kept outside the deployed files in `art-source/retired/branding/`.
+The game name is **WildStat**. Runtime art lives in `public/assets/wildstat/`; the browser entry is `src/wildstat-coop.ts`, exposed as `window.wildstatCoop`. Retired branding is kept outside the deployed files in `art-source/retired/branding/`.
 
 The public README is for players. Setup, architecture, release steps, and account invariants are in [development.md](development.md).
 
@@ -11,7 +11,7 @@ The public README is for players. Setup, architecture, release steps, and accoun
 - Existing `wildwood-` and `wildwood.` preference, cooldown, legacy-progress, and Balance Lab storage keys are retained. Changing a display name does not require discarding player settings.
 - The `wildwood-spawns-v2:` seed stays fixed so camp positions and enemy assignments do not change.
 - The client recognizes server errors under either name and displays the current name. Three wire messages that cached clients parse (protocol refresh, missing world presence, and an existing account save) retain their original wording in `LEGACY_CLIENT_ERRORS` so old tabs can still recover. Chat scam detection covers both names.
-- `window.wildwoodCoop`, `window.wildwoodNative`, and the previous native ad event remain accepted for older integrations. New code uses the Wildstat names. Load-test tooling also accepts the previous environment variable names and strips both token variables before launching workers.
+- `window.wildwoodCoop`, `window.wildwoodNative`, and the previous native ad event remain accepted for older integrations. New code uses the WildStat names. Load-test tooling also accepts the previous environment variable names and strips both token variables before launching workers.
 - The sprite aligner accepts previously exported alignment files and updates their old asset-path prefix when loading them.
 
 The name-only Terms edit does not change the agreement contents, age rules, or stored acceptance version.

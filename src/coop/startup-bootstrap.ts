@@ -43,7 +43,7 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
   void Promise.resolve()
     .then(() => dependencies.restoreKnownAccount())
     .catch((error) => {
-      console.error("Wildstat account startup failed:", error);
+      console.error("WildStat account startup failed:", error);
       const accountChoiceDetail = document.getElementById("accountChoiceDetail");
       const loadingDetail = document.getElementById("loadingDetail");
       if (accountChoiceDetail) accountChoiceDetail.textContent = "ACCOUNT STARTUP FAILED · REFRESH TO TRY AGAIN";

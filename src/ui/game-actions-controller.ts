@@ -88,7 +88,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   }
 
   function resetProgress() {
-    if (!confirm("Erase all saved Wildstat progress and start over?")) return;
+    if (!confirm("Erase all saved WildStat progress and start over?")) return;
 
     dependencies.clearProgressState();
     dependencies.resetServerProgress();

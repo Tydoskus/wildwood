@@ -182,7 +182,7 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
         } catch (error) {
           const message = dependencies.reducers.errorMessage(error);
           dependencies.reducers.handleFailure("display-name update", error);
-          console.warn("Wildstat display-name update rejected:", message);
+          console.warn("WildStat display-name update rejected:", message);
           return { ok: false, error: message };
         }
       },

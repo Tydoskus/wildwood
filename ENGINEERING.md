@@ -1,4 +1,4 @@
-# Wildstat Engineering Notes
+# WildStat Engineering Notes
 
 This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior.
 

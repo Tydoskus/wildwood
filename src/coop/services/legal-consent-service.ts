@@ -72,7 +72,7 @@ export function createLegalConsentService(dependencies: LegalConsentDependencies
       return { ok: false, error: error instanceof Error ? error.message : "Choose a valid age." };
     }
     if (!isEligiblePlayerAgeBand(ageBand)) {
-      return { ok: false, error: "Wildstat is currently available to players age 13 and older." };
+      return { ok: false, error: "WildStat is currently available to players age 13 and older." };
     }
 
     const next = { termsVersion: TERMS_VERSION, ageBand } satisfies StoredLegalConsent;
@@ -88,7 +88,7 @@ export function createLegalConsentService(dependencies: LegalConsentDependencies
 
     if (connection?.isActive && dependencies.protocolReady() && dependencies.shouldEnterWorld()) {
       const entered = await dependencies.requestWorldEntry();
-      if (!entered) return { ok: false, error: "Could not enter Wildstat. Try again." };
+      if (!entered) return { ok: false, error: "Could not enter WildStat. Try again." };
     }
     store(next);
     dependencies.notify();

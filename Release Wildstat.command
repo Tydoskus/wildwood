@@ -21,10 +21,10 @@ export PATH="${NPM_BIN:h}:${PATH}"
 GIT_BIN="$(command -v git 2>/dev/null || true)"
 [[ -n "$GIT_BIN" ]] || fail "git not found. Install Xcode Command Line Tools, then reopen this file."
 
-[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find Wildstat package.json beside this file."
+[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find WildStat package.json beside this file."
 [[ -f "$PROJECT_DIR/scripts/release-live.mjs" ]] || fail "Could not find scripts/release-live.mjs."
 
-cd "$PROJECT_DIR" || fail "Could not open the Wildstat folder."
+cd "$PROJECT_DIR" || fail "Could not open the WildStat folder."
 clear
 print "WILDSTAT LIVE RELEASE"
 print "Folder: $PROJECT_DIR"

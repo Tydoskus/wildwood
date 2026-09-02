@@ -326,7 +326,7 @@ import {
       ["Loading Core Artwork", assets.worldArtReady(), 84],
       ["Loading Current Map", startupMapAssetsReady(), 92],
       ["Loading Page Artwork", pageLoadComplete, 99],
-      ["Starting Wildstat", true, 100],
+      ["Starting WildStat", true, 100],
     ],
     onLoadingComplete: finishStartup,
     onShowAccountChoice: showCurrentUpdateNotice,
@@ -1494,7 +1494,7 @@ import {
     const showReconnectOverlay = reconnecting && !waitingForServer && !accountRecoveryRequired;
     reconnectOverlayEl.hidden = !showReconnectOverlay;
     reconnectDetailEl.textContent = diagnostics?.phase === "connecting"
-      ? "Connecting to Wildstat…"
+      ? "Connecting to WildStat…"
       : diagnostics?.phase === "preparing-session"
         ? "Restoring your session…"
         : diagnostics?.phase === "hydrating"

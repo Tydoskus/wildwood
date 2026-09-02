@@ -1,6 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.591": [
+    "Corrected the game name capitalization to WildStat across installed-app metadata and player-facing text.",
+  ],
   "0.590": [
-    "Added Wildstat web-app metadata and dedicated Home Screen icons for standalone launches.",
+    "Added WildStat web-app metadata and dedicated Home Screen icons for standalone launches.",
     "Going Back from Spacetime sign-in now immediately restores Sign In and Guest Login instead of remaining on verification.",
   ],
   "0.589": [
@@ -9,7 +12,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Loads only the current map's artwork during startup and refreshes the Desert Scorpion and Koi Shogun boss sprites.",
   ],
   "0.588": [
-    "Updated Wildstat to SpacetimeDB 2.9.0 for more reliable identity-preserving reconnects.",
+    "Updated WildStat to SpacetimeDB 2.9.0 for more reliable identity-preserving reconnects.",
     "The sign-in logo and buttons now stay fixed in place, and the logo appears immediately without fading in.",
   ],
   "0.587": [
@@ -51,18 +54,18 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Map music now loads on demand so startup and portal transitions continue without waiting on soundtrack downloads.",
   ],
   "0.577": [
-    "Updated remaining game text, item descriptions, and Terms to use the Wildstat name.",
+    "Updated remaining game text, item descriptions, and Terms to use the WildStat name.",
     "Updated the desert boss with an animated Desert Scorpion sprite and matching labels.",
   ],
   "0.576": [
     "Updated the sign-in background and its instant loading preview, with release-based artwork cache refreshes.",
-    "Added matching Wildstat Home Screen and browser icons using the new green-and-blue WS leaf mark.",
+    "Added matching WildStat Home Screen and browser icons using the new green-and-blue WS leaf mark.",
   ],
   "0.575": [
-    "Updated the Wildstat logo and refreshed its cache with each release so returning players receive the latest artwork.",
+    "Updated the WildStat logo and refreshed its cache with each release so returning players receive the latest artwork.",
   ],
   "0.574": [
-    "Introduced the Wildstat wordmark across sign-in, loading, onboarding, and update screens, with uncropped framing and matching startup labels.",
+    "Introduced the WildStat wordmark across sign-in, loading, onboarding, and update screens, with uncropped framing and matching startup labels.",
   ],
   "0.573": [
     "Refined the player HUD with a portrait sized to half the minimap, equal text and health rows, and Gems restored beneath the left edge.",
@@ -227,7 +230,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   ],
 
   "0.530": [
-    "Updated Wildstat's browser favicon and added versioned favicon loading so the new icon replaces cached copies promptly.",
+    "Updated WildStat's browser favicon and added versioned favicon loading so the new icon replaces cached copies promptly.",
   ],
 
   "0.529": [
@@ -605,7 +608,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Floating player, enemy, and boss health numbers now sit optically centered inside their bars on mobile.",
   ],
   "0.442": [
-    "Sign-in controls now stay fixed when update notes close, the Wildstat logo floats more visibly, the leaderboard is 40% shorter, and the death title is 30% smaller.",
+    "Sign-in controls now stay fixed when update notes close, the WildStat logo floats more visibly, the leaderboard is 40% shorter, and the death title is 30% smaller.",
     "Floating health text is visually centered, overhead gender symbols keep their intended proportions, and screen shake no longer exposes cached world-tile seams.",
   ],
   "0.441": [
@@ -623,7 +626,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "The sign-in sound icon is larger and now floats cleanly without a border or background.",
   ],
   "0.437": [
-    "Sign-in and loading screens now use an illustrated Wildstat battle scene showing the portal, monsters, and stat gains.",
+    "Sign-in and loading screens now use an illustrated WildStat battle scene showing the portal, monsters, and stat gains.",
   ],
   "0.436": [
     "The sign-in screen now plays Light Ambient 4 and has a quick mute or unmute button in the top-right corner.",
@@ -968,7 +971,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Frostwind Expanse has been renamed Intermediate Snowlands.",
   ],
   "0.344": [
-    "Intermediate Snowlands is open as Wildstat's third map through the second portal in Beginner Desert.",
+    "Intermediate Snowlands is open as WildStat's third map through the second portal in Beginner Desert.",
     "The new winter region includes snow terrain, icy roads, snow pines, frosted ground cover, camps, and a snow minimap.",
   ],
   "0.343": [
@@ -1150,7 +1153,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Replay play controls now sit directly on the game without button backgrounds",
   ],
   "0.281": [
-    "World Chat replay buttons now use the custom Wildstat play medallion",
+    "World Chat replay buttons now use the custom WildStat play medallion",
     "World Chat expand and minimize control now uses custom pixel corner marks",
   ],
   "0.280": [
@@ -1220,7 +1223,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Desert enemies offer much stronger combat with high health and damage",
   ],
   "0.265": [
-    "Beginner Desert added as Wildstat's second multiplayer map",
+    "Beginner Desert added as WildStat's second multiplayer map",
     "Forest portal now travels between maps with a fade transition",
     "Beginner Desert adds dunes, roads, cacti, rocks, and enemy camps",
     "Dragon body collision now deals 1,000 contact damage",
@@ -1250,7 +1253,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Time Played leaderboard added",
     "Player HUD, profiles, chat, and gameplay windows refined",
     "Dragon moved deeper into the forest",
-    "New Wildstat app icon and settings icon added",
+    "New WildStat app icon and settings icon added",
   ],
   "0.258": [
     "World Chat keeps your place while reading older messages",
@@ -1346,6 +1349,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.591": "2026-09-02",
   "0.590": "2026-09-02",
   "0.589": "2026-09-02",
   "0.588": "2026-09-02",

@@ -1,4 +1,4 @@
-name: Deploy Wildstat to GitHub Pages
+name: Deploy WildStat to GitHub Pages
 
 on:
   push:

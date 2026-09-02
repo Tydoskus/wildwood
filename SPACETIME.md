@@ -1,4 +1,4 @@
-# Wildstat SpacetimeDB
+# WildStat SpacetimeDB
 
 ## Local development
 
@@ -28,13 +28,13 @@ npm run spacetime:publish:cloud
 npm run build:coop
 ```
 
-Deployed Wildstat pages automatically use `wss://maincloud.spacetimedb.com`; localhost pages use `ws://localhost:3000`. Pages opened through a private LAN hostname/IP use port 3000 on that same host so Wi-Fi test clients stay on the local database.
+Deployed WildStat pages automatically use `wss://maincloud.spacetimedb.com`; localhost pages use `ws://localhost:3000`. Pages opened through a private LAN hostname/IP use port 3000 on that same host so Wi-Fi test clients stay on the local database.
 
 Do not use `--delete-data=always` outside local development. It destroys the selected database contents.
 
 ## SpacetimeAuth
 
-Wildstat uses SpacetimeAuth Magic Link with public client ID `client_03426HMgkAEmdC23XTZRKZ`.
+WildStat uses SpacetimeAuth Magic Link with public client ID `client_03426HMgkAEmdC23XTZRKZ`.
 
 Configure this exact redirect URI in the SpacetimeAuth project:
 

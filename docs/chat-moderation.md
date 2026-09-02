@@ -10,7 +10,7 @@ This is the lightest design that provides useful abuse controls, keeps the commo
 
 ## Current foundation
 
-Wildstat already routes public chat through one `sendChatMessage` reducer and bounds both message size and retained history in [`spacetimedb/src/index.ts`](../spacetimedb/src/index.ts):
+WildStat already routes public chat through one `sendChatMessage` reducer and bounds both message size and retained history in [`spacetimedb/src/index.ts`](../spacetimedb/src/index.ts):
 
 - 250-character maximum.
 - Three-second server cooldown per sender.
@@ -130,7 +130,7 @@ Apple's current User-Generated Content guideline requires objectionable-content 
 - [Apple App Review Guidelines, section 1.2](https://developer.apple.com/app-store/review/guidelines/)
 - [Google Play User-Generated Content policy](https://support.google.com/googleplay/android-developer/answer/9876937)
 
-This plan assumes Wildstat is not submitted in a children-specific category. For a children-focused release, preset phrase chat is considerably safer than unrestricted text chat.
+This plan assumes WildStat is not submitted in a children-specific category. For a children-focused release, preset phrase chat is considerably safer than unrestricted text chat.
 
 ## Explicitly avoid for now
 

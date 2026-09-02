@@ -1,6 +1,6 @@
 # Equipment Architecture
 
-Wildstat equipment uses two registries so gameplay rules stay server-safe while browser art stays client-only.
+WildStat equipment uses two registries so gameplay rules stay server-safe while browser art stays client-only.
 
 Mobile-first rule: validate equipment silhouettes, tap targets, inventory density, profile preview layering, and combat readability on narrow portrait screens first. Desktop must preserve mobile spacing instead of stretching item or Tech Tree layouts.
 

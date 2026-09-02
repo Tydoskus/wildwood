@@ -1,6 +1,6 @@
 # Mobile-First Product Contract
 
-Wildstat targets mobile browsers first. Desktop support is useful compatibility work, not primary product direction.
+WildStat targets mobile browsers first. Desktop support is useful compatibility work, not primary product direction.
 
 ## Release gates
 

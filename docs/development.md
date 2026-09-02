@@ -1,12 +1,12 @@
 # Development and releases
 
-Technical notes for Wildstat. Paths below are relative to the repository root. For the game overview, see [README](../README.md).
+Technical notes for WildStat. Paths below are relative to the repository root. For the game overview, see [README](../README.md).
 
 See [branding.md](branding.md) for the rename's compatibility boundaries and the later domain setup.
 
 ## Product target
 
-Wildstat is mobile-first. Touch interaction, narrow portrait layouts, safe areas, small-screen readability, mobile browser memory, and low-end-phone frame stability are release requirements. Desktop is a secondary compatibility target and must not drive wider spacing, denser UI, hover-only behavior, or heavier rendering paths. See `docs/mobile-first.md`.
+WildStat is mobile-first. Touch interaction, narrow portrait layouts, safe areas, small-screen readability, mobile browser memory, and low-end-phone frame stability are release requirements. Desktop is a secondary compatibility target and must not drive wider spacing, denser UI, hover-only behavior, or heavier rendering paths. See `docs/mobile-first.md`.
 
 ## Architecture
 
@@ -89,7 +89,7 @@ For a terminal report or machine-readable JSON, use `npm run balance:simulate`. 
 
 ## Release checklist: version and cache updates
 
-Wildstat uses a release version to invalidate browser caches and direct stale tabs to reload. Every player-facing release must update all of these to the **same** value:
+WildStat uses a release version to invalidate browser caches and direct stale tabs to reload. Every player-facing release must update all of these to the **same** value:
 
 For a client-only release, run the interactive helper:
 
@@ -180,7 +180,7 @@ Publishing the server is a separate production operation; pushing `main` only de
 | Symptom | First checks |
 | --- | --- |
 | Stuck on loading connection | Browser console for 401/token errors; ensure the latest cache version and `coop-client.js` are deployed. |
-| “Wildstat updated. Refresh to continue.” | Client/server protocol mismatch or a cached bundle. Check both `PROTOCOL_VERSION` values and all cache-version locations. |
+| “WildStat updated. Refresh to continue.” | Client/server protocol mismatch or a cached bundle. Check both `PROTOCOL_VERSION` values and all cache-version locations. |
 | Site changed locally but not online | Run `npm run build:client`, push `main`, then confirm the Pages workflow passed. |
 | Schema/binding errors | Publish the server module, then run `npm run spacetime:generate`. |
 | Account migration rejected | Authenticated account already has progress; preserve it and continue with that account or use the guest session. |

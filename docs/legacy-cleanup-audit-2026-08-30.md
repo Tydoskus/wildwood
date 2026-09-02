@@ -1,6 +1,6 @@
 # Legacy and schema cleanup audit — 2026-08-30
 
-Baseline: Wildstat v0.571 (`7167fd8`). The production SpacetimeDB snapshot had 90 tables, 75 reducers, 8 views, and module migration version 19.
+Baseline: WildStat v0.571 (`7167fd8`). The production SpacetimeDB snapshot had 90 tables, 75 reducers, 8 views, and module migration version 19.
 
 ## Compatibility surfaces retained
 

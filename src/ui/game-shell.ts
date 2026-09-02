@@ -345,13 +345,13 @@ const afterUpdateGateShell = String.raw`
 
 export function installGameShell(doc: Document = document) {
   const start = doc.getElementById("start");
-  if (!start) throw new Error("Wildstat startup shell is missing #start");
+  if (!start) throw new Error("WildStat startup shell is missing #start");
   if (!doc.getElementById("dailyGemBonus")) {
     start.insertAdjacentHTML("beforebegin", beforeStartShell);
   }
 
   const coopScript = doc.getElementById("wildstatCoopScript");
-  if (!coopScript) throw new Error("Wildstat startup shell is missing #wildstatCoopScript");
+  if (!coopScript) throw new Error("WildStat startup shell is missing #wildstatCoopScript");
   if (!doc.getElementById("gameOver")) {
     coopScript.insertAdjacentHTML("beforebegin", afterUpdateGateShell);
   }
