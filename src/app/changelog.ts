@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.593": [
+    "Fixed Connection Setup Failed after the security update by allowing the runtime schema compiler required by SpacetimeDB while continuing to block inline and third-party scripts.",
+  ],
   "0.592": [
     "Startup now follows one consistent state flow through sign-in, account recovery, connection retries, and game entry.",
     "Added privacy-safe timing and fixed-category diagnostics for authentication, connection, world sync, and asset failures.",

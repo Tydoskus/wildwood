@@ -420,7 +420,7 @@ describe("interface style contracts", () => {
 
   it("locks executable startup code to this origin and limits realtime connections", () => {
     expect(entryHtml).toContain('http-equiv="Content-Security-Policy"');
-    expect(entryHtml).toContain("script-src 'self'; script-src-attr 'none'");
+    expect(entryHtml).toContain("script-src 'self' 'unsafe-eval'; script-src-attr 'none'");
     expect(entryHtml).toContain("connect-src 'self' https://auth.spacetimedb.com https://maincloud.spacetimedb.com wss://maincloud.spacetimedb.com ws://*:3000");
     expect(entryHtml).not.toContain(" wss: ");
     expect(entryHtml).toContain('<meta name="referrer" content="no-referrer"');

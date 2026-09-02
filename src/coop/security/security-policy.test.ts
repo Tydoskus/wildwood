@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const entryHtml = readFileSync(new URL("../../../public/index.html", import.meta.url), "utf8");
+const spacetimeBrowserSdk = readFileSync(
+  new URL("../../../node_modules/spacetimedb/dist/index.browser.mjs", import.meta.url),
+  "utf8",
+);
 
 function contentSecurityPolicy() {
   const match = entryHtml.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)" \/>/);
@@ -10,17 +14,25 @@ function contentSecurityPolicy() {
 }
 
 describe("browser security policy", () => {
-  it("loads executable scripts only from same-origin external files", () => {
+  it("loads script files only from the same origin and keeps inline execution blocked", () => {
     const policy = contentSecurityPolicy();
     expect(policy).toContain("default-src 'none'");
-    expect(policy).toContain("script-src 'self'");
+    expect(policy).toContain("script-src 'self' 'unsafe-eval'");
     expect(policy).toContain("script-src-attr 'none'");
-    expect(policy).not.toContain("'unsafe-eval'");
+    expect(policy).not.toContain("script-src 'self' 'unsafe-inline'");
 
     const scripts = [...entryHtml.matchAll(/<script\b([^>]*)>/g)];
     expect(scripts.length).toBeGreaterThan(0);
     for (const [, attributes] of scripts) expect(attributes).toMatch(/\bsrc="assets\/wildstat\//);
     expect(entryHtml).not.toMatch(/\son[a-z]+\s*=/i);
+  });
+
+  it("retains the explicit eval exception required by the SpacetimeDB browser SDK", () => {
+    // SpacetimeDB 2.9 compiles schema serializers and deserializers with the
+    // Function constructor while DbConnection.build() runs. Removing this CSP
+    // exception makes every connection fail synchronously before WebSocket open.
+    expect(spacetimeBrowserSdk).toMatch(/deserializer\s*=\s*Function\(/);
+    expect(contentSecurityPolicy()).toContain("script-src 'self' 'unsafe-eval'");
   });
 
   it("allows only the connections and resource forms used by WildStat", () => {

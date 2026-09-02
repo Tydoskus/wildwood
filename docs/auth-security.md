@@ -39,8 +39,8 @@ would also remove persistent login.
 The mitigation is therefore layered: no client secret or refresh token is
 stored, callback tokens are signature- and claim-validated before persistence,
 invalid or rejected tokens are cleared, callback URLs are never sent as
-referrers, and the entry page's Content Security Policy permits executable
-scripts only from the WildStat origin.
+referrers, and the entry page's Content Security Policy permits script files
+only from the WildStat origin.
 
 ## Static-hosting policy limits
 
@@ -53,6 +53,15 @@ local/LAN database workflow; deployed HTTPS pages still apply browser mixed-
 content protections. Inline styles remain allowed because the current HUD and
 canvas sizing code sets element styles at runtime; executable inline code is
 still forbidden.
+
+SpacetimeDB's 2.9 browser SDK compiles its trusted module-schema serializers
+and deserializers with the JavaScript `Function` constructor when a connection
+is built. The script policy therefore includes `'unsafe-eval'` as a documented
+SDK compatibility exception. This weakens the policy's protection against
+string-to-code execution, but does not allow inline scripts, event-handler
+attributes, third-party script origins, or broader network access. A regression
+test ties the exception to the SDK implementation so it can be removed when the
+SDK provides a CSP-safe serializer path.
 
 A meta-delivered CSP cannot enforce `frame-ancestors`, report violations with
 `report-to`, or supply header-only controls such as Permissions Policy,
