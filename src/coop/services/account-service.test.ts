@@ -214,6 +214,37 @@ describe("account service startup identity selection", () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
+  it("cancels an outbound OAuth flow restored from the back-forward cache without a callback", async () => {
+    const { notify, session, service } = setup();
+
+    await service.api.signIn();
+    expect(service.api.accountState().returningFromSignIn).toBe(true);
+    expect(session.getItem(keys.authReturnUiKey)).toBe("true");
+
+    expect(service.cancelAbandonedSignIn()).toBe(true);
+    expect(service.api.accountState()).toMatchObject({
+      authInProgress: false,
+      returningFromSignIn: false,
+      notice: "",
+    });
+    expect(service.isSessionApproved()).toBe(false);
+    expect(session.getItem(keys.authReturnUiKey)).toBeNull();
+    expect(session.getItem(keys.authStateKey)).toBeNull();
+    expect(session.getItem(keys.authVerifierKey)).toBeNull();
+    expect(notify).toHaveBeenCalled();
+  });
+
+  it("does not cancel a genuine OAuth callback", () => {
+    const { session, service } = setup({ authCallback: true });
+
+    expect(service.cancelAbandonedSignIn()).toBe(false);
+    expect(service.api.accountState()).toMatchObject({
+      authInProgress: true,
+      returningFromSignIn: true,
+    });
+    expect(session.getItem(keys.authReturnUiKey)).toBe("true");
+  });
+
   it("connects a returning guest in the auth layer so their save can be linked", async () => {
     const { connect, service } = setup({ guestToken: "guest-token-value" });
 

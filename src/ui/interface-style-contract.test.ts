@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const css = readFileSync(new URL("../../public/assets/wildstat/game.css", import.meta.url), "utf8");
 const entryHtml = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
 const releaseVersion = JSON.parse(readFileSync(new URL("../../public/version.json", import.meta.url), "utf8")).version;
+const webAppManifest = JSON.parse(readFileSync(new URL("../../public/manifest.webmanifest", import.meta.url), "utf8"));
 const gameShell = readFileSync(new URL("./game-shell.ts", import.meta.url), "utf8");
 const html = `${entryHtml}\n${gameShell}`;
 const coopEntry = readFileSync(new URL("../wildstat-coop.ts", import.meta.url), "utf8");
@@ -416,7 +417,35 @@ describe("interface style contracts", () => {
     expect(entryHtml).toContain(`href="wildstat-favicon.ico?v=${releaseVersion}"`);
     expect(entryHtml).toContain(`href="assets/wildstat/wildstat-favicon-32.png?v=${releaseVersion}" type="image/png" sizes="32x32"`);
     expect(entryHtml).toContain(`href="assets/wildstat/wildstat-apple-touch-icon.png?v=${releaseVersion}" sizes="180x180"`);
+    expect(entryHtml).toContain(`href="manifest.webmanifest?v=${releaseVersion}"`);
+    expect(entryHtml).toContain('<meta name="theme-color" content="#0b110e"');
     expect(entryHtml).not.toContain("wildwood-app-icon.png");
+
+    expect(webAppManifest).toMatchObject({
+      id: "./",
+      name: "Wildstat",
+      short_name: "Wildstat",
+      start_url: "./",
+      scope: "./",
+      display: "standalone",
+      background_color: "#000000",
+      theme_color: "#0b110e",
+      prefer_related_applications: false,
+    });
+    expect(webAppManifest.icons).toEqual([
+      {
+        src: "assets/wildstat/wildstat-app-icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "assets/wildstat/wildstat-app-icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+    ]);
 
     const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
     const expectRgbPng = (png: Buffer, size: number) => {
@@ -428,6 +457,8 @@ describe("interface style contracts", () => {
     };
     expectRgbPng(readFileSync(new URL("../../public/assets/wildstat/wildstat-apple-touch-icon.png", import.meta.url)), 180);
     expectRgbPng(readFileSync(new URL("../../public/assets/wildstat/wildstat-favicon-32.png", import.meta.url)), 32);
+    expectRgbPng(readFileSync(new URL("../../public/assets/wildstat/wildstat-app-icon-192.png", import.meta.url)), 192);
+    expectRgbPng(readFileSync(new URL("../../public/assets/wildstat/wildstat-app-icon-512.png", import.meta.url)), 512);
 
     const ico = readFileSync(new URL("../../public/wildstat-favicon.ico", import.meta.url));
     const sizes = [16, 32, 48, 64, 128, 256];

@@ -191,10 +191,8 @@ export function createStartupAuthGate(
           : "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
         return;
       }
-      if (!result?.redirecting) {
-        pendingAction = null;
-        render();
-      }
+      pendingAction = null;
+      if (!result?.redirecting) render();
     } catch {
       pendingAction = null;
       showAccountChoice("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");

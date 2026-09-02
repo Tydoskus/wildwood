@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.590": [
+    "Added Wildstat web-app metadata and dedicated Home Screen icons for standalone launches.",
+    "Going Back from Spacetime sign-in now immediately restores Sign In and Guest Login instead of remaining on verification.",
+  ],
   "0.589": [
     "Made startup and sign-in recovery faster and more reliable, with clearer connection errors and a Retry Now option.",
     "Improved reconnection with bounded timeouts, gradual retry backoff, and better diagnostics.",
@@ -1342,6 +1346,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.590": "2026-09-02",
   "0.589": "2026-09-02",
   "0.588": "2026-09-02",
   "0.587": "2026-09-02",

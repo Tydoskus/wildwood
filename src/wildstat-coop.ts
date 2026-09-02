@@ -900,6 +900,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", (event) => {
   pageWakeTracker.show(event.persisted);
+  if (event.persisted) accountService.cancelAbandonedSignIn();
 });
 window.addEventListener("pagehide", () => {
   pageWakeTracker.hide();

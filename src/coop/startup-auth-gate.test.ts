@@ -163,6 +163,38 @@ describe("startup auth gate", () => {
     expect(loadGame).not.toHaveBeenCalled();
   });
 
+  it("re-enables account choices after an OAuth navigation is canceled", async () => {
+    const ui = elements();
+    let state = { signInReady: true, returningFromSignIn: false };
+    let notify = () => {};
+    const gate = createStartupAuthGate({
+      accountState: () => state,
+      knownCharacter: () => "WANDERER",
+      signIn: async () => {
+        state = { ...state, returningFromSignIn: true };
+        return { ok: true, redirecting: true };
+      },
+      continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: (listener) => { notify = listener; return () => {}; },
+      loadGame: async () => {},
+    }, ui);
+    gate.start();
+
+    ui.signInButton.click();
+    await Promise.resolve();
+    expect(ui.connectionPanel.hidden).toBe(false);
+
+    state = { signInReady: true, returningFromSignIn: false };
+    notify();
+
+    expect(ui.connectionPanel.hidden).toBe(true);
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+    expect(ui.signInButton.disabled).toBe(false);
+    expect(ui.guestButton.disabled).toBe(false);
+  });
+
   it("switches directly from registration choice to loading while OAuth opens", async () => {
     const ui = elements();
     const gate = createStartupAuthGate({

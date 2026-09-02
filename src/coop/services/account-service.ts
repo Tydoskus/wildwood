@@ -136,6 +136,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   let returnPending = callbackPending && (() => {
     try { return sessionStorage.getItem(keys.authReturnUiKey) === "true"; } catch { return false; }
   })();
+  let outboundAuthNavigationPending = false;
   let sessionApproved = returnPending || dependencies.updateResumeMode === "account";
   let updateResumePending = dependencies.updateResumeMode !== null;
   let lastPlayableSessionMode: UpdateResumeMode | null = null;
@@ -276,7 +277,23 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
 
   function clearAccountReturnPending() {
     returnPending = false;
+    outboundAuthNavigationPending = false;
     try { sessionStorage.removeItem(keys.authReturnUiKey); } catch {}
+  }
+
+  function cancelAbandonedSignIn() {
+    const url = new URL(window.location.href);
+    const hasCallback = url.searchParams.has("code") || url.searchParams.has("error");
+    if (!outboundAuthNavigationPending || !returnPending || callbackPending || hasCallback) return false;
+    if (readAccountLinkTransaction()) clearAccountMigrationPending();
+    clearAccountReturnPending();
+    clearTabValue(keys.authStateKey);
+    clearTabValue(keys.authVerifierKey);
+    sessionApproved = false;
+    updateResumePending = false;
+    notice = "";
+    dependencies.notify();
+    return true;
   }
 
   function randomUrlSafe(bytes = 32) {
@@ -451,6 +468,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       code_challenge: challenge,
       code_challenge_method: "S256",
     }).toString();
+    outboundAuthNavigationPending = true;
     window.location.assign(url.toString());
   }
 
@@ -676,6 +694,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     rememberConfirmedGender,
     completeAccountReturnWhenReady,
     clearAccountReturnPending,
+    cancelAbandonedSignIn,
     clearRetry() { clearTabValue(keys.authRetryKey); },
     storeGuestToken(token: string) {
       try { localStorage.setItem(keys.guestTokenKey, token); } catch {}
