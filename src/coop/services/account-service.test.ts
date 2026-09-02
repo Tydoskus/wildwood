@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAccountService } from "./account-service";
 import { createUpdateResumeStore } from "./update-resume-store";
+import { inspectSpacetimeIdToken, OidcIdTokenError } from "../security/oidc-id-token";
+import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../../shared/rules";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -43,6 +45,7 @@ const keys = {
   accountMigrationPendingKey: "migration",
   authStateKey: "auth-state",
   authVerifierKey: "auth-verifier",
+  authNonceKey: "auth-nonce",
   authRetryKey: "auth-retry",
   knownAccountKey: "known-account",
   knownAccountCharacterKey: "known-account-character",
@@ -53,7 +56,31 @@ const keys = {
   legalConsentKey: "legal-consent",
 };
 
-function setup(options: { accountToken?: string; guestToken?: string; knownAccount?: boolean; signedIn?: boolean; authCallback?: boolean } = {}) {
+function encodeJson(value: unknown) {
+  return btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function accountToken(overrides: Record<string, unknown> = {}) {
+  const now = Math.floor(Date.now() / 1_000);
+  return `${encodeJson({ alg: "RS256", kid: "test-key", typ: "JWT" })}.${encodeJson({
+    iss: SPACETIME_AUTH_ISSUER,
+    aud: SPACETIME_AUTH_CLIENT_ID,
+    sub: "account-subject",
+    iat: now - 30,
+    exp: now + 3_600,
+    nonce: "expected-nonce",
+    ...overrides,
+  })}.c2lnbmF0dXJl`;
+}
+
+function setup(options: {
+  accountToken?: string;
+  guestToken?: string;
+  knownAccount?: boolean;
+  signedIn?: boolean;
+  authCallback?: boolean;
+  validateAccountIdToken?: (token: string, expectedNonce: string) => Promise<ReturnType<typeof inspectSpacetimeIdToken>>;
+} = {}) {
   const local = new MemoryStorage();
   const session = new MemoryStorage();
   if (options.accountToken) local.setItem(keys.accountTokenKey, options.accountToken);
@@ -62,6 +89,7 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
   if (options.authCallback) {
     session.setItem(keys.authStateKey, "expected-state");
     session.setItem(keys.authVerifierKey, "expected-verifier");
+    session.setItem(keys.authNonceKey, "expected-nonce");
     session.setItem(keys.authReturnUiKey, "true");
   }
   vi.stubGlobal("localStorage", local);
@@ -114,6 +142,9 @@ function setup(options: { accountToken?: string; guestToken?: string; knownAccou
     drainPendingProgress: async () => true,
     clearPendingProgress: () => {},
     disconnectVirtualPlayers: vi.fn(),
+    validateAccountIdToken: options.validateAccountIdToken ?? (async (token, expectedNonce) => (
+      inspectSpacetimeIdToken(token, { expectedNonce })
+    )),
   });
   return { assign, connect, local, session, notify, replaceState, requestWorldEntry, restartConnectionForIdentityChange, service };
 }
@@ -158,22 +189,70 @@ describe("account service startup identity selection", () => {
   });
 
   it("exchanges the callback with a form POST before connecting the account", async () => {
-    const request = new FakeTokenRequest(200, { id_token: "fresh-account-token" });
+    const freshToken = accountToken();
+    const request = new FakeTokenRequest(200, { id_token: freshToken });
     stubTokenRequest(request);
-    const { connect, local, service } = setup({ authCallback: true });
+    const validateAccountIdToken = vi.fn(async (token: string, expectedNonce: string) => (
+      inspectSpacetimeIdToken(token, { expectedNonce })
+    ));
+    const { connect, local, service } = setup({ authCallback: true, validateAccountIdToken });
 
     await service.restoreKnownAccount();
 
     expect(request.open).toHaveBeenCalledWith("POST", "https://auth.spacetimedb.com/oidc/token", true);
     expect(request.setRequestHeader).toHaveBeenCalledWith("content-type", "application/x-www-form-urlencoded");
     expect(request.send).toHaveBeenCalledWith(expect.stringContaining("code_verifier=expected-verifier"));
-    expect(local.getItem(keys.accountTokenKey)).toBe("fresh-account-token");
+    expect(validateAccountIdToken).toHaveBeenCalledWith(freshToken, "expected-nonce");
+    expect(local.getItem(keys.accountTokenKey)).toBe(freshToken);
+    expect(service.api.accountState().notice).toBe("SIGNED IN");
     expect(connect).toHaveBeenCalledOnce();
   });
 
+  it("rejects a callback ID token whose nonce does not match the initiating tab", async () => {
+    const request = new FakeTokenRequest(200, { id_token: accountToken({ nonce: "attacker-nonce" }) });
+    stubTokenRequest(request);
+    const { connect, local, service } = setup({ authCallback: true });
+
+    await service.restoreKnownAccount();
+
+    expect(local.getItem(keys.accountTokenKey)).toBeNull();
+    expect(connect).not.toHaveBeenCalled();
+    expect(service.api.accountState()).toMatchObject({
+      authInProgress: false,
+      returningFromSignIn: false,
+      notice: "SIGN-IN CHECK FAILED · TRY AGAIN",
+    });
+  });
+
+  it("rejects a callback that identifies a different authorization issuer", async () => {
+    const { connect, local, service } = setup({ authCallback: true });
+    window.location.href = "https://wildstat.example/game?code=authorization-code&state=expected-state&iss=https%3A%2F%2Fattacker.example%2Foidc";
+
+    await service.restoreKnownAccount();
+
+    expect(local.getItem(keys.accountTokenKey)).toBeNull();
+    expect(connect).not.toHaveBeenCalled();
+    expect(service.api.accountState().notice).toBe("SIGN-IN CHECK FAILED");
+  });
+
+  it("shows a retryable security-check state when signing keys are unavailable", async () => {
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken() }));
+    const { connect, local, service } = setup({
+      authCallback: true,
+      validateAccountIdToken: async () => { throw new OidcIdTokenError("keys"); },
+    });
+
+    await service.restoreKnownAccount();
+
+    expect(local.getItem(keys.accountTokenKey)).toBeNull();
+    expect(connect).not.toHaveBeenCalled();
+    expect(service.api.accountState().notice).toBe("SIGN-IN CHECK UNAVAILABLE · TRY AGAIN");
+  });
+
   it.each(["WildStat", "Wildstat", "Wildwood"])("keeps an existing signed-in save after a %s account-link rejection", async (name) => {
+    const existingAccountToken = accountToken();
     const { local, session, service } = setup({
-      accountToken: "existing-account-token",
+      accountToken: existingAccountToken,
       guestToken: "existing-guest-token",
       knownAccount: true,
       signedIn: true,
@@ -188,7 +267,7 @@ describe("account service startup identity selection", () => {
     };
 
     await expect(service.claimAccountLink(connection as never, true, () => true)).resolves.toBe(true);
-    expect(local.getItem(keys.accountTokenKey)).toBe("existing-account-token");
+    expect(local.getItem(keys.accountTokenKey)).toBe(existingAccountToken);
     expect(session.getItem(keys.accountLinkKey)).toBeNull();
     expect(local.getItem(keys.accountMigrationPendingKey)).toBeNull();
     expect(disconnect).not.toHaveBeenCalled();
@@ -205,13 +284,29 @@ describe("account service startup identity selection", () => {
   });
 
   it("starts OAuth directly for a fresh registration without loading a guest", async () => {
-    const { assign, connect, service } = setup();
+    const { assign, connect, service, session } = setup();
 
     const result = await service.api.signIn();
 
     expect(result).toMatchObject({ ok: true, redirecting: true });
     expect(assign).toHaveBeenCalledTimes(1);
     expect(connect).not.toHaveBeenCalled();
+    const authorizationUrl = new URL(assign.mock.calls[0][0]);
+    expect(authorizationUrl.searchParams.get("nonce")).toBe(session.getItem(keys.authNonceKey));
+    expect(session.getItem(keys.authNonceKey)).toMatch(/^[A-Za-z0-9_-]{32}$/);
+  });
+
+  it("clears a malformed persisted account token before connection", async () => {
+    const { connect, local, service } = setup({
+      accountToken: "not-a-jwt",
+      knownAccount: true,
+    });
+
+    await service.restoreKnownAccount();
+
+    expect(local.getItem(keys.accountTokenKey)).toBeNull();
+    expect(connect).not.toHaveBeenCalled();
+    expect(service.api.accountState().notice).toBe("SIGN-IN REQUIRED");
   });
 
   it("cancels an outbound OAuth flow restored from the back-forward cache without a callback", async () => {
@@ -231,6 +326,7 @@ describe("account service startup identity selection", () => {
     expect(session.getItem(keys.authReturnUiKey)).toBeNull();
     expect(session.getItem(keys.authStateKey)).toBeNull();
     expect(session.getItem(keys.authVerifierKey)).toBeNull();
+    expect(session.getItem(keys.authNonceKey)).toBeNull();
     expect(notify).toHaveBeenCalled();
   });
 
@@ -256,7 +352,7 @@ describe("account service startup identity selection", () => {
 
   it("silently clears account auth but preserves the remembered account when Guest is chosen", () => {
     const { local, restartConnectionForIdentityChange, service } = setup({
-      accountToken: "opaque-account-token",
+      accountToken: accountToken(),
       guestToken: "guest-token-value",
       knownAccount: true,
     });

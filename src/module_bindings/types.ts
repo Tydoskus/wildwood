@@ -1001,6 +1001,38 @@ export const SpiderResult = __t.object("SpiderResult", {
 });
 export type SpiderResult = __Infer<typeof SpiderResult>;
 
+export const StartupTelemetryEvent = __t.object("StartupTelemetryEvent", {
+  id: __t.u64(),
+  stage: __t.string(),
+  outcome: __t.string(),
+  issueCode: __t.string(),
+  durationMs: __t.u32(),
+  attempt: __t.u16(),
+  clientVersion: __t.string(),
+  protocolVersion: __t.u32(),
+  connectivity: __t.string(),
+  recordedAt: __t.timestamp(),
+});
+export type StartupTelemetryEvent = __Infer<typeof StartupTelemetryEvent>;
+
+export const StartupTelemetryRateLimit = __t.object("StartupTelemetryRateLimit", {
+  sender: __t.identity(),
+  windowStartedAt: __t.timestamp(),
+  sampleCount: __t.u8(),
+});
+export type StartupTelemetryRateLimit = __Infer<typeof StartupTelemetryRateLimit>;
+
+export const StartupTelemetrySample = __t.object("StartupTelemetrySample", {
+  stage: __t.string(),
+  outcome: __t.string(),
+  issueCode: __t.string(),
+  durationMs: __t.u32(),
+  attempt: __t.u16(),
+  clientVersion: __t.string(),
+  connectivity: __t.string(),
+});
+export type StartupTelemetrySample = __Infer<typeof StartupTelemetrySample>;
+
 export const TempestKirinAttackWindow = __t.object("TempestKirinAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

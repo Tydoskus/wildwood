@@ -21,7 +21,6 @@ type CoopSessionDependencies = {
   reconcileMap: () => void;
   syncBossState: () => void;
   finishStartup: () => void;
-  clearSignInPending: () => void;
   updateProtocolGate: (account: AccountState) => void;
   refreshChat: () => void;
   updateDuelControls: () => void;
@@ -58,7 +57,6 @@ export function createCoopSessionController(dependencies: CoopSessionDependencie
     dependencies.refreshBalanceApologyGift();
     dependencies.refreshDailyGemBonus();
     const account = coop.accountState?.();
-    if (account?.signedIn) dependencies.clearSignInPending();
     dependencies.updateProtocolGate(account);
     dependencies.refreshChat();
     dependencies.updateDuelControls();

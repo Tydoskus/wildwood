@@ -1,10 +1,10 @@
-import { loadDuelPlatformArt, loadDuelSpaceBackground } from "../duel";
+import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../duel";
 import { requiredCanvasContext } from "./dom";
 import { scheduleBackgroundTask, yieldToUser } from "./scheduler";
 import { PORTAL_SWIRL_SOURCE } from "../portal-presentation";
 import { type MapId } from "../world";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
-import { MAP_ASSET_GROUPS, type MapAssetGroup } from "./map-asset-groups";
+import { MAP_ASSET_GROUPS, type MapArtAssetGroup } from "./map-asset-groups";
 import { SCORPION_SPRITE } from "./scorpion-sprite";
 
 export type TreeSpriteBound = {
@@ -83,6 +83,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   type LazyImageAsset = {
     image: HTMLImageElement;
     load: () => Promise<void>;
+    failed: () => boolean;
     settled: () => boolean;
   };
 
@@ -94,6 +95,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     image.decoding = "async";
     let started = false;
     let didSettle = false;
+    let didFail = false;
     let retry = 0;
     let resolve!: () => void;
     const promise = new Promise<void>((complete) => { resolve = complete; });
@@ -104,10 +106,16 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       resolve();
     };
     image.addEventListener("load", () => {
-      try { process(image, settle); } catch { settle(); }
+      try {
+        process(image, settle);
+      } catch {
+        didFail = true;
+        settle();
+      }
     }, { once: true });
     image.addEventListener("error", () => {
       if (retry >= 2) {
+        didFail = true;
         settle();
         return;
       }
@@ -123,6 +131,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
         }
         return promise;
       },
+      failed: () => didFail,
       settled: () => didSettle,
     };
   }
@@ -291,16 +300,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     });
   });
 
-  let duelSpaceReady = false;
-  const duelSpaceBackground = loadDuelSpaceBackground(() => {
-    duelSpaceReady = true;
-    onWorldAssetReady();
-  });
-  let duelPlatformReady = false;
-  const duelPlatformArt = loadDuelPlatformArt(() => {
-    duelPlatformReady = true;
-    onWorldAssetReady();
-  });
+  const duelSpaceAsset = createLazyImageAsset(DUEL_SPACE_BACKGROUND_SOURCE);
+  const duelPlatformAsset = createLazyImageAsset(DUEL_PLATFORM_ART_SOURCE);
   const snowPineAsset = createLazyImageAsset("assets/wildstat/snow-pine-tree-v1.png");
   const upgradeBenchAsset = createLazyImageAsset("assets/wildstat/workbench-upgrade-station-v1.png");
   const lavaAssetSources = [
@@ -314,7 +315,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     "assets/wildstat/lava/charred-tree-2.png",
   ];
   const lavaAssets = lavaAssetSources.map((source) => createLazyImageAsset(source));
-  const assetGroups: Record<MapAssetGroup, LazyImageAsset[]> = {
+  const assetGroups: Record<MapArtAssetGroup, LazyImageAsset[]> = {
     forestBoss: [dragonAsset],
     forestDecor: [treeAsset],
     desertBoss: [spiderAsset],
@@ -331,7 +332,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
-    mapAssets[mapId] = MAP_ASSET_GROUPS[mapId].flatMap((group) => assetGroups[group]);
+    mapAssets[mapId] = MAP_ASSET_GROUPS[mapId].art.flatMap((group) => assetGroups[group]);
   }
   function ensureMapAssets(mapId: MapId) {
     return Promise.all(mapAssets[mapId].map((asset) => asset.load())).then(() => undefined);
@@ -341,11 +342,19 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     return mapAssets[mapId].every((asset) => asset.settled());
   }
 
+  function mapAssetLoadFailed(mapId: MapId) {
+    return mapAssets[mapId].some((asset) => asset.failed());
+  }
+
+  function ensureDuelAssets() {
+    return Promise.all([duelSpaceAsset.load(), duelPlatformAsset.load()]).then(() => undefined);
+  }
+
   return {
     dragonReady: () => dragonReady,
     dragonSpriteCanvas,
-    duelPlatformArt,
-    duelSpaceBackground,
+    duelPlatformArt: duelPlatformAsset.image,
+    duelSpaceBackground: duelSpaceAsset.image,
     portalArch: portalArchAsset.image,
     portalSwirl: portalSwirlAsset.image,
     frostclawReady: () => frostclawReady,
@@ -373,11 +382,14 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tempestKirinSpriteCanvas,
     miremawReady: () => miremawReady,
     miremawSpriteCanvas,
+    ensureDuelAssets,
+    duelAssetsReady: () => duelSpaceAsset.settled() && duelPlatformAsset.settled(),
     ensureMapAssets,
+    mapAssetLoadFailed,
     mapAssetsReady,
     worldArtReady: (mapId?: MapId) => {
       if (mapId) void ensureMapAssets(mapId);
-      return portalArchAsset.settled() && portalSwirlAsset.settled() && duelSpaceReady && duelPlatformReady
+      return portalArchAsset.settled() && portalSwirlAsset.settled()
         && (!mapId || mapAssetsReady(mapId));
     },
   };

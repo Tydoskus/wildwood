@@ -621,7 +621,7 @@ export type EnemyCamp = {
   ring: string;
 };
 
-type SpriteLayerSource = {
+export type EnemySpriteLayerSource = {
   src: string;
   x: number;
   y: number;
@@ -634,8 +634,10 @@ type SpriteLayerSource = {
   /** Rotation needed to make the source art face actor-local right. */
   aimOffsetRadians?: number;
 };
-type SpriteSource = { src: string; size: number } | { size: number; height: number; layers: SpriteLayerSource[] };
-export type LoadedSpriteLayer = SpriteLayerSource & { image: HTMLImageElement };
+export type EnemySpriteSource =
+  | { src: string; size: number }
+  | { size: number; height: number; layers: EnemySpriteLayerSource[] };
+export type LoadedSpriteLayer = EnemySpriteLayerSource & { image: HTMLImageElement };
 export type LoadedEnemySprite = {
   size: number;
   height?: number;
@@ -643,7 +645,7 @@ export type LoadedEnemySprite = {
   layers?: LoadedSpriteLayer[];
 };
 
-const ENEMY_SPRITE_SOURCES = ENEMY_SPRITE_LAYOUTS as Record<EnemyKind, SpriteSource>;
+const ENEMY_SPRITE_SOURCES = ENEMY_SPRITE_LAYOUTS as Record<EnemyKind, EnemySpriteSource>;
 
 export const REWARD_DATA: Record<RewardType, { color: string }> = {
   damage: { color: "#ff655a" },
@@ -692,29 +694,107 @@ function loadEnemyImage(source: string, onSettled: () => void) {
   return image;
 }
 
-export function loadEnemySprites(onAssetSettled: () => void = () => {}) {
-  const assetSources = Object.values(ENEMY_SPRITE_SOURCES).flatMap((source) =>
-    "layers" in source ? source.layers.map((layer) => layer.src) : [source.src]);
-  const uniqueAssetSources = [...new Set(assetSources)];
-  const expectedAssets = uniqueAssetSources.length;
-  let settledAssets = 0;
-  const settleAsset = () => {
-    settledAssets += 1;
-    onAssetSettled();
+type LazyEnemyImageAsset = {
+  image: HTMLImageElement;
+  load: () => Promise<void>;
+  failed: () => boolean;
+  settled: () => boolean;
+};
+
+function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyImageAsset {
+  const image = new Image();
+  image.decoding = "async";
+  let retry = 0;
+  let started = false;
+  let didSettle = false;
+  let didFail = false;
+  let resolve!: () => void;
+  const promise = new Promise<void>((complete) => { resolve = complete; });
+  const settle = () => {
+    if (didSettle) return;
+    didSettle = true;
+    onSettled();
+    resolve();
   };
-  const images = new Map(uniqueAssetSources.map((source) => [source, loadEnemyImage(source, settleAsset)]));
-  const sprites = Object.fromEntries(Object.entries(ENEMY_SPRITE_SOURCES).map(([kind, source]) => {
+  image.addEventListener("load", settle, { once: true });
+  image.addEventListener("error", () => {
+    if (retry >= 2) {
+      didFail = true;
+      settle();
+      return;
+    }
+    retry += 1;
+    globalThis.setTimeout(() => {
+      image.src = `${source}?asset-retry=${retry}`;
+    }, retry * 500);
+  });
+  return {
+    image,
+    load: () => {
+      if (!started) {
+        started = true;
+        image.src = source;
+      }
+      return promise;
+    },
+    failed: () => didFail,
+    settled: () => didSettle,
+  };
+}
+
+function spriteAssetSources(source: EnemySpriteSource) {
+  return "layers" in source ? source.layers.map((layer) => layer.src) : [source.src];
+}
+
+/**
+ * Builds the renderer's complete sprite lookup without requesting every map's
+ * files. A source receives its first `src` assignment only when one of the
+ * maps that uses it is prepared.
+ */
+export function createMapScopedEnemySpriteAssets<Kind extends string, MapKey extends string>(
+  spriteSources: Record<Kind, EnemySpriteSource>,
+  enemyKindsByMap: Record<MapKey, readonly Kind[]>,
+  onAssetSettled: () => void = () => {},
+) {
+  const uniqueAssetSources = [...new Set(Object.values<EnemySpriteSource>(spriteSources).flatMap(spriteAssetSources))];
+  const imageAssets = new Map(uniqueAssetSources.map((source) => [source, createLazyEnemyImage(source, onAssetSettled)]));
+  const sprites = Object.fromEntries(Object.entries<EnemySpriteSource>(spriteSources).map(([kind, source]) => {
     if ("layers" in source) {
-      const layers = source.layers.map((layer) => ({ ...layer, image: images.get(layer.src)! }));
+      const layers = source.layers.map((layer) => ({ ...layer, image: imageAssets.get(layer.src)!.image }));
       return [kind, { size: source.size, height: source.height, layers }];
     }
-    const image = images.get(source.src)!;
-    return [kind, { size: source.size, image }];
-  })) as Record<EnemyKind, LoadedEnemySprite>;
+    return [kind, { size: source.size, image: imageAssets.get(source.src)!.image }];
+  })) as Record<Kind, LoadedEnemySprite>;
+  const assetsByMap = new Map(Object.entries<readonly Kind[]>(enemyKindsByMap).map(([mapId, kinds]) => {
+    const mapSources = new Set<string>();
+    for (const kind of kinds) {
+      const source = spriteSources[kind];
+      if (!source) throw new Error(`Missing enemy sprite layout for ${kind}.`);
+      for (const assetSource of spriteAssetSources(source)) mapSources.add(assetSource);
+    }
+    return [mapId as MapKey, [...mapSources].map((source) => imageAssets.get(source)!)];
+  }));
+
+  function mapAssets(mapId: MapKey) {
+    const assets = assetsByMap.get(mapId);
+    if (!assets) throw new Error(`Missing enemy sprite group for ${mapId}.`);
+    return assets;
+  }
+
   return {
     sprites,
-    ready: () => settledAssets >= expectedAssets,
+    ensureMapSprites: (mapId: MapKey) => Promise.all(mapAssets(mapId).map((asset) => asset.load())).then(() => undefined),
+    mapSpriteLoadFailed: (mapId: MapKey) => mapAssets(mapId).some((asset) => asset.failed()),
+    mapSpritesReady: (mapId: MapKey) => mapAssets(mapId).every((asset) => asset.settled()),
+    ready: () => [...imageAssets.values()].every((asset) => asset.settled()),
   };
+}
+
+export function loadEnemySprites<MapKey extends string>(
+  enemyKindsByMap: Record<MapKey, readonly EnemyKind[]>,
+  onAssetSettled: () => void = () => {},
+) {
+  return createMapScopedEnemySpriteAssets(ENEMY_SPRITE_SOURCES, enemyKindsByMap, onAssetSettled);
 }
 
 export function loadActorShadowSprite(onAssetSettled: () => void = () => {}) {

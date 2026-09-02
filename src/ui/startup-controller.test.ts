@@ -61,7 +61,6 @@ describe("startup loading completion", () => {
       knownCharacter: () => "",
       knownCharacterGender: () => 0,
       defaultPlayerName: () => "WANDERER",
-      isSignInScreenReady: () => true,
       getLoadingStages: () => [["Starting WildStat", true, 100]],
       onLoadingComplete: () => {
         completions += 1;
@@ -69,14 +68,16 @@ describe("startup loading completion", () => {
       },
       onShowAccountChoice: () => {},
       onShowConnecting: () => {},
-      legalConsentAccepted: () => true,
       acceptLegalTerms: async () => ({ ok: true }),
       onLegalAccepted: () => {},
-      onContinueGuest: () => {},
+      onContinueGuest: () => ({}),
       onBeginAdventure: () => {},
       signIn: () => undefined,
       takeOverSession: () => undefined,
-      retryConnection: () => true,
+      onAccountActionStarted: () => {},
+      onAccountActionCompleted: () => {},
+      onAccountActionFailed: () => {},
+      onRetryConnection: () => {},
       showMessage: () => {},
     });
 
@@ -94,7 +95,7 @@ describe("startup loading completion", () => {
     expect(completions).toBe(1);
   });
 
-  it("surfaces a retryable connection failure instead of an indefinite loading label", () => {
+  it("renders the retryable connection state selected by the coordinator", () => {
     const elements = new Map<string, FakeElement>();
     vi.stubGlobal("document", {
       getElementById(id: string) {
@@ -111,29 +112,30 @@ describe("startup loading completion", () => {
     });
 
     const startup = createStartupController({
-      accountState: () => ({ connectionIssue: { message: "World sync timed out" } }),
+      accountState: () => undefined,
       connected: () => false,
       knownCharacter: () => "",
       knownCharacterGender: () => 0,
       defaultPlayerName: () => "WANDERER",
-      isSignInScreenReady: () => true,
       getLoadingStages: () => [["Loading Connection", false, 12]],
       onLoadingComplete: () => {},
       onShowAccountChoice: () => {},
       onShowConnecting: () => {},
-      legalConsentAccepted: () => true,
       acceptLegalTerms: async () => ({ ok: true }),
       onLegalAccepted: () => {},
-      onContinueGuest: () => {},
+      onContinueGuest: () => ({}),
       onBeginAdventure: () => {},
       signIn: () => undefined,
       takeOverSession: () => undefined,
-      retryConnection: () => true,
+      onAccountActionStarted: () => {},
+      onAccountActionCompleted: () => {},
+      onAccountActionFailed: () => {},
+      onRetryConnection: () => {},
       showMessage: () => {},
     });
     elements.get("connectionRetryBtn")!.hidden = true;
 
-    startup.refreshLoading();
+    startup.showConnectionFailure("World sync timed out");
 
     expect(elements.get("loadingDetail")!.textContent).toBe("World sync timed out");
     expect(elements.get("loadingFill")!.style.width).toBe("12%");

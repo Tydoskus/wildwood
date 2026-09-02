@@ -15,6 +15,11 @@ type AccountState = {
 
 type LoadingStage = readonly [label: string, ready: boolean, percent: number];
 
+type LoadingSequenceState =
+  | { value: "loading"; stage: number }
+  | { value: "completion-pending"; stage: number; timer: number }
+  | { value: "complete" };
+
 export function loadingDescriptionCase(value: string) {
   if (!value || value !== value.toUpperCase()) return value;
   return value.toLowerCase().replace(/[a-z]+(?:-[a-z]+)*/g, (word) =>
@@ -28,19 +33,20 @@ type StartupDependencies = {
   knownCharacter: () => string;
   knownCharacterGender: () => PlayerGender;
   defaultPlayerName: () => string;
-  isSignInScreenReady: () => boolean;
   getLoadingStages: () => LoadingStage[];
   onLoadingComplete: () => void;
   onShowAccountChoice: () => void;
   onShowConnecting: () => void;
-  legalConsentAccepted: () => boolean;
   acceptLegalTerms: (age: number) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   onLegalAccepted: () => void;
-  onContinueGuest: () => void;
+  onContinueGuest: () => Promise<{ ok?: boolean; error?: string } | undefined> | { ok?: boolean; error?: string } | undefined;
   onBeginAdventure: (name: string) => void;
   signIn: () => Promise<{ ok?: boolean; redirecting?: boolean } | undefined> | undefined;
   takeOverSession: () => Promise<{ ok?: boolean } | undefined> | undefined;
-  retryConnection: () => boolean | void;
+  onAccountActionStarted: (action: "sign-in" | "guest" | "takeover", detail: string) => void;
+  onAccountActionCompleted: () => void;
+  onAccountActionFailed: (detail: string) => void;
+  onRetryConnection: () => void;
   showMessage: (message: string, color: string) => void;
 };
 
@@ -64,22 +70,15 @@ export function createStartupController(dependencies: StartupDependencies) {
   const playerNameInput = requiredElement<HTMLInputElement>("newPlayerNameInput");
   const beginAdventureButton = requiredElement("beginAdventureBtn");
 
-  let loadingStage = 0;
-  let loadingSequenceComplete = false;
-  let loadingCompletionPending = false;
-  let loadingCompletionTimer: number | null = null;
-  let signInPending = false;
+  let loadingSequence: LoadingSequenceState = { value: "loading", stage: 0 };
   const legalGate = createLegalGateController({
     accept: dependencies.acceptLegalTerms,
     onAccepted: dependencies.onLegalAccepted,
   });
 
   function showConnecting() {
-    if (loadingCompletionTimer !== null) window.clearTimeout(loadingCompletionTimer);
-    loadingStage = 0;
-    loadingSequenceComplete = false;
-    loadingCompletionPending = false;
-    loadingCompletionTimer = null;
+    if (loadingSequence.value === "completion-pending") window.clearTimeout(loadingSequence.timer);
+    loadingSequence = { value: "loading", stage: 0 };
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
@@ -109,11 +108,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     connectionRetryButton.hidden = true;
   }
 
-  function showAccountChoice(detailOverride = "") {
-    if (!dependencies.isSignInScreenReady()) {
-      if (connectionPanel.hidden) showConnecting();
-      return;
-    }
+  function showAccountChoice(detailOverride = "", actionPending = false) {
     const account = dependencies.accountState();
     accountChoicePanel.classList.remove("is-signing-in");
     const accountOptionsReady = dependencies.connected() || Boolean(account?.signInRequired);
@@ -125,10 +120,10 @@ export function createStartupController(dependencies: StartupDependencies) {
     accountCharacter.classList.toggle("is-empty", !characterFound);
     signInButton.hidden = false;
     signInButton.textContent = characterFound || knownAccount ? "SIGN IN" : "REGISTER";
-    signInButton.disabled = signInPending || !accountOptionsReady;
+    signInButton.disabled = actionPending || !accountOptionsReady;
     guestButton.hidden = false;
-    guestButton.disabled = signInPending;
-    accountChoiceDetail.textContent = detailOverride || (signInPending
+    guestButton.disabled = actionPending;
+    accountChoiceDetail.textContent = detailOverride || (actionPending
       ? "OPENING SIGN-IN…"
       : !accountOptionsReady
         ? "CONNECTING ACCOUNT OPTIONS…"
@@ -146,8 +141,13 @@ export function createStartupController(dependencies: StartupDependencies) {
     dependencies.onShowAccountChoice();
   }
 
-  function showSigningIn(detail = "Loading Your Character…") {
-    showAccountChoice(detail);
+  function showAccountAction(action: "sign-in" | "guest" | "takeover", detail: string) {
+    if (action === "takeover") {
+      showConnecting();
+      loadingDetail.textContent = detail;
+      return;
+    }
+    showAccountChoice(detail, true);
   }
 
   /** Switch an authenticated account back to progress loading without restarting its timer sequence. */
@@ -165,43 +165,40 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function refreshLoading() {
-    if (loadingSequenceComplete) return;
-    const account = dependencies.accountState();
-    const connectionNotice = account?.notice || "";
-    if (/active in another tab|logged in on another tab|signing out other tab|takeover failed/i.test(connectionNotice)) {
-      connectionRetryButton.hidden = true;
-      loadingDetail.textContent = loadingDescriptionCase(connectionNotice);
-      loadingFill.style.width = "100%";
-      return;
-    }
-    if (account?.connectionIssue && !dependencies.connected()) {
-      loadingDetail.textContent = loadingDescriptionCase(account.connectionIssue.message);
-      loadingFill.style.width = "12%";
-      connectionRetryButton.hidden = false;
-      connectionRetryButton.disabled = false;
-      return;
-    }
+    if (loadingSequence.value === "complete" || loadingSequence.value === "completion-pending") return;
     connectionRetryButton.hidden = true;
     const stages = dependencies.getLoadingStages();
-    while (loadingStage < stages.length - 1 && stages[loadingStage][1]) loadingStage += 1;
-    const [label, ready, percent] = stages[loadingStage] ?? ["Starting WildStat", true, 100];
+    let stage = loadingSequence.stage;
+    while (stage < stages.length - 1 && stages[stage][1]) stage += 1;
+    loadingSequence = { value: "loading", stage };
+    const [label, ready, percent] = stages[stage] ?? ["Starting WildStat", true, 100];
     loadingDetail.textContent = label;
     loadingFill.style.width = `${percent}%`;
-    if (!ready || loadingStage < stages.length - 1 || loadingSequenceComplete || loadingCompletionPending) return;
-    loadingCompletionPending = true;
-    loadingCompletionTimer = window.setTimeout(() => {
-      loadingCompletionTimer = null;
-      loadingCompletionPending = false;
-      loadingSequenceComplete = true;
+    if (!ready || stage < stages.length - 1) return;
+    const timer = window.setTimeout(() => {
+      if (loadingSequence.value !== "completion-pending" || loadingSequence.timer !== timer) return;
+      loadingSequence = { value: "complete" };
       dependencies.onLoadingComplete();
     }, 0);
+    loadingSequence = { value: "completion-pending", stage, timer };
+  }
+
+  function showConnectionFailure(message: string) {
+    accountChoicePanel.classList.remove("is-signing-in");
+    start.style.display = "grid";
+    connectionPanel.hidden = false;
+    accountChoicePanel.hidden = true;
+    legalGatePanel.hidden = true;
+    newPlayerPanel.hidden = true;
+    sessionTakeoverButton.hidden = true;
+    sessionTakeoverNote.hidden = true;
+    loadingDetail.textContent = loadingDescriptionCase(message);
+    loadingFill.style.width = "12%";
+    connectionRetryButton.hidden = false;
+    connectionRetryButton.disabled = false;
   }
 
   function showNewPlayerIntro() {
-    if (!dependencies.legalConsentAccepted()) {
-      showLegalGate();
-      return;
-    }
     accountChoicePanel.classList.remove("is-signing-in");
     if (!playerNameInput.value) playerNameInput.value = dependencies.defaultPlayerName() || "WANDERER";
     start.style.display = "grid";
@@ -236,57 +233,71 @@ export function createStartupController(dependencies: StartupDependencies) {
 
   signInButton.addEventListener("click", () => {
     const characterFound = Boolean(dependencies.knownCharacter());
-    signInPending = true;
-    showSigningIn(characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…");
-    void dependencies.signIn()?.then((result) => {
-      if (result?.ok !== false) {
-        if (!result?.redirecting) showLoading();
-        return;
+    dependencies.onAccountActionStarted(
+      "sign-in",
+      characterFound ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…",
+    );
+    void (async () => {
+      try {
+        const result = await dependencies.signIn();
+        if (result?.ok === false) {
+          dependencies.onAccountActionFailed(characterFound
+            ? "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN"
+            : "REGISTRATION FAILED · TRY AGAIN OR USE GUEST LOGIN");
+          return;
+        }
+        if (!result?.redirecting) dependencies.onAccountActionCompleted();
+      } catch {
+        dependencies.onAccountActionFailed("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
       }
-      signInPending = false;
-      showAccountChoice(characterFound
-        ? "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN"
-        : "REGISTRATION FAILED · TRY AGAIN OR USE GUEST LOGIN");
-    }).catch(() => {
-      signInPending = false;
-      showAccountChoice("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
-    });
+    })();
   });
   guestButton.addEventListener("click", () => {
-    guestButton.disabled = true;
-    showLoading();
-    dependencies.onContinueGuest();
+    dependencies.onAccountActionStarted("guest", "LOADING GUEST PROFILE…");
+    void (async () => {
+      try {
+        const result = await dependencies.onContinueGuest();
+        if (result?.ok === false) {
+          dependencies.onAccountActionFailed("GUEST LOGIN FAILED · TRY AGAIN");
+          return;
+        }
+        dependencies.onAccountActionCompleted();
+      } catch {
+        dependencies.onAccountActionFailed("GUEST LOGIN FAILED · TRY AGAIN");
+      }
+    })();
   });
   sessionTakeoverButton.addEventListener("click", () => {
-    sessionTakeoverButton.disabled = true;
-    loadingDetail.textContent = "Signing Out Other Tab…";
-    void dependencies.takeOverSession()?.then((result) => {
-      if (result?.ok === false) {
-        sessionTakeoverButton.disabled = false;
-        loadingDetail.textContent = "Takeover Failed · Try Again";
-        return;
+    dependencies.onAccountActionStarted("takeover", "SIGNING OUT OTHER TAB…");
+    void (async () => {
+      try {
+        const result = await dependencies.takeOverSession();
+        if (result?.ok === false) {
+          dependencies.onAccountActionFailed("TAKEOVER FAILED · TRY AGAIN");
+          return;
+        }
+        dependencies.onAccountActionCompleted();
+      } catch {
+        dependencies.onAccountActionFailed("TAKEOVER FAILED · TRY AGAIN");
       }
-      showConnecting();
-    }).catch(() => {
-      sessionTakeoverButton.disabled = false;
-      loadingDetail.textContent = "Takeover Failed · Try Again";
-    });
+    })();
   });
   connectionRetryButton.addEventListener("click", () => {
     connectionRetryButton.disabled = true;
     loadingDetail.textContent = "Retrying Connection…";
-    dependencies.retryConnection();
+    dependencies.onRetryConnection();
   });
   beginAdventureButton.addEventListener("click", beginAdventure);
   playerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") beginAdventure();
   });
   return {
-    clearSignInPending: () => { signInPending = false; },
     hideStart: () => { start.style.display = "none"; },
-    isLoadingSequenceComplete: () => loadingSequenceComplete,
+    isLoadingSequenceComplete: () => loadingSequence.value === "complete",
     refreshLoading,
     showAccountChoice,
+    showAccountAction,
+    showConnectionFailure,
     showConnecting,
     showLoading,
     showLegalGate,

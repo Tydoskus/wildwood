@@ -37,8 +37,11 @@ import { createRemoteCombatStatsService } from "./coop/services/remote-combat-st
 import { defaultRealtimeHost } from "./coop/services/realtime-host";
 import { createBaseSubscriptionHandlers, startBaseSubscription } from "./coop/services/base-subscription";
 import { createAccountService, type AccountService } from "./coop/services/account-service";
+import { validateSpacetimeIdToken } from "./coop/security/oidc-id-token";
+import { createStartupTelemetryRuntime } from "./coop/services/startup-telemetry-runtime";
 import { startStartupBootstrap } from "./coop/startup-bootstrap";
 import type { ReducerPort } from "./coop/ports";
+import type { StartupTelemetryStage } from "../shared/startup-telemetry";
 export type * from "./coop/contracts";
 
 type WildStatRuntime = Window & {
@@ -65,6 +68,7 @@ const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
 const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
 const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
 const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
+const authNonceKey = `${tokenKey}/spacetimeauth_nonce_v1`;
 const authRetryKey = `${tokenKey}/spacetimeauth_401_retry_v1`;
 const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
 const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
@@ -132,6 +136,16 @@ let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
 let protocolReadyGeneration = 0;
 let accountService!: AccountService;
+const startupTelemetryRuntime = createStartupTelemetryRuntime({
+  clientVersion: GAME_VERSION,
+  authStateKey,
+  submit: () => {
+    const activeConnection = connection;
+    if (!hydrationReady || !activeConnection?.isActive) return null;
+    return (samples) => activeConnection.reducers.recordStartupTelemetry({ samples });
+  },
+});
+startupTelemetryRuntime.startPageLoadMeasurement();
 
 /** Coalesces table hydration into one UI refresh instead of one per row. */
 function onChange() {
@@ -230,6 +244,7 @@ function recordLatency(startedAt: number) {
 function handleReducerFailure(action: string, error: unknown) {
   const message = reducerErrorMessage(error);
   if (/active in another tab/i.test(message)) {
+    startupTelemetryRuntime.failConnection("session-error");
     worldEntryBlocked = true;
     connectionLifecycle.transition("blocked");
     accountService.setNotice("SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB");
@@ -247,6 +262,7 @@ function handleReducerFailure(action: string, error: unknown) {
   // moved to a new protocol. Pending progress stays in local storage so the
   // freshly loaded client can submit it safely.
   protocolBlocked = true;
+  startupTelemetryRuntime.failConnection("session-error");
   connectionLifecycle.transition("blocked");
   progressionService.blockSaves();
   virtualPlayerLoadTest.disconnectLocal();
@@ -295,6 +311,7 @@ function requestWorldEntry(): Promise<boolean> {
     })
     .catch((error) => {
       if (/active in another tab/i.test(reducerErrorMessage(error))) {
+        startupTelemetryRuntime.failConnection("session-error", generation);
         worldEntryBlocked = true;
         connectionLifecycle.transition("blocked");
         accountService.setNotice("LOGGED IN ON ANOTHER TAB");
@@ -429,6 +446,7 @@ presenceService = createPresenceService({
   sessionConflict: () => worldEntryBlocked,
   authTabId: () => accountService.tabId(),
   onControllerConflict: () => {
+    startupTelemetryRuntime.failConnection("session-error");
     worldEntryBlocked = true;
     connectionLifecycle.transition("blocked");
     accountService.setNotice("SIGNED OUT · ACCOUNT OPENED IN ANOTHER TAB");
@@ -447,6 +465,7 @@ accountService = createAccountService({
     accountMigrationPendingKey,
     authStateKey,
     authVerifierKey,
+    authNonceKey,
     authRetryKey,
     knownAccountKey,
     knownAccountCharacterKey,
@@ -483,6 +502,7 @@ accountService = createAccountService({
   drainPendingProgress: progressionService.drainPendingProgress,
   clearPendingProgress: progressionService.clearPendingProgress,
   disconnectVirtualPlayers: virtualPlayerLoadTest.disconnectLocal,
+  validateAccountIdToken: validateSpacetimeIdToken,
 });
 
 const duelService = createDuelService({
@@ -540,6 +560,7 @@ function abandonConnection(disconnectTransport: boolean) {
 }
 
 function restartConnectionForIdentityChange() {
+  startupTelemetryRuntime.failConnection("connection-closed");
   reconnectScheduler.reset();
   connectionLifecycle.reset();
   worldEntryBlocked = false;
@@ -555,6 +576,7 @@ function scheduleReconnect(delay?: number, bypassOnlineHint = false) {
 }
 
 function restartStalledWakeConnection() {
+  startupTelemetryRuntime.failConnection("connection-closed");
   reconnectScheduler.clear();
   connectionLifecycle.transition("retrying");
   abandonConnection(true);
@@ -563,6 +585,7 @@ function restartStalledWakeConnection() {
 }
 
 function retryFailedConnection(code: ConnectionIssueCode, message: string) {
+  startupTelemetryRuntime.failConnection(code);
   if (protocolBlocked || worldEntryBlocked) {
     connectionLifecycle.transition("blocked");
     return;
@@ -594,7 +617,10 @@ function retryConnection() {
   if (protocolBlocked || worldEntryBlocked || document.hidden) return false;
   const hadPlayableSession = hydrationReady || sessionGeneration > 0;
   reconnectScheduler.reset();
-  if (connection || connecting) abandonConnection(true);
+  if (connection || connecting) {
+    startupTelemetryRuntime.failConnection("connection-closed");
+    abandonConnection(true);
+  }
   connectionLifecycle.transition("retrying");
   if (hadPlayableSession) setNetworkReconnectVisible(true);
   onChange();
@@ -676,6 +702,7 @@ function connect() {
   const generation = ++connectionGeneration;
   const signedIn = Boolean(accountService.accountToken());
   connectionLifecycle.beginAttempt(CONNECTION_OPEN_TIMEOUT_MS);
+  startupTelemetryRuntime.beginConnectionAttempt(generation, connectionLifecycle.snapshot().attempt);
   onChange();
   try {
     connection = DbConnection.builder()
@@ -698,6 +725,7 @@ function connect() {
       worldEntryGeneration = 0;
       worldEntryBlocked = false;
       reconnectScheduler.clear();
+      startupTelemetryRuntime.advanceConnection("preparing-session", generation);
       connectionLifecycle.transition("preparing-session", SESSION_PREPARE_TIMEOUT_MS);
       onChange();
       const connectedIdentity = identity.toHexString();
@@ -734,6 +762,7 @@ function connect() {
             accountService.setNotice("AGE & TERMS REQUIRED");
           } else if (!await requestWorldEntry()) {
             if (isCurrentConnection() && !worldEntryBlocked) {
+              startupTelemetryRuntime.failConnection("session-error", generation);
               connectionLifecycle.fail("session-error", "World entry failed");
               conn.disconnect();
             }
@@ -741,6 +770,7 @@ function connect() {
           }
         }
 
+        startupTelemetryRuntime.advanceConnection("hydrating", generation);
         connectionLifecycle.transition("hydrating", SUBSCRIPTION_HYDRATION_TIMEOUT_MS);
         startBaseSubscription({
           connection: conn,
@@ -752,6 +782,7 @@ function connect() {
           handlers: baseSubscriptionHandlers,
           onHydrated: () => {
             hydrationReady = true;
+            startupTelemetryRuntime.completeConnection(generation);
             connectionLifecycle.ready();
             reconnectScheduler.reset();
             accountService.finishHydration();
@@ -760,6 +791,7 @@ function connect() {
             presenceService.activateSubscriptions();
             sessionGeneration += 1;
             onChange();
+            startupTelemetryRuntime.flush();
           },
           onError: (event) => {
             console.error("WildStat SpacetimeDB subscription error:", event);
@@ -774,6 +806,7 @@ function connect() {
       }).catch((error) => {
         if (generation !== connectionGeneration) return;
         handleReducerFailure("session preparation", error);
+        startupTelemetryRuntime.failConnection("session-error", generation);
         if (protocolBlocked || worldEntryBlocked) connectionLifecycle.transition("blocked");
         else connectionLifecycle.fail("session-error", "Session setup failed");
         conn.disconnect();
@@ -786,6 +819,7 @@ function connect() {
       if (protocolBlocked || worldEntryBlocked) connectionLifecycle.transition("blocked");
       else if (diagnostics.phase === "blocked") connectionLifecycle.transition("retrying");
       else if (diagnostics.phase !== "retrying") {
+        startupTelemetryRuntime.failConnection("connection-closed", generation);
         connectionLifecycle.fail("connection-closed", "Connection closed");
       }
       abandonConnection(false);
@@ -800,10 +834,12 @@ function connect() {
       const hadPlayableSession = hydrationReady || sessionGeneration > 0;
       abandonConnection(false);
       if (accountService.onConnectError(signedIn, error)) {
+        startupTelemetryRuntime.failConnection("connection-error", generation);
         connectionLifecycle.reset();
         onChange?.();
         return;
       }
+      startupTelemetryRuntime.failConnection("connection-error", generation);
       connectionLifecycle.fail("connection-error", "Could not reach WildStat");
       if (hadPlayableSession) setNetworkReconnectVisible(true);
       console.warn("WildStat SpacetimeDB unavailable:", error.message);
@@ -842,6 +878,9 @@ export const wildstatCoop = {
   },
   latencyMs() {
     return latencyMs;
+  },
+  beginStartupTelemetryStage(stage: StartupTelemetryStage) {
+    return startupTelemetryRuntime.beginStage(stage);
   },
   retryConnection,
   prepareUpdateReload(version: string) {
@@ -900,7 +939,9 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", (event) => {
   pageWakeTracker.show(event.persisted);
-  if (event.persisted) accountService.cancelAbandonedSignIn();
+  if (event.persisted) {
+    startupTelemetryRuntime.cancelAbandonedSignIn(accountService.cancelAbandonedSignIn());
+  }
 });
 window.addEventListener("pagehide", () => {
   pageWakeTracker.hide();
@@ -916,10 +957,13 @@ window.addEventListener("storage", (event) => {
   accountService.handleStorageEvent(event);
 });
 startStartupBootstrap({
-  restoreKnownAccount: accountService.restoreKnownAccount,
+  restoreKnownAccount: () => startupTelemetryRuntime.restoreKnownAccount(
+    accountService.restoreKnownAccount,
+    accountService.notice,
+  ),
   accountState: wildstatCoop.accountState,
   knownCharacter: wildstatCoop.knownCharacter,
-  signIn: wildstatCoop.signIn,
+  signIn: () => startupTelemetryRuntime.signIn(accountService.api.signIn),
   continueAsGuest: wildstatCoop.continueAsGuest,
   legalConsentAccepted: wildstatCoop.legalConsentAccepted,
   acceptLegalTerms: wildstatCoop.acceptLegalTerms,
@@ -929,6 +973,7 @@ startStartupBootstrap({
       if (startupChangeListener === listener) startupChangeListener = null;
     };
   },
+  beginTelemetryStage: startupTelemetryRuntime.beginStage,
 });
 
 export default wildstatCoop;

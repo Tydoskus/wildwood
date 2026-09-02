@@ -16,6 +16,11 @@ import {
 } from "./update-resume-store";
 import type { PlayerProgress } from "./progress";
 import { createLegalConsentService } from "./legal-consent-service";
+import {
+  inspectSpacetimeIdToken,
+  OidcIdTokenError,
+  type ValidatedIdTokenClaims,
+} from "../security/oidc-id-token";
 
 type AccountKeys = {
   tokenKey: string;
@@ -25,6 +30,7 @@ type AccountKeys = {
   accountMigrationPendingKey: string;
   authStateKey: string;
   authVerifierKey: string;
+  authNonceKey: string;
   authRetryKey: string;
   knownAccountKey: string;
   knownAccountCharacterKey: string;
@@ -64,6 +70,7 @@ type AccountServiceDependencies = {
   drainPendingProgress: () => Promise<boolean>;
   clearPendingProgress: (identity: string) => void;
   disconnectVirtualPlayers: () => void;
+  validateAccountIdToken: (token: string, expectedNonce: string) => Promise<ValidatedIdTokenClaims>;
 };
 
 type AccountLinkTransaction = { code: string; guestIdentity: string };
@@ -84,6 +91,15 @@ class TokenExchangeRequestError extends Error {
     super(`Token exchange ${reason}`);
     this.name = "TokenExchangeRequestError";
   }
+}
+
+function authValuesMatch(left: string, right: string) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
 }
 
 /**
@@ -146,22 +162,10 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     try {
       const token = localStorage.getItem(keys.accountTokenKey);
       if (!token) return null;
-      const payloadPart = token.split(".")[1];
-      if (payloadPart) {
-        try {
-          const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-          const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-          const payload = JSON.parse(atob(padded)) as { exp?: unknown };
-          if (typeof payload.exp === "number" && payload.exp * 1_000 <= Date.now() + 30_000) {
-            localStorage.removeItem(keys.accountTokenKey);
-            return null;
-          }
-        } catch {
-          // Let SpacetimeDB validate unfamiliar token formats.
-        }
-      }
+      inspectSpacetimeIdToken(token);
       return token;
     } catch {
+      try { localStorage.removeItem(keys.accountTokenKey); } catch {}
       return null;
     }
   }
@@ -202,6 +206,12 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       sessionStorage.removeItem(key);
       localStorage.removeItem(key);
     } catch {}
+  }
+
+  function clearAuthTransaction() {
+    clearTabValue(keys.authStateKey);
+    clearTabValue(keys.authVerifierKey);
+    clearTabValue(keys.authNonceKey);
   }
 
   function readAccountLinkTransaction(): AccountLinkTransaction | null {
@@ -287,8 +297,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     if (!outboundAuthNavigationPending || !returnPending || callbackPending || hasCallback) return false;
     if (readAccountLinkTransaction()) clearAccountMigrationPending();
     clearAccountReturnPending();
-    clearTabValue(keys.authStateKey);
-    clearTabValue(keys.authVerifierKey);
+    clearAuthTransaction();
     sessionApproved = false;
     updateResumePending = false;
     notice = "";
@@ -383,16 +392,21 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     const authError = url.searchParams.get("error");
     if (!code && !authError) return "none";
     const state = url.searchParams.get("state");
+    const responseIssuer = url.searchParams.get("iss");
     const expectedState = readTabValue(keys.authStateKey);
     const verifier = readTabValue(keys.authVerifierKey);
+    const expectedNonce = readTabValue(keys.authNonceKey);
     const cleanUrl = `${url.pathname}${url.hash}`;
-    if (!state || state !== expectedState || !verifier) {
+    if (
+      !state || !expectedState || !authValuesMatch(state, expectedState) ||
+      !verifier || !expectedNonce ||
+      (responseIssuer !== null && responseIssuer !== SPACETIME_AUTH_ISSUER)
+    ) {
       callbackPending = false;
       clearAccountReturnPending();
       notice = "SIGN-IN CHECK FAILED";
       if (readAccountLinkTransaction()) clearAccountMigrationPending();
-      clearTabValue(keys.authStateKey);
-      clearTabValue(keys.authVerifierKey);
+      clearAuthTransaction();
       history.replaceState({}, "", cleanUrl);
       return "failed";
     }
@@ -401,8 +415,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       clearAccountReturnPending();
       notice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
       if (readAccountLinkTransaction()) clearAccountMigrationPending();
-      clearTabValue(keys.authStateKey);
-      clearTabValue(keys.authVerifierKey);
+      clearAuthTransaction();
       history.replaceState({}, "", cleanUrl);
       return "failed";
     }
@@ -425,6 +438,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
             : "Token exchange failed";
         throw new Error(detail);
       }
+      await dependencies.validateAccountIdToken(result.id_token, expectedNonce);
       localStorage.setItem(keys.accountTokenKey, result.id_token);
       rememberAccount();
       notice = "SIGNED IN";
@@ -434,14 +448,17 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         ? "SIGN-IN TIMED OUT · TRY AGAIN"
         : error instanceof TokenExchangeRequestError && error.reason === "network"
           ? "SIGN-IN NETWORK FAILED · TRY AGAIN"
-          : "SIGN-IN FAILED · TRY AGAIN";
+          : error instanceof OidcIdTokenError && error.reason === "keys"
+            ? "SIGN-IN CHECK UNAVAILABLE · TRY AGAIN"
+            : error instanceof OidcIdTokenError
+              ? "SIGN-IN CHECK FAILED · TRY AGAIN"
+              : "SIGN-IN FAILED · TRY AGAIN";
       if (readAccountLinkTransaction()) clearAccountMigrationPending();
       clearAccountReturnPending();
       console.warn("WildStat account sign-in failed:", error);
     } finally {
       callbackPending = false;
-      clearTabValue(keys.authStateKey);
-      clearTabValue(keys.authVerifierKey);
+      clearAuthTransaction();
       history.replaceState({}, "", cleanUrl);
     }
     return outcome;
@@ -454,9 +471,11 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     } catch {}
     const verifier = randomUrlSafe(48);
     const state = randomUrlSafe(24);
+    const nonce = randomUrlSafe(24);
     const challenge = await sha256UrlSafe(verifier);
     writeTabValue(keys.authStateKey, state);
     writeTabValue(keys.authVerifierKey, verifier);
+    writeTabValue(keys.authNonceKey, nonce);
     const url = new URL(AUTHORIZATION_ENDPOINT);
     url.search = new URLSearchParams({
       client_id: SPACETIME_AUTH_CLIENT_ID,
@@ -464,11 +483,12 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       response_type: "code",
       scope: AUTH_SCOPE,
       state,
-      nonce: randomUrlSafe(24),
+      nonce,
       code_challenge: challenge,
       code_challenge_method: "S256",
     }).toString();
     outboundAuthNavigationPending = true;
+    dependencies.notify();
     window.location.assign(url.toString());
   }
 
@@ -647,8 +667,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         localStorage.removeItem(keys.accountMigrationPendingKey);
       } catch {}
       clearTabValue(keys.accountLinkKey);
-      clearTabValue(keys.authStateKey);
-      clearTabValue(keys.authVerifierKey);
+      clearAuthTransaction();
       window.location.reload();
     },
     continueAsGuest() {
@@ -658,8 +677,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       dependencies.disconnectVirtualPlayers();
       clearStoredToken(keys.accountTokenKey);
       clearTabValue(keys.accountLinkKey);
-      clearTabValue(keys.authStateKey);
-      clearTabValue(keys.authVerifierKey);
+      clearAuthTransaction();
       clearAccountMigrationPending();
       clearAccountReturnPending();
       callbackPending = false;

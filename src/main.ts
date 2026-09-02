@@ -65,7 +65,7 @@ import { createDailyGemBonusController } from "./ui/daily-gem-bonus-controller";
 import { createBalanceApologyGiftController } from "./ui/balance-apology-gift-controller";
 import { createMapGuideController } from "./ui/map-guide-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
-import { hasApprovedGameSession } from "./coop/startup-route";
+import { hasApprovedGameSession } from "./coop/startup-state-machine";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
@@ -116,6 +116,13 @@ import {
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
   const coop = window.wildstatCoop ?? window.wildwoodCoop ?? null;
+  const gameplayReadyTelemetry = coop?.beginStartupTelemetryStage?.("gameplay-ready");
+  let gameplayReadyRecorded = false;
+  function recordGameplayReady() {
+    if (gameplayReadyRecorded) return;
+    gameplayReadyRecorded = true;
+    gameplayReadyTelemetry?.finish();
+  }
   function refreshGemCounter() {
     const balance = formatGemAmount(coop?.gemBalance?.() ?? 0n);
     hudGemBalance.textContent = balance;
@@ -285,9 +292,7 @@ import {
   const { activeDuel, isDueling, isArenaScene, showDuelResult, showDuelResultUnavailable, fadeToWorld, leaveDuelResult, openPlayerAtScreenPoint, duelOpponentName } = duelSession;
 
 
-  let newPlayerIntroShown = false;
   let pageLoadComplete = document.readyState === "complete";
-  let guestContinuationChosen = false;
 
   const appShell = createAppShellController({
     mapMusic,
@@ -317,7 +322,6 @@ import {
     knownCharacter: () => coop?.knownCharacter?.() ?? "",
     knownCharacterGender: () => coop?.knownCharacterGender?.() ?? 0,
     defaultPlayerName: () => coop?.localDisplayName?.() ?? "WANDERER",
-    isSignInScreenReady,
     getLoadingStages: () => [
       ["Loading Connection", Boolean(coop?.isConnected?.()), 12],
       ["Loading Player Profile", Boolean(coop?.localState?.()), 35],
@@ -334,21 +338,19 @@ import {
       dragonResultEl.hidden = true;
       dragonWorldNoticeEl.hidden = true;
     },
-    legalConsentAccepted: () => coop?.legalConsentAccepted?.() === true,
     acceptLegalTerms: (age) => coop?.acceptLegalTerms?.(age),
     onLegalAccepted: finishStartup,
-    onContinueGuest: () => {
-      guestContinuationChosen = true;
-      coop?.continueAsGuest?.();
-      finishStartup();
-    },
+    onContinueGuest: () => coop?.continueAsGuest?.(),
     onBeginAdventure: (name) => {
       if (name !== (coop?.localDisplayName?.() || "")) coop?.setDisplayName?.(name);
       startGame(true);
     },
     signIn: () => coop?.signIn?.(),
     takeOverSession: () => coop?.takeOverSession?.(),
-    retryConnection: () => coop?.retryConnection?.(),
+    onAccountActionStarted: (action, detail) => startupCoordinator.beginAccountAction(action, detail),
+    onAccountActionCompleted: () => startupCoordinator.completeAccountAction(),
+    onAccountActionFailed: (detail) => startupCoordinator.failAccountAction(detail),
+    onRetryConnection: () => { startupCoordinator.retryConnection(); },
     showMessage,
   });
 
@@ -850,7 +852,20 @@ import {
     onPlayerAppearanceAssetReady: markPlayerSpriteReady,
   });
   const { assets, inventoryCharacterPreview, leaderboardPodiumPreview, playerAppearanceAssets, profileCharacterPreview } = bootstrapAssets;
-  prepareMapAssets = assets.ensureMapAssets;
+  let startupMapAssetsStarted = false;
+  prepareMapAssets = (mapId) => {
+    const telemetry = startupMapAssetsStarted
+      ? null
+      : coop?.beginStartupTelemetryStage?.("current-map-assets") ?? null;
+    startupMapAssetsStarted = true;
+    return assets.ensureMapAssets(mapId).then(() => {
+      if (assets.mapAssetLoadFailed(mapId)) telemetry?.finish("failure", "asset-load-error");
+      else telemetry?.finish();
+    }, (error) => {
+      telemetry?.finish("failure", "asset-load-error");
+      throw error;
+    });
+  };
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   let cachedMinimapBounds: { left: number; top: number; width: number; height: number } | null = null;
@@ -1110,10 +1125,6 @@ import {
 
   function updateProtocolGate(accountState = coop?.accountState?.()) {
     startupCoordinator.updateProtocolGate(accountState);
-  }
-
-  function isSignInScreenReady() {
-    return startupCoordinator.isSignInScreenReady();
   }
 
   function showMessage(text: string, color = "#fff") {
@@ -1448,7 +1459,11 @@ import {
     updateMessage: runtimeHud.updateMessage,
     capturePresentationState: presentation.capture,
     resetPresentationState: presentation.reset,
-    render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => { upgradeBenchController.tick(); renderController.render(); }), recordPerformance: performanceMonitor.record,
+    render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => {
+      upgradeBenchController.tick();
+      if (isArenaScene()) void assets.ensureDuelAssets();
+      renderController.render();
+    }), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
     renderFpsDisplay: () => {
       const performance = performanceMonitor.snapshot();
@@ -1520,16 +1535,20 @@ import {
     pageLoadComplete: () => pageLoadComplete,
     playerSpriteReady: () => playerSpriteReady,
     worldArtReady: assets.worldArtReady,
-    guestContinuationChosen: () => guestContinuationChosen,
-    newPlayerIntroShown: () => newPlayerIntroShown,
-    setNewPlayerIntroShown: () => { newPlayerIntroShown = true; },
     refreshLoading: startup.refreshLoading,
+    restartLoading: startup.showConnecting,
     showSessionConflict: startup.showSessionConflict,
     legalConsentAccepted: () => coop?.legalConsentAccepted?.() === true,
     showLegalGate: startup.showLegalGate,
     showAccountChoice: startup.showAccountChoice,
+    showAccountAction: startup.showAccountAction,
+    showConnectionFailure: startup.showConnectionFailure,
     showLoading: startup.showLoading,
-    showNewPlayerIntro: startup.showNewPlayerIntro,
+    showNewPlayerIntro: () => {
+      recordGameplayReady();
+      startup.showNewPlayerIntro();
+    },
+    hideStart: startup.hideStart,
     isLoadingSequenceComplete: startup.isLoadingSequenceComplete,
     hasStarted: session.hasStarted,
     isRunning: session.isRunning,
@@ -1540,6 +1559,7 @@ import {
     startupKind: progress.startupKind,
     beginAdventure: () => { coop?.beginAdventure?.(); },
     startGame: () => startGame(false),
+    retryConnection: () => coop?.retryConnection?.(),
     prepareUpdateReload: (latestVersion) => { coop?.prepareUpdateReload?.(latestVersion); },
   });
   finishStartup();
@@ -1559,6 +1579,8 @@ import {
     const finishStart = () => {
       if (firstStart) performanceMonitor.reset();
       session.start(markIntro, restoreServerPosition);
+      recordGameplayReady();
+      finishStartup();
       balanceApologyGift.refresh();
       dailyGemBonus.refresh();
       applyGameplayPauseState();
@@ -1645,12 +1667,12 @@ import {
     closeCompetingWindows: () => { mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
     resetServerProgress: () => coop?.resetProgress?.(),
-    clearProgressState: () => { progress.resetState(); newPlayerIntroShown = false; },
+    clearProgressState: progress.resetState,
     setTotalKills: (value: number) => { totalKills = value; },
     setBootsCollected: (collected: boolean) => { bootsPickup.collected = collected; },
     clearPlayerInput: playerInput.clear,
     resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
-    stopGame: session.stop, startConnecting: startup.showConnecting, hideGameOver: deathScreen.hide,
+    stopGame: session.stop, restartStartup: () => { startupCoordinator.restart(); }, hideGameOver: deathScreen.hide,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
     leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController, mapGuide,
   }).handleInputEscape;
@@ -1700,7 +1722,6 @@ import {
       if (currentMapId === MOONFEN_MAP_ID) bossController.syncMiremawState();
     },
     finishStartup,
-    clearSignInPending: startup.clearSignInPending,
     updateProtocolGate,
     refreshChat: chatRuntime.refresh,
     updateDuelControls,
@@ -1748,9 +1769,6 @@ import {
   updateProtocolGate();
 
   startGameRuntime({
-    accountState: () => coop?.accountState?.(),
-    showAccountChoice: startup.showAccountChoice,
-    showConnecting: startup.showConnecting,
     loadProgress,
     rebuildWorld: playerController.rebuildWorld,
     camera,

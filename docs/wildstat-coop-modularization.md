@@ -11,7 +11,8 @@ The original extraction was behavior-preserving. Later realtime protocol work ch
 | `src/wildstat-coop.ts` | Runtime composition, reducer error policy, connection/reconnect orchestration, one world-entry gate, browser lifecycle wiring, and the public façade. |
 | `src/coop/contracts.ts` | Public multiplayer data contracts re-exported by the façade. |
 | `src/coop/ports.ts` | Narrow reducer and change-notification ports shared by services. |
-| `src/coop/startup-route.ts` | Shared screen precedence for the lightweight auth shell and full game startup. |
+| `src/coop/startup-state-machine.ts` | Explicit startup states, legal transitions, and shared screen precedence for the lightweight auth shell and full game runtime. |
+| `src/coop/services/startup-telemetry.ts` | Privacy-minimal, bounded stage timing queue and best-effort delivery. |
 | `src/coop/services/account-service.ts` | Guest/account credentials, PKCE callback, account migration, session takeover intent, remembered character metadata, and account-facing API methods. |
 | `src/coop/services/base-subscription.ts` | Service-handler adaptation, base query list, SDK table callback registration, one cache hydration boundary, and initial callback suppression. |
 | `src/coop/services/connection-lifecycle.ts` | Timed connection phases and structured, user-safe failure diagnostics. |

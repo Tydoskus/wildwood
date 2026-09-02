@@ -9,28 +9,50 @@ import {
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
+  createSpawnSites,
+  type MapId,
 } from "../world";
 import { MAP_ASSET_GROUPS } from "./map-asset-groups";
 
+const MAP_IDS: readonly MapId[] = [
+  TUTORIAL_FOREST_MAP_ID,
+  BEGINNER_DESERT_MAP_ID,
+  INTERMEDIATE_SNOWLANDS_MAP_ID,
+  ADVANCED_LAVA_WASTES_MAP_ID,
+  INFERNAL_DEPTHS_MAP_ID,
+  WATER_REACH_MAP_ID,
+  SAMURAI_GARDEN_MAP_ID,
+  CLOUDSPIRE_MAP_ID,
+  MOONFEN_MAP_ID,
+];
+
 describe("lazy map asset groups", () => {
   it("loads each boss only with its own map", () => {
-    expect(MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID]).toContain("forestBoss");
-    expect(MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID]).toContain("desertBoss");
-    expect(MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID]).toContain("snowBoss");
-    expect(MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID]).toContain("lavaBoss");
-    expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID]).toContain("nightBoss");
-    expect(MAP_ASSET_GROUPS[WATER_REACH_MAP_ID]).toContain("waterBoss");
-    expect(MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID]).toContain("samuraiBoss");
-    expect(MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID]).toContain("cloudspireBoss");
-    expect(MAP_ASSET_GROUPS[MOONFEN_MAP_ID]).toContain("moonfenBoss");
+    expect(MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].art).toContain("forestBoss");
+    expect(MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].art).toContain("desertBoss");
+    expect(MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].art).toContain("snowBoss");
+    expect(MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID].art).toContain("lavaBoss");
+    expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID].art).toContain("nightBoss");
+    expect(MAP_ASSET_GROUPS[WATER_REACH_MAP_ID].art).toContain("waterBoss");
+    expect(MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID].art).toContain("samuraiBoss");
+    expect(MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].art).toContain("cloudspireBoss");
+    expect(MAP_ASSET_GROUPS[MOONFEN_MAP_ID].art).toContain("moonfenBoss");
   });
 
   it("keeps image-based scenery with only the maps that use it", () => {
-    expect(MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID]).toContain("forestDecor");
-    expect(MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID]).toContain("snowDecor");
-    expect(MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID]).toContain("lavaDecor");
-    expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID]).toContain("nightDecor");
-    expect(MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID]).not.toContain("lavaDecor");
-    expect(MAP_ASSET_GROUPS[WATER_REACH_MAP_ID]).not.toContain("snowDecor");
+    expect(MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].art).toContain("forestDecor");
+    expect(MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].art).toContain("snowDecor");
+    expect(MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID].art).toContain("lavaDecor");
+    expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID].art).toContain("nightDecor");
+    expect(MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].art).not.toContain("lavaDecor");
+    expect(MAP_ASSET_GROUPS[WATER_REACH_MAP_ID].art).not.toContain("snowDecor");
+  });
+
+  it("keeps every regular-enemy sprite definition with exactly the map that spawns it", () => {
+    const boss = { x: 4_050, y: 4_050 };
+    for (const mapId of MAP_IDS) {
+      const spawnedKinds = new Set(createSpawnSites(boss, mapId).map((site) => site.type));
+      expect(new Set(MAP_ASSET_GROUPS[mapId].enemies), mapId).toEqual(spawnedKinds);
+    }
   });
 });

@@ -61,7 +61,7 @@ type GameActionsDependencies = {
   clearPlayerInput: () => void;
   resetGame: () => void;
   stopGame: () => void;
-  startConnecting: () => void;
+  restartStartup: () => void;
   hideGameOver: () => void;
   refreshFrameClock: () => void;
   escapeWindows: EscapeWindows;
@@ -118,7 +118,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     dependencies.resetGame();
     dependencies.stopGame();
     dependencies.refreshFrameClock();
-    dependencies.startConnecting();
+    dependencies.restartStartup();
     dependencies.hideGameOver();
     closeSettings();
     closeInventory();

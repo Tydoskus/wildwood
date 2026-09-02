@@ -1,7 +1,11 @@
 import { createLegalGateController, legalGateElements, type LegalGateElements } from "../ui/legal-gate";
-import { resolveStartupRoute, type StartupRouteAccount } from "./startup-route";
+import {
+  createStartupStateMachine,
+  type StartupAccountSnapshot,
+  type StartupState,
+} from "./startup-state-machine";
 
-type StartupAccountState = StartupRouteAccount & {
+type StartupAccountState = StartupAccountSnapshot & {
   knownAccount?: boolean;
   signInRequired?: boolean;
   signInReady?: boolean;
@@ -70,9 +74,9 @@ export function createStartupAuthGate(
   dependencies: StartupAuthGateDependencies,
   elements = startupElements(document),
 ) {
-  let pendingAction: "sign-in" | "guest" | null = null;
-  let gameLoading = false;
+  const machine = createStartupStateMachine("auth-shell");
   let unsubscribe = () => {};
+  let detached = false;
   const legalGate = createLegalGateController({
     accept: dependencies.acceptLegalTerms,
     onAccepted: render,
@@ -102,16 +106,13 @@ export function createStartupAuthGate(
     elements.accountCharacterName.textContent = name || "none";
     elements.accountCharacter.classList.toggle("is-empty", !name);
     elements.signInButton.textContent = name || knownAccount ? "SIGN IN" : "REGISTER";
-    elements.signInButton.disabled = Boolean(pendingAction) || !ready;
-    elements.guestButton.disabled = Boolean(pendingAction);
-    if (pendingAction) dependencies.releaseNotes?.hide();
-    else dependencies.releaseNotes?.show();
+    elements.signInButton.disabled = !ready;
+    elements.guestButton.disabled = false;
+    dependencies.releaseNotes?.show();
     const callbackFailure = /^(?:SIGN-IN (?:CHECK FAILED|FAILED|NETWORK FAILED|TIMED OUT)|AUTO SIGN-IN UNAVAILABLE)/.test(state.notice || "")
       ? `${state.notice}${/TRY AGAIN/.test(state.notice || "") ? "" : " · TRY AGAIN"} OR USE GUEST LOGIN`
       : "";
-    elements.accountChoiceDetail.textContent = detailOverride || callbackFailure || (pendingAction === "sign-in"
-      ? (name || knownAccount ? "OPENING SIGN-IN…" : "OPENING REGISTRATION…")
-      : !ready
+    elements.accountChoiceDetail.textContent = detailOverride || callbackFailure || (!ready
         ? "PREPARING YOUR SAVED GUEST…"
         : name
           ? "SIGN IN TO THIS CHARACTER"
@@ -128,7 +129,9 @@ export function createStartupAuthGate(
     legalGate.show();
   }
 
-  function dispose() {
+  function detach() {
+    if (detached) return;
+    detached = true;
     unsubscribe();
     unsubscribe = () => {};
     elements.signInButton.removeEventListener("click", onSignIn);
@@ -137,33 +140,33 @@ export function createStartupAuthGate(
     dependencies.releaseNotes?.dispose();
   }
 
+  function dispose() {
+    detach();
+    machine.dispatch({ type: "dispose" });
+  }
+
   function beginGameLoading(detail = "Loading Your Character") {
-    if (gameLoading) return;
-    gameLoading = true;
+    const current = machine.state();
+    if (current.value === "loading-game" && current.status === "loading") return;
+    machine.dispatch({ type: "begin-game-load" });
     showLoading(detail);
-    dispose();
-    void dependencies.loadGame().catch((error) => {
+    detach();
+    void dependencies.loadGame().then(() => {
+      machine.dispatch({ type: "dispose" });
+    }).catch((error) => {
       console.error("WildStat game bundle failed to load:", error);
-      elements.loadingDetail.textContent = "Game Load Failed · Refresh to Try Again";
-      elements.loadingFill.style.width = "100%";
+      const transition = machine.dispatch({ type: "fail-game-load", message: "Game Load Failed · Refresh to Try Again" });
+      renderState(transition.state, transition.changed);
     });
   }
 
-  function render() {
-    if (gameLoading) return;
-    const state = dependencies.accountState();
-    const route = resolveStartupRoute({
-      mode: "auth-shell",
-      account: state,
-      legalAccepted: dependencies.legalConsentAccepted(),
-      shellReady: true,
-    });
-    switch (route) {
-      case "legal":
+  function renderState(state: StartupState, changed = true) {
+    switch (state.value) {
+      case "legal-consent":
         showLegalGate();
         return;
-      case "load-game":
-        beginGameLoading(state.guestSessionApproved ? "Loading Guest Profile" : "Loading Your Character");
+      case "loading-game":
+        if (state.status === "ready") beginGameLoading(dependencies.accountState().guestSessionApproved ? "Loading Guest Profile" : "Loading Your Character");
         return;
       case "session-conflict":
         beginGameLoading("Opening Session Recovery");
@@ -171,46 +174,84 @@ export function createStartupAuthGate(
       case "verifying-sign-in":
         showLoading("Verifying Sign-In");
         return;
-      default:
-        showAccountChoice();
+      case "account-action":
+        showLoading(state.detail);
+        return;
+      case "account-choice":
+        showAccountChoice(state.detail);
+        return;
+      case "failed":
+        showLoading(state.message);
+        elements.loadingFill.style.width = "100%";
+        return;
+      case "loading-shell":
+      case "loading-runtime":
+        showLoading();
+        return;
+      case "connection-failed":
+        showLoading(state.message);
+        return;
+      case "new-player":
+      case "entering-game":
+      case "running":
+      case "updating":
+      case "disposed":
+        if (changed && state.value === "disposed") detach();
+        return;
     }
   }
 
+  function render() {
+    const transition = machine.sync({
+      account: dependencies.accountState(),
+      legalAccepted: dependencies.legalConsentAccepted(),
+      shellReady: true,
+    });
+    renderState(transition.state, transition.changed);
+  }
+
   async function onSignIn() {
-    if (pendingAction || gameLoading) return;
-    pendingAction = "sign-in";
+    if (machine.state().value !== "account-choice") return;
     const state = dependencies.accountState();
     const name = dependencies.knownCharacter().trim();
-    showLoading(name || state.knownAccount ? "Opening Sign-In…" : "Opening Registration…");
+    const detail = name || state.knownAccount ? "Opening Sign-In…" : "Opening Registration…";
+    renderState(machine.dispatch({ type: "begin-account-action", action: "sign-in", detail }).state);
     try {
       const result = await dependencies.signIn();
       if (result?.ok === false) {
-        pendingAction = null;
-        showAccountChoice(result.error === "WAIT FOR SERVER"
+        const failure = result.error === "WAIT FOR SERVER"
           ? "PREPARING YOUR SAVED GUEST…"
-          : "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
+          : "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN";
+        renderState(machine.dispatch({ type: "fail-account-action", detail: failure }).state);
         return;
       }
-      pendingAction = null;
+      machine.dispatch({ type: "complete-account-action" });
       if (!result?.redirecting) render();
     } catch {
-      pendingAction = null;
-      showAccountChoice("SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN");
+      renderState(machine.dispatch({
+        type: "fail-account-action",
+        detail: "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN",
+      }).state);
     }
   }
 
   async function onGuest() {
-    if (pendingAction || gameLoading) return;
-    pendingAction = "guest";
-    showLoading("Loading Guest Profile");
+    if (machine.state().value !== "account-choice") return;
+    renderState(machine.dispatch({
+      type: "begin-account-action",
+      action: "guest",
+      detail: "Loading Guest Profile",
+    }).state);
     try {
       const result = await dependencies.continueAsGuest();
       if (result?.ok === false) throw new Error(result.error || "Guest startup failed");
-      pendingAction = null;
+      machine.dispatch({ type: "complete-account-action" });
       render();
     } catch {
-      pendingAction = null;
-      showAccountChoice("GUEST LOGIN FAILED · TRY AGAIN");
+      renderState(machine.dispatch({
+        type: "fail-account-action",
+        detail: "GUEST LOGIN FAILED · TRY AGAIN",
+      }).state);
     }
   }
 
@@ -221,7 +262,7 @@ export function createStartupAuthGate(
     render();
   }
 
-  return { dispose, render, start };
+  return { dispose, render, start, state: machine.state };
 }
 
 /** Loads game.js only after the auth gate has selected an account identity. */

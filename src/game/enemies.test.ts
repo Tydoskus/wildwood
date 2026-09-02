@@ -36,7 +36,14 @@ import {
   WATER_REACH_REWARD_SCALE,
   WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
-import { ENEMY_TYPES, loadEnemySprites, rewardLabel } from "./enemies";
+import {
+  ENEMY_TYPES,
+  createMapScopedEnemySpriteAssets,
+  loadEnemySprites,
+  rewardLabel,
+  type EnemyKind,
+  type EnemySpriteSource,
+} from "./enemies";
 import {
   ELITE_ENEMY_SPRITE_SIZE,
   ENEMY_SPRITE_LAYOUTS,
@@ -309,6 +316,43 @@ describe("enemy sprite loading", () => {
     }
   });
 
+  it("does not request an off-map enemy source until that map is prepared", async () => {
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      decoding = "auto";
+      src = "";
+
+      constructor() {
+        super();
+        images.push(this);
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const sources = {
+      forestEnemy: { src: "forest-enemy.png", size: 40 },
+      desertEnemy: { src: "desert-enemy.png", size: 40 },
+    } satisfies Record<"forestEnemy" | "desertEnemy", EnemySpriteSource>;
+    const assets = createMapScopedEnemySpriteAssets(sources, {
+      forest: ["forestEnemy"],
+      desert: ["desertEnemy"],
+    });
+
+    expect(images.map((image) => image.src)).toEqual(["", ""]);
+    const forestReady = assets.ensureMapSprites("forest");
+    expect(images.map((image) => image.src)).toEqual(["forest-enemy.png", ""]);
+    images[0].dispatchEvent(new Event("load"));
+    await forestReady;
+    expect(assets.mapSpritesReady("forest")).toBe(true);
+    expect(assets.mapSpriteLoadFailed("forest")).toBe(false);
+    expect(assets.mapSpritesReady("desert")).toBe(false);
+
+    const desertReady = assets.ensureMapSprites("desert");
+    expect(images.map((image) => image.src)).toEqual(["forest-enemy.png", "desert-enemy.png"]);
+    images[1].dispatchEvent(new Event("load"));
+    await desertReady;
+    expect(assets.mapSpritesReady("desert")).toBe(true);
+  });
+
   it("waits for every enemy image, including a delayed layer", () => {
     const images: FakeImage[] = [];
     class FakeImage extends EventTarget {
@@ -322,7 +366,8 @@ describe("enemy sprite loading", () => {
     }
     vi.stubGlobal("Image", FakeImage);
     const onSettled = vi.fn();
-    const assets = loadEnemySprites(onSettled);
+    const assets = loadEnemySprites({ all: Object.keys(ENEMY_TYPES) as EnemyKind[] }, onSettled);
+    void assets.ensureMapSprites("all");
 
     expect(Object.keys(assets.sprites).sort()).toEqual(Object.keys(ENEMY_TYPES).sort());
     expect(images).toHaveLength(2);
@@ -347,7 +392,8 @@ describe("enemy sprite loading", () => {
       }
     }
     vi.stubGlobal("Image", FakeImage);
-    const assets = loadEnemySprites();
+    const assets = loadEnemySprites({ all: Object.keys(ENEMY_TYPES) as EnemyKind[] });
+    void assets.ensureMapSprites("all");
     const failedImage = images[0];
     images.slice(1).forEach((image) => image.dispatchEvent(new Event("load")));
 
@@ -360,5 +406,6 @@ describe("enemy sprite loading", () => {
     expect(assets.ready()).toBe(false);
     failedImage.dispatchEvent(new Event("error"));
     expect(assets.ready()).toBe(true);
+    expect(assets.mapSpriteLoadFailed("all")).toBe(true);
   });
 });

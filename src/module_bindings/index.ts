@@ -72,6 +72,7 @@ import RecordForestEnemyDefeatReducer from "./record_forest_enemy_defeat_reducer
 import RecordLavaEnemyDefeatReducer from "./record_lava_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "./record_player_death_reducer";
 import RecordSnowEnemyDefeatReducer from "./record_snow_enemy_defeat_reducer";
+import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
@@ -742,6 +743,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_lava_enemy_defeat", RecordLavaEnemyDefeatReducer),
   __reducerSchema("record_player_death", RecordPlayerDeathReducer),
   __reducerSchema("record_snow_enemy_defeat", RecordSnowEnemyDefeatReducer),
+  __reducerSchema("record_startup_telemetry", RecordStartupTelemetryReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
   __reducerSchema("request_duel", RequestDuelReducer),

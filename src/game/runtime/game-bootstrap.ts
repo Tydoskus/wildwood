@@ -4,6 +4,7 @@ import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
+import { MAP_ENEMY_SPRITE_GROUPS } from "./map-asset-groups";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
@@ -26,7 +27,6 @@ import {
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
-import { hasApprovedGameSession } from "../../coop/startup-route";
 
 export type BootstrapInventory = InventoryState & {
   selectedItemId: string;
@@ -341,7 +341,7 @@ export function createGameBootstrap() {
   };
 }
 
-/** Starts art loads and returns every renderer-facing asset bundle. */
+/** Builds every renderer-facing bundle while starting only shared/core art. */
 export function createGameBootstrapAssets(options: {
   profileCharacterCanvas: HTMLCanvasElement;
   inventoryCharacterCanvas: HTMLCanvasElement;
@@ -349,15 +349,29 @@ export function createGameBootstrapAssets(options: {
   onPlayerAppearanceAssetReady: () => void;
 }) {
   const preprocessedAssets = createAssetPreprocessor(options.onWorldArtReady);
-  const enemyAssets = loadEnemySprites(options.onWorldArtReady);
+  const enemyAssets = loadEnemySprites(MAP_ENEMY_SPRITE_GROUPS, options.onWorldArtReady);
   let actorShadowReady = false;
   const actorShadowSprite = loadActorShadowSprite(() => {
     actorShadowReady = true;
     options.onWorldArtReady();
   });
+  const ensureMapAssets = (mapId: MapId) => Promise.all([
+    preprocessedAssets.ensureMapAssets(mapId),
+    enemyAssets.ensureMapSprites(mapId),
+  ]).then(() => undefined);
+  const mapAssetsReady = (mapId: MapId) =>
+    preprocessedAssets.mapAssetsReady(mapId) && enemyAssets.mapSpritesReady(mapId);
+  const mapAssetLoadFailed = (mapId: MapId) =>
+    preprocessedAssets.mapAssetLoadFailed(mapId) || enemyAssets.mapSpriteLoadFailed(mapId);
   const assets = {
     ...preprocessedAssets,
-    worldArtReady: (mapId?: MapId) => preprocessedAssets.worldArtReady(mapId) && enemyAssets.ready() && actorShadowReady,
+    ensureMapAssets,
+    mapAssetLoadFailed,
+    mapAssetsReady,
+    worldArtReady: (mapId?: MapId) => {
+      if (mapId) void ensureMapAssets(mapId);
+      return preprocessedAssets.worldArtReady() && actorShadowReady && (!mapId || mapAssetsReady(mapId));
+    },
   };
   const playerAppearanceAssets = loadPlayerAppearanceAssets(options.onPlayerAppearanceAssetReady);
   return {
@@ -371,26 +385,8 @@ export function createGameBootstrapAssets(options: {
   };
 }
 
-type GameStartupAccountState = {
-  returningFromSignIn?: boolean;
-  signInRequired?: boolean;
-  signedIn?: boolean;
-  knownAccount?: boolean;
-  authInProgress?: boolean;
-  guestSessionApproved?: boolean;
-  gameSessionApproved?: boolean;
-};
-
-export function shouldShowGameStartupAccountChoice(account: GameStartupAccountState | undefined) {
-  if (hasApprovedGameSession(account) || account?.authInProgress || account?.returningFromSignIn) return false;
-  return Boolean(account?.signInRequired || !account?.knownAccount);
-}
-
 /** Runs one-time client startup after controllers have been composed. */
 export function startGameRuntime(options: {
-  accountState: () => GameStartupAccountState | undefined;
-  showAccountChoice: () => void;
-  showConnecting: () => void;
   loadProgress: () => void;
   rebuildWorld: () => void;
   camera: { x: number; y: number; zoom: number };
@@ -399,9 +395,6 @@ export function startGameRuntime(options: {
   render: () => void;
   loop: FrameRequestCallback;
 }) {
-  const account = options.accountState();
-  if (shouldShowGameStartupAccountChoice(account)) options.showAccountChoice();
-  else options.showConnecting();
   options.loadProgress();
   options.rebuildWorld();
   updateCamera(options.camera, options.player, options.viewport(), null, 1);

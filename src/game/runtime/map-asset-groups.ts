@@ -10,8 +10,9 @@ import {
   MOONFEN_MAP_ID,
   type MapId,
 } from "../world";
+import type { EnemyKind } from "../enemies";
 
-export type MapAssetGroup =
+export type MapArtAssetGroup =
   | "forestBoss"
   | "forestDecor"
   | "desertBoss"
@@ -26,15 +27,62 @@ export type MapAssetGroup =
   | "cloudspireBoss"
   | "moonfenBoss";
 
-/** Source-of-truth for art that should begin loading only when its map is needed. */
-export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
-  [TUTORIAL_FOREST_MAP_ID]: ["forestBoss", "forestDecor"],
-  [BEGINNER_DESERT_MAP_ID]: ["desertBoss"],
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: ["snowBoss", "snowDecor"],
-  [ADVANCED_LAVA_WASTES_MAP_ID]: ["lavaBoss", "lavaDecor"],
-  [INFERNAL_DEPTHS_MAP_ID]: ["nightBoss", "nightDecor"],
-  [WATER_REACH_MAP_ID]: ["waterBoss"],
-  [SAMURAI_GARDEN_MAP_ID]: ["samuraiBoss"],
-  [CLOUDSPIRE_MAP_ID]: ["cloudspireBoss"],
-  [MOONFEN_MAP_ID]: ["moonfenBoss"],
+export type MapAssetGroup = {
+  /** Boss and scenery images used only by this map. */
+  art: readonly MapArtAssetGroup[];
+  /** Regular-enemy render definitions that must be ready before this map appears. */
+  enemies: readonly EnemyKind[];
+};
+
+/** Source-of-truth for every image-backed asset that is gated by the active map. */
+export const MAP_ASSET_GROUPS = {
+  [TUTORIAL_FOREST_MAP_ID]: {
+    art: ["forestBoss", "forestDecor"],
+    enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
+  },
+  [BEGINNER_DESERT_MAP_ID]: {
+    art: ["desertBoss"],
+    enemies: ["Dune Raider", "Dune Archer", "Venom Guard", "Wastes Reaper", "Blight Oracle"],
+  },
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
+    art: ["snowBoss", "snowDecor"],
+    enemies: ["Frost Raider", "Glacier Archer", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"],
+  },
+  [ADVANCED_LAVA_WASTES_MAP_ID]: {
+    art: ["lavaBoss", "lavaDecor"],
+    enemies: ["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"],
+  },
+  [INFERNAL_DEPTHS_MAP_ID]: {
+    art: ["nightBoss", "nightDecor"],
+    enemies: ["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
+  },
+  [WATER_REACH_MAP_ID]: {
+    art: ["waterBoss"],
+    enemies: ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
+  },
+  [SAMURAI_GARDEN_MAP_ID]: {
+    art: ["samuraiBoss"],
+    enemies: ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+  },
+  [CLOUDSPIRE_MAP_ID]: {
+    art: ["cloudspireBoss"],
+    enemies: ["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
+  },
+  [MOONFEN_MAP_ID]: {
+    art: ["moonfenBoss"],
+    enemies: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
+  },
+} as const satisfies Record<MapId, MapAssetGroup>;
+
+/** Map-keyed view consumed by the regular-enemy image loader. */
+export const MAP_ENEMY_SPRITE_GROUPS: Record<MapId, readonly EnemyKind[]> = {
+  [TUTORIAL_FOREST_MAP_ID]: MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].enemies,
+  [BEGINNER_DESERT_MAP_ID]: MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].enemies,
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].enemies,
+  [ADVANCED_LAVA_WASTES_MAP_ID]: MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID].enemies,
+  [INFERNAL_DEPTHS_MAP_ID]: MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID].enemies,
+  [WATER_REACH_MAP_ID]: MAP_ASSET_GROUPS[WATER_REACH_MAP_ID].enemies,
+  [SAMURAI_GARDEN_MAP_ID]: MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID].enemies,
+  [CLOUDSPIRE_MAP_ID]: MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].enemies,
+  [MOONFEN_MAP_ID]: MAP_ASSET_GROUPS[MOONFEN_MAP_ID].enemies,
 };

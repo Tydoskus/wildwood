@@ -9,6 +9,7 @@ import {
 import { startStartupArtworkReveal } from "./startup-artwork-reveal";
 import { createStartupReleaseNotes } from "./startup-release-notes";
 import { createStartupMusicToggle } from "./startup-music-toggle";
+import type { StartupStageTimer } from "./services/startup-telemetry";
 
 type StartupBootstrapDependencies = {
   restoreKnownAccount: () => Promise<void>;
@@ -19,6 +20,7 @@ type StartupBootstrapDependencies = {
   legalConsentAccepted: () => boolean;
   acceptLegalTerms: (age: number) => Promise<StartupActionResult> | StartupActionResult;
   subscribe: (listener: () => void) => () => void;
+  beginTelemetryStage?: (stage: "game-bundle") => StartupStageTimer;
 };
 
 /** Keeps the account/consent shell independent from the deferred game bundle. */
@@ -33,9 +35,16 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
     ...dependencies,
     loadGame: async () => {
       gameBundleRequested = true;
-      await loadDeferredGameBundle();
-      artworkReveal.dispose();
-      musicToggle.dispose();
+      const telemetry = dependencies.beginTelemetryStage?.("game-bundle");
+      try {
+        await loadDeferredGameBundle();
+        telemetry?.finish();
+        artworkReveal.dispose();
+        musicToggle.dispose();
+      } catch (error) {
+        telemetry?.finish("failure", "bundle-load-error");
+        throw error;
+      }
     },
     releaseNotes,
   }).start();

@@ -92,7 +92,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     clearPlayerInput: d.clearPlayerInput,
     resetGame: d.resetGame,
     stopGame: d.stopGame,
-    startConnecting: d.startConnecting,
+    restartStartup: d.restartStartup,
     hideGameOver: d.hideGameOver,
     refreshFrameClock: d.refreshFrameClock,
     escapeWindows: {

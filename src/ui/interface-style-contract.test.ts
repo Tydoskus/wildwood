@@ -10,6 +10,8 @@ const html = `${entryHtml}\n${gameShell}`;
 const coopEntry = readFileSync(new URL("../wildstat-coop.ts", import.meta.url), "utf8");
 const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
 const chatController = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
+const signInAuthDetect = readFileSync(new URL("../../public/assets/wildstat/signin-auth-detect.js", import.meta.url), "utf8");
+const signInAuthShell = readFileSync(new URL("../../public/assets/wildstat/signin-auth-shell.js", import.meta.url), "utf8");
 
 function cssRule(selector: string) {
   const selectorIndex = css.indexOf(selector);
@@ -357,7 +359,10 @@ describe("interface style contracts", () => {
     expect(css).toContain("height: calc(100dvh + 30px)");
     expect(css).not.toContain("--signin-preview");
     expect(css).toContain("var(--signin-artwork, none)");
-    expect(html).toContain('classList.add("signin-auth-return")');
+    expect(entryHtml).toContain(`src="assets/wildstat/signin-auth-detect.js?v=${releaseVersion}"`);
+    expect(entryHtml).toContain(`src="assets/wildstat/signin-auth-shell.js?v=${releaseVersion}"`);
+    expect(signInAuthDetect).toContain('classList.add("signin-auth-return")');
+    expect(signInAuthShell).toContain('textContent = "Verifying Sign-In"');
     expect(css).toContain("html.signin-auth-return #start");
     expect(css).toContain("background-image: none");
     expect(css).toContain("#start::before");
@@ -411,6 +416,14 @@ describe("interface style contracts", () => {
     expect(cssRule(".wildstat-wordmark-frame {")).not.toContain("overflow: hidden");
     expect(cssRule(".wildstat-wordmark-frame img {")).toContain("object-fit: contain");
     expect(cssRule(".wildstat-wordmark-frame img {")).not.toContain("position: absolute");
+  });
+
+  it("locks executable startup code to this origin and limits realtime connections", () => {
+    expect(entryHtml).toContain('http-equiv="Content-Security-Policy"');
+    expect(entryHtml).toContain("script-src 'self'; script-src-attr 'none'");
+    expect(entryHtml).toContain("connect-src 'self' https://auth.spacetimedb.com https://maincloud.spacetimedb.com wss://maincloud.spacetimedb.com ws://*:3000");
+    expect(entryHtml).not.toContain(" wss: ");
+    expect(entryHtml).toContain('<meta name="referrer" content="no-referrer"');
   });
 
   it("uses opaque WildStat Home Screen and multi-resolution browser icons", () => {

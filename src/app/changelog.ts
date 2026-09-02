@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.592": [
+    "Startup now follows one consistent state flow through sign-in, account recovery, connection retries, and game entry.",
+    "Added privacy-safe timing and fixed-category diagnostics for authentication, connection, world sync, and asset failures.",
+    "Hardened account sign-in with nonce and signed ID-token validation plus a restrictive browser security policy.",
+    "Reduced startup downloads by loading only the active map's enemy, boss, and scenery art; later maps and duel art load when needed.",
+  ],
   "0.591": [
     "Corrected the game name capitalization to WildStat across installed-app metadata and player-facing text.",
   ],
@@ -1349,6 +1355,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.592": "2026-09-02",
   "0.591": "2026-09-02",
   "0.590": "2026-09-02",
   "0.589": "2026-09-02",

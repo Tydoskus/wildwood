@@ -23,6 +23,16 @@ import { TERMS_VERSION, isEligiblePlayerAgeBand } from "../../shared/legal";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import {
+  STARTUP_TELEMETRY_MAX_BATCH,
+  normalizeStartupTelemetrySample,
+} from "../../shared/startup-telemetry";
+import {
+  STARTUP_TELEMETRY_MAX_ROWS,
+  STARTUP_TELEMETRY_RATE_WINDOW_MICROS,
+  nextStartupTelemetryRateState,
+  startupTelemetryIdsToDelete,
+} from "./startup-telemetry-policy";
+import {
   dragonBossTables,
   frostclawBossTables,
   gloomrootBossTables,
@@ -1164,6 +1174,43 @@ const bugReport = table(
   },
 );
 
+// Operational startup samples are intentionally anonymous at rest. The
+// private rate row temporarily retains sender identity only to bound abuse.
+const startupTelemetryEvent = table(
+  { name: "startup_telemetry_event", public: false },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    stage: t.string(),
+    outcome: t.string(),
+    issueCode: t.string(),
+    durationMs: t.u32(),
+    attempt: t.u16(),
+    clientVersion: t.string(),
+    protocolVersion: t.u32(),
+    connectivity: t.string(),
+    recordedAt: t.timestamp(),
+  },
+);
+
+const startupTelemetryRateLimit = table(
+  { name: "startup_telemetry_rate_limit", public: false },
+  {
+    sender: t.identity().primaryKey(),
+    windowStartedAt: t.timestamp(),
+    sampleCount: t.u8(),
+  },
+);
+
+const StartupTelemetrySample = t.object("StartupTelemetrySample", {
+  stage: t.string(),
+  outcome: t.string(),
+  issueCode: t.string(),
+  durationMs: t.u32(),
+  attempt: t.u16(),
+  clientVersion: t.string(),
+  connectivity: t.string(),
+});
+
 const duel = table(
   {
     public: true,
@@ -1469,6 +1516,8 @@ const spacetimedb = schema({
   chatMessageReport,
   chatMessageReportRateLimit,
   bugReport,
+  startupTelemetryEvent,
+  startupTelemetryRateLimit,
   duel,
   duelReplay,
   ...dragonBossTables,
@@ -4874,6 +4923,31 @@ function clearExpiredHistory(ctx: any) {
   trimChatHistory(ctx);
 }
 
+function trimStartupTelemetry(ctx: ModuleReducerCtx, incomingRows = 0) {
+  const rows = [...ctx.db.startupTelemetryEvent.iter()]
+    .map((row) => ({ id: row.id, recordedAtMicros: row.recordedAt.microsSinceUnixEpoch }));
+  const retainedCapacity = Math.max(0, STARTUP_TELEMETRY_MAX_ROWS - incomingRows);
+  for (const id of startupTelemetryIdsToDelete(
+    rows,
+    ctx.timestamp.microsSinceUnixEpoch,
+    retainedCapacity,
+  )) {
+    ctx.db.startupTelemetryEvent.id.delete(id);
+  }
+}
+
+function clearExpiredStartupTelemetryRateLimits(ctx: ModuleReducerCtx) {
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const expiredSenders: Identity[] = [];
+  for (const rate of ctx.db.startupTelemetryRateLimit.iter()) {
+    const startedAt = rate.windowStartedAt.microsSinceUnixEpoch;
+    if (now < startedAt || now - startedAt >= STARTUP_TELEMETRY_RATE_WINDOW_MICROS) {
+      expiredSenders.push(rate.sender);
+    }
+  }
+  for (const sender of expiredSenders) ctx.db.startupTelemetryRateLimit.sender.delete(sender);
+}
+
 function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   const session = requireSupportedSessionProtocol(ctx);
   requireCurrentLegalConsent(ctx);
@@ -5184,6 +5258,8 @@ export const runMaintenance = spacetimedb.reducer(
     for (const current of finishedDuels) finishDuel(ctx, current);
     clearExpiredDuelRequests(ctx);
     clearExpiredHistory(ctx);
+    trimStartupTelemetry(ctx);
+    clearExpiredStartupTelemetryRateLimits(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
     clearOrphanRealtimeState(ctx);
@@ -6160,6 +6236,49 @@ export const registerProtocol = spacetimedb.reducer(
     if (activeResearch) reconcileActiveResearch(ctx, activeResearch);
     for (const { slot, active } of activeItemUpgradeEntriesFor(ctx, ctx.sender)) {
       reconcileActiveItemUpgrade(ctx, active, slot);
+    }
+  },
+);
+
+export const recordStartupTelemetry = spacetimedb.reducer(
+  { samples: t.array(StartupTelemetrySample) },
+  (ctx, { samples }) => {
+    const session = requireSupportedSessionProtocol(ctx);
+    const normalized = samples
+      .slice(0, STARTUP_TELEMETRY_MAX_BATCH)
+      .map(normalizeStartupTelemetrySample)
+      .filter((sample) => sample !== null);
+    if (!normalized.length) return;
+
+    const currentRate = ctx.db.startupTelemetryRateLimit.sender.find(ctx.sender);
+    const nextRate = nextStartupTelemetryRateState(
+      ctx.timestamp.microsSinceUnixEpoch,
+      normalized.length,
+      currentRate
+        ? {
+          windowStartedAtMicros: currentRate.windowStartedAt.microsSinceUnixEpoch,
+          sampleCount: currentRate.sampleCount,
+        }
+        : undefined,
+    );
+    if (nextRate.acceptedCount <= 0) return;
+
+    const rateRow = {
+      sender: ctx.sender,
+      windowStartedAt: new Timestamp(nextRate.windowStartedAtMicros),
+      sampleCount: nextRate.sampleCount,
+    };
+    if (currentRate) ctx.db.startupTelemetryRateLimit.sender.update(rateRow);
+    else ctx.db.startupTelemetryRateLimit.insert(rateRow);
+
+    trimStartupTelemetry(ctx, nextRate.acceptedCount);
+    for (const sample of normalized.slice(0, nextRate.acceptedCount)) {
+      ctx.db.startupTelemetryEvent.insert({
+        id: 0n,
+        ...sample,
+        protocolVersion: session.protocolVersion,
+        recordedAt: ctx.timestamp,
+      });
     }
   },
 );

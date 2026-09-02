@@ -10,6 +10,8 @@ export const DUEL_COMBAT_Y = DUEL_ARENA.y - 60;
 export const DUEL_REPLAY_COUNTDOWN_SECONDS = 3;
 export const DUEL_SHOT_LIFETIME = 0.38;
 export const DUEL_SHOT_SPEED = PLAYER_PROJECTILE_SPEED;
+export const DUEL_SPACE_BACKGROUND_SOURCE = "assets/wildstat/duel-space-background-v1.png";
+export const DUEL_PLATFORM_ART_SOURCE = "assets/wildstat/duel-floating-platform-v1.png";
 
 function loadDuelImage(source: string, onSettled?: () => void) {
   const image = new Image();
@@ -22,11 +24,11 @@ function loadDuelImage(source: string, onSettled?: () => void) {
 }
 
 export function loadDuelSpaceBackground(onSettled?: () => void) {
-  return loadDuelImage("assets/wildstat/duel-space-background-v1.png", onSettled);
+  return loadDuelImage(DUEL_SPACE_BACKGROUND_SOURCE, onSettled);
 }
 
 export function loadDuelPlatformArt(onSettled?: () => void) {
-  return loadDuelImage("assets/wildstat/duel-floating-platform-v1.png", onSettled);
+  return loadDuelImage(DUEL_PLATFORM_ART_SOURCE, onSettled);
 }
 
 type ReplayCombatantFields = {

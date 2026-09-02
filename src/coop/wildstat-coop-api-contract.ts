@@ -14,6 +14,7 @@ type ExpectedApiKey =
   | "activePlayerMap"
   | "activeResearch"
   | "balanceApologyGiftAmount"
+  | "beginStartupTelemetryStage"
   | "beginAdventure"
   | "bossTargets"
   | "bugReportEntries"
