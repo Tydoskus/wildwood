@@ -405,10 +405,10 @@ describe("interface style contracts", () => {
     const accountChoiceLogo = cssRule("#accountChoicePanel .wildstat-wordmark-title {");
     expect(accountChoiceLogo).toContain("opacity: 1");
     expect(accountChoiceLogo).not.toContain("transition:");
-    expect(css).toContain("0%, 100% { transform: translateY(-20%); }");
-    expect(css).toContain("50% { transform: translateY(calc(-20% - 8px)); }");
-    expect(cssRule(".account-choice-modal .account-beta-note {")).toContain("color: #fff");
-    expect(cssRule(".account-choice-modal .account-character {")).toContain("color: #fff");
+    expect(css).toContain("0%, 100% { transform: translateY(calc(-10% + 8px)); }");
+    expect(css).toContain("50% { transform: translateY(-10%); }");
+    expect(cssRule(".account-choice-modal p.account-beta-note {")).toContain("color: #fff");
+    expect(cssRule(".account-choice-modal p.account-character {")).toContain("color: #fff");
     expect(cssRule(".account-choice-modal button {")).toContain("min-height: 70px");
     expect(cssRule(".account-choice-modal button {")).toContain("border-radius: 999px");
     expect(cssRule(".account-choice-modal #signInFromStartBtn {")).toContain("background: linear-gradient(180deg, #82ea03 0%, #12ca02 52%, #019304 100%)");

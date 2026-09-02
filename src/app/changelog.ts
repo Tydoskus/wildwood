@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.597": [
+    "Kept the animated sign-in logo fully visible and restored bright white beta and character labels.",
+  ],
   "0.596": [
     "Refined the sign-in screen with a better-balanced logo position and pill-shaped authentication buttons.",
   ],
@@ -1369,6 +1372,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.597": "2026-09-02",
   "0.596": "2026-09-02",
   "0.595": "2026-09-02",
   "0.594": "2026-09-02",

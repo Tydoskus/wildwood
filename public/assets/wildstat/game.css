@@ -1979,8 +1979,8 @@
   }
 
   @keyframes signin-logo-float {
-    0%, 100% { transform: translateY(-20%); }
-    50% { transform: translateY(calc(-20% - 8px)); }
+    0%, 100% { transform: translateY(calc(-10% + 8px)); }
+    50% { transform: translateY(-10%); }
   }
 
   .welcome-wordmark-title {
@@ -2001,9 +2001,9 @@
     line-height: 1.55;
   }
 
-  .account-choice-modal .account-beta-note { color: #fff; font-size: 14px; }
+  .account-choice-modal p.account-beta-note { color: #fff; font-size: 14px; }
 
-  .account-choice-modal .account-character {
+  .account-choice-modal p.account-character {
     margin: 16px 0 4px;
     color: #fff;
     font-size: 13px;
