@@ -99,7 +99,7 @@ import {
     toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
-    playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
+    playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileEquippedHeadSlot, profileEquippedChestSlot, profileEquippedFeetSlot, profileEquippedRightHandSlot, profileEquippedLeftHandSlot, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl, reconnectDetailEl, reconnectRetryBtn,
@@ -1148,7 +1148,7 @@ import {
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel,
     joined: profileJoinedEl, timePlayed: profileTimePlayedEl, kills: profileKillsEl, online: profileOnlineEl, statGrid: profileStatGrid,
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
-    skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
+    skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, equipmentHead: profileEquippedHeadSlot, equipmentChest: profileEquippedChestSlot, equipmentFeet: profileEquippedFeetSlot, equipmentRightHand: profileEquippedRightHandSlot, equipmentLeftHand: profileEquippedLeftHandSlot, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn, developerEdit: profileEditPanel, developerEditButton: editPlayerSaveBtn,
     editNameInput: profileEditName, editMaxHp: profileEditMaxHp, editDamage: profileEditDamage, editAttackRate: profileEditAttackRate, editArmor: profileEditArmor, editRegen: profileEditRegen, editSpeed: profileEditSpeed, editAttackRange: profileEditAttackRange, editProjectileSpeed: profileEditProjectileSpeed, editProjectileCount: profileEditProjectileCount,
     cancelDeveloperEdit: cancelPlayerSaveEditBtn, saveDeveloperEdit: savePlayerSaveEditBtn,
@@ -1174,7 +1174,7 @@ import {
       minimizeMaximizedChat();
       return coop?.requestDuel?.(identity);
     },
-    isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), showMessage,
+    isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), itemInspection: itemInspectionController, showMessage,
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
   new ResizeObserver(() => {

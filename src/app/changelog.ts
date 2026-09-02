@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.594": [
+    "Upgraded the sign-in screen with a sharper 4K WebP forest backdrop and refined login controls.",
+    "Added equipment slots to player profiles so worn gear and cosmetics can be viewed and inspected.",
+  ],
   "0.593": [
     "Fixed Connection Setup Failed after the security update by allowing the runtime schema compiler required by SpacetimeDB while continuing to block inline and third-party scripts.",
   ],
@@ -1358,6 +1362,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.594": "2026-09-02",
   "0.592": "2026-09-02",
   "0.591": "2026-09-02",
   "0.590": "2026-09-02",

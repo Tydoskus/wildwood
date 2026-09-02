@@ -325,11 +325,18 @@
     gap: var(--inventory-grid-gap);
     min-height: 0;
     padding: 7px;
-    border: 2px solid rgba(255,255,255,.22);
-    border-radius: 10px;
-    background: #369b5b;
-    box-shadow: inset 0 0 0 2px rgba(0,0,0,.34), 0 5px 0 rgba(0,0,0,.2);
   }
+
+  .character-loadout-preview {
+    border: 2px solid #000;
+    border-radius: 7px;
+    outline: 1px solid #000;
+    outline-offset: -3px;
+    background: #31945b;
+    box-shadow: none;
+  }
+
+  canvas.character-preview-canvas { position: absolute; z-index: 0; inset: 0; display: block; width: 100%; height: 100%; border-radius: 3px; background: #31945b; image-rendering: pixelated; pointer-events: none; }
 
   .equipment-slot {
     position: relative;
@@ -377,8 +384,7 @@
   .slot-right-hand { grid-column: 3; grid-row: 1; }
   .slot-left-hand { grid-column: 3; grid-row: 2; }
 
-  .inventory-character-stage { position: relative; grid-column: 2; grid-row: 1 / span 3; min-width: 0; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: #369b5b; box-shadow: none; }
-  canvas#inventoryCharacterCanvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: #369b5b; image-rendering: pixelated; pointer-events: none; }
+  .inventory-character-stage { position: relative; grid-column: 2; grid-row: 1 / span 3; min-width: 0; min-height: 0; overflow: hidden; border: 0; border-radius: 3px; background: #31945b; box-shadow: none; }
   .bag-section { position: relative; display: grid; grid-column: 2; grid-row: 1; grid-template-rows: auto minmax(0, 1fr); container-type: inline-size; align-self: stretch; min-width: 0; min-height: 0; margin: 0; padding: 7px; overflow: hidden; border: 2px solid rgba(255,255,255,.16); border-radius: 8px; background: rgba(9,14,11,.58); box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
   .inventory-section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: #f2f4ef; font-size: var(--font-readable-label); font-weight: 900; letter-spacing: .06em; }
   .inventory-items { display: grid; grid-template-columns: repeat(4, var(--inventory-slot-size)); grid-auto-flow: row; grid-auto-rows: var(--inventory-slot-row-size); align-content: start; align-items: start; justify-content: center; gap: var(--inventory-grid-gap); min-height: 0; padding-bottom: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
@@ -1969,7 +1975,7 @@
 
   .account-choice-modal #signInFromStartBtn {
     border-color: #045801;
-    background: linear-gradient(180deg, #73e504 0%, #12ca02 52%, #01b805 100%);
+    background: linear-gradient(180deg, #bce891 0%, #12ca02 52%, #019304 100%);
     box-shadow:
       inset 1px 2px 3px rgba(255, 255, 255, .72),
       0 3px 0 #035701,
@@ -2228,7 +2234,8 @@
     100% { opacity: 0; transform: translate(-50%, -8px); }
   }
   #playerProfile { padding: 5px; }
-  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; text-align: left; }
+  /* Counter half of the preview's rendered growth so the centered window's bottom edge does not move down. */
+  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; text-align: left; transform: translateY(-28px); }
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
@@ -2245,13 +2252,27 @@
   #playerProfilePower { margin-left: auto; font-size: 11px; white-space: nowrap; text-align: right; }
   .power-label { color: var(--gold); }
   .power-value { color: #fff; }
-  .profile-character-preview { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-content: center; align-items: center; min-height: 88px; margin: 5px 0 2px; overflow: visible; border: 2px solid #000; border-radius: 7px; outline: 1px solid #000; outline-offset: -3px; background: #31945b; }
-  canvas.profile-character-canvas { position: static; z-index: 0; inset: auto; display: block; width: 100%; height: 88px; border-radius: 5px; background: #31945b; image-rendering: pixelated; }
+  .profile-character-preview { --inventory-line: rgba(255,255,255,.17); --inventory-muted: #aebcaf; position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr) 54px; grid-template-rows: repeat(3, 44px); justify-content: center; align-items: stretch; gap: 2px 4px; height: 148px; min-height: 148px; margin: 5px 0 2px; padding: 4px; overflow: visible; }
+  .profile-character-stage { position: relative; grid-column: 2; grid-row: 1 / span 3; min-width: 0; min-height: 0; overflow: visible; border-radius: 3px; background: #31945b; }
+  .profile-equipment-slot { grid-template-rows: 12px minmax(0, 1fr); gap: 1px; height: 44px; min-height: 44px; aspect-ratio: auto; padding: 2px; border-radius: 5px; cursor: pointer; }
+  .profile-equipment-slot.is-equipped { cursor: pointer; }
+  .profile-equipment-slot:disabled { cursor: default; opacity: .72; }
+  .profile-equipment-slot .equipment-slot-label { font-size: 7px; }
+  .profile-equipment-slot .equipment-slot-name { display: none; }
+  .profile-equipment-slot .inventory-item-art { max-width: 30px; max-height: 23px; }
+  .profile-equipment-slot .boot-pixel-icon { transform: scale(.82); }
+  .profile-equipment-slot .inventory-upgrade-level { top: auto; right: 1px; bottom: 1px; min-width: 16px; padding: 1px 2px; font-size: 7px; }
+  .profile-equipment-slot.is-cosmetic { border-color: #d990bc; background: linear-gradient(#43283a, #24151f); }
+  .profile-equipment-slot.is-cosmetic-hidden .equipment-slot-art > .inventory-item-art { opacity: .4; filter: grayscale(.45); }
+  .profile-equipment-hidden-mark { position: absolute; top: 58%; left: 50%; width: 31px; height: 2px; border-radius: 999px; background: #e49a9f; box-shadow: 0 1px 0 #111; transform: translate(-50%, -50%) rotate(-36deg); }
   .player-sprite-selector { display: grid; place-items: center; width: 23px; min-width: 23px; height: 31px; margin: 0 auto; padding: 0; border: 2px solid #000; border-radius: 4px; background: #fff; }
   .player-sprite-selector[hidden] { display: none; }
   .player-sprite-selector span { width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
   .player-sprite-selector.previous span { border-right: 10px solid #111; }
   .player-sprite-selector.next span { border-left: 10px solid #111; }
+  .profile-character-stage .player-sprite-selector { position: absolute; z-index: 2; top: 50%; margin: 0; transform: translateY(-50%); }
+  .profile-character-stage .player-sprite-selector.previous { left: 5px; }
+  .profile-character-stage .player-sprite-selector.next { right: 5px; }
   .player-sprite-selector:active { transform: none; box-shadow: inset 0 0 0 999px rgba(0,0,0,.12); }
   .profile-skin-tone-edit { position: absolute; z-index: 2; top: 6px; right: 6px; display: grid; place-items: center; width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid #000; border-radius: 4px; background: #fff; color: #111; font: 900 13px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-skin-tone-edit[hidden], .profile-skin-tone[hidden] { display: none; }
@@ -2657,7 +2678,7 @@
     .player-profile-modal .profile-stat-sources { gap: 5px; }
     .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .profile-edit-button { margin-top: 5px; padding: 4px 7px; font-size: 8px; }
-    .modal.leaderboard-modal { padding: max(9px, env(safe-area-inset-top)) max(9px, env(safe-area-inset-right)) 9px max(9px, env(safe-area-inset-left)); }
+    .modal.leaderboard-modal { padding: max(9px, env(safe-area-inset-top)) max(9px, env(safe-area-inset-right)) 0 max(9px, env(safe-area-inset-left)); }
     .leaderboard-tabs { margin: 4px 0 3px; }
     .leaderboard-tabs .profile-tab { padding: 3px 8px; font-size: 9px; }
     .leaderboard-podium { min-height: 124px; margin-bottom: 3px; padding: 3px 3px 0; }

@@ -1,6 +1,13 @@
 import type { PlayerProfileData } from "../wildstat-coop";
 import { PLAYER_GENDER_UNSET, isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
+import type { EquipmentSlot } from "../../shared/items";
 import { appendPlayerGenderIcon } from "./player-gender";
+import type { ItemInspectionController } from "./item-inspection-controller";
+import {
+  PROFILE_EQUIPMENT_SLOTS,
+  profileEquipmentPresentation,
+  renderProfileEquipmentSlot,
+} from "./profile-equipment";
 
 export type ProfileTab = "overview" | "stats";
 type Profile = PlayerProfileData;
@@ -11,7 +18,7 @@ export function createProfileWindowController(elements: {
   overviewTab: HTMLElement; statsTab: HTMLElement; overviewPanel: HTMLElement; statsPanel: HTMLElement;
   joined: HTMLElement; timePlayed: HTMLElement; kills: HTMLElement; online: HTMLElement; statGrid: HTMLElement;
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
-  skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
+  skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; equipmentLeftHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
   duel: HTMLButtonElement; developerEdit: HTMLElement; developerEditButton: HTMLElement;
   editNameInput: HTMLInputElement; editMaxHp: HTMLInputElement; editDamage: HTMLInputElement; editAttackRate: HTMLInputElement; editArmor: HTMLInputElement; editRegen: HTMLInputElement; editSpeed: HTMLInputElement; editAttackRange: HTMLInputElement; editProjectileSpeed: HTMLInputElement; editProjectileCount: HTMLInputElement;
   cancelDeveloperEdit: HTMLElement; saveDeveloperEdit: HTMLButtonElement;
@@ -24,10 +31,18 @@ export function createProfileWindowController(elements: {
   profile: (identity: string) => Profile | null | undefined; loadProfile: (identity: string) => Promise<Profile | null | undefined>; releaseProfile: () => void;
   isDeveloper: () => boolean; isDueling: () => boolean; duelCooldownMs: () => number; requestDuel: (identity: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
   isNameTaken: (name: string) => boolean; setDisplayName: (name: string) => Promise<{ ok?: boolean; error?: string } | undefined>; updateSave: (identity: string, save: SavePatch) => Promise<{ ok?: boolean; error?: string } | undefined>;
+  itemInspection: ItemInspectionController;
   showMessage: (text: string, color: string) => void;
 }) {
   let identity = "";
   let profileData: Profile | null = null;
+  const equipmentElements: Record<EquipmentSlot, HTMLButtonElement> = {
+    HEAD: elements.equipmentHead,
+    CHEST: elements.equipmentChest,
+    FEET: elements.equipmentFeet,
+    RIGHT_HAND: elements.equipmentRightHand,
+    LEFT_HAND: elements.equipmentLeftHand,
+  };
 
   function selectTab(tab: ProfileTab) {
     const overview = tab === "overview";
@@ -76,6 +91,28 @@ export function createProfileWindowController(elements: {
     api.renderCharacter(elements.preview.dataset.identity || "", progress, !elements.window.hidden);
   }
 
+  function renderEquipment(profile: Profile | null) {
+    for (const slot of PROFILE_EQUIPMENT_SLOTS) {
+      const presentation = profileEquipmentPresentation(profile?.progress ?? null, slot);
+      renderProfileEquipmentSlot(
+        equipmentElements[slot],
+        presentation,
+        presentation.inspectionItemId ? profile?.itemUpgradeLevels[presentation.inspectionItemId] ?? 0 : 0,
+      );
+    }
+  }
+
+  function inspectEquipment(slot: EquipmentSlot) {
+    if (!profileData) return;
+    const presentation = profileEquipmentPresentation(profileData.progress, slot);
+    if (!presentation.inspectionItemId) return;
+    api.itemInspection.open({
+      itemId: presentation.inspectionItemId,
+      upgradeLevel: profileData.itemUpgradeLevels[presentation.inspectionItemId] ?? 0,
+      context: presentation.context,
+    });
+  }
+
   function updatePreview(target: string, ownProfile: boolean) {
     const changed = elements.preview.dataset.identity !== target;
     elements.preview.dataset.identity = target;
@@ -109,6 +146,7 @@ export function createProfileWindowController(elements: {
     elements.genderSetting.hidden = !own;
     if (own) updateGenderChoices(profile.gender);
     else closeGenderChoices();
+    renderEquipment(profile);
     updatePreview(profile.identity, own);
     renderPower(api.formatPower(profile));
     elements.duel.hidden = own; elements.duel.dataset.identity = own ? "" : profile.identity; updateDuelButton();
@@ -130,13 +168,13 @@ export function createProfileWindowController(elements: {
     elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
-    updatePreview(nextIdentity, own); renderPower("—"); elements.loading.hidden = false; elements.overviewPanel.hidden = true; elements.statsPanel.hidden = true; selectTab("stats"); elements.statsPanel.hidden = true;
+    renderEquipment(null); updatePreview(nextIdentity, own); renderPower("—"); elements.loading.hidden = false; elements.overviewPanel.hidden = true; elements.statsPanel.hidden = true; selectTab("stats"); elements.statsPanel.hidden = true;
     const cached = api.profile(nextIdentity); if (cached) { render(cached); return; }
     const loaded = await api.loadProfile(nextIdentity); if (nextIdentity !== identity) return; if (loaded) render(loaded); else elements.loading.textContent = "PLAYER DATA UNAVAILABLE";
   }
 
   function close() {
-    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.window.hidden = true; elements.guest.hidden = true; identity = ""; profileData = null; elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
+    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.window.hidden = true; elements.guest.hidden = true; identity = ""; profileData = null; renderEquipment(null); elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
   }
 
   function openNameEditor() {
@@ -168,6 +206,7 @@ export function createProfileWindowController(elements: {
   }
 
   elements.overviewTab.addEventListener("click", () => selectTab("overview")); elements.statsTab.addEventListener("click", () => selectTab("stats"));
+  for (const slot of PROFILE_EQUIPMENT_SLOTS) equipmentElements[slot].addEventListener("click", () => inspectEquipment(slot));
   elements.close.addEventListener("click", close); elements.editName.addEventListener("click", openNameEditor); elements.nameEditor.addEventListener("click", (event) => { if (event.target === elements.nameEditor) closeNameEditor(); }); elements.nameForm.addEventListener("submit", (event) => void saveName(event));
   elements.skinEdit.addEventListener("click", () => { if (identity !== api.localIdentity()) return; closeGenderChoices(); elements.skinChoices.hidden = !elements.skinChoices.hidden; });
   elements.skinChoices.addEventListener("click", async (event) => { const choice = (event.target as Element).closest<HTMLButtonElement>(".profile-skin-tone-choice"); if (!choice || identity !== api.localIdentity()) return; const value = Number(choice.dataset.skinTone); if (!Number.isInteger(value)) return; const result = await api.setSkinTone(value); if (!result?.ok) { api.showMessage(result?.error || "SKIN TONE UPDATE FAILED", "#ff9b91"); updateSkinChoices(api.skinTone()); return; } updateSkinChoices(value); elements.skinChoices.hidden = true; drawPreview(); api.showMessage("SKIN TONE UPDATED", "#72ef58"); });

@@ -307,6 +307,40 @@ describe("interface style contracts", () => {
     expect(back).toContain("background: linear-gradient(#c85050, #842f34)");
   });
 
+  it("uses matching profile and inventory paper dolls with inspectable profile gear", () => {
+    expect(entryHtml).toContain('class="inventory-loadout character-loadout-preview"');
+    expect(entryHtml).toContain('id="inventoryCharacterCanvas" class="character-preview-canvas"');
+    expect(gameShell).toContain('class="profile-character-preview character-loadout-preview"');
+    expect(gameShell).toContain('id="profileCharacterCanvas" class="profile-character-canvas character-preview-canvas"');
+    for (const id of [
+      "profileEquippedHeadSlot",
+      "profileEquippedChestSlot",
+      "profileEquippedFeetSlot",
+      "profileEquippedRightHandSlot",
+      "profileEquippedLeftHandSlot",
+    ]) {
+      expect(gameShell).toContain(`id="${id}" class="equipment-slot profile-equipment-slot`);
+    }
+    const preview = cssRule(".profile-character-preview {");
+    expect(preview).toContain("height: 148px");
+    expect(preview).toContain("grid-template-rows: repeat(3, 44px)");
+    const sharedPreview = cssRule(".character-loadout-preview {");
+    expect(sharedPreview).toContain("border: 2px solid #000");
+    expect(sharedPreview).toContain("background: #31945b");
+    expect(cssRule("canvas.character-preview-canvas {")).toContain("height: 100%");
+    expect(cssRule(".modal.player-profile-modal {")).toContain("transform: translateY(-28px)");
+    expect(cssRule(".profile-equipment-slot {")).toContain("height: 44px");
+  });
+
+  it("keeps the leaderboard Back footer flush with the bottom edge on mobile", () => {
+    const leaderboardRules = [...css.matchAll(/\.modal\.leaderboard-modal\s*\{([^}]+)\}/g)].map((match) => match[1]);
+
+    expect(leaderboardRules).toHaveLength(2);
+    for (const rule of leaderboardRules) {
+      expect(rule).toMatch(/padding:\s*max\([^;]+\)\s+max\([^;]+\)\s+0\s+max\([^;]+\);/);
+    }
+  });
+
   it("frames the health bar with a rounded two-tone track and fill", () => {
     const track = cssRule(".bar {");
     const fill = cssRule("#hpFill {");
@@ -344,13 +378,13 @@ describe("interface style contracts", () => {
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {
     expect(html).toContain('name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"');
-    expect(html).toContain(`<meta data-signin-artwork content="assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}"`);
-    expect(html).not.toContain(`<link rel="preload" as="image" href="assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}"`);
+    expect(html).toContain(`<meta data-signin-artwork content="assets/wildstat/signin/signin-progression-mobile-4k-v3.webp?v=${releaseVersion}"`);
+    expect(html).not.toContain(`<link rel="preload" as="image" href="assets/wildstat/signin/signin-progression-mobile-4k-v3.webp?v=${releaseVersion}"`);
     const artworkUrl = entryHtml.match(/--signin-artwork: url\("([^"]+)"\)/)?.[1];
-    expect(artworkUrl).toBe(`signin/signin-progression-mobile-v2.png?v=${releaseVersion}`);
+    expect(artworkUrl).toBe(`signin/signin-progression-mobile-4k-v3.webp?v=${releaseVersion}`);
     for (const base of ["https://example.test/", "https://example.test/wildwood/"]) {
       const stylesheetUrl = new URL("assets/wildstat/game.css", base);
-      const descriptorUrl = new URL(`assets/wildstat/signin/signin-progression-mobile-v2.png?v=${releaseVersion}`, base);
+      const descriptorUrl = new URL(`assets/wildstat/signin/signin-progression-mobile-4k-v3.webp?v=${releaseVersion}`, base);
       expect(new URL(artworkUrl!, stylesheetUrl).href).toBe(descriptorUrl.href);
     }
     expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
@@ -372,7 +406,7 @@ describe("interface style contracts", () => {
     expect(accountChoiceLogo).toContain("opacity: 1");
     expect(accountChoiceLogo).not.toContain("transition:");
     expect(css).not.toContain("html.signin-artwork-ready #accountChoicePanel .wildstat-wordmark-title");
-    expect(css).not.toContain('url("signin/signin-progression-mobile-v2.png")');
+    expect(css).not.toContain('url("signin/signin-progression-mobile-4k-v3.webp")');
     const stableStartupWindow = cssRule(".modal.connection-modal,\n  .modal.account-choice-modal,\n  .modal.legal-gate-modal {");
     expect(stableStartupWindow).toContain("top: 50dvh");
     expect(stableStartupWindow).toContain("transform: translate(-50%, -50%)");
