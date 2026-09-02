@@ -160,6 +160,34 @@ export function paintStaticTile(
       context.fill();
       context.fillStyle = "rgba(255,255,255,.55)";
       context.beginPath(); context.moveTo(x, y - height); context.lineTo(x, y - height * .18); context.lineTo(x - width * .42, y); context.closePath(); context.fill();
+    } else if (decor.type === "glowMushroom") {
+      const scale = Math.max(.6, decor.s);
+      const stemHeight = Math.round(18 * scale);
+      const capWidth = Math.round(28 * scale);
+      const capHeight = Math.round(12 * scale);
+      context.fillStyle = "rgba(49,238,195,.14)";
+      context.beginPath(); context.arc(x, y - stemHeight, capWidth * .9, 0, TAU); context.fill();
+      context.fillStyle = "#b9e7d4";
+      context.fillRect(x - Math.max(2, Math.round(3 * scale)), y - stemHeight, Math.max(4, Math.round(6 * scale)), stemHeight);
+      context.fillStyle = ["#7b54c7", "#9b68e3", "#5f46ad", "#b174df"][decor.variant % 4];
+      context.beginPath(); context.ellipse(x, y - stemHeight, capWidth / 2, capHeight / 2, 0, Math.PI, TAU); context.closePath(); context.fill();
+      context.fillStyle = "rgba(210,255,241,.88)";
+      context.fillRect(x - Math.round(capWidth * .22), y - stemHeight - Math.round(capHeight * .28), Math.max(2, Math.round(4 * scale)), Math.max(2, Math.round(3 * scale)));
+    } else if (decor.type === "lilyPad") {
+      const scale = Math.max(.6, decor.s);
+      const radiusX = Math.round(17 * scale);
+      const radiusY = Math.round(9 * scale);
+      context.fillStyle = "rgba(3,35,35,.24)";
+      context.beginPath(); context.ellipse(x, y + 2, radiusX + 3, radiusY + 2, 0, 0, TAU); context.fill();
+      context.fillStyle = decor.variant % 2 ? "#45a66f" : "#3a8e68";
+      context.beginPath(); context.ellipse(x, y, radiusX, radiusY, 0, .18, TAU - .18); context.lineTo(x, y); context.closePath(); context.fill();
+      context.strokeStyle = "rgba(163,244,195,.48)";
+      context.lineWidth = 1;
+      context.beginPath(); context.moveTo(x, y); context.lineTo(x - radiusX * .72, y + radiusY * .25); context.stroke();
+      if (decor.variant === 2) {
+        context.fillStyle = "#f19ad5";
+        context.beginPath(); context.arc(x + radiusX * .25, y - radiusY * .35, Math.max(2, Math.round(3 * scale)), 0, TAU); context.fill();
+      }
     }
   }
 

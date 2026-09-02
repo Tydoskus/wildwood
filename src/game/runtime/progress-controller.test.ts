@@ -36,6 +36,7 @@ function savedProgress(): PlayerProgress {
     waterUnlocked: false,
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
+    moonfenUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
   };

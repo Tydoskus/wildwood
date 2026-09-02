@@ -7,6 +7,7 @@ import {
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
+  MOONFEN_MAP_ID,
   type MapId,
 } from "../world";
 
@@ -22,7 +23,8 @@ export type MapAssetGroup =
   | "nightDecor"
   | "waterBoss"
   | "samuraiBoss"
-  | "cloudspireBoss";
+  | "cloudspireBoss"
+  | "moonfenBoss";
 
 /** Source-of-truth for art that should begin loading only when its map is needed. */
 export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
@@ -34,4 +36,5 @@ export const MAP_ASSET_GROUPS: Record<MapId, readonly MapAssetGroup[]> = {
   [WATER_REACH_MAP_ID]: ["waterBoss"],
   [SAMURAI_GARDEN_MAP_ID]: ["samuraiBoss"],
   [CLOUDSPIRE_MAP_ID]: ["cloudspireBoss"],
+  [MOONFEN_MAP_ID]: ["moonfenBoss"],
 };

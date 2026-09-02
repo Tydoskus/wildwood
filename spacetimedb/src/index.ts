@@ -28,6 +28,7 @@ import {
   gloomrootBossTables,
   koiShogunBossTables,
   magmaliskBossTables,
+  miremawBossTables,
   spiderBossTables,
   tempestKirinBossTables,
   tidewyrmBossTables,
@@ -148,6 +149,12 @@ import {
   MAGMALISK_REWARD_REGEN,
   MAP_DISPLAY_NAMES,
   MAP_IDS,
+  MIREMAW_MAX_HP,
+  MIREMAW_REWARD_ARMOR,
+  MIREMAW_REWARD_DAMAGE,
+  MIREMAW_REWARD_HEALTH,
+  MIREMAW_REWARD_REGEN,
+  MOONFEN_MAP_ID,
   MAX_ARMOR,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
@@ -234,7 +241,11 @@ const MAP_PORTALS = {
     { x: 360, y: 617, destination: WATER_REACH_MAP_ID },
     { x: 580, y: 617, destination: CLOUDSPIRE_MAP_ID },
   ],
-  [CLOUDSPIRE_MAP_ID]: [{ x: 360, y: 617, destination: SAMURAI_GARDEN_MAP_ID }],
+  [CLOUDSPIRE_MAP_ID]: [
+    { x: 360, y: 617, destination: SAMURAI_GARDEN_MAP_ID },
+    { x: 580, y: 617, destination: MOONFEN_MAP_ID },
+  ],
+  [MOONFEN_MAP_ID]: [{ x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID }],
 } as const;
 const MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -245,6 +256,7 @@ const MAP_ARRIVALS = {
   [WATER_REACH_MAP_ID]: { x: 580, y: 770 },
   [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
   [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
+  [MOONFEN_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
@@ -257,7 +269,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 19;
+const MODULE_MIGRATION_VERSION = 20;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -313,6 +325,11 @@ const TEMPEST_KIRIN_RADIUS = 180;
 const TEMPEST_KIRIN_POSITION = { x: 4050, y: 4050 };
 const TEMPEST_KIRIN_HIT_RANGE_TOLERANCE = 60;
 const TEMPEST_KIRIN_RESPAWN_MICROS = 30_000_000n;
+const MIREMAW_ID = 1;
+const MIREMAW_RADIUS = 170;
+const MIREMAW_POSITION = { x: 4050, y: 4050 };
+const MIREMAW_HIT_RANGE_TOLERANCE = 60;
+const MIREMAW_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
@@ -706,6 +723,8 @@ const playerProgress = table(
     samuraiUnlocked: t.bool().default(false),
     // Koi Shogun owns the additive unlock for Cloudspire.
     cloudspireUnlocked: t.bool().default(false),
+    // Tempest Kirin owns the additive unlock for Moonfen.
+    moonfenUnlocked: t.bool().default(false),
   },
 );
 
@@ -1389,6 +1408,15 @@ const tempestKirinRespawnSchedule = table(
   },
 );
 
+const miremawRespawnSchedule = table(
+  { scheduled: (): any => respawnMiremaw },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
   player,
   playerMapMarker,
@@ -1466,6 +1494,8 @@ const spacetimedb = schema({
   koiShogunRespawnSchedule,
   ...tempestKirinBossTables,
   tempestKirinRespawnSchedule,
+  ...miremawBossTables,
+  miremawRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1592,6 +1622,7 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     ctx.db.tidewyrmContribution,
     ctx.db.koiShogunContribution,
     ctx.db.tempestKirinContribution,
+    ctx.db.miremawContribution,
   ]) {
     const contribution = table.identity.find(identity);
     if (contribution && contribution.displayName !== displayName) {
@@ -1652,6 +1683,7 @@ function defaultPlayerProgress(identity: any) {
     waterUnlocked: false,
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
+    moonfenUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
     cosmeticHead: "",
@@ -1688,6 +1720,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "waterUnlocked",
   "samuraiUnlocked",
   "cloudspireUnlocked",
+  "moonfenUnlocked",
   "bowCount",
   "woodenArmorCount",
   "cosmeticHead",
@@ -1981,6 +2014,26 @@ function runPendingModuleMigrations(ctx: any) {
       markPlayerBalanceCurrent(ctx, progress.identity);
     }
     if (changedProgress) refreshLeaderboard(ctx);
+  }
+  if (currentVersion < 20) {
+    // Players who cleared Tempest Kirin before Moonfen shipped keep the unlock
+    // they already earned when the new destination becomes available.
+    const result = ctx.db.tempestKirinResult.id.find(TEMPEST_KIRIN_ID);
+    if (result) {
+      try {
+        const contributors = JSON.parse(result.contributorsJson);
+        if (Array.isArray(contributors)) {
+          for (const contributor of contributors) {
+            if (typeof contributor?.identity !== "string") continue;
+            const identity = new Identity(contributor.identity);
+            const progress = ctx.db.playerProgress.identity.find(identity);
+            if (progress && !progress.moonfenUnlocked) {
+              ctx.db.playerProgress.identity.update({ ...progress, moonfenUnlocked: true });
+            }
+          }
+        }
+      } catch {}
+    }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
@@ -2515,6 +2568,16 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
   const saved = ctx.db.playerLastLocation.identity.find(identity);
   const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
   let mapId = requestedMap;
+  if (mapId === MOONFEN_MAP_ID && !progress.moonfenUnlocked) {
+    mapId = progress.cloudspireUnlocked
+      ? CLOUDSPIRE_MAP_ID
+      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
+        : progress.waterUnlocked ? WATER_REACH_MAP_ID
+          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
   if (mapId === CLOUDSPIRE_MAP_ID && !progress.cloudspireUnlocked) {
     mapId = progress.samuraiUnlocked
       ? SAMURAI_GARDEN_MAP_ID
@@ -2903,7 +2966,8 @@ function hasFreshProgress(progress: any) {
     progress.infernalUnlocked === defaultProgress.infernalUnlocked &&
     progress.waterUnlocked === defaultProgress.waterUnlocked &&
     progress.samuraiUnlocked === defaultProgress.samuraiUnlocked &&
-    progress.cloudspireUnlocked === defaultProgress.cloudspireUnlocked;
+    progress.cloudspireUnlocked === defaultProgress.cloudspireUnlocked &&
+    progress.moonfenUnlocked === defaultProgress.moonfenUnlocked;
 }
 
 function resultIncludesContributor(latest: any, identity: any) {
@@ -2939,6 +3003,10 @@ function contributedToLatestTidewyrm(ctx: any, identity: any) {
 
 function contributedToLatestKoiShogun(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.koiShogunResult.id.find(KOI_SHOGUN_ID), identity);
+}
+
+function contributedToLatestTempestKirin(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.tempestKirinResult.id.find(TEMPEST_KIRIN_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -3604,6 +3672,8 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.koiShogunAttackWindow.identity.find(identity)) ctx.db.koiShogunAttackWindow.identity.delete(identity);
   if (ctx.db.tempestKirinContribution.identity.find(identity)) ctx.db.tempestKirinContribution.identity.delete(identity);
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
+  if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
+  if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -3902,6 +3972,26 @@ function ensureTempestKirinBoss(ctx: any) {
   });
 }
 
+function ensureMiremawBoss(ctx: any) {
+  const existing = ctx.db.miremawBoss.id.find(MIREMAW_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, MIREMAW_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.miremawBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.miremawBoss.insert({
+    id: MIREMAW_ID,
+    encounter: 1n,
+    hp: MIREMAW_MAX_HP,
+    maxHp: MIREMAW_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
+
+
 function regenerateIdleBosses(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
@@ -3924,6 +4014,7 @@ function regenerateIdleBosses(ctx: any) {
   regenerate(ensureTidewyrmBoss(ctx), (next) => ctx.db.tidewyrmBoss.id.update(next));
   regenerate(ensureKoiShogunBoss(ctx), (next) => ctx.db.koiShogunBoss.id.update(next));
   regenerate(ensureTempestKirinBoss(ctx), (next) => ctx.db.tempestKirinBoss.id.update(next));
+  regenerate(ensureMiremawBoss(ctx), (next) => ctx.db.miremawBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4226,6 +4317,14 @@ function clearTempestKirinCombatRows(ctx: any) {
   for (const identity of attackIdentities) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
 }
 
+function clearMiremawCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.miremawContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.miremawAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.miremawContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.miremawAttackWindow.identity.delete(identity);
+}
+
+
 function rewardTidewyrmContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
@@ -4286,6 +4385,7 @@ function rewardTempestKirinContributor(ctx: any, identity: any) {
     armor: current.armor + TEMPEST_KIRIN_REWARD_ARMOR * rewardMultiplier,
     regen: current.regen + TEMPEST_KIRIN_REWARD_REGEN * rewardMultiplier,
     cloudspireUnlocked: true,
+    moonfenUnlocked: true,
   };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
@@ -4298,6 +4398,31 @@ function rewardTempestKirinContributor(ctx: any, identity: any) {
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
+
+function rewardMiremawContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const next = {
+    ...current,
+    damage: current.damage + MIREMAW_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + MIREMAW_REWARD_HEALTH * rewardMultiplier,
+    armor: current.armor + MIREMAW_REWARD_ARMOR * rewardMultiplier,
+    regen: current.regen + MIREMAW_REWARD_REGEN * rewardMultiplier,
+    moonfenUnlocked: true,
+  };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+
 
 function finishTidewyrmEncounter(ctx: any, tidewyrm: any) {
   const contributions = [...ctx.db.tidewyrmContribution.iter()]
@@ -4400,6 +4525,41 @@ function finishTempestKirinEncounter(ctx: any, tempestKirin: any) {
     encounter: tempestKirin.encounter,
   });
 }
+
+function finishMiremawEncounter(ctx: any, miremaw: any) {
+  const contributions = [...ctx.db.miremawContribution.iter()]
+    .filter((row: any) => row.encounter === miremaw.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: MIREMAW_ID,
+    encounter: miremaw.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.miremawResult.id.find(MIREMAW_ID)) ctx.db.miremawResult.id.update(result);
+  else ctx.db.miremawResult.insert(result);
+
+  for (const row of contributions) rewardMiremawContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + MIREMAW_RESPAWN_MICROS;
+  ctx.db.miremawBoss.id.update({ ...miremaw, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.miremawRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: miremaw.encounter,
+  });
+}
+
 
 function clearDragonCombatRows(ctx: any) {
   const contributionIdentities = [...ctx.db.dragonContribution.iter()].map((row: any) => row.identity);
@@ -4774,6 +4934,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const latestGloomrootContributor = contributedToLatestGloomroot(ctx, ctx.sender);
     const latestTidewyrmContributor = contributedToLatestTidewyrm(ctx, ctx.sender);
     const latestKoiShogunContributor = contributedToLatestKoiShogun(ctx, ctx.sender);
+    const latestTempestKirinContributor = contributedToLatestTempestKirin(ctx, ctx.sender);
     const isInDesert = existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID;
     const isInSnowlands = existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID;
     const isInLavaWastes = existingPlayer?.mapId === ADVANCED_LAVA_WASTES_MAP_ID;
@@ -4781,22 +4942,25 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const isInWaterReach = existingPlayer?.mapId === WATER_REACH_MAP_ID;
     const isInSamuraiGarden = existingPlayer?.mapId === SAMURAI_GARDEN_MAP_ID;
     const isInCloudspire = existingPlayer?.mapId === CLOUDSPIRE_MAP_ID;
-    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor)) ||
-      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor)) ||
-      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor)) ||
-      (!existingProgress.infernalUnlocked && (isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor)) ||
-      (!existingProgress.waterUnlocked && (isInWaterReach || isInSamuraiGarden || isInCloudspire || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor)) ||
-      (!existingProgress.samuraiUnlocked && (isInSamuraiGarden || isInCloudspire || latestTidewyrmContributor || latestKoiShogunContributor)) ||
-      (!existingProgress.cloudspireUnlocked && (isInCloudspire || latestKoiShogunContributor))) {
+    const isInMoonfen = existingPlayer?.mapId === MOONFEN_MAP_ID;
+    if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.infernalUnlocked && (isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.waterUnlocked && (isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.samuraiUnlocked && (isInSamuraiGarden || isInCloudspire || isInMoonfen || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.cloudspireUnlocked && (isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor)) ||
+      (!existingProgress.moonfenUnlocked && (isInMoonfen || latestTempestKirinContributor))) {
       existingProgress = {
         ...existingProgress,
-        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor,
-        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor,
-        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor,
-        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor,
-        waterUnlocked: existingProgress.waterUnlocked || isInWaterReach || isInSamuraiGarden || isInCloudspire || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor,
-        samuraiUnlocked: existingProgress.samuraiUnlocked || isInSamuraiGarden || isInCloudspire || latestTidewyrmContributor || latestKoiShogunContributor,
-        cloudspireUnlocked: existingProgress.cloudspireUnlocked || isInCloudspire || latestKoiShogunContributor,
+        desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
+        snowlandsUnlocked: existingProgress.snowlandsUnlocked || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
+        lavaUnlocked: existingProgress.lavaUnlocked || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
+        infernalUnlocked: existingProgress.infernalUnlocked || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
+        waterUnlocked: existingProgress.waterUnlocked || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
+        samuraiUnlocked: existingProgress.samuraiUnlocked || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
+        cloudspireUnlocked: existingProgress.cloudspireUnlocked || isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor,
+        moonfenUnlocked: existingProgress.moonfenUnlocked || isInMoonfen || latestTempestKirinContributor,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -4950,6 +5114,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureTidewyrmBoss(ctx);
   ensureKoiShogunBoss(ctx);
   ensureTempestKirinBoss(ctx);
+  ensureMiremawBoss(ctx);
   ensureWorldStatus(ctx);
   runPendingModuleMigrations(ctx);
 
@@ -5298,6 +5463,24 @@ export const respawnTempestKirin = spacetimedb.reducer(
     });
   },
 );
+export const respawnMiremaw = spacetimedb.reducer(
+  { schedule: miremawRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const miremaw = ensureMiremawBoss(ctx);
+    if (miremaw.alive || miremaw.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < miremaw.respawnAtMicros) return;
+    clearMiremawCombatRows(ctx);
+    ctx.db.miremawBoss.id.update({
+      ...miremaw,
+      encounter: miremaw.encounter + 1n,
+      hp: miremaw.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+
 
 function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
   const activePlayer = requireControllingPlayer(ctx);
@@ -5887,6 +6070,78 @@ export const damageTempestKirinFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
   (ctx, { hits, x, y }) => applyTempestKirinDamage(ctx, hits, { x, y }),
 );
+function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== MOONFEN_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const miremaw = ensureMiremawBoss(ctx);
+  if (!miremaw.alive || miremaw.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - MIREMAW_POSITION.x, actionY - MIREMAW_POSITION.y);
+  if (centerDistance - MIREMAW_RADIUS > progress.attackRange + MIREMAW_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.miremawAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== miremaw.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: miremaw.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.miremawAttackWindow.identity.update(nextWindow);
+    else ctx.db.miremawAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.miremawAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(miremaw.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.miremawContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === miremaw.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: miremaw.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.miremawContribution.identity.update(nextContribution);
+  else ctx.db.miremawContribution.insert(nextContribution);
+  const nextMiremaw = {
+    ...miremaw,
+    hp: Math.max(0, miremaw.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextMiremaw.hp <= 0) finishMiremawEncounter(ctx, nextMiremaw);
+  else ctx.db.miremawBoss.id.update(nextMiremaw);
+}
+
+export const damageMiremawFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyMiremawDamage(ctx, hits, { x, y }),
+);
+
 
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
@@ -6157,6 +6412,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
       [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
       [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
+      [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);
@@ -6757,6 +7013,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       waterUnlocked: base.waterUnlocked,
       samuraiUnlocked: base.samuraiUnlocked,
       cloudspireUnlocked: base.cloudspireUnlocked,
+      moonfenUnlocked: base.moonfenUnlocked,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
@@ -7640,6 +7897,9 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === CLOUDSPIRE_MAP_ID && !currentProgress?.cloudspireUnlocked) {
       throw new SenderError(`Defeat Koi Shogun before entering ${MAP_DISPLAY_NAMES[CLOUDSPIRE_MAP_ID]}.`);
+    }
+    if (mapId === MOONFEN_MAP_ID && !currentProgress?.moonfenUnlocked) {
+      throw new SenderError(`Defeat Tempest Kirin before entering ${MAP_DISPLAY_NAMES[MOONFEN_MAP_ID]}.`);
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

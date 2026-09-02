@@ -49,6 +49,7 @@ function progress(): PlayerProgress {
     waterUnlocked: false,
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
+    moonfenUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
   };
@@ -65,6 +66,7 @@ function saveFrom(current: PlayerProgress, changes: Partial<ProgressSave> = {}):
     waterUnlocked: _waterUnlocked,
     samuraiUnlocked: _samuraiUnlocked,
     cloudspireUnlocked: _cloudspireUnlocked,
+    moonfenUnlocked: _moonfenUnlocked,
     bowCount: _bowCount,
     woodenArmorCount: _woodenArmorCount,
     ...saved

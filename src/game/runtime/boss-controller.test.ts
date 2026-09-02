@@ -39,6 +39,13 @@ import {
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
+  MIREMAW_MAX_HP,
+  MIREMAW_REWARD_ARMOR,
+  MIREMAW_REWARD_DAMAGE,
+  MIREMAW_REWARD_HEALTH,
+  MIREMAW_REWARD_REGEN,
+  MOONFEN_DAMAGE_SCALE,
+  MOONFEN_REWARD_SCALE,
   SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_REWARD_SCALE,
@@ -89,6 +96,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     tidewyrmBoss: state.tidewyrmBoss,
     koiShogunBoss: state.koiShogunBoss,
     tempestKirinBoss: state.tempestKirinBoss,
+    miremawBoss: state.miremawBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
@@ -97,6 +105,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     tidewyrmWhirlpools: state.tidewyrmWhirlpools,
     koiShogunWhirlpools: state.koiShogunWhirlpools,
     tempestKirinThunderbolts: state.tempestKirinThunderbolts,
+    miremawBogBursts: state.miremawBogBursts,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
@@ -106,6 +115,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getTidewyrmBoss: () => null,
     getKoiShogunBoss: () => null,
     getTempestKirinBoss: () => null,
+    getMiremawBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
@@ -114,6 +124,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getTidewyrmResult: () => null,
     getKoiShogunResult: () => null,
     getTempestKirinResult: () => null,
+    getMiremawResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
@@ -123,6 +134,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     currentMapIsWater: () => false,
     currentMapIsSamurai: () => false,
     currentMapIsCloudspire: () => false,
+    currentMapIsMoonfen: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -523,5 +535,35 @@ describe("Tempest Kirin boss", () => {
     controller.updateTempestKirinBoss(2.4);
     expect(tempestKirinThunderbolts.length).toBeGreaterThan(0);
     expect(tempestKirinBoss.nextAttack).toBe("charge");
+  });
+});
+
+describe("Miremaw boss", () => {
+  it("caps Moonfen with the next repeatable late-map reward", () => {
+    expect(MIREMAW_MAX_HP).toBe(TEMPEST_KIRIN_MAX_HP * MOONFEN_DAMAGE_SCALE * 1.1);
+    expect(MIREMAW_REWARD_DAMAGE).toBe(TEMPEST_KIRIN_REWARD_DAMAGE * MOONFEN_REWARD_SCALE);
+    expect(MIREMAW_REWARD_HEALTH).toBe(TEMPEST_KIRIN_REWARD_HEALTH * MOONFEN_REWARD_SCALE);
+    expect(MIREMAW_REWARD_ARMOR).toBe(TEMPEST_KIRIN_REWARD_ARMOR * MOONFEN_REWARD_SCALE);
+    expect(MIREMAW_REWARD_REGEN).toBe(TEMPEST_KIRIN_REWARD_REGEN * MOONFEN_REWARD_SCALE);
+  });
+
+  it("cycles a tongue sweep into staggered bog bursts", () => {
+    const { controller, miremawBoss, miremawBogBursts, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsMoonfen: () => true,
+    });
+    player.x = miremawBoss.x + 300;
+    player.y = miremawBoss.y;
+    miremawBoss.attackClock = 0;
+
+    controller.updateMiremawBoss(.016);
+    expect(miremawBoss.tongue).not.toBeNull();
+    expect(miremawBoss.nextAttack).toBe("bogBurst");
+
+    controller.updateMiremawBoss(.7);
+    controller.updateMiremawBoss(.6);
+    controller.updateMiremawBoss(2.4);
+    expect(miremawBogBursts.length).toBeGreaterThan(0);
+    expect(miremawBoss.nextAttack).toBe("tongue");
   });
 });

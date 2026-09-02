@@ -13,6 +13,10 @@ import {
   MAGMALISK_BITE_RANGE,
   MAGMALISK_SPRITE_GROUND_OFFSET,
   MAGMALISK_SPRITE_Y_OFFSET,
+  MIREMAW_SPRITE_GROUND_OFFSET,
+  MIREMAW_SPRITE_Y_OFFSET,
+  MIREMAW_TONGUE_HALF_ANGLE,
+  MIREMAW_TONGUE_RANGE,
   KOI_SHOGUN_SLASH_HALF_ANGLE,
   KOI_SHOGUN_SLASH_RANGE,
   KOI_SHOGUN_SPRITE_GROUND_OFFSET,
@@ -47,6 +51,10 @@ import {
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
+  MIREMAW_REWARD_ARMOR,
+  MIREMAW_REWARD_DAMAGE,
+  MIREMAW_REWARD_HEALTH,
+  MIREMAW_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -66,7 +74,7 @@ import {
   bossStatusLabelOffsets,
 } from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, MiremawBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
 
@@ -89,6 +97,7 @@ export function createBossRenderer(options: {
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
+  miremawBoss: MiremawBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -97,6 +106,7 @@ export function createBossRenderer(options: {
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
   koiShogunWhirlpools: KoiShogunWhirlpool[];
   tempestKirinThunderbolts: TempestKirinThunderbolt[];
+  miremawBogBursts: MiremawBogBurst[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
@@ -105,6 +115,7 @@ export function createBossRenderer(options: {
   tidewyrmSpriteCanvas: HTMLCanvasElement;
   koiShogunSpriteCanvas: HTMLCanvasElement;
   tempestKirinSpriteCanvas: HTMLCanvasElement;
+  miremawSpriteCanvas: HTMLCanvasElement;
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
@@ -113,6 +124,7 @@ export function createBossRenderer(options: {
   tidewyrmReady: () => boolean;
   koiShogunReady: () => boolean;
   tempestKirinReady: () => boolean;
+  miremawReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -121,7 +133,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -931,6 +943,124 @@ export function createBossRenderer(options: {
       ],
     });
   }
+
+  function drawMiremawTelegraphs() {
+    if (miremawBoss.dead) return;
+    const x = screenX(miremawBoss.x);
+    const y = screenY(miremawBoss.y);
+    const time = options.gameTime();
+    if (miremawBoss.tongue) {
+      const tongue = miremawBoss.tongue;
+      ctx.save();
+      ctx.fillStyle = tongue.windup > 0 ? "rgba(119,255,199,.13)" : "rgba(212,255,235,.24)";
+      ctx.strokeStyle = tongue.windup > 0 ? "rgba(133,255,209,.95)" : "rgba(255,151,207,.98)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, MIREMAW_TONGUE_RANGE, tongue.angle - MIREMAW_TONGUE_HALF_ANGLE, tongue.angle + MIREMAW_TONGUE_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (tongue.windup <= 0) {
+        const radius = miremawBoss.r + (MIREMAW_TONGUE_RANGE - miremawBoss.r) * clamp(1 - tongue.timer / tongue.duration, 0, 1);
+        ctx.strokeStyle = "rgba(255,174,218,.98)";
+        ctx.lineWidth = 14;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, tongue.angle - MIREMAW_TONGUE_HALF_ANGLE, tongue.angle + MIREMAW_TONGUE_HALF_ANGLE);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    for (const burst of options.miremawBogBursts) {
+      const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
+      const burstX = screenX(burst.x);
+      const burstY = screenY(burst.y);
+      ctx.save();
+      ctx.fillStyle = `rgba(100,238,187,${.1 + progress * .22})`;
+      ctx.strokeStyle = "rgba(185,255,226,.96)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = -time * 44;
+      ctx.beginPath();
+      ctx.arc(burstX, burstY, burst.r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (let bubble = 0; bubble < 5; bubble += 1) {
+        const angle = bubble * TAU / 5 + time * .8;
+        const radius = burst.r * (.16 + progress * .58);
+        ctx.strokeStyle = bubble % 2 ? "rgba(213,255,238,.9)" : "rgba(190,135,255,.86)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(burstX + Math.cos(angle) * radius, burstY + Math.sin(angle) * radius, 5 + bubble % 3 * 2, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawMiremawBoss() {
+    if (miremawBoss.dead) return;
+    const canvas = options.miremawSpriteCanvas;
+    const frame = options.miremawBogBursts.length > 0
+      ? 3
+      : miremawBoss.tongue
+        ? (miremawBoss.tongue.windup > 0 ? 1 : 2)
+        : 0;
+    const drawW = 470;
+    const drawH = 532;
+    const x = screenX(miremawBoss.x);
+    const y = screenY(miremawBoss.y);
+    const visualY = y + MIREMAW_SPRITE_Y_OFFSET;
+    const pulse = options.miremawBogBursts.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .018 : 1;
+    options.drawShadow(x, visualY + MIREMAW_SPRITE_GROUND_OFFSET, 285, .3);
+    ctx.save();
+    ctx.translate(x, visualY);
+    ctx.scale(pulse, pulse);
+    if (options.miremawReady() && canvas.width >= 4 && canvas.height >= 2) {
+      const cellW = canvas.width / 4;
+      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      ctx.fillStyle = "#3caa86";
+      ctx.strokeStyle = "#102b27";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#b788f4";
+      ctx.beginPath();
+      ctx.moveTo(-105, -5);
+      ctx.lineTo(-70, -130);
+      ctx.lineTo(-25, -5);
+      ctx.moveTo(25, -5);
+      ctx.lineTo(70, -130);
+      ctx.lineTo(105, -5);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY - drawH / 2,
+      barGap: 34,
+      barWidth: 330,
+      barHeight: 23,
+      hp: miremawBoss.hp,
+      maxHp: miremawBoss.maxHp,
+      hpLossFlashTimer: miremawBoss.hpLossFlashTimer,
+      hpLossFlashFrom: miremawBoss.hpLossFlashFrom,
+      backgroundColor: "#193c38",
+      fillColor: "#55d6a8",
+      name: { text: "MIREMAW", color: "#e9fff5" },
+      rewards: [
+        { text: rewardText("damage", MIREMAW_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", MIREMAW_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", MIREMAW_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", MIREMAW_REWARD_REGEN), color: REWARD_DATA.regen.color },
+      ],
+    });
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -948,5 +1078,7 @@ export function createBossRenderer(options: {
     drawKoiShogunBoss,
     drawTempestKirinTelegraphs,
     drawTempestKirinBoss,
+    drawMiremawTelegraphs,
+    drawMiremawBoss,
   };
 }

@@ -232,6 +232,16 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tempestKirinReady = true;
     settle();
   });
+  const miremawSpriteCanvas = document.createElement("canvas");
+  const miremawSpriteContext = requiredCanvasContext(miremawSpriteCanvas, { willReadFrequently: true });
+  let miremawReady = false;
+  const miremawAsset = createLazyImageAsset("assets/wildstat/miremaw-boss-spritesheet-v1.png", (image, settle) => {
+    miremawSpriteCanvas.width = image.naturalWidth;
+    miremawSpriteCanvas.height = image.naturalHeight;
+    miremawSpriteContext.drawImage(image, 0, 0);
+    miremawReady = true;
+    settle();
+  });
 
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
@@ -317,6 +327,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     waterBoss: [tidewyrmAsset],
     samuraiBoss: [koiShogunAsset],
     cloudspireBoss: [tempestKirinAsset],
+    moonfenBoss: [miremawAsset],
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
@@ -370,6 +381,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     koiShogunSpriteCanvas,
     tempestKirinReady: () => tempestKirinReady,
     tempestKirinSpriteCanvas,
+    miremawReady: () => miremawReady,
+    miremawSpriteCanvas,
     allMapAssetsReady,
     ensureAllMapAssets,
     ensureMapAssets,

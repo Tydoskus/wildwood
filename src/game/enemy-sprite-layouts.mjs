@@ -23,6 +23,7 @@ export const MAP_ENEMY_FAMILY_TINTS = {
   water_reach: "#42cbd5",
   samurai_garden: "#ef7eae",
   cloudspire: "#82bff3",
+  moonfen: "#69d9b4",
 };
 
 function slimeSprite(tint, { elite = false, ranged = false } = {}) {
@@ -66,6 +67,7 @@ const night = MAP_ENEMY_FAMILY_TINTS.infernal_depths;
 const water = MAP_ENEMY_FAMILY_TINTS.water_reach;
 const samurai = MAP_ENEMY_FAMILY_TINTS.samurai_garden;
 const cloudspire = MAP_ENEMY_FAMILY_TINTS.cloudspire;
+const moonfen = MAP_ENEMY_FAMILY_TINTS.moonfen;
 
 export const ENEMY_SPRITE_LAYOUTS = {
   Bramble: slimeSprite(forest),
@@ -118,4 +120,10 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Skyguard Colossus": slimeSprite(cloudspire),
   "Thunder Reaper": slimeSprite(cloudspire, { elite: true, ranged: true }),
   "Tempest Oracle": slimeSprite(cloudspire, { elite: true }),
+
+  "Fen Prowler": slimeSprite(moonfen),
+  "Glowcap Archer": slimeSprite(moonfen, { ranged: true }),
+  "Bog Colossus": slimeSprite(moonfen),
+  "Moonmire Reaper": slimeSprite(moonfen, { elite: true, ranged: true }),
+  "Wisp Oracle": slimeSprite(moonfen, { elite: true }),
 };

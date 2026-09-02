@@ -7,6 +7,7 @@ import {
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
+  MOONFEN_MAP_ID,
   type MapId,
 } from "./world";
 
@@ -22,6 +23,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [WATER_REACH_MAP_ID]: "#54e3e9",
   [SAMURAI_GARDEN_MAP_ID]: "#ff83bd",
   [CLOUDSPIRE_MAP_ID]: "#9fdfff",
+  [MOONFEN_MAP_ID]: "#82f2c4",
 };
 
 export function portalDestinationColor(destination: MapId) {

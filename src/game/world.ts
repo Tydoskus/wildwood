@@ -20,7 +20,9 @@ export type WorldDecor =
   | { type: "coral"; x: number; y: number; s: number; variant: number }
   | { type: "shell"; x: number; y: number; s: number; variant: number }
   | { type: "cloud"; x: number; y: number; s: number; variant: number }
-  | { type: "skyShard"; x: number; y: number; s: number; variant: number };
+  | { type: "skyShard"; x: number; y: number; s: number; variant: number }
+  | { type: "glowMushroom"; x: number; y: number; s: number; variant: number }
+  | { type: "lilyPad"; x: number; y: number; s: number; variant: number };
 export type SpawnSite = {
   id: number;
   x: number;
@@ -41,6 +43,7 @@ export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
 export const WATER_REACH_MAP_ID = "water_reach";
 export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
 export const CLOUDSPIRE_MAP_ID = "cloudspire";
+export const MOONFEN_MAP_ID = "moonfen";
 export const UPGRADE_BENCH_POSITION = { x: 800, y: 710 } as const;
 export type MapId =
   | typeof TUTORIAL_FOREST_MAP_ID
@@ -50,7 +53,8 @@ export type MapId =
   | typeof INFERNAL_DEPTHS_MAP_ID
   | typeof WATER_REACH_MAP_ID
   | typeof SAMURAI_GARDEN_MAP_ID
-  | typeof CLOUDSPIRE_MAP_ID;
+  | typeof CLOUDSPIRE_MAP_ID
+  | typeof MOONFEN_MAP_ID;
 
 type SpawnFormation = "scatter" | "crescent" | "shoal" | "ranks";
 type SpawnCamp = {
@@ -120,6 +124,14 @@ const CLOUDSPIRE_CAMPS: SpawnCamp[] = [
   { name: "Sunvault Bastion", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Skyguard Colossus"], formation: "crescent", rotation: 1.15 },
   { name: "Thunderhead", x: 1000, y: 3600, minRadius: 240, radius: 420, count: 7, types: ["Thunder Reaper"], formation: "crescent", rotation: -.45 },
   { name: "Eye of the Storm", x: 2600, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Tempest Oracle"], formation: "ranks", rotation: .15 },
+];
+
+const MOONFEN_CAMPS: SpawnCamp[] = [
+  { name: "Firefly Landing", x: 1050, y: 1350, minRadius: 230, radius: 400, count: 6, types: ["Fen Prowler"], formation: "crescent", rotation: -.3 },
+  { name: "Glowcap Crossing", x: 3000, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Glowcap Archer"], formation: "ranks", rotation: .25 },
+  { name: "Sunken Bulwark", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Bog Colossus"], formation: "crescent", rotation: 1.1 },
+  { name: "Moonmire Hollow", x: 1000, y: 3600, minRadius: 240, radius: 420, count: 7, types: ["Moonmire Reaper"], formation: "crescent", rotation: -.5 },
+  { name: "Wispwater Shrine", x: 2600, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Wisp Oracle"], formation: "ranks", rotation: .1 },
 ];
 
 const CAMP_CLEARANCE = 160;
@@ -553,6 +565,54 @@ function createCloudspireLayout() {
   return { decor, paths };
 }
 
+function createMoonfenLayout() {
+  const decor: WorldDecor[] = [];
+  // Raised stone walks wind through the flooded marsh toward Miremaw's pool.
+  const paths: WorldPath[] = [
+    { x: 300, y: 640, w: 1260, h: 150 },
+    { x: 1390, y: 640, w: 150, h: 980 },
+    { x: 1390, y: 1470, w: 1760, h: 150 },
+    { x: 2980, y: 1470, w: 150, h: 1010 },
+    { x: 1810, y: 2320, w: 1320, h: 150 },
+    { x: 1810, y: 2320, w: 150, h: 1450 },
+    { x: 1810, y: 3620, w: 1400, h: 150 },
+    { x: 3040, y: 3620, w: 150, h: 470 },
+    { x: 3040, y: 3940, w: 1070, h: 150 },
+    { x: 2980, y: 2320, w: 1110, h: 150 },
+  ];
+  const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 720;
+
+  for (let index = 0; index < 190; index += 1) {
+    const x = 55 + seededUnit(index, 91) * (WORLD.w - 110);
+    const y = 55 + seededUnit(index, 92) * (WORLD.h - 110);
+    if (isOnPath(x, y, 20) || isNearArrival(x, y) || isNearBoss(x, y) || isNearSpawnCamp(MOONFEN_CAMPS, x, y, 70)) continue;
+    decor.push({
+      type: "glowMushroom",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .62 + seededUnit(index, 93) * .8,
+      variant: index % 4,
+    });
+  }
+  for (let index = 0; index < 145; index += 1) {
+    const x = 45 + seededUnit(index, 94) * (WORLD.w - 90);
+    const y = 45 + seededUnit(index, 95) * (WORLD.h - 90);
+    if (isOnPath(x, y, 28) || isNearArrival(x, y) || isNearBoss(x, y) || isNearSpawnCamp(MOONFEN_CAMPS, x, y, 55)) continue;
+    decor.push({
+      type: "lilyPad",
+      x: Math.round(x),
+      y: Math.round(y),
+      s: .65 + seededUnit(index, 96) * .78,
+      variant: index % 3,
+    });
+  }
+  return { decor, paths };
+}
+
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
@@ -561,6 +621,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   if (mapId === WATER_REACH_MAP_ID) return createWaterLayout();
   if (mapId === SAMURAI_GARDEN_MAP_ID) return createSamuraiGardenLayout();
   if (mapId === CLOUDSPIRE_MAP_ID) return createCloudspireLayout();
+  if (mapId === MOONFEN_MAP_ID) return createMoonfenLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -638,6 +699,8 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
               ? SAMURAI_CAMPS
               : mapId === CLOUDSPIRE_MAP_ID
                 ? CLOUDSPIRE_CAMPS
+              : mapId === MOONFEN_MAP_ID
+                ? MOONFEN_CAMPS
         : CAMPS;
   assertCampContracts(camps);
   // Tutorial remains deliberately readable. Later maps use a fixed map seed:
@@ -652,7 +715,7 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       const offset = campSpawnOffset(camp, index, campIndex, mapSeed);
       let x = clamp(camp.x + offset.x, 45, WORLD.w - 45);
       let y = clamp(camp.y + offset.y, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID || mapId === CLOUDSPIRE_MAP_ID) {
+      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID || mapId === CLOUDSPIRE_MAP_ID || mapId === MOONFEN_MAP_ID) {
         const activeBoss = mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 };
         const bossDx = x - activeBoss.x;
         const bossDy = y - activeBoss.y;

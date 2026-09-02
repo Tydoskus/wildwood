@@ -154,6 +154,11 @@ export const CLOUDSPIRE_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const CLOUDSPIRE_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER = 3.7;
 export const CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER = .75;
+// Moonfen continues the late-map ladder with a sturdier, defense-forward
+// enemy mix after Cloudspire's unusually damage-heavy reward profile.
+export const MOONFEN_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
+export const MOONFEN_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+export const MOONFEN_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 // Relative per-enemy health shapes. enemies.ts centers each profile against
 // the authored clear counts, so encounter texture can change without silently
 // changing the map's aggregate health budget.
@@ -245,6 +250,20 @@ export const CLOUDSPIRE_REWARD_TRACK_PROFILE = {
   regen: 1.5,
   speed: 1,
 } as const;
+export const MOONFEN_ARCHETYPE_PROFILE = {
+  raider: { health: .92, damage: 1.04, reward: 1.06, attackSpeed: .68 },
+  archer: { health: .96, damage: 1.08, reward: .98, attackSpeed: .55 },
+  guardian: { health: 1.22, damage: .9, reward: 1.12, attackSpeed: .47 },
+  reaper: { health: 1.02, damage: 1.06, reward: 1.02, attackSpeed: .73 },
+  oracle: { health: .94, damage: 1, reward: 1.1, attackSpeed: .62 },
+} as const;
+export const MOONFEN_REWARD_TRACK_PROFILE = {
+  damage: 1,
+  health: 1.75,
+  armor: 1.25,
+  regen: 1.65,
+  speed: 1,
+} as const;
 
 export const SPIDER_MAX_HP = 150_000_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_BOSS_HEALTH_MULTIPLIER;
 export const FROSTCLAW_MAX_HP = 750_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_BOSS_HEALTH_MULTIPLIER;
@@ -285,6 +304,12 @@ export const TEMPEST_KIRIN_REWARD_DAMAGE = KOI_SHOGUN_REWARD_DAMAGE * CLOUDSPIRE
 export const TEMPEST_KIRIN_REWARD_HEALTH = KOI_SHOGUN_REWARD_HEALTH * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER;
 export const TEMPEST_KIRIN_REWARD_ARMOR = KOI_SHOGUN_REWARD_ARMOR * CLOUDSPIRE_REWARD_SCALE;
 export const TEMPEST_KIRIN_REWARD_REGEN = KOI_SHOGUN_REWARD_REGEN * CLOUDSPIRE_REWARD_SCALE;
+// Miremaw is the capstone for the next complete 8.5x progression step.
+export const MIREMAW_MAX_HP = TEMPEST_KIRIN_MAX_HP * MOONFEN_DAMAGE_SCALE * 1.1;
+export const MIREMAW_REWARD_DAMAGE = TEMPEST_KIRIN_REWARD_DAMAGE * MOONFEN_REWARD_SCALE;
+export const MIREMAW_REWARD_HEALTH = TEMPEST_KIRIN_REWARD_HEALTH * MOONFEN_REWARD_SCALE;
+export const MIREMAW_REWARD_ARMOR = TEMPEST_KIRIN_REWARD_ARMOR * MOONFEN_REWARD_SCALE;
+export const MIREMAW_REWARD_REGEN = TEMPEST_KIRIN_REWARD_REGEN * MOONFEN_REWARD_SCALE;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -294,6 +319,7 @@ export const INFERNAL_DEPTHS_MAP_ID = "infernal_depths";
 export const WATER_REACH_MAP_ID = "water_reach";
 export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
 export const CLOUDSPIRE_MAP_ID = "cloudspire";
+export const MOONFEN_MAP_ID = "moonfen";
 export const MAP_DISPLAY_NAMES = {
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
@@ -303,6 +329,7 @@ export const MAP_DISPLAY_NAMES = {
   [WATER_REACH_MAP_ID]: "Water Reach",
   [SAMURAI_GARDEN_MAP_ID]: "Samurai Garden",
   [CLOUDSPIRE_MAP_ID]: "Cloudspire",
+  [MOONFEN_MAP_ID]: "Moonfen",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
@@ -313,9 +340,10 @@ export const MAP_IDS: readonly string[] = [
   WATER_REACH_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   CLOUDSPIRE_MAP_ID,
+  MOONFEN_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 81;
+export const PROTOCOL_VERSION = 82;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

@@ -22,6 +22,7 @@ import DamageFrostclawFromPositionReducer from "../damage_frostclaw_from_positio
 import DamageGloomrootFromPositionReducer from "../damage_gloomroot_from_position_reducer";
 import DamageKoiShogunFromPositionReducer from "../damage_koi_shogun_from_position_reducer";
 import DamageMagmaliskFromPositionReducer from "../damage_magmalisk_from_position_reducer";
+import DamageMiremawFromPositionReducer from "../damage_miremaw_from_position_reducer";
 import DamageSpiderBatchReducer from "../damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "../damage_spider_from_position_reducer";
 import DamageTempestKirinFromPositionReducer from "../damage_tempest_kirin_from_position_reducer";
@@ -85,6 +86,7 @@ export type DamageFrostclawFromPositionParams = __Infer<typeof DamageFrostclawFr
 export type DamageGloomrootFromPositionParams = __Infer<typeof DamageGloomrootFromPositionReducer>;
 export type DamageKoiShogunFromPositionParams = __Infer<typeof DamageKoiShogunFromPositionReducer>;
 export type DamageMagmaliskFromPositionParams = __Infer<typeof DamageMagmaliskFromPositionReducer>;
+export type DamageMiremawFromPositionParams = __Infer<typeof DamageMiremawFromPositionReducer>;
 export type DamageSpiderBatchParams = __Infer<typeof DamageSpiderBatchReducer>;
 export type DamageSpiderFromPositionParams = __Infer<typeof DamageSpiderFromPositionReducer>;
 export type DamageTempestKirinFromPositionParams = __Infer<typeof DamageTempestKirinFromPositionReducer>;

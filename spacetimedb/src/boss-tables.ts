@@ -53,6 +53,7 @@ const gloomroot = createBossTableSet();
 const tidewyrm = createBossTableSet();
 const koiShogun = createBossTableSet();
 const tempestKirin = createBossTableSet();
+const miremaw = createBossTableSet();
 
 export const dragonBossTables = {
   dragonBoss: dragon.boss,
@@ -108,4 +109,11 @@ export const tempestKirinBossTables = {
   tempestKirinContribution: tempestKirin.contribution,
   tempestKirinAttackWindow: tempestKirin.attackWindow,
   tempestKirinResult: tempestKirin.result,
+};
+
+export const miremawBossTables = {
+  miremawBoss: miremaw.boss,
+  miremawContribution: miremaw.contribution,
+  miremawAttackWindow: miremaw.attackWindow,
+  miremawResult: miremaw.result,
 };

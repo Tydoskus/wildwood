@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
@@ -8,6 +8,7 @@ import {
   CLOUDSPIRE_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  MOONFEN_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
@@ -143,6 +144,26 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor.some((item) => item.type === "skyShard")).toBe(true);
   });
 
+  it("connects Cloudspire to deterministic Moonfen camps and Miremaw", () => {
+    const bootstrap = createGameBootstrap();
+    const sites = createSpawnSites(bootstrap.miremawBoss, MOONFEN_MAP_ID);
+    const first = createWorldLayout(bootstrap.mapConfig[MOONFEN_MAP_ID].arrival, MOONFEN_MAP_ID);
+    const second = createWorldLayout(bootstrap.mapConfig[MOONFEN_MAP_ID].arrival, MOONFEN_MAP_ID);
+    const moonfenKinds = new Set(["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"]);
+
+    expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].secondaryPortal.destination).toBe(MOONFEN_MAP_ID);
+    expect(bootstrap.mapConfig[MOONFEN_MAP_ID].portal.destination).toBe(CLOUDSPIRE_MAP_ID);
+    expect(bootstrap.mapConfig[MOONFEN_MAP_ID].name).toBe("Moonfen");
+    expect(bootstrap.miremawBoss).toMatchObject({ x: 4050, y: 4050, r: 170, maxHp: MIREMAW_MAX_HP });
+    expect(sites).toHaveLength(30);
+    expect(sites.every((site) => moonfenKinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
+    expect(first).toEqual(second);
+    expect(first.paths.length).toBeGreaterThanOrEqual(9);
+    expect(first.decor.some((item) => item.type === "glowMushroom")).toBe(true);
+    expect(first.decor.some((item) => item.type === "lilyPad")).toBe(true);
+  });
+
   it("uses distinct late-map geometry and reward-pure camps without changing family totals", () => {
     const boss = { x: 4050, y: 4050 };
     const lavaSites = createSpawnSites(boss, ADVANCED_LAVA_WASTES_MAP_ID);
@@ -162,6 +183,10 @@ describe("Advanced Lava Lake", () => {
       {
         sites: createSpawnSites(boss, CLOUDSPIRE_MAP_ID),
         kinds: ["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
+      },
+      {
+        sites: createSpawnSites(boss, MOONFEN_MAP_ID),
+        kinds: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
       },
     ] as const;
     const positionSignature = (sites: typeof lavaSites) => sites
@@ -197,6 +222,7 @@ describe("Advanced Lava Lake", () => {
       WATER_REACH_MAP_ID,
       SAMURAI_GARDEN_MAP_ID,
       CLOUDSPIRE_MAP_ID,
+      MOONFEN_MAP_ID,
     ] as const;
 
     for (const mapId of mapIds) {

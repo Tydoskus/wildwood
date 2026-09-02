@@ -9,6 +9,7 @@ import {
   createSpawnSites,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
+  MOONFEN_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
@@ -80,6 +81,10 @@ import {
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
+  MIREMAW_REWARD_ARMOR,
+  MIREMAW_REWARD_DAMAGE,
+  MIREMAW_REWARD_HEALTH,
+  MIREMAW_REWARD_REGEN,
   MAP_DISPLAY_NAMES,
   MAX_BASE_ATTACKS_PER_SECOND,
   MIN_ATTACK_INTERVAL,
@@ -107,6 +112,7 @@ export const BALANCE_MAP_IDS = [
   WATER_REACH_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   CLOUDSPIRE_MAP_ID,
+  MOONFEN_MAP_ID,
 ] as const;
 
 export type BalanceMapId = typeof BALANCE_MAP_IDS[number];
@@ -756,6 +762,25 @@ function createMapDefinitions(): BalanceMapDefinition[] {
           { type: "health", amount: TEMPEST_KIRIN_REWARD_HEALTH },
           { type: "armor", amount: TEMPEST_KIRIN_REWARD_ARMOR },
           { type: "regen", amount: TEMPEST_KIRIN_REWARD_REGEN },
+        ],
+        drops: [],
+      },
+    },
+    {
+      id: MOONFEN_MAP_ID,
+      name: MAP_DISPLAY_NAMES[MOONFEN_MAP_ID],
+      arrival: bootstrap.mapConfig[MOONFEN_MAP_ID].arrival,
+      regularDrops: [],
+      boss: {
+        name: "Miremaw",
+        hp: bootstrap.miremawBoss.maxHp,
+        x: bootstrap.miremawBoss.x,
+        y: bootstrap.miremawBoss.y,
+        rewards: [
+          { type: "damage", amount: MIREMAW_REWARD_DAMAGE },
+          { type: "health", amount: MIREMAW_REWARD_HEALTH },
+          { type: "armor", amount: MIREMAW_REWARD_ARMOR },
+          { type: "regen", amount: MIREMAW_REWARD_REGEN },
         ],
         drops: [],
       },

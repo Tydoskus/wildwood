@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.587": [
+    "Moonfen is now open beyond Cloudspire, with five new enemies and five marsh camps.",
+    "Defeat Tempest Kirin to enter Moonfen and face Miremaw's tongue lash and bog burst attacks.",
+  ],
   "0.586": [
     "Sign-in verification now finishes before the large background artwork loads, preventing browser tabs from stalling during account return.",
   ],
@@ -1329,6 +1333,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.587": "2026-09-02",
   "0.586": "2026-09-02",
   "0.585": "2026-09-02",
   "0.584": "2026-09-01",

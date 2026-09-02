@@ -2,13 +2,13 @@ import { WORLD } from "../constants";
 import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, MiremawBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   DRAGON_MAX_HP,
@@ -21,6 +21,7 @@ import {
   PLAYER_SPEED,
   SPIDER_MAX_HP,
   TEMPEST_KIRIN_MAX_HP,
+  MIREMAW_MAX_HP,
   TIDEWYRM_MAX_HP,
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
@@ -47,6 +48,7 @@ export function createGameBootstrap() {
   const tidewyrmWhirlpools: TidewyrmWhirlpool[] = [];
   const koiShogunWhirlpools: KoiShogunWhirlpool[] = [];
   const tempestKirinThunderbolts: TempestKirinThunderbolt[] = [];
+  const miremawBogBursts: MiremawBogBurst[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: {
@@ -93,6 +95,12 @@ export function createGameBootstrap() {
     [CLOUDSPIRE_MAP_ID]: {
       name: MAP_DISPLAY_NAMES[CLOUDSPIRE_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: SAMURAI_GARDEN_MAP_ID },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: MOONFEN_MAP_ID },
+      arrival: { x: 580, y: 770 },
+    },
+    [MOONFEN_MAP_ID]: {
+      name: MAP_DISPLAY_NAMES[MOONFEN_MAP_ID],
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CLOUDSPIRE_MAP_ID },
       arrival: { x: 580, y: 770 },
     },
   } as const;
@@ -263,6 +271,24 @@ export function createGameBootstrap() {
     charge: null,
     encounter: null,
   };
+  const miremawBoss: MiremawBossState = {
+    isBoss: true,
+    bossKind: "miremaw",
+    x: 4050,
+    y: 4050,
+    r: 170,
+    maxHp: MIREMAW_MAX_HP,
+    hp: MIREMAW_MAX_HP,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: MIREMAW_MAX_HP,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "tongue",
+    tongue: null,
+    encounter: null,
+  };
   const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
     itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
@@ -309,6 +335,8 @@ export function createGameBootstrap() {
     tidewyrmWhirlpools,
     tempestKirinBoss,
     tempestKirinThunderbolts,
+    miremawBoss,
+    miremawBogBursts,
   };
 }
 

@@ -11,11 +11,7 @@ import { connectionGateState } from "./coop/services/connection-gate-state";
 import { retryAfterMissingWorldPresence } from "./coop/services/world-presence-recovery";
 import { reducerErrorMessage } from "./coop/services/reducer-errors";
 import { shouldRetainProfilePresentation } from "./coop/services/profile-presence";
-import {
-  createUpdateResumeStore,
-  inferLegacyUpdateResumeMode,
-  type UpdateResumeMode,
-} from "./coop/services/update-resume-store";
+import { createUpdateResumeStore, inferLegacyUpdateResumeMode, type UpdateResumeMode } from "./coop/services/update-resume-store";
 import {
   PLAYER_SPAWN,
   PROTOCOL_VERSION,
@@ -34,10 +30,7 @@ import {
 import { createPresenceService, type PresenceService } from "./coop/services/presence-service";
 import { createRemoteCombatStatsService } from "./coop/services/remote-combat-stats-service";
 import { defaultRealtimeHost } from "./coop/services/realtime-host";
-import {
-  startBaseSubscription,
-  type BaseSubscriptionHandlers,
-} from "./coop/services/base-subscription";
+import { startBaseSubscription, type BaseSubscriptionHandlers } from "./coop/services/base-subscription";
 import { createAccountService, type AccountService } from "./coop/services/account-service";
 import { startStartupBootstrap } from "./coop/startup-bootstrap";
 import type { ReducerPort } from "./coop/ports";
@@ -71,7 +64,7 @@ export type {
   RemoteRegularEnemyCombatVisual,
   SpiderBossState,
   SpiderResult,
-  TidewyrmBossState, TidewyrmResult, KoiShogunBossState, KoiShogunResult, TempestKirinBossState, TempestKirinResult,
+  TidewyrmBossState, TidewyrmResult, KoiShogunBossState, KoiShogunResult, TempestKirinBossState, TempestKirinResult, MiremawBossState, MiremawResult,
   UpgradeBenchSlot,
 } from "./coop/contracts";
 
@@ -382,6 +375,7 @@ const {
   upsertKoiShogun: upsertKoiShogunBoss,
   upsertKoiShogunResult,
   upsertTempestKirin: upsertTempestKirinBoss, upsertTempestKirinResult,
+  upsertMiremaw: upsertMiremawBoss, upsertMiremawResult,
 } = bossService.tables;
 
 let chatService!: ChatService;
@@ -629,6 +623,8 @@ const baseSubscriptionHandlers = {
   koiShogunResult: upsertKoiShogunResult,
   tempestKirinBoss: upsertTempestKirinBoss,
   tempestKirinResult: upsertTempestKirinResult,
+  miremawBoss: upsertMiremawBoss,
+  miremawResult: upsertMiremawResult,
   chatMessage: upsertChatMessage,
   duel: upsertDuel,
   removeDuel,

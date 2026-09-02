@@ -10,6 +10,8 @@ import type {
   KoiShogunResult,
   MagmaliskBossState,
   MagmaliskResult,
+  MiremawBossState,
+  MiremawResult,
   SpiderBossState,
   SpiderResult,
   TempestKirinBossState,
@@ -101,6 +103,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let koiShogunResult: KoiShogunResult | null = null;
   let tempestKirin: TempestKirinBossState | null = null;
   let tempestKirinResult: TempestKirinResult | null = null;
+  let miremaw: MiremawBossState | null = null;
+  let miremawResult: MiremawResult | null = null;
 
   function damage(
     action: string,
@@ -172,6 +176,13 @@ export function createBossService(dependencies: BossServiceDependencies) {
         tempestKirinResult = bossResult(row);
         dependencies.notify();
       },
+      upsertMiremaw(row: BossRow) {
+        miremaw = bossState(row);
+      },
+      upsertMiremawResult(row: BossResultRow) {
+        miremawResult = bossResult(row);
+        dependencies.notify();
+      },
     },
     api: {
       dragonBoss: () => dragon ? { ...dragon } : null,
@@ -190,6 +201,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       koiShogunResult: () => copyResult(koiShogunResult),
       tempestKirinBoss: () => tempestKirin ? { ...tempestKirin } : null,
       tempestKirinResult: () => copyResult(tempestKirinResult),
+      miremawBoss: () => miremaw ? { ...miremaw } : null,
+      miremawResult: () => copyResult(miremawResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -214,6 +227,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       damageTempestKirin(hits = 1, x?: number, y?: number) {
         damage("Tempest Kirin damage", (connection, count, px, py) => connection.reducers.damageTempestKirinFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
+      damageMiremaw(hits = 1, x?: number, y?: number) {
+        damage("Miremaw damage", (connection, count, px, py) => connection.reducers.damageMiremawFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      },
     },
     resetSession() {
       dragon = null;
@@ -232,6 +248,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
       koiShogunResult = null;
       tempestKirin = null;
       tempestKirinResult = null;
+      miremaw = null;
+      miremawResult = null;
     },
   };
 }

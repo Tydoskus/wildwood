@@ -25,6 +25,11 @@ import {
   CLOUDSPIRE_HEALTH_SCALE,
   CLOUDSPIRE_REWARD_SCALE,
   CLOUDSPIRE_REWARD_TRACK_PROFILE,
+  MOONFEN_ARCHETYPE_PROFILE,
+  MOONFEN_DAMAGE_SCALE,
+  MOONFEN_HEALTH_SCALE,
+  MOONFEN_REWARD_SCALE,
+  MOONFEN_REWARD_TRACK_PROFILE,
   INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE,
   INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
   INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
@@ -309,6 +314,36 @@ function cloudspireBalance(archetype: LateMapArchetype): EnemyBalance {
   };
 }
 
+const MOONFEN_HEALTH_FACTORS = centeredLateMapFactors(
+  (archetype) => MOONFEN_ARCHETYPE_PROFILE[archetype].health,
+  (archetype) => cloudspireBalance(archetype).hp,
+);
+const MOONFEN_DAMAGE_FACTORS = centeredLateMapFactors(
+  (archetype) => MOONFEN_ARCHETYPE_PROFILE[archetype].damage,
+  (archetype) => cloudspireBalance(archetype).damage * MOONFEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
+  (archetype) => cloudspireBalance(archetype).damage * cloudspireBalance(archetype).attackSpeed,
+);
+const MOONFEN_REWARD_FACTORS = centeredLateMapFactors(
+  (archetype) => {
+    const reward = cloudspireBalance(archetype).reward;
+    return MOONFEN_ARCHETYPE_PROFILE[archetype].reward * MOONFEN_REWARD_TRACK_PROFILE[reward.type];
+  },
+  (archetype) => rewardPower(cloudspireBalance(archetype).reward),
+);
+
+function moonfenBalance(archetype: LateMapArchetype): EnemyBalance {
+  const cloudspire = cloudspireBalance(archetype);
+  return {
+    hp: cloudspire.hp * MOONFEN_HEALTH_SCALE * MOONFEN_HEALTH_FACTORS[archetype],
+    damage: cloudspire.damage * MOONFEN_DAMAGE_SCALE * MOONFEN_DAMAGE_FACTORS[archetype],
+    attackSpeed: MOONFEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
+    reward: {
+      ...cloudspire.reward,
+      amount: cloudspire.reward.amount * MOONFEN_REWARD_SCALE * MOONFEN_REWARD_FACTORS[archetype],
+    },
+  };
+}
+
 const enemyTypes = {
   // TUTORIAL FOREST ENEMIES
   // Movement speeds are the original balance values reduced by 50%.
@@ -543,6 +578,31 @@ const enemyTypes = {
     ...cloudspireBalance("oracle"), speed: 230, r: 42,
     color: "#cbbcf4", outline: "#44345f",
     elite: true, aggro: 350,
+  },
+
+  // MOONFEN ENEMIES
+  "Fen Prowler": {
+    ...moonfenBalance("raider"), speed: 238, r: 31,
+    color: "#4fd9ab", outline: "#173f3b",
+  },
+  "Glowcap Archer": {
+    ...moonfenBalance("archer"), speed: 220, r: 29,
+    color: "#a2f3d5", outline: "#2a514c",
+    ranged: true,
+  },
+  "Bog Colossus": {
+    ...moonfenBalance("guardian"), speed: 205, r: 40,
+    color: "#7f9b66", outline: "#30402c",
+  },
+  "Moonmire Reaper": {
+    ...moonfenBalance("reaper"), speed: 240, r: 46,
+    color: "#9b72d0", outline: "#352653",
+    ranged: true, elite: true, aggro: 360,
+  },
+  "Wisp Oracle": {
+    ...moonfenBalance("oracle"), speed: 226, r: 43,
+    color: "#72ead1", outline: "#24524e",
+    elite: true, aggro: 360,
   },
 } satisfies Record<string, EnemyDefinition>;
 

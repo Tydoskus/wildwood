@@ -3,8 +3,8 @@ import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
-import { CLOUDSPIRE_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import { CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
@@ -89,6 +89,8 @@ export type WorldRendererOptions = {
   infernalMapId: MapId;
   waterMapId: MapId;
   samuraiMapId: MapId;
+  cloudspireMapId: MapId;
+  moonfenMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -101,6 +103,7 @@ export type WorldRendererOptions = {
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
+  miremawBoss: MiremawBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -199,10 +202,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const water = options.getMapId() === options.waterMapId;
     const samurai = options.getMapId() === SAMURAI_GARDEN_MAP_ID;
     const cloudspire = options.getMapId() === CLOUDSPIRE_MAP_ID;
+    const moonfen = options.getMapId() === MOONFEN_MAP_ID;
     return {
-      ground: cloudspire ? "#537eac" : samurai ? "#78a76f" : water ? "#238c9a" : infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: cloudspire ? "#dbe7ef" : samurai ? "#d9c8ae" : water ? "#d5c58e" : infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: cloudspire ? "rgba(52,76,122,.24)" : samurai ? "rgba(102,69,75,.2)" : water ? "rgba(255,248,198,.26)" : infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
+      ground: moonfen ? "#174f50" : cloudspire ? "#537eac" : samurai ? "#78a76f" : water ? "#238c9a" : infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
+      path: moonfen ? "#607d6b" : cloudspire ? "#dbe7ef" : samurai ? "#d9c8ae" : water ? "#d5c58e" : infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
+      pathDetail: moonfen ? "rgba(190,255,224,.18)" : cloudspire ? "rgba(52,76,122,.24)" : samurai ? "rgba(102,69,75,.2)" : water ? "rgba(255,248,198,.26)" : infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
     };
   }
 
@@ -925,7 +929,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
                   ? { state: options.koiShogunBoss, color: "#e48a35" }
                   : options.getMapId() === CLOUDSPIRE_MAP_ID
                     ? { state: options.tempestKirinBoss, color: "#7fd8ff" }
-                    : null;
+                    : options.getMapId() === MOONFEN_MAP_ID
+                      ? { state: options.miremawBoss, color: "#79efc3" }
+                      : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
       draw.save();

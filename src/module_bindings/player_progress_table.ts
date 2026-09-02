@@ -44,4 +44,5 @@ export default __t.row({
   waterUnlocked: __t.bool().name("water_unlocked"),
   samuraiUnlocked: __t.bool().name("samurai_unlocked"),
   cloudspireUnlocked: __t.bool().name("cloudspire_unlocked"),
+  moonfenUnlocked: __t.bool().name("moonfen_unlocked"),
 });

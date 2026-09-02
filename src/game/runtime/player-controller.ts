@@ -54,6 +54,7 @@ export function createPlayerController(options: {
   resolveTidewyrmCollision: () => void;
   resolveKoiShogunCollision: () => void;
   resolveTempestKirinCollision: () => void;
+  resolveMiremawCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   isTutorialMap: () => boolean;
@@ -64,6 +65,7 @@ export function createPlayerController(options: {
   isWaterMap: () => boolean;
   isSamuraiMap: () => boolean;
   isCloudspireMap: () => boolean;
+  isMoonfenMap: () => boolean;
   viewport: () => { width: number; height: number; zoom: number };
   cameraPosition: () => { x: number; y: number };
   isConnected: () => boolean;
@@ -91,7 +93,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap,
+    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, resolveMiremawCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -199,6 +201,7 @@ export function createPlayerController(options: {
     if (isWaterMap()) resolveTidewyrmCollision();
     if (isSamuraiMap()) resolveKoiShogunCollision();
     if (isCloudspireMap()) resolveTempestKirinCollision();
+    if (isMoonfenMap()) resolveMiremawCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
     if (connected) {

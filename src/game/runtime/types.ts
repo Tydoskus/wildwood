@@ -150,6 +150,11 @@ export type TempestKirinThunderbolt = Circle & {
   maxTimer: number;
 };
 
+export type MiremawBogBurst = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+
 export type FrostclawRoar = {
   windup: number;
   timer: number;
@@ -229,7 +234,13 @@ export type TempestKirinBossState = BossStateBase & {
   charge: BossCone | null;
 };
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState;
+export type MiremawBossState = BossStateBase & {
+  bossKind: "miremaw";
+  nextAttack: "tongue" | "bogBurst";
+  tongue: BossCone | null;
+};
+
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState;
 
 export type DuelPresentation = {
   id: bigint;

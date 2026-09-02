@@ -17,7 +17,8 @@ export type BossSimulationKind =
   | "gloomroot"
   | "tidewyrm"
   | "koiShogun"
-  | "tempestKirin";
+  | "tempestKirin"
+  | "miremaw";
 
 export type BossAbilityName =
   | "cone"
@@ -35,7 +36,9 @@ export type BossAbilityName =
   | "slash"
   | "whirlpool"
   | "charge"
-  | "thunder";
+  | "thunder"
+  | "tongue"
+  | "bogBurst";
 
 type BossAbilityDefinition = {
   ability: BossAbilityName;
@@ -81,6 +84,10 @@ const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefini
   tempestKirin: [
     { ability: "charge", slotDurationMs: 4_100, activeDurationMs: 1_760 },
     { ability: "thunder", slotDurationMs: 4_900, activeDurationMs: 1_880 },
+  ],
+  miremaw: [
+    { ability: "tongue", slotDurationMs: 4_050, activeDurationMs: 1_520 },
+    { ability: "bogBurst", slotDurationMs: 5_000, activeDurationMs: 1_900 },
   ],
 };
 

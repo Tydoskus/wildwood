@@ -27,5 +27,6 @@ export const MAP_ENEMY_FAMILY_TINTS: {
   water_reach: string;
   samurai_garden: string;
   cloudspire: string;
+  moonfen: string;
 };
 export const ENEMY_SPRITE_LAYOUTS: Record<string, EnemySpriteLayout>;

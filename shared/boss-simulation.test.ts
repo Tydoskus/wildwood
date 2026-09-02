@@ -85,6 +85,14 @@ describe("deterministic boss simulation", () => {
     expect(second.ability).toBe("thunder");
   });
 
+  it("cycles Miremaw between tongue and bog burst", () => {
+    const first = bossAbilityTimelineAt({ kind: "miremaw", serverNowMs: 0 });
+    const second = bossAbilityTimelineAt({ kind: "miremaw", serverNowMs: first.slotDurationMs });
+
+    expect(first.ability).toBe("tongue");
+    expect(second.ability).toBe("bogBurst");
+  });
+
   it("shares a player's exact boss attack slot across clients", () => {
     const options = {
       kind: "magmalisk" as const,

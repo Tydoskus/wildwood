@@ -36,6 +36,10 @@ const encounters = {
     kinds: ["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
     build: { maxHp: 3_400_000_000, armor: 1_700_000_000 },
   },
+  miremaw: {
+    kinds: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
+    build: { maxHp: 28_900_000_000, armor: 14_500_000_000 },
+  },
 } as const satisfies Record<keyof typeof BOSS_DAMAGE_PROFILES, {
   kinds: readonly EnemyKind[];
   build: { maxHp: number; armor: number };

@@ -16,6 +16,9 @@ import {
   MAGMALISK_AGGRO_RANGE,
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
+  MIREMAW_AGGRO_RANGE,
+  MIREMAW_TONGUE_HALF_ANGLE,
+  MIREMAW_TONGUE_RANGE,
   TIDEWYRM_AGGRO_RANGE,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
@@ -45,6 +48,10 @@ import {
   MAGMALISK_REWARD_DAMAGE,
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
+  MIREMAW_REWARD_ARMOR,
+  MIREMAW_REWARD_DAMAGE,
+  MIREMAW_REWARD_HEALTH,
+  MIREMAW_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -74,6 +81,8 @@ import type {
   KoiShogunWhirlpool,
   MagmaliskBossState,
   MagmaliskEruption,
+  MiremawBogBurst,
+  MiremawBossState,
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
@@ -132,6 +141,11 @@ const TEMPEST_KIRIN_CHARGE_DURATION = 1.02;
 const TEMPEST_KIRIN_CHARGE_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.charge;
 const TEMPEST_KIRIN_THUNDER_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.thunder;
 const TEMPEST_KIRIN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.contact;
+const MIREMAW_TONGUE_WINDUP = .68;
+const MIREMAW_TONGUE_DURATION = .58;
+const MIREMAW_TONGUE_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.tongue;
+const MIREMAW_BOG_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.bogBurst;
+const MIREMAW_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.contact;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -167,6 +181,7 @@ export type BossController = {
   resetTidewyrmBoss: () => void;
   resetKoiShogunBoss: () => void;
   resetTempestKirinBoss: () => void;
+  resetMiremawBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
@@ -175,6 +190,7 @@ export type BossController = {
   syncTidewyrmState: () => void;
   syncKoiShogunState: () => void;
   syncTempestKirinState: () => void;
+  syncMiremawState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
@@ -183,6 +199,7 @@ export type BossController = {
   updateTidewyrmBoss: (dt: number) => void;
   updateKoiShogunBoss: (dt: number) => void;
   updateTempestKirinBoss: (dt: number) => void;
+  updateMiremawBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
@@ -191,6 +208,7 @@ export type BossController = {
   resolveTidewyrmCollision: () => void;
   resolveKoiShogunCollision: () => void;
   resolveTempestKirinCollision: () => void;
+  resolveMiremawCollision: () => void;
   applyDragonConePush: (dt: number) => void;
   applyFrostclawPush: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
@@ -209,6 +227,7 @@ export function createBossController(options: {
   tidewyrmBoss: TidewyrmBossState;
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
+  miremawBoss: MiremawBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -217,6 +236,7 @@ export function createBossController(options: {
   tidewyrmWhirlpools: TidewyrmWhirlpool[];
   koiShogunWhirlpools: KoiShogunWhirlpool[];
   tempestKirinThunderbolts: TempestKirinThunderbolt[];
+  miremawBogBursts: MiremawBogBurst[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
@@ -226,6 +246,7 @@ export function createBossController(options: {
   getTidewyrmBoss: () => SharedBossState | null | undefined;
   getKoiShogunBoss: () => SharedBossState | null | undefined;
   getTempestKirinBoss: () => SharedBossState | null | undefined;
+  getMiremawBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
@@ -234,6 +255,7 @@ export function createBossController(options: {
   getTidewyrmResult: () => BossResult | null | undefined;
   getKoiShogunResult: () => BossResult | null | undefined;
   getTempestKirinResult: () => BossResult | null | undefined;
+  getMiremawResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
@@ -247,6 +269,7 @@ export function createBossController(options: {
   currentMapIsWater: () => boolean;
   currentMapIsSamurai: () => boolean;
   currentMapIsCloudspire: () => boolean;
+  currentMapIsMoonfen: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -271,9 +294,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
@@ -317,6 +340,10 @@ export function createBossController(options: {
   let tempestKirinWasAlive: boolean | null = null;
   let pendingTempestKirinResultEncounter: bigint | null = null;
   let shownTempestKirinResultEncounter: bigint | null = null;
+  let observedMiremawEncounter: bigint | null = null;
+  let miremawWasAlive: boolean | null = null;
+  let pendingMiremawResultEncounter: bigint | null = null;
+  let shownMiremawResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
@@ -325,6 +352,7 @@ export function createBossController(options: {
   const locallyRewardedTidewyrmEncounters = new Set<string>();
   const locallyRewardedKoiShogunEncounters = new Set<string>();
   const locallyRewardedTempestKirinEncounters = new Set<string>();
+  const locallyRewardedMiremawEncounters = new Set<string>();
   let dragonRainPatternIndex = 0;
   let spiderVenomPatternIndex = 0;
   let frostclawIcefallPatternIndex = 0;
@@ -333,6 +361,7 @@ export function createBossController(options: {
   let tidewyrmWhirlpoolPatternIndex = 0;
   let koiShogunWhirlpoolPatternIndex = 0;
   let tempestKirinThunderPatternIndex = 0;
+  let miremawBogBurstPatternIndex = 0;
   const observedAbilityKeys = new Map<BossSimulationKind, string>();
   const activatedAbilityKeys = new Map<BossSimulationKind, string>();
 
@@ -577,6 +606,27 @@ export function createBossController(options: {
     tempestKirinThunderPatternIndex = 0;
     resetAbilityTimeline("tempestKirin");
   }
+
+function resetMiremawBoss() {
+    const shared = getMiremawBoss();
+    if (shared) {
+      miremawBoss.encounter = shared.encounter;
+      miremawBoss.hp = shared.hp;
+      miremawBoss.maxHp = shared.maxHp;
+      miremawBoss.dead = !shared.alive;
+    }
+    miremawBoss.hurt = 0;
+    miremawBoss.hpLossFlashFrom = miremawBoss.hp;
+    miremawBoss.hpLossFlashTimer = 0;
+    miremawBoss.contactDamageClock = 0;
+    miremawBoss.attackClock = 3;
+    miremawBoss.nextAttack = "tongue";
+    miremawBoss.tongue = null;
+    miremawBogBursts.length = 0;
+    miremawBogBurstPatternIndex = 0;
+    resetAbilityTimeline("miremaw");
+  }
+
 
   function showWorldResult(result: BossResult, heading: string) {
     const title = elements.worldNotice.querySelector("strong");
@@ -869,6 +919,40 @@ export function createBossController(options: {
       "#a9e8ff",
     );
   }
+
+function showMiremawResult(result: BossResult | null | undefined) {
+    if (!result || shownMiremawResultEncounter === result.encounter) return;
+    pendingMiremawResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    if (!localContribution) {
+      shownMiremawResultEncounter = result.encounter;
+      showWorldResult(result, "MIREMAW DEFEATED");
+      return;
+    }
+    shownMiremawResultEncounter = result.encounter;
+    renderResult(result, "Miremaw Defeated");
+    const damageReward = scaledReward("damage", MIREMAW_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", MIREMAW_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", MIREMAW_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", MIREMAW_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedMiremawEncounters.has(encounterKey)) {
+      locallyRewardedMiremawEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    showMessage(
+      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
+      "#91f4d1",
+    );
+  }
+
 
   function killBoss() {
     if (boss.dead) return;
@@ -1303,6 +1387,64 @@ export function createBossController(options: {
       if (result?.encounter === pendingTempestKirinResultEncounter) showTempestKirinResult(result);
     }
   }
+
+function syncMiremawState() {
+    const shared = getMiremawBoss();
+    if (!shared) return;
+    const initialized = observedMiremawEncounter !== null;
+    const encounterChanged = initialized && observedMiremawEncounter !== shared.encounter;
+    const previousHp = miremawBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedMiremawEncounter = shared.encounter;
+      miremawWasAlive = shared.alive;
+      miremawBoss.dead = !shared.alive;
+      miremawBoss.attackClock = 3;
+      miremawBoss.nextAttack = "tongue";
+      miremawBoss.tongue = null;
+      miremawBogBursts.length = 0;
+      miremawBogBurstPatternIndex = 0;
+      resetAbilityTimeline("miremaw");
+      miremawBoss.hpLossFlashFrom = shared.hp;
+      miremawBoss.hpLossFlashTimer = 0;
+    } else if (miremawWasAlive && !shared.alive) {
+      miremawWasAlive = false;
+      miremawBoss.dead = true;
+      miremawBoss.tongue = null;
+      miremawBogBursts.length = 0;
+      pendingMiremawResultEncounter = shared.encounter;
+      spawnBurst(miremawBoss.x, miremawBoss.y, "#71efc1", 120, 340);
+    } else if (!miremawWasAlive && shared.alive) {
+      miremawWasAlive = true;
+      miremawBoss.dead = false;
+      miremawBoss.attackClock = 3;
+      miremawBoss.nextAttack = "tongue";
+      miremawBogBurstPatternIndex = 0;
+      resetAbilityTimeline("miremaw");
+    } else if (shared.alive && shared.hp < previousHp) {
+      miremawBoss.hpLossFlashFrom = miremawBoss.hpLossFlashTimer > 0
+        ? Math.max(miremawBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      miremawBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      miremawBoss.hpLossFlashFrom = shared.hp;
+      miremawBoss.hpLossFlashTimer = 0;
+    }
+    miremawBoss.encounter = shared.encounter;
+    miremawBoss.maxHp = shared.maxHp;
+    miremawBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsMoonfen()) {
+      const result = getMiremawResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedMiremawEncounters.add(String(result.encounter));
+        showMiremawResult(result);
+      }
+    }
+    if (pendingMiremawResultEncounter !== null) {
+      const result = getMiremawResult();
+      if (result?.encounter === pendingMiremawResultEncounter) showMiremawResult(result);
+    }
+  }
+
 
   function syncDragonState() {
     const shared = getDragonBoss();
@@ -2187,6 +2329,20 @@ export function createBossController(options: {
     tempestKirinBoss.nextAttack = "thunder";
   }
 
+function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    miremawBoss.tongue = {
+      angle: Math.atan2(target.y - miremawBoss.y, target.x - miremawBoss.x),
+      windup: Math.max(0, MIREMAW_TONGUE_WINDUP - elapsed),
+      timer: Math.max(0, MIREMAW_TONGUE_DURATION - Math.max(0, elapsed - MIREMAW_TONGUE_WINDUP)),
+      duration: MIREMAW_TONGUE_DURATION,
+      hitPlayer: false,
+      pushAngle: null,
+    };
+    miremawBoss.nextAttack = "bogBurst";
+  }
+
+
   function startTempestKirinThunder(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
     const patternIndex = deterministicPatternIndex ?? tempestKirinThunderPatternIndex;
     for (let index = 0; index < 12; index += 1) {
@@ -2217,6 +2373,38 @@ export function createBossController(options: {
     tempestKirinBoss.attackClock = 3.1;
     tempestKirinBoss.nextAttack = "charge";
   }
+
+function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? miremawBogBurstPatternIndex;
+    for (let index = 0; index < 10; index += 1) {
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "miremaw",
+        encounter: miremawBoss.encounter,
+        pattern: "bogBurst",
+        patternIndex,
+        hazardIndex: index,
+        hazardCount: 10,
+        angleJitter: .28,
+        minimumRadius: 72,
+        maximumRadius: 340,
+        centerFirst: true,
+      });
+      const maxTimer = .76 + index * .11;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      miremawBogBursts.push({
+        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
+        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
+        r: 96,
+        timer,
+        maxTimer,
+      });
+    }
+    if (deterministicPatternIndex === undefined) miremawBogBurstPatternIndex += 1;
+    miremawBoss.attackClock = 3.1;
+    miremawBoss.nextAttack = "tongue";
+  }
+
 
   function updateTempestKirinBoss(dt: number) {
     tempestKirinBoss.hpLossFlashTimer = Math.max(0, tempestKirinBoss.hpLossFlashTimer - dt);
@@ -2289,7 +2477,79 @@ export function createBossController(options: {
     else startTempestKirinThunder();
   }
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState, damage: number, cooldown: number) {
+function updateMiremawBoss(dt: number) {
+    miremawBoss.hpLossFlashTimer = Math.max(0, miremawBoss.hpLossFlashTimer - dt);
+    miremawBoss.contactDamageClock = Math.max(0, miremawBoss.contactDamageClock - dt);
+    if (miremawBoss.dead) return;
+    miremawBoss.hurt = Math.max(0, miremawBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "miremaw",
+      encounter: miremawBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("miremaw", miremawBoss.encounter, attackIndex, miremawBoss.x, miremawBoss.y, MIREMAW_AGGRO_RANGE),
+      clear: () => { miremawBoss.tongue = null; miremawBogBursts.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "tongue") startMiremawTongue(elapsedSeconds, target);
+        else if (ability === "bogBurst") startMiremawBogBurst(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { miremawBoss.attackClock = seconds; },
+    });
+
+    for (let index = miremawBogBursts.length - 1; index >= 0; index -= 1) {
+      const bolt = miremawBogBursts[index];
+      bolt.timer -= dt;
+      if (bolt.timer > 0) continue;
+      const dx = player.x - bolt.x;
+      const dy = player.y - bolt.y;
+      if (dx * dx + dy * dy <= bolt.r * bolt.r) damagePlayer(MIREMAW_BOG_BURST_DAMAGE);
+      spawnBurst(bolt.x, bolt.y, "#a9ffe0", 44, 270);
+      miremawBogBursts.splice(index, 1);
+    }
+    if (miremawBogBursts.length > 0) return;
+
+    if (miremawBoss.tongue) {
+      const tongue = miremawBoss.tongue;
+      if (tongue.windup > 0) {
+        tongue.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - tongue.timer / tongue.duration, 0, 1);
+      tongue.timer -= dt;
+      const progress = clamp(1 - tongue.timer / tongue.duration, 0, 1);
+      const minRadius = miremawBoss.r + (MIREMAW_TONGUE_RANGE - miremawBoss.r) * previousProgress;
+      const maxRadius = miremawBoss.r + (MIREMAW_TONGUE_RANGE - miremawBoss.r) * progress;
+      if (!tongue.hitPlayer) {
+        const dx = player.x - miremawBoss.x;
+        const dy = player.y - miremawBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - tongue.angle),
+          Math.cos(Math.atan2(dy, dx) - tongue.angle),
+        );
+        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= MIREMAW_TONGUE_HALF_ANGLE) {
+          tongue.hitPlayer = true;
+          damagePlayer(MIREMAW_TONGUE_DAMAGE);
+          spawnBurst(player.x, player.y, "#e1fff2", 38, 280);
+        }
+      }
+      if (tongue.timer <= 0) {
+        miremawBoss.tongue = null;
+        miremawBoss.attackClock = 2.35;
+      }
+      return;
+    }
+
+    if (sharedTimeline) return;
+    miremawBoss.attackClock -= dt;
+    if (miremawBoss.attackClock > 0) return;
+    const dx = player.x - miremawBoss.x;
+    const dy = player.y - miremawBoss.y;
+    if (dx * dx + dy * dy > MIREMAW_AGGRO_RANGE * MIREMAW_AGGRO_RANGE) return;
+    if (miremawBoss.nextAttack === "tongue") startMiremawTongue();
+    else startMiremawBogBurst();
+  }
+
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -2329,6 +2589,7 @@ export function createBossController(options: {
     resetTidewyrmBoss,
     resetKoiShogunBoss,
     resetTempestKirinBoss,
+    resetMiremawBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
@@ -2337,6 +2598,7 @@ export function createBossController(options: {
     syncTidewyrmState,
     syncKoiShogunState,
     syncTempestKirinState,
+    syncMiremawState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
@@ -2345,6 +2607,7 @@ export function createBossController(options: {
     updateTidewyrmBoss,
     updateKoiShogunBoss,
     updateTempestKirinBoss,
+    updateMiremawBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
@@ -2353,6 +2616,7 @@ export function createBossController(options: {
     resolveTidewyrmCollision: () => resolveCollision(tidewyrmBoss, TIDEWYRM_CONTACT_DAMAGE, .75),
     resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
     resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, TEMPEST_KIRIN_CONTACT_DAMAGE, .75),
+    resolveMiremawCollision: () => resolveCollision(miremawBoss, MIREMAW_CONTACT_DAMAGE, .75),
     applyDragonConePush,
     applyFrostclawPush,
     onPortalCutsceneFinished(wasPreview) {

@@ -50,6 +50,7 @@ import DamageFrostclawFromPositionReducer from "./damage_frostclaw_from_position
 import DamageGloomrootFromPositionReducer from "./damage_gloomroot_from_position_reducer";
 import DamageKoiShogunFromPositionReducer from "./damage_koi_shogun_from_position_reducer";
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
+import DamageMiremawFromPositionReducer from "./damage_miremaw_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
 import DamageTempestKirinFromPositionReducer from "./damage_tempest_kirin_from_position_reducer";
@@ -121,6 +122,8 @@ import LeaderboardEntryRow from "./leaderboard_entry_table";
 import LocalMovementDemandRow from "./local_movement_demand_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
+import MiremawBossRow from "./miremaw_boss_table";
+import MiremawResultRow from "./miremaw_result_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
@@ -358,6 +361,28 @@ const tablesSchema = __schema({
       { name: 'magmalisk_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MagmaliskResultRow),
+  miremawBoss: __table({
+    name: 'miremaw_boss',
+    indexes: [
+      { accessor: 'id', name: 'miremaw_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'miremaw_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MiremawBossRow),
+  miremawResult: __table({
+    name: 'miremaw_result',
+    indexes: [
+      { accessor: 'id', name: 'miremaw_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'miremaw_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MiremawResultRow),
   player: __table({
     name: 'player',
     indexes: [
@@ -695,6 +720,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_gloomroot_from_position", DamageGloomrootFromPositionReducer),
   __reducerSchema("damage_koi_shogun_from_position", DamageKoiShogunFromPositionReducer),
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
+  __reducerSchema("damage_miremaw_from_position", DamageMiremawFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
   __reducerSchema("damage_tempest_kirin_from_position", DamageTempestKirinFromPositionReducer),
