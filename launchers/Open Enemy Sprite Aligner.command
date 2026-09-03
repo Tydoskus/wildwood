@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -e
 
-project_dir="${0:A:h}"
+project_dir="${0:A:h:h}"
 port="4173"
 url="http://127.0.0.1:${port}/public/enemy-sprite-aligner.html"
 log_file="/tmp/wildstat-enemy-sprite-aligner.log"

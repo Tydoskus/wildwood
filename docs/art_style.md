@@ -1,6 +1,6 @@
 # WildStat Art Style
 
-All new WildStat art should use this visual language unless a feature-specific art direction document explicitly overrides it.
+All new WildStat art should use this visual language unless a feature-specific art direction document explicitly overrides it. Runtime art lives in `public/assets/`; source art lives in `art-source/`, both relative to the repository root.
 
 WildStat is mobile-first. Judge silhouettes, contrast, detail, and labels at portrait-phone gameplay size before desktop presentation; desktop is a secondary compatibility target.
 

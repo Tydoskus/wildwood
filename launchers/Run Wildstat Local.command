@@ -6,7 +6,7 @@ unsetopt BG_NICE
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:${HOME}/.local/bin:${PATH}"
 
-PROJECT_DIR="${0:A:h}"
+PROJECT_DIR="${0:A:h:h}"
 LOCAL_URL="http://127.0.0.1:8000/"
 DATABASE_NAME="wildwood-coop"
 
@@ -25,7 +25,7 @@ PYTHON_BIN="$(command -v python3 2>/dev/null || true)"
 [[ -n "$SPACETIME_BIN" ]] || fail "SpacetimeDB CLI not found. Install it, then reopen this file."
 [[ -n "$NPM_BIN" ]] || fail "npm not found. Install Node.js, then reopen this file."
 [[ -n "$PYTHON_BIN" ]] || fail "python3 not found. It is required by the local web server."
-[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find WildStat package.json beside this file."
+[[ -f "$PROJECT_DIR/package.json" ]] || fail "Could not find WildStat package.json above the launchers folder."
 
 cd "$PROJECT_DIR" || fail "Could not open the WildStat folder."
 clear

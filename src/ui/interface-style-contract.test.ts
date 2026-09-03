@@ -226,6 +226,18 @@ describe("interface style contracts", () => {
     expect(cssRule(".stat-reward-arrow::after {")).toContain("border-bottom: 7px solid var(--green)");
   });
 
+  it("separates the stat card entrance from its idle expiry fade", () => {
+    const toast = cssRule(".stat-reward-toast {");
+    expect(toast).toContain("animation: stat-reward-enter 280ms ease-out");
+    expect(toast).not.toContain("floatout");
+    expect(toast).toContain("opacity: 1");
+    expect(toast).toContain("transition: opacity 300ms ease");
+    const expiry = cssRule(".stat-reward-toast.is-expiring {");
+    expect(expiry).toContain("opacity: 0");
+    expect(expiry).not.toMatch(/animation|transform/);
+    expect(cssRule(".stat-reward-value { ")).toContain("font-variant-numeric: tabular-nums");
+  });
+
   it("renders chat messages with the same font treatment as usernames", () => {
     const username = cssRule("\n  .chat-name {");
     const message = cssRule("\n  .chat-text {");
@@ -746,5 +758,18 @@ describe("interface style contracts", () => {
     expect(entryHtml.indexOf('id="devAuditBtn"')).toBeGreaterThan(entryHtml.indexOf('id="settingsPanel"'));
     expect(entryHtml).toContain('id="developerSettingsRow" class="setting-row developer-settings-row" hidden');
     expect(entryHtml).toContain('id="devAuditBtn" class="setting-toggle dev-audit-button"');
+  });
+
+  it("keeps toolbar buttons borderless without changing their sizing or spacing", () => {
+    const toolbar = cssRule(".settings-wrap {");
+    const button = cssRule(".settings-button {");
+    expect(toolbar).toContain("border: 0");
+    expect(toolbar).toContain("height: var(--toolbar-height)");
+    expect(toolbar).toContain("gap: 0");
+    expect(button).toContain("border: 0");
+    expect(button).toContain("flex: 1 1 0");
+    expect(button).toContain("gap: 3px");
+    expect(cssRule(".toolbar-icon {")).toContain("width: 31px");
+    expect(css).not.toContain(".settings-button + .settings-button");
   });
 });

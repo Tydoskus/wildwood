@@ -31,7 +31,7 @@ WildStat is mobile-first. Touch interaction, narrow portrait layouts, safe areas
 
 GitHub Pages builds the client and deploys only `dist/` after every push to `main`. Source files and repository documentation never ship as site files.
 
-See `ENGINEERING.md` for module boundaries and backlog. See `docs/mobile-first.md` for product and QA constraints, `docs/mobile-performance.md` for measured rendering risks and optimization follow-ups, `docs/equipment.md` for item extension boundaries, `docs/realtime-data-flow.md` for movement, minimap, save, reconnect, and research flow diagrams, `docs/bandwidth-isolation.md` for the nearest-five budget and load profiles, and `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
+See [engineering notes](ENGINEERING.md) for module boundaries and backlog. See `docs/mobile-first.md` for product and QA constraints, `docs/mobile-performance.md` for measured rendering risks and optimization follow-ups, `docs/equipment.md` for item extension boundaries, `docs/realtime-data-flow.md` for movement, minimap, save, reconnect, and research flow diagrams, `docs/bandwidth-isolation.md` for the nearest-five budget and load profiles, and `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
 
 ## Local development
 
@@ -41,7 +41,7 @@ Install dependencies once:
 npm ci
 ```
 
-On macOS, double-click `Run Wildstat Local.command` for the complete local stack. It opens the database in a second Terminal window, publishes and builds current code, starts the web server, then opens the game. Press Control-C in both Terminal windows when finished.
+On macOS, double-click `Run Wildstat Local.command` in the `launchers/` folder for the complete local stack. It opens the database in a second Terminal window, publishes and builds current code, starts the web server, then opens the game. Press Control-C in both Terminal windows when finished.
 
 For a complete local stack, run these in separate terminals:
 
@@ -97,7 +97,7 @@ For a client-only release, run the interactive helper:
 npm run release:live
 ```
 
-On macOS, double-click `Release Wildstat.command` in the project folder instead of typing the command yourself. Its Terminal window stays open, asks for the version and notes, and shows every check plus live deployment progress.
+On macOS, double-click `Release Wildstat.command` in the `launchers/` folder instead of typing the command yourself. Its Terminal window stays open, asks for the version and notes, and shows every check plus live deployment progress.
 
 It suggests the next version, accepts one release note per line, shows included changes, runs every required check, commits and pushes `main`, then waits until the live site reports the new version. Tracked changes and already-staged new files are included by default. Untracked paths are shown but excluded; stage intended new files first, or deliberately run `npm run release:live -- --include-untracked` after reviewing them.
 

@@ -1,6 +1,6 @@
 # WildStat Engineering Notes
 
-This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior.
+This file records module boundaries, change rules, and known technical work. Read it before changing gameplay, networking, persistence, or deployment behavior. Code paths below are relative to the repository root.
 
 Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`. Mobile-first release constraints live in `docs/mobile-first.md`; measured rendering risks and follow-ups live in `docs/mobile-performance.md`; equipment extension boundaries live in `docs/equipment.md`.
 

@@ -2,7 +2,7 @@
 
 ## Local development
 
-On macOS, double-click `Run Wildstat Local.command` in the repository root. It starts the database and web server in separate Terminal windows, publishes the local module, regenerates client bindings, builds the browser client, and opens the game.
+On macOS, double-click `Run Wildstat Local.command` in the repository's `launchers/` folder. It starts the database and web server in separate Terminal windows, publishes the local module, regenerates client bindings, builds the browser client, and opens the game.
 
 Or run SpacetimeDB and the built static site manually in separate terminals:
 

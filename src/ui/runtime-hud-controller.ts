@@ -61,6 +61,13 @@ type RuntimeHudDependencies = {
   pulseDuel: () => void;
 };
 
+type ActiveStatReward = {
+  entry: HTMLElement;
+  total: number;
+  fadeTimer: number;
+  removeTimer: number;
+};
+
 /** Throttled HUD, temporary notifications, and duel status/result presentation. */
 export function createRuntimeHudController(dependencies: RuntimeHudDependencies) {
   const { elements } = dependencies;
@@ -69,11 +76,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   const itemDropQueue: ItemDropRevealDetails[] = [];
   let itemDropActive = false;
   let itemDropTimer: number | null = null;
-  const activeStatRewards = new Map<string, {
-    entry: HTMLElement;
-    total: number;
-    removeTimer: number;
-  }>();
+  const activeStatRewards = new Map<string, ActiveStatReward>();
 
   function showMessage(text: string, color = "#fff") {
     elements.message.textContent = text;
@@ -88,6 +91,20 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     if (messageClock <= 0) elements.message.style.opacity = "0";
   }
 
+  function refreshStatRewardLifetime(stat: string, reward: ActiveStatReward) {
+    window.clearTimeout(reward.fadeTimer);
+    window.clearTimeout(reward.removeTimer);
+    // Extending the hold must not replay the card's one-time entrance animation.
+    reward.entry.classList.remove("is-expiring");
+    reward.fadeTimer = window.setTimeout(() => {
+      reward.entry.classList.add("is-expiring");
+    }, 2_100);
+    reward.removeTimer = window.setTimeout(() => {
+      if (activeStatRewards.get(stat) === reward) activeStatRewards.delete(stat);
+      reward.entry.remove();
+    }, 2_400);
+  }
+
   function logPickup(text: string, color: string) {
     const model = statRewardToastModel(text);
     const active = model ? activeStatRewards.get(model.stat) : undefined;
@@ -96,15 +113,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       const amount = formatStatRewardToastAmount(model.stat, active.total);
       active.entry.querySelector<HTMLElement>(".stat-reward-value")!.textContent = amount;
       active.entry.setAttribute("aria-label", `${model.label} ${amount}`);
-      active.entry.style.setProperty("--stat-reward-accent", color);
-      window.clearTimeout(active.removeTimer);
-      active.entry.style.animation = "none";
-      void active.entry.offsetWidth;
-      active.entry.style.removeProperty("animation");
-      active.removeTimer = window.setTimeout(() => {
-        if (activeStatRewards.get(model.stat) === active) activeStatRewards.delete(model.stat);
-        active.entry.remove();
-      }, 2_400);
+      refreshStatRewardLifetime(model.stat, active);
       return;
     }
 
@@ -117,13 +126,11 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     const reward = {
       entry,
       total: model.value,
+      fadeTimer: 0,
       removeTimer: 0,
     };
-    reward.removeTimer = window.setTimeout(() => {
-      if (activeStatRewards.get(model.stat) === reward) activeStatRewards.delete(model.stat);
-      entry.remove();
-    }, 2_400);
     activeStatRewards.set(model.stat, reward);
+    refreshStatRewardLifetime(model.stat, reward);
   }
 
   function showNextItemDrop() {
@@ -159,7 +166,10 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     document.body.classList.remove("is-dueling");
     messageClock = 0;
     elements.message.style.opacity = "0";
-    for (const reward of activeStatRewards.values()) window.clearTimeout(reward.removeTimer);
+    for (const reward of activeStatRewards.values()) {
+      window.clearTimeout(reward.fadeTimer);
+      window.clearTimeout(reward.removeTimer);
+    }
     activeStatRewards.clear();
     elements.pickupLog.replaceChildren();
     itemDropQueue.length = 0;

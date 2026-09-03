@@ -9,8 +9,9 @@
     "types": ["node", "vite/client"]
   },
   "include": [
-    "scripts/balance-report.ts",
-    "src/balance/**/*.ts",
+    "../tools/balance-lab.ts",
+    "../scripts/balance-report.ts",
+    "../src/balance/**/*.ts",
     "vite.balance.config.ts"
   ]
 }

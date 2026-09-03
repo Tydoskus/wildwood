@@ -10,10 +10,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": [
-    "scripts/virtual-player-load-test.ts",
-    "scripts/virtual-player-load-test-config.ts",
-    "shared/**/*.ts",
-    "src/module_bindings/**/*.ts",
-    "src/coop/services/sparse-movement.ts"
+    "../scripts/virtual-player-load-test.ts",
+    "../scripts/virtual-player-load-test-config.ts",
+    "../shared/**/*.ts",
+    "../src/module_bindings/**/*.ts",
+    "../src/coop/services/sparse-movement.ts"
   ]
 }

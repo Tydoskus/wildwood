@@ -7,12 +7,12 @@ const root = process.cwd();
 
 describe("one-click map editor", () => {
   it("ships an executable launcher and complete browser shell", () => {
-    const launcher = resolve(root, "Open WildStat Map Editor.command");
+    const launcher = resolve(root, "launchers/Open WildStat Map Editor.command");
     const html = readFileSync(resolve(root, "tools/map-editor/index.html"), "utf8");
     expect(existsSync(launcher)).toBe(true);
     expect(statSync(launcher).mode & 0o111).not.toBe(0);
     if (process.platform === "darwin") {
-      const launcherCheck = spawnSync(launcher, ["--check"], { cwd: root, encoding: "utf8" });
+      const launcherCheck = spawnSync(launcher, ["--check"], { cwd: resolve(root, "launchers"), encoding: "utf8" });
       expect(launcherCheck.status).toBe(0);
       expect(launcherCheck.stdout).toContain("launcher check passed");
     }

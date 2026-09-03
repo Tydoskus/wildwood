@@ -2,7 +2,7 @@
 set -e
 setopt NO_BG_NICE
 
-project_dir="${0:A:h}"
+project_dir="${0:A:h:h}"
 port="4174"
 url="http://127.0.0.1:${port}/tools/map-editor/"
 log_file="/tmp/wildstat-map-editor.log"

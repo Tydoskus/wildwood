@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.608": [
+    "Removed black toolbar borders for a cleaner look.",
+    "Repeated stat rewards now update their existing total without replaying the entrance animation.",
+    "Organized project files into config, docs, launchers, and tools folders while preserving one-click workflows.",
+  ],
   "0.607": [
     "Preloaded directly connected maps during idle high-performance moments to reduce portal transition waits.",
     "Combined repeated enemy stat rewards into one updating notification and hid item reveals for already-owned drops.",
@@ -1417,6 +1422,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.608": "2026-09-03",
   "0.607": "2026-09-03",
   "0.606": "2026-09-03",
   "0.605": "2026-09-03",

@@ -183,7 +183,7 @@
     min-height: var(--toolbar-height);
     padding: 0 max(0px, env(safe-area-inset-right)) 0 max(0px, env(safe-area-inset-left));
     gap: 0;
-    border-top: 2px solid #000;
+    border: 0;
     background: rgba(8,13,10,.96);
     box-shadow: 0 -4px 14px rgba(0,0,0,.34);
     pointer-events: auto;
@@ -201,9 +201,7 @@
     height: 100%;
     margin: 0;
     padding: 0 0 env(safe-area-inset-bottom, 0px);
-    border: 2px solid #000;
-    border-top: 0;
-    border-bottom: 0;
+    border: 0;
     border-radius: 0;
     background: rgba(13,20,17,.70);
     color: var(--text);
@@ -213,7 +211,6 @@
   }
 
   .settings-button[hidden] { display: none; }
-  .settings-button + .settings-button { border-left: 0; }
 
   .toolbar-icon {
     display: block;
@@ -1523,6 +1520,16 @@
     background: var(--hud-surface);
     box-shadow: 0 2px 0 rgba(0,0,0,.42);
     font-size: clamp(10px, 2.8vw, 13px);
+    opacity: 1;
+    animation: stat-reward-enter 280ms ease-out;
+    transition: opacity 300ms ease;
+  }
+
+  .stat-reward-toast.is-expiring { opacity: 0; }
+
+  @keyframes stat-reward-enter {
+    from { opacity: 0; transform: translateY(10px) scale(.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   .stat-reward-icon {
@@ -1537,7 +1544,7 @@
   }
 
   .stat-reward-label { color: #fff; white-space: nowrap; }
-  .stat-reward-value { color: var(--green); white-space: nowrap; }
+  .stat-reward-value { color: var(--green); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
   .stat-reward-arrow {
     position: relative;

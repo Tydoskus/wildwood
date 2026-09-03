@@ -1,6 +1,6 @@
 # WildStat Map Editor
 
-Double-click `Open WildStat Map Editor.command` at the repository root. The
+Double-click `Open WildStat Map Editor.command` in the repository's `launchers/` folder. The
 launcher starts the local editor in the background and opens it in the default
 browser. Its Terminal window can be closed after the browser opens.
 

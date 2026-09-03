@@ -16,7 +16,7 @@ Mobile-first rule: validate equipment silhouettes, tap targets, inventory densit
 
 1. Add ID and gameplay definition to `shared/items.ts`.
 2. Add inventory and world art entry to `src/game/item-presentation.ts`.
-3. Add browser art under `public/assets/wildstat/player-parts/` or an established embedded asset module using `art_style.md`.
+3. Add browser art under `public/assets/wildstat/player-parts/` or an established embedded asset module using [the art style guide](art_style.md).
 4. Add authoritative acquisition rule in SpacetimeDB for progression items. Starter and developer catalog classes already have established paths.
 5. Add inventory migration only when replacing an existing item ID.
 6. Test ownership, slot compatibility, persistence, world rendering, remote-player rendering, and mobile-size inventory readability.

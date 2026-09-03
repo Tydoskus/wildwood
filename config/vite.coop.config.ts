@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 
+// Paths remain relative to the repository root, where npm scripts run.
+
 export default defineConfig({
   build: {
     lib: {
