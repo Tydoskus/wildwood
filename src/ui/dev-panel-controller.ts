@@ -1,4 +1,5 @@
 import { requiredElement } from "../game/runtime/dom";
+import { createForestRewardPrototypePanel, type ForestPrototypePanelDependencies } from "./forest-reward-prototype-panel";
 import type { PerformanceSnapshot } from "../game/runtime/performance-monitor";
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
@@ -38,6 +39,7 @@ type VirtualPlayerLoadTestState = {
 };
 
 type DevPanelDependencies = {
+  forestPrototype: ForestPrototypePanelDependencies;
   isDeveloper: () => boolean;
   getPresenceVisible: () => boolean;
   setPresenceVisible: (visible: boolean) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
@@ -79,6 +81,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   virtualPlayerCount.value = String(VIRTUAL_PLAYER_DEFAULT);
   const bugRows = requiredElement("devBugReportRows");
   const bugEmpty = requiredElement("devBugReportEmpty");
+  const forestPrototype = createForestRewardPrototypePanel(tabPanels.controls, dependencies.forestPrototype);
   const performanceValues = {
     fps: requiredElement("perfFps"),
     workFps: requiredElement("perfWorkFps"),
@@ -111,6 +114,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   }
 
   function renderControls() {
+    forestPrototype.render();
     const visible = dependencies.getPresenceVisible();
     presenceStatus.textContent = visible ? "VISIBLE · COUNTED ONLINE" : "INVISIBLE · NOT COUNTED ONLINE";
     presenceToggle.textContent = visible ? "GO INVISIBLE" : "APPEAR ONLINE";
@@ -205,7 +209,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   function setDeveloperAccess(developer: boolean) {
     settingsRow.hidden = !developer;
     button.hidden = !developer;
-    if (!developer) close();
+    if (!developer) { close(); forestPrototype.clear(); }
   }
 
   button.addEventListener("click", () => {

@@ -88,6 +88,8 @@ export type EnemyState = Circle & {
   wanderTargetY: number;
   wanderWait: number;
   attackClock: number;
+  /** Seconds since an actual strike/shot, used only by sprite animation. */
+  attackAnimationElapsed?: number;
   moveSpeedRecovery: number;
   hurt: number;
   dead: boolean;

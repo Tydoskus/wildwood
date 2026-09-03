@@ -2,6 +2,7 @@ import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "../../app/developer";
 import type { AccessAuditEntry, BugReportEntry } from "../contracts";
 import type { ReducerPort } from "../ports";
+import type { ForestPrototypeAttack, ForestPrototypeState } from "../../../shared/forest-reward-prototype";
 
 type DeveloperServiceDependencies = {
   reducers: ReducerPort;
@@ -34,6 +35,7 @@ export function createDeveloperService(dependencies: DeveloperServiceDependencie
   const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
   const bugReportEntries = new Map<string, BugReportEntry>();
   let presenceVisible = true;
+  let forestPrototype: ForestPrototypeState | null = null;
 
   function upsertAccessAudit(row: AccessAuditRow) {
     const identity = row.identity.toHexString();
@@ -77,12 +79,35 @@ export function createDeveloperService(dependencies: DeveloperServiceDependencie
   }
 
   return {
-    tables: { upsertAccessAudit, removeAccessAudit, upsertBugReport, removeBugReport },
+    tables: {
+      upsertAccessAudit, removeAccessAudit, upsertBugReport, removeBugReport,
+      upsertForestPrototype(row: ForestPrototypeState) { forestPrototype = { ...row }; dependencies.notify(); },
+      removeForestPrototype() { forestPrototype = null; dependencies.notify(); },
+    },
     identityFor: (identity: string) => accessAuditEntries.get(identity)?.identityValue,
     observePresence(visible: boolean) {
       presenceVisible = visible;
     },
     api: {
+      forestRewardPrototypeState: () => forestPrototype ? { ...forestPrototype } : null,
+      async devForestRewardPrototype(action?: ForestPrototypeAttack) {
+        const connection = dependencies.reducers.connection();
+        const identity = dependencies.localIdentity();
+        if (dependencies.reducers.protocolBlocked() || !connection || !hasAccess()) {
+          return { ok: false, error: "DEVELOPER CONNECTION REQUIRED" };
+        }
+        try {
+          await dependencies.reducers.runWorldReducer(() => action
+            ? connection.reducers.attackForestRewardPrototype(action)
+            : connection.reducers.beginForestRewardPrototype({}));
+          if (connection !== dependencies.reducers.connection() || identity !== dependencies.localIdentity()) {
+            return { ok: false, error: "Prototype session changed. Reopen developer tools." };
+          }
+          return { ok: true };
+        } catch (error) {
+          return { ok: false, error: dependencies.reducers.errorMessage(error) };
+        }
+      },
       async devAdjustGems(identity: string, delta: bigint, reason: string) {
         const connection = dependencies.reducers.connection();
         if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
@@ -186,6 +211,7 @@ export function createDeveloperService(dependencies: DeveloperServiceDependencie
       },
     },
     clearSession() {
+      forestPrototype = null;
       accessAuditEntries.clear();
       bugReportEntries.clear();
     },

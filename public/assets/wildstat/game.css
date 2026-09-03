@@ -258,7 +258,7 @@
     height: auto;
     max-height: none;
     padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
-    overflow-y: auto;
+    overflow: hidden;
     border: 0;
     border-radius: 0;
     background: radial-gradient(ellipse at 50% 38%, #243129, #0b110e 76%);
@@ -272,6 +272,11 @@
   .settings-panel > * { flex: 0 0 auto; width: min(520px, 100%); }
   .settings-panel .setting-row { min-height: 44px; padding: 4px 0; }
   .settings-panel .setting-toggle { min-height: 44px; }
+  .settings-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding-bottom: 8px; }
+  .settings-panel .settings-connection { min-height: 28px; margin: 0 0 8px; font-size: 11px; opacity: .8; }
+  .settings-panel > .settings-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 3px 12px; }
+  .settings-tab-panel[hidden] { display: none; }
+  .settings-tab-panel .setting-reset { margin-top: 28px; }
 
   .card.inventory-panel {
     --inventory-surface: #18221c;
@@ -2383,7 +2388,7 @@
   .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .tech-tree-viewport::-webkit-scrollbar { display: none; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
-  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 168px; min-width: 420px; min-height: calc(var(--tech-tree-row-count, 1) * 168px + 44px); height: auto; padding: 22px clamp(24px, 7vw, 112px); }
+  .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 168px; min-width: 420px; min-height: calc(var(--tech-tree-row-count, 1) * 168px + var(--tech-tree-edge-space, 22px) * 2); height: auto; padding: var(--tech-tree-edge-space, 22px) clamp(24px, 7vw, 112px); }
   .tech-tree-tier { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; justify-self: center; width: min(372px, 100%); gap: 56px; }
   .tech-tree-tier-bottom { justify-content: space-between; }
   .tech-tree-node { position: relative; display: grid; place-items: center; gap: 3px; width: 112px; aspect-ratio: 1; margin: 0; padding: 9px; border: 2px solid #737a84; border-radius: 15px; background: linear-gradient(145deg, #2d333a, #12161a); box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 5px 0 rgba(0,0,0,.42); color: var(--text); text-align: center; }
@@ -2524,13 +2529,14 @@
   .profile-grid > div { min-width: 0; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
   .profile-grid dd { margin: 5px 0 0; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
-  .profile-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(0,0,0,.27); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-  .profile-stat-grid > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr); grid-template-rows: minmax(44px, auto); column-gap: 6px; align-content: start; align-items: center; min-width: 0; min-height: 44px; padding: 0 8px; border: 0; border-bottom: 1px solid rgba(255,255,255,.1); border-radius: 0; background: transparent; cursor: pointer; }
-  .profile-stat-grid > div.is-expanded { background: rgba(255,255,255,.035); }
-  .profile-stat-grid > div:nth-child(odd) { border-right: 1px solid rgba(255,255,255,.1); }
-  .profile-stat-grid > div:hover { background: rgba(255,255,255,.025); }
-  .profile-stat-grid > div:focus-visible { z-index: 1; outline: 2px solid rgba(105,229,111,.8); outline-offset: -2px; }
-  .profile-stat-grid > div:last-child { border-bottom: 0; }
+  .profile-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(0,0,0,.27); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .profile-stat-column { display: block; min-width: 0; margin: 0; }
+  .profile-stat-column:first-child { border-right: 1px solid rgba(255,255,255,.1); }
+  .profile-stat-column > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr); grid-template-rows: minmax(34px, auto); column-gap: 6px; align-content: start; align-items: center; min-width: 0; min-height: 34px; padding: 0 8px; border: 0; border-bottom: 1px solid rgba(255,255,255,.1); border-radius: 0; background: transparent; cursor: pointer; }
+  .profile-stat-column > div.is-expanded { background: rgba(255,255,255,.035); }
+  .profile-stat-column > div:hover { background: rgba(255,255,255,.025); }
+  .profile-stat-column > div:focus-visible { z-index: 1; outline: 2px solid rgba(105,229,111,.8); outline-offset: -2px; }
+  .profile-stat-column > div:last-child { border-bottom: 0; }
   .profile-stat-grid dt { grid-column: 1; grid-row: 1; font-size: 11px; letter-spacing: 0; text-align: right; white-space: normal; overflow-wrap: anywhere; }
   .profile-stat-grid dd { min-width: 0; margin: 0; color: #fff; font-size: 11px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
   .profile-stat-summary { grid-column: 2; grid-row: 1; display: block; }
@@ -2813,11 +2819,16 @@
   .dev-bug-report-message { margin-top: 3px; color: #fff; overflow-wrap: anywhere; }
   .dev-bug-report-clear { align-self: start; min-width: 48px; height: 25px; margin: 0; padding: 2px 5px; border-color: #72ef58; color: #72ef58; background: #102517; font-size: 7px; }
   .profile-duel-button { display: block; min-width: 112px; margin: 7px auto 0; padding: 7px 12px; font-size: 10px; }
+  .dev-forest-prototype { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.18); font-size: 12px; line-height: 1.5; }
+  .dev-forest-prototype p { margin: 8px 0; overflow-wrap: anywhere; }
+  .dev-forest-prototype-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dev-forest-prototype-actions button { margin: 0; min-height: 44px; font-size: 12px; }
   .profile-duel-button.is-cooling-down { background: linear-gradient(#676f70, #454b4c); color: #d1d7d5; cursor: not-allowed; }
   .profile-duel-button[hidden] { display: none; }
-  .profile-safety-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .profile-safety-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; margin-bottom: 24px; }
   .profile-safety-actions[hidden], .setting-support[hidden] { display: none; }
   .profile-safety-actions button, .player-safety-dialog button, #blockedPlayersList button { min-height: 44px; font-size: 12px; }
+  .profile-safety-actions button { border-color: #67272b; background: linear-gradient(#c85050, #842f34); color: #fff; }
   .setting-support { display: grid; gap: 7px; padding: 12px 0; font-size: 12px; text-align: left; }
   .setting-support a, .player-safety-dialog a { color: #bce7ff; overflow-wrap: anywhere; }
   .setting-support small { font-size: 11px; line-height: 1.5; color: var(--muted); }
@@ -2908,7 +2919,7 @@
     .player-profile-modal .profile-grid dt { font-size: 7px; }
     .player-profile-modal .profile-grid dd { margin-top: 2px; font-size: 10px; }
     .player-profile-modal .profile-stat-grid { gap: 0; }
-    .player-profile-modal .profile-stat-grid > div { column-gap: 4px; min-height: 44px; padding: 0 4px; }
+    .player-profile-modal .profile-stat-column > div { column-gap: 4px; min-height: 34px; padding: 0 4px; }
     .player-profile-modal .profile-stat-sources { gap: 5px; }
     .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .modal.leaderboard-modal { padding: max(9px, env(safe-area-inset-top)) max(9px, env(safe-area-inset-right)) 0 max(9px, env(safe-area-inset-left)); }

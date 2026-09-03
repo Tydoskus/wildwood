@@ -8,6 +8,7 @@ import {
   MAX_SIMULATION_STEPS_PER_FRAME,
   SIMULATION_STEP_SECONDS,
   presentationFrameDue,
+  presentationCombatActive,
 } from "./game-session-controller";
 
 function countScheduledFrames(callbackTimes: number[], lowPerformanceMode: boolean) {
@@ -99,6 +100,35 @@ describe("game session frame scheduling", () => {
     expect(idlePresentationThrottleActive(false, lastInputAt + IDLE_PRESENTATION_DELAY_MS - 1, lastInputAt)).toBe(false);
     expect(idlePresentationThrottleActive(false, lastInputAt + IDLE_PRESENTATION_DELAY_MS, lastInputAt)).toBe(true);
     expect(idlePresentationThrottleActive(true, lastInputAt + IDLE_PRESENTATION_DELAY_MS, lastInputAt)).toBe(false);
+  });
+
+  it("restores native presentation for stationary combat, hits, and duels", () => {
+    const idle = { hp: 100, combatFacing: null, throwClock: 0, hurtClock: 0 };
+    expect(presentationCombatActive(idle, false)).toBe(false);
+    for (const player of [
+      { ...idle, combatFacing: 0 },
+      { ...idle, throwClock: .1 },
+      { ...idle, hurtClock: .1 },
+    ]) {
+      const active = presentationCombatActive(player, false);
+      expect(active).toBe(true);
+      expect(idlePresentationThrottleActive(active, 10_000, 0)).toBe(false);
+    }
+    expect(presentationCombatActive(idle, true)).toBe(true);
+    expect(presentationCombatActive({ ...idle, hp: 0, combatFacing: 0 }, true)).toBe(false);
+  });
+
+  it("waits for the idle delay after combat ends and preserves the battery-mode cap", () => {
+    let lastActivityAt = 0;
+    for (const now of [3_000, 6_000, 9_000]) {
+      const active = presentationCombatActive({ hp: 100, combatFacing: 0, throwClock: 0, hurtClock: 0 }, false);
+      if (active) lastActivityAt = now;
+      expect(idlePresentationThrottleActive(active, now, lastActivityAt)).toBe(false);
+    }
+    expect(idlePresentationThrottleActive(false, 10_999, lastActivityAt)).toBe(false);
+    expect(idlePresentationThrottleActive(false, 11_000, lastActivityAt)).toBe(true);
+    expect(presentationFrameDue(false, 9_001, 9_020)).toBe(true);
+    expect(presentationFrameDue(true, 9_001, 9_020)).toBe(false);
   });
 
   it("exposes residual simulation time as presentation interpolation", () => {

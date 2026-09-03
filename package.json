@@ -26,6 +26,9 @@
     "typecheck:loadtest": "tsc --noEmit -p config/tsconfig.loadtest.json",
     "serve:dist": "python3 -m http.server --directory dist 8000",
     "art:align": "python3 -m http.server --directory . 4173",
+    "art:unity": "node scripts/unity-sprite-exporter.mjs",
+    "art:unity:prepare": "node scripts/unity-sprite-exporter.mjs --prepare-only",
+    "art:unity:check": "node scripts/unity-sprite-exporter.mjs --check",
     "art:enemy-align": "python3 -m http.server --directory . 4173"
   },
   "dependencies": {

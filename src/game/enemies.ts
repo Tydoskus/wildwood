@@ -73,7 +73,7 @@ import {
   WATER_REACH_REWARD_SCALE,
   WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
-import { ENEMY_BOW_AIM_OFFSET_RADIANS, ENEMY_SPRITE_LAYOUTS } from "./enemy-sprite-layouts.mjs";
+import { ENEMY_BOW_AIM_OFFSET_RADIANS, ENEMY_SPRITE_LAYOUTS, type EnemySpriteAnimationLayout } from "./enemy-sprite-layouts.mjs";
 
 export { ENEMY_BOW_AIM_OFFSET_RADIANS };
 
@@ -636,13 +636,16 @@ export type EnemySpriteLayerSource = {
 };
 export type EnemySpriteSource =
   | { src: string; size: number }
-  | { size: number; height: number; layers: EnemySpriteLayerSource[] };
+  | { size: number; height: number; layers: EnemySpriteLayerSource[]; animation?: EnemySpriteAnimationLayout };
 export type LoadedSpriteLayer = EnemySpriteLayerSource & { image: HTMLImageElement };
 export type LoadedEnemySprite = {
   size: number;
   height?: number;
   image?: HTMLImageElement;
   layers?: LoadedSpriteLayer[];
+  animation?: Omit<EnemySpriteAnimationLayout, "pages"> & {
+    pages: (EnemySpriteAnimationLayout["pages"][number] & { image: HTMLImageElement })[];
+  };
 };
 
 const ENEMY_SPRITE_SOURCES = ENEMY_SPRITE_LAYOUTS as Record<EnemyKind, EnemySpriteSource>;
@@ -742,8 +745,10 @@ function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyI
   };
 }
 
-function spriteAssetSources(source: EnemySpriteSource) {
-  return "layers" in source ? source.layers.map((layer) => layer.src) : [source.src];
+export function enemySpriteAssetSources(source: EnemySpriteSource) {
+  return "layers" in source
+    ? [...source.layers.map((layer) => layer.src), ...(source.animation?.pages.map((page) => page.src) ?? [])]
+    : [source.src];
 }
 
 /**
@@ -756,12 +761,16 @@ export function createMapScopedEnemySpriteAssets<Kind extends string, MapKey ext
   enemyKindsByMap: Record<MapKey, readonly Kind[]>,
   onAssetSettled: () => void = () => {},
 ) {
-  const uniqueAssetSources = [...new Set(Object.values<EnemySpriteSource>(spriteSources).flatMap(spriteAssetSources))];
+  const uniqueAssetSources = [...new Set(Object.values<EnemySpriteSource>(spriteSources).flatMap(enemySpriteAssetSources))];
   const imageAssets = new Map(uniqueAssetSources.map((source) => [source, createLazyEnemyImage(source, onAssetSettled)]));
   const sprites = Object.fromEntries(Object.entries<EnemySpriteSource>(spriteSources).map(([kind, source]) => {
     if ("layers" in source) {
       const layers = source.layers.map((layer) => ({ ...layer, image: imageAssets.get(layer.src)!.image }));
-      return [kind, { size: source.size, height: source.height, layers }];
+      const animation = source.animation ? {
+        ...source.animation,
+        pages: source.animation.pages.map((page) => ({ ...page, image: imageAssets.get(page.src)!.image })),
+      } : undefined;
+      return [kind, { size: source.size, height: source.height, layers, ...(animation ? { animation } : {}) }];
     }
     return [kind, { size: source.size, image: imageAssets.get(source.src)!.image }];
   })) as Record<Kind, LoadedEnemySprite>;
@@ -770,7 +779,7 @@ export function createMapScopedEnemySpriteAssets<Kind extends string, MapKey ext
     for (const kind of kinds) {
       const source = spriteSources[kind];
       if (!source) throw new Error(`Missing enemy sprite layout for ${kind}.`);
-      for (const assetSource of spriteAssetSources(source)) mapSources.add(assetSource);
+      for (const assetSource of enemySpriteAssetSources(source)) mapSources.add(assetSource);
     }
     return [mapId as MapKey, [...mapSources].map((source) => imageAssets.get(source)!)];
   }));

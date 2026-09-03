@@ -29,6 +29,8 @@ export type BaseSubscriptionHandlers = {
   removeAccessAudit: RowHandler;
   bugReport: RowHandler;
   removeBugReport: RowHandler;
+  forestPrototype: RowHandler;
+  removeForestPrototype: RowHandler;
   accountStatus: RowHandler;
   removeAccountStatus: RowHandler;
   worldStatus: RowHandler;
@@ -115,6 +117,8 @@ type BaseSubscriptionHandlerSources = {
     removeAccessAudit: BaseSubscriptionHandlers["removeAccessAudit"];
     upsertBugReport: BaseSubscriptionHandlers["bugReport"];
     removeBugReport: BaseSubscriptionHandlers["removeBugReport"];
+    upsertForestPrototype: BaseSubscriptionHandlers["forestPrototype"];
+    removeForestPrototype: BaseSubscriptionHandlers["removeForestPrototype"];
   };
   boss: {
     upsertDragon: BaseSubscriptionHandlers["dragonBoss"];
@@ -169,6 +173,8 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     removeAccessAudit: developer.removeAccessAudit,
     bugReport: developer.upsertBugReport,
     removeBugReport: developer.removeBugReport,
+    forestPrototype: developer.upsertForestPrototype,
+    removeForestPrototype: developer.removeForestPrototype,
     accountStatus: profile.upsertAccountStatus,
     removeAccountStatus: profile.removeAccountStatus,
     worldStatus: presence.upsertWorldStatus,
@@ -270,6 +276,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.devBugReports.onInsert((_ctx, row) => { if (shouldHandle()) handlers.bugReport(row); });
   connection.db.devBugReports.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.bugReport(row); });
   connection.db.devBugReports.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeBugReport(row); });
+  connection.db.devForestRewardPrototype.onInsert((_ctx, row) => { if (shouldHandle()) handlers.forestPrototype(row); });
+  connection.db.devForestRewardPrototype.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.forestPrototype(row); });
+  connection.db.devForestRewardPrototype.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeForestPrototype(row); });
   connection.db.playerAccountStatus.onInsert((_ctx, row) => { if (shouldHandle()) handlers.accountStatus(row); });
   connection.db.playerAccountStatus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.accountStatus(row); });
   connection.db.playerAccountStatus.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeAccountStatus(row); });
@@ -355,6 +364,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
         for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
         for (const row of connection.db.devBugReports.iter()) handlers.bugReport(row);
+        for (const row of connection.db.devForestRewardPrototype.iter()) handlers.forestPrototype(row);
         for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
         for (const row of connection.db.worldStatus.iter()) handlers.worldStatus(row);
         for (const row of connection.db.playerProgress.iter()) handlers.progress(row);
@@ -406,7 +416,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.myUpgradeBench,
       tables.myInventoryCapacity,
       tables.myCutsceneHistory,
-      ...(dependencies.includeDeveloperTables ? [tables.devAccessAudit, tables.devBugReports] : []),
+      ...(dependencies.includeDeveloperTables ? [tables.devAccessAudit, tables.devBugReports, tables.devForestRewardPrototype] : []),
       tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
       tables.worldStatus,
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),

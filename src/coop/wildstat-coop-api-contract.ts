@@ -40,6 +40,8 @@ type ExpectedApiKey =
   | "databaseName"
   | "deleteBugReport"
   | "devAdjustGems"
+  | "devForestRewardPrototype"
+  | "forestRewardPrototypeState"
   | "developerPresenceVisible"
   | "dragonBoss"
   | "dragonResult"

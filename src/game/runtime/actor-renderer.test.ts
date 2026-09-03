@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ENEMY_BOW_AIM_OFFSET_RADIANS, type LoadedEnemySprite, type LoadedSpriteLayer } from "../enemies";
 import { drawableEnemyLayers, enemyShadowOffsetY, enemySpriteVerticalBounds, enemyWeaponAimRotation, enemyWeaponLayerRotation } from "./actor-renderer";
-import { rockProjectileSize } from "./actor-renderer";
+import { createActorRenderer, rockProjectileSize } from "./actor-renderer";
+import { ENEMY_SPRITE_LAYOUTS } from "../enemy-sprite-layouts.mjs";
+import type { EnemyState } from "./types";
 import { PLAYER_WORLD_SCALE } from "../player-render-scale";
 import { STARTER_STONE } from "../../../shared/items";
 
@@ -59,5 +61,36 @@ describe("layered enemy rendering", () => {
   it("draws available layers while delayed Android assets continue loading", () => {
     const layers = [layer(true, 0, 10), layer(false, 10, 10), layer(true, 20, 10)];
     expect(drawableEnemyLayers(layers)).toEqual([layers[0], layers[2]]);
+  });
+
+  it("keeps animated labels and shadows fixed even when the sprite has no loose layers", () => {
+    const layout = ENEMY_SPRITE_LAYOUTS["Fen Prowler"];
+    const sprite = { ...layout, layers: [], animation: { ...layout.animation!, pages: [] } };
+    expect(enemySpriteVerticalBounds(sprite, 20)).toEqual({ top: -28.5, bottom: 22.5, height: 51 });
+    expect(enemyShadowOffsetY(sprite, 20)).toBe(20.5);
+  });
+
+  it("crops an atlas frame and draws its aimed bow on top while preserving hit/death transforms", () => {
+    const layout = ENEMY_SPRITE_LAYOUTS["Petal Archer"];
+    const atlas = layout.animation!;
+    const pages = atlas.pages.map((page) => ({ ...page, image: { complete: true, naturalWidth: page.width, naturalHeight: page.height } as HTMLImageElement }));
+    const sprite = { ...layout, animation: { ...atlas, pages }, layers: layout.layers.map((part) => ({ ...part, image: image(true) })) };
+    const ctx = {
+      save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), scale: vi.fn(), drawImage: vi.fn(), globalAlpha: 1,
+    };
+    const renderer = createActorRenderer({
+      ctx, camera: { x: 0, y: 0, zoom: 1 }, viewport: () => ({ width: 800, height: 800 }),
+      devicePixelRatio: () => 1, gameTime: () => 1, player: { x: 200, y: 100 },
+      enemySprites: { "Petal Archer": sprite }, drawShadow: vi.fn(), enemyTextVisible: () => false,
+    } as unknown as Parameters<typeof createActorRenderer>[0]);
+    const enemy = { type: "Petal Archer", x: 100, y: 100, vx: 0, vy: 0, r: 20, phase: 0,
+      facingX: -1, engaged: true, hurt: .1, remoteCombatDeathProgress: .25 } as EnemyState;
+    renderer.drawEnemy(enemy);
+    const frame = atlas.animations.idle.frames[0];
+    expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3, atlas.w, atlas.h]);
+    expect(ctx.drawImage.mock.calls[1][0]).toBe(sprite.layers[0].image);
+    expect(ctx.scale).toHaveBeenCalledWith(-1, 1);
+    expect(ctx.rotate).toHaveBeenCalledWith(.25 * .42 * -1);
+    expect(ctx.globalAlpha).toBeCloseTo(.7 * .75);
   });
 });

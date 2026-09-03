@@ -20,11 +20,18 @@
     ul { margin: 8px 0; padding-left: 20px; }
     .effective { color: #87928a; font-size: 13px; }
     a { color: #b9f59f; }
+    .terms-navigation { position: sticky; top: 0; z-index: 1; padding: max(10px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 10px max(18px, env(safe-area-inset-left)); background: #090d0b; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .back-to-game { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; border: 1px solid #6a805f; border-radius: 999px; color: #eef2ee; font-weight: 700; text-decoration: none; }
+    .back-to-game:hover { background: #17231a; }
+    .back-to-game:focus-visible { outline: 2px solid #b9f59f; outline-offset: 3px; }
     .plain-language { padding: 14px 16px; border-left: 3px solid #6fdc55; border-radius: 0 8px 8px 0; background: rgba(255,255,255,.045); }
     footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.1); color: #87928a; font-size: 13px; }
   </style>
 </head>
 <body>
+  <nav class="terms-navigation" aria-label="Game navigation">
+    <a class="back-to-game" href="./">← Back to game</a>
+  </nav>
   <main>
     <header>
       <h1>WildStat Terms of Service</h1>

@@ -146,6 +146,9 @@ export type DevAccessAudit = __Infer<typeof DevAccessAudit>;
 export const DevBugReports = __t.object("DevBugReports", {});
 export type DevBugReports = __Infer<typeof DevBugReports>;
 
+export const DevForestRewardPrototype = __t.object("DevForestRewardPrototype", {});
+export type DevForestRewardPrototype = __Infer<typeof DevForestRewardPrototype>;
+
 export const DeveloperPresencePreference = __t.object("DeveloperPresencePreference", {
   identity: __t.identity(),
   visible: __t.bool(),
@@ -302,6 +305,18 @@ export const DuelResolutionSchedule = __t.object("DuelResolutionSchedule", {
   duelId: __t.u64(),
 });
 export type DuelResolutionSchedule = __Infer<typeof DuelResolutionSchedule>;
+
+export const ForestRewardPrototype = __t.object("ForestRewardPrototype", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  enemyHp: __t.u32(),
+  damage: __t.u32(),
+  kills: __t.u64(),
+  lastAttack: __t.u64(),
+  nextAttackAt: __t.u64(),
+  respawnAt: __t.u64(),
+});
+export type ForestRewardPrototype = __Infer<typeof ForestRewardPrototype>;
 
 export const FrostclawAttackWindow = __t.object("FrostclawAttackWindow", {
   identity: __t.identity(),

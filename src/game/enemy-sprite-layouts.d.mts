@@ -10,16 +10,39 @@ export type EnemySpriteLayerLayout = {
 };
 
 export type EnemySpriteLayout = {
+  family: string;
   size: number;
   height: number;
   layers: EnemySpriteLayerLayout[];
+  animation?: EnemySpriteAnimationLayout;
+};
+
+export type EnemySpriteMotion = {
+  loop: boolean;
+  durationMs: number;
+  frameDurationMs: number;
+  frames: { page: number; x: number; y: number; w: number; h: number }[];
+};
+export type EnemySpriteAnimationLayout = {
+  frameWidth: number;
+  frameHeight: number;
+  anchorX: number;
+  anchorY: number;
+  pages: { src: string; width: number; height: number }[];
+  animations: Record<"idle" | "walk" | "attack", EnemySpriteMotion>;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  top: number;
+  bottom: number;
 };
 
 export const ENEMY_BOW_AIM_OFFSET_RADIANS: number;
 export const REGULAR_ENEMY_SPRITE_SIZE: number;
 export const ELITE_ENEMY_SPRITE_SIZE: number;
-export const MAP_ENEMY_FAMILY_TINTS: {
-  tutorial_forest: null;
+export const MAP_ENEMY_FAMILIES: {
+  tutorial_forest: string;
   beginner_desert: string;
   intermediate_snowlands: string;
   advanced_lava_wastes: string;

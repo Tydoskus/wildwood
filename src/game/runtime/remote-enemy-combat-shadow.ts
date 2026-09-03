@@ -154,6 +154,7 @@ function createGhost(source: EnemyState, ambient: RegularEnemyAmbientPose, targe
     remoteCombatDeathProgress: 0,
     facingX: ambient.facingX,
     attackClock: 0,
+    attackAnimationElapsed: undefined,
     hurt: 0,
     dead: false,
     phase: ambient.phase,
@@ -372,6 +373,7 @@ export function createRemoteEnemyCombatShadows(options: {
     if (latest <= shadow.lastEnemyHitIndex) return;
     const first = Math.max(shadow.lastEnemyHitIndex + 1, latest - 7);
     shadow.lastEnemyHitIndex = latest;
+    shadow.ghost.attackAnimationElapsed = Math.max(0, elapsedSeconds - (latest + 1) * interval);
     for (let index = first; index <= latest && fighter.hp > 0; index += 1) {
       const hitAtMs = shadow.engagementTick * REGULAR_ENEMY_TICK_MS + (index + 1) * interval * 1_000;
       if (hitAtMs - fighter.lastHurtAtMs < 100) continue;
@@ -406,6 +408,7 @@ export function createRemoteEnemyCombatShadows(options: {
   function advanceShadow(shadow: ShadowState) {
     const ghost = shadow.ghost;
     ghost.hurt = Math.max(0, ghost.hurt - frameDt);
+    if (ghost.attackAnimationElapsed !== undefined) ghost.attackAnimationElapsed += frameDt;
     ghost.phase = regularEnemyAmbientPose(currentMapId, ghost.siteId, ghost.homeX, ghost.homeY, serverNowMs).phase;
 
     if (shadow.defeatedAtMs) {

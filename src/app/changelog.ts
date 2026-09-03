@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.611": [
+    "Restored original slime, goblin, and skeleton families across the first six maps, keeping one family per map.",
+    "Added animated tulip monsters, winged bee monsters, and rock fungi to Samurai Garden, Cloudspire, and Moonfen using map-loaded WebP artwork.",
+    "Organized Settings into Game, Audio, and Account tabs, and made the Tech Tree open at active research or the next available technology.",
+    "Made profile stat rows more compact and independently expandable, and separated red Report/Block controls from Back.",
+    "Added a return button to the in-game Terms, slightly increased bow/rock release volume, and kept the normal frame rate during stationary combat.",
+    "Added a local Unity sprite-export tool and an isolated developer-only forest reward validation prototype without changing real player rewards or saves.",
+  ],
   "0.610": [
     "Added support contact details, private player reports, and synced Block/Unblock controls on player profiles and in Settings.",
     "Profile stats now use two columns with aligned labels and totals, with detailed breakdowns available by selecting a stat.",
@@ -1432,6 +1440,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.611": "2026-09-03",
   "0.610": "2026-09-03",
   "0.609": "2026-09-03",
   "0.608": "2026-09-03",

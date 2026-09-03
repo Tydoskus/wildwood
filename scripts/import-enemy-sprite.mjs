@@ -1,0 +1,88 @@
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import "../tools/unity-sprite-exporter/viewer/viewer-core.js";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const motions = ["idle", "walk", "attack"];
+
+export function coreManifest(input) {
+  globalThis.WildStatSpriteTools.validateManifest(input);
+  const animations = motions.map((key) => {
+    const clip = input.animations.find((animation) => animation.key === key);
+    if (!clip) throw new Error(`Missing ${key} motion.`);
+    if (clip.loop !== (key !== "attack")) throw new Error(`Unexpected ${key} looping mode.`);
+    return clip;
+  });
+  const used = [...new Set(animations.flatMap((clip) => clip.frames.map((frame) => frame.page)))];
+  return {
+    ...input,
+    pages: used.map((index) => ({ ...input.pages[index], file: input.pages[index].file.replace(/\.(png|webp)$/, ".webp") })),
+    animations: animations.map((clip) => ({ ...clip, frames: clip.frames.map((frame) => ({ ...frame, page: used.indexOf(frame.page) })) })),
+    sourcePages: used.map((index) => input.pages[index]),
+  };
+}
+
+export function alphaBounds(data, width, frames) {
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  for (const frame of frames) {
+    for (let y = 0; y < frame.h; y++) for (let x = 0; x < frame.w; x++) {
+      if (data[((frame.y + y) * width + frame.x + x) * 4 + 3] === 0) continue;
+      left = Math.min(left, x); top = Math.min(top, y);
+      right = Math.max(right, x + 1); bottom = Math.max(bottom, y + 1);
+    }
+  }
+  return { left, top, right, bottom };
+}
+
+export async function importEnemySprite(source, id, sharp) {
+  if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) throw new Error("Expected a simple lowercase enemy id.");
+  const { sourcePages, ...manifest } = coreManifest(JSON.parse(readFileSync(join(source, "sprite.json"), "utf8")));
+  if (manifest.warnings?.length) throw new Error(`Resolve capture warnings before promotion: ${manifest.warnings.join("; ")}`);
+  const output = join(root, "public/assets/wildstat/enemies", id);
+  const module = join(root, "src/game/enemy-atlases", `${id}.mjs`);
+  if (existsSync(output) || existsSync(module)) throw new Error("Enemy output already exists; use a new revision id instead of overwriting cached art.");
+  const sheets = [], idleBounds = [];
+  for (const [index, page] of sourcePages.entries()) {
+    const path = join(source, page.file);
+    if (dirname(realpathSync(path)) !== realpathSync(source)) throw new Error("Source sheet must stay inside the selected export folder.");
+    const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    if (info.width !== page.width || info.height !== page.height || info.channels !== 4) throw new Error("Sheet dimensions do not match sprite.json.");
+    const idleFrames = manifest.animations[0].frames.filter((frame) => frame.page === index);
+    if (idleFrames.length) idleBounds.push(alphaBounds(data, info.width, idleFrames));
+    const bytes = /\.webp$/.test(page.file) ? readFileSync(path) : await sharp(path).webp({ quality: 95, alphaQuality: 100, effort: 6 }).toBuffer();
+    const converted = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    if (converted.info.width !== info.width || converted.info.height !== info.height) throw new Error("WebP conversion resized the sheet.");
+    for (let i = 3; i < data.length; i += 4) if (data[i] !== converted.data[i]) throw new Error("WebP conversion changed transparency.");
+    sheets.push(bytes);
+  }
+  const bounds = {
+    left: Math.min(...idleBounds.map((bounds) => bounds.left)),
+    top: Math.min(...idleBounds.map((bounds) => bounds.top)),
+    right: Math.max(...idleBounds.map((bounds) => bounds.right)),
+    bottom: Math.max(...idleBounds.map((bounds) => bounds.bottom)),
+  };
+  if (!Object.values(bounds).every(Number.isFinite) || bounds.bottom <= bounds.top) throw new Error("Idle frames are empty.");
+  const atlas = {
+    frameWidth: manifest.frameWidth, frameHeight: manifest.frameHeight,
+    anchorX: manifest.anchorX, anchorY: manifest.anchorY, bounds,
+    pages: manifest.pages.map((page) => ({ src: `assets/wildstat/enemies/${id}/${page.file}`, width: page.width, height: page.height })),
+    animations: Object.fromEntries(manifest.animations.map(({ key, loop, durationMs, frameDurationMs, frames }) => [key, { loop, durationMs, frameDurationMs, frames }])),
+  };
+  mkdirSync(output, { recursive: true });
+  mkdirSync(dirname(module), { recursive: true });
+  sheets.forEach((bytes, index) => writeFileSync(join(output, manifest.pages[index].file), bytes, { flag: "wx" }));
+  writeFileSync(join(output, "sprite.json"), JSON.stringify(manifest, null, 2) + "\n", { flag: "wx" });
+  writeFileSync(module, `// Generated by scripts/import-enemy-sprite.mjs from a local Unity capture.\nexport default ${JSON.stringify(atlas, null, 2)};\n`, { flag: "wx" });
+  return { id, frames: manifest.animations.reduce((sum, animation) => sum + animation.frames.length, 0), bytes: sheets.reduce((sum, bytes) => sum + bytes.length, 0), bounds };
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const [source, id, ...extra] = process.argv.slice(2);
+    if (!source || !id || extra.length) throw new Error("Usage: node scripts/import-enemy-sprite.mjs <export-folder> <new-enemy-id>");
+    const sharp = createRequire(import.meta.url)(process.env.WILDSTAT_SHARP_MODULE || "sharp");
+    console.log(await importEnemySprite(resolve(source), id, sharp));
+  } catch (error) { console.error(error.message); process.exitCode = 1; }
+}

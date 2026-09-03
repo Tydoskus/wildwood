@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import {
   ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
@@ -39,6 +40,7 @@ import {
 import {
   ENEMY_TYPES,
   createMapScopedEnemySpriteAssets,
+  enemySpriteAssetSources,
   loadEnemySprites,
   rewardLabel,
   type EnemyKind,
@@ -47,9 +49,10 @@ import {
 import {
   ELITE_ENEMY_SPRITE_SIZE,
   ENEMY_SPRITE_LAYOUTS,
-  MAP_ENEMY_FAMILY_TINTS,
+  MAP_ENEMY_FAMILIES,
   REGULAR_ENEMY_SPRITE_SIZE,
 } from "./enemy-sprite-layouts.mjs";
+import { mapSpawnCamps, type MapId } from "./world";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -280,33 +283,81 @@ describe("enemy movement balance", () => {
 });
 
 describe("enemy sprite loading", () => {
-  it("uses one colored slime family per map, with bows for ranged enemies and larger elites", () => {
-    const families = [
-      [MAP_ENEMY_FAMILY_TINTS.tutorial_forest, ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"]],
-      [MAP_ENEMY_FAMILY_TINTS.beginner_desert, ["Dune Raider", "Dune Archer", "Venom Guard", "Wastes Reaper", "Blight Oracle"]],
-      [MAP_ENEMY_FAMILY_TINTS.intermediate_snowlands, ["Frost Raider", "Glacier Archer", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"]],
-      [MAP_ENEMY_FAMILY_TINTS.advanced_lava_wastes, ["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"]],
-      [MAP_ENEMY_FAMILY_TINTS.infernal_depths, ["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]],
-      [MAP_ENEMY_FAMILY_TINTS.water_reach, ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]],
-      [MAP_ENEMY_FAMILY_TINTS.samurai_garden, ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]],
-    ] as const;
-
-    for (const [tint, kinds] of families) {
-      const bodySources = new Set<string>();
+  it("uses all original families before adding distinct new families to the remaining maps", () => {
+    expect(MAP_ENEMY_FAMILIES).toEqual({
+      tutorial_forest: "slime-green", beginner_desert: "goblin", intermediate_snowlands: "skeleton",
+      advanced_lava_wastes: "slime-orange", infernal_depths: "skeleton-poison", water_reach: "goblin-green",
+      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock",
+    });
+    expect(new Set(Object.values(MAP_ENEMY_FAMILIES)).size).toBe(9);
+    const covered = new Set<string>();
+    for (const [mapId, family] of Object.entries(MAP_ENEMY_FAMILIES)) {
+      const kinds = new Set(mapSpawnCamps(mapId as MapId).flatMap((camp) => camp.types));
       for (const kind of kinds) {
+        covered.add(kind);
         const definition = ENEMY_TYPES[kind];
         const sprite = ENEMY_SPRITE_LAYOUTS[kind];
-        const body = sprite.layers[0];
         const bows = sprite.layers.filter((layer) => layer.src.endsWith("/bow.png"));
-        bodySources.add(body.src);
-        expect(body.src).toBe("assets/wildstat/enemies/slime-green.png");
-        expect(body.tint).toBe(tint ?? undefined);
+        expect(sprite.family).toBe(family);
         expect(sprite.size).toBe(definition.elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE);
         expect(bows).toHaveLength(definition.ranged ? 1 : 0);
-        expect(sprite.layers).toHaveLength(definition.ranged ? 2 : 1);
+        if (family.startsWith("goblin")) expect(sprite.layers.find((layer) => layer.src.endsWith("/body.png"))?.src).toContain(
+          `/goblin/${family === "goblin-green" ? "goblin_green" : "goblin"}/`,
+        );
+        if (family.startsWith("skeleton")) expect(sprite.layers.find((layer) => layer.src.endsWith("/head.png"))?.src).toContain(
+          `/skull/${family === "skeleton-poison" ? "skull_poison" : "skull"}/`,
+        );
+        if (family.startsWith("slime")) expect(sprite.layers[0].src).toContain(`/enemies/${family}`);
+        if (sprite.animation) expect(sprite.animation.pages.every((page) => page.src.includes(`/enemies/${family}/`))).toBe(true);
       }
-      expect(bodySources.size).toBe(1);
     }
+    expect([...covered].sort()).toEqual(Object.keys(ENEMY_TYPES).sort());
+  });
+
+  it("ships every referenced image and reuses the original stone/crowned slime art", () => {
+    const paths = new Set(Object.values(ENEMY_SPRITE_LAYOUTS).flatMap(enemySpriteAssetSources));
+    for (const path of paths) expect(existsSync(new URL(`../../public/${path}`, import.meta.url)), path).toBe(true);
+    for (const color of ["green", "orange"]) for (const suffix of ["", "-stone", "-king"]) {
+      expect(paths.has(`assets/wildstat/enemies/slime-${color}${suffix}.png`)).toBe(true);
+    }
+    for (const sprite of Object.values(ENEMY_SPRITE_LAYOUTS)) for (const layer of sprite.layers) {
+      expect([layer.x, layer.y, layer.w, layer.h].every(Number.isFinite)).toBe(true);
+      expect(layer.w).toBeGreaterThan(0); expect(layer.h).toBeGreaterThan(0);
+    }
+  });
+
+  it("ships only idle/walk/attack WebP sheets with valid frames and a bounded texture budget", () => {
+    const sprites = ["Sakura Ronin", "Gale Prowler", "Fen Prowler"].map((kind) => ENEMY_SPRITE_LAYOUTS[kind]);
+    let bytes = 0;
+    for (const sprite of sprites) {
+      const animation = sprite.animation!;
+      expect(Object.keys(animation.animations).sort()).toEqual(["attack", "idle", "walk"]);
+      expect(animation.pages.reduce((sum, page) => sum + page.width * page.height * 4, 0)).toBeLessThan(16 * 1024 * 1024);
+      for (const page of animation.pages) {
+        expect(page.src).toMatch(/\.webp$/);
+        const file = new URL(`../../public/${page.src}`, import.meta.url);
+        const buffer = readFileSync(file);
+        bytes += statSync(file).size;
+        expect(buffer.subarray(8, 12).toString()).toBe("WEBP");
+        expect(buffer.subarray(12, 16).toString()).toBe("VP8X");
+        expect(buffer.readUIntLE(24, 3) + 1).toBe(page.width);
+        expect(buffer.readUIntLE(27, 3) + 1).toBe(page.height);
+        expect(Math.max(page.width, page.height)).toBeLessThanOrEqual(2048);
+      }
+      for (const [key, clip] of Object.entries(animation.animations)) {
+        expect(clip.loop).toBe(key !== "attack");
+        expect(clip.frames.length).toBeGreaterThan(1);
+        expect(clip.frameDurationMs * clip.frames.length).toBeCloseTo(clip.durationMs, 3);
+        for (const frame of clip.frames) {
+          const page = animation.pages[frame.page];
+          expect(frame.x).toBeGreaterThanOrEqual(2); expect(frame.y).toBeGreaterThanOrEqual(2);
+          expect(frame.x + frame.w).toBeLessThanOrEqual(page.width - 2);
+          expect(frame.y + frame.h).toBeLessThanOrEqual(page.height - 2);
+          expect([frame.w, frame.h]).toEqual([animation.frameWidth, animation.frameHeight]);
+        }
+      }
+    }
+    expect(bytes).toBeLessThan(768 * 1024);
   });
 
   it("omits separate hand and arm layers from every layered bow enemy", () => {
@@ -353,6 +404,40 @@ describe("enemy sprite loading", () => {
     expect(assets.mapSpritesReady("desert")).toBe(true);
   });
 
+  it("shares animation pages between variants and only starts a family's images for its map", async () => {
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      decoding = "auto";
+      src = "";
+      constructor() { super(); images.push(this); }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const groups = Object.fromEntries(Object.keys(MAP_ENEMY_FAMILIES).map((mapId) => [
+      mapId, [...new Set(mapSpawnCamps(mapId as MapId).flatMap((camp) => camp.types))],
+    ]));
+    const assets = loadEnemySprites(groups);
+    expect(images.every((image) => !image.src)).toBe(true);
+    const forest = assets.ensureMapSprites("tutorial_forest");
+    const forestPaths = new Set(groups.tutorial_forest.flatMap((kind) => enemySpriteAssetSources(ENEMY_SPRITE_LAYOUTS[kind])));
+    expect(new Set(images.filter((image) => image.src).map((image) => image.src))).toEqual(forestPaths);
+    images.filter((image) => image.src).forEach((image) => image.dispatchEvent(new Event("load")));
+    await forest;
+    expect(assets.mapSpritesReady("moonfen")).toBe(false);
+    const moonfen = assets.ensureMapSprites("moonfen");
+    const pages = images.filter((image) => image.src.includes("/fungus-rock/"));
+    expect(pages).toHaveLength(3);
+    expect(images.some((image) => image.src.includes("/flower-tulip/") || image.src.includes("/wingdemon-bee/"))).toBe(false);
+    const normal = assets.sprites["Fen Prowler"].animation!;
+    const elite = assets.sprites["Moonmire Reaper"].animation!;
+    normal.pages.forEach((page, index) => expect(page.image).toBe(elite.pages[index].image));
+    pages.slice(0, 2).forEach((image) => image.dispatchEvent(new Event("load")));
+    expect(assets.mapSpritesReady("moonfen")).toBe(false);
+    pages[2].dispatchEvent(new Event("load"));
+    await moonfen;
+    expect(assets.mapSpritesReady("moonfen")).toBe(true);
+    expect(assets.mapSpriteLoadFailed("moonfen")).toBe(false);
+  });
+
   it("waits for every enemy image, including a delayed layer", () => {
     const images: FakeImage[] = [];
     class FakeImage extends EventTarget {
@@ -370,7 +455,9 @@ describe("enemy sprite loading", () => {
     void assets.ensureMapSprites("all");
 
     expect(Object.keys(assets.sprites).sort()).toEqual(Object.keys(ENEMY_TYPES).sort());
-    expect(images).toHaveLength(2);
+    const paths = new Set(Object.values(ENEMY_SPRITE_LAYOUTS).flatMap(enemySpriteAssetSources));
+    expect(images).toHaveLength(paths.size);
+    expect(new Set(images.map((image) => image.src))).toEqual(paths);
     expect(assets.ready()).toBe(false);
     images.slice(0, -1).forEach((image) => image.dispatchEvent(new Event("load")));
     expect(assets.ready()).toBe(false);

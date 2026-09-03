@@ -4,6 +4,7 @@ On macOS, double-click the tool you need:
 
 - **Open WildStat Map Editor.command** — edit existing maps or create new ones; Save writes the map changes into the repository.
 - **Open Enemy Sprite Aligner.command** — align enemy sprite artwork.
+- **Open Unity Sprite Exporter.command** — open a local Unity workspace to turn animated sprite prefabs into PNG sheets, preview them, and make a WebP bundle. [Guide](../tools/unity-sprite-exporter/README.md).
 - **Run Wildstat Local.command** — start the local database and game for testing.
 - **Release Wildstat.command** — run the guided production release workflow, including checks, commit, and push.
 

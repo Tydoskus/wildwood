@@ -20,7 +20,8 @@ const controls = {
 const clone = (value) => typeof structuredClone === "function"
   ? structuredClone(value)
   : JSON.parse(JSON.stringify(value));
-const sourceLayouts = Object.fromEntries(Object.entries(ENEMY_SPRITE_LAYOUTS).filter(([, layout]) => Array.isArray(layout.layers)));
+// Baked animation sheets are previewed in the Unity exporter, not as loose limbs.
+const sourceLayouts = Object.fromEntries(Object.entries(ENEMY_SPRITE_LAYOUTS).filter(([, layout]) => Array.isArray(layout.layers) && !layout.animation));
 const workingLayouts = clone(sourceLayouts);
 const imageCache = new Map();
 let selectedLayerIndex = 0;

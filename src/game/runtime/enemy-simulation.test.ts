@@ -3,6 +3,7 @@ import type { RemotePlayer } from "../../wildstat-coop";
 import { remoteBossAttackStartedAtMs } from "../../coop/services/remote-boss-attack";
 import { ENEMY_CROWD_SPACING_RATIO, separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createEnemySimulation } from "./enemy-simulation";
+import { ENEMY_TYPES } from "../enemies";
 import type { EnemyState, PlayerState } from "./types";
 
 function playerAt(x: number, y: number): PlayerState {
@@ -65,6 +66,28 @@ function engage(enemy: EnemyState, targetId: string | null = null, startedAtTick
 }
 
 describe("deterministic enemy simulation", () => {
+  it("starts a melee sprite pose only on a real strike without changing its cooldown", () => {
+    for (const accepted of [false, true]) {
+      const local = playerAt(130, 100);
+      const enemy = idleEnemyAt(100, 100);
+      enemy.type = "Sakura Ronin";
+      enemy.speed = 0;
+      engage(enemy, "local-player");
+      const simulation = createEnemySimulation(
+        [enemy], () => {}, local, () => ({ width: 800, height: 800, zoom: 1 }),
+        engage, () => accepted,
+        { localIdentity: () => "local-player", localAggroPosition: () => local },
+      );
+      simulation.update(.001);
+      expect(enemy.attackAnimationElapsed).toBe(accepted ? 0 : undefined);
+      if (accepted) {
+        expect(enemy.attackClock).toBe(1 / ENEMY_TYPES[enemy.type].attackSpeed);
+        simulation.update(.01);
+        expect(enemy.attackAnimationElapsed).toBeCloseTo(.01);
+      }
+    }
+  });
+
   it("only lets ranged enemies fire from inside the player's attack edge", () => {
     const shotsAtDistance = (distance: number) => {
       const local = playerAt(100, 100);
@@ -86,11 +109,11 @@ describe("deterministic enemy simulation", () => {
       );
 
       simulation.update(.001);
-      return shots.length;
+      return { shots: shots.length, attackAnimationElapsed: enemy.attackAnimationElapsed };
     };
 
-    expect(shotsAtDistance(186)).toBe(0);
-    expect(shotsAtDistance(185)).toBe(1);
+    expect(shotsAtDistance(186)).toEqual({ shots: 0, attackAnimationElapsed: undefined });
+    expect(shotsAtDistance(185)).toEqual({ shots: 1, attackAnimationElapsed: 0 });
   });
 
   it("deterministically separates enemies that reach the exact same position", () => {
@@ -415,6 +438,9 @@ describe("deterministic enemy simulation", () => {
     now += 1_100;
     simulation.update(1 / 60);
     expect(simulation.renderRemotePlayers([remote])[0].regularEnemyCombat?.hp).toBe(0);
+    const ghost = simulation.remoteCombatGhosts().find((candidate) => candidate.siteId === firstEnemy.siteId);
+    expect(ghost?.attackAnimationElapsed).toBeGreaterThanOrEqual(0);
+    expect(ghost?.attackAnimationElapsed).toBeLessThan(1 / ENEMY_TYPES[firstEnemy.type].attackSpeed);
 
     now += 900;
     simulation.update(1 / 60);

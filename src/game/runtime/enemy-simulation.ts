@@ -207,6 +207,7 @@ export function createEnemySimulation(
       enemy.phase = ambient.phase;
       enemy.hurt = Math.max(0, enemy.hurt - dt);
       enemy.attackClock -= dt;
+      if (enemy.attackAnimationElapsed !== undefined) enemy.attackAnimationElapsed += dt;
       enemy.moveSpeedRecovery = Math.min(ENEMY_HIT_SPEED_RECOVERY_SECONDS, enemy.moveSpeedRecovery + dt);
       const moveSpeedProgress = enemy.moveSpeedRecovery / ENEMY_HIT_SPEED_RECOVERY_SECONDS;
       const currentMoveSpeed = ENEMY_HIT_MIN_MOVE_SPEED + (enemy.speed - ENEMY_HIT_MIN_MOVE_SPEED) * moveSpeedProgress;
@@ -307,6 +308,7 @@ export function createEnemySimulation(
                 4,
               );
               const attackIndex = attackSequences.get(enemy) ?? 0;
+              enemy.attackAnimationElapsed = 0;
               attackSequences.set(enemy, attackIndex + 1);
               enemy.attackClock = deterministicRegularEnemyAttackInterval(
                 mapId,
@@ -316,6 +318,7 @@ export function createEnemySimulation(
               );
             } else if (!base.ranged && enemy.attackClock <= 0 && circlesOverlap(player, enemy)) {
               if (damagePlayer(enemy.damage)) {
+                enemy.attackAnimationElapsed = 0;
                 enemy.attackClock = 1 / Math.max(.01, base.attackSpeed);
                 enemy.moveSpeedRecovery = 0;
                 enemy.vx = 0;

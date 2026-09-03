@@ -21,7 +21,10 @@ class ElementStub {
   setAttribute(name: string, value: string) { this.attributes.set(name, value); }
   getAttribute(name: string) { return this.attributes.get(name) ?? null; }
   addEventListener(name: string, callback: (event: { key?: string; preventDefault: () => void }) => void) { this.listeners.set(name, callback); }
-  querySelectorAll() { return this.children.filter((child) => child instanceof ElementStub && child.getAttribute("aria-expanded") === "true"); }
+  querySelectorAll(): ElementStub[] {
+    return this.children.flatMap((child) => child instanceof ElementStub
+      ? [...(child.getAttribute("aria-expanded") === "true" ? [child] : []), ...child.querySelectorAll()] : []);
+  }
   activate(key?: string) { this.listeners.get(key ? "keydown" : "click")?.({ key, preventDefault() {} }); }
 }
 
@@ -37,8 +40,11 @@ describe("compact profile stat rendering", () => {
     vi.stubGlobal("document", { createElement: () => new ElementStub() });
     const grid = new ElementStub();
     renderProfileStats(profile(), grid as unknown as HTMLElement, () => "20%", .38);
-    expect(grid.children).toHaveLength(10);
-    const row = grid.children[0] as ElementStub;
+    expect(grid.children).toHaveLength(2);
+    const [left, right] = grid.children as ElementStub[];
+    expect(left.children).toHaveLength(5);
+    expect(right.children).toHaveLength(5);
+    const row = left.children[0] as ElementStub;
     const [label, summary, details] = row.children as ElementStub[];
     expect(label.textContent).toBe("Max Hp:");
     expect(summary.children).toHaveLength(1);
@@ -47,6 +53,8 @@ describe("compact profile stat rendering", () => {
     expect(row.getAttribute("aria-label")).not.toContain("Base");
     row.activate("Enter");
     expect(details.hidden).toBe(false);
+    expect((right.children[0] as ElementStub).getAttribute("aria-expanded")).toBe("false");
+    expect(right.children.every((child) => (child as ElementStub).getAttribute("aria-expanded") === "false")).toBe(true);
     expect(row.getAttribute("aria-label")).toContain("Base 100");
     expect((details.children[0] as ElementStub).className).toBe("profile-stat-equation");
     row.activate(" ");
@@ -57,10 +65,11 @@ describe("compact profile stat rendering", () => {
     const grid = new ElementStub();
     const render = (identity: string) => renderProfileStats(profile(identity), grid as unknown as HTMLElement, () => "20%", .38);
     render("alice");
-    (grid.children[2] as ElementStub).activate();
+    const thirdRow = () => (grid.children[0] as ElementStub).children[1] as ElementStub;
+    thirdRow().activate();
     render("alice");
-    expect((grid.children[2] as ElementStub).getAttribute("aria-expanded")).toBe("true");
+    expect(thirdRow().getAttribute("aria-expanded")).toBe("true");
     render("bob");
-    expect((grid.children[2] as ElementStub).getAttribute("aria-expanded")).toBe("false");
+    expect(thirdRow().getAttribute("aria-expanded")).toBe("false");
   });
 });

@@ -239,7 +239,13 @@ export function renderProfileStats(
     : new Set<string>();
   statGrid.dataset.identity = profile.identity;
   statGrid.replaceChildren();
-  for (const stat of stats) {
+  const columns = [0, 1].map(() => {
+    const column = document.createElement("dl");
+    column.className = "profile-grid profile-stat-column";
+    statGrid.append(column);
+    return column;
+  });
+  for (const [index, stat] of stats.entries()) {
     const item = document.createElement("div");
     item.className = `profile-stat-row profile-stat-${stat.kind}`;
     item.dataset.stat = stat.kind;
@@ -339,6 +345,6 @@ export function renderProfileStats(
     });
     setExpanded(expandedKinds.has(stat.kind));
     item.append(term, summary, sources);
-    statGrid.append(item);
+    columns[index % columns.length].append(item);
   }
 }

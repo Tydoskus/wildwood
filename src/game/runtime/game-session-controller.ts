@@ -34,13 +34,21 @@ export function presentationFrameDue(lowPerformanceMode: boolean, now: number, n
 }
 
 export function idlePresentationThrottleActive(
-  inputActive: boolean,
+  activityActive: boolean,
   now: number,
-  lastInputAt: number,
+  lastActivityAt: number,
   delayMs = IDLE_PRESENTATION_DELAY_MS,
 ) {
-  if (inputActive || !Number.isFinite(now) || !Number.isFinite(lastInputAt)) return false;
-  return now - lastInputAt >= Math.max(0, delayMs);
+  if (activityActive || !Number.isFinite(now) || !Number.isFinite(lastActivityAt)) return false;
+  return now - lastActivityAt >= Math.max(0, delayMs);
+}
+
+export function presentationCombatActive(
+  player: Pick<PlayerState, "hp" | "combatFacing" | "throwClock" | "hurtClock">,
+  dueling: boolean,
+) {
+  // A selected auto-attack target counts throughout cooldowns, even while stationary.
+  return player.hp > 0 && (dueling || player.combatFacing !== null || player.throwClock > 0 || player.hurtClock > 0);
 }
 
 /**
@@ -152,7 +160,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let lastFrameAt = performance.now();
   let lastRenderedAt = lastFrameAt;
   let nextFrameAt = lastFrameAt;
-  let lastPresentationInputAt = lastFrameAt;
+  let lastPresentationActivityAt = lastFrameAt;
   let simulationAccumulatorSeconds = 0;
   let nextPerformancePanelUpdateAt = 0;
   let fading = false;
@@ -230,7 +238,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     lastFrameAt = performance.now();
     lastRenderedAt = lastFrameAt;
     nextFrameAt = lastFrameAt;
-    lastPresentationInputAt = lastFrameAt;
+    lastPresentationActivityAt = lastFrameAt;
     simulationAccumulatorSeconds = 0;
     dependencies.resetPresentationState();
   }
@@ -242,10 +250,12 @@ export function createGameSessionController(dependencies: SessionDependencies) {
 
   function loop(now: number) {
     const lowPerformanceMode = dependencies.lowPerformanceMode();
-    const inputActive = dependencies.presentationInputActive();
-    if (inputActive) lastPresentationInputAt = now;
+    const combatActive = running && !paused && !dependencies.accountInConflict()
+      && presentationCombatActive(dependencies.player, dependencies.isDueling());
+    const activityActive = dependencies.presentationInputActive() || combatActive;
+    if (activityActive) lastPresentationActivityAt = now;
     const idleThrottled = !lowPerformanceMode
-      && idlePresentationThrottleActive(inputActive, now, lastPresentationInputAt);
+      && idlePresentationThrottleActive(activityActive, now, lastPresentationActivityAt);
     const reducedFrameRate = lowPerformanceMode || idleThrottled;
     if (!presentationFrameDue(reducedFrameRate, now, nextFrameAt)) {
       requestAnimationFrame(loop);

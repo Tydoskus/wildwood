@@ -67,6 +67,25 @@ export function researchElapsedRatio(startedAtMs: number, completesAtMs: number,
   return Math.max(0, Math.min(1, (nowMs - startedAtMs) / duration));
 }
 
+export function researchFocusNode(nodes: TechTreeNode[], ranks: ResearchRanks, current: ActiveResearch | null) {
+  const activeNode = current && nodes.find((node) => node.researchId === current.researchId &&
+    current.targetRank > node.startRank && current.targetRank <= node.endRank);
+  return activeNode || nodes.find((node) => ranks[node.researchId] >= node.startRank &&
+    ranks[node.researchId] < node.endRank && researchIsAvailable(node.researchId, ranks))
+    || nodes.find((node) => ranks[node.researchId] < node.endRank)
+    || nodes[nodes.length - 1];
+}
+
+export function centerResearchNode(viewport: HTMLElement, node: HTMLElement) {
+  const viewportBounds = viewport.getBoundingClientRect();
+  const nodeBounds = node.getBoundingClientRect();
+  // offsetTop is relative to the positioned tier, not the scrolling tree.
+  viewport.scrollTop = Math.max(0, Math.min(viewport.scrollHeight - viewport.clientHeight,
+    viewport.scrollTop + nodeBounds.top + nodeBounds.height / 2 - viewportBounds.top - viewport.clientTop - viewport.clientHeight / 2));
+  viewport.scrollLeft = Math.max(0, Math.min(viewport.scrollWidth - viewport.clientWidth,
+    viewport.scrollLeft + nodeBounds.left + nodeBounds.width / 2 - viewportBounds.left - viewport.clientLeft - viewport.clientWidth / 2));
+}
+
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
   const { button, notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
   const confirmGemSpend = hooks.confirmGemSpend ?? ((message: string) => confirm(message));
@@ -298,15 +317,10 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     render();
   }
 
-  function currentNode(ranks: ResearchRanks, current: ActiveResearch | null) {
-    if (current) {
-      const activeNode = layout.nodes.find((node) => node.researchId === current.researchId &&
-        current.targetRank > node.startRank && current.targetRank <= node.endRank);
-      if (activeNode) return activeNode;
-    }
-    return layout.nodes.find((node) => techProgress(node, ranks).isCurrent && researchIsAvailable(node.researchId, ranks))
-      ?? layout.nodes.find((node) => !techProgress(node, ranks).isComplete)
-      ?? layout.nodes[layout.nodes.length - 1];
+  function sizeTreeEdges() {
+    const viewport = map.parentElement;
+    // Leave room to center even the first and final rows.
+    if (viewport) map.style.setProperty("--tech-tree-edge-space", `${viewport.clientHeight / 2}px`);
   }
 
   function open() {
@@ -314,13 +328,15 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     detail.hidden = true;
     button.setAttribute("aria-expanded", "true");
     hooks.beforeOpen();
-    const focusNode = currentNode(hooks.researchRanks(), hooks.activeResearch());
+    const focusNode = researchFocusNode(layout.nodes, hooks.researchRanks(), hooks.activeResearch());
     if (focusNode) selectedNodeId = focusNode.id;
+    sizeTreeEdges();
     render();
     requestAnimationFrame(() => {
+      if (overlay.hidden) return;
       const element = map.querySelector<HTMLElement>(`[data-tech-node="${selectedNodeId}"]`);
       const viewport = map.parentElement;
-      if (element && viewport) viewport.scrollTop = Math.max(0, element.offsetTop - viewport.clientHeight / 2 + element.offsetHeight / 2);
+      if (element && viewport) centerResearchNode(viewport, element);
     });
   }
 
@@ -336,7 +352,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   });
   closeButton.addEventListener("click", close);
   closeDetailButton.addEventListener("click", () => { detail.hidden = true; });
-  addEventListener("resize", () => { if (!overlay.hidden) drawLinks(); });
+  addEventListener("resize", () => { if (!overlay.hidden) { sizeTreeEdges(); drawLinks(); } });
   canvas.parentElement?.addEventListener("scroll", () => { if (!overlay.hidden) drawLinks(); }, { passive: true });
   for (const element of map.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
     element.addEventListener("click", () => {

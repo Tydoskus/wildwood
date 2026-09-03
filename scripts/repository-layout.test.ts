@@ -8,7 +8,7 @@ describe("organized repository layout", () => {
   it("keeps one-click launchers executable and anchored to the parent project", () => {
     const folder = resolve(root, "launchers");
     const launchers = readdirSync(folder).filter((name) => name.endsWith(".command"));
-    expect(launchers).toHaveLength(4);
+    expect(launchers).toHaveLength(5);
     for (const name of launchers) {
       const file = resolve(folder, name);
       expect(statSync(file).mode & 0o111, name).not.toBe(0);

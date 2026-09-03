@@ -1,3 +1,5 @@
+import { installSettingsTabs } from "./settings-tabs";
+
 const beforeStartShell = String.raw`
 <div id="dailyGemBonus" class="daily-gem-bonus" hidden>
   <section class="daily-gem-bonus-card" role="dialog" aria-modal="true" aria-labelledby="dailyGemBonusTitle" aria-describedby="dailyGemBonusCopy">
@@ -147,7 +149,7 @@ const afterUpdateGateShell = String.raw`
     </section>
     <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
       <p class="profile-stat-hint">Select a stat for details.</p>
-      <dl id="profileStatGrid" class="profile-grid profile-stat-grid"></dl>
+      <div id="profileStatGrid" class="profile-stat-grid"></div>
     </section>
     <div id="profileSafetyActions" class="profile-safety-actions" hidden>
       <button id="profileReportBtn" type="button">Report Player</button>
@@ -352,6 +354,7 @@ export function installGameShell(doc: Document = document) {
         <small>Report bugs with /bug in chat. For player concerns, use Report or Block on their profile.</small>
       </div>`);
   }
+  installSettingsTabs(doc);
   const start = doc.getElementById("start");
   if (!start) throw new Error("WildStat startup shell is missing #start");
   if (!doc.getElementById("dailyGemBonus")) {

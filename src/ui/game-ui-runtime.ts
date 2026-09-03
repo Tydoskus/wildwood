@@ -42,6 +42,10 @@ export function createTechTreePanel(d: Record<string, any>) {
 export function createDevPanel(d: Record<string, any>) {
   const { coop } = d;
   return createDevPanelController({
+    forestPrototype: {
+      state: () => coop?.forestRewardPrototypeState?.() ?? null,
+      send: (action) => coop?.devForestRewardPrototype?.(action),
+    },
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()),
     getPresenceVisible: () => coop?.developerPresenceVisible?.() === true,
     setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible),

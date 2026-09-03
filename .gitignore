@@ -46,6 +46,8 @@ art-source/vendor/**
 art-source/generated/**
 art-source/inbox/**
 art-source/map-editor-backups/**
+art-source/unity-workspace/**
+*.unitypackage
 
 # Local profiling exports and machine-specific test captures #
 #############################################################

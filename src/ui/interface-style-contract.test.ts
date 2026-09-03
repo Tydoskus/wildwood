@@ -24,6 +24,14 @@ function cssRule(selector: string) {
 }
 
 describe("interface style contracts", () => {
+  it("keeps Settings tabs and Back outside the scrolling controls", () => {
+    expect(cssRule(".card.settings-panel")).toContain("overflow: hidden");
+    expect(cssRule(".settings-tabs")).toContain("repeat(3, minmax(0, 1fr))");
+    expect(cssRule(".settings-panel > .settings-content")).toContain("overflow-y: auto");
+    expect(cssRule(".settings-panel > .settings-content")).toContain("min-height: 0");
+    expect(cssRule(".settings-tab-panel[hidden]")).toContain("display: none");
+  });
+
   it("keeps the initial HTML response below 24 KB", () => {
     expect(Buffer.byteLength(entryHtml, "utf8")).toBeLessThan(24_000);
     expect(entryHtml).toContain('id="start"');
@@ -444,6 +452,11 @@ describe("interface style contracts", () => {
 
   it("uses two stat columns with aligned label colons and expandable details", () => {
     expect(cssRule(".profile-stat-grid {")).toContain("repeat(2, minmax(0, 1fr))");
+    expect(cssRule(".profile-stat-grid {")).toContain("align-items: start");
+    expect(cssRule(".profile-stat-column {")).toContain("display: block");
+    expect(cssRule(".profile-stat-column > div {")).toContain("grid-template-rows: minmax(34px, auto)");
+    expect(cssRule(".profile-stat-column > div {")).toContain("min-height: 34px");
+    expect(cssRule(".player-profile-modal .profile-stat-column > div {")).toContain("min-height: 34px");
     expect(cssRule(".profile-stat-grid dt {")).toContain("text-align: right");
     expect(cssRule(".profile-stat-summary {")).toContain("display: block");
     expect(cssRule(".profile-stat-sources[hidden] {")).toContain("display: none");
@@ -456,6 +469,9 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="profileReportBtn"');
     expect(html).toContain('id="profileBlockBtn"');
     expect(html).toContain('id="blockedPlayersSetting"');
+    expect(cssRule(".profile-safety-actions button {")).toContain("background: linear-gradient(#c85050, #842f34)");
+    expect(cssRule(".profile-safety-actions button {")).toContain("color: #fff");
+    expect(cssRule(".profile-safety-actions {")).toContain("margin-bottom: 24px");
   });
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {

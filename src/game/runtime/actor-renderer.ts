@@ -12,6 +12,7 @@ import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { createTintedImageCanvas } from "./image-tint";
 import { PLAYER_WORLD_SCALE } from "../player-render-scale";
+import { createEnemyAnimationSampler } from "./enemy-animation";
 
 export function rockProjectileSize(itemId: string | undefined, naturalWidth: number, naturalHeight: number) {
   const held = itemPresentation(itemId)?.world;
@@ -119,6 +120,17 @@ export function drawableEnemyLayers(layers: LoadedSpriteLayer[] | undefined) {
 }
 
 export function enemySpriteVerticalBounds(sprite: LoadedEnemySprite | undefined, enemyRadius: number) {
+  if (sprite?.animation) {
+    const cached = enemyBoundsCache.get(sprite);
+    if (cached) return cached;
+    const bounds = {
+      top: sprite.animation.top + ENEMY_SPRITE_Y_OFFSET,
+      bottom: sprite.animation.bottom + ENEMY_SPRITE_Y_OFFSET,
+      height: sprite.animation.bottom - sprite.animation.top,
+    };
+    enemyBoundsCache.set(sprite, bounds);
+    return bounds;
+  }
   if (sprite?.layers?.length) {
     const cached = enemyBoundsCache.get(sprite);
     if (cached) return cached;
@@ -196,6 +208,7 @@ export function createActorRenderer(options: {
   worldHealthBarHeight: number;
 }) {
   const { ctx, camera } = options;
+  const sampleEnemyAnimation = createEnemyAnimationSampler();
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
@@ -698,6 +711,17 @@ export function createActorRenderer(options: {
     };
     if (layers && sprite) {
       ctx.globalAlpha = (enemy.hurt > 0 ? .7 : 1) * visibility;
+      if (sprite.animation) {
+        const animation = sprite.animation;
+        const frame = sampleEnemyAnimation(enemy, animation, options.gameTime(), base.attackSpeed);
+        const page = animation.pages[frame.page];
+        if (page.image.complete && page.image.naturalWidth > 0 && page.image.naturalHeight > 0) {
+          ctx.drawImage(page.image, frame.x, frame.y, frame.w, frame.h,
+            animation.x, animation.y + ENEMY_SPRITE_Y_OFFSET, animation.w, animation.h);
+        } else {
+          drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline, visibility);
+        }
+      }
       const layerPlan = cachedEnemyLayerPlan(sprite);
       if (layerPlan) {
         for (const part of layerPlan) {
@@ -722,7 +746,7 @@ export function createActorRenderer(options: {
         }
       } else {
         const readyLayers = drawableEnemyLayers(layers);
-        if (readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline, visibility);
+        if (!sprite.animation && readyLayers.length < layers.length) drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline, visibility);
         for (const layer of readyLayers) {
           if (layer.aimPivot) {
             ctx.save();

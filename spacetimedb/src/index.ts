@@ -1,6 +1,7 @@
 import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor, damageBlockedByArmor } from "./combat";
+import { attackForestPrototype, beginForestPrototype } from "./forest-reward-prototype";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
 import {
@@ -1513,7 +1514,17 @@ const miremawRespawnSchedule = table(
   },
 );
 
+const forestRewardPrototype = table(
+  { name: "forest_reward_prototype", public: false },
+  {
+    identity: t.identity().primaryKey(),
+    encounter: t.u64(), enemyHp: t.u32(), damage: t.u32(), kills: t.u64(),
+    lastAttack: t.u64(), nextAttackAt: t.u64(), respawnAt: t.u64(),
+  },
+);
+
 const spacetimedb = schema({
+  forestRewardPrototype,
   player,
   playerMapMarker,
   playerMotion,
@@ -1601,6 +1612,45 @@ const spacetimedb = schema({
 export default spacetimedb;
 
 type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
+
+export const devForestRewardPrototype = spacetimedb.view(
+  { name: "dev_forest_reward_prototype", public: true },
+  t.option(forestRewardPrototype.rowType),
+  (ctx) => isDeveloperIdentity(ctx.sender) ? ctx.db.forestRewardPrototype.identity.find(ctx.sender) ?? undefined : undefined,
+);
+
+function requireForestPrototypeAccess(ctx: ModuleReducerCtx) {
+  requireDeveloper(ctx);
+  const player = ctx.db.player.identity.find(ctx.sender);
+  if (player?.mapId !== TUTORIAL_FOREST_MAP_ID || activeDuelFor(ctx, ctx.sender)) {
+    throw new SenderError("Run the reward prototype in the forest, outside a duel.");
+  }
+}
+
+export const beginForestRewardPrototype = spacetimedb.reducer({}, (ctx) => {
+  requireForestPrototypeAccess(ctx);
+  const previous = ctx.db.forestRewardPrototype.identity.find(ctx.sender);
+  try {
+    const next = beginForestPrototype(previous, ctx.timestamp.microsSinceUnixEpoch);
+    if (next === previous) return;
+    const row = { ...next, identity: ctx.sender };
+    if (previous) ctx.db.forestRewardPrototype.identity.update(row);
+    else ctx.db.forestRewardPrototype.insert(row);
+  } catch (error) { throw new SenderError(error instanceof Error ? error.message : "Prototype start failed."); }
+});
+
+export const attackForestRewardPrototype = spacetimedb.reducer(
+  { encounter: t.u64(), firstAttack: t.u64(), count: t.u8() },
+  (ctx, action) => {
+    requireForestPrototypeAccess(ctx);
+    const previous = ctx.db.forestRewardPrototype.identity.find(ctx.sender);
+    if (!previous) throw new SenderError("Start the reward prototype first.");
+    try {
+      const next = attackForestPrototype(previous, action, ctx.timestamp.microsSinceUnixEpoch);
+      if (next !== previous) ctx.db.forestRewardPrototype.identity.update({ ...next, identity: ctx.sender });
+    } catch (error) { throw new SenderError(error instanceof Error ? error.message : "Prototype attack failed."); }
+  },
+);
 
 export const myPlayerBlocks = spacetimedb.view(
   { name: "my_player_blocks", public: true },

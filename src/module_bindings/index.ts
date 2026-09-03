@@ -37,8 +37,10 @@ import {
 import AcceptDuelReducer from "./accept_duel_reducer";
 import AcceptTermsReducer from "./accept_terms_reducer";
 import AcknowledgeBalanceApologyGiftReducer from "./acknowledge_balance_apology_gift_reducer";
+import AttackForestRewardPrototypeReducer from "./attack_forest_reward_prototype_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
+import BeginForestRewardPrototypeReducer from "./begin_forest_reward_prototype_reducer";
 import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
 import ChangeMapReducer from "./change_map_reducer";
 import ClaimDailyGemBonusReducer from "./claim_daily_gem_bonus_reducer";
@@ -113,6 +115,7 @@ import BossAttackFrameRow from "./boss_attack_frame_table";
 import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
 import DevBugReportsRow from "./dev_bug_reports_table";
+import DevForestRewardPrototypeRow from "./dev_forest_reward_prototype_table";
 import DragonBossRow from "./dragon_boss_table";
 import DragonResultRow from "./dragon_result_table";
 import DuelRow from "./duel_table";
@@ -665,6 +668,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, DevBugReportsRow),
+  devForestRewardPrototype: __table({
+    name: 'dev_forest_reward_prototype',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, DevForestRewardPrototypeRow),
   localMovementDemand: __table({
     name: 'local_movement_demand',
     indexes: [
@@ -728,8 +738,10 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("accept_terms", AcceptTermsReducer),
   __reducerSchema("acknowledge_balance_apology_gift", AcknowledgeBalanceApologyGiftReducer),
+  __reducerSchema("attack_forest_reward_prototype", AttackForestRewardPrototypeReducer),
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
+  __reducerSchema("begin_forest_reward_prototype", BeginForestRewardPrototypeReducer),
   __reducerSchema("cancel_item_upgrade", CancelItemUpgradeReducer),
   __reducerSchema("change_map", ChangeMapReducer),
   __reducerSchema("claim_daily_gem_bonus", ClaimDailyGemBonusReducer),
