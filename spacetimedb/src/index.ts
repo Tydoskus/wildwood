@@ -3746,6 +3746,119 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   return Boolean(activePlayer?.isVisible);
 }
 
+/**
+ * Permanently removes every row that belongs to a player identity. Historical
+ * rows that identify the player (chat, reports, duels, and gem transactions)
+ * are included so this is a full account-data deletion rather than merely a
+ * leaderboard removal.
+ */
+function removePlayerIdentityData(ctx: any, identity: any) {
+  const activePlayer = ctx.db.player.identity.find(identity);
+  if (activePlayer) ctx.db.player.identity.delete(identity);
+  removePlayerRealtimeState(ctx, identity);
+
+  if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
+  if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
+  if (ctx.db.playerProfile.identity.find(identity)) ctx.db.playerProfile.identity.delete(identity);
+  if (ctx.db.playerProgress.identity.find(identity)) ctx.db.playerProgress.identity.delete(identity);
+  if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
+  if (ctx.db.playerResearch.identity.find(identity)) ctx.db.playerResearch.identity.delete(identity);
+  if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
+  removeResearchCompletionSchedules(ctx, identity);
+  removePlayerItemUpgradeData(ctx, identity, true);
+
+  if (ctx.db.playerAccountStatus.identity.find(identity)) ctx.db.playerAccountStatus.identity.delete(identity);
+  if (ctx.db.playerLegalConsent.identity.find(identity)) ctx.db.playerLegalConsent.identity.delete(identity);
+  if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
+  if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
+  if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
+  if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
+  if (ctx.db.dailyGemBonus.identity.find(identity)) ctx.db.dailyGemBonus.identity.delete(identity);
+  if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
+  if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
+  if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
+  if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
+  if (ctx.db.developerPresencePreference.identity.find(identity)) ctx.db.developerPresencePreference.identity.delete(identity);
+  if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
+  if (ctx.db.presenceChatCooldown.identity.find(identity)) ctx.db.presenceChatCooldown.identity.delete(identity);
+  if (ctx.db.duelRequestCooldown.identity.find(identity)) ctx.db.duelRequestCooldown.identity.delete(identity);
+  if (ctx.db.chatMessageReportRateLimit.reporter.find(identity)) ctx.db.chatMessageReportRateLimit.reporter.delete(identity);
+  if (ctx.db.startupTelemetryRateLimit.sender.find(identity)) ctx.db.startupTelemetryRateLimit.sender.delete(identity);
+
+  for (const transaction of [...ctx.db.gemTransaction.byIdentity.filter(identity) as Iterable<any>]) {
+    ctx.db.gemTransaction.id.delete(transaction.id);
+  }
+
+  if (ctx.db.dragonContribution.identity.find(identity)) ctx.db.dragonContribution.identity.delete(identity);
+  if (ctx.db.dragonAttackWindow.identity.find(identity)) ctx.db.dragonAttackWindow.identity.delete(identity);
+  if (ctx.db.spiderContribution.identity.find(identity)) ctx.db.spiderContribution.identity.delete(identity);
+  if (ctx.db.spiderAttackWindow.identity.find(identity)) ctx.db.spiderAttackWindow.identity.delete(identity);
+  if (ctx.db.frostclawContribution.identity.find(identity)) ctx.db.frostclawContribution.identity.delete(identity);
+  if (ctx.db.frostclawAttackWindow.identity.find(identity)) ctx.db.frostclawAttackWindow.identity.delete(identity);
+  if (ctx.db.magmaliskContribution.identity.find(identity)) ctx.db.magmaliskContribution.identity.delete(identity);
+  if (ctx.db.magmaliskAttackWindow.identity.find(identity)) ctx.db.magmaliskAttackWindow.identity.delete(identity);
+  if (ctx.db.gloomrootContribution.identity.find(identity)) ctx.db.gloomrootContribution.identity.delete(identity);
+  if (ctx.db.gloomrootAttackWindow.identity.find(identity)) ctx.db.gloomrootAttackWindow.identity.delete(identity);
+  if (ctx.db.tidewyrmContribution.identity.find(identity)) ctx.db.tidewyrmContribution.identity.delete(identity);
+  if (ctx.db.tidewyrmAttackWindow.identity.find(identity)) ctx.db.tidewyrmAttackWindow.identity.delete(identity);
+  if (ctx.db.koiShogunContribution.identity.find(identity)) ctx.db.koiShogunContribution.identity.delete(identity);
+  if (ctx.db.koiShogunAttackWindow.identity.find(identity)) ctx.db.koiShogunAttackWindow.identity.delete(identity);
+  if (ctx.db.tempestKirinContribution.identity.find(identity)) ctx.db.tempestKirinContribution.identity.delete(identity);
+  if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
+  if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
+  if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
+  if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
+
+  for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
+    ctx.db.playerSession.connectionId.delete(session.connectionId);
+  }
+  if (ctx.db.playerController.identity.find(identity)) ctx.db.playerController.identity.delete(identity);
+
+  const linkCodes = [...ctx.db.accountLink.iter() as Iterable<any>]
+    .filter((link: any) => sameIdentity(link.guest, identity))
+    .map((link: any) => link.code);
+  for (const code of linkCodes) ctx.db.accountLink.code.delete(code);
+
+  const removedMessageIds = new Set<bigint>();
+  for (const message of [...ctx.db.chatMessage.iter() as Iterable<any>]) {
+    if (!sameIdentity(message.sender, identity)) continue;
+    removedMessageIds.add(message.id);
+    ctx.db.chatMessage.id.delete(message.id);
+  }
+
+  for (const report of [...ctx.db.chatMessageReport.iter() as Iterable<any>]) {
+    if (
+      sameIdentity(report.reporter, identity) ||
+      sameIdentity(report.accused, identity) ||
+      removedMessageIds.has(report.messageId)
+    ) ctx.db.chatMessageReport.id.delete(report.id);
+  }
+
+  for (const report of [...ctx.db.bugReport.byReporter.filter(identity) as Iterable<any>]) {
+    ctx.db.bugReport.id.delete(report.id);
+  }
+
+  const duelIds = new Set<bigint>();
+  for (const current of [...ctx.db.duel.iter() as Iterable<any>]) {
+    if (!sameIdentity(current.challenger, identity) && !sameIdentity(current.opponent, identity)) continue;
+    duelIds.add(current.id);
+    ctx.db.duel.id.delete(current.id);
+  }
+  for (const schedule of [...ctx.db.duelResolutionSchedule.iter() as Iterable<any>]) {
+    if (duelIds.has(schedule.duelId)) ctx.db.duelResolutionSchedule.scheduledId.delete(schedule.scheduledId);
+  }
+
+  const identityHex = identity.toHexString().replace(/^0x/i, "").toLowerCase();
+  for (const replay of [...ctx.db.duelReplay.iter() as Iterable<any>]) {
+    const challengerHex = replay.challengerIdentity.replace(/^0x/i, "").toLowerCase();
+    const opponentHex = replay.opponentIdentity.replace(/^0x/i, "").toLowerCase();
+    if (challengerHex === identityHex || opponentHex === identityHex) ctx.db.duelReplay.id.delete(replay.id);
+  }
+
+  reconcileOnlinePlayers(ctx);
+  refreshLeaderboard(ctx);
+}
+
 function clearVirtualPlayersForOwner(ctx: any, owner: any) {
   if (ctx.db.virtualPlayerRun.owner.find(owner)) ctx.db.virtualPlayerRun.owner.delete(owner);
   const identities = [...ctx.db.virtualPlayer.byOwner.filter(owner) as Iterable<any>]
@@ -6839,6 +6952,46 @@ export const devDeleteBugReport = spacetimedb.reducer(
     requireDeveloper(ctx);
     if (!ctx.db.bugReport.id.find(id)) throw new SenderError("Bug report not found.");
     ctx.db.bugReport.id.delete(id);
+  },
+);
+
+// Owner/developer maintenance for removing legacy pre-account saves. Every
+// condition is checked again inside the transaction so a stale leaderboard
+// screenshot or a player reconnect cannot turn this into a broader deletion.
+export const devDeleteLegacyPlayer = spacetimedb.reducer(
+  { identity: t.identity(), expectedDisplayName: t.string() },
+  (ctx, { identity, expectedDisplayName }) => {
+    if (!isDeveloperIdentity(ctx.sender) && !isDatabaseOwnerIdentity(ctx.sender)) {
+      throw new SenderError("Developer access required.");
+    }
+    if (isDeveloperIdentity(identity) || isDatabaseOwnerIdentity(identity)) {
+      throw new SenderError("Protected identity cannot be deleted.");
+    }
+    if (isVirtualPlayer(ctx, identity)) throw new SenderError("Use virtual-player cleanup for simulated players.");
+
+    const profile = ctx.db.playerProfile.identity.find(identity);
+    const progress = ctx.db.playerProgress.identity.find(identity);
+    const leaderboard = ctx.db.leaderboardEntry.identity.find(identity);
+    if (!profile || !progress || !leaderboard) throw new SenderError("Legacy player save not found.");
+    if (profile.displayName !== expectedDisplayName.trim()) throw new SenderError("Player name changed; deletion refused.");
+    if (leaderboard.isGuest || leaderboard.powerLevel >= 104 || effectivePowerForProgress(ctx, progress) >= 104) {
+      throw new SenderError("Player no longer matches the requested leaderboard criteria.");
+    }
+    if (ctx.db.playerAccountStatus.identity.find(identity)) {
+      throw new SenderError("Known account status found; deletion refused.");
+    }
+    if (
+      ctx.db.player.identity.find(identity) ||
+      ctx.db.playerController.identity.find(identity) ||
+      [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>].length > 0
+    ) throw new SenderError("Player is online; deletion refused.");
+    for (const current of ctx.db.duel.iter() as Iterable<any>) {
+      if (sameIdentity(current.challenger, identity) || sameIdentity(current.opponent, identity)) {
+        throw new SenderError("Player has an active duel; deletion refused.");
+      }
+    }
+
+    removePlayerIdentityData(ctx, identity);
   },
 );
 
