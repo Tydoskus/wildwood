@@ -52,6 +52,7 @@ type CoopClient = {
   profileIcon?: (identity: string) => number;
   playerGender?: (identity: string) => PlayerGender;
   chatRevision?: () => number;
+  isPlayerBlocked?: (identity: string) => boolean;
   chatMessages?: () => ChatMessage[];
   sendChatMessage?: (message: string, replyToMessageId?: bigint) => Promise<{ ok: boolean; error?: string }>;
   reportChatMessage?: (messageId: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
@@ -200,6 +201,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
 
   function refresh() {
     const coop = getCoop();
+    if (pendingReply && coop?.isPlayerBlocked?.(pendingReply.sender)) setPendingReply(null);
 
     const now = Date.now();
     const revision = coop?.chatRevision?.() ?? -1;

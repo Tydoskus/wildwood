@@ -153,7 +153,7 @@ export function createMapMusicController(
   function preloadBowAttackSound(context: AudioContext) {
     if (bowAttackBuffer) return Promise.resolve(bowAttackBuffer);
     if (bowAttackBufferPromise) return bowAttackBufferPromise;
-    bowAttackBufferPromise = fetch(BOW_ATTACK_SOUND_SOURCE)
+    bowAttackBufferPromise = fetch(BOW_ATTACK_SOUND_SOURCE, { cache: "no-cache" })
       .then((response) => {
         if (!response.ok) throw new Error(`Bow attack audio request failed: ${response.status}`);
         return response.arrayBuffer();
@@ -279,7 +279,8 @@ export function createMapMusicController(
     if (sourceDuration <= 0) return;
     const playbackDuration = sourceDuration / playbackRate;
     const endAt = now + playbackDuration;
-    const fadeAt = Math.max(now + BOW_ATTACK_SOUND_ATTACK_SECONDS, endAt - BOW_ATTACK_SOUND_FADE_SECONDS);
+    const fadeDuration = Math.min(BOW_ATTACK_SOUND_FADE_SECONDS, playbackDuration * .25);
+    const fadeAt = Math.max(now + BOW_ATTACK_SOUND_ATTACK_SECONDS, endAt - fadeDuration);
     const source = context.createBufferSource();
     const voiceGain = context.createGain();
     const voice: BowAttackVoice = { source, gain: voiceGain };

@@ -146,8 +146,13 @@ const afterUpdateGateShell = String.raw`
       </dl>
     </section>
     <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
+      <p class="profile-stat-hint">Select a stat for details.</p>
       <dl id="profileStatGrid" class="profile-grid profile-stat-grid"></dl>
     </section>
+    <div id="profileSafetyActions" class="profile-safety-actions" hidden>
+      <button id="profileReportBtn" type="button">Report Player</button>
+      <button id="profileBlockBtn" type="button">Block Player</button>
+    </div>
     <footer class="window-back-footer">
       <button id="closePlayerProfileBtn" class="window-back-button" type="button" aria-label="Back from player profile">Back</button>
     </footer>
@@ -336,6 +341,17 @@ const afterUpdateGateShell = String.raw`
 `;
 
 export function installGameShell(doc: Document = document) {
+  if (!doc.getElementById("blockedPlayersSetting")) {
+    doc.getElementById("accountStatus")?.insertAdjacentHTML("afterend", `
+      <details id="blockedPlayersSetting" class="setting-support" hidden>
+        <summary>Blocked players</summary><div id="blockedPlayersList"></div>
+      </details>
+      <div class="setting-support">
+        <span>HELP &amp; SUPPORT</span>
+        <a href="mailto:support@wildstatmmo.com">support@wildstatmmo.com</a>
+        <small>Report bugs with /bug in chat. For player concerns, use Report or Block on their profile.</small>
+      </div>`);
+  }
   const start = doc.getElementById("start");
   if (!start) throw new Error("WildStat startup shell is missing #start");
   if (!doc.getElementById("dailyGemBonus")) {

@@ -93,11 +93,13 @@ describe("map music", () => {
     expect(DEATH_SOUND_SOURCE).toBe("assets/wildstat/audio/death.mp3");
   });
 
-  it("ships the vendor bow release as the runtime attack sound", () => {
+  it("ships the trimmed release clip while retaining the original source recording", () => {
     expect(BOW_ATTACK_SOUND_SOURCE).toBe("assets/wildstat/audio/bow-release.mp3");
     const source = readFileSync(new URL("../../../art-source/sounds/bow-release-bow-and-arrow-4.mp3", import.meta.url));
     const runtime = readFileSync(new URL("../../../public/assets/wildstat/audio/bow-release.mp3", import.meta.url));
-    expect(runtime).toEqual(source);
+    expect(runtime.length).toBeGreaterThan(0);
+    expect(runtime.length).toBeLessThan(source.length);
+    expect(runtime).not.toEqual(source);
   });
 
   it("varies bow pitch up to seven percent below the original", () => {
@@ -145,8 +147,9 @@ describe("map music", () => {
     expect(instances[1]?.play).toHaveBeenCalledTimes(2);
   });
 
-  it("plays a short, quietly mixed bow voice through Web Audio", async () => {
+  it.each([1.872, .08])("plays a quietly mixed release voice with a %s-second source", async (duration) => {
     const context = new FakeAudioContext();
+    context.decodeAudioData.mockResolvedValue({ duration });
     vi.stubGlobal("Audio", FakeAudio);
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
     vi.stubGlobal("localStorage", { getItem: () => null });
@@ -170,7 +173,13 @@ describe("map music", () => {
 
     expect(context.sources).toHaveLength(1);
     expect(context.sources[0]?.playbackRate.value).toBeCloseTo(.965);
-    expect(context.sources[0]?.start).toHaveBeenCalledWith(context.currentTime, 0, .46);
+    const clipDuration = Math.min(duration, .46);
+    expect(context.sources[0]?.start).toHaveBeenCalledWith(context.currentTime, 0, clipDuration);
+    const playbackDuration = clipDuration / .965;
+    expect(context.gains[2]?.gain.setValueAtTime).toHaveBeenCalledWith(
+      BOW_ATTACK_SOUND_GAIN, context.currentTime + playbackDuration - Math.min(.09, playbackDuration * .25),
+    );
+    expect(fetch).toHaveBeenCalledWith(BOW_ATTACK_SOUND_SOURCE, { cache: "no-cache" });
     expect(context.gains[1]?.gain.value).toBe(.4);
     expect(context.gains[2]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);
   });

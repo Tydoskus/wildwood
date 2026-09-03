@@ -290,7 +290,8 @@ export function createPlayerCombatController(options: {
       projectile.trail = 0;
       projectile.spawnedAtSeconds = releasedAtSeconds;
     }
-    if (itemDefinition(weaponItem)?.weapon?.projectile === "ARROW") options.playBowAttackSound?.();
+    const projectileKind = itemDefinition(weaponItem)?.weapon?.projectile;
+    if (projectileKind === "ARROW" || projectileKind === "ROCK") options.playBowAttackSound?.();
     spawnBurst(player.x + dx / distance * 17, player.y + dy / distance * 17, "#ffe36b", 4, 38);
   }
 

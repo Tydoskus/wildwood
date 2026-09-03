@@ -442,11 +442,20 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="playerPower"');
   });
 
-  it("centers profile equation operators in dedicated columns", () => {
-    expect(cssRule(".profile-stat-summary {")).toContain("minmax(0, 1fr) 20px minmax(0, 1fr) 20px minmax(0, 1fr)");
-    expect(cssRule(".profile-stat-multiply {")).toContain("grid-column: 2");
-    expect(cssRule(".profile-stat-equals {")).toContain("grid-column: 4");
-    expect(cssRule(".profile-stat-total-group {")).toContain("grid-column: 5");
+  it("uses two stat columns with aligned label colons and expandable details", () => {
+    expect(cssRule(".profile-stat-grid {")).toContain("repeat(2, minmax(0, 1fr))");
+    expect(cssRule(".profile-stat-grid dt {")).toContain("text-align: right");
+    expect(cssRule(".profile-stat-summary {")).toContain("display: block");
+    expect(cssRule(".profile-stat-sources[hidden] {")).toContain("display: none");
+    expect(cssRule(".profile-stat-sources {")).toContain("flex-wrap: wrap");
+    expect(cssRule(".profile-stat-equation {")).toContain("flex-wrap: wrap");
+  });
+
+  it("makes support and player safety controls discoverable", () => {
+    expect(html).toContain('href="mailto:support@wildstatmmo.com"');
+    expect(html).toContain('id="profileReportBtn"');
+    expect(html).toContain('id="profileBlockBtn"');
+    expect(html).toContain('id="blockedPlayersSetting"');
   });
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {

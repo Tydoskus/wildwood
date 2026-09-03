@@ -2,6 +2,7 @@ import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor, damageBlockedByArmor } from "./combat";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
+import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
 import {
   RESEARCH_DEFINITIONS,
   isResearchId,
@@ -1175,8 +1176,27 @@ const chatMessageReport = table(
   },
 );
 
-// One row per reporter keeps the five-per-hour guard O(1), regardless of how
-// many historical reports the private review queue eventually contains.
+// Personal safety data is never publicly subscribable.
+const playerBlock = table(
+  { name: "player_block", public: false, indexes: [
+    { accessor: "byOwner", algorithm: "btree", columns: ["owner"] as const },
+    { accessor: "byTarget", algorithm: "btree", columns: ["target"] as const },
+  ] },
+  { key: t.string().primaryKey(), owner: t.identity(), target: t.identity(), targetName: t.string() },
+);
+
+const playerReport = table(
+  { name: "player_report", public: false, indexes: [
+    { accessor: "byReporterTarget", algorithm: "btree", columns: ["reporter", "target"] as const },
+  ] },
+  {
+    id: t.u64().primaryKey().autoInc(), reporter: t.identity(), reporterName: t.string(),
+    target: t.identity(), targetName: t.string(), reason: t.string(), note: t.string(),
+    status: t.string(), reportedAt: t.timestamp(),
+  },
+);
+
+// One shared row per reporter bounds both message and profile reports.
 const chatMessageReportRateLimit = table(
   { public: false },
   {
@@ -1545,6 +1565,8 @@ const spacetimedb = schema({
   chatMessage,
   chatMessageReport,
   chatMessageReportRateLimit,
+  playerBlock,
+  playerReport,
   bugReport,
   startupTelemetryEvent,
   startupTelemetryRateLimit,
@@ -1579,6 +1601,89 @@ const spacetimedb = schema({
 export default spacetimedb;
 
 type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
+
+export const myPlayerBlocks = spacetimedb.view(
+  { name: "my_player_blocks", public: true },
+  t.array(playerBlock.rowType),
+  (ctx) => [...ctx.db.playerBlock.byOwner.filter(ctx.sender)],
+);
+
+function playersBlocked(ctx: ModuleReducerCtx, owner: Identity, target: Identity) {
+  return Boolean(ctx.db.playerBlock.key.find(playerBlockKey(owner.toHexString(), target.toHexString()))
+    || ctx.db.playerBlock.key.find(playerBlockKey(target.toHexString(), owner.toHexString())));
+}
+
+export const setPlayerBlocked = spacetimedb.reducer(
+  { target: t.identity(), blocked: t.bool() },
+  (ctx, { target, blocked }) => {
+    requireControllingPlayer(ctx);
+    if (sameIdentity(ctx.sender, target)) throw new SenderError("You cannot block yourself.");
+    const key = playerBlockKey(ctx.sender.toHexString(), target.toHexString());
+    if (!blocked) { ctx.db.playerBlock.key.delete(key); return; }
+    if (ctx.db.playerBlock.key.find(key)) return;
+    const profile = ctx.db.playerProfile.identity.find(target);
+    if (!profile) throw new SenderError("Player profile unavailable.");
+    ctx.db.playerBlock.insert({ key, owner: ctx.sender, target, targetName: profile.displayName });
+  },
+);
+
+function consumeReportRate(ctx: ModuleReducerCtx) {
+  const current = ctx.db.chatMessageReportRateLimit.reporter.find(ctx.sender);
+  const next = nextChatReportRateState(ctx.timestamp.microsSinceUnixEpoch, current ? {
+    windowStartedAtMicros: current.windowStartedAt.microsSinceUnixEpoch, reportCount: current.reportCount,
+  } : undefined);
+  if (!next.allowed) throw new SenderError("Report limit reached. Try again later.");
+  const row = { reporter: ctx.sender, windowStartedAt: new Timestamp(next.windowStartedAtMicros), reportCount: next.reportCount };
+  if (current) ctx.db.chatMessageReportRateLimit.reporter.update(row);
+  else ctx.db.chatMessageReportRateLimit.insert(row);
+}
+
+export const reportPlayer = spacetimedb.reducer(
+  { target: t.identity(), reason: t.string(), note: t.string() },
+  (ctx, { target, reason, note }) => {
+    requireControllingPlayer(ctx);
+    const error = playerReportValidationError(ctx.sender.toHexString(), target.toHexString(), reason, note);
+    if (error) throw new SenderError(error);
+    const profile = ctx.db.playerProfile.identity.find(target);
+    if (!profile) throw new SenderError("Player profile unavailable.");
+    for (const report of ctx.db.playerReport.byReporterTarget.filter([ctx.sender, target])) {
+      if (report.status === "pending") throw new SenderError("You already have a pending report for this player.");
+    }
+    consumeReportRate(ctx);
+    ctx.db.playerReport.insert({
+      id: 0n, reporter: ctx.sender, reporterName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER",
+      target, targetName: profile.displayName, reason, note: note.trim(), status: "pending", reportedAt: ctx.timestamp,
+    });
+  },
+);
+
+// Keep safety relationships intact when a guest registers, including people
+// who blocked that guest. This only runs during an explicit identity merge.
+function transferPlayerBlocks(ctx: ModuleReducerCtx, guest: Identity, account: Identity) {
+  const rows = [...ctx.db.playerBlock.byOwner.filter(guest), ...ctx.db.playerBlock.byTarget.filter(guest)];
+  for (const row of rows) {
+    ctx.db.playerBlock.key.delete(row.key);
+    const owner = sameIdentity(row.owner, guest) ? account : row.owner;
+    const target = sameIdentity(row.target, guest) ? account : row.target;
+    if (sameIdentity(owner, target)) continue;
+    const key = playerBlockKey(owner.toHexString(), target.toHexString());
+    if (!ctx.db.playerBlock.key.find(key)) ctx.db.playerBlock.insert({ ...row, key, owner, target });
+  }
+  // The bounded public history must follow the new sender too; otherwise
+  // transferring a block would reveal that guest's already-loaded messages.
+  for (const message of ctx.db.chatMessage.iter()) {
+    if (sameIdentity(message.sender, guest)) ctx.db.chatMessage.id.update({ ...message, sender: account, senderIsGuest: false });
+  }
+}
+
+function removePlayerSafetyData(ctx: ModuleReducerCtx, identity: Identity) {
+  for (const row of [...ctx.db.playerBlock.byOwner.filter(identity), ...ctx.db.playerBlock.byTarget.filter(identity)]) {
+    ctx.db.playerBlock.key.delete(row.key);
+  }
+  for (const row of [...ctx.db.playerReport.iter()]) {
+    if (sameIdentity(row.reporter, identity) || sameIdentity(row.target, identity)) ctx.db.playerReport.id.delete(row.id);
+  }
+}
 
 export const devAccessAudit = spacetimedb.view(
   { name: "dev_access_audit", public: true },
@@ -3741,6 +3846,7 @@ function virtualPlayerCountForOwner(ctx: any, owner: any) {
 function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true, adjustOwnerCount = true) {
   const registration = ctx.db.virtualPlayer.identity.find(identity);
   if (!registration) return false;
+  removePlayerSafetyData(ctx, identity);
 
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) ctx.db.player.identity.delete(identity);
@@ -3815,6 +3921,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
  * leaderboard removal.
  */
 function removePlayerIdentityData(ctx: any, identity: any) {
+  removePlayerSafetyData(ctx, identity);
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) ctx.db.player.identity.delete(identity);
   removePlayerRealtimeState(ctx, identity);
@@ -6791,6 +6898,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (ctx.db.playerUpgradeBench.identity.find(link.guest)) ctx.db.playerUpgradeBench.identity.delete(link.guest);
     if (ctx.db.playerInventoryCapacity.identity.find(link.guest)) ctx.db.playerInventoryCapacity.identity.delete(link.guest);
     ctx.db.playerCutsceneHistory.identity.delete(link.guest);
+    transferPlayerBlocks(ctx, link.guest, ctx.sender);
 
     const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
     for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
@@ -7892,25 +8000,7 @@ export const reportChatMessage = spacetimedb.reducer(
       throw new SenderError("You already reported this message.");
     }
 
-    const currentRate = ctx.db.chatMessageReportRateLimit.reporter.find(ctx.sender);
-    const nextRate = nextChatReportRateState(
-      ctx.timestamp.microsSinceUnixEpoch,
-      currentRate
-        ? {
-          windowStartedAtMicros: currentRate.windowStartedAt.microsSinceUnixEpoch,
-          reportCount: currentRate.reportCount,
-        }
-        : undefined,
-    );
-    if (!nextRate.allowed) throw new SenderError("Report limit reached. Try again later.");
-
-    const rateRow = {
-      reporter: ctx.sender,
-      windowStartedAt: new Timestamp(nextRate.windowStartedAtMicros),
-      reportCount: nextRate.reportCount,
-    };
-    if (currentRate) ctx.db.chatMessageReportRateLimit.reporter.update(rateRow);
-    else ctx.db.chatMessageReportRateLimit.insert(rateRow);
+    consumeReportRate(ctx);
 
     const reporterName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
     ctx.db.chatMessageReport.insert({
@@ -7937,6 +8027,7 @@ export const requestDuel = spacetimedb.reducer(
   (ctx, { opponent }) => {
     const challenger = requireControllingPlayer(ctx);
     if (sameIdentity(opponent, ctx.sender)) throw new SenderError("You cannot duel yourself.");
+    if (playersBlocked(ctx, ctx.sender, opponent)) throw new SenderError("Duel unavailable for this player.");
     if (isVirtualPlayer(ctx, opponent) || isVirtualPlayer(ctx, ctx.sender)) {
       throw new SenderError("Virtual test players cannot duel.");
     }

@@ -403,6 +403,9 @@ const developerService = createDeveloperService({
 chatService = createChatService({
   reducers: reducerPort,
   notify: onChange,
+  localIdentity: () => localIdentity,
+  identityFor: profileDirectory.identityFor,
+  nameFor: profileDirectory.nameFor,
   rememberSender: profileDirectory.rememberChatSender,
 });
 

@@ -234,10 +234,15 @@ export function renderProfileStats(
   research?: PlayerResearch,
 ) {
   const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research);
+  const expandedKinds = statGrid.dataset.identity === profile.identity
+    ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
+    : new Set<string>();
+  statGrid.dataset.identity = profile.identity;
   statGrid.replaceChildren();
   for (const stat of stats) {
     const item = document.createElement("div");
     item.className = `profile-stat-row profile-stat-${stat.kind}`;
+    item.dataset.stat = stat.kind;
     item.setAttribute("role", "button");
     item.setAttribute("tabindex", "0");
     item.setAttribute("aria-expanded", "false");
@@ -266,9 +271,15 @@ export function renderProfileStats(
     equalsOperator.setAttribute("aria-hidden", "true");
     total.textContent = stat.total;
     totalGroup.append(total);
-    summary.append(base, multiplyOperator, multiplier, equalsOperator, totalGroup);
+    summary.append(totalGroup);
     sources.className = "profile-stat-sources";
     sources.hidden = true;
+    const equation = document.createElement("span");
+    equation.className = "profile-stat-equation";
+    const detailedTotal = document.createElement("span");
+    detailedTotal.textContent = stat.total;
+    equation.append(base, multiplyOperator, multiplier, equalsOperator, detailedTotal);
+    sources.append(equation);
     if (stat.sources.length === 0 && !stat.expandedDetail) {
       const empty = document.createElement("span");
       empty.className = "profile-stat-source-empty";
@@ -317,7 +328,7 @@ export function renderProfileStats(
       item.setAttribute("aria-expanded", String(expanded));
       item.setAttribute("aria-label", expanded
         ? `${summaryText} Breakdown: ${breakdownText}. Activate to collapse.`
-        : `${summaryText} Activate to show bonus sources.`);
+        : `${stat.label} ${stat.total}. Activate to show detailed stats.`);
       sources.hidden = !expanded;
     };
     item.addEventListener("click", () => setExpanded(item.getAttribute("aria-expanded") !== "true"));
@@ -326,7 +337,7 @@ export function renderProfileStats(
       event.preventDefault();
       setExpanded(item.getAttribute("aria-expanded") !== "true");
     });
-    setExpanded(false);
+    setExpanded(expandedKinds.has(stat.kind));
     item.append(term, summary, sources);
     statGrid.append(item);
   }

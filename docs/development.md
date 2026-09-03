@@ -166,7 +166,7 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Before leaving for SpacetimeAuth, await the guest save reducer and account-link reducer. Page lifecycle events are not a durable save acknowledgement.
 - On authenticated reconnect, claim the guest save before installing subscriptions. Subscribing first can hydrate default account rows and make them appear authoritative.
 - Do not overwrite an existing authenticated save during migration. The server rejects that case intentionally.
-- Successful migration removes the retired guest progress/profile, transient presence, cooldown, balance, dragon-combat, and account-link rows. Chat/replay history remains historical.
+- Successful migration removes the retired guest progress/profile, transient presence, cooldown, balance, dragon-combat, and account-link rows. Blocks transfer to the registered identity, and retained chat follows that sender so existing messages stay blocked. Replay history remains historical.
 - A rejected guest token may be cleared and retried as a fresh guest session. `src/wildstat-coop.ts` handles this for 401/invalid-token errors.
 - A known signed-in account must pause at sign-in when its token expires. Never silently reconnect it with a guest token; that displays a random guest name and default/incorrect progress.
 - Display-name cooldown data remains stored; enforcement is temporarily disabled for beta support.

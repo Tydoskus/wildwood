@@ -1,6 +1,16 @@
 # Chat Moderation Plan
 
-Status: lightweight content filtering and private message reports complete; remaining guardrails, blocking, profile reports, and review tools planned. Last reviewed: 2026-08-26.
+Status: lightweight content filtering, private message/profile reports, and character-synced blocking implemented in v0.610 (protocol 83); additional guardrails and moderator review UI remain planned. Last reviewed: 2026-09-03.
+
+## Profile safety controls (September 3)
+
+- Settings and Terms publish `support@wildstatmmo.com` for support and safety concerns.
+- Other players' profiles offer Report Player and Block/Unblock Player. Reporting asks for a reason and an optional note (500 characters maximum), with explicit submission and error feedback.
+- `player_report` is private and stores server-derived reporter/target names and identities, reason, note, status, and timestamp. Pending duplicates are rejected. Profile and message reports share the five-per-hour server guard. No automatic punishment is triggered.
+- `player_block` is private; `my_player_blocks` exposes only the caller's rows. Both guests and registered characters store blocks on the server. Owned blocks and incoming blocks are transferred when a guest registers; full player deletion removes associated safety rows.
+- Blocking hides the target's existing/future chat and speech bubbles, suppresses known blocked reply previews, and prevents new duels in either direction. It does not hide their avatar or remove them from the shared world. Existing duels finish normally. Settings lists saved blocks with an Unblock action, including offline targets.
+- Moderation review is still manual through owner-authorized database access. Query `SELECT * FROM player_report WHERE status = 'pending'` for profile reports; message evidence remains in `chat_message_report`. These controls do not constitute an automated review service or complete store-compliance review.
+- Protocol 83 adds the required private block-list subscription. Existing legacy protocol surfaces have not been removed.
 
 ## Decision
 
@@ -20,7 +30,7 @@ WildStat already routes public chat through one `sendChatMessage` reducer and bo
 
 Global login and leave messages are currently disabled. If friend-only presence messages return later, they should use a separate targeted path rather than public World Chat.
 
-Public messages now pass through a small server-side, high-confidence set for severe hate, explicit sexual content and solicitation, credible real-world threats, personal-information or credential requests, scams, and invite links. Comparison-only normalization handles Unicode, obvious leetspeak, separator evasions, and repeated letters. Flagged original text is never stored publicly: the row carries a server-owned moderation marker and displays *Message moderated.* instead. The same check protects new display names, while older names are repaired lazily when their owner next enters the world. Full sender/global rate buckets, blocks, profile reports, and moderator review tools remain planned.
+Public messages now pass through a small server-side, high-confidence set for severe hate, explicit sexual content and solicitation, credible real-world threats, personal-information or credential requests, scams, and invite links. Comparison-only normalization handles Unicode, obvious leetspeak, separator evasions, and repeated letters. Flagged original text is never stored publicly: the row carries a server-owned moderation marker and displays *Message moderated.* instead. The same check protects new display names, while older names are repaired lazily when their owner next enters the world. Full sender/global rate buckets and moderator review tools remain planned; profile reports and synced blocking are implemented as described above.
 
 ## Message path and cost
 
@@ -78,20 +88,20 @@ These are initial tuning values, not permanent balance constants. Adjust them fr
 
 Favor low false-positive rates. The block list is a safety backstop, not a general dictionary of rude words.
 
-### 3. Player controls without menu clutter (message actions partially implemented)
+### 3. Player controls without menu clutter (profile controls implemented; drawer follow-ups planned)
 
 - Tapping a fullscreen message now opens a compact, swipe-dismissable action sheet with **Copy**, **Reply**, and **Report**. Replies carry a server-owned snapshot of the selected safe message for their dimmed inline preview. Usernames remain plain text; portraits alone open profiles.
 - Add **Block Player** to the same sheet when blocking is implemented.
 - Another player's profile exposes clearly labeled **Report Player** and **Block Player** actions.
 - Blocking immediately removes that player's visible World Chat messages and overhead speech bubbles.
 - Hold blocked identities in an in-memory client `Set`, so rendering checks are constant-time and require no server query per message.
-- Registered accounts sync blocks through the private server state. Guests keep blocks locally until they register or clear browser data.
+- Registered and guest characters sync blocks through private server state; registration transfers the guest's blocks.
 - Show a brief Undo notification after blocking.
-- Add a small settings entry for reviewing and unblocking players only after the first block exists.
+- Settings now shows a small entry for reviewing and unblocking players only after the first block exists.
 
 Blocking is personal presentation filtering. The server continues broadcasting the bounded public chat stream; it does not build a custom stream for every recipient.
 
-### 4. Private report queue (message reports implemented)
+### 4. Private report queue (message and profile reports implemented)
 
 Support both message reports and player-profile reports through one server-authorized reducer. A message report stores:
 
@@ -101,9 +111,9 @@ Support both message reports and player-profile reports through one server-autho
 - Reason: Harassment, Hate/Sexual Content, Spam/Scam, Personal Information, or Other.
 - Review status and report time.
 
-Profile reports use the same shape with no selected message and a short optional note. The server must verify that a selected public message exists and matches the accused identity before copying its evidence.
+Profile reports use a separate private `player_report` table with no selected message and a short optional note. Selected-message reports verify the public message before copying its evidence.
 
-Message reports now use a private server table, verify the selected message and accused sender from server state, reject self/duplicate reports, and preserve the evidence snapshot after public history expires. A one-row-per-reporter guard enforces five reports per hour without scanning report history. Profile reports and their optional note remain to be added.
+Message reports use a private server table, verify the selected message and accused sender from server state, reject self/duplicate reports, and preserve the evidence snapshot after public history expires. Message and profile reports share a one-row-per-reporter guard enforcing five reports per hour. Profile reports validate the target against server profiles and reject duplicate pending reports for that target.
 
 ### 5. Developer moderation tools
 

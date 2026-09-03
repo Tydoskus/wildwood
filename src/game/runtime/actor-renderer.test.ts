@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ENEMY_BOW_AIM_OFFSET_RADIANS, type LoadedEnemySprite, type LoadedSpriteLayer } from "../enemies";
 import { drawableEnemyLayers, enemyShadowOffsetY, enemySpriteVerticalBounds, enemyWeaponAimRotation, enemyWeaponLayerRotation } from "./actor-renderer";
+import { rockProjectileSize } from "./actor-renderer";
+import { PLAYER_WORLD_SCALE } from "../player-render-scale";
+import { STARTER_STONE } from "../../../shared/items";
+
+describe("thrown rock size", () => {
+  it("matches the held rock's world scale instead of the full-size source image", () => {
+    const size = rockProjectileSize(STARTER_STONE, 26, 26);
+    expect(size.width).toBeCloseTo(26 * PLAYER_WORLD_SCALE);
+    expect(size.height).toBeCloseTo(26 * PLAYER_WORLD_SCALE);
+    expect(size.width).toBeLessThan(26);
+  });
+});
 
 describe("enemy weapon aiming", () => {
   it("aims right-facing enemy weapons directly at target", () => {

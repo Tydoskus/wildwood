@@ -619,6 +619,9 @@ export type MyGemWallet = __Infer<typeof MyGemWallet>;
 export const MyInventoryCapacity = __t.object("MyInventoryCapacity", {});
 export type MyInventoryCapacity = __Infer<typeof MyInventoryCapacity>;
 
+export const MyPlayerBlocks = __t.object("MyPlayerBlocks", {});
+export type MyPlayerBlocks = __Infer<typeof MyPlayerBlocks>;
+
 export const MyUpgradeBench = __t.object("MyUpgradeBench", {});
 export type MyUpgradeBench = __Infer<typeof MyUpgradeBench>;
 
@@ -678,6 +681,14 @@ export const PlayerBalanceVersion = __t.object("PlayerBalanceVersion", {
   version: __t.u32(),
 });
 export type PlayerBalanceVersion = __Infer<typeof PlayerBalanceVersion>;
+
+export const PlayerBlock = __t.object("PlayerBlock", {
+  key: __t.string(),
+  owner: __t.identity(),
+  target: __t.identity(),
+  targetName: __t.string(),
+});
+export type PlayerBlock = __Infer<typeof PlayerBlock>;
 
 export const PlayerController = __t.object("PlayerController", {
   identity: __t.identity(),
@@ -917,6 +928,19 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   moonfenUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
+
+export const PlayerReport = __t.object("PlayerReport", {
+  id: __t.u64(),
+  reporter: __t.identity(),
+  reporterName: __t.string(),
+  target: __t.identity(),
+  targetName: __t.string(),
+  reason: __t.string(),
+  note: __t.string(),
+  status: __t.string(),
+  reportedAt: __t.timestamp(),
+});
+export type PlayerReport = __Infer<typeof PlayerReport>;
 
 export const PlayerResearch = __t.object("PlayerResearch", {
   identity: __t.identity(),

@@ -81,6 +81,22 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
 }
 
 describe("player attack timing", () => {
+  it.each(["starter_stone", "starter_bow"])("plays one release sound for %s at launch, including multishot", (weapon) => {
+    let now = 10;
+    const sound = vi.fn();
+    const state = createCombatHarness({ nowSeconds: () => now, equippedWeapon: () => weapon, playBowAttackSound: sound });
+    state.enemies.length = 0;
+    state.boss.dead = false;
+    state.player.x = state.boss.x + state.boss.r + 30;
+    state.player.y = state.boss.y;
+    state.player.projectileCount = 3;
+    state.controller.attackNearest();
+    expect(sound).not.toHaveBeenCalled();
+    now += .13;
+    state.controller.attackNearest();
+    expect(sound).toHaveBeenCalledTimes(1);
+    expect(state.projectileStore.projectiles).toHaveLength(3);
+  });
   it("keeps the normal windup for slower attacks", () => {
     expect(playerAttackWindupSeconds(1.56)).toBeCloseTo(.12);
     expect(playerAttackAnimationSpeed(1.56)).toBe(1);

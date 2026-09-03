@@ -11,6 +11,15 @@ import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { createTintedImageCanvas } from "./image-tint";
+import { PLAYER_WORLD_SCALE } from "../player-render-scale";
+
+export function rockProjectileSize(itemId: string | undefined, naturalWidth: number, naturalHeight: number) {
+  const held = itemPresentation(itemId)?.world;
+  return {
+    width: (held?.kind === "SPRITE" ? held.width ?? naturalWidth : naturalWidth) * PLAYER_WORLD_SCALE,
+    height: (held?.kind === "SPRITE" ? held.height ?? naturalHeight : naturalHeight) * PLAYER_WORLD_SCALE,
+  };
+}
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -226,7 +235,8 @@ export function createActorRenderer(options: {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
-    ctx.drawImage(image, -image.naturalWidth / 2, offset - image.naturalHeight / 2);
+    const { width, height } = rockProjectileSize(itemId, image.naturalWidth, image.naturalHeight);
+    ctx.drawImage(image, -width / 2, offset - height / 2, width, height);
     ctx.restore();
     return true;
   }
@@ -284,8 +294,11 @@ export function createActorRenderer(options: {
       if (image?.complete && image.naturalWidth > 0) source = image;
     } else source = projectileCircleSprite(projectile.r, enemy);
     if (!source) return null;
-    const width = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
-    const height = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+    const sourceWidth = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+    const sourceHeight = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+    const { width, height } = projectileKind === "ROCK"
+      ? rockProjectileSize(weaponItem, sourceWidth, sourceHeight)
+      : { width: sourceWidth, height: sourceHeight };
     const rotation = projectileKind === "ARROW" || projectileKind === "ROCK"
       ? Math.atan2(projectile.vy, projectile.vx)
       : undefined;

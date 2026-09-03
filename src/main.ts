@@ -54,6 +54,7 @@ import {
   type MapId,
 } from "./game/world";
 import { createChatRuntimeController } from "./ui/chat-runtime-controller";
+import { createPlayerSafetyController } from "./ui/player-safety-controller";
 import { createInventoryController } from "./ui/inventory-controller";
 import { createItemInspectionController } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
@@ -1170,6 +1171,19 @@ import {
 
   let minimizeMaximizedChat = () => {};
 
+  const playerSafety = createPlayerSafetyController({
+    blockedSetting: gameElements.blockedPlayersSetting, blockedList: gameElements.blockedPlayersList,
+  }, {
+    localIdentity: () => coop?.localIdentity?.() ?? "",
+    isBlocked: (identity) => coop?.isPlayerBlocked?.(identity) ?? false,
+    blockedPlayers: () => coop?.blockedPlayers?.() ?? [],
+    setBlocked: async (identity, blocked) => await coop?.setPlayerBlocked?.(identity, blocked) ?? { ok: false, error: "NOT CONNECTED" },
+    report: async (identity, reason, note) => await coop?.reportPlayer?.(identity, reason, note) ?? { ok: false, error: "NOT CONNECTED" },
+    showMessage,
+    onChanged: () => profileWindow.updateDuelButton(),
+    beforeOpen: () => playerInput.clear(),
+  });
+
   const profileWindow = createProfileWindowController({
     window: playerProfileEl, name: playerProfileNameEl, guest: playerProfileGuestLabel, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel,
@@ -1177,7 +1191,10 @@ import {
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
     skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, equipmentHead: profileEquippedHeadSlot, equipmentChest: profileEquippedChestSlot, equipmentFeet: profileEquippedFeetSlot, equipmentRightHand: profileEquippedRightHandSlot, equipmentLeftHand: profileEquippedLeftHandSlot, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn,
+    safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
   }, {
+    isBlocked: (identity) => coop?.isPlayerBlocked?.(identity) ?? false,
+    openSafety: playerSafety.open,
     localIdentity: () => coop?.localIdentity?.(), localDisplayName: () => coop?.localDisplayName?.(), profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0, paintIcon: applyProfileIcon,
     renderName: renderDomPlayerName,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
@@ -1715,6 +1732,7 @@ import {
     refreshBalanceApologyGift: balanceApologyGift.refresh,
     refreshDailyGemBonus: dailyGemBonus.refresh,
     refreshOpenProfile: () => {
+      playerSafety.refresh();
       const identity = profileWindow.identity();
       if (!identity) return;
       const profile = coop?.playerProfile?.(identity);

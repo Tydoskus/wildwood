@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.610": [
+    "Added support contact details, private player reports, and synced Block/Unblock controls on player profiles and in Settings.",
+    "Profile stats now use two columns with aligned labels and totals, with detailed breakdowns available by selecting a stat.",
+    "Rock throws and bows now use the trimmed release sound at launch, and flying rocks match the held rock's size.",
+  ],
   "0.609": [
     "Portal cutscene history now follows your character across devices, with existing unlocked scenes remembered automatically.",
     "Unchanged startup artwork and assets stay cached across releases using content-based filenames.",
@@ -1427,6 +1432,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.610": "2026-09-03",
   "0.609": "2026-09-03",
   "0.608": "2026-09-03",
   "0.607": "2026-09-03",

@@ -19,6 +19,7 @@ export function createProfileWindowController(elements: {
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
   skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; equipmentLeftHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
   duel: HTMLButtonElement;
+  safetyActions: HTMLElement; report: HTMLButtonElement; block: HTMLButtonElement;
 }, api: {
   localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
@@ -30,6 +31,8 @@ export function createProfileWindowController(elements: {
   isNameTaken: (name: string) => boolean; setDisplayName: (name: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
   itemInspection: ItemInspectionController;
   showMessage: (text: string, color: string) => void;
+  isBlocked: (identity: string) => boolean;
+  openSafety: (identity: string, name: string, action: "report" | "block") => void;
 }) {
   let identity = "";
   let profileData: Profile | null = null;
@@ -120,10 +123,13 @@ export function createProfileWindowController(elements: {
   }
 
   function updateDuelButton() {
+    const own = !identity || identity === api.localIdentity();
+    elements.safetyActions.hidden = own;
+    elements.block.textContent = api.isBlocked(identity) ? "Unblock Player" : "Block Player";
     if (elements.duel.hidden) return;
     const remainingSeconds = Math.ceil(api.duelCooldownMs() / 1_000);
     const active = api.isDueling();
-    elements.duel.disabled = active || remainingSeconds > 0;
+    elements.duel.disabled = api.isBlocked(identity) || active || remainingSeconds > 0;
     elements.duel.classList.toggle("is-cooling-down", remainingSeconds > 0);
     elements.duel.textContent = active ? "DUEL IN PROGRESS" : remainingSeconds > 0 ? `DUEL · ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}` : "DUEL";
   }
@@ -189,6 +195,8 @@ export function createProfileWindowController(elements: {
   }
 
   elements.overviewTab.addEventListener("click", () => selectTab("overview")); elements.statsTab.addEventListener("click", () => selectTab("stats"));
+  elements.report.addEventListener("click", () => api.openSafety(identity, profileData?.name || elements.name.textContent || "PLAYER", "report"));
+  elements.block.addEventListener("click", () => api.openSafety(identity, profileData?.name || elements.name.textContent || "PLAYER", "block"));
   for (const slot of PROFILE_EQUIPMENT_SLOTS) equipmentElements[slot].addEventListener("click", () => inspectEquipment(slot));
   elements.close.addEventListener("click", close); elements.editName.addEventListener("click", openNameEditor); elements.nameEditor.addEventListener("click", (event) => { if (event.target === elements.nameEditor) closeNameEditor(); }); elements.nameForm.addEventListener("submit", (event) => void saveName(event));
   elements.skinEdit.addEventListener("click", () => { if (identity !== api.localIdentity()) return; closeGenderChoices(); elements.skinChoices.hidden = !elements.skinChoices.hidden; });

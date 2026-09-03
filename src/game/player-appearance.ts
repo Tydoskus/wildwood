@@ -1,5 +1,6 @@
 import { BASIC_PAPER_HAT, STARTER_STONE } from "./inventory";
 import { ITEM_PRESENTATIONS, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
+import { PLAYER_WORLD_SCALE } from "./player-render-scale";
 
 export const PLAYER_SKIN_TONES = [
   "#f9dfd0", "#f2c8ac", "#e9b58f", "#d99e76", "#c88358",
@@ -228,7 +229,7 @@ export function drawStartingPlayer(
   assets: PlayerAppearanceAssets,
   options: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string; alpha?: number; scale?: number },
 ) {
-  const scale = options.scale ?? .6;
+  const scale = options.scale ?? PLAYER_WORLD_SCALE;
   const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
   const idleFrame = Math.floor(options.gameTime * 2) % 4;
   const gait = {

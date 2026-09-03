@@ -77,6 +77,7 @@ import RecordSnowEnemyDefeatReducer from "./record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
+import ReportPlayerReducer from "./report_player_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
@@ -86,6 +87,7 @@ import SendChatReplyReducer from "./send_chat_reply_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetGenderReducer from "./set_gender_reducer";
+import SetPlayerBlockedReducer from "./set_player_blocked_reducer";
 import SetPlayerMotionInterestReducer from "./set_player_motion_interest_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
@@ -132,6 +134,7 @@ import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
+import MyPlayerBlocksRow from "./my_player_blocks_table";
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
@@ -704,6 +707,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyInventoryCapacityRow),
+  myPlayerBlocks: __table({
+    name: 'my_player_blocks',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyPlayerBlocksRow),
   myUpgradeBench: __table({
     name: 'my_upgrade_bench',
     indexes: [
@@ -758,6 +768,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_startup_telemetry", RecordStartupTelemetryReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
+  __reducerSchema("report_player", ReportPlayerReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
@@ -767,6 +778,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_gender", SetGenderReducer),
+  __reducerSchema("set_player_blocked", SetPlayerBlockedReducer),
   __reducerSchema("set_player_motion_interest", SetPlayerMotionInterestReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
