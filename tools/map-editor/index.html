@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WildStat Map Editor</title>
+  <link rel="stylesheet" href="./map-editor.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>WildStat Map Editor</strong>
+      <span id="save-state" class="save-state">Loading…</span>
+    </div>
+    <label class="map-picker">
+      <span class="sr-only">Map</span>
+      <select id="map-select" aria-label="Map"></select>
+    </label>
+    <button id="new-map" type="button">New map</button>
+    <div class="divider"></div>
+    <div class="segmented" aria-label="Editing tool">
+      <button type="button" data-tool="select" class="is-active" title="Select and move (V)">Select</button>
+      <button type="button" data-tool="pan" title="Pan (H or Space)">Pan</button>
+    </div>
+    <button id="undo" type="button" title="Undo (⌘Z)" disabled>Undo</button>
+    <button id="redo" type="button" title="Redo (⇧⌘Z)" disabled>Redo</button>
+    <div class="topbar-spacer"></div>
+    <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+    <button id="zoom-label" type="button" title="Fit map">100%</button>
+    <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+    <button id="save-map" class="primary" type="button" disabled>Save map</button>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar library-panel" aria-label="Map tools">
+      <section>
+        <h2>Add</h2>
+        <input id="asset-search" class="search" type="search" placeholder="Find decoration" autocomplete="off">
+        <div id="asset-list" class="asset-list"></div>
+        <p class="hint">Choose an item, then click the map. Press Esc to cancel.</p>
+      </section>
+      <section>
+        <h2>View</h2>
+        <label class="check-row"><input id="show-decor" type="checkbox" checked> Decorations</label>
+        <label class="check-row"><input id="show-paths" type="checkbox" checked> Paths</label>
+        <label class="check-row"><input id="show-camps" type="checkbox" checked> Enemy camps</label>
+        <label class="check-row"><input id="show-markers" type="checkbox" checked> Gameplay markers</label>
+        <label class="check-row"><input id="show-grid" type="checkbox"> Grid</label>
+        <label class="check-row"><input id="snap-grid" type="checkbox" checked> Snap while moving</label>
+        <label class="compact-field">Grid size
+          <select id="grid-size">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+      </section>
+      <section class="map-summary">
+        <h2>Map</h2>
+        <dl>
+          <div><dt>Size</dt><dd>4800 × 4800</dd></div>
+          <div><dt>Decor</dt><dd id="decor-count">0</dd></div>
+          <div><dt>Paths</dt><dd id="path-count">0</dd></div>
+          <div><dt>Camps</dt><dd id="camp-count">0</dd></div>
+        </dl>
+      </section>
+    </aside>
+
+    <section id="stage" class="stage" aria-label="Map canvas">
+      <canvas id="map-canvas"></canvas>
+      <div id="placement-hint" class="placement-hint" hidden></div>
+      <div class="stage-footer">
+        <span id="coordinates">x 0 · y 0</span>
+        <span>Wheel to zoom · Space-drag to pan · Arrow keys to nudge</span>
+      </div>
+    </section>
+
+    <aside class="sidebar inspector-panel" aria-label="Inspector">
+      <div id="inspector"></div>
+    </aside>
+  </main>
+
+  <dialog id="new-map-dialog">
+    <form id="new-map-form" method="dialog">
+      <div class="dialog-heading">
+        <h2>Create map draft</h2>
+        <button type="button" id="close-new-map" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <p>Start from a working map, then change its layout and art direction.</p>
+      <label>Map name<input id="new-map-name" required maxlength="60" placeholder="Forgotten Grove"></label>
+      <label>Map ID<input id="new-map-id" required maxlength="64" pattern="[a-z][a-z0-9_]+" placeholder="forgotten_grove"></label>
+      <label>Start from<select id="new-map-template"></select></label>
+      <div class="dialog-actions">
+        <button type="button" id="cancel-new-map">Cancel</button>
+        <button type="submit" class="primary">Create draft</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="./map-editor.js"></script>
+</body>
+</html>

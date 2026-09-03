@@ -45,6 +45,7 @@ Thumbs.db
 art-source/vendor/**
 art-source/generated/**
 art-source/inbox/**
+art-source/map-editor-backups/**
 
 # Local profiling exports and machine-specific test captures #
 #############################################################

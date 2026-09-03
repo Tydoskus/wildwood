@@ -1,28 +1,31 @@
 import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
 import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
-import { clamp, rand } from "./math";
+import { savedMapDesign } from "./map-design";
+import { clamp } from "./math";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
-export type WorldDecor =
-  | { type: "tree"; x: number; y: number; s: number; variant: number }
-  | { type: "grass"; x: number; y: number; variant: number }
-  | { type: "petal"; x: number; y: number; variant: number }
-  | { type: "cherryPetal"; x: number; y: number; variant: number }
-  | { type: "cactus"; x: number; y: number; s: number; variant: number }
-  | { type: "rock"; x: number; y: number; s: number; variant: number }
-  | { type: "desertGrass"; x: number; y: number; variant: number }
-  | { type: "snowPine"; x: number; y: number; s: number }
-  | { type: "snowTuft"; x: number; y: number; variant: number }
-  | { type: "upgradeBench"; x: number; y: number; s: number; label: "Upgrade Bench" }
-  | { type: "lavaPool"; x: number; y: number; s: number; variant: number }
-  | { type: "lavaRock"; x: number; y: number; s: number; variant: number }
-  | { type: "charredTree"; x: number; y: number; s: number; variant: number }
-  | { type: "coral"; x: number; y: number; s: number; variant: number }
-  | { type: "shell"; x: number; y: number; s: number; variant: number }
-  | { type: "cloud"; x: number; y: number; s: number; variant: number }
-  | { type: "skyShard"; x: number; y: number; s: number; variant: number }
-  | { type: "glowMushroom"; x: number; y: number; s: number; variant: number }
-  | { type: "lilyPad"; x: number; y: number; s: number; variant: number };
+type WorldDecorPlacement = { x: number; y: number; color?: string };
+export type WorldDecor = WorldDecorPlacement & (
+  | { type: "tree"; s: number; variant: number }
+  | { type: "grass"; variant: number }
+  | { type: "petal"; variant: number }
+  | { type: "cherryPetal"; variant: number }
+  | { type: "cactus"; s: number; variant: number }
+  | { type: "rock"; s: number; variant: number }
+  | { type: "desertGrass"; variant: number }
+  | { type: "snowPine"; s: number }
+  | { type: "snowTuft"; variant: number }
+  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" }
+  | { type: "lavaPool"; s: number; variant: number }
+  | { type: "lavaRock"; s: number; variant: number }
+  | { type: "charredTree"; s: number; variant: number }
+  | { type: "coral"; s: number; variant: number }
+  | { type: "shell"; s: number; variant: number }
+  | { type: "cloud"; s: number; variant: number }
+  | { type: "skyShard"; s: number; variant: number }
+  | { type: "glowMushroom"; s: number; variant: number }
+  | { type: "lilyPad"; s: number; variant: number }
+);
 export type SpawnSite = {
   id: number;
   x: number;
@@ -44,7 +47,10 @@ export const WATER_REACH_MAP_ID = "water_reach";
 export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
 export const CLOUDSPIRE_MAP_ID = "cloudspire";
 export const MOONFEN_MAP_ID = "moonfen";
-export const UPGRADE_BENCH_POSITION = { x: 800, y: 710 } as const;
+const editedUpgradeBench = savedMapDesign(INTERMEDIATE_SNOWLANDS_MAP_ID)?.decor.find((decor) => decor.type === "upgradeBench");
+export const UPGRADE_BENCH_POSITION = editedUpgradeBench
+  ? { x: editedUpgradeBench.x, y: editedUpgradeBench.y }
+  : { x: 800, y: 710 } as const;
 export type MapId =
   | typeof TUTORIAL_FOREST_MAP_ID
   | typeof BEGINNER_DESERT_MAP_ID
@@ -57,7 +63,7 @@ export type MapId =
   | typeof MOONFEN_MAP_ID;
 
 type SpawnFormation = "scatter" | "crescent" | "shoal" | "ranks";
-type SpawnCamp = {
+export type SpawnCamp = {
   name: string;
   x: number;
   y: number;
@@ -67,6 +73,8 @@ type SpawnCamp = {
   types: EnemyKind[];
   formation?: SpawnFormation;
   rotation?: number;
+  ground?: string;
+  ring?: string;
 };
 
 const DESERT_CAMPS: SpawnCamp[] = [
@@ -614,6 +622,13 @@ function createMoonfenLayout() {
 }
 
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
+  const saved = savedMapDesign(mapId);
+  if (saved) {
+    return {
+      decor: saved.decor.map((item) => ({ ...item })),
+      paths: saved.paths.map((path) => ({ ...path })),
+    };
+  }
   if (mapId === BEGINNER_DESERT_MAP_ID) return createDesertLayout();
   if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) return createSnowLayout();
   if (mapId === ADVANCED_LAVA_WASTES_MAP_ID) return createLavaLayout();
@@ -670,22 +685,23 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   }
 
   for (let index = 0; index < 430; index += 1) {
-    const x = rand(24, WORLD.w - 24);
-    const y = rand(24, WORLD.h - 24);
+    const x = 24 + seededUnit(index, 101) * (WORLD.w - 48);
+    const y = 24 + seededUnit(index, 102) * (WORLD.h - 48);
     if (!isOnRoad(x, y, 8)) decor.push({ type: "grass", x, y, variant: index % 4 });
   }
 
   for (let index = 0; index < 115; index += 1) {
-    const x = rand(24, WORLD.w - 24);
-    const y = rand(24, WORLD.h - 24);
+    const x = 24 + seededUnit(index, 103) * (WORLD.w - 48);
+    const y = 24 + seededUnit(index, 104) * (WORLD.h - 48);
     if (!isOnRoad(x, y, 8)) decor.push({ type: "petal", x, y, variant: index % 3 });
   }
   return { decor, paths };
 }
 
-export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
-  const sites: SpawnSite[] = [];
-  const camps: readonly SpawnCamp[] = mapId === BEGINNER_DESERT_MAP_ID
+export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly SpawnCamp[] {
+  const saved = savedMapDesign(mapId);
+  if (saved?.spawnCamps.length) return saved.spawnCamps.map((camp) => ({ ...camp, types: [...camp.types] }));
+  return mapId === BEGINNER_DESERT_MAP_ID
     ? DESERT_CAMPS
     : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID
       ? SNOW_CAMPS
@@ -699,14 +715,20 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
               ? SAMURAI_CAMPS
               : mapId === CLOUDSPIRE_MAP_ID
                 ? CLOUDSPIRE_CAMPS
-              : mapId === MOONFEN_MAP_ID
-                ? MOONFEN_CAMPS
-        : CAMPS;
+                : mapId === MOONFEN_MAP_ID
+                  ? MOONFEN_CAMPS
+                  : CAMPS;
+}
+
+export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
+  const sites: SpawnSite[] = [];
+  const camps = mapSpawnCamps(mapId);
   assertCampContracts(camps);
   // Tutorial remains deliberately readable. Later maps use a fixed map seed:
   // layouts gain variety, but every client still derives identical sites.
   // This seed is part of the existing world layout, independent of the game's display name.
   const mapSeed = mapId === TUTORIAL_FOREST_MAP_ID ? 0 : stableStringSeed(`wildwood-spawns-v2:${mapId}`);
+  const editedBoss = savedMapDesign(mapId)?.gameplay.boss;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];
@@ -716,7 +738,7 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       let x = clamp(camp.x + offset.x, 45, WORLD.w - 45);
       let y = clamp(camp.y + offset.y, 45, WORLD.h - 45);
       if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID || mapId === CLOUDSPIRE_MAP_ID || mapId === MOONFEN_MAP_ID) {
-        const activeBoss = mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 };
+        const activeBoss = editedBoss ?? (mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 });
         const bossDx = x - activeBoss.x;
         const bossDy = y - activeBoss.y;
         const bossDistance = Math.hypot(bossDx, bossDy) || 1;

@@ -15,6 +15,7 @@ import {
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { nightGroundShadowsVisible } from "./night-visibility";
 import { createTintedImageCanvas } from "./image-tint";
+import { decorPaletteColor, mapVisualTheme } from "../map-design";
 
 export { snapWorldRenderCoordinate } from "./render-space";
 
@@ -175,7 +176,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
   const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
-  const isLavaTerrain = () => options.getMapId() === options.lavaMapId;
+  const hasLavaRocks = () => options.decor.some((decor) => decor.type === "lavaRock");
+  const hasLavaPools = () => options.decor.some((decor) => decor.type === "lavaPool");
 
   function tintedPortalSwirl(destination: MapId) {
     const source = options.portalSwirl;
@@ -195,29 +197,17 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function mapColors() {
-    const desert = options.getMapId() === options.desertMapId;
-    const snow = options.getMapId() === options.snowMapId;
-    const lava = options.getMapId() === options.lavaMapId;
-    const infernal = options.getMapId() === options.infernalMapId;
-    const water = options.getMapId() === options.waterMapId;
-    const samurai = options.getMapId() === SAMURAI_GARDEN_MAP_ID;
-    const cloudspire = options.getMapId() === CLOUDSPIRE_MAP_ID;
-    const moonfen = options.getMapId() === MOONFEN_MAP_ID;
-    return {
-      ground: moonfen ? "#174f50" : cloudspire ? "#537eac" : samurai ? "#78a76f" : water ? "#238c9a" : infernal ? "#100e17" : lava ? "#f5b255" : snow ? "#bfddeb" : desert ? "#d9a95f" : "#31945b",
-      path: moonfen ? "#607d6b" : cloudspire ? "#dbe7ef" : samurai ? "#d9c8ae" : water ? "#d5c58e" : infernal ? "#261a26" : lava ? "#df754b" : snow ? "#8fb7d0" : desert ? "#c48b4b" : "#8b6551",
-      pathDetail: moonfen ? "rgba(190,255,224,.18)" : cloudspire ? "rgba(52,76,122,.24)" : samurai ? "rgba(102,69,75,.2)" : water ? "rgba(255,248,198,.26)" : infernal ? "rgba(138,70,76,.2)" : lava ? "rgba(104,31,26,.24)" : snow ? "rgba(61,104,137,.18)" : desert ? "rgba(111,65,32,.15)" : "rgba(68,38,29,.12)",
-    };
+    return mapVisualTheme(options.getMapId());
   }
 
   function staticScene() {
     if (cachedStaticScene && sceneGeneration === staticTileGeneration) return cachedStaticScene;
-    const lava = isLavaTerrain();
+    const lavaRocks = hasLavaRocks();
     cachedStaticScene = {
       tileSize: STATIC_TILE_SIZE,
       colors: mapColors(),
       paths: options.paths,
-      decor: lava ? options.decor.filter((decor) => decor.type !== "lavaRock") : options.decor,
+      decor: lavaRocks ? options.decor.filter((decor) => decor.type !== "lavaRock") : options.decor,
       treeBounds: options.getMapId() === options.infernalMapId
         ? options.nightTreeSpriteBounds()
         : options.treeSpriteBounds(),
@@ -225,7 +215,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       snowPineAspect: options.snowPine.naturalWidth > 0
         ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
         : 0,
-      lavaPoolUrls: lava ? options.lavaPools.map((image) => image.currentSrc || image.src).filter(Boolean) : [],
+      lavaPoolUrls: hasLavaPools() ? options.lavaPools.map((image) => image.currentSrc || image.src).filter(Boolean) : [],
     };
     sceneGeneration = staticTileGeneration;
     return cachedStaticScene;
@@ -653,9 +643,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         const cy = crownY + Math.round(cluster.dy * scale);
         const rx = Math.round(cluster.rx * scale);
         const ry = Math.round(cluster.ry * scale);
-        ctx.fillStyle = "#7b355c";
+        ctx.fillStyle = tree.color ?? "#7b355c";
         ctx.beginPath(); ctx.ellipse(cx, cy + Math.round(2 * scale), rx + Math.round(3 * scale), ry + Math.round(3 * scale), 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = ["#f47fb2", "#ff94c2", "#e96ca7"][index % 3];
+        ctx.fillStyle = tree.color ?? decorPaletteColor(mapColors(), "tree", index, ["#f47fb2", "#ff94c2", "#e96ca7"]);
         ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = "rgba(255,214,233,.82)";
         ctx.fillRect(cx - Math.round(rx * .42), cy - Math.round(ry * .48), Math.max(2, Math.round(6 * scale)), Math.max(2, Math.round(4 * scale)));
@@ -728,15 +718,19 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (x < -90 || y < -100 || x > visible.width + 90 || y > visible.height + 50) return;
     const h = Math.round(68 * cactus.s);
     const w = Math.max(10, Math.round(15 * cactus.s));
-    ctx.fillStyle = "#245a36"; ctx.fillRect(x - w / 2 - 2, y - h, w + 4, h);
-    ctx.fillStyle = "#3f8050"; ctx.fillRect(x - w / 2, y - h, w - 2, h - 4);
-    ctx.fillStyle = "#70a961"; ctx.fillRect(x - w / 2 + 2, y - h + 4, 3, h - 10);
+    const theme = mapColors();
+    const dark = cactus.color ?? decorPaletteColor(theme, "cactus", 1, ["#3f8050", "#245a36", "#70a961"]);
+    const base = cactus.color ?? decorPaletteColor(theme, "cactus", 0, ["#3f8050", "#245a36", "#70a961"]);
+    const highlight = cactus.color ?? decorPaletteColor(theme, "cactus", 2, ["#3f8050", "#245a36", "#70a961"]);
+    ctx.fillStyle = dark; ctx.fillRect(x - w / 2 - 2, y - h, w + 4, h);
+    ctx.fillStyle = base; ctx.fillRect(x - w / 2, y - h, w - 2, h - 4);
+    ctx.fillStyle = highlight; ctx.fillRect(x - w / 2 + 2, y - h + 4, 3, h - 10);
     const armY = y - Math.round(h * .58);
     const direction = cactus.variant % 2 ? -1 : 1;
-    ctx.fillStyle = "#245a36";
+    ctx.fillStyle = dark;
     ctx.fillRect(x + direction * (w / 2 - 1), armY, direction * Math.round(19 * cactus.s), Math.round(10 * cactus.s));
     ctx.fillRect(x + direction * Math.round(16 * cactus.s), armY - Math.round(18 * cactus.s), Math.round(10 * cactus.s), Math.round(27 * cactus.s));
-    ctx.fillStyle = "#3f8050";
+    ctx.fillStyle = base;
     ctx.fillRect(x + direction * Math.round(14 * cactus.s), armY - Math.round(16 * cactus.s), direction * Math.round(8 * cactus.s), Math.round(23 * cactus.s));
   }
 
@@ -828,7 +822,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   function collectVisibleLavaRocks() {
     visibleLavaRocks.length = 0;
-    if (!isLavaTerrain()) return visibleLavaRocks;
+    if (!hasLavaRocks()) return visibleLavaRocks;
     if (lavaRockBucketGeneration !== staticTileGeneration) {
       lavaRockBuckets.clear();
       for (const decor of options.decor) {
@@ -858,7 +852,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawDecor() {
-    if (!isLavaTerrain() || lavaRocksRenderedByWebGL) return;
+    if (!hasLavaRocks() || lavaRocksRenderedByWebGL) return;
     for (const rock of collectVisibleLavaRocks()) drawLavaRock(rock);
   }
 

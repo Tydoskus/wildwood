@@ -14,6 +14,7 @@
     "build:client": "npm run build:coop && npm run build:game",
     "balance:lab": "vite --config vite.balance.config.ts --host 127.0.0.1 --open /balance-lab.html",
     "balance:simulate": "tsx scripts/balance-report.ts",
+    "map:editor": "node scripts/map-editor-server.mjs",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "loadtest:virtual": "tsx scripts/virtual-player-load-test.ts",

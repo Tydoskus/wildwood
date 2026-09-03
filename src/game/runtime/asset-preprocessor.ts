@@ -6,6 +6,7 @@ import { type MapId } from "../world";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
 import { MAP_ASSET_GROUPS, type MapArtAssetGroup } from "./map-asset-groups";
 import { SCORPION_SPRITE } from "./scorpion-sprite";
+import { savedMapDesign } from "../map-design";
 
 export type TreeSpriteBound = {
   x: number;
@@ -332,7 +333,12 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
-    mapAssets[mapId] = MAP_ASSET_GROUPS[mapId].art.flatMap((group) => assetGroups[group]);
+    const groups = new Set<MapArtAssetGroup>(MAP_ASSET_GROUPS[mapId].art);
+    const editedDecor = new Set(savedMapDesign(mapId)?.decor.map((item) => item.type) ?? []);
+    if (editedDecor.has("tree") && mapId !== "samurai_garden") groups.add(mapId === "infernal_depths" ? "nightDecor" : "forestDecor");
+    if (editedDecor.has("snowPine") || editedDecor.has("upgradeBench")) groups.add("snowDecor");
+    if (editedDecor.has("lavaPool") || editedDecor.has("lavaRock") || editedDecor.has("charredTree")) groups.add("lavaDecor");
+    mapAssets[mapId] = [...groups].flatMap((group) => assetGroups[group]);
   }
   function ensureMapAssets(mapId: MapId) {
     return Promise.all(mapAssets[mapId].map((asset) => asset.load())).then(() => undefined);

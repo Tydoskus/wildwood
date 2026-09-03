@@ -200,6 +200,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "../../shared/rules";
+import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
 
 // Cached clients parse these exact wire messages. Current clients rebrand them
 // for display; changing them would break reconnects and account linking in old tabs.
@@ -225,7 +226,7 @@ const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 // in-game developer actions run as DEVELOPER_IDENTITY above.
 const DATABASE_OWNER_IDENTITY_HEX = "c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79";
 const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
-const MAP_PORTALS = {
+const DEFAULT_MAP_PORTALS = {
   [TUTORIAL_FOREST_MAP_ID]: [{ x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID }],
   [BEGINNER_DESERT_MAP_ID]: [
     { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
@@ -257,7 +258,7 @@ const MAP_PORTALS = {
   ],
   [MOONFEN_MAP_ID]: [{ x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID }],
 } as const;
-const MAP_ARRIVALS = {
+const DEFAULT_MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
   [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { x: 580, y: 770 },
@@ -268,6 +269,24 @@ const MAP_ARRIVALS = {
   [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
   [MOONFEN_MAP_ID]: { x: 580, y: 770 },
 } as const;
+const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> = Object.fromEntries(
+  Object.entries(DEFAULT_MAP_PORTALS).map(([mapId, portals]) => {
+    const edited = MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.portals;
+    return [mapId, edited?.length
+      ? edited.map((portal) => ({
+        x: portal.x,
+        y: portal.y - portal.height * .32,
+        destination: portal.destination,
+      }))
+      : portals.map((portal) => ({ ...portal }))];
+  }),
+);
+const MAP_ARRIVALS: Record<string, { x: number; y: number }> = Object.fromEntries(
+  Object.entries(DEFAULT_MAP_ARRIVALS).map(([mapId, arrival]) => [
+    mapId,
+    MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.arrival ?? arrival,
+  ]),
+);
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
@@ -297,50 +316,54 @@ const DUEL_ARENA = {
 };
 const DRAGON_ID = 1;
 const DRAGON_RADIUS = 140;
-const DRAGON_POSITION = { x: WORLD.width - 760, y: WORLD.height - 560 };
+function editedBossPosition(mapId: string, fallback: { x: number; y: number }) {
+  return MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.boss ?? fallback;
+}
+
+const DRAGON_POSITION = editedBossPosition(TUTORIAL_FOREST_MAP_ID, { x: WORLD.width - 760, y: WORLD.height - 560 });
 const DRAGON_HIT_RANGE_TOLERANCE = 60;
 const DRAGON_RESPAWN_MICROS = 30_000_000n;
 const SPIDER_ID = 1;
 const SPIDER_RADIUS = 125;
-const SPIDER_POSITION = { x: 4050, y: 4050 };
+const SPIDER_POSITION = editedBossPosition(BEGINNER_DESERT_MAP_ID, { x: 4050, y: 4050 });
 const SPIDER_HIT_RANGE_TOLERANCE = 60;
 const SPIDER_RESPAWN_MICROS = 30_000_000n;
 const FROSTCLAW_ID = 1;
 const FROSTCLAW_RADIUS = 150;
-const FROSTCLAW_POSITION = { x: 4050, y: 4050 };
+const FROSTCLAW_POSITION = editedBossPosition(INTERMEDIATE_SNOWLANDS_MAP_ID, { x: 4050, y: 4050 });
 const FROSTCLAW_HIT_RANGE_TOLERANCE = 60;
 const FROSTCLAW_RESPAWN_MICROS = 30_000_000n;
 const MAGMALISK_ID = 1;
 const MAGMALISK_RADIUS = 165;
-const MAGMALISK_POSITION = { x: 4050, y: 4050 };
+const MAGMALISK_POSITION = editedBossPosition(ADVANCED_LAVA_WASTES_MAP_ID, { x: 4050, y: 4050 });
 const MAGMALISK_HIT_RANGE_TOLERANCE = 60;
 const MAGMALISK_RESPAWN_MICROS = 30_000_000n;
 const GLOOMROOT_ID = 1;
 const GLOOMROOT_RADIUS = 175;
-const GLOOMROOT_POSITION = { x: 4050, y: 4050 };
+const GLOOMROOT_POSITION = editedBossPosition(INFERNAL_DEPTHS_MAP_ID, { x: 4050, y: 4050 });
 const GLOOMROOT_HIT_RANGE_TOLERANCE = 60;
 const GLOOMROOT_RESPAWN_MICROS = 30_000_000n;
 const TIDEWYRM_ID = 1;
 const TIDEWYRM_RADIUS = 175;
-const TIDEWYRM_POSITION = { x: 4050, y: 4050 };
+const TIDEWYRM_POSITION = editedBossPosition(WATER_REACH_MAP_ID, { x: 4050, y: 4050 });
 const TIDEWYRM_HIT_RANGE_TOLERANCE = 60;
 const TIDEWYRM_RESPAWN_MICROS = 30_000_000n;
 const KOI_SHOGUN_ID = 1;
 const KOI_SHOGUN_RADIUS = 175;
-const KOI_SHOGUN_POSITION = { x: 4050, y: 4050 };
+const KOI_SHOGUN_POSITION = editedBossPosition(SAMURAI_GARDEN_MAP_ID, { x: 4050, y: 4050 });
 const KOI_SHOGUN_HIT_RANGE_TOLERANCE = 60;
 const KOI_SHOGUN_RESPAWN_MICROS = 30_000_000n;
 const TEMPEST_KIRIN_ID = 1;
 const TEMPEST_KIRIN_RADIUS = 180;
-const TEMPEST_KIRIN_POSITION = { x: 4050, y: 4050 };
+const TEMPEST_KIRIN_POSITION = editedBossPosition(CLOUDSPIRE_MAP_ID, { x: 4050, y: 4050 });
 const TEMPEST_KIRIN_HIT_RANGE_TOLERANCE = 60;
 const TEMPEST_KIRIN_RESPAWN_MICROS = 30_000_000n;
 const MIREMAW_ID = 1;
 const MIREMAW_RADIUS = 170;
-const MIREMAW_POSITION = { x: 4050, y: 4050 };
+const MIREMAW_POSITION = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
 const MIREMAW_HIT_RANGE_TOLERANCE = 60;
 const MIREMAW_RESPAWN_MICROS = 30_000_000n;
-const UPGRADE_BENCH_POSITION = { x: 800, y: 710 };
+const UPGRADE_BENCH_POSITION = MAP_EDITOR_GAMEPLAY_OVERRIDES[INTERMEDIATE_SNOWLANDS_MAP_ID]?.upgradeBench ?? { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
 const UPGRADE_BENCH_SLOT_TWO = 2;

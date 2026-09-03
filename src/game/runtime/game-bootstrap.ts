@@ -1,6 +1,6 @@
 import { WORLD } from "../constants";
 import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
-import { loadActorShadowSprite, loadEnemySprites } from "../enemies";
+import { loadActorShadowSprite, loadEnemySprites, type EnemyKind } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
@@ -27,6 +27,29 @@ import {
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
+import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../../shared/map-editor-overrides";
+import { savedMapDesign, savedMapName } from "../map-design";
+
+type BootstrapMapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
+type BootstrapMapEntry = { name: string; portal: BootstrapMapPortal; arrival: { x: number; y: number }; secondaryPortal?: BootstrapMapPortal };
+
+function editedMapEntry<T extends BootstrapMapEntry>(mapId: MapId, fallback: T): T {
+  const edit = MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId];
+  const name = savedMapName(mapId) ?? edit?.name ?? fallback.name;
+  if (!edit || edit.portals.length === 0) return { ...fallback, name };
+  const portals = edit.portals.map((portal) => ({ ...portal, destination: portal.destination as MapId }));
+  return {
+    name,
+    arrival: { ...edit.arrival },
+    portal: portals[0],
+    ...(portals[1] ? { secondaryPortal: portals[1] } : {}),
+  } as T;
+}
+
+function editedBossPosition(mapId: MapId, fallback: { x: number; y: number }) {
+  const boss = MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.boss;
+  return boss ? { ...boss } : fallback;
+}
 
 export type BootstrapInventory = InventoryState & {
   selectedItemId: string;
@@ -52,59 +75,59 @@ export function createGameBootstrap() {
   const miremawBogBursts: MiremawBogBurst[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
-    [TUTORIAL_FOREST_MAP_ID]: {
+    [TUTORIAL_FOREST_MAP_ID]: editedMapEntry(TUTORIAL_FOREST_MAP_ID, {
       name: MAP_DISPLAY_NAMES[TUTORIAL_FOREST_MAP_ID],
       portal: { x: 190, y: 448, width: 198, height: 198, depth: 448, destination: BEGINNER_DESERT_MAP_ID },
       arrival: { x: 190, y: 540 },
-    },
-    [BEGINNER_DESERT_MAP_ID]: {
+    }),
+    [BEGINNER_DESERT_MAP_ID]: editedMapEntry(BEGINNER_DESERT_MAP_ID, {
       name: MAP_DISPLAY_NAMES[BEGINNER_DESERT_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
       arrival: { x: 360, y: 770 },
-    },
-    [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
+    }),
+    [INTERMEDIATE_SNOWLANDS_MAP_ID]: editedMapEntry(INTERMEDIATE_SNOWLANDS_MAP_ID, {
       name: MAP_DISPLAY_NAMES[INTERMEDIATE_SNOWLANDS_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: BEGINNER_DESERT_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-    [ADVANCED_LAVA_WASTES_MAP_ID]: {
+    }),
+    [ADVANCED_LAVA_WASTES_MAP_ID]: editedMapEntry(ADVANCED_LAVA_WASTES_MAP_ID, {
       name: MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INFERNAL_DEPTHS_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-    [INFERNAL_DEPTHS_MAP_ID]: {
+    }),
+    [INFERNAL_DEPTHS_MAP_ID]: editedMapEntry(INFERNAL_DEPTHS_MAP_ID, {
       name: MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: WATER_REACH_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-    [WATER_REACH_MAP_ID]: {
+    }),
+    [WATER_REACH_MAP_ID]: editedMapEntry(WATER_REACH_MAP_ID, {
       name: MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INFERNAL_DEPTHS_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: SAMURAI_GARDEN_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-    [SAMURAI_GARDEN_MAP_ID]: {
+    }),
+    [SAMURAI_GARDEN_MAP_ID]: editedMapEntry(SAMURAI_GARDEN_MAP_ID, {
       name: MAP_DISPLAY_NAMES[SAMURAI_GARDEN_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: WATER_REACH_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: CLOUDSPIRE_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-    [CLOUDSPIRE_MAP_ID]: {
+    }),
+    [CLOUDSPIRE_MAP_ID]: editedMapEntry(CLOUDSPIRE_MAP_ID, {
       name: MAP_DISPLAY_NAMES[CLOUDSPIRE_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: SAMURAI_GARDEN_MAP_ID },
       secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: MOONFEN_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-    [MOONFEN_MAP_ID]: {
+    }),
+    [MOONFEN_MAP_ID]: editedMapEntry(MOONFEN_MAP_ID, {
       name: MAP_DISPLAY_NAMES[MOONFEN_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CLOUDSPIRE_MAP_ID },
       arrival: { x: 580, y: 770 },
-    },
-  } as const;
+    }),
+  } satisfies Record<MapId, BootstrapMapEntry>;
   const player: PlayerState = {
     x: startSpawn.x, y: startSpawn.y, r: 17,
     speed: PLAYER_SPEED,
@@ -126,10 +149,11 @@ export function createGameBootstrap() {
     combatFacing: null,
     moving: false,
   };
+  const dragonPosition = editedBossPosition(TUTORIAL_FOREST_MAP_ID, { x: WORLD.w - 760, y: WORLD.h - 560 });
   const boss: DragonBossState = {
     isBoss: true,
-    x: WORLD.w - 760,
-    y: WORLD.h - 560,
+    x: dragonPosition.x,
+    y: dragonPosition.y,
     r: 140,
     maxHp: DRAGON_MAX_HP,
     hp: DRAGON_MAX_HP,
@@ -143,11 +167,12 @@ export function createGameBootstrap() {
     cone: null,
     encounter: null,
   };
+  const spiderPosition = editedBossPosition(BEGINNER_DESERT_MAP_ID, { x: 4050, y: 4050 });
   const spiderBoss: SpiderBossState = {
     isBoss: true,
     bossKind: "spider",
-    x: 4050,
-    y: 4050,
+    x: spiderPosition.x,
+    y: spiderPosition.y,
     r: 125,
     maxHp: SPIDER_MAX_HP,
     hp: SPIDER_MAX_HP,
@@ -161,11 +186,12 @@ export function createGameBootstrap() {
     web: null,
     encounter: null,
   };
+  const frostclawPosition = editedBossPosition(INTERMEDIATE_SNOWLANDS_MAP_ID, { x: 4050, y: 4050 });
   const frostclawBoss: FrostclawBossState = {
     isBoss: true,
     bossKind: "frostclaw",
-    x: 4050,
-    y: 4050,
+    x: frostclawPosition.x,
+    y: frostclawPosition.y,
     r: 150,
     maxHp: FROSTCLAW_MAX_HP,
     hp: FROSTCLAW_MAX_HP,
@@ -180,11 +206,12 @@ export function createGameBootstrap() {
     rift: null,
     encounter: null,
   };
+  const magmaliskPosition = editedBossPosition(ADVANCED_LAVA_WASTES_MAP_ID, { x: 4050, y: 4050 });
   const magmaliskBoss: MagmaliskBossState = {
     isBoss: true,
     bossKind: "magmalisk",
-    x: 4050,
-    y: 4050,
+    x: magmaliskPosition.x,
+    y: magmaliskPosition.y,
     r: 165,
     maxHp: MAGMALISK_MAX_HP,
     hp: MAGMALISK_MAX_HP,
@@ -198,11 +225,12 @@ export function createGameBootstrap() {
     bite: null,
     encounter: null,
   };
+  const gloomrootPosition = editedBossPosition(INFERNAL_DEPTHS_MAP_ID, { x: 4050, y: 4050 });
   const gloomrootBoss: GloomrootBossState = {
     isBoss: true,
     bossKind: "gloomroot",
-    x: 4050,
-    y: 4050,
+    x: gloomrootPosition.x,
+    y: gloomrootPosition.y,
     r: 175,
     maxHp: GLOOMROOT_MAX_HP,
     hp: GLOOMROOT_MAX_HP,
@@ -216,11 +244,12 @@ export function createGameBootstrap() {
     sweep: null,
     encounter: null,
   };
+  const tidewyrmPosition = editedBossPosition(WATER_REACH_MAP_ID, { x: 4050, y: 4050 });
   const tidewyrmBoss: TidewyrmBossState = {
     isBoss: true,
     bossKind: "tidewyrm",
-    x: 4050,
-    y: 4050,
+    x: tidewyrmPosition.x,
+    y: tidewyrmPosition.y,
     r: 175,
     maxHp: TIDEWYRM_MAX_HP,
     hp: TIDEWYRM_MAX_HP,
@@ -234,11 +263,12 @@ export function createGameBootstrap() {
     surge: null,
     encounter: null,
   };
+  const koiShogunPosition = editedBossPosition(SAMURAI_GARDEN_MAP_ID, { x: 4050, y: 4050 });
   const koiShogunBoss: KoiShogunBossState = {
     isBoss: true,
     bossKind: "koiShogun",
-    x: 4050,
-    y: 4050,
+    x: koiShogunPosition.x,
+    y: koiShogunPosition.y,
     r: 175,
     maxHp: KOI_SHOGUN_MAX_HP,
     hp: KOI_SHOGUN_MAX_HP,
@@ -252,11 +282,12 @@ export function createGameBootstrap() {
     slash: null,
     encounter: null,
   };
+  const tempestKirinPosition = editedBossPosition(CLOUDSPIRE_MAP_ID, { x: 4050, y: 4050 });
   const tempestKirinBoss: TempestKirinBossState = {
     isBoss: true,
     bossKind: "tempestKirin",
-    x: 4050,
-    y: 4050,
+    x: tempestKirinPosition.x,
+    y: tempestKirinPosition.y,
     r: 180,
     maxHp: TEMPEST_KIRIN_MAX_HP,
     hp: TEMPEST_KIRIN_MAX_HP,
@@ -270,11 +301,12 @@ export function createGameBootstrap() {
     charge: null,
     encounter: null,
   };
+  const miremawPosition = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
   const miremawBoss: MiremawBossState = {
     isBoss: true,
     bossKind: "miremaw",
-    x: 4050,
-    y: 4050,
+    x: miremawPosition.x,
+    y: miremawPosition.y,
     r: 170,
     maxHp: MIREMAW_MAX_HP,
     hp: MIREMAW_MAX_HP,
@@ -288,7 +320,8 @@ export function createGameBootstrap() {
     tongue: null,
     encounter: null,
   };
-  const bootsPickup = { x: 940, y: 3660, r: 18, collected: false };
+  const editedBootsPickup = MAP_EDITOR_GAMEPLAY_OVERRIDES[TUTORIAL_FOREST_MAP_ID]?.bootsPickup;
+  const bootsPickup = { x: editedBootsPickup?.x ?? 940, y: editedBootsPickup?.y ?? 3660, r: 18, collected: false };
   const inventory: BootstrapInventory = {
     itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
     equippedHead: BASIC_PAPER_HAT,
@@ -347,7 +380,12 @@ export function createGameBootstrapAssets(options: {
   onPlayerAppearanceAssetReady: () => void;
 }) {
   const preprocessedAssets = createAssetPreprocessor(options.onWorldArtReady);
-  const enemyAssets = loadEnemySprites(MAP_ENEMY_SPRITE_GROUPS, options.onWorldArtReady);
+  const editedEnemySpriteGroups = {} as Record<MapId, readonly EnemyKind[]>;
+  for (const mapId of Object.keys(MAP_ENEMY_SPRITE_GROUPS) as MapId[]) {
+    const editedTypes = savedMapDesign(mapId)?.spawnCamps.flatMap((camp) => camp.types) ?? [];
+    editedEnemySpriteGroups[mapId] = [...new Set([...MAP_ENEMY_SPRITE_GROUPS[mapId], ...editedTypes])];
+  }
+  const enemyAssets = loadEnemySprites(editedEnemySpriteGroups, options.onWorldArtReady);
   let actorShadowReady = false;
   const actorShadowSprite = loadActorShadowSprite(() => {
     actorShadowReady = true;
