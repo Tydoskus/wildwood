@@ -14,6 +14,7 @@ type WindowActionsElements = {
   inventoryButton: HTMLElement;
   inventoryPanel: HTMLElement;
   closeInventoryButton: HTMLElement;
+  shopButton: HTMLButtonElement;
   resetProgressButton: HTMLElement;
   bootUpgrade: HTMLElement;
   bootUpgradeClose: HTMLElement;
@@ -51,6 +52,7 @@ type GameActionsDependencies = {
   closeItemInspection: () => void;
   renderInventory: () => void;
   logPickup: (message: string, color: string) => void;
+  showMessage: (message: string, color: string) => void;
   leaveDuelResult: () => void;
   closeDuelReplay: () => void;
   closeBootUpgrade: () => void;
@@ -163,6 +165,14 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     if (opening) dependencies.renderInventory();
   });
   elements.closeInventoryButton.addEventListener("click", closeInventory);
+
+  elements.shopButton.addEventListener("click", () => {
+    dependencies.minimizeChat();
+    closeSettings();
+    closeInventory();
+    dependencies.closeCompetingWindows();
+    dependencies.showMessage("SHOP COMING SOON", "#ff9ed5");
+  });
 
   elements.closeDuelResultButton.addEventListener("click", dependencies.leaveDuelResult);
   elements.closeDragonResultButton.addEventListener("click", closeDragonResult);

@@ -180,6 +180,22 @@ describe("interface style contracts", () => {
     expect(message).toContain("pointer-events: none");
   });
 
+  it("centers stat rewards above the bottom controls as compact upgrade cards", () => {
+    const log = cssRule("#pickupLog {");
+    expect(log).toContain("left: 50%");
+    expect(log).toContain("justify-items: center");
+    expect(log).toContain("transform: translateX(-50%)");
+    expect(log).toContain("var(--toolbar-height)");
+    expect(log).toContain("var(--mini-chat-height)");
+
+    const toast = cssRule(".stat-reward-toast {");
+    expect(toast).toContain("grid-template-columns: 30px minmax(0, auto) auto 20px");
+    expect(toast).toContain("min-height: 54px");
+    expect(cssRule(".stat-reward-label { ")).toContain("color: #fff");
+    expect(cssRule(".stat-reward-value { ")).toContain("color: var(--green)");
+    expect(cssRule(".stat-reward-arrow::after {")).toContain("border-bottom: 10px solid var(--green)");
+  });
+
   it("renders chat messages with the same font treatment as usernames", () => {
     const username = cssRule("\n  .chat-name {");
     const message = cssRule("\n  .chat-text {");
@@ -312,6 +328,8 @@ describe("interface style contracts", () => {
     expect(entryHtml).toContain('id="inventoryCharacterCanvas" class="character-preview-canvas"');
     expect(gameShell).toContain('class="profile-character-preview character-loadout-preview"');
     expect(gameShell).toContain('id="profileCharacterCanvas" class="profile-character-canvas character-preview-canvas"');
+    expect(entryHtml.indexOf('id="inventoryCharacterCanvas"')).toBeLessThan(entryHtml.indexOf('id="equippedHeadSlot"'));
+    expect(gameShell.indexOf('id="profileCharacterCanvas"')).toBeLessThan(gameShell.indexOf('id="profileEquippedHeadSlot"'));
     for (const id of [
       "profileEquippedHeadSlot",
       "profileEquippedChestSlot",
@@ -327,7 +345,12 @@ describe("interface style contracts", () => {
     const sharedPreview = cssRule(".character-loadout-preview {");
     expect(sharedPreview).toContain("border: 2px solid #000");
     expect(sharedPreview).toContain("background: #31945b");
+    expect(sharedPreview).toContain("isolation: isolate");
     expect(cssRule("canvas.character-preview-canvas {")).toContain("height: 100%");
+    expect(cssRule(".equipment-slot {")).toContain("z-index: 1");
+    expect(cssRule(".equipment-slot {")).toContain("rgba(24,33,27,.62)");
+    expect(cssRule(".inventory-character-stage {")).toContain("background: transparent");
+    expect(cssRule(".profile-character-stage {")).toContain("background: transparent");
     expect(cssRule(".modal.player-profile-modal {")).toContain("transform: translateY(-28px)");
     expect(cssRule(".profile-equipment-slot {")).toContain("height: 44px");
   });
@@ -669,8 +692,12 @@ describe("interface style contracts", () => {
 
   it("uses compact Camel Case toolbar labels for five-button layouts", () => {
     expect(cssRule(".toolbar-label")).toContain("font: 900 10px/1");
-    for (const label of ["Leaderboard", "Tech Tree", "Inventory", "Dev", "Settings"]) {
+    for (const label of ["Leaderboard", "Tech Tree", "Inventory", "Shop", "Settings"]) {
       expect(html).toContain(`<span class="toolbar-label">${label}</span>`);
     }
+    expect(entryHtml.indexOf('id="shopBtn"')).toBeLessThan(entryHtml.indexOf('id="settingsBtn"'));
+    expect(entryHtml.indexOf('id="devAuditBtn"')).toBeGreaterThan(entryHtml.indexOf('id="settingsPanel"'));
+    expect(entryHtml).toContain('id="developerSettingsRow" class="setting-row developer-settings-row" hidden');
+    expect(entryHtml).toContain('id="devAuditBtn" class="setting-toggle dev-audit-button"');
   });
 });

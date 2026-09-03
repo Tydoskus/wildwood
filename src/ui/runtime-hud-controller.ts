@@ -7,6 +7,7 @@ import {
   ITEM_DROP_REVEAL_DURATION_MS,
   type ItemDropRevealDetails,
 } from "./item-drop-reveal";
+import { createStatRewardToast } from "./stat-reward-toast";
 import type { PlayerGender } from "../../shared/player-gender";
 
 type RuntimeHudElements = {
@@ -79,10 +80,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   }
 
   function logPickup(text: string, color: string) {
-    const entry = document.createElement("div");
-    entry.className = "pickup";
-    entry.textContent = text;
-    entry.style.color = color;
+    const entry = createStatRewardToast(text, color);
     elements.pickupLog.appendChild(entry);
     setTimeout(() => entry.remove(), 2400);
   }

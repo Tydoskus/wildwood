@@ -1661,7 +1661,7 @@ import {
   minimizeMaximizedChat = chatRuntime.minimize;
 
   inputEscapeHandler = createGameActionsRuntime({
-    e: gameElements, inventory, renderInventory, logPickup, leaveDuelResult,
+    e: gameElements, inventory, renderInventory, logPickup, showMessage, leaveDuelResult,
     itemInspectionController,
     minimizeChat: minimizeMaximizedChat,
     closeCompetingWindows: () => { mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.599": [
+    "Centered and refreshed stat reward notifications as compact upgrade cards.",
+    "Moved Developer Tools into Settings and added a Shop shortcut to the toolbar.",
+    "Extended the animated grass backdrop behind the full player equipment preview.",
+  ],
   "0.598": [
     "Refined sign-in button labels with larger, cleaner type and a softer shadow.",
     "Corrected Add to Home Screen guidance for Chrome and other browsers on iPhone and iPad.",
@@ -1376,6 +1381,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.599": "2026-09-02",
   "0.598": "2026-09-02",
   "0.597": "2026-09-02",
   "0.596": "2026-09-02",

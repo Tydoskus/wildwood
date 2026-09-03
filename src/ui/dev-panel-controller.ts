@@ -54,6 +54,7 @@ type DevPanelDependencies = {
 /** Dev-only UI state, tabs, and live diagnostics. Game code only supplies data. */
 export function createDevPanelController(dependencies: DevPanelDependencies) {
   const button = requiredElement("devAuditBtn");
+  const settingsRow = requiredElement("developerSettingsRow");
   const panel = requiredElement("devAudit");
   const closeButton = requiredElement("closeDevAuditBtn");
   const tabs: Record<DevPanelTab, HTMLElement> = {
@@ -202,6 +203,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   }
 
   function setDeveloperAccess(developer: boolean) {
+    settingsRow.hidden = !developer;
     button.hidden = !developer;
     if (!developer) close();
   }

@@ -70,6 +70,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     elements: {
       settingsButton: e.settingsBtn, settingsPanel: e.settingsPanel, closeSettingsButton: e.closeSettingsBtn,
       inventoryButton: e.inventoryBtn, inventoryPanel: e.inventoryPanel, closeInventoryButton: e.closeInventoryBtn,
+      shopButton: e.shopBtn,
       resetProgressButton: e.resetProgressBtn, bootUpgrade: e.bootUpgradeEl,
       bootUpgradeClose: e.bootUpgradeClose, closeDuelResultButton: e.closeDuelResultBtn,
       closeDragonResultButton: e.closeDragonResultBtn, dragonResult: e.dragonResultEl,
@@ -82,6 +83,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     closeItemInspection: d.itemInspectionController.close,
     renderInventory: d.renderInventory,
     logPickup: d.logPickup,
+    showMessage: d.showMessage,
     leaveDuelResult: d.leaveDuelResult,
     closeDuelReplay: d.closeDuelReplay,
     closeBootUpgrade: d.closeBootUpgrade,

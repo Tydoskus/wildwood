@@ -127,12 +127,12 @@ const afterUpdateGateShell = String.raw`
       </div>
     </div>
     <div id="profileCharacterPreview" class="profile-character-preview character-loadout-preview" aria-label="Player character and equipped items">
+      <canvas id="profileCharacterCanvas" class="profile-character-canvas character-preview-canvas" width="240" height="136" aria-hidden="true"></canvas>
       <button id="profileEquippedHeadSlot" class="equipment-slot profile-equipment-slot slot-head" type="button" data-slot="head"><span>HEAD</span></button>
       <button id="profileEquippedChestSlot" class="equipment-slot profile-equipment-slot slot-chest" type="button" data-slot="chest"><span>ARMOR</span></button>
       <button id="profileEquippedFeetSlot" class="equipment-slot profile-equipment-slot slot-feet" type="button" data-slot="feet"><span>BOOTS</span></button>
       <div class="profile-character-stage">
         <button id="previousPlayerSpriteBtn" class="player-sprite-selector previous" type="button" aria-label="Previous character" hidden><span aria-hidden="true"></span></button>
-        <canvas id="profileCharacterCanvas" class="profile-character-canvas character-preview-canvas" width="240" height="136" aria-hidden="true"></canvas>
         <button id="nextPlayerSpriteBtn" class="player-sprite-selector next" type="button" aria-label="Next character" hidden><span aria-hidden="true"></span></button>
         <button id="profileSkinToneEdit" class="profile-skin-tone-edit" type="button" aria-label="Change skin tone" title="Change skin tone" hidden>✎</button>
         <div id="profileSkinToneControl" class="profile-skin-tone" role="group" aria-label="Skin tone" hidden></div>
