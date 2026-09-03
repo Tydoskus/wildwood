@@ -181,13 +181,14 @@ describe("interface style contracts", () => {
     expect(message).toContain("pointer-events: none");
   });
 
-  it("centers stat rewards above the bottom controls as compact upgrade cards", () => {
+  it("centers stat rewards one fifth down the screen as compact upgrade cards", () => {
     const log = cssRule("#pickupLog {");
+    expect(log).toContain("position: fixed");
+    expect(log).toContain("top: 20%");
     expect(log).toContain("left: 50%");
+    expect(log).toContain("bottom: auto");
     expect(log).toContain("justify-items: center");
     expect(log).toContain("transform: translateX(-50%)");
-    expect(log).toContain("var(--toolbar-height)");
-    expect(log).toContain("var(--mini-chat-height)");
 
     const toast = cssRule(".stat-reward-toast {");
     expect(toast).toContain("grid-template-columns: 21px minmax(0, auto) auto 14px");

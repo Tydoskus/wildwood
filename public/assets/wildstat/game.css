@@ -970,9 +970,10 @@
   #duelAcceptBtn { background: linear-gradient(#83cdf2, #3f83bd); }
 
   #pickupLog {
-    position: absolute;
+    position: fixed;
+    top: 20%;
     left: 50%;
-    bottom: calc(var(--toolbar-height) + var(--mini-chat-height) + 64px);
+    bottom: auto;
     z-index: 6;
     display: grid;
     justify-items: center;
