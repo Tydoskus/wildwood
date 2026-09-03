@@ -1,6 +1,7 @@
 import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { damageAfterArmor, damageBlockedByArmor } from "./combat";
+import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import {
   RESEARCH_DEFINITIONS,
   isResearchId,
@@ -707,6 +708,11 @@ const playerInventoryCapacity = table(
     slotsUnlocked: t.u32(),
     updatedAt: t.timestamp(),
   },
+);
+
+const playerCutsceneHistory = table(
+  { name: "player_cutscene_history", public: false },
+  { identity: t.identity().primaryKey(), seenMask: t.u32(), generation: t.u32() },
 );
 
 const playerProgress = table(
@@ -1506,6 +1512,7 @@ const spacetimedb = schema({
   balanceApologyNotice,
   playerUpgradeBench,
   playerInventoryCapacity,
+  playerCutsceneHistory,
   playerProgress,
   playerLastLocation,
   playerResearch,
@@ -1645,6 +1652,37 @@ export const myInventoryCapacity = spacetimedb.view(
     return capacity ? [capacity] : [];
   },
 );
+
+export const myCutsceneHistory = spacetimedb.view(
+  { name: "my_cutscene_history", public: true },
+  t.array(playerCutsceneHistory.rowType),
+  (ctx) => {
+    const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
+    return history ? [history] : [];
+  },
+);
+
+function ensureCutsceneHistory(ctx: ModuleReducerCtx, identity: Identity) {
+  const existing = ctx.db.playerCutsceneHistory.identity.find(identity);
+  if (existing) return existing;
+  return ctx.db.playerCutsceneHistory.insert({
+    identity,
+    seenMask: unlockedPortalCutsceneMask(ctx.db.playerProgress.identity.find(identity)),
+    generation: 0,
+  });
+}
+
+export const markPortalCutsceneSeen = spacetimedb.reducer({ cutscene: t.string(), generation: t.u32() }, (ctx, { cutscene, generation }) => {
+  requireControllingPlayer(ctx);
+  const bit = portalCutsceneBit(cutscene);
+  if (!bit) throw new SenderError("Unknown portal cutscene.");
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!(unlockedPortalCutsceneMask(progress) & bit)) throw new SenderError("Portal not unlocked.");
+  const history = ensureCutsceneHistory(ctx, ctx.sender);
+  if (history.generation !== generation) throw new SenderError("Character history was reset.");
+  if (history.seenMask & bit) return;
+  ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: history.seenMask | bit });
+});
 
 function generatedDisplayName(identity: { toHexString: () => string }) {
   let hash = 2166136261;
@@ -3725,6 +3763,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
   if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
   if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
+  if (ctx.db.playerCutsceneHistory.identity.find(identity)) ctx.db.playerCutsceneHistory.identity.delete(identity);
   if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
   if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
   if (ctx.db.duelRequestCooldown.identity.find(identity)) ctx.db.duelRequestCooldown.identity.delete(identity);
@@ -3800,6 +3839,7 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
   if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
   if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
+  if (ctx.db.playerCutsceneHistory.identity.find(identity)) ctx.db.playerCutsceneHistory.identity.delete(identity);
   if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
   if (ctx.db.developerPresencePreference.identity.find(identity)) ctx.db.developerPresencePreference.identity.delete(identity);
   if (ctx.db.chatCooldown.identity.find(identity)) ctx.db.chatCooldown.identity.delete(identity);
@@ -5202,6 +5242,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     }
   }
 
+  ensureCutsceneHistory(ctx, ctx.sender);
   researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
   touchPlayerAccessAudit(ctx, session.protocolVersion);
@@ -6485,6 +6526,12 @@ export const claimGuestAccount = spacetimedb.reducer(
 
     const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
     if (!guestProgress) throw new SenderError("Guest save unavailable. Return to guest mode and try again.");
+    const guestCutscenes = ensureCutsceneHistory(ctx, link.guest);
+    const accountCutscenes = ensureCutsceneHistory(ctx, ctx.sender);
+    ctx.db.playerCutsceneHistory.identity.update({
+      ...accountCutscenes,
+      seenMask: accountCutscenes.seenMask | guestCutscenes.seenMask,
+    });
     mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
     mergeBalanceApologyNotice(ctx, link.guest, ctx.sender);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
@@ -6743,6 +6790,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (guestGemWallet) ctx.db.playerGemWallet.identity.delete(link.guest);
     if (ctx.db.playerUpgradeBench.identity.find(link.guest)) ctx.db.playerUpgradeBench.identity.delete(link.guest);
     if (ctx.db.playerInventoryCapacity.identity.find(link.guest)) ctx.db.playerInventoryCapacity.identity.delete(link.guest);
+    ctx.db.playerCutsceneHistory.identity.delete(link.guest);
 
     const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
     for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
@@ -7731,6 +7779,9 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const activePlayer = requireControllingPlayer(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
+    const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
+    if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });
+    else ctx.db.playerCutsceneHistory.insert({ identity: ctx.sender, seenMask: 0, generation: 0 });
     if (hasRecentPlayerActivity(ctx, ctx.sender)) {
       next.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(next, true));
     }

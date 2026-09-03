@@ -19,6 +19,7 @@ import {
   type ProgressSave,
 } from "./progress";
 import { createProgressStore } from "./progress-store";
+import { createCutsceneHistory } from "./cutscene-history";
 
 type ProgressionServiceDependencies = {
   reducers: ReducerPort;
@@ -78,6 +79,11 @@ type LifetimeRow = {
 
 export function createProgressionService(dependencies: ProgressionServiceDependencies) {
   const store = createProgressStore(dependencies.storage, dependencies.pendingProgressKey);
+  const cutscenes = createCutsceneHistory({
+    identity: dependencies.localIdentity,
+    storage: dependencies.storage,
+    send: async (cutscene, generation) => (await reducerResult("cutscene history", (connection) => connection.reducers.markPortalCutsceneSeen({ cutscene, generation }))()).ok,
+  });
   const progressByIdentity = new Map<string, PlayerProgress>();
   const researchByIdentity = new Map<string, PlayerResearch>();
   const upgradeLevelsByIdentity = new Map<string, Map<string, number>>();
@@ -190,10 +196,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function flush(force = false) {
+    void cutscenes.flush();
     void flushAsync(force);
   }
 
   async function drain() {
+    if (!await cutscenes.flush()) return false;
     for (let attempt = 0; attempt < 3 && pendingProgress; attempt += 1) {
       if (!await flushAsync(true)) return false;
     }
@@ -389,6 +397,13 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
 
   return {
     tables: {
+      upsertCutsceneHistory(row: { identity: Identity; seenMask: number; generation: number }) {
+        cutscenes.upsert(row.identity.toHexString(), row.seenMask, row.generation);
+        dependencies.notify();
+      },
+      removeCutsceneHistory(row: { identity: Identity }) {
+        if (row.identity.toHexString() === dependencies.localIdentity()) cutscenes.clear();
+      },
       upsertProgress,
       upsertResearch,
       removeResearch,
@@ -455,6 +470,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       },
     },
     api: {
+      hasSeenPortalCutscene: cutscenes.hasSeen,
+      markPortalCutsceneSeen: cutscenes.mark,
       setOnItemDrop(callback: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null) {
         itemDropListener = callback;
       },
@@ -615,11 +632,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           flush(true);
         }
       },
-      resetProgress() {
+      async resetProgress() {
         if (dependencies.reducers.protocolBlocked()) return;
         clearPending();
-        if (!dependencies.reducers.connection()) return;
-        dependencies.reducers.sendReducer("progress reset", (connection) => connection.reducers.resetPlayerProgress({}));
+        const identity = dependencies.localIdentity();
+        const result = await reducerResult("progress reset", (connection) => connection.reducers.resetPlayerProgress({}))();
+        if (result.ok && identity === dependencies.localIdentity()) cutscenes.reset();
       },
       beginAdventure() {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
@@ -642,6 +660,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       saveInFlightUntil = Number.POSITIVE_INFINITY;
     },
     beginSession(identityChanged: boolean) {
+      cutscenes.begin();
       pendingProgress = store.read(dependencies.localIdentity());
       saveInFlightUntil = 0;
       if (!identityChanged) return;
@@ -660,6 +679,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       lifetimeByIdentity.delete(identity);
     },
     clearSession() {
+      cutscenes.clear();
       gemBalance = 0n;
       dailyGemBonusClaimable = false;
       balanceApologyGiftAmount = 0n;

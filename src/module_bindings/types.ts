@@ -607,6 +607,9 @@ export type MotionFrameSchedule = __Infer<typeof MotionFrameSchedule>;
 export const MyBalanceApologyNotice = __t.object("MyBalanceApologyNotice", {});
 export type MyBalanceApologyNotice = __Infer<typeof MyBalanceApologyNotice>;
 
+export const MyCutsceneHistory = __t.object("MyCutsceneHistory", {});
+export type MyCutsceneHistory = __Infer<typeof MyCutsceneHistory>;
+
 export const MyDailyGemBonus = __t.object("MyDailyGemBonus", {});
 export type MyDailyGemBonus = __Infer<typeof MyDailyGemBonus>;
 
@@ -681,6 +684,13 @@ export const PlayerController = __t.object("PlayerController", {
   connectionId: __t.connectionId(),
 });
 export type PlayerController = __Infer<typeof PlayerController>;
+
+export const PlayerCutsceneHistory = __t.object("PlayerCutsceneHistory", {
+  identity: __t.identity(),
+  seenMask: __t.u32(),
+  generation: __t.u32(),
+});
+export type PlayerCutsceneHistory = __Infer<typeof PlayerCutsceneHistory>;
 
 export const PlayerDeathFrame = __t.object("PlayerDeathFrame", {
   mapId: __t.string(),

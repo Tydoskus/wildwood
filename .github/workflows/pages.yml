@@ -37,8 +37,7 @@ jobs:
           npm run typecheck:coop
           npm run test:unit
           npm run build:client
-          node --check dist/assets/wildstat/coop-client.js
-          node --check dist/assets/wildstat/game.js
+          node scripts/check-client-build.mjs
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

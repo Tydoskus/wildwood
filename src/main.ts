@@ -411,6 +411,7 @@ import {
   const renderInventory = inventoryController.render;
   let upgradeBenchController!: ReturnType<typeof createUpgradeBenchController>;
   const worldProgression = createWorldProgressionController({
+    hasSeenPortalCutscene: (cutscene) => coop?.hasSeenPortalCutscene?.(cutscene) ?? true,
     player,
     bootsPickup,
     movementSpeedForBoots: (bootsEquipped) => progress.movementSpeedForEquipment(bootsEquipped),
@@ -660,6 +661,7 @@ import {
 
   let playerController: PlayerController;
   const mapController = createMapController({
+    markPortalCutsceneSeen: (cutscene) => coop?.markPortalCutsceneSeen?.(cutscene),
     mapConfig: MAP_CONFIG,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
     desertMapId: BEGINNER_DESERT_MAP_ID,

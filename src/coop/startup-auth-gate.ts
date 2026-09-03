@@ -1,4 +1,6 @@
 import { createLegalGateController, legalGateElements, type LegalGateElements } from "../ui/legal-gate";
+import { enforceLatestVersion } from "../app/version";
+import { GAME_VERSION } from "../game/runtime/game-settings";
 import {
   createStartupStateMachine,
   type StartupAccountSnapshot,
@@ -276,7 +278,7 @@ export function requestDeferredGameAssets(documentValue = document) {
   }
 }
 
-export function loadDeferredGameBundle(documentValue = document) {
+export function loadDeferredGameBundle(documentValue = document, checkForUpdate = () => enforceLatestVersion(GAME_VERSION)) {
   requestDeferredGameAssets(documentValue);
   const existing = documentValue.getElementById("wildstatGameScript") as HTMLScriptElement | null;
   if (existing) return Promise.resolve();
@@ -289,7 +291,13 @@ export function loadDeferredGameBundle(documentValue = document) {
     script.src = source;
     script.async = false;
     script.addEventListener("load", () => resolve(), { once: true });
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${source}`)), { once: true });
+    script.addEventListener("error", () => {
+      script.remove();
+      // A tab left at sign-in across a deployment may reference a retired
+      // content hash. Only reload if the server confirms a newer release.
+      checkForUpdate();
+      reject(new Error(`Failed to load ${source}`));
+    }, { once: true });
     documentValue.body.append(script);
   });
 }

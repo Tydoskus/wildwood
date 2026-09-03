@@ -82,7 +82,8 @@ function setup() {
     removeEventListener: vi.fn(),
   });
   const savePlayerProgress = vi.fn(async () => undefined);
-  const connection = { reducers: { savePlayerProgress } };
+  const resetPlayerProgress = vi.fn(async () => undefined);
+  const connection = { reducers: { savePlayerProgress, resetPlayerProgress } };
   const reducers = {
     connection: () => connection,
     protocolBlocked: () => false,
@@ -106,11 +107,21 @@ function setup() {
     storage: new MemoryStorage(),
     pendingProgressKey: "pending-progress",
   });
-  return { notify, savePlayerProgress, service };
+  return { notify, savePlayerProgress, resetPlayerProgress, service };
 }
 
 describe("local progression profile snapshots", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each([true, false])("clears cutscene history only after an acknowledged character reset: success=%s", async (success) => {
+    const { resetPlayerProgress, service } = setup();
+    const cutscene = "wildwood-dragon-portal-cutscene-v2";
+    service.tables.upsertCutsceneHistory({ identity: { toHexString: () => identity }, seenMask: 1, generation: 0 } as never);
+    if (!success) resetPlayerProgress.mockRejectedValueOnce(new Error("offline"));
+    await service.api.resetProgress();
+    expect(service.api.hasSeenPortalCutscene(cutscene)).toBe(!success);
+    service.dispose();
+  });
 
   it("publishes attack speed and regeneration immediately and keeps them after save acknowledgement", async () => {
     const { notify, savePlayerProgress, service } = setup();

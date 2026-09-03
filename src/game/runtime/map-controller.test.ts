@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMapController, prepareMapTransition } from "./map-controller";
 import type { PlayerState } from "./types";
 
@@ -13,6 +13,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     throwClock: 0, hurtClock: 0, facing: 0, combatFacing: null, moving: false,
   };
   const changeMap = vi.fn(async () => true);
+  const markPortalCutsceneSeen = vi.fn();
   const controller = createMapController({
     mapConfig: {
       [tutorialMapId]: {
@@ -39,6 +40,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     infernalCutsceneSeenKey: "infernal",
     waterCutsceneSeenKey: "water",
     samuraiCutsceneSeenKey: "samurai",
+    markPortalCutsceneSeen,
     getCurrentMapId: () => currentMapId,
     setCurrentMapId: (mapId: typeof currentMapId) => { currentMapId = mapId; },
     player,
@@ -84,8 +86,22 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     clearPendingBossHits: vi.fn(),
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
-  return { changeMap, controller, currentMapId: () => currentMapId, desertMapId, player };
+  return { changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen };
 }
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("cutscene completion", () => {
+  it.each([false, true])("persists normal completion but not developer previews: preview=%s", (preview) => {
+    vi.stubGlobal("document", { body: { classList: { add: vi.fn(), remove: vi.fn() } } });
+    const { controller, markPortalCutsceneSeen } = portalArrivalHarness({ x: 300, y: 400 });
+    controller.startDragonPortalCutscene(preview);
+    expect(markPortalCutsceneSeen).not.toHaveBeenCalled();
+    controller.updatePortalCutscene(20);
+    if (preview) expect(markPortalCutsceneSeen).not.toHaveBeenCalled();
+    else expect(markPortalCutsceneSeen).toHaveBeenCalledExactlyOnceWith("dragon");
+  });
+});
 
 describe("portal arrival activation", () => {
   it("is active immediately after arriving outside the destination trigger", async () => {

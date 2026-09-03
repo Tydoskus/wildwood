@@ -296,8 +296,7 @@ async function main() {
     command("npm", ["run", "typecheck:coop"]);
     command("npm", ["run", "test:unit"]);
     command("npm", ["run", "build:client"]);
-    command("node", ["--check", "dist/assets/wildstat/coop-client.js"]);
-    command("node", ["--check", "dist/assets/wildstat/game.js"]);
+    command("node", ["scripts/check-client-build.mjs"]);
     command("git", ["diff", "--check"]);
     command("git", ["diff", "--cached", "--check"]);
 

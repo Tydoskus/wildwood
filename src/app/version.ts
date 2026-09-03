@@ -3,6 +3,15 @@ let reloadScheduled = false;
 
 type UpdateDetected = (latestVersion: string) => void;
 
+// The version query is only a one-time cache-busting navigation fallback for
+// hosts such as GitHub Pages. Once that build is running, keep the URL clean.
+export function clearLoadedVersionQuery(version: string) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has("code") || url.searchParams.has("error") || url.searchParams.get("v") !== version) return;
+  url.searchParams.delete("v");
+  window.history.replaceState(window.history.state, "", url.toString());
+}
+
 export function isNewerGameVersion(candidate: unknown, current: string) {
   if (typeof candidate !== "string" || !/^\d+(?:\.\d+)*$/.test(candidate) || !/^\d+(?:\.\d+)*$/.test(current)) return false;
   const candidateParts = candidate.split(".").map(Number);
@@ -17,10 +26,11 @@ export function isNewerGameVersion(candidate: unknown, current: string) {
 }
 
 export function enforceLatestVersion(version: string, onUpdateDetected?: UpdateDetected) {
+  clearLoadedVersionQuery(version);
   if (versionCheckInFlight || reloadScheduled) return;
   versionCheckInFlight = true;
   // This request must bypass HTTP cache so a freshly deployed version is
-  // detected, but it is intentionally infrequent (boot plus five-minute poll).
+  // detected, but it is intentionally infrequent (boot plus two-minute poll).
   fetch(`version.json?cache=${Date.now()}`, { cache: "no-store" })
     .then((response) => response.ok ? response.json() : null)
     .then((release) => {

@@ -18,9 +18,10 @@ export function createWorldProgressionController(hooks: {
   infernalCutsceneSeenKey: string;
   waterCutsceneSeenKey: string;
   samuraiCutsceneSeenKey: string;
+  hasSeenPortalCutscene: (cutscene: string) => boolean;
 }) {
   function hasSeen(key: string) {
-    try { return localStorage.getItem(key) === "true"; } catch { return false; }
+    return hooks.hasSeenPortalCutscene(key);
   }
 
   function updateBootPickup() {

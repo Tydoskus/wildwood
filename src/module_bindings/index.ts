@@ -60,12 +60,14 @@ import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_loa
 import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
 import DevCopyPlayerCombatStatsReducer from "./dev_copy_player_combat_stats_reducer";
 import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
+import DevDeleteLegacyPlayerReducer from "./dev_delete_legacy_player_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
 import DevResetDailyGemBonusReducer from "./dev_reset_daily_gem_bonus_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
+import MarkPortalCutsceneSeenReducer from "./mark_portal_cutscene_seen_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import RecordDesertEnemyDefeatReducer from "./record_desert_enemy_defeat_reducer";
 import RecordForestEnemyDefeatReducer from "./record_forest_enemy_defeat_reducer";
@@ -126,6 +128,7 @@ import MagmaliskResultRow from "./magmalisk_result_table";
 import MiremawBossRow from "./miremaw_boss_table";
 import MiremawResultRow from "./miremaw_result_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
+import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
@@ -673,6 +676,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyBalanceApologyNoticeRow),
+  myCutsceneHistory: __table({
+    name: 'my_cutscene_history',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyCutsceneHistoryRow),
   myDailyGemBonus: __table({
     name: 'my_daily_gem_bonus',
     indexes: [
@@ -731,12 +741,14 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),
   __reducerSchema("dev_copy_player_combat_stats", DevCopyPlayerCombatStatsReducer),
   __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
+  __reducerSchema("dev_delete_legacy_player", DevDeleteLegacyPlayerReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
   __reducerSchema("dev_reset_daily_gem_bonus", DevResetDailyGemBonusReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
+  __reducerSchema("mark_portal_cutscene_seen", MarkPortalCutsceneSeenReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("record_desert_enemy_defeat", RecordDesertEnemyDefeatReducer),
   __reducerSchema("record_forest_enemy_defeat", RecordForestEnemyDefeatReducer),

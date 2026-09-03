@@ -23,6 +23,8 @@ export type BaseSubscriptionHandlers = {
   removeUpgradeBench: RowHandler;
   inventoryCapacity: RowHandler;
   removeInventoryCapacity: RowHandler;
+  cutsceneHistory: RowHandler;
+  removeCutsceneHistory: RowHandler;
   accessAudit: RowHandler;
   removeAccessAudit: RowHandler;
   bugReport: RowHandler;
@@ -102,6 +104,8 @@ type BaseSubscriptionHandlerSources = {
     removeUpgradeBench: BaseSubscriptionHandlers["removeUpgradeBench"];
     upsertInventoryCapacity: BaseSubscriptionHandlers["inventoryCapacity"];
     removeInventoryCapacity: BaseSubscriptionHandlers["removeInventoryCapacity"];
+    upsertCutsceneHistory: BaseSubscriptionHandlers["cutsceneHistory"];
+    removeCutsceneHistory: BaseSubscriptionHandlers["removeCutsceneHistory"];
     upsertItemDrop: BaseSubscriptionHandlers["itemDrop"];
   };
   developer: {
@@ -157,6 +161,8 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     removeUpgradeBench: progression.removeUpgradeBench,
     inventoryCapacity: progression.upsertInventoryCapacity,
     removeInventoryCapacity: progression.removeInventoryCapacity,
+    cutsceneHistory: progression.upsertCutsceneHistory,
+    removeCutsceneHistory: progression.removeCutsceneHistory,
     accessAudit: developer.upsertAccessAudit,
     removeAccessAudit: developer.removeAccessAudit,
     bugReport: developer.upsertBugReport,
@@ -251,6 +257,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.myInventoryCapacity.onInsert((_ctx, row) => { if (shouldHandle()) handlers.inventoryCapacity(row); });
   connection.db.myInventoryCapacity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.inventoryCapacity(row); });
   connection.db.myInventoryCapacity.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeInventoryCapacity(row); });
+  connection.db.myCutsceneHistory.onInsert((_ctx, row) => { if (shouldHandle()) handlers.cutsceneHistory(row); });
+  connection.db.myCutsceneHistory.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.cutsceneHistory(row); });
+  connection.db.myCutsceneHistory.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeCutsceneHistory(row); });
   connection.db.devAccessAudit.onInsert((_ctx, row) => { if (shouldHandle()) handlers.accessAudit(row); });
   connection.db.devAccessAudit.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.accessAudit(row); });
   connection.db.devAccessAudit.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeAccessAudit(row); });
@@ -335,6 +344,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.myBalanceApologyNotice.iter()) handlers.balanceApologyNotice(row);
         for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
         for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
+        for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
         for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
         for (const row of connection.db.devBugReports.iter()) handlers.bugReport(row);
         for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
@@ -386,6 +396,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.myBalanceApologyNotice,
       tables.myUpgradeBench,
       tables.myInventoryCapacity,
+      tables.myCutsceneHistory,
       ...(dependencies.includeDeveloperTables ? [tables.devAccessAudit, tables.devBugReports] : []),
       tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
       tables.worldStatus,

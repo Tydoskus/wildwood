@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.609": [
+    "Portal cutscene history now follows your character across devices, with existing unlocked scenes remembered automatically.",
+    "Unchanged startup artwork and assets stay cached across releases using content-based filenames.",
+    "Update links clean themselves after loading, with recovery for sign-in tabs left open during releases.",
+  ],
   "0.608": [
     "Removed black toolbar borders for a cleaner look.",
     "Repeated stat rewards now update their existing total without replaying the entrance animation.",
@@ -1422,6 +1427,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.609": "2026-09-03",
   "0.608": "2026-09-03",
   "0.607": "2026-09-03",
   "0.606": "2026-09-03",

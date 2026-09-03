@@ -53,6 +53,8 @@ type ExpectedApiKey =
   | "hasRemotePlayerInArea"
   | "host"
   | "inventorySlotsUnlocked"
+  | "hasSeenPortalCutscene"
+  | "markPortalCutsceneSeen"
   | "isConnected"
   | "isDeveloper"
   | "isDisplayNameTaken"

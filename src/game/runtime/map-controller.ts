@@ -62,6 +62,7 @@ export function createMapController(options: {
   infernalCutsceneSeenKey: string;
   waterCutsceneSeenKey: string;
   samuraiCutsceneSeenKey: string;
+  markPortalCutsceneSeen: (cutscene: string) => void;
   getCurrentMapId: () => MapId;
   setCurrentMapId: (mapId: MapId) => void;
   player: PlayerState;
@@ -306,7 +307,7 @@ export function createMapController(options: {
     resizeViewport();
     const wasPreview = portalCutscenePreview;
     portalCutscenePreview = false;
-    if (!wasPreview) { try { localStorage.setItem(portalCutsceneSeenKey, "true"); } catch {} }
+    if (!wasPreview) options.markPortalCutsceneSeen(portalCutsceneSeenKey);
     onCutsceneFinished(wasPreview);
     return false;
   }

@@ -26,10 +26,26 @@ WildStat is mobile-first. Touch interaction, narrow portrait layouts, safe areas
 | Static site files | `public/index.html`, `public/assets/wildstat/game.css` | Static shell, overlays, controls, and visual styling. |
 | Art source files | `art-source/` | Original and unused vendor art. Never deployed. |
 | Local test data | `local-data/` | Ignored profiling exports and machine-specific captures. Only its README is tracked. |
-| Browser build output | `dist/assets/wildstat/game.js`, `dist/assets/wildstat/coop-client.js` | Generated during builds and deployments. Do not edit or commit. |
+| Browser build output | `dist/asset-manifest.json`, `dist/assets/wildstat/game.<hash>.js`, `dist/assets/wildstat/coop-client.<hash>.js` | Generated during builds and deployments. Do not edit or commit. |
 | Generated server bindings | `src/module_bindings/` | TypeScript bindings from the deployed SpacetimeDB schema. Do not edit by hand. |
 
 GitHub Pages builds the client and deploys only `dist/` after every push to `main`. Source files and repository documentation never ship as site files.
+
+### Asset caching and updates
+
+`npm run build:client` fingerprints the shell's scripts, stylesheet, images, fonts, and web manifest after bundling. Filenames use a SHA-256 content digest, not the release number. CSS and manifest dependencies are fingerprinted first, so changing an icon or font also updates its parent's hash. Unchanged sign-in artwork and logos keep their URLs across releases. `asset-manifest.json` maps source names to deployed names; `check-client-build.mjs` validates the digests and executable entries.
+
+The generated Cloudflare `_headers` revalidates HTML, disables storage of `version.json`, and caches only fingerprinted assets as immutable for one year. GitHub Pages still uses its platform cache headers, but receives the same hashed URLs. Runtime-created media paths retain their original names and normal host caching; do not apply immutable caching to those paths. Original shell filenames remain as compatibility aliases for older pages. JavaScript source maps are fingerprinted too, without changing executable code or source positions.
+
+Update detection remains a server-side `version.json` check at startup and every two minutes. A newer release triggers the existing update handoff. A temporary `?v=` navigation is retained to bypass stale HTML on GitHub Pages; it is removed from the address bar after the matching build loads, without touching OAuth callback parameters. This is separate from asset caching. No service worker or SpacetimeDB schema change is required.
+
+### Character cutscene history
+
+Portal scenes render locally, but completion lives in the private `player_cutscene_history` table, exposed only through the caller-scoped `my_cutscene_history` view. The completion reducer accepts only known scenes for unlocked portals and always writes to `ctx.sender`. On first world entry without a history row, already-unlocked destinations are migrated to seen. New characters start empty; later unlocks do not automatically mark their new scenes as watched. Developer previews never record completion.
+
+Guest linking transfers the history with the character. Progress reset clears it and advances a generation so queued saves from before the reset cannot restore old flags. Failed completion writes are retried from an identity-scoped browser queue; the old unscoped browser-only flags are ignored. Signing into the same character on another device loads its server history.
+
+Deployment order: build and publish the additive server table/view/reducer without deleting data, then regenerate bindings and release the matching client. Existing table layouts and reducer signatures are unchanged, so older clients can remain connected during the server-first rollout. The new client requires the new view and must not be deployed first. The client-only `release:live` command intentionally rejects this server/shared change; use the server release checklist.
 
 See [engineering notes](ENGINEERING.md) for module boundaries and backlog. See `docs/mobile-first.md` for product and QA constraints, `docs/mobile-performance.md` for measured rendering risks and optimization follow-ups, `docs/equipment.md` for item extension boundaries, `docs/realtime-data-flow.md` for movement, minimap, save, reconnect, and research flow diagrams, `docs/bandwidth-isolation.md` for the nearest-five budget and load profiles, and `docs/native-rewarded-ads.md` for browser and native rewarded-ad flow.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createStartupAuthGate, requestDeferredGameAssets, type StartupAuthElements } from "./startup-auth-gate";
+import { createStartupAuthGate, loadDeferredGameBundle, requestDeferredGameAssets, type StartupAuthElements } from "./startup-auth-gate";
 
 class FakeElement {
   hidden = false;
@@ -368,6 +368,27 @@ describe("startup auth gate", () => {
 });
 
 describe("deferred game assets", () => {
+  it("checks the deployed version when an old hashed game bundle fails", async () => {
+    const listeners = new Map<string, () => void>();
+    const script = {
+      id: "", src: "", async: true, remove: vi.fn(),
+      addEventListener: (event: string, listener: () => void) => listeners.set(event, listener),
+    };
+    const checkForUpdate = vi.fn();
+    const doc = {
+      body: { classList: { add: vi.fn() }, append: vi.fn() },
+      querySelectorAll: () => [],
+      getElementById: (id: string) => id === "wildstatCoopScript" ? { dataset: { gameSrc: "assets/wildstat/game.oldhash.js" } } : null,
+      createElement: () => script,
+    } as unknown as Document;
+    const loading = loadDeferredGameBundle(doc, checkForUpdate);
+    const failed = expect(loading).rejects.toThrow("Failed to load assets/wildstat/game.oldhash.js");
+    listeners.get("error")!();
+    await failed;
+    expect(script.remove).toHaveBeenCalledOnce();
+    expect(checkForUpdate).toHaveBeenCalledOnce();
+  });
+
   it("requests game-only images when the loading screen hands off to game.js", () => {
     const addClass = vi.fn();
     const image = { dataset: { gameSrc: "assets/wildstat/gender/male-v2.png" }, src: "" };
