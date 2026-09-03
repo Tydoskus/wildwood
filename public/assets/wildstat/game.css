@@ -855,49 +855,85 @@
     top: calc(var(--hud-safe-top) + var(--hud-map-size) + 27px);
     right: calc(var(--hud-safe-right) + 4px);
     z-index: 4;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: calc(var(--hud-map-size) - 8px);
-    min-height: 42px;
+    display: grid;
+    width: 42px;
+    height: 34px;
+    min-height: 0;
+    place-items: center;
     margin: 0;
-    padding: 3px 1px;
+    padding: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    color: #ffe36b;
-    font: 900 10px/1 var(--font-rounded);
-    letter-spacing: .045em;
-    filter: drop-shadow(0 0 3px rgba(255, 219, 73, .95)) drop-shadow(0 0 8px rgba(255, 153, 33, .72));
-    animation: respawn-ad-glow 1.55s ease-in-out infinite;
-    isolation: isolate;
+    color: #fff;
   }
 
   .respawn-ad-button[hidden] { display: none; }
-  .respawn-ad-button:active { transform: translateY(1px) scale(.98); }
+  .respawn-ad-button:active .respawn-ad-video-icon { transform: translateY(1px) scale(.96); }
   .respawn-ad-button:disabled { cursor: default; }
+  .respawn-ad-button:focus-visible { outline: 0; }
+  .respawn-ad-button:hover:not(:disabled) .respawn-ad-video-icon,
+  .respawn-ad-button:focus-visible .respawn-ad-video-icon { filter: brightness(1.13); transform: scale(1.06); }
   .respawn-ad-button[data-state="checking"],
   .respawn-ad-button[data-state="waiting"],
-  .respawn-ad-button[data-state="showing"] { opacity: .68; animation: none; }
+  .respawn-ad-button[data-state="showing"] { opacity: .58; }
 
-  .respawn-ad-play {
-    display: grid;
-    place-items: center;
-    width: 25px;
-    height: 25px;
-    padding-left: 2px;
+  .respawn-ad-video-icon,
+  .respawn-ad-prompt-video {
+    position: relative;
+    display: block;
+    width: 24px;
+    height: 17px;
     border: 2px solid currentColor;
-    border-radius: 50%;
-    font: 900 10px/1 Arial, sans-serif;
+    border-radius: 4px;
+    color: #fff;
     -webkit-text-stroke: 0;
-    text-shadow: 0 0 5px currentColor;
+    text-shadow: none;
   }
 
-  .respawn-ad-copy { display: grid; justify-items: start; gap: 3px; white-space: nowrap; }
-  .respawn-ad-copy strong { font-size: 10px; line-height: 1; }
-  .respawn-ad-copy > span { color: #fff; font-size: 7px; line-height: 1; letter-spacing: .09em; }
+  .respawn-ad-video-icon {
+    width: 28px;
+    height: 20px;
+    border-color: #fff0ad;
+    border-radius: 5px;
+    background: transparent;
+    box-shadow: 0 0 5px rgba(255,206,67,.42), 0 2px 0 rgba(0,0,0,.48);
+    transition: filter 120ms ease, transform 120ms ease;
+    animation: respawn-reward-glow 2.8s ease-in-out infinite;
+  }
+
+  .respawn-ad-video-icon::before {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    z-index: 1;
+    width: 10px;
+    height: 10px;
+    background: #ffe66d;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    content: "";
+    filter: drop-shadow(0 0 3px rgba(255,225,91,.8));
+  }
+
+  @keyframes respawn-reward-glow {
+    0%, 100% { box-shadow: 0 0 4px rgba(255,206,67,.35), 0 2px 0 rgba(0,0,0,.48); }
+    50% { box-shadow: 0 0 8px rgba(255,215,79,.58), 0 2px 0 rgba(0,0,0,.48); }
+  }
+
+  .respawn-ad-video-icon::after,
+  .respawn-ad-prompt-video::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 6px solid currentColor;
+    content: "";
+    transform: translate(-35%, -50%);
+  }
 
   .respawn-boost-status {
     position: absolute;
@@ -916,10 +952,43 @@
   .respawn-boost-status[hidden] { display: none; }
   .respawn-boost-status span { font-variant-numeric: tabular-nums; }
 
-  @keyframes respawn-ad-glow {
-    0%, 100% { filter: drop-shadow(0 0 2px rgba(255, 219, 73, .72)) drop-shadow(0 0 6px rgba(255, 153, 33, .52)); transform: scale(.98); }
-    50% { filter: drop-shadow(0 0 5px rgba(255, 239, 128, 1)) drop-shadow(0 0 12px rgba(255, 153, 33, .9)); transform: scale(1.025); }
+  .respawn-ad-prompt {
+    position: fixed;
+    inset: 0 0 var(--toolbar-height);
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 18px max(18px, env(safe-area-inset-left));
+    background: rgba(4,8,5,.66);
+    pointer-events: auto;
   }
+
+  .respawn-ad-prompt[hidden] { display: none; }
+
+  .respawn-ad-prompt-card {
+    display: grid;
+    width: min(330px, 100%);
+    justify-items: center;
+    gap: 12px;
+    padding: 22px;
+    border: 2px solid rgba(255,255,255,.26);
+    border-radius: 12px;
+    background: rgba(17,27,21,.96);
+    box-shadow: 0 10px 26px rgba(0,0,0,.48);
+    color: #fff;
+    text-align: center;
+  }
+
+  .respawn-ad-prompt-video { width: 48px; height: 34px; border-width: 3px; border-radius: 7px; color: #72ef58; }
+  .respawn-ad-prompt-video::after { border-top-width: 7px; border-bottom-width: 7px; border-left-width: 10px; }
+  .respawn-ad-prompt-card h2 { margin: 0; color: #fff; font-size: 22px; line-height: 1.05; }
+  .respawn-ad-prompt-card p { margin: 0; color: rgba(255,255,255,.82); font-size: 13px; line-height: 1.4; -webkit-text-stroke: 0; text-shadow: none; }
+  .respawn-ad-prompt-actions { display: grid; width: min(240px, 100%); gap: 9px; margin-top: 4px; }
+  .respawn-ad-prompt-actions button { width: 100%; min-height: 46px; margin: 0; padding: 9px 15px; border-width: 2px; border-radius: 8px; font-size: 15px; line-height: 1; }
+  .respawn-ad-prompt-confirm { border-color: #102d14; background: linear-gradient(#72ef58, #31bd34); box-shadow: 0 3px 0 #163c1b; }
+  .respawn-ad-prompt-cancel { border-color: rgba(255,255,255,.22); background: #29352e; box-shadow: none; color: rgba(255,255,255,.88); }
+  .respawn-ad-prompt-actions button:focus-visible { border-color: #fff; outline: 2px solid rgba(114,239,88,.62); outline-offset: 2px; }
+  .respawn-ad-prompt-actions button:active { transform: translateY(1px); }
 
   #duelControls {
     position: absolute;
@@ -1729,7 +1798,7 @@
   .browser-rewarded-ad-timer { min-width: 4ch; font: 900 clamp(38px, 12vw, 76px)/1 var(--font-rounded); font-variant-numeric: tabular-nums; text-align: center; }
 
   @media (prefers-reduced-motion: reduce) {
-    .respawn-ad-button,
+    .respawn-ad-video-icon,
     #accountChoicePanel .wildstat-wordmark-title,
     .daily-gem-bonus-card,
     .daily-gem-bonus-art::before,
@@ -3024,9 +3093,6 @@
   #sfxVolumeValue,
   .account-button,
   .account-status,
-  .respawn-ad-button,
-  .respawn-ad-copy strong,
-  .respawn-ad-copy > span,
   .respawn-boost-status,
   #duelStatus,
   .item-drop-stats,

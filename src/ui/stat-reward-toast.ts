@@ -1,10 +1,14 @@
+import { formatCompactNumber } from "./number-format";
+
 type StatRewardPresentation = {
   icon: string;
   label: string;
 };
 
 export type StatRewardToastModel = StatRewardPresentation & {
+  stat: string;
   amount: string;
+  value: number;
 };
 
 const STAT_REWARD_PRESENTATION: Readonly<Record<string, StatRewardPresentation>> = {
@@ -15,12 +19,46 @@ const STAT_REWARD_PRESENTATION: Readonly<Record<string, StatRewardPresentation>>
   "HP/SEC": { icon: "✚", label: "Regeneration" },
 };
 
+const COMPACT_MULTIPLIERS: Readonly<Record<string, number>> = {
+  "": 1,
+  k: 1e3,
+  m: 1e6,
+  b: 1e9,
+  t: 1e12,
+  qd: 1e15,
+  qn: 1e18,
+  sx: 1e21,
+  sp: 1e24,
+  oc: 1e27,
+  no: 1e30,
+  dc: 1e33,
+  ud: 1e36,
+};
+
+function statRewardValue(amount: string) {
+  const match = /^\+([0-9]+(?:\.[0-9]+)?)([a-z]*)$/i.exec(amount);
+  if (!match) return null;
+  const multiplier = COMPACT_MULTIPLIERS[match[2].toLowerCase()];
+  if (multiplier === undefined) return null;
+  const value = Number(match[1]) * multiplier;
+  return Number.isFinite(value) ? value : null;
+}
+
+export function formatStatRewardToastAmount(stat: string, value: number) {
+  if (stat === "ATK/SEC" || (Math.abs(value) < 1_000 && !Number.isInteger(value))) {
+    return `+${value.toFixed(2)}`;
+  }
+  return `+${formatCompactNumber(value)}`;
+}
+
 export function statRewardToastModel(text: string): StatRewardToastModel | null {
   const match = /^(\+\S+)\s+(.+)$/.exec(text.trim());
   if (!match) return null;
-  const presentation = STAT_REWARD_PRESENTATION[match[2]];
-  if (!presentation) return null;
-  return { amount: match[1], ...presentation };
+  const stat = match[2];
+  const presentation = STAT_REWARD_PRESENTATION[stat];
+  const value = statRewardValue(match[1]);
+  if (!presentation || value === null) return null;
+  return { stat, amount: match[1], value, ...presentation };
 }
 
 export function createStatRewardToast(text: string, color: string) {

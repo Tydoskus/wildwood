@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.606";
+export const GAME_VERSION = "0.607";
 // Persisted keys stay stable so returning players keep their settings and rewards.
 export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
@@ -15,7 +15,6 @@ export const LAVA_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-lava-portal-cutscene-v1";
 export const INFERNAL_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-infernal-portal-cutscene-v1";
 export const WATER_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-water-portal-cutscene-v1";
 export const SAMURAI_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-samurai-portal-cutscene-v1";
-export const WORLD_HEALTH_BAR_SCALE = 1.05;
 // Pixel-aligned height keeps floating HP text centered and crisp.
-export const WORLD_HEALTH_BAR_HEIGHT = Math.round(15 * WORLD_HEALTH_BAR_SCALE);
+export const WORLD_HEALTH_BAR_HEIGHT = 13;
 export const ENEMY_TEXT_CULL_MIN_DISTANCE = 600;

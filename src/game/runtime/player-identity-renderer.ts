@@ -266,10 +266,10 @@ export function createPlayerIdentityRenderer(options: {
     const ctx = options.ctx;
     drawScreenSpaceAt(ctx, options.camera.zoom, x, y, () => {
       const centerX = 0;
-      const barW = 94 * 1.05;
+      const barW = 80;
       const barH = options.healthBarHeight;
       const barX = centerX - Math.floor(barW / 2);
-      const barY = -62;
+      const barY = -50;
       const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
       ctx.fillStyle = "rgba(0,0,0,.88)";
       ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
@@ -282,7 +282,7 @@ export function createPlayerIdentityRenderer(options: {
         ctx.fillRect(barX, barY, fillWidth, 1);
       }
       ctx.save();
-      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       options.outlinedText(`${formatCompactNumber(Math.max(0, Math.ceil(hp)))} / ${formatCompactNumber(Math.ceil(maxHp))}`, centerX, healthBarTextY(barY, barH), "#ffffff", 2);
@@ -306,7 +306,7 @@ export function createPlayerIdentityRenderer(options: {
     const displayName = guest ? name.replace(/\s*\(guest\)$/i, "") : name;
     const powerValue = power === null ? "" : formatCompactNumber(power);
     ctx.save();
-    ctx.font = '900 14px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
     const nameWidth = ctx.measureText(displayName).width;
     const gender = explicitGender ?? options.playerGender(identity);
@@ -349,6 +349,7 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText("(guest)", centerX, nameBottom - 16, "#a9b1ad", 3);
     }
     if (powerValue) {
+      ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       const hasPowerIcon = options.powerIcon.complete && options.powerIcon.naturalWidth > 0;
       const iconSize = hasPowerIcon ? 16 : 0;
       const iconGap = hasPowerIcon ? 3 : 0;

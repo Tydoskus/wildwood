@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.607": [
+    "Preloaded directly connected maps during idle high-performance moments to reduce portal transition waits.",
+    "Combined repeated enemy stat rewards into one updating notification and hid item reveals for already-owned drops.",
+    "Kept camera map coverage stable across wide screens, with the square view as the maximum zoom-in.",
+    "Refined floating player and regular-enemy health bars, labels, power text, and player spacing for cleaner readability.",
+    "Reworked the 2x respawn reward into a compact gold video control with a confirmation prompt.",
+  ],
   "0.606": [
     "Made portals activate immediately after map arrival while preserving safe re-entry when a spawn overlaps a portal.",
     "Reduced the top-left player HUD by 20% and thickened the minimap frame.",
@@ -1410,6 +1417,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.607": "2026-09-03",
   "0.606": "2026-09-03",
   "0.605": "2026-09-03",
   "0.604": "2026-09-03",

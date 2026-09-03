@@ -16,6 +16,7 @@ import { createEnemySimulation, LOCAL_REGULAR_ENEMY_TARGET_ID } from "./game/run
 import { createCoopSessionController } from "./game/runtime/coop-session-controller";
 import { createProgressController } from "./game/runtime/progress-controller";
 import { createGameSessionController } from "./game/runtime/game-session-controller";
+import { backgroundMapPreloadAvailability, createAdjacentMapAssetPreloader } from "./game/runtime/map-asset-preloader";
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
 import { createPresentationInterpolator } from "./game/runtime/presentation-interpolator";
 import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from "./game/runtime/game-bootstrap";
@@ -95,7 +96,7 @@ import {
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
     canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, hudGemWallet, hudGemBalance, dailyGemBonusEl, dailyGemClaimBtn, balanceApologyGiftEl, balanceApologyGiftTitle, balanceApologyContinueBtn,
-    minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
+    minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, enemyRespawnAdPrompt, enemyRespawnAdConfirm, enemyRespawnAdCancel, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
     dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -199,10 +200,13 @@ import {
   const { spawnFromSite, engageEnemy, updateRespawns } = enemyLifecycle;
   let currentMapId: MapId = TUTORIAL_FOREST_MAP_ID;
   let prepareMapAssets: (mapId: MapId) => Promise<void> = () => Promise.resolve();
+  let preloadAdjacentMapAssets: (mapId: MapId) => void = () => {};
+  let cancelAdjacentMapAssetPreload = () => {};
 
   function setCurrentMap(mapId: MapId) {
     currentMapId = mapId;
     void prepareMapAssets(mapId);
+    preloadAdjacentMapAssets(mapId);
   }
 
   function mapNameForPresence(mapId: string | undefined) {
@@ -860,6 +864,31 @@ import {
       throw error;
     });
   };
+  const adjacentMapAssetPreloader = createAdjacentMapAssetPreloader({
+    mapConfig: MAP_CONFIG,
+    mapAssetsReady: assets.mapAssetsReady,
+    prepareMapAssets: (mapId) => prepareMapAssets(mapId),
+    availability: () => {
+      const connection = (navigator as Navigator & {
+        connection?: { saveData?: boolean; effectiveType?: string };
+      }).connection;
+      const performance = performanceMonitor.snapshot();
+      return backgroundMapPreloadAvailability({
+        running: Boolean(session?.isRunning()),
+        lowPerformanceMode: appShell.lowPerformanceMode(),
+        documentHidden: document.hidden,
+        gameplayBusy: mapController.isMapTransitioning()
+          || mapController.isCutsceneActive()
+          || isDueling()
+          || gameplayPauseReasons.has("rewarded-ad"),
+        workFps: performance.workFps,
+        saveData: Boolean(connection?.saveData),
+        effectiveConnectionType: connection?.effectiveType,
+      });
+    },
+  });
+  preloadAdjacentMapAssets = adjacentMapAssetPreloader.queueFrom;
+  cancelAdjacentMapAssetPreload = adjacentMapAssetPreloader.cancel;
   const ENEMY_SPRITES = bootstrapAssets.enemySprites;
   actorShadowSprite = bootstrapAssets.actorShadowSprite;
   let cachedMinimapBounds: { left: number; top: number; width: number; height: number } | null = null;
@@ -1375,6 +1404,9 @@ import {
     status: enemyRespawnAdStatus,
     activeStatus: enemyRespawnBoostStatus,
     activeTimer: enemyRespawnBoostTimer,
+    prompt: enemyRespawnAdPrompt,
+    confirmButton: enemyRespawnAdConfirm,
+    cancelButton: enemyRespawnAdCancel,
     browserAd: browserRewardedAd,
     browserAdTimer: browserRewardedAdTimer,
   }, {
@@ -1383,6 +1415,7 @@ import {
     isBoostActive: regularEnemyRespawnBoost.isActive,
     boostRemainingMs: regularEnemyRespawnBoost.remainingMs,
     onBoostExpired: clearExpiredRespawnBoost,
+    setPromptActive: (active) => setGameplayPause("rewarded-ad-prompt", active),
     setAdPlaybackActive: (active) => {
       setGameplayPause("rewarded-ad", active);
       if (active) mapMusic.pause();
@@ -1584,9 +1617,11 @@ import {
     if (shouldWarmStaticWorld) {
       scheduleBackgroundTask(() => { void worldRenderRuntime.warmStaticWorld().catch(() => {}); });
     }
+    preloadAdjacentMapAssets(currentMapId);
   }
 
   function endGame() {
+    cancelAdjacentMapAssetPreload();
     screenShake = 0;
     flash = 0;
     session.end();
@@ -1668,7 +1703,7 @@ import {
     resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
     stopGame: session.stop, restartStartup: () => { startupCoordinator.restart(); }, hideGameOver: deathScreen.hide,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
-    leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController, mapGuide,
+    leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController, mapGuide, rewardedRespawnAd,
   }).handleInputEscape;
 
   const coopSession = createCoopSessionController({
@@ -1724,10 +1759,9 @@ import {
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
   coop?.setOnItemDrop?.(({ itemId, alreadyOwned }) => {
-    if (!alreadyOwned) {
-      if (!setInventoryItemQuantity(inventory, itemId, 1)) return;
-      renderInventory();
-    }
+    if (alreadyOwned) return;
+    if (!setInventoryItemQuantity(inventory, itemId, 1)) return;
+    renderInventory();
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
     const pickupColor = itemId === DARK_METAL_HELMET
       ? "#8f83a6"
@@ -1745,7 +1779,7 @@ import {
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
       color: pickupColor,
       name: itemDisplayName(itemId, level),
-      stats: alreadyOwned ? ["ALREADY OWNED"] : itemStats(itemId, level),
+      stats: itemStats(itemId, level),
     });
   });
   coop?.setOnItemUpgrade?.(({ itemId, level }) => {

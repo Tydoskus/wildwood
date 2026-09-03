@@ -13,22 +13,22 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="WildStat" />
 <meta property="og:description" content="Fight monsters, collect gear, and explore new worlds in a multiplayer browser RPG." />
-<meta property="og:image" content="https://tydoskus.github.io/wildwood/assets/wildstat/wildstat-wordmark.webp?v=0.606" />
+<meta property="og:image" content="https://tydoskus.github.io/wildwood/assets/wildstat/wildstat-wordmark.webp?v=0.607" />
 <meta property="og:image:alt" content="WildStat" />
 <meta name="twitter:card" content="summary_large_image" />
-<link rel="icon" href="wildstat-favicon.ico?v=0.606" sizes="any" />
-<link rel="icon" href="assets/wildstat/wildstat-favicon-32.png?v=0.606" type="image/png" sizes="32x32" />
-<link rel="apple-touch-icon" href="assets/wildstat/wildstat-apple-touch-icon.png?v=0.606" sizes="180x180" />
-<link rel="manifest" href="manifest.webmanifest?v=0.606" />
-<script src="assets/wildstat/signin-auth-detect.js?v=0.606"></script>
-<meta data-signin-artwork content="assets/wildstat/signin/signin-progression-mobile-4k-v3.webp?v=0.606" />
-<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.webp?v=0.606" type="image/webp" fetchpriority="high" />
+<link rel="icon" href="wildstat-favicon.ico?v=0.607" sizes="any" />
+<link rel="icon" href="assets/wildstat/wildstat-favicon-32.png?v=0.607" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="assets/wildstat/wildstat-apple-touch-icon.png?v=0.607" sizes="180x180" />
+<link rel="manifest" href="manifest.webmanifest?v=0.607" />
+<script src="assets/wildstat/signin-auth-detect.js?v=0.607"></script>
+<meta data-signin-artwork content="assets/wildstat/signin/signin-progression-mobile-4k-v3.webp?v=0.607" />
+<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.webp?v=0.607" type="image/webp" fetchpriority="high" />
 <style>
-  :root { --signin-artwork: url("signin/signin-progression-mobile-4k-v3.webp?v=0.606"); }
+  :root { --signin-artwork: url("signin/signin-progression-mobile-4k-v3.webp?v=0.607"); }
   html, body { min-height: 100vh; min-height: 100dvh; background: #000; }
   #start, #gameUpdateGate { position: fixed; top: -2px; right: 0; bottom: auto; left: 0; width: 100vw; height: calc(100vh + 30px); height: calc(100dvh + 30px); background: #000; }
 </style>
-<link rel="stylesheet" href="assets/wildstat/game.css?v=0.606" />
+<link rel="stylesheet" href="assets/wildstat/game.css?v=0.607" />
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -200,22 +200,30 @@
   </button>
   <div class="minimap-meta">
     <div id="minimapPlayers" class="minimap-players">players online: 0</div>
-    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.606">v0.606</div>
+    <div id="minimapVersion" class="minimap-version" aria-label="Game version v0.607">v0.607</div>
   </div>
-  <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Watch an ad for 15-second regular enemy respawns" hidden>
-    <span class="respawn-ad-play" aria-hidden="true">▶</span>
-    <span class="respawn-ad-copy">
-      <strong>2× RESPAWN</strong>
-      <span id="enemyRespawnAdStatus">WATCH AD</span>
-    </span>
+  <button id="enemyRespawnAdBtn" class="respawn-ad-button" type="button" aria-label="Open video reward for 2× enemy respawn speed" aria-controls="enemyRespawnAdPrompt" aria-expanded="false" aria-haspopup="dialog" hidden>
+    <span class="respawn-ad-video-icon" aria-hidden="true"></span>
+    <span id="enemyRespawnAdStatus" class="visually-hidden">WATCH AD</span>
   </button>
   <div id="enemyRespawnBoostStatus" class="respawn-boost-status" role="timer" hidden>2x respawn: <span id="enemyRespawnBoostTimer">30:00</span>m</div>
+  <div id="enemyRespawnAdPrompt" class="respawn-ad-prompt" role="dialog" aria-modal="true" aria-labelledby="enemyRespawnAdPromptTitle" aria-describedby="enemyRespawnAdPromptCopy" hidden>
+    <div class="respawn-ad-prompt-card">
+      <span class="respawn-ad-prompt-video" aria-hidden="true"></span>
+      <h2 id="enemyRespawnAdPromptTitle">2× Enemy Respawn Speed</h2>
+      <p id="enemyRespawnAdPromptCopy">Watch a short ad to make regular enemies respawn twice as fast for 30 minutes.</p>
+      <div class="respawn-ad-prompt-actions">
+        <button id="enemyRespawnAdConfirm" class="respawn-ad-prompt-confirm" type="button">Watch Ad</button>
+        <button id="enemyRespawnAdCancel" class="respawn-ad-prompt-cancel" type="button">Not Now</button>
+      </div>
+    </div>
+  </div>
   <div id="chatPanel" class="card">
     <div class="chat-header">
       <span>WORLD CHAT</span>
       <div id="topMeta">
         <div id="coopStatus">Players online: 1</div>
-        <div id="version">v0.606</div>
+        <div id="version">v0.607</div>
       </div>
       <button id="chatSizeToggle" class="chat-size-toggle" type="button" aria-label="Expand chat" aria-expanded="false"><span class="chat-size-icon" aria-hidden="true"></span></button>
     </div>
@@ -250,7 +258,7 @@
   <div id="connectionPanel" class="modal connection-modal" role="status" aria-live="polite" hidden>
     <h1 class="wildstat-wordmark-title" aria-label="WildStat">
       <span class="wildstat-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.606" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.607" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <p>CONNECTING TO WILDSTAT</p>
@@ -263,7 +271,7 @@
   <div id="accountChoicePanel" class="modal account-choice-modal" role="dialog" aria-modal="true" aria-labelledby="accountChoiceTitle">
     <h1 id="accountChoiceTitle" class="wildstat-wordmark-title" aria-label="WildStat">
       <span class="wildstat-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.606" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.607" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <p class="account-beta-note">This game is in beta, report bugs with /bug</p>
@@ -279,11 +287,11 @@
     <header><strong id="updateNoticeTitle">RELEASE NOTES</strong></header>
     <ul id="updateNoticeItems" class="signin-update-history"></ul>
   </aside>
-  <button id="signinVersion" class="signin-version" type="button" aria-expanded="false" aria-controls="updateNotice" aria-label="WildStat version v0.606. Toggle release notes">v0.606</button>
+  <button id="signinVersion" class="signin-version" type="button" aria-expanded="false" aria-controls="updateNotice" aria-label="WildStat version v0.607. Toggle release notes">v0.607</button>
   <div id="legalGatePanel" class="modal legal-gate-modal" role="dialog" aria-modal="true" aria-labelledby="legalGateTitle" aria-describedby="legalGateIntro" hidden>
     <h1 class="wildstat-wordmark-title legal-wordmark-title" aria-label="WildStat">
       <span class="wildstat-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.606" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.607" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <h2 id="legalGateTitle">Before You Play</h2>
@@ -304,7 +312,7 @@
     <h1 class="wildstat-wordmark-title welcome-wordmark-title" aria-label="Welcome to WildStat">
       <span class="welcome-wordmark-prefix" aria-hidden="true">WELCOME TO</span>
       <span class="wildstat-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.606" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.607" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <label class="onboarding-name-label" for="newPlayerNameInput">PLAYER NAME</label>
@@ -319,7 +327,7 @@
   <div class="modal game-update-modal" role="status" aria-live="assertive">
     <h1 class="wildstat-wordmark-title" aria-label="WildStat">
       <span class="wildstat-wordmark-frame" aria-hidden="true">
-        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.606" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
+        <img src="assets/wildstat/wildstat-wordmark.webp?v=0.607" width="2046" height="682" alt="" fetchpriority="high" decoding="sync" />
       </span>
     </h1>
     <h2 class="window-title">Game Updating</h2>
@@ -329,7 +337,7 @@
   </div>
 </div>
 
-<script src="assets/wildstat/signin-auth-shell.js?v=0.606"></script>
-<script id="wildstatCoopScript" src="assets/wildstat/coop-client.js?v=0.606" data-game-src="assets/wildstat/game.js?v=0.606"></script>
+<script src="assets/wildstat/signin-auth-shell.js?v=0.607"></script>
+<script id="wildstatCoopScript" src="assets/wildstat/coop-client.js?v=0.607" data-game-src="assets/wildstat/game.js?v=0.607"></script>
 </body>
 </html>

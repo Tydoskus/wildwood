@@ -36,27 +36,45 @@ describe("runtime camera", () => {
     expect(zoom / legacyReferenceZoom).toBeCloseTo(MOBILE_CAMERA_ZOOM_MULTIPLIER, 10);
   });
 
-  it("matches desktop and reference-phone farthest visible world distance", () => {
+  it("matches square desktop and reference-phone visible world area", () => {
     const phone = MOBILE_CAMERA_REFERENCE_VIEWPORT;
-    const desktop = { width: 1440, height: 900 };
+    const desktop = { width: 900, height: 900 };
     const phoneZoom = targetCameraZoom(155, phone);
     const desktopZoom = targetCameraZoom(155, desktop);
-    const phoneWorldDiagonal = Math.hypot(phone.width, phone.height) / phoneZoom;
-    const desktopWorldDiagonal = Math.hypot(desktop.width, desktop.height) / desktopZoom;
+    const phoneWorldArea = phone.width * phone.height / phoneZoom ** 2;
+    const desktopWorldArea = desktop.width * desktop.height / desktopZoom ** 2;
 
     expect(desktopZoom).toBeGreaterThan(1);
-    expect(desktopWorldDiagonal).toBeCloseTo(phoneWorldDiagonal, 8);
+    expect(desktopWorldArea).toBeCloseTo(phoneWorldArea, 8);
   });
 
-  it("does not shorten sight distance when a large desktop reaches the zoom cap", () => {
+  it("does not zoom in when a square viewport is stretched wider", () => {
+    const square = { width: 900, height: 900 };
+    const widescreen = { width: 1_600, height: 900 };
+
+    expect(targetCameraZoom(155, widescreen))
+      .toBeCloseTo(targetCameraZoom(155, square), 10);
+  });
+
+  it("makes square viewports the most zoomed in for a fixed pixel diagonal", () => {
+    const square = { width: 1_000, height: 1_000 };
+    const stretched = { width: 1_300, height: Math.sqrt(2_000_000 - 1_300 ** 2) };
+
+    expect(Math.hypot(square.width, square.height))
+      .toBeCloseTo(Math.hypot(stretched.width, stretched.height), 8);
+    expect(targetCameraZoom(155, square))
+      .toBeGreaterThan(targetCameraZoom(155, stretched));
+  });
+
+  it("does not hide more map when a large desktop reaches the zoom cap", () => {
     const phone = MOBILE_CAMERA_REFERENCE_VIEWPORT;
     const desktop = { width: 2560, height: 1440 };
-    const phoneWorldDiagonal = Math.hypot(phone.width, phone.height)
-      / targetCameraZoom(155, phone);
-    const desktopWorldDiagonal = Math.hypot(desktop.width, desktop.height)
-      / targetCameraZoom(155, desktop);
+    const phoneWorldArea = phone.width * phone.height
+      / targetCameraZoom(155, phone) ** 2;
+    const desktopWorldArea = desktop.width * desktop.height
+      / targetCameraZoom(155, desktop) ** 2;
 
-    expect(desktopWorldDiagonal).toBeGreaterThanOrEqual(phoneWorldDiagonal);
+    expect(desktopWorldArea).toBeGreaterThanOrEqual(phoneWorldArea);
   });
 
   it("does not zoom smaller phones out by more than requested", () => {

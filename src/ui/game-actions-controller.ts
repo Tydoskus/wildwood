@@ -23,6 +23,8 @@ type WindowActionsElements = {
 };
 
 type EscapeWindows = {
+  isRespawnAdPromptOpen: () => boolean;
+  closeRespawnAdPrompt: () => void;
   isMapGuideOpen: () => boolean;
   closeMapGuide: () => void;
   isItemInspectionOpen: () => boolean;
@@ -122,6 +124,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   function handleInputEscape() {
     const windows = dependencies.escapeWindows;
+    if (windows.isRespawnAdPromptOpen()) { windows.closeRespawnAdPrompt(); return true; }
     if (windows.isMapGuideOpen()) { windows.closeMapGuide(); return true; }
     if (windows.isItemInspectionOpen()) { windows.closeItemInspection(); return true; }
     if (windows.isUpgradeBenchOpen()) { windows.closeUpgradeBench(); return true; }

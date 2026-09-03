@@ -97,6 +97,8 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     hideGameOver: d.hideGameOver,
     refreshFrameClock: d.refreshFrameClock,
     escapeWindows: {
+      isRespawnAdPromptOpen: d.rewardedRespawnAd.isPromptOpen,
+      closeRespawnAdPrompt: d.rewardedRespawnAd.closePrompt,
       isMapGuideOpen: d.mapGuide.isOpen,
       closeMapGuide: d.mapGuide.close,
       isItemInspectionOpen: d.itemInspectionController.isOpen,

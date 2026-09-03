@@ -27,21 +27,21 @@ function isPhoneViewport(viewport: Viewport) {
 }
 
 /**
- * Uses a common phone viewport as the world-reach anchor. Phones retain a
- * predictable 7% zoom-out, while larger screens scale by viewport diagonal so
- * their farthest visible point is never closer than the phone's.
+ * Uses a common phone viewport as the world-area anchor. Phones retain a
+ * predictable 7% zoom-out, while larger screens scale from the largest square
+ * that fits their viewport. Extra width or height reveals more map instead of
+ * zooming beyond the equivalent square framing.
  */
 export function targetCameraZoom(attackRange: number, viewport: Viewport) {
   const rangeIncrease = attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
   const attackRangeZoom = (1 - rangeIncrease * .5) * BASE_CAMERA_ZOOM;
-  const viewportDiagonal = Math.hypot(Math.max(1, viewport.width), Math.max(1, viewport.height));
-  const referenceDiagonal = Math.hypot(
-    MOBILE_CAMERA_REFERENCE_VIEWPORT.width,
-    MOBILE_CAMERA_REFERENCE_VIEWPORT.height,
-  );
+  const width = Math.max(1, viewport.width);
+  const height = Math.max(1, viewport.height);
+  const squareViewportArea = Math.min(width, height) ** 2;
+  const referenceArea = MOBILE_CAMERA_REFERENCE_VIEWPORT.width * MOBILE_CAMERA_REFERENCE_VIEWPORT.height;
   const viewportMultiplier = isPhoneViewport(viewport)
     ? MOBILE_CAMERA_ZOOM_MULTIPLIER
-    : MOBILE_CAMERA_ZOOM_MULTIPLIER * viewportDiagonal / referenceDiagonal;
+    : MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.sqrt(squareViewportArea / referenceArea);
   return clamp(attackRangeZoom * viewportMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
 }
 

@@ -10,6 +10,9 @@ type RewardedRespawnAdElements = {
   status: HTMLElement;
   activeStatus: HTMLElement;
   activeTimer: HTMLElement;
+  prompt: HTMLElement;
+  confirmButton: HTMLButtonElement;
+  cancelButton: HTMLButtonElement;
   browserAd: HTMLElement;
   browserAdTimer: HTMLElement;
 };
@@ -20,6 +23,7 @@ type RewardedRespawnAdDependencies = {
   isBoostActive: () => boolean;
   boostRemainingMs: () => number;
   onBoostExpired: () => void;
+  setPromptActive: (active: boolean) => void;
   setAdPlaybackActive: (active: boolean) => void;
   showMessage: (text: string, color?: string) => void;
 };
@@ -44,8 +48,29 @@ export function createRewardedRespawnAdController(
 ) {
   let refreshGeneration = 0;
   let showingAd = false;
+  let promptOpen = false;
   let browserTimer: number | null = null;
   let activeCountdownTimer: number | null = null;
+
+  function closePrompt(restoreFocus = true) {
+    if (!promptOpen) return;
+    promptOpen = false;
+    elements.prompt.hidden = true;
+    elements.button.setAttribute("aria-expanded", "false");
+    dependencies.setPromptActive(false);
+    if (restoreFocus && !elements.button.hidden && !elements.button.disabled) {
+      window.requestAnimationFrame(() => elements.button.focus());
+    }
+  }
+
+  function openPrompt() {
+    if (promptOpen || showingAd || elements.button.disabled || dependencies.isBoostActive()) return;
+    promptOpen = true;
+    elements.prompt.hidden = false;
+    elements.button.setAttribute("aria-expanded", "true");
+    dependencies.setPromptActive(true);
+    window.requestAnimationFrame(() => elements.confirmButton.focus());
+  }
 
   function stopActiveCountdown() {
     if (activeCountdownTimer !== null) window.clearTimeout(activeCountdownTimer);
@@ -76,6 +101,7 @@ export function createRewardedRespawnAdController(
   }
 
   function renderActive() {
+    closePrompt(false);
     elements.button.hidden = true;
     elements.activeStatus.hidden = false;
     elements.activeStatus.title = "Regular enemies respawn in 15 seconds while this timer is active";
@@ -142,7 +168,7 @@ export function createRewardedRespawnAdController(
     tick();
   }
 
-  async function onClick() {
+  async function showRewardedAd() {
     if (showingAd || dependencies.isBoostActive()) return;
     const bridge = supportedNativeBridge(dependencies.getNativeBridge());
     if (!bridge) {
@@ -176,8 +202,24 @@ export function createRewardedRespawnAdController(
     }
   }
 
+  function onConfirmClick() {
+    closePrompt(false);
+    void showRewardedAd();
+  }
+
+  function onCancelClick() {
+    closePrompt();
+  }
+
+  function onPromptClick(event: MouseEvent) {
+    if (event.target === elements.prompt) closePrompt();
+  }
+
   function init() {
-    elements.button.addEventListener("click", onClick);
+    elements.button.addEventListener("click", openPrompt);
+    elements.confirmButton.addEventListener("click", onConfirmClick);
+    elements.cancelButton.addEventListener("click", onCancelClick);
+    elements.prompt.addEventListener("click", onPromptClick);
     for (const event of NATIVE_REWARDED_ADS_CHANGED_EVENTS) window.addEventListener(event, refreshAvailability);
     void refreshAvailability();
   }
@@ -186,12 +228,16 @@ export function createRewardedRespawnAdController(
     if (browserTimer !== null) window.clearTimeout(browserTimer);
     browserTimer = null;
     stopActiveCountdown();
+    closePrompt(false);
     if (showingAd) dependencies.setAdPlaybackActive(false);
     showingAd = false;
     elements.browserAd.hidden = true;
-    elements.button.removeEventListener("click", onClick);
+    elements.button.removeEventListener("click", openPrompt);
+    elements.confirmButton.removeEventListener("click", onConfirmClick);
+    elements.cancelButton.removeEventListener("click", onCancelClick);
+    elements.prompt.removeEventListener("click", onPromptClick);
     for (const event of NATIVE_REWARDED_ADS_CHANGED_EVENTS) window.removeEventListener(event, refreshAvailability);
   }
 
-  return { init, refreshAvailability, destroy };
+  return { init, refreshAvailability, destroy, isPromptOpen: () => promptOpen, closePrompt };
 }

@@ -190,7 +190,7 @@ export function createActorRenderer(options: {
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
-  const enemyLabelFont = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+  const enemyLabelFont = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
   const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
   let arrowProjectileSprite: HTMLCanvasElement | null | undefined;
 
@@ -773,7 +773,7 @@ export function createActorRenderer(options: {
       const labels = enemyLabels(enemy.type, { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
       ctx.drawImage(labels.name.canvas, -labels.name.width / 2, barY - 4 - labels.name.anchorY, labels.name.width, labels.name.height);
 
-      ctx.font = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
       ctx.textBaseline = "middle";
       options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
 
