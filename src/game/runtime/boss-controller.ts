@@ -95,6 +95,15 @@ import { addPlayerBaseMaxHealth } from "./player-health";
 
 export const BOSS_HP_LOSS_FLASH_DURATION = .18;
 export const SPIDER_WEB_RANGE = 720;
+export const BOSS_AREA_KNOCKBACK_DURATION = .32;
+
+/**
+ * One hit covers half of the usable attack radius. A player pressed against
+ * the boss therefore needs two area hits to be pushed beyond that attack.
+ */
+export function bossAreaKnockbackDistance(attackRange: number, bossRadius: number) {
+  return Math.max(0, (attackRange - bossRadius) / 2);
+}
 
 const DRAGON_CONE_WINDUP = .75;
 const DRAGON_CONE_DURATION = 1.2;
@@ -114,8 +123,6 @@ const FROSTCLAW_ROAR_DAMAGE = BOSS_DAMAGE_PROFILES.frostclaw.roar;
 const FROSTCLAW_ICEFALL_DAMAGE = BOSS_DAMAGE_PROFILES.frostclaw.icefall;
 const FROSTCLAW_RIFT_DAMAGE = BOSS_DAMAGE_PROFILES.frostclaw.rift;
 const FROSTCLAW_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.frostclaw.contact;
-const FROSTCLAW_PUSH_DURATION = .55;
-const FROSTCLAW_PUSH_SPEED = 860;
 const MAGMALISK_BITE_WINDUP = .72;
 const MAGMALISK_BITE_DURATION = .9;
 const MAGMALISK_BITE_DAMAGE = BOSS_DAMAGE_PROFILES.magmalisk.bite;
@@ -162,10 +169,6 @@ type BossResult = {
 };
 
 type NoticeElements = {
-  result: HTMLElement;
-  resultTitle: HTMLElement;
-  resultTotal: HTMLElement;
-  resultContributors: HTMLElement;
   worldNotice: HTMLElement;
   worldNoticeDetail: HTMLElement;
 };
@@ -209,8 +212,7 @@ export type BossController = {
   resolveKoiShogunCollision: () => void;
   resolveTempestKirinCollision: () => void;
   resolveMiremawCollision: () => void;
-  applyDragonConePush: (dt: number) => void;
-  applyFrostclawPush: (dt: number) => void;
+  applyBossKnockback: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
 };
 
@@ -288,7 +290,6 @@ export function createBossController(options: {
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
   damagePlayer: (amount: number) => boolean;
   logPickup: (text: string, color: string) => void;
-  showMessage: (text: string, color: string) => void;
   saveProgress: () => void;
   healthMultiplier?: () => number;
   rewardMultiplier?: () => number;
@@ -299,7 +300,7 @@ export function createBossController(options: {
     localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
-    renderPlayerName, spawnBurst, damagePlayer, logPickup, showMessage, saveProgress,
+    renderPlayerName, spawnBurst, damagePlayer, logPickup, saveProgress,
   } = options;
   let dragonWorldNoticeTimer: number | null = null;
   let observedDragonEncounter: bigint | null = null;
@@ -362,6 +363,9 @@ export function createBossController(options: {
   let koiShogunWhirlpoolPatternIndex = 0;
   let tempestKirinThunderPatternIndex = 0;
   let miremawBogBurstPatternIndex = 0;
+  let bossKnockbackAngle = 0;
+  let bossKnockbackTimeRemaining = 0;
+  let bossKnockbackDistanceRemaining = 0;
   const observedAbilityKeys = new Map<BossSimulationKind, string>();
   const activatedAbilityKeys = new Map<BossSimulationKind, string>();
 
@@ -446,7 +450,19 @@ export function createBossController(options: {
     };
   }
 
+  function queueBossAreaKnockback(sourceX: number, sourceY: number, attackRange: number, bossRadius: number) {
+    bossKnockbackAngle = Math.atan2(player.y - sourceY, player.x - sourceX);
+    bossKnockbackTimeRemaining = BOSS_AREA_KNOCKBACK_DURATION;
+    bossKnockbackDistanceRemaining = bossAreaKnockbackDistance(attackRange, bossRadius);
+  }
+
+  function clearBossKnockback() {
+    bossKnockbackTimeRemaining = 0;
+    bossKnockbackDistanceRemaining = 0;
+  }
+
   function resetBoss() {
+    clearBossKnockback();
     const shared = getDragonBoss();
     if (shared) {
       boss.encounter = shared.encounter;
@@ -501,7 +517,6 @@ export function createBossController(options: {
     frostclawBoss.nextAttack = "roar";
     frostclawBoss.roar = null;
     frostclawBoss.rift = null;
-    frostclawBoss.pushTimer = 0;
     frostclawIcefalls.length = 0;
     frostclawIcefallPatternIndex = 0;
     resetAbilityTimeline("frostclaw");
@@ -650,49 +665,18 @@ function resetMiremawBoss() {
     }, 6_000);
   }
 
-  function renderResult(result: BossResult, title: string, showEmpty = false) {
-    elements.resultTitle.textContent = title;
-    elements.resultTotal.textContent = `${Math.round(result.totalDamage).toLocaleString()} TOTAL DAMAGE`;
-    elements.resultContributors.replaceChildren();
-    for (const contributor of result.contributors) {
-      const row = document.createElement("div");
-      row.className = "dragon-result-row";
-      const name = document.createElement("span");
-      name.className = "dragon-result-name";
-      renderPlayerName(name, contributor.identity, contributor.name, contributor.gender);
-      const damage = document.createElement("span");
-      damage.className = "dragon-result-damage";
-      damage.textContent = Math.round(contributor.damage).toLocaleString();
-      const percentage = document.createElement("span");
-      percentage.className = "dragon-result-percentage";
-      percentage.textContent = `${contributor.percentage.toFixed(1)}%`;
-      row.append(name, damage, percentage);
-      elements.resultContributors.append(row);
-    }
-    if (showEmpty && !result.contributors.length) {
-      const empty = document.createElement("div");
-      empty.className = "dragon-result-row";
-      empty.textContent = "NO DAMAGE RECORDS";
-      elements.resultContributors.append(empty);
-    }
-    elements.result.hidden = false;
-  }
-
   function showSpiderResult(result: BossResult | null | undefined) {
     if (!result || shownSpiderResultEncounter === result.encounter || (portalCutsceneActive() && queuedSpiderResult?.encounter === result.encounter)) return;
     pendingSpiderResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      showWorldResult(result, "DESERT SCORPION DEFEATED");
-      return;
-    }
-    if (currentMapIsDesert() && !hasSeenSnowlandsPortalCutscene()) {
+    if (localContribution && currentMapIsDesert() && !hasSeenSnowlandsPortalCutscene()) {
       queuedSpiderResult = result;
       startSnowlandsPortalCutscene();
       return;
     }
     shownSpiderResultEncounter = result.encounter;
-    renderResult(result, "Desert Scorpion Defeated");
+    showWorldResult(result, "DESERT SCORPION DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", SPIDER_REWARD_DAMAGE);
     const healthReward = scaledReward("health", SPIDER_REWARD_HEALTH);
     const encounterKey = String(result.encounter);
@@ -706,24 +690,20 @@ function resetMiremawBoss() {
     }
     logPickup(rewardLabel(damageReward), "#ff655a");
     logPickup(rewardLabel(healthReward), "#6fe48e");
-    showMessage(`${rewardLabel(damageReward)} · ${rewardLabel(healthReward)}`, "#f5e9c4");
   }
 
   function showFrostclawResult(result: BossResult | null | undefined) {
     if (!result || shownFrostclawResultEncounter === result.encounter || (portalCutsceneActive() && queuedFrostclawResult?.encounter === result.encounter)) return;
     pendingFrostclawResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      showWorldResult(result, "FROSTCLAW DEFEATED");
-      return;
-    }
-    if (currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
+    if (localContribution && currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
       queuedFrostclawResult = result;
       startLavaPortalCutscene();
       return;
     }
     shownFrostclawResultEncounter = result.encounter;
-    renderResult(result, "Frostclaw Defeated");
+    showWorldResult(result, "FROSTCLAW DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", FROSTCLAW_REWARD_DAMAGE);
     const healthReward = scaledReward("health", FROSTCLAW_REWARD_HEALTH);
     const armorReward = scaledReward("armor", FROSTCLAW_REWARD_ARMOR);
@@ -737,25 +717,20 @@ function resetMiremawBoss() {
     logPickup(rewardLabel(damageReward), "#ff655a");
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    showMessage(`${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)}`, "#dff7ff");
   }
 
   function showMagmaliskResult(result: BossResult | null | undefined) {
     if (!result || shownMagmaliskResultEncounter === result.encounter || (portalCutsceneActive() && queuedMagmaliskResult?.encounter === result.encounter)) return;
     pendingMagmaliskResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      shownMagmaliskResultEncounter = result.encounter;
-      showWorldResult(result, "MAGMALISK DEFEATED");
-      return;
-    }
-    if (currentMapIsLava() && !hasSeenInfernalPortalCutscene()) {
+    if (localContribution && currentMapIsLava() && !hasSeenInfernalPortalCutscene()) {
       queuedMagmaliskResult = result;
       startInfernalPortalCutscene();
       return;
     }
     shownMagmaliskResultEncounter = result.encounter;
-    renderResult(result, "Magmalisk Defeated");
+    showWorldResult(result, "MAGMALISK DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", MAGMALISK_REWARD_DAMAGE);
     const healthReward = scaledReward("health", MAGMALISK_REWARD_HEALTH);
     const armorReward = scaledReward("armor", MAGMALISK_REWARD_ARMOR);
@@ -772,28 +747,20 @@ function resetMiremawBoss() {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
-    showMessage(
-      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
-      "#ffcf8f",
-    );
   }
 
   function showGloomrootResult(result: BossResult | null | undefined) {
     if (!result || shownGloomrootResultEncounter === result.encounter || (portalCutsceneActive() && queuedGloomrootResult?.encounter === result.encounter)) return;
     pendingGloomrootResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      shownGloomrootResultEncounter = result.encounter;
-      showWorldResult(result, "GLOOMROOT DEFEATED");
-      return;
-    }
-    if (currentMapIsInfernal() && !hasSeenWaterPortalCutscene()) {
+    if (localContribution && currentMapIsInfernal() && !hasSeenWaterPortalCutscene()) {
       queuedGloomrootResult = result;
       startWaterPortalCutscene();
       return;
     }
     shownGloomrootResultEncounter = result.encounter;
-    renderResult(result, "Gloomroot Defeated");
+    showWorldResult(result, "GLOOMROOT DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", GLOOMROOT_REWARD_DAMAGE);
     const healthReward = scaledReward("health", GLOOMROOT_REWARD_HEALTH);
     const armorReward = scaledReward("armor", GLOOMROOT_REWARD_ARMOR);
@@ -810,28 +777,20 @@ function resetMiremawBoss() {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
-    showMessage(
-      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
-      "#8eefff",
-    );
   }
 
   function showTidewyrmResult(result: BossResult | null | undefined) {
     if (!result || shownTidewyrmResultEncounter === result.encounter || (portalCutsceneActive() && queuedTidewyrmResult?.encounter === result.encounter)) return;
     pendingTidewyrmResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      shownTidewyrmResultEncounter = result.encounter;
-      showWorldResult(result, "TIDEWYRM DEFEATED");
-      return;
-    }
-    if (currentMapIsWater() && !hasSeenSamuraiPortalCutscene()) {
+    if (localContribution && currentMapIsWater() && !hasSeenSamuraiPortalCutscene()) {
       queuedTidewyrmResult = result;
       startSamuraiPortalCutscene();
       return;
     }
     shownTidewyrmResultEncounter = result.encounter;
-    renderResult(result, "Tidewyrm Defeated");
+    showWorldResult(result, "TIDEWYRM DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", TIDEWYRM_REWARD_DAMAGE);
     const healthReward = scaledReward("health", TIDEWYRM_REWARD_HEALTH);
     const armorReward = scaledReward("armor", TIDEWYRM_REWARD_ARMOR);
@@ -848,23 +807,15 @@ function resetMiremawBoss() {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
-    showMessage(
-      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
-      "#74e9ff",
-    );
   }
 
   function showKoiShogunResult(result: BossResult | null | undefined) {
     if (!result || shownKoiShogunResultEncounter === result.encounter) return;
     pendingKoiShogunResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      shownKoiShogunResultEncounter = result.encounter;
-      showWorldResult(result, "KOI SHOGUN DEFEATED");
-      return;
-    }
     shownKoiShogunResultEncounter = result.encounter;
-    renderResult(result, "Koi Shogun Defeated");
+    showWorldResult(result, "KOI SHOGUN DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", KOI_SHOGUN_REWARD_DAMAGE);
     const healthReward = scaledReward("health", KOI_SHOGUN_REWARD_HEALTH);
     const armorReward = scaledReward("armor", KOI_SHOGUN_REWARD_ARMOR);
@@ -881,23 +832,15 @@ function resetMiremawBoss() {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
-    showMessage(
-      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
-      "#ffd17d",
-    );
   }
 
   function showTempestKirinResult(result: BossResult | null | undefined) {
     if (!result || shownTempestKirinResultEncounter === result.encounter) return;
     pendingTempestKirinResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      shownTempestKirinResultEncounter = result.encounter;
-      showWorldResult(result, "TEMPEST KIRIN DEFEATED");
-      return;
-    }
     shownTempestKirinResultEncounter = result.encounter;
-    renderResult(result, "Tempest Kirin Defeated");
+    showWorldResult(result, "TEMPEST KIRIN DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", TEMPEST_KIRIN_REWARD_DAMAGE);
     const healthReward = scaledReward("health", TEMPEST_KIRIN_REWARD_HEALTH);
     const armorReward = scaledReward("armor", TEMPEST_KIRIN_REWARD_ARMOR);
@@ -914,23 +857,15 @@ function resetMiremawBoss() {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
-    showMessage(
-      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
-      "#a9e8ff",
-    );
   }
 
 function showMiremawResult(result: BossResult | null | undefined) {
     if (!result || shownMiremawResultEncounter === result.encounter) return;
     pendingMiremawResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (!localContribution) {
-      shownMiremawResultEncounter = result.encounter;
-      showWorldResult(result, "MIREMAW DEFEATED");
-      return;
-    }
     shownMiremawResultEncounter = result.encounter;
-    renderResult(result, "Miremaw Defeated");
+    showWorldResult(result, "MIREMAW DEFEATED");
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", MIREMAW_REWARD_DAMAGE);
     const healthReward = scaledReward("health", MIREMAW_REWARD_HEALTH);
     const armorReward = scaledReward("armor", MIREMAW_REWARD_ARMOR);
@@ -947,10 +882,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     logPickup(rewardLabel(healthReward), "#6fe48e");
     logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
     logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
-    showMessage(
-      `${rewardLabel(damageReward)} · ${rewardLabel(healthReward)} · ${rewardLabel(armorReward)} · ${rewardLabel(regenReward)}`,
-      "#91f4d1",
-    );
   }
 
 
@@ -978,21 +909,17 @@ function showMiremawResult(result: BossResult | null | undefined) {
     }
     shownDragonResultEncounter = result.encounter;
     pendingDragonResultEncounter = null;
-    if (!localContribution) {
-      showWorldResult(result, "DRAGON DEFEATED");
-      elements.worldNotice.style.animation = "none";
-      void elements.worldNotice.offsetWidth;
-      elements.worldNotice.style.animation = "";
-      return;
-    }
-    renderResult(result, "Dragon Defeated", true);
+    showWorldResult(result, "DRAGON DEFEATED");
+    elements.worldNotice.style.animation = "none";
+    void elements.worldNotice.offsetWidth;
+    elements.worldNotice.style.animation = "";
+    if (!localContribution) return;
     const damageReward = scaledReward("damage", DRAGON_REWARD_DAMAGE);
     const encounterKey = String(result.encounter);
     if (!locallyRewardedDragonEncounters.has(encounterKey)) {
       locallyRewardedDragonEncounters.add(encounterKey);
       player.damage += damageReward.amount;
       logPickup(rewardLabel(damageReward), "#ff655a");
-      showMessage(rewardLabel(damageReward), "#ff655a");
       saveProgress();
     }
   }
@@ -1056,7 +983,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
       frostclawBoss.nextAttack = "roar";
       frostclawBoss.roar = null;
       frostclawBoss.rift = null;
-      frostclawBoss.pushTimer = 0;
       frostclawIcefalls.length = 0;
       frostclawIcefallPatternIndex = 0;
       resetAbilityTimeline("frostclaw");
@@ -1067,7 +993,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
       frostclawBoss.dead = true;
       frostclawBoss.roar = null;
       frostclawBoss.rift = null;
-      frostclawBoss.pushTimer = 0;
       frostclawIcefalls.length = 0;
       pendingFrostclawResultEncounter = shared.encounter;
       spawnBurst(frostclawBoss.x, frostclawBoss.y, "#8eeeff", 76, 260);
@@ -1514,7 +1439,6 @@ function syncMiremawState() {
       timer: Math.max(0, DRAGON_CONE_DURATION - Math.max(0, elapsed - DRAGON_CONE_WINDUP)),
       duration: DRAGON_CONE_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     boss.nextAttack = "rain";
   }
@@ -1586,7 +1510,7 @@ function syncMiremawState() {
         if (distance >= minRadius - 34 && distance <= maxRadius + 34 && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
           cone.hitPlayer = true;
           damagePlayer(DRAGON_CONE_DAMAGE);
-          cone.pushAngle = Math.atan2(dy, dx);
+          queueBossAreaKnockback(boss.x, boss.y, BOSS_CONE_RANGE, boss.r);
           spawnBurst(player.x, player.y, "#ffb14a", 18, 165);
         }
       }
@@ -1678,7 +1602,11 @@ function syncMiremawState() {
       const minRadius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * previousProgress;
       const maxRadius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * progress;
       const distance = Math.hypot(player.x - spiderBoss.x, player.y - spiderBoss.y);
-      if (!web.hitPlayer && distance >= minRadius - 30 && distance <= maxRadius + 30) { web.hitPlayer = true; damagePlayer(SPIDER_WEB_DAMAGE); }
+      if (!web.hitPlayer && distance >= minRadius - 30 && distance <= maxRadius + 30) {
+        web.hitPlayer = true;
+        damagePlayer(SPIDER_WEB_DAMAGE);
+        queueBossAreaKnockback(spiderBoss.x, spiderBoss.y, SPIDER_WEB_RANGE, spiderBoss.r);
+      }
       if (web.timer <= 0) { spiderBoss.web = null; spiderBoss.attackClock = 2.5; }
       return;
     }
@@ -1797,8 +1725,7 @@ function syncMiremawState() {
         if (distance >= minRadius - 38 && distance <= maxRadius + 38) {
           roar.hitPlayer = true;
           damagePlayer(FROSTCLAW_ROAR_DAMAGE);
-          frostclawBoss.pushAngle = Math.atan2(dy, dx);
-          frostclawBoss.pushTimer = FROSTCLAW_PUSH_DURATION;
+          queueBossAreaKnockback(frostclawBoss.x, frostclawBoss.y, FROSTCLAW_ROAR_RANGE, frostclawBoss.r);
           spawnBurst(player.x, player.y, "#d8fbff", 24, 210);
         }
       }
@@ -1864,7 +1791,6 @@ function syncMiremawState() {
       timer: Math.max(0, MAGMALISK_BITE_DURATION - Math.max(0, elapsed - MAGMALISK_BITE_WINDUP)),
       duration: MAGMALISK_BITE_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     magmaliskBoss.nextAttack = "eruption";
   }
@@ -1951,6 +1877,7 @@ function syncMiremawState() {
         if (distance >= minRadius - 38 && distance <= maxRadius + 38 && Math.abs(angleDelta) <= MAGMALISK_BITE_HALF_ANGLE) {
           bite.hitPlayer = true;
           damagePlayer(MAGMALISK_BITE_DAMAGE);
+          queueBossAreaKnockback(magmaliskBoss.x, magmaliskBoss.y, MAGMALISK_BITE_RANGE, magmaliskBoss.r);
           spawnBurst(player.x, player.y, "#ffb13b", 28, 230);
         }
       }
@@ -1979,7 +1906,6 @@ function syncMiremawState() {
       timer: Math.max(0, GLOOMROOT_SWEEP_DURATION - Math.max(0, elapsed - GLOOMROOT_SWEEP_WINDUP)),
       duration: GLOOMROOT_SWEEP_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     gloomrootBoss.nextAttack = "bloom";
   }
@@ -2066,6 +1992,7 @@ function syncMiremawState() {
         if (distance >= minRadius - 40 && distance <= maxRadius + 40 && Math.abs(angleDelta) <= GLOOMROOT_SWEEP_HALF_ANGLE) {
           sweep.hitPlayer = true;
           damagePlayer(GLOOMROOT_SWEEP_DAMAGE);
+          queueBossAreaKnockback(gloomrootBoss.x, gloomrootBoss.y, GLOOMROOT_SWEEP_RANGE, gloomrootBoss.r);
           spawnBurst(player.x, player.y, "#8af4f3", 30, 235);
         }
       }
@@ -2094,7 +2021,6 @@ function syncMiremawState() {
       timer: Math.max(0, TIDEWYRM_SURGE_DURATION - Math.max(0, elapsed - TIDEWYRM_SURGE_WINDUP)),
       duration: TIDEWYRM_SURGE_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     tidewyrmBoss.nextAttack = "whirlpool";
   }
@@ -2181,6 +2107,7 @@ function syncMiremawState() {
         if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= TIDEWYRM_SURGE_HALF_ANGLE) {
           surge.hitPlayer = true;
           damagePlayer(TIDEWYRM_SURGE_DAMAGE);
+          queueBossAreaKnockback(tidewyrmBoss.x, tidewyrmBoss.y, TIDEWYRM_SURGE_RANGE, tidewyrmBoss.r);
           spawnBurst(player.x, player.y, "#b7f7ff", 32, 250);
         }
       }
@@ -2209,7 +2136,6 @@ function syncMiremawState() {
       timer: Math.max(0, KOI_SHOGUN_SLASH_DURATION - Math.max(0, elapsed - KOI_SHOGUN_SLASH_WINDUP)),
       duration: KOI_SHOGUN_SLASH_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     koiShogunBoss.nextAttack = "whirlpool";
   }
@@ -2296,6 +2222,7 @@ function syncMiremawState() {
         if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= KOI_SHOGUN_SLASH_HALF_ANGLE) {
           slash.hitPlayer = true;
           damagePlayer(KOI_SHOGUN_SLASH_DAMAGE);
+          queueBossAreaKnockback(koiShogunBoss.x, koiShogunBoss.y, KOI_SHOGUN_SLASH_RANGE, koiShogunBoss.r);
           spawnBurst(player.x, player.y, "#d7fbff", 34, 255);
         }
       }
@@ -2324,7 +2251,6 @@ function syncMiremawState() {
       timer: Math.max(0, TEMPEST_KIRIN_CHARGE_DURATION - Math.max(0, elapsed - TEMPEST_KIRIN_CHARGE_WINDUP)),
       duration: TEMPEST_KIRIN_CHARGE_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     tempestKirinBoss.nextAttack = "thunder";
   }
@@ -2337,7 +2263,6 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
       timer: Math.max(0, MIREMAW_TONGUE_DURATION - Math.max(0, elapsed - MIREMAW_TONGUE_WINDUP)),
       duration: MIREMAW_TONGUE_DURATION,
       hitPlayer: false,
-      pushAngle: null,
     };
     miremawBoss.nextAttack = "bogBurst";
   }
@@ -2457,6 +2382,7 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
         if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= TEMPEST_KIRIN_CHARGE_HALF_ANGLE) {
           charge.hitPlayer = true;
           damagePlayer(TEMPEST_KIRIN_CHARGE_DAMAGE);
+          queueBossAreaKnockback(tempestKirinBoss.x, tempestKirinBoss.y, TEMPEST_KIRIN_CHARGE_RANGE, tempestKirinBoss.r);
           spawnBurst(player.x, player.y, "#f3fdff", 38, 280);
         }
       }
@@ -2528,6 +2454,7 @@ function updateMiremawBoss(dt: number) {
         if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= MIREMAW_TONGUE_HALF_ANGLE) {
           tongue.hitPlayer = true;
           damagePlayer(MIREMAW_TONGUE_DAMAGE);
+          queueBossAreaKnockback(miremawBoss.x, miremawBoss.y, MIREMAW_TONGUE_RANGE, miremawBoss.r);
           spawnBurst(player.x, player.y, "#e1fff2", 38, 280);
         }
       }
@@ -2564,20 +2491,14 @@ function updateMiremawBoss(dt: number) {
     player.y = target.y + ny * minimumDistance;
   }
 
-  function applyDragonConePush(dt: number) {
-    if (typeof boss.cone?.pushAngle !== "number") return;
-    const waveSpeed = (BOSS_CONE_RANGE - boss.r) / boss.cone.duration;
-    player.x += Math.cos(boss.cone.pushAngle) * waveSpeed * dt;
-    player.y += Math.sin(boss.cone.pushAngle) * waveSpeed * dt;
-  }
-
-  function applyFrostclawPush(dt: number) {
-    if (frostclawBoss.pushTimer <= 0) return;
-    const strength = clamp(frostclawBoss.pushTimer / FROSTCLAW_PUSH_DURATION, 0, 1);
-    const distance = FROSTCLAW_PUSH_SPEED * (.45 + strength * .55) * dt;
-    player.x = clamp(player.x + Math.cos(frostclawBoss.pushAngle) * distance, player.r, WORLD.w - player.r);
-    player.y = clamp(player.y + Math.sin(frostclawBoss.pushAngle) * distance, player.r, WORLD.h - player.r);
-    frostclawBoss.pushTimer = Math.max(0, frostclawBoss.pushTimer - dt);
+  function applyBossKnockback(dt: number) {
+    if (dt <= 0 || bossKnockbackTimeRemaining <= 0 || bossKnockbackDistanceRemaining <= 0) return;
+    const elapsed = Math.min(dt, bossKnockbackTimeRemaining);
+    const distance = bossKnockbackDistanceRemaining * elapsed / bossKnockbackTimeRemaining;
+    player.x = clamp(player.x + Math.cos(bossKnockbackAngle) * distance, player.r, WORLD.w - player.r);
+    player.y = clamp(player.y + Math.sin(bossKnockbackAngle) * distance, player.r, WORLD.h - player.r);
+    bossKnockbackTimeRemaining = Math.max(0, bossKnockbackTimeRemaining - elapsed);
+    bossKnockbackDistanceRemaining = Math.max(0, bossKnockbackDistanceRemaining - distance);
   }
 
   return {
@@ -2617,8 +2538,7 @@ function updateMiremawBoss(dt: number) {
     resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
     resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, TEMPEST_KIRIN_CONTACT_DAMAGE, .75),
     resolveMiremawCollision: () => resolveCollision(miremawBoss, MIREMAW_CONTACT_DAMAGE, .75),
-    applyDragonConePush,
-    applyFrostclawPush,
+    applyBossKnockback,
     onPortalCutsceneFinished(wasPreview) {
       const dragon = queuedDragonResult;
       queuedDragonResult = null;

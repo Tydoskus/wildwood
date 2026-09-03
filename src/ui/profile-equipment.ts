@@ -19,8 +19,8 @@ const SLOT_DETAILS: Record<EquipmentSlot, { label: string; equipped: EquipmentFi
   HEAD: { label: "HEAD", equipped: "equippedHead", cosmetic: "cosmeticHead" },
   CHEST: { label: "ARMOR", equipped: "equippedChest", cosmetic: "cosmeticChest" },
   FEET: { label: "BOOTS", equipped: "equippedFeet", cosmetic: "cosmeticFeet" },
-  RIGHT_HAND: { label: "R HAND", equipped: "equippedRightHand", cosmetic: "cosmeticRightHand" },
-  LEFT_HAND: { label: "L HAND", equipped: "equippedLeftHand", cosmetic: "cosmeticLeftHand" },
+  RIGHT_HAND: { label: "WEAPON", equipped: "equippedRightHand", cosmetic: "cosmeticRightHand" },
+  LEFT_HAND: { label: "WEAPON", equipped: "equippedLeftHand", cosmetic: "cosmeticLeftHand" },
 };
 
 export type ProfileEquipmentPresentation = {

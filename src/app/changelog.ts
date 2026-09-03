@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.603": [
+    "Added balanced area knockback to one attack for every boss.",
+    "Simplified boss defeat rewards to one compact shared notice without duplicate reward messages.",
+    "Refined inventory, equipment layering, minimap framing, and switched the wordmark to WebP.",
+  ],
   "0.602": [
     "Item details now open above player profiles with larger, borderless item artwork.",
     "Removed developer save editing controls from player profiles.",
@@ -1393,6 +1398,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.603": "2026-09-02",
   "0.602": "2026-09-02",
   "0.601": "2026-09-02",
   "0.600": "2026-09-02",

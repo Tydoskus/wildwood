@@ -55,8 +55,7 @@ export function createPlayerController(options: {
   resolveKoiShogunCollision: () => void;
   resolveTempestKirinCollision: () => void;
   resolveMiremawCollision: () => void;
-  applyDragonConePush: (dt: number) => void;
-  applyFrostclawPush: (dt: number) => void;
+  applyBossKnockback: (dt: number) => void;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
   isSnowMap: () => boolean;
@@ -93,7 +92,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, resolveMiremawCollision, applyDragonConePush, applyFrostclawPush, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap,
+    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, resolveMiremawCollision, applyBossKnockback, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -190,8 +189,7 @@ export function createPlayerController(options: {
       player.y += my * movementSpeed * dt;
       if (Math.abs(mx) > .1 && player.combatFacing === null) player.facing = Math.atan2(my, mx);
     }
-    applyDragonConePush(dt);
-    applyFrostclawPush(dt);
+    applyBossKnockback(dt);
     resolvePortalCollision();
     if (isTutorialMap()) resolveDragonCollision();
     if (isDesertMap()) resolveSpiderCollision();

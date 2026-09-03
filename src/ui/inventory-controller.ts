@@ -42,10 +42,8 @@ export function clearInventorySelection(inventory: Pick<SelectableInventory, "se
   inventory.selectedItemLocation = "";
 }
 
-export function inventorySelectionAfterMove(itemId: string, destination: EquipmentSlot | "BAG") {
-  return destination === "BAG"
-    ? { itemId, location: "BAG" as const }
-    : { itemId: "", location: "" as const };
+export function inventorySelectionAfterMove(_itemId: string, _destination: EquipmentSlot | "BAG") {
+  return { itemId: "", location: "" as const };
 }
 
 /** Paper-doll loadout, inventory selection, and direct equipment actions. */

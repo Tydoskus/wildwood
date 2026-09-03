@@ -300,8 +300,8 @@ export function renderInventoryView(
   elements.count.textContent = `${bagStacks.length} / ${actions.slotCapacity} ITEMS`;
   renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "R HAND", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "L HAND", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "WEAPON", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "WEAPON", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode, actions.upgradeLevel);
 
   for (let index = 0; index < actions.slotCapacity; index += 1) {

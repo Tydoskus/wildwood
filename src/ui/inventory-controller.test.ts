@@ -28,8 +28,8 @@ describe("inventory selection", () => {
     expect(inventorySelectionAfterMove(STARTER_BOW, "RIGHT_HAND")).toEqual({ itemId: "", location: "" });
   });
 
-  it("keeps an unequipped item selected after returning it to the bag", () => {
-    expect(inventorySelectionAfterMove(STARTER_BOW, "BAG")).toEqual({ itemId: STARTER_BOW, location: "BAG" });
+  it("clears selection after an item is returned to the bag", () => {
+    expect(inventorySelectionAfterMove(STARTER_BOW, "BAG")).toEqual({ itemId: "", location: "" });
   });
 });
 

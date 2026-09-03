@@ -101,7 +101,6 @@ export type BossCone = {
   timer: number;
   duration: number;
   hitPlayer: boolean;
-  pushAngle: number | null;
 };
 
 export type BossRainStrike = Circle & {
@@ -200,8 +199,6 @@ export type FrostclawBossState = BossStateBase & {
   nextAttack: "roar" | "icefall" | "rift";
   roar: FrostclawRoar | null;
   rift: FrostclawRift | null;
-  pushAngle: number;
-  pushTimer: number;
 };
 
 export type MagmaliskBossState = BossStateBase & {

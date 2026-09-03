@@ -355,11 +355,6 @@ export function drawStartingPlayer(
     drawLayer(ctx, asset, -width / 2, -height / 2, width, height);
     ctx.restore();
   };
-  // The off-side hand belongs behind the body. Handedness must invert that
-  // depth rule as the character turns, otherwise a left-hand weapon appears
-  // in front while facing right.
-  const heldBehindBody = heldInLeftHand ? !facingLeft : facingLeft;
-  if (heldBehindBody) drawHeldItem();
   const bodyCacheKey = [
     skinToneColor(options.skinTone),
     headItem,
@@ -373,6 +368,7 @@ export function drawStartingPlayer(
     : null;
   if (bodyCanvas) ctx.drawImage(bodyCanvas, 0, 0);
   else drawBody(ctx);
-  if (!heldBehindBody) drawHeldItem();
+  // Keep weapons readable above armor from every facing and hand position.
+  drawHeldItem();
   ctx.restore();
 }

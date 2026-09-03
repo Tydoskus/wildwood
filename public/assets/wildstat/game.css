@@ -285,7 +285,7 @@
     inset: 0 0 var(--toolbar-height);
     z-index: 10;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     width: auto;
     height: auto;
     max-height: none;
@@ -305,10 +305,9 @@
   .inventory-panel[hidden] { display: none; }
   .inventory-panel, .inventory-panel * { -webkit-text-stroke: 0; paint-order: normal; text-shadow: none; }
 
-  .inventory-panel-header { display: grid; place-items: center; min-height: 52px; margin: 0; padding: max(8px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left)); border-bottom: 2px solid rgba(255,255,255,.15); background: rgba(10,15,12,.94); box-shadow: 0 4px 12px rgba(0,0,0,.28); }
-  .inventory-capacity { color: var(--inventory-muted); font-size: var(--font-readable-min); font-weight: 900; letter-spacing: .04em; text-align: center; white-space: nowrap; }
+  .inventory-capacity { margin-left: auto; color: var(--inventory-muted); font-size: var(--font-readable-min); font-weight: 900; letter-spacing: .04em; text-align: right; white-space: nowrap; }
 
-  .inventory-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; min-height: 56px; padding: 6px max(14px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left)); border-bottom: 1px solid rgba(255,255,255,.14); background: rgba(10,15,12,.94); }
+  .inventory-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; min-height: 56px; padding: max(6px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left)); border-bottom: 1px solid rgba(255,255,255,.14); background: rgba(10,15,12,.94); }
   .inventory-tab { min-width: 0; height: 44px; min-height: 44px; margin: 0; padding: 0 10px; border: 2px solid rgba(255,255,255,.17); border-radius: 8px; background: linear-gradient(#27312b, #171e1a); box-shadow: inset 0 -3px 0 rgba(0,0,0,.24); color: #b9c5bc; font: 900 var(--font-readable-label)/1 var(--font-rounded); letter-spacing: .04em; }
   .inventory-tab.is-active { border-color: #d9a344; background: linear-gradient(#4b3c23, #282016); color: #fff4d6; box-shadow: inset 0 -3px 0 rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,229,167,.2); }
   .inventory-tab:focus-visible { outline: 2px solid #fff4d6; outline-offset: 1px; }
@@ -537,7 +536,6 @@
     :root { --game-window-width: min(360px, calc(100vw - 16px)); }
     .inventory-content { --inventory-grid-gap: 4px; --inventory-slot-size: calc(18.75% - 2.25px); --inventory-slot-row-size: calc(18.75cqi - 2.25px); }
     .card.inventory-panel { max-height: none; padding: 0; }
-    .inventory-panel-header { margin: 0; }
     .inventory-capacity { font-size: var(--font-readable-min); }
     .inventory-loadout { padding: 5px; }
     .equipment-slot { grid-template-rows: 14px minmax(0, 1fr) 14px; padding: 2px; }
@@ -813,8 +811,8 @@
     height: var(--hud-map-size);
     margin: 0;
     padding: 0;
-    border: 2px solid var(--hud-frame);
-    border-radius: var(--hud-radius);
+    border: 1px solid var(--hud-frame);
+    border-radius: 5px;
     background: transparent;
     box-shadow: 0 2px 0 rgba(0,0,0,.42);
     color: #fff;
@@ -2249,7 +2247,6 @@
   #bootUpgrade[hidden] { display: none; }
 
   #duelResult,
-  #dragonResult,
   #playerProfile,
   #leaderboard,
   #devAudit,
@@ -2264,7 +2261,6 @@
   }
 
   #duelResult[hidden],
-  #dragonResult[hidden],
   #playerProfile[hidden],
   #leaderboard[hidden],
   #devAudit[hidden],
@@ -2353,16 +2349,6 @@
   .duel-stat-name, .duel-status-name { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); font-weight: 900; }
   #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; border-color: transparent; background: transparent; font-size: 13px; line-height: 1; }
   .duel-replay-play-icon { display: block; width: 25px; height: 25px; background: center / contain no-repeat url("duel-replay-play-medallion-v1.png"); mix-blend-mode: screen; -webkit-text-stroke: 0; text-shadow: none; }
-  .dragon-result-modal { width: var(--game-window-width); padding: 14px; border-color: rgba(255,101,90,.6); }
-  #dragonResult { background: transparent; pointer-events: none; }
-  #dragonResult .dragon-result-modal { pointer-events: auto; }
-  .dragon-result-modal h2 { margin: 0; color: #ff8a65; font-size: clamp(24px, 7vw, 38px); }
-  .dragon-result-total { margin: 5px 0 9px; color: var(--gold); font-size: 11px; }
-  .dragon-result-contributors { display: grid; gap: 5px; max-height: min(44vh, 360px); margin-bottom: 8px; overflow-y: auto; text-align: left; }
-  .dragon-result-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 7px 9px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.24); font-size: 10px; }
-  .dragon-result-name { min-width: 0; overflow: hidden; color: #fff; text-overflow: ellipsis; white-space: nowrap; }
-  .dragon-result-damage { color: var(--gold); }
-  .dragon-result-percentage { min-width: 52px; color: #72ef58; text-align: right; }
   #dragonWorldNotice { position: fixed; top: 142px; left: 50%; z-index: 9; display: grid; gap: 3px; min-width: min(350px, calc(100vw - 30px)); padding: 10px 16px; border: 2px solid rgba(255,101,90,.68); border-radius: 9px; background: rgba(13,22,17,.94); color: #fff; text-align: center; pointer-events: none; transform: translateX(-50%); animation: dragon-world-notice 6s ease forwards; }
   #dragonWorldNotice[hidden] { display: none; }
   #dragonWorldNotice strong { color: #ff8a65; font-size: 14px; }
@@ -2370,7 +2356,6 @@
   .dragon-world-notice-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; color: var(--gold); font-size: 10px; text-align: left; }
   .dragon-world-notice-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dragon-world-notice-row span:last-child { color: #72ef58; text-align: right; }
-  #closeDragonResultBtn { margin-top: 2px; padding: 9px 18px; font-size: 16px; }
   @keyframes dragon-world-notice {
     0%, 78% { opacity: 1; transform: translate(-50%, 0); }
     100% { opacity: 0; transform: translate(-50%, -8px); }
@@ -3043,7 +3028,6 @@
   .tech-tree-research-time span,
   .tech-tree-timer-label,
   .tech-tree-action,
-  .dragon-result-row,
   .dragon-world-notice-row,
   .player-profile-presence,
   .profile-gender-label,

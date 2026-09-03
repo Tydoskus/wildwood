@@ -98,7 +98,7 @@ import {
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
-    dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
+    dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileEquippedHeadSlot, profileEquippedChestSlot, profileEquippedFeetSlot, profileEquippedRightHandSlot, profileEquippedLeftHandSlot, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
@@ -335,7 +335,6 @@ import {
     onLoadingComplete: finishStartup,
     onShowAccountChoice: showCurrentUpdateNotice,
     onShowConnecting: () => {
-      dragonResultEl.hidden = true;
       dragonWorldNoticeEl.hidden = true;
     },
     acceptLegalTerms: (age) => coop?.acceptLegalTerms?.(age),
@@ -819,10 +818,6 @@ import {
     startWaterPortalCutscene,
     startSamuraiPortalCutscene,
     elements: {
-      result: dragonResultEl,
-      resultTitle: dragonResultTitle,
-      resultTotal: dragonResultTotal,
-      resultContributors: dragonResultContributors,
       worldNotice: dragonWorldNoticeEl,
       worldNoticeDetail: dragonWorldNoticeDetailEl,
     },
@@ -830,7 +825,6 @@ import {
     spawnBurst,
     damagePlayer: (amount) => playerCombat.damagePlayer(amount),
     logPickup,
-    showMessage,
     saveProgress,
     healthMultiplier,
     rewardMultiplier: researchRewardMultiplier,
@@ -1042,8 +1036,7 @@ import {
     resolveKoiShogunCollision: () => bossController.resolveKoiShogunCollision(),
     resolveTempestKirinCollision: () => bossController.resolveTempestKirinCollision(),
     resolveMiremawCollision: () => bossController.resolveMiremawCollision(),
-    applyDragonConePush: (dt) => bossController.applyDragonConePush(dt),
-    applyFrostclawPush: (dt) => bossController.applyFrostclawPush(dt),
+    applyBossKnockback: (dt) => bossController.applyBossKnockback(dt),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
     isSnowMap: () => currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID,

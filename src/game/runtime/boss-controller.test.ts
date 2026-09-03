@@ -1,7 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "./game-bootstrap";
-import { createBossController } from "./boss-controller";
+import {
+  BOSS_AREA_KNOCKBACK_DURATION,
+  SPIDER_WEB_RANGE,
+  bossAreaKnockbackDistance,
+  createBossController,
+} from "./boss-controller";
 import { BOSS_DAMAGE_PROFILES } from "../boss-damage";
+import {
+  BOSS_CONE_RANGE,
+  FROSTCLAW_ROAR_RANGE,
+  GLOOMROOT_SWEEP_RANGE,
+  KOI_SHOGUN_SLASH_RANGE,
+  MAGMALISK_BITE_RANGE,
+  MIREMAW_TONGUE_RANGE,
+  TEMPEST_KIRIN_CHARGE_RANGE,
+  TIDEWYRM_SURGE_RANGE,
+} from "../constants";
 import {
   ADVANCED_LAVA_WASTES_BOSS_HEALTH_MULTIPLIER,
   ADVANCED_LAVA_WASTES_BOSS_REWARD_MULTIPLIER,
@@ -68,6 +83,8 @@ import {
   WATER_REACH_HEALTH_REWARD_MULTIPLIER,
 } from "../../../shared/rules";
 import { bossAbilityTimelineAt } from "../../../shared/boss-simulation";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("Dragon boss", () => {
   it("starts at the shared 300K health balance", () => {
@@ -149,10 +166,6 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     startWaterPortalCutscene: () => undefined,
     startSamuraiPortalCutscene: () => undefined,
     elements: {
-      result: ignoredElement,
-      resultTitle: ignoredElement,
-      resultTotal: ignoredElement,
-      resultContributors: ignoredElement,
       worldNotice: ignoredElement,
       worldNoticeDetail: ignoredElement,
     },
@@ -160,12 +173,119 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     spawnBurst: () => undefined,
     damagePlayer,
     logPickup: () => undefined,
-    showMessage: () => undefined,
     saveProgress: () => undefined,
     ...overrides,
   });
   return { ...state, controller, damagePlayer };
 }
+
+type BossHarness = ReturnType<typeof createFrostclawHarness>;
+
+const areaKnockbackBosses: Array<{
+  name: string;
+  range: number;
+  state: (harness: BossHarness) => { x: number; y: number; r: number; attackClock: number };
+  update: (harness: BossHarness) => void;
+}> = [
+  { name: "Dragon cone", range: BOSS_CONE_RANGE, state: (harness) => harness.boss, update: (harness) => harness.controller.updateBoss(.05) },
+  { name: "Desert Scorpion web", range: SPIDER_WEB_RANGE, state: (harness) => harness.spiderBoss, update: (harness) => harness.controller.updateSpiderBoss(.05) },
+  { name: "Frostclaw roar", range: FROSTCLAW_ROAR_RANGE, state: (harness) => harness.frostclawBoss, update: (harness) => harness.controller.updateFrostclawBoss(.05) },
+  { name: "Magmalisk bite", range: MAGMALISK_BITE_RANGE, state: (harness) => harness.magmaliskBoss, update: (harness) => harness.controller.updateMagmaliskBoss(.05) },
+  { name: "Gloomroot sweep", range: GLOOMROOT_SWEEP_RANGE, state: (harness) => harness.gloomrootBoss, update: (harness) => harness.controller.updateGloomrootBoss(.05) },
+  { name: "Tidewyrm surge", range: TIDEWYRM_SURGE_RANGE, state: (harness) => harness.tidewyrmBoss, update: (harness) => harness.controller.updateTidewyrmBoss(.05) },
+  { name: "Koi Shogun slash", range: KOI_SHOGUN_SLASH_RANGE, state: (harness) => harness.koiShogunBoss, update: (harness) => harness.controller.updateKoiShogunBoss(.05) },
+  { name: "Tempest Kirin charge", range: TEMPEST_KIRIN_CHARGE_RANGE, state: (harness) => harness.tempestKirinBoss, update: (harness) => harness.controller.updateTempestKirinBoss(.05) },
+  { name: "Miremaw tongue", range: MIREMAW_TONGUE_RANGE, state: (harness) => harness.miremawBoss, update: (harness) => harness.controller.updateMiremawBoss(.05) },
+];
+
+describe("Boss area knockback", () => {
+  for (const bossCase of areaKnockbackBosses) {
+    it(`${bossCase.name} pushes once without ejecting a close-range player`, () => {
+      const harness = createFrostclawHarness();
+      const bossState = bossCase.state(harness);
+      bossState.attackClock = 0;
+      harness.player.x = bossState.x + 300;
+      harness.player.y = bossState.y;
+      harness.damagePlayer.mockClear();
+
+      for (let frame = 0; frame < 60 && harness.damagePlayer.mock.calls.length === 0; frame += 1) {
+        bossCase.update(harness);
+      }
+
+      expect(harness.damagePlayer).toHaveBeenCalledOnce();
+      const before = Math.hypot(harness.player.x - bossState.x, harness.player.y - bossState.y);
+      harness.controller.applyBossKnockback(BOSS_AREA_KNOCKBACK_DURATION);
+      const after = Math.hypot(harness.player.x - bossState.x, harness.player.y - bossState.y);
+      const oneHitDistance = bossAreaKnockbackDistance(bossCase.range, bossState.r);
+      expect(after - before).toBeCloseTo(oneHitDistance, 5);
+      expect(after).toBeLessThan(bossCase.range);
+      expect(before + oneHitDistance * 2).toBeGreaterThan(bossCase.range);
+    });
+  }
+});
+
+describe("Boss defeat presentation", () => {
+  it("shows participants the compact world notice and only one reward channel", () => {
+    type FakeElement = {
+      className: string;
+      hidden: boolean;
+      textContent: string;
+      children: FakeElement[];
+      style: Record<string, string>;
+      offsetWidth: number;
+      append: (...children: FakeElement[]) => void;
+      appendChild: (child: FakeElement) => FakeElement;
+      replaceChildren: (...children: FakeElement[]) => void;
+      querySelector: (_selector: string) => FakeElement | null;
+    };
+    const fakeElement = (): FakeElement => {
+      const element: FakeElement = {
+        className: "",
+        hidden: true,
+        textContent: "",
+        children: [],
+        style: {},
+        offsetWidth: 0,
+        append: (...children) => { element.children.push(...children); },
+        appendChild: (child) => { element.children.push(child); return child; },
+        replaceChildren: (...children) => { element.children = [...children]; },
+        querySelector: () => null,
+      };
+      return element;
+    };
+    const noticeTitle = fakeElement();
+    const worldNotice = fakeElement();
+    worldNotice.querySelector = () => noticeTitle;
+    const worldNoticeDetail = fakeElement();
+    vi.stubGlobal("document", { createElement: () => fakeElement() });
+    vi.stubGlobal("window", { setTimeout: vi.fn(() => 1), clearTimeout: vi.fn() });
+
+    let shared = { encounter: 71n, hp: FROSTCLAW_MAX_HP, maxHp: FROSTCLAW_MAX_HP, alive: true };
+    const logPickup = vi.fn();
+    const { controller } = createFrostclawHarness({
+      getFrostclawBoss: () => shared,
+      getFrostclawResult: () => ({
+        encounter: 71n,
+        totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
+      }),
+      elements: {
+        worldNotice: worldNotice as unknown as HTMLElement,
+        worldNoticeDetail: worldNoticeDetail as unknown as HTMLElement,
+      },
+      logPickup,
+    });
+
+    controller.syncFrostclawState();
+    shared = { ...shared, hp: 0, alive: false };
+    controller.syncFrostclawState();
+
+    expect(worldNotice.hidden).toBe(false);
+    expect(noticeTitle.textContent).toBe("FROSTCLAW DEFEATED");
+    expect(worldNoticeDetail.children).toHaveLength(1);
+    expect(logPickup).toHaveBeenCalledTimes(3);
+  });
+});
 
 describe("Frostclaw boss", () => {
   it("follows the shared Snowlands boss health and reward budget", () => {
@@ -241,14 +361,13 @@ describe("Frostclaw boss", () => {
 
     controller.updateFrostclawBoss(.016);
     controller.updateFrostclawBoss(.85);
-    for (let frame = 0; frame < 8 && frostclawBoss.pushTimer <= 0; frame += 1) {
+    for (let frame = 0; frame < 8 && damagePlayer.mock.calls.length === 0; frame += 1) {
       controller.updateFrostclawBoss(.05);
     }
 
     expect(damagePlayer).toHaveBeenCalledWith(BOSS_DAMAGE_PROFILES.frostclaw.roar);
-    expect(frostclawBoss.pushTimer).toBeGreaterThan(0);
     const before = Math.hypot(player.x - frostclawBoss.x, player.y - frostclawBoss.y);
-    controller.applyFrostclawPush(.25);
+    controller.applyBossKnockback(BOSS_AREA_KNOCKBACK_DURATION);
     const after = Math.hypot(player.x - frostclawBoss.x, player.y - frostclawBoss.y);
     expect(after).toBeGreaterThan(before + 100);
   });

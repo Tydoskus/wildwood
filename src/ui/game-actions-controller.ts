@@ -19,8 +19,6 @@ type WindowActionsElements = {
   bootUpgrade: HTMLElement;
   bootUpgradeClose: HTMLElement;
   closeDuelResultButton: HTMLElement;
-  closeDragonResultButton: HTMLElement;
-  dragonResult: HTMLElement;
   closeDuelReplayButton: HTMLElement;
 };
 
@@ -82,11 +80,6 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     dependencies.closeItemInspection();
     elements.inventoryPanel.hidden = true;
     elements.inventoryButton.setAttribute("aria-expanded", "false");
-  }
-
-  function closeDragonResult() {
-    elements.dragonResult.hidden = true;
-    dependencies.refreshFrameClock();
   }
 
   function resetProgress() {
@@ -175,7 +168,6 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   });
 
   elements.closeDuelResultButton.addEventListener("click", dependencies.leaveDuelResult);
-  elements.closeDragonResultButton.addEventListener("click", closeDragonResult);
   elements.closeDuelReplayButton.addEventListener("click", dependencies.closeDuelReplay);
   elements.bootUpgradeClose.addEventListener("click", () => {
     dependencies.closeBootUpgrade();

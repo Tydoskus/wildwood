@@ -178,8 +178,6 @@ export function createGameBootstrap() {
     nextAttack: "roar",
     roar: null,
     rift: null,
-    pushAngle: 0,
-    pushTimer: 0,
     encounter: null,
   };
   const magmaliskBoss: MagmaliskBossState = {

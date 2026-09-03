@@ -62,4 +62,9 @@ describe("profile equipment presentation", () => {
       inspectionItemId: STARTER_STONE,
     });
   });
+
+  it("labels both hand positions as Weapon", () => {
+    expect(profileEquipmentPresentation(equipment(), "RIGHT_HAND").label).toBe("WEAPON");
+    expect(profileEquipmentPresentation(equipment(), "LEFT_HAND").label).toBe("WEAPON");
+  });
 });

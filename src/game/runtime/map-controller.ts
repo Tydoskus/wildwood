@@ -168,7 +168,6 @@ export function createMapController(options: {
     frostclawIcefalls.length = 0;
     frostclawBoss.roar = null;
     frostclawBoss.rift = null;
-    frostclawBoss.pushTimer = 0;
     magmaliskEruptions.length = 0;
     magmaliskBoss.bite = null;
     gloomrootBlooms.length = 0;

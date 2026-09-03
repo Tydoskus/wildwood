@@ -888,9 +888,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     minimapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     minimapCtx.imageSmoothingEnabled = false;
     const draw = minimapCtx;
-    draw.save(); draw.fillStyle = "rgba(12,18,15,.82)"; draw.strokeStyle = "#050a06"; draw.lineWidth = 2; minimapRoundedRect(draw, 0, 0, size, size, 12); draw.fill(); draw.stroke();
-    const innerX = 5; const innerY = 5; const innerSize = size - 10; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
-    draw.save(); minimapRoundedRect(draw, 5, 5, size - 10, size - 10, 7); draw.clip();
+    draw.save(); minimapRoundedRect(draw, 0, 0, size, size, 4); draw.clip();
+    const innerX = 0; const innerY = 0; const innerSize = size; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
     const desert = options.getMapId() === options.desertMapId;
     const snow = options.getMapId() === options.snowMapId;
     const colors = mapColors();
@@ -944,7 +943,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
     draw.fillStyle = "#58e878"; for (const player of remotePlayers) draw.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);
     draw.fillStyle = "#fff"; draw.fillRect(innerX + options.player.x * sx - 2, innerY + options.player.y * sy - 2, 5, 5);
-    draw.strokeStyle = "rgba(255,255,255,.52)"; draw.lineWidth = 1; draw.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); draw.restore(); draw.restore();
+    draw.strokeStyle = "rgba(255,255,255,.52)"; draw.lineWidth = 1; draw.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); draw.restore();
     minimapCacheKey = cacheKey;
   }
 

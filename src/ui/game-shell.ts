@@ -83,15 +83,6 @@ const afterUpdateGateShell = String.raw`
   </div>
 </div>
 
-<div id="dragonResult" hidden>
-  <div class="modal dragon-result-modal" role="dialog" aria-modal="true" aria-labelledby="dragonResultTitle">
-    <h2 id="dragonResultTitle" class="window-title">Dragon Defeated</h2>
-    <p id="dragonResultTotal" class="dragon-result-total">1,000,000 TOTAL DAMAGE</p>
-    <div id="dragonResultContributors" class="dragon-result-contributors"></div>
-    <button id="closeDragonResultBtn" type="button">CONTINUE</button>
-  </div>
-</div>
-
 <div id="dragonWorldNotice" role="status" aria-live="polite" hidden>
   <strong>DRAGON DEFEATED</strong>
   <div id="dragonWorldNoticeDetail" class="dragon-world-notice-detail"></div>
@@ -137,8 +128,8 @@ const afterUpdateGateShell = String.raw`
         <button id="profileSkinToneEdit" class="profile-skin-tone-edit" type="button" aria-label="Change skin tone" title="Change skin tone" hidden>✎</button>
         <div id="profileSkinToneControl" class="profile-skin-tone" role="group" aria-label="Skin tone" hidden></div>
       </div>
-      <button id="profileEquippedRightHandSlot" class="equipment-slot profile-equipment-slot slot-right-hand" type="button" data-slot="right-hand"><span>R HAND</span></button>
-      <button id="profileEquippedLeftHandSlot" class="equipment-slot profile-equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>L HAND</span></button>
+      <button id="profileEquippedRightHandSlot" class="equipment-slot profile-equipment-slot slot-right-hand" type="button" data-slot="right-hand"><span>WEAPON</span></button>
+      <button id="profileEquippedLeftHandSlot" class="equipment-slot profile-equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>WEAPON</span></button>
     </div>
     <button id="profileDuelBtn" class="profile-duel-button" type="button" hidden>DUEL</button>
     <div class="profile-tabs" role="tablist" aria-label="Player profile sections">

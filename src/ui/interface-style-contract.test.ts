@@ -93,6 +93,21 @@ describe("interface style contracts", () => {
     expect(tabs).toContain("min-height: 44px");
   });
 
+  it("puts bag capacity beside Bag without a separate inventory title bar", () => {
+    expect(entryHtml).not.toContain("inventory-panel-header");
+    expect(entryHtml).toContain('<div class="inventory-section-title"><strong>BAG</strong><span id="inventoryCount" class="inventory-capacity">');
+    expect(cssRule(".card.inventory-panel")).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
+    expect(cssRule(".inventory-capacity { ")).toContain("margin-left: auto");
+    expect(entryHtml.match(/data-slot="(?:right|left)-hand"><span>WEAPON<\/span>/g)).toHaveLength(2);
+    expect(gameShell.match(/data-slot="(?:right|left)-hand"><span>WEAPON<\/span>/g)).toHaveLength(2);
+  });
+
+  it("uses the compact world notice for every boss defeat", () => {
+    expect(gameShell).toContain('id="dragonWorldNotice" role="status"');
+    expect(gameShell).not.toContain('id="dragonResult"');
+    expect(css).not.toContain(".dragon-result-modal");
+  });
+
   it("uses wide volume tracks with exact 44px slider thumbs", () => {
     const range = cssRule('.volume-control input[type="range"] {');
     const webkitThumb = cssRule('.volume-control input[type="range"]::-webkit-slider-thumb');
@@ -429,7 +444,7 @@ describe("interface style contracts", () => {
       const descriptorUrl = new URL(`assets/wildstat/signin/signin-progression-mobile-4k-v3.webp?v=${releaseVersion}`, base);
       expect(new URL(artworkUrl!, stylesheetUrl).href).toBe(descriptorUrl.href);
     }
-    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.png?v=${releaseVersion}" type="image/png" fetchpriority="high"`);
+    expect(html).toContain(`<link rel="preload" as="image" href="assets/wildstat/wildstat-wordmark.webp?v=${releaseVersion}" type="image/webp" fetchpriority="high"`);
     expect(html).not.toContain("--signin-preview");
     expect(html).not.toContain("data:image/jpeg;base64");
     expect(css).toContain("height: calc(100dvh + 30px)");
@@ -486,10 +501,12 @@ describe("interface style contracts", () => {
   });
 
   it("shows the complete WildStat wordmark across all startup screens", () => {
-    const wordmark = readFileSync(new URL("../../public/assets/wildstat/wildstat-wordmark.png", import.meta.url));
-    const width = wordmark.readUInt32BE(16);
-    const height = wordmark.readUInt32BE(20);
-    const images = [...entryHtml.matchAll(/<img src="assets\/wildstat\/wildstat-wordmark\.png\?v=([\d.]+)"[^>]*>/g)];
+    const wordmark = readFileSync(new URL("../../public/assets/wildstat/wildstat-wordmark.webp", import.meta.url));
+    expect(wordmark.subarray(0, 4).toString("ascii")).toBe("RIFF");
+    expect(wordmark.subarray(8, 16).toString("ascii")).toBe("WEBPVP8X");
+    const width = wordmark.readUIntLE(24, 3) + 1;
+    const height = wordmark.readUIntLE(27, 3) + 1;
+    const images = [...entryHtml.matchAll(/<img src="assets\/wildstat\/wildstat-wordmark\.webp\?v=([\d.]+)"[^>]*>/g)];
 
     expect(width / height).toBe(3);
     expect(images).toHaveLength(5);
@@ -497,6 +514,7 @@ describe("interface style contracts", () => {
       expect(image).toContain(`width="${width}" height="${height}"`);
       expect(version).toBe(releaseVersion);
     }
+    expect(entryHtml).not.toContain("wildstat-wordmark.png");
     expect(entryHtml).not.toContain("wildwood-wordmark.png");
     expect(entryHtml).not.toContain('aria-label="Wildwood');
     expect(entryHtml).toContain("<title>WildStat</title>");
@@ -611,8 +629,8 @@ describe("interface style contracts", () => {
     expect(minimap).toContain("height: var(--hud-map-size)");
     expect(minimap).toContain("top: var(--hud-safe-top)");
     expect(minimap).toContain("right: var(--hud-safe-right)");
-    expect(minimap).toContain("border: 2px solid var(--hud-frame)");
-    expect(minimap).toContain("border-radius: var(--hud-radius)");
+    expect(minimap).toContain("border: 1px solid var(--hud-frame)");
+    expect(minimap).toContain("border-radius: 5px");
     expect(minimap).toContain("pointer-events: auto");
     expect(gameEntry).toContain("minimapButton.clientLeft");
     expect(gameEntry).toContain("minimapButton.clientWidth * scaleX");

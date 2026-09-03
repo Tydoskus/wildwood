@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { BOW_RIGHT_HAND_ANGLE_DEGREES, bowHeldAlignment, bowHeldAnchorX, bowHeldRotationRadians, heldWeaponRunMotion } from "./player-appearance";
+import { FROST_ARMOR, STARTER_BOW } from "./inventory";
+import {
+  BOW_RIGHT_HAND_ANGLE_DEGREES,
+  bowHeldAlignment,
+  bowHeldAnchorX,
+  bowHeldRotationRadians,
+  drawStartingPlayer,
+  heldWeaponRunMotion,
+  type PlayerAppearanceAssets,
+} from "./player-appearance";
 
 const degrees = (radians: number) => radians * 180 / Math.PI;
 
@@ -38,5 +47,38 @@ describe("held weapon running motion", () => {
     expect(left.x).toBeCloseTo(-right.x);
     expect(left.y).toBeCloseTo(right.y);
     expect(left.rotation).toBeCloseTo(-right.rotation);
+  });
+
+  it("draws either weapon hand in front of chest armor in both directions", () => {
+    const image = (name: string) => ({ complete: true, naturalWidth: 40, naturalHeight: 40, name }) as unknown as HTMLImageElement;
+    const assets: PlayerAppearanceAssets = {
+      basicFrontLeg: image("front-leg"),
+      basicBackLeg: image("back-leg"),
+      equipment: {
+        [FROST_ARMOR]: { sprite: image("chest") },
+        [STARTER_BOW]: { sprite: image("weapon") },
+      },
+    };
+
+    for (const facing of [0, Math.PI]) {
+      for (const hand of ["right", "left"] as const) {
+        const draws: string[] = [];
+        const context = {
+          save() {}, restore() {}, translate() {}, scale() {}, rotate() {},
+          beginPath() {}, moveTo() {}, lineTo() {}, arc() {}, bezierCurveTo() {}, closePath() {}, fill() {},
+          drawImage(asset: HTMLImageElement) { draws.push((asset as unknown as { name: string }).name); },
+        } as unknown as CanvasRenderingContext2D;
+        drawStartingPlayer(context, assets, {
+          x: 0,
+          y: 0,
+          facing,
+          gameTime: 0,
+          chestItem: FROST_ARMOR,
+          rightHandItem: hand === "right" ? STARTER_BOW : "",
+          leftHandItem: hand === "left" ? STARTER_BOW : "",
+        });
+        expect(draws.indexOf("weapon"), `${hand} hand facing ${facing}`).toBeGreaterThan(draws.indexOf("chest"));
+      }
+    }
   });
 });

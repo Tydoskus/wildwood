@@ -73,7 +73,6 @@ export function createGameActionsRuntime(d: Record<string, any>) {
       shopButton: e.shopBtn,
       resetProgressButton: e.resetProgressBtn, bootUpgrade: e.bootUpgradeEl,
       bootUpgradeClose: e.bootUpgradeClose, closeDuelResultButton: e.closeDuelResultBtn,
-      closeDragonResultButton: e.closeDragonResultBtn, dragonResult: e.dragonResultEl,
       closeDuelReplayButton: e.closeDuelReplayBtn,
     },
     inventory: d.inventory,
