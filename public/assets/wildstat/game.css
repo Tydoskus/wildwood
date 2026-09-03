@@ -1346,7 +1346,6 @@
   #chatPanel:not(.is-large) #chatForm { display: none; }
   #chatPanel:not(.is-large) .chat-header { display: none; }
   #chatPanel:not(.is-large) #topMeta { display: block; margin-left: auto; color: #fff; font-size: 8px; }
-  #chatPanel:not(.is-large) #latencyStatus,
   #chatPanel:not(.is-large) #version { display: none; }
   #chatPanel:not(.is-large) .chat-size-toggle { margin-left: 0; }
   #chatPanel:not(.is-large) #chatMessages { display: grid; align-content: end; height: 39px; min-height: 39px; max-height: 39px; padding: 0 3px 0 43px; background: 2px center / 38px 38px no-repeat url("icons/Icon_Misc_ETC_Chat01.png"); }
@@ -1443,20 +1442,26 @@
   .stat-reward-toast {
     --stat-reward-accent: var(--green);
     display: grid;
-    grid-template-columns: 30px minmax(0, auto) auto 20px;
+    grid-template-columns: 21px minmax(0, auto) auto 14px;
     align-items: center;
-    column-gap: 8px;
+    column-gap: 6px;
     width: max-content;
-    min-height: 54px;
+    min-height: 38px;
+    padding: 6px 9px;
+    border-color: var(--hud-frame);
+    border-radius: var(--hud-radius);
+    background: var(--hud-surface);
+    box-shadow: 0 2px 0 rgba(0,0,0,.42);
+    font-size: clamp(10px, 2.8vw, 13px);
   }
 
   .stat-reward-icon {
     display: grid;
     place-items: center;
-    width: 30px;
-    min-width: 30px;
+    width: 21px;
+    min-width: 21px;
     color: var(--stat-reward-accent);
-    font: 900 24px/1 "Apple Color Emoji", "Segoe UI Emoji", var(--font-rounded);
+    font: 900 17px/1 "Apple Color Emoji", "Segoe UI Emoji", var(--font-rounded);
     -webkit-text-stroke: 0;
     text-shadow: 0 2px 2px rgba(0, 0, 0, .82);
   }
@@ -1466,8 +1471,8 @@
 
   .stat-reward-arrow {
     position: relative;
-    width: 20px;
-    height: 28px;
+    width: 14px;
+    height: 20px;
     filter: drop-shadow(0 2px 0 #143516);
     -webkit-text-stroke: 0;
     text-shadow: none;
@@ -1475,10 +1480,10 @@
 
   .stat-reward-arrow::before {
     position: absolute;
-    left: 7px;
+    left: 5px;
     bottom: 1px;
-    width: 7px;
-    height: 17px;
+    width: 5px;
+    height: 12px;
     border-radius: 1px;
     background: var(--green);
     content: "";
@@ -1490,9 +1495,9 @@
     left: 1px;
     width: 0;
     height: 0;
-    border-right: 9px solid transparent;
-    border-bottom: 10px solid var(--green);
-    border-left: 9px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 7px solid var(--green);
+    border-left: 6px solid transparent;
     content: "";
   }
 

@@ -8,6 +8,7 @@ const webAppManifest = JSON.parse(readFileSync(new URL("../../public/manifest.we
 const gameShell = readFileSync(new URL("./game-shell.ts", import.meta.url), "utf8");
 const html = `${entryHtml}\n${gameShell}`;
 const coopEntry = readFileSync(new URL("../wildstat-coop.ts", import.meta.url), "utf8");
+const appShellController = readFileSync(new URL("./app-shell-controller.ts", import.meta.url), "utf8");
 const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
 const chatController = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
 const signInAuthDetect = readFileSync(new URL("../../public/assets/wildstat/signin-auth-detect.js", import.meta.url), "utf8");
@@ -189,11 +190,13 @@ describe("interface style contracts", () => {
     expect(log).toContain("var(--mini-chat-height)");
 
     const toast = cssRule(".stat-reward-toast {");
-    expect(toast).toContain("grid-template-columns: 30px minmax(0, auto) auto 20px");
-    expect(toast).toContain("min-height: 54px");
+    expect(toast).toContain("grid-template-columns: 21px minmax(0, auto) auto 14px");
+    expect(toast).toContain("min-height: 38px");
+    expect(toast).toContain("background: var(--hud-surface)");
+    expect(toast).toContain("font-size: clamp(10px, 2.8vw, 13px)");
     expect(cssRule(".stat-reward-label { ")).toContain("color: #fff");
     expect(cssRule(".stat-reward-value { ")).toContain("color: var(--green)");
-    expect(cssRule(".stat-reward-arrow::after {")).toContain("border-bottom: 10px solid var(--green)");
+    expect(cssRule(".stat-reward-arrow::after {")).toContain("border-bottom: 7px solid var(--green)");
   });
 
   it("renders chat messages with the same font treatment as usernames", () => {
@@ -299,6 +302,10 @@ describe("interface style contracts", () => {
 
   it("places the compact FPS readout beneath the player HUD", () => {
     expect(html).toContain('id="gameFpsStatus">FPS: --</span>');
+    expect(html).toContain('id="latencyStatus" hidden>PING: --</span>');
+    expect(html.indexOf('id="latencyStatus"')).toBeLessThan(html.indexOf('id="settingsPanel"'));
+    expect(appShellController).toContain("gameFpsStatus.hidden = !fpsVisible");
+    expect(appShellController).toContain("fpsStatus.hidden = !fpsVisible && !latencyVisible");
     expect(html).not.toContain('id="onePercentLowFpsStatus"');
     expect(html).not.toContain('id="workFpsStatus"');
     const status = cssRule(".fps-status {");

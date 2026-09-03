@@ -73,9 +73,10 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
     renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
     renderBooleanSetting(fpsToggle, fpsVisible);
-    fpsStatus.hidden = !fpsVisible;
+    gameFpsStatus.hidden = !fpsVisible;
     renderBooleanSetting(latencyToggle, latencyVisible);
     renderLatencyStatus(latencyStatus, latencyVisible, dependencies.latencyMs(), dependencies.connected());
+    fpsStatus.hidden = !fpsVisible && !latencyVisible;
     dependencies.mapMusic.setVolume(dependencies.mapMusic.volume);
     dependencies.mapMusic.setSfxVolume(dependencies.mapMusic.sfxVolume);
     renderVolume(musicVolumeInput, musicVolumeValue, dependencies.mapMusic.volume);

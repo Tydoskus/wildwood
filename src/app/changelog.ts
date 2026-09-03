@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.600": [
+    "Restored the optional latency readout beside the FPS display.",
+    "Reduced stat reward cards by thirty percent and matched their transparency to the player HUD.",
+  ],
   "0.599": [
     "Centered and refreshed stat reward notifications as compact upgrade cards.",
     "Moved Developer Tools into Settings and added a Shop shortcut to the toolbar.",
@@ -1381,6 +1385,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.600": "2026-09-02",
   "0.599": "2026-09-02",
   "0.598": "2026-09-02",
   "0.597": "2026-09-02",
