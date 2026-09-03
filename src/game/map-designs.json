@@ -6,7 +6,7 @@
       "name": "Tutorial Forest",
       "templateId": "tutorial_forest",
       "status": "live",
-      "updatedAt": "2026-09-03T15:38:50.944Z",
+      "updatedAt": "2026-09-03T15:40:46.374Z",
       "theme": {
         "ground": "#31945b",
         "path": "#8b6551",
@@ -3241,8 +3241,8 @@
       ],
       "gameplay": {
         "arrival": {
-          "x": 825,
-          "y": 875
+          "x": 875,
+          "y": 900
         },
         "boss": {
           "x": 4040,
@@ -3254,12 +3254,3047 @@
         },
         "portals": [
           {
-            "x": 825,
-            "y": 800,
+            "x": 875,
+            "y": 850,
             "width": 198,
             "height": 198,
-            "depth": 800,
+            "depth": 850,
             "destination": "beginner_desert"
+          }
+        ]
+      },
+      "gameplayEdited": true
+    },
+    "beginner_desert": {
+      "id": "beginner_desert",
+      "name": "Beginner Desert",
+      "templateId": "beginner_desert",
+      "status": "live",
+      "updatedAt": "2026-09-03T15:43:03.564Z",
+      "theme": {
+        "ground": "#d9a95f",
+        "path": "#c48b4b",
+        "pathDetail": "rgba(111,65,32,.15)",
+        "decorColors": {
+          "cactus": [
+            "#3f8050",
+            "#245a36",
+            "#70a961"
+          ],
+          "rock": [
+            "#79543d",
+            "#b77b4b"
+          ],
+          "desertGrass": [
+            "#a28a43",
+            "#8b7b3d"
+          ]
+        }
+      },
+      "paths": [
+        {
+          "x": 1040,
+          "y": 350,
+          "w": 3400,
+          "h": 150
+        },
+        {
+          "x": 1040,
+          "y": 430,
+          "w": 150,
+          "h": 3300
+        },
+        {
+          "x": 1050,
+          "y": 2380,
+          "w": 3000,
+          "h": 150
+        },
+        {
+          "x": 1960,
+          "y": 2380,
+          "w": 150,
+          "h": 1350
+        },
+        {
+          "x": 390,
+          "y": 725,
+          "w": 800,
+          "h": 150
+        }
+      ],
+      "decor": [
+        {
+          "type": "cactus",
+          "x": 904,
+          "y": 653,
+          "s": 1.156,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 3477,
+          "y": 710,
+          "s": 0.866,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 1561,
+          "y": 619,
+          "s": 1.11,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 4655,
+          "y": 2481,
+          "s": 0.736,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 3360,
+          "y": 3436,
+          "s": 0.88,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 644,
+          "y": 3659,
+          "s": 1.175,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 2846,
+          "y": 3515,
+          "s": 0.81,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 3575,
+          "y": 3841,
+          "s": 0.993,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 3676,
+          "y": 4559,
+          "s": 0.913,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 3395,
+          "y": 3812,
+          "s": 1.158,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 3129,
+          "y": 4423,
+          "s": 0.94,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 2118,
+          "y": 4495,
+          "s": 0.917,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 1258,
+          "y": 1716,
+          "s": 0.921,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 4384,
+          "y": 1147,
+          "s": 1.125,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 3137,
+          "y": 3264,
+          "s": 0.899,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 177,
+          "y": 238,
+          "s": 0.913,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 263,
+          "y": 2737,
+          "s": 1.112,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 2896,
+          "y": 241,
+          "s": 1.221,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 2384,
+          "y": 279,
+          "s": 0.905,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 343,
+          "y": 2026,
+          "s": 0.86,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 1378,
+          "y": 2641,
+          "s": 1.133,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 1442,
+          "y": 3580,
+          "s": 0.791,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 758,
+          "y": 1647,
+          "s": 1.158,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 1647,
+          "y": 199,
+          "s": 0.835,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 2264,
+          "y": 2138,
+          "s": 0.747,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 3209,
+          "y": 3093,
+          "s": 0.765,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 920,
+          "y": 2026,
+          "s": 0.942,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 4551,
+          "y": 3849,
+          "s": 1.152,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 2557,
+          "y": 3072,
+          "s": 1.092,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 1284,
+          "y": 621,
+          "s": 1.188,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 2087,
+          "y": 122,
+          "s": 0.992,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 416,
+          "y": 1229,
+          "s": 1.098,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 1323,
+          "y": 1748,
+          "s": 1.207,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 2659,
+          "y": 2221,
+          "s": 1.124,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 784,
+          "y": 4199,
+          "s": 0.901,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 3933,
+          "y": 1418,
+          "s": 0.843,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 1346,
+          "y": 4615,
+          "s": 1.188,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 745,
+          "y": 3524,
+          "s": 0.938,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 4527,
+          "y": 4034,
+          "s": 0.821,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 1965,
+          "y": 1786,
+          "s": 0.985,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 1741,
+          "y": 2724,
+          "s": 0.861,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 3697,
+          "y": 1074,
+          "s": 0.828,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 241,
+          "y": 3549,
+          "s": 0.743,
+          "variant": 3
+        },
+        {
+          "type": "cactus",
+          "x": 1844,
+          "y": 4526,
+          "s": 0.864,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 832,
+          "y": 186,
+          "s": 0.757,
+          "variant": 1
+        },
+        {
+          "type": "cactus",
+          "x": 1686,
+          "y": 1909,
+          "s": 1.196,
+          "variant": 2
+        },
+        {
+          "type": "cactus",
+          "x": 1694,
+          "y": 3210,
+          "s": 0.751,
+          "variant": 0
+        },
+        {
+          "type": "cactus",
+          "x": 1683,
+          "y": 1209,
+          "s": 1.191,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 4529,
+          "y": 2676,
+          "s": 1.169,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4316,
+          "y": 3190,
+          "s": 0.699,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1368,
+          "y": 3185,
+          "s": 1.009,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3541,
+          "y": 2136,
+          "s": 0.973,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3958,
+          "y": 1508,
+          "s": 0.978,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 121,
+          "y": 2048,
+          "s": 1.164,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 4160,
+          "y": 3453,
+          "s": 0.638,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 692,
+          "y": 2352,
+          "s": 0.854,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4509,
+          "y": 4443,
+          "s": 1.002,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1843,
+          "y": 1838,
+          "s": 0.559,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 432,
+          "y": 1722,
+          "s": 0.655,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 685,
+          "y": 2594,
+          "s": 1.034,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 543,
+          "y": 3753,
+          "s": 0.966,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4714,
+          "y": 652,
+          "s": 0.582,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3845,
+          "y": 1507,
+          "s": 0.821,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3926,
+          "y": 128,
+          "s": 1.232,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 2964,
+          "y": 2306,
+          "s": 1.01,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1809,
+          "y": 3089,
+          "s": 0.783,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 615,
+          "y": 3434,
+          "s": 0.977,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1418,
+          "y": 1475,
+          "s": 0.846,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1184,
+          "y": 4342,
+          "s": 0.854,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 166,
+          "y": 3507,
+          "s": 0.864,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1341,
+          "y": 2249,
+          "s": 0.938,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 2266,
+          "y": 1923,
+          "s": 0.666,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4381,
+          "y": 1160,
+          "s": 0.74,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3322,
+          "y": 2600,
+          "s": 0.587,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1425,
+          "y": 322,
+          "s": 1.117,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 2022,
+          "y": 4321,
+          "s": 0.826,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1889,
+          "y": 1241,
+          "s": 0.921,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 777,
+          "y": 2839,
+          "s": 0.675,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 4738,
+          "y": 1200,
+          "s": 0.575,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 123,
+          "y": 2463,
+          "s": 1.169,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1585,
+          "y": 2045,
+          "s": 0.596,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 594,
+          "y": 4366,
+          "s": 1.119,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3886,
+          "y": 4270,
+          "s": 0.945,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3173,
+          "y": 1895,
+          "s": 0.8,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 2153,
+          "y": 3036,
+          "s": 1.111,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 203,
+          "y": 1153,
+          "s": 1.094,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 74,
+          "y": 3576,
+          "s": 0.655,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 4684,
+          "y": 3160,
+          "s": 0.954,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4719,
+          "y": 252,
+          "s": 0.996,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 543,
+          "y": 3523,
+          "s": 0.812,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 542,
+          "y": 1234,
+          "s": 0.931,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 2693,
+          "y": 1890,
+          "s": 1.128,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 1184,
+          "y": 4226,
+          "s": 0.648,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1517,
+          "y": 1584,
+          "s": 0.749,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3255,
+          "y": 2869,
+          "s": 0.637,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3790,
+          "y": 3967,
+          "s": 0.834,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 2215,
+          "y": 1358,
+          "s": 1.041,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 483,
+          "y": 2706,
+          "s": 0.776,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 110,
+          "y": 2837,
+          "s": 1.224,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 70,
+          "y": 3430,
+          "s": 0.749,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3940,
+          "y": 4417,
+          "s": 1.095,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 2518,
+          "y": 2947,
+          "s": 0.797,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 250,
+          "y": 4340,
+          "s": 0.648,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1704,
+          "y": 554,
+          "s": 0.824,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3472,
+          "y": 3220,
+          "s": 1.024,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3638,
+          "y": 3554,
+          "s": 1.166,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1795,
+          "y": 3178,
+          "s": 0.98,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3383,
+          "y": 60,
+          "s": 1.209,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 4667,
+          "y": 1726,
+          "s": 0.777,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 145,
+          "y": 4421,
+          "s": 1.189,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 878,
+          "y": 256,
+          "s": 0.706,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3119,
+          "y": 3217,
+          "s": 1.247,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3421,
+          "y": 2634,
+          "s": 1.019,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 2863,
+          "y": 92,
+          "s": 1.027,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4536,
+          "y": 4037,
+          "s": 1.2,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1470,
+          "y": 3458,
+          "s": 1.178,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3397,
+          "y": 1442,
+          "s": 1.188,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3386,
+          "y": 1823,
+          "s": 1.044,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 2710,
+          "y": 3943,
+          "s": 1.156,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3605,
+          "y": 1509,
+          "s": 0.635,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 4244,
+          "y": 1522,
+          "s": 0.675,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4704,
+          "y": 4469,
+          "s": 0.968,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 157,
+          "y": 1769,
+          "s": 0.929,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3179,
+          "y": 2903,
+          "s": 1.148,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3833,
+          "y": 1162,
+          "s": 0.903,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 859,
+          "y": 2971,
+          "s": 0.749,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 4408,
+          "y": 994,
+          "s": 1.159,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 4234,
+          "y": 1556,
+          "s": 0.847,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 4033,
+          "y": 1153,
+          "s": 1.01,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 301,
+          "y": 2054,
+          "s": 0.691,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 3456,
+          "y": 1598,
+          "s": 0.859,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 2281,
+          "y": 2072,
+          "s": 0.895,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 2003,
+          "y": 1176,
+          "s": 1.157,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 53,
+          "y": 143,
+          "s": 1.217,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1782,
+          "y": 3144,
+          "s": 0.623,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 1500,
+          "y": 4707,
+          "s": 0.701,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 461,
+          "y": 4125,
+          "s": 0.899,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 3862,
+          "y": 4251,
+          "s": 0.973,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3889,
+          "y": 1843,
+          "s": 1.098,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1946,
+          "y": 4643,
+          "s": 0.639,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 1808,
+          "y": 1915,
+          "s": 1.144,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 2462,
+          "y": 4526,
+          "s": 1.007,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 2281,
+          "y": 4345,
+          "s": 0.745,
+          "variant": 1
+        },
+        {
+          "type": "rock",
+          "x": 546,
+          "y": 1977,
+          "s": 0.674,
+          "variant": 2
+        },
+        {
+          "type": "rock",
+          "x": 3095,
+          "y": 1900,
+          "s": 1.009,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 1904,
+          "y": 903,
+          "s": 0.562,
+          "variant": 0
+        },
+        {
+          "type": "rock",
+          "x": 830,
+          "y": 2193,
+          "s": 1.084,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4257,
+          "y": 3626,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 272,
+          "y": 137,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1307,
+          "y": 2048,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 931,
+          "y": 958,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2564,
+          "y": 4663,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 84,
+          "y": 696,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3853,
+          "y": 335,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3335,
+          "y": 303,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2062,
+          "y": 1566,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 903,
+          "y": 2433,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3163,
+          "y": 1903,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2981,
+          "y": 2101,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 267,
+          "y": 145,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1423,
+          "y": 1458,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4677,
+          "y": 3556,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1258,
+          "y": 1897,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4024,
+          "y": 4731,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2325,
+          "y": 1636,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4315,
+          "y": 3628,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4082,
+          "y": 2695,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2473,
+          "y": 3760,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4158,
+          "y": 1726,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3317,
+          "y": 3900,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 392,
+          "y": 4521,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 621,
+          "y": 112,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3180,
+          "y": 4201,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3105,
+          "y": 3302,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2569,
+          "y": 2915,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3925,
+          "y": 540,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3328,
+          "y": 4021,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3052,
+          "y": 2140,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 837,
+          "y": 2332,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3153,
+          "y": 3343,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3825,
+          "y": 4041,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1601,
+          "y": 4682,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 814,
+          "y": 2262,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 232,
+          "y": 2204,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 583,
+          "y": 1700,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3588,
+          "y": 2472,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4659,
+          "y": 783,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3908,
+          "y": 4056,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 499,
+          "y": 2350,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4620,
+          "y": 2480,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4236,
+          "y": 2911,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 698,
+          "y": 2251,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4648,
+          "y": 67,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 333,
+          "y": 3042,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4092,
+          "y": 842,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1412,
+          "y": 862,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1599,
+          "y": 4709,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3462,
+          "y": 2346,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1363,
+          "y": 1035,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2660,
+          "y": 2938,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1369,
+          "y": 1319,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2545,
+          "y": 1904,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3382,
+          "y": 2308,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2404,
+          "y": 4480,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2282,
+          "y": 3294,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3786,
+          "y": 2085,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3441,
+          "y": 2908,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4228,
+          "y": 1489,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3496,
+          "y": 744,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 697,
+          "y": 4541,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3546,
+          "y": 974,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2067,
+          "y": 1890,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1241,
+          "y": 4223,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 788,
+          "y": 371,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2899,
+          "y": 3662,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2066,
+          "y": 3238,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1579,
+          "y": 4742,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2399,
+          "y": 682,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 675,
+          "y": 925,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3929,
+          "y": 1613,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4482,
+          "y": 792,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3892,
+          "y": 3462,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2822,
+          "y": 1955,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1148,
+          "y": 2077,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4575,
+          "y": 3149,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2746,
+          "y": 3848,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3142,
+          "y": 2581,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1595,
+          "y": 3950,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1742,
+          "y": 153,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3085,
+          "y": 2113,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1531,
+          "y": 1723,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2868,
+          "y": 2776,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4165,
+          "y": 3387,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4518,
+          "y": 2694,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 807,
+          "y": 4325,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1653,
+          "y": 4532,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4765,
+          "y": 3274,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 857,
+          "y": 4305,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 976,
+          "y": 3479,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2774,
+          "y": 2782,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2671,
+          "y": 4599,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2142,
+          "y": 4048,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2107,
+          "y": 894,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1968,
+          "y": 3933,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3754,
+          "y": 4696,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 973,
+          "y": 4553,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1753,
+          "y": 3048,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2487,
+          "y": 3046,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1515,
+          "y": 1685,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2420,
+          "y": 1385,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2343,
+          "y": 3071,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2860,
+          "y": 2666,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1502,
+          "y": 378,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2498,
+          "y": 2919,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 986,
+          "y": 4264,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1616,
+          "y": 4655,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4618,
+          "y": 1703,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 648,
+          "y": 2217,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4640,
+          "y": 1616,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4519,
+          "y": 33,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 552,
+          "y": 1268,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3801,
+          "y": 1273,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 432,
+          "y": 1906,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2187,
+          "y": 1488,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 995,
+          "y": 446,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2307,
+          "y": 1696,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1828,
+          "y": 929,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2152,
+          "y": 2914,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 707,
+          "y": 4721,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2671,
+          "y": 1851,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1480,
+          "y": 4318,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2089,
+          "y": 3953,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 238,
+          "y": 2487,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 863,
+          "y": 689,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1859,
+          "y": 1451,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2914,
+          "y": 3339,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2282,
+          "y": 3370,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3119,
+          "y": 3992,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1248,
+          "y": 1998,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2282,
+          "y": 3974,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2900,
+          "y": 40,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 450,
+          "y": 1000,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2053,
+          "y": 1068,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1304,
+          "y": 4574,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2783,
+          "y": 4544,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3881,
+          "y": 47,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2332,
+          "y": 1464,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1727,
+          "y": 4712,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4289,
+          "y": 4511,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4518,
+          "y": 4693,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1021,
+          "y": 1344,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 720,
+          "y": 3679,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3628,
+          "y": 4308,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1285,
+          "y": 522,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3743,
+          "y": 4643,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2261,
+          "y": 1448,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2501,
+          "y": 2891,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3838,
+          "y": 47,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2594,
+          "y": 937,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3388,
+          "y": 347,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1269,
+          "y": 4748,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3986,
+          "y": 4417,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 529,
+          "y": 2490,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2703,
+          "y": 2048,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 810,
+          "y": 4281,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2798,
+          "y": 1549,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 699,
+          "y": 2926,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1716,
+          "y": 4006,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2052,
+          "y": 4116,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3881,
+          "y": 4695,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 905,
+          "y": 4100,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1321,
+          "y": 4285,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 94,
+          "y": 2671,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 230,
+          "y": 3427,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4350,
+          "y": 822,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 57,
+          "y": 2123,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3395,
+          "y": 4502,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 305,
+          "y": 2779,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3236,
+          "y": 3017,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3310,
+          "y": 316,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3269,
+          "y": 3690,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1906,
+          "y": 1639,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3838,
+          "y": 1452,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2120,
+          "y": 4143,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3494,
+          "y": 2640,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 425,
+          "y": 286,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2298,
+          "y": 2798,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3730,
+          "y": 3985,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3554,
+          "y": 2185,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1594,
+          "y": 1625,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4147,
+          "y": 2925,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4767,
+          "y": 2503,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3277,
+          "y": 1569,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3284,
+          "y": 1194,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4365,
+          "y": 2475,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 463,
+          "y": 2383,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2509,
+          "y": 3616,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1880,
+          "y": 1413,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1986,
+          "y": 4420,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2157,
+          "y": 1103,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3852,
+          "y": 421,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3417,
+          "y": 240,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 183,
+          "y": 251,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1891,
+          "y": 4518,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4217,
+          "y": 1662,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3310,
+          "y": 2969,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4153,
+          "y": 3212,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3111,
+          "y": 1886,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3041,
+          "y": 1179,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3251,
+          "y": 3673,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1945,
+          "y": 3954,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4447,
+          "y": 4337,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4402,
+          "y": 3726,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 547,
+          "y": 2937,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2763,
+          "y": 431,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1469,
+          "y": 4683,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2047,
+          "y": 4411,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3624,
+          "y": 3850,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1292,
+          "y": 1722,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3264,
+          "y": 2237,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2634,
+          "y": 1265,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4475,
+          "y": 3136,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2607,
+          "y": 128,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1183,
+          "y": 2570,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1847,
+          "y": 2613,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2475,
+          "y": 4062,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1880,
+          "y": 108,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2230,
+          "y": 2183,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 157,
+          "y": 1912,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3485,
+          "y": 171,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1709,
+          "y": 2001,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3665,
+          "y": 4727,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1919,
+          "y": 922,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 923,
+          "y": 2220,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4633,
+          "y": 4685,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1775,
+          "y": 2630,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2867,
+          "y": 1236,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3569,
+          "y": 4211,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3260,
+          "y": 3266,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 367,
+          "y": 211,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1853,
+          "y": 1228,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2344,
+          "y": 3838,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 949,
+          "y": 1247,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3364,
+          "y": 3161,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 798,
+          "y": 2695,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 666,
+          "y": 2269,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3210,
+          "y": 2767,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1994,
+          "y": 2604,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2985,
+          "y": 4435,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4593,
+          "y": 3512,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3065,
+          "y": 3174,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2867,
+          "y": 376,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3429,
+          "y": 4305,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4669,
+          "y": 1428,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 690,
+          "y": 2747,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3022,
+          "y": 2013,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2629,
+          "y": 4480,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3054,
+          "y": 3927,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2579,
+          "y": 1123,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2916,
+          "y": 4231,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4655,
+          "y": 739,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1181,
+          "y": 2612,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2315,
+          "y": 2410,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2067,
+          "y": 1554,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3745,
+          "y": 792,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 763,
+          "y": 3956,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2288,
+          "y": 2501,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3943,
+          "y": 1089,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1638,
+          "y": 3611,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3591,
+          "y": 1836,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3677,
+          "y": 3775,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3548,
+          "y": 1265,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4652,
+          "y": 3465,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3652,
+          "y": 4066,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1869,
+          "y": 3769,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 486,
+          "y": 2887,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4058,
+          "y": 1799,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 1929,
+          "y": 2781,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1612,
+          "y": 2979,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1963,
+          "y": 2772,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3302,
+          "y": 43,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 2531,
+          "y": 491,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 691,
+          "y": 2843,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 895,
+          "y": 1751,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1649,
+          "y": 2579,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 241,
+          "y": 4287,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 53,
+          "y": 3132,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 902,
+          "y": 1020,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1807,
+          "y": 1267,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2166,
+          "y": 3032,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1483,
+          "y": 2110,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2693,
+          "y": 2620,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 4097,
+          "y": 4549,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1830,
+          "y": 105,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 2749,
+          "y": 2638,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 301,
+          "y": 757,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 253,
+          "y": 3790,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 928,
+          "y": 4345,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 2797,
+          "y": 2247,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 4335,
+          "y": 914,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 1707,
+          "y": 527,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1386,
+          "y": 1135,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4019,
+          "y": 1084,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3503,
+          "y": 558,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3065,
+          "y": 1859,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4041,
+          "y": 4718,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3452,
+          "y": 3372,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 292,
+          "y": 1305,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 345,
+          "y": 4741,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3452,
+          "y": 4681,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 3532,
+          "y": 3785,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 4494,
+          "y": 1680,
+          "variant": 0
+        },
+        {
+          "type": "desertGrass",
+          "x": 3708,
+          "y": 2775,
+          "variant": 1
+        },
+        {
+          "type": "desertGrass",
+          "x": 1349,
+          "y": 52,
+          "variant": 2
+        },
+        {
+          "type": "desertGrass",
+          "x": 3872,
+          "y": 2915,
+          "variant": 0
+        }
+      ],
+      "spawnCamps": [
+        {
+          "name": "Sunbaked Burrow",
+          "x": 1120,
+          "y": 1160,
+          "minRadius": 150,
+          "radius": 350,
+          "count": 6,
+          "types": [
+            "Dune Raider"
+          ]
+        },
+        {
+          "name": "Copper Flats",
+          "x": 2780,
+          "y": 1260,
+          "minRadius": 180,
+          "radius": 410,
+          "count": 6,
+          "types": [
+            "Dune Archer"
+          ]
+        },
+        {
+          "name": "Oracle Mesa",
+          "x": 4140,
+          "y": 780,
+          "minRadius": 90,
+          "radius": 230,
+          "count": 3,
+          "types": [
+            "Blight Oracle"
+          ]
+        },
+        {
+          "name": "Reaper Approach",
+          "x": 1740,
+          "y": 1420,
+          "minRadius": 0,
+          "radius": 0,
+          "count": 1,
+          "types": [
+            "Wastes Reaper"
+          ]
+        },
+        {
+          "name": "Needle Dunes",
+          "x": 3950,
+          "y": 2550,
+          "minRadius": 200,
+          "radius": 470,
+          "count": 7,
+          "types": [
+            "Venom Guard"
+          ]
+        },
+        {
+          "name": "Drybone Basin",
+          "x": 2050,
+          "y": 3650,
+          "minRadius": 210,
+          "radius": 490,
+          "count": 7,
+          "types": [
+            "Venom Guard"
+          ]
+        }
+      ],
+      "gameplay": {
+        "arrival": {
+          "x": 625,
+          "y": 800
+        },
+        "boss": {
+          "x": 4050,
+          "y": 4050
+        },
+        "portals": [
+          {
+            "x": 500,
+            "y": 725,
+            "width": 198,
+            "height": 198,
+            "depth": 725,
+            "destination": "tutorial_forest"
+          },
+          {
+            "x": 750,
+            "y": 725,
+            "width": 198,
+            "height": 198,
+            "depth": 725,
+            "destination": "intermediate_snowlands"
           }
         ]
       },

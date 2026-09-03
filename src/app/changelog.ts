@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.605": [
+    "Applied the latest authored Tutorial Forest and Beginner Desert layouts, decorations, colors, paths, camps, and gameplay markers.",
+  ],
   "0.604": [
     "Added a one-click map editor for creating maps and editing layouts, decorations, colors, enemy camps, and gameplay markers.",
     "Applied the newly authored Tutorial Forest layout, palette, paths, decorations, and pickup positions.",
@@ -1402,6 +1405,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.605": "2026-09-03",
   "0.604": "2026-09-03",
   "0.603": "2026-09-02",
   "0.602": "2026-09-02",
