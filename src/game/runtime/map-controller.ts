@@ -7,6 +7,8 @@ export type MapPortal = { x: number; y: number; width: number; height: number; d
 
 type MapConfig = Record<MapId, { portal: MapPortal; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
+const PORTAL_TRIGGER_RADIUS = 48;
+
 /** Loads lazy destination art beside the server move and waits before revealing the new map. */
 export async function prepareMapTransition(
   changeMap: () => Promise<boolean | undefined> | boolean | undefined,
@@ -115,6 +117,7 @@ export function createMapController(options: {
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
   let portalCooldown = 0;
+  let portalExitGuard: MapPortal | null = null;
   let portalCutsceneIntensity = -1;
   let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationOpacity = 0;
@@ -125,6 +128,16 @@ export function createMapController(options: {
   function activePortal() { return mapConfig[getCurrentMapId()].portal; }
   function secondaryPortal() { return mapConfig[getCurrentMapId()].secondaryPortal ?? null; }
   function portalIsUnlocked(portal: MapPortal) { return portal.destination === tutorialMapId || mapUnlocked(portal.destination); }
+
+  function playerIsInsidePortal(portal: MapPortal) {
+    return Math.hypot(player.x - portal.x, player.y - (portal.y - portal.height * .32)) <= PORTAL_TRIGGER_RADIUS;
+  }
+
+  function guardPortalContainingPlayer() {
+    portalExitGuard = [activePortal(), secondaryPortal()]
+      .filter((portal): portal is MapPortal => portal !== null)
+      .find(playerIsInsidePortal) ?? null;
+  }
 
   function portalColliders() {
     return [activePortal(), secondaryPortal()].filter((portal): portal is MapPortal => portal !== null).flatMap((portal) => [
@@ -157,6 +170,7 @@ export function createMapController(options: {
     player.y = y;
     player.facing = facing;
     player.moving = false;
+    guardPortalContainingPlayer();
     enemies.length = 0;
     spawnSites.length = 0;
     clearTransientCombat();
@@ -187,8 +201,12 @@ export function createMapController(options: {
   function updatePortal(dt: number) {
     portalCooldown = Math.max(0, portalCooldown - dt);
     if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
+    if (portalExitGuard) {
+      if (playerIsInsidePortal(portalExitGuard)) return;
+      portalExitGuard = null;
+    }
     const portal = [activePortal(), secondaryPortal()].filter((candidate): candidate is MapPortal => candidate !== null).find((candidate) =>
-      Math.hypot(player.x - candidate.x, player.y - (candidate.y - candidate.height * .32)) <= 48,
+      playerIsInsidePortal(candidate),
     );
     if (!portal || !portalIsUnlocked(portal)) return;
     mapTransitioning = true;
@@ -211,7 +229,6 @@ export function createMapController(options: {
         snapCameraToPlayer(camera, player, viewport());
         resetPresentationState();
         syncStoppedPosition();
-        portalCooldown = 1.5;
         mapTransitioning = false;
       });
     }).catch(() => {
@@ -229,7 +246,6 @@ export function createMapController(options: {
     void options.prepareMapAssets(state.mapId as MapId).then(() => {
       fadeToWorld(() => {
         loadMap(state.mapId as MapId, state.x, state.y, state.facing);
-        portalCooldown = 1.5;
         mapTransitioning = false;
       });
     });

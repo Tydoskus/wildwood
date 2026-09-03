@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.606": [
+    "Made portals activate immediately after map arrival while preserving safe re-entry when a spawn overlaps a portal.",
+    "Reduced the top-left player HUD by 20% and thickened the minimap frame.",
+    "Added a legacy-site sign-in notice pointing players to wildstatmmo.com.",
+  ],
   "0.605": [
     "Applied the latest authored Tutorial Forest and Beginner Desert layouts, decorations, colors, paths, camps, and gameplay markers.",
   ],
@@ -1405,6 +1410,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.606": "2026-09-03",
   "0.605": "2026-09-03",
   "0.604": "2026-09-03",
   "0.603": "2026-09-02",

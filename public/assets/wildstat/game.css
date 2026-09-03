@@ -42,6 +42,8 @@
     --hud-row-height: clamp(59px, 8.5vw, 63px);
     --hud-map-size: calc(var(--hud-row-height) * 2);
     --player-hud-height: calc(var(--hud-row-height) + 16px);
+    --player-hud-scale: .8;
+    --player-hud-visual-height: clamp(60px, calc(6.8vw + 12.8px), 63.2px);
     --mini-chat-height: 58px;
     --toolbar-button-height: 58px;
     --toolbar-height: calc(var(--toolbar-button-height) + env(safe-area-inset-bottom, 0px));
@@ -142,7 +144,7 @@
     padding: 0 3px 0 2px;
   }
 
-  .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: grid; grid-template-columns: var(--hud-row-height) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-items: stretch; column-gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 6px 8px 6px 6px; overflow: hidden; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.42); }
+  .player-hud-card { position: relative; z-index: 3; isolation: isolate; display: grid; grid-template-columns: var(--hud-row-height) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-items: stretch; column-gap: 8px; width: 100%; height: 100%; min-height: 0; padding: 6px 8px 6px 6px; overflow: hidden; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.42); transform: scale(var(--player-hud-scale)); transform-origin: top left; }
   .player-hud-content { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 4px; min-width: 0; min-height: 0; }
   .profile-icon { flex: 0 0 auto; margin: 0; padding: 0; overflow: hidden; border: 2px solid #000; border-radius: 7px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; -webkit-text-stroke: 0; text-shadow: none; }
   .profile-icon-button { width: 100%; height: 100%; align-self: stretch; border-radius: 5px; cursor: pointer; }
@@ -245,7 +247,7 @@
   #settingsBtn[aria-expanded="true"] { background: linear-gradient(#4f5854, #393f3c); box-shadow: inset 0 3px 0 #c3cac6, inset 0 0 0 2px rgba(195,202,198,.18); }
   .settings-button:active { filter: brightness(1.16); transform: none; }
 
-  .fps-status { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-height) + 40px); bottom: auto; left: var(--hud-safe-left); z-index: 5; display: flex; gap: 7px; padding: 5px 7px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); color: #fff; font: 900 8px/1 var(--font-rounded); letter-spacing: .03em; white-space: nowrap; pointer-events: none; }
+  .fps-status { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 40px); bottom: auto; left: var(--hud-safe-left); z-index: 5; display: flex; gap: 7px; padding: 5px 7px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); color: #fff; font: 900 8px/1 var(--font-rounded); letter-spacing: .03em; white-space: nowrap; pointer-events: none; }
   .fps-status[hidden] { display: none; }
 
   .card.settings-panel {
@@ -811,7 +813,7 @@
     height: var(--hud-map-size);
     margin: 0;
     padding: 0;
-    border: 1px solid var(--hud-frame);
+    border: 2px solid var(--hud-frame);
     border-radius: 5px;
     background: transparent;
     box-shadow: 0 2px 0 rgba(0,0,0,.42);
@@ -1133,7 +1135,7 @@
     z-index: 6;
   }
 
-  .hud-gem-wallet { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-height) + 6px); left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 8px 3px 5px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.35); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
+  .hud-gem-wallet { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 6px); left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 8px 3px 5px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.35); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
   .hud-gem-icon { display: block; width: 20px; height: 20px; object-fit: contain; }
   .hud-gem-balance { color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px #071c29; }
 
@@ -2078,6 +2080,22 @@
   }
 
   .account-choice-modal p.account-beta-note { color: #fff; font-size: 14px; }
+
+  .account-choice-modal p.account-move-note {
+    display: none;
+    margin: 3px 0 0;
+    color: rgba(255, 255, 255, .92);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  html.wildstat-legacy-host .account-choice-modal p.account-move-note { display: block; }
+
+  .account-choice-modal .account-move-note a {
+    color: #baff91;
+    text-underline-offset: 2px;
+  }
 
   .account-choice-modal p.account-character {
     margin: 16px 0 4px;

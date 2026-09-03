@@ -314,7 +314,7 @@ describe("interface style contracts", () => {
     const counter = cssRule(".hud-gem-wallet {");
     const playerHud = cssRule(".player-hud-card {");
     expect(counter).toContain("position: fixed");
-    expect(counter).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-height) + 6px)");
+    expect(counter).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 6px)");
     expect(counter).toContain("left: var(--hud-safe-left)");
     expect(counter).toContain("border: 2px solid var(--hud-frame)");
     expect(counter).toContain("border-radius: var(--hud-radius-small)");
@@ -337,7 +337,7 @@ describe("interface style contracts", () => {
     expect(html).not.toContain('id="workFpsStatus"');
     const status = cssRule(".fps-status {");
     expect(status).toContain("position: fixed");
-    expect(status).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-height) + 40px)");
+    expect(status).toContain("top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 40px)");
     expect(status).toContain("bottom: auto");
   });
 
@@ -414,6 +414,8 @@ describe("interface style contracts", () => {
     expect(card).toContain("display: grid");
     expect(css).toContain("--hud-map-size: calc(var(--hud-row-height) * 2)");
     expect(css).toContain("--player-hud-height: calc(var(--hud-row-height) + 16px)");
+    expect(css).toContain("--player-hud-scale: .8");
+    expect(css).toContain("--player-hud-visual-height: clamp(60px, calc(6.8vw + 12.8px), 63.2px)");
     expect(card).toContain("grid-template-columns: var(--hud-row-height) minmax(0, 1fr)");
     expect(card).toContain("column-gap: 8px");
     expect(content).toContain("grid-template-rows: repeat(2, minmax(0, 1fr))");
@@ -421,6 +423,8 @@ describe("interface style contracts", () => {
     expect(portrait).toContain("width: 100%");
     expect(portrait).toContain("height: 100%");
     expect(portrait).toContain("align-self: stretch");
+    expect(card).toContain("transform: scale(var(--player-hud-scale))");
+    expect(card).toContain("transform-origin: top left");
     expect(cssRule("#playerHudProfileIcon:active {")).toContain("transform: none");
     expect(track).toContain("height: 100%");
     expect(html).toContain('id="playerPower"');
@@ -453,6 +457,7 @@ describe("interface style contracts", () => {
     expect(entryHtml).toContain(`src="assets/wildstat/signin-auth-detect.js?v=${releaseVersion}"`);
     expect(entryHtml).toContain(`src="assets/wildstat/signin-auth-shell.js?v=${releaseVersion}"`);
     expect(signInAuthDetect).toContain('classList.add("signin-auth-return")');
+    expect(signInAuthDetect).toContain('classList.add("wildstat-legacy-host")');
     expect(signInAuthShell).toContain('textContent = "Verifying Sign-In"');
     expect(css).toContain("html.signin-auth-return #start");
     expect(css).toContain("background-image: none");
@@ -465,6 +470,9 @@ describe("interface style contracts", () => {
     expect(css).toContain("0%, 100% { transform: translateY(calc(-10% + 8px)); }");
     expect(css).toContain("50% { transform: translateY(-10%); }");
     expect(cssRule(".account-choice-modal p.account-beta-note {")).toContain("color: #fff");
+    expect(entryHtml).toContain('<p class="account-move-note">WildStat has moved to <a href="https://wildstatmmo.com/">wildstatmmo.com</a></p>');
+    expect(cssRule(".account-choice-modal p.account-move-note {")).toContain("display: none");
+    expect(cssRule("html.wildstat-legacy-host .account-choice-modal p.account-move-note {")).toContain("display: block");
     expect(cssRule(".account-choice-modal p.account-character {")).toContain("color: #fff");
     expect(cssRule(".account-choice-modal button {")).toContain("min-height: 70px");
     expect(cssRule(".account-choice-modal button {")).toContain("border-radius: 999px");
@@ -629,7 +637,7 @@ describe("interface style contracts", () => {
     expect(minimap).toContain("height: var(--hud-map-size)");
     expect(minimap).toContain("top: var(--hud-safe-top)");
     expect(minimap).toContain("right: var(--hud-safe-right)");
-    expect(minimap).toContain("border: 1px solid var(--hud-frame)");
+    expect(minimap).toContain("border: 2px solid var(--hud-frame)");
     expect(minimap).toContain("border-radius: 5px");
     expect(minimap).toContain("pointer-events: auto");
     expect(gameEntry).toContain("minimapButton.clientLeft");
