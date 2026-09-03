@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/wildstat/wildstat-wordmark.png" width="520" alt="WildStat">
+  <img src="public/assets/wildstat/wildstat-wordmark.webp" width="520" alt="WildStat">
 </p>
 
 <p align="center"><strong>A multiplayer action RPG, right in your browser.</strong></p>
