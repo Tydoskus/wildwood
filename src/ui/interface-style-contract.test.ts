@@ -8,6 +8,7 @@ const webAppManifest = JSON.parse(readFileSync(new URL("../../public/manifest.we
 const gameShell = readFileSync(new URL("./game-shell.ts", import.meta.url), "utf8");
 const html = `${entryHtml}\n${gameShell}`;
 const coopEntry = readFileSync(new URL("../wildstat-coop.ts", import.meta.url), "utf8");
+const gameEntry = readFileSync(new URL("../main.ts", import.meta.url), "utf8");
 const appShellController = readFileSync(new URL("./app-shell-controller.ts", import.meta.url), "utf8");
 const playerInputController = readFileSync(new URL("../game/runtime/player-input-controller.ts", import.meta.url), "utf8");
 const chatController = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
@@ -39,17 +40,25 @@ describe("interface style contracts", () => {
     const bagStart = html.indexOf('<section class="bag-section"');
     const bagEnd = html.indexOf("</section>", bagStart);
     const detail = html.indexOf('id="itemInspectionPanel"');
-    const upgradeBench = html.indexOf('id="upgradeBenchPanel"');
 
     expect(bagStart).toBeGreaterThanOrEqual(0);
     expect(detail).toBeGreaterThan(bagEnd);
-    expect(detail).toBeLessThan(upgradeBench);
+    expect(entryHtml).not.toContain('id="itemInspectionPanel"');
+    expect(gameShell).toContain('id="itemInspectionPanel"');
     expect(html).not.toContain('id="inventoryDetail"');
     expect(cssRule(".inventory-content")).toContain("overflow: hidden");
-    expect(cssRule(".item-inspection-panel")).toContain("position: fixed");
-    expect(cssRule(".item-inspection-panel")).toContain("var(--toolbar-height)");
-    expect(cssRule(".item-inspection-panel")).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
+    const panel = cssRule(".item-inspection-panel");
+    expect(panel).toContain("position: fixed");
+    expect(panel).toContain("var(--toolbar-height)");
+    expect(panel).toContain("z-index: 15");
+    expect(panel).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(cssRule(".item-inspection-panel[hidden]")).toContain("display: none");
+    const icon = cssRule(".item-inspection-icon {");
+    expect(icon).toContain("width: 160px");
+    expect(icon).toContain("border: 0");
+    expect(icon).toContain("background: transparent");
+    expect(icon).toContain("box-shadow: none");
+    expect(cssRule(".item-inspection-icon .inventory-item-art {")).toContain("width: 144px");
     expect(html).toContain('id="itemInspectionBack" class="item-inspection-back window-back-button" type="button">Back</button>');
     expect(cssRule(".item-inspection-actions { ")).toContain("justify-content: center");
     expect(cssRule(".item-inspection-actions { ")).toContain("repeat(auto-fit");
@@ -60,6 +69,8 @@ describe("interface style contracts", () => {
     expect(backButton).toContain("text-shadow: var(--text-shadow)");
     expect(backButton).toContain("-webkit-text-stroke: var(--text-outline-width) #000");
     expect(css).not.toContain(".inventory-detail");
+    expect(gameShell).not.toContain('id="editPlayerSaveBtn"');
+    expect(gameShell).not.toContain("Developer save editor");
   });
 
   it("makes only the slot grid scroll and hides its scrollbar", () => {
@@ -603,6 +614,8 @@ describe("interface style contracts", () => {
     expect(minimap).toContain("border: 2px solid var(--hud-frame)");
     expect(minimap).toContain("border-radius: var(--hud-radius)");
     expect(minimap).toContain("pointer-events: auto");
+    expect(gameEntry).toContain("minimapButton.clientLeft");
+    expect(gameEntry).toContain("minimapButton.clientWidth * scaleX");
     expect(css).toContain("body:is(.is-dueling, .is-replaying) .minimap-button");
     expect(cssRule(".minimap-players {")).toContain("font: 900 10px/12px");
     expect(cssRule(".minimap-version {")).toContain("font: 900 9px/11px");

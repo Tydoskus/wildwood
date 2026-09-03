@@ -11,7 +11,6 @@ import {
 
 export type ProfileTab = "overview" | "stats";
 type Profile = PlayerProfileData;
-type SavePatch = { displayName: string; maxHp: number; damage: number; attackRate: number; armor: number; regen: number; speed: number; attackRange: number; projectileSpeed: number; projectileCount: number };
 
 export function createProfileWindowController(elements: {
   window: HTMLElement; name: HTMLElement; guest: HTMLElement; presence: HTMLElement; power: HTMLElement; icon: HTMLButtonElement; loading: HTMLElement;
@@ -19,9 +18,7 @@ export function createProfileWindowController(elements: {
   joined: HTMLElement; timePlayed: HTMLElement; kills: HTMLElement; online: HTMLElement; statGrid: HTMLElement;
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
   skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; equipmentLeftHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
-  duel: HTMLButtonElement; developerEdit: HTMLElement; developerEditButton: HTMLElement;
-  editNameInput: HTMLInputElement; editMaxHp: HTMLInputElement; editDamage: HTMLInputElement; editAttackRate: HTMLInputElement; editArmor: HTMLInputElement; editRegen: HTMLInputElement; editSpeed: HTMLInputElement; editAttackRange: HTMLInputElement; editProjectileSpeed: HTMLInputElement; editProjectileCount: HTMLInputElement;
-  cancelDeveloperEdit: HTMLElement; saveDeveloperEdit: HTMLButtonElement;
+  duel: HTMLButtonElement;
 }, api: {
   localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
@@ -29,8 +26,8 @@ export function createProfileWindowController(elements: {
   playerGender: (identity?: string) => PlayerGender; setGender: (value: PlayerGender) => Promise<{ ok?: boolean; error?: string } | undefined>;
   renderStats: (profile: Profile, element: HTMLElement) => void; formatPower: (profile: Profile) => string; formatPlayedTime: (seconds: number) => string;
   profile: (identity: string) => Profile | null | undefined; loadProfile: (identity: string) => Promise<Profile | null | undefined>; releaseProfile: () => void;
-  isDeveloper: () => boolean; isDueling: () => boolean; duelCooldownMs: () => number; requestDuel: (identity: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
-  isNameTaken: (name: string) => boolean; setDisplayName: (name: string) => Promise<{ ok?: boolean; error?: string } | undefined>; updateSave: (identity: string, save: SavePatch) => Promise<{ ok?: boolean; error?: string } | undefined>;
+  isDueling: () => boolean; duelCooldownMs: () => number; requestDuel: (identity: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
+  isNameTaken: (name: string) => boolean; setDisplayName: (name: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
   itemInspection: ItemInspectionController;
   showMessage: (text: string, color: string) => void;
 }) {
@@ -157,14 +154,13 @@ export function createProfileWindowController(elements: {
     elements.online.textContent = presence; elements.online.style.color = online ? "#72ef58" : "#b7c5b7";
     api.renderStats(profile, elements.statGrid);
     elements.loading.hidden = true;
-    elements.developerEditButton.hidden = !api.isDeveloper();
     elements.overviewPanel.hidden = !elements.overviewTab.classList.contains("is-active");
     elements.statsPanel.hidden = !elements.statsTab.classList.contains("is-active");
   }
 
   async function open(nextIdentity: string, fallbackName = "PLAYER") {
     if (!nextIdentity) return;
-    identity = nextIdentity; profileData = null; elements.developerEdit.hidden = true; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity; updateDuelButton();
+    identity = nextIdentity; profileData = null; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity; updateDuelButton();
     elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
@@ -174,7 +170,7 @@ export function createProfileWindowController(elements: {
   }
 
   function close() {
-    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.window.hidden = true; elements.guest.hidden = true; identity = ""; profileData = null; renderEquipment(null); elements.developerEdit.hidden = true; elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
+    closeNameEditor(); closeGenderChoices(); elements.skinChoices.hidden = true; elements.window.hidden = true; elements.guest.hidden = true; identity = ""; profileData = null; renderEquipment(null); elements.loading.textContent = "LOADING PLAYER…"; api.releaseProfile();
   }
 
   function openNameEditor() {
@@ -190,19 +186,6 @@ export function createProfileWindowController(elements: {
     elements.saveName.disabled = true; const result = await api.setDisplayName(name); elements.saveName.disabled = false;
     if (result?.ok) { closeNameEditor(); api.showMessage("NAME UPDATED", "#c9f5c2"); return; }
     api.showMessage(/already taken/i.test(result?.error ?? "") ? "NAME TAKEN · TRY ANOTHER" : /once every 30 days/i.test(result?.error ?? "") ? "NAME LOCKED · CHANGES EVERY 30 DAYS" : "NAME UPDATE FAILED", "#ff9b91");
-  }
-
-  function beginDeveloperEdit() {
-    if (!profileData || !api.isDeveloper()) return; const progress = profileData.progress;
-    elements.editNameInput.value = profileData.name; elements.editMaxHp.value = String(progress.maxHp); elements.editDamage.value = String(progress.damage); elements.editAttackRate.value = String(progress.attackRate); elements.editArmor.value = String(progress.armor); elements.editRegen.value = String(progress.regen); elements.editSpeed.value = String(progress.speedOverride > 0 ? progress.speedOverride : progress.speed); elements.editAttackRange.value = String(progress.attackRange); elements.editProjectileSpeed.value = String(progress.projectileSpeed); elements.editProjectileCount.value = String(progress.projectileCount);
-    elements.developerEdit.hidden = false; elements.developerEditButton.hidden = true;
-  }
-  function cancelDeveloperEdit() { elements.developerEdit.hidden = true; elements.developerEditButton.hidden = !profileData || !api.isDeveloper(); }
-  async function saveDeveloperEdit() {
-    if (!identity || !api.isDeveloper()) return; elements.saveDeveloperEdit.disabled = true;
-    const result = await api.updateSave(identity, { displayName: elements.editNameInput.value, maxHp: Number(elements.editMaxHp.value), damage: Number(elements.editDamage.value), attackRate: Number(elements.editAttackRate.value), armor: Number(elements.editArmor.value), regen: Number(elements.editRegen.value), speed: Number(elements.editSpeed.value), attackRange: Number(elements.editAttackRange.value), projectileSpeed: Number(elements.editProjectileSpeed.value), projectileCount: Number(elements.editProjectileCount.value) });
-    elements.saveDeveloperEdit.disabled = false; if (!result?.ok) { api.showMessage(result?.error || "DATABASE UPDATE FAILED", "#ff9b91"); return; }
-    api.showMessage("PLAYER SAVE UPDATED", "#72ef58"); elements.developerEdit.hidden = true; elements.developerEditButton.hidden = false;
   }
 
   elements.overviewTab.addEventListener("click", () => selectTab("overview")); elements.statsTab.addEventListener("click", () => selectTab("stats"));
@@ -235,7 +218,6 @@ export function createProfileWindowController(elements: {
     api.renderName(elements.name, identity, profileData?.name || api.localDisplayName() || "PLAYER", gender);
     api.showMessage("GENDER UPDATED", "#72ef58");
   });
-  elements.developerEditButton.addEventListener("click", beginDeveloperEdit); elements.cancelDeveloperEdit.addEventListener("click", cancelDeveloperEdit); elements.saveDeveloperEdit.addEventListener("click", () => void saveDeveloperEdit());
   elements.duel.addEventListener("click", () => { const opponent = elements.duel.dataset.identity || ""; if (!opponent || elements.duel.disabled) return; elements.duel.disabled = true; void api.requestDuel(opponent).then((result) => { if (!result?.ok) api.showMessage(result?.error || "DUEL FAILED", "#ff9b91"); else close(); updateDuelButton(); }); });
   return { selectTab, render, open, close, drawPreview, openNameEditor, closeNameEditor, updateDuelButton, isOpen: () => !elements.window.hidden, isNameEditorOpen: () => !elements.nameEditor.hidden, identity: () => identity, profile: () => profileData };
 }

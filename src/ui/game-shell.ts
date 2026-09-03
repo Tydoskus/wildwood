@@ -141,7 +141,6 @@ const afterUpdateGateShell = String.raw`
       <button id="profileEquippedLeftHandSlot" class="equipment-slot profile-equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>L HAND</span></button>
     </div>
     <button id="profileDuelBtn" class="profile-duel-button" type="button" hidden>DUEL</button>
-    <button id="editPlayerSaveBtn" class="secondary-button profile-edit-button" type="button" hidden>EDIT SAVE</button>
     <div class="profile-tabs" role="tablist" aria-label="Player profile sections">
       <button id="profileStatsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileStatsPanel">STATS</button>
       <button id="profileOverviewTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileOverviewPanel">INFO</button>
@@ -158,28 +157,23 @@ const afterUpdateGateShell = String.raw`
     <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
       <dl id="profileStatGrid" class="profile-grid profile-stat-grid"></dl>
     </section>
-    <section id="profileEditPanel" class="profile-edit-panel" aria-label="Developer save editor" hidden>
-      <div class="profile-edit-grid">
-        <label class="profile-edit-name">DISPLAY NAME<input id="profileEditName" type="text" maxlength="20" /></label>
-        <label>MAX HP<input id="profileEditMaxHp" type="number" min="1" max="1e36" step="1" /></label>
-        <label>DAMAGE<input id="profileEditDamage" type="number" min="1" max="1e36" step="1" /></label>
-        <label>ATTACK RATE (SECONDS)<input id="profileEditAttackRate" type="number" min="0.05" max="10" step="0.01" /></label>
-        <label>ARMOR<input id="profileEditArmor" type="number" min="0" max="1e36" step="1" /></label>
-        <label>REGEN / SECOND<input id="profileEditRegen" type="number" min="0" max="1e36" step="0.1" /></label>
-        <label>MOVE SPEED (0 = DEFAULT)<input id="profileEditSpeed" type="number" min="0" max="2000" step="1" /></label>
-        <label>ATTACK RANGE<input id="profileEditAttackRange" type="number" min="1" max="5000" step="1" /></label>
-        <label>PROJECTILE SPEED<input id="profileEditProjectileSpeed" type="number" min="1" max="5000" step="1" /></label>
-        <label>PROJECTILES<input id="profileEditProjectileCount" type="number" min="1" max="20" step="1" /></label>
-      </div>
-      <div class="profile-edit-actions">
-        <button id="cancelPlayerSaveEditBtn" class="secondary-button" type="button">CANCEL</button>
-        <button id="savePlayerSaveEditBtn" type="button">SAVE DATABASE ROW</button>
-      </div>
-    </section>
     <footer class="window-back-footer">
       <button id="closePlayerProfileBtn" class="window-back-button" type="button" aria-label="Back from player profile">Back</button>
     </footer>
   </div>
+</div>
+
+<div id="itemInspectionPanel" class="item-inspection-panel" role="dialog" aria-modal="true" aria-labelledby="itemInspectionTitle" hidden>
+  <div class="item-inspection-header">
+    <div class="item-inspection-title-block">
+      <div class="item-inspection-kicker">ITEM DETAILS</div>
+      <h2 id="itemInspectionTitle" class="window-title">ITEM</h2>
+    </div>
+  </div>
+  <div id="itemInspectionContent" class="item-inspection-content"></div>
+  <footer class="window-back-footer">
+    <button id="itemInspectionBack" class="item-inspection-back window-back-button" type="button">Back</button>
+  </footer>
 </div>
 
 <div id="profileNameEditor" hidden>

@@ -100,7 +100,7 @@ import {
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
     dragonResultEl, dragonResultTitle, dragonResultTotal, dragonResultContributors, dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileEquippedHeadSlot, profileEquippedChestSlot, profileEquippedFeetSlot, profileEquippedRightHandSlot, profileEquippedLeftHandSlot, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
-    playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, editPlayerSaveBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn, profileEditPanel, profileEditName, profileEditMaxHp, profileEditDamage, profileEditAttackRate, profileEditArmor, profileEditRegen, profileEditSpeed, profileEditAttackRange, profileEditProjectileSpeed, profileEditProjectileCount, cancelPlayerSaveEditBtn, savePlayerSaveEditBtn,
+    playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
     triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl, reconnectDetailEl, reconnectRetryBtn,
   } = gameElements;
@@ -881,11 +881,14 @@ import {
     const view = canvasRuntime.renderViewport();
     const scaleX = view.width / surface.width;
     const scaleY = view.height / surface.height;
+    // Match the map texture to the button's inner box. The DOM rect includes
+    // the 2px frame, which lets the canvas layer bleed past that frame on
+    // fractional/mobile scaling and makes it appear shifted to the right.
     cachedMinimapBounds = {
-      left: (minimap.left - surface.left) * scaleX,
-      top: (minimap.top - surface.top) * scaleY,
-      width: minimap.width * scaleX,
-      height: minimap.height * scaleY,
+      left: (minimap.left - surface.left + minimapButton.clientLeft) * scaleX,
+      top: (minimap.top - surface.top + minimapButton.clientTop) * scaleY,
+      width: minimapButton.clientWidth * scaleX,
+      height: minimapButton.clientHeight * scaleY,
     };
   };
   const scheduleMinimapBoundsRefresh = () => {
@@ -1149,9 +1152,7 @@ import {
     joined: profileJoinedEl, timePlayed: profileTimePlayedEl, kills: profileKillsEl, online: profileOnlineEl, statGrid: profileStatGrid,
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
     skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, equipmentHead: profileEquippedHeadSlot, equipmentChest: profileEquippedChestSlot, equipmentFeet: profileEquippedFeetSlot, equipmentRightHand: profileEquippedRightHandSlot, equipmentLeftHand: profileEquippedLeftHandSlot, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
-    duel: profileDuelBtn, developerEdit: profileEditPanel, developerEditButton: editPlayerSaveBtn,
-    editNameInput: profileEditName, editMaxHp: profileEditMaxHp, editDamage: profileEditDamage, editAttackRate: profileEditAttackRate, editArmor: profileEditArmor, editRegen: profileEditRegen, editSpeed: profileEditSpeed, editAttackRange: profileEditAttackRange, editProjectileSpeed: profileEditProjectileSpeed, editProjectileCount: profileEditProjectileCount,
-    cancelDeveloperEdit: cancelPlayerSaveEditBtn, saveDeveloperEdit: savePlayerSaveEditBtn,
+    duel: profileDuelBtn,
   }, {
     localIdentity: () => coop?.localIdentity?.(), localDisplayName: () => coop?.localDisplayName?.(), profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0, paintIcon: applyProfileIcon,
     renderName: renderDomPlayerName,
@@ -1169,12 +1170,12 @@ import {
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research),
     formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
-    isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0,
+    isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0,
     requestDuel: async (identity) => {
       minimizeMaximizedChat();
       return coop?.requestDuel?.(identity);
     },
-    isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), updateSave: async (identity, save) => coop?.updatePlayerSave?.(identity, save), itemInspection: itemInspectionController, showMessage,
+    isNameTaken: (name) => coop?.isDisplayNameTaken?.(name) ?? false, setDisplayName: async (name) => coop?.setDisplayName?.(name), itemInspection: itemInspectionController, showMessage,
   });
   new ResizeObserver(() => { if (profileCharacterPreview.resize()) profileWindow.drawPreview(); }).observe(profileCharacterCanvas);
   new ResizeObserver(() => {
