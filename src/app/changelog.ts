@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.619": [
+    "Restored repeatable boss combat rewards at a calibrated lower rate instead of suppressing rewards after the first clear; Balance Lab now reports repeat power and repeat time separately.",
+    "Rebalanced regular reward power by encounter time so damage, health, armor, and regeneration camps are comparable to farm, while the mixed baseline keeps damage below a dominant share of pursuit time.",
+    "Calibrated Crystal Hollows' Prismshell health to the equal-time route so the capstone remains reachable without forcing a damage-only farm.",
+  ],
   "0.618": [
     "Boss permanent combat rewards are now first-clear-only, so repeat bosses cannot compound a player's power; authored repeat item outcomes remain available.",
     "Rebalanced late-boss armor and regeneration from each boss's HP envelope, and made Balance Lab repeat time, first-clear power, and repeat power report separately on the tech-tree-on curve.",
@@ -1469,6 +1474,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.619": "2026-09-04",
   "0.618": "2026-09-03",
   "0.616": "2026-09-03",
   "0.614": "2026-09-03",

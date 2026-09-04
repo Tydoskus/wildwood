@@ -670,6 +670,131 @@ const enemyTypes = {
   },
 } satisfies Record<string, EnemyDefinition>;
 
+type RegularRewardBalanceGroup = {
+  counts: ArchetypeVector;
+  enemies: Record<LateMapArchetype, keyof typeof enemyTypes>;
+};
+
+// Equalize the reward-power rate of each camp without changing a map's total
+// regular reward budget. Auto-combat time is primarily proportional to enemy
+// HP, so distributing each map's existing reward-power budget by HP makes
+// seconds per +1% power comparable across damage, health, armor, and regen
+// camps instead of rewarding one track for having a shorter fight.
+const REGULAR_REWARD_TIME_BALANCE_GROUPS = [
+  {
+    counts: BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Dune Raider",
+      archer: "Dune Archer",
+      guardian: "Venom Guard",
+      reaper: "Wastes Reaper",
+      oracle: "Blight Oracle",
+    },
+  },
+  {
+    counts: INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Frost Raider",
+      archer: "Glacier Archer",
+      guardian: "Rime Guard",
+      reaper: "Whiteout Reaper",
+      oracle: "Aurora Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Ember Raider",
+      archer: "Cinder Archer",
+      guardian: "Magma Guard",
+      reaper: "Ash Reaper",
+      oracle: "Inferno Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Depth Raider",
+      archer: "Abyss Archer",
+      guardian: "Obsidian Colossus",
+      reaper: "Doom Reaper",
+      oracle: "Nether Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Tide Raider",
+      archer: "Reef Archer",
+      guardian: "Coral Colossus",
+      reaper: "Drowned Reaper",
+      oracle: "Tidal Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Sakura Ronin",
+      archer: "Petal Archer",
+      guardian: "Bamboo Guardian",
+      reaper: "Moonblade Reaper",
+      oracle: "Shrine Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Gale Prowler",
+      archer: "Nimbus Archer",
+      guardian: "Skyguard Colossus",
+      reaper: "Thunder Reaper",
+      oracle: "Tempest Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Fen Prowler",
+      archer: "Glowcap Archer",
+      guardian: "Bog Colossus",
+      reaper: "Moonmire Reaper",
+      oracle: "Wisp Oracle",
+    },
+  },
+  {
+    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
+    enemies: {
+      raider: "Shard Hopper",
+      archer: "Crystal Spitter",
+      guardian: "Geode Guardian",
+      reaper: "Prism Reaver",
+      oracle: "Hollow Oracle",
+    },
+  },
+] satisfies readonly RegularRewardBalanceGroup[];
+
+function normalizeRegularRewardPowerByTime() {
+  for (const group of REGULAR_REWARD_TIME_BALANCE_GROUPS) {
+    const entries = Object.entries(group.enemies) as Array<[LateMapArchetype, keyof typeof enemyTypes]>;
+    const totalRewardPower = entries.reduce((total, [archetype, kind]) =>
+      total + rewardPower(enemyTypes[kind].reward) * group.counts[archetype], 0);
+    const totalHealth = entries.reduce((total, [archetype, kind]) =>
+      total + enemyTypes[kind].hp * group.counts[archetype], 0);
+    for (const [, kind] of entries) {
+      const enemy = enemyTypes[kind];
+      const currentPower = rewardPower(enemy.reward);
+      if (currentPower <= 0 || totalHealth <= 0) continue;
+      const targetPower = totalRewardPower * enemy.hp / totalHealth;
+      enemy.reward = {
+        ...enemy.reward,
+        amount: enemy.reward.amount * targetPower / currentPower,
+      };
+    }
+  }
+}
+
+normalizeRegularRewardPowerByTime();
+
 export type EnemyKind = keyof typeof enemyTypes;
 export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = enemyTypes;
 

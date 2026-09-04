@@ -1,13 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
-  ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
   ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-  ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
   ADVANCED_LAVA_WASTES_HEALTH_SCALE,
   ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_REWARD_SCALE,
   BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
   BEGINNER_DESERT_HEALTH_SCALE,
   BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
@@ -15,13 +11,9 @@ import {
   CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
   CRYSTAL_HOLLOWS_HEALTH_SCALE,
   CRYSTAL_HOLLOWS_REWARD_SCALE,
-  INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-  INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
   INFERNAL_DEPTHS_HEALTH_SCALE,
   INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER,
-  INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER,
-  INFERNAL_DEPTHS_REWARD_SCALE,
   INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS,
   INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
   INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
@@ -32,13 +24,10 @@ import {
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_REWARD_SCALE,
-  WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
   WATER_REACH_ENCOUNTER_HEALTH_SCALE,
   WATER_REACH_ENCOUNTER_REWARD_SCALE,
   WATER_REACH_HEALTH_SCALE,
   WATER_REACH_REGULAR_HEALTH_MULTIPLIER,
-  WATER_REACH_REGULAR_REWARD_MULTIPLIER,
-  WATER_REACH_REWARD_SCALE,
   WASTES_REAPER_CADENCE_SCALE,
 } from "../../shared/rules";
 import {
@@ -126,23 +115,19 @@ describe("enemy reward rules", () => {
     }
   });
 
-  it("keeps late-map elite damage rewards above regular rewards without changing the budget", () => {
-    const repeated = (previous: number, current: number) => current * current / previous;
+  it("keeps late-map damage reward power proportional to encounter time", () => {
     const tracks = [
       {
         raider: "Ember Raider",
         reaper: "Ash Reaper",
-        authored: (48_000_000 * 6 + 1_984_500_000 * 7) * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
       },
       {
         raider: "Depth Raider",
         reaper: "Doom Reaper",
-        authored: (repeated(240_000, 48_000_000) * 6 * 6 + repeated(3_150_000, 1_984_500_000) * 2 * 7) * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
       },
       {
         raider: "Tide Raider",
         reaper: "Drowned Reaper",
-        authored: (18_000_000_000 * 6 + 830_000_000_000 * 7) * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_DAMAGE_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE,
       },
     ] as const;
 
@@ -152,8 +137,11 @@ describe("enemy reward rules", () => {
       expect(raider.type).toBe("damage");
       expect(reaper.type).toBe("damage");
       expect(reaper.amount).toBeGreaterThan(raider.amount);
-      expect(reaper.amount / raider.amount).toBeCloseTo(1.25, 10);
-      expect((raider.amount * 6 + reaper.amount * 7) / track.authored).toBeCloseTo(1, 10);
+      // Equal-time farming is based on canonical reward power per HP. The
+      // reaper remains a larger payout because it is a longer fight, not
+      // because the damage track is intrinsically more efficient.
+      expect(reaper.amount / ENEMY_TYPES[track.reaper].hp)
+        .toBeCloseTo(raider.amount / ENEMY_TYPES[track.raider].hp, 10);
     }
 
     expect(ENEMY_TYPES["Moonblade Reaper"].reward.amount)

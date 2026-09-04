@@ -67,6 +67,7 @@ import {
   BALANCE_TARGET_MAP_POWER_MULTIPLIER,
   BALANCE_TARGET_POWER_ARC_BLEND,
   BOSS_RESPAWN_SECONDS,
+  BOSS_REPEAT_REWARD_FRACTION,
   BOSS_REWARD_CLAIM_BITS,
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
@@ -892,22 +893,10 @@ const STRATEGY_DEFENSIVE_REWARD_INTERVALS: Record<GuidedFarmingStrategy, number>
   natural: 8,
   efficient: 12,
   "dps-first": 20,
-  // Boss-rush stays on its readiness route; the boss first-clear payout is the
-  // defensive recovery, while repeat encounters no longer add permanent stats.
+  // Boss-rush stays on its readiness route; repeat rewards remain available,
+  // but their full respawn-inclusive rate is audited against regular farming.
   "boss-rush": Number.POSITIVE_INFINITY,
 };
-const MIXED_DEFENSIVE_REWARD_INTERVALS: Partial<Record<BalanceMapId, number>> = {
-  [BEGINNER_DESERT_MAP_ID]: 20,
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: 20,
-  [ADVANCED_LAVA_WASTES_MAP_ID]: 6,
-  [INFERNAL_DEPTHS_MAP_ID]: 6,
-  [WATER_REACH_MAP_ID]: 6,
-  [SAMURAI_GARDEN_MAP_ID]: 6,
-  [CLOUDSPIRE_MAP_ID]: 6,
-  [MOONFEN_MAP_ID]: 6,
-  [CRYSTAL_HOLLOWS_MAP_ID]: 6,
-};
-
 type StrategyBlend = Record<GuidedFarmingStrategy, number>;
 type TrialBehavior = {
   primaryStrategy: GuidedFarmingStrategy | "boss-farm";
@@ -1282,6 +1271,7 @@ function selectSite(
   state: MutableSimulationState,
   position: { x: number; y: number },
   map: BalanceMapDefinition,
+  record: TrialMapRecord,
   config: BalanceSimulationConfig,
   behavior: TrialBehavior,
 ) {
@@ -1293,10 +1283,8 @@ function selectSite(
   const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
   const bossGateActive = currentBossTtk !== null && currentBossTtk > bossReadinessTarget;
   const totalKills = sites.reduce((total, site) => total + site.kills, 0);
-  const defensiveInterval = config.strategy === "mixed"
-    ? MIXED_DEFENSIVE_REWARD_INTERVALS[map.id] ?? Number.POSITIVE_INFINITY
-    : STRATEGY_DEFENSIVE_REWARD_INTERVALS[behavior.primaryStrategy === "boss-farm" ? "boss-rush" : behavior.primaryStrategy];
-  const defensiveTurn = config.strategy !== "boss-farm" && bossGateActive && Number.isFinite(defensiveInterval) && totalKills > 0 && totalKills % defensiveInterval === defensiveInterval - 1;
+  const defensiveInterval = STRATEGY_DEFENSIVE_REWARD_INTERVALS[behavior.primaryStrategy === "boss-farm" ? "boss-rush" : behavior.primaryStrategy];
+  const defensiveTurn = config.strategy !== "mixed" && config.strategy !== "boss-farm" && bossGateActive && Number.isFinite(defensiveInterval) && totalKills > 0 && totalKills % defensiveInterval === defensiveInterval - 1;
   // A boss-rush has no meaningful single-stat target on an open-ended map.
   // Keep its sites within one clear of each other so the forecast represents
   // progressing through the whole map instead of camping one instant-respawn
@@ -1341,7 +1329,18 @@ function selectSite(
     const readinessEfficiency = reward.type === "damage" || reward.type === "speed"
       ? rewardAmount(state, reward.amount, adjustment.reward) / duration
       : 0;
-    return { site, travel, fight, duration, powerEfficiency, dpsEfficiency, bossRushEfficiency, readinessEfficiency, nextBossTtk };
+    return {
+      site,
+      stat: progressionStatForReward(reward.type),
+      travel,
+      fight,
+      duration,
+      powerEfficiency,
+      dpsEfficiency,
+      bossRushEfficiency,
+      readinessEfficiency,
+      nextBossTtk,
+    };
   });
   const normalize = (values: number[]) => {
     const minimum = Math.min(...values);
@@ -1353,6 +1352,61 @@ function selectSite(
   const powerScores = normalize(candidateData.map((candidate) => candidate.powerEfficiency));
   const dpsScores = normalize(candidateData.map((candidate) => candidate.dpsEfficiency));
   const bossRushScores = normalize(candidateData.map((candidate) => candidate.bossRushEfficiency));
+  // A mixed player is the population baseline, so its route must not inherit
+  // the boss-readiness optimizer's damage-only loop. Select the next camp by
+  // the resulting variance from equal active time across the reward tracks
+  // that actually exist on this map. The one exception is a readiness floor:
+  // damage stays at least one equal-share track while the boss is unreachable.
+  // This makes the trade-off explicit without changing the specialized
+  // natural, efficient, DPS-first, or boss-rush comparison lines.
+  const mixedBalance = config.strategy === "mixed" && candidateData.length > 0
+    ? (() => {
+      const trackedStats = [...new Set(candidateData.map((candidate) => candidate.stat))];
+      const targetShare = trackedStats.length ? 1 / trackedStats.length : 0;
+      const trackedTime = trackedStats.reduce(
+        (total, stat) => total + record.statInvestments[stat].investmentSeconds,
+        0,
+      );
+      const authoredTimeByStat = sites.reduce((totals, site) => {
+        const enemy = ENEMY_TYPES[site.type];
+        const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate);
+        const stat = progressionStatForReward(enemy.reward.type);
+        totals.set(stat, (totals.get(stat) ?? 0) + fight + LOOT_AND_RETARGET_SECONDS);
+        return totals;
+      }, new Map<ProgressionStat, number>());
+      const authoredTime = trackedStats.reduce(
+        (total, stat) => total + (authoredTimeByStat.get(stat) ?? 0),
+        0,
+      );
+      const currentDamageShare = trackedTime > 0 && trackedStats.includes("damage")
+        ? record.statInvestments.damage.investmentSeconds / trackedTime
+        : 0;
+      // Damage is the only track that reduces boss TTK in this deterministic
+      // clock. Give it the share already authored by the map's own encounter
+      // time while the boss is out of reach, then return to equal-share
+      // scheduling. Cap that exception at two equal-share tracks so damage can
+      // never become the majority of the mixed player's farming time.
+      const authoredDamageShare = authoredTime > 0 && trackedStats.includes("damage")
+        ? (authoredTimeByStat.get("damage") ?? 0) / authoredTime
+        : targetShare;
+      const readinessFloorTarget = Math.min(targetShare * 2, Math.max(targetShare, authoredDamageShare));
+      const balanceScores = candidateData.map((candidate) => {
+        const nextTotal = trackedTime + candidate.duration;
+        const variance = trackedStats.reduce((total, stat) => {
+          const nextTime = record.statInvestments[stat].investmentSeconds +
+            (candidate.stat === stat ? candidate.duration : 0);
+          const nextShare = nextTime / Math.max(.01, nextTotal);
+          return total + (nextShare - targetShare) ** 2;
+        }, 0);
+        return -variance;
+      });
+      return {
+        targetShare,
+        balanceScores,
+        readinessFloorActive: bossGateActive && currentDamageShare < readinessFloorTarget,
+      };
+    })()
+    : null;
   return candidateData.reduce((best, candidate, index) => {
     let score = naturalScores[index];
     if (config.strategy !== "mixed" && behavior.primaryStrategy === "efficient") {
@@ -1374,7 +1428,15 @@ function selectSite(
       const defensivePriority = rewardType === "health" ? 3 : rewardType === "armor" ? 2 : 1;
       score = defensivePriority + naturalScores[index] * .001;
     }
-    if (bossGateActive && currentBossTtk !== null && !defensiveTurn) {
+    if (mixedBalance && !defensiveTurn) {
+      if (mixedBalance.readinessFloorActive) {
+        score = candidate.stat === "damage"
+          ? 1e6 + candidate.readinessEfficiency
+          : -1e6 + score * .001;
+      } else {
+        score = mixedBalance.balanceScores[index] + score * .000001;
+      }
+    } else if (bossGateActive && currentBossTtk !== null && !defensiveTurn) {
       const nextBossTtk = candidate.nextBossTtk;
       const readinessGain = nextBossTtk === null ? 0 : Math.max(0, currentBossTtk - nextBossTtk);
       // Readiness is lexically more important than canonical power while the
@@ -1554,14 +1616,14 @@ function simulateTrial(
   };
 
   const projectedBossStatWeights = (boss: BossDefinition, adjustment: MapAdjustment) => {
-    const claimBit = BOSS_REWARD_CLAIM_BITS[boss.kind];
-    if ((state.bossRewardClaims & claimBit) !== 0) return [];
     const projected = stateSnapshot(state);
+    const claimBit = BOSS_REWARD_CLAIM_BITS[boss.kind];
+    const rewardScale = (state.bossRewardClaims & claimBit) !== 0 ? BOSS_REPEAT_REWARD_FRACTION : 1;
     const gains = new Map<ProgressionStat, number>();
     for (const reward of boss.rewards) {
       const stat = progressionStatForReward(reward.type);
       const before = continuousPowerForState(projected);
-      const amount = reward.amount * researchStatRewardMultiplier(projected.research) * adjustment.bossReward;
+      const amount = reward.amount * researchStatRewardMultiplier(projected.research) * adjustment.bossReward * rewardScale;
       applyRewardToStats(projected.stats, reward.type, amount);
       gains.set(stat, (gains.get(stat) ?? 0) + Math.max(0, continuousPowerForState(projected) - before));
     }
@@ -1579,12 +1641,15 @@ function simulateTrial(
     weights: Array<{ stat: ProgressionStat; weight: number }>,
     requestedSeconds: number,
     budget: MapTimeBudget = record.timeBudget,
+    trackProgression: boolean = true,
   ) => {
     const startedAt = state.time;
     const completed = spendTime(record, category, requestedSeconds, budget);
     const actual = state.time - startedAt;
-    for (const { stat, weight } of weights) {
-      addStatTime(record, stat, actual * weight, category === "bossCombatSeconds");
+    if (trackProgression) {
+      for (const { stat, weight } of weights) {
+        addStatTime(record, stat, actual * weight, category === "bossCombatSeconds");
+      }
     }
     return completed;
   };
@@ -1593,19 +1658,22 @@ function simulateTrial(
     record: TrialMapRecord,
     map: BalanceMapDefinition,
     adjustment: MapAdjustment,
+    trackProgression = true,
   ) => {
     if (!map.boss) return 0;
     const claimBit = BOSS_REWARD_CLAIM_BITS[map.boss.kind];
-    const existingClaims = state.bossRewardClaims;
-    state.bossRewardClaims = (existingClaims | claimBit) >>> 0;
-    if ((existingClaims & claimBit) !== 0) return 0;
+    const firstClear = (state.bossRewardClaims & claimBit) === 0;
+    const rewardScale = firstClear ? 1 : BOSS_REPEAT_REWARD_FRACTION;
+    state.bossRewardClaims = (state.bossRewardClaims | claimBit) >>> 0;
     const powerBeforeReward = powerForState(state);
     for (const reward of map.boss.rewards) {
       const stat = progressionStatForReward(reward.type);
       const directPowerBefore = continuousPowerForState(state);
-      applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward));
-      record.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
-      record.statInvestments[stat].rewardEvents += 1;
+      applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward) * rewardScale);
+      if (trackProgression) {
+        record.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
+        record.statInvestments[stat].rewardEvents += 1;
+      }
     }
     return Math.max(0, powerForState(state) - powerBeforeReward);
   };
@@ -1622,9 +1690,9 @@ function simulateTrial(
       const repeatFight = bossFightSeconds(state, map, config.mapAdjustments[map.id]);
       if (repeatFight === null) break;
       const repeatStatWeights = projectedBossStatWeights(map.boss, config.mapAdjustments[map.id]);
-      if (!spendBossTime(record, "bossCombatSeconds", repeatStatWeights, repeatFight, record.repeatTimeBudget)) break;
+      if (!spendBossTime(record, "bossCombatSeconds", repeatStatWeights, repeatFight, record.repeatTimeBudget, false)) break;
       const powerBeforeRepeat = powerForState(state);
-      applyBossReward(record, map, config.mapAdjustments[map.id]);
+      applyBossReward(record, map, config.mapAdjustments[map.id], false);
       rollDrops(state, map.boss.drops, null, random, recordHistory);
       if (!spendTime(record, "lootRetargetSeconds", LOOT_AND_RETARGET_SECONDS, record.repeatTimeBudget)) break;
       repeats += 1;
@@ -1704,16 +1772,17 @@ function simulateTrial(
         break;
       }
       if (behavior.primaryStrategy === "boss-rush") {
-        // Model the repeat-boss choice explicitly. The authoritative reward
-        // ledger grants permanent stats only on the first clear, so a repeat
-        // spends the real respawn window without inflating campaign power.
+        // Model the repeat-boss choice explicitly. Repeated rewards are
+        // available at a calibrated repeat scale, while the repeat budget
+        // keeps their true time cost out of first-clear map pacing and exposes
+        // their economic rate.
         const repeats = state.mapIndex >= MAP_DEFINITIONS.length - 1 ? Number.POSITIVE_INFINITY : 1;
         repeatDefeatedBoss(mapRecord, map, repeats);
         if (state.time >= config.durationSeconds) break;
       }
       // The campaign curve ends at the first final-boss clear. Any modeled
-      // repeats are loot/social encounters and intentionally do not move
-      // canonical power.
+      // repeats remain visible in the strategy trace, but their time is
+      // reported separately so it cannot inflate first-clear map pacing.
       if (state.mapIndex >= MAP_DEFINITIONS.length - 1) {
         break;
       }
@@ -1728,7 +1797,7 @@ function simulateTrial(
       continue;
     }
 
-    const selected = selectSite(sites, state, position, map, config, behavior);
+    const selected = selectSite(sites, state, position, map, mapRecord, config, behavior);
     if (!selected) {
       const nextAvailable = Math.min(...sites.map((site) => site.availableAt));
       if (!spendTime(mapRecord, "respawnWaitSeconds", Math.max(0, nextAvailable - state.time))) break;
@@ -2123,6 +2192,8 @@ function buildDiagnostics(
   let powerTargetsOnTrack = 0;
   let measuredStatMixes = 0;
   let statMixesOnTrack = 0;
+  let measuredStatTimeBalances = 0;
+  let statTimeBalancesOnTrack = 0;
   let measuredHeadroomMaps = 0;
   let headroomMapsOnTrack = 0;
   let measuredEncounterRhythmMaps = 0;
@@ -2178,6 +2249,29 @@ function buildDiagnostics(
         diagnostics.push(`${current.name} exits at only ${damageToHealth.toFixed(2)}× damage-to-health; health is consuming too much of the progression budget.`);
       } else {
         statMixesOnTrack += 1;
+      }
+    }
+    const timeTracks = current.statProgression.filter((metric) =>
+      metric.stat === "damage" ||
+      metric.stat === "health" ||
+      metric.stat === "armor" ||
+      metric.stat === "regeneration");
+    const hasAttackSpeedInvestment = current.statProgression.some((metric) =>
+      metric.stat === "attackSpeed" && metric.investmentSecondsMedian >= 1);
+    if (!hasAttackSpeedInvestment && timeTracks.length === 4 && timeTracks.every((metric) => metric.investmentSecondsMedian >= 1)) {
+      measuredStatTimeBalances += 1;
+      const targetShare = 100 / timeTracks.length;
+      const damageShare = timeTracks.find((metric) => metric.stat === "damage")?.investmentSharePercent ?? 0;
+      const defensiveShares = timeTracks
+        .filter((metric) => metric.stat !== "damage")
+        .map((metric) => metric.investmentSharePercent);
+      const defensiveSpread = Math.max(...defensiveShares) - Math.min(...defensiveShares);
+      if (
+        damageShare <= targetShare * 2 &&
+        Math.min(...defensiveShares) >= targetShare * .5 &&
+        defensiveSpread <= targetShare
+      ) {
+        statTimeBalancesOnTrack += 1;
       }
     }
     if (!durationIsCensored && current.curveProgress && current.targetCurveProgress) {
@@ -2279,34 +2373,38 @@ function buildDiagnostics(
       }
     }
     if (current.bossFirstClearEfficiencyRatioMedian !== null && current.bossFirstClearEfficiencyRatioMedian >= 1.5) {
-      diagnostics.push(`${current.name}: the first-clear boss reward is ${current.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× the best regular reward rate; it is a one-time capstone payout, not a repeat progression source.`);
+      diagnostics.push(`${current.name}: the first-clear boss reward is ${current.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× the best regular reward rate; the full payout is the capstone, while repeats use the calibrated repeat scale.`);
     }
     if (current.repeatBossKillsMedian !== null && current.repeatBossKillsMedian > 0) {
       const repeatPower = current.repeatBossPowerGainMedian ?? 0;
-      if (repeatPower > Number.EPSILON) {
-        diagnostics.push(`${current.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power through repeat item outcomes; keep this below the first-clear runway.`);
-      } else {
-        diagnostics.push(`${current.name}: modeled repeat clears add no permanent combat power after the first clear; the repeat choice spends respawn/combat time for authored engagement rewards.`);
-      }
+      const repeatRatio = current.bossRepeatEfficiencyRatioMedian;
+      diagnostics.push(repeatPower > Number.EPSILON
+        ? `${current.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power at ${(repeatRatio ?? 0).toFixed(1)}× the best regular rate; the calibrated repeat scale keeps the optional loop bounded.`
+        : `${current.name}: no repeat power was measured in the selected window; repeat rewards still use the calibrated repeat scale.`);
     }
   }
   const onboardingFarm = maps[0];
   if (onboardingFarm?.repeatBossKillsMedian !== null && onboardingFarm.repeatBossKillsMedian > 0) {
     const repeatPower = onboardingFarm.repeatBossPowerGainMedian ?? 0;
     diagnostics.push(repeatPower > Number.EPSILON
-      ? `${onboardingFarm.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power through repeat item outcomes; keep this below the first-clear runway.`
-      : `${onboardingFarm.name}: modeled repeat clears add no permanent combat power after the first clear; the repeat choice spends respawn/combat time for authored engagement rewards.`);
+      ? `${onboardingFarm.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power at ${(onboardingFarm.bossRepeatEfficiencyRatioMedian ?? 0).toFixed(1)}× the best regular rate; the calibrated repeat scale keeps the optional loop bounded.`
+      : `${onboardingFarm.name}: no repeat power was measured in the selected window; repeat rewards still use the calibrated repeat scale.`);
   }
-  const pacingCurveOnTrack = measuredPacingTargets > 0 && measuredPacingTargets === pacingTargetsOnTrack;
-  if (pacingCurveOnTrack) {
+  if (measuredPacingTargets > 0) {
     diagnostics.unshift(`Pacing curve: ${pacingTargetsOnTrack}/${measuredPacingTargets} measured maps land within ±25% of their explicit duration targets.`);
   }
   const powerCurveOnTrack = measuredPowerTargets > 0 && measuredPowerTargets === powerTargetsOnTrack;
   if (powerCurveOnTrack) {
-    diagnostics.splice(pacingCurveOnTrack ? 1 : 0, 0, `Power curve: ${powerTargetsOnTrack}/${measuredPowerTargets} measured maps stay near the ${config.targetMapPowerMultiplier.toFixed(1)}× per-map growth budget.`);
+    diagnostics.splice(measuredPacingTargets > 0 ? 1 : 0, 0, `Power curve: ${powerTargetsOnTrack}/${measuredPowerTargets} measured maps stay near the ${config.targetMapPowerMultiplier.toFixed(1)}× per-map growth budget.`);
   }
   if (measuredStatMixes > 0 && measuredStatMixes === statMixesOnTrack) {
-    diagnostics.splice((pacingCurveOnTrack ? 1 : 0) + (powerCurveOnTrack ? 1 : 0), 0, `Stat mix: ${statMixesOnTrack}/${measuredStatMixes} maps keep damage and health inside the authored combat envelope.`);
+    diagnostics.splice((measuredPacingTargets > 0 ? 1 : 0) + (powerCurveOnTrack ? 1 : 0), 0, `Stat mix: ${statMixesOnTrack}/${measuredStatMixes} maps keep damage and health inside the authored combat envelope.`);
+  }
+  if (measuredStatTimeBalances > 0) {
+    diagnostics.push(
+      "Stat farming: " + statTimeBalancesOnTrack + "/" + measuredStatTimeBalances +
+      " measured maps keep defensive tracks within equal-time range and damage at or below two equal-share tracks.",
+    );
   }
   if (measuredHeadroomMaps > 0) {
     diagnostics.unshift(`Future-system reserve: ${headroomMapsOnTrack}/${measuredHeadroomMaps} measured maps stay above the 75% duration floor under a uniform ${((config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(0)}% progression speed-up.`);

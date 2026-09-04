@@ -93,7 +93,7 @@ describe("balance simulator", () => {
     expect(new Set(finalStrategyPowers).size).toBeGreaterThan(1);
   });
 
-  it("holds canonical power flat during post-clear Boss-rush repeats", () => {
+  it("keeps post-clear Boss-rush repeat power positive without letting it dominate", () => {
     const result = runBalanceSimulationWithStrategyComparisons({
       durationSeconds: 80 * 60 * 60,
       trials: 1,
@@ -103,7 +103,7 @@ describe("balance simulator", () => {
     const bossRush = result.strategyTimelines?.find((entry) => entry.strategy === "boss-rush");
     const finalPoint = bossRush?.timeline.at(-1);
     const previousPoint = bossRush?.timeline.at(-2);
-    expect(finalPoint?.powerMedian).toBe(previousPoint?.powerMedian);
+    expect(finalPoint?.powerMedian).toBeGreaterThan(previousPoint?.powerMedian ?? 0);
   });
 
   it("keeps a DPS-first player moving through discrete boss-readiness ties", () => {
@@ -116,11 +116,11 @@ describe("balance simulator", () => {
     const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "boss-farm", seed: 7_331 });
     const forest = result.maps.find((map) => map.mapId === TUTORIAL_FOREST_MAP_ID)!;
     expect(forest.repeatBossKillsMedian).toBeGreaterThan(1);
-    expect(forest.repeatBossPowerGainMedian).toBe(0);
-    expect(forest.bossRepeatPermanentPowerPerMinuteMedian).toBe(0);
-    expect(forest.bossRepeatEfficiencyRatioMedian).toBe(0);
+    expect(forest.repeatBossPowerGainMedian).toBeGreaterThan(0);
+    expect(forest.bossRepeatPermanentPowerPerMinuteMedian).toBeGreaterThan(0);
+    expect(forest.bossRepeatEfficiencyRatioMedian).toBeGreaterThan(0);
     expect(forest.repeatTimeBudgetMedian?.respawnWaitSeconds).toBeGreaterThan(0);
-    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("no permanent combat power"))).toBe(true);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("calibrated repeat scale"))).toBe(true);
   });
 
   it("produces a monotonic power timeline", () => {
@@ -184,6 +184,18 @@ describe("balance simulator", () => {
       expect(map.momentum?.largestSingleJumpGrowthSharePercent).toBeGreaterThanOrEqual(0);
     }
     expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Pacing curve:"))).toBe(true);
+    const lateStatTracks = result.maps
+      .filter((map) => map.mapId !== TUTORIAL_FOREST_MAP_ID)
+      .flatMap((map) => map.statProgression)
+      .filter((metric) =>
+        metric.stat === "damage" ||
+        metric.stat === "health" ||
+        metric.stat === "armor" ||
+        metric.stat === "regeneration");
+    expect(lateStatTracks
+      .filter((metric) => metric.stat === "damage")
+      .every((metric) => metric.investmentSharePercent <= 50)).toBe(true);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Stat farming:"))).toBe(true);
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
     expect(nightEnemies).toHaveLength(5);

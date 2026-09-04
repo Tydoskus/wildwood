@@ -319,9 +319,10 @@ export const CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE = {
 export const BOSS_ARMOR_REWARD_FRACTION = .000002;
 export const BOSS_REGEN_REWARD_FRACTION = .00000025;
 
-// Permanent combat rewards are first-clear rewards. Repeat encounters can
-// still produce their authored item/social outcome, but they must not create
-// an unbounded stat loop for one player. The mask is append-only save metadata.
+// The claim mask is retained as append-only save metadata. It identifies the
+// first clear so repeatable combat rewards can be rate-balanced without
+// removing the published player_progress column.
+export const BOSS_REPEAT_REWARD_FRACTION = .05;
 export const BOSS_REWARD_CLAIM_BITS = {
   dragon: 1 << 0,
   spider: 1 << 1,
@@ -376,7 +377,12 @@ export const TEMPEST_KIRIN_REWARD_ARMOR = TEMPEST_KIRIN_MAX_HP * BOSS_ARMOR_REWA
 export const TEMPEST_KIRIN_REWARD_REGEN = TEMPEST_KIRIN_MAX_HP * BOSS_REGEN_REWARD_FRACTION;
 // Miremaw is the capstone for the next complete 8.5x progression step.
 export const MIREMAW_MAX_HP = TEMPEST_KIRIN_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1;
-export const PRISMSHELL_MAX_HP = MIREMAW_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1;
+// The equal-time reward route reaches the final capstone about 5% below the
+// old readiness envelope. This small, named correction keeps the fight near
+// the published 15-minute late-map target without asking players to overfarm
+// damage relative to the three defensive tracks.
+export const CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION = .95;
+export const PRISMSHELL_MAX_HP = MIREMAW_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1 * CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION;
 export const MIREMAW_REWARD_DAMAGE = TEMPEST_KIRIN_REWARD_DAMAGE * MOONFEN_REWARD_SCALE * MOONFEN_BOSS_REWARD_SCALE;
 export const PRISMSHELL_REWARD_DAMAGE = MIREMAW_REWARD_DAMAGE * CRYSTAL_HOLLOWS_REWARD_SCALE * CRYSTAL_HOLLOWS_BOSS_REWARD_SCALE;
 export const MIREMAW_REWARD_HEALTH = TEMPEST_KIRIN_REWARD_HEALTH * MOONFEN_REWARD_SCALE * MOONFEN_HEALTH_REWARD_MULTIPLIER * MOONFEN_BOSS_REWARD_SCALE;

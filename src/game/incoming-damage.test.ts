@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { ENEMY_TYPES } from "./enemies";
 import { lateMapReferenceBuild } from "../../shared/incoming-damage";
-import { KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP } from "../../shared/rules";
+import { BALANCE_TARGET_MAP_POWER_MULTIPLIER, CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION, KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP } from "../../shared/rules";
 
 const tiers = [
   ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
@@ -36,7 +36,12 @@ describe("authored late-map incoming damage", () => {
   it("does not increase boss HP with incoming damage", () => {
     // Boss-health budgets remain separate from the incoming damage ladder.
     const health = [KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP];
-    const baseline = [313453825312.5001, 2930793266671.8765, 27402917043382.047, 256217274355622.16];
+    const baseline = [
+      313453825312.5001,
+      2930793266671.8765,
+      27402917043382.047,
+      MIREMAW_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1 * CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION,
+    ];
     expect(health).toEqual(baseline);
   });
 
