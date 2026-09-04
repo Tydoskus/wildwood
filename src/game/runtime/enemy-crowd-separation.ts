@@ -2,7 +2,7 @@ import { WORLD } from "../constants";
 import { clamp } from "../math";
 import type { EnemyState } from "./types";
 
-export const ENEMY_CROWD_SPACING_RATIO = .72;
+export const ENEMY_CROWD_SPACING_RATIO = .80;
 const CROWD_SEPARATION_PASSES = 2;
 const EXACT_OVERLAP_DIRECTIONS = [
   [1, 0],
@@ -42,12 +42,17 @@ export function separateEnemyCrowd(
       if (left.dead) continue;
       for (let rightIndex = leftIndex + 1; rightIndex < enemies.length; rightIndex += 1) {
         const right = enemies[rightIndex];
-        if (right.dead || !canSeparate(left, right)) continue;
+        if (right.dead) continue;
         const dx = right.x - left.x;
-        const dy = right.y - left.y;
         const minimumDistance = (left.r + right.r) * ENEMY_CROWD_SPACING_RATIO;
+        // Most active enemies are not touching. Reject distant pairs before
+        // distance math or the remote-owner eligibility lookup.
+        if (dx >= minimumDistance || dx <= -minimumDistance) continue;
+        const dy = right.y - left.y;
+        if (dy >= minimumDistance || dy <= -minimumDistance) continue;
         const distanceSquared = dx * dx + dy * dy;
         if (distanceSquared >= minimumDistance * minimumDistance) continue;
+        if (!canSeparate(left, right)) continue;
 
         const distance = Math.sqrt(distanceSquared);
         const direction = distance > .001

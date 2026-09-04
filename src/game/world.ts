@@ -81,7 +81,7 @@ export type SpawnCamp = {
 
 const DESERT_CAMPS: SpawnCamp[] = [
   { name: "Sunbaked Burrow", x: 1120, y: 1160, minRadius: 150, radius: 350, count: 6, types: ["Dune Raider"] },
-  { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer"] },
+  { name: "Copper Flats", x: 2780, y: 1260, minRadius: 180, radius: 410, count: 6, types: ["Dune Archer", "Dune Archer", "Dune Archer", "Dune Archer", "Dune Archer", "Dune Regent"] },
   { name: "Oracle Mesa", x: 4140, y: 780, minRadius: 90, radius: 230, count: 3, types: ["Blight Oracle"] },
   { name: "Reaper Approach", x: 1740, y: 1420, minRadius: 0, radius: 0, count: 1, types: ["Wastes Reaper"] },
   { name: "Needle Dunes", x: 3950, y: 2550, minRadius: 200, radius: 470, count: 7, types: ["Venom Guard"] },
@@ -90,7 +90,7 @@ const DESERT_CAMPS: SpawnCamp[] = [
 
 const SNOW_CAMPS: SpawnCamp[] = [
   { name: "Rimegate Trail", x: 950, y: 1350, minRadius: 250, radius: 440, count: 6, types: ["Frost Raider"], formation: "crescent", rotation: -.4 },
-  { name: "Glacier Crossing", x: 3000, y: 850, minRadius: 220, radius: 400, count: 6, types: ["Glacier Archer"], formation: "ranks", rotation: .25 },
+  { name: "Glacier Crossing", x: 3000, y: 850, minRadius: 220, radius: 400, count: 6, types: ["Glacier Archer", "Glacier Archer", "Glacier Archer", "Glacier Archer", "Glacier Archer", "Glacier Regent"], formation: "ranks", rotation: .25 },
   { name: "Whiteout Hollow", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Rime Guard"], formation: "crescent", rotation: 1.3 },
   { name: "Aurora Shelf", x: 1350, y: 3750, minRadius: 230, radius: 420, count: 5, types: ["Aurora Oracle"], formation: "ranks", rotation: -.15 },
   { name: "Reaper's Rest", x: 2700, y: 2700, minRadius: 100, radius: 180, count: 1, types: ["Whiteout Reaper"], formation: "crescent", rotation: 1.8 },
@@ -98,7 +98,7 @@ const SNOW_CAMPS: SpawnCamp[] = [
 
 const LAVA_CAMPS: SpawnCamp[] = [
   { name: "Searing Approach", x: 950, y: 1350, minRadius: 230, radius: 400, count: 6, types: ["Ember Raider"], formation: "crescent", rotation: -.35 },
-  { name: "Magma Causeway", x: 3000, y: 850, minRadius: 230, radius: 400, count: 6, types: ["Cinder Archer"], formation: "ranks", rotation: .2 },
+  { name: "Magma Causeway", x: 3000, y: 850, minRadius: 230, radius: 400, count: 6, types: ["Cinder Archer", "Cinder Archer", "Cinder Archer", "Cinder Archer", "Cinder Archer", "Cinder Regent"], formation: "ranks", rotation: .2 },
   { name: "Obsidian Crater", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Magma Guard"], formation: "crescent", rotation: 1.2 },
   { name: "Ashen Shelf", x: 1050, y: 3650, minRadius: 240, radius: 420, count: 7, types: ["Ash Reaper"], formation: "ranks", rotation: -.2 },
   { name: "Inferno Caldera", x: 2700, y: 3900, minRadius: 210, radius: 380, count: 4, types: ["Inferno Oracle"], formation: "crescent", rotation: 2.4 },
@@ -106,7 +106,7 @@ const LAVA_CAMPS: SpawnCamp[] = [
 
 const INFERNAL_CAMPS: SpawnCamp[] = [
   { name: "Moonless Gate", x: 1050, y: 1500, minRadius: 230, radius: 400, count: 6, types: ["Depth Raider"], formation: "crescent", rotation: -.45 },
-  { name: "Blackbough Trail", x: 3150, y: 950, minRadius: 230, radius: 400, count: 6, types: ["Abyss Archer"], formation: "ranks", rotation: .35 },
+  { name: "Blackbough Trail", x: 3150, y: 950, minRadius: 230, radius: 400, count: 6, types: ["Abyss Archer", "Abyss Archer", "Abyss Archer", "Abyss Archer", "Abyss Archer", "Abyss Regent"], formation: "ranks", rotation: .35 },
   { name: "Hollow Grove", x: 4100, y: 2450, minRadius: 250, radius: 440, count: 7, types: ["Obsidian Colossus"], formation: "crescent", rotation: 1.1 },
   { name: "Dreadwood", x: 950, y: 3500, minRadius: 240, radius: 420, count: 7, types: ["Doom Reaper"], formation: "ranks", rotation: -.3 },
   { name: "Witching Glade", x: 2650, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Nether Oracle"], formation: "crescent", rotation: 2.35 },
@@ -114,7 +114,7 @@ const INFERNAL_CAMPS: SpawnCamp[] = [
 
 const WATER_CAMPS: SpawnCamp[] = [
   { name: "Shallows Landing", x: 1100, y: 1200, minRadius: 230, radius: 400, count: 6, types: ["Tide Raider"], formation: "shoal", rotation: .2 },
-  { name: "Kelp Channel", x: 3050, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Reef Archer"], formation: "shoal", rotation: .9 },
+  { name: "Kelp Channel", x: 3050, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Reef Archer", "Reef Archer", "Reef Archer", "Reef Archer", "Reef Archer", "Reef Regent"], formation: "shoal", rotation: .9 },
   { name: "Coral Citadel", x: 4150, y: 2450, minRadius: 250, radius: 440, count: 7, types: ["Coral Colossus"], formation: "shoal", rotation: -.35 },
   { name: "Drowned Trench", x: 950, y: 3550, minRadius: 240, radius: 420, count: 7, types: ["Drowned Reaper"], formation: "shoal", rotation: .65 },
   { name: "Mooncurrent Shrine", x: 2600, y: 4000, minRadius: 210, radius: 380, count: 4, types: ["Tidal Oracle"], formation: "shoal", rotation: -.2 },
@@ -122,7 +122,7 @@ const WATER_CAMPS: SpawnCamp[] = [
 
 const SAMURAI_CAMPS: SpawnCamp[] = [
   { name: "Lantern Gate", x: 950, y: 1450, minRadius: 230, radius: 400, count: 6, types: ["Sakura Ronin"], formation: "ranks", rotation: 0 },
-  { name: "Blossom Walk", x: 2900, y: 850, minRadius: 230, radius: 400, count: 6, types: ["Petal Archer"], formation: "ranks", rotation: .35 },
+  { name: "Blossom Walk", x: 2900, y: 850, minRadius: 230, radius: 400, count: 6, types: ["Petal Archer", "Petal Archer", "Petal Archer", "Petal Archer", "Petal Archer", "Petal Regent"], formation: "ranks", rotation: .35 },
   { name: "Bamboo Court", x: 4050, y: 2300, minRadius: 250, radius: 440, count: 7, types: ["Bamboo Guardian"], formation: "ranks", rotation: -.25 },
   { name: "Moonbridge", x: 1150, y: 3650, minRadius: 240, radius: 420, count: 7, types: ["Moonblade Reaper"], formation: "ranks", rotation: .55 },
   { name: "Sakura Shrine", x: 2650, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Shrine Oracle"], formation: "ranks", rotation: 0 },
@@ -130,7 +130,7 @@ const SAMURAI_CAMPS: SpawnCamp[] = [
 
 const CLOUDSPIRE_CAMPS: SpawnCamp[] = [
   { name: "Zephyr Landing", x: 1050, y: 1350, minRadius: 230, radius: 400, count: 6, types: ["Gale Prowler"], formation: "crescent", rotation: -.25 },
-  { name: "Nimbus Causeway", x: 3000, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Nimbus Archer"], formation: "ranks", rotation: .2 },
+  { name: "Nimbus Causeway", x: 3000, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Nimbus Archer", "Nimbus Archer", "Nimbus Archer", "Nimbus Archer", "Nimbus Archer", "Nimbus Regent"], formation: "ranks", rotation: .2 },
   { name: "Sunvault Bastion", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Skyguard Colossus"], formation: "crescent", rotation: 1.15 },
   { name: "Thunderhead", x: 1000, y: 3600, minRadius: 240, radius: 420, count: 7, types: ["Thunder Reaper"], formation: "crescent", rotation: -.45 },
   { name: "Eye of the Storm", x: 2600, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Tempest Oracle"], formation: "ranks", rotation: .15 },
@@ -138,14 +138,14 @@ const CLOUDSPIRE_CAMPS: SpawnCamp[] = [
 
 const MOONFEN_CAMPS: SpawnCamp[] = [
   { name: "Firefly Landing", x: 1050, y: 1350, minRadius: 230, radius: 400, count: 6, types: ["Fen Prowler"], formation: "crescent", rotation: -.3 },
-  { name: "Glowcap Crossing", x: 3000, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Glowcap Archer"], formation: "ranks", rotation: .25 },
+  { name: "Glowcap Crossing", x: 3000, y: 900, minRadius: 230, radius: 400, count: 6, types: ["Glowcap Archer", "Glowcap Archer", "Glowcap Archer", "Glowcap Archer", "Glowcap Archer", "Glowcap Regent"], formation: "ranks", rotation: .25 },
   { name: "Sunken Bulwark", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Bog Colossus"], formation: "crescent", rotation: 1.1 },
   { name: "Moonmire Hollow", x: 1000, y: 3600, minRadius: 240, radius: 420, count: 7, types: ["Moonmire Reaper"], formation: "crescent", rotation: -.5 },
   { name: "Wispwater Shrine", x: 2600, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Wisp Oracle"], formation: "ranks", rotation: .1 },
 ];
 const CRYSTAL_HOLLOWS_CAMPS: SpawnCamp[] = [
   { name: "Quartz Landing", x: 1100, y: 1450, minRadius: 230, radius: 400, count: 6, types: ["Shard Hopper"], formation: "crescent", rotation: .4 },
-  { name: "Amethyst Gallery", x: 3000, y: 1000, minRadius: 230, radius: 400, count: 6, types: ["Crystal Spitter"], formation: "ranks", rotation: -.35 },
+  { name: "Amethyst Gallery", x: 3000, y: 1000, minRadius: 230, radius: 400, count: 6, types: ["Crystal Spitter", "Crystal Spitter", "Crystal Spitter", "Crystal Spitter", "Crystal Spitter", "Crystal Regent"], formation: "ranks", rotation: -.35 },
   { name: "Geode Bastion", x: 3750, y: 2450, minRadius: 250, radius: 440, count: 7, types: ["Geode Guardian"], formation: "crescent", rotation: 1.4 },
   { name: "Prismatic Cut", x: 1050, y: 3300, minRadius: 240, radius: 420, count: 7, types: ["Prism Reaver"], formation: "crescent", rotation: -.8 },
   { name: "Resonant Vault", x: 2600, y: 3950, minRadius: 210, radius: 380, count: 4, types: ["Hollow Oracle"], formation: "ranks", rotation: .35 },

@@ -246,6 +246,7 @@ export const Duel = __t.object("Duel", {
   opponentName: __t.string(),
   challengerGender: __t.u8(),
   opponentGender: __t.u8(),
+  combatVersion: __t.u8(),
 });
 export type Duel = __Infer<typeof Duel>;
 
@@ -290,6 +291,7 @@ export const DuelReplay = __t.object("DuelReplay", {
   opponentLeftHandItem: __t.string(),
   challengerGender: __t.u8(),
   opponentGender: __t.u8(),
+  combatVersion: __t.u8(),
 });
 export type DuelReplay = __Infer<typeof DuelReplay>;
 
@@ -550,6 +552,12 @@ export const MaintenanceSchedule = __t.object("MaintenanceSchedule", {
   scheduledAt: __t.scheduleAt(),
 });
 export type MaintenanceSchedule = __Infer<typeof MaintenanceSchedule>;
+
+export const MaintenanceSweepSchedule = __t.object("MaintenanceSweepSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type MaintenanceSweepSchedule = __Infer<typeof MaintenanceSweepSchedule>;
 
 export const MapFrameSchedule = __t.object("MapFrameSchedule", {
   scheduledId: __t.u64(),

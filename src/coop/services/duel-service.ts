@@ -19,6 +19,7 @@ type DuelServiceDependencies = {
 };
 
 type DuelRow = {
+  combatVersion?: number;
   id: bigint;
   challenger: Identity;
   opponent: Identity;
@@ -78,6 +79,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
   function upsert(row: DuelRow) {
     duels.set(row.id, {
       id: row.id,
+      combatVersion: row.combatVersion ?? 0,
       challenger: row.challenger.toHexString(),
       opponent: row.opponent.toHexString(),
       challengerName: row.challengerName,
@@ -125,6 +127,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
   function upsertReplay(row: any) {
     replays.set(row.id, {
       id: row.id,
+      combatVersion: row.combatVersion ?? 0,
       challengerIdentity: row.challengerIdentity,
       opponentIdentity: row.opponentIdentity,
       challengerName: row.challengerName,

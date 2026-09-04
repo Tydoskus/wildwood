@@ -188,6 +188,15 @@ export function createRenderController(options: {
     ctx.restore();
     ctx.restore();
     setDuelCountdown(scene.countdown);
+    if ((scene.hitMultiplier ?? 1) > 1 && scene.countdown === 0) {
+      const { width, height } = viewport();
+      ctx.save();
+      ctx.font = "bold 14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffd38a";
+      ctx.fillText(`ESCALATION · HITS ×${scene.hitMultiplier!.toFixed(1)}`, width / 2, height * .72);
+      ctx.restore();
+    }
     drawVignette();
   }
 

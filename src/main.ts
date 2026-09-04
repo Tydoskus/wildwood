@@ -92,6 +92,9 @@ import {
 (() => {
   "use strict";
 
+  // Set only by Run Wildstat Local.command. Release builds do not receive it.
+  const localTestMultiplier = import.meta.env.VITE_LOCAL_TESTING === "1" ? 3 : 1;
+
   // Architecture boundary: keep this file as composition root. New systems
   // belong in src/game, src/ui, or src/app and are only wired here.
 
@@ -263,6 +266,7 @@ import {
     () => session.gameTime(),
     Date.now,
     readRespawnBoostExpiry(),
+    localTestMultiplier,
   );
 
   function activateRewardedRespawnBoost() {
@@ -386,7 +390,7 @@ import {
     showMessage,
     move: (itemId, destination) => {
       if (!moveInventoryItem(inventory, itemId, destination)) return false;
-      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS);
+      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS) * localTestMultiplier;
       applyPlayerMaxHealthMultiplier(player, healthMultiplier());
       const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
@@ -1060,7 +1064,7 @@ import {
     clearTransientCombat: () => { projectileStore.clear(); effects.clear(); enemySimulation.clearRemoteCombat(); },
     getCurrentMapId: () => currentMapId,
     mapSpawn: (mapId) => mapId === TUTORIAL_FOREST_MAP_ID ? START_SPAWN : MAP_CONFIG[mapId].arrival,
-    initialStats: { maxHp: BASE_PLAYER_HP, damage: 4, attackRate: STARTING_ATTACK_INTERVAL, projectileSpeed: BASE_PROJECTILE_SPEED, projectileCount: 1, attackRange: BASE_ATTACK_RANGE, armor: 0, regen: 0, speed: BASE_PLAYER_SPEED },
+    initialStats: { maxHp: BASE_PLAYER_HP, damage: 4, attackRate: STARTING_ATTACK_INTERVAL, projectileSpeed: BASE_PROJECTILE_SPEED, projectileCount: 1, attackRange: BASE_ATTACK_RANGE, armor: 0, regen: 0, speed: BASE_PLAYER_SPEED * localTestMultiplier },
     invalidateStaticWorld,
     spawnFromSite,
     clearPlayerCombat: () => { playerCombat.clearPendingThrow(); playerCombat.clearPendingBossHits(); },
@@ -1378,7 +1382,7 @@ import {
         inventory.selectedItemId = "";
         inventory.selectedItemLocation = "";
       }
-      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS);
+      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS) * localTestMultiplier;
       applyPlayerMaxHealthMultiplier(player, healthMultiplier());
       renderInventory();
       saveProgress(true);

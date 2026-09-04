@@ -38,6 +38,15 @@ describe("regular enemy respawn boost", () => {
     expect(boost.respawnSeconds()).toBe(REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS);
   });
 
+  it("supports a caller-scoped local test multiplier without changing defaults", () => {
+    const localSite = site();
+    const boost = createRegularEnemyRespawnBoost([localSite], () => 10, Date.now, 0, 3);
+
+    boost.schedule(localSite);
+    expect(localSite.respawnAt).toBe(20);
+    expect(boost.respawnSeconds()).toBe(10);
+  });
+
   it("rebases pending timers to 15 seconds from their original defeat", () => {
     const pending = site({ alive: false, respawnAt: 40 });
     const boost = createRegularEnemyRespawnBoost([pending], () => 20);

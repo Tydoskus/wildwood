@@ -1,6 +1,7 @@
+import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
+import { createPlayerMotionFrameSampler, playerMotionSampleAt } from "../../shared/player-motion-sample";
 import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
-import { damageAfterArmor, damageBlockedByArmor } from "./combat";
 import { attackForestPrototype, beginForestPrototype } from "./forest-reward-prototype";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
@@ -315,7 +316,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 22;
+const MODULE_MIGRATION_VERSION = 23;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1341,6 +1342,7 @@ const duel = table(
     opponentName: t.string().default(""),
     challengerGender: t.u8().default(PLAYER_GENDER_UNSET),
     opponentGender: t.u8().default(PLAYER_GENDER_UNSET),
+    combatVersion: t.u8().default(0),
   },
 );
 
@@ -1387,11 +1389,21 @@ const duelReplay = table(
     opponentLeftHandItem: t.string().default(""),
     challengerGender: t.u8().default(PLAYER_GENDER_UNSET),
     opponentGender: t.u8().default(PLAYER_GENDER_UNSET),
+    combatVersion: t.u8().default(0),
   },
 );
 
 const maintenanceSchedule = table(
   { scheduled: (): any => runMaintenance },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+  },
+);
+
+// Historical cleanup and fallback reconciliation do not need a one-minute scan.
+const maintenanceSweepSchedule = table(
+  { scheduled: (): any => runMaintenanceSweep },
   {
     scheduledId: t.u64().primaryKey().autoInc(),
     scheduledAt: t.scheduleAt(),
@@ -1617,6 +1629,7 @@ const spacetimedb = schema({
   duelReplay,
   ...dragonBossTables,
   maintenanceSchedule,
+  maintenanceSweepSchedule,
   motionFrameSchedule,
   motionDetailFrameSchedule,
   mapFrameSchedule,
@@ -2374,6 +2387,20 @@ function runPendingModuleMigrations(ctx: any) {
       }
     }
   }
+  if (currentVersion < 23) {
+    ensureDragonBoss(ctx);
+    ensureSpiderBoss(ctx);
+    ensureFrostclawBoss(ctx);
+    ensureMagmaliskBoss(ctx);
+    ensureGloomrootBoss(ctx);
+    ensureTidewyrmBoss(ctx);
+    ensureKoiShogunBoss(ctx);
+    ensureTempestKirinBoss(ctx);
+    ensureMiremawBoss(ctx);
+    ensurePrismshellBoss(ctx);
+    ensureWorldStatus(ctx);
+    ensureMaintenanceSweepSchedule(ctx);
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2857,7 +2884,9 @@ function sharedMapCounts(ctx: any) {
 }
 
 function hasSharedMap(ctx: any) {
-  for (const count of sharedMapCounts(ctx).values()) if (count > 1) return true;
+  for (const state of ctx.db.playerMotionMapState.iter() as Iterable<any>) {
+    if (state.playerCount > 1) return true;
+  }
   return false;
 }
 
@@ -2891,16 +2920,7 @@ function ensureRealtimeFrameSchedules(ctx: any) {
 }
 
 function motionSample(motion: any, sampledAtMicros: bigint): PlayerMotionSample {
-  const sampled = analyticalMotionAt(motion, sampledAtMicros);
-  return {
-    networkId: sampled.networkId,
-    x: sampled.x,
-    y: sampled.y,
-    vx: sampled.vx,
-    vy: sampled.vy,
-    simulationTick: sampled.simulationTick,
-    motionEpoch: sampled.motionEpoch,
-  };
+  return playerMotionSampleAt(motion, sampledAtMicros);
 }
 
 function savedWorldLocation(ctx: any, identity: any, progress: any) {
@@ -4293,6 +4313,14 @@ function ensureMaintenanceSchedule(ctx: any) {
   });
 }
 
+function ensureMaintenanceSweepSchedule(ctx: any) {
+  for (const _task of ctx.db.maintenanceSweepSchedule.iter()) return;
+  ctx.db.maintenanceSweepSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.interval(5n * MAINTENANCE_INTERVAL_MICROS),
+  });
+}
+
 function bossRowAtMaxHealth(existing: any, maxHp: number) {
   const tolerance = Math.max(1, maxHp * 1e-6);
   if (Math.abs(existing.maxHp - maxHp) <= tolerance && existing.hp <= maxHp + tolerance) return existing;
@@ -5263,13 +5291,17 @@ function finishDuel(ctx: any, current: any) {
   );
   const challengerName = current.challengerName || ctx.db.playerProfile.identity.find(current.challenger)?.displayName || "PLAYER";
   const opponentName = current.opponentName || ctx.db.playerProfile.identity.find(current.opponent)?.displayName || "PLAYER";
-  const challengerWon = current.challengerHp > current.opponentHp;
-  const opponentWon = current.opponentHp > current.challengerHp;
+  const outcome = current.combatVersion >= 1 ? duelOutcome(current, current)
+    : current.challengerHp > current.opponentHp ? "CHALLENGER_WIN"
+      : current.opponentHp > current.challengerHp ? "OPPONENT_WIN" : "DRAW";
+  const challengerWon = outcome === "CHALLENGER_WIN";
+  const opponentWon = outcome === "OPPONENT_WIN";
   const winnerName = challengerWon ? challengerName : opponentWon ? opponentName : "DRAW";
   const durationSeconds = Math.max(0, Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros) / 1_000_000);
 
   ctx.db.duelReplay.insert({
     id: current.id,
+    combatVersion: current.combatVersion ?? 0,
     challengerIdentity: current.challenger.toHexString(),
     opponentIdentity: current.opponent.toHexString(),
     challengerName,
@@ -5343,70 +5375,12 @@ function resolveDuel(ctx: any, current: any) {
   const resolutionMicros = current.endsAtMicros < ctx.timestamp.microsSinceUnixEpoch
     ? current.endsAtMicros
     : ctx.timestamp.microsSinceUnixEpoch;
-  let cursorMicros = current.lastResolvedAt.microsSinceUnixEpoch;
-  let challengerHp = current.challengerHp;
-  let opponentHp = current.opponentHp;
-  let challengerAttacks = current.challengerAttacks;
-  let opponentAttacks = current.opponentAttacks;
-  let challengerDamageDealt = current.challengerDamageDealt;
-  let opponentDamageDealt = current.opponentDamageDealt;
-  let challengerRegened = current.challengerRegened;
-  let opponentRegened = current.opponentRegened;
-  let challengerBlocked = current.challengerBlocked;
-  let opponentBlocked = current.opponentBlocked;
-  const challengerHit = damageAfterArmor(current.challengerDamage, current.opponentArmor);
-  const opponentHit = damageAfterArmor(current.opponentDamage, current.challengerArmor);
-  const challengerIntervalMicros = Math.max(1, Math.round(current.challengerAttackRate * 1_000_000));
-  const opponentIntervalMicros = Math.max(1, Math.round(current.opponentAttackRate * 1_000_000));
-
-  while (cursorMicros < resolutionMicros && challengerHp > 0 && opponentHp > 0) {
-    const nextChallengerAttack = current.startsAtMicros + BigInt((challengerAttacks + 1) * challengerIntervalMicros);
-    const nextOpponentAttack = current.startsAtMicros + BigInt((opponentAttacks + 1) * opponentIntervalMicros);
-    const nextEventMicros = nextChallengerAttack < nextOpponentAttack
-      ? nextChallengerAttack
-      : nextOpponentAttack;
-    const advanceToMicros = nextEventMicros < resolutionMicros ? nextEventMicros : resolutionMicros;
-    const elapsedSeconds = Number(advanceToMicros - cursorMicros) / 1_000_000;
-    const challengerRegen = Math.min(current.challengerMaxHp - challengerHp, current.challengerRegen * elapsedSeconds);
-    const opponentRegen = Math.min(current.opponentMaxHp - opponentHp, current.opponentRegen * elapsedSeconds);
-    challengerHp += challengerRegen;
-    opponentHp += opponentRegen;
-    challengerRegened += challengerRegen;
-    opponentRegened += opponentRegen;
-    cursorMicros = advanceToMicros;
-    if (nextEventMicros > resolutionMicros) break;
-
-    const challengerHits = nextChallengerAttack === nextEventMicros;
-    const opponentHits = nextOpponentAttack === nextEventMicros;
-    const challengerTaken = opponentHits ? Math.min(challengerHp, opponentHit) : 0;
-    const opponentTaken = challengerHits ? Math.min(opponentHp, challengerHit) : 0;
-    challengerHp = Math.max(0, challengerHp - challengerTaken);
-    opponentHp = Math.max(0, opponentHp - opponentTaken);
-    if (challengerHits) {
-      challengerAttacks += 1;
-      challengerDamageDealt += opponentTaken;
-      opponentBlocked += damageBlockedByArmor(current.challengerDamage, current.opponentArmor);
-    }
-    if (opponentHits) {
-      opponentAttacks += 1;
-      opponentDamageDealt += challengerTaken;
-      challengerBlocked += damageBlockedByArmor(current.opponentDamage, current.challengerArmor);
-    }
-  }
-
+  const { resolvedMicros, ...combat } = advanceDuelCombat(current, current,
+    Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros),
+    Number(resolutionMicros - current.startsAtMicros));
   const next = {
-    ...current,
-    challengerHp,
-    opponentHp,
-    challengerAttacks,
-    opponentAttacks,
-    challengerDamageDealt,
-    opponentDamageDealt,
-    challengerRegened,
-    opponentRegened,
-    challengerBlocked,
-    opponentBlocked,
-    lastResolvedAt: new Timestamp(cursorMicros),
+    ...current, ...combat,
+    lastResolvedAt: new Timestamp(current.startsAtMicros + BigInt(resolvedMicros)),
   };
 
   if (
@@ -5711,17 +5685,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
-  ensureDragonBoss(ctx);
-  ensureSpiderBoss(ctx);
-  ensureFrostclawBoss(ctx);
-  ensureMagmaliskBoss(ctx);
-  ensureGloomrootBoss(ctx);
-  ensureTidewyrmBoss(ctx);
-  ensureKoiShogunBoss(ctx);
-  ensureTempestKirinBoss(ctx);
-  ensureMiremawBoss(ctx);
-  ensurePrismshellBoss(ctx);
-  ensureWorldStatus(ctx);
+  // Initialization and balance reconciliation run once per module version.
   runPendingModuleMigrations(ctx);
 
   if (!ctx.connectionId) return;
@@ -5789,6 +5753,19 @@ export const runMaintenance = spacetimedb.reducer(
     );
     for (const current of finishedDuels) finishDuel(ctx, current);
     clearExpiredDuelRequests(ctx);
+    ensureMotionDetailFrameSchedule(ctx);
+    runPendingModuleMigrations(ctx);
+    refreshLeaderboardIfDue(ctx);
+    regenerateIdleBosses(ctx);
+  },
+);
+
+// Exact scheduled completions remain authoritative. These scans only recover
+// orphaned state or missing schedules, and run even with no players connected.
+export const runMaintenanceSweep = spacetimedb.reducer(
+  { maintenance: maintenanceSweepSchedule.rowType },
+  (ctx, { maintenance }) => {
+    void maintenance;
     clearExpiredHistory(ctx);
     trimStartupTelemetry(ctx);
     clearExpiredStartupTelemetryRateLimits(ctx);
@@ -5798,8 +5775,6 @@ export const runMaintenance = spacetimedb.reducer(
     clearOrphanVirtualPlayers(ctx);
     clearExpiredVirtualPlayerRuns(ctx);
     reconcileOnlinePlayers(ctx);
-    ensureMotionDetailFrameSchedule(ctx);
-    runPendingModuleMigrations(ctx);
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
       reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_ONE);
@@ -5807,8 +5782,6 @@ export const runMaintenance = spacetimedb.reducer(
     for (const active of [...ctx.db.activeItemUpgradeSlotTwo.iter()] as any[]) {
       reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_TWO);
     }
-    refreshLeaderboardIfDue(ctx);
-    regenerateIdleBosses(ctx);
   },
 );
 
@@ -5822,6 +5795,7 @@ export const publishMotionDetailFrames = spacetimedb.reducer(
   (ctx, _args) => {
     let continuePublishing = false;
     const staleIdentities: any[] = [];
+    const sampleMotion = createPlayerMotionFrameSampler(ctx.timestamp.microsSinceUnixEpoch);
     for (const interest of ctx.db.playerMotionInterest.iter() as Iterable<any>) {
       const observer = ctx.db.playerMotion.identity.find(interest.identity);
       if (!observer) {
@@ -5840,7 +5814,7 @@ export const publishMotionDetailFrames = spacetimedb.reducer(
           motion.mapId !== observer.mapId ||
           !motion.isVisible
         ) continue;
-        samples.push(motionSample(motion, ctx.timestamp.microsSinceUnixEpoch));
+        samples.push(sampleMotion(motion));
       }
       if (samples.length === 0) continue;
       ctx.db.playerMotionDetailFrame.insert({
@@ -8401,6 +8375,7 @@ export const requestDuel = spacetimedb.reducer(
     const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;
     const insertedDuel = ctx.db.duel.insert({
       id: 0n,
+      combatVersion: DUEL_COMBAT_VERSION,
       challenger: ctx.sender,
       opponent,
       status: "countdown",

@@ -100,6 +100,16 @@ function presentationWithClocks(activeDuel: () => RuntimeDuelState | null, clock
 }
 
 describe("live duel identity presentation", () => {
+  it("refreshes the timeline when the clock rewinds or a server snapshot changes", () => {
+    const clocks = { frame: 0, wall: 2_000 };
+    const presentation = presentationWithClocks(() => duel, clocks);
+    expect(presentation.liveDuelPresentationState(duel).state.opponentHp).toBe(80);
+    clocks.wall = 1_000;
+    expect(presentation.liveDuelPresentationState(duel).state.opponentHp).toBe(90);
+    const updated = { ...duel, challengerDamage: 20 };
+    expect(presentation.liveDuelPresentationState(updated).state.opponentHp).toBe(80);
+  });
+
   it("uses names frozen into the duel instead of generated profile fallbacks", () => {
     const presentation = createDuelPresentation({
       activeDuel: () => duel,

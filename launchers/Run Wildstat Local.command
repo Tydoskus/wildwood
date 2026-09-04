@@ -73,8 +73,8 @@ print "Client bindings: regenerating"
 "$SPACETIME_BIN" generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb \
   || fail "SpacetimeDB binding generation failed."
 
-print "Browser client: building"
-"$NPM_BIN" run build:client || fail "Browser build failed."
+print "Browser client: building with local-only 3x movement and respawns"
+VITE_LOCAL_TESTING=1 "$NPM_BIN" run build:client || fail "Browser build failed."
 
 if /usr/bin/curl --silent --show-error --fail --max-time 2 "$LOCAL_URL" 2>/dev/null \
   | /usr/bin/grep -q '<title>WildStat</title>'; then

@@ -1,3 +1,4 @@
+import { BOSS_TARGET_SECONDS } from "../../shared/progression";
 import { ATTACK_WINDUP_SECONDS } from "../game/attack-timeline";
 import { BOSS_DAMAGE_PROFILES } from "../game/boss-damage";
 import { damageAfterArmor } from "../game/combat";
@@ -452,9 +453,9 @@ const SAMPLE_COUNT = 180;
 const MAP_TRANSITION_SECONDS = 6;
 const LOOT_AND_RETARGET_SECONDS = .3;
 const DEFAULT_FOREST_ONBOARDING_SECONDS = 22.5 * 60;
-const DEFAULT_CAMPAIGN_DURATION_SECONDS = DEFAULT_FOREST_ONBOARDING_SECONDS + BALANCE_MAP_IDS
+const DEFAULT_CAMPAIGN_DURATION_SECONDS = 1.5 * (DEFAULT_FOREST_ONBOARDING_SECONDS + BALANCE_MAP_IDS
   .slice(1)
-  .reduce((total, _mapId, index) => total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0);
+  .reduce((total, _mapId, index) => total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0));
 const PROJECTILE_TRAVEL_SECONDS = DEFAULT_ATTACK_RANGE / PLAYER_PROJECTILE_SPEED * .5;
 const FIRST_HIT_SECONDS = ATTACK_WINDUP_SECONDS + PROJECTILE_TRAVEL_SECONDS;
 
@@ -542,7 +543,7 @@ export function defaultBalanceSimulationConfig(): BalanceSimulationConfig {
     trials: 100,
     strategy: "mixed",
     researchPlan: "balanced",
-    bossTargetSeconds: 5 * 60,
+    bossTargetSeconds: BOSS_TARGET_SECONDS,
     targetDesertDurationSeconds: BALANCE_TARGET_DESERT_DURATION_SECONDS,
     targetMapDurationMultiplier: BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
     targetMapPowerMultiplier: BALANCE_TARGET_MAP_POWER_MULTIPLIER,
@@ -1274,6 +1275,7 @@ function selectSite(
   record: TrialMapRecord,
   config: BalanceSimulationConfig,
   behavior: TrialBehavior,
+  bossAlreadyCleared = false,
 ) {
   const available = sites.filter((site) => site.availableAt <= state.time);
   if (!available.length) return null;
@@ -1281,7 +1283,8 @@ function selectSite(
   const adjustment = config.mapAdjustments[map.id];
   const currentBossTtk = bossFightSeconds(state, map, adjustment);
   const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
-  const bossGateActive = currentBossTtk !== null && currentBossTtk > bossReadinessTarget;
+  const needsHealth = !bossAlreadyCleared && bossHitShare(state, map, adjustment) > .3;
+  const bossGateActive = !bossAlreadyCleared && currentBossTtk !== null && currentBossTtk > bossReadinessTarget;
   const totalKills = sites.reduce((total, site) => total + site.kills, 0);
   const defensiveInterval = STRATEGY_DEFENSIVE_REWARD_INTERVALS[behavior.primaryStrategy === "boss-farm" ? "boss-rush" : behavior.primaryStrategy];
   const defensiveTurn = config.strategy !== "mixed" && config.strategy !== "boss-farm" && bossGateActive && Number.isFinite(defensiveInterval) && totalKills > 0 && totalKills % defensiveInterval === defensiveInterval - 1;
@@ -1407,6 +1410,15 @@ function selectSite(
       };
     })()
     : null;
+  // Readiness uses a real defensive outcome, not damage/health parity or a
+  // leaderboard-power target. Explicit DPS-only runs remain DPS-only.
+  if (needsHealth && config.strategy !== "dps-first") {
+    const healthCandidates = candidateData.filter(candidate => candidate.stat === "health");
+    if (healthCandidates.length) return healthCandidates.reduce((best, candidate) => {
+      const gain = (entry: typeof candidate) => ENEMY_TYPES[entry.site.type].reward.amount / entry.duration;
+      return gain(candidate) > gain(best) ? candidate : best;
+    });
+  }
   return candidateData.reduce((best, candidate, index) => {
     let score = naturalScores[index];
     if (config.strategy !== "mixed" && behavior.primaryStrategy === "efficient") {
@@ -1458,6 +1470,15 @@ function selectSite(
 function createSites(map: BalanceMapDefinition) {
   const bossPoint = map.boss ?? { x: 4_050, y: 4_050 };
   return createSpawnSites(bossPoint, map.id).map((site) => ({ ...site, availableAt: 0, kills: 0 }));
+}
+
+/** A readiness estimate: survive the strongest telegraphed hit with room to recover.
+ * This does not simulate dodging, deaths, or promise that a boss is safe. */
+function bossHitShare(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment) {
+  if (!map.boss) return 0;
+  const stats = combatStats(state, false);
+  const profile = BOSS_DAMAGE_PROFILES[map.boss.kind];
+  return damageAfterArmor(Math.max(...Object.values(profile)) * adjustment.damage, stats.armor) / Math.max(1, stats.maxHp);
 }
 
 function bossFightSeconds(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment) {
@@ -1749,7 +1770,7 @@ function simulateTrial(
     const currentBossFight = bossFightSeconds(state, map, adjustment);
     const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
 
-    if (map.boss && clears >= config.requiredClears && currentBossFight !== null && currentBossFight <= bossReadinessTarget) {
+    if (map.boss && mapRecord.bossFightSeconds === null && clears >= config.requiredClears && currentBossFight !== null && currentBossFight <= bossReadinessTarget && bossHitShare(state, map, adjustment) <= .3) {
       const statWeights = projectedBossStatWeights(map.boss, adjustment);
       const travel = travelSeconds(position, map.boss, state, config.pathingMultiplier);
       if (!spendBossTime(mapRecord, "travelSeconds", statWeights, travel)) break;
@@ -1781,7 +1802,11 @@ function simulateTrial(
       // repeats remain visible in the strategy trace, but their time is
       // reported separately so it cannot inflate first-clear map pacing.
       if (state.mapIndex >= MAP_DEFINITIONS.length - 1) {
-        break;
+        // Every comparison strategy must keep spending the remaining timeline
+        // after its first final-boss clear. Boss-rush consumes that time in
+        // repeat clears above; the other routes continue their normal regular
+        // farming instead of being shown as an artificial flat line.
+        continue;
       }
       advanceTime(state, Math.min(config.durationSeconds, state.time + MAP_TRANSITION_SECONDS), config.researchPlan, recordHistory);
       if (state.time >= config.durationSeconds) break;
@@ -1794,7 +1819,16 @@ function simulateTrial(
       continue;
     }
 
-    const selected = selectSite(sites, state, position, map, mapRecord, config, behavior);
+    const selected = selectSite(
+      sites,
+      state,
+      position,
+      map,
+      mapRecord,
+      config,
+      behavior,
+      mapRecord.bossFightSeconds !== null,
+    );
     if (!selected) {
       const nextAvailable = Math.min(...sites.map((site) => site.availableAt));
       if (!spendTime(mapRecord, "respawnWaitSeconds", Math.max(0, nextAvailable - state.time))) break;
@@ -2240,10 +2274,10 @@ function buildDiagnostics(
     if (current.exitEffectiveStatsMedian) {
       measuredStatMixes += 1;
       const damageToHealth = current.exitEffectiveStatsMedian.damage / Math.max(1, current.exitEffectiveStatsMedian.maxHp);
-      if (damageToHealth > 1.5) {
+      if (damageToHealth > .25) {
         diagnostics.push(`${current.name} exits at ${damageToHealth.toFixed(1)}× damage-to-health; damage is outrunning survivability.`);
-      } else if (damageToHealth < .25) {
-        diagnostics.push(`${current.name} exits at only ${damageToHealth.toFixed(2)}× damage-to-health; health is consuming too much of the progression budget.`);
+      } else if (damageToHealth < .025) {
+        diagnostics.push(`${current.name} exits at only ${damageToHealth.toFixed(2)}× damage-to-health; check whether damage rewards are keeping fights moving.`);
       } else {
         statMixesOnTrack += 1;
       }

@@ -79,6 +79,8 @@ export function createStartupAuthGate(
   const machine = createStartupStateMachine("auth-shell");
   let unsubscribe = () => {};
   let detached = false;
+  let preparingSignIn = false;
+  let preparingDetail = "Opening Sign-In…";
   const legalGate = createLegalGateController({
     accept: dependencies.acceptLegalTerms,
     onAccepted: render,
@@ -95,7 +97,7 @@ export function createStartupAuthGate(
     elements.loadingFill.style.width = "8%";
   }
 
-  function showAccountChoice(detailOverride = "") {
+  function showAccountChoice(detailOverride = "", interactive = true) {
     const state = dependencies.accountState();
     const name = dependencies.knownCharacter().trim();
     const knownAccount = Boolean(state.knownAccount);
@@ -110,7 +112,8 @@ export function createStartupAuthGate(
     elements.signInButton.textContent = name || knownAccount ? "SIGN IN" : "REGISTER";
     elements.signInButton.disabled = !ready;
     elements.guestButton.disabled = false;
-    dependencies.releaseNotes?.show();
+    if (interactive) dependencies.releaseNotes?.show();
+    else dependencies.releaseNotes?.hide();
     const callbackFailure = /^(?:SIGN-IN (?:CHECK FAILED|FAILED|NETWORK FAILED|TIMED OUT)|AUTO SIGN-IN UNAVAILABLE)/.test(state.notice || "")
       ? `${state.notice}${/TRY AGAIN/.test(state.notice || "") ? "" : " · TRY AGAIN"} OR USE GUEST LOGIN`
       : "";
@@ -121,6 +124,12 @@ export function createStartupAuthGate(
           : knownAccount
             ? "SIGN IN TO LOAD YOUR CHARACTER"
             : "REGISTER OR PLAY AS GUEST");
+  }
+
+  function showSignInPreparation() {
+    showAccountChoice(preparingDetail, false);
+    elements.signInButton.disabled = true;
+    elements.guestButton.disabled = true;
   }
 
   function showLegalGate() {
@@ -174,10 +183,12 @@ export function createStartupAuthGate(
         beginGameLoading("Opening Session Recovery");
         return;
       case "verifying-sign-in":
-        showLoading("Verifying Sign-In");
+        if (preparingSignIn) showSignInPreparation();
+        else showLoading("Verifying Sign-In");
         return;
       case "account-action":
-        showLoading(state.detail);
+        if (state.action === "sign-in") showSignInPreparation();
+        else showLoading(state.detail);
         return;
       case "account-choice":
         showAccountChoice(state.detail);
@@ -214,22 +225,27 @@ export function createStartupAuthGate(
 
   async function onSignIn() {
     if (machine.state().value !== "account-choice") return;
+    preparingSignIn = true;
     const state = dependencies.accountState();
     const name = dependencies.knownCharacter().trim();
     const detail = name || state.knownAccount ? "Opening Sign-In…" : "Opening Registration…";
+    preparingDetail = detail;
     renderState(machine.dispatch({ type: "begin-account-action", action: "sign-in", detail }).state);
     try {
       const result = await dependencies.signIn();
       if (result?.ok === false) {
+        preparingSignIn = false;
         const failure = result.error === "WAIT FOR SERVER"
           ? "PREPARING YOUR SAVED GUEST…"
           : "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN";
         renderState(machine.dispatch({ type: "fail-account-action", detail: failure }).state);
         return;
       }
+      preparingSignIn = Boolean(result?.redirecting);
       machine.dispatch({ type: "complete-account-action" });
       if (!result?.redirecting) render();
     } catch {
+      preparingSignIn = false;
       renderState(machine.dispatch({
         type: "fail-account-action",
         detail: "SIGN-IN FAILED · TRY AGAIN OR USE GUEST LOGIN",

@@ -48,7 +48,7 @@ describe("Advanced Lava Lake", () => {
     const config = createGameBootstrap().mapConfig;
     const sites = createSpawnSites({ x: 4050, y: 4050 }, INFERNAL_DEPTHS_MAP_ID);
     const layout = createWorldLayout({ x: 580, y: 770 }, INFERNAL_DEPTHS_MAP_ID);
-    const infernalKinds = new Set(["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]);
+    const infernalKinds = new Set(["Depth Raider", "Abyss Archer", "Abyss Regent", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"]);
 
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].secondaryPortal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
     expect(config[INFERNAL_DEPTHS_MAP_ID].portal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
@@ -62,7 +62,7 @@ describe("Advanced Lava Lake", () => {
 
   it("spawns only lava-tier enemies", () => {
     const sites = createSpawnSites({ x: 4050, y: 4050 }, ADVANCED_LAVA_WASTES_MAP_ID);
-    const lavaKinds = new Set(["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"]);
+    const lavaKinds = new Set(["Ember Raider", "Cinder Archer", "Cinder Regent", "Magma Guard", "Ash Reaper", "Inferno Oracle"]);
 
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => lavaKinds.has(site.type))).toBe(true);
@@ -86,7 +86,7 @@ describe("Advanced Lava Lake", () => {
     const sites = createSpawnSites(bootstrap.gloomrootBoss, WATER_REACH_MAP_ID);
     const first = createWorldLayout(bootstrap.mapConfig[WATER_REACH_MAP_ID].arrival, WATER_REACH_MAP_ID);
     const second = createWorldLayout(bootstrap.mapConfig[WATER_REACH_MAP_ID].arrival, WATER_REACH_MAP_ID);
-    const waterKinds = new Set(["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]);
+    const waterKinds = new Set(["Tide Raider", "Reef Archer", "Reef Regent", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"]);
 
     expect(bootstrap.mapConfig[INFERNAL_DEPTHS_MAP_ID].secondaryPortal.destination).toBe(WATER_REACH_MAP_ID);
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].portal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
@@ -110,7 +110,7 @@ describe("Advanced Lava Lake", () => {
     const sites = createSpawnSites({ x: 4050, y: 4050 }, SAMURAI_GARDEN_MAP_ID);
     const first = createWorldLayout({ x: 580, y: 770 }, SAMURAI_GARDEN_MAP_ID);
     const second = createWorldLayout({ x: 580, y: 770 }, SAMURAI_GARDEN_MAP_ID);
-    const samuraiKinds = new Set(["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]);
+    const samuraiKinds = new Set(["Sakura Ronin", "Petal Archer", "Petal Regent", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]);
 
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].secondaryPortal.destination).toBe(SAMURAI_GARDEN_MAP_ID);
     expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].portal.destination).toBe(WATER_REACH_MAP_ID);
@@ -130,7 +130,7 @@ describe("Advanced Lava Lake", () => {
     const sites = createSpawnSites(bootstrap.tempestKirinBoss, CLOUDSPIRE_MAP_ID);
     const first = createWorldLayout(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].arrival, CLOUDSPIRE_MAP_ID);
     const second = createWorldLayout(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].arrival, CLOUDSPIRE_MAP_ID);
-    const cloudspireKinds = new Set(["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"]);
+    const cloudspireKinds = new Set(["Gale Prowler", "Nimbus Archer", "Nimbus Regent", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"]);
 
     expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].secondaryPortal.destination).toBe(CLOUDSPIRE_MAP_ID);
     expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].portal.destination).toBe(SAMURAI_GARDEN_MAP_ID);
@@ -150,7 +150,7 @@ describe("Advanced Lava Lake", () => {
     const sites = createSpawnSites(bootstrap.miremawBoss, MOONFEN_MAP_ID);
     const first = createWorldLayout(bootstrap.mapConfig[MOONFEN_MAP_ID].arrival, MOONFEN_MAP_ID);
     const second = createWorldLayout(bootstrap.mapConfig[MOONFEN_MAP_ID].arrival, MOONFEN_MAP_ID);
-    const moonfenKinds = new Set(["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"]);
+    const moonfenKinds = new Set(["Fen Prowler", "Glowcap Archer", "Glowcap Regent", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"]);
 
     expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].secondaryPortal.destination).toBe(MOONFEN_MAP_ID);
     expect(bootstrap.mapConfig[MOONFEN_MAP_ID].portal.destination).toBe(CLOUDSPIRE_MAP_ID);
@@ -170,7 +170,7 @@ describe("Advanced Lava Lake", () => {
     const map = bootstrap.mapConfig[CRYSTAL_HOLLOWS_MAP_ID];
     const layout = createWorldLayout(map.arrival, CRYSTAL_HOLLOWS_MAP_ID);
     const sites = createSpawnSites(bootstrap.prismshellBoss, CRYSTAL_HOLLOWS_MAP_ID);
-    const kinds = new Set(["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"]);
+    const kinds = new Set(["Shard Hopper", "Crystal Spitter", "Crystal Regent", "Geode Guardian", "Prism Reaver", "Hollow Oracle"]);
     expect(bootstrap.mapConfig[MOONFEN_MAP_ID].secondaryPortal.destination).toBe(CRYSTAL_HOLLOWS_MAP_ID);
     expect(map.portal.destination).toBe(MOONFEN_MAP_ID);
     expect(map.name).toBe("Crystal Hollows");
@@ -236,7 +236,7 @@ describe("Advanced Lava Lake", () => {
     expect(new Set(signatures).size).toBe(signatures.length);
     for (const { sites, kinds } of lateMaps) {
       const expectedCounts = Object.values(LATE_MAP_CLEAR_ARCHETYPE_COUNTS);
-      expect(kinds.map((kind) => sites.filter((site) => site.type === kind).length)).toEqual(expectedCounts);
+      expect(kinds.map((kind) => sites.filter((site) => site.type === kind || (ENEMY_TYPES[site.type].reward.type === "health" && ENEMY_TYPES[kind].reward.type === "health")).length)).toEqual(expectedCounts);
       const campKinds = new Map<string, Set<string>>();
       for (const site of sites) {
         const kindsAtCamp = campKinds.get(site.campName) ?? new Set<string>();

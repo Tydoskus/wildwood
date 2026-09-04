@@ -6222,7 +6222,12 @@
           "radius": 410,
           "count": 6,
           "types": [
-            "Dune Archer"
+            "Dune Archer",
+            "Dune Archer",
+            "Dune Archer",
+            "Dune Archer",
+            "Dune Archer",
+            "Dune Regent"
           ]
         },
         {
@@ -7908,7 +7913,12 @@
           "radius": 400,
           "count": 6,
           "types": [
-            "Nimbus Archer"
+            "Nimbus Archer",
+            "Nimbus Archer",
+            "Nimbus Archer",
+            "Nimbus Archer",
+            "Nimbus Archer",
+            "Nimbus Regent"
           ],
           "formation": "ranks",
           "rotation": 0.2

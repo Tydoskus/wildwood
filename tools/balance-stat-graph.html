@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WildStat balance stat graph</title>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">WildStat / balance tool</p>
+      <h1>Map stat multipliers</h1>
+      <p class="intro">
+        Authored values plotted directly from the current game rules. Each point is
+        <code>current map ÷ previous map</code>; Tutorial Forest is the baseline.
+        Combat values are spawn-weighted means. Regular reward rows keep every enemy's authored payout separate,
+        and boss rewards are the full payout on every clear.
+      </p>
+
+      <section class="chart-section" aria-labelledby="combat-heading">
+        <h2 id="combat-heading">Combat pressure</h2>
+        <p class="section-copy">Regular damage is the strength proxy. Boss heavy hit is the largest authored boss ability.</p>
+        <div class="chart-scroll"><svg id="combat-chart" class="stat-chart"></svg></div>
+        <div id="combat-legend" class="legend" aria-label="Combat pressure legend"></div>
+      </section>
+
+      <section class="chart-section" aria-labelledby="reward-heading">
+        <h2 id="reward-heading">Individual rewards</h2>
+        <p class="section-copy">Every regular enemy payout is its own series—never an average. The enemy name appears beneath each value; boss rewards are per clear and repeat at 100%.</p>
+        <div class="chart-scroll"><svg id="reward-chart" class="stat-chart"></svg></div>
+        <div id="reward-legend" class="legend" aria-label="Reward legend"></div>
+      </section>
+
+      <section class="table-section" aria-labelledby="values-heading">
+        <h2 id="values-heading">Numbers behind the lines</h2>
+        <p class="section-copy">Each cell shows the authored value first. Regular-reward cells name the source enemy and show its map-step multiplier underneath. A dash means that source does not exist.</p>
+        <div class="table-scroll"><table id="combat-table"></table></div>
+        <div class="table-scroll"><table id="reward-table"></table></div>
+        <p class="footnote">No simulation output is used here. Combat uses actual spawn-site composition; reward rows read each current enemy definition directly without pooling or averaging rewards.</p>
+      </section>
+    </main>
+    <script type="module" src="./balance-stat-graph.ts"></script>
+  </body>
+</html>

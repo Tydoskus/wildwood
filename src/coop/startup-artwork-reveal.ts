@@ -30,7 +30,10 @@ export function createStartupArtworkReveal({
       decoded = Promise.resolve();
     }
     void decoded.catch(() => undefined).then(() => {
-      if (!disposed) root.classList.add(readyClass);
+      if (!disposed) {
+        root.classList.add(readyClass);
+        root.classList.remove(waitClass);
+      }
     });
   }
 
@@ -40,7 +43,6 @@ export function createStartupArtworkReveal({
     image.decoding = "async";
     image.addEventListener("load", revealAfterDecode, { once: true });
     image.src = source;
-    root.classList.remove(waitClass);
     if (image.complete && image.naturalWidth > 0) revealAfterDecode();
   }
 
@@ -64,6 +66,7 @@ export function startStartupArtworkReveal(documentValue = document) {
     root,
     source: new URL(source, documentValue.baseURI).href,
     image: new Image(),
-    deferred: root.classList.contains("signin-auth-return"),
+    // Keep the same artwork during OAuth verification, including cached returns.
+    deferred: false,
   });
 }

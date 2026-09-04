@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.622": [
+    "Rebuilt map progression around shared enemy, boss, and reward curves, with clearer Balance Lab pacing and duel diagnostics.",
+    "Duels preserve earned stat advantages and escalate damage after ten seconds, using the same combat timeline for live battles and replays.",
+    "Enemies keep slightly more space in crowds; movement broadcasts reuse calculations to reduce server work.",
+    "Sign-in loads fewer subscriptions, boss health updates follow the active map, and heavy server cleanup runs less frequently while offline completion timers remain intact.",
+    "Smoothed installed iPhone sign-in transitions by preserving artwork and logo placement around the brief authentication sheet.",
+  ],
   "0.621": [
     "Reduced regular-enemy health by 50% and doubled boss health from Beginner Desert onward; Tutorial Forest remains unchanged while later derived maps inherit the post-Forest tuning.",
   ],
@@ -1480,6 +1487,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.622": "2026-09-04",
   "0.621": "2026-09-04",
   "0.620": "2026-09-04",
   "0.619": "2026-09-04",

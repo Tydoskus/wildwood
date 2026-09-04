@@ -1,3 +1,5 @@
+import { createSessionSubscriptions } from "./session-subscriptions";
+import { MAP_IDS } from "../../../shared/rules";
 import type { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 
@@ -225,6 +227,7 @@ type BaseSubscriptionDependencies = {
   connection: DbConnection;
   identity: Identity;
   includeDeveloperTables: boolean;
+  onLoading: () => void;
   isCurrent: () => boolean;
   isPresenceSubscriptionTransitioning: () => boolean;
   batch: (action: () => void) => void;
@@ -360,65 +363,32 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.duel(row); });
   connection.db.duel.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeDuel(row); });
 
-  return connection
-    .subscriptionBuilder()
-    .onApplied(() => {
-      if (!dependencies.isCurrent()) return;
-      dependencies.batch(() => {
-        for (const row of connection.db.playerProfile.iter()) handlers.profile(row);
-        for (const row of connection.db.myGemWallet.iter()) handlers.gemWallet(row);
-        for (const row of connection.db.myDailyGemBonus.iter()) handlers.dailyGemBonus(row);
-        for (const row of connection.db.myBalanceApologyNotice.iter()) handlers.balanceApologyNotice(row);
-        for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
-        for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
-        for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
-        for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
-        for (const row of connection.db.devBugReports.iter()) handlers.bugReport(row);
-        for (const row of connection.db.devForestRewardPrototype.iter()) handlers.forestPrototype(row);
-        for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
-        for (const row of connection.db.worldStatus.iter()) handlers.worldStatus(row);
-        for (const row of connection.db.playerProgress.iter()) handlers.progress(row);
-        for (const row of connection.db.playerResearch.iter()) handlers.research(row);
-        for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
-        for (const row of connection.db.playerItemUpgrade.iter()) handlers.itemUpgrade(row);
-        for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
-        for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);
-        for (const row of connection.db.playerItemDrop.iter()) handlers.itemDrop(row);
-        for (const row of connection.db.playerLifetime.iter()) handlers.lifetime(row);
-        for (const row of connection.db.playerMotionIdentity.iter()) handlers.motionIdentity(row);
-        for (const row of connection.db.player.iter()) handlers.player(row);
-        for (const row of connection.db.dragonBoss.iter()) handlers.dragonBoss(row);
-        for (const row of connection.db.dragonResult.iter()) handlers.dragonResult(row);
-        for (const row of connection.db.spiderBoss.iter()) handlers.spiderBoss(row);
-        for (const row of connection.db.spiderResult.iter()) handlers.spiderResult(row);
-        for (const row of connection.db.frostclawBoss.iter()) handlers.frostclawBoss(row);
-        for (const row of connection.db.frostclawResult.iter()) handlers.frostclawResult(row);
-        for (const row of connection.db.magmaliskBoss.iter()) handlers.magmaliskBoss(row);
-        for (const row of connection.db.magmaliskResult.iter()) handlers.magmaliskResult(row);
-        for (const row of connection.db.gloomrootBoss.iter()) handlers.gloomrootBoss(row);
-        for (const row of connection.db.gloomrootResult.iter()) handlers.gloomrootResult(row);
-        for (const row of connection.db.tidewyrmBoss.iter()) handlers.tidewyrmBoss(row);
-        for (const row of connection.db.tidewyrmResult.iter()) handlers.tidewyrmResult(row);
-        for (const row of connection.db.koiShogunBoss.iter()) handlers.koiShogunBoss(row);
-        for (const row of connection.db.koiShogunResult.iter()) handlers.koiShogunResult(row);
-        for (const row of connection.db.tempestKirinBoss.iter()) handlers.tempestKirinBoss(row);
-        for (const row of connection.db.tempestKirinResult.iter()) handlers.tempestKirinResult(row);
-        for (const row of connection.db.miremawBoss.iter()) handlers.miremawBoss(row);
-        for (const row of connection.db.prismshellBoss.iter()) handlers.prismshellBoss(row);
-        for (const row of connection.db.miremawResult.iter()) handlers.miremawResult(row);
-        for (const row of connection.db.prismshellResult.iter()) handlers.prismshellResult(row);
-        for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
-        for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
-        for (const row of connection.db.duel.iter()) handlers.duel(row);
-        dependencies.onHydrated();
-      });
-      queueMicrotask(() => { hydrating = false; });
-      dependencies.afterHydrated();
-    })
-    .onError((ctx) => {
-      if (dependencies.isCurrent()) dependencies.onError(ctx.event);
-    })
-    .subscribe([
+  const bossQueries = [
+    [tables.dragonBoss],
+    [tables.spiderBoss],
+    [tables.frostclawBoss],
+    [tables.magmaliskBoss],
+    [tables.gloomrootBoss],
+    [tables.tidewyrmBoss],
+    [tables.koiShogunBoss],
+    [tables.tempestKirinBoss],
+    [tables.miremawBoss],
+    [tables.prismshellBoss]
+  ];
+  return createSessionSubscriptions({
+    isCurrent: dependencies.isCurrent,
+    loading: () => { hydrating = true; dependencies.onLoading(); },
+    error: dependencies.onError,
+    subscribe: (scope, applied) => connection.subscriptionBuilder()
+      .onApplied(applied)
+      .onError((ctx) => { if (dependencies.isCurrent()) dependencies.onError(ctx.event); })
+      .subscribe(scope.startsWith("boss:")
+        ? bossQueries[Math.max(0, MAP_IDS.indexOf(scope.slice(5)))]
+        : scope === "account" ? [
+      tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
+      tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
+      tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
+    ] : [
       tables.player.where((player) => player.identity.eq(dependencies.identity)),
       tables.playerMotionIdentity.where((presence) => presence.identity.eq(dependencies.identity)),
       tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
@@ -439,28 +409,92 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.activeItemUpgradeSlotTwo.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.playerItemDrop.where((drop) => drop.identity.eq(dependencies.identity)),
       tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dependencies.identity)),
-      tables.dragonBoss,
+      // Rare completion events retain rewards earned before leaving a boss map.
       tables.dragonResult,
-      tables.spiderBoss,
       tables.spiderResult,
-      tables.frostclawBoss,
       tables.frostclawResult,
-      tables.magmaliskBoss,
       tables.magmaliskResult,
-      tables.gloomrootBoss,
       tables.gloomrootResult,
-      tables.tidewyrmBoss,
       tables.tidewyrmResult,
-      tables.koiShogunBoss,
       tables.koiShogunResult,
-      tables.tempestKirinBoss,
       tables.tempestKirinResult,
-      tables.miremawBoss,
-      tables.prismshellBoss,
       tables.miremawResult,
       tables.prismshellResult,
       tables.chatMessage,
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
-    ]);
+]),
+    hydrate: (scope) => {
+      if (!scope.startsWith("boss:")) {
+        dependencies.batch(() => {
+          for (const row of connection.db.playerProfile.iter()) handlers.profile(row);
+          for (const row of connection.db.myGemWallet.iter()) handlers.gemWallet(row);
+          for (const row of connection.db.myDailyGemBonus.iter()) handlers.dailyGemBonus(row);
+          for (const row of connection.db.myBalanceApologyNotice.iter()) handlers.balanceApologyNotice(row);
+          for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
+          for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
+          for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
+          for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
+          for (const row of connection.db.devBugReports.iter()) handlers.bugReport(row);
+          for (const row of connection.db.devForestRewardPrototype.iter()) handlers.forestPrototype(row);
+          for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
+          for (const row of connection.db.worldStatus.iter()) handlers.worldStatus(row);
+          for (const row of connection.db.playerProgress.iter()) handlers.progress(row);
+          for (const row of connection.db.playerResearch.iter()) handlers.research(row);
+          for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
+          for (const row of connection.db.playerItemUpgrade.iter()) handlers.itemUpgrade(row);
+          for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
+          for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);
+          for (const row of connection.db.playerItemDrop.iter()) handlers.itemDrop(row);
+          for (const row of connection.db.playerLifetime.iter()) handlers.lifetime(row);
+          for (const row of connection.db.playerMotionIdentity.iter()) handlers.motionIdentity(row);
+          for (const row of connection.db.player.iter()) handlers.player(row);
+          for (const row of connection.db.dragonBoss.iter()) handlers.dragonBoss(row);
+          for (const row of connection.db.dragonResult.iter()) handlers.dragonResult(row);
+          for (const row of connection.db.spiderBoss.iter()) handlers.spiderBoss(row);
+          for (const row of connection.db.spiderResult.iter()) handlers.spiderResult(row);
+          for (const row of connection.db.frostclawBoss.iter()) handlers.frostclawBoss(row);
+          for (const row of connection.db.frostclawResult.iter()) handlers.frostclawResult(row);
+          for (const row of connection.db.magmaliskBoss.iter()) handlers.magmaliskBoss(row);
+          for (const row of connection.db.magmaliskResult.iter()) handlers.magmaliskResult(row);
+          for (const row of connection.db.gloomrootBoss.iter()) handlers.gloomrootBoss(row);
+          for (const row of connection.db.gloomrootResult.iter()) handlers.gloomrootResult(row);
+          for (const row of connection.db.tidewyrmBoss.iter()) handlers.tidewyrmBoss(row);
+          for (const row of connection.db.tidewyrmResult.iter()) handlers.tidewyrmResult(row);
+          for (const row of connection.db.koiShogunBoss.iter()) handlers.koiShogunBoss(row);
+          for (const row of connection.db.koiShogunResult.iter()) handlers.koiShogunResult(row);
+          for (const row of connection.db.tempestKirinBoss.iter()) handlers.tempestKirinBoss(row);
+          for (const row of connection.db.tempestKirinResult.iter()) handlers.tempestKirinResult(row);
+          for (const row of connection.db.miremawBoss.iter()) handlers.miremawBoss(row);
+          for (const row of connection.db.prismshellBoss.iter()) handlers.prismshellBoss(row);
+          for (const row of connection.db.miremawResult.iter()) handlers.miremawResult(row);
+          for (const row of connection.db.prismshellResult.iter()) handlers.prismshellResult(row);
+          for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
+          for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
+          for (const row of connection.db.duel.iter()) handlers.duel(row);
+        });
+        return;
+      }
+      if (scope.startsWith("boss:")) {
+        dependencies.batch(() => {
+          for (const row of connection.db.dragonBoss.iter()) handlers.dragonBoss(row);
+          for (const row of connection.db.spiderBoss.iter()) handlers.spiderBoss(row);
+          for (const row of connection.db.frostclawBoss.iter()) handlers.frostclawBoss(row);
+          for (const row of connection.db.magmaliskBoss.iter()) handlers.magmaliskBoss(row);
+          for (const row of connection.db.gloomrootBoss.iter()) handlers.gloomrootBoss(row);
+          for (const row of connection.db.tidewyrmBoss.iter()) handlers.tidewyrmBoss(row);
+          for (const row of connection.db.koiShogunBoss.iter()) handlers.koiShogunBoss(row);
+          for (const row of connection.db.tempestKirinBoss.iter()) handlers.tempestKirinBoss(row);
+          for (const row of connection.db.miremawBoss.iter()) handlers.miremawBoss(row);
+          for (const row of connection.db.prismshellBoss.iter()) handlers.prismshellBoss(row);
+        });
+        return;
+      }
+    },
+    ready: () => {
+      dependencies.batch(dependencies.onHydrated);
+      queueMicrotask(() => { hydrating = false; });
+      dependencies.afterHydrated();
+    },
+  });
 }

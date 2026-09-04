@@ -62,8 +62,7 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
       if (loadingDetail) loadingDetail.textContent = "Account Startup Failed · Refresh to Try Again";
     })
     .finally(() => {
-      // OAuth callbacks are tiny and time-sensitive. Do not let the large
-      // sign-in artwork request compete until account verification is done.
+      // Safe to call again after restore; artwork now starts during verification.
       if (!gameBundleRequested) artworkReveal.start();
     });
 }

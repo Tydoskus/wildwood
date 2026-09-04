@@ -10,8 +10,11 @@
   },
   "include": [
     "../tools/balance-lab.ts",
+    "../tools/balance-stat-graph.ts",
+    "../src/balance/stat-graph.ts",
     "../scripts/balance-report.ts",
     "../src/balance/**/*.ts",
-    "vite.balance.config.ts"
+    "vite.balance.config.ts",
+    "vite.stat-graph.config.ts"
   ]
 }

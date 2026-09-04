@@ -1606,7 +1606,7 @@
     left: 0;
     width: 100vw;
     height: calc(100vh + 30px);
-    height: calc(100dvh + 30px);
+    height: calc(100lvh + 30px);
     isolation: isolate;
     background-color: #000;
     /* The versioned artwork URL from index.html resolves relative to this stylesheet. */
@@ -1617,9 +1617,6 @@
     background-repeat: no-repeat;
     background-size: cover;
   }
-
-  html.signin-auth-return #start,
-  html.signin-auth-return #gameUpdateGate { background-image: none; }
 
   #start::before,
   #gameUpdateGate::before {
@@ -1633,6 +1630,8 @@
     transition: opacity 2s ease;
   }
 
+  html.signin-auth-return #start::before,
+  html.signin-auth-return #gameUpdateGate::before,
   html.signin-artwork-ready #start::before,
   html.signin-artwork-ready #gameUpdateGate::before { opacity: 0; }
 
@@ -1745,7 +1744,7 @@
     left: 0;
     width: 100vw;
     height: calc(100vh + 30px);
-    height: calc(100dvh + 30px);
+    height: calc(100lvh + 30px);
     z-index: 30;
     display: grid;
     place-items: center;
@@ -1886,12 +1885,12 @@
   .modal.legal-gate-modal {
     position: fixed;
     top: 50vh;
-    top: 50dvh;
+    top: 50lvh;
     left: 50%;
     width: min(430px, calc(100vw - 36px));
     height: min(586px, calc(100vh - 24px));
-    height: min(586px, calc(100svh - 24px));
-    max-height: calc(100svh - 24px);
+    height: min(586px, calc(100lvh - 24px));
+    max-height: calc(100lvh - 24px);
     margin: 0;
     overflow-y: auto;
     transform: translate(-50%, -50%);
@@ -1908,7 +1907,7 @@
   .connection-modal {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     overflow: hidden;
     overscroll-behavior: none;
     text-align: center;
@@ -2128,6 +2127,7 @@
     object-fit: contain;
   }
 
+  #connectionPanel .wildstat-wordmark-title,
   #accountChoicePanel .wildstat-wordmark-title {
     width: min(390px, calc(100vw - 36px));
     max-width: none;
@@ -2848,7 +2848,7 @@
     position: fixed;
     z-index: 2;
     top: 50vh;
-    top: 50dvh;
+    top: 50lvh;
     left: 50%;
     width: min(400px, calc(100vw - 24px));
     margin: 0;

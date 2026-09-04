@@ -1,3 +1,4 @@
+import { duelHitMultiplier } from "../../../shared/duel-combat";
 import {
   DUEL_ARENA,
   DUEL_COMBAT_Y,
@@ -43,6 +44,11 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
     opponentStartedAtMs?: number;
   } | null = null;
   let replayMode: ReplayMode | null = null;
+  let liveTimelineCache: {
+    duel: RuntimeDuelState;
+    elapsed: number;
+    state: ReturnType<typeof duelTimelineState>;
+  } | null = null;
 
   function activeDuel() {
     return hooks.activeDuel();
@@ -58,8 +64,12 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
   function liveDuelPresentationState(duel: RuntimeDuelState) {
     const durationSeconds = Math.max(0, (duel.endsAtMs - duel.startsAtMs) / 1000);
     const elapsed = Math.max(0, Math.min(durationSeconds, (hooks.nowMs() - duel.startsAtMs) / 1000));
+    // Damage numbers and rendering can request the same snapshot in one frame.
+    // A new server snapshot or any clock movement invalidates this one-entry cache.
+    if (liveTimelineCache?.duel === duel && liveTimelineCache.elapsed === elapsed) return liveTimelineCache;
     const state = duelTimelineState(duel, elapsed);
-    return { elapsed, state };
+    liveTimelineCache = { duel, elapsed, state };
+    return liveTimelineCache;
   }
 
   function syncLiveDamageNumbers(duel: RuntimeDuelState) {
@@ -156,6 +166,7 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       };
     };
     return {
+      hitMultiplier: duelHitMultiplier(presentation.elapsed, duel.combatVersion),
       challenger: actor(duel.challenger, true),
       opponent: actor(duel.opponent, false),
       shots: finished ? [] : timelineDuelShots(duel, presentation.elapsed, presentation.state),
@@ -241,9 +252,10 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       challengerGender: replay.challengerGender,
       opponentName: replay.opponentName,
       opponentGender: replay.opponentGender,
-      detail: countdown > 0 ? undefined : `${elapsed.toFixed(1)} / ${replay.durationSeconds.toFixed(1)}s`,
+      detail: countdown > 0 ? undefined : `${elapsed.toFixed(1)} / ${replay.durationSeconds.toFixed(1)}s${(replay.combatVersion ?? 0) >= 1 && elapsed > 10 ? " · ESCALATION" : ""}`,
     });
     return {
+      hitMultiplier: duelHitMultiplier(elapsed, replay.combatVersion),
       challenger: actor(true),
       opponent: actor(false),
       shots: countdown > 0 || finished ? [] : timelineDuelShots(replay, elapsed, replay),

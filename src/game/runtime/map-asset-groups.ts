@@ -44,39 +44,39 @@ export const MAP_ASSET_GROUPS = {
   },
   [BEGINNER_DESERT_MAP_ID]: {
     art: ["desertBoss"],
-    enemies: ["Dune Raider", "Dune Archer", "Venom Guard", "Wastes Reaper", "Blight Oracle"],
+    enemies: ["Dune Raider", "Dune Archer", "Dune Regent", "Venom Guard", "Wastes Reaper", "Blight Oracle"],
   },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
     art: ["snowBoss", "snowDecor"],
-    enemies: ["Frost Raider", "Glacier Archer", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"],
+    enemies: ["Frost Raider", "Glacier Archer", "Glacier Regent", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"],
   },
   [ADVANCED_LAVA_WASTES_MAP_ID]: {
     art: ["lavaBoss", "lavaDecor"],
-    enemies: ["Ember Raider", "Cinder Archer", "Magma Guard", "Ash Reaper", "Inferno Oracle"],
+    enemies: ["Ember Raider", "Cinder Archer", "Cinder Regent", "Magma Guard", "Ash Reaper", "Inferno Oracle"],
   },
   [INFERNAL_DEPTHS_MAP_ID]: {
     art: ["nightBoss", "nightDecor"],
-    enemies: ["Depth Raider", "Abyss Archer", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
+    enemies: ["Depth Raider", "Abyss Archer", "Abyss Regent", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
   },
   [WATER_REACH_MAP_ID]: {
     art: ["waterBoss"],
-    enemies: ["Tide Raider", "Reef Archer", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
+    enemies: ["Tide Raider", "Reef Archer", "Reef Regent", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
   },
   [SAMURAI_GARDEN_MAP_ID]: {
     art: ["samuraiBoss"],
-    enemies: ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+    enemies: ["Sakura Ronin", "Petal Archer", "Petal Regent", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
   },
   [CLOUDSPIRE_MAP_ID]: {
     art: ["cloudspireBoss"],
-    enemies: ["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
+    enemies: ["Gale Prowler", "Nimbus Archer", "Nimbus Regent", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
   },
   [MOONFEN_MAP_ID]: {
     art: ["moonfenBoss"],
-    enemies: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
+    enemies: ["Fen Prowler", "Glowcap Archer", "Glowcap Regent", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
   },
   [CRYSTAL_HOLLOWS_MAP_ID]: {
     art: ["crystalHollowsBoss"],
-    enemies: ["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
+    enemies: ["Shard Hopper", "Crystal Spitter", "Crystal Regent", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
   },
 } as const satisfies Record<MapId, MapAssetGroup>;
 

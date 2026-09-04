@@ -1,17 +1,8 @@
-import { describe, expect, it } from "vitest";
-import {
-  BALANCE_LATE_BOSS_TARGET_MAX_SECONDS,
-  BALANCE_TARGET_DESERT_DURATION_SECONDS,
-  BALANCE_FIRST_SLOWDOWN_POWER,
-  BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
-  BALANCE_TARGET_MAP_POWER_MULTIPLIER,
-  BALANCE_TARGET_POWER_ARC_BLEND,
-  GLOOMROOT_MAX_HP,
-  INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER,
-  MAP_IDS,
-} from "../../shared/rules";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
-import { bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, runBalanceSimulationWithStrategyComparisons, targetCurveProgress, targetPowerAtMapProgress } from "./simulator";
+import {BOSS_TARGET_SECONDS, desertBossHealthAt} from "../../shared/progression";
+import {describe, expect, it} from "vitest";
+import {BALANCE_LATE_BOSS_TARGET_MAX_SECONDS, BALANCE_TARGET_DESERT_DURATION_SECONDS, BALANCE_TARGET_MAP_DURATION_MULTIPLIER, BALANCE_TARGET_MAP_POWER_MULTIPLIER, BALANCE_TARGET_POWER_ARC_BLEND, GLOOMROOT_MAX_HP, MAP_IDS} from "../../shared/rules";
+import {ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID} from "../game/world";
+import {bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, runBalanceSimulationWithStrategyComparisons, targetCurveProgress, targetPowerAtMapProgress} from "./simulator";
 
 const quickConfig = {
   durationSeconds: 60 * 60,
@@ -25,7 +16,7 @@ describe("balance simulator", () => {
     const defaults = defaultBalanceSimulationConfig();
     const targetedMapSeconds = MAP_IDS.slice(1).reduce((total, _map, index) =>
       total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0);
-    expect(defaults.durationSeconds).toBeCloseTo(22.5 * 60 + targetedMapSeconds);
+    expect(defaults.durationSeconds).toBeCloseTo(1.5 * (22.5 * 60 + targetedMapSeconds));
     expect(defaults.trials).toBe(100);
     expect(defaults.strategy).toBe("mixed");
     expect(defaults.targetDesertDurationSeconds).toBe(BALANCE_TARGET_DESERT_DURATION_SECONDS);
@@ -47,7 +38,7 @@ describe("balance simulator", () => {
     expect(result.maps.find((map) => map.mapId === CLOUDSPIRE_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === MOONFEN_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === CRYSTAL_HOLLOWS_MAP_ID)?.hasBoss).toBe(true);
-    expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000 * INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER);
+    expect(GLOOMROOT_MAX_HP).toBe(desertBossHealthAt(3));
   });
 
   it("is deterministic for a fixed seed and configuration", () => {
@@ -95,7 +86,7 @@ describe("balance simulator", () => {
 
   it("keeps post-clear Boss-rush repeat power positive on every clear", () => {
     const result = runBalanceSimulationWithStrategyComparisons({
-      durationSeconds: 80 * 60 * 60,
+      durationSeconds: 8 * 60 * 60,
       trials: 1,
       strategy: "mixed",
       seed: 7_331,
@@ -148,11 +139,11 @@ describe("balance simulator", () => {
 
   it("keeps early boss readiness familiar and scales late capstones with map time", () => {
     const config = defaultBalanceSimulationConfig();
-    expect(bossReadinessTargetSeconds(TUTORIAL_FOREST_MAP_ID, config)).toBe(5 * 60);
-    expect(bossReadinessTargetSeconds(BEGINNER_DESERT_MAP_ID, config)).toBe(5 * 60);
-    expect(bossReadinessTargetSeconds(INTERMEDIATE_SNOWLANDS_MAP_ID, config)).toBe(5 * 60);
+    expect(bossReadinessTargetSeconds(TUTORIAL_FOREST_MAP_ID, config)).toBe(BOSS_TARGET_SECONDS);
+    expect(bossReadinessTargetSeconds(BEGINNER_DESERT_MAP_ID, config)).toBe(BOSS_TARGET_SECONDS);
+    expect(bossReadinessTargetSeconds(INTERMEDIATE_SNOWLANDS_MAP_ID, config)).toBe(BOSS_TARGET_SECONDS);
     expect(bossReadinessTargetSeconds(ADVANCED_LAVA_WASTES_MAP_ID, config)).toBeCloseTo(
-      BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** 2 * .05,
+      BOSS_TARGET_SECONDS,
     );
     expect(bossReadinessTargetSeconds(WATER_REACH_MAP_ID, config)).toBe(BALANCE_LATE_BOSS_TARGET_MAX_SECONDS);
   });
@@ -163,7 +154,9 @@ describe("balance simulator", () => {
 
     expect(progressionMaps.every((map) => map.reachedPercent >= 50)).toBe(true);
     for (const map of progressionMaps) {
-      expect(map.durationVsTarget, `${map.mapId} duration`).toBeGreaterThan(0);
+      expect(map.durationVsTarget, `${map.mapId} duration`).toBeGreaterThan(.6);
+      expect(map.durationVsTarget, `${map.mapId} duration`).toBeLessThan(1.5);
+      expect(map.bossRewardGrowthSharePercent, `${map.mapId} boss payout`).toBeLessThan(20);
       expect(map.powerGrowthMultiplier).not.toBeNull();
       expect(map.exitEffectiveStatsMedian).not.toBeNull();
       const measuredTime = Object.values(map.timeBudgetMedian!).reduce((sum, seconds) => sum + seconds, 0);
@@ -198,7 +191,7 @@ describe("balance simulator", () => {
     expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Stat farming:"))).toBe(true);
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
-    expect(nightEnemies).toHaveLength(5);
+    expect(nightEnemies).toHaveLength(6);
     for (const enemy of nightEnemies) {
       expect(enemy.hitPercentOfHealth).toBeGreaterThan(0);
       expect(enemy.incomingDamagePerSecond).toBeGreaterThan(0);
@@ -207,7 +200,7 @@ describe("balance simulator", () => {
     }
 
     const waterEnemies = result.enemyMetrics[WATER_REACH_MAP_ID];
-    expect(waterEnemies).toHaveLength(5);
+    expect(waterEnemies).toHaveLength(6);
     for (const enemy of waterEnemies) {
       expect(enemy.hitPercentOfHealth).toBeGreaterThan(0);
       expect(enemy.incomingDamagePerSecond).toBeGreaterThan(0);
@@ -221,8 +214,8 @@ describe("balance simulator", () => {
     expect(lateEnemy.survivalSeconds).not.toBeNull();
 
     const snow = result.maps.find((map) => map.mapId === "intermediate_snowlands")!;
-    expect(snow.exitPowerMedian).toBeGreaterThanOrEqual(BALANCE_FIRST_SLOWDOWN_POWER * .75);
-    expect(snow.exitPowerMedian).toBeLessThanOrEqual(BALANCE_FIRST_SLOWDOWN_POWER * 1.5);
+    expect(snow.powerGrowthMultiplier).toBeGreaterThan(2);
+    expect(snow.powerGrowthMultiplier).toBeLessThan(4.5);
 
     for (const map of progressionMaps.slice(0, 5)) {
       expect(map.curveProgress?.p25).toBeGreaterThanOrEqual(0);

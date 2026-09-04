@@ -282,6 +282,7 @@ export type DuelShot = Position & {
 };
 
 export type DuelScene = {
+  hitMultiplier?: number;
   challenger: DuelCombatant;
   opponent: DuelCombatant;
   shots: DuelShot[];
@@ -305,6 +306,7 @@ export type ReplayMode = {
  * so the core game runtime does not create a type cycle through Window.
  */
 export type RuntimeDuelState = {
+  combatVersion?: number;
   id: bigint;
   challenger: string;
   opponent: string;
@@ -344,6 +346,7 @@ export type RuntimeDuelState = {
 };
 
 export type RuntimeDuelReplay = {
+  combatVersion?: number;
   id: bigint;
   challengerIdentity: string;
   opponentIdentity: string;

@@ -211,6 +211,7 @@ export type DragonResult = {
 };
 
 export type DuelState = {
+  combatVersion?: number;
   id: bigint;
   challenger: string;
   opponent: string;
@@ -250,6 +251,7 @@ export type DuelState = {
 };
 
 export type DuelReplay = {
+  combatVersion?: number;
   id: bigint;
   challengerIdentity: string;
   opponentIdentity: string;

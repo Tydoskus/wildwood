@@ -3,7 +3,7 @@ import {
   absoluteAttackTimestamps,
   attackAnimationClockAt,
 } from "./attack-timeline";
-import { damageAfterArmor } from "./combat";
+import { advanceDuelCombat, initialDuelCombatState } from "../../shared/duel-combat";
 
 export const DUEL_ARENA = { x: 6000, y: 6000, r: 430 } as const;
 export const DUEL_COMBAT_Y = DUEL_ARENA.y - 60;
@@ -32,6 +32,7 @@ export function loadDuelPlatformArt(onSettled?: () => void) {
 }
 
 type ReplayCombatantFields = {
+  combatVersion?: number;
   durationSeconds: number;
   challengerMaxHp: number;
   opponentMaxHp: number;
@@ -82,7 +83,7 @@ export function duelShotsAt(
 ) {
   const shots: Array<{ x: number; y: number; color: string; weaponItem: string; angle: number }> = [];
   const addShots = (attackRate: number, attackCount: number, fromX: number, toX: number, color: string, weaponItem = "") => {
-    const interval = Math.max(.001, attackRate);
+    const interval = Math.max(.001, Math.round(attackRate * 1_000_000) / 1_000_000);
     const limit = Math.max(0, Math.floor(attackCount));
     const distance = Math.abs(toX - fromX);
     const visibleLifetime = Math.min(options.shotLifetime, distance / Math.max(1, options.shotSpeed));
@@ -109,7 +110,7 @@ export function duelShotsAt(
 /** Scales the complete weapon motion into the current attack interval. */
 export function duelAttackAnimationClock(attackRate: number, attackCount: number, elapsed: number) {
   if (attackCount <= 0) return 0;
-  const interval = Math.max(.001, attackRate);
+  const interval = Math.max(.001, Math.round(attackRate * 1_000_000) / 1_000_000);
   const lastAttackAt = Math.max(1, Math.floor(attackCount)) * interval;
   return attackAnimationClockAt(absoluteAttackTimestamps(lastAttackAt, interval), elapsed);
 }
@@ -123,45 +124,10 @@ export function duelTimelineState(
   seconds: number,
   limits: DuelTimelineLimits = {},
 ) {
-  const elapsed = Math.max(0, seconds);
-  let time = 0;
-  let challengerHp = duel.challengerMaxHp;
-  let opponentHp = duel.opponentMaxHp;
-  let challengerAttacks = 0;
-  let opponentAttacks = 0;
-  const challengerRate = Math.max(0.001, duel.challengerAttackRate);
-  const opponentRate = Math.max(0.001, duel.opponentAttackRate);
-  const challengerLimit = Number.isFinite(limits.challengerAttacks)
-    ? Math.max(0, Math.floor(limits.challengerAttacks!))
-    : Infinity;
-  const opponentLimit = Number.isFinite(limits.opponentAttacks)
-    ? Math.max(0, Math.floor(limits.opponentAttacks!))
-    : Infinity;
-
-  while (time < elapsed && challengerHp > 0 && opponentHp > 0) {
-    const nextChallengerAttack = challengerAttacks < challengerLimit
-      ? (challengerAttacks + 1) * challengerRate
-      : Infinity;
-    const nextOpponentAttack = opponentAttacks < opponentLimit
-      ? (opponentAttacks + 1) * opponentRate
-      : Infinity;
-    const nextEvent = Math.min(elapsed, nextChallengerAttack, nextOpponentAttack);
-    const delta = nextEvent - time;
-    challengerHp = Math.min(duel.challengerMaxHp, challengerHp + duel.challengerRegen * delta);
-    opponentHp = Math.min(duel.opponentMaxHp, opponentHp + duel.opponentRegen * delta);
-    time = nextEvent;
-    const challengerHits = nextChallengerAttack <= time + 0.00001 && challengerAttacks < challengerLimit;
-    const opponentHits = nextOpponentAttack <= time + 0.00001 && opponentAttacks < opponentLimit;
-    const challengerDamage = challengerHits ? damageAfterArmor(duel.challengerDamage, duel.opponentArmor) : 0;
-    const opponentDamage = opponentHits ? damageAfterArmor(duel.opponentDamage, duel.challengerArmor) : 0;
-    opponentHp = Math.max(0, opponentHp - challengerDamage);
-    challengerHp = Math.max(0, challengerHp - opponentDamage);
-    if (challengerHits) challengerAttacks += 1;
-    if (opponentHits) opponentAttacks += 1;
-    if (!challengerHits && !opponentHits) break;
-  }
-
-  return { challengerHp, opponentHp, challengerAttacks, opponentAttacks };
+  const state = advanceDuelCombat(duel, initialDuelCombatState(duel), 0,
+    Math.max(0, seconds) * 1_000_000, limits);
+  return { challengerHp: state.challengerHp, opponentHp: state.opponentHp,
+    challengerAttacks: state.challengerAttacks, opponentAttacks: state.opponentAttacks };
 }
 
 export function replayState(replay: ReplayCombatantFields, seconds: number) {

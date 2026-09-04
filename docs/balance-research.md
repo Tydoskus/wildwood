@@ -1,0 +1,9 @@
+# Research informing the overhaul
+
+These sources support design principles, not a universally correct session length or evidence that a particular multiplier causes retention.
+
+- Google Play's [Last War starter guide](https://play.google.com/store/apps/editorial?hl=en_US&id=mc_games_editorialevergreen_postinstall_starter_tips_last_war_survival_fcp) describes Headquarters upgrades unlocking more buildings and upgrades, alongside hero leveling and squad formation. The transferable idea is a visible next unlock with several useful preparations. It does not establish a suitable WildStat map duration. Last War's building and squad systems are substantially different from WildStat's direct permanent-stat farming.
+- Anthony Pecorella's [The Math of Idle Games, Part I](https://www.gamedeveloper.com/design/the-math-of-idle-games-part-i), by the mobile AdVenture Capitalist lead producer, explains the interaction of growth, costs, upgrade multipliers, and competing income sources. It demonstrates why a new source that always dominates removes interesting choices. WildStat's application is to audit useful improvement per encounter cycle and boss repeats, rather than only the size of the reward.
+- Przybylski, Rigby, and Ryan's [A Motivational Model of Video Game Engagement](https://selfdeterminationtheory.org/SDT/documents/2010_PrzybylskiRigbyRyan_ROGP.pdf) discusses competence, autonomy, and relatedness. Our inference is to preserve visible mastery, useful build choices, and social comparison through earned-stat duels. It does not provide a formula for fun or a 25-minute map recommendation.
+
+The implementation therefore uses a 25-minute mixed-route map and 90-second boss as testable starting hypotheses. Faster specialized routes and slower unsupported builds remain possible. Fixed enemy stats preserve the experience of returning stronger. New enemies inherit encounter objectives; they do not inherit an enormous tutorial-to-campaign jump.

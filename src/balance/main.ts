@@ -1,3 +1,4 @@
+import { campaignExperience } from "./experience";
 import "./styles.css";
 
 import { MAP_DISPLAY_NAMES } from "../../shared/rules";
@@ -23,8 +24,8 @@ type SimulationResponse =
   | { id: number; ok: true; type: "complete"; elapsedMs: number; result: BalanceSimulationResult }
   | { id: number; ok: false; message: string };
 
-const STORAGE_KEY = "wildwood.balanceLab.config.v6";
-const STORAGE_SCHEMA_VERSION = 6;
+const STORAGE_KEY = "wildwood.balanceLab.config.v7";
+const STORAGE_SCHEMA_VERSION = 7;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function requiredElement<T extends Element>(id: string) {
@@ -297,63 +298,23 @@ function formatRatio(value: number) {
   return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)}×`;
 }
 
-function deltaMarkup(current: number, previous: number | null) {
-  if (!previous || !Number.isFinite(previous)) return "";
-  const delta = (current / previous - 1) * 100;
-  if (Math.abs(delta) < .05) return `<span class="delta">UNCHANGED</span>`;
-  const className = delta < 0 ? "delta negative" : "delta";
-  return `<span class="${className}">${delta > 0 ? "+" : ""}${delta.toFixed(1)}% VS PREVIOUS</span>`;
-}
-
 function renderSummary(next: BalanceSimulationResult) {
-  const finalPower = next.finalPower.median;
-  const furthestMap = [...next.maps].reverse().find((map) => map.reachedPercent >= 50) ?? next.maps[0];
-  const previousFurthest = previousResult
-    ? [...previousResult.maps].reverse().find((map) => map.reachedPercent >= 50)
-    : null;
-  const hasMeasuredWindow = (map: BalanceSimulationResult["maps"][number]) =>
-    map.hasBoss ? map.completedPercent >= 50 : map.durationVsTarget === null || map.durationVsTarget >= .75;
-  const pacingTargets = next.maps.filter((map) => map.durationVsTarget !== null && hasMeasuredWindow(map));
-  const pacingHits = pacingTargets.filter((map) => map.durationVsTarget! >= .75 && map.durationVsTarget! <= 1.25).length;
-  const powerTargets = next.maps.filter((map) => map.powerGrowthMultiplier !== null && map.targetPowerGrowthMultiplier !== null && hasMeasuredWindow(map));
-  const powerHits = powerTargets.filter((map) => {
-    const fit = map.powerGrowthMultiplier! / map.targetPowerGrowthMultiplier!;
-    return fit >= .65 && fit <= 1.5;
-  }).length;
-  const headroomTargets = next.maps.filter((map) => map.futureHeadroom !== null);
-  const headroomHits = headroomTargets.filter((map) => map.futureHeadroom?.reservePass).length;
-  const strategyLabels: Record<keyof BalanceSimulationResult["strategyMix"], string> = {
-    natural: "nearby",
-    efficient: "power",
-    "dps-first": "DPS",
-    "boss-rush": "boss",
-    "boss-farm": "farm",
+  const pacingTargets = next.maps.filter(map => map.completedPercent >= 50 && map.durationVsTarget !== null);
+  const pacingHits = pacingTargets.filter(map => map.durationVsTarget! >= .75 && map.durationVsTarget! <= 1.25).length;
+  const experience = campaignExperience(next).filter(map => map.mapId !== "tutorial_forest" && map.completedPercent >= 50);
+  const range = (values: Array<number | null>, format: (value: number) => string) => {
+    const finite = values.filter((value): value is number => value !== null && Number.isFinite(value));
+    return finite.length ? `${format(Math.min(...finite))}–${format(Math.max(...finite))}` : "NOT REACHED";
   };
-  const strategyMix = Object.entries(next.strategyMix)
-    .filter(([, count]) => count > 0)
-    .map(([id, count]) => `${strategyLabels[id as keyof typeof strategyLabels]} ${count}`)
-    .join(" · ");
   const cards = [
-    {
-      label: "FINAL MEDIAN POWER",
-      value: formatCompactNumber(finalPower),
-      detail: `${formatCompactNumber(next.finalPower.p10)}–${formatCompactNumber(next.finalPower.p90)} P10–P90 · ${deltaMarkup(finalPower, previousResult?.finalPower.median ?? null)}`,
-    },
-    {
-      label: "FINAL MEDIAN DPS",
-      value: formatCompactNumber(next.finalDps.median),
-      detail: `${formatCompactNumber(next.finalDps.p10)}–${formatCompactNumber(next.finalDps.p90)} P10–P90 · ${deltaMarkup(next.finalDps.median, previousResult?.finalDps.median ?? null)}`,
-    },
-    {
-      label: "CURVE TARGETS",
-      value: `${pacingHits}/${pacingTargets.length} ON TIME`,
-      detail: `${powerHits}/${powerTargets.length} near ${formatRatio(next.config.targetMapPowerMultiplier)} power growth · ${headroomHits}/${headroomTargets.length} hold ${((next.config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(0)}% future reserve · ${strategyMix || "no strategy sample"}`,
-    },
-    {
-      label: "FURTHEST MEDIAN MAP",
-      value: furthestMap.name,
-      detail: `entered ${formatDuration(furthestMap.enteredAtMedianSeconds)} · gear ${furthestMap.exitPowerComponentsMedian?.equipmentSharePercent.toFixed(0) ?? "—"}% of exit power · ${previousFurthest && previousFurthest.mapId !== furthestMap.mapId ? `<span class="delta">was ${previousFurthest.name}</span>` : "50%+ of runs"}`,
-    },
+    { label: "ORDINARY FIGHT", value: range(experience.map(map => map.ordinaryFightSeconds), formatDuration),
+      detail: "Median regular enemy at each map's entry build. Earlier camps get easier as you grow." },
+    { label: "HITS YOU CAN SURVIVE", value: range(experience.map(map => map.regularHitsSurvived), value => String(Math.round(value))),
+      detail: "Regular hits at map entry, before healing. Check the enemy table for dangerous outliers." },
+    { label: "LONGEST +10% POWER WAIT", value: range(experience.map(map => map.longestImprovementGapSeconds), formatDuration),
+      detail: "A momentum proxy; power is not interchangeable with damage, survival, or recovery." },
+    { label: "BOSS BREAKTHROUGH", value: range(experience.map(map => map.bossSeconds), formatDuration),
+      detail: `${range(experience.map(map => map.bossGrowthPercent), value => `${value.toFixed(0)}%`)} of map growth from bosses · ${pacingHits}/${pacingTargets.length} within the test pacing band` },
   ];
   summaryCards.replaceChildren();
   for (const card of cards) {

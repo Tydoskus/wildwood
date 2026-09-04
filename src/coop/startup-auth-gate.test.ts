@@ -157,9 +157,9 @@ describe("startup auth gate", () => {
     ui.signInButton.click();
     await Promise.resolve();
 
-    expect(ui.accountChoicePanel.hidden).toBe(true);
-    expect(ui.connectionPanel.hidden).toBe(false);
-    expect(ui.loadingDetail.textContent).toBe("Opening Sign-In…");
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+    expect(ui.connectionPanel.hidden).toBe(true);
+    expect(ui.accountChoiceDetail.textContent).toBe("Opening Sign-In…");
     expect(loadGame).not.toHaveBeenCalled();
   });
 
@@ -184,7 +184,7 @@ describe("startup auth gate", () => {
 
     ui.signInButton.click();
     await Promise.resolve();
-    expect(ui.connectionPanel.hidden).toBe(false);
+    expect(ui.connectionPanel.hidden).toBe(true);
 
     state = { signInReady: true, returningFromSignIn: false };
     notify();
@@ -195,7 +195,7 @@ describe("startup auth gate", () => {
     expect(ui.guestButton.disabled).toBe(false);
   });
 
-  it("switches directly from registration choice to loading while OAuth opens", async () => {
+  it("keeps registration visible while OAuth opens", async () => {
     const ui = elements();
     const gate = createStartupAuthGate({
       accountState: () => ({ signInReady: true }),
@@ -212,9 +212,9 @@ describe("startup auth gate", () => {
     ui.signInButton.click();
     await Promise.resolve();
 
-    expect(ui.accountChoicePanel.hidden).toBe(true);
-    expect(ui.connectionPanel.hidden).toBe(false);
-    expect(ui.loadingDetail.textContent).toBe("Opening Registration…");
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+    expect(ui.connectionPanel.hidden).toBe(true);
+    expect(ui.accountChoiceDetail.textContent).toBe("Opening Registration…");
   });
 
   it("loads once after OAuth has approved the account session", () => {
@@ -308,7 +308,7 @@ describe("startup auth gate", () => {
     gate.start();
 
     ui.signInButton.click();
-    expect(ui.connectionPanel.hidden).toBe(false);
+    expect(ui.connectionPanel.hidden).toBe(true);
     await Promise.resolve();
 
     expect(ui.connectionPanel.hidden).toBe(true);
@@ -400,5 +400,37 @@ describe("deferred game assets", () => {
     expect(addClass).toHaveBeenCalledWith("is-loading-game-assets");
     expect(image.src).toBe("assets/wildstat/gender/male-v2.png");
     expect(image.dataset.gameSrc).toBeUndefined();
+  });
+});
+
+describe("outbound sign-in presentation", () => {
+  it("keeps the account screen visible until navigation instead of flashing verification first", async () => {
+    const ui = elements();
+    let notify = () => {};
+    let state = { signInReady: true, returningFromSignIn: false };
+    let finish!: (result: { ok: boolean; redirecting: boolean }) => void;
+    const gate = createStartupAuthGate({
+      accountState: () => state,
+      knownCharacter: () => "Player",
+      signIn: () => new Promise(resolve => { finish = resolve; }),
+      continueAsGuest: () => ({ ok: true }),
+      legalConsentAccepted: () => true,
+      acceptLegalTerms: async () => ({ ok: true }),
+      subscribe: listener => { notify = listener; return () => {}; },
+      loadGame: async () => {},
+    }, ui);
+    gate.start();
+    ui.signInButton.click();
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+    expect(ui.connectionPanel.hidden).toBe(true);
+    expect(ui.signInButton.disabled).toBe(true);
+    state = { ...state, returningFromSignIn: true };
+    notify();
+    expect(ui.accountChoicePanel.hidden).toBe(false);
+    expect(ui.connectionPanel.hidden).toBe(true);
+    finish({ ok: true, redirecting: true });
+    await Promise.resolve();
+    expect(ui.connectionPanel.hidden).toBe(true);
+    gate.dispose();
   });
 });

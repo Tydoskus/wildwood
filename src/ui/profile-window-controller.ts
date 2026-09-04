@@ -122,6 +122,7 @@ export function createProfileWindowController(elements: {
   }
 
   function updateDuelButton() {
+    elements.duel.title = "Automatic duel using earned stats and equipped gear. Hits grow stronger after 10 seconds. Knockout wins; at 30 seconds, the higher percentage of health remaining wins.";
     const own = !identity || identity === api.localIdentity();
     elements.safetyActions.hidden = own;
     elements.block.textContent = api.isBlocked(identity) ? "Unblock Player" : "Block Player";

@@ -1,86 +1,7 @@
 import { formatCompactNumber } from "../ui/number-format";
-import { lateMapDamageProfile, type LateDamageMap } from "../../shared/incoming-damage";
-import {
-  ADVANCED_LAVA_WASTES_ARCHETYPE_HEALTH_PROFILE,
-  ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-  ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
-  ADVANCED_LAVA_WASTES_HEALTH_SCALE,
-  ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_REGEN_REWARD_MULTIPLIER,
-  ADVANCED_LAVA_WASTES_REWARD_SCALE,
-  BEGINNER_DESERT_ARCHETYPE_HEALTH_PROFILE,
-  BEGINNER_DESERT_ARMOR_REWARD_MULTIPLIER,
-  BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
-  BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER,
-  BEGINNER_DESERT_HEALTH_SCALE,
-  BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER,
-  BEGINNER_DESERT_INCOMING_DAMAGE_SCALE,
-  BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-  BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
-  BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER,
-  BEGINNER_DESERT_REWARD_SCALE,
-  CLOUDSPIRE_ARCHETYPE_PROFILE,
-  CLOUDSPIRE_ENCOUNTER_REWARD_SCALE,
-  CLOUDSPIRE_HEALTH_SCALE,
-  CLOUDSPIRE_REWARD_SCALE,
-  CLOUDSPIRE_REWARD_TRACK_PROFILE,
-  MOONFEN_ARCHETYPE_PROFILE,
-  MOONFEN_ENCOUNTER_REWARD_SCALE,
-  CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE,
-  CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
-  CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
-  MOONFEN_HEALTH_SCALE,
-  CRYSTAL_HOLLOWS_HEALTH_SCALE,
-  MOONFEN_REWARD_SCALE,
-  CRYSTAL_HOLLOWS_REWARD_SCALE,
-  MOONFEN_REWARD_TRACK_PROFILE,
-  CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE,
-  INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE,
-  INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-  INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
-  INFERNAL_DEPTHS_HEALTH_SCALE,
-  INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
-  INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER,
-  INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER,
-  INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER,
-  INFERNAL_DEPTHS_REGEN_REWARD_MULTIPLIER,
-  INFERNAL_DEPTHS_REWARD_SCALE,
-  INTERMEDIATE_SNOWLANDS_ARCHETYPE_HEALTH_PROFILE,
-  INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS,
-  INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER,
-  INTERMEDIATE_SNOWLANDS_HEALTH_SCALE,
-  INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER,
-  INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
-  INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER,
-  INTERMEDIATE_SNOWLANDS_REGEN_REWARD_MULTIPLIER,
-  INTERMEDIATE_SNOWLANDS_REWARD_SCALE,
-  LAVA_ARMOR_REWARD_MULTIPLIER,
-  LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-  NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER,
-  SAMURAI_GARDEN_ARCHETYPE_PROFILE,
-  SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
-  SAMURAI_GARDEN_ENCOUNTER_REWARD_SCALE,
-  SAMURAI_GARDEN_HEALTH_SCALE,
-  SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
-  SAMURAI_GARDEN_REWARD_TRACK_PROFILE,
-  SAMURAI_GARDEN_REWARD_SCALE,
-  SNOWLANDS_ARMOR_REWARD_MULTIPLIER,
-  WATER_REACH_ARCHETYPE_HEALTH_PROFILE,
-  WATER_REACH_ARMOR_REWARD_MULTIPLIER,
-  WATER_REACH_DAMAGE_REWARD_MULTIPLIER,
-  WATER_REACH_ENCOUNTER_HEALTH_SCALE,
-  WATER_REACH_ENCOUNTER_REWARD_SCALE,
-  WATER_REACH_HEALTH_REWARD_MULTIPLIER,
-  WATER_REACH_HEALTH_SCALE,
-  WATER_REACH_REGULAR_HEALTH_MULTIPLIER,
-  WATER_REACH_REGULAR_REWARD_MULTIPLIER,
-  WATER_REACH_REGEN_REWARD_MULTIPLIER,
-  WATER_REACH_REWARD_SCALE,
-  WASTES_REAPER_CADENCE_SCALE,
-} from "../../shared/rules";
+import { CURRENT_ROLE_LANES, laneCombatValue, laneRewardValue,
+  desertLaneCombatValue, desertLaneRewardValue, type ForestProgressionLane,
+} from "../../shared/progression";
 import { ENEMY_BOW_AIM_OFFSET_RADIANS, ENEMY_SPRITE_LAYOUTS, type EnemySpriteAnimationLayout } from "./enemy-sprite-layouts.mjs";
 
 export { ENEMY_BOW_AIM_OFFSET_RADIANS };
@@ -101,699 +22,408 @@ export type EnemyDefinition = {
   elite?: boolean;
 };
 
-function repeatTierMultiplier(previous: number, current: number) {
-  return current * (current / previous);
-}
+type PostForestRole = keyof typeof CURRENT_ROLE_LANES;
 
-type LateMapArchetype = keyof typeof SAMURAI_GARDEN_ARCHETYPE_PROFILE;
-type EnemyBalance = Pick<EnemyDefinition, "hp" | "damage" | "attackSpeed" | "reward">;
-type ArchetypeVector = { readonly [Archetype in LateMapArchetype]: number };
-
-const LATE_MAP_ARCHETYPES = ["raider", "archer", "guardian", "reaper", "oracle"] as const satisfies readonly LateMapArchetype[];
-
-function centeredHealthBudget(
-  source: ArchetypeVector,
-  counts: ArchetypeVector,
-  profile: ArchetypeVector,
-) {
-  const sourceTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
-    total + source[archetype] * counts[archetype], 0);
-  const profileTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
-    total + profile[archetype] * counts[archetype], 0);
-  const profileUnit = sourceTotal / profileTotal;
-  return Object.fromEntries(LATE_MAP_ARCHETYPES.map((archetype) => [
-    archetype,
-    profile[archetype] * profileUnit,
-  ])) as Record<LateMapArchetype, number>;
-}
-
-const BEGINNER_DESERT_HEALTH = centeredHealthBudget({
-  raider: 1_200_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-  archer: 900_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-  guardian: 2_600_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-  reaper: 5_000_000 * BEGINNER_DESERT_HEALTH_SCALE * WASTES_REAPER_CADENCE_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-  oracle: 4_000_000 * BEGINNER_DESERT_HEALTH_SCALE * BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-}, BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS, BEGINNER_DESERT_ARCHETYPE_HEALTH_PROFILE);
-
-const INTERMEDIATE_SNOWLANDS_HEALTH = centeredHealthBudget({
-  raider: 2_700_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
-  archer: 2_280_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
-  guardian: 17_790_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
-  reaper: 25_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
-  oracle: 16_000_000_000 * INTERMEDIATE_SNOWLANDS_HEALTH_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
-}, INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS, INTERMEDIATE_SNOWLANDS_ARCHETYPE_HEALTH_PROFILE);
-
-const ADVANCED_LAVA_WASTES_HEALTH = centeredHealthBudget({
-  raider: 6_075_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-  archer: 5_776_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-  guardian: 121_725_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-  reaper: 125_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-  oracle: 64_000_000_000_000 * ADVANCED_LAVA_WASTES_HEALTH_SCALE * ADVANCED_LAVA_WASTES_REGULAR_HEALTH_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
-}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, ADVANCED_LAVA_WASTES_ARCHETYPE_HEALTH_PROFILE);
-
-const INFERNAL_DEPTHS_HEALTH = centeredHealthBudget({
-  raider: (repeatTierMultiplier(2_700_000_000, 6_075_000_000_000) - 10_000_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-  archer: repeatTierMultiplier(2_280_000_000, 5_776_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-  guardian: repeatTierMultiplier(17_790_000_000, 121_725_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-  reaper: repeatTierMultiplier(25_000_000_000, 125_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-  oracle: repeatTierMultiplier(16_000_000_000, 64_000_000_000_000) * INFERNAL_DEPTHS_HEALTH_SCALE * INFERNAL_DEPTHS_REGULAR_HEALTH_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
-}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE);
-
-const WATER_REACH_HEALTH = centeredHealthBudget({
-  raider: 10_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
-  archer: 40_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
-  guardian: 2_250_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
-  reaper: 1_700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
-  oracle: 700_000_000_000_000 * WATER_REACH_HEALTH_SCALE * WATER_REACH_REGULAR_HEALTH_MULTIPLIER * WATER_REACH_ENCOUNTER_HEALTH_SCALE,
-}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, WATER_REACH_ARCHETYPE_HEALTH_PROFILE);
-
-type DamageRewardVector = { readonly raider: number; readonly reaper: number };
-
-// Keeps the full Night Forest roster inside the 12+ hit curve-entry envelope
-// after damage rewards are restored to the regular < elite ordering.
-const INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE = .65;
-
-// Preserve each map's complete damage-reward budget while moving the payout
-// out of one jackpot-like elite. The elite is still worth 25% more per kill,
-// but ordinary raiders now create visible progress throughout the runway.
-function centeredDamageRewardBudget(
-  source: DamageRewardVector,
-  counts: DamageRewardVector,
-  profile: DamageRewardVector = { raider: 1, reaper: 1.25 },
-) {
-  const sourceTotal = source.raider * counts.raider + source.reaper * counts.reaper;
-  const unit = sourceTotal / (profile.raider * counts.raider + profile.reaper * counts.reaper);
-  return { raider: unit * profile.raider, reaper: unit * profile.reaper };
-}
-
-const BEGINNER_DESERT_DAMAGE_REWARDS = centeredDamageRewardBudget({
-  raider: 1_200 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
-  reaper: 5_000 * BEGINNER_DESERT_REWARD_SCALE * WASTES_REAPER_CADENCE_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
-}, BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS);
-const INTERMEDIATE_SNOWLANDS_DAMAGE_REWARDS = centeredDamageRewardBudget({
-  raider: 240_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER,
-  reaper: 3_150_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER,
-}, INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS);
-const ADVANCED_LAVA_WASTES_DAMAGE_REWARDS = centeredDamageRewardBudget({
-  raider: 48_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
-  reaper: 1_984_500_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE,
-}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS);
-const INFERNAL_DEPTHS_DAMAGE_REWARDS = centeredDamageRewardBudget({
-  raider: repeatTierMultiplier(240_000, 48_000_000) * 6 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
-  reaper: repeatTierMultiplier(3_150_000, 1_984_500_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
-}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS);
-const WATER_REACH_DAMAGE_REWARDS = centeredDamageRewardBudget({
-  raider: 18_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE,
-  reaper: 830_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE,
-}, LATE_MAP_CLEAR_ARCHETYPE_COUNTS);
-
-const WATER_REACH_BALANCE = {
-  raider: {
-    hp: WATER_REACH_HEALTH.raider,
-    damage: 1_870_000,
-    attackSpeed: .65,
-    reward: { type: "damage", amount: WATER_REACH_DAMAGE_REWARDS.raider * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
-  },
-  archer: {
-    hp: WATER_REACH_HEALTH.archer,
-    damage: 2_160_000,
-    attackSpeed: .55,
-    reward: { type: "health", amount: 295_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_HEALTH_REWARD_MULTIPLIER * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE },
-  },
-  guardian: {
-    hp: WATER_REACH_HEALTH.guardian,
-    damage: 2_700_000,
-    attackSpeed: .55,
-    reward: { type: "armor", amount: 40_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_ARMOR_REWARD_MULTIPLIER * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE },
-  },
-  reaper: {
-    hp: WATER_REACH_HEALTH.reaper,
-    damage: 2_490_000,
-    attackSpeed: .7,
-    reward: { type: "damage", amount: WATER_REACH_DAMAGE_REWARDS.reaper * WATER_REACH_DAMAGE_REWARD_MULTIPLIER },
-  },
-  oracle: {
-    hp: WATER_REACH_HEALTH.oracle,
-    damage: 2_580_000,
-    attackSpeed: .6,
-    reward: { type: "regen", amount: 13_000_000_000 * WATER_REACH_REWARD_SCALE * WATER_REACH_REGULAR_REWARD_MULTIPLIER * WATER_REACH_REGEN_REWARD_MULTIPLIER * WATER_REACH_ENCOUNTER_REWARD_SCALE },
-  },
-} satisfies Record<LateMapArchetype, EnemyBalance>;
-
-function rewardPower(reward: EnemyDefinition["reward"]) {
-  if (reward.type === "armor") return reward.amount * 3;
-  if (reward.type === "regen") return reward.amount * 10;
-  return reward.amount;
-}
-
-function centeredLateMapFactors(
-  rawFactor: (archetype: LateMapArchetype) => number,
-  shapedWeight: (archetype: LateMapArchetype) => number,
-  targetWeight: (archetype: LateMapArchetype) => number = shapedWeight,
-) {
-  const targetTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
-    total + LATE_MAP_CLEAR_ARCHETYPE_COUNTS[archetype] * targetWeight(archetype), 0);
-  const shapedTotal = LATE_MAP_ARCHETYPES.reduce((total, archetype) =>
-    total + LATE_MAP_CLEAR_ARCHETYPE_COUNTS[archetype] * shapedWeight(archetype) * rawFactor(archetype), 0);
-  const center = shapedTotal / targetTotal;
-  return Object.fromEntries(LATE_MAP_ARCHETYPES.map((archetype) => [
-    archetype,
-    rawFactor(archetype) / center,
-  ])) as Record<LateMapArchetype, number>;
-}
-
-const SAMURAI_HEALTH_FACTORS = centeredLateMapFactors(
-  (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].health,
-  (archetype) => WATER_REACH_BALANCE[archetype].hp,
-);
-function tierDamage(map: LateDamageMap, shapedDamage: (archetype: LateMapArchetype) => number) {
-  return lateMapDamageProfile(map, Object.fromEntries(
-    LATE_MAP_ARCHETYPES.map((archetype) => [archetype, shapedDamage(archetype)]),
-  ) as Record<LateMapArchetype, number>);
-}
-
-const SAMURAI_DAMAGE = tierDamage(
-  "samurai_garden",
-  (archetype) => WATER_REACH_BALANCE[archetype].damage * SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].damage,
-);
-const SAMURAI_REWARD_FACTORS = centeredLateMapFactors(
-  (archetype) => {
-    const reward = WATER_REACH_BALANCE[archetype].reward;
-    return SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].reward * SAMURAI_GARDEN_REWARD_TRACK_PROFILE[reward.type];
-  },
-  (archetype) => rewardPower(WATER_REACH_BALANCE[archetype].reward),
-);
-
-function samuraiGardenBalance(archetype: LateMapArchetype): EnemyBalance {
-  const water = WATER_REACH_BALANCE[archetype];
+/**
+ * Forest is authored independently. Campaign enemies select a role and fixed
+ * tier reference; encounter targets generate their HP, danger, and rewards.
+ */
+function forestLaneBalance(lane: ForestProgressionLane): Pick<EnemyDefinition, "hp" | "damage" | "reward"> {
   return {
-    hp: water.hp / WATER_REACH_ENCOUNTER_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_HEALTH_FACTORS[archetype],
-    damage: SAMURAI_DAMAGE[archetype],
-    attackSpeed: SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
-    reward: {
-      ...water.reward,
-      amount: water.reward.amount / WATER_REACH_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER * SAMURAI_REWARD_FACTORS[archetype],
-    },
+    ...laneCombatValue(lane, 0),
+    reward: laneRewardValue(lane, 0),
   };
 }
 
-const CLOUDSPIRE_HEALTH_FACTORS = centeredLateMapFactors(
-  (archetype) => CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].health,
-  (archetype) => samuraiGardenBalance(archetype).hp,
-);
-const CLOUDSPIRE_DAMAGE = tierDamage(
-  "cloudspire",
-  (archetype) => samuraiGardenBalance(archetype).damage * CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].damage,
-);
-const CLOUDSPIRE_REWARD_FACTORS = centeredLateMapFactors(
-  (archetype) => {
-    const reward = samuraiGardenBalance(archetype).reward;
-    return CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].reward * CLOUDSPIRE_REWARD_TRACK_PROFILE[reward.type];
-  },
-  (archetype) => rewardPower(samuraiGardenBalance(archetype).reward),
-);
-
-function cloudspireBalance(archetype: LateMapArchetype): EnemyBalance {
-  const samurai = samuraiGardenBalance(archetype);
+function postForestLaneBalance(role: PostForestRole, mapIndex: number): Pick<EnemyDefinition, "hp" | "damage" | "reward"> {
+  const lane = CURRENT_ROLE_LANES[role];
   return {
-    hp: samurai.hp * CLOUDSPIRE_HEALTH_SCALE * CLOUDSPIRE_HEALTH_FACTORS[archetype],
-    damage: CLOUDSPIRE_DAMAGE[archetype],
-    attackSpeed: CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].attackSpeed,
-    reward: {
-      ...samurai.reward,
-      amount: samurai.reward.amount * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_ENCOUNTER_REWARD_SCALE * CLOUDSPIRE_REWARD_FACTORS[archetype],
-    },
+    ...desertLaneCombatValue(lane, mapIndex - 1),
+    reward: desertLaneRewardValue(lane, mapIndex - 1),
   };
 }
 
-const MOONFEN_HEALTH_FACTORS = centeredLateMapFactors(
-  (archetype) => MOONFEN_ARCHETYPE_PROFILE[archetype].health,
-  (archetype) => cloudspireBalance(archetype).hp,
-);
-const MOONFEN_DAMAGE = tierDamage(
-  "moonfen",
-  (archetype) => cloudspireBalance(archetype).damage * MOONFEN_ARCHETYPE_PROFILE[archetype].damage,
-);
-const MOONFEN_REWARD_FACTORS = centeredLateMapFactors(
-  (archetype) => {
-    const reward = cloudspireBalance(archetype).reward;
-    return MOONFEN_ARCHETYPE_PROFILE[archetype].reward * MOONFEN_REWARD_TRACK_PROFILE[reward.type];
-  },
-  (archetype) => rewardPower(cloudspireBalance(archetype).reward),
-);
-
-function moonfenBalance(archetype: LateMapArchetype): EnemyBalance {
-  const cloudspire = cloudspireBalance(archetype);
+function healthEliteBalance(mapIndex: number): Pick<EnemyDefinition, "hp" | "damage" | "reward"> {
   return {
-    hp: cloudspire.hp * MOONFEN_HEALTH_SCALE * MOONFEN_HEALTH_FACTORS[archetype],
-    damage: MOONFEN_DAMAGE[archetype],
-    attackSpeed: MOONFEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
-    reward: {
-      ...cloudspire.reward,
-      amount: cloudspire.reward.amount * MOONFEN_REWARD_SCALE * MOONFEN_ENCOUNTER_REWARD_SCALE * MOONFEN_REWARD_FACTORS[archetype],
-    },
+    ...desertLaneCombatValue("King Slime", mapIndex - 1),
+    reward: desertLaneRewardValue("King Slime", mapIndex - 1),
   };
 }
-function crystalHollowsBalance(archetype: LateMapArchetype): EnemyBalance {
-  const previous = moonfenBalance(archetype);
-  return {
-    hp: previous.hp * CRYSTAL_HOLLOWS_HEALTH_SCALE * CRYSTAL_HOLLOWS_HEALTH_FACTORS[archetype] * CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
-    damage: CRYSTAL_HOLLOWS_DAMAGE[archetype],
-    attackSpeed: CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].attackSpeed,
-    reward: {
-      ...previous.reward,
-      amount: previous.reward.amount * CRYSTAL_HOLLOWS_REWARD_SCALE * CRYSTAL_HOLLOWS_REWARD_FACTORS[archetype] * CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
-    },
-  };
-}
-
-const CRYSTAL_HOLLOWS_HEALTH_FACTORS = centeredLateMapFactors(
-  (archetype) => CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].health,
-  (archetype) => moonfenBalance(archetype).hp,
-);
-const CRYSTAL_HOLLOWS_DAMAGE = tierDamage(
-  "crystal_hollows",
-  (archetype) => moonfenBalance(archetype).damage * CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].damage,
-);
-const CRYSTAL_HOLLOWS_REWARD_FACTORS = centeredLateMapFactors(
-  (archetype) => {
-    const reward = moonfenBalance(archetype).reward;
-    return CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].reward * CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE[reward.type];
-  },
-  (archetype) => rewardPower(moonfenBalance(archetype).reward),
-);
 
 const enemyTypes = {
   // TUTORIAL FOREST ENEMIES
-  // Movement speeds are the original balance values reduced by 50%.
   Bramble: {
-    hp: 42, speed: 105, damage: 14, attackSpeed: 1, r: 14,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 4 },
+    speed: 105, attackSpeed: 1, r: 14,
+    color: "#d95738", outline: "#5c1b13",
+    ...forestLaneBalance("Bramble"),
   },
   Needle: {
-    hp: 90, speed: 105, damage: 24, attackSpeed: 1, r: 10,
-    color: "#ffd34d", outline: "#6f4a12", reward: { type: "speed", amount: .02 },
+    speed: 105, attackSpeed: 1, r: 10,
+    color: "#ffd34d", outline: "#6f4a12",
+    ...forestLaneBalance("Needle"),
   },
   Mossback: {
-    hp: 380, speed: 105, damage: 29, attackSpeed: 1, r: 22,
-    color: "#768d51", outline: "#2c3b20", reward: { type: "armor", amount: 5 },
+    speed: 105, attackSpeed: 1, r: 22,
+    color: "#768d51", outline: "#2c3b20",
+    ...forestLaneBalance("Mossback"),
   },
   Spitter: {
-    hp: 24, speed: 105, damage: 48, attackSpeed: 1, r: 15,
-    color: "#b16ac8", outline: "#4b235d", reward: { type: "damage", amount: 1 },
+    speed: 105, attackSpeed: 1, r: 15,
+    color: "#b16ac8", outline: "#4b235d",
+    ...forestLaneBalance("Spitter"),
   },
   Brood: {
-    hp: 220, speed: 90, damage: 56, attackSpeed: .69, r: 16,
-    color: "#45b6c2", outline: "#174a54", reward: { type: "regen", amount: .3 }, ranged: true,
+    speed: 90, attackSpeed: .69, r: 16,
+    color: "#45b6c2", outline: "#174a54", ranged: true,
+    ...forestLaneBalance("Brood"),
   },
   Cindermaw: {
-    hp: 360, speed: 105, damage: 86, attackSpeed: 1, r: 19,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "damage", amount: 6 },
+    speed: 105, attackSpeed: 1, r: 19,
+    color: "#d95738", outline: "#5c1b13",
+    ...forestLaneBalance("Cindermaw"),
   },
   "King Slime": {
-    hp: 500, speed: 95, damage: 143, attackSpeed: 1, r: 27,
-    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 40 },
+    speed: 95, attackSpeed: 1, r: 27,
+    color: "#70a94f", outline: "#2d5127",
     elite: true, aggro: 300,
+    ...forestLaneBalance("King Slime"),
   },
   "Dread Warden": {
-    hp: 500, speed: 110, damage: 275, attackSpeed: 1, r: 36,
-    color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 70 },
-    elite: true, aggro: 350,
+    speed: 110, attackSpeed: 1, r: 36,
+    color: "#a52e3a", outline: "#47101a",
+    elite: true, aggro: 340,
+    ...forestLaneBalance("Dread Warden"),
   },
 
   // BEGINNER DESERT ENEMIES
-  // Movement speeds are the original balance values reduced by 25%.
-  // Balance hp, damage, attackSpeed, and reward directly.
   "Dune Raider": {
-    hp: BEGINNER_DESERT_HEALTH.raider, speed: 165, damage: 425 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .65, r: 19,
-    color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: BEGINNER_DESERT_DAMAGE_REWARDS.raider * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER },
+    speed: 165, attackSpeed: .65, r: 19,
+    color: "#d6a13a", outline: "#5f3c18",
+    ...postForestLaneBalance("raider", 1),
   },
   "Dune Archer": {
-    hp: BEGINNER_DESERT_HEALTH.archer, speed: 153.75, damage: 490 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 17,
-    color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER },
+    speed: 153.75, attackSpeed: .55, r: 17,
+    color: "#d5b04d", outline: "#61481d",
     ranged: true,
+    ...postForestLaneBalance("archer", 1),
+  },
+  "Dune Regent": {
+    speed: 145, attackSpeed: .65, r: 29,
+    color: "#e3c568", outline: "#61481d",
+    elite: true, aggro: 310,
+    ...healthEliteBalance(1),
   },
   "Venom Guard": {
-    hp: BEGINNER_DESERT_HEALTH.guardian, speed: 146.25, damage: 610 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 24,
-    color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_ARMOR_REWARD_MULTIPLIER },
+    speed: 146.25, attackSpeed: .55, r: 24,
+    color: "#79d18b", outline: "#285a37",
+    ...postForestLaneBalance("guardian", 1),
   },
   "Wastes Reaper": {
-    hp: BEGINNER_DESERT_HEALTH.reaper, speed: 168.75, damage: 670 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .7, r: 31,
-    color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: BEGINNER_DESERT_DAMAGE_REWARDS.reaper * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER },
+    speed: 168.75, attackSpeed: .7, r: 31,
+    color: "#8fe09a", outline: "#294f34",
     ranged: true, elite: true, aggro: 300,
+    ...postForestLaneBalance("reaper", 1),
   },
   "Blight Oracle": {
-    hp: BEGINNER_DESERT_HEALTH.oracle, speed: 157.5, damage: 550 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .6, r: 29,
-    color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER },
+    speed: 157.5, attackSpeed: .6, r: 29,
+    color: "#a5df79", outline: "#345426",
     elite: true, aggro: 300,
+    ...postForestLaneBalance("oracle", 1),
   },
 
   // INTERMEDIATE SNOWLANDS ENEMIES
-  // Desert-to-snow uses the same archetype multipliers as forest-to-desert.
   "Frost Raider": {
-    hp: INTERMEDIATE_SNOWLANDS_HEALTH.raider, speed: 230, damage: 1_590, attackSpeed: .65, r: 21,
-    color: "#8fc7ea", outline: "#315778", reward: { type: "damage", amount: INTERMEDIATE_SNOWLANDS_DAMAGE_REWARDS.raider * INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER },
+    speed: 230, attackSpeed: .65, r: 21,
+    color: "#8fc7ea", outline: "#315778",
+    ...postForestLaneBalance("raider", 2),
   },
   "Glacier Archer": {
-    hp: INTERMEDIATE_SNOWLANDS_HEALTH.archer, speed: 215, damage: 1_860, attackSpeed: .55, r: 19,
-    color: "#b9e4f4", outline: "#3c6e87", reward: { type: "health", amount: 2_580_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER * INTERMEDIATE_SNOWLANDS_HEALTH_REWARD_MULTIPLIER },
+    speed: 215, attackSpeed: .55, r: 19,
+    color: "#b9e4f4", outline: "#3c6e87",
     ranged: true,
+    ...postForestLaneBalance("archer", 2),
+  },
+  "Glacier Regent": {
+    speed: 205, attackSpeed: .65, r: 32,
+    color: "#d9f5ff", outline: "#3c6e87",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(2),
   },
   "Rime Guard": {
-    hp: INTERMEDIATE_SNOWLANDS_HEALTH.guardian, speed: 205, damage: 2_390, attackSpeed: .55, r: 27,
-    color: "#80d8db", outline: "#23626d", reward: { type: "armor", amount: 14_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER * SNOWLANDS_ARMOR_REWARD_MULTIPLIER },
+    speed: 205, attackSpeed: .55, r: 27,
+    color: "#80d8db", outline: "#23626d",
+    ...postForestLaneBalance("guardian", 2),
   },
   "Whiteout Reaper": {
-    hp: INTERMEDIATE_SNOWLANDS_HEALTH.reaper, speed: 235, damage: 2_120, attackSpeed: .7, r: 34,
-    color: "#d3ecfb", outline: "#46677f", reward: { type: "damage", amount: INTERMEDIATE_SNOWLANDS_DAMAGE_REWARDS.reaper * INTERMEDIATE_SNOWLANDS_DAMAGE_REWARD_MULTIPLIER },
+    speed: 235, attackSpeed: .7, r: 34,
+    color: "#d3ecfb", outline: "#46677f",
     ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 2),
   },
   "Aurora Oracle": {
-    hp: INTERMEDIATE_SNOWLANDS_HEALTH.oracle, speed: 220, damage: 2_255, attackSpeed: .6, r: 32,
-    color: "#b5a7f0", outline: "#514783", reward: { type: "regen", amount: 161_000 * INTERMEDIATE_SNOWLANDS_REWARD_SCALE * INTERMEDIATE_SNOWLANDS_REGULAR_REWARD_MULTIPLIER * INTERMEDIATE_SNOWLANDS_REGEN_REWARD_MULTIPLIER },
+    speed: 220, attackSpeed: .6, r: 32,
+    color: "#b5a7f0", outline: "#514783",
     elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 2),
   },
 
   // ADVANCED LAVA LAKE ENEMIES
-  // Snow-to-lava continues each archetype's desert-to-snow multiplier.
-  // Movement and aggro reach stop increasing after Snowlands.
   "Ember Raider": {
-    hp: ADVANCED_LAVA_WASTES_HEALTH.raider, speed: 230, damage: 7_760, attackSpeed: .65, r: 23,
-    color: "#ff8a3d", outline: "#6d2418", reward: { type: "damage", amount: ADVANCED_LAVA_WASTES_DAMAGE_REWARDS.raider * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
+    speed: 230, attackSpeed: .65, r: 23,
+    color: "#ff8a3d", outline: "#6d2418",
+    ...postForestLaneBalance("raider", 3),
   },
   "Cinder Archer": {
-    hp: ADVANCED_LAVA_WASTES_HEALTH.archer, speed: 215, damage: 9_320, attackSpeed: .55, r: 21,
-    color: "#ffb347", outline: "#71311c", reward: { type: "health", amount: 783_000_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_HEALTH_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE },
+    speed: 215, attackSpeed: .55, r: 21,
+    color: "#ffb347", outline: "#71311c",
     ranged: true,
+    ...postForestLaneBalance("archer", 3),
+  },
+  "Cinder Regent": {
+    speed: 205, attackSpeed: .65, r: 35,
+    color: "#ffd273", outline: "#71311c",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(3),
   },
   "Magma Guard": {
-    hp: ADVANCED_LAVA_WASTES_HEALTH.guardian, speed: 205, damage: 12_420, attackSpeed: .55, r: 30,
-    color: "#e86132", outline: "#602016", reward: { type: "armor", amount: 1_307_000 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * LAVA_ARMOR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE },
+    speed: 205, attackSpeed: .55, r: 30,
+    color: "#e86132", outline: "#602016",
+    ...postForestLaneBalance("guardian", 3),
   },
   "Ash Reaper": {
-    hp: ADVANCED_LAVA_WASTES_HEALTH.reaper, speed: 235, damage: 10_870, attackSpeed: .7, r: 37,
-    color: "#ed7042", outline: "#54221e", reward: { type: "damage", amount: ADVANCED_LAVA_WASTES_DAMAGE_REWARDS.reaper * ADVANCED_LAVA_WASTES_DAMAGE_REWARD_MULTIPLIER },
+    speed: 235, attackSpeed: .7, r: 37,
+    color: "#ed7042", outline: "#54221e",
     ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 3),
   },
   "Inferno Oracle": {
-    hp: ADVANCED_LAVA_WASTES_HEALTH.oracle, speed: 220, damage: 11_650, attackSpeed: .6, r: 35,
-    color: "#ffc34f", outline: "#6b2c1d", reward: { type: "regen", amount: 81_003_125 * ADVANCED_LAVA_WASTES_REWARD_SCALE * ADVANCED_LAVA_WASTES_REGULAR_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_REGEN_REWARD_MULTIPLIER * ADVANCED_LAVA_WASTES_ENCOUNTER_REWARD_SCALE },
+    speed: 220, attackSpeed: .6, r: 35,
+    color: "#ffc34f", outline: "#6b2c1d",
     elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 3),
   },
 
   // NIGHT FOREST ENEMIES
-  // Base health repeats each archetype's Snowlands-to-Lava growth before the
-  // shared Night Forest progression budget. Depth Raider keeps its 10qd cut.
-  // Damage is tuned against the simulated curve-entry build so ordinary hits
-  // stay readable instead of inheriting the obsolete pre-curve one-shots.
-  // The damage budget still includes Depth Raider's requested 6× source value,
-  // then pays it out steadily across Raiders and Reapers.
   "Depth Raider": {
-    hp: INFERNAL_DEPTHS_HEALTH.raider, speed: 230,
-    damage: 296_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .65, r: 25,
-    color: "#e75a35", outline: "#4a1717", reward: { type: "damage", amount: INFERNAL_DEPTHS_DAMAGE_REWARDS.raider * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
+    speed: 230,
+    attackSpeed: .65, r: 25,
+    color: "#e75a35", outline: "#4a1717",
+    ...postForestLaneBalance("raider", 4),
   },
   "Abyss Archer": {
-    hp: INFERNAL_DEPTHS_HEALTH.archer, speed: 215,
-    damage: 342_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 23,
-    color: "#ef7840", outline: "#50191a", reward: { type: "health", amount: repeatTierMultiplier(2_580_000, 783_000_000) * 2 * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_HEALTH_REWARD_MULTIPLIER * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE },
+    speed: 215,
+    attackSpeed: .55, r: 23,
+    color: "#ef7840", outline: "#50191a",
     ranged: true,
+    ...postForestLaneBalance("archer", 4),
+  },
+  "Abyss Regent": {
+    speed: 205, attackSpeed: .65, r: 38,
+    color: "#f09a58", outline: "#50191a",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(4),
   },
   "Obsidian Colossus": {
-    hp: INFERNAL_DEPTHS_HEALTH.guardian, speed: 205,
-    damage: 428_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 32,
-    color: "#b83f32", outline: "#3c1115", reward: { type: "armor", amount: repeatTierMultiplier(14_000, 1_307_000) * INFERNAL_DEPTHS_REWARD_SCALE * NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE },
+    speed: 205,
+    attackSpeed: .55, r: 32,
+    color: "#b83f32", outline: "#3c1115",
+    ...postForestLaneBalance("guardian", 4),
   },
   "Doom Reaper": {
-    hp: INFERNAL_DEPTHS_HEALTH.reaper, speed: 235,
-    damage: 395_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .7, r: 39,
-    color: "#cc4938", outline: "#3b1318", reward: { type: "damage", amount: INFERNAL_DEPTHS_DAMAGE_REWARDS.reaper * INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER },
+    speed: 235,
+    attackSpeed: .7, r: 39,
+    color: "#cc4938", outline: "#3b1318",
     ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 4),
   },
   "Nether Oracle": {
-    hp: INFERNAL_DEPTHS_HEALTH.oracle, speed: 220,
-    damage: 408_000 * INFERNAL_DEPTHS_INCOMING_DAMAGE_SCALE, attackSpeed: .6, r: 37,
-    color: "#e7843f", outline: "#4d191a", reward: { type: "regen", amount: repeatTierMultiplier(161_000, 81_003_125) * INFERNAL_DEPTHS_REWARD_SCALE * INFERNAL_DEPTHS_REGULAR_REWARD_MULTIPLIER * INFERNAL_DEPTHS_REGEN_REWARD_MULTIPLIER * INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE },
+    speed: 220,
+    attackSpeed: .6, r: 37,
+    color: "#e7843f", outline: "#4d191a",
     elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 4),
   },
 
   // WATER REACH ENEMIES
-  // This tier begins at the measured Night Forest exit build. Incoming damage
-  // stays in one narrow band; archetype identity comes from range, health,
-  // cadence, and rewards rather than surprise one-shots.
   "Tide Raider": {
-    ...WATER_REACH_BALANCE.raider, speed: 230, r: 27,
+    attackSpeed: .65, speed: 230, r: 27,
     color: "#49c9d4", outline: "#123b58",
+    ...postForestLaneBalance("raider", 5),
   },
   "Reef Archer": {
-    ...WATER_REACH_BALANCE.archer, speed: 215, r: 25,
+    attackSpeed: .65, speed: 215, r: 25,
     color: "#69dce3", outline: "#17465d",
     ranged: true,
+    ...postForestLaneBalance("archer", 5),
+  },
+  "Reef Regent": {
+    speed: 205, attackSpeed: .65, r: 41,
+    color: "#8deaf0", outline: "#17465d",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(5),
   },
   "Coral Colossus": {
-    ...WATER_REACH_BALANCE.guardian, speed: 205, r: 35,
+    attackSpeed: .65, speed: 205, r: 35,
     color: "#ff7f83", outline: "#573049",
+    ...postForestLaneBalance("guardian", 5),
   },
   "Drowned Reaper": {
-    ...WATER_REACH_BALANCE.reaper, speed: 235, r: 42,
+    attackSpeed: .65, speed: 235, r: 42,
     color: "#3f93bd", outline: "#172c50",
     ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 5),
   },
   "Tidal Oracle": {
-    ...WATER_REACH_BALANCE.oracle, speed: 220, r: 39,
+    attackSpeed: .65, speed: 220, r: 39,
     color: "#7e9ee9", outline: "#29315d",
     elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 5),
   },
 
   // SAMURAI GARDEN ENEMIES
-  // Individual ratios vary around the Water Reach baseline so the tier does
-  // not feel copied. The centered profiles above keep one full clear exactly
-  // at one fifth of the 11.475× health and 8.5× reward budgets, while incoming
-  // DPS remains 8.5×. Five smaller clears deliver the full macro runway.
   "Sakura Ronin": {
-    ...samuraiGardenBalance("raider"), speed: 230, r: 29,
+    attackSpeed: .65, speed: 230, r: 29,
     color: "#ef75aa", outline: "#54233f",
+    ...postForestLaneBalance("raider", 6),
   },
   "Petal Archer": {
-    ...samuraiGardenBalance("archer"), speed: 215, r: 27,
+    attackSpeed: .65, speed: 215, r: 27,
     color: "#ff9fc7", outline: "#60304d",
     ranged: true,
+    ...postForestLaneBalance("archer", 6),
+  },
+  "Petal Regent": {
+    speed: 205, attackSpeed: .65, r: 43,
+    color: "#ffc5df", outline: "#60304d",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(6),
   },
   "Bamboo Guardian": {
-    ...samuraiGardenBalance("guardian"), speed: 205, r: 37,
+    attackSpeed: .65, speed: 205, r: 37,
     color: "#7cad70", outline: "#294936",
+    ...postForestLaneBalance("guardian", 6),
   },
   "Moonblade Reaper": {
-    ...samuraiGardenBalance("reaper"), speed: 235, r: 44,
+    attackSpeed: .65, speed: 235, r: 44,
     color: "#8a70bd", outline: "#30264f",
     ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 6),
   },
   "Shrine Oracle": {
-    ...samuraiGardenBalance("oracle"), speed: 220, r: 41,
+    attackSpeed: .65, speed: 220, r: 41,
     color: "#eeb1d4", outline: "#52334f",
     elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 6),
   },
 
   // CLOUDSPIRE ENEMIES
   "Gale Prowler": {
-    ...cloudspireBalance("raider"), speed: 242, r: 30,
+    attackSpeed: .65, speed: 230, r: 30,
     color: "#72c9f4", outline: "#203f68",
+    ...postForestLaneBalance("raider", 7),
   },
   "Nimbus Archer": {
-    ...cloudspireBalance("archer"), speed: 224, r: 28,
+    attackSpeed: .65, speed: 215, r: 28,
     color: "#b9e8ff", outline: "#365a78",
     ranged: true,
+    ...postForestLaneBalance("archer", 7),
+  },
+  "Nimbus Regent": {
+    speed: 205, attackSpeed: .65, r: 45,
+    color: "#d9f2ff", outline: "#365a78",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(7),
   },
   "Skyguard Colossus": {
-    ...cloudspireBalance("guardian"), speed: 212, r: 39,
+    attackSpeed: .65, speed: 205, r: 39,
     color: "#e8cb72", outline: "#5b4722",
+    ...postForestLaneBalance("guardian", 7),
   },
   "Thunder Reaper": {
-    ...cloudspireBalance("reaper"), speed: 246, r: 45,
+    attackSpeed: .65, speed: 235, r: 45,
     color: "#7184db", outline: "#29305d",
-    ranged: true, elite: true, aggro: 350,
+    ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 7),
   },
   "Tempest Oracle": {
-    ...cloudspireBalance("oracle"), speed: 230, r: 42,
+    attackSpeed: .65, speed: 220, r: 42,
     color: "#cbbcf4", outline: "#44345f",
-    elite: true, aggro: 350,
+    elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 7),
   },
 
   // MOONFEN ENEMIES
   "Fen Prowler": {
-    ...moonfenBalance("raider"), speed: 238, r: 31,
+    attackSpeed: .65, speed: 230, r: 31,
     color: "#4fd9ab", outline: "#173f3b",
+    ...postForestLaneBalance("raider", 8),
   },
   "Glowcap Archer": {
-    ...moonfenBalance("archer"), speed: 220, r: 29,
+    attackSpeed: .65, speed: 215, r: 29,
     color: "#a2f3d5", outline: "#2a514c",
     ranged: true,
+    ...postForestLaneBalance("archer", 8),
+  },
+  "Glowcap Regent": {
+    speed: 205, attackSpeed: .65, r: 46,
+    color: "#c8ffe3", outline: "#2a514c",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(8),
   },
   "Bog Colossus": {
-    ...moonfenBalance("guardian"), speed: 205, r: 40,
+    attackSpeed: .65, speed: 205, r: 40,
     color: "#7f9b66", outline: "#30402c",
+    ...postForestLaneBalance("guardian", 8),
   },
   "Moonmire Reaper": {
-    ...moonfenBalance("reaper"), speed: 240, r: 46,
+    attackSpeed: .65, speed: 235, r: 46,
     color: "#9b72d0", outline: "#352653",
-    ranged: true, elite: true, aggro: 360,
+    ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 8),
   },
   "Wisp Oracle": {
-    ...moonfenBalance("oracle"), speed: 226, r: 43,
+    attackSpeed: .65, speed: 220, r: 43,
     color: "#72ead1", outline: "#24524e",
-    elite: true, aggro: 360,
+    elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 8),
   },
 
   // CRYSTAL HOLLOWS ENEMIES
   "Shard Hopper": {
-    ...crystalHollowsBalance("raider"), speed: 230, r: 30,
+    attackSpeed: .65, speed: 230, r: 30,
     color: "#90e9ef", outline: "#303d5b",
+    ...postForestLaneBalance("raider", 9),
   },
   "Crystal Spitter": {
-    ...crystalHollowsBalance("archer"), speed: 215, r: 29,
+    attackSpeed: .65, speed: 215, r: 29,
     color: "#c9b0ff", outline: "#463762",
     ranged: true,
+    ...postForestLaneBalance("archer", 9),
+  },
+  "Crystal Regent": {
+    speed: 202, attackSpeed: .65, r: 47,
+    color: "#e2cdfd", outline: "#463762",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(9),
   },
   "Geode Guardian": {
-    ...crystalHollowsBalance("guardian"), speed: 202, r: 40,
+    attackSpeed: .65, speed: 202, r: 40,
     color: "#8299c9", outline: "#303854",
+    ...postForestLaneBalance("guardian", 9),
   },
   "Prism Reaver": {
-    ...crystalHollowsBalance("reaper"), speed: 235, r: 46,
+    attackSpeed: .65, speed: 235, r: 46,
     color: "#ab87e6", outline: "#453365",
     ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 9),
   },
   "Hollow Oracle": {
-    ...crystalHollowsBalance("oracle"), speed: 220, r: 43,
+    attackSpeed: .65, speed: 220, r: 43,
     color: "#f0c58b", outline: "#624862",
     elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 9),
   },
 } satisfies Record<string, EnemyDefinition>;
-
-type RegularRewardBalanceGroup = {
-  counts: ArchetypeVector;
-  enemies: Record<LateMapArchetype, keyof typeof enemyTypes>;
-};
-
-// Equalize the reward-power rate of each camp without changing a map's total
-// regular reward budget. Auto-combat time is primarily proportional to enemy
-// HP, so distributing each map's existing reward-power budget by HP makes
-// seconds per +1% power comparable across damage, health, armor, and regen
-// camps instead of rewarding one track for having a shorter fight.
-const REGULAR_REWARD_TIME_BALANCE_GROUPS = [
-  {
-    counts: BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Dune Raider",
-      archer: "Dune Archer",
-      guardian: "Venom Guard",
-      reaper: "Wastes Reaper",
-      oracle: "Blight Oracle",
-    },
-  },
-  {
-    counts: INTERMEDIATE_SNOWLANDS_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Frost Raider",
-      archer: "Glacier Archer",
-      guardian: "Rime Guard",
-      reaper: "Whiteout Reaper",
-      oracle: "Aurora Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Ember Raider",
-      archer: "Cinder Archer",
-      guardian: "Magma Guard",
-      reaper: "Ash Reaper",
-      oracle: "Inferno Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Depth Raider",
-      archer: "Abyss Archer",
-      guardian: "Obsidian Colossus",
-      reaper: "Doom Reaper",
-      oracle: "Nether Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Tide Raider",
-      archer: "Reef Archer",
-      guardian: "Coral Colossus",
-      reaper: "Drowned Reaper",
-      oracle: "Tidal Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Sakura Ronin",
-      archer: "Petal Archer",
-      guardian: "Bamboo Guardian",
-      reaper: "Moonblade Reaper",
-      oracle: "Shrine Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Gale Prowler",
-      archer: "Nimbus Archer",
-      guardian: "Skyguard Colossus",
-      reaper: "Thunder Reaper",
-      oracle: "Tempest Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Fen Prowler",
-      archer: "Glowcap Archer",
-      guardian: "Bog Colossus",
-      reaper: "Moonmire Reaper",
-      oracle: "Wisp Oracle",
-    },
-  },
-  {
-    counts: LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
-    enemies: {
-      raider: "Shard Hopper",
-      archer: "Crystal Spitter",
-      guardian: "Geode Guardian",
-      reaper: "Prism Reaver",
-      oracle: "Hollow Oracle",
-    },
-  },
-] satisfies readonly RegularRewardBalanceGroup[];
-
-function normalizeRegularRewardPowerByTime() {
-  for (const group of REGULAR_REWARD_TIME_BALANCE_GROUPS) {
-    const entries = Object.entries(group.enemies) as Array<[LateMapArchetype, keyof typeof enemyTypes]>;
-    const totalRewardPower = entries.reduce((total, [archetype, kind]) =>
-      total + rewardPower(enemyTypes[kind].reward) * group.counts[archetype], 0);
-    const totalHealth = entries.reduce((total, [archetype, kind]) =>
-      total + enemyTypes[kind].hp * group.counts[archetype], 0);
-    for (const [, kind] of entries) {
-      const enemy = enemyTypes[kind];
-      const currentPower = rewardPower(enemy.reward);
-      if (currentPower <= 0 || totalHealth <= 0) continue;
-      const targetPower = totalRewardPower * enemy.hp / totalHealth;
-      enemy.reward = {
-        ...enemy.reward,
-        amount: enemy.reward.amount * targetPower / currentPower,
-      };
-    }
-  }
-}
-
-normalizeRegularRewardPowerByTime();
 
 export type EnemyKind = keyof typeof enemyTypes;
 export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = enemyTypes;

@@ -11,8 +11,10 @@
     "build:coop": "vite build --config config/vite.coop.config.ts",
     "build:game": "vite build --config config/vite.game.config.ts",
     "build:balance": "vite build --config config/vite.balance.config.ts",
+    "build:stat-graph": "vite build --config config/vite.stat-graph.config.ts",
     "build:client": "npm run build:coop && npm run build:game && node scripts/fingerprint-client.mjs && node scripts/check-client-build.mjs",
     "balance:lab": "vite --config config/vite.balance.config.ts --host 127.0.0.1 --open /balance-lab.html",
+    "balance:stat-graph": "vite --config config/vite.stat-graph.config.ts --host 127.0.0.1 --open /balance-stat-graph.html",
     "balance:simulate": "tsx scripts/balance-report.ts",
     "map:editor": "node scripts/map-editor-server.mjs",
     "test:unit": "vitest run --exclude src/balance/simulator.test.ts",
@@ -30,7 +32,9 @@
     "art:unity": "node scripts/unity-sprite-exporter.mjs",
     "art:unity:prepare": "node scripts/unity-sprite-exporter.mjs --prepare-only",
     "art:unity:check": "node scripts/unity-sprite-exporter.mjs --check",
-    "art:enemy-align": "python3 -m http.server --directory . 4173"
+    "art:enemy-align": "python3 -m http.server --directory . 4173",
+    "balance:audit": "tsx scripts/balance-experience-report.ts",
+    "profile:crowds-motion": "tsx scripts/profiling/crowds-and-motion.ts"
   },
   "dependencies": {
     "spacetimedb": "2.9.0"

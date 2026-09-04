@@ -71,7 +71,7 @@ describe("startup artwork reveal", () => {
     expect(scene.add).not.toHaveBeenCalled();
   });
 
-  it("does not request the artwork until a pending sign-in callback finishes", () => {
+  it("supports explicit deferred artwork without dropping the return backdrop before decode", async () => {
     const scene = fixture();
     const reveal = createStartupArtworkReveal({
       root: scene.root,
@@ -86,6 +86,10 @@ describe("startup artwork reveal", () => {
     reveal.start();
 
     expect(scene.image.src).toBe("/wallpaper.png");
+    expect(scene.remove).not.toHaveBeenCalled();
+    scene.emitLoad();
+    scene.finishDecode();
+    await flushPromises();
     expect(scene.remove).toHaveBeenCalledWith("signin-auth-return");
   });
 });

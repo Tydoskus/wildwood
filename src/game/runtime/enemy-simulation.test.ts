@@ -138,6 +138,18 @@ describe("deterministic enemy simulation", () => {
     ]);
   });
 
+  it("separates diagonal overlaps while respecting crowd ownership", () => {
+    const first = idleEnemyAt(300, 300);
+    const second = idleEnemyAt(310, 310);
+    second.siteId = 2;
+    separateEnemyCrowd([first, second], () => false);
+    expect([first.x, first.y, second.x, second.y]).toEqual([300, 300, 310, 310]);
+    separateEnemyCrowd([first, second], () => true);
+    expect(Math.hypot(second.x - first.x, second.y - first.y)).toBeCloseTo(
+      (first.r + second.r) * ENEMY_CROWD_SPACING_RATIO, 8,
+    );
+  });
+
   it("breaks from the shared consensus pose and follows the actual local player after aggro", () => {
     const enemy = idleEnemyAt(300, 300);
     engage(enemy, "local-player");

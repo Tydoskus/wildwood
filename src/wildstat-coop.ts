@@ -120,6 +120,7 @@ let connecting = false;
 let connectionGeneration = 0;
 let sessionGeneration = 0;
 let hydrationReady = false;
+let sessionSubscriptions: ReturnType<typeof startBaseSubscription> | null = null;
 let connectedSignedIn = false;
 let lastServerActivityAt = performance.now();
 let changeListener: (() => void) | null = null;
@@ -153,6 +154,7 @@ function onChange() {
     batchedChangePending = true;
     return;
   }
+  sessionSubscriptions?.refresh(worldEntryGeneration === connectionGeneration && worldEntryGeneration !== 0, presenceService.currentMapId());
   changeListener?.();
   startupChangeListener?.();
 }
@@ -527,6 +529,7 @@ const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
 });
 
 function clearRealtimeCaches() {
+  sessionSubscriptions = null;
   remoteCombatStatsService.clearSession();
   playerProfileService.clearSession();
   presenceService.clearSession();
@@ -775,10 +778,14 @@ function connect() {
 
         startupTelemetryRuntime.advanceConnection("hydrating", generation);
         connectionLifecycle.transition("hydrating", SUBSCRIPTION_HYDRATION_TIMEOUT_MS);
-        startBaseSubscription({
+        sessionSubscriptions = startBaseSubscription({
           connection: conn,
           identity,
           includeDeveloperTables: isDeveloperIdentity(connectedIdentity),
+          onLoading: () => {
+            hydrationReady = false;
+            connectionLifecycle.transition("hydrating", SUBSCRIPTION_HYDRATION_TIMEOUT_MS);
+          },
           isCurrent: isCurrentConnection,
           isPresenceSubscriptionTransitioning: presenceService.isSubscriptionTransitioning,
           batch: batchChanges,
@@ -791,7 +798,7 @@ function connect() {
             accountService.finishHydration();
             setWakeReconnectVisible(false);
             setNetworkReconnectVisible(false);
-            presenceService.activateSubscriptions();
+            if (worldEntryGeneration === generation) presenceService.activateSubscriptions();
             sessionGeneration += 1;
             onChange();
             startupTelemetryRuntime.flush();
@@ -801,7 +808,7 @@ function connect() {
             retryFailedConnection("subscription-error", "World sync failed");
           },
           afterHydrated: () => {
-            void playerProfileService.loadLeaderboardSnapshot();
+            if (worldEntryGeneration === generation) void playerProfileService.loadLeaderboardSnapshot();
             progressionService.flushPendingProgress();
           },
         });
