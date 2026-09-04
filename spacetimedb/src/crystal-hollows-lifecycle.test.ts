@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Identity } from "spacetimedb";
-import { ATTACK_BALANCE_VERSION, MIREMAW_MAX_HP, TEMPEST_KIRIN_MAX_HP, SPACETIME_AUTH_ISSUER, SPACETIME_AUTH_CLIENT_ID } from "../../shared/rules";
+import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, MIREMAW_MAX_HP, TEMPEST_KIRIN_MAX_HP, SPACETIME_AUTH_ISSUER, SPACETIME_AUTH_CLIENT_ID } from "../../shared/rules";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -30,11 +30,11 @@ describe("Crystal Hollows unlock and identity lifecycle", () => {
     f.ctx.connectionId = null;
     f.run(server.onConnect);
     const migrated = f.db.playerProgress.identity.find(f.ctx.sender);
-    expect(migrated).toEqual({ ...before, crystalHollowsUnlocked: true });
+    expect(migrated).toEqual({ ...before, crystalHollowsUnlocked: true, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.miremaw });
     expect(f.db.playerProgress.identity.find(identity("2"))).toEqual(bystander);
     f.run(server.onConnect);
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(migrated);
-    expect(f.db.moduleMigrationState.id.find(0).version).toBeGreaterThanOrEqual(21);
+    expect(f.db.moduleMigrationState.id.find(0).version).toBeGreaterThanOrEqual(22);
   });
 
   it("transfers a guest unlock and current contribution without leaving a second save", () => {

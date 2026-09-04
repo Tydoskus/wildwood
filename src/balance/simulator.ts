@@ -3,6 +3,7 @@ import { BOSS_DAMAGE_PROFILES } from "../game/boss-damage";
 import { damageAfterArmor } from "../game/combat";
 import { ENEMY_TYPES, type EnemyKind, type RewardType } from "../game/enemies";
 import { createGameBootstrap } from "../game/runtime/game-bootstrap";
+import { formatCompactNumber } from "../ui/number-format";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -65,6 +66,8 @@ import {
   BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
   BALANCE_TARGET_MAP_POWER_MULTIPLIER,
   BALANCE_TARGET_POWER_ARC_BLEND,
+  BOSS_RESPAWN_SECONDS,
+  BOSS_REWARD_CLAIM_BITS,
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
@@ -221,6 +224,7 @@ type MutableSimulationState = {
   itemUpgradeLevel: number;
   equipmentStrengthMultiplier: number;
   activeResearch: ActiveResearch | null;
+  bossRewardClaims: number;
 };
 
 type SiteState = ReturnType<typeof createSpawnSites>[number] & {
@@ -245,11 +249,12 @@ export type TrialMapRecord = {
   exitBossTtkSeconds: number | null;
   bossFightSeconds: number | null;
   bossRewardPowerGain: number | null;
-  bossFarmKills: number;
-  bossFarmPowerGain: number;
+  repeatBossKills: number;
+  repeatBossPowerGain: number;
   regularKills: number;
   fullClears: number;
   timeBudget: MapTimeBudget;
+  repeatTimeBudget: MapTimeBudget;
   statInvestments: Record<ProgressionStat, TrialStatInvestment>;
   curveProgress: CurveProgress | null;
   momentum: MomentumMetric | null;
@@ -374,14 +379,17 @@ export type MapSummary = {
   bossFightMedianSeconds: number | null;
   bossRewardPowerGainMedian: number | null;
   bossRewardGrowthSharePercent: number | null;
-  bossFarmPowerPerMinuteMedian: number | null;
+  bossFirstClearPowerPerMinuteMedian: number | null;
+  bossRepeatPermanentPowerPerMinuteMedian: number | null;
   bestRegularPowerPerMinuteMedian: number | null;
-  bossFarmEfficiencyRatioMedian: number | null;
-  bossFarmKillsMedian: number | null;
-  bossFarmPowerGainMedian: number | null;
+  bossFirstClearEfficiencyRatioMedian: number | null;
+  bossRepeatEfficiencyRatioMedian: number | null;
+  repeatBossKillsMedian: number | null;
+  repeatBossPowerGainMedian: number | null;
   regularKillsMedian: number | null;
   fullClearsMedian: number | null;
   timeBudgetMedian: MapTimeBudget | null;
+  repeatTimeBudgetMedian: MapTimeBudget | null;
   statProgression: StatProgressionMetric[];
   momentum: MomentumMetric | null;
   futureHeadroom: ProgressionHeadroom | null;
@@ -884,6 +892,8 @@ const STRATEGY_DEFENSIVE_REWARD_INTERVALS: Record<GuidedFarmingStrategy, number>
   natural: 8,
   efficient: 12,
   "dps-first": 20,
+  // Boss-rush stays on its readiness route; the boss first-clear payout is the
+  // defensive recovery, while repeat encounters no longer add permanent stats.
   "boss-rush": Number.POSITIVE_INFINITY,
 };
 const MIXED_DEFENSIVE_REWARD_INTERVALS: Partial<Record<BalanceMapId, number>> = {
@@ -1213,12 +1223,12 @@ function projectedBossRewardPowerGain(
   return Math.max(0, continuousPowerForState(projected) - before);
 }
 
-type BossFarmScenario = {
-  cycleSeconds: number;
-  rewardPowerGain: number;
-  powerPerMinute: number;
+type BossRewardScenario = {
+  firstClearCycleSeconds: number;
+  firstClearPowerGain: number;
+  firstClearPowerPerMinute: number;
   bestRegularPowerPerMinute: number;
-  efficiencyRatio: number;
+  firstClearEfficiencyRatio: number;
 };
 
 function bestRegularPowerPerMinute(
@@ -1246,24 +1256,24 @@ function bestRegularPowerPerMinute(
   return best;
 }
 
-function bossFarmScenario(
+function bossRewardScenario(
   map: BalanceMapDefinition,
   snapshot: SimulationStateSnapshot,
   adjustment: MapAdjustment,
-): BossFarmScenario | null {
+): BossRewardScenario | null {
   if (!map.boss) return null;
   const fight = bossFightSeconds(snapshot, map, adjustment);
   if (fight === null) return null;
-  const rewardPowerGain = projectedBossRewardPowerGain(snapshot, map.boss, adjustment);
-  const cycleSeconds = Math.max(.01, fight + LOOT_AND_RETARGET_SECONDS);
-  const powerPerMinute = rewardPowerGain / cycleSeconds * 60;
+  const firstClearPowerGain = projectedBossRewardPowerGain(snapshot, map.boss, adjustment);
+  const firstClearCycleSeconds = Math.max(.01, fight + LOOT_AND_RETARGET_SECONDS);
+  const firstClearPowerPerMinute = firstClearPowerGain / firstClearCycleSeconds * 60;
   const bestRegular = bestRegularPowerPerMinute(map, snapshot, adjustment);
   return {
-    cycleSeconds,
-    rewardPowerGain,
-    powerPerMinute,
+    firstClearCycleSeconds,
+    firstClearPowerGain,
+    firstClearPowerPerMinute,
     bestRegularPowerPerMinute: bestRegular,
-    efficiencyRatio: powerPerMinute / Math.max(.01, bestRegular),
+    firstClearEfficiencyRatio: firstClearPowerPerMinute / Math.max(.01, bestRegular),
   };
 }
 
@@ -1468,7 +1478,10 @@ function momentumForRecord(
   };
 }
 
-function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): TrialResult {
+function simulateTrial(
+  config: BalanceSimulationConfig,
+  trialIndex: number,
+): TrialResult {
   const random = seededRandom(config.seed + trialIndex * 104_729);
   const behavior = trialBehavior(config.strategy, random);
   const state: MutableSimulationState = {
@@ -1482,6 +1495,7 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     itemUpgradeLevel: config.itemUpgradeLevel,
     equipmentStrengthMultiplier: config.equipmentStrengthMultiplier,
     activeResearch: null,
+    bossRewardClaims: 0,
   };
   const history: HistoryPoint[] = [];
   const records: TrialMapRecord[] = [];
@@ -1500,11 +1514,12 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     record: TrialMapRecord,
     category: keyof MapTimeBudget,
     requestedSeconds: number,
+    budget: MapTimeBudget = record.timeBudget,
   ) => {
     const seconds = Math.max(0, requestedSeconds);
     const actual = Math.min(seconds, Math.max(0, config.durationSeconds - state.time));
     if (actual > 0) {
-      record.timeBudget[category] += actual;
+      budget[category] += actual;
       advanceTime(state, state.time + actual, config.researchPlan, recordHistory);
     }
     return actual + 1e-7 >= seconds;
@@ -1539,6 +1554,8 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
   };
 
   const projectedBossStatWeights = (boss: BossDefinition, adjustment: MapAdjustment) => {
+    const claimBit = BOSS_REWARD_CLAIM_BITS[boss.kind];
+    if ((state.bossRewardClaims & claimBit) !== 0) return [];
     const projected = stateSnapshot(state);
     const gains = new Map<ProgressionStat, number>();
     for (const reward of boss.rewards) {
@@ -1561,14 +1578,60 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     category: "travelSeconds" | "bossCombatSeconds",
     weights: Array<{ stat: ProgressionStat; weight: number }>,
     requestedSeconds: number,
+    budget: MapTimeBudget = record.timeBudget,
   ) => {
     const startedAt = state.time;
-    const completed = spendTime(record, category, requestedSeconds);
+    const completed = spendTime(record, category, requestedSeconds, budget);
     const actual = state.time - startedAt;
     for (const { stat, weight } of weights) {
       addStatTime(record, stat, actual * weight, category === "bossCombatSeconds");
     }
     return completed;
+  };
+
+  const applyBossReward = (
+    record: TrialMapRecord,
+    map: BalanceMapDefinition,
+    adjustment: MapAdjustment,
+  ) => {
+    if (!map.boss) return 0;
+    const claimBit = BOSS_REWARD_CLAIM_BITS[map.boss.kind];
+    const existingClaims = state.bossRewardClaims;
+    state.bossRewardClaims = (existingClaims | claimBit) >>> 0;
+    if ((existingClaims & claimBit) !== 0) return 0;
+    const powerBeforeReward = powerForState(state);
+    for (const reward of map.boss.rewards) {
+      const stat = progressionStatForReward(reward.type);
+      const directPowerBefore = continuousPowerForState(state);
+      applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward));
+      record.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
+      record.statInvestments[stat].rewardEvents += 1;
+    }
+    return Math.max(0, powerForState(state) - powerBeforeReward);
+  };
+
+  const repeatDefeatedBoss = (
+    record: TrialMapRecord,
+    map: BalanceMapDefinition,
+    maxRepeats: number,
+  ) => {
+    if (!map.boss) return;
+    let repeats = 0;
+    while (state.time < config.durationSeconds && repeats < maxRepeats) {
+      if (!spendTime(record, "respawnWaitSeconds", BOSS_RESPAWN_SECONDS, record.repeatTimeBudget)) break;
+      const repeatFight = bossFightSeconds(state, map, config.mapAdjustments[map.id]);
+      if (repeatFight === null) break;
+      const repeatStatWeights = projectedBossStatWeights(map.boss, config.mapAdjustments[map.id]);
+      if (!spendBossTime(record, "bossCombatSeconds", repeatStatWeights, repeatFight, record.repeatTimeBudget)) break;
+      const powerBeforeRepeat = powerForState(state);
+      applyBossReward(record, map, config.mapAdjustments[map.id]);
+      rollDrops(state, map.boss.drops, null, random, recordHistory);
+      if (!spendTime(record, "lootRetargetSeconds", LOOT_AND_RETARGET_SECONDS, record.repeatTimeBudget)) break;
+      repeats += 1;
+      record.repeatBossKills += 1;
+      record.repeatBossPowerGain += Math.max(0, powerForState(state) - powerBeforeRepeat);
+      recordHistory();
+    }
   };
 
   const beginMapRecord = (map: BalanceMapDefinition): TrialMapRecord => ({
@@ -1581,11 +1644,18 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
     exitBossTtkSeconds: bossFightSeconds(state, map, config.mapAdjustments[map.id]),
     bossFightSeconds: null,
     bossRewardPowerGain: null,
-    bossFarmKills: 0,
-    bossFarmPowerGain: 0,
+    repeatBossKills: 0,
+    repeatBossPowerGain: 0,
     regularKills: 0,
     fullClears: 0,
     timeBudget: {
+      regularCombatSeconds: 0,
+      bossCombatSeconds: 0,
+      travelSeconds: 0,
+      respawnWaitSeconds: 0,
+      lootRetargetSeconds: 0,
+    },
+    repeatTimeBudget: {
       regularCombatSeconds: 0,
       bossCombatSeconds: 0,
       travelSeconds: 0,
@@ -1619,58 +1689,34 @@ function simulateTrial(config: BalanceSimulationConfig, trialIndex: number): Tri
       if (!spendBossTime(mapRecord, "travelSeconds", statWeights, travel)) break;
       position = { x: map.boss.x, y: map.boss.y };
       if (!spendBossTime(mapRecord, "bossCombatSeconds", statWeights, currentBossFight)) break;
-      const powerBeforeBossReward = powerForState(state);
-      for (const reward of map.boss.rewards) {
-        const stat = progressionStatForReward(reward.type);
-        const directPowerBefore = continuousPowerForState(state);
-        applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward));
-        mapRecord.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
-        mapRecord.statInvestments[stat].rewardEvents += 1;
-      }
+      const bossRewardPowerGain = applyBossReward(mapRecord, map, adjustment);
       rollDrops(state, map.boss.drops, null, random, recordHistory);
       recordHistory();
       mapRecord.exitedAtSeconds = state.time;
       mapRecord.exitPower = powerForState(state);
       mapRecord.exitState = stateSnapshot(state);
       mapRecord.bossFightSeconds = currentBossFight;
-      mapRecord.bossRewardPowerGain = Math.max(0, mapRecord.exitPower - powerBeforeBossReward);
+      mapRecord.bossRewardPowerGain = bossRewardPowerGain;
       mapRecord.fullClears = clears;
       mapRecord.exitBossTtkSeconds = bossFightSeconds(state, map, adjustment);
       if (behavior.primaryStrategy === "boss-farm") {
-        mapRecord.bossFarmKills = 1;
-        mapRecord.bossFarmPowerGain = mapRecord.bossRewardPowerGain;
-        while (state.time < config.durationSeconds) {
-          const repeatFight = bossFightSeconds(state, map, adjustment);
-          if (repeatFight === null) break;
-          const repeatStatWeights = projectedBossStatWeights(map.boss, adjustment);
-          if (!spendBossTime(mapRecord, "bossCombatSeconds", repeatStatWeights, repeatFight)) break;
-          const powerBeforeRepeat = powerForState(state);
-          for (const reward of map.boss.rewards) {
-            const stat = progressionStatForReward(reward.type);
-            const directPowerBefore = continuousPowerForState(state);
-            applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward));
-            mapRecord.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
-            mapRecord.statInvestments[stat].rewardEvents += 1;
-          }
-          rollDrops(state, map.boss.drops, null, random, recordHistory);
-          if (!spendTime(mapRecord, "lootRetargetSeconds", LOOT_AND_RETARGET_SECONDS)) break;
-          mapRecord.bossFarmKills += 1;
-          mapRecord.bossFarmPowerGain += Math.max(0, powerForState(state) - powerBeforeRepeat);
-          mapRecord.exitPower = powerForState(state);
-          mapRecord.exitState = stateSnapshot(state);
-          mapRecord.exitBossTtkSeconds = bossFightSeconds(state, map, adjustment);
-          recordHistory();
-        }
-        mapRecord.exitedAtSeconds = state.time;
-        mapRecord.exitPower = powerForState(state);
-        mapRecord.exitState = stateSnapshot(state);
-        mapRecord.exitBossTtkSeconds = bossFightSeconds(state, map, adjustment);
+        repeatDefeatedBoss(mapRecord, map, Number.POSITIVE_INFINITY);
         break;
       }
-      // The campaign curve ends at the first defeat of its final boss. Bosses
-      // remain repeatable in the live game, but farming the capstone again in
-      // the same trial creates a reward feedback loop that is not progression.
-      if (state.mapIndex >= MAP_DEFINITIONS.length - 1) break;
+      if (behavior.primaryStrategy === "boss-rush") {
+        // Model the repeat-boss choice explicitly. The authoritative reward
+        // ledger grants permanent stats only on the first clear, so a repeat
+        // spends the real respawn window without inflating campaign power.
+        const repeats = state.mapIndex >= MAP_DEFINITIONS.length - 1 ? Number.POSITIVE_INFINITY : 1;
+        repeatDefeatedBoss(mapRecord, map, repeats);
+        if (state.time >= config.durationSeconds) break;
+      }
+      // The campaign curve ends at the first final-boss clear. Any modeled
+      // repeats are loot/social encounters and intentionally do not move
+      // canonical power.
+      if (state.mapIndex >= MAP_DEFINITIONS.length - 1) {
+        break;
+      }
       advanceTime(state, Math.min(config.durationSeconds, state.time + MAP_TRANSITION_SECONDS), config.researchPlan, recordHistory);
       if (state.time >= config.durationSeconds) break;
       state.mapIndex += 1;
@@ -1784,12 +1830,15 @@ function mapSummary(
     armor: numericQuantile(records.map((record) => effectiveStats(record.exitState).armor), probability),
     regen: numericQuantile(records.map((record) => effectiveStats(record.exitState).regen), probability),
   } : null;
-  const timeBudgetAt = (probability: number): MapTimeBudget | null => records.length ? {
-    regularCombatSeconds: numericQuantile(records.map((record) => record.timeBudget.regularCombatSeconds), probability),
-    bossCombatSeconds: numericQuantile(records.map((record) => record.timeBudget.bossCombatSeconds), probability),
-    travelSeconds: numericQuantile(records.map((record) => record.timeBudget.travelSeconds), probability),
-    respawnWaitSeconds: numericQuantile(records.map((record) => record.timeBudget.respawnWaitSeconds), probability),
-    lootRetargetSeconds: numericQuantile(records.map((record) => record.timeBudget.lootRetargetSeconds), probability),
+  const timeBudgetAt = (
+    source: (record: TrialMapRecord) => MapTimeBudget,
+    probability: number,
+  ): MapTimeBudget | null => records.length ? {
+    regularCombatSeconds: numericQuantile(records.map((record) => source(record).regularCombatSeconds), probability),
+    bossCombatSeconds: numericQuantile(records.map((record) => source(record).bossCombatSeconds), probability),
+    travelSeconds: numericQuantile(records.map((record) => source(record).travelSeconds), probability),
+    respawnWaitSeconds: numericQuantile(records.map((record) => source(record).respawnWaitSeconds), probability),
+    lootRetargetSeconds: numericQuantile(records.map((record) => source(record).lootRetargetSeconds), probability),
   } : null;
   const powerComponentsAt = (
     stateForRecord: (record: TrialMapRecord) => SimulationStateSnapshot,
@@ -1887,11 +1936,19 @@ function mapSummary(
       effectiveDoublingSecondsMedian: quantile(doublingSeconds, .5),
     };
   });
-  const bossFarmScenarios = records.flatMap((record) => {
+  const bossRewardScenarios = records.flatMap((record) => {
     // Compare a boss cycle at map entry, before repeated clears or rewards can
     // inflate the build and hide a farming exploit behind diminishing returns.
-    const scenario = bossFarmScenario(map, record.entryState, adjustment);
+    const scenario = bossRewardScenario(map, record.entryState, adjustment);
     return scenario ? [scenario] : [];
+  });
+  const observedRepeatScenarios = records.flatMap((record) => {
+    const repeatSeconds = Object.values(record.repeatTimeBudget).reduce((sum, seconds) => sum + seconds, 0);
+    if (record.repeatBossKills <= 0 || repeatSeconds <= 0) return [];
+    const scenario = bossRewardScenario(map, record.entryState, adjustment);
+    if (!scenario) return [];
+    const powerPerMinute = record.repeatBossPowerGain / repeatSeconds * 60;
+    return [{ powerPerMinute, efficiencyRatio: powerPerMinute / Math.max(.01, scenario.bestRegularPowerPerMinute) }];
   });
   return {
     mapId: map.id,
@@ -1921,14 +1978,17 @@ function mapSummary(
       const mapGrowth = record.exitPower - record.entryPower;
       return mapGrowth > 0 ? [record.bossRewardPowerGain / mapGrowth * 100] : [];
     }), .5),
-    bossFarmPowerPerMinuteMedian: quantile(bossFarmScenarios.map((scenario) => scenario.powerPerMinute), .5),
-    bestRegularPowerPerMinuteMedian: quantile(bossFarmScenarios.map((scenario) => scenario.bestRegularPowerPerMinute), .5),
-    bossFarmEfficiencyRatioMedian: quantile(bossFarmScenarios.map((scenario) => scenario.efficiencyRatio), .5),
-    bossFarmKillsMedian: map.boss ? quantile(records.map((record) => record.bossFarmKills), .5) : null,
-    bossFarmPowerGainMedian: map.boss ? quantile(records.map((record) => record.bossFarmPowerGain), .5) : null,
+    bossFirstClearPowerPerMinuteMedian: quantile(bossRewardScenarios.map((scenario) => scenario.firstClearPowerPerMinute), .5),
+    bossRepeatPermanentPowerPerMinuteMedian: quantile(observedRepeatScenarios.map((scenario) => scenario.powerPerMinute), .5),
+    bestRegularPowerPerMinuteMedian: quantile(bossRewardScenarios.map((scenario) => scenario.bestRegularPowerPerMinute), .5),
+    bossFirstClearEfficiencyRatioMedian: quantile(bossRewardScenarios.map((scenario) => scenario.firstClearEfficiencyRatio), .5),
+    bossRepeatEfficiencyRatioMedian: quantile(observedRepeatScenarios.map((scenario) => scenario.efficiencyRatio), .5),
+    repeatBossKillsMedian: map.boss ? quantile(records.map((record) => record.repeatBossKills), .5) : null,
+    repeatBossPowerGainMedian: map.boss ? quantile(records.map((record) => record.repeatBossPowerGain), .5) : null,
     regularKillsMedian: quantile(records.map((record) => record.regularKills), .5),
     fullClearsMedian: quantile(records.map((record) => record.fullClears), .5),
-    timeBudgetMedian: timeBudgetAt(.5),
+    timeBudgetMedian: timeBudgetAt((record) => record.timeBudget, .5),
+    repeatTimeBudgetMedian: timeBudgetAt((record) => record.repeatTimeBudget, .5),
     statProgression,
     momentum: momentumAt(.5),
     futureHeadroom: null,
@@ -2218,16 +2278,24 @@ function buildDiagnostics(
         diagnostics.push(`${current.name} ends at ${formatDiagnosticDuration(current.bossTtkAtExitMedianSeconds)} boss TTK, ${readinessRatio.toFixed(1)}× its ${formatDiagnosticDuration(readinessTarget)} readiness target; regular rewards are not keeping damage on pace.`);
       }
     }
-    if (current.bossFarmEfficiencyRatioMedian !== null && current.bossFarmEfficiencyRatioMedian >= 1.5) {
-      diagnostics.push(`${current.name}: repeating the boss returns ${current.bossFarmEfficiencyRatioMedian.toFixed(1)}× the best regular reward power per minute after a clear; this is a boss-farming progression risk.`);
+    if (current.bossFirstClearEfficiencyRatioMedian !== null && current.bossFirstClearEfficiencyRatioMedian >= 1.5) {
+      diagnostics.push(`${current.name}: the first-clear boss reward is ${current.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× the best regular reward rate; it is a one-time capstone payout, not a repeat progression source.`);
     }
-    if (current.bossFarmKillsMedian !== null && current.bossFarmKillsMedian > 1) {
-      diagnostics.push(`${current.name}: boss-farm mode repeats the capstone for ${current.bossFarmKillsMedian.toFixed(0)} median kills inside the window; compare its reward rate before allowing boss loops to be a progression strategy.`);
+    if (current.repeatBossKillsMedian !== null && current.repeatBossKillsMedian > 0) {
+      const repeatPower = current.repeatBossPowerGainMedian ?? 0;
+      if (repeatPower > Number.EPSILON) {
+        diagnostics.push(`${current.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power through repeat item outcomes; keep this below the first-clear runway.`);
+      } else {
+        diagnostics.push(`${current.name}: modeled repeat clears add no permanent combat power after the first clear; the repeat choice spends respawn/combat time for authored engagement rewards.`);
+      }
     }
   }
   const onboardingFarm = maps[0];
-  if (onboardingFarm?.bossFarmKillsMedian !== null && onboardingFarm.bossFarmKillsMedian > 1) {
-    diagnostics.push(`${onboardingFarm.name}: boss-farm mode repeats the capstone for ${onboardingFarm.bossFarmKillsMedian.toFixed(0)} median kills inside the window; compare its reward rate before allowing boss loops to be a progression strategy.`);
+  if (onboardingFarm?.repeatBossKillsMedian !== null && onboardingFarm.repeatBossKillsMedian > 0) {
+    const repeatPower = onboardingFarm.repeatBossPowerGainMedian ?? 0;
+    diagnostics.push(repeatPower > Number.EPSILON
+      ? `${onboardingFarm.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power through repeat item outcomes; keep this below the first-clear runway.`
+      : `${onboardingFarm.name}: modeled repeat clears add no permanent combat power after the first clear; the repeat choice spends respawn/combat time for authored engagement rewards.`);
   }
   const pacingCurveOnTrack = measuredPacingTargets > 0 && measuredPacingTargets === pacingTargetsOnTrack;
   if (pacingCurveOnTrack) {
@@ -2417,7 +2485,7 @@ export function runBalanceSimulationWithStrategyComparisons(
   const comparisonTrials = Math.min(primary.config.trials, STRATEGY_COMPARISON_TRIAL_CAP);
   const strategyTimelines = GUIDED_FARMING_STRATEGIES.map((strategy): StrategyTimeline => ({
     strategy,
-    timeline: runBalanceSimulation({
+    timeline: runBalanceSimulationInternal({
       ...primary.config,
       strategy,
       trials: comparisonTrials,

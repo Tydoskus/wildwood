@@ -942,6 +942,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cloudspireUnlocked: __t.bool(),
   moonfenUnlocked: __t.bool(),
   crystalHollowsUnlocked: __t.bool(),
+  bossRewardClaims: __t.u32(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

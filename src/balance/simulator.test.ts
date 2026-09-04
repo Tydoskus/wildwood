@@ -93,6 +93,19 @@ describe("balance simulator", () => {
     expect(new Set(finalStrategyPowers).size).toBeGreaterThan(1);
   });
 
+  it("holds canonical power flat during post-clear Boss-rush repeats", () => {
+    const result = runBalanceSimulationWithStrategyComparisons({
+      durationSeconds: 80 * 60 * 60,
+      trials: 1,
+      strategy: "mixed",
+      seed: 7_331,
+    });
+    const bossRush = result.strategyTimelines?.find((entry) => entry.strategy === "boss-rush");
+    const finalPoint = bossRush?.timeline.at(-1);
+    const previousPoint = bossRush?.timeline.at(-2);
+    expect(finalPoint?.powerMedian).toBe(previousPoint?.powerMedian);
+  });
+
   it("keeps a DPS-first player moving through discrete boss-readiness ties", () => {
     const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "dps-first", seed: 7_331 });
     expect(result.maps.find((map) => map.mapId === BEGINNER_DESERT_MAP_ID)?.completedPercent).toBe(100);
@@ -102,10 +115,12 @@ describe("balance simulator", () => {
   it("can run an explicit repeat-boss scenario and exposes its farming cost", () => {
     const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "boss-farm", seed: 7_331 });
     const forest = result.maps.find((map) => map.mapId === TUTORIAL_FOREST_MAP_ID)!;
-    expect(forest.bossFarmKillsMedian).toBeGreaterThan(1);
-    expect(forest.bossFarmPowerGainMedian).toBeGreaterThan(0);
-    expect(forest.bossFarmEfficiencyRatioMedian).not.toBeNull();
-    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("boss-farm mode repeats"))).toBe(true);
+    expect(forest.repeatBossKillsMedian).toBeGreaterThan(1);
+    expect(forest.repeatBossPowerGainMedian).toBe(0);
+    expect(forest.bossRepeatPermanentPowerPerMinuteMedian).toBe(0);
+    expect(forest.bossRepeatEfficiencyRatioMedian).toBe(0);
+    expect(forest.repeatTimeBudgetMedian?.respawnWaitSeconds).toBeGreaterThan(0);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("no permanent combat power"))).toBe(true);
   });
 
   it("produces a monotonic power timeline", () => {

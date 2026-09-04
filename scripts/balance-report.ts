@@ -183,9 +183,9 @@ for (const map of result.maps) {
   );
 }
 console.log("");
-console.log("Boss-farm check · repeat-boss power per minute vs best regular reward");
-for (const map of result.maps.filter((entry) => entry.hasBoss && entry.bossFarmEfficiencyRatioMedian !== null)) {
-  console.log(`- ${map.name}: ${formatCompactNumber(map.bossFarmPowerPerMinuteMedian ?? 0)} / min vs ${formatCompactNumber(map.bestRegularPowerPerMinuteMedian ?? 0)} regular · ${map.bossFarmEfficiencyRatioMedian!.toFixed(2)}× · ${formatCompactNumber(map.bossFarmKillsMedian ?? 0)} repeat kills`);
+console.log("Boss reward audit · first-clear power/min vs regular; repeat permanent power is capped");
+for (const map of result.maps.filter((entry) => entry.hasBoss && entry.bossFirstClearEfficiencyRatioMedian !== null)) {
+  console.log(`- ${map.name}: first clear ${formatCompactNumber(map.bossFirstClearPowerPerMinuteMedian ?? 0)} / min vs ${formatCompactNumber(map.bestRegularPowerPerMinuteMedian ?? 0)} regular · ${map.bossFirstClearEfficiencyRatioMedian!.toFixed(2)}× · repeat ${formatCompactNumber(map.bossRepeatPermanentPowerPerMinuteMedian ?? 0)} / min permanent · ${formatCompactNumber(map.repeatBossKillsMedian ?? 0)} repeat kills`);
 }
 console.log("");
 console.log("Median map time allocation");
@@ -196,6 +196,21 @@ for (const map of result.maps) {
   const total = Object.values(budget).reduce((sum, seconds) => sum + seconds, 0);
   const percent = (seconds: number) => `${Math.round(seconds / Math.max(1, total) * 100)}%`;
   console.log(`${pad(map.name, 26)}${pad(percent(budget.regularCombatSeconds), 12)}${pad(percent(budget.bossCombatSeconds), 10)}${pad(percent(budget.travelSeconds), 10)}${pad(percent(budget.respawnWaitSeconds), 10)}${percent(budget.lootRetargetSeconds)}`);
+}
+const repeatMaps = result.maps.filter((map) => {
+  const budget = map.repeatTimeBudgetMedian;
+  return budget && Object.values(budget).some((seconds) => seconds > 0);
+});
+if (repeatMaps.length) {
+  console.log("");
+  console.log("Median repeat-loop allocation (excluded from first-clear map duration)");
+  console.log(`${pad("Map", 26)}${pad("Boss", 10)}${pad("Respawn", 10)}${pad("Loot", 10)}Repeats`);
+  for (const map of repeatMaps) {
+    const budget = map.repeatTimeBudgetMedian!;
+    const total = Object.values(budget).reduce((sum, seconds) => sum + seconds, 0);
+    const percent = (seconds: number) => `${Math.round(seconds / Math.max(1, total) * 100)}%`;
+    console.log(`${pad(map.name, 26)}${pad(percent(budget.bossCombatSeconds), 10)}${pad(percent(budget.respawnWaitSeconds), 10)}${pad(percent(budget.lootRetargetSeconds), 10)}${Math.round(map.repeatBossKillsMedian ?? 0)}`);
+  }
 }
 console.log("");
 console.log("Median stat investment · active pursuit time / time per +1% entry power");

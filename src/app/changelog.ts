@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.618": [
+    "Boss permanent combat rewards are now first-clear-only, so repeat bosses cannot compound a player's power; authored repeat item outcomes remain available.",
+    "Rebalanced late-boss armor and regeneration from each boss's HP envelope, and made Balance Lab repeat time, first-clear power, and repeat power report separately on the tech-tree-on curve.",
+  ],
   "0.617": [
     "Recalibrated post-onboarding pacing, enemy health, incoming damage, rewards, and boss gates against the balanced tech-tree curve.",
     "Balance Lab now fills the power graph as campaigns complete, with light mode and separate Natural, Efficient, DPS-first, and Boss-rush strategy traces.",
@@ -1465,6 +1469,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.618": "2026-09-03",
   "0.616": "2026-09-03",
   "0.614": "2026-09-03",
   "0.613": "2026-09-03",

@@ -375,11 +375,11 @@ function powerCompositionMarkup(map: BalanceSimulationResult["maps"][number]) {
   const components = map.exitPowerComponentsMedian;
   if (!components || components.total <= 0) return "";
   const share = (value: number) => Math.round(value / components.total * 100);
-  const farmMarkup = map.bossFarmEfficiencyRatioMedian === null
+  const repeatMarkup = map.bossFirstClearEfficiencyRatioMedian === null
     ? ""
-    : `<span class="cell-sub">boss farm ${map.bossFarmEfficiencyRatioMedian.toFixed(1)}× best regular · ${formatCompactNumber(map.bossFarmPowerPerMinuteMedian ?? 0)}/min · ${formatCompactNumber(map.bossFarmKillsMedian ?? 0)} clears in farm mode</span>`;
+    : `<span class="cell-sub">first clear ${map.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× regular · repeat permanent ${map.bossRepeatEfficiencyRatioMedian?.toFixed(1) ?? "0.0"}× · ${formatCompactNumber(map.repeatBossKillsMedian ?? 0)} repeat clears</span>`;
   return `<span class="cell-sub">budget D ${share(components.damage)}% · HP ${share(components.health)}% · A ${share(components.armor)}% · R ${share(components.regeneration)}%</span>` +
-    `<span class="cell-sub">equipment adds ${components.equipmentSharePercent.toFixed(0)}% of exit power${map.bossRewardGrowthSharePercent === null ? "" : ` · boss supplies ${map.bossRewardGrowthSharePercent.toFixed(0)}% of map gains`}</span>${farmMarkup}`;
+    `<span class="cell-sub">equipment adds ${components.equipmentSharePercent.toFixed(0)}% of exit power${map.bossRewardGrowthSharePercent === null ? "" : ` · boss supplies ${map.bossRewardGrowthSharePercent.toFixed(0)}% of map gains`}</span>${repeatMarkup}`;
 }
 
 function curveProgressMarkup(map: BalanceSimulationResult["maps"][number]) {
@@ -407,16 +407,18 @@ const STAT_TIME_CATEGORIES: Array<{ key: ProgressionStat; label: string }> = [
 
 function renderTimeBudgets(next: BalanceSimulationResult) {
   timeBudgetRows.replaceChildren();
-  for (const map of next.maps) {
-    const budget = map.timeBudgetMedian;
-    if (!budget) continue;
+  const addBudgetRow = (
+    map: BalanceSimulationResult["maps"][number],
+    budget: NonNullable<BalanceSimulationResult["maps"][number]["timeBudgetMedian"]>,
+    suffix = "",
+  ) => {
     const total = TIME_BUDGET_CATEGORIES.reduce((sum, category) => sum + budget[category.key], 0);
-    if (total <= 0) continue;
+    if (total <= 0) return;
     const row = document.createElement("div");
     row.className = "time-budget-row";
     const label = document.createElement("span");
     label.className = "time-budget-map";
-    label.textContent = map.name;
+    label.textContent = suffix ? `${map.name} · ${suffix}` : map.name;
     const track = document.createElement("div");
     track.className = "time-budget-track";
     track.setAttribute("role", "img");
@@ -424,7 +426,7 @@ function renderTimeBudgets(next: BalanceSimulationResult) {
       .filter((category) => budget[category.key] > 0)
       .map((category) => `${category.label.toLowerCase()} ${Math.round(budget[category.key] / total * 100)}%`)
       .join(", ");
-    track.setAttribute("aria-label", `${map.name}: ${description}`);
+    track.setAttribute("aria-label", `${map.name}${suffix ? ` ${suffix.toLowerCase()}` : ""}: ${description}`);
     for (const category of TIME_BUDGET_CATEGORIES) {
       const seconds = budget[category.key];
       if (seconds <= 0) continue;
@@ -438,6 +440,12 @@ function renderTimeBudgets(next: BalanceSimulationResult) {
     value.textContent = formatDuration(total);
     row.append(label, track, value);
     timeBudgetRows.append(row);
+  };
+  for (const map of next.maps) {
+    const budget = map.timeBudgetMedian;
+    if (!budget) continue;
+    addBudgetRow(map, budget);
+    if (map.repeatTimeBudgetMedian) addBudgetRow(map, map.repeatTimeBudgetMedian, "REPEAT LOOP");
   }
 }
 

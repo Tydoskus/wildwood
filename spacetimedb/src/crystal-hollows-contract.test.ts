@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ConnectionId, Timestamp } from "spacetimedb";
-import { PRISMSHELL_MAX_HP, PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH } from "../../shared/rules";
+import { BOSS_REWARD_CLAIM_BITS, PRISMSHELL_MAX_HP, PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH } from "../../shared/rules";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { reducerParameters } from "../../tests/helpers/spacetime-module";
 
@@ -10,8 +10,10 @@ describe("Crystal Hollows reducer behavior (in-memory, not native host integrati
   it("appends a default-false unlock and excludes it from the save wire arguments", () => {
     const columns = server.default.schemaType.tables.playerProgress.columns;
     expect(columns.crystalHollowsUnlocked.columnMetadata.defaultValue).toBe(false);
+    expect(columns.bossRewardClaims.columnMetadata.defaultValue).toBe(0);
     const names = Object.keys(columns);
     expect(names.indexOf("crystalHollowsUnlocked")).toBeGreaterThan(names.indexOf("moonfenUnlocked"));
+    expect(names.indexOf("bossRewardClaims")).toBeGreaterThan(names.indexOf("crystalHollowsUnlocked"));
     expect(reducerParameters.get(server.savePlayerProgress)).not.toHaveProperty("crystalHollowsUnlocked");
     expect(Object.keys(reducerParameters.get(server.damagePrismshellFromPosition)!).sort()).toEqual(["hits", "x", "y"]);
   });
@@ -23,6 +25,9 @@ describe("Crystal Hollows reducer behavior (in-memory, not native host integrati
     });
     save(true);
     expect(f.db.playerProgress.identity.find(f.ctx.sender).crystalHollowsUnlocked).toBe(false);
+    f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.prismshell });
+    save(false);
+    expect(f.db.playerProgress.identity.find(f.ctx.sender).bossRewardClaims).toBe(BOSS_REWARD_CLAIM_BITS.prismshell);
     f.patch("playerProgress", { crystalHollowsUnlocked: true });
     save(false);
     expect(f.db.playerProgress.identity.find(f.ctx.sender).crystalHollowsUnlocked).toBe(true);
@@ -113,7 +118,15 @@ describe("Crystal Hollows reducer behavior (in-memory, not native host integrati
     expect(f.db.prismshellBoss.id.find(1)).toMatchObject({ alive: false, hp: 0 });
     f.attack();
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(earned);
-    expect(f.db.prismshellRespawnSchedule.count()).toBe(1n);
+    const schedule = [...f.db.prismshellRespawnSchedule.iter()][0];
+    f.ctx.timestamp = new Timestamp(f.db.prismshellBoss.id.find(1).respawnAtMicros);
+    f.run(server.respawnPrismshell, { schedule });
+    f.db.prismshellBoss.id.update({ ...f.db.prismshellBoss.id.find(1), hp: 150, alive: true });
+    f.attack();
+    const repeated = f.db.playerProgress.identity.find(f.ctx.sender);
+    expect(repeated).toEqual(earned);
+    expect(repeated.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell).toBe(BOSS_REWARD_CLAIM_BITS.prismshell);
+    expect(f.db.prismshellRespawnSchedule.count()).toBe(2n);
   });
 
   it("respawns only when due for the same encounter, clearing prior combat rows", () => {

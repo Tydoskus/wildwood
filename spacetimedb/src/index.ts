@@ -133,6 +133,7 @@ import { analyticalPlayerMotionAt } from "../../shared/analytical-player-motion"
 import {
   ATTACK_BALANCE_VERSION,
   ADVANCED_LAVA_WASTES_MAP_ID,
+  BOSS_REWARD_CLAIM_BITS,
   BEGINNER_DESERT_MAP_ID,
   CLOUDSPIRE_MAP_ID,
   DEFAULT_ATTACK_INTERVAL,
@@ -313,7 +314,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 21;
+const MODULE_MIGRATION_VERSION = 22;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -785,6 +786,9 @@ const playerProgress = table(
     moonfenUnlocked: t.bool().default(false),
     // Append-only migration; only Miremaw's server-owned reward opens this map.
     crystalHollowsUnlocked: t.bool().default(false),
+    // Append-only first-clear ledger. Repeat boss encounters never add
+    // permanent combat stats after the corresponding bit is set.
+    bossRewardClaims: t.u32().default(0),
   },
 );
 
@@ -1980,6 +1984,7 @@ function defaultPlayerProgress(identity: any) {
     cloudspireUnlocked: false,
     moonfenUnlocked: false,
     crystalHollowsUnlocked: false,
+    bossRewardClaims: 0,
     bowCount: 0,
     woodenArmorCount: 0,
     cosmeticHead: "",
@@ -2018,6 +2023,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "cloudspireUnlocked",
   "moonfenUnlocked",
   "crystalHollowsUnlocked",
+  "bossRewardClaims",
   "bowCount",
   "woodenArmorCount",
   "cosmeticHead",
@@ -2341,6 +2347,28 @@ function runPendingModuleMigrations(ctx: any) {
         if (!progress.crystalHollowsUnlocked && resultIncludesContributor(result, progress.identity)) {
           ctx.db.playerProgress.identity.update({ ...progress, crystalHollowsUnlocked: true });
         }
+      }
+    }
+  }
+  if (currentVersion < 22) {
+    // Existing map access proves the corresponding first-clear reward was
+    // already earned. Seed the append-only ledger before repeat encounters
+    // become stat-free; Prismshell has no downstream unlock, so only its
+    // latest recorded contributor list is safe evidence for that bit.
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      let bossRewardClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
+      if (progress.desertUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.dragon;
+      if (progress.snowlandsUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.spider;
+      if (progress.lavaUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.frostclaw;
+      if (progress.infernalUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.magmalisk;
+      if (progress.waterUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.gloomroot;
+      if (progress.samuraiUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.tidewyrm;
+      if (progress.cloudspireUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.koiShogun;
+      if (progress.moonfenUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.tempestKirin;
+      if (progress.crystalHollowsUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.miremaw;
+      if (contributedToLatestPrismshell(ctx, progress.identity)) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.prismshell;
+      if (bossRewardClaims !== Number(progress.bossRewardClaims ?? 0)) {
+        ctx.db.playerProgress.identity.update({ ...progress, bossRewardClaims });
       }
     }
   }
@@ -3287,7 +3315,8 @@ function hasFreshProgress(progress: any) {
     progress.samuraiUnlocked === defaultProgress.samuraiUnlocked &&
     progress.cloudspireUnlocked === defaultProgress.cloudspireUnlocked &&
     progress.moonfenUnlocked === defaultProgress.moonfenUnlocked &&
-    progress.crystalHollowsUnlocked === defaultProgress.crystalHollowsUnlocked;
+    progress.crystalHollowsUnlocked === defaultProgress.crystalHollowsUnlocked &&
+    (progress.bossRewardClaims ?? 0) === defaultProgress.bossRewardClaims;
 }
 
 function resultIncludesContributor(latest: any, identity: any) {
@@ -3331,6 +3360,10 @@ function contributedToLatestTempestKirin(ctx: any, identity: any) {
 
 function contributedToLatestMiremaw(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.miremawResult.id.find(MIREMAW_ID), identity);
+}
+
+function contributedToLatestPrismshell(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.prismshellResult.id.find(PRISMSHELL_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -4492,12 +4525,11 @@ function rewardSpiderContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + SPIDER_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + SPIDER_REWARD_HEALTH * rewardMultiplier,
-    snowlandsUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.spider, rewardMultiplier, {
+    damage: SPIDER_REWARD_DAMAGE,
+    maxHp: SPIDER_REWARD_HEALTH,
+  });
+  const next = { ...reward.next, snowlandsUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -4559,13 +4591,12 @@ function rewardFrostclawContributor(ctx: any, identity: any) {
   // that item. Successful duplicates become an explicit "Already owned" event.
   const frostBowDropped = ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
   const frostArmorDropped = ctx.random.integerInRange(1, SNOW_BOSS_ARMOR_DROP_DENOMINATOR) === 1;
-  let next = {
-    ...current,
-    damage: current.damage + FROSTCLAW_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + FROSTCLAW_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + FROSTCLAW_REWARD_ARMOR * rewardMultiplier,
-    lavaUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.frostclaw, rewardMultiplier, {
+    damage: FROSTCLAW_REWARD_DAMAGE,
+    maxHp: FROSTCLAW_REWARD_HEALTH,
+    armor: FROSTCLAW_REWARD_ARMOR,
+  });
+  let next = { ...reward.next, lavaUnlocked: true };
   if (frostBowDropped) {
     const alreadyOwned = playerOwnsItem(ctx, identity, FROST_BOW);
     publishItemDrop(ctx, identity, FROST_BOW, alreadyOwned);
@@ -4635,14 +4666,13 @@ function rewardMagmaliskContributor(ctx: any, identity: any) {
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
   const lavaBowDropped = ctx.random.integerInRange(1, LAVA_BOSS_ITEM_DROP_DENOMINATOR) === 1;
-  let next = {
-    ...current,
-    damage: current.damage + MAGMALISK_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + MAGMALISK_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + MAGMALISK_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + MAGMALISK_REWARD_REGEN * rewardMultiplier,
-    infernalUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.magmalisk, rewardMultiplier, {
+    damage: MAGMALISK_REWARD_DAMAGE,
+    maxHp: MAGMALISK_REWARD_HEALTH,
+    armor: MAGMALISK_REWARD_ARMOR,
+    regen: MAGMALISK_REWARD_REGEN,
+  });
+  let next = { ...reward.next, infernalUnlocked: true };
   if (lavaBowDropped) {
     const alreadyOwned = playerOwnsItem(ctx, identity, LAVA_BOW);
     publishItemDrop(ctx, identity, LAVA_BOW, alreadyOwned);
@@ -4706,14 +4736,13 @@ function rewardGloomrootContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + GLOOMROOT_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + GLOOMROOT_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + GLOOMROOT_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + GLOOMROOT_REWARD_REGEN * rewardMultiplier,
-    waterUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.gloomroot, rewardMultiplier, {
+    damage: GLOOMROOT_REWARD_DAMAGE,
+    maxHp: GLOOMROOT_REWARD_HEALTH,
+    armor: GLOOMROOT_REWARD_ARMOR,
+    regen: GLOOMROOT_REWARD_REGEN,
+  });
+  const next = { ...reward.next, waterUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -4794,19 +4823,38 @@ function clearPrismshellCombatRows(ctx: any) {
   for (const identity of attackIdentities) ctx.db.prismshellAttackWindow.identity.delete(identity);
 }
 
+function claimBossPermanentReward(
+  progress: any,
+  claimBit: number,
+  rewardMultiplier: number,
+  rewards: Partial<{ damage: number; maxHp: number; armor: number; regen: number }>,
+) {
+  const existingClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
+  const firstClear = (existingClaims & claimBit) === 0;
+  const next = {
+    ...progress,
+    bossRewardClaims: (existingClaims | claimBit) >>> 0,
+  };
+  if (!firstClear) return { next, firstClear };
+  if (rewards.damage !== undefined) next.damage = progress.damage + rewards.damage * rewardMultiplier;
+  if (rewards.maxHp !== undefined) next.maxHp = progress.maxHp + rewards.maxHp * rewardMultiplier;
+  if (rewards.armor !== undefined) next.armor = progress.armor + rewards.armor * rewardMultiplier;
+  if (rewards.regen !== undefined) next.regen = progress.regen + rewards.regen * rewardMultiplier;
+  return { next, firstClear };
+}
+
 
 function rewardTidewyrmContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + TIDEWYRM_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + TIDEWYRM_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + TIDEWYRM_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + TIDEWYRM_REWARD_REGEN * rewardMultiplier,
-    samuraiUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.tidewyrm, rewardMultiplier, {
+    damage: TIDEWYRM_REWARD_DAMAGE,
+    maxHp: TIDEWYRM_REWARD_HEALTH,
+    armor: TIDEWYRM_REWARD_ARMOR,
+    regen: TIDEWYRM_REWARD_REGEN,
+  });
+  const next = { ...reward.next, samuraiUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -4823,15 +4871,13 @@ function rewardKoiShogunContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + KOI_SHOGUN_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + KOI_SHOGUN_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + KOI_SHOGUN_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + KOI_SHOGUN_REWARD_REGEN * rewardMultiplier,
-    samuraiUnlocked: true,
-    cloudspireUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.koiShogun, rewardMultiplier, {
+    damage: KOI_SHOGUN_REWARD_DAMAGE,
+    maxHp: KOI_SHOGUN_REWARD_HEALTH,
+    armor: KOI_SHOGUN_REWARD_ARMOR,
+    regen: KOI_SHOGUN_REWARD_REGEN,
+  });
+  const next = { ...reward.next, samuraiUnlocked: true, cloudspireUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -4848,15 +4894,13 @@ function rewardTempestKirinContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + TEMPEST_KIRIN_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + TEMPEST_KIRIN_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + TEMPEST_KIRIN_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + TEMPEST_KIRIN_REWARD_REGEN * rewardMultiplier,
-    cloudspireUnlocked: true,
-    moonfenUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.tempestKirin, rewardMultiplier, {
+    damage: TEMPEST_KIRIN_REWARD_DAMAGE,
+    maxHp: TEMPEST_KIRIN_REWARD_HEALTH,
+    armor: TEMPEST_KIRIN_REWARD_ARMOR,
+    regen: TEMPEST_KIRIN_REWARD_REGEN,
+  });
+  const next = { ...reward.next, cloudspireUnlocked: true, moonfenUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -4873,15 +4917,13 @@ function rewardMiremawContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + MIREMAW_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + MIREMAW_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + MIREMAW_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + MIREMAW_REWARD_REGEN * rewardMultiplier,
-    moonfenUnlocked: true,
-    crystalHollowsUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.miremaw, rewardMultiplier, {
+    damage: MIREMAW_REWARD_DAMAGE,
+    maxHp: MIREMAW_REWARD_HEALTH,
+    armor: MIREMAW_REWARD_ARMOR,
+    regen: MIREMAW_REWARD_REGEN,
+  });
+  const next = { ...reward.next, moonfenUnlocked: true, crystalHollowsUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -4897,14 +4939,13 @@ function rewardPrismshellContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = {
-    ...current,
-    damage: current.damage + PRISMSHELL_REWARD_DAMAGE * rewardMultiplier,
-    maxHp: current.maxHp + PRISMSHELL_REWARD_HEALTH * rewardMultiplier,
-    armor: current.armor + PRISMSHELL_REWARD_ARMOR * rewardMultiplier,
-    regen: current.regen + PRISMSHELL_REWARD_REGEN * rewardMultiplier,
-    crystalHollowsUnlocked: true,
-  };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.prismshell, rewardMultiplier, {
+    damage: PRISMSHELL_REWARD_DAMAGE,
+    maxHp: PRISMSHELL_REWARD_HEALTH,
+    armor: PRISMSHELL_REWARD_ARMOR,
+    regen: PRISMSHELL_REWARD_REGEN,
+  });
+  const next = { ...reward.next, crystalHollowsUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -5099,7 +5140,10 @@ function rewardDragonContributor(ctx: any, identity: any) {
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
-  const next = { ...current, damage: current.damage + DRAGON_REWARD_DAMAGE * rewardMultiplier, desertUnlocked: true };
+  const reward = claimBossPermanentReward(current, BOSS_REWARD_CLAIM_BITS.dragon, rewardMultiplier, {
+    damage: DRAGON_REWARD_DAMAGE,
+  });
+  const next = { ...reward.next, desertUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -7755,6 +7799,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       cloudspireUnlocked: base.cloudspireUnlocked,
       moonfenUnlocked: base.moonfenUnlocked,
       crystalHollowsUnlocked: base.crystalHollowsUnlocked,
+      bossRewardClaims: base.bossRewardClaims ?? 0,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
