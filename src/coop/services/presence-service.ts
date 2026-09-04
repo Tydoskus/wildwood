@@ -1037,7 +1037,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       motionInterestInFlight = false;
       speedSyncTracker.reset();
     },
-    clearSession() {
+    clearSession(preserveOnlineCount = false) {
       serverClockAnchor = null;
       releaseMapPlayerSubscription();
       releaseMapMarkerSubscription();
@@ -1049,7 +1049,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       activeMotionIdentities.clear();
       resetMotionInterest();
       localMotionNetworkId = null;
-      onlinePlayerCount = 0;
+      if (!preserveOnlineCount) onlinePlayerCount = 0;
       playerMaps.clear();
     },
   };

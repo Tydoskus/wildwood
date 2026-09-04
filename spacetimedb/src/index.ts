@@ -3984,23 +3984,15 @@ function mergeBalanceApologyNotice(ctx: any, guestIdentity: any, accountIdentity
 }
 
 function countOnlinePlayers(ctx: any) {
-  let count = 0;
-  for (const current of ctx.db.player.iter() as Iterable<any>) {
-    if (current.isVisible) count += 1;
-  }
-  return count;
+  // One root presence row per online identity, across every map and shard.
+  // Table cardinality avoids scanning players or summing transient shard seats.
+  return Number(ctx.db.player.count());
 }
 
 function ensureWorldStatus(ctx: any) {
   const current = ctx.db.worldStatus.id.find(0);
   if (current) return current;
   return ctx.db.worldStatus.insert({ id: 0, onlinePlayers: countOnlinePlayers(ctx) });
-}
-
-function adjustOnlinePlayers(ctx: any, change: number) {
-  const current = ensureWorldStatus(ctx);
-  const onlinePlayers = Math.max(0, current.onlinePlayers + change);
-  if (onlinePlayers !== current.onlinePlayers) ctx.db.worldStatus.id.update({ ...current, onlinePlayers });
 }
 
 function reconcileOnlinePlayers(ctx: any) {
@@ -4046,7 +4038,7 @@ function removeIdentityPresence(ctx: any, identity: any) {
     ctx.db.player.identity.delete(identity);
     if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
     if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
-    if (activePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
+    reconcileOnlinePlayers(ctx);
   }
   removePlayerRealtimeState(ctx, identity);
 }
@@ -4079,6 +4071,7 @@ function virtualPlayerCountForOwner(ctx: any, owner: any) {
 function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true, adjustOwnerCount = true) {
   const registration = ctx.db.virtualPlayer.identity.find(identity);
   if (!registration) return false;
+  releaseMapShard(ctx, identity);
   removePlayerSafetyData(ctx, identity);
 
   const activePlayer = ctx.db.player.identity.find(identity);
@@ -4145,7 +4138,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
 
   ctx.db.virtualPlayer.identity.delete(identity);
   if (adjustOwnerCount) adjustVirtualPlayerCount(ctx, registration.owner, -1);
-  if (adjustPresence && activePlayer?.isVisible) adjustOnlinePlayers(ctx, -1);
+  if (adjustPresence && activePlayer) reconcileOnlinePlayers(ctx);
   return Boolean(activePlayer?.isVisible);
 }
 
@@ -5687,7 +5680,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       syncPlayerMotionIdentity(ctx, currentPlayer);
       syncPlayerMapMarker(ctx, currentPlayer, true);
       ensureRealtimeFrameSchedules(ctx);
-      if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
@@ -5721,7 +5713,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     syncPlayerMotionIdentity(ctx, currentPlayer);
     syncPlayerMapMarker(ctx, currentPlayer, true);
     ensureRealtimeFrameSchedules(ctx);
-    if (existing.isVisible !== visibleOnEntry) adjustOnlinePlayers(ctx, visibleOnEntry ? 1 : -1);
     return;
   }
 
@@ -5759,7 +5750,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   syncPlayerMotionIdentity(ctx, insertedPlayer);
   syncPlayerMapMarker(ctx, insertedPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
-  if (visibleOnEntry) adjustOnlinePlayers(ctx, 1);
+  reconcileOnlinePlayers(ctx);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -7263,7 +7254,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     const guestActivePlayer = ctx.db.player.identity.find(link.guest);
     if (guestActivePlayer) {
       ctx.db.player.identity.delete(link.guest);
-      if (guestActivePlayer.isVisible) adjustOnlinePlayers(ctx, -1);
+      reconcileOnlinePlayers(ctx);
     }
     removePlayerRealtimeState(ctx, link.guest);
     if (ctx.db.playerMapMarker.identity.find(link.guest)) ctx.db.playerMapMarker.identity.delete(link.guest);
@@ -7377,7 +7368,6 @@ export const setDeveloperPresence = spacetimedb.reducer(
     syncPlayerMotionIdentity(ctx, nextPlayer);
     syncPlayerMapMarker(ctx, nextPlayer, true);
     ensureRealtimeFrameSchedules(ctx);
-    adjustOnlinePlayers(ctx, visible ? 1 : -1);
   },
 );
 
@@ -8835,6 +8825,10 @@ export const configureSharding = spacetimedb.reducer(
       ensureRealtimeFrameSchedules(ctx);
     }
     if (args.role === "root" && args.enabled) {
+      for (const member of ctx.db.mapShardMember.iter()) {
+        if (!ctx.db.player.identity.find(member.identity)) releaseMapShard(ctx, member.identity);
+      }
+      reconcileOnlinePlayers(ctx);
       for (const shard of ctx.db.mapShard.iter()) {
         if (ctx.db.shardCoordinatorConnection.id.find(0) && !ctx.db.shardCoordinatorSchedule.scheduledId.find(shard.id)) {
           ctx.db.shardCoordinatorSchedule.insert({ scheduledId: shard.id, scheduledAt: ScheduleAt.interval(1_000_000n) });

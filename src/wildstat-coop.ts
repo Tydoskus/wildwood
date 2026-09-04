@@ -543,7 +543,7 @@ mapShardClient = createMapShardClient({
   host, root: () => connection, port: reducerPort, handlers: baseSubscriptionHandlers,
   token: () => accountService.accountToken() || accountService.guestToken() || undefined,
   tabId: () => accountService.tabId(), changed: onChange,
-  resetWorld: () => { presenceService.clearSession(); presenceService.beginSession(false); bossService.resetSession(); },
+  resetWorld: () => { presenceService.clearSession(true); presenceService.beginSession(false); bossService.resetSession(); },
   worldReady: () => presenceService.activateSubscriptions(),
 });
 

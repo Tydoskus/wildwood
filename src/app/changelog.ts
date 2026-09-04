@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.625": [
+    "Online players now shows one global total across all maps and stays correct when connecting or switching map instances.",
+    "Virtual-player cleanup now frees its map slots instead of leaving instances marked full.",
+  ],
   "0.624": [
     "Maps now fill to 10 players, with another instance prepared as a map reaches 9.",
     "Characters, gear, research, and duels stay shared across map instances, while each instance has its own boss fight.",
@@ -1497,6 +1501,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.625": "2026-09-04",
   "0.624": "2026-09-04",
   "0.623": "2026-09-04",
   "0.622": "2026-09-04",

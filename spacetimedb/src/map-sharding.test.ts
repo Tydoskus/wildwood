@@ -143,4 +143,40 @@ describe("separate map database control plane", () => {
     expect(region.db.prismshellBoss.id.find(1).hp).toBe(hp);
   });
 
+  it("counts online identities across maps, including hidden players, and removes them once on disconnect", () => {
+    const f = rootFixture();
+    f.seed("player", { ...f.db.player.identity.find(identity("1")), identity: identity("2"), mapId: "tutorial_forest", isVisible: false });
+    f.run(server.configureSharding, { role: "root", enabled: true, mapId: "", shardId: 0n });
+    expect(f.db.worldStatus.id.find(0).onlinePlayers).toBe(2);
+    f.run(server.configureSharding, { role: "root", enabled: true, mapId: "", shardId: 0n });
+    expect(f.db.worldStatus.id.find(0).onlinePlayers).toBe(2);
+    f.ctx.sender = identity("1");
+    f.run(server.onDisconnect);
+    expect(f.db.worldStatus.id.find(0).onlinePlayers).toBe(1);
+    f.seed("playerSession", { connectionId: f.ctx.connectionId, identity: identity("2"), enteredWorld: true, protocolVersion: f.db.player.identity.find(identity("2")).protocolVersion });
+    f.seed("playerController", { identity: identity("2"), connectionId: f.ctx.connectionId });
+    f.ctx.sender = identity("2");
+    f.run(server.onDisconnect);
+    expect(f.db.worldStatus.id.find(0).onlinePlayers).toBe(0);
+    expect(f.db.mapShardMember.count()).toBe(0n);
+  });
+
+  it("releases virtual-player seats and repairs reservations left by earlier cleanup", () => {
+    const f = rootFixture();
+    f.run(server.configureSharding, { role: "root", enabled: true, mapId: "", shardId: 0n });
+    f.run(server.shardReady, { shardId: 1n });
+    f.seed("virtualPlayer", { identity: identity("1"), owner: identity("4"), mapId: "crystal_hollows", spawnX: 4050, spawnY: 4050, createdAt: f.ctx.timestamp });
+    f.ctx.sender = identity("1");
+    f.run(server.onDisconnect);
+    expect(f.db.mapShardMember.count()).toBe(0n);
+    expect(f.db.mapShard.id.find(1n).occupants).toBe(0);
+    expect(f.db.worldStatus.id.find(0).onlinePlayers).toBe(0);
+    f.seed("mapShardMember", { identity: identity("2"), mapId: "crystal_hollows", shardId: 1n, generation: 10n, ready: false });
+    f.db.mapShard.id.update({ ...f.db.mapShard.id.find(1n), occupants: 1 });
+    f.ctx.sender = owner;
+    f.run(server.configureSharding, { role: "root", enabled: true, mapId: "", shardId: 0n });
+    expect(f.db.mapShardMember.count()).toBe(0n);
+    expect(f.db.mapShard.id.find(1n).occupants).toBe(0);
+  });
+
 });

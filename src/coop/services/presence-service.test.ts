@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bossTargetsFromMapSamples } from "./presence-service";
+import { bossTargetsFromMapSamples, createPresenceService } from "./presence-service";
 
 describe("boss presence targets", () => {
   it("uses the live local position when the solo map snapshot has gone idle", () => {
@@ -13,4 +13,17 @@ describe("boss presence targets", () => {
       { id: "network:9", x: 900, y: 1_100 },
     ]);
   });
+});
+
+
+it("preserves the global online total through map handoffs and resets it on account disconnect", () => {
+  const presence = createPresenceService({ changes: { notify() {} } } as any);
+  presence.tables.upsertWorldStatus({ id: 0, onlinePlayers: 21 });
+  presence.clearSession(true);
+  presence.beginSession(false);
+  expect(presence.api.onlinePlayerCount()).toBe(21);
+  presence.tables.upsertWorldStatus({ id: 0, onlinePlayers: 22 });
+  expect(presence.api.onlinePlayerCount()).toBe(22);
+  presence.clearSession();
+  expect(presence.api.onlinePlayerCount()).toBe(0);
 });
