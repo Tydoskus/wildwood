@@ -1,3 +1,4 @@
+import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { createPlayerMotionFrameSampler, playerMotionSampleAt } from "../../shared/player-motion-sample";
 import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
@@ -316,7 +317,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 23;
+const MODULE_MIGRATION_VERSION = 24;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1012,6 +1013,18 @@ const playerBalanceVersion = table(
   },
 );
 
+// Durable pre-conversion stats for recovery/audit. Never deleted by rescaling.
+const playerPowerRebaseBackup = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    version: t.u32(),
+    maxHp: t.f32(), damage: t.f32(), armor: t.f32(), regen: t.f32(), attackRate: t.f32(),
+    beforePower: t.f64(), afterPower: t.f64(),
+    recordedAt: t.timestamp(),
+  },
+);
+
 // Developers keep their presence choice across disconnects and devices. The
 // active player row is deliberately ephemeral, so it cannot hold this setting.
 const developerPresencePreference = table(
@@ -1605,6 +1618,7 @@ const spacetimedb = schema({
   playerLifetime,
   playerNameCooldown,
   playerBalanceVersion,
+  playerPowerRebaseBackup,
   developerPresencePreference,
   playerMovementDemand,
   playerAccessAudit,
@@ -2250,7 +2264,7 @@ function runPendingModuleMigrations(ctx: any) {
     let changedProgress = false;
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
         ctx.db.playerProgress.identity.update(migrated);
         changedProgress = true;
@@ -2272,7 +2286,7 @@ function runPendingModuleMigrations(ctx: any) {
     let changedProgress = false;
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
         ctx.db.playerProgress.identity.update(migrated);
         changedProgress = true;
@@ -2296,7 +2310,7 @@ function runPendingModuleMigrations(ctx: any) {
     let changedProgress = false;
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
         ctx.db.playerProgress.identity.update(migrated);
         changedProgress = true;
@@ -2317,7 +2331,7 @@ function runPendingModuleMigrations(ctx: any) {
     let changedProgress = false;
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0);
+      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
         ctx.db.playerProgress.identity.update(migrated);
         changedProgress = true;
@@ -2401,6 +2415,7 @@ function runPendingModuleMigrations(ctx: any) {
     ensureWorldStatus(ctx);
     ensureMaintenanceSweepSchedule(ctx);
   }
+  if (currentVersion < 24) rebaseLegacyPlayersToMaps(ctx);
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2553,7 +2568,7 @@ function markPlayerBalanceCurrent(ctx: any, identity = ctx.sender) {
   else ctx.db.playerBalanceVersion.insert(next);
 }
 
-function playerBalanceProgress(progress: any, version: number) {
+function playerBalanceProgress(progress: any, version: number, includeMapRebase = true) {
   const attackBalanced = {
     ...progress,
     // Version 1 halved legacy attack speed once. Version 2 enforces the lower
@@ -2566,7 +2581,41 @@ function playerBalanceProgress(progress: any, version: number) {
   const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
   const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
   const topFiveBalanced = version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
-  return version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced;
+  const corrected = version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced;
+  return includeMapRebase && version < 7 ? compressLegacyMapPower(corrected) : corrected;
+}
+
+function rebaseLegacyPlayersToMaps(ctx: any) {
+  const plans = [...ctx.db.playerProgress.iter() as Iterable<any>].map((progress) => {
+    const archived = ctx.db.playerPowerRebaseBackup.identity.find(progress.identity);
+    const next = archived ? progress : compressLegacyMapPower(progress);
+    return { progress, next, archived, before: effectivePowerForProgress(ctx, progress), after: effectivePowerForProgress(ctx, next) };
+  });
+  // Check the actual current population and Float32-rounded saved stats before
+  // writing anything. A changed cohort must be re-audited, never silently reordered.
+  const ranked = [...plans].sort((a, b) => a.before - b.before);
+  for (let i = 1; i < ranked.length; i++) {
+    const previous = ranked[i - 1], current = ranked[i];
+    if (Math.sign(previous.before - current.before) !== Math.sign(previous.after - current.after)) {
+      throw new SenderError("Player power rescale needs a fresh ranking audit; no stats changed.");
+    }
+  }
+  for (const { progress, next, archived, before, after } of plans) {
+    if (!archived) ctx.db.playerPowerRebaseBackup.insert({
+      identity: progress.identity, version: 7, maxHp: progress.maxHp, damage: progress.damage,
+      armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
+      beforePower: before, afterPower: after, recordedAt: ctx.timestamp,
+    });
+    if (!samePlayerProgressValues(progress, next)) ctx.db.playerProgress.identity.update(next);
+    markPlayerBalanceCurrent(ctx, progress.identity);
+    const active = ctx.db.player.identity.find(progress.identity);
+    if (active) {
+      const updated = { ...active, ...powerFieldsForProgress(ctx, next) };
+      ctx.db.player.identity.update(updated);
+      syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
+    }
+  }
+  refreshLeaderboard(ctx);
 }
 
 function migratePlayerBalance(ctx: any, progress: any) {

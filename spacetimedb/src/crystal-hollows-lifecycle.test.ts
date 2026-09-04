@@ -22,7 +22,7 @@ describe("Crystal Hollows unlock and identity lifecycle", () => {
 
   it("backfills recorded Miremaw contributors once without altering their stats", () => {
     const f = crystalFixture();
-    const bystander = f.progress(identity("2"), { maxHp: 1e15, damage: 1e15 });
+    const bystander = f.progress(identity("2"), { maxHp: 100, damage: 100 });
     const before = f.db.playerProgress.identity.find(f.ctx.sender);
     f.seed("moduleMigrationState", { id: 0, version: 20 });
     f.seed("miremawResult", { id: 1, encounter: 3n, totalDamage: 10,

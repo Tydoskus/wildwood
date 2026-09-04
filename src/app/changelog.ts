@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.623": [
+    "Brought inflated legacy player stats closer to map progression while preserving the exact overall power ranking and ties.",
+    "Kept each build’s damage, health, armor, and regeneration proportions, along with earned gear, research, and map unlocks.",
+    "Updated older queued saves to the same balance so reconnecting cannot restore inflated stats.",
+  ],
   "0.622": [
     "Rebuilt map progression around shared enemy, boss, and reward curves, with clearer Balance Lab pacing and duel diagnostics.",
     "Duels preserve earned stat advantages and escalate damage after ten seconds, using the same combat timeline for live battles and replays.",
@@ -1487,6 +1492,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.623": "2026-09-04",
   "0.622": "2026-09-04",
   "0.621": "2026-09-04",
   "0.620": "2026-09-04",

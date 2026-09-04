@@ -29,7 +29,7 @@ export const BOSS_RESPAWN_SECONDS = 30;
 // attack speed retain their separate gameplay caps.
 export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
-export const ATTACK_BALANCE_VERSION = 6;
+export const ATTACK_BALANCE_VERSION = 7;
 export {
   BASIC_PAPER_HAT,
   DARK_METAL_HELMET,
@@ -168,7 +168,7 @@ export const MAP_IDS: readonly string[] = [
   CRYSTAL_HOLLOWS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 86;
+export const PROTOCOL_VERSION = 87;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

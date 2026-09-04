@@ -1,3 +1,4 @@
+import { compressLegacyMapPower } from "../../../shared/map-power-rescale";
 import {
   ATTACK_BALANCE_VERSION,
   DEFAULT_ATTACK_INTERVAL,
@@ -130,7 +131,8 @@ export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion:
   const outlierBalanced = version < 3 ? compressLegacyProgressionOutlier(attackBalanced) : attackBalanced;
   const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
   const topFiveBalanced = version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
-  return copyProgress(version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced);
+  const corrected = version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced;
+  return copyProgress(version < 7 ? compressLegacyMapPower(corrected) : corrected);
 }
 
 export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {

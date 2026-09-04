@@ -904,6 +904,20 @@ export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
 });
 export type PlayerNameCooldown = __Infer<typeof PlayerNameCooldown>;
 
+export const PlayerPowerRebaseBackup = __t.object("PlayerPowerRebaseBackup", {
+  identity: __t.identity(),
+  version: __t.u32(),
+  maxHp: __t.f32(),
+  damage: __t.f32(),
+  armor: __t.f32(),
+  regen: __t.f32(),
+  attackRate: __t.f32(),
+  beforePower: __t.f64(),
+  afterPower: __t.f64(),
+  recordedAt: __t.timestamp(),
+});
+export type PlayerPowerRebaseBackup = __Infer<typeof PlayerPowerRebaseBackup>;
+
 export const PlayerProfile = __t.object("PlayerProfile", {
   identity: __t.identity(),
   displayName: __t.string(),
