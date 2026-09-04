@@ -8,8 +8,10 @@ import {
   defaultBalanceSimulationConfig,
   type BalanceMapId,
   type BalanceSimulationConfig,
+  type BalanceSimulationProgress,
   type BalanceSimulationResult,
   type FarmingStrategy,
+  type GuidedFarmingStrategy,
   type ProgressionStat,
   type ResearchPlan,
   type StatProgressionMetric,
@@ -17,11 +19,12 @@ import {
 } from "./simulator";
 
 type SimulationResponse =
-  | { id: number; ok: true; elapsedMs: number; result: BalanceSimulationResult }
+  | { id: number; ok: true; type: "progress"; progress: BalanceSimulationProgress }
+  | { id: number; ok: true; type: "complete"; elapsedMs: number; result: BalanceSimulationResult }
   | { id: number; ok: false; message: string };
 
-const STORAGE_KEY = "wildwood.balanceLab.config.v5";
-const STORAGE_SCHEMA_VERSION = 5;
+const STORAGE_KEY = "wildwood.balanceLab.config.v6";
+const STORAGE_SCHEMA_VERSION = 6;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function requiredElement<T extends Element>(id: string) {
@@ -82,6 +85,24 @@ const chartFrame = requiredElement<HTMLElement>("chartFrame");
 const chartTooltip = requiredElement<HTMLElement>("chartTooltip");
 const chartSampleNote = requiredElement<HTMLElement>("chartSampleNote");
 const previousLegend = requiredElement<HTMLElement>("previousLegend");
+const strategyLegend = requiredElement<HTMLElement>("strategyLegend");
+
+const strategyLabels: Record<GuidedFarmingStrategy, string> = {
+  natural: "NEARBY",
+  efficient: "POWER",
+  "dps-first": "DPS-FIRST",
+  "boss-rush": "BOSS-RUSH",
+};
+
+type ChartRenderState = {
+  config: BalanceSimulationConfig;
+  maps: BalanceSimulationResult["maps"];
+  timeline: TimelinePoint[];
+  simulatedCampaigns: number;
+  strategyTimelines?: BalanceSimulationResult["strategyTimelines"];
+  strategyComparisonTrials?: number;
+  visibleTimeline?: TimelinePoint[];
+};
 
 function mergeStoredConfig(stored: unknown): BalanceSimulationConfig {
   const defaults = defaultBalanceSimulationConfig();
@@ -102,9 +123,17 @@ function mergeStoredConfig(stored: unknown): BalanceSimulationConfig {
 
 function loadConfig() {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as { schemaVersion?: number; config?: unknown } | null;
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as {
+      schemaVersion?: number;
+      curveBaseline?: string;
+      config?: unknown;
+    } | null;
     if (stored?.schemaVersion !== STORAGE_SCHEMA_VERSION) return defaultBalanceSimulationConfig();
-    return mergeStoredConfig(stored.config);
+    const loaded = mergeStoredConfig(stored.config);
+    if (stored.curveBaseline !== "balanced-tech-tree" && loaded.researchPlan === "off") {
+      loaded.researchPlan = "balanced";
+    }
+    return loaded;
   } catch {
     return defaultBalanceSimulationConfig();
   }
@@ -233,7 +262,11 @@ function markDirty() {
 
 function saveConfig() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION, config }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      curveBaseline: "balanced-tech-tree",
+      config,
+    }));
   } catch { /* Local storage is optional. */ }
 }
 
@@ -607,7 +640,7 @@ function linePath(
   return points.map((point, index) => `${index ? "L" : "M"}${x(point.timeSeconds).toFixed(2)},${y(value(point)).toFixed(2)}`).join(" ");
 }
 
-function renderChart(next: BalanceSimulationResult) {
+function renderChart(next: ChartRenderState) {
   const width = 960;
   const height = 390;
   const left = 72;
@@ -616,7 +649,9 @@ function renderChart(next: BalanceSimulationResult) {
   const bottom = 43;
   const plotWidth = width - left - right;
   const plotHeight = height - top - bottom;
+  const visibleTimeline = next.visibleTimeline ?? next.timeline;
   const previousPoints = previousResult?.timeline.filter((point) => point.timeSeconds <= next.config.durationSeconds) ?? [];
+  const strategyTimelines = (next.strategyTimelines ?? []).filter((entry) => entry.timeline.length > 1);
   const targetCurve = buildStackedLogTargetCurve(
     next.maps.slice(1),
     18,
@@ -625,6 +660,7 @@ function renderChart(next: BalanceSimulationResult) {
   const values = next.timeline.flatMap((point) => [point.powerP10, point.powerP90]);
   values.push(...previousPoints.map((point) => point.powerMedian));
   values.push(...targetCurve.map((point) => point.power));
+  values.push(...strategyTimelines.flatMap((entry) => entry.timeline.map((point) => point.powerMedian)));
   const positive = values.filter((value) => value > 0 && Number.isFinite(value));
   let minExponent = Math.floor(Math.log10(Math.min(...positive)));
   let maxExponent = Math.ceil(Math.log10(Math.max(...positive)));
@@ -663,8 +699,8 @@ function renderChart(next: BalanceSimulationResult) {
     powerChart.append(label);
   });
 
-  const upper = next.timeline.map((point) => `${x(point.timeSeconds).toFixed(2)},${y(point.powerP90).toFixed(2)}`);
-  const lower = [...next.timeline].reverse().map((point) => `${x(point.timeSeconds).toFixed(2)},${y(point.powerP10).toFixed(2)}`);
+  const upper = visibleTimeline.map((point) => `${x(point.timeSeconds).toFixed(2)},${y(point.powerP90).toFixed(2)}`);
+  const lower = [...visibleTimeline].reverse().map((point) => `${x(point.timeSeconds).toFixed(2)},${y(point.powerP10).toFixed(2)}`);
   powerChart.append(svgElement("path", { d: `M${upper.join(" L")} L${lower.join(" L")} Z`, class: "chart-range" }));
   if (previousPoints.length > 1 && previousResult) {
     powerChart.append(svgElement("path", {
@@ -676,8 +712,14 @@ function renderChart(next: BalanceSimulationResult) {
     const path = targetCurve.map((point, index) => `${index ? "L" : "M"}${x(point.timeSeconds).toFixed(2)},${y(point.power).toFixed(2)}`).join(" ");
     powerChart.append(svgElement("path", { d: path, class: "chart-target" }));
   }
+  for (const entry of strategyTimelines) {
+    powerChart.append(svgElement("path", {
+      d: linePath(entry.timeline, (point) => point.powerMedian, x, y),
+      class: `chart-strategy ${entry.strategy}`,
+    }));
+  }
   powerChart.append(svgElement("path", {
-    d: linePath(next.timeline, (point) => point.powerMedian, x, y),
+    d: linePath(visibleTimeline, (point) => point.powerMedian, x, y),
     class: "chart-median",
   }));
 
@@ -691,8 +733,8 @@ function renderChart(next: BalanceSimulationResult) {
     const bounds = powerChart.getBoundingClientRect();
     const viewX = (event.clientX - bounds.left) / bounds.width * width;
     const ratio = Math.max(0, Math.min(1, (viewX - left) / plotWidth));
-    const index = Math.round(ratio * (next.timeline.length - 1));
-    const point = next.timeline[index];
+    const index = Math.round(ratio * (visibleTimeline.length - 1));
+    const point = visibleTimeline[index];
     const xPosition = x(point.timeSeconds);
     const yPosition = y(point.powerMedian);
     focusLine.setAttribute("x1", String(xPosition));
@@ -702,7 +744,11 @@ function renderChart(next: BalanceSimulationResult) {
     focusLine.style.display = "";
     focusDot.style.display = "";
     chartTooltip.hidden = false;
-    chartTooltip.innerHTML = `<strong>${formatDuration(point.timeSeconds)}</strong><br>POWER ${formatCompactNumber(point.powerMedian)}<br>RANGE ${formatCompactNumber(point.powerP10)}–${formatCompactNumber(point.powerP90)}<br>DPS ${formatCompactNumber(point.dpsMedian)}`;
+    const strategyValues = strategyTimelines.map((entry) => {
+      const strategyPoint = entry.timeline[index] ?? entry.timeline[entry.timeline.length - 1];
+      return `<br><span class="tooltip-strategy ${entry.strategy}">${strategyLabels[entry.strategy]} ${formatCompactNumber(strategyPoint.powerMedian)}</span>`;
+    }).join("");
+    chartTooltip.innerHTML = `<strong>${formatDuration(point.timeSeconds)}</strong><br>POWER ${formatCompactNumber(point.powerMedian)}<br>RANGE ${formatCompactNumber(point.powerP10)}–${formatCompactNumber(point.powerP90)}<br>DPS ${formatCompactNumber(point.dpsMedian)}${strategyValues}`;
     const frameBounds = chartFrame.getBoundingClientRect();
     const tooltipLeft = event.clientX - frameBounds.left + 14;
     chartTooltip.style.left = `${Math.min(frameBounds.width - 175, Math.max(8, tooltipLeft))}px`;
@@ -715,7 +761,33 @@ function renderChart(next: BalanceSimulationResult) {
   });
   powerChart.append(hitArea);
   previousLegend.hidden = !previousPoints.length;
-  chartSampleNote.textContent = `${next.simulatedCampaigns} SEEDED RUN${next.simulatedCampaigns === 1 ? "" : "S"}`;
+  strategyLegend.replaceChildren();
+  strategyLegend.hidden = !strategyTimelines.length;
+  for (const entry of strategyTimelines) {
+    const legendItem = document.createElement("span");
+    legendItem.innerHTML = `<i class="legend-line strategy ${entry.strategy}"></i>${strategyLabels[entry.strategy]}`;
+    strategyLegend.append(legendItem);
+  }
+  const comparisonText = strategyTimelines.length
+    ? ` · ${next.strategyComparisonTrials ?? "—"} STRATEGY RUN${next.strategyComparisonTrials === 1 ? "" : "S"}`
+    : "";
+  chartSampleNote.textContent = `${next.simulatedCampaigns} SEEDED RUN${next.simulatedCampaigns === 1 ? "" : "S"}${comparisonText}`;
+}
+
+function renderProgress(progress: BalanceSimulationProgress) {
+  const revealCount = progress.completedTrials >= progress.totalTrials
+    ? progress.timeline.length
+    : Math.min(
+      progress.timeline.length,
+      Math.max(2, Math.ceil(progress.timeline.length * progress.completedTrials / progress.totalTrials)),
+    );
+  renderChart({
+    config: progress.config,
+    maps: [],
+    timeline: progress.timeline,
+    visibleTimeline: progress.timeline.slice(0, revealCount),
+    simulatedCampaigns: progress.completedTrials,
+  });
 }
 
 function render(next: BalanceSimulationResult) {
@@ -748,12 +820,24 @@ function runSimulation() {
 
 simulationWorker.addEventListener("message", (event: MessageEvent<SimulationResponse>) => {
   if (event.data.id !== requestId) return;
-  runButton.disabled = false;
-  form.inert = false;
   if (!event.data.ok) {
+    runButton.disabled = false;
+    form.inert = false;
     setStatus("error", "Simulation failed", event.data.message);
     return;
   }
+  if (event.data.type === "progress") {
+    const { completedTrials, totalTrials } = event.data.progress;
+    renderProgress(event.data.progress);
+    setStatus(
+      "running",
+      `Simulating ${completedTrials}/${totalTrials} seeded campaigns…`,
+      `${Math.round(completedTrials / totalTrials * 100)}% of graph filled`,
+    );
+    return;
+  }
+  runButton.disabled = false;
+  form.inert = false;
   previousResult = result;
   result = event.data.result;
   config = result.config;

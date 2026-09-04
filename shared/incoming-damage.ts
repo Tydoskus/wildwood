@@ -10,12 +10,13 @@ export const LATE_MAP_DAMAGE_TIER = {
 export type LateDamageMap = keyof typeof LATE_MAP_DAMAGE_TIER;
 
 // A design reference, not a lookup of the player fighting an enemy. Calibrated
-// to the reported Crystal Hollows build: ~1t HP and ~90% armor mitigation.
-// One anchor controls the ladder; future tiers inherit the same rule.
+// to the balanced-tech-tree campaign curve: ~100b HP and ~88% armor
+// mitigation at Crystal Hollows. One anchor controls the ladder; future tiers
+// inherit it.
 export const LATE_DAMAGE_REFERENCE = {
   tier: LATE_MAP_DAMAGE_TIER.crystal_hollows,
-  maxHp: 1_000_000_000_000,
-  armor: 10_000_000_000,
+  maxHp: 100_000_000_000,
+  armor: 1_000_000_000,
 } as const;
 export const LATE_REGULAR_MIN_HIT_SHARE = .08;
 export const LATE_BOSS_HIT_MULTIPLIERS = { heavy: 4, area: 2.8, contact: 2 } as const;

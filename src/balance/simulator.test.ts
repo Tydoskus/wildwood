@@ -11,7 +11,7 @@ import {
   MAP_IDS,
 } from "../../shared/rules";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
-import { bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, targetCurveProgress, targetPowerAtMapProgress } from "./simulator";
+import { bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, runBalanceSimulationWithStrategyComparisons, targetCurveProgress, targetPowerAtMapProgress } from "./simulator";
 
 const quickConfig = {
   durationSeconds: 60 * 60,
@@ -37,7 +37,7 @@ describe("balance simulator", () => {
 
     const result = runBalanceSimulation({ durationSeconds: 60, trials: 1 });
     expect(result.config.strategy).toBe("mixed");
-    expect(result.config.researchPlan).toBe("off");
+    expect(result.config.researchPlan).toBe("balanced");
     const desert = result.maps.find((map) => map.mapId === BEGINNER_DESERT_MAP_ID);
     expect(desert?.targetDurationSeconds).toBe(BALANCE_TARGET_DESERT_DURATION_SECONDS);
     expect(desert?.targetPowerGrowthMultiplier).toBe(BALANCE_TARGET_MAP_POWER_MULTIPLIER);
@@ -54,6 +54,17 @@ describe("balance simulator", () => {
     expect(runBalanceSimulation(quickConfig)).toEqual(runBalanceSimulation(quickConfig));
   });
 
+  it("reports a timeline after each completed campaign", () => {
+    const completed: number[] = [];
+    const timelineLengths: number[] = [];
+    const result = runBalanceSimulation({ durationSeconds: 60, trials: 3 }, (progress) => {
+      completed.push(progress.completedTrials);
+      timelineLengths.push(progress.timeline.length);
+    });
+    expect(completed).toEqual([1, 2, 3]);
+    expect(timelineLengths.every((length) => length === result.timeline.length)).toBe(true);
+  });
+
   it("mixes the normal player priorities in one seeded run without adding boss farming", () => {
     const config = { durationSeconds: 60, trials: 40, strategy: "mixed" as const, seed: 7_331 };
     const result = runBalanceSimulation(config);
@@ -64,6 +75,22 @@ describe("balance simulator", () => {
     expect(result.strategyMix["boss-farm"]).toBe(0);
     expect(Object.values(result.strategyMix).reduce((total, count) => total + count, 0)).toBe(config.trials);
     expect(result).toEqual(runBalanceSimulation(config));
+  });
+
+  it("adds comparable traces for each guided player strategy", () => {
+    const result = runBalanceSimulationWithStrategyComparisons({
+      durationSeconds: 60 * 60,
+      trials: 2,
+      strategy: "mixed",
+      seed: 7_331,
+    });
+    expect(result.strategyComparisonTrials).toBe(2);
+    expect(result.strategyTimelines?.map((entry) => entry.strategy)).toEqual([
+      "natural", "efficient", "dps-first", "boss-rush",
+    ]);
+    expect(result.strategyTimelines?.every((entry) => entry.timeline.length === result.timeline.length)).toBe(true);
+    const finalStrategyPowers = result.strategyTimelines?.map((entry) => entry.timeline[entry.timeline.length - 1]?.powerMedian);
+    expect(new Set(finalStrategyPowers).size).toBeGreaterThan(1);
   });
 
   it("keeps a DPS-first player moving through discrete boss-readiness ties", () => {
@@ -141,7 +168,7 @@ describe("balance simulator", () => {
       expect(map.momentum?.longestGainGapSeconds).toBeGreaterThanOrEqual(0);
       expect(map.momentum?.largestSingleJumpGrowthSharePercent).toBeGreaterThanOrEqual(0);
     }
-    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("grows power") || diagnostic.includes("damage-to-health"))).toBe(true);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Pacing curve:"))).toBe(true);
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
     expect(nightEnemies).toHaveLength(5);

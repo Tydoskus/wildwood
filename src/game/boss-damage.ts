@@ -1,5 +1,6 @@
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
 import { LATE_BOSS_HIT_MULTIPLIERS } from "../../shared/incoming-damage";
+import { BEGINNER_DESERT_INCOMING_DAMAGE_SCALE } from "../../shared/rules";
 
 type DamageMultipliers = Record<string, number>;
 
@@ -47,7 +48,10 @@ export const BOSS_DAMAGE_PROFILES = {
     cone: 3.64,
     contact: 7.27,
   }),
-  spider: scaledProfile(BOSS_DAMAGE_REFERENCE.spider, {
+  // Desert regular hits have a new-player safety scalar; keep the Scorpion's
+  // telegraphed abilities on the existing boss envelope instead of shrinking
+  // them along with contact damage.
+  spider: scaledProfile(BOSS_DAMAGE_REFERENCE.spider / BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, {
     web: 10,
     venom: 14,
     contact: 8,

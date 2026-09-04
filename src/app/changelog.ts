@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.617": [
+    "Recalibrated post-onboarding pacing, enemy health, incoming damage, rewards, and boss gates against the balanced tech-tree curve.",
+    "Balance Lab now fills the power graph as campaigns complete, with light mode and separate Natural, Efficient, DPS-first, and Boss-rush strategy traces.",
+  ],
   "0.616": [
     "Moved the mobile gameplay camera focus 10% lower for clearer play space above the player.",
     "Added the pathless Cloudspire map design and updated Balance Lab strategy and combat reporting.",

@@ -17,15 +17,18 @@ import {
   BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER,
   BEGINNER_DESERT_HEALTH_SCALE,
   BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER,
+  BEGINNER_DESERT_INCOMING_DAMAGE_SCALE,
   BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
   BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER,
   BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER,
   BEGINNER_DESERT_REWARD_SCALE,
   CLOUDSPIRE_ARCHETYPE_PROFILE,
+  CLOUDSPIRE_ENCOUNTER_REWARD_SCALE,
   CLOUDSPIRE_HEALTH_SCALE,
   CLOUDSPIRE_REWARD_SCALE,
   CLOUDSPIRE_REWARD_TRACK_PROFILE,
   MOONFEN_ARCHETYPE_PROFILE,
+  MOONFEN_ENCOUNTER_REWARD_SCALE,
   CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE,
   CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
   CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
@@ -59,6 +62,7 @@ import {
   NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_ARCHETYPE_PROFILE,
   SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
+  SAMURAI_GARDEN_ENCOUNTER_REWARD_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_REWARD_TRACK_PROFILE,
@@ -288,7 +292,7 @@ function samuraiGardenBalance(archetype: LateMapArchetype): EnemyBalance {
     attackSpeed: SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...water.reward,
-      amount: water.reward.amount / WATER_REACH_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER * SAMURAI_REWARD_FACTORS[archetype],
+      amount: water.reward.amount / WATER_REACH_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER * SAMURAI_REWARD_FACTORS[archetype],
     },
   };
 }
@@ -317,7 +321,7 @@ function cloudspireBalance(archetype: LateMapArchetype): EnemyBalance {
     attackSpeed: CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...samurai.reward,
-      amount: samurai.reward.amount * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_REWARD_FACTORS[archetype],
+      amount: samurai.reward.amount * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_ENCOUNTER_REWARD_SCALE * CLOUDSPIRE_REWARD_FACTORS[archetype],
     },
   };
 }
@@ -346,7 +350,7 @@ function moonfenBalance(archetype: LateMapArchetype): EnemyBalance {
     attackSpeed: MOONFEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...cloudspire.reward,
-      amount: cloudspire.reward.amount * MOONFEN_REWARD_SCALE * MOONFEN_REWARD_FACTORS[archetype],
+      amount: cloudspire.reward.amount * MOONFEN_REWARD_SCALE * MOONFEN_ENCOUNTER_REWARD_SCALE * MOONFEN_REWARD_FACTORS[archetype],
     },
   };
 }
@@ -384,7 +388,7 @@ const enemyTypes = {
   // Movement speeds are the original balance values reduced by 50%.
   Bramble: {
     hp: 42, speed: 105, damage: 14, attackSpeed: 1, r: 14,
-    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 28 },
+    color: "#d95738", outline: "#5c1b13", reward: { type: "health", amount: 4 },
   },
   Needle: {
     hp: 90, speed: 105, damage: 24, attackSpeed: 1, r: 10,
@@ -407,13 +411,13 @@ const enemyTypes = {
     color: "#d95738", outline: "#5c1b13", reward: { type: "damage", amount: 6 },
   },
   "King Slime": {
-    hp: 920, speed: 95, damage: 143, attackSpeed: 1, r: 27,
-    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 352 },
+    hp: 500, speed: 95, damage: 143, attackSpeed: 1, r: 27,
+    color: "#70a94f", outline: "#2d5127", reward: { type: "health", amount: 40 },
     elite: true, aggro: 300,
   },
   "Dread Warden": {
-    hp: 1000, speed: 110, damage: 275, attackSpeed: 1, r: 36,
-    color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 83 },
+    hp: 500, speed: 110, damage: 275, attackSpeed: 1, r: 36,
+    color: "#a52e3a", outline: "#47101a", reward: { type: "damage", amount: 70 },
     elite: true, aggro: 350,
   },
 
@@ -421,25 +425,25 @@ const enemyTypes = {
   // Movement speeds are the original balance values reduced by 25%.
   // Balance hp, damage, attackSpeed, and reward directly.
   "Dune Raider": {
-    hp: BEGINNER_DESERT_HEALTH.raider, speed: 165, damage: 425, attackSpeed: .65, r: 19,
+    hp: BEGINNER_DESERT_HEALTH.raider, speed: 165, damage: 425 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .65, r: 19,
     color: "#d6a13a", outline: "#5f3c18", reward: { type: "damage", amount: BEGINNER_DESERT_DAMAGE_REWARDS.raider * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER },
   },
   "Dune Archer": {
-    hp: BEGINNER_DESERT_HEALTH.archer, speed: 153.75, damage: 490, attackSpeed: .55, r: 17,
+    hp: BEGINNER_DESERT_HEALTH.archer, speed: 153.75, damage: 490 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 17,
     color: "#d5b04d", outline: "#61481d", reward: { type: "health", amount: 8_500 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_HEALTH_REWARD_MULTIPLIER },
     ranged: true,
   },
   "Venom Guard": {
-    hp: BEGINNER_DESERT_HEALTH.guardian, speed: 146.25, damage: 610, attackSpeed: .55, r: 24,
+    hp: BEGINNER_DESERT_HEALTH.guardian, speed: 146.25, damage: 610 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .55, r: 24,
     color: "#79d18b", outline: "#285a37", reward: { type: "armor", amount: 150 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_ARMOR_REWARD_MULTIPLIER },
   },
   "Wastes Reaper": {
-    hp: BEGINNER_DESERT_HEALTH.reaper, speed: 168.75, damage: 670, attackSpeed: .7, r: 31,
+    hp: BEGINNER_DESERT_HEALTH.reaper, speed: 168.75, damage: 670 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .7, r: 31,
     color: "#8fe09a", outline: "#294f34", reward: { type: "damage", amount: BEGINNER_DESERT_DAMAGE_REWARDS.reaper * BEGINNER_DESERT_DAMAGE_REWARD_MULTIPLIER },
     ranged: true, elite: true, aggro: 300,
   },
   "Blight Oracle": {
-    hp: BEGINNER_DESERT_HEALTH.oracle, speed: 157.5, damage: 550, attackSpeed: .6, r: 29,
+    hp: BEGINNER_DESERT_HEALTH.oracle, speed: 157.5, damage: 550 * BEGINNER_DESERT_INCOMING_DAMAGE_SCALE, attackSpeed: .6, r: 29,
     color: "#a5df79", outline: "#345426", reward: { type: "regen", amount: 320 * BEGINNER_DESERT_REWARD_SCALE * BEGINNER_DESERT_REGULAR_REWARD_MULTIPLIER * BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER },
     elite: true, aggro: 300,
   },

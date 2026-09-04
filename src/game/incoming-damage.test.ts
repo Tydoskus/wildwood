@@ -21,8 +21,12 @@ describe("authored late-map incoming damage", () => {
     }
   });
 
-  it("turns the reported small Crystal hit into about 80b, not a compounded 100x per map", () => {
-    expect(damageAfterArmor(ENEMY_TYPES["Geode Guardian"].damage, 1e10)).toBe(80e9);
+  it("keeps the Crystal hit on the calibrated tier curve", () => {
+    const reference = lateMapReferenceBuild(3);
+    const referenceHit = damageAfterArmor(ENEMY_TYPES["Geode Guardian"].damage, reference.armor);
+    expect(referenceHit / reference.maxHp).toBeGreaterThanOrEqual(.08);
+    expect(referenceHit / reference.maxHp).toBeLessThan(.1);
+    expect(damageAfterArmor(ENEMY_TYPES["Geode Guardian"].damage, 1e10)).toBeGreaterThan(6e9);
     const crystalHit = ENEMY_TYPES["Geode Guardian"].damage;
     const previousHit = ENEMY_TYPES["Bog Colossus"].damage;
     expect(crystalHit / previousHit).toBeGreaterThan(10);
@@ -30,9 +34,9 @@ describe("authored late-map incoming damage", () => {
   });
 
   it("does not increase boss HP with incoming damage", () => {
-    // Pre-change boss-health budgets: separate from enemy attack scaling.
+    // Boss-health budgets remain separate from the incoming damage ladder.
     const health = [KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP];
-    const baseline = [522423042187.5001, 4884655444453.127, 45671528405636.74, 427028790592703.56];
+    const baseline = [313453825312.5001, 2930793266671.8765, 27402917043382.047, 256217274355622.16];
     expect(health).toEqual(baseline);
   });
 

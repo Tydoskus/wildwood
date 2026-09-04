@@ -28,6 +28,7 @@ import {
   LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
   SAMURAI_GARDEN_ARCHETYPE_PROFILE,
   SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
+  SAMURAI_GARDEN_ENCOUNTER_REWARD_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_REWARD_SCALE,
@@ -64,9 +65,9 @@ afterEach(() => {
 
 describe("enemy reward rules", () => {
   it("keeps the onboarding rewards and labels intentional", () => {
-    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 28 });
+    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 4 });
     expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 5 });
-    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 352 });
+    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 40 });
     expect(ENEMY_TYPES.Spitter.reward).toEqual({ type: "damage", amount: 1 });
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 ATK/SEC");
     expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 DAMAGE");
@@ -212,7 +213,7 @@ describe("enemy reward rules", () => {
     );
     // Hit-size checks use health and armor in incoming-damage.test.ts.
     expect(samuraiRewards / waterRewards).toBeCloseTo(
-      SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER / WATER_REACH_ENCOUNTER_REWARD_SCALE,
+      SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_REWARD_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER / WATER_REACH_ENCOUNTER_REWARD_SCALE,
       10,
     );
     expect(new Set(healthRatios.map((ratio) => ratio.toFixed(3))).size).toBeGreaterThan(3);

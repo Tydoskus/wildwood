@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light" />
   <title>WildStat Balance Lab</title>
   <link rel="icon" href="wildstat-favicon.ico" sizes="any" />
 </head>
@@ -62,10 +62,13 @@
               <option value="natural">Nearest available enemy · readiness-aware</option>
             </select>
 
-            <label class="field-label" for="researchPlan">Research queue</label>
+            <label class="field-label" for="researchPlan">
+              <span>Research queue</span>
+              <span class="field-hint">curve baseline: balanced</span>
+            </label>
             <select id="researchPlan" name="researchPlan">
-              <option value="off">Off · combat only</option>
-              <option value="balanced">Balanced tree</option>
+              <option value="off">Off · no tech tree</option>
+              <option value="balanced">Balanced tree · curve baseline</option>
               <option value="damage-first">Damage first</option>
             </select>
 
@@ -233,12 +236,13 @@
               <span><i class="legend-line target"></i> TARGET CURVE</span>
               <span><i class="legend-block range"></i> P10–P90</span>
               <span id="previousLegend" hidden><i class="legend-line previous"></i> PREVIOUS RUN</span>
+              <span id="strategyLegend" class="strategy-legend" aria-label="Strategy comparison lines" hidden></span>
             </div>
           </div>
           <div id="chartFrame" class="chart-frame">
             <svg id="powerChart" viewBox="0 0 960 390" role="img" aria-labelledby="powerChartTitle powerChartDescription">
               <title id="powerChartTitle">Power over time</title>
-              <desc id="powerChartDescription">Median simulated player power with a percentile range.</desc>
+              <desc id="powerChartDescription">Median mixed-strategy player power with a percentile range and comparison traces for nearby, power-efficient, DPS-first, and boss-rush behavior.</desc>
             </svg>
             <div id="chartTooltip" class="chart-tooltip" hidden></div>
           </div>

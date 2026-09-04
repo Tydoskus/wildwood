@@ -273,6 +273,18 @@ export type TimelinePoint = {
   dpsMedian: number;
 };
 
+export type StrategyTimeline = {
+  strategy: GuidedFarmingStrategy;
+  timeline: TimelinePoint[];
+};
+
+export type BalanceSimulationProgress = {
+  config: BalanceSimulationConfig;
+  completedTrials: number;
+  totalTrials: number;
+  timeline: TimelinePoint[];
+};
+
 export type MapTimeBudget = {
   regularCombatSeconds: number;
   bossCombatSeconds: number;
@@ -423,6 +435,8 @@ export type BalanceSimulationResult = {
   finalDps: { p10: number; median: number; p90: number };
   simulatedCampaigns: number;
   strategyMix: Record<GuidedFarmingStrategy | "boss-farm", number>;
+  strategyTimelines?: StrategyTimeline[];
+  strategyComparisonTrials?: number;
 };
 
 const SAMPLE_COUNT = 180;
@@ -518,7 +532,7 @@ export function defaultBalanceSimulationConfig(): BalanceSimulationConfig {
     durationSeconds: DEFAULT_CAMPAIGN_DURATION_SECONDS,
     trials: 100,
     strategy: "mixed",
-    researchPlan: "off",
+    researchPlan: "balanced",
     bossTargetSeconds: 5 * 60,
     targetDesertDurationSeconds: BALANCE_TARGET_DESERT_DURATION_SECONDS,
     targetMapDurationMultiplier: BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
@@ -859,9 +873,30 @@ function seededRandom(seed: number) {
   };
 }
 
-const GUIDED_FARMING_STRATEGIES: readonly GuidedFarmingStrategy[] = [
+export const GUIDED_FARMING_STRATEGIES: readonly GuidedFarmingStrategy[] = [
   "natural", "efficient", "dps-first", "boss-rush",
 ];
+
+// A normal player periodically takes a useful non-DPS reward while preparing
+// for a boss. The interval is intentionally behavior-specific: exploration
+// spends more time on the wider build, while a boss-rush stays on offense.
+const STRATEGY_DEFENSIVE_REWARD_INTERVALS: Record<GuidedFarmingStrategy, number> = {
+  natural: 8,
+  efficient: 12,
+  "dps-first": 20,
+  "boss-rush": Number.POSITIVE_INFINITY,
+};
+const MIXED_DEFENSIVE_REWARD_INTERVALS: Partial<Record<BalanceMapId, number>> = {
+  [BEGINNER_DESERT_MAP_ID]: 20,
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: 20,
+  [ADVANCED_LAVA_WASTES_MAP_ID]: 6,
+  [INFERNAL_DEPTHS_MAP_ID]: 6,
+  [WATER_REACH_MAP_ID]: 6,
+  [SAMURAI_GARDEN_MAP_ID]: 6,
+  [CLOUDSPIRE_MAP_ID]: 6,
+  [MOONFEN_MAP_ID]: 6,
+  [CRYSTAL_HOLLOWS_MAP_ID]: 6,
+};
 
 type StrategyBlend = Record<GuidedFarmingStrategy, number>;
 type TrialBehavior = {
@@ -1247,6 +1282,11 @@ function selectSite(
   const currentBossTtk = bossFightSeconds(state, map, adjustment);
   const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
   const bossGateActive = currentBossTtk !== null && currentBossTtk > bossReadinessTarget;
+  const totalKills = sites.reduce((total, site) => total + site.kills, 0);
+  const defensiveInterval = config.strategy === "mixed"
+    ? MIXED_DEFENSIVE_REWARD_INTERVALS[map.id] ?? Number.POSITIVE_INFINITY
+    : STRATEGY_DEFENSIVE_REWARD_INTERVALS[behavior.primaryStrategy === "boss-farm" ? "boss-rush" : behavior.primaryStrategy];
+  const defensiveTurn = config.strategy !== "boss-farm" && bossGateActive && Number.isFinite(defensiveInterval) && totalKills > 0 && totalKills % defensiveInterval === defensiveInterval - 1;
   // A boss-rush has no meaningful single-stat target on an open-ended map.
   // Keep its sites within one clear of each other so the forecast represents
   // progressing through the whole map instead of camping one instant-respawn
@@ -1259,8 +1299,15 @@ function selectSite(
     ? available.filter((site) => site.kills === lowestKills)
     : [];
   const candidates = openMapCycle.length ? openMapCycle : pendingClear.length ? pendingClear : available;
+  const defensiveCandidates = defensiveTurn
+    ? candidates.filter((site) => {
+      const rewardType = ENEMY_TYPES[site.type].reward.type;
+      return rewardType !== "damage" && rewardType !== "speed";
+    })
+    : [];
+  const selectedCandidates = defensiveCandidates.length ? defensiveCandidates : candidates;
   const combat = combatStats(state, true);
-  const candidateData = candidates.map((site) => {
+  const candidateData = selectedCandidates.map((site) => {
     const enemy = ENEMY_TYPES[site.type];
     const travel = travelSeconds(position, site, state, config.pathingMultiplier);
     const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate);
@@ -1297,27 +1344,33 @@ function selectSite(
   const dpsScores = normalize(candidateData.map((candidate) => candidate.dpsEfficiency));
   const bossRushScores = normalize(candidateData.map((candidate) => candidate.bossRushEfficiency));
   return candidateData.reduce((best, candidate, index) => {
-    let score = -candidate.travel;
+    let score = naturalScores[index];
     if (config.strategy !== "mixed" && behavior.primaryStrategy === "efficient") {
-      score = candidate.powerEfficiency;
+      score = powerScores[index];
     } else if (config.strategy !== "mixed" && behavior.primaryStrategy === "dps-first") {
-      score = candidate.dpsEfficiency;
+      score = dpsScores[index];
     } else if (config.strategy !== "mixed" && (behavior.primaryStrategy === "boss-rush" || behavior.primaryStrategy === "boss-farm")) {
-      score = candidate.bossRushEfficiency;
+      score = bossRushScores[index];
     } else if (config.strategy !== "mixed" && behavior.primaryStrategy === "natural") {
-      score = -candidate.travel;
+      score = naturalScores[index];
     } else {
       score = behavior.blend.natural * naturalScores[index] +
         behavior.blend.efficient * powerScores[index] +
         behavior.blend["dps-first"] * dpsScores[index] +
         behavior.blend["boss-rush"] * bossRushScores[index];
     }
-    if (bossGateActive && currentBossTtk !== null) {
+    if (defensiveTurn) {
+      const rewardType = ENEMY_TYPES[candidate.site.type].reward.type;
+      const defensivePriority = rewardType === "health" ? 3 : rewardType === "armor" ? 2 : 1;
+      score = defensivePriority + naturalScores[index] * .001;
+    }
+    if (bossGateActive && currentBossTtk !== null && !defensiveTurn) {
       const nextBossTtk = candidate.nextBossTtk;
       const readinessGain = nextBossTtk === null ? 0 : Math.max(0, currentBossTtk - nextBossTtk);
       // Readiness is lexically more important than canonical power while the
-      // next boss is still out of reach. This prevents health-heavy rewards
-      // from creating an apparently strong build that can never open its gate.
+      // next boss is still out of reach. This safety rail is relaxed only on
+      // the explicit defensive turns above, so a wider build can grow without
+      // ever stalling permanently just above its boss target.
       score = candidate.readinessEfficiency * 1e6 + score * .001;
       if (readinessGain > 0) score += 1e12 + readinessGain / candidate.duration * 1e6;
     }
@@ -2254,10 +2307,10 @@ function formatDiagnosticDuration(seconds: number | null) {
   return `${(seconds / 3_600).toFixed(seconds < 36_000 ? 2 : 1)}h`;
 }
 
-export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {}): BalanceSimulationResult {
-  const config = normalizeConfig(input);
-  const trials = Array.from({ length: config.trials }, (_, index) => simulateTrial(config, index));
-  const timeline = trials[0].samples.map((sample, index): TimelinePoint => {
+type BalanceSimulationProgressListener = (progress: BalanceSimulationProgress) => void;
+
+function timelineForTrials(trials: TrialResult[]): TimelinePoint[] {
+  return trials[0].samples.map((sample, index): TimelinePoint => {
     const powers = trials.map((trial) => trial.samples[index].power);
     const dps = trials.map((trial) => trial.samples[index].dps);
     return {
@@ -2268,6 +2321,24 @@ export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {
       dpsMedian: numericQuantile(dps, .5),
     };
   });
+}
+
+function runBalanceSimulationInternal(
+  input: Partial<BalanceSimulationConfig> = {},
+  onProgress?: BalanceSimulationProgressListener,
+): BalanceSimulationResult {
+  const config = normalizeConfig(input);
+  const trials: TrialResult[] = [];
+  for (let index = 0; index < config.trials; index += 1) {
+    trials.push(simulateTrial(config, index));
+    onProgress?.({
+      config,
+      completedTrials: index + 1,
+      totalTrials: config.trials,
+      timeline: timelineForTrials(trials),
+    });
+  }
+  const timeline = timelineForTrials(trials);
   const maps = MAP_DEFINITIONS.map((map, index) => {
     const progressionIndex = index - 1;
     const targetDurationSeconds = progressionIndex < 0
@@ -2327,4 +2398,30 @@ export function runBalanceSimulation(input: Partial<BalanceSimulationConfig> = {
     simulatedCampaigns: trials.length,
     strategyMix,
   };
+}
+
+export function runBalanceSimulation(
+  input: Partial<BalanceSimulationConfig> = {},
+  onProgress?: BalanceSimulationProgressListener,
+): BalanceSimulationResult {
+  return runBalanceSimulationInternal(input, onProgress);
+}
+
+const STRATEGY_COMPARISON_TRIAL_CAP = 8;
+
+export function runBalanceSimulationWithStrategyComparisons(
+  input: Partial<BalanceSimulationConfig> = {},
+  onProgress?: BalanceSimulationProgressListener,
+): BalanceSimulationResult {
+  const primary = runBalanceSimulationInternal(input, onProgress);
+  const comparisonTrials = Math.min(primary.config.trials, STRATEGY_COMPARISON_TRIAL_CAP);
+  const strategyTimelines = GUIDED_FARMING_STRATEGIES.map((strategy): StrategyTimeline => ({
+    strategy,
+    timeline: runBalanceSimulation({
+      ...primary.config,
+      strategy,
+      trials: comparisonTrials,
+    }).timeline,
+  }));
+  return { ...primary, strategyTimelines, strategyComparisonTrials: comparisonTrials };
 }

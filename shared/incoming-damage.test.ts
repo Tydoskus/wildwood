@@ -14,11 +14,11 @@ describe("health-and-armor damage ladder", () => {
     }
   });
 
-  it("calibrates Crystal Hollows to 80b against 1t health and about 90% armor", () => {
+  it("calibrates Crystal Hollows to the campaign curve reference", () => {
     const build = lateMapReferenceBuild(3);
-    expect(build.maxHp).toBe(1e12);
-    expect(armorDamageReduction(build.armor)).toBeCloseTo(.9, 2);
-    expect(damageAfterArmor(lateMapMinimumHitDamage(3), build.armor)).toBe(80e9);
+    expect(build.maxHp).toBe(100e9);
+    expect(armorDamageReduction(build.armor)).toBeCloseTo(.875, 8);
+    expect(damageAfterArmor(lateMapMinimumHitDamage(3), build.armor)).toBe(8e9);
   });
 
   it("normalizes authored hit ratios without mutating them", () => {

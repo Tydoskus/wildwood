@@ -146,7 +146,7 @@ if (parsed.json) {
   process.exit(0);
 }
 
-console.log(`WildStat Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy}`);
+console.log(`WildStat Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy} · research ${result.config.researchPlan}`);
 console.log(`Final power ${formatCompactNumber(result.finalPower.median)} (${formatCompactNumber(result.finalPower.p10)}–${formatCompactNumber(result.finalPower.p90)}) · DPS ${formatCompactNumber(result.finalDps.median)}`);
 const strategyLabels: Record<keyof BalanceSimulationResult["strategyMix"], string> = {
   natural: "nearby",
