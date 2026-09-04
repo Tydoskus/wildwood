@@ -140,7 +140,7 @@ describe("Advanced Lava Lake", () => {
     expect(sites.every((site) => cloudspireKinds.has(site.type))).toBe(true);
     expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
     expect(first).toEqual(second);
-    expect(first.paths.length).toBeGreaterThanOrEqual(9);
+    expect(first.paths).toHaveLength(0);
     expect(first.decor.some((item) => item.type === "cloud")).toBe(true);
     expect(first.decor.some((item) => item.type === "skyShard")).toBe(true);
   });

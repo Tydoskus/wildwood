@@ -8,6 +8,9 @@ type Viewport = { width: number; height: number };
 
 const BASE_CAMERA_ZOOM = .85;
 export const MOBILE_CAMERA_ZOOM_MULTIPLIER = .93;
+// Keep the player slightly below center on phones so more of the gameplay
+// space above them remains visible around the mobile controls.
+export const MOBILE_CAMERA_VERTICAL_FOCUS_OFFSET = .1;
 // Representative phone gameplay canvas after the fixed bottom toolbar is
 // removed from a 390×844 home-screen viewport.
 export const MOBILE_CAMERA_REFERENCE_VIEWPORT = { width: 390, height: 780 } as const;
@@ -53,13 +56,18 @@ function targetPosition(
 ) {
   const visibleW = viewport.width / camera.zoom;
   const visibleH = viewport.height / camera.zoom;
+  const verticalFocus = .5 + (
+    !duelCenter && isPhoneViewport(viewport)
+      ? MOBILE_CAMERA_VERTICAL_FOCUS_OFFSET
+      : 0
+  );
   return {
     x: duelCenter
       ? duelCenter.x - visibleW / 2
       : clamp(player.x - visibleW / 2, 0, Math.max(0, WORLD.w - visibleW)),
     y: duelCenter
       ? duelCenter.y - visibleH / 2
-      : clamp(player.y - visibleH / 2, 0, Math.max(0, WORLD.h - visibleH)),
+      : clamp(player.y - visibleH * verticalFocus, 0, Math.max(0, WORLD.h - visibleH)),
   };
 }
 

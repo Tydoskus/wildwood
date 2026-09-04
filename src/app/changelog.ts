@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.616": [
+    "Moved the mobile gameplay camera focus 10% lower for clearer play space above the player.",
+    "Added the pathless Cloudspire map design and updated Balance Lab strategy and combat reporting.",
+  ],
   "0.615": [
     "Calibrated Samurai Garden through Crystal Hollows incoming damage to a health-and-armor progression curve, bringing Crystal Hollows regular hits to about 80b–128b at the reference build.",
     "Kept boss health, rewards, armor, and saved player stats separate from incoming-hit scaling, with stronger late-map telegraphed attacks.",
@@ -1457,6 +1461,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.616": "2026-09-03",
   "0.614": "2026-09-03",
   "0.613": "2026-09-03",
   "0.612": "2026-09-03",

@@ -6299,6 +6299,1689 @@
         ]
       },
       "gameplayEdited": true
+    },
+    "cloudspire": {
+      "id": "cloudspire",
+      "name": "Cloudspire",
+      "templateId": "cloudspire",
+      "status": "live",
+      "updatedAt": "2026-09-04T02:28:58.794Z",
+      "theme": {
+        "ground": "#537eac",
+        "path": "#dbe7ef",
+        "pathDetail": "rgba(52,76,122,.24)",
+        "decorColors": {
+          "cloud": [
+            "rgba(214,239,255,.82)",
+            "rgba(235,248,255,.86)"
+          ],
+          "skyShard": [
+            "#8de5ff",
+            "#f3d778",
+            "#c9b8ff"
+          ]
+        }
+      },
+      "paths": [],
+      "decor": [
+        {
+          "type": "cloud",
+          "x": 4149,
+          "y": 1563,
+          "s": 1.381,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 4411,
+          "y": 3312,
+          "s": 1.184,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 59,
+          "y": 3789,
+          "s": 0.585,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 1037,
+          "y": 3063,
+          "s": 0.891,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1954,
+          "y": 3449,
+          "s": 0.652,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2107,
+          "y": 59,
+          "s": 1.165,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3243,
+          "y": 3117,
+          "s": 0.786,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 640,
+          "y": 4675,
+          "s": 0.643,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3506,
+          "y": 3438,
+          "s": 0.971,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2313,
+          "y": 166,
+          "s": 0.998,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 4541,
+          "y": 1744,
+          "s": 1.016,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 306,
+          "y": 3663,
+          "s": 0.894,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 3366,
+          "y": 1470,
+          "s": 0.641,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2683,
+          "y": 3251,
+          "s": 1.183,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2352,
+          "y": 464,
+          "s": 1.06,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 544,
+          "y": 3238,
+          "s": 0.773,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 3636,
+          "y": 663,
+          "s": 1.147,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 4364,
+          "y": 354,
+          "s": 1.176,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 249,
+          "y": 2646,
+          "s": 0.58,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3932,
+          "y": 1009,
+          "s": 1.339,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 4678,
+          "y": 1931,
+          "s": 1.38,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 3456,
+          "y": 1458,
+          "s": 1.387,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 2077,
+          "y": 1639,
+          "s": 0.742,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1143,
+          "y": 2153,
+          "s": 1.025,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1363,
+          "y": 4679,
+          "s": 1.28,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 213,
+          "y": 175,
+          "s": 0.605,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 209,
+          "y": 2189,
+          "s": 1.216,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2623,
+          "y": 1367,
+          "s": 1.067,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1228,
+          "y": 451,
+          "s": 0.568,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1985,
+          "y": 4721,
+          "s": 1.226,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 453,
+          "y": 2956,
+          "s": 1.357,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2762,
+          "y": 3123,
+          "s": 1.363,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 2140,
+          "y": 4355,
+          "s": 1.155,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 938,
+          "y": 3088,
+          "s": 0.995,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3672,
+          "y": 2790,
+          "s": 1.102,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3755,
+          "y": 437,
+          "s": 0.989,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 693,
+          "y": 3195,
+          "s": 1.293,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3301,
+          "y": 2889,
+          "s": 0.866,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 130,
+          "y": 1606,
+          "s": 0.579,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 379,
+          "y": 4287,
+          "s": 1.308,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1388,
+          "y": 3183,
+          "s": 0.957,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 3336,
+          "y": 1795,
+          "s": 1.241,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3202,
+          "y": 4457,
+          "s": 1.332,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1479,
+          "y": 1994,
+          "s": 0.875,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 166,
+          "y": 3432,
+          "s": 0.671,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 4072,
+          "y": 350,
+          "s": 0.939,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2697,
+          "y": 2546,
+          "s": 0.894,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2423,
+          "y": 3287,
+          "s": 1.166,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1892,
+          "y": 3653,
+          "s": 0.687,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 77,
+          "y": 1845,
+          "s": 0.556,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1811,
+          "y": 2346,
+          "s": 0.681,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 3629,
+          "y": 298,
+          "s": 0.934,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 4538,
+          "y": 2808,
+          "s": 0.965,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1609,
+          "y": 477,
+          "s": 1.026,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3529,
+          "y": 2574,
+          "s": 0.757,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 793,
+          "y": 4692,
+          "s": 1.331,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1112,
+          "y": 2925,
+          "s": 1.344,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 3550,
+          "y": 2132,
+          "s": 0.861,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 221,
+          "y": 2622,
+          "s": 1.166,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 3209,
+          "y": 2097,
+          "s": 0.699,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2345,
+          "y": 905,
+          "s": 1.19,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 896,
+          "y": 2046,
+          "s": 1.33,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2772,
+          "y": 4552,
+          "s": 0.734,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3681,
+          "y": 2812,
+          "s": 1.133,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1525,
+          "y": 2941,
+          "s": 0.842,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 3040,
+          "y": 4541,
+          "s": 0.961,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2206,
+          "y": 2640,
+          "s": 0.826,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 108,
+          "y": 2538,
+          "s": 0.739,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3311,
+          "y": 4718,
+          "s": 1.213,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 300,
+          "y": 4308,
+          "s": 1.263,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1957,
+          "y": 3619,
+          "s": 0.748,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 471,
+          "y": 1141,
+          "s": 1.127,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 552,
+          "y": 2876,
+          "s": 0.976,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1501,
+          "y": 4009,
+          "s": 1.161,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 381,
+          "y": 196,
+          "s": 1.268,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2595,
+          "y": 4544,
+          "s": 0.754,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1362,
+          "y": 2486,
+          "s": 0.674,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2451,
+          "y": 1111,
+          "s": 0.783,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 268,
+          "y": 177,
+          "s": 0.938,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2679,
+          "y": 2145,
+          "s": 0.846,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 979,
+          "y": 1862,
+          "s": 1.379,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3653,
+          "y": 1598,
+          "s": 1.013,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2500,
+          "y": 1823,
+          "s": 0.602,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3448,
+          "y": 3214,
+          "s": 1.15,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 231,
+          "y": 2583,
+          "s": 1.268,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 331,
+          "y": 1186,
+          "s": 1.229,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 236,
+          "y": 2437,
+          "s": 1.274,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3791,
+          "y": 913,
+          "s": 0.727,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1664,
+          "y": 2332,
+          "s": 0.964,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3525,
+          "y": 84,
+          "s": 0.946,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 271,
+          "y": 1549,
+          "s": 0.963,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 2652,
+          "y": 1902,
+          "s": 1.08,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2744,
+          "y": 2108,
+          "s": 0.823,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2546,
+          "y": 2708,
+          "s": 0.759,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 3556,
+          "y": 1455,
+          "s": 1.303,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 4443,
+          "y": 311,
+          "s": 1.168,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 4016,
+          "y": 1774,
+          "s": 0.981,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3158,
+          "y": 4737,
+          "s": 0.689,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 2546,
+          "y": 1792,
+          "s": 1.146,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 3259,
+          "y": 1619,
+          "s": 1.059,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 3036,
+          "y": 192,
+          "s": 1.203,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 2182,
+          "y": 615,
+          "s": 0.607,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2837,
+          "y": 2681,
+          "s": 0.875,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 1657,
+          "y": 3312,
+          "s": 1.079,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 1708,
+          "y": 275,
+          "s": 0.791,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1261,
+          "y": 272,
+          "s": 1.283,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1935,
+          "y": 3620,
+          "s": 1.228,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 1349,
+          "y": 3990,
+          "s": 1.241,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 111,
+          "y": 164,
+          "s": 1.091,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1003,
+          "y": 2728,
+          "s": 1.141,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 1478,
+          "y": 3074,
+          "s": 0.883,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 1076,
+          "y": 2093,
+          "s": 1.361,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 386,
+          "y": 3229,
+          "s": 1.205,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2521,
+          "y": 716,
+          "s": 0.92,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3139,
+          "y": 1989,
+          "s": 1.199,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 563,
+          "y": 4252,
+          "s": 0.633,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 668,
+          "y": 4545,
+          "s": 0.982,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 3166,
+          "y": 3195,
+          "s": 0.573,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 1803,
+          "y": 891,
+          "s": 0.57,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3489,
+          "y": 660,
+          "s": 1.387,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 75,
+          "y": 4184,
+          "s": 1.03,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 4494,
+          "y": 413,
+          "s": 1.364,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 645,
+          "y": 4225,
+          "s": 0.634,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 2863,
+          "y": 272,
+          "s": 0.818,
+          "variant": 3
+        },
+        {
+          "type": "cloud",
+          "x": 1384,
+          "y": 3226,
+          "s": 0.94,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 3337,
+          "y": 1384,
+          "s": 1.205,
+          "variant": 2
+        },
+        {
+          "type": "cloud",
+          "x": 136,
+          "y": 3469,
+          "s": 1.348,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2225,
+          "y": 2849,
+          "s": 1.304,
+          "variant": 0
+        },
+        {
+          "type": "cloud",
+          "x": 209,
+          "y": 418,
+          "s": 1.142,
+          "variant": 1
+        },
+        {
+          "type": "cloud",
+          "x": 2260,
+          "y": 1964,
+          "s": 1.315,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 1980,
+          "y": 4084,
+          "s": 0.997,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 2436,
+          "y": 4624,
+          "s": 1.268,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4551,
+          "y": 770,
+          "s": 0.917,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 105,
+          "y": 4681,
+          "s": 0.652,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 3102,
+          "y": 456,
+          "s": 1.059,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 1790,
+          "y": 899,
+          "s": 0.777,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 4403,
+          "y": 1024,
+          "s": 1.235,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3610,
+          "y": 2896,
+          "s": 0.968,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1048,
+          "y": 2828,
+          "s": 1.283,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 3423,
+          "y": 3614,
+          "s": 0.63,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 4404,
+          "y": 111,
+          "s": 1.072,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 483,
+          "y": 4555,
+          "s": 0.927,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3026,
+          "y": 4439,
+          "s": 1.069,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 314,
+          "y": 3622,
+          "s": 1.005,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 2711,
+          "y": 3464,
+          "s": 1.241,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 575,
+          "y": 1240,
+          "s": 1.115,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 4258,
+          "y": 699,
+          "s": 0.943,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4070,
+          "y": 1744,
+          "s": 0.814,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 897,
+          "y": 1805,
+          "s": 0.717,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 3441,
+          "y": 2687,
+          "s": 0.729,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 1258,
+          "y": 2979,
+          "s": 0.923,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 4133,
+          "y": 2874,
+          "s": 1.252,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 318,
+          "y": 3379,
+          "s": 0.949,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3815,
+          "y": 1571,
+          "s": 0.82,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1627,
+          "y": 1411,
+          "s": 1.198,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4467,
+          "y": 3459,
+          "s": 1.138,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 872,
+          "y": 4316,
+          "s": 1.275,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 493,
+          "y": 2477,
+          "s": 1.243,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 4477,
+          "y": 1293,
+          "s": 0.65,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 243,
+          "y": 1572,
+          "s": 1.105,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 2823,
+          "y": 2133,
+          "s": 1.206,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1769,
+          "y": 2953,
+          "s": 1.267,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 658,
+          "y": 370,
+          "s": 1.208,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 270,
+          "y": 4155,
+          "s": 0.948,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 390,
+          "y": 3816,
+          "s": 1.313,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 1723,
+          "y": 4421,
+          "s": 0.643,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 2413,
+          "y": 134,
+          "s": 0.835,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 2597,
+          "y": 2979,
+          "s": 0.778,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 325,
+          "y": 1125,
+          "s": 1.292,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1977,
+          "y": 269,
+          "s": 1.133,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4554,
+          "y": 608,
+          "s": 0.716,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3486,
+          "y": 3445,
+          "s": 1.151,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1004,
+          "y": 3106,
+          "s": 0.85,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 2453,
+          "y": 291,
+          "s": 0.647,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3341,
+          "y": 1566,
+          "s": 1.188,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 201,
+          "y": 4024,
+          "s": 1.057,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 915,
+          "y": 3082,
+          "s": 1.273,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 566,
+          "y": 1308,
+          "s": 1.262,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 1461,
+          "y": 3368,
+          "s": 1.297,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 2627,
+          "y": 435,
+          "s": 0.932,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4565,
+          "y": 3104,
+          "s": 0.889,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 263,
+          "y": 2519,
+          "s": 1.295,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 713,
+          "y": 3112,
+          "s": 0.885,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 1638,
+          "y": 283,
+          "s": 0.767,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1371,
+          "y": 3212,
+          "s": 0.637,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3005,
+          "y": 4566,
+          "s": 0.8,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 2925,
+          "y": 4559,
+          "s": 0.629,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 4753,
+          "y": 1789,
+          "s": 0.911,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 4027,
+          "y": 566,
+          "s": 0.772,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 1391,
+          "y": 293,
+          "s": 0.809,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3235,
+          "y": 2609,
+          "s": 0.897,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 3265,
+          "y": 4719,
+          "s": 0.95,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3309,
+          "y": 1842,
+          "s": 1.274,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 3002,
+          "y": 2487,
+          "s": 0.816,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 1918,
+          "y": 4666,
+          "s": 0.861,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 2298,
+          "y": 3103,
+          "s": 0.697,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 4138,
+          "y": 1295,
+          "s": 1.132,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 2700,
+          "y": 1928,
+          "s": 0.752,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 514,
+          "y": 306,
+          "s": 0.931,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1310,
+          "y": 2897,
+          "s": 0.838,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 488,
+          "y": 2956,
+          "s": 1.155,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 1396,
+          "y": 2223,
+          "s": 0.948,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 1876,
+          "y": 1049,
+          "s": 1.002,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 4079,
+          "y": 1253,
+          "s": 1.222,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 3551,
+          "y": 1636,
+          "s": 0.775,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 1966,
+          "y": 4673,
+          "s": 1.224,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 3122,
+          "y": 171,
+          "s": 0.819,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 3706,
+          "y": 3337,
+          "s": 1.222,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 2405,
+          "y": 4663,
+          "s": 0.933,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4440,
+          "y": 2899,
+          "s": 0.769,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3648,
+          "y": 4670,
+          "s": 0.772,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 574,
+          "y": 2656,
+          "s": 0.683,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 4083,
+          "y": 1706,
+          "s": 0.886,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 2413,
+          "y": 2626,
+          "s": 1.138,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 3762,
+          "y": 702,
+          "s": 1.039,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 3987,
+          "y": 381,
+          "s": 1.094,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 752,
+          "y": 164,
+          "s": 0.84,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 510,
+          "y": 1191,
+          "s": 0.944,
+          "variant": 1
+        },
+        {
+          "type": "skyShard",
+          "x": 2548,
+          "y": 733,
+          "s": 0.653,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 2852,
+          "y": 4615,
+          "s": 0.793,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 2109,
+          "y": 302,
+          "s": 1.122,
+          "variant": 2
+        },
+        {
+          "type": "skyShard",
+          "x": 1457,
+          "y": 2748,
+          "s": 1.17,
+          "variant": 0
+        },
+        {
+          "type": "skyShard",
+          "x": 2782,
+          "y": 3344,
+          "s": 0.869,
+          "variant": 1
+        }
+      ],
+      "spawnCamps": [
+        {
+          "name": "Zephyr Landing",
+          "x": 1050,
+          "y": 1350,
+          "minRadius": 230,
+          "radius": 400,
+          "count": 6,
+          "types": [
+            "Gale Prowler"
+          ],
+          "formation": "crescent",
+          "rotation": -0.25
+        },
+        {
+          "name": "Nimbus Causeway",
+          "x": 3000,
+          "y": 900,
+          "minRadius": 230,
+          "radius": 400,
+          "count": 6,
+          "types": [
+            "Nimbus Archer"
+          ],
+          "formation": "ranks",
+          "rotation": 0.2
+        },
+        {
+          "name": "Sunvault Bastion",
+          "x": 4100,
+          "y": 2350,
+          "minRadius": 250,
+          "radius": 440,
+          "count": 7,
+          "types": [
+            "Skyguard Colossus"
+          ],
+          "formation": "crescent",
+          "rotation": 1.15
+        },
+        {
+          "name": "Thunderhead",
+          "x": 1000,
+          "y": 3600,
+          "minRadius": 240,
+          "radius": 420,
+          "count": 7,
+          "types": [
+            "Thunder Reaper"
+          ],
+          "formation": "crescent",
+          "rotation": -0.45
+        },
+        {
+          "name": "Eye of the Storm",
+          "x": 2600,
+          "y": 4050,
+          "minRadius": 210,
+          "radius": 380,
+          "count": 4,
+          "types": [
+            "Tempest Oracle"
+          ],
+          "formation": "ranks",
+          "rotation": 0.15
+        }
+      ],
+      "gameplay": {
+        "arrival": {
+          "x": 580,
+          "y": 770
+        },
+        "boss": {
+          "x": 4050,
+          "y": 4050
+        },
+        "portals": [
+          {
+            "x": 360,
+            "y": 680,
+            "width": 198,
+            "height": 198,
+            "depth": 680,
+            "destination": "samurai_garden"
+          },
+          {
+            "x": 580,
+            "y": 680,
+            "width": 198,
+            "height": 198,
+            "depth": 680,
+            "destination": "moonfen"
+          }
+        ]
+      },
+      "gameplayEdited": false
     }
   },
   "drafts": {}

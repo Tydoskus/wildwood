@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCamera,
   MOBILE_CAMERA_REFERENCE_VIEWPORT,
+  MOBILE_CAMERA_VERTICAL_FOCUS_OFFSET,
   MOBILE_CAMERA_ZOOM_MULTIPLIER,
   snapCameraToPlayer,
   targetCameraZoom,
@@ -34,6 +35,26 @@ describe("runtime camera", () => {
     const zoom = targetCameraZoom(155, MOBILE_CAMERA_REFERENCE_VIEWPORT);
 
     expect(zoom / legacyReferenceZoom).toBeCloseTo(MOBILE_CAMERA_ZOOM_MULTIPLIER, 10);
+  });
+
+  it("places the player below center on phone gameplay", () => {
+    const camera = createCamera();
+    const phonePlayer = { x: 2_400, y: 2_400, attackRange: 155 };
+
+    snapCameraToPlayer(camera, phonePlayer, MOBILE_CAMERA_REFERENCE_VIEWPORT);
+
+    const playerScreenY = (phonePlayer.y - camera.y) * camera.zoom;
+    expect(playerScreenY / MOBILE_CAMERA_REFERENCE_VIEWPORT.height)
+      .toBeCloseTo(.5 + MOBILE_CAMERA_VERTICAL_FOCUS_OFFSET, 10);
+  });
+
+  it("keeps desktop gameplay centered on the player", () => {
+    const camera = createCamera();
+
+    snapCameraToPlayer(camera, player, viewport);
+
+    const playerScreenY = (player.y - camera.y) * camera.zoom;
+    expect(playerScreenY / viewport.height).toBeCloseTo(.5, 10);
   });
 
   it("matches square desktop and reference-phone visible world area", () => {

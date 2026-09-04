@@ -54,9 +54,12 @@
 
             <label class="field-label" for="strategy">Farming behavior</label>
             <select id="strategy" name="strategy">
+              <option value="mixed">Mixed players · varied priorities</option>
               <option value="boss-rush">Boss readiness · balanced late tracks</option>
-              <option value="efficient">Max power per minute</option>
-              <option value="natural">Nearest available enemy</option>
+              <option value="efficient">Max power per minute · readiness-aware</option>
+              <option value="dps-first">Max DPS per minute · readiness-aware</option>
+              <option value="boss-farm">Repeat bosses · progression risk check</option>
+              <option value="natural">Nearest available enemy · readiness-aware</option>
             </select>
 
             <label class="field-label" for="researchPlan">Research queue</label>
@@ -277,7 +280,7 @@
               <span class="attackSpeed">ATTACK SPEED</span>
             </div>
           </div>
-          <p class="panel-help stat-time-help">Active travel, combat, and retarget time is assigned to the reward being pursued. Efficiency is direct reward power; effective doubling also includes gear and research.</p>
+          <p class="panel-help stat-time-help">Active travel, combat, and retarget time is assigned to the reward being pursued. Efficiency is direct reward power; effective doubling also includes gear and research. Mixed runs blend every normal player priority with bounded variation.</p>
           <div id="statTimeRows" class="stat-time-rows"></div>
           <div class="table-scroll">
             <table class="data-table stat-time-table">
@@ -339,7 +342,7 @@
                   <th scope="col">Time in map P10 / M / P90</th>
                   <th scope="col">Power entry → exit</th>
                   <th scope="col">Log growth at 25 / 50 / 75%</th>
-                  <th scope="col">Boss TTK at entry</th>
+                  <th scope="col">Boss TTK entry → exit</th>
                   <th scope="col">Regular kills</th>
                   <th scope="col">Target fit</th>
                 </tr>
@@ -391,7 +394,7 @@
         </div>
 
         <section class="model-note">
-          <strong>What the clock models:</strong> real enemy HP/rewards/spawns, additive equipment, 8%-per-level gear upgrades, attack cap, research, loot odds, travel, respawns, and solo boss damage. Opening momentum, equipment strength, and future-system reserve are reference/what-if controls only. Headroom ceilings are event-clock sensitivity estimates. The clock deliberately does not invent player dodging, deaths, idle time, boss mechanics, or multiplayer contribution.
+          <strong>What the clock models:</strong> real enemy HP/rewards/spawns, additive equipment, 8%-per-level gear upgrades, attack cap, research, loot odds, travel, respawns, solo boss damage, and a repeat-boss farming comparison. Mixed runs give each campaign a slightly different blend of nearby, efficient, DPS-first, and boss-readiness priorities; the boss-farm strategy is an explicit exploit check. Opening momentum, equipment strength, and future-system reserve are reference/what-if controls only. Headroom ceilings are event-clock sensitivity estimates. The clock deliberately does not invent player dodging, deaths, idle time, boss mechanics, or multiplayer contribution.
         </section>
       </main>
     </div>

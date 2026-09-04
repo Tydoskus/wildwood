@@ -55,7 +55,7 @@ function parseArguments(args: string[]) {
     if (flag === "--duration") config.durationSeconds = parseDuration(value);
     else if (flag === "--trials") config.trials = Number(value);
     else if (flag === "--strategy") {
-      if (value !== "boss-rush" && value !== "efficient" && value !== "natural") throw new Error(`Invalid strategy "${value}".`);
+      if (value !== "boss-rush" && value !== "efficient" && value !== "dps-first" && value !== "natural" && value !== "mixed" && value !== "boss-farm") throw new Error(`Invalid strategy "${value}".`);
       config.strategy = value as FarmingStrategy;
     } else if (flag === "--research") {
       if (value !== "off" && value !== "balanced" && value !== "damage-first") throw new Error(`Invalid research plan "${value}".`);
@@ -115,7 +115,7 @@ Usage: npm run balance:simulate -- [options]
 
   --duration 29.25h            Simulation window (s, m, h, or d)
   --trials 100                 Seeded loot campaigns
-  --strategy boss-rush         boss-rush, efficient, or natural
+  --strategy mixed             mixed, boss-rush, efficient, dps-first, natural, or boss-farm
   --research off               off, balanced, or damage-first
   --boss-target 5m             Solo TTK floor; late maps scale to 5%, max 15m
   --target-desert 2h           Explicit Beginner Desert duration target
@@ -148,8 +148,16 @@ if (parsed.json) {
 
 console.log(`WildStat Balance Lab · ${result.simulatedCampaigns} campaigns · ${formatDuration(result.config.durationSeconds)} · ${result.config.strategy}`);
 console.log(`Final power ${formatCompactNumber(result.finalPower.median)} (${formatCompactNumber(result.finalPower.p10)}–${formatCompactNumber(result.finalPower.p90)}) · DPS ${formatCompactNumber(result.finalDps.median)}`);
+const strategyLabels: Record<keyof BalanceSimulationResult["strategyMix"], string> = {
+  natural: "nearby",
+  efficient: "power",
+  "dps-first": "DPS",
+  "boss-rush": "boss",
+  "boss-farm": "farm",
+};
+console.log(`Behavior mix ${Object.entries(result.strategyMix).filter(([, count]) => count > 0).map(([id, count]) => `${strategyLabels[id as keyof typeof strategyLabels]} ${count}`).join(" · ")}`);
 console.log("");
-console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time / target", 23)}${pad("Power entry → exit", 25)}${pad("Growth / target", 19)}${pad("Curve 25/50/75", 20)}${pad("Gear/Boss", 14)}${pad("Dmg/HP", 10)}${pad("Boss TTK", 12)}Time fit`);
+console.log(`${pad("Map", 26)}${pad("Reach/Clear", 15)}${pad("Entry", 10)}${pad("Map time / target", 23)}${pad("Power entry → exit", 25)}${pad("Growth / target", 19)}${pad("Curve 25/50/75", 20)}${pad("Gear/Boss", 14)}${pad("Dmg/HP", 10)}${pad("Boss TTK in→out", 17)}Time fit`);
 for (const map of result.maps) {
   const clear = map.hasBoss ? `${Math.round(map.completedPercent)}%` : "open";
   const censored = map.hasBoss && map.durationCensoredPercent > 0 ? "+" : "";
@@ -171,8 +179,13 @@ for (const map of result.maps) {
   console.log(
     `${pad(map.name, 26)}${pad(`${Math.round(map.reachedPercent)}%/${clear}`, 15)}` +
     `${pad(formatDuration(map.enteredAtMedianSeconds), 10)}${pad(mapTime, 23)}` +
-    `${pad(power, 25)}${pad(growth, 19)}${pad(curve, 20)}${pad(gearBoss, 14)}${pad(damageToHealth, 10)}${pad(formatDuration(map.bossTtkAtEntryMedianSeconds), 12)}${fit}`,
+    `${pad(power, 25)}${pad(growth, 19)}${pad(curve, 20)}${pad(gearBoss, 14)}${pad(damageToHealth, 10)}${pad(`${formatDuration(map.bossTtkAtEntryMedianSeconds)}→${formatDuration(map.bossTtkAtExitMedianSeconds)}`, 17)}${fit}`,
   );
+}
+console.log("");
+console.log("Boss-farm check · repeat-boss power per minute vs best regular reward");
+for (const map of result.maps.filter((entry) => entry.hasBoss && entry.bossFarmEfficiencyRatioMedian !== null)) {
+  console.log(`- ${map.name}: ${formatCompactNumber(map.bossFarmPowerPerMinuteMedian ?? 0)} / min vs ${formatCompactNumber(map.bestRegularPowerPerMinuteMedian ?? 0)} regular · ${map.bossFarmEfficiencyRatioMedian!.toFixed(2)}× · ${formatCompactNumber(map.bossFarmKillsMedian ?? 0)} repeat kills`);
 }
 console.log("");
 console.log("Median map time allocation");

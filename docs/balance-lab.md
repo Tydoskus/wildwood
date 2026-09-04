@@ -10,13 +10,15 @@ Start the interactive lab:
 npm run balance:lab
 ```
 
-Vite prints a local URL; open `/balance-lab.html` if it does not open automatically. The default model fast-forwards 100 seeded 29.25-hour campaigns in a background worker, so the controls remain responsive and the median stays stable across randomized loot. That window covers the current 22.5-minute Forest onboarding estimate plus the full 2h → 2.7h → 3.65h → 4.92h → 6.64h → 8.97h pacing ladder through Samurai Garden. Tidewyrm is modeled as the Water Reach boss and Samurai Garden is the final open-map observation window.
+Vite prints a local URL; open `/balance-lab.html` if it does not open automatically. The default model fast-forwards 100 seeded 29.25-hour campaigns in a background worker, so the controls remain responsive and the median stays stable across randomized loot. The default `mixed` behavior gives each campaign all four normal priorities—nearby, power efficiency, DPS-first, and boss readiness—with a small seeded bias toward one. That keeps a run representative of human variation without turning the population into four rigid robot scripts. `boss-farm` is an explicit repeat-boss stress case and is not included in the normal mix. That window covers the current 22.5-minute Forest onboarding estimate plus the full 2h → 2.7h → 3.65h → 4.92h → 6.64h → 8.97h pacing ladder through Samurai Garden. Tidewyrm is modeled as the Water Reach boss and Samurai Garden is the final open-map observation window.
 
 Run a terminal report for quick comparisons or automation:
 
 ```sh
 npm run balance:simulate
-npm run balance:simulate -- --duration 29.25h --trials 100 --strategy boss-rush
+npm run balance:simulate -- --duration 29.25h --trials 100 --strategy mixed
+npm run balance:simulate -- --duration 29.25h --trials 1 --strategy boss-farm
+npm run balance:simulate -- --duration 29.25h --trials 1 --strategy dps-first
 npm run balance:simulate -- --target-desert 2h --target-step 1.35 --target-power 8.5
 npm run balance:simulate -- --target-arc .35 --equipment-strength .75
 npm run balance:simulate -- --future-speedup 1.25
@@ -36,12 +38,14 @@ Use `npm run balance:simulate -- --help` for every CLI option.
 - Momentum signals measure the longest wait for a cumulative +10% power gain and the largest single power jump. These catch a map that hits its endpoint only because one boss, item, or future system erases a long stall.
 - “Time in map” includes world travel, fight time, loot/retarget overhead, respawns, required clears, farming until boss readiness, and the boss fight. A trailing `+` means the simulation window ended before at least part of the sample completed that map. Samurai Garden is the current open-map evaluation window, so its result is labeled observed rather than completed.
 - “Boss readiness” is the solo boss TTK at which the simulated player decides to attempt the boss. The control is a 5-minute floor through Snowlands; from Lava Lake onward the policy grows toward 5% of the authored map duration and stops at 15 minutes. It is a progression policy, not a boss-health change.
+- “Mixed players” is the normal population model. Every campaign samples a seeded primary preference, then blends all four normal priorities with bounded weights. While a boss is out of reach, readiness gets a hard safety priority and DPS reward value breaks discrete TTK ties; this prevents a max-DPS or nearby-player run from stalling forever on an otherwise harmless map. “Max DPS” and “Max power” remain available as explicit what-if runs, but use the same readiness guard.
+- “Boss farm check” evaluates a repeat-boss cycle at map entry against the best regular reward cycle, and the explicit `boss-farm` strategy actually repeats a defeated boss until the simulation window ends. The result exposes repeat kills, boss power per minute, and the boss/regular efficiency ratio so a boss loop cannot hide inside a one-clear campaign.
 - Completed post-Forest maps also get an encounter-rhythm signal. A boss below 2.5% of measured map time or travel below 3% means ordinary health walls have swallowed the capstone or the world route, even when total duration still passes.
 - Forest is treated as onboarding rather than as the baseline for every later map. “Desert target,” “Desired map step,” and “Power budget” define the pacing and geometric-growth reference curve; they drive warnings and table comparisons but do not alter combat.
 - A duration is considered on target within ±25%. Per-map power is considered near budget from 65% to 150% of its target so loot randomness does not trigger false precision.
-- The enemy economy table freezes the representative campaign's build at map entry. It reports each archetype's share of full-clear combat, TTK versus the map median, one-kill power gain as a share of entry power, seconds per 1% power, efficiency versus the map median, and incoming damage. This makes low-value health walls and regular-to-elite gaps visible without guessing from HP alone.
+- The enemy economy table freezes the representative campaign's build at map entry. It reports each archetype's share of full-clear combat, TTK versus the map median, one-kill power gain as a share of entry power, seconds per 1% power, efficiency versus the map median, incoming hit and DPS after armor, survival time after regeneration, and (for late maps) hit size against the calibrated 1t-HP/90%-armor reference build. This makes low-value health walls, regular-to-elite gaps, and “large raw number but harmless after armor” failures visible without guessing from HP alone.
 - Regular HP/reward and boss HP/reward controls are separate temporary what-if layers. Equipment strength is also a lab-only multiplier that scales the bonus portion of effective equipment stats while preserving research and raw progression. None of these controls write into game source values.
-- Boss-rush behavior cycles the five complementary reward tracks from Lava Lake onward. This represents building enough offense and survivability for a boss rather than camping one instant-respawn damage site forever; the enemy table still warns when the raw reward economy makes such camping dominant.
+- Boss-rush behavior cycles the five complementary reward tracks from Lava Lake onward once its boss is reachable. This represents building enough offense and survivability for a boss rather than camping one instant-respawn damage site forever; the enemy table and boss-farm ratio still warn when the raw reward economy makes camping dominant.
 - A previous-run line remains on the chart after each rerun, making one-variable comparisons visible without exporting data.
 
 ## Explicit assumptions
@@ -49,7 +53,7 @@ Use `npm run balance:simulate -- --help` for every CLI option.
 The simulator models:
 
 - actual spawn-site positions and enemy composition through Samurai Garden;
-- regular enemy and boss HP, permanent rewards, additive equipment, upgrade levels, attack cap, armor, and canonical power;
+- regular enemy and boss HP, permanent rewards, additive equipment, upgrade levels, attack cap, armor, canonical power, and boss damage-profile kinds;
 - real attack windup/interval and estimated projectile flight to a normal in-range target;
 - direct-distance travel with a configurable pathing multiplier;
 - independent seeded equipment drop rolls, automatic power-positive equipping, optional equipment-bonus scaling, and regular respawns;

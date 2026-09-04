@@ -289,6 +289,17 @@ function renderSummary(next: BalanceSimulationResult) {
   }).length;
   const headroomTargets = next.maps.filter((map) => map.futureHeadroom !== null);
   const headroomHits = headroomTargets.filter((map) => map.futureHeadroom?.reservePass).length;
+  const strategyLabels: Record<keyof BalanceSimulationResult["strategyMix"], string> = {
+    natural: "nearby",
+    efficient: "power",
+    "dps-first": "DPS",
+    "boss-rush": "boss",
+    "boss-farm": "farm",
+  };
+  const strategyMix = Object.entries(next.strategyMix)
+    .filter(([, count]) => count > 0)
+    .map(([id, count]) => `${strategyLabels[id as keyof typeof strategyLabels]} ${count}`)
+    .join(" · ");
   const cards = [
     {
       label: "FINAL MEDIAN POWER",
@@ -303,7 +314,7 @@ function renderSummary(next: BalanceSimulationResult) {
     {
       label: "CURVE TARGETS",
       value: `${pacingHits}/${pacingTargets.length} ON TIME`,
-      detail: `${powerHits}/${powerTargets.length} near ${formatRatio(next.config.targetMapPowerMultiplier)} power growth · ${headroomHits}/${headroomTargets.length} hold ${((next.config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(0)}% future reserve`,
+      detail: `${powerHits}/${powerTargets.length} near ${formatRatio(next.config.targetMapPowerMultiplier)} power growth · ${headroomHits}/${headroomTargets.length} hold ${((next.config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(0)}% future reserve · ${strategyMix || "no strategy sample"}`,
     },
     {
       label: "FURTHEST MEDIAN MAP",
@@ -331,8 +342,11 @@ function powerCompositionMarkup(map: BalanceSimulationResult["maps"][number]) {
   const components = map.exitPowerComponentsMedian;
   if (!components || components.total <= 0) return "";
   const share = (value: number) => Math.round(value / components.total * 100);
+  const farmMarkup = map.bossFarmEfficiencyRatioMedian === null
+    ? ""
+    : `<span class="cell-sub">boss farm ${map.bossFarmEfficiencyRatioMedian.toFixed(1)}× best regular · ${formatCompactNumber(map.bossFarmPowerPerMinuteMedian ?? 0)}/min · ${formatCompactNumber(map.bossFarmKillsMedian ?? 0)} clears in farm mode</span>`;
   return `<span class="cell-sub">budget D ${share(components.damage)}% · HP ${share(components.health)}% · A ${share(components.armor)}% · R ${share(components.regeneration)}%</span>` +
-    `<span class="cell-sub">equipment adds ${components.equipmentSharePercent.toFixed(0)}% of exit power${map.bossRewardGrowthSharePercent === null ? "" : ` · boss supplies ${map.bossRewardGrowthSharePercent.toFixed(0)}% of map gains`}</span>`;
+    `<span class="cell-sub">equipment adds ${components.equipmentSharePercent.toFixed(0)}% of exit power${map.bossRewardGrowthSharePercent === null ? "" : ` · boss supplies ${map.bossRewardGrowthSharePercent.toFixed(0)}% of map gains`}</span>${farmMarkup}`;
 }
 
 function curveProgressMarkup(map: BalanceSimulationResult["maps"][number]) {
@@ -503,7 +517,9 @@ function renderMapTable(next: BalanceSimulationResult) {
     row.tabIndex = 0;
     const reached = map.reachedPercent;
     const cleared = map.hasBoss ? formatPercent(map.completedPercent) : "OPEN";
-    const bossTtk = map.hasBoss ? formatDuration(map.bossTtkAtEntryMedianSeconds) : "—";
+    const bossTtk = map.hasBoss
+      ? `${formatDuration(map.bossTtkAtEntryMedianSeconds)}<span class="cell-sub">exit ${formatDuration(map.bossTtkAtExitMedianSeconds)}</span>`
+      : "—";
     const durationFit = map.durationVsTarget;
     const durationWall = durationFit !== null && (durationFit < .75 || durationFit > 1.25);
     const stepMarkup = durationFit === null
@@ -571,7 +587,7 @@ function renderEnemyTable(next: BalanceSimulationResult) {
       <td>${formatDuration(metric.fullClearCombatSeconds)}<span class="cell-sub">${metric.fullClearCombatSharePercent.toFixed(0)}% of full-clear combat</span></td>
       <td>+${formatCompactNumber(metric.powerGain)}<span class="cell-sub">${metric.powerGainPercentOfEntry.toFixed(3)}% entry power · ${metric.combatSecondsPerOnePercentPower === null ? "—" : formatDuration(metric.combatSecondsPerOnePercentPower)} / 1%</span></td>
       <td>${formatCompactNumber(metric.combatPowerPerMinute)}<span class="cell-sub">${metric.efficiencyVsMapMedian.toFixed(2)}× map median</span></td>
-      <td class="${metric.hitsToDefeatPlayer <= 1 ? "risk" : ""}">${formatCompactNumber(metric.damageAfterArmor)}<span class="cell-sub">${metric.hitPercentOfHealth >= 1_000 ? formatCompactNumber(metric.hitPercentOfHealth) : metric.hitPercentOfHealth.toFixed(0)}% HP · ${metric.hitsToDefeatPlayer.toLocaleString()} hits</span></td>`;
+      <td class="${metric.hitsToDefeatPlayer <= 1 ? "risk" : ""}">${formatCompactNumber(metric.damageAfterArmor)}<span class="cell-sub">${metric.hitPercentOfHealth >= 1_000 ? formatCompactNumber(metric.hitPercentOfHealth) : metric.hitPercentOfHealth.toFixed(0)}% HP · ${metric.hitsToDefeatPlayer.toLocaleString()} hits · ${formatCompactNumber(metric.incomingDamagePerSecond)}/s</span><span class="cell-sub">survival ${formatDuration(metric.survivalSeconds)}${metric.referenceHitPercentOfHealth === null ? "" : ` · reference hit ${metric.referenceHitPercentOfHealth.toFixed(1)}% HP`}</span></td>`;
     enemyTableBody.append(row);
   }
 }

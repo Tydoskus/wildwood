@@ -41,7 +41,7 @@ describe("one-click map editor", () => {
     const catalog = JSON.parse(snapshot.stdout);
     expect(catalog.maps.map((map: { id: string }) => map.id).sort()).toEqual([...MAP_IDS].sort());
     expect(catalog.maps.every((map: { paths: unknown[]; decor: unknown[]; gameplay: { portals: unknown[] } }) =>
-      map.paths.length > 0 && map.decor.length > 0 && map.gameplay.portals.length > 0)).toBe(true);
+      map.decor.length > 0 && map.gameplay.portals.length > 0)).toBe(true);
     const bootsPickup = catalog.maps.find((map: { id: string; gameplay: { bootsPickup?: { x: number; y: number } } }) => map.id === "tutorial_forest")?.gameplay.bootsPickup;
     expect(bootsPickup).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
     expect(bootsPickup.x).toBeGreaterThanOrEqual(0);
