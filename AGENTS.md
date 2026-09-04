@@ -14,3 +14,7 @@
 
 - Do not run balance simulations unless the user explicitly asks. Exclude `src/balance/simulator.test.ts` from broad unit-test runs because it executes campaign simulations.
 - After pushing a requested release, do not wait for hosted builds to go live; the user will report deployment issues. Relevant pre-push checks still apply.
+
+## File manageability
+
+- Keep the 1,000-line browser-facing facade guard: it limits agent context/token usage and keeps the composition layer manageable. Prefer extracting focused modules over compressing formatting or deleting useful comments to meet it.

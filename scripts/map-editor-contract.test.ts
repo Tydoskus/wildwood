@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
+import { MAP_IDS } from "../shared/rules";
 
 const root = process.cwd();
 
@@ -38,7 +39,7 @@ describe("one-click map editor", () => {
     expect(snapshot.stderr).toBe("");
     expect(snapshot.status).toBe(0);
     const catalog = JSON.parse(snapshot.stdout);
-    expect(catalog.maps).toHaveLength(10);
+    expect(catalog.maps.map((map: { id: string }) => map.id).sort()).toEqual([...MAP_IDS].sort());
     expect(catalog.maps.every((map: { paths: unknown[]; decor: unknown[]; gameplay: { portals: unknown[] } }) =>
       map.paths.length > 0 && map.decor.length > 0 && map.gameplay.portals.length > 0)).toBe(true);
     const bootsPickup = catalog.maps.find((map: { id: string; gameplay: { bootsPickup?: { x: number; y: number } } }) => map.id === "tutorial_forest")?.gameplay.bootsPickup;

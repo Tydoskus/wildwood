@@ -1,6 +1,6 @@
 # Progression Scaling Contract
 
-This document is the durable balance contract for WildStat's campaign. New maps, enemies, bosses, equipment, and migrations should preserve these rules unless the design direction is deliberately changed. The canonical runtime constants live in `shared/rules.ts` and `shared/items.ts`; the Balance Lab is the executable check on this contract.
+This document is the durable balance contract for WildStat's campaign. New maps, enemies, bosses, equipment, and migrations should preserve these rules unless the design direction is deliberately changed. Canonical rules live in `shared/rules.ts`, `shared/items.ts`, and `shared/incoming-damage.ts`. Direct formula tests cover incoming hits; Balance Lab checks campaign pacing only when simulation is explicitly requested.
 
 ## Hard progression contract
 
@@ -18,7 +18,7 @@ This document is the durable balance contract for WildStat's campaign. New maps,
 - **Intermediate Snowlands is the final regular-enemy movement and aggro tier.** Later maps may scale health, damage, cadence, and rewards, but each matching archetype must stay at or below Snowlands movement speed (Raider 230, Archer 215, Guardian 205, Reaper 235, Oracle 220) and elite aggro reach (340). Keep these as explicit authored values, backed by tests; do not add a hidden runtime clamp.
 - **Ranged regular enemies never outrange their target player.** Their firing edge follows the target's current attack range with a 15-unit inward gap, and their preferred movement distance sits another 10 units inside that edge. Apply the same rule to local fights and remote combat ghosts without changing authored aggro or leash distances.
 - **The boss is a capstone and the unlock gate for the next map.** It should test the build earned in that map, not replace the regular-enemy progression runway.
-- **Boss incoming damage stays attached to its map tier.** Derive each encounter from that map's strongest regular-enemy hit, then tune the ability multipliers against a conservative boss-ready health/armor build. The strongest telegraphed ability should normally remove about 8%–20% effective max health, contact must stay below 35%, and overlapping area hazards must be weaker than the single heavy strike. Never carry forward fixed pre-rebalance damage values that are orders of magnitude above the map's regular enemies.
+- **Boss incoming damage stays attached to its map tier.** Derive each encounter from that map's strongest regular-enemy hit. Earlier maps retain their 8%–20% heavy-hit checks. From Samurai Garden onward, the health-and-armor curve below targets substantially stronger telegraphed attacks (about 32%–56% of reference HP). Contact stays below 35%, and overlapping area hazards are weaker than the single heavy strike. Never reuse incoming-damage scaling for boss HP or rewards.
 - **Longer maps come from more compact reward cycles, not longer ordinary fights.** From Lava Lake onward, split the source health and reward budgets into explicit encounter slices so regular enemies stay readable, camp respawns create movement, and the boss remains visible. Do not stretch a map with one multi-hour 30-enemy clear.
 - **Equipment bonuses stack additively.** Add weapon, head, chest, and research bonuses to the base `1×` multiplier; never multiply equipment pieces into one another.
 - **An item upgrade adds 8% of that item's level-zero bonus per level.** Upgrades are linear and capped at level 10. For example, a `+40%` item bonus becomes about `+43%` at level 1 and `+72%` at level 10; it does not compound.
@@ -56,14 +56,46 @@ The resulting rule is: **guaranteed core growth + a visible next breakthrough + 
 Samurai Garden applies the shared progression contract to Water Reach's unsliced source budget instead of copying every archetype at an obvious fixed ratio. This prevents later changes to Water's completed-map encounter cadence from silently changing the open map:
 
 - total regular-enemy health across one authored clear is `0.2295×` unsliced Water (`11.475 × 0.02`), or `9.18×` one currently sliced Water clear;
-- aggregate regular-enemy threat (`damage × attacks per second`) across a clear is exactly `8.5×` Water;
+- incoming hits use the separate health-and-armor curve below, not the old `8.5×` raw-threat step;
 - canonical reward power across one regular clear is `0.425×` unsliced Water (`8.5 × 0.02 × 2.5`), or about `13.08×` one currently sliced Water clear; the repeatable Koi Shogun is a separate guaranteed capstone;
 - individual health, hit damage, attack cadence, and reward ratios vary modestly around those targets so each family has its own combat texture;
 - Tidewyrm health is about `6.26×` current Gloomroot health (`11.475 × 34.5 / 55`); and
 - Tidewyrm's rewards start from `8.5×` Gloomroot, with the Water damage and health track corrections applied where appropriate.
 - Koi Shogun health and rewards take one further `8.5×` Samurai Garden step from Tidewyrm.
 
-These relationships live in `SAMURAI_GARDEN_*`, `SAMURAI_GARDEN_ARCHETYPE_PROFILE`, and `TIDEWYRM_*` constants in `shared/rules.ts`. The readable archetype profile is normalized against the authored 6/6/7/7/4 family mix; tests must verify the aggregate budgets whenever that mix changes. Future tuning should change the shared target or profile and clearly document an intentional exception, not hide a second multiplier in map or enemy code. Boss attack damage remains encounter-tuned because telegraph timing and dodge space affect survivability; validate it against the representative Water-exit build and avoid unavoidable one-shots.
+Health/reward relationships live in `SAMURAI_GARDEN_*`, `SAMURAI_GARDEN_ARCHETYPE_PROFILE`, and `TIDEWYRM_*` constants in `shared/rules.ts`. Those profiles are normalized against the authored 6/6/7/7/4 family mix; tests verify aggregate health and reward budgets. Incoming damage instead follows `shared/incoming-damage.ts`, preserving relative archetype hit sizes. Future tuning should change the shared target or profile and document the reason, not hide a second multiplier in map or enemy code.
+
+## Late-map incoming damage
+
+Samurai Garden, Cloudspire, Moonfen, and Crystal Hollows use a fixed map-tier
+reference build. Crystal Hollows is the calibration point: **1t max HP and 10b
+armor (about 90% reduction)**, based on the reported playtest build. Reference
+health and armor both follow the existing 8.5× progression step, backward to
+Samurai and forward to future tiers. This is an authored assumption, not a
+measurement of median player stats and not adaptive difficulty.
+
+```text
+raw minimum hit = reference HP × 0.08 / (1 − armorReduction(reference armor))
+```
+
+Each map's weakest regular hit targets 8% reference HP; the authored archetype
+ratios put the others around 8%–14%. Crystal Hollows deals about 80b–128b after
+armor at that reference. Hits are fixed when the enemy definitions are built:
+extra player armor still reduces damage, and extra health still buys survival.
+
+The old raw-damage multiplier was 8.5× per map. Even if health and armor both
+grew exactly 8.5×, it made a hit about 19% weaker as a fraction of health each
+map. The new rule accounts for effective health, producing about **10.536× raw
+damage per tier** for that reference growth. Calibration also fixes the too-low
+starting damage; the missing armor term alone did not explain the whole
+reported 800m-to-80b gap.
+
+Late bosses derive heavy, area, and contact hits at 4×, 2.8×, and 2× their map's
+strongest regular hit. At the Crystal reference this is about 513b, 359b, and
+257b. The smaller ability ratios keep the much stronger regular-enemy baseline
+from becoming an accidental boss one-shot. Early-map hits, armor's formula,
+enemy/boss HP, rewards, and saved player stats are unchanged. Direct unit tests
+cover the curve and future tiers; no campaign simulation was run for this change.
 
 ## Late-map encounter cadence
 
@@ -81,10 +113,10 @@ Health and reward slices may differ because map layout, respawn timing, and inhe
 
 Crystal Hollows preserves Moonfen's 6/6/7/7/4 clear counts while introducing five
 crystal-rabbit archetypes and a new connected cavern route. Its normalized clear
-budgets are `11.475 × .48 = 5.508×` Moonfen health, `8.5×` threat, and
+budgets are `11.475 × .48 = 5.508×` Moonfen health and
 `8.5 × .6 = 5.1×` canonical reward power. The lighter health slice and
-health-forward reward profile keep its measured duration and survivability in
-range without changing any existing map or player stats. Prismshell has `9.35×`
+health-forward reward profile remain unchanged by the incoming-damage revision
+above. Prismshell has `9.35×`
 Miremaw HP and `8.5×` its four rewards. Like Moonfen, the map adds no item drops.
 
 The additive protocol-85 schema appends `crystalHollowsUnlocked`, default false.
@@ -114,7 +146,7 @@ These bands make randomized simulations actionable without pretending they are e
 - **Power growth:** median entry-to-exit growth should be 65%–150% of the 8.5× budget (5.525×–12.75×). The center remains 8.5×; the wide band absorbs loot timing rather than redefining the target.
 - **Stat mix:** post-Forest regression tests target median effective damage/max-health between 0.55 and 1.35. The simulator's broader warning envelope of 0.25–1.50 is only triage. Late-map authored rewards should end close to parity so damage does not accelerate farming faster than survivability can grow.
 - **Boss readiness:** the default policy attempts a solo boss after one complete spawn-site clear and once estimated solo TTK reaches the map-aware target. The target is 5 minutes through Snowlands; from Lava Lake onward it is the greater of that floor and 5% of authored map duration, capped at 15 minutes. From Lava Lake onward boss-rush cycles the five complementary reward tracks so the forecast includes a survivable build rather than an all-damage exploit. This is an attempt policy, not a hidden boss-HP multiplier. Investigate a completed boss below 2.5% of median map time because it no longer reads as a capstone, above 25% because it has become the whole wall, or supplying more than 25% of map power growth.
-- **Regular-enemy survivability:** use `damageAfterArmor`, `hitPercentOfHealth`, and `hitsToDefeatPlayer` at the representative map-entry build. Night Forest's enforced late-map reference is roughly 3%–8.5% effective max health per hit, or 12–34 hits to defeat the player. Begin Water tuning in the same readability band. Never ship a map where most regular enemy types one-hit the representative entry build; telegraphed boss mechanics require separate encounter testing because the simulator does not model dodging.
+- **Regular-enemy survivability:** use `damageAfterArmor`, `hitPercentOfHealth`, and `hitsToDefeatPlayer` at the representative map-entry build. Night Forest and Water retain their earlier readability targets. Samurai onward uses the authored reference curve above: roughly 8%–14% HP per regular hit, or about 8–13 unhealed hits to defeat the reference build. A real entrant can differ from that design reference. Never assume a canonical-power score proves survivability; telegraphed boss mechanics require separate encounter testing because the simulator does not model dodging.
 - **Reward-track health:** compare `combatPowerPerMinute` at frozen map-entry stats. The most productive regular enemy must remain below 4× the middle productive enemy, or rational play collapses into one camp. Prefer smaller, more frequent gains when the early power line is flat.
 - **Enemy time walls:** compare per-archetype TTK and full-clear combat share at the same frozen map-entry build. Investigate an archetype above 2.5× the map's median TTK and an elite median above 3× the regular median. A high spawn count can legitimately own a large share of a clear; one ordinary enemy should not feel like several elites glued together.
 - **Time allocation:** on completed post-Forest boss maps, investigate travel below 3% because the world route has disappeared, respawn waiting above 15%, or travel above 35% before adding more HP. The practical target is usually 5%–20% travel: enough to feel the map without replacing combat with empty walking.
@@ -135,7 +167,7 @@ Percentile bands describe outcomes across deterministic seeded loot trials: P10 
 5. For an explicitly requested balance-simulation pass, after accepting source changes, run:
 
    ```sh
-   npm run test:unit -- src/balance/simulator.test.ts
+   npm run test:balance
    npm run typecheck:balance
    npm run build:balance
    ```

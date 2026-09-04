@@ -108,7 +108,7 @@ describe("layered enemy rendering", () => {
       facingX: -1, engaged: true, hurt: .1, remoteCombatDeathProgress: .25 } as EnemyState;
     renderer.drawEnemy(enemy);
     const frame = atlas.animations.idle.frames[0];
-    expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3, atlas.w, atlas.h]);
+    expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3 + ((sprite as LoadedEnemySprite).visualOffsetY ?? 0), atlas.w, atlas.h]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(ctx.scale).toHaveBeenCalledWith(-1, 1);
     expect(ctx.rotate).toHaveBeenCalledWith(.25 * .42 * -1);
@@ -148,7 +148,7 @@ describe("layered enemy rendering", () => {
     const before = { ...enemy };
     renderer.drawEnemy(enemy);
     const frame = atlas.animations[motion].frames[0];
-    expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3, atlas.w, atlas.h]);
+    expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3 + ((sprite as LoadedEnemySprite).visualOffsetY ?? 0), atlas.w, atlas.h]);
     // These captures are authored facing left, unlike the original enemy art.
     expect(-drawTransforms[0].scaleX).toBe(facingX);
     const anchorOffset = atlas.x + atlas.anchorX * atlas.w / atlas.frameWidth;

@@ -1,4 +1,5 @@
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
+import { LATE_BOSS_HIT_MULTIPLIERS } from "../../shared/incoming-damage";
 
 type DamageMultipliers = Record<string, number>;
 
@@ -72,24 +73,26 @@ export const BOSS_DAMAGE_PROFILES = {
     whirlpool: 14,
     contact: 10,
   }),
+  // Regular enemies now target meaningful post-armor hits. Late bosses use
+  // that same curve, with smaller ability ratios than the old 20x weak hits.
   koiShogun: scaledProfile(BOSS_DAMAGE_REFERENCE.koiShogun, {
-    slash: 20,
-    whirlpool: 14,
-    contact: 10,
+    slash: LATE_BOSS_HIT_MULTIPLIERS.heavy,
+    whirlpool: LATE_BOSS_HIT_MULTIPLIERS.area,
+    contact: LATE_BOSS_HIT_MULTIPLIERS.contact,
   }),
   tempestKirin: scaledProfile(BOSS_DAMAGE_REFERENCE.tempestKirin, {
-    charge: 20,
-    thunder: 14,
-    contact: 10,
+    charge: LATE_BOSS_HIT_MULTIPLIERS.heavy,
+    thunder: LATE_BOSS_HIT_MULTIPLIERS.area,
+    contact: LATE_BOSS_HIT_MULTIPLIERS.contact,
   }),
   miremaw: scaledProfile(BOSS_DAMAGE_REFERENCE.miremaw, {
-    tongue: 20,
-    bogBurst: 14,
-    contact: 10,
+    tongue: LATE_BOSS_HIT_MULTIPLIERS.heavy,
+    bogBurst: LATE_BOSS_HIT_MULTIPLIERS.area,
+    contact: LATE_BOSS_HIT_MULTIPLIERS.contact,
   }),
   prismshell: scaledProfile(BOSS_DAMAGE_REFERENCE.prismshell, {
-    shatter: 20,
-    crystalBurst: 14,
-    contact: 10,
+    shatter: LATE_BOSS_HIT_MULTIPLIERS.heavy,
+    crystalBurst: LATE_BOSS_HIT_MULTIPLIERS.area,
+    contact: LATE_BOSS_HIT_MULTIPLIERS.contact,
   }),
 } as const;

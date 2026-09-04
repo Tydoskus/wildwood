@@ -723,7 +723,7 @@ export function createActorRenderer(options: {
           // of world facing and any original aimed equipment layers.
           if (animation.sourceFacingX === -1) ctx.scale(-1, 1);
           ctx.drawImage(page.image, frame.x, frame.y, frame.w, frame.h,
-            animation.x, animation.y + ENEMY_SPRITE_Y_OFFSET, animation.w, animation.h);
+            animation.x, animation.y + ENEMY_SPRITE_Y_OFFSET + (sprite.visualOffsetY ?? 0), animation.w, animation.h);
           ctx.restore();
         } else {
           drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline, visibility);

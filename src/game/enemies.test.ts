@@ -11,7 +11,6 @@ import {
   BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
   BEGINNER_DESERT_HEALTH_SCALE,
   BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
-  CRYSTAL_HOLLOWS_DAMAGE_SCALE,
   CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
   CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
   CRYSTAL_HOLLOWS_HEALTH_SCALE,
@@ -28,7 +27,6 @@ import {
   INTERMEDIATE_SNOWLANDS_REGULAR_HEALTH_MULTIPLIER,
   LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
   SAMURAI_GARDEN_ARCHETYPE_PROFILE,
-  SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
@@ -186,8 +184,6 @@ describe("enemy reward rules", () => {
       reward.amount * (reward.type === "armor" ? 3 : reward.type === "regen" ? 10 : 1);
     let waterHealth = 0;
     let samuraiHealth = 0;
-    let waterThreat = 0;
-    let samuraiThreat = 0;
     let waterRewards = 0;
     let samuraiRewards = 0;
     const healthRatios: number[] = [];
@@ -203,8 +199,6 @@ describe("enemy reward rules", () => {
       rewardRatios.push(samurai.reward.amount / water.reward.amount);
       waterHealth += water.hp * count;
       samuraiHealth += samurai.hp * count;
-      waterThreat += water.damage * water.attackSpeed * count;
-      samuraiThreat += samurai.damage * samurai.attackSpeed * count;
       waterRewards += rewardPower(water.reward) * count;
       samuraiRewards += rewardPower(samurai.reward) * count;
 
@@ -216,7 +210,7 @@ describe("enemy reward rules", () => {
       SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE / WATER_REACH_ENCOUNTER_HEALTH_SCALE,
       10,
     );
-    expect(samuraiThreat / waterThreat).toBeCloseTo(SAMURAI_GARDEN_DAMAGE_SCALE, 10);
+    // Hit-size checks use health and armor in incoming-damage.test.ts.
     expect(samuraiRewards / waterRewards).toBeCloseTo(
       SAMURAI_GARDEN_REWARD_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER / WATER_REACH_ENCOUNTER_REWARD_SCALE,
       10,
@@ -238,7 +232,7 @@ describe("Crystal Hollows balance", () => {
       ["reaper", "Moonmire Reaper", "Prism Reaver", 235],
       ["oracle", "Wisp Oracle", "Hollow Oracle", 220],
     ] as const;
-    const totals = { previousHp: 0, hp: 0, previousThreat: 0, threat: 0, previousReward: 0, reward: 0 };
+    const totals = { previousHp: 0, hp: 0, previousReward: 0, reward: 0 };
     for (const [archetype, previousKind, currentKind, speedCap] of tracks) {
       const previous = ENEMY_TYPES[previousKind];
       const current = ENEMY_TYPES[currentKind];
@@ -246,8 +240,6 @@ describe("Crystal Hollows balance", () => {
       const rewardWeight = current.reward.type === "armor" ? 3 : current.reward.type === "regen" ? 10 : 1;
       totals.previousHp += previous.hp * count;
       totals.hp += current.hp * count;
-      totals.previousThreat += previous.damage * previous.attackSpeed * count;
-      totals.threat += current.damage * current.attackSpeed * count;
       totals.previousReward += previous.reward.amount * rewardWeight * count;
       totals.reward += current.reward.amount * rewardWeight * count;
       expect(current.reward.type).toBe(previous.reward.type);
@@ -255,7 +247,6 @@ describe("Crystal Hollows balance", () => {
       if (current.elite) expect(current.aggro).toBe(340);
     }
     expect(totals.hp / totals.previousHp).toBeCloseTo(CRYSTAL_HOLLOWS_HEALTH_SCALE * CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE, 10);
-    expect(totals.threat / totals.previousThreat).toBeCloseTo(CRYSTAL_HOLLOWS_DAMAGE_SCALE, 10);
     expect(totals.reward / totals.previousReward).toBeCloseTo(CRYSTAL_HOLLOWS_REWARD_SCALE * CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE, 10);
   });
 });

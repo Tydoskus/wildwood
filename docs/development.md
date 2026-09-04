@@ -100,6 +100,11 @@ For a terminal report or machine-readable JSON, use `npm run balance:simulate`. 
    git diff --check
    ```
 
+`test:unit` and `test:unit:watch` exclude campaign simulations. Only run
+`npm run test:balance` when the user explicitly requests balance simulation.
+See [Testing boundaries](testing.md) for DOM checks, reducer fixtures, and the
+intentional 1,000-line facade guard.
+
 4. If the game must refresh existing sessions, follow the release checklist below.
 5. Commit source and static files, then push `main`. CI rebuilds and deploys `dist/`.
 

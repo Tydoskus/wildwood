@@ -1,76 +1,136 @@
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { CRYSTAL_HOLLOWS_MAP_ID, MAP_IDS, PROTOCOL_VERSION } from "../../shared/rules";
+import { describe, expect, it, vi } from "vitest";
+import { ConnectionId, Timestamp } from "spacetimedb";
+import { PRISMSHELL_MAX_HP, PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH } from "../../shared/rules";
+import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { reducerParameters } from "../../tests/helpers/spacetime-module";
 
-const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
-function section(start: string, end: string) {
-  const from = source.indexOf(start);
-  const to = source.indexOf(end, from + start.length);
-  if (from < 0 || to < 0) throw new Error(`Missing server contract section: ${start} → ${end}`);
-  return source.slice(from, to);
-}
+vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
-describe("Crystal Hollows server integration", () => {
-  it("appends a default-false unlock without accepting it from client saves", () => {
-    const schema = section("const playerProgress = table(", "const playerResearch");
-    expect(schema).toContain("crystalHollowsUnlocked: t.bool().default(false)");
-    expect(schema.indexOf("crystalHollowsUnlocked:")).toBeGreaterThan(schema.indexOf("moonfenUnlocked:"));
-    const save = section("export const savePlayerProgress", "export const resetPlayerProgress");
-    expect(save).toContain("crystalHollowsUnlocked: base.crystalHollowsUnlocked");
-    expect(save).not.toContain("crystalHollowsUnlocked: progress.crystalHollowsUnlocked");
-    expect(MAP_IDS).toContain(CRYSTAL_HOLLOWS_MAP_ID);
-    expect(PROTOCOL_VERSION).toBe(85);
+describe("Crystal Hollows reducer behavior (in-memory, not native host integration)", () => {
+  it("appends a default-false unlock and excludes it from the save wire arguments", () => {
+    const columns = server.default.schemaType.tables.playerProgress.columns;
+    expect(columns.crystalHollowsUnlocked.columnMetadata.defaultValue).toBe(false);
+    const names = Object.keys(columns);
+    expect(names.indexOf("crystalHollowsUnlocked")).toBeGreaterThan(names.indexOf("moonfenUnlocked"));
+    expect(reducerParameters.get(server.savePlayerProgress)).not.toHaveProperty("crystalHollowsUnlocked");
+    expect(Object.keys(reducerParameters.get(server.damagePrismshellFromPosition)!).sort()).toEqual(["hits", "x", "y"]);
   });
 
-  it("requires Miremaw's recorded victory, not stats or the previous boss, to open the new map", () => {
-    expect(section("function rewardMiremawContributor", "function rewardPrismshellContributor")).toContain("crystalHollowsUnlocked: true");
-    expect(section("function rewardTempestKirinContributor", "function rewardMiremawContributor")).not.toContain("crystalHollowsUnlocked");
-    const migration = section("if (currentVersion < 21)", "const next = { id: 0, version: MODULE_MIGRATION_VERSION }");
-    expect(migration).toContain("ctx.db.miremawResult.id.find(MIREMAW_ID)");
-    expect(migration).toContain("resultIncludesContributor(result, progress.identity)");
-    expect(migration).toContain("{ ...progress, crystalHollowsUnlocked: true }");
-    expect(migration).not.toMatch(/progress\.(damage|maxHp|armor|regen)/);
-    const travel = section("export const changeMap", "export const setSpeed");
-    expect(travel).toContain("mapId === CRYSTAL_HOLLOWS_MAP_ID && !currentProgress?.crystalHollowsUnlocked");
-    expect(travel).toContain("Defeat Miremaw before entering");
-    expect(travel.indexOf("!currentProgress?.crystalHollowsUnlocked")).toBeLessThan(travel.indexOf("transitionPlayerMap("));
+  it("cannot grant or revoke the unlock through a player save", () => {
+    const f = crystalFixture();
+    const save = (forged: boolean) => f.run(server.savePlayerProgress, {
+      ...f.db.playerProgress.identity.find(f.ctx.sender), enemyKills: 0, crystalHollowsUnlocked: forged,
+    });
+    save(true);
+    expect(f.db.playerProgress.identity.find(f.ctx.sender).crystalHollowsUnlocked).toBe(false);
+    f.patch("playerProgress", { crystalHollowsUnlocked: true });
+    save(false);
+    expect(f.db.playerProgress.identity.find(f.ctx.sender).crystalHollowsUnlocked).toBe(true);
   });
 
-  it("uses the existing controlling-player, map, range, cadence and projectile checks for boss damage", () => {
-    const damage = section("function applyPrismshellDamage", "export const damageMiremawFromPosition");
-    for (const guard of [
-      "requireControllingPlayer(ctx)", "activeDuelFor(ctx, ctx.sender)",
-      "activePlayer.mapId !== CRYSTAL_HOLLOWS_MAP_ID", "!prismshell.alive || prismshell.hp <= 0",
-      "every(Number.isFinite)", "centerDistance - PRISMSHELL_RADIUS > progress.attackRange",
-      "attackIntervalForProgress(ctx, ctx.sender, progress)", "progress.projectileCount - currentWindow.hits",
-      "researchedDamage(ctx, ctx.sender, progress.damage)", "finishPrismshellEncounter(ctx, nextPrismshell)",
-    ]) expect(damage).toContain(guard);
-    const reducer = readFileSync(new URL("../../src/module_bindings/damage_prismshell_from_position_reducer.ts", import.meta.url), "utf8");
-    expect(reducer).not.toMatch(/damage:|reward:|identity:|timestamp:|hp:/);
-    expect(reducer).toContain("hits:");
+  it("rejects locked travel without moving the player, then accepts an earned unlock", () => {
+    const f = crystalFixture();
+    f.patch("player", { mapId: "moonfen" });
+    const travel = () => f.run(server.changeMap, { mapId: "crystal_hollows", x: 580, y: 617 });
+    expect(travel).toThrow("Defeat Miremaw");
+    expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("moonfen");
+    f.patch("playerProgress", { crystalHollowsUnlocked: true });
+    travel();
+    expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
   });
 
-  it("rewards positive contributors in the current encounter and resets combat rows on respawn", () => {
-    const finish = section("function finishPrismshellEncounter", "function clearDragonCombatRows");
-    expect(finish).toContain("row.encounter === prismshell.encounter && row.damage > 0");
-    expect(finish).toContain("for (const row of contributions) rewardPrismshellContributor(ctx, row.identity)");
-    expect(finish).toContain("hp: 0, alive: false, respawnAtMicros");
-    expect(finish).toContain("ctx.db.prismshellRespawnSchedule.insert");
-    const respawn = section("export const respawnPrismshell", "function applyDragonDamage");
-    expect(respawn).toContain("prismshell.encounter !== schedule.encounter");
-    expect(respawn).toContain("clearPrismshellCombatRows(ctx)");
-    expect(respawn).toContain("encounter: prismshell.encounter + 1n");
+  it("requires the current protocol and controlling connection", () => {
+    const f = crystalFixture();
+    f.patch("playerController", { connectionId: new ConnectionId(2n) });
+    expect(() => f.attack()).toThrow("another tab");
+    f.patch("playerController", { connectionId: f.ctx.connectionId });
+    const session = f.db.playerSession.connectionId.find(f.ctx.connectionId);
+    f.db.playerSession.connectionId.update({ ...session, protocolVersion: 0 });
+    expect(() => f.attack()).toThrow();
+    expect(f.db.prismshellBoss.id.find(1).hp).toBe(10_000);
+    expect(f.db.prismshellContribution.count()).toBe(0n);
   });
 
-  it("includes the new rows in guest merging, name updates, and complete player cleanup", () => {
-    expect(section("export const claimGuestAccount", "export const savePlayerProgress")).toContain("[ctx.db.prismshellContribution, ctx.db.prismshellAttackWindow]");
-    expect(section("function syncDisplayNamePresentation", "function defaultPlayerProgress")).toContain("ctx.db.prismshellContribution");
-    for (const cleanup of [
-      section("function removeVirtualPlayerData", "function removePlayerIdentityData"),
-      section("function removePlayerIdentityData", "function clearVirtualPlayersForOwner"),
-    ]) {
-      expect(cleanup).toContain("ctx.db.prismshellContribution.identity.delete(identity)");
-      expect(cleanup).toContain("ctx.db.prismshellAttackWindow.identity.delete(identity)");
+  it("ignores attacks from other maps, during duels, out of range, or against a dead boss", () => {
+    const f = crystalFixture();
+    f.patch("player", { mapId: "moonfen" });
+    f.attack();
+    f.patch("player", { mapId: "crystal_hollows" });
+    const duel = f.seed("duel", { challenger: f.ctx.sender, opponent: identity("2"), status: "active" });
+    f.attack();
+    f.db.duel.id.delete(duel.id);
+    f.attack(1, { x: 20, y: 20 });
+    const boss = f.db.prismshellBoss.id.find(1);
+    f.db.prismshellBoss.id.update({ ...boss, alive: false, hp: 0 });
+    f.attack();
+    expect(f.db.prismshellContribution.count()).toBe(0n);
+    expect(f.db.prismshellAttackWindow.count()).toBe(0n);
+  });
+
+  it("rejects nonfinite action coordinates without writing combat state", () => {
+    const f = crystalFixture();
+    expect(() => f.attack(1, { x: NaN, y: 4050 })).toThrow("finite");
+    expect(f.db.prismshellAttackWindow.count()).toBe(0n);
+  });
+
+  it("uses the action position and server stats, limiting projectiles per attack interval", () => {
+    const f = crystalFixture();
+    f.patch("player", { x: 360, y: 360 });
+    f.attack(20);
+    expect(f.db.prismshellBoss.id.find(1).hp).toBe(8_000);
+    f.attack(20);
+    expect(f.db.prismshellBoss.id.find(1).hp).toBe(8_000);
+    f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 1_000_000n);
+    f.attack();
+    expect(f.db.prismshellBoss.id.find(1).hp).toBe(7_000);
+    expect(f.db.prismshellContribution.identity.find(f.ctx.sender).damage).toBe(3_000);
+  });
+
+  it("does not carry an old encounter's contribution or hit budget into a new fight", () => {
+    const f = crystalFixture();
+    f.seed("prismshellContribution", { identity: f.ctx.sender, encounter: 6n, damage: 999, displayName: "Old" });
+    f.seed("prismshellAttackWindow", { identity: f.ctx.sender, encounter: 6n, hits: 20, startedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
+    f.attack();
+    expect(f.db.prismshellContribution.identity.find(f.ctx.sender)).toMatchObject({ encounter: 7n, damage: 1_000, displayName: "Test Player" });
+  });
+
+  it("rewards only positive current contributors once, caps credited damage, and schedules respawn", () => {
+    const f = crystalFixture();
+    for (const [who, encounter, damage] of [[identity("2"), 7n, 500], [identity("3"), 7n, 0], [identity("4"), 6n, 500]] as const) {
+      f.progress(who);
+      f.seed("prismshellContribution", { identity: who, encounter, damage, displayName: "Peer" });
     }
+    f.db.prismshellBoss.id.update({ ...f.db.prismshellBoss.id.find(1), hp: 150 });
+    f.attack();
+    const earned = f.db.playerProgress.identity.find(f.ctx.sender);
+    expect(earned.damage).toBe(1_000 + PRISMSHELL_REWARD_DAMAGE);
+    expect(earned.maxHp).toBe(100 + PRISMSHELL_REWARD_HEALTH);
+    expect(f.db.playerProgress.identity.find(identity("2")).damage).toBe(earned.damage);
+    expect(f.db.playerProgress.identity.find(identity("3")).damage).toBe(1_000);
+    expect(f.db.playerProgress.identity.find(identity("4")).damage).toBe(1_000);
+    expect(f.db.prismshellContribution.identity.find(f.ctx.sender).damage).toBe(150);
+    expect(f.db.prismshellResult.id.find(1).totalDamage).toBe(650);
+    expect(f.db.prismshellBoss.id.find(1)).toMatchObject({ alive: false, hp: 0 });
+    f.attack();
+    expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(earned);
+    expect(f.db.prismshellRespawnSchedule.count()).toBe(1n);
+  });
+
+  it("respawns only when due for the same encounter, clearing prior combat rows", () => {
+    const f = crystalFixture();
+    f.db.prismshellBoss.id.update({ ...f.db.prismshellBoss.id.find(1), hp: 1 });
+    f.attack();
+    const schedule = [...f.db.prismshellRespawnSchedule.iter()][0];
+    f.run(server.respawnPrismshell, { schedule });
+    expect(f.db.prismshellBoss.id.find(1).alive).toBe(false);
+    f.ctx.timestamp = new Timestamp(f.db.prismshellBoss.id.find(1).respawnAtMicros);
+    f.run(server.respawnPrismshell, { schedule: { ...schedule, encounter: 6n } });
+    expect(f.db.prismshellBoss.id.find(1).alive).toBe(false);
+    f.run(server.respawnPrismshell, { schedule });
+    expect(f.db.prismshellBoss.id.find(1)).toMatchObject({ alive: true, hp: PRISMSHELL_MAX_HP, encounter: 8n });
+    expect(f.db.prismshellContribution.count()).toBe(0n);
+    expect(f.db.prismshellAttackWindow.count()).toBe(0n);
+    f.run(server.respawnPrismshell, { schedule });
+    expect(f.db.prismshellBoss.id.find(1).encounter).toBe(8n);
   });
 });

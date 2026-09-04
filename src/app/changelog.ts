@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.615": [
+    "Calibrated Samurai Garden through Crystal Hollows incoming damage to a health-and-armor progression curve, bringing Crystal Hollows regular hits to about 80b–128b at the reference build.",
+    "Kept boss health, rewards, armor, and saved player stats separate from incoming-hit scaling, with stronger late-map telegraphed attacks.",
+    "Replaced brittle source-fragment checks with executable UI and isolated SpacetimeDB reducer tests while keeping balance simulations opt-in.",
+  ],
   "0.614": [
     "Added Crystal Hollows beyond Moonfen with five crystal-rabbit camps, editable cavern routes, and the new Prismshell boss.",
     "Defeating Miremaw unlocks Crystal Hollows, with map access and saved location synced across devices.",

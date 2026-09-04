@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("wildstat coop composition boundary", () => {
+  // Intentional agent-context budget: extract focused modules when this grows.
+  // Do not satisfy it by minifying or removing useful comments/whitespace.
   it("keeps the browser-facing facade below 1,000 lines", () => {
     const source = readFileSync(new URL("../wildstat-coop.ts", import.meta.url), "utf8");
     const lineCount = source.split(/\r?\n/).length - Number(source.endsWith("\n"));

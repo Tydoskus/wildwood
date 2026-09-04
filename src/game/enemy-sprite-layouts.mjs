@@ -117,6 +117,10 @@ function animatedSprite(family, atlas, { elite = false } = {}) {
   const scale = height / (atlas.bounds.bottom - atlas.bounds.top);
   return {
     family, size, height,
+    // The captured bodies sit a little high inside their frame. Keep the
+    // floating labels anchored to the actor while lowering only the artwork
+    // toward its reward text and baked ground shadow.
+    visualOffsetY: 7,
     // Fixed origin across motions; idle bounds keep labels/shadows steady.
     animation: {
       ...atlas, x: -atlas.anchorX * scale, y: height / 2 - atlas.bounds.bottom * scale,

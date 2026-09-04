@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { BOSS_DAMAGE_PROFILES, BOSS_DAMAGE_REFERENCE } from "./boss-damage";
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
+import { lateMapReferenceBuild } from "../../shared/incoming-damage";
 
 const encounters = {
   dragon: {
@@ -30,19 +31,19 @@ const encounters = {
   },
   koiShogun: {
     kinds: ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
-    build: { maxHp: 400_000_000, armor: 200_000_000 },
+    build: lateMapReferenceBuild(0),
   },
   tempestKirin: {
     kinds: ["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
-    build: { maxHp: 3_400_000_000, armor: 1_700_000_000 },
+    build: lateMapReferenceBuild(1),
   },
   miremaw: {
     kinds: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
-    build: { maxHp: 28_900_000_000, armor: 14_500_000_000 },
+    build: lateMapReferenceBuild(2),
   },
   prismshell: {
     kinds: ["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
-    build: { maxHp: 28_900_000_000 * 8.5, armor: 14_500_000_000 * 8.5 },
+    build: lateMapReferenceBuild(3),
   },
 } as const satisfies Record<keyof typeof BOSS_DAMAGE_PROFILES, {
   kinds: readonly EnemyKind[];
@@ -59,7 +60,7 @@ describe("boss incoming damage", () => {
     }
   });
 
-  it("keeps telegraphed abilities threatening without one-shotting a conservative boss-ready build", () => {
+  it("keeps telegraphed abilities in the intended post-armor range for each tier", () => {
     for (const [boss, encounter] of Object.entries(encounters) as Array<[
       keyof typeof encounters,
       (typeof encounters)[keyof typeof encounters],
@@ -69,14 +70,23 @@ describe("boss incoming damage", () => {
         .map(([, damage]) => damage);
       const strongestHit = Math.max(...abilityDamage);
       const hitPercent = damageAfterArmor(strongestHit, encounter.build.armor) / encounter.build.maxHp * 100;
-      expect(hitPercent, `${boss} strongest ability`).toBeGreaterThanOrEqual(8);
-      expect(hitPercent, `${boss} strongest ability`).toBeLessThanOrEqual(20);
+      const late = ["koiShogun", "tempestKirin", "miremaw", "prismshell"].includes(boss);
+      expect(hitPercent, `${boss} strongest ability`).toBeGreaterThanOrEqual(late ? 32 : 8);
+      expect(hitPercent, `${boss} strongest ability`).toBeLessThanOrEqual(late ? 60 : 20);
 
       const contactPercent = damageAfterArmor(
         BOSS_DAMAGE_PROFILES[boss].contact,
         encounter.build.armor,
       ) / encounter.build.maxHp * 100;
       expect(contactPercent, `${boss} contact`).toBeLessThanOrEqual(35);
+    }
+  });
+
+  it("keeps overlapping late-boss hazards below the heavy strike", () => {
+    for (const boss of ["koiShogun", "tempestKirin", "miremaw", "prismshell"] as const) {
+      const [heavy, area, contact] = Object.values(BOSS_DAMAGE_PROFILES[boss]);
+      expect(area / heavy).toBeCloseTo(.7);
+      expect(contact / heavy).toBeCloseTo(.5);
     }
   });
 

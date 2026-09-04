@@ -139,7 +139,8 @@ export const WATER_REACH_REGULAR_REWARD_MULTIPLIER = .0000075;
 // keeps Water Reach at 34.5x its former boss budget while Night Forest uses 55x.
 export const WATER_REACH_BOSS_HEALTH_MULTIPLIER = 34.5 / 55;
 export const SAMURAI_GARDEN_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
-export const SAMURAI_GARDEN_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+// Incoming hit damage has its own health-and-armor curve in incoming-damage.ts.
+// Do not reuse it for enemy/boss HP or permanent reward budgets.
 export const SAMURAI_GARDEN_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 // Samurai Garden uses compact regular-enemy clears so its final-map travel and
 // combat cadence remain readable around the Koi Shogun arena.
@@ -150,18 +151,15 @@ export const SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER = 2.5;
 // Cloudspire continues the established late-map macro step from Samurai
 // Garden while retaining its compact encounter rhythm.
 export const CLOUDSPIRE_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
-export const CLOUDSPIRE_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const CLOUDSPIRE_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER = 3.7;
 export const CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER = .75;
 // Moonfen continues the late-map ladder with a sturdier, defense-forward
 // enemy mix after Cloudspire's unusually damage-heavy reward profile.
 export const MOONFEN_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
-export const MOONFEN_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const MOONFEN_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 // Crystal Hollows adds one complete late-map step without rebalancing saves.
 export const CRYSTAL_HOLLOWS_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
-export const CRYSTAL_HOLLOWS_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const CRYSTAL_HOLLOWS_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 // Compact clears preserve travel time; the lighter health slice compensates
 // for the defense-heavy reward mix in the measured Moonfen-to-cavern campaign.
@@ -314,21 +312,21 @@ export const TIDEWYRM_REWARD_REGEN = GLOOMROOT_REWARD_REGEN * SAMURAI_GARDEN_REW
 // Samurai's compact encounter cadence reaches its intended exit damage before
 // the full map-health multiplier. This keeps the capstone near the late-map
 // 15-minute readiness target instead of turning it into another farm wall.
-export const KOI_SHOGUN_MAX_HP = TIDEWYRM_MAX_HP * SAMURAI_GARDEN_DAMAGE_SCALE * .75;
+export const KOI_SHOGUN_MAX_HP = TIDEWYRM_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * .75;
 export const KOI_SHOGUN_REWARD_DAMAGE = TIDEWYRM_REWARD_DAMAGE * SAMURAI_GARDEN_REWARD_SCALE;
 export const KOI_SHOGUN_REWARD_HEALTH = TIDEWYRM_REWARD_HEALTH * SAMURAI_GARDEN_REWARD_SCALE;
 export const KOI_SHOGUN_REWARD_ARMOR = TIDEWYRM_REWARD_ARMOR * SAMURAI_GARDEN_REWARD_SCALE;
 export const KOI_SHOGUN_REWARD_REGEN = TIDEWYRM_REWARD_REGEN * SAMURAI_GARDEN_REWARD_SCALE;
 // Cloudspire's damage-forward camps reach boss readiness quickly; this keeps
 // the first Tempest Kirin clear near the late-map campaign target.
-export const TEMPEST_KIRIN_MAX_HP = KOI_SHOGUN_MAX_HP * CLOUDSPIRE_DAMAGE_SCALE * 1.1;
+export const TEMPEST_KIRIN_MAX_HP = KOI_SHOGUN_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1;
 export const TEMPEST_KIRIN_REWARD_DAMAGE = KOI_SHOGUN_REWARD_DAMAGE * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_DAMAGE_REWARD_MULTIPLIER;
 export const TEMPEST_KIRIN_REWARD_HEALTH = KOI_SHOGUN_REWARD_HEALTH * CLOUDSPIRE_REWARD_SCALE * CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER;
 export const TEMPEST_KIRIN_REWARD_ARMOR = KOI_SHOGUN_REWARD_ARMOR * CLOUDSPIRE_REWARD_SCALE;
 export const TEMPEST_KIRIN_REWARD_REGEN = KOI_SHOGUN_REWARD_REGEN * CLOUDSPIRE_REWARD_SCALE;
 // Miremaw is the capstone for the next complete 8.5x progression step.
-export const MIREMAW_MAX_HP = TEMPEST_KIRIN_MAX_HP * MOONFEN_DAMAGE_SCALE * 1.1;
-export const PRISMSHELL_MAX_HP = MIREMAW_MAX_HP * CRYSTAL_HOLLOWS_DAMAGE_SCALE * 1.1;
+export const MIREMAW_MAX_HP = TEMPEST_KIRIN_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1;
+export const PRISMSHELL_MAX_HP = MIREMAW_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1;
 export const MIREMAW_REWARD_DAMAGE = TEMPEST_KIRIN_REWARD_DAMAGE * MOONFEN_REWARD_SCALE;
 export const PRISMSHELL_REWARD_DAMAGE = MIREMAW_REWARD_DAMAGE * CRYSTAL_HOLLOWS_REWARD_SCALE;
 export const MIREMAW_REWARD_HEALTH = TEMPEST_KIRIN_REWARD_HEALTH * MOONFEN_REWARD_SCALE;

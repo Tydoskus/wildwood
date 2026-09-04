@@ -1,4 +1,5 @@
 import { formatCompactNumber } from "../ui/number-format";
+import { lateMapDamageProfile, type LateDamageMap } from "../../shared/incoming-damage";
 import {
   ADVANCED_LAVA_WASTES_ARCHETYPE_HEALTH_PROFILE,
   ADVANCED_LAVA_WASTES_ENCOUNTER_HEALTH_SCALE,
@@ -21,14 +22,11 @@ import {
   BEGINNER_DESERT_REGEN_REWARD_MULTIPLIER,
   BEGINNER_DESERT_REWARD_SCALE,
   CLOUDSPIRE_ARCHETYPE_PROFILE,
-  CLOUDSPIRE_DAMAGE_SCALE,
   CLOUDSPIRE_HEALTH_SCALE,
   CLOUDSPIRE_REWARD_SCALE,
   CLOUDSPIRE_REWARD_TRACK_PROFILE,
   MOONFEN_ARCHETYPE_PROFILE,
   CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE,
-  MOONFEN_DAMAGE_SCALE,
-  CRYSTAL_HOLLOWS_DAMAGE_SCALE,
   CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
   CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
   MOONFEN_HEALTH_SCALE,
@@ -60,7 +58,6 @@ import {
   LATE_MAP_CLEAR_ARCHETYPE_COUNTS,
   NIGHT_FOREST_ARMOR_REWARD_MULTIPLIER,
   SAMURAI_GARDEN_ARCHETYPE_PROFILE,
-  SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_OPEN_MAP_REWARD_MULTIPLIER,
@@ -265,10 +262,15 @@ const SAMURAI_HEALTH_FACTORS = centeredLateMapFactors(
   (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].health,
   (archetype) => WATER_REACH_BALANCE[archetype].hp,
 );
-const SAMURAI_DAMAGE_FACTORS = centeredLateMapFactors(
-  (archetype) => SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].damage,
-  (archetype) => WATER_REACH_BALANCE[archetype].damage * SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
-  (archetype) => WATER_REACH_BALANCE[archetype].damage * WATER_REACH_BALANCE[archetype].attackSpeed,
+function tierDamage(map: LateDamageMap, shapedDamage: (archetype: LateMapArchetype) => number) {
+  return lateMapDamageProfile(map, Object.fromEntries(
+    LATE_MAP_ARCHETYPES.map((archetype) => [archetype, shapedDamage(archetype)]),
+  ) as Record<LateMapArchetype, number>);
+}
+
+const SAMURAI_DAMAGE = tierDamage(
+  "samurai_garden",
+  (archetype) => WATER_REACH_BALANCE[archetype].damage * SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].damage,
 );
 const SAMURAI_REWARD_FACTORS = centeredLateMapFactors(
   (archetype) => {
@@ -282,7 +284,7 @@ function samuraiGardenBalance(archetype: LateMapArchetype): EnemyBalance {
   const water = WATER_REACH_BALANCE[archetype];
   return {
     hp: water.hp / WATER_REACH_ENCOUNTER_HEALTH_SCALE * SAMURAI_GARDEN_HEALTH_SCALE * SAMURAI_GARDEN_ENCOUNTER_CADENCE_SCALE * SAMURAI_HEALTH_FACTORS[archetype],
-    damage: water.damage * SAMURAI_GARDEN_DAMAGE_SCALE * SAMURAI_DAMAGE_FACTORS[archetype],
+    damage: SAMURAI_DAMAGE[archetype],
     attackSpeed: SAMURAI_GARDEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...water.reward,
@@ -295,10 +297,9 @@ const CLOUDSPIRE_HEALTH_FACTORS = centeredLateMapFactors(
   (archetype) => CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].health,
   (archetype) => samuraiGardenBalance(archetype).hp,
 );
-const CLOUDSPIRE_DAMAGE_FACTORS = centeredLateMapFactors(
-  (archetype) => CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].damage,
-  (archetype) => samuraiGardenBalance(archetype).damage * CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].attackSpeed,
-  (archetype) => samuraiGardenBalance(archetype).damage * samuraiGardenBalance(archetype).attackSpeed,
+const CLOUDSPIRE_DAMAGE = tierDamage(
+  "cloudspire",
+  (archetype) => samuraiGardenBalance(archetype).damage * CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].damage,
 );
 const CLOUDSPIRE_REWARD_FACTORS = centeredLateMapFactors(
   (archetype) => {
@@ -312,7 +313,7 @@ function cloudspireBalance(archetype: LateMapArchetype): EnemyBalance {
   const samurai = samuraiGardenBalance(archetype);
   return {
     hp: samurai.hp * CLOUDSPIRE_HEALTH_SCALE * CLOUDSPIRE_HEALTH_FACTORS[archetype],
-    damage: samurai.damage * CLOUDSPIRE_DAMAGE_SCALE * CLOUDSPIRE_DAMAGE_FACTORS[archetype],
+    damage: CLOUDSPIRE_DAMAGE[archetype],
     attackSpeed: CLOUDSPIRE_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...samurai.reward,
@@ -325,10 +326,9 @@ const MOONFEN_HEALTH_FACTORS = centeredLateMapFactors(
   (archetype) => MOONFEN_ARCHETYPE_PROFILE[archetype].health,
   (archetype) => cloudspireBalance(archetype).hp,
 );
-const MOONFEN_DAMAGE_FACTORS = centeredLateMapFactors(
-  (archetype) => MOONFEN_ARCHETYPE_PROFILE[archetype].damage,
-  (archetype) => cloudspireBalance(archetype).damage * MOONFEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
-  (archetype) => cloudspireBalance(archetype).damage * cloudspireBalance(archetype).attackSpeed,
+const MOONFEN_DAMAGE = tierDamage(
+  "moonfen",
+  (archetype) => cloudspireBalance(archetype).damage * MOONFEN_ARCHETYPE_PROFILE[archetype].damage,
 );
 const MOONFEN_REWARD_FACTORS = centeredLateMapFactors(
   (archetype) => {
@@ -342,7 +342,7 @@ function moonfenBalance(archetype: LateMapArchetype): EnemyBalance {
   const cloudspire = cloudspireBalance(archetype);
   return {
     hp: cloudspire.hp * MOONFEN_HEALTH_SCALE * MOONFEN_HEALTH_FACTORS[archetype],
-    damage: cloudspire.damage * MOONFEN_DAMAGE_SCALE * MOONFEN_DAMAGE_FACTORS[archetype],
+    damage: MOONFEN_DAMAGE[archetype],
     attackSpeed: MOONFEN_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...cloudspire.reward,
@@ -354,7 +354,7 @@ function crystalHollowsBalance(archetype: LateMapArchetype): EnemyBalance {
   const previous = moonfenBalance(archetype);
   return {
     hp: previous.hp * CRYSTAL_HOLLOWS_HEALTH_SCALE * CRYSTAL_HOLLOWS_HEALTH_FACTORS[archetype] * CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
-    damage: previous.damage * CRYSTAL_HOLLOWS_DAMAGE_SCALE * CRYSTAL_HOLLOWS_DAMAGE_FACTORS[archetype],
+    damage: CRYSTAL_HOLLOWS_DAMAGE[archetype],
     attackSpeed: CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].attackSpeed,
     reward: {
       ...previous.reward,
@@ -367,10 +367,9 @@ const CRYSTAL_HOLLOWS_HEALTH_FACTORS = centeredLateMapFactors(
   (archetype) => CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].health,
   (archetype) => moonfenBalance(archetype).hp,
 );
-const CRYSTAL_HOLLOWS_DAMAGE_FACTORS = centeredLateMapFactors(
-  (archetype) => CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].damage,
-  (archetype) => moonfenBalance(archetype).damage * CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].attackSpeed,
-  (archetype) => moonfenBalance(archetype).damage * moonfenBalance(archetype).attackSpeed,
+const CRYSTAL_HOLLOWS_DAMAGE = tierDamage(
+  "crystal_hollows",
+  (archetype) => moonfenBalance(archetype).damage * CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].damage,
 );
 const CRYSTAL_HOLLOWS_REWARD_FACTORS = centeredLateMapFactors(
   (archetype) => {
@@ -702,6 +701,8 @@ export type LoadedSpriteLayer = EnemySpriteLayerSource & { image: HTMLImageEleme
 export type LoadedEnemySprite = {
   size: number;
   height?: number;
+  /** Display-only adjustment; collision and floating-label anchors stay put. */
+  visualOffsetY?: number;
   image?: HTMLImageElement;
   layers?: LoadedSpriteLayer[];
   animation?: Omit<EnemySpriteAnimationLayout, "pages"> & {
