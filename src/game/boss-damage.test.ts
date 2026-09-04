@@ -40,6 +40,10 @@ const encounters = {
     kinds: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
     build: { maxHp: 28_900_000_000, armor: 14_500_000_000 },
   },
+  prismshell: {
+    kinds: ["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
+    build: { maxHp: 28_900_000_000 * 8.5, armor: 14_500_000_000 * 8.5 },
+  },
 } as const satisfies Record<keyof typeof BOSS_DAMAGE_PROFILES, {
   kinds: readonly EnemyKind[];
   build: { maxHp: number; armor: number };

@@ -42,6 +42,7 @@ import {
   koiShogunBossTables,
   magmaliskBossTables,
   miremawBossTables,
+  prismshellBossTables,
   spiderBossTables,
   tempestKirinBossTables,
   tidewyrmBossTables,
@@ -163,11 +164,17 @@ import {
   MAP_DISPLAY_NAMES,
   MAP_IDS,
   MIREMAW_MAX_HP,
+  PRISMSHELL_MAX_HP,
   MIREMAW_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   MAX_ARMOR,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
@@ -259,7 +266,11 @@ const DEFAULT_MAP_PORTALS = {
     { x: 360, y: 617, destination: SAMURAI_GARDEN_MAP_ID },
     { x: 580, y: 617, destination: MOONFEN_MAP_ID },
   ],
-  [MOONFEN_MAP_ID]: [{ x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID }],
+  [MOONFEN_MAP_ID]: [
+    { x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID },
+    { x: 580, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID },
+  ],
+  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }],
 } as const;
 const DEFAULT_MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -271,6 +282,7 @@ const DEFAULT_MAP_ARRIVALS = {
   [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
   [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
   [MOONFEN_MAP_ID]: { x: 580, y: 770 },
+  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> = Object.fromEntries(
   Object.entries(DEFAULT_MAP_PORTALS).map(([mapId, portals]) => {
@@ -301,7 +313,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 20;
+const MODULE_MIGRATION_VERSION = 21;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -362,10 +374,15 @@ const TEMPEST_KIRIN_POSITION = editedBossPosition(CLOUDSPIRE_MAP_ID, { x: 4050, 
 const TEMPEST_KIRIN_HIT_RANGE_TOLERANCE = 60;
 const TEMPEST_KIRIN_RESPAWN_MICROS = 30_000_000n;
 const MIREMAW_ID = 1;
+const PRISMSHELL_ID = 1;
 const MIREMAW_RADIUS = 170;
+const PRISMSHELL_RADIUS = 170;
 const MIREMAW_POSITION = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
+const PRISMSHELL_POSITION = editedBossPosition(CRYSTAL_HOLLOWS_MAP_ID, { x: 4050, y: 4050 });
 const MIREMAW_HIT_RANGE_TOLERANCE = 60;
+const PRISMSHELL_HIT_RANGE_TOLERANCE = 60;
 const MIREMAW_RESPAWN_MICROS = 30_000_000n;
+const PRISMSHELL_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = MAP_EDITOR_GAMEPLAY_OVERRIDES[INTERMEDIATE_SNOWLANDS_MAP_ID]?.upgradeBench ?? { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
@@ -766,6 +783,8 @@ const playerProgress = table(
     cloudspireUnlocked: t.bool().default(false),
     // Tempest Kirin owns the additive unlock for Moonfen.
     moonfenUnlocked: t.bool().default(false),
+    // Append-only migration; only Miremaw's server-owned reward opens this map.
+    crystalHollowsUnlocked: t.bool().default(false),
   },
 );
 
@@ -1513,6 +1532,14 @@ const miremawRespawnSchedule = table(
     encounter: t.u64(),
   },
 );
+const prismshellRespawnSchedule = table(
+  { scheduled: (): any => respawnPrismshell },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
 
 const forestRewardPrototype = table(
   { name: "forest_reward_prototype", public: false },
@@ -1607,7 +1634,9 @@ const spacetimedb = schema({
   ...tempestKirinBossTables,
   tempestKirinRespawnSchedule,
   ...miremawBossTables,
+  ...prismshellBossTables,
   miremawRespawnSchedule,
+  prismshellRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1888,6 +1917,7 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     ctx.db.koiShogunContribution,
     ctx.db.tempestKirinContribution,
     ctx.db.miremawContribution,
+    ctx.db.prismshellContribution,
   ]) {
     const contribution = table.identity.find(identity);
     if (contribution && contribution.displayName !== displayName) {
@@ -1949,6 +1979,7 @@ function defaultPlayerProgress(identity: any) {
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
     moonfenUnlocked: false,
+    crystalHollowsUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
     cosmeticHead: "",
@@ -1986,6 +2017,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "samuraiUnlocked",
   "cloudspireUnlocked",
   "moonfenUnlocked",
+  "crystalHollowsUnlocked",
   "bowCount",
   "woodenArmorCount",
   "cosmeticHead",
@@ -2298,6 +2330,18 @@ function runPendingModuleMigrations(ctx: any) {
           }
         }
       } catch {}
+    }
+  }
+  if (currentVersion < 21) {
+    // Preserve the latest recorded Miremaw clear, without inferring a victory
+    // from stats or merely being present in Moonfen.
+    const result = ctx.db.miremawResult.id.find(MIREMAW_ID);
+    if (result) {
+      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+        if (!progress.crystalHollowsUnlocked && resultIncludesContributor(result, progress.identity)) {
+          ctx.db.playerProgress.identity.update({ ...progress, crystalHollowsUnlocked: true });
+        }
+      }
     }
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
@@ -2843,6 +2887,16 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
               : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
                 : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
   }
+  if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !progress.crystalHollowsUnlocked) {
+    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
+      ? CLOUDSPIRE_MAP_ID
+      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
+        : progress.waterUnlocked ? WATER_REACH_MAP_ID
+          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  }
   if (mapId === CLOUDSPIRE_MAP_ID && !progress.cloudspireUnlocked) {
     mapId = progress.samuraiUnlocked
       ? SAMURAI_GARDEN_MAP_ID
@@ -3232,7 +3286,8 @@ function hasFreshProgress(progress: any) {
     progress.waterUnlocked === defaultProgress.waterUnlocked &&
     progress.samuraiUnlocked === defaultProgress.samuraiUnlocked &&
     progress.cloudspireUnlocked === defaultProgress.cloudspireUnlocked &&
-    progress.moonfenUnlocked === defaultProgress.moonfenUnlocked;
+    progress.moonfenUnlocked === defaultProgress.moonfenUnlocked &&
+    progress.crystalHollowsUnlocked === defaultProgress.crystalHollowsUnlocked;
 }
 
 function resultIncludesContributor(latest: any, identity: any) {
@@ -3272,6 +3327,10 @@ function contributedToLatestKoiShogun(ctx: any, identity: any) {
 
 function contributedToLatestTempestKirin(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.tempestKirinResult.id.find(TEMPEST_KIRIN_ID), identity);
+}
+
+function contributedToLatestMiremaw(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.miremawResult.id.find(MIREMAW_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -3940,7 +3999,9 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.tempestKirinContribution.identity.find(identity)) ctx.db.tempestKirinContribution.identity.delete(identity);
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
+  if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
+  if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -4026,7 +4087,9 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   if (ctx.db.tempestKirinContribution.identity.find(identity)) ctx.db.tempestKirinContribution.identity.delete(identity);
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
+  if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
+  if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -4372,6 +4435,24 @@ function ensureMiremawBoss(ctx: any) {
     lastDamageAtMicros: 0n,
   });
 }
+function ensurePrismshellBoss(ctx: any) {
+  const existing = ctx.db.prismshellBoss.id.find(PRISMSHELL_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, PRISMSHELL_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.prismshellBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.prismshellBoss.insert({
+    id: PRISMSHELL_ID,
+    encounter: 1n,
+    hp: PRISMSHELL_MAX_HP,
+    maxHp: PRISMSHELL_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
 
 
 function regenerateIdleBosses(ctx: any) {
@@ -4397,6 +4478,7 @@ function regenerateIdleBosses(ctx: any) {
   regenerate(ensureKoiShogunBoss(ctx), (next) => ctx.db.koiShogunBoss.id.update(next));
   regenerate(ensureTempestKirinBoss(ctx), (next) => ctx.db.tempestKirinBoss.id.update(next));
   regenerate(ensureMiremawBoss(ctx), (next) => ctx.db.miremawBoss.id.update(next));
+  regenerate(ensurePrismshellBoss(ctx), (next) => ctx.db.prismshellBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4705,6 +4787,12 @@ function clearMiremawCombatRows(ctx: any) {
   for (const identity of contributionIdentities) ctx.db.miremawContribution.identity.delete(identity);
   for (const identity of attackIdentities) ctx.db.miremawAttackWindow.identity.delete(identity);
 }
+function clearPrismshellCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.prismshellContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.prismshellAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.prismshellContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.prismshellAttackWindow.identity.delete(identity);
+}
 
 
 function rewardTidewyrmContributor(ctx: any, identity: any) {
@@ -4792,6 +4880,30 @@ function rewardMiremawContributor(ctx: any, identity: any) {
     armor: current.armor + MIREMAW_REWARD_ARMOR * rewardMultiplier,
     regen: current.regen + MIREMAW_REWARD_REGEN * rewardMultiplier,
     moonfenUnlocked: true,
+    crystalHollowsUnlocked: true,
+  };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+function rewardPrismshellContributor(ctx: any, identity: any) {
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const next = {
+    ...current,
+    damage: current.damage + PRISMSHELL_REWARD_DAMAGE * rewardMultiplier,
+    maxHp: current.maxHp + PRISMSHELL_REWARD_HEALTH * rewardMultiplier,
+    armor: current.armor + PRISMSHELL_REWARD_ARMOR * rewardMultiplier,
+    regen: current.regen + PRISMSHELL_REWARD_REGEN * rewardMultiplier,
+    crystalHollowsUnlocked: true,
   };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
@@ -4939,6 +5051,39 @@ function finishMiremawEncounter(ctx: any, miremaw: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: miremaw.encounter,
+  });
+}
+function finishPrismshellEncounter(ctx: any, prismshell: any) {
+  const contributions = [...ctx.db.prismshellContribution.iter()]
+    .filter((row: any) => row.encounter === prismshell.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: PRISMSHELL_ID,
+    encounter: prismshell.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.prismshellResult.id.find(PRISMSHELL_ID)) ctx.db.prismshellResult.id.update(result);
+  else ctx.db.prismshellResult.insert(result);
+
+  for (const row of contributions) rewardPrismshellContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + PRISMSHELL_RESPAWN_MICROS;
+  ctx.db.prismshellBoss.id.update({ ...prismshell, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.prismshellRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: prismshell.encounter,
   });
 }
 
@@ -5342,6 +5487,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const latestTidewyrmContributor = contributedToLatestTidewyrm(ctx, ctx.sender);
     const latestKoiShogunContributor = contributedToLatestKoiShogun(ctx, ctx.sender);
     const latestTempestKirinContributor = contributedToLatestTempestKirin(ctx, ctx.sender);
+    const latestMiremawContributor = contributedToLatestMiremaw(ctx, ctx.sender);
     const isInDesert = existingPlayer?.mapId === BEGINNER_DESERT_MAP_ID;
     const isInSnowlands = existingPlayer?.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID;
     const isInLavaWastes = existingPlayer?.mapId === ADVANCED_LAVA_WASTES_MAP_ID;
@@ -5349,7 +5495,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const isInWaterReach = existingPlayer?.mapId === WATER_REACH_MAP_ID;
     const isInSamuraiGarden = existingPlayer?.mapId === SAMURAI_GARDEN_MAP_ID;
     const isInCloudspire = existingPlayer?.mapId === CLOUDSPIRE_MAP_ID;
-    const isInMoonfen = existingPlayer?.mapId === MOONFEN_MAP_ID;
+    const isInCrystalHollows = existingPlayer?.mapId === CRYSTAL_HOLLOWS_MAP_ID;
+    // A later server-owned location/clear also proves all earlier map gates.
+    const isInMoonfen = existingPlayer?.mapId === MOONFEN_MAP_ID || isInCrystalHollows || latestMiremawContributor;
     if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
       (!existingProgress.snowlandsUnlocked && (isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
       (!existingProgress.lavaUnlocked && (isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
@@ -5357,7 +5505,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       (!existingProgress.waterUnlocked && (isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
       (!existingProgress.samuraiUnlocked && (isInSamuraiGarden || isInCloudspire || isInMoonfen || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
       (!existingProgress.cloudspireUnlocked && (isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor)) ||
-      (!existingProgress.moonfenUnlocked && (isInMoonfen || latestTempestKirinContributor))) {
+      (!existingProgress.moonfenUnlocked && (isInMoonfen || latestTempestKirinContributor)) ||
+      (!existingProgress.crystalHollowsUnlocked && (isInCrystalHollows || latestMiremawContributor))) {
       existingProgress = {
         ...existingProgress,
         desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
@@ -5368,6 +5517,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         samuraiUnlocked: existingProgress.samuraiUnlocked || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
         cloudspireUnlocked: existingProgress.cloudspireUnlocked || isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor,
         moonfenUnlocked: existingProgress.moonfenUnlocked || isInMoonfen || latestTempestKirinContributor,
+        crystalHollowsUnlocked: existingProgress.crystalHollowsUnlocked || isInCrystalHollows || latestMiremawContributor,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -5523,6 +5673,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureKoiShogunBoss(ctx);
   ensureTempestKirinBoss(ctx);
   ensureMiremawBoss(ctx);
+  ensurePrismshellBoss(ctx);
   ensureWorldStatus(ctx);
   runPendingModuleMigrations(ctx);
 
@@ -5884,6 +6035,23 @@ export const respawnMiremaw = spacetimedb.reducer(
       ...miremaw,
       encounter: miremaw.encounter + 1n,
       hp: miremaw.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+export const respawnPrismshell = spacetimedb.reducer(
+  { schedule: prismshellRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const prismshell = ensurePrismshellBoss(ctx);
+    if (prismshell.alive || prismshell.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < prismshell.respawnAtMicros) return;
+    clearPrismshellCombatRows(ctx);
+    ctx.db.prismshellBoss.id.update({
+      ...prismshell,
+      encounter: prismshell.encounter + 1n,
+      hp: prismshell.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -6546,10 +6714,80 @@ function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { 
   if (nextMiremaw.hp <= 0) finishMiremawEncounter(ctx, nextMiremaw);
   else ctx.db.miremawBoss.id.update(nextMiremaw);
 }
+function applyPrismshellDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== CRYSTAL_HOLLOWS_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const prismshell = ensurePrismshellBoss(ctx);
+  if (!prismshell.alive || prismshell.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - PRISMSHELL_POSITION.x, actionY - PRISMSHELL_POSITION.y);
+  if (centerDistance - PRISMSHELL_RADIUS > progress.attackRange + PRISMSHELL_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.prismshellAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== prismshell.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: prismshell.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.prismshellAttackWindow.identity.update(nextWindow);
+    else ctx.db.prismshellAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.prismshellAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(prismshell.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.prismshellContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === prismshell.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: prismshell.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.prismshellContribution.identity.update(nextContribution);
+  else ctx.db.prismshellContribution.insert(nextContribution);
+  const nextPrismshell = {
+    ...prismshell,
+    hp: Math.max(0, prismshell.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextPrismshell.hp <= 0) finishPrismshellEncounter(ctx, nextPrismshell);
+  else ctx.db.prismshellBoss.id.update(nextPrismshell);
+}
 
 export const damageMiremawFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
   (ctx, { hits, x, y }) => applyMiremawDamage(ctx, hits, { x, y }),
+);
+export const damagePrismshellFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyPrismshellDamage(ctx, hits, { x, y }),
 );
 
 
@@ -6872,6 +7110,7 @@ export const claimGuestAccount = spacetimedb.reducer(
       [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
       [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
       [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
+      [ctx.db.prismshellContribution, ctx.db.prismshellAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);
@@ -7515,6 +7754,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       samuraiUnlocked: base.samuraiUnlocked,
       cloudspireUnlocked: base.cloudspireUnlocked,
       moonfenUnlocked: base.moonfenUnlocked,
+      crystalHollowsUnlocked: base.crystalHollowsUnlocked,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
@@ -8387,6 +8627,9 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === MOONFEN_MAP_ID && !currentProgress?.moonfenUnlocked) {
       throw new SenderError(`Defeat Tempest Kirin before entering ${MAP_DISPLAY_NAMES[MOONFEN_MAP_ID]}.`);
+    }
+    if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !currentProgress?.crystalHollowsUnlocked) {
+      throw new SenderError(`Defeat Miremaw before entering ${MAP_DISPLAY_NAMES[CRYSTAL_HOLLOWS_MAP_ID]}.`);
     }
 
     const sourcePortal = MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS]?.find((portal) => portal.destination === mapId);

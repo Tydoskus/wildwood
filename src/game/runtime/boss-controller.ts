@@ -17,8 +17,11 @@ import {
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
   MIREMAW_AGGRO_RANGE,
+  PRISMSHELL_AGGRO_RANGE,
   MIREMAW_TONGUE_HALF_ANGLE,
+  PRISMSHELL_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
+  PRISMSHELL_SHATTER_RANGE,
   TIDEWYRM_AGGRO_RANGE,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
@@ -49,9 +52,13 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
   MIREMAW_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -82,7 +89,9 @@ import type {
   MagmaliskBossState,
   MagmaliskEruption,
   MiremawBogBurst,
+  PrismshellCrystalBurst,
   MiremawBossState,
+  PrismshellBossState,
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
@@ -149,10 +158,15 @@ const TEMPEST_KIRIN_CHARGE_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.charge;
 const TEMPEST_KIRIN_THUNDER_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.thunder;
 const TEMPEST_KIRIN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.tempestKirin.contact;
 const MIREMAW_TONGUE_WINDUP = .68;
+const PRISMSHELL_SHATTER_WINDUP = .85;
 const MIREMAW_TONGUE_DURATION = .58;
+const PRISMSHELL_SHATTER_DURATION = .8;
 const MIREMAW_TONGUE_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.tongue;
+const PRISMSHELL_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.shatter;
 const MIREMAW_BOG_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.bogBurst;
+const PRISMSHELL_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.crystalBurst;
 const MIREMAW_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.contact;
+const PRISMSHELL_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.contact;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -185,6 +199,7 @@ export type BossController = {
   resetKoiShogunBoss: () => void;
   resetTempestKirinBoss: () => void;
   resetMiremawBoss: () => void;
+  resetPrismshellBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
@@ -194,6 +209,7 @@ export type BossController = {
   syncKoiShogunState: () => void;
   syncTempestKirinState: () => void;
   syncMiremawState: () => void;
+  syncPrismshellState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
@@ -203,6 +219,7 @@ export type BossController = {
   updateKoiShogunBoss: (dt: number) => void;
   updateTempestKirinBoss: (dt: number) => void;
   updateMiremawBoss: (dt: number) => void;
+  updatePrismshellBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
@@ -212,6 +229,7 @@ export type BossController = {
   resolveKoiShogunCollision: () => void;
   resolveTempestKirinCollision: () => void;
   resolveMiremawCollision: () => void;
+  resolvePrismshellCollision: () => void;
   applyBossKnockback: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
 };
@@ -230,6 +248,7 @@ export function createBossController(options: {
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
   miremawBoss: MiremawBossState;
+  prismshellBoss: PrismshellBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -239,6 +258,7 @@ export function createBossController(options: {
   koiShogunWhirlpools: KoiShogunWhirlpool[];
   tempestKirinThunderbolts: TempestKirinThunderbolt[];
   miremawBogBursts: MiremawBogBurst[];
+  prismshellCrystalBursts: PrismshellCrystalBurst[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
@@ -249,6 +269,7 @@ export function createBossController(options: {
   getKoiShogunBoss: () => SharedBossState | null | undefined;
   getTempestKirinBoss: () => SharedBossState | null | undefined;
   getMiremawBoss: () => SharedBossState | null | undefined;
+  getPrismshellBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
@@ -258,6 +279,7 @@ export function createBossController(options: {
   getKoiShogunResult: () => BossResult | null | undefined;
   getTempestKirinResult: () => BossResult | null | undefined;
   getMiremawResult: () => BossResult | null | undefined;
+  getPrismshellResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
@@ -272,6 +294,7 @@ export function createBossController(options: {
   currentMapIsSamurai: () => boolean;
   currentMapIsCloudspire: () => boolean;
   currentMapIsMoonfen: () => boolean;
+  currentMapIsCrystalHollows: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -295,9 +318,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, saveProgress,
@@ -342,9 +365,13 @@ export function createBossController(options: {
   let pendingTempestKirinResultEncounter: bigint | null = null;
   let shownTempestKirinResultEncounter: bigint | null = null;
   let observedMiremawEncounter: bigint | null = null;
+  let observedPrismshellEncounter: bigint | null = null;
   let miremawWasAlive: boolean | null = null;
+  let prismshellWasAlive: boolean | null = null;
   let pendingMiremawResultEncounter: bigint | null = null;
+  let pendingPrismshellResultEncounter: bigint | null = null;
   let shownMiremawResultEncounter: bigint | null = null;
+  let shownPrismshellResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
@@ -354,6 +381,7 @@ export function createBossController(options: {
   const locallyRewardedKoiShogunEncounters = new Set<string>();
   const locallyRewardedTempestKirinEncounters = new Set<string>();
   const locallyRewardedMiremawEncounters = new Set<string>();
+  const locallyRewardedPrismshellEncounters = new Set<string>();
   let dragonRainPatternIndex = 0;
   let spiderVenomPatternIndex = 0;
   let frostclawIcefallPatternIndex = 0;
@@ -363,6 +391,7 @@ export function createBossController(options: {
   let koiShogunWhirlpoolPatternIndex = 0;
   let tempestKirinThunderPatternIndex = 0;
   let miremawBogBurstPatternIndex = 0;
+  let prismshellCrystalBurstPatternIndex = 0;
   let bossKnockbackAngle = 0;
   let bossKnockbackTimeRemaining = 0;
   let bossKnockbackDistanceRemaining = 0;
@@ -642,6 +671,26 @@ function resetMiremawBoss() {
     resetAbilityTimeline("miremaw");
   }
 
+  function resetPrismshellBoss() {
+    const shared = getPrismshellBoss();
+    if (shared) {
+      prismshellBoss.encounter = shared.encounter;
+      prismshellBoss.hp = shared.hp;
+      prismshellBoss.maxHp = shared.maxHp;
+      prismshellBoss.dead = !shared.alive;
+    }
+    prismshellBoss.hurt = 0;
+    prismshellBoss.hpLossFlashFrom = prismshellBoss.hp;
+    prismshellBoss.hpLossFlashTimer = 0;
+    prismshellBoss.contactDamageClock = 0;
+    prismshellBoss.attackClock = 3;
+    prismshellBoss.nextAttack = "shatter";
+    prismshellBoss.shatter = null;
+    prismshellCrystalBursts.length = 0;
+    prismshellCrystalBurstPatternIndex = 0;
+    resetAbilityTimeline("prismshell");
+  }
+
 
   function showWorldResult(result: BossResult, heading: string) {
     const title = elements.worldNotice.querySelector("strong");
@@ -873,6 +922,31 @@ function showMiremawResult(result: BossResult | null | undefined) {
     const encounterKey = String(result.encounter);
     if (!locallyRewardedMiremawEncounters.has(encounterKey)) {
       locallyRewardedMiremawEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+  }
+
+  function showPrismshellResult(result: BossResult | null | undefined) {
+    if (!result || shownPrismshellResultEncounter === result.encounter) return;
+    pendingPrismshellResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    shownPrismshellResultEncounter = result.encounter;
+    showWorldResult(result, "PRISMSHELL DEFEATED");
+    if (!localContribution) return;
+    const damageReward = scaledReward("damage", PRISMSHELL_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", PRISMSHELL_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", PRISMSHELL_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", PRISMSHELL_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedPrismshellEncounters.has(encounterKey)) {
+      locallyRewardedPrismshellEncounters.add(encounterKey);
       player.damage += damageReward.amount;
       addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
       player.armor += armorReward.amount;
@@ -1367,6 +1441,63 @@ function syncMiremawState() {
     if (pendingMiremawResultEncounter !== null) {
       const result = getMiremawResult();
       if (result?.encounter === pendingMiremawResultEncounter) showMiremawResult(result);
+    }
+  }
+
+  function syncPrismshellState() {
+    const shared = getPrismshellBoss();
+    if (!shared) return;
+    const initialized = observedPrismshellEncounter !== null;
+    const encounterChanged = initialized && observedPrismshellEncounter !== shared.encounter;
+    const previousHp = prismshellBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedPrismshellEncounter = shared.encounter;
+      prismshellWasAlive = shared.alive;
+      prismshellBoss.dead = !shared.alive;
+      prismshellBoss.attackClock = 3;
+      prismshellBoss.nextAttack = "shatter";
+      prismshellBoss.shatter = null;
+      prismshellCrystalBursts.length = 0;
+      prismshellCrystalBurstPatternIndex = 0;
+      resetAbilityTimeline("prismshell");
+      prismshellBoss.hpLossFlashFrom = shared.hp;
+      prismshellBoss.hpLossFlashTimer = 0;
+    } else if (prismshellWasAlive && !shared.alive) {
+      prismshellWasAlive = false;
+      prismshellBoss.dead = true;
+      prismshellBoss.shatter = null;
+      prismshellCrystalBursts.length = 0;
+      pendingPrismshellResultEncounter = shared.encounter;
+      spawnBurst(prismshellBoss.x, prismshellBoss.y, "#c3a6ff", 120, 340);
+    } else if (!prismshellWasAlive && shared.alive) {
+      prismshellWasAlive = true;
+      prismshellBoss.dead = false;
+      prismshellBoss.attackClock = 3;
+      prismshellBoss.nextAttack = "shatter";
+      prismshellCrystalBurstPatternIndex = 0;
+      resetAbilityTimeline("prismshell");
+    } else if (shared.alive && shared.hp < previousHp) {
+      prismshellBoss.hpLossFlashFrom = prismshellBoss.hpLossFlashTimer > 0
+        ? Math.max(prismshellBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      prismshellBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      prismshellBoss.hpLossFlashFrom = shared.hp;
+      prismshellBoss.hpLossFlashTimer = 0;
+    }
+    prismshellBoss.encounter = shared.encounter;
+    prismshellBoss.maxHp = shared.maxHp;
+    prismshellBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsCrystalHollows()) {
+      const result = getPrismshellResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedPrismshellEncounters.add(String(result.encounter));
+        showPrismshellResult(result);
+      }
+    }
+    if (pendingPrismshellResultEncounter !== null) {
+      const result = getPrismshellResult();
+      if (result?.encounter === pendingPrismshellResultEncounter) showPrismshellResult(result);
     }
   }
 
@@ -2267,6 +2398,18 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
     miremawBoss.nextAttack = "bogBurst";
   }
 
+  function startPrismshellShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    prismshellBoss.shatter = {
+      angle: Math.atan2(target.y - prismshellBoss.y, target.x - prismshellBoss.x),
+      windup: Math.max(0, PRISMSHELL_SHATTER_WINDUP - elapsed),
+      timer: Math.max(0, PRISMSHELL_SHATTER_DURATION - Math.max(0, elapsed - PRISMSHELL_SHATTER_WINDUP)),
+      duration: PRISMSHELL_SHATTER_DURATION,
+      hitPlayer: false,
+    };
+    prismshellBoss.nextAttack = "crystalBurst";
+  }
+
 
   function startTempestKirinThunder(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
     const patternIndex = deterministicPatternIndex ?? tempestKirinThunderPatternIndex;
@@ -2328,6 +2471,37 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
     if (deterministicPatternIndex === undefined) miremawBogBurstPatternIndex += 1;
     miremawBoss.attackClock = 3.1;
     miremawBoss.nextAttack = "tongue";
+  }
+
+  function startPrismshellCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? prismshellCrystalBurstPatternIndex;
+    for (let index = 0; index < 8; index += 1) {
+      const { angle, radius } = seededBossHazardPolar({
+        kind: "prismshell",
+        encounter: prismshellBoss.encounter,
+        pattern: "crystalBurst",
+        patternIndex,
+        hazardIndex: index,
+        hazardCount: 8,
+        angleJitter: .12,
+        minimumRadius: 105,
+        maximumRadius: 330,
+        centerFirst: true,
+      });
+      const maxTimer = .95 + index * .15;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      prismshellCrystalBursts.push({
+        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
+        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
+        r: 86,
+        timer,
+        maxTimer,
+      });
+    }
+    if (deterministicPatternIndex === undefined) prismshellCrystalBurstPatternIndex += 1;
+    prismshellBoss.attackClock = 3.1;
+    prismshellBoss.nextAttack = "shatter";
   }
 
 
@@ -2475,8 +2649,80 @@ function updateMiremawBoss(dt: number) {
     else startMiremawBogBurst();
   }
 
+  function updatePrismshellBoss(dt: number) {
+    prismshellBoss.hpLossFlashTimer = Math.max(0, prismshellBoss.hpLossFlashTimer - dt);
+    prismshellBoss.contactDamageClock = Math.max(0, prismshellBoss.contactDamageClock - dt);
+    if (prismshellBoss.dead) return;
+    prismshellBoss.hurt = Math.max(0, prismshellBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "prismshell",
+      encounter: prismshellBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("prismshell", prismshellBoss.encounter, attackIndex, prismshellBoss.x, prismshellBoss.y, PRISMSHELL_AGGRO_RANGE),
+      clear: () => { prismshellBoss.shatter = null; prismshellCrystalBursts.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "shatter") startPrismshellShatter(elapsedSeconds, target);
+        else if (ability === "crystalBurst") startPrismshellCrystalBurst(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { prismshellBoss.attackClock = seconds; },
+    });
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState, damage: number, cooldown: number) {
+    for (let index = prismshellCrystalBursts.length - 1; index >= 0; index -= 1) {
+      const burst = prismshellCrystalBursts[index];
+      burst.timer -= dt;
+      if (burst.timer > 0) continue;
+      const dx = player.x - burst.x;
+      const dy = player.y - burst.y;
+      if (dx * dx + dy * dy <= burst.r * burst.r) damagePlayer(PRISMSHELL_CRYSTAL_BURST_DAMAGE);
+      spawnBurst(burst.x, burst.y, "#c3a6ff", 44, 270);
+      prismshellCrystalBursts.splice(index, 1);
+    }
+    if (prismshellCrystalBursts.length > 0) return;
+
+    if (prismshellBoss.shatter) {
+      const shatter = prismshellBoss.shatter;
+      if (shatter.windup > 0) {
+        shatter.windup -= dt;
+        return;
+      }
+      const previousProgress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
+      shatter.timer -= dt;
+      const progress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
+      const minRadius = prismshellBoss.r + (PRISMSHELL_SHATTER_RANGE - prismshellBoss.r) * previousProgress;
+      const maxRadius = prismshellBoss.r + (PRISMSHELL_SHATTER_RANGE - prismshellBoss.r) * progress;
+      if (!shatter.hitPlayer) {
+        const dx = player.x - prismshellBoss.x;
+        const dy = player.y - prismshellBoss.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - shatter.angle),
+          Math.cos(Math.atan2(dy, dx) - shatter.angle),
+        );
+        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= PRISMSHELL_SHATTER_HALF_ANGLE) {
+          shatter.hitPlayer = true;
+          damagePlayer(PRISMSHELL_SHATTER_DAMAGE);
+          queueBossAreaKnockback(prismshellBoss.x, prismshellBoss.y, PRISMSHELL_SHATTER_RANGE, prismshellBoss.r);
+          spawnBurst(player.x, player.y, "#d5fcff", 38, 280);
+        }
+      }
+      if (shatter.timer <= 0) {
+        prismshellBoss.shatter = null;
+        prismshellBoss.attackClock = 2.35;
+      }
+      return;
+    }
+
+    if (sharedTimeline) return;
+    prismshellBoss.attackClock -= dt;
+    if (prismshellBoss.attackClock > 0) return;
+    const dx = player.x - prismshellBoss.x;
+    const dy = player.y - prismshellBoss.y;
+    if (dx * dx + dy * dy > PRISMSHELL_AGGRO_RANGE * PRISMSHELL_AGGRO_RANGE) return;
+    if (prismshellBoss.nextAttack === "shatter") startPrismshellShatter();
+    else startPrismshellCrystalBurst();
+  }
+
+
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -2511,6 +2757,7 @@ function updateMiremawBoss(dt: number) {
     resetKoiShogunBoss,
     resetTempestKirinBoss,
     resetMiremawBoss,
+    resetPrismshellBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
@@ -2520,6 +2767,7 @@ function updateMiremawBoss(dt: number) {
     syncKoiShogunState,
     syncTempestKirinState,
     syncMiremawState,
+    syncPrismshellState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
@@ -2529,6 +2777,7 @@ function updateMiremawBoss(dt: number) {
     updateKoiShogunBoss,
     updateTempestKirinBoss,
     updateMiremawBoss,
+    updatePrismshellBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
@@ -2538,6 +2787,7 @@ function updateMiremawBoss(dt: number) {
     resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
     resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, TEMPEST_KIRIN_CONTACT_DAMAGE, .75),
     resolveMiremawCollision: () => resolveCollision(miremawBoss, MIREMAW_CONTACT_DAMAGE, .75),
+    resolvePrismshellCollision: () => resolveCollision(prismshellBoss, PRISMSHELL_CONTACT_DAMAGE, .75),
     applyBossKnockback,
     onPortalCutsceneFinished(wasPreview) {
       const dragon = queuedDragonResult;

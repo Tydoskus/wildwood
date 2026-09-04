@@ -191,7 +191,9 @@ export type KoiShogunResult = DragonResult;
 export type TempestKirinBossState = DragonBossState;
 export type TempestKirinResult = DragonResult;
 export type MiremawBossState = DragonBossState;
+export type PrismshellBossState = DragonBossState;
 export type MiremawResult = DragonResult;
+export type PrismshellResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

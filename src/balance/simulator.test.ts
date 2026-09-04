@@ -8,8 +8,9 @@ import {
   BALANCE_TARGET_POWER_ARC_BLEND,
   GLOOMROOT_MAX_HP,
   INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER,
+  MAP_IDS,
 } from "../../shared/rules";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID } from "../game/world";
 import { bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, targetCurveProgress, targetPowerAtMapProgress } from "./simulator";
 
 const quickConfig = {
@@ -22,7 +23,8 @@ const quickConfig = {
 describe("balance simulator", () => {
   it("uses the intended campaign defaults when no overrides are supplied", () => {
     const defaults = defaultBalanceSimulationConfig();
-    const targetedMapSeconds = BALANCE_TARGET_DESERT_DURATION_SECONDS * (1 + 1.35 + 1.35 ** 2 + 1.35 ** 3 + 1.35 ** 4 + 1.35 ** 5 + 1.35 ** 6 + 1.35 ** 7);
+    const targetedMapSeconds = MAP_IDS.slice(1).reduce((total, _map, index) =>
+      total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0);
     expect(defaults.durationSeconds).toBeCloseTo(22.5 * 60 + targetedMapSeconds);
     expect(defaults.trials).toBe(100);
     expect(defaults.strategy).toBe("boss-rush");
@@ -44,6 +46,7 @@ describe("balance simulator", () => {
     expect(result.maps.find((map) => map.mapId === SAMURAI_GARDEN_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === CLOUDSPIRE_MAP_ID)?.hasBoss).toBe(true);
     expect(result.maps.find((map) => map.mapId === MOONFEN_MAP_ID)?.hasBoss).toBe(true);
+    expect(result.maps.find((map) => map.mapId === CRYSTAL_HOLLOWS_MAP_ID)?.hasBoss).toBe(true);
     expect(GLOOMROOT_MAX_HP).toBe(1_150_000_000_000_000 * INFERNAL_DEPTHS_BOSS_HEALTH_MULTIPLIER);
   });
 
@@ -91,20 +94,21 @@ describe("balance simulator", () => {
 
     expect(progressionMaps.every((map) => map.reachedPercent >= 50)).toBe(true);
     for (const map of progressionMaps) {
-      expect(map.durationVsTarget).toBeGreaterThanOrEqual(.75);
-      expect(map.durationVsTarget).toBeLessThanOrEqual(1.25);
+      expect(map.durationVsTarget, `${map.mapId} duration`).toBeGreaterThanOrEqual(.75);
+      expect(map.durationVsTarget, `${map.mapId} duration`).toBeLessThanOrEqual(1.25);
       expect(map.powerGrowthMultiplier).not.toBeNull();
       const powerFit = map.powerGrowthMultiplier! / BALANCE_TARGET_MAP_POWER_MULTIPLIER;
       expect(powerFit).toBeGreaterThanOrEqual(.65);
       expect(powerFit).toBeLessThanOrEqual(1.5);
       const damageToHealth = map.exitEffectiveStatsMedian!.damage / map.exitEffectiveStatsMedian!.maxHp;
-      expect(damageToHealth).toBeGreaterThanOrEqual(.55);
-      expect(damageToHealth).toBeLessThanOrEqual(1.35);
+      expect(damageToHealth, `${map.mapId} damage/health`).toBeGreaterThanOrEqual(.55);
+      expect(damageToHealth, `${map.mapId} damage/health`).toBeLessThanOrEqual(1.35);
       const measuredTime = Object.values(map.timeBudgetMedian!).reduce((sum, seconds) => sum + seconds, 0);
       const travelShare = map.timeBudgetMedian!.travelSeconds / measuredTime;
-      expect(travelShare).toBeGreaterThanOrEqual(.03);
-      expect(travelShare).toBeLessThanOrEqual(.35);
+      expect(travelShare, `${map.mapId} travel share`).toBeGreaterThanOrEqual(.03);
+      expect(travelShare, `${map.mapId} travel share`).toBeLessThanOrEqual(.35);
       if (map.hasBoss) {
+        expect(map.completedPercent, `${map.mapId} completion`).toBeGreaterThanOrEqual(50);
         const bossShare = map.bossFightMedianSeconds! / map.durationMedianSeconds!;
         const cappedReadinessShare = bossReadinessTargetSeconds(map.mapId, result.config) / map.durationMedianSeconds!;
         expect(bossShare).toBeGreaterThanOrEqual(Math.min(.025, cappedReadinessShare * .9));

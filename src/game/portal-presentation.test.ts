@@ -7,6 +7,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
@@ -32,6 +33,7 @@ describe("portal destination presentation", () => {
     expect(portalDestinationColor(SAMURAI_GARDEN_MAP_ID)).toBe("#ff83bd");
     expect(portalDestinationColor(CLOUDSPIRE_MAP_ID)).toBe("#9fdfff");
     expect(portalDestinationColor(MOONFEN_MAP_ID)).toBe("#82f2c4");
+    expect(portalDestinationColor(CRYSTAL_HOLLOWS_MAP_ID)).toBe("#c3a6ff");
   });
 
   it("uses outlined white text for the Night Forest portal label", () => {

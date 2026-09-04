@@ -47,6 +47,7 @@ export const WATER_REACH_MAP_ID = "water_reach";
 export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
 export const CLOUDSPIRE_MAP_ID = "cloudspire";
 export const MOONFEN_MAP_ID = "moonfen";
+export const CRYSTAL_HOLLOWS_MAP_ID = "crystal_hollows";
 const editedUpgradeBench = savedMapDesign(INTERMEDIATE_SNOWLANDS_MAP_ID)?.decor.find((decor) => decor.type === "upgradeBench");
 export const UPGRADE_BENCH_POSITION = editedUpgradeBench
   ? { x: editedUpgradeBench.x, y: editedUpgradeBench.y }
@@ -60,7 +61,8 @@ export type MapId =
   | typeof WATER_REACH_MAP_ID
   | typeof SAMURAI_GARDEN_MAP_ID
   | typeof CLOUDSPIRE_MAP_ID
-  | typeof MOONFEN_MAP_ID;
+  | typeof MOONFEN_MAP_ID
+  | typeof CRYSTAL_HOLLOWS_MAP_ID;
 
 type SpawnFormation = "scatter" | "crescent" | "shoal" | "ranks";
 export type SpawnCamp = {
@@ -140,6 +142,13 @@ const MOONFEN_CAMPS: SpawnCamp[] = [
   { name: "Sunken Bulwark", x: 4100, y: 2350, minRadius: 250, radius: 440, count: 7, types: ["Bog Colossus"], formation: "crescent", rotation: 1.1 },
   { name: "Moonmire Hollow", x: 1000, y: 3600, minRadius: 240, radius: 420, count: 7, types: ["Moonmire Reaper"], formation: "crescent", rotation: -.5 },
   { name: "Wispwater Shrine", x: 2600, y: 4050, minRadius: 210, radius: 380, count: 4, types: ["Wisp Oracle"], formation: "ranks", rotation: .1 },
+];
+const CRYSTAL_HOLLOWS_CAMPS: SpawnCamp[] = [
+  { name: "Quartz Landing", x: 1100, y: 1450, minRadius: 230, radius: 400, count: 6, types: ["Shard Hopper"], formation: "crescent", rotation: .4 },
+  { name: "Amethyst Gallery", x: 3000, y: 1000, minRadius: 230, radius: 400, count: 6, types: ["Crystal Spitter"], formation: "ranks", rotation: -.35 },
+  { name: "Geode Bastion", x: 3750, y: 2450, minRadius: 250, radius: 440, count: 7, types: ["Geode Guardian"], formation: "crescent", rotation: 1.4 },
+  { name: "Prismatic Cut", x: 1050, y: 3300, minRadius: 240, radius: 420, count: 7, types: ["Prism Reaver"], formation: "crescent", rotation: -.8 },
+  { name: "Resonant Vault", x: 2600, y: 3950, minRadius: 210, radius: 380, count: 4, types: ["Hollow Oracle"], formation: "ranks", rotation: .35 },
 ];
 
 const CAMP_CLEARANCE = 160;
@@ -620,6 +629,58 @@ function createMoonfenLayout() {
   }
   return { decor, paths };
 }
+function createCrystalHollowsLayout() {
+  const decor: WorldDecor[] = [];
+  // A connected mining loop with five broad galleries and a southeast boss
+  // chamber. The return branch avoids retracing the entire progression route.
+  const paths: WorldPath[] = [
+    { x: 300, y: 640, w: 1280, h: 180 },
+    { x: 1400, y: 640, w: 180, h: 2780 },
+    { x: 980, y: 1360, w: 600, h: 180 },
+    { x: 980, y: 1360, w: 180, h: 2060 },
+    { x: 1400, y: 920, w: 1780, h: 180 },
+    { x: 3000, y: 920, w: 180, h: 1600 },
+    { x: 1400, y: 2340, w: 2520, h: 180 },
+    { x: 3740, y: 2340, w: 180, h: 660 },
+    { x: 980, y: 3240, w: 1800, h: 180 },
+    { x: 2500, y: 3240, w: 180, h: 800 },
+    { x: 2500, y: 3860, w: 1640, h: 180 },
+    { x: 3960, y: 3860, w: 180, h: 370 },
+    { x: 2500, y: 2820, w: 1420, h: 180 },
+    { x: 2500, y: 2820, w: 180, h: 600 },
+  ];
+  const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
+    x > path.x - margin && x < path.x + path.w + margin &&
+    y > path.y - margin && y < path.y + path.h + margin);
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 720;
+
+  for (let index = 0; index < 210; index += 1) {
+    const x = 90 + seededUnit(index, 111) * (WORLD.w - 180);
+    const y = 130 + seededUnit(index, 112) * (WORLD.h - 260);
+    if (isOnPath(x, y, 95) || isNearArrival(x, y) || isNearBoss(x, y) || isNearSpawnCamp(CRYSTAL_HOLLOWS_CAMPS, x, y, 100)) continue;
+    // Clustered, differently sized facets read as geodes. Existing procedural
+    // shards remain individually movable, scalable, and tintable in the editor.
+    decor.push({ type: "rock", x: Math.round(x), y: Math.round(y + 4), s: 1.1, variant: index % 4 });
+    for (let facet = 0; facet < 3; facet += 1) {
+      decor.push({
+        type: "skyShard", x: Math.round(x + (facet - 1) * 17), y: Math.round(y + (facet === 1 ? -5 : 3)),
+        s: facet === 1 ? 1.9 + seededUnit(index, 113) * 1.25 : 1 + seededUnit(index + facet, 114) * .7,
+        variant: index % 3,
+      });
+    }
+  }
+  for (let index = 0; index < 160; index += 1) {
+    const x = 45 + seededUnit(index, 115) * (WORLD.w - 90);
+    const y = 45 + seededUnit(index, 116) * (WORLD.h - 90);
+    if (isOnPath(x, y, 25) || isNearArrival(x, y) || isNearBoss(x, y) || isNearSpawnCamp(CRYSTAL_HOLLOWS_CAMPS, x, y, 55)) continue;
+    decor.push({
+      type: "rock", x: Math.round(x), y: Math.round(y),
+      s: .55 + seededUnit(index, 117) * .8, variant: index % 4,
+    });
+  }
+  return { decor, paths };
+}
 
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
   const saved = savedMapDesign(mapId);
@@ -637,6 +698,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   if (mapId === SAMURAI_GARDEN_MAP_ID) return createSamuraiGardenLayout();
   if (mapId === CLOUDSPIRE_MAP_ID) return createCloudspireLayout();
   if (mapId === MOONFEN_MAP_ID) return createMoonfenLayout();
+  if (mapId === CRYSTAL_HOLLOWS_MAP_ID) return createCrystalHollowsLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -717,7 +779,9 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
                 ? CLOUDSPIRE_CAMPS
                 : mapId === MOONFEN_MAP_ID
                   ? MOONFEN_CAMPS
-                  : CAMPS;
+                  : mapId === CRYSTAL_HOLLOWS_MAP_ID
+                    ? CRYSTAL_HOLLOWS_CAMPS
+                    : CAMPS;
 }
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
@@ -737,7 +801,7 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       const offset = campSpawnOffset(camp, index, campIndex, mapSeed);
       let x = clamp(camp.x + offset.x, 45, WORLD.w - 45);
       let y = clamp(camp.y + offset.y, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID || mapId === CLOUDSPIRE_MAP_ID || mapId === MOONFEN_MAP_ID) {
+      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID || mapId === CLOUDSPIRE_MAP_ID || mapId === MOONFEN_MAP_ID || mapId === CRYSTAL_HOLLOWS_MAP_ID) {
         const activeBoss = editedBoss ?? (mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 });
         const bossDx = x - activeBoss.x;
         const bossDy = y - activeBoss.y;

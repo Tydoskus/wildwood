@@ -5,7 +5,6 @@ import {
   itemDefinition,
   itemDisplayName,
   normalizeItemUpgradeLevel,
-  type EquipmentSlot,
 } from "../../shared/items";
 
 type EquipmentField = "equippedHead" | "equippedChest" | "equippedFeet" | "equippedRightHand" | "equippedLeftHand";
@@ -13,18 +12,18 @@ type CosmeticField = "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmet
 export type ProfileEquipmentProgress = Pick<PlayerProgress, EquipmentField | CosmeticField>;
 export type ProfileEquipmentKind = "EQUIPMENT" | "COSMETIC" | "HIDDEN" | "EMPTY";
 
-export const PROFILE_EQUIPMENT_SLOTS = ["HEAD", "CHEST", "FEET", "RIGHT_HAND", "LEFT_HAND"] as const satisfies readonly EquipmentSlot[];
+export const PROFILE_EQUIPMENT_SLOTS = ["HEAD", "CHEST", "WEAPON", "FEET"] as const;
+export type ProfileEquipmentSlot = (typeof PROFILE_EQUIPMENT_SLOTS)[number];
 
-const SLOT_DETAILS: Record<EquipmentSlot, { label: string; equipped: EquipmentField; cosmetic: CosmeticField }> = {
+const SLOT_DETAILS: Record<ProfileEquipmentSlot, { label: string; equipped: EquipmentField; cosmetic: CosmeticField }> = {
   HEAD: { label: "HEAD", equipped: "equippedHead", cosmetic: "cosmeticHead" },
   CHEST: { label: "ARMOR", equipped: "equippedChest", cosmetic: "cosmeticChest" },
   FEET: { label: "BOOTS", equipped: "equippedFeet", cosmetic: "cosmeticFeet" },
-  RIGHT_HAND: { label: "WEAPON", equipped: "equippedRightHand", cosmetic: "cosmeticRightHand" },
-  LEFT_HAND: { label: "WEAPON", equipped: "equippedLeftHand", cosmetic: "cosmeticLeftHand" },
+  WEAPON: { label: "WEAPON", equipped: "equippedRightHand", cosmetic: "cosmeticRightHand" },
 };
 
 export type ProfileEquipmentPresentation = {
-  slot: EquipmentSlot;
+  slot: ProfileEquipmentSlot;
   label: string;
   kind: ProfileEquipmentKind;
   displayItemId: string;
@@ -43,7 +42,7 @@ function cosmeticValue(value: string | undefined) {
 /** Resolves the visible cosmetic for a slot while retaining hidden stat gear for inspection. */
 export function profileEquipmentPresentation(
   progress: ProfileEquipmentProgress | null,
-  slot: EquipmentSlot,
+  slot: ProfileEquipmentSlot,
 ): ProfileEquipmentPresentation {
   const details = SLOT_DETAILS[slot];
   if (!progress) {
@@ -56,16 +55,14 @@ export function profileEquipmentPresentation(
       context: `${details.label} · EMPTY`,
     };
   }
-  const equippedItemId = knownItemId(progress[details.equipped]);
-  let selectedCosmetic = cosmeticValue(progress[details.cosmetic]);
-  let suppressedByHandCosmetic = false;
-
-  if (slot === "RIGHT_HAND" || slot === "LEFT_HAND") {
-    const rightCosmetic = cosmeticValue(progress.cosmeticRightHand);
-    const leftCosmetic = rightCosmetic ? "" : cosmeticValue(progress.cosmeticLeftHand);
-    selectedCosmetic = slot === "RIGHT_HAND" ? rightCosmetic : leftCosmetic;
-    suppressedByHandCosmetic = Boolean(rightCosmetic || leftCosmetic) && !selectedCosmetic;
-  }
+  // Match the preview's one held weapon, right hand first, without changing
+  // either legacy hand field in the player's saved loadout.
+  const equippedItemId = slot === "WEAPON"
+    ? knownItemId(progress.equippedRightHand) || knownItemId(progress.equippedLeftHand)
+    : knownItemId(progress[details.equipped]);
+  const selectedCosmetic = slot === "WEAPON"
+    ? cosmeticValue(progress.cosmeticRightHand) || cosmeticValue(progress.cosmeticLeftHand)
+    : cosmeticValue(progress[details.cosmetic]);
 
   const cosmeticItemId = knownItemId(selectedCosmetic);
   if (cosmeticItemId) {
@@ -78,7 +75,7 @@ export function profileEquipmentPresentation(
       context: `${details.label} · COSMETIC ACTIVE · VISUAL ONLY`,
     };
   }
-  if (isHiddenCosmeticItem(selectedCosmetic) || suppressedByHandCosmetic) {
+  if (isHiddenCosmeticItem(selectedCosmetic)) {
     return {
       slot,
       label: details.label,

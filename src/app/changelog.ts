@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.614": [
+    "Added Crystal Hollows beyond Moonfen with five crystal-rabbit camps, editable cavern routes, and the new Prismshell boss.",
+    "Defeating Miremaw unlocks Crystal Hollows, with map access and saved location synced across devices.",
+    "Made player profiles more compact, removed the duplicate Weapon slot, and arranged equipment evenly with two slots on each side.",
+  ],
   "0.613": [
     "Removed duplicate ground shadows from the new enemies in Samurai Garden, Cloudspire, and Moonfen. They keep the shadows included in their artwork.",
   ],
@@ -1447,6 +1452,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.614": "2026-09-03",
   "0.613": "2026-09-03",
   "0.612": "2026-09-03",
   "0.611": "2026-09-03",

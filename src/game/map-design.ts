@@ -148,6 +148,15 @@ const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
       lilyPad: ["#3a8e68", "#45a66f"],
     },
   },
+  crystal_hollows: {
+    ground: "#303347",
+    path: "#626781",
+    pathDetail: "rgba(207,217,255,.2)",
+    decorColors: {
+      skyShard: ["#85e7ec", "#c0a1f3", "#f1c790"],
+      rock: ["#4c526b", "#64627c", "#526477", "#706879"],
+    },
+  },
 };
 
 function clone<T>(value: T): T {

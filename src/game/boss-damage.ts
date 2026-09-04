@@ -34,6 +34,7 @@ export const BOSS_DAMAGE_REFERENCE = {
   koiShogun: strongestEnemyDamage(["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"]),
   tempestKirin: strongestEnemyDamage(["Gale Prowler", "Nimbus Archer", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"]),
   miremaw: strongestEnemyDamage(["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"]),
+  prismshell: strongestEnemyDamage(["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"]),
 } as const;
 
 export const BOSS_DAMAGE_PROFILES = {
@@ -84,6 +85,11 @@ export const BOSS_DAMAGE_PROFILES = {
   miremaw: scaledProfile(BOSS_DAMAGE_REFERENCE.miremaw, {
     tongue: 20,
     bogBurst: 14,
+    contact: 10,
+  }),
+  prismshell: scaledProfile(BOSS_DAMAGE_REFERENCE.prismshell, {
+    shatter: 20,
+    crystalBurst: 14,
     contact: 10,
   }),
 } as const;

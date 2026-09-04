@@ -11,6 +11,11 @@ import {
   BEGINNER_DESERT_CLEAR_ARCHETYPE_COUNTS,
   BEGINNER_DESERT_HEALTH_SCALE,
   BEGINNER_DESERT_REGULAR_HEALTH_MULTIPLIER,
+  CRYSTAL_HOLLOWS_DAMAGE_SCALE,
+  CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
+  CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
+  CRYSTAL_HOLLOWS_HEALTH_SCALE,
+  CRYSTAL_HOLLOWS_REWARD_SCALE,
   INFERNAL_DEPTHS_DAMAGE_REWARD_MULTIPLIER,
   INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
   INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
@@ -224,6 +229,37 @@ describe("enemy reward rules", () => {
   });
 });
 
+describe("Crystal Hollows balance", () => {
+  it("adds one macro step with compact clears and capped movement", () => {
+    const tracks = [
+      ["raider", "Fen Prowler", "Shard Hopper", 230],
+      ["archer", "Glowcap Archer", "Crystal Spitter", 215],
+      ["guardian", "Bog Colossus", "Geode Guardian", 205],
+      ["reaper", "Moonmire Reaper", "Prism Reaver", 235],
+      ["oracle", "Wisp Oracle", "Hollow Oracle", 220],
+    ] as const;
+    const totals = { previousHp: 0, hp: 0, previousThreat: 0, threat: 0, previousReward: 0, reward: 0 };
+    for (const [archetype, previousKind, currentKind, speedCap] of tracks) {
+      const previous = ENEMY_TYPES[previousKind];
+      const current = ENEMY_TYPES[currentKind];
+      const count = LATE_MAP_CLEAR_ARCHETYPE_COUNTS[archetype];
+      const rewardWeight = current.reward.type === "armor" ? 3 : current.reward.type === "regen" ? 10 : 1;
+      totals.previousHp += previous.hp * count;
+      totals.hp += current.hp * count;
+      totals.previousThreat += previous.damage * previous.attackSpeed * count;
+      totals.threat += current.damage * current.attackSpeed * count;
+      totals.previousReward += previous.reward.amount * rewardWeight * count;
+      totals.reward += current.reward.amount * rewardWeight * count;
+      expect(current.reward.type).toBe(previous.reward.type);
+      expect(current.speed).toBeLessThanOrEqual(speedCap);
+      if (current.elite) expect(current.aggro).toBe(340);
+    }
+    expect(totals.hp / totals.previousHp).toBeCloseTo(CRYSTAL_HOLLOWS_HEALTH_SCALE * CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE, 10);
+    expect(totals.threat / totals.previousThreat).toBeCloseTo(CRYSTAL_HOLLOWS_DAMAGE_SCALE, 10);
+    expect(totals.reward / totals.previousReward).toBeCloseTo(CRYSTAL_HOLLOWS_REWARD_SCALE * CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE, 10);
+  });
+});
+
 describe("enemy movement balance", () => {
   it("slows every Tutorial Forest regular enemy by 50 percent", () => {
     expect({
@@ -287,9 +323,9 @@ describe("enemy sprite loading", () => {
     expect(MAP_ENEMY_FAMILIES).toEqual({
       tutorial_forest: "slime-green", beginner_desert: "goblin", intermediate_snowlands: "skeleton",
       advanced_lava_wastes: "slime-orange", infernal_depths: "skeleton-poison", water_reach: "goblin-green",
-      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock",
+      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock", crystal_hollows: "hornrabbit-crystal",
     });
-    expect(new Set(Object.values(MAP_ENEMY_FAMILIES)).size).toBe(9);
+    expect(new Set(Object.values(MAP_ENEMY_FAMILIES)).size).toBe(10);
     const covered = new Set<string>();
     for (const [mapId, family] of Object.entries(MAP_ENEMY_FAMILIES)) {
       const kinds = new Set(mapSpawnCamps(mapId as MapId).flatMap((camp) => camp.types));
@@ -327,7 +363,7 @@ describe("enemy sprite loading", () => {
   });
 
   it("uses the new families' own attacks without attaching bows to ranged variants", () => {
-    const kinds = ["Petal Archer", "Moonblade Reaper", "Nimbus Archer", "Thunder Reaper", "Glowcap Archer", "Moonmire Reaper"] as const;
+    const kinds = ["Petal Archer", "Moonblade Reaper", "Nimbus Archer", "Thunder Reaper", "Glowcap Archer", "Crystal Spitter", "Moonmire Reaper", "Prism Reaver"] as const;
     for (const kind of kinds) {
       expect(ENEMY_TYPES[kind].ranged).toBe(true);
       expect(ENEMY_SPRITE_LAYOUTS[kind].layers).toEqual([]);
@@ -336,9 +372,9 @@ describe("enemy sprite loading", () => {
   });
 
   it("ships only idle/walk/attack WebP sheets with valid frames and a bounded texture budget", () => {
-    const sprites = ["Sakura Ronin", "Gale Prowler", "Fen Prowler"].map((kind) => ENEMY_SPRITE_LAYOUTS[kind]);
-    let bytes = 0;
+    const sprites = ["Sakura Ronin", "Gale Prowler", "Fen Prowler", "Shard Hopper"].map((kind) => ENEMY_SPRITE_LAYOUTS[kind]);
     for (const sprite of sprites) {
+      let bytes = 0;
       const animation = sprite.animation!;
       expect(Object.keys(animation.animations).sort()).toEqual(["attack", "idle", "walk"]);
       expect(animation.pages.reduce((sum, page) => sum + page.width * page.height * 4, 0)).toBeLessThan(16 * 1024 * 1024);
@@ -365,8 +401,9 @@ describe("enemy sprite loading", () => {
           expect([frame.w, frame.h]).toEqual([animation.frameWidth, animation.frameHeight]);
         }
       }
+      // Assets are lazy per family; each additional map keeps the same budget.
+      expect(bytes).toBeLessThan(256 * 1024);
     }
-    expect(bytes).toBeLessThan(768 * 1024);
   });
 
   it("omits separate hand and arm layers from every layered bow enemy", () => {
@@ -432,6 +469,7 @@ describe("enemy sprite loading", () => {
     images.filter((image) => image.src).forEach((image) => image.dispatchEvent(new Event("load")));
     await forest;
     expect(assets.mapSpritesReady("moonfen")).toBe(false);
+    expect(assets.mapSpritesReady("crystal_hollows")).toBe(false);
     const moonfen = assets.ensureMapSprites("moonfen");
     const pages = images.filter((image) => image.src.includes("/fungus-rock/"));
     expect(pages).toHaveLength(3);
@@ -441,10 +479,22 @@ describe("enemy sprite loading", () => {
     normal.pages.forEach((page, index) => expect(page.image).toBe(elite.pages[index].image));
     pages.slice(0, 2).forEach((image) => image.dispatchEvent(new Event("load")));
     expect(assets.mapSpritesReady("moonfen")).toBe(false);
+    expect(assets.mapSpritesReady("crystal_hollows")).toBe(false);
     pages[2].dispatchEvent(new Event("load"));
     await moonfen;
     expect(assets.mapSpritesReady("moonfen")).toBe(true);
     expect(assets.mapSpriteLoadFailed("moonfen")).toBe(false);
+    expect(images.some((image) => image.src.includes("/hornrabbit-crystal/"))).toBe(false);
+    const crystalHollows = assets.ensureMapSprites("crystal_hollows");
+    const crystalPages = images.filter((image) => image.src.includes("/hornrabbit-crystal/"));
+    expect(crystalPages).toHaveLength(3);
+    const crystalNormal = assets.sprites["Shard Hopper"].animation!;
+    const crystalElite = assets.sprites["Prism Reaver"].animation!;
+    crystalNormal.pages.forEach((page, index) => expect(page.image).toBe(crystalElite.pages[index].image));
+    crystalPages.forEach((page) => page.dispatchEvent(new Event("load")));
+    await crystalHollows;
+    expect(assets.mapSpritesReady("crystal_hollows")).toBe(true);
+    expect(assets.mapSpriteLoadFailed("crystal_hollows")).toBe(false);
   });
 
   it("waits for every enemy image, including a delayed layer", () => {

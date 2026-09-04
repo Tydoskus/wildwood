@@ -47,6 +47,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   PLAYER_RADIUS,
   PLAYER_SPEED,
   SAMURAI_GARDEN_MAP_ID,
@@ -916,7 +917,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           !connection ||
           !Number.isFinite(x) ||
           !Number.isFinite(y) ||
-          ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID].includes(mapId)
+          ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID].includes(mapId)
         ) return false;
         try {
           await dependencies.reducers.runWorldReducer(() => connection.reducers.changeMap({ mapId, x, y }));

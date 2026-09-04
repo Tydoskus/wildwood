@@ -123,7 +123,6 @@ const afterUpdateGateShell = String.raw`
       <canvas id="profileCharacterCanvas" class="profile-character-canvas character-preview-canvas" width="240" height="136" aria-hidden="true"></canvas>
       <button id="profileEquippedHeadSlot" class="equipment-slot profile-equipment-slot slot-head" type="button" data-slot="head"><span>HEAD</span></button>
       <button id="profileEquippedChestSlot" class="equipment-slot profile-equipment-slot slot-chest" type="button" data-slot="chest"><span>ARMOR</span></button>
-      <button id="profileEquippedFeetSlot" class="equipment-slot profile-equipment-slot slot-feet" type="button" data-slot="feet"><span>BOOTS</span></button>
       <div class="profile-character-stage">
         <button id="previousPlayerSpriteBtn" class="player-sprite-selector previous" type="button" aria-label="Previous character" hidden><span aria-hidden="true"></span></button>
         <button id="nextPlayerSpriteBtn" class="player-sprite-selector next" type="button" aria-label="Next character" hidden><span aria-hidden="true"></span></button>
@@ -131,7 +130,7 @@ const afterUpdateGateShell = String.raw`
         <div id="profileSkinToneControl" class="profile-skin-tone" role="group" aria-label="Skin tone" hidden></div>
       </div>
       <button id="profileEquippedRightHandSlot" class="equipment-slot profile-equipment-slot slot-right-hand" type="button" data-slot="right-hand"><span>WEAPON</span></button>
-      <button id="profileEquippedLeftHandSlot" class="equipment-slot profile-equipment-slot slot-left-hand" type="button" data-slot="left-hand"><span>WEAPON</span></button>
+      <button id="profileEquippedFeetSlot" class="equipment-slot profile-equipment-slot slot-feet" type="button" data-slot="feet"><span>BOOTS</span></button>
     </div>
     <button id="profileDuelBtn" class="profile-duel-button" type="button" hidden>DUEL</button>
     <div class="profile-tabs" role="tablist" aria-label="Player profile sections">

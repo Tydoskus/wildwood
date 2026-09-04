@@ -1,4 +1,4 @@
-import { CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
+import { CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
 
 const FOREST_MUSIC_SOURCE = "assets/wildstat/audio/forest.mp3";
 const DESERT_MUSIC_SOURCE = "assets/wildstat/audio/desert.mp3";
@@ -33,6 +33,7 @@ export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: M
   if (mapId === CLOUDSPIRE_MAP_ID) return SNOW_MUSIC_SOURCE;
   // Moonfen shares Night Forest's quieter arrangement until its own theme lands.
   if (mapId === MOONFEN_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
+  if (mapId === CRYSTAL_HOLLOWS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
   if (mapId === lavaMapId) return LAVA_MUSIC_SOURCE;
   if (mapId === desertMapId) return DESERT_MUSIC_SOURCE;
   if (mapId === snowMapId) return SNOW_MUSIC_SOURCE;

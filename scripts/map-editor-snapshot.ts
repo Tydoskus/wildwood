@@ -19,6 +19,7 @@ const bossByMap: Record<MapId, { x: number; y: number }> = {
   samurai_garden: bootstrap.koiShogunBoss,
   cloudspire: bootstrap.tempestKirinBoss,
   moonfen: bootstrap.miremawBoss,
+  crystal_hollows: bootstrap.prismshellBoss,
 };
 
 const maps = (MAP_IDS as MapId[]).map((id): SavedMapDesign => {

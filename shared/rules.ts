@@ -159,6 +159,14 @@ export const CLOUDSPIRE_HEALTH_REWARD_MULTIPLIER = .75;
 export const MOONFEN_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
 export const MOONFEN_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
 export const MOONFEN_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+// Crystal Hollows adds one complete late-map step without rebalancing saves.
+export const CRYSTAL_HOLLOWS_HEALTH_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER * BALANCE_TARGET_MAP_DURATION_MULTIPLIER;
+export const CRYSTAL_HOLLOWS_DAMAGE_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+export const CRYSTAL_HOLLOWS_REWARD_SCALE = BALANCE_TARGET_MAP_POWER_MULTIPLIER;
+// Compact clears preserve travel time; the lighter health slice compensates
+// for the defense-heavy reward mix in the measured Moonfen-to-cavern campaign.
+export const CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE = .48;
+export const CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE = .6;
 // Relative per-enemy health shapes. enemies.ts centers each profile against
 // the authored clear counts, so encounter texture can change without silently
 // changing the map's aggregate health budget.
@@ -257,11 +265,25 @@ export const MOONFEN_ARCHETYPE_PROFILE = {
   reaper: { health: 1.02, damage: 1.06, reward: 1.02, attackSpeed: .73 },
   oracle: { health: .94, damage: 1, reward: 1.1, attackSpeed: .62 },
 } as const;
+export const CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE = {
+  raider: { health: .85, damage: 1.06, reward: 1.03, attackSpeed: .74 },
+  archer: { health: .96, damage: 1.09, reward: 1, attackSpeed: .59 },
+  guardian: { health: 1.28, damage: .88, reward: 1.14, attackSpeed: .45 },
+  reaper: { health: 1.05, damage: 1.08, reward: 1.04, attackSpeed: .76 },
+  oracle: { health: .95, damage: 1.02, reward: 1.08, attackSpeed: .64 },
+} as const;
 export const MOONFEN_REWARD_TRACK_PROFILE = {
   damage: 1,
   health: 1.75,
   armor: 1.25,
   regen: 1.65,
+  speed: 1,
+} as const;
+export const CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE = {
+  damage: 1.25,
+  health: 1.7,
+  armor: 1.6,
+  regen: 1.25,
   speed: 1,
 } as const;
 
@@ -306,10 +328,15 @@ export const TEMPEST_KIRIN_REWARD_ARMOR = KOI_SHOGUN_REWARD_ARMOR * CLOUDSPIRE_R
 export const TEMPEST_KIRIN_REWARD_REGEN = KOI_SHOGUN_REWARD_REGEN * CLOUDSPIRE_REWARD_SCALE;
 // Miremaw is the capstone for the next complete 8.5x progression step.
 export const MIREMAW_MAX_HP = TEMPEST_KIRIN_MAX_HP * MOONFEN_DAMAGE_SCALE * 1.1;
+export const PRISMSHELL_MAX_HP = MIREMAW_MAX_HP * CRYSTAL_HOLLOWS_DAMAGE_SCALE * 1.1;
 export const MIREMAW_REWARD_DAMAGE = TEMPEST_KIRIN_REWARD_DAMAGE * MOONFEN_REWARD_SCALE;
+export const PRISMSHELL_REWARD_DAMAGE = MIREMAW_REWARD_DAMAGE * CRYSTAL_HOLLOWS_REWARD_SCALE;
 export const MIREMAW_REWARD_HEALTH = TEMPEST_KIRIN_REWARD_HEALTH * MOONFEN_REWARD_SCALE;
+export const PRISMSHELL_REWARD_HEALTH = MIREMAW_REWARD_HEALTH * CRYSTAL_HOLLOWS_REWARD_SCALE;
 export const MIREMAW_REWARD_ARMOR = TEMPEST_KIRIN_REWARD_ARMOR * MOONFEN_REWARD_SCALE;
+export const PRISMSHELL_REWARD_ARMOR = MIREMAW_REWARD_ARMOR * CRYSTAL_HOLLOWS_REWARD_SCALE;
 export const MIREMAW_REWARD_REGEN = TEMPEST_KIRIN_REWARD_REGEN * MOONFEN_REWARD_SCALE;
+export const PRISMSHELL_REWARD_REGEN = MIREMAW_REWARD_REGEN * CRYSTAL_HOLLOWS_REWARD_SCALE;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -320,6 +347,7 @@ export const WATER_REACH_MAP_ID = "water_reach";
 export const SAMURAI_GARDEN_MAP_ID = "samurai_garden";
 export const CLOUDSPIRE_MAP_ID = "cloudspire";
 export const MOONFEN_MAP_ID = "moonfen";
+export const CRYSTAL_HOLLOWS_MAP_ID = "crystal_hollows";
 export const MAP_DISPLAY_NAMES = {
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
@@ -330,6 +358,7 @@ export const MAP_DISPLAY_NAMES = {
   [SAMURAI_GARDEN_MAP_ID]: "Samurai Garden",
   [CLOUDSPIRE_MAP_ID]: "Cloudspire",
   [MOONFEN_MAP_ID]: "Moonfen",
+  [CRYSTAL_HOLLOWS_MAP_ID]: "Crystal Hollows",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
@@ -341,9 +370,10 @@ export const MAP_IDS: readonly string[] = [
   SAMURAI_GARDEN_MAP_ID,
   CLOUDSPIRE_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 84;
+export const PROTOCOL_VERSION = 85;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

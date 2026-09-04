@@ -54,6 +54,7 @@ const tidewyrm = createBossTableSet();
 const koiShogun = createBossTableSet();
 const tempestKirin = createBossTableSet();
 const miremaw = createBossTableSet();
+const prismshell = createBossTableSet();
 
 export const dragonBossTables = {
   dragonBoss: dragon.boss,
@@ -116,4 +117,10 @@ export const miremawBossTables = {
   miremawContribution: miremaw.contribution,
   miremawAttackWindow: miremaw.attackWindow,
   miremawResult: miremaw.result,
+};
+export const prismshellBossTables = {
+  prismshellBoss: prismshell.boss,
+  prismshellContribution: prismshell.contribution,
+  prismshellAttackWindow: prismshell.attackWindow,
+  prismshellResult: prismshell.result,
 };

@@ -93,7 +93,10 @@ export function paintStaticTile(
       context.restore();
       continue;
     }
-    if (x < -50 || y < -50 || x > scene.tileSize + 50 || y > scene.tileSize + 50) continue;
+    // Tall crystal tips can overlap the neighboring tile even when their base
+    // is outside the old 50px margin. Keep those fragments in both tile paints.
+    const decorMargin = decor.type === "skyShard" ? Math.max(50, Math.ceil(34 * Math.max(.6, decor.s)) + 4) : 50;
+    if (x < -decorMargin || y < -decorMargin || x > scene.tileSize + decorMargin || y > scene.tileSize + decorMargin) continue;
     if (decor.type === "grass") {
       context.fillStyle = decorColor(scene, decor, ["#267f4c", "#237b49"]);
       context.fillRect(x - 1, y - 5, 2, 7); context.fillRect(x - 5, y - 2, 2, 5); context.fillRect(x + 3, y - 3, 2, 6); if (decor.variant > 1) context.fillRect(x + 6, y, 2, 3);

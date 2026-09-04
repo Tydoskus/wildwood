@@ -7,7 +7,7 @@ import {
   STARTER_STONE,
   WOODEN_ARMOR,
 } from "../../shared/items";
-import { profileEquipmentPresentation, type ProfileEquipmentProgress } from "./profile-equipment";
+import { PROFILE_EQUIPMENT_SLOTS, profileEquipmentPresentation, type ProfileEquipmentProgress } from "./profile-equipment";
 
 function equipment(overrides: Partial<ProfileEquipmentProgress> = {}): ProfileEquipmentProgress {
   return {
@@ -50,21 +50,40 @@ describe("profile equipment presentation", () => {
     });
   });
 
-  it("marks the opposite stat hand hidden when a hand cosmetic replaces both hands", () => {
+  it("shows the one active hand cosmetic in the single weapon slot", () => {
     const progress = equipment({ cosmeticLeftHand: STARTER_BOW });
-    expect(profileEquipmentPresentation(progress, "LEFT_HAND")).toMatchObject({
+    expect(profileEquipmentPresentation(progress, "WEAPON")).toMatchObject({
       kind: "COSMETIC",
       displayItemId: STARTER_BOW,
-    });
-    expect(profileEquipmentPresentation(progress, "RIGHT_HAND")).toMatchObject({
-      kind: "HIDDEN",
-      displayItemId: STARTER_STONE,
-      inspectionItemId: STARTER_STONE,
+      inspectionItemId: STARTER_BOW,
     });
   });
 
-  it("labels both hand positions as Weapon", () => {
-    expect(profileEquipmentPresentation(equipment(), "RIGHT_HAND").label).toBe("WEAPON");
-    expect(profileEquipmentPresentation(equipment(), "LEFT_HAND").label).toBe("WEAPON");
+  it("keeps the actual weapon inspectable when either hand hides it cosmetically", () => {
+    for (const cosmetic of ["cosmeticRightHand", "cosmeticLeftHand"] as const) {
+      expect(profileEquipmentPresentation(equipment({ [cosmetic]: HIDDEN_COSMETIC_ITEM_ID }), "WEAPON")).toMatchObject({
+        kind: "HIDDEN",
+        displayItemId: STARTER_STONE,
+        inspectionItemId: STARTER_STONE,
+      });
+    }
+  });
+
+  it("offers exactly four slots and falls back to legacy left-hand equipment without modifying the save", () => {
+    expect(PROFILE_EQUIPMENT_SLOTS).toEqual(["HEAD", "CHEST", "WEAPON", "FEET"]);
+    const progress = equipment({ equippedRightHand: "", equippedLeftHand: STARTER_BOW });
+    const original = { ...progress };
+    expect(profileEquipmentPresentation(progress, "WEAPON")).toMatchObject({
+      slot: "WEAPON", label: "WEAPON", kind: "EQUIPMENT", displayItemId: STARTER_BOW, inspectionItemId: STARTER_BOW,
+    });
+    expect(progress).toEqual(original);
+    expect(profileEquipmentPresentation(equipment({ equippedLeftHand: STARTER_BOW }), "WEAPON").displayItemId).toBe(STARTER_STONE);
+    expect(profileEquipmentPresentation(null, "WEAPON").kind).toBe("EMPTY");
+  });
+
+  it("keeps right-hand cosmetic precedence identical to the character renderer", () => {
+    expect(profileEquipmentPresentation(equipment({ cosmeticRightHand: STARTER_STONE, cosmeticLeftHand: STARTER_BOW }), "WEAPON")).toMatchObject({
+      kind: "COSMETIC", displayItemId: STARTER_STONE,
+    });
   });
 });

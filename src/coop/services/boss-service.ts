@@ -11,7 +11,9 @@ import type {
   MagmaliskBossState,
   MagmaliskResult,
   MiremawBossState,
+  PrismshellBossState,
   MiremawResult,
+  PrismshellResult,
   SpiderBossState,
   SpiderResult,
   TempestKirinBossState,
@@ -104,7 +106,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let tempestKirin: TempestKirinBossState | null = null;
   let tempestKirinResult: TempestKirinResult | null = null;
   let miremaw: MiremawBossState | null = null;
+  let prismshell: PrismshellBossState | null = null;
   let miremawResult: MiremawResult | null = null;
+  let prismshellResult: PrismshellResult | null = null;
 
   function damage(
     action: string,
@@ -179,8 +183,15 @@ export function createBossService(dependencies: BossServiceDependencies) {
       upsertMiremaw(row: BossRow) {
         miremaw = bossState(row);
       },
+      upsertPrismshell(row: BossRow) {
+        prismshell = bossState(row);
+      },
       upsertMiremawResult(row: BossResultRow) {
         miremawResult = bossResult(row);
+        dependencies.notify();
+      },
+      upsertPrismshellResult(row: BossResultRow) {
+        prismshellResult = bossResult(row);
         dependencies.notify();
       },
     },
@@ -202,7 +213,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tempestKirinBoss: () => tempestKirin ? { ...tempestKirin } : null,
       tempestKirinResult: () => copyResult(tempestKirinResult),
       miremawBoss: () => miremaw ? { ...miremaw } : null,
+      prismshellBoss: () => prismshell ? { ...prismshell } : null,
       miremawResult: () => copyResult(miremawResult),
+      prismshellResult: () => copyResult(prismshellResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -230,6 +243,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       damageMiremaw(hits = 1, x?: number, y?: number) {
         damage("Miremaw damage", (connection, count, px, py) => connection.reducers.damageMiremawFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
+      damagePrismshell(hits = 1, x?: number, y?: number) {
+        damage("Prismshell damage", (connection, count, px, py) => connection.reducers.damagePrismshellFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      },
     },
     resetSession() {
       dragon = null;
@@ -249,7 +265,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tempestKirin = null;
       tempestKirinResult = null;
       miremaw = null;
+      prismshell = null;
       miremawResult = null;
+      prismshellResult = null;
     },
   };
 }

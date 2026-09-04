@@ -2460,8 +2460,7 @@
     100% { opacity: 0; transform: translate(-50%, -8px); }
   }
   #playerProfile { padding: 5px; }
-  /* Counter half of the preview's rendered growth so the centered window's bottom edge does not move down. */
-  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; text-align: left; transform: translateY(-28px); }
+  .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; overscroll-behavior: contain; text-align: left; transform: none; }
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
@@ -2478,8 +2477,9 @@
   #playerProfilePower { margin-left: auto; font-size: 11px; white-space: nowrap; text-align: right; }
   .power-label { color: var(--gold); }
   .power-value { color: #fff; }
-  .profile-character-preview { --inventory-line: rgba(255,255,255,.17); --inventory-muted: #aebcaf; position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr) 54px; grid-template-rows: repeat(3, 44px); justify-content: center; align-items: stretch; gap: 2px 4px; height: 148px; min-height: 148px; margin: 5px 0 2px; padding: 4px; overflow: visible; }
-  .profile-character-stage { position: relative; z-index: 1; grid-column: 2; grid-row: 1 / span 3; min-width: 0; min-height: 0; overflow: visible; border-radius: 3px; background: transparent; pointer-events: none; }
+  .profile-character-preview { --inventory-line: rgba(255,255,255,.17); --inventory-muted: #aebcaf; position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr) 54px; grid-template-rows: repeat(2, 44px); justify-content: center; align-content: center; align-items: stretch; gap: 2px 4px; height: 112px; min-height: 112px; margin: 5px 0 2px; padding: 4px; overflow: visible; }
+  .profile-character-stage { position: relative; z-index: 1; grid-column: 2; grid-row: 1 / span 2; min-width: 0; min-height: 0; overflow: visible; border-radius: 3px; background: transparent; pointer-events: none; }
+  .profile-character-preview .slot-feet { grid-column: 3; grid-row: 2; }
   .profile-equipment-slot { grid-template-rows: 12px minmax(0, 1fr); gap: 1px; height: 44px; min-height: 44px; aspect-ratio: auto; padding: 2px; border-radius: 5px; cursor: pointer; }
   .profile-equipment-slot.is-equipped { cursor: pointer; }
   .profile-equipment-slot:disabled { cursor: default; opacity: .72; }
@@ -2517,14 +2517,13 @@
   .profile-gender-choice img { width: 23px; height: 27px; object-fit: contain; pointer-events: none; }
   .profile-gender-choice[aria-pressed="true"] { border-color: var(--green); background: rgba(78,205,82,.2); box-shadow: 0 0 0 1px #000, 0 0 8px rgba(78,205,82,.3); }
   .profile-gender-choice:disabled { opacity: .58; }
-  .profile-tabs { display: flex; gap: 7px; margin: 12px 0 8px; border-bottom: 2px solid rgba(255,255,255,.13); }
+  .profile-tabs { display: flex; gap: 7px; margin: 8px 0 6px; border-bottom: 2px solid rgba(255,255,255,.13); }
   .profile-tab { display: grid; place-items: center; height: 44px; min-height: 44px; margin: 0 0 -2px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; border-radius: 5px 5px 0 0; background: transparent; color: var(--muted); font-size: 10px; }
   .profile-tab.is-active { border-bottom-color: var(--green); color: #fff; }
   .profile-loading { padding: 24px 8px; color: var(--muted); font-size: 11px; text-align: center; }
   .profile-panel[hidden], .profile-loading[hidden] { display: none; }
-  .player-profile-modal .profile-panel { min-height: 260px; }
-  #profileStatsPanel { height: 260px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
-  #profileStatsPanel::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .player-profile-modal .profile-panel { min-height: 0; }
+  #profileStatsPanel { height: auto; max-height: none; overflow: visible; }
   .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
   .profile-grid > div { min-width: 0; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; background: rgba(0,0,0,.2); }
   .profile-grid dt { color: var(--muted); font-size: 8px; letter-spacing: .07em; }
@@ -2825,10 +2824,10 @@
   .dev-forest-prototype-actions button { margin: 0; min-height: 44px; font-size: 12px; }
   .profile-duel-button.is-cooling-down { background: linear-gradient(#676f70, #454b4c); color: #d1d7d5; cursor: not-allowed; }
   .profile-duel-button[hidden] { display: none; }
-  .profile-safety-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; margin-bottom: 24px; }
+  .profile-safety-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; margin-bottom: 12px; }
   .profile-safety-actions[hidden], .setting-support[hidden] { display: none; }
   .profile-safety-actions button, .player-safety-dialog button, #blockedPlayersList button { min-height: 44px; font-size: 12px; }
-  .profile-safety-actions button { border-color: #67272b; background: linear-gradient(#c85050, #842f34); color: #fff; }
+  .profile-safety-actions button { margin: 0; border-color: #67272b; background: linear-gradient(#c85050, #842f34); color: #fff; }
   .setting-support { display: grid; gap: 7px; padding: 12px 0; font-size: 12px; text-align: left; }
   .setting-support a, .player-safety-dialog a { color: #bce7ff; overflow-wrap: anywhere; }
   .setting-support small { font-size: 11px; line-height: 1.5; color: var(--muted); }

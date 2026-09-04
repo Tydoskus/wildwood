@@ -1,6 +1,7 @@
 import tulipAtlas from "./enemy-atlases/flower-tulip.mjs";
 import beeAtlas from "./enemy-atlases/wingdemon-bee.mjs";
 import fungusAtlas from "./enemy-atlases/fungus-rock.mjs";
+import crystalAtlas from "./enemy-atlases/hornrabbit-crystal.mjs";
 
 /** One family within each map, not one recolored slime across the whole game.
  * Keep this browser JavaScript: the local layer aligner imports it directly.
@@ -22,6 +23,7 @@ export const MAP_ENEMY_FAMILIES = {
   samurai_garden: "flower-tulip",
   cloudspire: "wingdemon-bee",
   moonfen: "fungus-rock",
+  crystal_hollows: "hornrabbit-crystal",
 };
 
 const spriteSize = (elite) => elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE;
@@ -138,6 +140,7 @@ const water = (options) => goblinSprite(true, options);
 const samurai = (options) => animatedSprite("flower-tulip", tulipAtlas, options);
 const cloudspire = (options) => animatedSprite("wingdemon-bee", beeAtlas, options);
 const moonfen = (options) => animatedSprite("fungus-rock", fungusAtlas, options);
+const crystalHollows = (options) => animatedSprite("hornrabbit-crystal", crystalAtlas, options);
 
 export const ENEMY_SPRITE_LAYOUTS = {
   Bramble: forest(),
@@ -184,8 +187,13 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Thunder Reaper": cloudspire({ elite: true }),
   "Tempest Oracle": cloudspire({ elite: true }),
   "Fen Prowler": moonfen(),
+  "Shard Hopper": crystalHollows(),
   "Glowcap Archer": moonfen(),
+  "Crystal Spitter": crystalHollows(),
   "Bog Colossus": moonfen(),
+  "Geode Guardian": crystalHollows(),
   "Moonmire Reaper": moonfen({ elite: true }),
+  "Prism Reaver": crystalHollows({ elite: true }),
   "Wisp Oracle": moonfen({ elite: true }),
+  "Hollow Oracle": crystalHollows({ elite: true }),
 };

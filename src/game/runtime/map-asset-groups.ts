@@ -8,6 +8,7 @@ import {
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   type MapId,
 } from "../world";
 import type { EnemyKind } from "../enemies";
@@ -25,7 +26,8 @@ export type MapArtAssetGroup =
   | "waterBoss"
   | "samuraiBoss"
   | "cloudspireBoss"
-  | "moonfenBoss";
+  | "moonfenBoss"
+  | "crystalHollowsBoss";
 
 export type MapAssetGroup = {
   /** Boss and scenery images used only by this map. */
@@ -72,6 +74,10 @@ export const MAP_ASSET_GROUPS = {
     art: ["moonfenBoss"],
     enemies: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
   },
+  [CRYSTAL_HOLLOWS_MAP_ID]: {
+    art: ["crystalHollowsBoss"],
+    enemies: ["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
+  },
 } as const satisfies Record<MapId, MapAssetGroup>;
 
 /** Map-keyed view consumed by the regular-enemy image loader. */
@@ -85,4 +91,5 @@ export const MAP_ENEMY_SPRITE_GROUPS: Record<MapId, readonly EnemyKind[]> = {
   [SAMURAI_GARDEN_MAP_ID]: MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID].enemies,
   [CLOUDSPIRE_MAP_ID]: MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].enemies,
   [MOONFEN_MAP_ID]: MAP_ASSET_GROUPS[MOONFEN_MAP_ID].enemies,
+  [CRYSTAL_HOLLOWS_MAP_ID]: MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].enemies,
 };

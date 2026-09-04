@@ -107,7 +107,7 @@ describe("interface style contracts", () => {
     expect(cssRule(".card.inventory-panel")).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(cssRule(".inventory-capacity { ")).toContain("margin-left: auto");
     expect(entryHtml.match(/data-slot="(?:right|left)-hand"><span>WEAPON<\/span>/g)).toHaveLength(2);
-    expect(gameShell.match(/data-slot="(?:right|left)-hand"><span>WEAPON<\/span>/g)).toHaveLength(2);
+    expect(gameShell.match(/data-slot="(?:right|left)-hand"><span>WEAPON<\/span>/g)).toHaveLength(1);
   });
 
   it("uses the compact world notice for every boss defeat", () => {
@@ -389,13 +389,18 @@ describe("interface style contracts", () => {
       "profileEquippedChestSlot",
       "profileEquippedFeetSlot",
       "profileEquippedRightHandSlot",
-      "profileEquippedLeftHandSlot",
     ]) {
       expect(gameShell).toContain(`id="${id}" class="equipment-slot profile-equipment-slot`);
     }
     const preview = cssRule(".profile-character-preview {");
-    expect(preview).toContain("height: 148px");
-    expect(preview).toContain("grid-template-rows: repeat(3, 44px)");
+    expect(gameShell).not.toContain('id="profileEquippedLeftHandSlot"');
+    expect(preview).toContain("height: 112px");
+    expect(preview).toContain("grid-template-rows: repeat(2, 44px)");
+    expect(cssRule(".profile-character-stage {")).toContain("grid-row: 1 / span 2");
+    expect(cssRule(".profile-character-preview .slot-feet {")).toContain("grid-column: 3; grid-row: 2");
+    expect(cssRule(".slot-head {")).toContain("grid-column: 1; grid-row: 1");
+    expect(cssRule(".slot-chest {")).toContain("grid-column: 1; grid-row: 2");
+    expect(cssRule(".slot-right-hand {")).toContain("grid-column: 3; grid-row: 1");
     const sharedPreview = cssRule(".character-loadout-preview {");
     expect(sharedPreview).toContain("border: 2px solid #000");
     expect(sharedPreview).toContain("background: #31945b");
@@ -405,7 +410,12 @@ describe("interface style contracts", () => {
     expect(cssRule(".equipment-slot {")).toContain("rgba(24,33,27,.62)");
     expect(cssRule(".inventory-character-stage {")).toContain("background: transparent");
     expect(cssRule(".profile-character-stage {")).toContain("background: transparent");
-    expect(cssRule(".modal.player-profile-modal {")).toContain("transform: translateY(-28px)");
+    expect(cssRule(".modal.player-profile-modal {")).toContain("transform: none");
+    expect(cssRule(".modal.player-profile-modal {")).toContain("overflow-y: auto");
+    expect(cssRule(".player-profile-modal .profile-panel {")).toContain("min-height: 0");
+    expect(cssRule("#profileStatsPanel {")).toContain("height: auto");
+    expect(cssRule("#profileStatsPanel {")).toContain("max-height: none");
+    expect(cssRule("#profileStatsPanel {")).toContain("overflow: visible");
     expect(cssRule(".profile-equipment-slot {")).toContain("height: 44px");
   });
 
@@ -471,7 +481,8 @@ describe("interface style contracts", () => {
     expect(html).toContain('id="blockedPlayersSetting"');
     expect(cssRule(".profile-safety-actions button {")).toContain("background: linear-gradient(#c85050, #842f34)");
     expect(cssRule(".profile-safety-actions button {")).toContain("color: #fff");
-    expect(cssRule(".profile-safety-actions {")).toContain("margin-bottom: 24px");
+    expect(cssRule(".profile-safety-actions {")).toContain("margin-bottom: 12px");
+    expect(cssRule(".profile-safety-actions button {")).toContain("margin: 0");
   });
 
   it("keeps sign-in artwork present and stable through authentication transitions", () => {

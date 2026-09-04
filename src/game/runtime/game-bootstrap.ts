@@ -2,14 +2,14 @@ import { WORLD } from "../constants";
 import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites, type EnemyKind } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
-import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
+import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import { createAssetPreprocessor } from "./asset-preprocessor";
 import { MAP_ENEMY_SPRITE_GROUPS } from "./map-asset-groups";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, MiremawBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, MiremawBossState, PrismshellBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import {
   DEFAULT_ATTACK_INTERVAL,
   DRAGON_MAX_HP,
@@ -23,6 +23,7 @@ import {
   SPIDER_MAX_HP,
   TEMPEST_KIRIN_MAX_HP,
   MIREMAW_MAX_HP,
+  PRISMSHELL_MAX_HP,
   TIDEWYRM_MAX_HP,
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
@@ -73,6 +74,7 @@ export function createGameBootstrap() {
   const koiShogunWhirlpools: KoiShogunWhirlpool[] = [];
   const tempestKirinThunderbolts: TempestKirinThunderbolt[] = [];
   const miremawBogBursts: MiremawBogBurst[] = [];
+  const prismshellCrystalBursts: PrismshellCrystalBurst[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
     [TUTORIAL_FOREST_MAP_ID]: editedMapEntry(TUTORIAL_FOREST_MAP_ID, {
@@ -125,6 +127,12 @@ export function createGameBootstrap() {
     [MOONFEN_MAP_ID]: editedMapEntry(MOONFEN_MAP_ID, {
       name: MAP_DISPLAY_NAMES[MOONFEN_MAP_ID],
       portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CLOUDSPIRE_MAP_ID },
+      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: CRYSTAL_HOLLOWS_MAP_ID },
+      arrival: { x: 580, y: 770 },
+    }),
+    [CRYSTAL_HOLLOWS_MAP_ID]: editedMapEntry(CRYSTAL_HOLLOWS_MAP_ID, {
+      name: MAP_DISPLAY_NAMES[CRYSTAL_HOLLOWS_MAP_ID],
+      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: MOONFEN_MAP_ID },
       arrival: { x: 580, y: 770 },
     }),
   } satisfies Record<MapId, BootstrapMapEntry>;
@@ -302,6 +310,7 @@ export function createGameBootstrap() {
     encounter: null,
   };
   const miremawPosition = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
+  const prismshellPosition = editedBossPosition(CRYSTAL_HOLLOWS_MAP_ID, { x: 4050, y: 4050 });
   const miremawBoss: MiremawBossState = {
     isBoss: true,
     bossKind: "miremaw",
@@ -318,6 +327,24 @@ export function createGameBootstrap() {
     attackClock: 3,
     nextAttack: "tongue",
     tongue: null,
+    encounter: null,
+  };
+  const prismshellBoss: PrismshellBossState = {
+    isBoss: true,
+    bossKind: "prismshell",
+    x: prismshellPosition.x,
+    y: prismshellPosition.y,
+    r: 170,
+    maxHp: PRISMSHELL_MAX_HP,
+    hp: PRISMSHELL_MAX_HP,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: PRISMSHELL_MAX_HP,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: "shatter",
+    shatter: null,
     encounter: null,
   };
   const editedBootsPickup = MAP_EDITOR_GAMEPLAY_OVERRIDES[TUTORIAL_FOREST_MAP_ID]?.bootsPickup;
@@ -368,7 +395,9 @@ export function createGameBootstrap() {
     tempestKirinBoss,
     tempestKirinThunderbolts,
     miremawBoss,
+    prismshellBoss,
     miremawBogBursts,
+    prismshellCrystalBursts,
   };
 }
 

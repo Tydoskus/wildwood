@@ -92,6 +92,13 @@ describe("deterministic boss simulation", () => {
     expect(first.ability).toBe("tongue");
     expect(second.ability).toBe("bogBurst");
   });
+  it("cycles Prismshell between shatter and bog burst", () => {
+    const first = bossAbilityTimelineAt({ kind: "prismshell", serverNowMs: 0 });
+    const second = bossAbilityTimelineAt({ kind: "prismshell", serverNowMs: first.slotDurationMs });
+
+    expect(first.ability).toBe("shatter");
+    expect(second.ability).toBe("crystalBurst");
+  });
 
   it("shares a player's exact boss attack slot across clients", () => {
     const options = {

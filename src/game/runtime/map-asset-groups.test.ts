@@ -6,6 +6,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
@@ -24,6 +25,7 @@ const MAP_IDS: readonly MapId[] = [
   SAMURAI_GARDEN_MAP_ID,
   CLOUDSPIRE_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
 ];
 
 describe("lazy map asset groups", () => {
@@ -37,6 +39,7 @@ describe("lazy map asset groups", () => {
     expect(MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID].art).toContain("samuraiBoss");
     expect(MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].art).toContain("cloudspireBoss");
     expect(MAP_ASSET_GROUPS[MOONFEN_MAP_ID].art).toContain("moonfenBoss");
+    expect(MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].art).toContain("crystalHollowsBoss");
   });
 
   it("keeps image-based scenery with only the maps that use it", () => {

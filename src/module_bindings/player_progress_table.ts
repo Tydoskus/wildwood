@@ -45,4 +45,5 @@ export default __t.row({
   samuraiUnlocked: __t.bool().name("samurai_unlocked"),
   cloudspireUnlocked: __t.bool().name("cloudspire_unlocked"),
   moonfenUnlocked: __t.bool().name("moonfen_unlocked"),
+  crystalHollowsUnlocked: __t.bool().name("crystal_hollows_unlocked"),
 });

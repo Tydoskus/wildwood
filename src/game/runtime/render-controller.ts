@@ -58,6 +58,7 @@ export function createRenderController(options: {
   drawKoiShogunTelegraphs: () => void;
   drawTempestKirinTelegraphs: () => void;
   drawMiremawTelegraphs: () => void;
+  drawPrismshellTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
   drawMinimap: (players: MapPlayerMarker[]) => void;
@@ -73,6 +74,7 @@ export function createRenderController(options: {
   currentMapIsSamurai: () => boolean;
   currentMapIsCloudspire: () => boolean;
   currentMapIsMoonfen: () => boolean;
+  currentMapIsCrystalHollows: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   screenShake: () => number;
@@ -89,8 +91,8 @@ export function createRenderController(options: {
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
-    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawTidewyrmTelegraphs, drawKoiShogunTelegraphs, drawTempestKirinTelegraphs, drawMiremawTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
-    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, portalCutsceneActive,
+    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawTidewyrmTelegraphs, drawKoiShogunTelegraphs, drawTempestKirinTelegraphs, drawMiremawTelegraphs, drawPrismshellTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
+    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, portalCutsceneActive,
     portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
   } = options;
 
@@ -229,6 +231,7 @@ export function createRenderController(options: {
     if (!isDueling() && currentMapIsSamurai()) drawKoiShogunTelegraphs();
     if (!isDueling() && currentMapIsCloudspire()) drawTempestKirinTelegraphs();
     if (!isDueling() && currentMapIsMoonfen()) drawMiremawTelegraphs();
+    if (!isDueling() && currentMapIsCrystalHollows()) drawPrismshellTelegraphs();
     drawAttackRange();
     if (!projectilesRenderedByWebGL) {
       for (const projectile of projectiles) drawProjectile(projectile, false);

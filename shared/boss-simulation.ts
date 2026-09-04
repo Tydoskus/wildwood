@@ -18,7 +18,8 @@ export type BossSimulationKind =
   | "tidewyrm"
   | "koiShogun"
   | "tempestKirin"
-  | "miremaw";
+  | "miremaw"
+  | "prismshell";
 
 export type BossAbilityName =
   | "cone"
@@ -38,7 +39,9 @@ export type BossAbilityName =
   | "charge"
   | "thunder"
   | "tongue"
-  | "bogBurst";
+  | "bogBurst"
+  | "shatter"
+  | "crystalBurst";
 
 type BossAbilityDefinition = {
   ability: BossAbilityName;
@@ -88,6 +91,10 @@ const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefini
   miremaw: [
     { ability: "tongue", slotDurationMs: 4_050, activeDurationMs: 1_520 },
     { ability: "bogBurst", slotDurationMs: 5_000, activeDurationMs: 1_900 },
+  ],
+  prismshell: [
+    { ability: "shatter", slotDurationMs: 4_400, activeDurationMs: 1_650 },
+    { ability: "crystalBurst", slotDurationMs: 5_200, activeDurationMs: 2_050 },
   ],
 };
 

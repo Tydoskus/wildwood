@@ -1,12 +1,12 @@
 import type { PlayerProfileData } from "../wildstat-coop";
 import { PLAYER_GENDER_UNSET, isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
-import type { EquipmentSlot } from "../../shared/items";
 import { appendPlayerGenderIcon } from "./player-gender";
 import type { ItemInspectionController } from "./item-inspection-controller";
 import {
   PROFILE_EQUIPMENT_SLOTS,
   profileEquipmentPresentation,
   renderProfileEquipmentSlot,
+  type ProfileEquipmentSlot,
 } from "./profile-equipment";
 
 export type ProfileTab = "overview" | "stats";
@@ -17,7 +17,7 @@ export function createProfileWindowController(elements: {
   overviewTab: HTMLElement; statsTab: HTMLElement; overviewPanel: HTMLElement; statsPanel: HTMLElement;
   joined: HTMLElement; timePlayed: HTMLElement; kills: HTMLElement; online: HTMLElement; statGrid: HTMLElement;
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
-  skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; equipmentLeftHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
+  skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
   duel: HTMLButtonElement;
   safetyActions: HTMLElement; report: HTMLButtonElement; block: HTMLButtonElement;
 }, api: {
@@ -36,12 +36,11 @@ export function createProfileWindowController(elements: {
 }) {
   let identity = "";
   let profileData: Profile | null = null;
-  const equipmentElements: Record<EquipmentSlot, HTMLButtonElement> = {
+  const equipmentElements: Record<ProfileEquipmentSlot, HTMLButtonElement> = {
     HEAD: elements.equipmentHead,
     CHEST: elements.equipmentChest,
     FEET: elements.equipmentFeet,
-    RIGHT_HAND: elements.equipmentRightHand,
-    LEFT_HAND: elements.equipmentLeftHand,
+    WEAPON: elements.equipmentRightHand,
   };
 
   function selectTab(tab: ProfileTab) {
@@ -102,7 +101,7 @@ export function createProfileWindowController(elements: {
     }
   }
 
-  function inspectEquipment(slot: EquipmentSlot) {
+  function inspectEquipment(slot: ProfileEquipmentSlot) {
     if (!profileData) return;
     const presentation = profileEquipmentPresentation(profileData.progress, slot);
     if (!presentation.inspectionItemId) return;

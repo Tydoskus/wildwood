@@ -7,6 +7,7 @@ import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, re
 import { MAP_ASSET_GROUPS, type MapArtAssetGroup } from "./map-asset-groups";
 import { SCORPION_SPRITE } from "./scorpion-sprite";
 import { savedMapDesign } from "../map-design";
+import { PRISMSHELL_ATLAS, PRISMSHELL_USED_PAGES } from "./prismshell-sprite";
 
 export type TreeSpriteBound = {
   x: number;
@@ -252,6 +253,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     miremawReady = true;
     settle();
   });
+  const prismshellPageAssets = PRISMSHELL_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
+  const prismshellAssets = PRISMSHELL_USED_PAGES.map((index) => prismshellPageAssets[index]);
 
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
@@ -330,6 +333,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     samuraiBoss: [koiShogunAsset],
     cloudspireBoss: [tempestKirinAsset],
     moonfenBoss: [miremawAsset],
+    crystalHollowsBoss: prismshellAssets,
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
@@ -387,7 +391,9 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tempestKirinReady: () => tempestKirinReady,
     tempestKirinSpriteCanvas,
     miremawReady: () => miremawReady,
+    prismshellReady: () => prismshellAssets.every((asset) => asset.settled() && !asset.failed()),
     miremawSpriteCanvas,
+    prismshellSpritePages: prismshellPageAssets.map((asset) => asset.image),
     ensureDuelAssets,
     duelAssetsReady: () => duelSpaceAsset.settled() && duelPlatformAsset.settled(),
     ensureMapAssets,

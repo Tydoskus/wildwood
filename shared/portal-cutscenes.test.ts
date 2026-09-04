@@ -12,6 +12,7 @@ describe("portal cutscene migration", () => {
     expect(unlockedPortalCutsceneMask({ waterUnlocked: true })).toBe(31);
     expect(unlockedPortalCutsceneMask({ samuraiUnlocked: true })).toBe(63);
     expect(unlockedPortalCutsceneMask({ moonfenUnlocked: true })).toBe(63);
+    expect(unlockedPortalCutsceneMask({ crystalHollowsUnlocked: true })).toBe(63);
   });
   it("has one stable bit per scene and rejects unknown IDs", () => {
     expect(PORTAL_CUTSCENES.map((scene) => portalCutsceneBit(scene.id))).toEqual([1, 2, 4, 8, 16, 32]);

@@ -15,28 +15,30 @@ use new pack families for the remaining maps.
 | Samurai Garden | Tulip monsters | LayerLab `Flower_Tulip` |
 | Cloudspire | Winged bee monsters | LayerLab `WingDemon_Bee` |
 | Moonfen | Rock fungi | LayerLab `Fungus_Rock` |
+| Crystal Hollows | Crystal-horn rabbits | LayerLab `HornRabbit_Crystal` |
 
 `src/game/enemy-sprite-layouts.mjs` is the source of truth. Enemy names are existing
 combat/reward identities, not instructions to pick a different species within a
-map. No server state, stats, hitboxes, attack timings, camps or rewards change.
+map. Reassigning artwork must not change existing server state, stats, hitboxes,
+attack timings, camps or rewards. The tenth map adds its own five combat identities.
 Regular sprite size remains 54; elite size remains 78. The original layered
 goblin/skeleton coordinates are scaled together, preserving their proportions.
 Original-family archers retain aimed bows without separate floating hand/arm
-layers. The three new animated families use their own attack poses, with no bow
+layers. The four new animated families use their own attack poses, with no bow
 overlays; their ranged combat behavior is unchanged.
 
 ## New animation sheets
 
-The three new families use 256-pixel frames captured in Unity at 12 FPS and
+The four new families use 256-pixel frames captured in Unity at 12 FPS and
 quality-95 WebP sheets with exact alpha. Tulip and bee each have 28 frames;
-rock fungus has 34. Only **idle, walk and attack** are shipped. Source packages,
+rock fungus has 34 and crystal-horn rabbit has 35. Only **idle, walk and attack** are shipped. Source packages,
 Unity projects, previews, and lossless masters remain under ignored `art-source/`.
 Only the selected runtime sheets/metadata enter `public/`.
 
 `src/game/enemy-atlases/` contains generated crop/timing metadata. Pages are lazy
 loaded by the existing map preparation/background preload pipeline and shared
 across all five variants in a map. Each family stays below 16 MiB decoded RGBA and
-each sheet below 2048 × 2048. All three families together are below 768 KiB on disk.
+each sheet below 2048 × 2048. Each family stays below 256 KiB on disk.
 Frame rectangles reuse exported metadata; no manifest request or per-frame canvas
 baking is needed in play.
 
@@ -49,11 +51,16 @@ bounds keep the floating labels from jumping between frames. The captures includ
 their own shadows; `hasBakedShadow: true` disables the game's added ground shadow
 for these families alone. Original-family enemies retain their added shadows.
 
-These three captures are authored facing left. Their animation layouts declare
+These captures use the pack's left-facing convention. Their animation layouts declare
 `sourceFacingX: -1`; the renderer mirrors only the atlas around its fixed origin
 to match the actor's right-facing coordinate system before world-facing is applied.
 This applies equally to idle, walking and attacks, without changing movement,
 combat targeting, or the original families' equipment.
+
+Crystal Hollows' separate boss, Prismshell, uses `Carapace_Castle`. Its fixed-origin
+atlas renderer only loads idle and attack pages (the walk export is unused),
+scales the idle silhouette to 340 units high, and does not add a second shadow.
+Boss damage and telegraphs follow the shared encounter timeline, not clip playback.
 
 ## Promoting another capture
 
@@ -76,6 +83,6 @@ omitted means right).
 
 The loose-layer aligner remains for original sprites; baked sheets use the Unity
 exporter's preview. The user owns visual review: inspect facing, idle/walk/attack,
-elite scale, and label/shadow placement on the three new maps, plus the restored
+elite scale, and label/shadow placement on the four new maps, plus the restored
 goblin/skeleton assembly and its bow overlays. Objective checks cover paths, frame crops,
 texture budgets, map-scoped loading, animation transitions and renderer transforms.

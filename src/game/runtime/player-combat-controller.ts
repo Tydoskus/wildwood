@@ -4,7 +4,7 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap, distanceSquared } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamageMultiplier, itemDefinition, weaponAttackInterval } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
@@ -31,6 +31,7 @@ const TIDEWYRM_HIT_BATCH_DELAY = .1;
 const KOI_SHOGUN_HIT_BATCH_DELAY = .1;
 const TEMPEST_KIRIN_HIT_BATCH_DELAY = .1;
 const MIREMAW_HIT_BATCH_DELAY = .1;
+const PRISMSHELL_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 const IDLE_TARGET_RECHECK_SECONDS = .08;
@@ -95,6 +96,7 @@ export function createPlayerCombatController(options: {
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
   miremawBoss: MiremawBossState;
+  prismshellBoss: PrismshellBossState;
   nowSeconds: () => number;
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
@@ -107,6 +109,7 @@ export function createPlayerCombatController(options: {
   isSamuraiMap: () => boolean;
   isCloudspireMap: () => boolean;
   isMoonfenMap: () => boolean;
+  isCrystalHollowsMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchAttackSpeedMultiplier?: () => number;
@@ -138,6 +141,7 @@ export function createPlayerCombatController(options: {
   damageKoiShogun: (hits: number) => void;
   damageTempestKirin: (hits: number) => void;
   damageMiremaw: (hits: number) => void;
+  damagePrismshell: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
@@ -150,10 +154,10 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss,
+    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, damageTempestKirin, damageMiremaw, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, damageTempestKirin, damageMiremaw, damagePrismshell, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -180,7 +184,9 @@ export function createPlayerCombatController(options: {
   let pendingTempestKirinHits = 0;
   let tempestKirinHitBatchTimer = 0;
   let pendingMiremawHits = 0;
+  let pendingPrismshellHits = 0;
   let miremawHitBatchTimer = 0;
+  let prismshellHitBatchTimer = 0;
 
   function activeMapBoss(): BossTarget | null {
     if (isTutorialMap()) return boss;
@@ -192,6 +198,7 @@ export function createPlayerCombatController(options: {
     if (isSamuraiMap()) return koiShogunBoss;
     if (isCloudspireMap()) return tempestKirinBoss;
     if (isMoonfenMap()) return miremawBoss;
+    if (isCrystalHollowsMap()) return prismshellBoss;
     return null;
   }
 
@@ -508,6 +515,9 @@ export function createPlayerCombatController(options: {
           } else if ("bossKind" in target && target.bossKind === "miremaw") {
             pendingMiremawHits += 1;
             miremawHitBatchTimer = MIREMAW_HIT_BATCH_DELAY;
+          } else if ("bossKind" in target && target.bossKind === "prismshell") {
+            pendingPrismshellHits += 1;
+            prismshellHitBatchTimer = PRISMSHELL_HIT_BATCH_DELAY;
           } else {
             pendingDragonHits += 1;
             dragonHitBatchTimer = DRAGON_HIT_BATCH_DELAY;
@@ -567,6 +577,10 @@ export function createPlayerCombatController(options: {
       miremawHitBatchTimer -= dt;
       if (miremawHitBatchTimer <= 0) { damageMiremaw(pendingMiremawHits); pendingMiremawHits = 0; miremawHitBatchTimer = 0; }
     }
+    if (isCrystalHollowsMap() && pendingPrismshellHits > 0) {
+      prismshellHitBatchTimer -= dt;
+      if (prismshellHitBatchTimer <= 0) { damagePrismshell(pendingPrismshellHits); pendingPrismshellHits = 0; prismshellHitBatchTimer = 0; }
+    }
     for (const shot of enemyShots) {
       shot.life -= dt;
       shot.x += shot.vx * dt;
@@ -598,7 +612,9 @@ export function createPlayerCombatController(options: {
       pendingTempestKirinHits = 0;
       tempestKirinHitBatchTimer = 0;
       pendingMiremawHits = 0;
+      pendingPrismshellHits = 0;
       miremawHitBatchTimer = 0;
+      prismshellHitBatchTimer = 0;
     },
     clearPendingThrow: () => {
       pendingPlayerAttack = null;

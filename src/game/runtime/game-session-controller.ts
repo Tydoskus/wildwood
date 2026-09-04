@@ -87,6 +87,7 @@ type SessionDependencies = {
   samuraiMapId: MapId;
   cloudspireMapId: MapId;
   moonfenMapId: MapId;
+  crystalHollowsMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -116,6 +117,7 @@ type SessionDependencies = {
   syncKoiShogun: () => void;
   syncTempestKirin: () => void;
   syncMiremaw: () => void;
+  syncPrismshell: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -132,6 +134,7 @@ type SessionDependencies = {
   updateKoiShogun: (dt: number) => void;
   updateTempestKirin: (dt: number) => void;
   updateMiremaw: (dt: number) => void;
+  updatePrismshell: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -175,6 +178,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.syncKoiShogun();
     if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.syncTempestKirin();
     if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.syncMiremaw();
+    if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.syncPrismshell();
   }
 
   function simulate(dt: number) {
@@ -202,6 +206,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.updateKoiShogun(dt);
       if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.updateTempestKirin(dt);
       if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.updateMiremaw(dt);
+      if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.updatePrismshell(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

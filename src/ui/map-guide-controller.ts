@@ -38,6 +38,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
@@ -114,6 +115,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
   [SAMURAI_GARDEN_MAP_ID]: [],
   [CLOUDSPIRE_MAP_ID]: [],
   [MOONFEN_MAP_ID]: [],
+  [CRYSTAL_HOLLOWS_MAP_ID]: [],
 };
 
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
@@ -126,6 +128,7 @@ const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: stri
   [SAMURAI_GARDEN_MAP_ID]: { ground: "#78a76f", path: "#d9c8ae", glow: "#ff91c4" },
   [CLOUDSPIRE_MAP_ID]: { ground: "#537eac", path: "#dbe7ef", glow: "#8edcff" },
   [MOONFEN_MAP_ID]: { ground: "#174f50", path: "#607d6b", glow: "#79efc3" },
+  [CRYSTAL_HOLLOWS_MAP_ID]: { ground: "#303347", path: "#626781", glow: "#c3a6ff" },
 };
 
 const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {

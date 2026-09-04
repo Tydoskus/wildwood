@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
@@ -9,6 +9,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
@@ -164,6 +165,40 @@ describe("Advanced Lava Lake", () => {
     expect(first.decor.some((item) => item.type === "lilyPad")).toBe(true);
   });
 
+  it("connects Moonfen to a complete, deterministic Crystal Hollows with a clear boss chamber", () => {
+    const bootstrap = createGameBootstrap();
+    const map = bootstrap.mapConfig[CRYSTAL_HOLLOWS_MAP_ID];
+    const layout = createWorldLayout(map.arrival, CRYSTAL_HOLLOWS_MAP_ID);
+    const sites = createSpawnSites(bootstrap.prismshellBoss, CRYSTAL_HOLLOWS_MAP_ID);
+    const kinds = new Set(["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"]);
+    expect(bootstrap.mapConfig[MOONFEN_MAP_ID].secondaryPortal.destination).toBe(CRYSTAL_HOLLOWS_MAP_ID);
+    expect(map.portal.destination).toBe(MOONFEN_MAP_ID);
+    expect(map.name).toBe("Crystal Hollows");
+    expect(bootstrap.prismshellBoss).toMatchObject({ x: 4050, y: 4050, r: 170, maxHp: PRISMSHELL_MAX_HP });
+    expect(layout).toEqual(createWorldLayout(map.arrival, CRYSTAL_HOLLOWS_MAP_ID));
+    expect(layout.paths).not.toEqual(createWorldLayout(map.arrival, MOONFEN_MAP_ID).paths);
+    expect(sites).toHaveLength(30);
+    expect(sites.every((site) => kinds.has(site.type))).toBe(true);
+    expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
+    expect(layout.decor.filter((decor) => decor.type === "skyShard").length).toBeGreaterThan(100);
+    expect(layout.decor.every((decor) => decor.type === "skyShard" || decor.type === "rock")).toBe(true);
+    expect(layout.decor.every((decor) => Math.hypot(decor.x - map.arrival.x, decor.y - map.arrival.y) > 300)).toBe(true);
+    expect(layout.decor.every((decor) => Math.hypot(decor.x - 4050, decor.y - 4050) > 680)).toBe(true);
+    expect(layout.decor.every((decor) => decor.x > 0 && decor.x < 4800 && decor.y > 0 && decor.y < 4800)).toBe(true);
+    // Every walkway rectangle must be reachable through overlapping paths.
+    const connected = new Set([0]);
+    for (let pass = 0; pass < layout.paths.length; pass += 1) {
+      layout.paths.forEach((path, index) => {
+        if ([...connected].some((otherIndex) => {
+          const other = layout.paths[otherIndex];
+          return path.x < other.x + other.w && path.x + path.w > other.x &&
+            path.y < other.y + other.h && path.y + path.h > other.y;
+        })) connected.add(index);
+      });
+    }
+    expect(connected.size).toBe(layout.paths.length);
+  });
+
   it("uses distinct late-map geometry and reward-pure camps without changing family totals", () => {
     const boss = { x: 4050, y: 4050 };
     const lavaSites = createSpawnSites(boss, ADVANCED_LAVA_WASTES_MAP_ID);
@@ -187,6 +222,10 @@ describe("Advanced Lava Lake", () => {
       {
         sites: createSpawnSites(boss, MOONFEN_MAP_ID),
         kinds: ["Fen Prowler", "Glowcap Archer", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
+      },
+      {
+        sites: createSpawnSites(boss, CRYSTAL_HOLLOWS_MAP_ID),
+        kinds: ["Shard Hopper", "Crystal Spitter", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
       },
     ] as const;
     const positionSignature = (sites: typeof lavaSites) => sites
@@ -223,6 +262,7 @@ describe("Advanced Lava Lake", () => {
       SAMURAI_GARDEN_MAP_ID,
       CLOUDSPIRE_MAP_ID,
       MOONFEN_MAP_ID,
+      CRYSTAL_HOLLOWS_MAP_ID,
     ] as const;
 
     for (const mapId of mapIds) {

@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMapController, prepareMapTransition } from "./map-controller";
 import type { PlayerState } from "./types";
+import { createGameBootstrap } from "./game-bootstrap";
+import { CRYSTAL_HOLLOWS_MAP_ID, MOONFEN_MAP_ID, type MapId } from "../world";
 
 function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
   const tutorialMapId = "tutorial_forest" as const;
   const desertMapId = "beginner_desert" as const;
-  let currentMapId = tutorialMapId as typeof tutorialMapId | typeof desertMapId;
+  const bootstrap = createGameBootstrap();
+  let currentMapId: MapId = tutorialMapId;
+  let unlocked = true;
+  let serverMap: { mapId: MapId; x: number; y: number; facing: number } | null = null;
+  const prepareMapAssets = vi.fn(async () => {});
   const player: PlayerState = {
     x: 100, y: 68, r: 17, speed: 180, hp: 100, baseMaxHp: 100, maxHp: 100,
     damage: 4, attackRate: 1, projectileSpeed: 1_000, projectileCount: 1,
@@ -16,6 +22,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
   const markPortalCutsceneSeen = vi.fn();
   const controller = createMapController({
     mapConfig: {
+      ...bootstrap.mapConfig,
       [tutorialMapId]: {
         portal: { x: 100, y: 100, width: 100, height: 100, depth: 100, destination: desertMapId },
         arrival: { x: 100, y: 168 },
@@ -33,7 +40,8 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     waterMapId: desertMapId,
     samuraiMapId: desertMapId,
     cloudspireMapId: desertMapId,
-    moonfenMapId: desertMapId,
+    moonfenMapId: MOONFEN_MAP_ID,
+    crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID,
     dragonCutsceneSeenKey: "dragon",
     snowlandsCutsceneSeenKey: "snow",
     lavaCutsceneSeenKey: "lava",
@@ -52,13 +60,13 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     resizeViewport: vi.fn(),
     isDueling: () => false,
     running: () => true,
-    localMapState: () => null,
+    localMapState: () => serverMap,
     changeMap,
-    prepareMapAssets: async () => {},
+    prepareMapAssets,
     syncStoppedPosition: vi.fn(),
     resetPresentationState: vi.fn(),
     fadeToWorld: (action: () => void) => action(),
-    mapUnlocked: () => true,
+    mapUnlocked: () => unlocked,
     syncMapMusic: vi.fn(),
     rebuildWorld: vi.fn(),
     spawnFromSite: vi.fn(),
@@ -74,6 +82,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     koiShogunWhirlpools: [],
     tempestKirinThunderbolts: [],
     miremawBogBursts: [],
+    prismshellCrystalBursts: bootstrap.prismshellCrystalBursts,
     boss: {} as never,
     spiderBoss: {} as never,
     frostclawBoss: {} as never,
@@ -83,10 +92,16 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     koiShogunBoss: {} as never,
     tempestKirinBoss: {} as never,
     miremawBoss: {} as never,
+    prismshellBoss: bootstrap.prismshellBoss,
     clearPendingBossHits: vi.fn(),
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
-  return { changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen };
+  return {
+    changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen,
+    bootstrap, prepareMapAssets,
+    setUnlocked: (value: boolean) => { unlocked = value; },
+    setServerMap: (value: typeof serverMap) => { serverMap = value; },
+  };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -104,6 +119,42 @@ describe("cutscene completion", () => {
 });
 
 describe("portal arrival activation", () => {
+  it("gates the Moonfen exit and supports the actual Crystal Hollows round trip", async () => {
+    const harness = portalArrivalHarness({ x: 300, y: 400 });
+    const { controller, player, bootstrap, changeMap, prepareMapAssets } = harness;
+    controller.loadMap(MOONFEN_MAP_ID, 580, 770);
+    harness.setUnlocked(false);
+    player.x = 580;
+    player.y = 617;
+    controller.updatePortal(1 / 60);
+    expect(changeMap).not.toHaveBeenCalled();
+
+    harness.setUnlocked(true);
+    controller.updatePortal(1 / 60);
+    await vi.waitFor(() => expect(harness.currentMapId()).toBe(CRYSTAL_HOLLOWS_MAP_ID));
+    expect(changeMap).toHaveBeenLastCalledWith(CRYSTAL_HOLLOWS_MAP_ID, 580, 617);
+    expect(prepareMapAssets).toHaveBeenCalledWith(CRYSTAL_HOLLOWS_MAP_ID);
+    expect(player).toMatchObject({ x: 580, y: 770 });
+
+    bootstrap.prismshellCrystalBursts.push({ x: 100, y: 100, r: 86, timer: .5, maxTimer: 1 });
+    player.x = 360;
+    player.y = 617;
+    controller.updatePortal(1 / 60);
+    await vi.waitFor(() => expect(harness.currentMapId()).toBe(MOONFEN_MAP_ID));
+    expect(changeMap).toHaveBeenLastCalledWith(MOONFEN_MAP_ID, 360, 617);
+    expect(bootstrap.prismshellCrystalBursts).toHaveLength(0);
+    expect(bootstrap.prismshellBoss.shatter).toBeNull();
+  });
+
+  it("accepts a restored Crystal Hollows location from the server", async () => {
+    const harness = portalArrivalHarness({ x: 300, y: 400 });
+    harness.setServerMap({ mapId: CRYSTAL_HOLLOWS_MAP_ID, x: 950, y: 1250, facing: 1 });
+    harness.controller.reconcileMapFromServer();
+    await vi.waitFor(() => expect(harness.currentMapId()).toBe(CRYSTAL_HOLLOWS_MAP_ID));
+    expect(harness.player).toMatchObject({ x: 950, y: 1250, facing: 1 });
+    expect(harness.prepareMapAssets).toHaveBeenCalledWith(CRYSTAL_HOLLOWS_MAP_ID);
+  });
+
   it("is active immediately after arriving outside the destination trigger", async () => {
     const { changeMap, controller, currentMapId, desertMapId, player } = portalArrivalHarness({ x: 300, y: 400 });
     controller.updatePortal(1 / 60);

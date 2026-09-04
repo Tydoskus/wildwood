@@ -55,5 +55,6 @@ export const MAP_ENEMY_FAMILIES: {
   samurai_garden: string;
   cloudspire: string;
   moonfen: string;
+  crystal_hollows: string;
 };
 export const ENEMY_SPRITE_LAYOUTS: Record<string, EnemySpriteLayout>;

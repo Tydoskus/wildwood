@@ -15,8 +15,11 @@ import {
   MAGMALISK_SPRITE_Y_OFFSET,
   MIREMAW_SPRITE_GROUND_OFFSET,
   MIREMAW_SPRITE_Y_OFFSET,
+  PRISMSHELL_SPRITE_Y_OFFSET,
   MIREMAW_TONGUE_HALF_ANGLE,
+  PRISMSHELL_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
+  PRISMSHELL_SHATTER_RANGE,
   KOI_SHOGUN_SLASH_HALF_ANGLE,
   KOI_SHOGUN_SLASH_RANGE,
   KOI_SHOGUN_SPRITE_GROUND_OFFSET,
@@ -52,9 +55,13 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
   MIREMAW_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -74,9 +81,10 @@ import {
   bossStatusLabelOffsets,
 } from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, MiremawBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, MiremawBossState, PrismshellBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
+import { prismshellSpriteFrame } from "./prismshell-sprite";
 
 type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -98,6 +106,7 @@ export function createBossRenderer(options: {
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
   miremawBoss: MiremawBossState;
+  prismshellBoss: PrismshellBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -107,6 +116,7 @@ export function createBossRenderer(options: {
   koiShogunWhirlpools: KoiShogunWhirlpool[];
   tempestKirinThunderbolts: TempestKirinThunderbolt[];
   miremawBogBursts: MiremawBogBurst[];
+  prismshellCrystalBursts: PrismshellCrystalBurst[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
@@ -116,6 +126,7 @@ export function createBossRenderer(options: {
   koiShogunSpriteCanvas: HTMLCanvasElement;
   tempestKirinSpriteCanvas: HTMLCanvasElement;
   miremawSpriteCanvas: HTMLCanvasElement;
+  prismshellSpritePages: HTMLImageElement[];
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
@@ -125,6 +136,7 @@ export function createBossRenderer(options: {
   koiShogunReady: () => boolean;
   tempestKirinReady: () => boolean;
   miremawReady: () => boolean;
+  prismshellReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -133,7 +145,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -998,6 +1010,73 @@ export function createBossRenderer(options: {
       ctx.restore();
     }
   }
+  function drawPrismshellTelegraphs() {
+    if (prismshellBoss.dead) return;
+    const x = screenX(prismshellBoss.x);
+    const y = screenY(prismshellBoss.y);
+    const time = options.gameTime();
+    if (prismshellBoss.shatter) {
+      const shatter = prismshellBoss.shatter;
+      ctx.save();
+      ctx.fillStyle = shatter.windup > 0 ? "rgba(171,139,230,.17)" : "rgba(148,232,244,.24)";
+      ctx.strokeStyle = shatter.windup > 0 ? "rgba(208,181,255,.96)" : "rgba(213,252,255,.98)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, PRISMSHELL_SHATTER_RANGE, shatter.angle - PRISMSHELL_SHATTER_HALF_ANGLE, shatter.angle + PRISMSHELL_SHATTER_HALF_ANGLE);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (shatter.windup <= 0) {
+        const radius = prismshellBoss.r + (PRISMSHELL_SHATTER_RANGE - prismshellBoss.r) * clamp(1 - shatter.timer / shatter.duration, 0, 1);
+        ctx.strokeStyle = "rgba(213,252,255,.98)";
+        ctx.lineWidth = 9;
+        ctx.beginPath();
+        for (let point = 0; point <= 12; point += 1) {
+          const angle = shatter.angle - PRISMSHELL_SHATTER_HALF_ANGLE + point / 12 * PRISMSHELL_SHATTER_HALF_ANGLE * 2;
+          const reach = Math.max(prismshellBoss.r, radius - (point % 2 ? 24 : 0));
+          const pointX = x + Math.cos(angle) * reach;
+          const pointY = y + Math.sin(angle) * reach;
+          if (point === 0) ctx.moveTo(pointX, pointY);
+          else ctx.lineTo(pointX, pointY);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    for (const burst of options.prismshellCrystalBursts) {
+      const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
+      const burstX = screenX(burst.x);
+      const burstY = screenY(burst.y);
+      ctx.save();
+      ctx.fillStyle = `rgba(172,142,226,${.1 + progress * .22})`;
+      ctx.strokeStyle = "rgba(222,204,255,.96)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = -time * 44;
+      ctx.beginPath();
+      ctx.arc(burstX, burstY, burst.r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (let shard = 0; shard < 6; shard += 1) {
+        const angle = shard * TAU / 6 - Math.PI / 2;
+        const radius = burst.r * (.24 + progress * .32);
+        const shardX = burstX + Math.cos(angle) * radius;
+        const shardY = burstY + Math.sin(angle) * radius;
+        const length = 7 + progress * 12;
+        ctx.fillStyle = shard % 2 ? "rgba(180,243,255,.92)" : "rgba(220,181,255,.92)";
+        ctx.beginPath();
+        ctx.moveTo(shardX + Math.cos(angle) * length, shardY + Math.sin(angle) * length);
+        ctx.lineTo(shardX - Math.sin(angle) * 5, shardY + Math.cos(angle) * 5);
+        ctx.lineTo(shardX - Math.cos(angle) * length, shardY - Math.sin(angle) * length);
+        ctx.lineTo(shardX + Math.sin(angle) * 5, shardY - Math.cos(angle) * 5);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
 
   function drawMiremawBoss() {
     if (miremawBoss.dead) return;
@@ -1061,6 +1140,67 @@ export function createBossRenderer(options: {
       ],
     });
   }
+  function drawPrismshellBoss() {
+    if (prismshellBoss.dead) return;
+    const shatter = prismshellBoss.shatter;
+    const attackElapsed = shatter
+      ? 1.65 - shatter.windup - shatter.timer
+      : options.prismshellCrystalBursts.length > 0
+        ? Math.max(...options.prismshellCrystalBursts.map((burst) => burst.maxTimer - burst.timer))
+        : undefined;
+    const frame = prismshellSpriteFrame(options.gameTime(), attackElapsed);
+    const page = options.prismshellSpritePages[frame.page];
+    const x = screenX(prismshellBoss.x);
+    const y = screenY(prismshellBoss.y);
+    const visualY = y + PRISMSHELL_SPRITE_Y_OFFSET;
+    ctx.save();
+    ctx.translate(x, visualY);
+    // The imported prefab faces left and already contains its own shadow.
+    if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
+    if (options.prismshellReady() && page?.naturalWidth > 0) {
+      ctx.drawImage(page, frame.x, frame.y, frame.w, frame.h, frame.drawX, frame.drawY, frame.drawWidth, frame.drawHeight);
+    } else {
+      // A readable armored silhouette remains if the network fails an image.
+      ctx.fillStyle = "#74749c";
+      ctx.strokeStyle = "#25273e";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#9adff0";
+      ctx.beginPath();
+      ctx.moveTo(-105, -5);
+      ctx.lineTo(-70, -130);
+      ctx.lineTo(-25, -5);
+      ctx.moveTo(25, -5);
+      ctx.lineTo(70, -130);
+      ctx.lineTo(105, -5);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+    drawBossStatus({
+      x,
+      spriteTopY: visualY + frame.top,
+      barGap: 34,
+      barWidth: 330,
+      barHeight: 23,
+      hp: prismshellBoss.hp,
+      maxHp: prismshellBoss.maxHp,
+      hpLossFlashTimer: prismshellBoss.hpLossFlashTimer,
+      hpLossFlashFrom: prismshellBoss.hpLossFlashFrom,
+      backgroundColor: "#333149",
+      fillColor: "#ab8be6",
+      name: { text: "PRISMSHELL", color: "#f1e9ff" },
+      rewards: [
+        { text: rewardText("damage", PRISMSHELL_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", PRISMSHELL_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", PRISMSHELL_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", PRISMSHELL_REWARD_REGEN), color: REWARD_DATA.regen.color },
+      ],
+    });
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -1079,6 +1219,8 @@ export function createBossRenderer(options: {
     drawTempestKirinTelegraphs,
     drawTempestKirinBoss,
     drawMiremawTelegraphs,
+    drawPrismshellTelegraphs,
     drawMiremawBoss,
+    drawPrismshellBoss,
   };
 }

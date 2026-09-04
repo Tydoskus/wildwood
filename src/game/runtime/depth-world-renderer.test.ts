@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MOONFEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
+import { MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 
 function renderer(
   decor: WorldDecor[],
@@ -28,6 +28,7 @@ function renderer(
     koiShogunBoss: { dead: true, y: 120 } as KoiShogunBossState,
     tempestKirinBoss: { dead: true, y: 120 } as TempestKirinBossState,
     miremawBoss: { dead: mapId !== MOONFEN_MAP_ID, y: 120 } as MiremawBossState,
+    prismshellBoss: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, y: 120 } as PrismshellBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => mapId,
     activePortal: () => ({ depth: 0 }),
@@ -47,6 +48,7 @@ function renderer(
     drawKoiShogunBoss: () => calls.push("koi-shogun"),
     drawTempestKirinBoss: () => calls.push("tempest-kirin"),
     drawMiremawBoss: () => calls.push("miremaw"),
+    drawPrismshellBoss: () => calls.push("prismshell"),
     drawBootPickup: () => calls.push("boots"),
     drawPortal: () => calls.push("portal"),
     drawSecondaryPortal: () => calls.push("secondary"),
@@ -123,6 +125,14 @@ describe("depth world renderer", () => {
     depth.drawDepthSortedWorld([], false);
 
     expect(calls).toEqual(["player", "miremaw"]);
+  });
+  it("queues Prismshell in CrystalHollows depth order", () => {
+    const calls: string[] = [];
+    const depth = renderer([], calls, CRYSTAL_HOLLOWS_MAP_ID);
+
+    depth.drawDepthSortedWorld([], false);
+
+    expect(calls).toEqual(["player", "prismshell"]);
   });
 
   it("depth-sorts remote combat copies at translucent opacity", () => {

@@ -13,7 +13,7 @@ This document is the durable balance contract for WildStat's campaign. New maps,
 - **Reserve progression headroom for future systems.** The default planning budget is a 25% uniform progression-rate increase. A measured map should remain above the 75% duration floor under that stress estimate. Treat it as reserved design capacity for future research, quests, companions, parties, consumables, prestige, events, or other accelerators—not as permission to make the current game slower without a visible payoff.
 - **The reference shape sits between a straight log ramp and a Cookie Clicker-style logarithmic arc.** Balance Lab's default blend is `0.35`, where `0` is geometric growth (a straight line on the log-power chart) and `1` is linear growth in raw power (the full concave arc on that chart). For an 8.5× map this puts about 34%, 58%, and 80% of total log growth before the 25%, 50%, and 75% time checkpoints. Treat those checkpoints as a pacing compass, not a reason to force identical reward timestamps into every map.
 - **Macro scaling should be consistent; individual encounters should not look formulaic.** Preserve each map's full-clear health, threat, and reward budgets while varying archetype ratios, camp coordinates, enemy mixes, and formations in a controlled range. Never clone the previous map's placement and simply rename its camps.
-- **Regular enemies use one readable visual family per map, not slimes on every map.** Use the existing slime, goblin, and skeleton families/variants first, then assign suitable new families to maps that still need their own identity. Keep ranged variants recognizable by their bows and elites by their size; armor/crowns may vary within a family. Art changes must not change gameplay identities, collision, damage, cadence, or rewards. The current assignments and animation contract are in `docs/enemy-art-families.md`.
+- **Regular enemies use one readable visual family per map, not slimes on every map.** Use the existing slime, goblin, and skeleton families/variants first, then assign suitable new families to maps that still need their own identity. Original-family ranged variants retain bows; the new animated families use their authored attack poses without bow overlays. Elites remain recognizable by size; armor/crowns may vary within a family. Art changes must not change gameplay identities, collision, damage, cadence, or rewards. The current assignments and animation contract are in `docs/enemy-art-families.md`.
 - **Every camp has one progression purpose and its own space.** A camp may contain multiple combat archetypes only when they grant the same reward stat. Authored camp regions must not overlap, and regrouping enemies must preserve the map's aggregate archetype, health, threat, and reward budgets unless a balance change explicitly says otherwise.
 - **Intermediate Snowlands is the final regular-enemy movement and aggro tier.** Later maps may scale health, damage, cadence, and rewards, but each matching archetype must stay at or below Snowlands movement speed (Raider 230, Archer 215, Guardian 205, Reaper 235, Oracle 220) and elite aggro reach (340). Keep these as explicit authored values, backed by tests; do not add a hidden runtime clamp.
 - **Ranged regular enemies never outrange their target player.** Their firing edge follows the target's current attack range with a 15-unit inward gap, and their preferred movement distance sits another 10 units inside that edge. Apply the same rule to local fights and remote combat ghosts without changing authored aggro or leash distances.
@@ -24,7 +24,7 @@ This document is the durable balance contract for WildStat's campaign. New maps,
 - **An item upgrade adds 8% of that item's level-zero bonus per level.** Upgrades are linear and capped at level 10. For example, a `+40%` item bonus becomes about `+43%` at level 1 and `+72%` at level 10; it does not compound.
 - **Equipment never grants attack speed.** Persisted/base attack speed is capped at 2.625 attacks per second (`MIN_ATTACK_INTERVAL = 1 / 2.625`). Keep attack-speed progression out of item definitions and item upgrades.
 
-The authored duration ladder through Samurai Garden is:
+The authored duration ladder through Crystal Hollows is:
 
 | Map | Progression index | Exact target | Decimal hours |
 | --- | ---: | ---: | ---: |
@@ -35,6 +35,9 @@ The authored duration ladder through Samurai Garden is:
 | Night Forest | 3 | 4:55:14.700 | 4.9207500 |
 | Water Reach | 4 | 6:38:34.845 | 6.6430125 |
 | Samurai Garden | 5 | 8:58:05.041 | 8.968066875 |
+| Cloudspire | 6 | 12:06:24.805 | 12.10689028125 |
+| Moonfen | 7 | 16:20:39.487 | 16.3443018796875 |
+| Crystal Hollows | 8 | 22:03:53.307 | 22.064807537578125 |
 
 Do not round the constants used by code. Rounded labels are fine in the UI.
 
@@ -72,8 +75,23 @@ The values below slice each map's readable source health and regular-reward budg
 | Night Forest | 2.4375% | 5% | 14:46 (5% of target) |
 | Water Reach | 2.5% | 3.25% | 15:00 cap |
 | Samurai Garden | 2% of its derived source | 2% of its derived source | 15:00 cap |
+| Crystal Hollows | 48% of its Moonfen-derived source | 60% of its Moonfen-derived source | 15:00 cap |
 
 Health and reward slices may differ because map layout, respawn timing, and inherited source values determine how many enemies are needed to earn the target power. Tune them together in Balance Lab. The release guardrail is the outcome: roughly 3%–15% boss time, 5%–20% travel when topology supports it, ordinary fights measured in seconds rather than minutes, map duration inside its band, and power growth near 8.5×. Preserve late-map equipment odds per macro progression when kill cadence changes; otherwise shorter fights silently become an equipment buff.
+
+Crystal Hollows preserves Moonfen's 6/6/7/7/4 clear counts while introducing five
+crystal-rabbit archetypes and a new connected cavern route. Its normalized clear
+budgets are `11.475 × .48 = 5.508×` Moonfen health, `8.5×` threat, and
+`8.5 × .6 = 5.1×` canonical reward power. The lighter health slice and
+health-forward reward profile keep its measured duration and survivability in
+range without changing any existing map or player stats. Prismshell has `9.35×`
+Miremaw HP and `8.5×` its four rewards. Like Moonfen, the map adds no item drops.
+
+The additive protocol-85 schema appends `crystalHollowsUnlocked`, default false.
+Miremaw's authoritative contribution reward grants it. Module migration 21
+backfills only contributors in the latest stored Miremaw result; it cannot prove
+older victories whose results were replaced. Those players can clear Miremaw
+again. No saved stats or equipment are rewritten.
 
 ## What “power” means
 
@@ -110,11 +128,11 @@ Percentile bands describe outcomes across deterministic seeded loot trials: P10 
 
 ## Balance Lab workflow
 
-1. Run the canonical baseline with `npm run balance:simulate`. Whenever a map is added, include its boss, spawn sites, rewards, drops, and exact duration target in the default campaign window.
+1. Only when the user explicitly requests balance simulation, run the canonical baseline with `npm run balance:simulate`. Otherwise skip simulation, including `src/balance/simulator.test.ts`, per `AGENTS.md`. Whenever a map is added, include its boss, spawn sites, rewards, drops, and exact duration target in the default campaign window.
 2. Change one variable at a time with map what-if controls, for example `npm run balance:simulate -- --map infernal_depths:hp=1.2,damage=.9,reward=1.1`. Use the same seed and trial count for comparisons.
 3. Read the power-over-time curve before the final totals. A map can hit its exit target while still having a bad flat opening or a single reward spike.
 4. Check map duration, power growth, effective damage/health, boss TTK, enemy hit size, combat power per minute, and P10–P90 spread together. The simulator intentionally does not model dodging, deaths, recovery routes, boss patterns, encounter resets, or multiplayer contributions. Report those areas for the user's visual pass; do not make agent-run visual QA a delivery requirement unless the user explicitly requests it.
-5. After accepting source changes, run:
+5. For an explicitly requested balance-simulation pass, after accepting source changes, run:
 
    ```sh
    npm run test:unit -- src/balance/simulator.test.ts

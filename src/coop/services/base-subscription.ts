@@ -62,7 +62,9 @@ export type BaseSubscriptionHandlers = {
   tempestKirinBoss: RowHandler;
   tempestKirinResult: RowHandler;
   miremawBoss: RowHandler;
+  prismshellBoss: RowHandler;
   miremawResult: RowHandler;
+  prismshellResult: RowHandler;
   chatMessage: RowHandler;
   playerBlock: RowHandler;
   removePlayerBlock: RowHandler;
@@ -138,7 +140,9 @@ type BaseSubscriptionHandlerSources = {
     upsertTempestKirin: BaseSubscriptionHandlers["tempestKirinBoss"];
     upsertTempestKirinResult: BaseSubscriptionHandlers["tempestKirinResult"];
     upsertMiremaw: BaseSubscriptionHandlers["miremawBoss"];
+    upsertPrismshell: BaseSubscriptionHandlers["prismshellBoss"];
     upsertMiremawResult: BaseSubscriptionHandlers["miremawResult"];
+    upsertPrismshellResult: BaseSubscriptionHandlers["prismshellResult"];
   };
   chat: { upsert: BaseSubscriptionHandlers["chatMessage"]; upsertBlock: RowHandler; removeBlock: RowHandler };
   duel: { upsert: BaseSubscriptionHandlers["duel"]; remove: BaseSubscriptionHandlers["removeDuel"] };
@@ -206,7 +210,9 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     tempestKirinBoss: boss.upsertTempestKirin,
     tempestKirinResult: boss.upsertTempestKirinResult,
     miremawBoss: boss.upsertMiremaw,
+    prismshellBoss: boss.upsertPrismshell,
     miremawResult: boss.upsertMiremawResult,
+    prismshellResult: boss.upsertPrismshellResult,
     chatMessage: chat.upsert,
     playerBlock: chat.upsertBlock,
     removePlayerBlock: chat.removeBlock,
@@ -338,9 +344,13 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.tempestKirinResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.tempestKirinResult(row); });
   connection.db.tempestKirinResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.tempestKirinResult(row); });
   connection.db.miremawBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.miremawBoss(row); });
+  connection.db.prismshellBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prismshellBoss(row); });
   connection.db.miremawBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.miremawBoss(row); });
+  connection.db.prismshellBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellBoss(row); });
   connection.db.miremawResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.miremawResult(row); });
+  connection.db.prismshellResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
   connection.db.miremawResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.miremawResult(row); });
+  connection.db.prismshellResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
   connection.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.chatMessage.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.myPlayerBlocks.onInsert((_ctx, row) => { if (shouldHandle()) handlers.playerBlock(row); });
@@ -394,7 +404,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.tempestKirinBoss.iter()) handlers.tempestKirinBoss(row);
         for (const row of connection.db.tempestKirinResult.iter()) handlers.tempestKirinResult(row);
         for (const row of connection.db.miremawBoss.iter()) handlers.miremawBoss(row);
+        for (const row of connection.db.prismshellBoss.iter()) handlers.prismshellBoss(row);
         for (const row of connection.db.miremawResult.iter()) handlers.miremawResult(row);
+        for (const row of connection.db.prismshellResult.iter()) handlers.prismshellResult(row);
         for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
         for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
         for (const row of connection.db.duel.iter()) handlers.duel(row);
@@ -444,7 +456,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.tempestKirinBoss,
       tables.tempestKirinResult,
       tables.miremawBoss,
+      tables.prismshellBoss,
       tables.miremawResult,
+      tables.prismshellResult,
       tables.chatMessage,
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),

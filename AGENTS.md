@@ -9,3 +9,8 @@
 - Don't ever pretend you did an action or change you didn't actually do including shortcuts or half implementations.
 - Don't ever pretend you fully understand an issue until it's absolutely for sure, The user would much rather know logical likelyhoods.
 - Lastly believe in yourself, don't be afraid to do good work
+
+## Verification preferences
+
+- Do not run balance simulations unless the user explicitly asks. Exclude `src/balance/simulator.test.ts` from broad unit-test runs because it executes campaign simulations.
+- After pushing a requested release, do not wait for hosted builds to go live; the user will report deployment issues. Relevant pre-push checks still apply.

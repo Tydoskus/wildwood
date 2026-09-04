@@ -53,6 +53,7 @@ import DamageGloomrootFromPositionReducer from "./damage_gloomroot_from_position
 import DamageKoiShogunFromPositionReducer from "./damage_koi_shogun_from_position_reducer";
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
 import DamageMiremawFromPositionReducer from "./damage_miremaw_from_position_reducer";
+import DamagePrismshellFromPositionReducer from "./damage_prismshell_from_position_reducer";
 import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
 import DamageTempestKirinFromPositionReducer from "./damage_tempest_kirin_from_position_reducer";
@@ -153,6 +154,8 @@ import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
+import PrismshellBossRow from "./prismshell_boss_table";
+import PrismshellResultRow from "./prismshell_result_table";
 import SpiderBossRow from "./spider_boss_table";
 import SpiderResultRow from "./spider_result_table";
 import TempestKirinBossRow from "./tempest_kirin_boss_table";
@@ -577,6 +580,28 @@ const tablesSchema = __schema({
       { name: 'player_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerResearchRow),
+  prismshellBoss: __table({
+    name: 'prismshell_boss',
+    indexes: [
+      { accessor: 'id', name: 'prismshell_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'prismshell_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PrismshellBossRow),
+  prismshellResult: __table({
+    name: 'prismshell_result',
+    indexes: [
+      { accessor: 'id', name: 'prismshell_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'prismshell_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PrismshellResultRow),
   spiderBoss: __table({
     name: 'spider_boss',
     indexes: [
@@ -754,6 +779,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_koi_shogun_from_position", DamageKoiShogunFromPositionReducer),
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
   __reducerSchema("damage_miremaw_from_position", DamageMiremawFromPositionReducer),
+  __reducerSchema("damage_prismshell_from_position", DamagePrismshellFromPositionReducer),
   __reducerSchema("damage_spider_batch", DamageSpiderBatchReducer),
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
   __reducerSchema("damage_tempest_kirin_from_position", DamageTempestKirinFromPositionReducer),

@@ -14,6 +14,7 @@ import {
   KOI_SHOGUN_SLASH_RANGE,
   MAGMALISK_BITE_RANGE,
   MIREMAW_TONGUE_RANGE,
+  PRISMSHELL_SHATTER_RANGE,
   TEMPEST_KIRIN_CHARGE_RANGE,
   TIDEWYRM_SURGE_RANGE,
 } from "../constants";
@@ -55,12 +56,19 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
   MIREMAW_MAX_HP,
+  PRISMSHELL_MAX_HP,
   MIREMAW_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN,
   MOONFEN_DAMAGE_SCALE,
+  CRYSTAL_HOLLOWS_DAMAGE_SCALE,
   MOONFEN_REWARD_SCALE,
+  CRYSTAL_HOLLOWS_REWARD_SCALE,
   SAMURAI_GARDEN_DAMAGE_SCALE,
   SAMURAI_GARDEN_HEALTH_SCALE,
   SAMURAI_GARDEN_REWARD_SCALE,
@@ -114,6 +122,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     koiShogunBoss: state.koiShogunBoss,
     tempestKirinBoss: state.tempestKirinBoss,
     miremawBoss: state.miremawBoss,
+    prismshellBoss: state.prismshellBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
@@ -123,6 +132,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     koiShogunWhirlpools: state.koiShogunWhirlpools,
     tempestKirinThunderbolts: state.tempestKirinThunderbolts,
     miremawBogBursts: state.miremawBogBursts,
+    prismshellCrystalBursts: state.prismshellCrystalBursts,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
@@ -133,6 +143,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getKoiShogunBoss: () => null,
     getTempestKirinBoss: () => null,
     getMiremawBoss: () => null,
+    getPrismshellBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
@@ -142,6 +153,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getKoiShogunResult: () => null,
     getTempestKirinResult: () => null,
     getMiremawResult: () => null,
+    getPrismshellResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
@@ -152,6 +164,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     currentMapIsSamurai: () => false,
     currentMapIsCloudspire: () => false,
     currentMapIsMoonfen: () => false,
+    currentMapIsCrystalHollows: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -196,6 +209,7 @@ const areaKnockbackBosses: Array<{
   { name: "Koi Shogun slash", range: KOI_SHOGUN_SLASH_RANGE, state: (harness) => harness.koiShogunBoss, update: (harness) => harness.controller.updateKoiShogunBoss(.05) },
   { name: "Tempest Kirin charge", range: TEMPEST_KIRIN_CHARGE_RANGE, state: (harness) => harness.tempestKirinBoss, update: (harness) => harness.controller.updateTempestKirinBoss(.05) },
   { name: "Miremaw tongue", range: MIREMAW_TONGUE_RANGE, state: (harness) => harness.miremawBoss, update: (harness) => harness.controller.updateMiremawBoss(.05) },
+  { name: "Prismshell shatter", range: PRISMSHELL_SHATTER_RANGE, state: (harness) => harness.prismshellBoss, update: (harness) => harness.controller.updatePrismshellBoss(.05) },
 ];
 
 describe("Boss area knockback", () => {
@@ -684,5 +698,38 @@ describe("Miremaw boss", () => {
     controller.updateMiremawBoss(2.4);
     expect(miremawBogBursts.length).toBeGreaterThan(0);
     expect(miremawBoss.nextAttack).toBe("tongue");
+  });
+});
+
+describe("Prismshell boss", () => {
+  it("continues the full progression step after Miremaw", () => {
+    expect(PRISMSHELL_MAX_HP).toBe(MIREMAW_MAX_HP * CRYSTAL_HOLLOWS_DAMAGE_SCALE * 1.1);
+    expect(PRISMSHELL_REWARD_DAMAGE).toBe(MIREMAW_REWARD_DAMAGE * CRYSTAL_HOLLOWS_REWARD_SCALE);
+    expect(PRISMSHELL_REWARD_HEALTH).toBe(MIREMAW_REWARD_HEALTH * CRYSTAL_HOLLOWS_REWARD_SCALE);
+    expect(PRISMSHELL_REWARD_ARMOR).toBe(MIREMAW_REWARD_ARMOR * CRYSTAL_HOLLOWS_REWARD_SCALE);
+    expect(PRISMSHELL_REWARD_REGEN).toBe(MIREMAW_REWARD_REGEN * CRYSTAL_HOLLOWS_REWARD_SCALE);
+  });
+
+  it("cycles its wider shatter sweep into eight staggered crystal bursts", () => {
+    const { controller, prismshellBoss, prismshellCrystalBursts, player } = createFrostclawHarness({
+      currentMapIsSnow: () => false,
+      currentMapIsCrystalHollows: () => true,
+    });
+    player.x = prismshellBoss.x + 300;
+    player.y = prismshellBoss.y;
+    prismshellBoss.attackClock = 0;
+    controller.updatePrismshellBoss(.016);
+    expect(prismshellBoss.shatter).toMatchObject({ windup: .85, duration: .8 });
+    expect(prismshellBoss.nextAttack).toBe("crystalBurst");
+    controller.updatePrismshellBoss(.86);
+    controller.updatePrismshellBoss(.81);
+    controller.updatePrismshellBoss(2.4);
+    expect(prismshellCrystalBursts).toHaveLength(8);
+    expect(prismshellCrystalBursts.every((burst) => burst.r === 86)).toBe(true);
+    expect(new Set(prismshellCrystalBursts.map((burst) => burst.maxTimer)).size).toBe(8);
+    expect(prismshellBoss.nextAttack).toBe("shatter");
+    controller.resetPrismshellBoss();
+    expect(prismshellBoss.shatter).toBeNull();
+    expect(prismshellCrystalBursts).toHaveLength(0);
   });
 });

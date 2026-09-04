@@ -26,10 +26,17 @@ import {
   CLOUDSPIRE_REWARD_SCALE,
   CLOUDSPIRE_REWARD_TRACK_PROFILE,
   MOONFEN_ARCHETYPE_PROFILE,
+  CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE,
   MOONFEN_DAMAGE_SCALE,
+  CRYSTAL_HOLLOWS_DAMAGE_SCALE,
+  CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
+  CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
   MOONFEN_HEALTH_SCALE,
+  CRYSTAL_HOLLOWS_HEALTH_SCALE,
   MOONFEN_REWARD_SCALE,
+  CRYSTAL_HOLLOWS_REWARD_SCALE,
   MOONFEN_REWARD_TRACK_PROFILE,
+  CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE,
   INFERNAL_DEPTHS_ARCHETYPE_HEALTH_PROFILE,
   INFERNAL_DEPTHS_ENCOUNTER_HEALTH_SCALE,
   INFERNAL_DEPTHS_ENCOUNTER_REWARD_SCALE,
@@ -343,6 +350,35 @@ function moonfenBalance(archetype: LateMapArchetype): EnemyBalance {
     },
   };
 }
+function crystalHollowsBalance(archetype: LateMapArchetype): EnemyBalance {
+  const previous = moonfenBalance(archetype);
+  return {
+    hp: previous.hp * CRYSTAL_HOLLOWS_HEALTH_SCALE * CRYSTAL_HOLLOWS_HEALTH_FACTORS[archetype] * CRYSTAL_HOLLOWS_ENCOUNTER_HEALTH_SCALE,
+    damage: previous.damage * CRYSTAL_HOLLOWS_DAMAGE_SCALE * CRYSTAL_HOLLOWS_DAMAGE_FACTORS[archetype],
+    attackSpeed: CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].attackSpeed,
+    reward: {
+      ...previous.reward,
+      amount: previous.reward.amount * CRYSTAL_HOLLOWS_REWARD_SCALE * CRYSTAL_HOLLOWS_REWARD_FACTORS[archetype] * CRYSTAL_HOLLOWS_ENCOUNTER_REWARD_SCALE,
+    },
+  };
+}
+
+const CRYSTAL_HOLLOWS_HEALTH_FACTORS = centeredLateMapFactors(
+  (archetype) => CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].health,
+  (archetype) => moonfenBalance(archetype).hp,
+);
+const CRYSTAL_HOLLOWS_DAMAGE_FACTORS = centeredLateMapFactors(
+  (archetype) => CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].damage,
+  (archetype) => moonfenBalance(archetype).damage * CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].attackSpeed,
+  (archetype) => moonfenBalance(archetype).damage * moonfenBalance(archetype).attackSpeed,
+);
+const CRYSTAL_HOLLOWS_REWARD_FACTORS = centeredLateMapFactors(
+  (archetype) => {
+    const reward = moonfenBalance(archetype).reward;
+    return CRYSTAL_HOLLOWS_ARCHETYPE_PROFILE[archetype].reward * CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE[reward.type];
+  },
+  (archetype) => rewardPower(moonfenBalance(archetype).reward),
+);
 
 const enemyTypes = {
   // TUTORIAL FOREST ENEMIES
@@ -603,6 +639,31 @@ const enemyTypes = {
     ...moonfenBalance("oracle"), speed: 226, r: 43,
     color: "#72ead1", outline: "#24524e",
     elite: true, aggro: 360,
+  },
+
+  // CRYSTAL HOLLOWS ENEMIES
+  "Shard Hopper": {
+    ...crystalHollowsBalance("raider"), speed: 230, r: 30,
+    color: "#90e9ef", outline: "#303d5b",
+  },
+  "Crystal Spitter": {
+    ...crystalHollowsBalance("archer"), speed: 215, r: 29,
+    color: "#c9b0ff", outline: "#463762",
+    ranged: true,
+  },
+  "Geode Guardian": {
+    ...crystalHollowsBalance("guardian"), speed: 202, r: 40,
+    color: "#8299c9", outline: "#303854",
+  },
+  "Prism Reaver": {
+    ...crystalHollowsBalance("reaper"), speed: 235, r: 46,
+    color: "#ab87e6", outline: "#453365",
+    ranged: true, elite: true, aggro: 340,
+  },
+  "Hollow Oracle": {
+    ...crystalHollowsBalance("oracle"), speed: 220, r: 43,
+    color: "#f0c58b", outline: "#624862",
+    elite: true, aggro: 340,
   },
 } satisfies Record<string, EnemyDefinition>;
 

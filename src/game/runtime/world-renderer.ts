@@ -3,8 +3,8 @@ import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
-import { CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import { CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
@@ -92,6 +92,7 @@ export type WorldRendererOptions = {
   samuraiMapId: MapId;
   cloudspireMapId: MapId;
   moonfenMapId: MapId;
+  crystalHollowsMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -105,6 +106,7 @@ export type WorldRendererOptions = {
   koiShogunBoss: KoiShogunBossState;
   tempestKirinBoss: TempestKirinBossState;
   miremawBoss: MiremawBossState;
+  prismshellBoss: PrismshellBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -924,7 +926,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
                     ? { state: options.tempestKirinBoss, color: "#7fd8ff" }
                     : options.getMapId() === MOONFEN_MAP_ID
                       ? { state: options.miremawBoss, color: "#79efc3" }
-                      : null;
+                      : options.getMapId() === CRYSTAL_HOLLOWS_MAP_ID
+                        ? { state: options.prismshellBoss, color: "#c3a6ff" }
+                        : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
       draw.save();

@@ -941,6 +941,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   samuraiUnlocked: __t.bool(),
   cloudspireUnlocked: __t.bool(),
   moonfenUnlocked: __t.bool(),
+  crystalHollowsUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -996,6 +997,49 @@ export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
   lastLeaveAtMicros: __t.u64(),
 });
 export type PresenceChatCooldown = __Infer<typeof PresenceChatCooldown>;
+
+export const PrismshellAttackWindow = __t.object("PrismshellAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type PrismshellAttackWindow = __Infer<typeof PrismshellAttackWindow>;
+
+export const PrismshellBoss = __t.object("PrismshellBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type PrismshellBoss = __Infer<typeof PrismshellBoss>;
+
+export const PrismshellContribution = __t.object("PrismshellContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type PrismshellContribution = __Infer<typeof PrismshellContribution>;
+
+export const PrismshellRespawnSchedule = __t.object("PrismshellRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type PrismshellRespawnSchedule = __Infer<typeof PrismshellRespawnSchedule>;
+
+export const PrismshellResult = __t.object("PrismshellResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type PrismshellResult = __Infer<typeof PrismshellResult>;
 
 export const ResearchCompletionSchedule = __t.object("ResearchCompletionSchedule", {
   scheduledId: __t.u64(),

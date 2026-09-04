@@ -27,6 +27,7 @@ const knownMapIds = new Set([
   "samurai_garden",
   "cloudspire",
   "moonfen",
+  "crystal_hollows",
 ]);
 const liveMapConnections = {
   tutorial_forest: ["beginner_desert"],
@@ -37,7 +38,8 @@ const liveMapConnections = {
   water_reach: ["infernal_depths", "samurai_garden"],
   samurai_garden: ["water_reach", "cloudspire"],
   cloudspire: ["samurai_garden", "moonfen"],
-  moonfen: ["cloudspire"],
+  moonfen: ["cloudspire", "crystal_hollows"],
+  crystal_hollows: ["moonfen"],
 };
 const decorTypes = new Set([
   "tree", "grass", "petal", "cherryPetal", "cactus", "rock", "desertGrass",
@@ -208,7 +210,7 @@ function normalizeDesign(value, enemyKinds, enemyRewards) {
   if (knownMapIds.has(id) && portals.some((portal) => !knownMapIds.has(portal.destination) || portal.destination === id)) {
     throw new Error("Live-map portals must point to another existing game map.");
   }
-  const expectedPortalCount = id === "tutorial_forest" || id === "moonfen" ? 1 : 2;
+  const expectedPortalCount = id === "tutorial_forest" || id === "crystal_hollows" ? 1 : 2;
   if (knownMapIds.has(id) && portals.length !== expectedPortalCount) {
     throw new Error(`This game map must keep ${expectedPortalCount === 1 ? "one portal" : "its two portals"} so progression stays connected.`);
   }
