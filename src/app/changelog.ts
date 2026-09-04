@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.621": [
+    "Reduced regular-enemy health by 50% and doubled boss health from Beginner Desert onward; Tutorial Forest remains unchanged while later derived maps inherit the post-Forest tuning.",
+  ],
   "0.620": [
     "Boss combat rewards now pay their full authored amount on every clear, including repeat bosses; Balance Lab and repeat-loop reporting keep repeat power and repeat time separate.",
   ],
@@ -1477,6 +1480,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.621": "2026-09-04",
   "0.620": "2026-09-04",
   "0.619": "2026-09-04",
   "0.618": "2026-09-03",

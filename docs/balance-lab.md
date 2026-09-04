@@ -55,6 +55,7 @@ The simulator models:
 
 - actual spawn-site positions and enemy composition through Samurai Garden;
 - regular enemy and boss HP, permanent rewards, additive equipment, upgrade levels, attack cap, armor, canonical power, and boss damage-profile kinds;
+- the current health retune: Tutorial Forest is unchanged, while regular enemies from Beginner Desert onward use half HP and bosses use double HP;
 - real attack windup/interval and estimated projectile flight to a normal in-range target;
 - direct-distance travel with a configurable pathing multiplier;
 - independent seeded equipment drop rolls, automatic power-positive equipping, optional equipment-bonus scaling, and regular respawns;
@@ -67,10 +68,13 @@ Future-system ceilings are planning estimates, not extra simulation buffs. Unifo
 
 ## Validation
 
-Run the simulator tests, type checks, and standalone build with:
+Balance simulation tests are an optional diagnostic tool for investigating the
+curve, not a release requirement. For source and bundle validation, run:
 
 ```sh
-npm run test:unit -- src/balance/simulator.test.ts
+npm run test:unit
 npm run typecheck:balance
 npm run build:balance
 ```
+
+When a balance readout is needed, run `npm run test:balance` separately.

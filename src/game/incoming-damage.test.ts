@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { ENEMY_TYPES } from "./enemies";
 import { lateMapReferenceBuild } from "../../shared/incoming-damage";
-import { BALANCE_TARGET_MAP_POWER_MULTIPLIER, CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION, KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP } from "../../shared/rules";
+import { BALANCE_TARGET_MAP_POWER_MULTIPLIER, CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION, KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, POST_FOREST_BOSS_HEALTH_MULTIPLIER, PRISMSHELL_MAX_HP } from "../../shared/rules";
 
 const tiers = [
   ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
@@ -33,13 +33,14 @@ describe("authored late-map incoming damage", () => {
     expect(crystalHit / previousHit).toBeLessThan(11);
   });
 
-  it("does not increase boss HP with incoming damage", () => {
-    // Boss-health budgets remain separate from the incoming damage ladder.
+  it("keeps boss HP separate from incoming damage after the post-Forest retune", () => {
+    // Boss-health budgets remain separate from the incoming damage ladder;
+    // the post-Forest boss multiplier is applied once to the authored roots.
     const health = [KOI_SHOGUN_MAX_HP, TEMPEST_KIRIN_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP];
     const baseline = [
-      313453825312.5001,
-      2930793266671.8765,
-      27402917043382.047,
+      313453825312.5001 * POST_FOREST_BOSS_HEALTH_MULTIPLIER,
+      2930793266671.8765 * POST_FOREST_BOSS_HEALTH_MULTIPLIER,
+      27402917043382.047 * POST_FOREST_BOSS_HEALTH_MULTIPLIER,
       MIREMAW_MAX_HP * BALANCE_TARGET_MAP_POWER_MULTIPLIER * 1.1 * CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION,
     ];
     expect(health).toEqual(baseline);
