@@ -168,7 +168,7 @@ export const MAP_IDS: readonly string[] = [
   CRYSTAL_HOLLOWS_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 87;
+export const PROTOCOL_VERSION = 88;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

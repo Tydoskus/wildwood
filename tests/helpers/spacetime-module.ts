@@ -18,6 +18,7 @@ export function schema(tables: Parameters<typeof sdkSchema>[0]) {
   return {
     ...sdkSchema(tables),
     reducer: register,
+    procedure: register,
     clientConnected: register,
     clientDisconnected: register,
     view: register,

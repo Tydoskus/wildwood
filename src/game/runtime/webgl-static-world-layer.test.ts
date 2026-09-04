@@ -27,6 +27,20 @@ describe("WebGL static world layer", () => {
     ]);
   });
 
+  it("reuses vertex storage without drawing stale vertices after a batch shrinks", () => {
+    const storage = new Float32Array(48);
+    const sprite = { left: 2, top: 3, width: 4, height: 5 };
+    const full = webGLSpriteBatchVertices([sprite, sprite], 1, 0, 0, storage);
+    expect(full.buffer).toBe(storage.buffer);
+    expect(full.length).toBe(48);
+    const smaller = webGLSpriteBatchVertices([sprite], 2, 1, -1, storage);
+    expect(smaller.buffer).toBe(storage.buffer);
+    expect(smaller.length).toBe(24);
+    expect([...smaller]).toEqual([...webGLSpriteBatchVertices([sprite], 2, 1, -1)]);
+    expect(webGLSpriteBatchVertices([], 1, 0, 0, storage).length).toBe(0);
+    expect(() => webGLSpriteBatchVertices([sprite], 1, 0, 0, new Float32Array(23))).toThrow(RangeError);
+  });
+
   it("rotates sprite geometry around its center without changing texture coordinates", () => {
     const vertices = Array.from(webGLSpriteBatchVertices([
       { left: 0, top: 0, width: 20, height: 10, rotation: Math.PI / 2 },

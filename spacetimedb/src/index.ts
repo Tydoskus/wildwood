@@ -1,3 +1,6 @@
+import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
+import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
+import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap, queueShardReward } from "./map-sharding";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { createPlayerMotionFrameSampler, playerMotionSampleAt } from "../../shared/player-motion-sample";
@@ -1580,7 +1583,13 @@ const forestRewardPrototype = table(
   },
 );
 
+const shardCoordinatorSchedule = table(
+  { scheduled: (): any => coordinateMapShard },
+  { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
+);
 const spacetimedb = schema({
+  shardCoordinatorSchedule,
+  ...mapShardingTables,
   forestRewardPrototype,
   player,
   playerMapMarker,
@@ -2811,6 +2820,7 @@ function rebuildPlayerMotionMapState(ctx: any) {
 }
 
 function syncPlayerMotion(ctx: any, activePlayer: any) {
+  if (rootShardingEnabled(ctx)) return { ...activePlayer, networkId: 0 };
   const current = ctx.db.playerMotion.identity.find(activePlayer.identity);
   const moving = Boolean(activePlayer.moving);
   const isVisible = activePlayer.isVisible !== false;
@@ -2861,6 +2871,12 @@ function syncPlayerMotion(ctx: any, activePlayer: any) {
 }
 
 function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
+  if (rootShardingEnabled(ctx)) {
+    const member = activePlayer && ctx.db.mapShardMember.identity.find(activePlayer.identity);
+    if (activePlayer && (!member || member.mapId !== activePlayer.mapId)) persistWorldLocation(ctx, activePlayer);
+    assignMapShard(ctx, activePlayer);
+    return;
+  }
   if (!activePlayer) return;
   const motion = ctx.db.playerMotion.identity.find(activePlayer.identity) ?? syncPlayerMotion(ctx, activePlayer);
   const profile = ctx.db.playerProfile.identity.find(activePlayer.identity);
@@ -3259,6 +3275,9 @@ function requireControllingPlayer(ctx: any) {
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (!ctx.connectionId || !controller || !sameConnection(controller.connectionId, ctx.connectionId)) {
     throw new SenderError("Wildstat is active in another tab.");
+  }
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.tabId !== sessionForContext(ctx)?.tabId) {
+    throw new SenderError("Map admission belongs to another tab.");
   }
   return current;
 }
@@ -4003,6 +4022,7 @@ function activeDuelFor(ctx: any, identity: any) {
 }
 
 function removeIdentityPresence(ctx: any, identity: any) {
+  releaseMapShard(ctx, identity);
   const currentDuel = activeDuelFor(ctx, identity);
   let disconnectedDuelOrigin: { x: number; y: number } | null = null;
   if (currentDuel) {
@@ -4020,7 +4040,7 @@ function removeIdentityPresence(ctx: any, identity: any) {
   if (activePlayer) {
     // Duel actors live outside world bounds. A disconnect must save their
     // pre-duel origin, not clamp arena coordinates into a map corner.
-    persistWorldLocation(ctx, disconnectedDuelOrigin
+    if (!rootShardingEnabled(ctx)) persistWorldLocation(ctx, disconnectedDuelOrigin
       ? { ...activePlayer, ...disconnectedDuelOrigin }
       : activePlayer);
     ctx.db.player.identity.delete(identity);
@@ -4601,6 +4621,7 @@ function clearSpiderCombatRows(ctx: any) {
 }
 
 function rewardSpiderContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "spider")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4663,6 +4684,7 @@ function clearFrostclawCombatRows(ctx: any) {
 }
 
 function rewardFrostclawContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "frostclaw")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4741,6 +4763,7 @@ function clearMagmaliskCombatRows(ctx: any) {
 }
 
 function rewardMagmaliskContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "magmalisk")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4812,6 +4835,7 @@ function clearGloomrootCombatRows(ctx: any) {
 }
 
 function rewardGloomrootContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "gloomroot")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4925,6 +4949,7 @@ function applyBossRepeatableReward(
 
 
 function rewardTidewyrmContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "tidewyrm")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4948,6 +4973,7 @@ function rewardTidewyrmContributor(ctx: any, identity: any) {
 }
 
 function rewardKoiShogunContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "koiShogun")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4971,6 +4997,7 @@ function rewardKoiShogunContributor(ctx: any, identity: any) {
 }
 
 function rewardTempestKirinContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "tempestKirin")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -4994,6 +5021,7 @@ function rewardTempestKirinContributor(ctx: any, identity: any) {
 }
 
 function rewardMiremawContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "miremaw")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -5016,6 +5044,7 @@ function rewardMiremawContributor(ctx: any, identity: any) {
   }
 }
 function rewardPrismshellContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "prismshell")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -5217,6 +5246,7 @@ function clearDragonCombatRows(ctx: any) {
 }
 
 function rewardDragonContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "dragon")) return;
   const current = ctx.db.playerProgress.identity.find(identity);
   if (!current) return;
   const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
@@ -6131,6 +6161,8 @@ export const respawnPrismshell = spacetimedb.reducer(
 
 
 function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== TUTORIAL_FOREST_MAP_ID) return;
@@ -6211,6 +6243,8 @@ export const damageDragonFromPosition = spacetimedb.reducer(
 );
 
 function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== BEGINNER_DESERT_MAP_ID) return;
@@ -6288,6 +6322,8 @@ export const damageSpiderFromPosition = spacetimedb.reducer(
 );
 
 function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) return;
@@ -6360,6 +6396,8 @@ export const damageFrostclawFromPosition = spacetimedb.reducer(
 );
 
 function applyMagmaliskDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== ADVANCED_LAVA_WASTES_MAP_ID) return;
@@ -6432,6 +6470,8 @@ export const damageMagmaliskFromPosition = spacetimedb.reducer(
 );
 
 function applyGloomrootDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== INFERNAL_DEPTHS_MAP_ID) return;
@@ -6504,6 +6544,8 @@ export const damageGloomrootFromPosition = spacetimedb.reducer(
 );
 
 function applyTidewyrmDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== WATER_REACH_MAP_ID) return;
@@ -6576,6 +6618,8 @@ export const damageTidewyrmFromPosition = spacetimedb.reducer(
 );
 
 function applyKoiShogunDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== SAMURAI_GARDEN_MAP_ID) return;
@@ -6648,6 +6692,8 @@ export const damageKoiShogunFromPosition = spacetimedb.reducer(
 );
 
 function applyTempestKirinDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== CLOUDSPIRE_MAP_ID) return;
@@ -6719,6 +6765,8 @@ export const damageTempestKirinFromPosition = spacetimedb.reducer(
   (ctx, { hits, x, y }) => applyTempestKirinDamage(ctx, hits, { x, y }),
 );
 function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== MOONFEN_MAP_ID) return;
@@ -6785,6 +6833,8 @@ function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { 
   else ctx.db.miremawBoss.id.update(nextMiremaw);
 }
 function applyPrismshellDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) return;
   if (activePlayer.mapId !== CRYSTAL_HOLLOWS_MAP_ID) return;
@@ -6943,7 +6993,8 @@ export const acceptTerms = spacetimedb.reducer(
 
 export const enterWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
   requireSupportedSessionProtocol(ctx);
-  enterWorldPresence(ctx, tabId);
+  if (isMapShard(ctx)) enterShardPresence(ctx, tabId);
+  else enterWorldPresence(ctx, tabId);
 });
 
 export const takeOverSession = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
@@ -8097,6 +8148,7 @@ export const recordPlayerDeath = spacetimedb.reducer(
       });
     }
     publishPlayerDeathFrame(ctx, activePlayer);
+    if (isMapShard(ctx)) return;
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, deathCount: lifetime.deathCount + 1n });
   },
@@ -8520,6 +8572,8 @@ function applyMovementState(
   motionEpoch: number,
   sequence: number,
 ) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
   const current = requireControllingPlayer(ctx);
   if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
   if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
@@ -8743,3 +8797,300 @@ export const setSpeed = spacetimedb.reducer(
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   },
 );
+
+// Map databases export only the realtime reducers from this module (see
+// spacetimedb-map/src/index.ts). Durable account writes stay on the root.
+function requireShardOperator(ctx: any) {
+  const internal = !ctx.connectionId && sameIdentity(ctx.sender, ctx.databaseIdentity);
+  if (!internal && !isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Shard operator required");
+}
+function requireMapWorkload(ctx: any) {
+  if (rootShardingEnabled(ctx)) throw new SenderError("Connect to the assigned map shard");
+  const runtime = ctx.db.shardRuntime.id.find(0);
+  if (runtime?.role === "map" && (!runtime.enabled || runtime.leaseExpiresAtMicros <= ctx.timestamp.microsSinceUnixEpoch)) {
+    throw new SenderError("Map shard is reconnecting to the account service");
+  }
+}
+export const configureSharding = spacetimedb.reducer(
+  { role: t.string(), enabled: t.bool(), mapId: t.string(), shardId: t.u64() },
+  (ctx, args) => {
+    requireShardOperator(ctx);
+    if (args.role !== "root" && args.role !== "map") throw new SenderError("Invalid shard role");
+    if (args.role === "map") validateShardMap(args.mapId);
+    const current = ctx.db.shardRuntime.id.find(0);
+    if (current && (current.role !== args.role || current.mapId !== args.mapId || current.shardId !== args.shardId)) {
+      throw new SenderError("A database cannot change shard identity");
+    }
+    if (current) ctx.db.shardRuntime.id.update({ ...current, ...args });
+    else ctx.db.shardRuntime.insert({ id: 0, ...args, leaseExpiresAtMicros: 0n });
+    if (args.role === "root" && !args.enabled) {
+      for (const member of ctx.db.mapShardMember.iter()) releaseMapShard(ctx, member.identity);
+      for (const player of ctx.db.player.iter()) {
+        const saved = ctx.db.playerLastLocation.identity.find(player.identity);
+        const restored = saved?.mapId === player.mapId && !activeDuelFor(ctx, player.identity)
+          ? { ...player, x: saved.x, y: saved.y, facing: saved.facing } : player;
+        if (restored !== player) ctx.db.player.identity.update(restored);
+        syncPlayerMotion(ctx, restored); syncPlayerMotionIdentity(ctx, restored);
+      }
+      ensureRealtimeFrameSchedules(ctx);
+    }
+    if (args.role === "root" && args.enabled) {
+      for (const shard of ctx.db.mapShard.iter()) {
+        if (ctx.db.shardCoordinatorConnection.id.find(0) && !ctx.db.shardCoordinatorSchedule.scheduledId.find(shard.id)) {
+          ctx.db.shardCoordinatorSchedule.insert({ scheduledId: shard.id, scheduledAt: ScheduleAt.interval(1_000_000n) });
+        }
+      }
+      for (const player of ctx.db.player.iter()) {
+        removePlayerRealtimeState(ctx, player.identity);
+        assignMapShard(ctx, player);
+      }
+    }
+  },
+);
+export const shardReady = spacetimedb.reducer({ shardId: t.u64() }, (ctx, { shardId }) => {
+  requireShardOperator(ctx);
+  const shard = ctx.db.mapShard.id.find(shardId);
+  if (!shard || shard.state === "draining") throw new SenderError("Unknown or draining shard");
+  ctx.db.mapShard.id.update({ ...shard, state: "ready" });
+  for (const member of ctx.db.mapShardMember.byMap.filter(shard.mapId)) {
+    if (member.shardId === 0n) assignMapShard(ctx, ctx.db.player.identity.find(member.identity));
+  }
+});
+export const shardMemberReady = spacetimedb.reducer(
+  { identity: t.identity(), generation: t.u64(), shardId: t.u64() }, (ctx, args) => {
+    requireShardOperator(ctx);
+    const member = ctx.db.mapShardMember.identity.find(args.identity);
+    if (!member || member.generation !== args.generation || member.shardId !== args.shardId) return;
+    if (!member.ready) ctx.db.mapShardMember.identity.update({ ...member, ready: true });
+  },
+);
+export const myMapShardRoute = spacetimedb.view(
+  { public: true }, t.option(mapShardRouteType), (ctx) => {
+    const member = ctx.db.mapShardMember.identity.find(ctx.sender);
+    if (!member) return undefined;
+    const shard = ctx.db.mapShard.id.find(member.shardId);
+    return { identity: member.identity, databaseName: shard?.databaseName ?? "", mapId: member.mapId,
+      generation: member.generation, ready: member.ready && shard?.state === "ready" };
+  },
+);
+export const installShardPlayer = spacetimedb.reducer(
+  { identity: t.identity(), generation: t.u64(), snapshot: t.string() }, installShardPlayerImpl);
+function installShardPlayerImpl(ctx: any, args: any) {
+    requireShardOperator(ctx);
+    if (!isMapShard(ctx)) throw new SenderError("Map database required");
+    const data = decodeShardSnapshot(args.snapshot);
+    const runtime = ctx.db.shardRuntime.id.find(0)!;
+    if (!data.player || data.player.mapId !== runtime.mapId || !sameIdentity(data.player.identity, args.identity)) throw new SenderError("Wrong map snapshot");
+    const admission = ctx.db.shardAdmission.identity.find(args.identity);
+    const fence = ctx.db.shardAdmissionFence.identity.find(args.identity);
+    if ((fence && fence.generation >= args.generation) || (admission && admission.generation > args.generation)) return;
+    if (!admission && ctx.db.shardAdmission.count() >= 10n) throw new SenderError("Map shard is full");
+    const nextAdmission = { identity: args.identity, generation: args.generation, tabId: data.player.controllerTabId, inDuel: Boolean(data.inDuel) };
+    if (admission) ctx.db.shardAdmission.identity.update(nextAdmission);
+    else ctx.db.shardAdmission.insert(nextAdmission);
+    for (const name of ["playerProgress", "playerProfile", "playerResearch", "playerAccountStatus"] as const) {
+      const row = data[name];
+      if (row && !sameIdentity(row.identity, args.identity)) throw new SenderError("Snapshot identity mismatch");
+      const table = (ctx.db as any)[name];
+      if (row) {
+        if (table.identity.find(args.identity)) table.identity.update(row);
+        else table.insert(row);
+      } else if (table.identity.find(args.identity)) table.identity.delete(args.identity);
+    }
+    for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) ctx.db.playerItemUpgrade.key.delete(row.key);
+    for (const row of data.playerItemUpgrade ?? []) {
+      if (!sameIdentity(row.identity, args.identity)) throw new SenderError("Upgrade identity mismatch");
+      ctx.db.playerItemUpgrade.insert(row);
+    }
+    markPlayerBalanceCurrent(ctx, args.identity);
+    const active = ctx.db.player.identity.find(args.identity);
+    // Snapshot refreshes preserve regional motion. A new reservation gets its
+    // root-validated portal arrival, never a stale position from the old shard.
+    const nextPlayer = active && admission?.generation === args.generation
+      ? { ...active, ...powerFieldsForProgress(ctx, data.playerProgress), ...equipmentPresentationForProgress(data.playerProgress),
+        speed: data.player.speed, isVisible: data.player.isVisible, controllerTabId: data.player.controllerTabId }
+      : { ...data.player, lastInputAt: ctx.timestamp, moving: false, vx: 0, vy: 0 };
+    if (active) ctx.db.player.identity.update(nextPlayer);
+    else ctx.db.player.insert(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+}
+function enterShardPresence(ctx: any, tabId: string) {
+  requireMapWorkload(ctx);
+  const admission = ctx.db.shardAdmission.identity.find(ctx.sender);
+  if (!admission || admission.tabId !== tabId || !ctx.connectionId) throw new SenderError("Map admission unavailable");
+  const session = requireSupportedSessionProtocol(ctx);
+  ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId });
+  const controller = { identity: ctx.sender, connectionId: ctx.connectionId };
+  if (ctx.db.playerController.identity.find(ctx.sender)) ctx.db.playerController.identity.update(controller);
+  else ctx.db.playerController.insert(controller);
+  const player = ctx.db.player.identity.find(ctx.sender);
+  if (!player) throw new SenderError("Map admission is being restored");
+  syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, player));
+  ensureRealtimeFrameSchedules(ctx);
+}
+export const revokeShardPlayer = spacetimedb.reducer({ identity: t.identity(), generation: t.u64() }, revokeShardPlayerImpl);
+function revokeShardPlayerImpl(ctx: any, args: any) {
+  requireShardOperator(ctx);
+  const admission = ctx.db.shardAdmission.identity.find(args.identity);
+  if (!admission || admission.generation !== args.generation) return;
+  ctx.db.shardAdmission.identity.delete(args.identity);
+  const fence = { identity: args.identity, generation: args.generation };
+  if (ctx.db.shardAdmissionFence.identity.find(args.identity)) ctx.db.shardAdmissionFence.identity.update(fence);
+  else ctx.db.shardAdmissionFence.insert(fence);
+  // Read models are disposable. The durable source remains on the root.
+  for (const name of ["playerProgress", "playerProfile", "playerResearch", "playerAccountStatus", "playerBalanceVersion", "shardCheckpoint"] as const) {
+    const table = (ctx.db as any)[name];
+    if (table.identity.find(args.identity)) table.identity.delete(args.identity);
+  }
+  for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) ctx.db.playerItemUpgrade.key.delete(row.key);
+  // No global duel resolution in a region: the root owns the duel lifecycle.
+  ctx.db.player.identity.delete(args.identity);
+  removePlayerRealtimeState(ctx, args.identity);
+  if (ctx.db.playerController.identity.find(args.identity)) ctx.db.playerController.identity.delete(args.identity);
+}
+const shardRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
+  dragon: rewardDragonContributor, spider: rewardSpiderContributor, frostclaw: rewardFrostclawContributor,
+  magmalisk: rewardMagmaliskContributor, gloomroot: rewardGloomrootContributor, tidewyrm: rewardTidewyrmContributor,
+  koiShogun: rewardKoiShogunContributor, tempestKirin: rewardTempestKirinContributor,
+  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor,
+};
+export const deliverShardReward = spacetimedb.reducer(
+  { shardId: t.u64(), identity: t.identity(), boss: t.string(), encounter: t.u64() }, deliverShardRewardImpl);
+function deliverShardRewardImpl(ctx: any, args: any) {
+    requireShardOperator(ctx);
+    if (isMapShard(ctx) || !ctx.db.mapShard.id.find(args.shardId) || !shardRewardHandlers[args.boss]) throw new SenderError("Invalid reward source");
+    const key = `${args.shardId}:${args.boss}:${args.encounter}:${args.identity.toHexString()}`;
+    if (ctx.db.shardRewardReceipt.key.find(key)) return;
+    shardRewardHandlers[args.boss](ctx, args.identity);
+    ctx.db.shardRewardReceipt.insert({ key, receivedAt: ctx.timestamp });
+}
+export const acknowledgeShardReward = spacetimedb.reducer({ key: t.string() }, (ctx, { key }) => {
+  requireShardOperator(ctx);
+  ctx.db.shardRewardOutbox.key.delete(key);
+});
+
+export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, (ctx, { x, y }) => {
+  const player = requireControllingPlayer(ctx);
+  if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
+    throw new SenderError("Invalid bench position");
+  }
+  if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+  const next = { ...player, x, y, moving: false, vx: 0, vy: 0, dx: 0, dy: 0, lastInputAt: ctx.timestamp };
+  ctx.db.player.identity.update(next);
+  syncPlayerMotion(ctx, next);
+});
+
+export const renewShardLease = spacetimedb.reducer({}, renewShardLeaseImpl);
+function renewShardLeaseImpl(ctx: any, options: { checkpoint?: boolean } = {}) {
+  requireShardOperator(ctx);
+  const runtime = ctx.db.shardRuntime.id.find(0);
+  if (runtime?.role !== "map") throw new SenderError("Map database required");
+  ctx.db.shardRuntime.id.update({ ...runtime, leaseExpiresAtMicros: ctx.timestamp.microsSinceUnixEpoch + 45_000_000n });
+  if (options.checkpoint === false) return;
+  // One low-frequency checkpoint per admitted player; hot movement remains in
+  // the region. The operator invokes this once per 15 seconds per database.
+  for (const admission of ctx.db.shardAdmission.iter()) {
+    const player = playerWithMotion(ctx, ctx.db.player.identity.find(admission.identity));
+    if (!player || admission.inDuel) continue;
+    const next = { identity: admission.identity, generation: admission.generation, mapId: player.mapId, x: player.x, y: player.y };
+    const current = ctx.db.shardCheckpoint.identity.find(admission.identity);
+    if (current && current.x === next.x && current.y === next.y && current.generation === next.generation) continue;
+    if (current) ctx.db.shardCheckpoint.identity.update(next);
+    else ctx.db.shardCheckpoint.insert(next);
+  }
+}
+export const checkpointShardLocation = spacetimedb.reducer(
+  { identity: t.identity(), shardId: t.u64(), generation: t.u64(), x: t.f64(), y: t.f64() }, checkpointShardLocationImpl);
+function checkpointShardLocationImpl(ctx: any, args: any) {
+    requireShardOperator(ctx);
+    const member = ctx.db.mapShardMember.identity.find(args.identity);
+    const player = ctx.db.player.identity.find(args.identity);
+    if (!member || !player || member.shardId !== args.shardId || member.generation !== args.generation || activeDuelFor(ctx, args.identity)) return;
+    if (![args.x, args.y].every(Number.isFinite)) throw new SenderError("Invalid shard position");
+    persistWorldLocation(ctx, { ...player, x: args.x, y: args.y });
+}
+
+export const enterRegionalWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
+  if (!isMapShard(ctx)) throw new SenderError("Map database is not configured");
+  enterShardPresence(ctx, tabId);
+});
+
+export const configureShardCoordinator = spacetimedb.reducer(
+  { host: t.string(), token: t.string(), program: t.string() }, (ctx, args) => {
+    requireShardOperator(ctx);
+    if (isMapShard(ctx)) throw new SenderError("Account database required");
+    let program = args.program;
+    if (!program) {
+      const parts = [...ctx.db.shardProgramPart.iter()].sort((a, b) => a.part - b.part);
+      if (!parts.length || parts.some((row, i) => row.part !== i || row.total !== parts.length)) throw new SenderError("Incomplete map program upload");
+      program = parts.map(row => row.source).join("");
+    }
+    validateCoordinatorConfig(args.host, args.token, program);
+    const row = { id: 0, ...args, program };
+    const connection = { id: 0, host: args.host, token: args.token };
+    if (ctx.db.shardCoordinatorConnection.id.find(0)) ctx.db.shardCoordinatorConnection.id.update(connection);
+    else ctx.db.shardCoordinatorConnection.insert(connection);
+    if (ctx.db.shardCoordinatorConfig.id.find(0)) ctx.db.shardCoordinatorConfig.id.update(row);
+    else ctx.db.shardCoordinatorConfig.insert(row);
+    for (const part of ctx.db.shardProgramPart.iter()) ctx.db.shardProgramPart.part.delete(part.part);
+    for (const shard of ctx.db.mapShard.iter()) {
+      if (!ctx.db.shardCoordinatorSchedule.scheduledId.find(shard.id)) {
+        ctx.db.shardCoordinatorSchedule.insert({ scheduledId: shard.id, scheduledAt: ScheduleAt.interval(1_000_000n) });
+      }
+    }
+  },
+);
+export const stageShardProgram = spacetimedb.reducer(
+  { part: t.u32(), total: t.u32(), source: t.string() }, (ctx, args) => {
+    requireShardOperator(ctx);
+    if (isMapShard(ctx) || args.total < 1 || args.total > 64 || args.part >= args.total || args.source.length > 200_000) throw new SenderError("Invalid map program part");
+    if (args.part === 0) for (const row of ctx.db.shardProgramPart.iter()) ctx.db.shardProgramPart.part.delete(row.part);
+    if (ctx.db.shardProgramPart.part.find(args.part)) ctx.db.shardProgramPart.part.update(args);
+    else ctx.db.shardProgramPart.insert(args);
+  },
+);
+export const coordinateMapShard = spacetimedb.procedure(
+  { arg: shardCoordinatorSchedule.rowType }, t.unit(), (ctx, { arg }) => {
+    // Only the scheduler may invoke this: clients cannot spawn extra jobs or
+    // keep leases alive after the account service has disabled sharding.
+    if (!sameIdentity(ctx.sender, ctx.databaseIdentity)) throw new SenderError("Scheduler required");
+    coordinateShard(ctx, arg.scheduledId, { reward: deliverShardRewardImpl, checkpoint: checkpointShardLocationImpl });
+    return {};
+  },
+);
+export const synchronizeMapShard = spacetimedb.procedure(
+  { payload: t.string() }, t.string(), (ctx, { payload }) => {
+    requireShardOperator(ctx);
+    return ctx.withTx(tx => {
+      if (!isMapShard(tx)) throw new SenderError("Map database required");
+      const batch = decodeShardSnapshot(payload);
+      const current = tx.db.shardReplicaState.id.find(0);
+      if (!Array.isArray(batch.members) || batch.members.length > 10) throw new SenderError("Invalid admission batch");
+      if (batch.expiresAt > tx.timestamp.microsSinceUnixEpoch && (!current || batch.sequence > current.sequence)) {
+        const desired = new Map(batch.members.map((row: any) => [row.identity.toHexString(), row]));
+        for (const admission of tx.db.shardAdmission.iter()) {
+          const next: any = desired.get(admission.identity.toHexString());
+          if (!next || next.generation !== admission.generation) revokeShardPlayerImpl(tx, admission);
+        }
+        for (const member of batch.members) if (member.snapshot) installShardPlayerImpl(tx, member);
+        const checkpoint = !current || tx.timestamp.microsSinceUnixEpoch - current.checkpointAt >= 15_000_000n;
+        const state = { id: 0, sequence: batch.sequence, checkpointAt: checkpoint ? tx.timestamp.microsSinceUnixEpoch : current.checkpointAt };
+        if (current) tx.db.shardReplicaState.id.update(state);
+        else tx.db.shardReplicaState.insert(state);
+        const runtime = tx.db.shardRuntime.id.find(0)!;
+        tx.db.shardRuntime.id.update({ ...runtime, enabled: Boolean(batch.enabled), leaseExpiresAtMicros: 0n });
+        if (batch.enabled) renewShardLeaseImpl(tx, { checkpoint });
+      }
+      return encodeShardSnapshot({ sequence: tx.db.shardReplicaState.id.find(0)?.sequence,
+        admitted: [...tx.db.shardAdmission.iter()].filter(row => tx.db.player.identity.find(row.identity)),
+        checkpoints: [...tx.db.shardCheckpoint.iter()],
+        rewards: [...tx.db.shardRewardOutbox.iter()].slice(0, 100),
+      });
+    });
+  },
+);
+export const acknowledgeShardRewards = spacetimedb.reducer({ keys: t.array(t.string()) }, (ctx, { keys }) => {
+  requireShardOperator(ctx);
+  if (keys.length > 100) throw new SenderError("Reward batch too large");
+  for (const key of keys) ctx.db.shardRewardOutbox.key.delete(key);
+});

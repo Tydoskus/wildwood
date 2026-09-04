@@ -1,0 +1,11 @@
+{
+  "name": "wildstat-map-server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "spacetimedb": "2.9.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2"
+  }
+}

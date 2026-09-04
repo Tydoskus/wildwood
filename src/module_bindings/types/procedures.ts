@@ -6,5 +6,8 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
+import * as SynchronizeMapShardProcedure from "../synchronize_map_shard_procedure";
 
+export type SynchronizeMapShardArgs = __Infer<typeof SynchronizeMapShardProcedure.params>;
+export type SynchronizeMapShardResult = __Infer<typeof SynchronizeMapShardProcedure.returnType>;
 

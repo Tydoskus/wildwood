@@ -123,8 +123,11 @@ export function webGLSpriteBatchVertices(
   zoom: number,
   offsetX = 0,
   offsetY = 0,
+  target?: Float32Array,
 ) {
-  const vertices = new Float32Array(sprites.length * 6 * 4);
+  const requiredLength = sprites.length * 6 * 4;
+  if (target && target.length < requiredLength) throw new RangeError("Sprite vertex buffer is too small");
+  const vertices = target ? target.subarray(0, requiredLength) : new Float32Array(requiredLength);
   let cursor = 0;
   const vertex = (x: number, y: number, u: number, v: number) => {
     vertices[cursor++] = x;
@@ -379,6 +382,7 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
   const activeSpriteGroups = new Map<StaticWorldSpriteSource, SpriteGroup>();
   const spriteGroupPool: SpriteGroup[] = [];
   let colorVertexData = new Float32Array(0);
+  let spriteVertexData = new Float32Array(0);
   let enabled = true;
   let lastWidth = 0;
   let lastHeight = 0;
@@ -472,7 +476,13 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
       const group = spriteGroupPool[index];
       const texture = spriteTextureFor(group.source);
       if (!texture) throw new Error("Could not upload a static world sprite texture");
-      const vertices = webGLSpriteBatchVertices(group.sprites, frame.zoom, frame.offsetX, frame.offsetY);
+      const requiredLength = group.sprites.length * 24;
+      if (spriteVertexData.length < requiredLength) {
+        let capacity = Math.max(24, spriteVertexData.length);
+        while (capacity < requiredLength) capacity *= 2;
+        spriteVertexData = new Float32Array(capacity);
+      }
+      const vertices = webGLSpriteBatchVertices(group.sprites, frame.zoom, frame.offsetX, frame.offsetY, spriteVertexData);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
       gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);

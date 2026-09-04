@@ -565,6 +565,33 @@ export const MapFrameSchedule = __t.object("MapFrameSchedule", {
 });
 export type MapFrameSchedule = __Infer<typeof MapFrameSchedule>;
 
+export const MapShard = __t.object("MapShard", {
+  id: __t.u64(),
+  mapId: __t.string(),
+  databaseName: __t.string(),
+  state: __t.string(),
+  occupants: __t.u32(),
+});
+export type MapShard = __Infer<typeof MapShard>;
+
+export const MapShardMember = __t.object("MapShardMember", {
+  identity: __t.identity(),
+  mapId: __t.string(),
+  shardId: __t.u64(),
+  generation: __t.u64(),
+  ready: __t.bool(),
+});
+export type MapShardMember = __Infer<typeof MapShardMember>;
+
+export const MapShardRouteRow = __t.object("MapShardRouteRow", {
+  identity: __t.identity(),
+  databaseName: __t.string(),
+  mapId: __t.string(),
+  generation: __t.u64(),
+  ready: __t.bool(),
+});
+export type MapShardRouteRow = __Infer<typeof MapShardRouteRow>;
+
 export const MiremawAttackWindow = __t.object("MiremawAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),
@@ -641,6 +668,9 @@ export type MyGemWallet = __Infer<typeof MyGemWallet>;
 
 export const MyInventoryCapacity = __t.object("MyInventoryCapacity", {});
 export type MyInventoryCapacity = __Infer<typeof MyInventoryCapacity>;
+
+export const MyMapShardRoute = __t.object("MyMapShardRoute", {});
+export type MyMapShardRoute = __Infer<typeof MyMapShardRoute>;
 
 export const MyPlayerBlocks = __t.object("MyPlayerBlocks", {});
 export type MyPlayerBlocks = __Infer<typeof MyPlayerBlocks>;
@@ -1073,6 +1103,112 @@ export const ResearchCompletionSchedule = __t.object("ResearchCompletionSchedule
   completesAtMicros: __t.u64(),
 });
 export type ResearchCompletionSchedule = __Infer<typeof ResearchCompletionSchedule>;
+
+export const ShardAdmission = __t.object("ShardAdmission", {
+  identity: __t.identity(),
+  generation: __t.u64(),
+  tabId: __t.string(),
+  inDuel: __t.bool(),
+});
+export type ShardAdmission = __Infer<typeof ShardAdmission>;
+
+export const ShardAdmissionFence = __t.object("ShardAdmissionFence", {
+  identity: __t.identity(),
+  generation: __t.u64(),
+});
+export type ShardAdmissionFence = __Infer<typeof ShardAdmissionFence>;
+
+export const ShardCheckpoint = __t.object("ShardCheckpoint", {
+  identity: __t.identity(),
+  generation: __t.u64(),
+  mapId: __t.string(),
+  x: __t.f64(),
+  y: __t.f64(),
+});
+export type ShardCheckpoint = __Infer<typeof ShardCheckpoint>;
+
+export const ShardCoordinatorConfig = __t.object("ShardCoordinatorConfig", {
+  id: __t.u32(),
+  host: __t.string(),
+  token: __t.string(),
+  program: __t.string(),
+});
+export type ShardCoordinatorConfig = __Infer<typeof ShardCoordinatorConfig>;
+
+export const ShardCoordinatorConnection = __t.object("ShardCoordinatorConnection", {
+  id: __t.u32(),
+  host: __t.string(),
+  token: __t.string(),
+});
+export type ShardCoordinatorConnection = __Infer<typeof ShardCoordinatorConnection>;
+
+export const ShardCoordinatorSchedule = __t.object("ShardCoordinatorSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type ShardCoordinatorSchedule = __Infer<typeof ShardCoordinatorSchedule>;
+
+export const ShardProgramPart = __t.object("ShardProgramPart", {
+  part: __t.u32(),
+  total: __t.u32(),
+  source: __t.string(),
+});
+export type ShardProgramPart = __Infer<typeof ShardProgramPart>;
+
+export const ShardReplicaState = __t.object("ShardReplicaState", {
+  id: __t.u32(),
+  sequence: __t.u64(),
+  checkpointAt: __t.u64(),
+});
+export type ShardReplicaState = __Infer<typeof ShardReplicaState>;
+
+export const ShardRewardOutbox = __t.object("ShardRewardOutbox", {
+  key: __t.string(),
+  identity: __t.identity(),
+  boss: __t.string(),
+  encounter: __t.u64(),
+});
+export type ShardRewardOutbox = __Infer<typeof ShardRewardOutbox>;
+
+export const ShardRewardReceipt = __t.object("ShardRewardReceipt", {
+  key: __t.string(),
+  receivedAt: __t.timestamp(),
+});
+export type ShardRewardReceipt = __Infer<typeof ShardRewardReceipt>;
+
+export const ShardRuntime = __t.object("ShardRuntime", {
+  id: __t.u32(),
+  role: __t.string(),
+  enabled: __t.bool(),
+  mapId: __t.string(),
+  shardId: __t.u64(),
+  leaseExpiresAtMicros: __t.u64(),
+});
+export type ShardRuntime = __Infer<typeof ShardRuntime>;
+
+export const ShardSentSnapshot = __t.object("ShardSentSnapshot", {
+  identity: __t.identity(),
+  shardId: __t.u64(),
+  generation: __t.u64(),
+  snapshot: __t.string(),
+});
+export type ShardSentSnapshot = __Infer<typeof ShardSentSnapshot>;
+
+export const ShardSyncState = __t.object("ShardSyncState", {
+  shardId: __t.u64(),
+  sequence: __t.u64(),
+  lockedUntil: __t.u64(),
+  nextRunAt: __t.u64(),
+});
+export type ShardSyncState = __Infer<typeof ShardSyncState>;
+
+export const ShardTransferBarrier = __t.object("ShardTransferBarrier", {
+  identity: __t.identity(),
+  shardId: __t.u64(),
+  generation: __t.u64(),
+  expiresAt: __t.u64(),
+});
+export type ShardTransferBarrier = __Infer<typeof ShardTransferBarrier>;
 
 export const SpiderAttackWindow = __t.object("SpiderAttackWindow", {
   identity: __t.identity(),

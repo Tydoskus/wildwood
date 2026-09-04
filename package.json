@@ -34,7 +34,10 @@
     "art:unity:check": "node scripts/unity-sprite-exporter.mjs --check",
     "art:enemy-align": "python3 -m http.server --directory . 4173",
     "balance:audit": "tsx scripts/balance-experience-report.ts",
-    "profile:crowds-motion": "tsx scripts/profiling/crowds-and-motion.ts"
+    "profile:crowds-motion": "tsx scripts/profiling/crowds-and-motion.ts",
+    "sharding:build": "spacetime build --module-path spacetimedb-map",
+    "sharding:configure": "tsx scripts/sharding/configure.ts",
+    "sharding:smoke": "tsx scripts/sharding/smoke-local.ts"
   },
   "dependencies": {
     "spacetimedb": "2.9.0"

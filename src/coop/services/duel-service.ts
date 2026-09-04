@@ -15,6 +15,7 @@ type DuelServiceDependencies = {
   localIdentity: () => string;
   identityFor: (identity: string) => Identity | undefined;
   drainPendingProgress: () => Promise<boolean>;
+  preparePosition?: () => Promise<void>;
   storage: Storage;
 };
 
@@ -247,6 +248,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
           if (!await dependencies.drainPendingProgress()) return { ok: false, error: "SAVE STILL SYNCING · TRY AGAIN" };
           const connection = dependencies.reducers.connection();
           if (!connection) return { ok: false, error: "NOT CONNECTED" };
+          await dependencies.preparePosition?.();
           await dependencies.reducers.runWorldReducer(() => connection.reducers.requestDuel({ opponent }));
           rememberCooldown(Date.now() + DUEL_COOLDOWN_MS);
           return { ok: true };

@@ -1,3 +1,5 @@
+import { createConnectionStatusApi } from "./coop/services/connection-status-api";
+import { createMapShardClient } from "./coop/services/map-shard-client";
 import "./ui/game-shell";
 import { DbConnection, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
@@ -120,6 +122,7 @@ let connecting = false;
 let connectionGeneration = 0;
 let sessionGeneration = 0;
 let hydrationReady = false;
+let mapShardClient: ReturnType<typeof createMapShardClient>;
 let sessionSubscriptions: ReturnType<typeof startBaseSubscription> | null = null;
 let connectedSignedIn = false;
 let lastServerActivityAt = performance.now();
@@ -154,7 +157,7 @@ function onChange() {
     batchedChangePending = true;
     return;
   }
-  sessionSubscriptions?.refresh(worldEntryGeneration === connectionGeneration && worldEntryGeneration !== 0, presenceService.currentMapId());
+  sessionSubscriptions?.refresh(worldEntryGeneration === connectionGeneration && worldEntryGeneration !== 0, presenceService.currentMapId(), !mapShardClient?.enabled());
   changeListener?.();
   startupChangeListener?.();
 }
@@ -362,8 +365,14 @@ const reducerPort: ReducerPort = {
   handleFailure: handleReducerFailure,
 };
 
+const mapReducerPort: ReducerPort = {
+  ...reducerPort,
+  connection: () => mapShardClient ? mapShardClient.port.connection() : connection,
+  sendReducer: (...args) => mapShardClient ? mapShardClient.port.sendReducer(...args) : reducerPort.sendReducer(...args),
+};
+
 const bossService = createBossService({
-  reducers: reducerPort,
+  reducers: mapReducerPort,
   notify: onChange,
   localPosition: () => presenceService?.localState() ?? null,
 });
@@ -419,6 +428,7 @@ const progressionService = createProgressionService({
   hydrationReady: () => hydrationReady,
   activeProfileIdentity: () => playerProfileService?.activeIdentity() ?? "",
   completeAccountReturn: () => accountService.completeAccountReturnWhenReady(),
+  presentDeath: () => mapShardClient.presentDeath(),
   reserveStoppedMotion: () => presenceService.reserveStoppedMotion(),
   commitStoppedPosition: (position, sequence) => presenceService.commitStoppedPosition(position, sequence),
   storage: localStorage,
@@ -442,7 +452,7 @@ const remoteCombatStatsService = createRemoteCombatStatsService({
 });
 
 presenceService = createPresenceService({
-  reducers: reducerPort,
+  reducers: mapReducerPort,
   changes: { notify: onChange, batch: batchChanges },
   localIdentity: () => localIdentity,
   localDbIdentity: () => localDbIdentity,
@@ -516,6 +526,7 @@ const duelService = createDuelService({
   localIdentity: () => localIdentity,
   identityFor: profileDirectory.identityFor,
   drainPendingProgress: progressionService.drainPendingProgress,
+  preparePosition: () => mapShardClient.prepareDuelPosition(presenceService.localState()),
   storage: localStorage,
 });
 const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
@@ -528,7 +539,16 @@ const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
   duel: duelService.tables,
 });
 
+mapShardClient = createMapShardClient({
+  host, root: () => connection, port: reducerPort, handlers: baseSubscriptionHandlers,
+  token: () => accountService.accountToken() || accountService.guestToken() || undefined,
+  tabId: () => accountService.tabId(), changed: onChange,
+  resetWorld: () => { presenceService.clearSession(); presenceService.beginSession(false); bossService.resetSession(); },
+  worldReady: () => presenceService.activateSubscriptions(),
+});
+
 function clearRealtimeCaches() {
+  mapShardClient?.clear();
   sessionSubscriptions = null;
   remoteCombatStatsService.clearSession();
   playerProfileService.clearSession();
@@ -778,6 +798,7 @@ function connect() {
 
         startupTelemetryRuntime.advanceConnection("hydrating", generation);
         connectionLifecycle.transition("hydrating", SUBSCRIPTION_HYDRATION_TIMEOUT_MS);
+        mapShardClient.attach(conn, identity);
         sessionSubscriptions = startBaseSubscription({
           connection: conn,
           identity,
@@ -789,7 +810,7 @@ function connect() {
           isCurrent: isCurrentConnection,
           isPresenceSubscriptionTransitioning: presenceService.isSubscriptionTransitioning,
           batch: batchChanges,
-          handlers: baseSubscriptionHandlers,
+          handlers: mapShardClient.rootHandlers,
           onHydrated: () => {
             hydrationReady = true;
             startupTelemetryRuntime.completeConnection(generation);
@@ -872,23 +893,12 @@ export const wildstatCoop = {
     changeListener = callback;
   },
   ...progressionService.api,
-  connectionDiagnostics() {
-    return {
-      ...connectionLifecycle.snapshot(),
-      retryAttempt: reconnectScheduler.attemptCount(),
-      retryScheduled: reconnectScheduler.isScheduled(),
-      retryDelayMs: reconnectScheduler.pendingDelayMs(),
-    };
-  },
-  isConnected() {
-    return Boolean(connection?.isActive && hydrationReady);
-  },
-  isReconnectingAfterWake() {
-    return connectionGateState(protocolBlocked, wakeReconnectVisible, networkReconnectVisible).reconnecting;
-  },
-  latencyMs() {
-    return latencyMs;
-  },
+  ...createConnectionStatusApi({
+    lifecycle: connectionLifecycle, reconnect: reconnectScheduler,
+    connected: () => Boolean(connection?.isActive && hydrationReady && mapShardClient.ready()),
+    flags: () => [protocolBlocked, wakeReconnectVisible, networkReconnectVisible],
+    latency: () => latencyMs,
+  }),
   beginStartupTelemetryStage(stage: StartupTelemetryStage) {
     return startupTelemetryRuntime.beginStage(stage);
   },

@@ -55,22 +55,24 @@ export function createSessionSubscriptions(options: {
   const primary = slot();
   const boss = slot();
   let game = false;
+  let needsBoss = true;
   let configured = false;
   let notified: boolean | null = null;
   function checkReady() {
-    if (!configured || !primary.ready() || (game && !boss.ready()) || notified === game) return;
+    if (!configured || !primary.ready() || (game && needsBoss && !boss.ready()) || notified === game) return;
     notified = game;
     options.ready();
   }
   return {
-    refresh(enteredWorld: boolean, mapId: string) {
+    refresh(enteredWorld: boolean, mapId: string, subscribeBosses = true) {
+      needsBoss = subscribeBosses;
       // World entry is monotonic within a connection. Disconnect creates a new controller.
       const nextGame = game || enteredWorld;
       if (!configured || nextGame !== game) options.loading();
       game = nextGame;
       configured = true;
       primary.set(game ? "game" : "account");
-      if (game) boss.set(`boss:${mapId}`);
+      if (game) boss.set(needsBoss ? `boss:${mapId}` : null);
       checkReady();
     },
   };

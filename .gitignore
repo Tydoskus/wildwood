@@ -53,3 +53,6 @@ art-source/unity-workspace/**
 #############################################################
 local-data/**
 !local-data/README.md
+
+# Local sharding inspection bindings
+scripts/sharding/bindings/

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.624": [
+    "Maps now fill to 10 players, with another instance prepared as a map reaches 9.",
+    "Characters, gear, research, and duels stay shared across map instances, while each instance has its own boss fight.",
+    "Reduced repeated rendering work in world drawing and the research tree.",
+  ],
   "0.623": [
     "Brought inflated legacy player stats closer to map progression while preserving the exact overall power ranking and ties.",
     "Kept each build’s damage, health, armor, and regeneration proportions, along with earned gear, research, and map unlocks.",
@@ -1492,6 +1497,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.624": "2026-09-04",
   "0.623": "2026-09-04",
   "0.622": "2026-09-04",
   "0.621": "2026-09-04",

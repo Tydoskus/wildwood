@@ -29,6 +29,7 @@ type ProgressionServiceDependencies = {
   hydrationReady: () => boolean;
   activeProfileIdentity: () => string;
   completeAccountReturn: () => void;
+  presentDeath?: () => void;
   reserveStoppedMotion: () => { sequence: number; simulationTick: number; motionEpoch: number };
   commitStoppedPosition: (position: { x: number; y: number }, sequence: number) => void;
   storage: Storage;
@@ -552,14 +553,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           await dependencies.reducers.runWorldReducer(async () => {
             if (dependencies.reducers.connection() !== connection) throw new Error("CONNECTION CHANGED");
             if (position && stoppedMotion) {
-              await connection.reducers.updateMovementState({
+              await connection.reducers.prepareWorldActionPosition({
                 x: position.x,
                 y: position.y,
-                vx: 0,
-                vy: 0,
-                simulationTick: stoppedMotion.simulationTick,
-                motionEpoch: stoppedMotion.motionEpoch,
-                sequence: stoppedMotion.sequence,
               });
             }
             if (dependencies.reducers.connection() !== connection) throw new Error("CONNECTION CHANGED");
@@ -604,6 +600,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return result;
       },
       async recordPlayerDeath() {
+        dependencies.presentDeath?.();
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         try {
           const connection = dependencies.reducers.connection();

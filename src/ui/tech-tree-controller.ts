@@ -152,13 +152,22 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     }).join(" + ");
   }
 
+  let linksSize = "";
   function drawLinks() {
     const bounds = map.getBoundingClientRect();
     const scale = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(1, Math.round(bounds.width * scale));
-    canvas.height = Math.max(1, Math.round(bounds.height * scale));
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const size = `${bounds.width}:${bounds.height}:${scale}`;
+    // Links share the scrolling map's coordinate space. Research timers and
+    // scrolling do not change their geometry or require another rasterization.
+    if (linksSize === size) return;
+    const width = Math.max(1, Math.round(bounds.width * scale));
+    const height = Math.max(1, Math.round(bounds.height * scale));
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
     const treeCtx = canvas.getContext("2d");
     if (!treeCtx) return;
+    linksSize = size;
     treeCtx.setTransform(scale, 0, 0, scale, 0, 0);
     treeCtx.clearRect(0, 0, bounds.width, bounds.height);
     const center = (nodeId: string) => {
@@ -318,6 +327,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   }
 
   function sizeTreeEdges() {
+    linksSize = "";
     const viewport = map.parentElement;
     // Leave room to center even the first and final rows.
     if (viewport) map.style.setProperty("--tech-tree-edge-space", `${viewport.clientHeight / 2}px`);
@@ -353,7 +363,6 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   closeButton.addEventListener("click", close);
   closeDetailButton.addEventListener("click", () => { detail.hidden = true; });
   addEventListener("resize", () => { if (!overlay.hidden) { sizeTreeEdges(); drawLinks(); } });
-  canvas.parentElement?.addEventListener("scroll", () => { if (!overlay.hidden) drawLinks(); }, { passive: true });
   for (const element of map.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
     element.addEventListener("click", () => {
       const node = nodesById.get(element.dataset.techNode ?? "");
