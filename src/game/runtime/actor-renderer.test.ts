@@ -63,11 +63,32 @@ describe("layered enemy rendering", () => {
     expect(drawableEnemyLayers(layers)).toEqual([layers[0], layers[2]]);
   });
 
-  it("keeps animated labels and shadows fixed even when the sprite has no loose layers", () => {
+  it("keeps animated sprite bounds fixed even when the sprite has no loose layers", () => {
     const layout = ENEMY_SPRITE_LAYOUTS["Fen Prowler"];
     const sprite = { ...layout, layers: [], animation: { ...layout.animation!, pages: [] } };
     expect(enemySpriteVerticalBounds(sprite, 20)).toEqual({ top: -28.5, bottom: 22.5, height: 51 });
     expect(enemyShadowOffsetY(sprite, 20)).toBe(20.5);
+  });
+
+  it.each(Object.entries(ENEMY_SPRITE_LAYOUTS))("adds a ground shadow only for original-family enemies: %s", (kind, layout) => {
+    const sprite = {
+      ...layout,
+      layers: layout.layers.map((part) => ({ ...part, image: image(true) })),
+      animation: layout.animation ? {
+        ...layout.animation,
+        pages: layout.animation.pages.map((page) => ({ ...page, image: { complete: true, naturalWidth: page.width, naturalHeight: page.height } as HTMLImageElement })),
+      } : undefined,
+    };
+    const drawShadow = vi.fn();
+    const renderer = createActorRenderer({
+      ctx: { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), scale: vi.fn(), drawImage: vi.fn(), globalAlpha: 1 },
+      camera: { x: 0, y: 0, zoom: 1 }, viewport: () => ({ width: 800, height: 800 }),
+      devicePixelRatio: () => 1, gameTime: () => 0, player: { x: 200, y: 100 },
+      enemySprites: { [kind]: sprite }, drawShadow, enemyTextVisible: () => false,
+    } as unknown as Parameters<typeof createActorRenderer>[0]);
+    renderer.drawEnemy({ type: kind, x: 100, y: 100, vx: 0, vy: 0, r: 20, phase: 0,
+      facingX: 1, engaged: false, hurt: 0 } as EnemyState);
+    expect(drawShadow).toHaveBeenCalledTimes(layout.animation ? 0 : 1);
   });
 
   it("crops an atlas frame without a bow overlay while preserving hit/death transforms", () => {

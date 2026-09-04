@@ -692,9 +692,11 @@ export function createActorRenderer(options: {
     const imageReady = Boolean(image?.complete && image.naturalWidth > 0);
     const spriteBounds = enemySpriteVerticalBounds(sprite, enemy.r);
     const spriteHeight = spriteBounds.height;
-    const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
-    const shadowY = y + enemyShadowOffsetY(sprite, enemy.r);
-    options.drawShadow(x, shadowY, shadowWidth, .36 * visibility);
+    if (!sprite?.animation?.hasBakedShadow) {
+      const shadowWidth = Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
+      const shadowY = y + enemyShadowOffsetY(sprite, enemy.r);
+      options.drawShadow(x, shadowY, shadowWidth, .36 * visibility);
+    }
 
     ctx.save();
     ctx.translate(x, y);

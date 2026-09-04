@@ -26,6 +26,8 @@ export type EnemySpriteMotion = {
 export type EnemySpriteAnimationLayout = {
   /** Authored horizontal facing; omitted means right. Applies only to atlas art. */
   sourceFacingX?: -1 | 1;
+  /** Captured shadow replaces the renderer's default ground shadow. */
+  hasBakedShadow?: boolean;
   frameWidth: number;
   frameHeight: number;
   anchorX: number;

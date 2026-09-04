@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.613": [
+    "Removed duplicate ground shadows from the new enemies in Samurai Garden, Cloudspire, and Moonfen. They keep the shadows included in their artwork.",
+  ],
   "0.612": [
     "Corrected idle, movement, and attack facing for the new enemies in Samurai Garden, Cloudspire, and Moonfen.",
     "Removed bow overlays from the new enemy families while keeping their combat behavior unchanged.",
@@ -1444,6 +1447,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.613": "2026-09-03",
   "0.612": "2026-09-03",
   "0.611": "2026-09-03",
   "0.610": "2026-09-03",

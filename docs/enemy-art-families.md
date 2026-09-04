@@ -45,7 +45,9 @@ pose when the simulation actually strikes/fires. Playback never decides hit timi
 or damage. Remote combat shadows also supply this presentation-only attack clock.
 Hit flashes and death squash/fade remain the existing game effects; death freezes
 the current atlas frame. Fixed capture origins preserve motion, and idle silhouette
-bounds keep the floating labels and shadows from jumping between frames.
+bounds keep the floating labels from jumping between frames. The captures include
+their own shadows; `hasBakedShadow: true` disables the game's added ground shadow
+for these families alone. Original-family enemies retain their added shadows.
 
 These three captures are authored facing left. Their animation layouts declare
 `sourceFacingX: -1`; the renderer mirrors only the atlas around its fixed origin

@@ -122,6 +122,7 @@ function animatedSprite(family, atlas, { elite = false } = {}) {
       top: -height / 2, bottom: height / 2,
       // These Unity captures face left; the actor's local forward is right.
       sourceFacingX: -1,
+      hasBakedShadow: true,
     },
     // The new families use their baked attack poses, including ranged roles.
     layers: [],
