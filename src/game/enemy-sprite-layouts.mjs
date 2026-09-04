@@ -109,7 +109,7 @@ function skeletonSprite(poison, { elite = false, ranged = false, armored = false
   return layeredSprite(poison ? "skeleton-poison" : "skeleton", `skull/${color}/${role}`, parts, elite);
 }
 
-function animatedSprite(family, atlas, { elite = false, ranged = false } = {}) {
+function animatedSprite(family, atlas, { elite = false } = {}) {
   const size = spriteSize(elite);
   const height = spriteHeight(size);
   const scale = height / (atlas.bounds.bottom - atlas.bounds.top);
@@ -120,8 +120,11 @@ function animatedSprite(family, atlas, { elite = false, ranged = false } = {}) {
       ...atlas, x: -atlas.anchorX * scale, y: height / 2 - atlas.bounds.bottom * scale,
       w: atlas.frameWidth * scale, h: atlas.frameHeight * scale,
       top: -height / 2, bottom: height / 2,
+      // These Unity captures face left; the actor's local forward is right.
+      sourceFacingX: -1,
     },
-    layers: ranged ? [bowLayer(elite)] : [],
+    // The new families use their baked attack poses, including ranged roles.
+    layers: [],
   };
 }
 
@@ -170,18 +173,18 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Drowned Reaper": water({ elite: true, ranged: true }),
   "Tidal Oracle": water({ elite: true }),
   "Sakura Ronin": samurai(),
-  "Petal Archer": samurai({ ranged: true }),
+  "Petal Archer": samurai(),
   "Bamboo Guardian": samurai(),
-  "Moonblade Reaper": samurai({ elite: true, ranged: true }),
+  "Moonblade Reaper": samurai({ elite: true }),
   "Shrine Oracle": samurai({ elite: true }),
   "Gale Prowler": cloudspire(),
-  "Nimbus Archer": cloudspire({ ranged: true }),
+  "Nimbus Archer": cloudspire(),
   "Skyguard Colossus": cloudspire(),
-  "Thunder Reaper": cloudspire({ elite: true, ranged: true }),
+  "Thunder Reaper": cloudspire({ elite: true }),
   "Tempest Oracle": cloudspire({ elite: true }),
   "Fen Prowler": moonfen(),
-  "Glowcap Archer": moonfen({ ranged: true }),
+  "Glowcap Archer": moonfen(),
   "Bog Colossus": moonfen(),
-  "Moonmire Reaper": moonfen({ elite: true, ranged: true }),
+  "Moonmire Reaper": moonfen({ elite: true }),
   "Wisp Oracle": moonfen({ elite: true }),
 };

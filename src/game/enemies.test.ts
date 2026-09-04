@@ -300,7 +300,7 @@ describe("enemy sprite loading", () => {
         const bows = sprite.layers.filter((layer) => layer.src.endsWith("/bow.png"));
         expect(sprite.family).toBe(family);
         expect(sprite.size).toBe(definition.elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE);
-        expect(bows).toHaveLength(definition.ranged ? 1 : 0);
+        expect(bows).toHaveLength(definition.ranged && !sprite.animation ? 1 : 0);
         if (family.startsWith("goblin")) expect(sprite.layers.find((layer) => layer.src.endsWith("/body.png"))?.src).toContain(
           `/goblin/${family === "goblin-green" ? "goblin_green" : "goblin"}/`,
         );
@@ -323,6 +323,15 @@ describe("enemy sprite loading", () => {
     for (const sprite of Object.values(ENEMY_SPRITE_LAYOUTS)) for (const layer of sprite.layers) {
       expect([layer.x, layer.y, layer.w, layer.h].every(Number.isFinite)).toBe(true);
       expect(layer.w).toBeGreaterThan(0); expect(layer.h).toBeGreaterThan(0);
+    }
+  });
+
+  it("uses the new families' own attacks without attaching bows to ranged variants", () => {
+    const kinds = ["Petal Archer", "Moonblade Reaper", "Nimbus Archer", "Thunder Reaper", "Glowcap Archer", "Moonmire Reaper"] as const;
+    for (const kind of kinds) {
+      expect(ENEMY_TYPES[kind].ranged).toBe(true);
+      expect(ENEMY_SPRITE_LAYOUTS[kind].layers).toEqual([]);
+      expect(ENEMY_SPRITE_LAYOUTS[kind].animation?.animations.attack.frames.length).toBeGreaterThan(1);
     }
   });
 

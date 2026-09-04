@@ -716,8 +716,13 @@ export function createActorRenderer(options: {
         const frame = sampleEnemyAnimation(enemy, animation, options.gameTime(), base.attackSpeed);
         const page = animation.pages[frame.page];
         if (page.image.complete && page.image.naturalWidth > 0 && page.image.naturalHeight > 0) {
+          ctx.save();
+          // Normalize source art around its fixed actor origin, independently
+          // of world facing and any original aimed equipment layers.
+          if (animation.sourceFacingX === -1) ctx.scale(-1, 1);
           ctx.drawImage(page.image, frame.x, frame.y, frame.w, frame.h,
             animation.x, animation.y + ENEMY_SPRITE_Y_OFFSET, animation.w, animation.h);
+          ctx.restore();
         } else {
           drawLayeredEnemyPlaceholder(sprite, spriteBounds, base.outline, visibility);
         }

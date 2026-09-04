@@ -21,7 +21,9 @@ combat/reward identities, not instructions to pick a different species within a
 map. No server state, stats, hitboxes, attack timings, camps or rewards change.
 Regular sprite size remains 54; elite size remains 78. The original layered
 goblin/skeleton coordinates are scaled together, preserving their proportions.
-Archers retain aimed bows without separate floating hand/arm layers.
+Original-family archers retain aimed bows without separate floating hand/arm
+layers. The three new animated families use their own attack poses, with no bow
+overlays; their ranged combat behavior is unchanged.
 
 ## New animation sheets
 
@@ -45,6 +47,12 @@ Hit flashes and death squash/fade remain the existing game effects; death freeze
 the current atlas frame. Fixed capture origins preserve motion, and idle silhouette
 bounds keep the floating labels and shadows from jumping between frames.
 
+These three captures are authored facing left. Their animation layouts declare
+`sourceFacingX: -1`; the renderer mirrors only the atlas around its fixed origin
+to match the actor's right-facing coordinate system before world-facing is applied.
+This applies equally to idle, walking and attacks, without changing movement,
+combat targeting, or the original families' equipment.
+
 ## Promoting another capture
 
 Export the three motions with `launchers/Open Unity Sprite Exporter.command`.
@@ -60,10 +68,12 @@ It validates the manifest, strips hit/death pages, converts PNG to WebP (or keep
 existing WebP bytes), verifies dimensions and pixel-exact alpha, and measures the
 idle silhouette. It refuses to overwrite an existing runtime id: use a revision
 suffix when changing a deployed sheet so cached art cannot mismatch new metadata.
-Import the generated module and assign it to a family in the layout table.
+Import the generated module and assign it to a family in the layout table. Set
+`sourceFacingX` to match the capture's authored direction (`-1` left, `1` right;
+omitted means right).
 
 The loose-layer aligner remains for original sprites; baked sheets use the Unity
 exporter's preview. The user owns visual review: inspect facing, idle/walk/attack,
-bow overlays, elite scale, and label/shadow placement on the three new maps, plus
-the restored goblin/skeleton assembly. Objective checks cover paths, frame crops,
+elite scale, and label/shadow placement on the three new maps, plus the restored
+goblin/skeleton assembly and its bow overlays. Objective checks cover paths, frame crops,
 texture budgets, map-scoped loading, animation transitions and renderer transforms.

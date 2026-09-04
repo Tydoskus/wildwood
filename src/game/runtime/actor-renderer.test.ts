@@ -70,7 +70,7 @@ describe("layered enemy rendering", () => {
     expect(enemyShadowOffsetY(sprite, 20)).toBe(20.5);
   });
 
-  it("crops an atlas frame and draws its aimed bow on top while preserving hit/death transforms", () => {
+  it("crops an atlas frame without a bow overlay while preserving hit/death transforms", () => {
     const layout = ENEMY_SPRITE_LAYOUTS["Petal Archer"];
     const atlas = layout.animation!;
     const pages = atlas.pages.map((page) => ({ ...page, image: { complete: true, naturalWidth: page.width, naturalHeight: page.height } as HTMLImageElement }));
@@ -88,9 +88,53 @@ describe("layered enemy rendering", () => {
     renderer.drawEnemy(enemy);
     const frame = atlas.animations.idle.frames[0];
     expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3, atlas.w, atlas.h]);
-    expect(ctx.drawImage.mock.calls[1][0]).toBe(sprite.layers[0].image);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(ctx.scale).toHaveBeenCalledWith(-1, 1);
     expect(ctx.rotate).toHaveBeenCalledWith(.25 * .42 * -1);
     expect(ctx.globalAlpha).toBeCloseTo(.7 * .75);
+  });
+
+  const animatedFacingCases = Object.entries(ENEMY_SPRITE_LAYOUTS)
+    .filter(([, layout]) => layout.animation)
+    .flatMap(([kind]) => ([-1, 1] as const).flatMap((facingX) =>
+      (["idle", "walk", "attack"] as const).map((motion) => ({ kind, facingX, motion }))));
+
+  it.each(animatedFacingCases)("faces $kind toward $facingX during $motion without moving its anchor", ({ kind, facingX, motion }) => {
+    const layout = ENEMY_SPRITE_LAYOUTS[kind];
+    const atlas = layout.animation!;
+    const pages = atlas.pages.map((page) => ({ ...page, image: { complete: true, naturalWidth: page.width, naturalHeight: page.height } as HTMLImageElement }));
+    const sprite = { ...layout, animation: { ...atlas, pages }, layers: layout.layers.map((part) => ({ ...part, image: image(true) })) };
+    let transform = { scaleX: 1, x: 0 };
+    const stack: typeof transform[] = [];
+    const drawTransforms: typeof transform[] = [];
+    const ctx = {
+      save: () => stack.push({ ...transform }),
+      restore: () => { transform = stack.pop()!; },
+      translate: (x: number) => { transform.x += x * transform.scaleX; },
+      rotate: vi.fn(),
+      scale: (x: number) => { transform.scaleX *= x; },
+      drawImage: vi.fn(() => { drawTransforms.push({ ...transform }); }),
+      globalAlpha: 1,
+    };
+    const renderer = createActorRenderer({
+      ctx, camera: { x: 0, y: 0, zoom: 1 }, viewport: () => ({ width: 800, height: 800 }),
+      devicePixelRatio: () => 1, gameTime: () => 0, player: { x: 100 + facingX * 100, y: 100 },
+      enemySprites: { [kind]: sprite }, drawShadow: vi.fn(), enemyTextVisible: () => false,
+    } as unknown as Parameters<typeof createActorRenderer>[0]);
+    const enemy = { type: kind, x: 100, y: 100, vx: motion === "walk" ? facingX * 10 : 0, vy: 0,
+      r: 20, phase: 0, facingX, engaged: motion === "attack", hurt: 0,
+      attackAnimationElapsed: motion === "attack" ? 0 : undefined } as EnemyState;
+    const before = { ...enemy };
+    renderer.drawEnemy(enemy);
+    const frame = atlas.animations[motion].frames[0];
+    expect(ctx.drawImage.mock.calls[0]).toEqual([pages[frame.page].image, frame.x, frame.y, frame.w, frame.h, atlas.x, atlas.y - 3, atlas.w, atlas.h]);
+    // These captures are authored facing left, unlike the original enemy art.
+    expect(-drawTransforms[0].scaleX).toBe(facingX);
+    const anchorOffset = atlas.x + atlas.anchorX * atlas.w / atlas.frameWidth;
+    expect(drawTransforms[0].x + drawTransforms[0].scaleX * anchorOffset).toBeCloseTo(100);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(enemy).toEqual(before);
+    expect(transform).toEqual({ scaleX: 1, x: 0 });
+    expect(stack).toHaveLength(0);
   });
 });

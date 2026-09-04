@@ -24,6 +24,8 @@ export type EnemySpriteMotion = {
   frames: { page: number; x: number; y: number; w: number; h: number }[];
 };
 export type EnemySpriteAnimationLayout = {
+  /** Authored horizontal facing; omitted means right. Applies only to atlas art. */
+  sourceFacingX?: -1 | 1;
   frameWidth: number;
   frameHeight: number;
   anchorX: number;

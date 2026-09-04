@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.612": [
+    "Corrected idle, movement, and attack facing for the new enemies in Samurai Garden, Cloudspire, and Moonfen.",
+    "Removed bow overlays from the new enemy families while keeping their combat behavior unchanged.",
+  ],
   "0.611": [
     "Restored original slime, goblin, and skeleton families across the first six maps, keeping one family per map.",
     "Added animated tulip monsters, winged bee monsters, and rock fungi to Samurai Garden, Cloudspire, and Moonfen using map-loaded WebP artwork.",
@@ -1440,6 +1444,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.612": "2026-09-03",
   "0.611": "2026-09-03",
   "0.610": "2026-09-03",
   "0.609": "2026-09-03",
