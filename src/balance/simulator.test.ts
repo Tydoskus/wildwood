@@ -93,7 +93,7 @@ describe("balance simulator", () => {
     expect(new Set(finalStrategyPowers).size).toBeGreaterThan(1);
   });
 
-  it("keeps post-clear Boss-rush repeat power positive without letting it dominate", () => {
+  it("keeps post-clear Boss-rush repeat power positive on every clear", () => {
     const result = runBalanceSimulationWithStrategyComparisons({
       durationSeconds: 80 * 60 * 60,
       trials: 1,
@@ -120,7 +120,7 @@ describe("balance simulator", () => {
     expect(forest.bossRepeatPermanentPowerPerMinuteMedian).toBeGreaterThan(0);
     expect(forest.bossRepeatEfficiencyRatioMedian).toBeGreaterThan(0);
     expect(forest.repeatTimeBudgetMedian?.respawnWaitSeconds).toBeGreaterThan(0);
-    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("calibrated repeat scale"))).toBe(true);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("full authored reward"))).toBe(true);
   });
 
   it("produces a monotonic power timeline", () => {

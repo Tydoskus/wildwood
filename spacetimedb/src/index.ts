@@ -787,8 +787,8 @@ const playerProgress = table(
     moonfenUnlocked: t.bool().default(false),
     // Append-only migration; only Miremaw's server-owned reward opens this map.
     crystalHollowsUnlocked: t.bool().default(false),
-    // Append-only first-clear ledger. The bit selects the calibrated lower
-    // reward scale on repeat boss encounters while preserving old save rows.
+    // Append-only clear ledger. The bit records that a boss has been cleared
+    // while preserving old save rows; every clear pays the full authored reward.
     bossRewardClaims: t.u32().default(0),
   },
 );
@@ -2353,9 +2353,10 @@ function runPendingModuleMigrations(ctx: any) {
   }
   if (currentVersion < 22) {
     // Existing map access proves the corresponding first-clear reward was
-    // already earned. Seed the append-only ledger before repeat encounters
-    // use the calibrated lower reward scale; Prismshell has no downstream unlock, so only its
-    // latest recorded contributor list is safe evidence for that bit.
+    // already earned. Seed the append-only ledger before repeat encounters;
+    // Prismshell has no downstream unlock, so only its latest recorded
+    // contributor list is safe evidence for that bit. The ledger is metadata
+    // only: every clear pays the full authored reward.
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       let bossRewardClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
       if (progress.desertUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.dragon;
@@ -4831,12 +4832,11 @@ function applyBossRepeatableReward(
   rewards: Partial<{ damage: number; maxHp: number; armor: number; regen: number }>,
 ) {
   const existingClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
-  const firstClear = (existingClaims & claimBit) === 0;
-  const rewardScale = firstClear ? 1 : BOSS_REPEAT_REWARD_FRACTION;
+  const rewardScale = BOSS_REPEAT_REWARD_FRACTION;
   const next = {
     ...progress,
-    // Retain the historical claim marker for save compatibility. It selects
-    // the calibrated repeat scale; it never suppresses a reward.
+    // Retain the historical claim marker for save compatibility. It records
+    // clear history but never suppresses or scales a reward.
     bossRewardClaims: (existingClaims | claimBit) >>> 0,
   };
   if (rewards.damage !== undefined) next.damage = progress.damage + rewards.damage * rewardMultiplier * rewardScale;

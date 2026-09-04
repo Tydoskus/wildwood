@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ConnectionId, Timestamp } from "spacetimedb";
-import { BOSS_REPEAT_REWARD_FRACTION, BOSS_REWARD_CLAIM_BITS, PRISMSHELL_MAX_HP, PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH } from "../../shared/rules";
+import { BOSS_REWARD_CLAIM_BITS, PRISMSHELL_MAX_HP, PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH } from "../../shared/rules";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { reducerParameters } from "../../tests/helpers/spacetime-module";
 
@@ -99,7 +99,7 @@ describe("Crystal Hollows reducer behavior (in-memory, not native host integrati
     expect(f.db.prismshellContribution.identity.find(f.ctx.sender)).toMatchObject({ encounter: 7n, damage: 1_000, displayName: "Test Player" });
   });
 
-  it("rewards positive current contributors on every clear at a repeat scale, caps credited damage, and schedules respawn", () => {
+  it("rewards positive current contributors with the full payout on every clear, caps credited damage, and schedules respawn", () => {
     const f = crystalFixture();
     for (const [who, encounter, damage] of [[identity("2"), 7n, 500], [identity("3"), 7n, 0], [identity("4"), 6n, 500]] as const) {
       f.progress(who);
@@ -124,8 +124,8 @@ describe("Crystal Hollows reducer behavior (in-memory, not native host integrati
     f.db.prismshellBoss.id.update({ ...f.db.prismshellBoss.id.find(1), hp: 150, alive: true });
     f.attack();
     const repeated = f.db.playerProgress.identity.find(f.ctx.sender);
-    expect(repeated.damage).toBeCloseTo(earned.damage + PRISMSHELL_REWARD_DAMAGE * BOSS_REPEAT_REWARD_FRACTION);
-    expect(repeated.maxHp).toBeCloseTo(earned.maxHp + PRISMSHELL_REWARD_HEALTH * BOSS_REPEAT_REWARD_FRACTION);
+    expect(repeated.damage).toBeCloseTo(earned.damage + PRISMSHELL_REWARD_DAMAGE);
+    expect(repeated.maxHp).toBeCloseTo(earned.maxHp + PRISMSHELL_REWARD_HEALTH);
     expect(repeated.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell).toBe(BOSS_REWARD_CLAIM_BITS.prismshell);
     expect(f.db.prismshellRespawnSchedule.count()).toBe(2n);
   });

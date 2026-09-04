@@ -319,10 +319,13 @@ export const CRYSTAL_HOLLOWS_REWARD_TRACK_PROFILE = {
 export const BOSS_ARMOR_REWARD_FRACTION = .000002;
 export const BOSS_REGEN_REWARD_FRACTION = .00000025;
 
-// The claim mask is retained as append-only save metadata. It identifies the
-// first clear so repeatable combat rewards can be rate-balanced without
-// removing the published player_progress column.
-export const BOSS_REPEAT_REWARD_FRACTION = .05;
+// The claim mask is retained as append-only save metadata. It identifies a
+// boss that has been cleared while preserving the published player_progress
+// column; it no longer changes the reward amount.
+//
+// Keep the historical export name for source compatibility. A value of 1
+// means every clear, including repeats, pays the full authored reward.
+export const BOSS_REPEAT_REWARD_FRACTION = 1;
 export const BOSS_REWARD_CLAIM_BITS = {
   dragon: 1 << 0,
   spider: 1 << 1,

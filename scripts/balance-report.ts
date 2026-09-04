@@ -183,9 +183,9 @@ for (const map of result.maps) {
   );
 }
 console.log("");
-console.log("Boss reward audit · first-clear and repeat power/min vs regular; repeats use the calibrated scale");
+console.log("Boss reward audit · first-clear and repeat power/min vs regular; every clear pays the full authored reward");
 for (const map of result.maps.filter((entry) => entry.hasBoss && entry.bossFirstClearEfficiencyRatioMedian !== null)) {
-  console.log(`- ${map.name}: first clear ${formatCompactNumber(map.bossFirstClearPowerPerMinuteMedian ?? 0)} / min vs ${formatCompactNumber(map.bestRegularPowerPerMinuteMedian ?? 0)} regular · ${map.bossFirstClearEfficiencyRatioMedian!.toFixed(2)}× · repeat ${formatCompactNumber(map.bossRepeatPermanentPowerPerMinuteMedian ?? 0)} / min · ${(map.bossRepeatEfficiencyRatioMedian ?? 0).toFixed(2)}× regular · ${formatCompactNumber(map.repeatBossKillsMedian ?? 0)} repeat kills`);
+  console.log(`- ${map.name}: first clear ${formatCompactNumber(map.bossFirstClearPowerPerMinuteMedian ?? 0)} / min vs ${formatCompactNumber(map.bestRegularPowerPerMinuteMedian ?? 0)} regular · ${map.bossFirstClearEfficiencyRatioMedian!.toFixed(2)}× · repeat full payout ${formatCompactNumber(map.bossRepeatPermanentPowerPerMinuteMedian ?? 0)} / min · ${(map.bossRepeatEfficiencyRatioMedian ?? 0).toFixed(2)}× regular · ${formatCompactNumber(map.repeatBossKillsMedian ?? 0)} repeat kills`);
 }
 console.log("");
 console.log("Median map time allocation");

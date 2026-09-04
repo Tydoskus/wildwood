@@ -377,7 +377,7 @@ function powerCompositionMarkup(map: BalanceSimulationResult["maps"][number]) {
   const share = (value: number) => Math.round(value / components.total * 100);
   const repeatMarkup = map.bossFirstClearEfficiencyRatioMedian === null
     ? ""
-    : `<span class="cell-sub">first clear ${map.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× regular · repeat ${map.bossRepeatEfficiencyRatioMedian?.toFixed(1) ?? "—"}× regular · ${formatCompactNumber(map.repeatBossKillsMedian ?? 0)} repeat clears</span>`;
+    : `<span class="cell-sub">first clear ${map.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× regular · repeat full payout ${map.bossRepeatEfficiencyRatioMedian?.toFixed(1) ?? "—"}× regular · ${formatCompactNumber(map.repeatBossKillsMedian ?? 0)} repeat clears</span>`;
   return `<span class="cell-sub">budget D ${share(components.damage)}% · HP ${share(components.health)}% · A ${share(components.armor)}% · R ${share(components.regeneration)}%</span>` +
     `<span class="cell-sub">equipment adds ${components.equipmentSharePercent.toFixed(0)}% of exit power${map.bossRewardGrowthSharePercent === null ? "" : ` · boss supplies ${map.bossRewardGrowthSharePercent.toFixed(0)}% of map gains`}</span>${repeatMarkup}`;
 }

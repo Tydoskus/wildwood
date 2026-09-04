@@ -1617,8 +1617,7 @@ function simulateTrial(
 
   const projectedBossStatWeights = (boss: BossDefinition, adjustment: MapAdjustment) => {
     const projected = stateSnapshot(state);
-    const claimBit = BOSS_REWARD_CLAIM_BITS[boss.kind];
-    const rewardScale = (state.bossRewardClaims & claimBit) !== 0 ? BOSS_REPEAT_REWARD_FRACTION : 1;
+    const rewardScale = BOSS_REPEAT_REWARD_FRACTION;
     const gains = new Map<ProgressionStat, number>();
     for (const reward of boss.rewards) {
       const stat = progressionStatForReward(reward.type);
@@ -1662,8 +1661,7 @@ function simulateTrial(
   ) => {
     if (!map.boss) return 0;
     const claimBit = BOSS_REWARD_CLAIM_BITS[map.boss.kind];
-    const firstClear = (state.bossRewardClaims & claimBit) === 0;
-    const rewardScale = firstClear ? 1 : BOSS_REPEAT_REWARD_FRACTION;
+    const rewardScale = BOSS_REPEAT_REWARD_FRACTION;
     state.bossRewardClaims = (state.bossRewardClaims | claimBit) >>> 0;
     const powerBeforeReward = powerForState(state);
     for (const reward of map.boss.rewards) {
@@ -1772,10 +1770,9 @@ function simulateTrial(
         break;
       }
       if (behavior.primaryStrategy === "boss-rush") {
-        // Model the repeat-boss choice explicitly. Repeated rewards are
-        // available at a calibrated repeat scale, while the repeat budget
-        // keeps their true time cost out of first-clear map pacing and exposes
-        // their economic rate.
+        // Model the repeat-boss choice explicitly. Repeated clears pay the
+        // full authored reward, while the repeat budget keeps their true time
+        // cost out of first-clear map pacing and exposes their economic rate.
         const repeats = state.mapIndex >= MAP_DEFINITIONS.length - 1 ? Number.POSITIVE_INFINITY : 1;
         repeatDefeatedBoss(mapRecord, map, repeats);
         if (state.time >= config.durationSeconds) break;
@@ -2373,22 +2370,22 @@ function buildDiagnostics(
       }
     }
     if (current.bossFirstClearEfficiencyRatioMedian !== null && current.bossFirstClearEfficiencyRatioMedian >= 1.5) {
-      diagnostics.push(`${current.name}: the first-clear boss reward is ${current.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× the best regular reward rate; the full payout is the capstone, while repeats use the calibrated repeat scale.`);
+      diagnostics.push(`${current.name}: the first-clear boss reward is ${current.bossFirstClearEfficiencyRatioMedian.toFixed(1)}× the best regular reward rate; every clear uses the full authored payout, so repeats remain a deliberate power spike.`);
     }
     if (current.repeatBossKillsMedian !== null && current.repeatBossKillsMedian > 0) {
       const repeatPower = current.repeatBossPowerGainMedian ?? 0;
       const repeatRatio = current.bossRepeatEfficiencyRatioMedian;
       diagnostics.push(repeatPower > Number.EPSILON
-        ? `${current.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power at ${(repeatRatio ?? 0).toFixed(1)}× the best regular rate; the calibrated repeat scale keeps the optional loop bounded.`
-        : `${current.name}: no repeat power was measured in the selected window; repeat rewards still use the calibrated repeat scale.`);
+        ? `${current.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power at ${(repeatRatio ?? 0).toFixed(1)}× the best regular rate; every clear pays the full authored reward and repeat time is reported separately.`
+        : `${current.name}: no repeat power was measured in the selected window; the full authored reward remains available on every clear.`);
     }
   }
   const onboardingFarm = maps[0];
   if (onboardingFarm?.repeatBossKillsMedian !== null && onboardingFarm.repeatBossKillsMedian > 0) {
     const repeatPower = onboardingFarm.repeatBossPowerGainMedian ?? 0;
     diagnostics.push(repeatPower > Number.EPSILON
-      ? `${onboardingFarm.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power at ${(onboardingFarm.bossRepeatEfficiencyRatioMedian ?? 0).toFixed(1)}× the best regular rate; the calibrated repeat scale keeps the optional loop bounded.`
-      : `${onboardingFarm.name}: no repeat power was measured in the selected window; repeat rewards still use the calibrated repeat scale.`);
+      ? `${onboardingFarm.name}: modeled repeat clears add ${formatCompactNumber(repeatPower)} median canonical power at ${(onboardingFarm.bossRepeatEfficiencyRatioMedian ?? 0).toFixed(1)}× the best regular rate; every clear pays the full authored reward and repeat time is reported separately.`
+      : `${onboardingFarm.name}: no repeat power was measured in the selected window; the full authored reward remains available on every clear.`);
   }
   if (measuredPacingTargets > 0) {
     diagnostics.unshift(`Pacing curve: ${pacingTargetsOnTrack}/${measuredPacingTargets} measured maps land within ±25% of their explicit duration targets.`);
