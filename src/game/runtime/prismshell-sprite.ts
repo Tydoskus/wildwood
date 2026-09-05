@@ -1,4 +1,4 @@
-import atlas from "../enemy-atlases/carapace-castle.mjs";
+import atlas from "../enemy-atlases/carapace-castle-512.mjs";
 
 export const PRISMSHELL_ATLAS = atlas;
 export const PRISMSHELL_SPRITE_HEIGHT = 340;

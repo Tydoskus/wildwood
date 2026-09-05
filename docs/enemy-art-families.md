@@ -94,3 +94,22 @@ Clockwork Ruins uses the exported `raptor-mechanic` family; Duskfall Orchard use
 All four were captured with the existing Unity sprite exporter. See
 [the expansion notes](clockwork-ruins-and-duskfall-orchard.md) for capture settings,
 map progression, lazy-loading details, and validation coverage.
+
+
+## Higher-resolution boss trial
+
+Prismshell, Ironhorn, and Dreadreaper now use fresh 512px / 12 FPS Unity captures
+in the `carapace-castle-512`, `rhino-armor-512`, and `reaper-death-512` atlases.
+Their visible idle heights are 281, 280, and 202 source pixels respectively,
+roughly twice the earlier exports. Display height remains 340 game units;
+combat sizes, clip timing, and fixed-origin alignment are preserved.
+
+High-quality canvas smoothing is enabled only while drawing these three boss
+images, within the existing canvas save/restore. Text, telegraphs, normal enemies,
+and other game artwork keep their existing rendering settings.
+
+Only idle/attack pages load: approximately 332 / 488 / 355 KiB compressed and
+27.4 / 29.5 / 29.5 MiB decoded, respectively. Boss-only limits are 512 KiB and
+32 MiB per atlas in use, with every sheet still at most 2048px. Regular enemy
+families retain their smaller 256px captures and budgets. Earlier captures remain
+available for comparison; the new asset paths avoid stale cached images.

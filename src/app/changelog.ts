@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.628": [
+    "Upgraded Prismshell, Ironhorn, and Dreadreaper to 512px Unity sprite exports with boss-only smoothing for cleaner edges.",
+    "Preserved boss size, animation timing, and combat behavior; higher-resolution art loads only for the relevant boss.",
+  ],
   "0.627": [
     "Smoothed multiplayer movement by following server sample timing and blending delayed updates more consistently through turns and stops.",
     "Added Clockwork Ruins and Duskfall Orchard after Crystal Hollows, with mechanical raptor and pumpkin enemy families captured through the Unity sprite exporter.",
@@ -1511,6 +1515,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.628": "2026-09-04",
   "0.627": "2026-09-04",
   "0.626": "2026-09-04",
   "0.625": "2026-09-04",

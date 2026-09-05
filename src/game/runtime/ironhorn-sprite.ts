@@ -1,4 +1,4 @@
-import atlas from "../enemy-atlases/rhino-armor.mjs";
+import atlas from "../enemy-atlases/rhino-armor-512.mjs";
 
 export const IRONHORN_ATLAS = atlas;
 export const IRONHORN_SPRITE_HEIGHT = 340;

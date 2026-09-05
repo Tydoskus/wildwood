@@ -1,9 +1,12 @@
+import previousAtlas from "../enemy-atlases/rhino-armor.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync, statSync } from "node:fs";
 import { IRONHORN_ATLAS, IRONHORN_USED_PAGES, ironhornSpriteFrame } from "./ironhorn-sprite";
 
 describe("Ironhorn sprite", () => {
   it("loads only the idle and attack sheets and stays within the per-boss budget", () => {
+    expect(IRONHORN_ATLAS.frameWidth).toBe(512);
+    expect(IRONHORN_ATLAS.frameHeight).toBe(512);
     let bytes = 0;
     let decodedBytes = 0;
     for (const index of IRONHORN_USED_PAGES) {
@@ -18,8 +21,8 @@ describe("Ironhorn sprite", () => {
       decodedBytes += page.width * page.height * 4;
       expect(Math.max(page.width, page.height)).toBeLessThanOrEqual(2048);
     }
-    expect(bytes).toBeLessThan(256 * 1024);
-    expect(decodedBytes).toBeLessThan(12 * 1024 * 1024);
+    expect(bytes).toBeLessThan(512 * 1024);
+    expect(decodedBytes).toBeLessThan(32 * 1024 * 1024);
   });
 
   it("preserves its position and size across idle and attack frames", () => {
@@ -39,4 +42,19 @@ describe("Ironhorn sprite", () => {
     expect(ironhornSpriteFrame(IRONHORN_ATLAS.animations.idle.durationMs / 1000)).toEqual(origin);
     expect(ironhornSpriteFrame(0, 10)).toEqual(ironhornSpriteFrame(0, 100));
   });
+});
+
+
+it("keeps the original capture timing and displayed alignment", () => {
+  const atlas = IRONHORN_ATLAS;
+  const previousScale = 340 / (previousAtlas.bounds.bottom - previousAtlas.bounds.top);
+  const frame = ironhornSpriteFrame(0);
+  expect(Math.abs(frame.drawX - -previousAtlas.anchorX * previousScale)).toBeLessThan(4);
+  expect(Math.abs(frame.drawY - (170 - previousAtlas.bounds.bottom * previousScale))).toBeLessThan(4);
+  expect(frame.drawHeight).toBeCloseTo(previousAtlas.frameHeight * previousScale, -1);
+  for (const motion of ["idle", "attack"] as const) {
+    expect(atlas.animations[motion].frames.length).toBe(previousAtlas.animations[motion].frames.length);
+    expect(atlas.animations[motion].durationMs).toBe(previousAtlas.animations[motion].durationMs);
+    expect(atlas.animations[motion].frameDurationMs).toBe(previousAtlas.animations[motion].frameDurationMs);
+  }
 });

@@ -1,4 +1,4 @@
-import atlas from "../enemy-atlases/reaper-death.mjs";
+import atlas from "../enemy-atlases/reaper-death-512.mjs";
 
 export const DREADREAPER_ATLAS = atlas;
 export const DREADREAPER_SPRITE_HEIGHT = 340;

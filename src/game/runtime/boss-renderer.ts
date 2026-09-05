@@ -1302,6 +1302,9 @@ export function createBossRenderer(options: {
     // The imported prefab faces left and already contains its own shadow.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.prismshellReady() && page?.naturalWidth > 0) {
+      // Local save/restore keeps filtering confined to the exported boss art.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(page, frame.x, frame.y, frame.w, frame.h, frame.drawX, frame.drawY, frame.drawWidth, frame.drawHeight);
     } else {
       // A readable armored silhouette remains if the network fails an image.
@@ -1363,6 +1366,9 @@ export function createBossRenderer(options: {
     // The imported prefab faces left and already contains its own shadow.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.ironhornReady() && page?.naturalWidth > 0) {
+      // Local save/restore keeps filtering confined to the exported boss art.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(page, frame.x, frame.y, frame.w, frame.h, frame.drawX, frame.drawY, frame.drawWidth, frame.drawHeight);
     } else {
       // A readable armored silhouette remains if the network fails an image.
@@ -1424,6 +1430,9 @@ export function createBossRenderer(options: {
     // The imported prefab faces left and already contains its own shadow.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.dreadreaperReady() && page?.naturalWidth > 0) {
+      // Local save/restore keeps filtering confined to the exported boss art.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(page, frame.x, frame.y, frame.w, frame.h, frame.drawX, frame.drawY, frame.drawWidth, frame.drawHeight);
     } else {
       // A readable armored silhouette remains if the network fails an image.
