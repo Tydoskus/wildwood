@@ -1299,7 +1299,7 @@ export function createBossRenderer(options: {
     const visualY = y + PRISMSHELL_SPRITE_Y_OFFSET;
     ctx.save();
     ctx.translate(x, visualY);
-    // The imported prefab faces left and already contains its own shadow.
+    // The amethyst artwork faces left.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.prismshellReady() && page?.naturalWidth > 0) {
       // Local save/restore keeps filtering confined to the exported boss art.
