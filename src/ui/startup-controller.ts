@@ -16,8 +16,7 @@ type AccountState = {
 type LoadingStage = readonly [label: string, ready: boolean, percent: number];
 
 type LoadingSequenceState =
-  | { value: "loading"; stage: number }
-  | { value: "completion-pending"; stage: number; timer: number }
+  | { value: "loading"; stage: number; shownAt: number | null }
   | { value: "complete" };
 
 export function loadingDescriptionCase(value: string) {
@@ -70,15 +69,23 @@ export function createStartupController(dependencies: StartupDependencies) {
   const playerNameInput = requiredElement<HTMLInputElement>("newPlayerNameInput");
   const beginAdventureButton = requiredElement("beginAdventureBtn");
 
-  let loadingSequence: LoadingSequenceState = { value: "loading", stage: 0 };
+  const stageDurationMs = 200;
+  let loadingSequence: LoadingSequenceState = { value: "loading", stage: 0, shownAt: null };
+  let stageTimer: number | null = null;
+
+  function pauseLoading() {
+    if (stageTimer !== null) window.clearTimeout(stageTimer);
+    stageTimer = null;
+    if (loadingSequence.value === "loading") loadingSequence.shownAt = null;
+  }
   const legalGate = createLegalGateController({
     accept: dependencies.acceptLegalTerms,
     onAccepted: dependencies.onLegalAccepted,
   });
 
   function showConnecting() {
-    if (loadingSequence.value === "completion-pending") window.clearTimeout(loadingSequence.timer);
-    loadingSequence = { value: "loading", stage: 0 };
+    pauseLoading();
+    loadingSequence = { value: "loading", stage: 0, shownAt: null };
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
@@ -95,6 +102,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showSessionConflict() {
+    pauseLoading();
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
@@ -109,6 +117,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showAccountChoice(detailOverride = "", actionPending = false) {
+    pauseLoading();
     const account = dependencies.accountState();
     accountChoicePanel.classList.remove("is-signing-in");
     const accountOptionsReady = dependencies.connected() || Boolean(account?.signInRequired);
@@ -165,25 +174,34 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function refreshLoading() {
-    if (loadingSequence.value === "complete" || loadingSequence.value === "completion-pending") return;
+    if (loadingSequence.value === "complete" || connectionPanel.hidden || start.style.display === "none") return;
     connectionRetryButton.hidden = true;
     const stages = dependencies.getLoadingStages();
-    let stage = loadingSequence.stage;
-    while (stage < stages.length - 1 && stages[stage][1]) stage += 1;
-    loadingSequence = { value: "loading", stage };
-    const [label, ready, percent] = stages[stage] ?? ["Starting WildStat", true, 100];
+    const state = loadingSequence;
+    state.shownAt ??= performance.now();
+    const [label, ready, percent] = stages[state.stage] ?? ["Starting WildStat", true, 100];
     loadingDetail.textContent = label;
     loadingFill.style.width = `${percent}%`;
-    if (!ready || stage < stages.length - 1) return;
+    if (!ready || stageTimer !== null) return;
+    // Real work proceeds normally; only the visible presentation is paced.
     const timer = window.setTimeout(() => {
-      if (loadingSequence.value !== "completion-pending" || loadingSequence.timer !== timer) return;
-      loadingSequence = { value: "complete" };
-      dependencies.onLoadingComplete();
-    }, 0);
-    loadingSequence = { value: "completion-pending", stage, timer };
+      if (stageTimer !== timer || loadingSequence !== state) return;
+      stageTimer = null;
+      const currentStages = dependencies.getLoadingStages();
+      if (!(currentStages[state.stage]?.[1] ?? true)) return;
+      if (state.stage < currentStages.length - 1) {
+        loadingSequence = { value: "loading", stage: state.stage + 1, shownAt: null };
+        refreshLoading();
+      } else {
+        loadingSequence = { value: "complete" };
+        dependencies.onLoadingComplete();
+      }
+    }, Math.max(0, stageDurationMs - (performance.now() - state.shownAt)));
+    stageTimer = timer;
   }
 
   function showConnectionFailure(message: string) {
+    pauseLoading();
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = false;
@@ -199,6 +217,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showNewPlayerIntro() {
+    pauseLoading();
     accountChoicePanel.classList.remove("is-signing-in");
     if (!playerNameInput.value) playerNameInput.value = dependencies.defaultPlayerName() || "WANDERER";
     start.style.display = "grid";
@@ -211,6 +230,7 @@ export function createStartupController(dependencies: StartupDependencies) {
   }
 
   function showLegalGate() {
+    pauseLoading();
     accountChoicePanel.classList.remove("is-signing-in");
     start.style.display = "grid";
     connectionPanel.hidden = true;
@@ -292,7 +312,7 @@ export function createStartupController(dependencies: StartupDependencies) {
     if (event.key === "Enter") beginAdventure();
   });
   return {
-    hideStart: () => { start.style.display = "none"; },
+    hideStart: () => { pauseLoading(); start.style.display = "none"; },
     isLoadingSequenceComplete: () => loadingSequence.value === "complete",
     refreshLoading,
     showAccountChoice,
