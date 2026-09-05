@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.631": [
+    "Added a soft ground shadow beneath Prismshell.",
+  ],
   "0.630": [
     "Prismshell now has high-resolution pink-purple amethyst artwork with subtle breathing and attack motion.",
   ],
@@ -1522,6 +1525,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.631": "2026-09-05",
   "0.630": "2026-09-05",
   "0.629": "2026-09-04",
   "0.628": "2026-09-04",

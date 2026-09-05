@@ -1299,6 +1299,18 @@ export function createBossRenderer(options: {
     const visualY = y + PRISMSHELL_SPRITE_Y_OFFSET;
     ctx.save();
     ctx.translate(x, visualY);
+    // Ground the transparent artwork with a soft contact shadow. Keep it
+    // independent of breathing and attack scaling so it stays on the floor.
+    ctx.save();
+    ctx.translate(0, 125);
+    ctx.scale(175, 48);
+    const shadow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    shadow.addColorStop(0, "rgba(15, 9, 24, 0.42)");
+    shadow.addColorStop(0.55, "rgba(15, 9, 24, 0.28)");
+    shadow.addColorStop(1, "rgba(15, 9, 24, 0)");
+    ctx.fillStyle = shadow;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
     // The amethyst artwork faces left.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.prismshellReady() && page?.naturalWidth > 0) {
