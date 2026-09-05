@@ -78,15 +78,15 @@ function saveFrom(current: PlayerProgress, changes: Partial<ProgressSave> = {}):
   return { ...saved, enemyKills: 1, ...changes };
 }
 
-function setup() {
+function setup(prepareResetRoute?: () => () => Promise<void>) {
   vi.stubGlobal("window", {
     setInterval: vi.fn(() => 1),
     clearInterval: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   });
-  const savePlayerProgress = vi.fn(async () => undefined);
-  const resetPlayerProgress = vi.fn(async () => undefined);
+  const savePlayerProgress = vi.fn(async (): Promise<void> => {});
+  const resetPlayerProgress = vi.fn(async (): Promise<void> => {});
   const connection = { reducers: { savePlayerProgress, resetPlayerProgress } };
   const reducers = {
     connection: () => connection,
@@ -110,6 +110,7 @@ function setup() {
     commitStoppedPosition: vi.fn(),
     storage: new MemoryStorage(),
     pendingProgressKey: "pending-progress",
+    prepareResetRoute,
   });
   return { notify, savePlayerProgress, resetPlayerProgress, service };
 }
@@ -124,6 +125,50 @@ describe("local progression profile snapshots", () => {
     if (!success) resetPlayerProgress.mockRejectedValueOnce(new Error("offline"));
     await service.api.resetProgress();
     expect(service.api.hasSeenPortalCutscene(cutscene)).toBe(!success);
+    service.dispose();
+  });
+
+  it("returns reset failure while preserving unsent progress for retry", async () => {
+    const { resetPlayerProgress, service } = setup();
+    const server = progress();
+    service.tables.upsertProgress({ ...server, identity: { toHexString: () => identity } } as never);
+    const pending = saveFrom(server, { damage: server.damage + 10 });
+    service.api.saveProgress(pending);
+    resetPlayerProgress.mockRejectedValueOnce(new Error("offline"));
+    expect(await service.api.resetProgress()).toMatchObject({ ok: false });
+    expect(service.progressFor(identity)?.damage).toBe(pending.damage);
+    service.dispose();
+  });
+
+  it("waits for an existing save and prevents stale autosaves crossing the reset", async () => {
+    const { resetPlayerProgress, savePlayerProgress, service } = setup();
+    const server = progress();
+    let finishSave!: () => void;
+    let finishReset!: () => void;
+    savePlayerProgress.mockImplementationOnce(() => new Promise<void>(done => { finishSave = done; }));
+    resetPlayerProgress.mockImplementationOnce(() => new Promise<void>(done => { finishReset = done; }));
+    service.api.saveProgress(saveFrom(server, { damage: 50 }), true);
+    const reset = service.api.resetProgress();
+    service.api.saveProgress(saveFrom(server, { damage: 100 }), true);
+    expect(resetPlayerProgress).not.toHaveBeenCalled();
+    finishSave();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(resetPlayerProgress).toHaveBeenCalledTimes(1);
+    expect(savePlayerProgress).toHaveBeenCalledTimes(1);
+    expect(await service.api.resetProgress()).toMatchObject({ ok: false });
+    finishReset();
+    expect(await reset).toEqual({ ok: true });
+    expect(await service.drainPendingProgress()).toBe(true);
+    expect(savePlayerProgress).toHaveBeenCalledTimes(1);
+    service.dispose();
+  });
+
+  it("discards old saves after a committed reset even if tutorial admission fails", async () => {
+    const { service, savePlayerProgress } = setup(() => async () => { throw new Error("Tutorial connection timed out"); });
+    service.api.saveProgress(saveFrom(progress(), { damage: 100 }));
+    expect(await service.api.resetProgress()).toMatchObject({ ok: true, restartError: expect.stringContaining("timed out") });
+    expect(await service.drainPendingProgress()).toBe(true);
+    expect(savePlayerProgress).not.toHaveBeenCalled();
     service.dispose();
   });
 

@@ -91,6 +91,7 @@ export function createGameActionsRuntime(d: Record<string, any>) {
     closeDuelReplay: d.closeDuelReplay,
     closeBootUpgrade: d.closeBootUpgrade,
     resetServerProgress: d.resetServerProgress,
+    setResetPending: d.setResetPending,
     clearProgressState: d.clearProgressState,
     setTotalKills: d.setTotalKills,
     setBootsCollected: d.setBootsCollected,

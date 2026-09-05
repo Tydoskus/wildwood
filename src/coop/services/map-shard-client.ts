@@ -1,6 +1,6 @@
 import { DbConnection, tables } from "../../module_bindings";
 import type { Identity } from "spacetimedb";
-import { MAP_IDS, PROTOCOL_VERSION } from "../../../shared/rules";
+import { MAP_IDS, PROTOCOL_VERSION, TUTORIAL_FOREST_MAP_ID } from "../../../shared/rules";
 import type { BaseSubscriptionHandlers } from "./base-subscription";
 import type { ReducerPort } from "../ports";
 
@@ -24,11 +24,11 @@ export function createMapShardClient(options: {
   function notifyMapWaiters(error?: Error) {
     for (const waiter of [...mapWaiters]) waiter(error);
   }
-  function waitForMap(mapId: string, root: DbConnection) {
+  function waitForMap(mapId: string, root: DbConnection, previousGeneration?: bigint) {
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => finish(new Error("Destination map connection timed out")), 30_000);
       const finish = (error?: Error) => {
-        if (!error && attachedRoot === root && (!hydrated || route?.mapId !== mapId)) return;
+        if (!error && attachedRoot === root && (!hydrated || route?.mapId !== mapId || (previousGeneration !== undefined && route?.generation === previousGeneration))) return;
         clearTimeout(timeout);
         mapWaiters.delete(finish);
         if (error || attachedRoot !== root) reject(error ?? new Error("Map connection changed"));
@@ -141,6 +141,16 @@ export function createMapShardClient(options: {
   };
   return {
     port,
+    prepareResetRoute() {
+      const root = options.root();
+      const previousGeneration = route?.generation;
+      const wasSharded = Boolean(route);
+      return async () => {
+        if (!root || root !== options.root() || root !== attachedRoot) throw new Error("Reset committed, but the connection changed. Reconnect to finish.");
+        if (!wasSharded && !route) return;
+        await waitForMap(TUTORIAL_FOREST_MAP_ID, root, previousGeneration);
+      };
+    },
     async prepareDuelPosition(position: { x: number; y: number } | null) {
       if (route && position) await options.root()?.reducers.prepareWorldActionPosition(position);
     },

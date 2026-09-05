@@ -24,9 +24,10 @@ describe("installed interface structure", () => {
 
   it("keeps startup small and installs the deferred shell exactly once", () => {
     expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_000);
-    for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay"]) {
+    for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }
+    expect(doc.getElementById("journeyBtn")).toBeNull();
     const before = doc.querySelectorAll("[id]").length;
     installGameShell(doc);
     const ids = [...doc.querySelectorAll("[id]")].map((node) => node.id);

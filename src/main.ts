@@ -1,3 +1,4 @@
+import { createGuildPanel } from "./ui/guild-panel";
 import { isDeveloperIdentity } from "./app/developer";
 import { nativeBridgeForRuntime } from "./app/native-ads";
 import {
@@ -87,6 +88,7 @@ import {
   MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP as BASE_PLAYER_HP,
   PLAYER_SPEED as BASE_PLAYER_SPEED,
+  PLAYER_SPAWN,
 } from "../shared/rules";
 
 (() => {
@@ -442,6 +444,7 @@ import {
     waterCutsceneSeenKey: WATER_PORTAL_CUTSCENE_SEEN_KEY,
     samuraiCutsceneSeenKey: SAMURAI_PORTAL_CUTSCENE_SEEN_KEY,
   });
+  let guildPanel: ReturnType<typeof createGuildPanel> | undefined;
   let inputEscapeHandler = () => false;
   const playerInput = createPlayerInputController({
     canvas,
@@ -1216,7 +1219,7 @@ import {
     report: async (identity, reason, note) => await coop?.reportPlayer?.(identity, reason, note) ?? { ok: false, error: "NOT CONNECTED" },
     showMessage,
     onChanged: () => profileWindow.updateDuelButton(),
-    beforeOpen: () => playerInput.clear(),
+    beforeOpen: () => { guildPanel?.close(); playerInput.clear(); },
   });
 
   const profileWindow = createProfileWindowController({
@@ -1271,6 +1274,7 @@ import {
     speedUpResearch: async () => coop?.speedUpResearchWithGems?.(),
     showMessage,
     beforeOpen: () => {
+      guildPanel?.close();
       mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
@@ -1284,6 +1288,29 @@ import {
     },
   });
 
+  guildPanel = createGuildPanel({
+    api: () => coop?.guild,
+    sessionKey: () => `${coop?.localIdentity?.() ?? ""}:${coop?.sessionGeneration?.() ?? 0}:${coop?.isConnected?.() ?? false}`,
+    beforeOpen: () => {
+      playerInput.clear();
+      setGameplayPause("guild", true);
+      profileWindow.close();
+      closeProfileIconPicker();
+      mapGuide?.close();
+      minimizeMaximizedChat();
+      itemInspectionController.close();
+      upgradeBenchController?.close();
+      closeLeaderboard();
+      devPanel.close();
+      techTree.close();
+      settingsPanel.hidden = true;
+      inventoryPanel.hidden = true;
+      settingsBtn.setAttribute("aria-expanded", "false");
+      inventoryBtn.setAttribute("aria-expanded", "false");
+    },
+    onClose: () => { playerInput.clear(); setGameplayPause("guild", false); },
+  });
+
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
     entries: () => coop?.leaderboardEntries?.() ?? [],
     loadSnapshot: async () => coop?.loadLeaderboardSnapshot?.() ?? [],
@@ -1293,6 +1320,7 @@ import {
     drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
     beforeOpen: () => {
+      guildPanel?.close();
       mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
@@ -1324,6 +1352,7 @@ import {
       subscriptions: coop?.subscriptionCount?.() ?? 0,
     }),
     closeCompetingWindows: () => {
+      guildPanel?.close();
       mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
@@ -1366,6 +1395,7 @@ import {
     speedUpUpgrade: async (slot) => coop?.speedUpItemUpgradeWithGems?.(slot),
     unlockSecondSlot: async () => coop?.unlockSecondUpgradeSlot?.(),
     beforeOpen: () => {
+      guildPanel?.close();
       mapGuide?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
@@ -1432,6 +1462,7 @@ import {
       return portals.map((portal) => ({ x: portal.x, y: portal.y, destination: portal.destination, unlocked: portalIsUnlocked(portal) }));
     },
     beforeOpen: () => {
+      guildPanel?.close();
       minimizeMaximizedChat();
       itemInspectionController.close();
       upgradeBenchController.close();
@@ -1564,7 +1595,7 @@ import {
     canShow: () => session.hasStarted(),
     amount: () => coop?.balanceApologyGiftAmount?.() ?? 0n,
     acknowledge: async () => coop?.acknowledgeBalanceApologyGift?.(),
-    setPaused: (paused) => setGameplayPause("balance-apology-gift", paused),
+    setPaused: (paused) => { if (paused) guildPanel?.close(); setGameplayPause("balance-apology-gift", paused); },
     showMessage,
     afterDismiss: () => refreshDailyGemBonus(),
   });
@@ -1576,7 +1607,7 @@ import {
     canShow: () => session.hasStarted() && !balanceApologyGift.isOpen() && coop?.accountState?.().signedIn === true,
     claimable: () => coop?.dailyGemBonusClaimable?.() === true,
     claim: async () => coop?.claimDailyGemBonus?.(),
-    setPaused: (paused) => setGameplayPause("daily-gem-bonus", paused),
+    setPaused: (paused) => { if (paused) guildPanel?.close(); setGameplayPause("daily-gem-bonus", paused); },
     showMessage,
   });
   refreshDailyGemBonus = dailyGemBonus.refresh;
@@ -1747,14 +1778,21 @@ import {
     e: gameElements, inventory, renderInventory, logPickup, showMessage, leaveDuelResult,
     itemInspectionController,
     minimizeChat: minimizeMaximizedChat,
-    closeCompetingWindows: () => { mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
+    closeCompetingWindows: () => { guildPanel?.close(); mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
-    resetServerProgress: () => coop?.resetProgress?.(),
+    resetServerProgress: async () => await coop?.resetProgress?.() ?? { ok: false, error: "Connect to your character before resetting." },
+    setResetPending: (pending: boolean) => setGameplayPause("reset-progress", pending),
     clearProgressState: progress.resetState,
     setTotalKills: (value: number) => { totalKills = value; },
     setBootsCollected: (collected: boolean) => { bootsPickup.collected = collected; },
     clearPlayerInput: playerInput.clear,
-    resetGame: () => { gameplayPauseReasons.clear(); session.setPaused(false); playerController.reset(false, progress.hasSavedProgress()); session.setHasStarted(false); },
+    resetGame: async () => {
+      gameplayPauseReasons.clear();
+      mapController.loadMap(TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN.x, PLAYER_SPAWN.y);
+      playerController.reset(false, false);
+      session.setHasStarted(false);
+      await prepareMapAssets(TUTORIAL_FOREST_MAP_ID);
+    },
     stopGame: session.stop, restartStartup: () => { startupCoordinator.restart(); }, hideGameOver: deathScreen.hide,
     refreshFrameClock: session.refreshFrameClock, closeProfileIconPicker, inventoryController,
     leaderboard, closeLeaderboard, devPanel, profileWindow, upgradeBenchController, mapGuide, rewardedRespawnAd,

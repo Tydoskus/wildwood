@@ -165,3 +165,41 @@ it("settles an in-flight portal if the account disconnects", async () => {
   s.client.clear();
   await expect(move).rejects.toThrow("Map connection closed");
 });
+
+it("waits for a fresh forest admission when reset begins in the forest", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve();
+  const previous = await hydrateLatest();
+  const completeReset = s.client.prepareResetRoute();
+  let complete = false;
+  const waiting = completeReset().then(() => { complete = true; });
+  await Promise.resolve();
+  expect(complete).toBe(false);
+  previous.queries[0].apply(); await Promise.resolve();
+  expect(complete).toBe(false);
+  s.route({ ...forest, generation: 4n }); await Promise.resolve();
+  expect(complete).toBe(false);
+  await hydrateLatest(); await waiting;
+  expect(complete).toBe(true);
+  s.client.clear();
+});
+
+it("waits for tutorial hydration after resetting from a later map", async () => {
+  const s = setup(); s.apply(); s.route(desert); await Promise.resolve(); await hydrateLatest();
+  const completeReset = s.client.prepareResetRoute();
+  let complete = false;
+  const waiting = completeReset().then(() => { complete = true; });
+  s.route({ ...forest, generation: 5n, ready: false }); await Promise.resolve();
+  expect(complete).toBe(false);
+  s.route({ ...forest, generation: 5n }); await Promise.resolve();
+  expect(complete).toBe(false);
+  await hydrateLatest(); await waiting;
+  expect(complete).toBe(true);
+  s.client.clear();
+});
+
+it("rejects a reset route wait when its connection is discarded", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve(); await hydrateLatest();
+  const waiting = s.client.prepareResetRoute()();
+  s.client.clear();
+  await expect(waiting).rejects.toThrow("Map connection closed");
+});

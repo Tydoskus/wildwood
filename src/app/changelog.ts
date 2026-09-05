@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.634": [
+    "Added guilds with saved three-champion lineups, asynchronous battles, and weekly guild rankings.",
+    "Introduced a streamlined guild interface with focused Guild, Battles, and Rankings views, compact member controls, and expandable battle reports.",
+    "Resetting character progress now returns you to Tutorial Forest and waits for the new map connection before restarting, preventing old map updates from moving you back.",
+  ],
   "0.633": [
     "Removed unused Prismshell assets and retired repository files, and updated development documentation.",
   ],
@@ -1531,6 +1536,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.634": "2026-09-05",
   "0.633": "2026-09-05",
   "0.632": "2026-09-05",
   "0.631": "2026-09-05",

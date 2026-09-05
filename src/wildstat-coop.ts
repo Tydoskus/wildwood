@@ -1,3 +1,5 @@
+import { accountStorageKeys } from "./coop/services/account-storage-keys";
+import { createGuildService } from "./coop/services/guild-service";
 import { createConnectionStatusApi } from "./coop/services/connection-status-api";
 import { createMapShardClient } from "./coop/services/map-shard-client";
 import "./ui/game-shell";
@@ -63,25 +65,12 @@ const runtime = window as WildStatRuntime;
 const defaultHost = defaultRealtimeHost(window.location.hostname);
 const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
-const tokenKey = `${host}/${databaseName}/auth_token`;
-const guestTokenKey = `${tokenKey}/guest_v1`;
-const accountTokenKey = `${tokenKey}/spacetimeauth_id_token_v1`;
-const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
-const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
-const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
-const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
-const authNonceKey = `${tokenKey}/spacetimeauth_nonce_v1`;
-const authRetryKey = `${tokenKey}/spacetimeauth_401_retry_v1`;
-const knownAccountKey = `${tokenKey}/spacetimeauth_known_account_v1`;
-const knownAccountCharacterKey = `${tokenKey}/spacetimeauth_character_name_v1`;
-const knownAccountGenderKey = `${tokenKey}/spacetimeauth_character_gender_v1`;
-const knownGuestCharacterKey = `${tokenKey}/guest_character_name_v1`;
-const authReturnUiKey = `${tokenKey}/spacetimeauth_return_ui_v1`;
-const updateResumeKey = `${tokenKey}/forced_update_resume_v1`;
-const updateResumeConsumedKey = `${updateResumeKey}/consumed_version`;
-const authTabKey = `${accountMigrationPendingKey}/tab_id`;
-const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
-const legalConsentKey = `${tokenKey}/legal_consent_v1`;
+const {
+  tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, accountMigrationPendingKey,
+  authStateKey, authVerifierKey, authNonceKey, authRetryKey, knownAccountKey,
+  knownAccountCharacterKey, knownAccountGenderKey, knownGuestCharacterKey, authReturnUiKey,
+  updateResumeKey, updateResumeConsumedKey, authTabKey, pendingProgressKey, legalConsentKey,
+} = accountStorageKeys(host, databaseName);
 const updateResumeStore = createUpdateResumeStore(sessionStorage, updateResumeKey);
 
 function consumeUpdateResumeMode(): UpdateResumeMode | null {
@@ -429,6 +418,7 @@ const progressionService = createProgressionService({
   activeProfileIdentity: () => playerProfileService?.activeIdentity() ?? "",
   completeAccountReturn: () => accountService.completeAccountReturnWhenReady(),
   presentDeath: () => mapShardClient.presentDeath(),
+  prepareResetRoute: () => mapShardClient.prepareResetRoute(),
   reserveStoppedMotion: () => presenceService.reserveStoppedMotion(),
   commitStoppedPosition: (position, sequence) => presenceService.commitStoppedPosition(position, sequence),
   storage: localStorage,
@@ -529,6 +519,10 @@ const duelService = createDuelService({
   preparePosition: () => mapShardClient.prepareDuelPosition(presenceService.localState()),
   storage: localStorage,
 });
+const guildService = createGuildService({
+  reducers: reducerPort, localIdentity: () => localIdentity,
+  drainPendingProgress: progressionService.drainPendingProgress,
+});
 const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
   presence: presenceService.tables,
   profile: profileDirectory.tables,
@@ -558,6 +552,7 @@ function clearRealtimeCaches() {
   developerService.clearSession();
   chatService.resetSession();
   duelService.resetSession();
+  guildService.resetSession();
   bossService.resetSession();
 }
 
@@ -941,6 +936,7 @@ export const wildstatCoop = {
   ...bossService.api,
   ...chatService.api,
   ...duelService.api,
+  guild: guildService.api,
   subscriptionCount() {
     if (!connection?.isActive) return 0;
     return 1 + presenceService.activeSubscriptionCount() + playerProfileService.activeSubscriptionCount() + remoteCombatStatsService.activeSubscriptionCount() + duelService.activeReplayLoadCount();

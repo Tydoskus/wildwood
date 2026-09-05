@@ -342,6 +342,28 @@ const afterUpdateGateShell = String.raw`
 `;
 
 export function installGameShell(doc: Document = document) {
+  const toolbar = doc.getElementById("toolbar");
+  for (const [id, label, icon] of [
+    ["guildBtn", "Guilds", "Icon_Guild.svg"],
+  ]) {
+    if (!toolbar || doc.getElementById(id)) continue;
+    const button = doc.createElement("button");
+    button.id = id;
+    button.className = "settings-button";
+    button.type = "button";
+    button.setAttribute("aria-label", `Open ${label.toLowerCase()}`);
+    button.setAttribute("aria-expanded", "false");
+    const image = doc.createElement("img");
+    image.className = "toolbar-icon";
+    image.src = `assets/wildstat/icons/${icon}`;
+    image.alt = "";
+    image.setAttribute("aria-hidden", "true");
+    const text = doc.createElement("span");
+    text.className = "toolbar-label";
+    text.textContent = label;
+    button.append(image, text);
+    toolbar.insertBefore(button, doc.getElementById("leaderboardBtn"));
+  }
   if (!doc.getElementById("blockedPlayersSetting")) {
     doc.getElementById("accountStatus")?.insertAdjacentHTML("afterend", `
       <details id="blockedPlayersSetting" class="setting-support" hidden>

@@ -24,3 +24,13 @@ export function schema(tables: Parameters<typeof sdkSchema>[0]) {
     view: register,
   };
 }
+
+// Host-only server runtime is replaced above. Match the SDK Range public shape
+// so real reducer helpers can exercise indexed range reads in Node tests.
+export class Range<T> {
+  readonly from: { tag: "unbounded" } | { tag: "included" | "excluded"; value: T };
+  readonly to: { tag: "unbounded" } | { tag: "included" | "excluded"; value: T };
+  constructor(from?: Range<T>["from"], to?: Range<T>["to"]) {
+    this.from = from ?? { tag: "unbounded" }; this.to = to ?? { tag: "unbounded" };
+  }
+}

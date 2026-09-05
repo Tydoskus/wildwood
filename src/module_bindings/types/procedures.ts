@@ -6,8 +6,11 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
+import * as GetGuildHubProcedure from "../get_guild_hub_procedure";
 import * as SynchronizeMapShardProcedure from "../synchronize_map_shard_procedure";
 
+export type GetGuildHubArgs = __Infer<typeof GetGuildHubProcedure.params>;
+export type GetGuildHubResult = __Infer<typeof GetGuildHubProcedure.returnType>;
 export type SynchronizeMapShardArgs = __Infer<typeof SynchronizeMapShardProcedure.params>;
 export type SynchronizeMapShardResult = __Infer<typeof SynchronizeMapShardProcedure.returnType>;
 

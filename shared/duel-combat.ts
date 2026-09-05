@@ -80,3 +80,12 @@ export function duelOutcome(duel: Pick<DuelCombat, "challengerMaxHp" | "opponent
   const difference = state.challengerHp / Math.max(1, duel.challengerMaxHp) - state.opponentHp / Math.max(1, duel.opponentMaxHp);
   return Math.abs(difference) <= 1e-9 ? "DRAW" : difference > 0 ? "CHALLENGER_WIN" : "OPPONENT_WIN";
 }
+
+/** Deterministic saved-lineup combat used by asynchronous guild battles. */
+export function simulateDuelBattle(challenger: DuelFighter, opponent: DuelFighter) {
+  const combat = { combatVersion: DUEL_COMBAT_VERSION,
+    challengerMaxHp: challenger.maxHp, challengerDamage: challenger.damage, challengerArmor: challenger.armor, challengerRegen: challenger.regen, challengerAttackRate: challenger.attackRate,
+    opponentMaxHp: opponent.maxHp, opponentDamage: opponent.damage, opponentArmor: opponent.armor, opponentRegen: opponent.regen, opponentAttackRate: opponent.attackRate };
+  const result = advanceDuelCombat(combat, initialDuelCombatState(combat), 0, 30_000_000);
+  return { combat, result, outcome: duelOutcome(combat, result), durationMicros: Math.max(3_000_000, result.resolvedMicros) };
+}

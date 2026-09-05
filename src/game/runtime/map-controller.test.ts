@@ -209,3 +209,21 @@ describe("map asset transition gate", () => {
     )).resolves.toBe(false);
   });
 });
+
+
+describe("reset map presentation", () => {
+  it("does not let an old server-map asset load overwrite the reset tutorial", async () => {
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    let finishAssets!: () => void;
+    h.prepareMapAssets.mockImplementationOnce(() => new Promise<void>(done => { finishAssets = done; }));
+    h.setServerMap({ mapId: CRYSTAL_HOLLOWS_MAP_ID, x: 950, y: 1250, facing: 1 });
+    h.controller.reconcileMapFromServer();
+    expect(h.controller.isMapTransitioning()).toBe(true);
+    h.controller.loadMap("tutorial_forest", 500, 500);
+    finishAssets();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(h.currentMapId()).toBe("tutorial_forest");
+    expect(h.player).toMatchObject({ x: 500, y: 500 });
+    expect(h.controller.isMapTransitioning()).toBe(false);
+  });
+});

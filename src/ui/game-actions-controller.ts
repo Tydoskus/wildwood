@@ -56,12 +56,13 @@ type GameActionsDependencies = {
   leaveDuelResult: () => void;
   closeDuelReplay: () => void;
   closeBootUpgrade: () => void;
-  resetServerProgress: () => void;
+  resetServerProgress: () => Promise<{ ok: boolean; error?: string; restartError?: string }>;
+  setResetPending: (pending: boolean) => void;
   clearProgressState: () => void;
   setTotalKills: (value: number) => void;
   setBootsCollected: (collected: boolean) => void;
   clearPlayerInput: () => void;
-  resetGame: () => void;
+  resetGame: () => void | Promise<void>;
   stopGame: () => void;
   restartStartup: () => void;
   hideGameOver: () => void;
@@ -84,42 +85,66 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     elements.inventoryButton.setAttribute("aria-expanded", "false");
   }
 
-  function resetProgress() {
+  let resetPending = false;
+  async function resetProgress() {
+    if (resetPending) return;
     if (!confirm("Erase all saved WildStat progress and start over?")) return;
 
-    dependencies.clearProgressState();
-    dependencies.resetServerProgress();
-    dependencies.setTotalKills(0);
-    dependencies.setBootsCollected(false);
-    const { inventory } = dependencies;
-    inventory.itemIds = [
-      BASIC_PAPER_HAT,
-      STARTER_STONE,
-      ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR),
-    ];
-    inventory.equippedHead = BASIC_PAPER_HAT;
-    inventory.equippedChest = "";
-    inventory.equippedFeet = "";
-    inventory.equippedRightHand = STARTER_STONE;
-    inventory.equippedLeftHand = "";
-    inventory.cosmeticHead = "";
-    inventory.cosmeticChest = "";
-    inventory.cosmeticFeet = "";
-    inventory.cosmeticRightHand = "";
-    inventory.cosmeticLeftHand = "";
-    inventory.selectedItemId = "";
-    inventory.selectedItemLocation = "";
-    dependencies.renderInventory();
-    elements.bootUpgrade.hidden = true;
+    resetPending = true;
+    let committed = false;
+    elements.resetProgressButton.setAttribute("disabled", "");
+    elements.resetProgressButton.setAttribute("aria-busy", "true");
     dependencies.clearPlayerInput();
-    dependencies.resetGame();
-    dependencies.stopGame();
-    dependencies.refreshFrameClock();
-    dependencies.restartStartup();
-    dependencies.hideGameOver();
-    closeSettings();
-    closeInventory();
-    dependencies.closeCompetingWindows();
+    dependencies.setResetPending(true);
+    try {
+      const result = await dependencies.resetServerProgress();
+      if (!result.ok) throw new Error(result.error || "The server could not reset your character. Try again.");
+      committed = true;
+      dependencies.stopGame();
+      dependencies.clearProgressState();
+      dependencies.setTotalKills(0);
+      dependencies.setBootsCollected(false);
+      const { inventory } = dependencies;
+      inventory.itemIds = [
+        BASIC_PAPER_HAT,
+        STARTER_STONE,
+        ...inventory.itemIds.filter((itemId) => itemId === SUPERIOR_GOLDEN_HELMET || itemId === LEGENDARY_WHITE_GOLD_ARMOR),
+      ];
+      inventory.equippedHead = BASIC_PAPER_HAT;
+      inventory.equippedChest = "";
+      inventory.equippedFeet = "";
+      inventory.equippedRightHand = STARTER_STONE;
+      inventory.equippedLeftHand = "";
+      inventory.cosmeticHead = "";
+      inventory.cosmeticChest = "";
+      inventory.cosmeticFeet = "";
+      inventory.cosmeticRightHand = "";
+      inventory.cosmeticLeftHand = "";
+      inventory.selectedItemId = "";
+      inventory.selectedItemLocation = "";
+      dependencies.renderInventory();
+      elements.bootUpgrade.hidden = true;
+      dependencies.clearPlayerInput();
+      await dependencies.resetGame();
+      if (result.restartError) throw new Error(result.restartError);
+      dependencies.refreshFrameClock();
+      dependencies.restartStartup();
+      dependencies.hideGameOver();
+      closeSettings();
+      closeInventory();
+      dependencies.closeCompetingWindows();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      dependencies.showMessage(committed
+        ? `Progress reset, but the restart could not finish. Reload the game. ${detail}`
+        : `Reset did not complete. Your local progress was kept. ${detail}`, "#ff9e8d");
+    } finally {
+      resetPending = false;
+      elements.resetProgressButton.removeAttribute("disabled");
+      elements.resetProgressButton.removeAttribute("aria-busy");
+      dependencies.clearPlayerInput();
+      dependencies.setResetPending(false);
+    }
   }
 
   function handleInputEscape() {
@@ -176,7 +201,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     dependencies.closeBootUpgrade();
     dependencies.refreshFrameClock();
   });
-  elements.resetProgressButton.addEventListener("click", resetProgress);
+  elements.resetProgressButton.addEventListener("click", () => { void resetProgress(); });
 
   return { handleInputEscape };
 }

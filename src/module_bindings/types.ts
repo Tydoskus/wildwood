@@ -461,6 +461,81 @@ export const GloomrootResult = __t.object("GloomrootResult", {
 });
 export type GloomrootResult = __Infer<typeof GloomrootResult>;
 
+export const Guild = __t.object("Guild", {
+  id: __t.u64(),
+  directoryId: __t.u64(),
+  nameKey: __t.string(),
+  name: __t.string(),
+  leader: __t.identity(),
+  members: __t.u32(),
+  champions: __t.u32(),
+  week: __t.u32(),
+  score: __t.u32(),
+  wins: __t.u32(),
+  battles: __t.u32(),
+  attackDay: __t.u32(),
+  attacks: __t.u32(),
+  opponents: __t.string(),
+});
+export type Guild = __Infer<typeof Guild>;
+
+export const GuildAccount = __t.object("GuildAccount", {
+  identity: __t.identity(),
+  joinAfter: __t.u64(),
+  lastAttackDay: __t.u32(),
+  attackGuild: __t.u64(),
+});
+export type GuildAccount = __Infer<typeof GuildAccount>;
+
+export const GuildBattleCounter = __t.object("GuildBattleCounter", {
+  id: __t.u8(),
+  next: __t.u64(),
+});
+export type GuildBattleCounter = __Infer<typeof GuildBattleCounter>;
+
+export const GuildBattleReport = __t.object("GuildBattleReport", {
+  key: __t.string(),
+  guildId: __t.u64(),
+  sequence: __t.u64(),
+  payload: __t.string(),
+});
+export type GuildBattleReport = __Infer<typeof GuildBattleReport>;
+
+export const GuildMember = __t.object("GuildMember", {
+  identity: __t.identity(),
+  guildId: __t.u64(),
+  name: __t.string(),
+  joinedAt: __t.u64(),
+  eligibleAt: __t.u64(),
+  champion: __t.bool(),
+  fighter: __t.string(),
+  power: __t.f64(),
+});
+export type GuildMember = __Infer<typeof GuildMember>;
+
+export const GuildRank = __t.object("GuildRank", {
+  guildId: __t.u64(),
+  rankKey: __t.string(),
+  payload: __t.string(),
+});
+export type GuildRank = __Infer<typeof GuildRank>;
+
+export const GuildReportParticipant = __t.object("GuildReportParticipant", {
+  key: __t.string(),
+  identity: __t.identity(),
+  reportKey: __t.string(),
+  side: __t.string(),
+  round: __t.u8(),
+});
+export type GuildReportParticipant = __Infer<typeof GuildReportParticipant>;
+
+export const GuildStanding = __t.object("GuildStanding", {
+  id: __t.u8(),
+  week: __t.u32(),
+  entries: __t.string(),
+});
+export type GuildStanding = __Infer<typeof GuildStanding>;
+
 export const IronhornAttackWindow = __t.object("IronhornAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

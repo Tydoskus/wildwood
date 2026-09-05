@@ -1,8 +1,8 @@
 # Gems commerce architecture
 
-Status: wallet and profile-balance foundation implemented. Store checkout,
-receipt verification, catalog pricing, and Gem spending are intentionally not
-live yet.
+Status: wallet, ledger, daily rewards, research/upgrade skips, bag capacity,
+and the second upgrade bench are implemented. Store checkout and receipt
+verification for buying Gems with real money are not implemented.
 
 ## Non-negotiable economy rules
 

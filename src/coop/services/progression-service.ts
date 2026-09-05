@@ -30,6 +30,7 @@ type ProgressionServiceDependencies = {
   activeProfileIdentity: () => string;
   completeAccountReturn: () => void;
   presentDeath?: () => void;
+  prepareResetRoute?: () => () => Promise<void>;
   reserveStoppedMotion: () => { sequence: number; simulationTick: number; motionEpoch: number };
   commitStoppedPosition: (position: { x: number; y: number }, sequence: number) => void;
   storage: Storage;
@@ -105,6 +106,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let pendingProgress: ProgressSave | null = null;
   let saveInFlightUntil = 0;
   let savePromise: Promise<boolean> | null = null;
+  let resetPending = false;
   let itemDropListener: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null = null;
   let itemUpgradeListener: ((upgrade: { itemId: string; level: number }) => void) | null = null;
 
@@ -121,6 +123,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function persistPending(progress: ProgressSave) {
+    if (resetPending) return;
     pendingProgress = copyProgress(progress);
     const identity = dependencies.localIdentity();
     if (identity) pendingProgress = store.write(identity, pendingProgress);
@@ -150,6 +153,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function flushAsync(force = false): Promise<boolean> {
+    if (resetPending) return Promise.resolve(false);
     if (savePromise) {
       return force
         ? savePromise.then(() => pendingProgress ? flushAsync(true) : true)
@@ -634,12 +638,41 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           flush(true);
         }
       },
-      async resetProgress() {
-        if (dependencies.reducers.protocolBlocked()) return;
-        clearPending();
+      async resetProgress(): Promise<{ ok: boolean; error?: string; restartError?: string }> {
+        if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
+        if (resetPending) return { ok: false, error: "A character reset is already pending." };
+        const connection = dependencies.reducers.connection();
+        if (!connection) return { ok: false, error: "NOT CONNECTED" };
         const identity = dependencies.localIdentity();
-        const result = await reducerResult("progress reset", (connection) => connection.reducers.resetPlayerProgress({}))();
-        if (result.ok && identity === dependencies.localIdentity()) cutscenes.reset();
+        resetPending = true;
+        try {
+          // A save dispatched before reset must finish first. Keep unsent rewards
+          // recoverable until the server actually acknowledges the reset.
+          if (savePromise) await savePromise;
+          if (identity !== dependencies.localIdentity() || connection !== dependencies.reducers.connection()) {
+            return { ok: false, error: "Your session changed. Reopen Settings to reset this character." };
+          }
+          const finishRoute = dependencies.prepareResetRoute?.();
+          const result = await reducerResult("progress reset", (active) => active.reducers.resetPlayerProgress({}))();
+          if (result.ok) clearPending(identity);
+          if (identity !== dependencies.localIdentity()) {
+            return { ok: false, error: "Your character changed. Reopen Settings before resetting again." };
+          }
+          if (connection !== dependencies.reducers.connection()) {
+            return result.ok
+              ? { ok: true, restartError: "Your connection changed. Reconnect to finish the reset." }
+              : { ok: false, error: "Your connection changed. Reconnect to check the character reset." };
+          }
+          if (result.ok) {
+            cutscenes.reset();
+            let restartError: string | undefined;
+            try { await finishRoute?.(); }
+            catch (error) { restartError = dependencies.reducers.errorMessage(error); }
+            if (identity !== dependencies.localIdentity()) return { ok: false, error: "Your character changed. Reopen Settings before resetting again." };
+            if (restartError) return { ok: true, restartError };
+          }
+          return result;
+        } finally { resetPending = false; }
       },
       beginAdventure() {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;

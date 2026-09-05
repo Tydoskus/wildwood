@@ -4,6 +4,7 @@ import type { wildstatCoop } from "../wildstat-coop";
 // removes, renames, or accidentally exposes a method without an intentional
 // contract update.
 type ExpectedApiKey =
+  | "guild"
   | "acceptLegalTerms"
   | "acceptDuel"
   | "accessAuditEntries"

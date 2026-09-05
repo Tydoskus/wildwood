@@ -71,6 +71,9 @@ import {
   researchSpeedUpGemCost,
 } from "../../shared/gems";
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
+import { guildTables } from "./guild-tables";
+import { createGuildService } from "./guild-service";
+import type { DuelFighter } from "../../shared/duel-combat";
 import {
   BASIC_PAPER_HAT,
   canonicalItemId,
@@ -1618,6 +1621,7 @@ const shardCoordinatorSchedule = table(
   { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
 );
 const spacetimedb = schema({
+  ...guildTables,
   shardCoordinatorSchedule,
   ...mapShardingTables,
   forestRewardPrototype,
@@ -1711,7 +1715,7 @@ const spacetimedb = schema({
 });
 export default spacetimedb;
 
-type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
+export type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
 export const devForestRewardPrototype = spacetimedb.view(
   { name: "dev_forest_reward_prototype", public: true },
@@ -4173,6 +4177,7 @@ function virtualPlayerCountForOwner(ctx: any, owner: any) {
 function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true, adjustOwnerCount = true) {
   const registration = ctx.db.virtualPlayer.identity.find(identity);
   if (!registration) return false;
+  guildService.removeAccount(ctx, identity);
   releaseMapShard(ctx, identity);
   removePlayerSafetyData(ctx, identity);
 
@@ -4251,6 +4256,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
  * leaderboard removal.
  */
 function removePlayerIdentityData(ctx: any, identity: any) {
+  guildService.removeAccount(ctx, identity);
   removePlayerSafetyData(ctx, identity);
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) deleteSnapshotRow(ctx, "player", identity);
@@ -8820,6 +8826,8 @@ export const resetPlayerProgress = spacetimedb.reducer(
   {},
   (ctx) => {
     const activePlayer = requireControllingPlayer(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before resetting progress.");
+    guildService.resetAccount(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
@@ -8838,14 +8846,25 @@ export const resetPlayerProgress = spacetimedb.reducer(
     removePlayerItemUpgradeData(ctx, ctx.sender, true);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
+    // Re-entry uses recent boss contributions to recover earned map unlocks.
+    // A deliberate reset must remove that evidence along with the unlock flags.
+    for (const boss of Object.keys(BOSS_REWARD_CLAIM_BITS)) {
+      (ctx.db as any)[`${boss}Contribution`].identity.delete(ctx.sender);
+      (ctx.db as any)[`${boss}AttackWindow`].identity.delete(ctx.sender);
+    }
     const nextPlayer = {
       ...activePlayer,
+      hp: next.maxHp,
+      maxHp: next.maxHp,
       ...powerFieldsForProgress(ctx, next),
       speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     };
-    updateSnapshotRow(ctx, "player", nextPlayer);
-    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+    // Rotate the regional admission even when already in Tutorial Forest;
+    // otherwise an existing replica preserves its old position on snapshot sync.
+    releaseMapShard(ctx, ctx.sender);
+    const respawned = transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0);
+    persistWorldLocation(ctx, respawned);
   },
 );
 
@@ -9238,6 +9257,7 @@ function transitionPlayerMap(
   syncPlayerMotionIdentity(ctx, nextPlayer);
   syncPlayerMapMarker(ctx, nextPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
+  return nextPlayer;
 }
 
 export const changeMap = spacetimedb.reducer(
@@ -9634,3 +9654,54 @@ export const acknowledgeShardRewards = spacetimedb.reducer({ keys: t.array(t.str
   if (keys.length > 100) throw new SenderError("Reward batch too large");
   for (const key of keys) ctx.db.shardRewardOutbox.key.delete(key);
 });
+
+// Guild mutations belong exclusively to the root. Regional modules
+// deliberately do not export these reducers or snapshot procedures.
+function requireGuildConnection(ctx: ModuleReducerCtx) {
+  requireControllingPlayer(ctx);
+  if (isMapShard(ctx) || isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
+  if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+}
+
+function requireGuildPlayer(ctx: ModuleReducerCtx) {
+  requireGuildConnection(ctx);
+  if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Register an account to join guilds.");
+}
+
+function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter {
+  const progress = ctx.db.playerProgress.identity.find(identity);
+  if (!progress) throw new SenderError("Player progress is unavailable.");
+  const weapon = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
+  return {
+    maxHp: maxHealthForProgress(ctx, identity, progress),
+    damage: weapon ? duelDamage(ctx, identity, progress.damage) : 0,
+    armor: researchedArmor(ctx, identity, progress.armor),
+    regen: researchedRegen(ctx, identity, progress.regen),
+    attackRate: weapon ? attackIntervalForProgress(ctx, identity, progress) : 31,
+  };
+}
+
+const guildService = createGuildService({
+  fighterFor: (ctx, identity) => {
+    const profile = ctx.db.playerProfile.identity.find(identity);
+    if (!profile) throw new SenderError("Player profile is unavailable.");
+    return { name: profile.displayName, fighter: guildFighterFor(ctx, identity) };
+  },
+});
+
+export const createGuild = spacetimedb.reducer({ name: t.string() }, (ctx, { name }) => {
+  requireGuildPlayer(ctx);
+  if (!isPublicDisplayNameAllowed(name)) throw new SenderError("Choose a different guild name.");
+  guildService.create(ctx, name);
+});
+export const joinGuild = spacetimedb.reducer({ guildId: t.u64() }, (ctx, { guildId }) => { requireGuildPlayer(ctx); guildService.join(ctx, guildId); });
+export const leaveGuild = spacetimedb.reducer((ctx) => { requireGuildPlayer(ctx); guildService.leave(ctx); });
+export const setGuildChampion = spacetimedb.reducer({ identity: t.identity(), champion: t.bool() }, (ctx, { identity, champion }) => { requireGuildPlayer(ctx); guildService.setChampion(ctx, identity, champion); });
+export const refreshGuildChampion = spacetimedb.reducer((ctx) => { requireGuildPlayer(ctx); guildService.refreshChampion(ctx); });
+export const transferGuildLeadership = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.transfer(ctx, identity); });
+export const kickGuildMember = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.kick(ctx, identity); });
+export const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, (ctx, { opponentGuildId }) => { requireGuildPlayer(ctx); guildService.challenge(ctx, opponentGuildId); });
+export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
+  requireGuildConnection(tx);
+  return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));
+}));

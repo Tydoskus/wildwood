@@ -1,4 +1,5 @@
 import { ConnectionId, Identity, ScheduleAt, Timestamp } from "spacetimedb";
+export { Identity, Timestamp };
 // Only the structural metadata this harness consumes. Client/server SDK
 // installs have nominally distinct BinaryReader classes, even at one version.
 type Definition = {
@@ -58,7 +59,15 @@ export function createMemoryDatabase(moduleSchema: { schemaType: { tables: Recor
     const matches = (row: Row, columns: readonly string[], key: any) => {
       const values = Array.isArray(key) ? key : [key];
       if (values.length > columns.length) throw new Error(`Too many index keys for ${name}`);
-      return values.every((value, i) => equal(row[columns[i]], value));
+      return values.every((value, i) => {
+        if (value && typeof value === "object" && "from" in value && "to" in value) {
+          const { from, to } = value;
+          const actual = row[columns[i]];
+          return (from.tag === "unbounded" || (from.tag === "included" ? actual >= from.value : actual > from.value)) &&
+            (to.tag === "unbounded" || (to.tag === "included" ? actual <= to.value : actual < to.value));
+        }
+        return equal(row[columns[i]], value);
+      });
     };
     const validate = (row: Row, except = -1) => {
       for (const index of definition.resolvedIndexes.filter((index) => index.unique)) {
@@ -101,7 +110,21 @@ export function createMemoryDatabase(moduleSchema: { schemaType: { tables: Recor
     for (const index of definition.resolvedIndexes) {
       const findIndex = (key: any) => states[name].rows.findIndex((row) => matches(row, index.columns, key));
       db[name][index.name] = {
-        filter: (key: any) => copy(states[name].rows.filter((row) => matches(row, index.columns, key))).values(),
+        filter: (key: any) => {
+          const rows = states[name].rows.filter((row) => matches(row, index.columns, key));
+          // Committed B-tree range reads are sorted by indexed key. Dedicated
+          // guild tests additionally model transaction-local rows appearing first.
+          if ((Array.isArray(key) ? key : [key]).some(value => value && typeof value === "object" && "from" in value && "to" in value)) {
+            rows.sort((a, b) => {
+              for (const column of index.columns) {
+                if (a[column] < b[column]) return -1;
+                if (a[column] > b[column]) return 1;
+              }
+              return 0;
+            });
+          }
+          return copy(rows).values();
+        },
         ...(index.unique ? {
           find: (key: any) => copy(states[name].rows[findIndex(key)] ?? null),
           update: (value: Row) => {

@@ -126,6 +126,7 @@ export function createMapController(options: {
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
+  let mapLoadGeneration = 0;
   let portalCooldown = 0;
   let portalExitGuard: MapPortal | null = null;
   let portalCutsceneIntensity = -1;
@@ -173,6 +174,8 @@ export function createMapController(options: {
   }
 
   function loadMap(mapId: MapId, x: number, y: number, facing = 0) {
+    mapLoadGeneration++;
+    mapTransitioning = false;
     void options.prepareMapAssets(mapId);
     setCurrentMapId(mapId);
     syncMapMusic();
@@ -230,10 +233,12 @@ export function createMapController(options: {
     stopTouchMove();
     player.moving = false;
     const destination = portal.destination;
+    const attempt = mapLoadGeneration;
     void prepareMapTransition(
       () => changeMap(destination, player.x, player.y),
       () => options.prepareMapAssets(destination),
     ).then((changed) => {
+      if (attempt !== mapLoadGeneration) return;
       if (!changed) {
         mapTransitioning = false;
         portalCooldown = 1;
@@ -241,6 +246,7 @@ export function createMapController(options: {
       }
       const arrival = mapConfig[destination].arrival;
       fadeToWorld(() => {
+        if (attempt !== mapLoadGeneration) return;
         loadMap(destination, arrival.x, arrival.y, Math.PI / 2);
         snapCameraToPlayer(camera, player, viewport());
         resetPresentationState();
@@ -248,6 +254,7 @@ export function createMapController(options: {
         mapTransitioning = false;
       });
     }).catch(() => {
+      if (attempt !== mapLoadGeneration) return;
       mapTransitioning = false;
       portalCooldown = 1;
     });
@@ -259,8 +266,11 @@ export function createMapController(options: {
     if (!state || state.mapId === getCurrentMapId()) return;
     if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId && state.mapId !== cloudspireMapId && state.mapId !== moonfenMapId && state.mapId !== crystalHollowsMapId && state.mapId !== clockworkRuinsMapId && state.mapId !== duskfallOrchardMapId) return;
     mapTransitioning = true;
+    const attempt = mapLoadGeneration;
     void options.prepareMapAssets(state.mapId as MapId).then(() => {
+      if (attempt !== mapLoadGeneration) return;
       fadeToWorld(() => {
+        if (attempt !== mapLoadGeneration) return;
         loadMap(state.mapId as MapId, state.x, state.y, state.facing);
         mapTransitioning = false;
       });
