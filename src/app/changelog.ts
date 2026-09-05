@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.632": [
+    "Reduced background database reads with change-tracked account synchronization, acknowledged position checkpoints, and map-specific maintenance.",
+  ],
   "0.631": [
     "Added a soft ground shadow beneath Prismshell.",
   ],
@@ -1525,6 +1528,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.632": "2026-09-05",
   "0.631": "2026-09-05",
   "0.630": "2026-09-05",
   "0.629": "2026-09-04",

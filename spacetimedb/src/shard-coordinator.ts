@@ -25,13 +25,14 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
     const state = tx.db.shardSyncState.shardId.find(shardId);
     if (state && (state.lockedUntil > now || state.nextRunAt > now)) return null;
     if (shard.state === "starting") config.program = tx.db.shardCoordinatorConfig.id.find(0)?.program ?? "";
-    const next = { shardId, sequence: (state?.sequence ?? 0n) + 1n, lockedUntil: now + 60_000_000n, nextRunAt: 0n };
+    const next = { shardId, sequence: (state?.sequence ?? 0n) + 1n, lockedUntil: now + 60_000_000n, nextRunAt: 0n,
+      checkpointAt: state?.checkpointAt ?? 0n };
     if (state) tx.db.shardSyncState.shardId.update(next);
     else tx.db.shardSyncState.insert(next);
-    return { config, shard, sequence: next.sequence };
+    return { config, shard, sequence: next.sequence, checkpointAt: next.checkpointAt };
   });
   if (!work) return;
-  const { config, shard, sequence } = work;
+  const { config, shard, sequence, checkpointAt } = work;
   let succeeded = false;
   let canSleep = false;
   let phase = "provision";
@@ -67,8 +68,22 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
         const barrier = tx.db.shardTransferBarrier.identity.find(member.identity);
         if (barrier && barrier.expiresAt > tx.timestamp.microsSinceUnixEpoch) continue;
         if (barrier) tx.db.shardTransferBarrier.identity.delete(member.identity);
+        let version = tx.db.shardSnapshotState.identity.find(member.identity);
+        if (version && version.shardId === shardId && version.generation === member.generation
+          && version.sentRevision === version.revision) {
+          members.push({ identity: member.identity, generation: member.generation, revision: version.revision, snapshot: "" });
+          continue;
+        }
         const player = tx.db.player.identity.find(member.identity);
         if (!player) continue;
+        if (!version || version.shardId !== shardId || version.generation !== member.generation) {
+          const next = { identity: member.identity, shardId, generation: member.generation, revision: 1n, sentRevision: 0n };
+          if (version) tx.db.shardSnapshotState.identity.update(next);
+          else tx.db.shardSnapshotState.insert(next);
+          version = next;
+          // Retire the legacy large comparison cache without reading its bytes.
+          tx.db.shardSentSnapshot.identity.delete(member.identity);
+        }
         const snapshot = encodeShardSnapshot({ player,
           playerProgress: tx.db.playerProgress.identity.find(member.identity),
           playerProfile: tx.db.playerProfile.identity.find(member.identity),
@@ -77,11 +92,9 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
           playerItemUpgrade: [...tx.db.playerItemUpgrade.byIdentity.filter(member.identity)],
           inDuel: [...tx.db.duel.byChallenger.filter(member.identity)].some((duel: any) => ["countdown", "active", "finishing"].includes(duel.status)),
         });
-        const sent = tx.db.shardSentSnapshot.identity.find(member.identity);
-        const changed = !sent || sent.shardId !== shardId || sent.generation !== member.generation || sent.snapshot !== snapshot;
-        members.push({ identity: member.identity, generation: member.generation, snapshot: changed ? snapshot : "" });
+        members.push({ identity: member.identity, generation: member.generation, revision: version.revision, snapshot });
       }
-      return { sequence, members, enabled, expiresAt: tx.timestamp.microsSinceUnixEpoch + 15_000_000n };
+      return { sequence, members, enabled, checkpointAt, expiresAt: tx.timestamp.microsSinceUnixEpoch + 15_000_000n };
     });
     if (!batch) return;
     phase = "exchange";
@@ -101,15 +114,19 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
         const member = tx.db.mapShardMember.identity.find(sent.identity);
         if (!member || member.shardId !== shardId || member.generation !== sent.generation) continue;
         const admitted = reply.admitted.some((row: any) => row.identity.toHexString() === sent.identity.toHexString() && row.generation === sent.generation);
-        if (!admitted) { tx.db.shardSentSnapshot.identity.delete(sent.identity); continue; }
+        if (!admitted) { tx.db.shardSnapshotState.identity.delete(sent.identity); continue; }
         if (sent.snapshot) {
-          const cached = { ...sent, shardId };
-          if (tx.db.shardSentSnapshot.identity.find(sent.identity)) tx.db.shardSentSnapshot.identity.update(cached);
-          else tx.db.shardSentSnapshot.insert(cached);
+          const version = tx.db.shardSnapshotState.identity.find(sent.identity);
+          // A mutation may commit while HTTP is in flight. Acknowledge only
+          // the captured revision, leaving the newer revision pending.
+          if (version && version.shardId === shardId && version.generation === sent.generation)
+            tx.db.shardSnapshotState.identity.update({ ...version, sentRevision: sent.revision });
         }
         if (!member.ready) tx.db.mapShardMember.identity.update({ ...member, ready: true });
       }
       for (const position of reply.checkpoints) hooks.checkpoint(tx, { ...position, shardId });
+      if (typeof reply.checkpointAt === "bigint")
+        tx.db.shardSyncState.shardId.update({ ...state, checkpointAt: reply.checkpointAt });
       for (const reward of reply.rewards) hooks.reward(tx, { ...reward, shardId });
       return reply.rewards.map((reward: any) => reward.key);
     });

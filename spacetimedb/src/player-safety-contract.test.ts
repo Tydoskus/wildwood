@@ -28,7 +28,7 @@ describe("player safety server wiring", () => {
     expect(check).toContain("playerBlockKey(owner.toHexString(), target.toHexString())");
     expect(check).toContain("playerBlockKey(target.toHexString(), owner.toHexString())");
     const duel = section("export const requestDuel", "export const acceptDuel");
-    expect(duel.indexOf("playersBlocked(ctx, ctx.sender, opponent)")).toBeLessThan(duel.indexOf("ctx.db.duel.insert"));
+    expect(duel.indexOf("playersBlocked(ctx, ctx.sender, opponent)")).toBeLessThan(duel.indexOf('insertSnapshotRow(ctx, "duel"'));
   });
   it("wires guest block transfer and full-account removal", () => {
     const transfer = section("function transferPlayerBlocks", "function removePlayerSafetyData");

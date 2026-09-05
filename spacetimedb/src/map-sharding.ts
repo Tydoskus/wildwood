@@ -11,6 +11,11 @@ export const mapShardingTables = {
   }),
   shardSyncState: table({ public: false }, {
     shardId: t.u64().primaryKey(), sequence: t.u64(), lockedUntil: t.u64(), nextRunAt: t.u64(),
+    checkpointAt: t.u64().default(0n),
+  }),
+  shardSnapshotState: table({ public: false }, {
+    identity: t.identity().primaryKey(), shardId: t.u64(), generation: t.u64(),
+    revision: t.u64(), sentRevision: t.u64(),
   }),
   shardReplicaState: table({ public: false }, { id: t.u32().primaryKey(), sequence: t.u64(), checkpointAt: t.u64().default(0n) }),
   shardSentSnapshot: table({ public: false }, {
@@ -81,6 +86,7 @@ export function releaseMapShard(ctx: any, identity: any) {
     // portal changes made while a previous handoff is still pending.
   }
   ctx.db.shardSentSnapshot.identity.delete(identity);
+  ctx.db.shardSnapshotState.identity.delete(identity);
   ctx.db.mapShardMember.identity.delete(identity);
 }
 export function assignMapShard(ctx: any, player: any) {

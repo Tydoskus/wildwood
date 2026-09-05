@@ -46,7 +46,7 @@ export default __t.row({
   cloudspireUnlocked: __t.bool().name("cloudspire_unlocked"),
   moonfenUnlocked: __t.bool().name("moonfen_unlocked"),
   crystalHollowsUnlocked: __t.bool().name("crystal_hollows_unlocked"),
+  bossRewardClaims: __t.u32().name("boss_reward_claims"),
   clockworkRuinsUnlocked: __t.bool().name("clockwork_ruins_unlocked"),
   duskfallOrchardUnlocked: __t.bool().name("duskfall_orchard_unlocked"),
-  bossRewardClaims: __t.u32().name("boss_reward_claims"),
 });

@@ -1080,9 +1080,9 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cloudspireUnlocked: __t.bool(),
   moonfenUnlocked: __t.bool(),
   crystalHollowsUnlocked: __t.bool(),
+  bossRewardClaims: __t.u32(),
   clockworkRuinsUnlocked: __t.bool(),
   duskfallOrchardUnlocked: __t.bool(),
-  bossRewardClaims: __t.u32(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -1282,11 +1282,21 @@ export const ShardSentSnapshot = __t.object("ShardSentSnapshot", {
 });
 export type ShardSentSnapshot = __Infer<typeof ShardSentSnapshot>;
 
+export const ShardSnapshotState = __t.object("ShardSnapshotState", {
+  identity: __t.identity(),
+  shardId: __t.u64(),
+  generation: __t.u64(),
+  revision: __t.u64(),
+  sentRevision: __t.u64(),
+});
+export type ShardSnapshotState = __Infer<typeof ShardSnapshotState>;
+
 export const ShardSyncState = __t.object("ShardSyncState", {
   shardId: __t.u64(),
   sequence: __t.u64(),
   lockedUntil: __t.u64(),
   nextRunAt: __t.u64(),
+  checkpointAt: __t.u64(),
 });
 export type ShardSyncState = __Infer<typeof ShardSyncState>;
 

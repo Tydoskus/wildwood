@@ -1,3 +1,4 @@
+import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
 import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap, queueShardReward } from "./map-sharding";
@@ -2034,10 +2035,10 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     }
   }
   for (const duel of [...ctx.db.duel.byChallenger.filter(identity)] as any[]) {
-    if (duel.challengerName !== displayName) ctx.db.duel.id.update({ ...duel, challengerName: displayName });
+    if (duel.challengerName !== displayName) updateSnapshotRow(ctx, "duel", { ...duel, challengerName: displayName });
   }
   for (const duel of [...ctx.db.duel.byOpponent.filter(identity)] as any[]) {
-    if (duel.opponentName !== displayName) ctx.db.duel.id.update({ ...duel, opponentName: displayName });
+    if (duel.opponentName !== displayName) updateSnapshotRow(ctx, "duel", { ...duel, opponentName: displayName });
   }
 }
 
@@ -2045,7 +2046,7 @@ function repairModeratedDisplayName(ctx: any, profile: any) {
   if (isPublicDisplayNameAllowed(profile.displayName)) return profile;
   const displayName = generatedDisplayName(profile.identity);
   const repaired = { ...profile, displayName };
-  ctx.db.playerProfile.identity.update(repaired);
+  updateSnapshotRow(ctx, "playerProfile", repaired);
   // A forced safety rename must not make the player wait 30 days to choose a
   // new valid name.
   if (ctx.db.playerNameCooldown.identity.find(profile.identity)) {
@@ -2147,11 +2148,11 @@ function researchForPlayer(ctx: any, identity: any) {
   if (existing) {
     if (existing.frontierMastery === 0) return existing;
     const wiped = { ...existing, frontierMastery: 0 };
-    ctx.db.playerResearch.identity.update(wiped);
+    updateSnapshotRow(ctx, "playerResearch", wiped);
     return wiped;
   }
   const next = defaultPlayerResearch(identity);
-  ctx.db.playerResearch.insert(next);
+  insertSnapshotRow(ctx, "playerResearch", next);
   return next;
 }
 
@@ -2161,7 +2162,7 @@ function runPendingModuleMigrations(ctx: any) {
   if (currentVersion >= MODULE_MIGRATION_VERSION) return;
   if (currentVersion < 1) {
     for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
-      if (research.frontierMastery !== 0) ctx.db.playerResearch.identity.update({ ...research, frontierMastery: 0 });
+      if (research.frontierMastery !== 0) updateSnapshotRow(ctx, "playerResearch", { ...research, frontierMastery: 0 });
     }
   }
   if (currentVersion < 2) {
@@ -2173,7 +2174,7 @@ function runPendingModuleMigrations(ctx: any) {
   if (currentVersion < 4) {
     for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
       if (shouldBackfillLegacyRegeneration(research)) {
-        ctx.db.playerResearch.identity.update({
+        updateSnapshotRow(ctx, "playerResearch", {
           ...research,
           regeneration: RESEARCH_DEFINITIONS.regeneration.ranksPerBand,
         });
@@ -2188,7 +2189,7 @@ function runPendingModuleMigrations(ctx: any) {
       if (progress.inventoryJson !== inventoryJson ||
         progress.equippedRightHand !== equippedRightHand ||
         progress.equippedLeftHand !== equippedLeftHand) {
-        ctx.db.playerProgress.identity.update({
+        updateSnapshotRow(ctx, "playerProgress", {
           ...progress,
           inventoryJson,
           equippedRightHand,
@@ -2208,7 +2209,7 @@ function runPendingModuleMigrations(ctx: any) {
       const normalizedProgress = { ...restoredProgress, inventoryJson };
       const equippedRightHand = equippedRightHandForProgress(normalizedProgress);
       const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(normalizedProgress);
-      ctx.db.playerProgress.identity.update({
+      updateSnapshotRow(ctx, "playerProgress", {
         ...progress,
         inventoryJson,
         equippedRightHand,
@@ -2223,7 +2224,7 @@ function runPendingModuleMigrations(ctx: any) {
         bowCount: forestItemCountForProgress(progress, STARTER_BOW, "bowCount"),
         woodenArmorCount: forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount"),
       };
-      ctx.db.playerProgress.identity.update({
+      updateSnapshotRow(ctx, "playerProgress", {
         ...normalizedProgress,
         inventoryJson: JSON.stringify(inventoryForProgress(normalizedProgress)),
       });
@@ -2236,7 +2237,7 @@ function runPendingModuleMigrations(ctx: any) {
         bowCount: Math.min(1, forestItemCountForProgress(progress, STARTER_BOW, "bowCount")),
         woodenArmorCount: Math.min(1, forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")),
       };
-      ctx.db.playerProgress.identity.update({
+      updateSnapshotRow(ctx, "playerProgress", {
         ...normalizedProgress,
         inventoryJson: JSON.stringify([...new Set(inventoryForProgress(normalizedProgress))]),
       });
@@ -2264,10 +2265,10 @@ function runPendingModuleMigrations(ctx: any) {
           ? Math.min(MAX_MOVEMENT_SPEED_OVERRIDE, storedSpeed)
           : 0;
       const nextProgress = { ...progress, speed: equipmentSpeed, speedOverride };
-      ctx.db.playerProgress.identity.update(nextProgress);
+      updateSnapshotRow(ctx, "playerProgress", nextProgress);
       const active = ctx.db.player.identity.find(progress.identity);
       if (active) {
-        ctx.db.player.identity.update({
+        updateSnapshotRow(ctx, "player", {
           ...active,
           speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         });
@@ -2279,7 +2280,7 @@ function runPendingModuleMigrations(ctx: any) {
     // rankings applied research, equipment, and item upgrades.
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       const active = ctx.db.player.identity.find(progress.identity);
-      if (active) ctx.db.player.identity.update({ ...active, ...powerFieldsForProgress(ctx, progress) });
+      if (active) updateSnapshotRow(ctx, "player", { ...active, ...powerFieldsForProgress(ctx, progress) });
     }
   }
   if (currentVersion < 12) {
@@ -2294,7 +2295,7 @@ function runPendingModuleMigrations(ctx: any) {
       });
     }
     for (const activeDuel of [...ctx.db.duel.iter()] as any[]) {
-      ctx.db.duel.id.update({
+      updateSnapshotRow(ctx, "duel", {
         ...activeDuel,
         challengerBlocked: activeDuel.opponentBlocked,
         opponentBlocked: activeDuel.challengerBlocked,
@@ -2314,7 +2315,7 @@ function runPendingModuleMigrations(ctx: any) {
             const identity = new Identity(contributor.identity);
             const progress = ctx.db.playerProgress.identity.find(identity);
             if (progress && !progress.infernalUnlocked) {
-              ctx.db.playerProgress.identity.update({ ...progress, infernalUnlocked: true });
+              updateSnapshotRow(ctx, "playerProgress", { ...progress, infernalUnlocked: true });
             }
           }
         }
@@ -2338,12 +2339,12 @@ function runPendingModuleMigrations(ctx: any) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
       const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
-        ctx.db.playerProgress.identity.update(migrated);
+        updateSnapshotRow(ctx, "playerProgress", migrated);
         changedProgress = true;
         const active = ctx.db.player.identity.find(progress.identity);
         if (active) {
           const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          ctx.db.player.identity.update(nextActive);
+          updateSnapshotRow(ctx, "player", nextActive);
           syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
         }
       }
@@ -2360,12 +2361,12 @@ function runPendingModuleMigrations(ctx: any) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
       const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
-        ctx.db.playerProgress.identity.update(migrated);
+        updateSnapshotRow(ctx, "playerProgress", migrated);
         changedProgress = true;
         const active = ctx.db.player.identity.find(progress.identity);
         if (active) {
           const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          ctx.db.player.identity.update(nextActive);
+          updateSnapshotRow(ctx, "player", nextActive);
           syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
         }
       }
@@ -2384,12 +2385,12 @@ function runPendingModuleMigrations(ctx: any) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
       const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
-        ctx.db.playerProgress.identity.update(migrated);
+        updateSnapshotRow(ctx, "playerProgress", migrated);
         changedProgress = true;
         const active = ctx.db.player.identity.find(progress.identity);
         if (active) {
           const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          ctx.db.player.identity.update(nextActive);
+          updateSnapshotRow(ctx, "player", nextActive);
           syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
         }
       }
@@ -2405,12 +2406,12 @@ function runPendingModuleMigrations(ctx: any) {
       const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
       const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
       if (!samePlayerProgressValues(progress, migrated)) {
-        ctx.db.playerProgress.identity.update(migrated);
+        updateSnapshotRow(ctx, "playerProgress", migrated);
         changedProgress = true;
         const active = ctx.db.player.identity.find(progress.identity);
         if (active) {
           const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          ctx.db.player.identity.update(nextActive);
+          updateSnapshotRow(ctx, "player", nextActive);
           syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
         }
       }
@@ -2431,7 +2432,7 @@ function runPendingModuleMigrations(ctx: any) {
             const identity = new Identity(contributor.identity);
             const progress = ctx.db.playerProgress.identity.find(identity);
             if (progress && !progress.moonfenUnlocked) {
-              ctx.db.playerProgress.identity.update({ ...progress, moonfenUnlocked: true });
+              updateSnapshotRow(ctx, "playerProgress", { ...progress, moonfenUnlocked: true });
             }
           }
         }
@@ -2445,7 +2446,7 @@ function runPendingModuleMigrations(ctx: any) {
     if (result) {
       for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.crystalHollowsUnlocked && resultIncludesContributor(result, progress.identity)) {
-          ctx.db.playerProgress.identity.update({ ...progress, crystalHollowsUnlocked: true });
+          updateSnapshotRow(ctx, "playerProgress", { ...progress, crystalHollowsUnlocked: true });
         }
       }
     }
@@ -2469,7 +2470,7 @@ function runPendingModuleMigrations(ctx: any) {
       if (progress.crystalHollowsUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.miremaw;
       if (contributedToLatestPrismshell(ctx, progress.identity)) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.prismshell;
       if (bossRewardClaims !== Number(progress.bossRewardClaims ?? 0)) {
-        ctx.db.playerProgress.identity.update({ ...progress, bossRewardClaims });
+        updateSnapshotRow(ctx, "playerProgress", { ...progress, bossRewardClaims });
       }
     }
   }
@@ -2496,7 +2497,7 @@ function runPendingModuleMigrations(ctx: any) {
     // The existing claim ledger preserves every prior Prismshell victory.
     for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
       if ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell) !== 0 || contributedToLatestPrismshell(ctx, progress.identity)) {
-        ctx.db.playerProgress.identity.update({ ...progress, clockworkRuinsUnlocked: true });
+        updateSnapshotRow(ctx, "playerProgress", { ...progress, clockworkRuinsUnlocked: true });
       }
     }
   }
@@ -2543,7 +2544,7 @@ function completeActiveResearch(ctx: any, active: any) {
     return false;
   }
   const nextResearch = { ...research, [active.researchId]: active.targetRank };
-  ctx.db.playerResearch.identity.update(nextResearch);
+  updateSnapshotRow(ctx, "playerResearch", nextResearch);
   const progress = ctx.db.playerProgress.identity.find(active.identity);
   const player = ctx.db.player.identity.find(active.identity);
   if (progress && player) {
@@ -2552,7 +2553,7 @@ function completeActiveResearch(ctx: any, active: any) {
       speed: effectiveMovementSpeedForProgress(ctx, progress, nextResearch),
       ...powerFieldsForProgress(ctx, progress),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
   ctx.db.activeResearch.identity.delete(active.identity);
@@ -2690,12 +2691,12 @@ function rebaseLegacyPlayersToMaps(ctx: any) {
       armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
       beforePower: before, afterPower: after, recordedAt: ctx.timestamp,
     });
-    if (!samePlayerProgressValues(progress, next)) ctx.db.playerProgress.identity.update(next);
+    if (!samePlayerProgressValues(progress, next)) updateSnapshotRow(ctx, "playerProgress", next);
     markPlayerBalanceCurrent(ctx, progress.identity);
     const active = ctx.db.player.identity.find(progress.identity);
     if (active) {
       const updated = { ...active, ...powerFieldsForProgress(ctx, next) };
-      ctx.db.player.identity.update(updated);
+      updateSnapshotRow(ctx, "player", updated);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
     }
   }
@@ -2706,7 +2707,7 @@ function migratePlayerBalance(ctx: any, progress: any) {
   const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
   if ((current?.version ?? 0) >= ATTACK_BALANCE_VERSION) return progress;
   const migrated = playerBalanceProgress(progress, current?.version ?? 0);
-  ctx.db.playerProgress.identity.update(migrated);
+  updateSnapshotRow(ctx, "playerProgress", migrated);
   markPlayerBalanceCurrent(ctx);
   return migrated;
 }
@@ -3202,8 +3203,8 @@ function syncPlayerMapMarker(ctx: any, activePlayer: any, force = false) {
 function syncSenderAccountStatus(ctx: any) {
   const current = ctx.db.playerAccountStatus.identity.find(ctx.sender);
   const next = { identity: ctx.sender, isGuest: !hasSpacetimeAuthAccount(ctx) };
-  if (current) ctx.db.playerAccountStatus.identity.update(next);
-  else ctx.db.playerAccountStatus.insert(next);
+  if (current) updateSnapshotRow(ctx, "playerAccountStatus", next);
+  else insertSnapshotRow(ctx, "playerAccountStatus", next);
   syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
 }
 
@@ -3656,8 +3657,8 @@ function restoreItemToProgress(progress: any, itemId: string) {
 
 function writeProgressAndPresentation(ctx: any, progress: any) {
   const current = ctx.db.playerProgress.identity.find(progress.identity);
-  if (current) ctx.db.playerProgress.identity.update(progress);
-  else ctx.db.playerProgress.insert(progress);
+  if (current) updateSnapshotRow(ctx, "playerProgress", progress);
+  else insertSnapshotRow(ctx, "playerProgress", progress);
   const active = ctx.db.player.identity.find(progress.identity);
   if (active) {
     const nextPlayer = {
@@ -3666,7 +3667,7 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
       speed: effectiveMovementSpeedForProgress(ctx, progress),
       ...equipmentPresentationForProgress(progress),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
   refreshLeaderboard(ctx);
@@ -3854,7 +3855,7 @@ function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = fals
   if (ctx.db.activeItemUpgradeSlotTwo.identity.find(identity)) ctx.db.activeItemUpgradeSlotTwo.identity.delete(identity);
   removeItemUpgradeCompletionSchedules(ctx, identity);
   for (const upgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(identity) as Iterable<any>]) {
-    ctx.db.playerItemUpgrade.key.delete(upgrade.key);
+    deleteSnapshotRow(ctx, "playerItemUpgrade", upgrade.key);
   }
   if (removeDrops) {
     for (const drop of [...ctx.db.playerItemDrop.byIdentity.filter(identity) as Iterable<any>]) {
@@ -3885,8 +3886,8 @@ function completeActiveItemUpgrade(ctx: any, active: any, slot: number) {
     const key = itemUpgradeKey(active.identity, active.itemId);
     const current = ctx.db.playerItemUpgrade.key.find(key);
     const completed = { key, identity: active.identity, itemId: active.itemId, level: active.targetLevel };
-    if (current) ctx.db.playerItemUpgrade.key.update(completed);
-    else ctx.db.playerItemUpgrade.insert(completed);
+    if (current) updateSnapshotRow(ctx, "playerItemUpgrade", completed);
+    else insertSnapshotRow(ctx, "playerItemUpgrade", completed);
   }
   writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
   deleteActiveItemUpgrade(ctx, active.identity, slot);
@@ -4126,7 +4127,7 @@ function removeIdentityPresence(ctx: any, identity: any) {
         x: currentDuel.challengerOriginX,
         y: currentDuel.challengerOriginY,
       };
-      ctx.db.duel.id.delete(currentDuel.id);
+      deleteSnapshotRow(ctx, "duel", currentDuel.id);
     }
   }
   const activePlayer = playerWithMotion(ctx, ctx.db.player.identity.find(identity));
@@ -4136,7 +4137,7 @@ function removeIdentityPresence(ctx: any, identity: any) {
     if (!rootShardingEnabled(ctx)) persistWorldLocation(ctx, disconnectedDuelOrigin
       ? { ...activePlayer, ...disconnectedDuelOrigin }
       : activePlayer);
-    ctx.db.player.identity.delete(identity);
+    deleteSnapshotRow(ctx, "player", identity);
     if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
     if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
     reconcileOnlinePlayers(ctx);
@@ -4176,18 +4177,18 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   removePlayerSafetyData(ctx, identity);
 
   const activePlayer = ctx.db.player.identity.find(identity);
-  if (activePlayer) ctx.db.player.identity.delete(identity);
+  if (activePlayer) deleteSnapshotRow(ctx, "player", identity);
   removePlayerRealtimeState(ctx, identity);
   if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
   if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
-  if (ctx.db.playerProfile.identity.find(identity)) ctx.db.playerProfile.identity.delete(identity);
-  if (ctx.db.playerProgress.identity.find(identity)) ctx.db.playerProgress.identity.delete(identity);
+  if (ctx.db.playerProfile.identity.find(identity)) deleteSnapshotRow(ctx, "playerProfile", identity);
+  if (ctx.db.playerProgress.identity.find(identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
   if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
-  if (ctx.db.playerResearch.identity.find(identity)) ctx.db.playerResearch.identity.delete(identity);
+  if (ctx.db.playerResearch.identity.find(identity)) deleteSnapshotRow(ctx, "playerResearch", identity);
   if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
   removeResearchCompletionSchedules(ctx, identity);
   removePlayerItemUpgradeData(ctx, identity, true);
-  if (ctx.db.playerAccountStatus.identity.find(identity)) ctx.db.playerAccountStatus.identity.delete(identity);
+  if (ctx.db.playerAccountStatus.identity.find(identity)) deleteSnapshotRow(ctx, "playerAccountStatus", identity);
   if (ctx.db.playerLegalConsent.identity.find(identity)) ctx.db.playerLegalConsent.identity.delete(identity);
   if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
@@ -4252,20 +4253,20 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
 function removePlayerIdentityData(ctx: any, identity: any) {
   removePlayerSafetyData(ctx, identity);
   const activePlayer = ctx.db.player.identity.find(identity);
-  if (activePlayer) ctx.db.player.identity.delete(identity);
+  if (activePlayer) deleteSnapshotRow(ctx, "player", identity);
   removePlayerRealtimeState(ctx, identity);
 
   if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
   if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
-  if (ctx.db.playerProfile.identity.find(identity)) ctx.db.playerProfile.identity.delete(identity);
-  if (ctx.db.playerProgress.identity.find(identity)) ctx.db.playerProgress.identity.delete(identity);
+  if (ctx.db.playerProfile.identity.find(identity)) deleteSnapshotRow(ctx, "playerProfile", identity);
+  if (ctx.db.playerProgress.identity.find(identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
   if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
-  if (ctx.db.playerResearch.identity.find(identity)) ctx.db.playerResearch.identity.delete(identity);
+  if (ctx.db.playerResearch.identity.find(identity)) deleteSnapshotRow(ctx, "playerResearch", identity);
   if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
   removeResearchCompletionSchedules(ctx, identity);
   removePlayerItemUpgradeData(ctx, identity, true);
 
-  if (ctx.db.playerAccountStatus.identity.find(identity)) ctx.db.playerAccountStatus.identity.delete(identity);
+  if (ctx.db.playerAccountStatus.identity.find(identity)) deleteSnapshotRow(ctx, "playerAccountStatus", identity);
   if (ctx.db.playerLegalConsent.identity.find(identity)) ctx.db.playerLegalConsent.identity.delete(identity);
   if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
   if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
@@ -4343,7 +4344,7 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   for (const current of [...ctx.db.duel.iter() as Iterable<any>]) {
     if (!sameIdentity(current.challenger, identity) && !sameIdentity(current.opponent, identity)) continue;
     duelIds.add(current.id);
-    ctx.db.duel.id.delete(current.id);
+    deleteSnapshotRow(ctx, "duel", current.id);
   }
   for (const schedule of [...ctx.db.duelResolutionSchedule.iter() as Iterable<any>]) {
     if (duelIds.has(schedule.duelId)) ctx.db.duelResolutionSchedule.scheduledId.delete(schedule.scheduledId);
@@ -4466,7 +4467,7 @@ function clearExpiredDuelRequests(ctx: any) {
       expiredIds.push(current.id);
     }
   }
-  for (const id of expiredIds) ctx.db.duel.id.delete(id);
+  for (const id of expiredIds) deleteSnapshotRow(ctx, "duel", id);
 }
 
 function ensureMaintenanceSchedule(ctx: any) {
@@ -4718,7 +4719,7 @@ function ensureDreadreaperBoss(ctx: any) {
 }
 
 
-function regenerateIdleBosses(ctx: any) {
+function regenerateIdleBosses(ctx: any, mapId?: string) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const regenerate = (current: any, update: (next: any) => void) => {
     if (!current.alive || current.hp <= 0 || current.hp >= current.maxHp) return;
@@ -4732,18 +4733,18 @@ function regenerateIdleBosses(ctx: any) {
       hp: Math.min(current.maxHp, current.hp + current.maxHp * BOSS_REGEN_FRACTION_PER_MAINTENANCE),
     });
   };
-  regenerate(ensureDragonBoss(ctx), (next) => ctx.db.dragonBoss.id.update(next));
-  regenerate(ensureSpiderBoss(ctx), (next) => ctx.db.spiderBoss.id.update(next));
-  regenerate(ensureFrostclawBoss(ctx), (next) => ctx.db.frostclawBoss.id.update(next));
-  regenerate(ensureMagmaliskBoss(ctx), (next) => ctx.db.magmaliskBoss.id.update(next));
-  regenerate(ensureGloomrootBoss(ctx), (next) => ctx.db.gloomrootBoss.id.update(next));
-  regenerate(ensureTidewyrmBoss(ctx), (next) => ctx.db.tidewyrmBoss.id.update(next));
-  regenerate(ensureKoiShogunBoss(ctx), (next) => ctx.db.koiShogunBoss.id.update(next));
-  regenerate(ensureTempestKirinBoss(ctx), (next) => ctx.db.tempestKirinBoss.id.update(next));
-  regenerate(ensureMiremawBoss(ctx), (next) => ctx.db.miremawBoss.id.update(next));
-  regenerate(ensurePrismshellBoss(ctx), (next) => ctx.db.prismshellBoss.id.update(next));
-  regenerate(ensureIronhornBoss(ctx), (next) => ctx.db.ironhornBoss.id.update(next));
-  regenerate(ensureDreadreaperBoss(ctx), (next) => ctx.db.dreadreaperBoss.id.update(next));
+  if (mapId === undefined || mapId === TUTORIAL_FOREST_MAP_ID) regenerate(ensureDragonBoss(ctx), (next) => ctx.db.dragonBoss.id.update(next));
+  if (mapId === undefined || mapId === BEGINNER_DESERT_MAP_ID) regenerate(ensureSpiderBoss(ctx), (next) => ctx.db.spiderBoss.id.update(next));
+  if (mapId === undefined || mapId === INTERMEDIATE_SNOWLANDS_MAP_ID) regenerate(ensureFrostclawBoss(ctx), (next) => ctx.db.frostclawBoss.id.update(next));
+  if (mapId === undefined || mapId === ADVANCED_LAVA_WASTES_MAP_ID) regenerate(ensureMagmaliskBoss(ctx), (next) => ctx.db.magmaliskBoss.id.update(next));
+  if (mapId === undefined || mapId === INFERNAL_DEPTHS_MAP_ID) regenerate(ensureGloomrootBoss(ctx), (next) => ctx.db.gloomrootBoss.id.update(next));
+  if (mapId === undefined || mapId === WATER_REACH_MAP_ID) regenerate(ensureTidewyrmBoss(ctx), (next) => ctx.db.tidewyrmBoss.id.update(next));
+  if (mapId === undefined || mapId === SAMURAI_GARDEN_MAP_ID) regenerate(ensureKoiShogunBoss(ctx), (next) => ctx.db.koiShogunBoss.id.update(next));
+  if (mapId === undefined || mapId === CLOUDSPIRE_MAP_ID) regenerate(ensureTempestKirinBoss(ctx), (next) => ctx.db.tempestKirinBoss.id.update(next));
+  if (mapId === undefined || mapId === MOONFEN_MAP_ID) regenerate(ensureMiremawBoss(ctx), (next) => ctx.db.miremawBoss.id.update(next));
+  if (mapId === undefined || mapId === CRYSTAL_HOLLOWS_MAP_ID) regenerate(ensurePrismshellBoss(ctx), (next) => ctx.db.prismshellBoss.id.update(next));
+  if (mapId === undefined || mapId === CLOCKWORK_RUINS_MAP_ID) regenerate(ensureIronhornBoss(ctx), (next) => ctx.db.ironhornBoss.id.update(next));
+  if (mapId === undefined || mapId === DUSKFALL_ORCHARD_MAP_ID) regenerate(ensureDreadreaperBoss(ctx), (next) => ctx.db.dreadreaperBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4763,14 +4764,14 @@ function rewardSpiderContributor(ctx: any, identity: any) {
     maxHp: SPIDER_REWARD_HEALTH,
   });
   const next = { ...reward, snowlandsUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -4842,14 +4843,14 @@ function rewardFrostclawContributor(ctx: any, identity: any) {
     if (!alreadyOwned) next = restoreItemToProgress(next, FROST_ARMOR);
   }
   next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -4914,14 +4915,14 @@ function rewardMagmaliskContributor(ctx: any, identity: any) {
     if (!alreadyOwned) next = restoreItemToProgress(next, LAVA_BOW);
   }
   next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -4979,14 +4980,14 @@ function rewardGloomrootContributor(ctx: any, identity: any) {
     regen: GLOOMROOT_REWARD_REGEN,
   });
   const next = { ...reward, waterUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5105,14 +5106,14 @@ function rewardTidewyrmContributor(ctx: any, identity: any) {
     regen: TIDEWYRM_REWARD_REGEN,
   });
   const next = { ...reward, samuraiUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5129,14 +5130,14 @@ function rewardKoiShogunContributor(ctx: any, identity: any) {
     regen: KOI_SHOGUN_REWARD_REGEN,
   });
   const next = { ...reward, samuraiUnlocked: true, cloudspireUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5153,14 +5154,14 @@ function rewardTempestKirinContributor(ctx: any, identity: any) {
     regen: TEMPEST_KIRIN_REWARD_REGEN,
   });
   const next = { ...reward, cloudspireUnlocked: true, moonfenUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5177,14 +5178,14 @@ function rewardMiremawContributor(ctx: any, identity: any) {
     regen: MIREMAW_REWARD_REGEN,
   });
   const next = { ...reward, moonfenUnlocked: true, crystalHollowsUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5200,14 +5201,14 @@ function rewardPrismshellContributor(ctx: any, identity: any) {
     regen: PRISMSHELL_REWARD_REGEN,
   });
   const next = { ...reward, crystalHollowsUnlocked: true, clockworkRuinsUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5223,14 +5224,14 @@ function rewardIronhornContributor(ctx: any, identity: any) {
     regen: IRONHORN_REWARD_REGEN,
   });
   const next = { ...reward, clockworkRuinsUnlocked: true, duskfallOrchardUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5246,14 +5247,14 @@ function rewardDreadreaperContributor(ctx: any, identity: any) {
     regen: DREADREAPER_REWARD_REGEN,
   });
   const next = { ...reward, duskfallOrchardUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5511,14 +5512,14 @@ function rewardDragonContributor(ctx: any, identity: any) {
     damage: DRAGON_REWARD_DAMAGE,
   });
   const next = { ...reward, desertUnlocked: true };
-  ctx.db.playerProgress.identity.update(next);
+  updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
     const nextPlayer = {
       ...active,
       ...powerFieldsForProgress(ctx, next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   }
 }
@@ -5611,7 +5612,7 @@ function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
     ...stoppedMotionFields(current, true),
     lastInputAt: ctx.timestamp,
   };
-  ctx.db.player.identity.update(next);
+  updateSnapshotRow(ctx, "player", next);
   syncPlayerMotion(ctx, next);
   syncPlayerMotionIdentity(ctx, next);
   syncPlayerMapMarker(ctx, next, true);
@@ -5689,7 +5690,7 @@ function finishDuel(ctx: any, current: any) {
     duelAnnouncementText(challengerName, opponentName, announcementOutcome),
     current.id,
   );
-  ctx.db.duel.id.delete(current.id);
+  deleteSnapshotRow(ctx, "duel", current.id);
 }
 
 function resolveDuel(ctx: any, current: any) {
@@ -5729,14 +5730,14 @@ function resolveDuel(ctx: any, current: any) {
       status: "finishing",
       endsAtMicros: ctx.timestamp.microsSinceUnixEpoch + DUEL_FINISH_HOLD_MICROS,
     };
-    ctx.db.duel.id.update(finishing);
+    updateSnapshotRow(ctx, "duel", finishing);
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,
       scheduledAt: ScheduleAt.time(finishing.endsAtMicros),
       duelId: finishing.id,
     });
   } else {
-    ctx.db.duel.id.update(next);
+    updateSnapshotRow(ctx, "duel", next);
   }
 }
 
@@ -5809,7 +5810,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
 
   let existingProfile = ctx.db.playerProfile.identity.find(ctx.sender);
   if (!existingProfile) {
-    ctx.db.playerProfile.insert({
+    insertSnapshotRow(ctx, "playerProfile", {
       identity: ctx.sender,
       displayName: generatedDisplayName(ctx.sender),
       profileIcon: 0,
@@ -5832,7 +5833,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     if (grantBetaTesterGoldenHelmet) {
       existingProgress.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, true));
     }
-    ctx.db.playerProgress.insert(existingProgress);
+    insertSnapshotRow(ctx, "playerProgress", existingProgress);
     markPlayerBalanceCurrent(ctx);
   } else {
     existingProgress = migratePlayerBalance(ctx, existingProgress);
@@ -5880,7 +5881,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         moonfenUnlocked: existingProgress.moonfenUnlocked || isInMoonfen || latestTempestKirinContributor,
         crystalHollowsUnlocked: existingProgress.crystalHollowsUnlocked || isInCrystalHollows || latestMiremawContributor, clockworkRuinsUnlocked: existingProgress.clockworkRuinsUnlocked || isInClockworkRuins, duskfallOrchardUnlocked: existingProgress.duskfallOrchardUnlocked || isInDuskfallOrchard,
       };
-      ctx.db.playerProgress.identity.update(existingProgress);
+      updateSnapshotRow(ctx, "playerProgress", existingProgress);
     }
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const equippedHead = equippedHeadForProgress(existingProgress);
@@ -5905,7 +5906,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         equippedLeftHand,
         ...cosmeticEquipment,
       };
-      ctx.db.playerProgress.identity.update(migratedProgress);
+      updateSnapshotRow(ctx, "playerProgress", migratedProgress);
       existingProgress = migratedProgress;
     }
   }
@@ -5930,7 +5931,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   const equipmentPresentation = equipmentPresentationForProgress(existingProgress);
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
-      ctx.db.player.identity.update({
+      updateSnapshotRow(ctx, "player", {
         ...existing,
         mapId: canonicalMapId(existing.mapId),
         ...playerZone(existing.x, existing.y),
@@ -5959,7 +5960,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, existing.y)),
       }
       : fallbackPosition;
-    ctx.db.player.identity.update({
+    updateSnapshotRow(ctx, "player", {
       ...existing,
       mapId: entryMapId,
       x: entryPosition.x,
@@ -6013,7 +6014,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     ...equipmentPresentation,
     isVisible: visibleOnEntry,
   };
-  ctx.db.player.insert(insertedPlayer);
+  insertSnapshotRow(ctx, "player", insertedPlayer);
   syncPlayerMotion(ctx, insertedPlayer);
   syncPlayerMotionIdentity(ctx, insertedPlayer);
   syncPlayerMapMarker(ctx, insertedPlayer, true);
@@ -6069,7 +6070,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
         protocolVersion: replacement.protocolVersion,
         controllerTabId: replacement.tabId,
       };
-      ctx.db.player.identity.update(nextPlayer);
+      updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotion(ctx, nextPlayer);
       syncPlayerMotionIdentity(ctx, nextPlayer);
     }
@@ -6084,7 +6085,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
     const currentPlayer = playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender));
     if (currentPlayer) {
       const stopped = { ...currentPlayer, ...stoppedMotionFields(currentPlayer, true), lastInputAt: ctx.timestamp };
-      ctx.db.player.identity.update(stopped);
+      updateSnapshotRow(ctx, "player", stopped);
       syncPlayerMotion(ctx, stopped);
       syncPlayerMotionIdentity(ctx, stopped);
     }
@@ -6100,6 +6101,12 @@ export const runMaintenance = spacetimedb.reducer(
   { maintenance: maintenanceSchedule.rowType },
   (ctx, { maintenance }) => {
     void maintenance;
+    if (isMapShard(ctx)) {
+      ensureMotionDetailFrameSchedule(ctx);
+      runPendingModuleMigrations(ctx);
+      regenerateIdleBosses(ctx, ctx.db.shardRuntime.id.find(0)!.mapId);
+      return;
+    }
     const finishedDuels = [...ctx.db.duel.iter()].filter((current: any) =>
       current.status === "finishing" && ctx.timestamp.microsSinceUnixEpoch >= current.endsAtMicros
     );
@@ -6108,7 +6115,7 @@ export const runMaintenance = spacetimedb.reducer(
     ensureMotionDetailFrameSchedule(ctx);
     runPendingModuleMigrations(ctx);
     refreshLeaderboardIfDue(ctx);
-    regenerateIdleBosses(ctx);
+    if (!rootShardingEnabled(ctx)) regenerateIdleBosses(ctx);
   },
 );
 
@@ -6118,6 +6125,11 @@ export const runMaintenanceSweep = spacetimedb.reducer(
   { maintenance: maintenanceSweepSchedule.rowType },
   (ctx, { maintenance }) => {
     void maintenance;
+    if (isMapShard(ctx)) {
+      clearOrphanPresence(ctx);
+      clearOrphanRealtimeState(ctx);
+      return;
+    }
     clearExpiredHistory(ctx);
     trimStartupTelemetry(ctx);
     clearExpiredStartupTelemetryRateLimits(ctx);
@@ -7373,7 +7385,7 @@ export const registerProtocol = spacetimedb.reducer(
     const current = ctx.db.player.identity.find(ctx.sender);
     const controller = ctx.db.playerController.identity.find(ctx.sender);
     if (current && ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
-      ctx.db.player.identity.update({ ...current, protocolVersion });
+      updateSnapshotRow(ctx, "player", { ...current, protocolVersion });
     }
     const activeResearch = ctx.db.activeResearch.identity.find(ctx.sender);
     if (activeResearch) reconcileActiveResearch(ctx, activeResearch);
@@ -7509,8 +7521,8 @@ export const claimGuestAccount = spacetimedb.reducer(
       identity: ctx.sender,
       attackRate: Math.max(MIN_ATTACK_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
     };
-    if (accountProgress) ctx.db.playerProgress.identity.update(nextProgress);
-    else ctx.db.playerProgress.insert(nextProgress);
+    if (accountProgress) updateSnapshotRow(ctx, "playerProgress", nextProgress);
+    else insertSnapshotRow(ctx, "playerProgress", nextProgress);
 
     const guestLocation = ctx.db.playerLastLocation.identity.find(link.guest);
     const accountLocation = ctx.db.playerLastLocation.identity.find(ctx.sender);
@@ -7524,8 +7536,8 @@ export const claimGuestAccount = spacetimedb.reducer(
     const accountResearch = ctx.db.playerResearch.identity.find(ctx.sender);
     if (guestResearch) {
       const nextResearch = { ...guestResearch, identity: ctx.sender, frontierMastery: 0 };
-      if (accountResearch) ctx.db.playerResearch.identity.update(nextResearch);
-      else ctx.db.playerResearch.insert(nextResearch);
+      if (accountResearch) updateSnapshotRow(ctx, "playerResearch", nextResearch);
+      else insertSnapshotRow(ctx, "playerResearch", nextResearch);
     }
     const guestActiveResearch = ctx.db.activeResearch.identity.find(link.guest);
     const accountActiveResearch = ctx.db.activeResearch.identity.find(ctx.sender);
@@ -7547,8 +7559,8 @@ export const claimGuestAccount = spacetimedb.reducer(
         itemId: guestUpgrade.itemId,
         level: Math.max(accountUpgrade?.level ?? 0, guestUpgrade.level),
       };
-      if (accountUpgrade) ctx.db.playerItemUpgrade.key.update(transferred);
-      else ctx.db.playerItemUpgrade.insert(transferred);
+      if (accountUpgrade) updateSnapshotRow(ctx, "playerItemUpgrade", transferred);
+      else insertSnapshotRow(ctx, "playerItemUpgrade", transferred);
     }
     for (const slot of [UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO]) {
       const guestActiveItemUpgrade = activeItemUpgradeForSlot(ctx, link.guest, slot);
@@ -7605,13 +7617,13 @@ export const claimGuestAccount = spacetimedb.reducer(
     const preserveAccountName = Boolean(accountProfile && !isGeneratedDisplayName(accountProfile.displayName));
     const transferGuestName = Boolean(guestProfile && !preserveAccountName && !isGeneratedDisplayName(guestProfile.displayName) && isPublicDisplayNameAllowed(guestProfile.displayName));
     if (transferGuestName && guestProfile && accountProfile) {
-      ctx.db.playerProfile.identity.update({ ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
+      updateSnapshotRow(ctx, "playerProfile", { ...accountProfile, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
     } else if (transferGuestName && guestProfile) {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
+      insertSnapshotRow(ctx, "playerProfile", { identity: ctx.sender, displayName: guestProfile.displayName, profileIcon: guestProfile.profileIcon, playerSprite: guestProfile.playerSprite, skinTone: guestProfile.skinTone, gender: guestProfile.gender });
     } else if (guestProfile?.gender && accountProfile?.gender === PLAYER_GENDER_UNSET) {
-      ctx.db.playerProfile.identity.update({ ...accountProfile, gender: guestProfile.gender });
+      updateSnapshotRow(ctx, "playerProfile", { ...accountProfile, gender: guestProfile.gender });
     } else if (guestProfile?.gender && !accountProfile) {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: generatedDisplayName(ctx.sender), profileIcon: 0, playerSprite: 0, skinTone: 3, gender: guestProfile.gender });
+      insertSnapshotRow(ctx, "playerProfile", { identity: ctx.sender, displayName: generatedDisplayName(ctx.sender), profileIcon: 0, playerSprite: 0, skinTone: 3, gender: guestProfile.gender });
     }
     if (transferGuestName && guestProfile) {
       syncDisplayNamePresentation(ctx, ctx.sender, guestProfile.displayName);
@@ -7631,7 +7643,7 @@ export const claimGuestAccount = spacetimedb.reducer(
 
     const activePlayer = ctx.db.player.identity.find(ctx.sender);
     if (activePlayer) {
-      ctx.db.player.identity.update({
+      updateSnapshotRow(ctx, "player", {
         ...activePlayer,
         speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         ...powerFieldsForProgress(ctx, nextProgress),
@@ -7643,11 +7655,11 @@ export const claimGuestAccount = spacetimedb.reducer(
     const finalDisplayName = finalProfile?.displayName ?? generatedDisplayName(ctx.sender);
     const accountStatus = ctx.db.playerAccountStatus.identity.find(ctx.sender);
     const linkedStatus = { identity: ctx.sender, isGuest: false };
-    if (accountStatus) ctx.db.playerAccountStatus.identity.update(linkedStatus);
-    else ctx.db.playerAccountStatus.insert(linkedStatus);
+    if (accountStatus) updateSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
+    else insertSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
     const guestAccountStatus = ctx.db.playerAccountStatus.identity.find(link.guest);
-    if (guestAccountStatus) ctx.db.playerAccountStatus.identity.delete(link.guest);
+    if (guestAccountStatus) deleteSnapshotRow(ctx, "playerAccountStatus", link.guest);
     const guestLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(link.guest);
     const accountLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (guestLeaderboardEntry || accountLeaderboardEntry) {
@@ -7773,19 +7785,19 @@ export const claimGuestAccount = spacetimedb.reducer(
     // reconnect with the pre-migration name and stats.
     const guestActivePlayer = ctx.db.player.identity.find(link.guest);
     if (guestActivePlayer) {
-      ctx.db.player.identity.delete(link.guest);
+      deleteSnapshotRow(ctx, "player", link.guest);
       reconcileOnlinePlayers(ctx);
     }
     removePlayerRealtimeState(ctx, link.guest);
     if (ctx.db.playerMapMarker.identity.find(link.guest)) ctx.db.playerMapMarker.identity.delete(link.guest);
     if (ctx.db.playerMovementDemand.identity.find(link.guest)) ctx.db.playerMovementDemand.identity.delete(link.guest);
-    if (guestProgress) ctx.db.playerProgress.identity.delete(link.guest);
+    if (guestProgress) deleteSnapshotRow(ctx, "playerProgress", link.guest);
     if (ctx.db.playerLegalConsent.identity.find(link.guest)) ctx.db.playerLegalConsent.identity.delete(link.guest);
     if (guestLocation) ctx.db.playerLastLocation.identity.delete(link.guest);
-    if (guestResearch) ctx.db.playerResearch.identity.delete(link.guest);
+    if (guestResearch) deleteSnapshotRow(ctx, "playerResearch", link.guest);
     if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);
     removePlayerItemUpgradeData(ctx, link.guest, true);
-    if (guestProfile) ctx.db.playerProfile.identity.delete(link.guest);
+    if (guestProfile) deleteSnapshotRow(ctx, "playerProfile", link.guest);
     if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);
     const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
     if (guestNameCooldown) ctx.db.playerNameCooldown.identity.delete(link.guest);
@@ -7861,9 +7873,9 @@ export const setDisplayName = spacetimedb.reducer(
     }
 
     if (existing) {
-      ctx.db.playerProfile.identity.update({ ...existing, displayName: normalized });
+      updateSnapshotRow(ctx, "playerProfile", { ...existing, displayName: normalized });
     } else {
-      ctx.db.playerProfile.insert({ identity: ctx.sender, displayName: normalized, profileIcon: 0, playerSprite: 0, skinTone: 3, gender: PLAYER_GENDER_UNSET });
+      insertSnapshotRow(ctx, "playerProfile", { identity: ctx.sender, displayName: normalized, profileIcon: 0, playerSprite: 0, skinTone: 3, gender: PLAYER_GENDER_UNSET });
     }
     if (cooldown) ctx.db.playerNameCooldown.identity.update({ ...cooldown, changedAt: ctx.timestamp });
     else ctx.db.playerNameCooldown.insert({ identity: ctx.sender, changedAt: ctx.timestamp });
@@ -7883,7 +7895,7 @@ export const setDeveloperPresence = spacetimedb.reducer(
     else ctx.db.developerPresencePreference.insert({ identity: ctx.sender, visible });
     if (activePlayer.isVisible === visible) return;
     const nextPlayer = { ...activePlayer, isVisible: visible, lastInputAt: ctx.timestamp };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotion(ctx, nextPlayer);
     syncPlayerMotionIdentity(ctx, nextPlayer);
     syncPlayerMapMarker(ctx, nextPlayer, true);
@@ -8142,7 +8154,7 @@ export const devCopyPlayerCombatStats = spacetimedb.reducer(
       speed: source.speed,
       speedOverride: source.speedOverride,
     };
-    ctx.db.playerProgress.identity.update(nextProgress);
+    updateSnapshotRow(ctx, "playerProgress", nextProgress);
     const active = ctx.db.player.identity.find(targetIdentity);
     if (active) {
       const nextPlayer = {
@@ -8150,7 +8162,7 @@ export const devCopyPlayerCombatStats = spacetimedb.reducer(
         speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         ...powerFieldsForProgress(ctx, nextProgress),
       };
-      ctx.db.player.identity.update(nextPlayer);
+      updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
     refreshLeaderboard(ctx);
@@ -8165,7 +8177,7 @@ export const setProfileIcon = spacetimedb.reducer(
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.profileIcon === profileIcon) return;
-    ctx.db.playerProfile.identity.update({ ...profile, profileIcon });
+    updateSnapshotRow(ctx, "playerProfile", { ...profile, profileIcon });
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, profileIcon });
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
@@ -8182,7 +8194,7 @@ export const setGender = spacetimedb.reducer(
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.gender === gender) return;
-    ctx.db.playerProfile.identity.update({ ...profile, gender });
+    updateSnapshotRow(ctx, "playerProfile", { ...profile, gender });
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, gender });
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
@@ -8197,7 +8209,7 @@ export const setPlayerSprite = spacetimedb.reducer(
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.playerSprite === playerSprite) return;
-    ctx.db.playerProfile.identity.update({ ...profile, playerSprite });
+    updateSnapshotRow(ctx, "playerProfile", { ...profile, playerSprite });
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
   },
 );
@@ -8210,7 +8222,7 @@ export const setSkinTone = spacetimedb.reducer(
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
     if (profile.skinTone === skinTone) return;
-    ctx.db.playerProfile.identity.update({ ...profile, skinTone });
+    updateSnapshotRow(ctx, "playerProfile", { ...profile, skinTone });
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, skinTone });
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
@@ -8262,9 +8274,9 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       speed: equipmentSpeed,
       speedOverride: requestedSpeed === 0 || movementSpeedsMatch(requestedSpeed, equipmentSpeed) ? 0 : requestedSpeed,
     };
-    ctx.db.playerProfile.identity.update({ ...profile, displayName });
+    updateSnapshotRow(ctx, "playerProfile", { ...profile, displayName });
     syncDisplayNamePresentation(ctx, update.identity, displayName);
-    ctx.db.playerProgress.identity.update(nextProgress);
+    updateSnapshotRow(ctx, "playerProgress", nextProgress);
     const active = ctx.db.player.identity.find(update.identity);
     if (active) {
       const nextPlayer = {
@@ -8272,7 +8284,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
         speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         ...powerFieldsForProgress(ctx, nextProgress),
       };
-      ctx.db.player.identity.update(nextPlayer);
+      updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
     const audit = ctx.db.playerAccessAudit.identity.find(update.identity);
@@ -8390,8 +8402,8 @@ export const savePlayerProgress = spacetimedb.reducer(
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
     };
-    if (!current) ctx.db.playerProgress.insert(next);
-    else if (!samePlayerProgressValues(current, next)) ctx.db.playerProgress.identity.update(next);
+    if (!current) insertSnapshotRow(ctx, "playerProgress", next);
+    else if (!samePlayerProgressValues(current, next)) updateSnapshotRow(ctx, "playerProgress", next);
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) {
       const appearance = leaderboardAppearanceForProgress(next, ctx.db.playerProfile.identity.find(ctx.sender));
@@ -8425,7 +8437,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       activePlayer.leftHandItem !== presentation.leftHandItem
     ) {
       const nextPlayer = { ...activePlayer, ...presentation };
-      ctx.db.player.identity.update(nextPlayer);
+      updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
   },
@@ -8687,8 +8699,8 @@ export const recordForestEnemyDefeat = spacetimedb.reducer(
       if (!alreadyOwned) next = restoreItemToProgress(next, WOODEN_ARMOR);
     }
     next.inventoryJson = JSON.stringify(inventoryForProgress(next));
-    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
-    else ctx.db.playerProgress.insert(next);
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) updateSnapshotRow(ctx, "playerProgress", next);
+    else insertSnapshotRow(ctx, "playerProgress", next);
   },
 );
 
@@ -8715,8 +8727,8 @@ export const recordDesertEnemyDefeat = spacetimedb.reducer(
       if (!alreadyOwned) next = restoreItemToProgress(next, IRON_BOW);
     }
     next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
-    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
-    else ctx.db.playerProgress.insert(next);
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) updateSnapshotRow(ctx, "playerProgress", next);
+    else insertSnapshotRow(ctx, "playerProgress", next);
   },
 );
 
@@ -8733,8 +8745,8 @@ export const recordSnowEnemyDefeat = spacetimedb.reducer(
     publishItemDrop(ctx, ctx.sender, SNOW_BOW, alreadyOwned);
     const next = alreadyOwned ? current : restoreItemToProgress(current, SNOW_BOW);
     next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
-    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
-    else ctx.db.playerProgress.insert(next);
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) updateSnapshotRow(ctx, "playerProgress", next);
+    else insertSnapshotRow(ctx, "playerProgress", next);
   },
 );
 
@@ -8767,8 +8779,8 @@ export const recordLavaEnemyDefeat = spacetimedb.reducer(
         if (!alreadyOwned) next = restoreItemToProgress(next, DARK_METAL_HELMET);
       }
       next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
-      if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
-      else ctx.db.playerProgress.insert(next);
+      if (ctx.db.playerProgress.identity.find(ctx.sender)) updateSnapshotRow(ctx, "playerProgress", next);
+      else insertSnapshotRow(ctx, "playerProgress", next);
       return;
     }
     if (activePlayer.mapId !== ADVANCED_LAVA_WASTES_MAP_ID) return;
@@ -8788,8 +8800,8 @@ export const recordLavaEnemyDefeat = spacetimedb.reducer(
       if (!alreadyOwned) next = restoreItemToProgress(next, FIRE_METAL_HELMET);
     }
     next.inventoryJson = JSON.stringify([...new Set(inventoryForProgress(next))]);
-    if (ctx.db.playerProgress.identity.find(ctx.sender)) ctx.db.playerProgress.identity.update(next);
-    else ctx.db.playerProgress.insert(next);
+    if (ctx.db.playerProgress.identity.find(ctx.sender)) updateSnapshotRow(ctx, "playerProgress", next);
+    else insertSnapshotRow(ctx, "playerProgress", next);
   },
 );
 
@@ -8799,8 +8811,8 @@ export const beginAdventure = spacetimedb.reducer(
     requireControllingPlayer(ctx);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     if (current?.introComplete) return;
-    if (current) ctx.db.playerProgress.identity.update({ ...current, introComplete: true });
-    else ctx.db.playerProgress.insert({ ...defaultPlayerProgress(ctx.sender), introComplete: true });
+    if (current) updateSnapshotRow(ctx, "playerProgress", { ...current, introComplete: true });
+    else insertSnapshotRow(ctx, "playerProgress", { ...defaultPlayerProgress(ctx.sender), introComplete: true });
   },
 );
 
@@ -8816,10 +8828,10 @@ export const resetPlayerProgress = spacetimedb.reducer(
     if (hasRecentPlayerActivity(ctx, ctx.sender)) {
       next.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(next, true));
     }
-    if (current) ctx.db.playerProgress.identity.update(next);
-    else ctx.db.playerProgress.insert(next);
+    if (current) updateSnapshotRow(ctx, "playerProgress", next);
+    else insertSnapshotRow(ctx, "playerProgress", next);
     const research = ctx.db.playerResearch.identity.find(ctx.sender);
-    if (research) ctx.db.playerResearch.identity.delete(ctx.sender);
+    if (research) deleteSnapshotRow(ctx, "playerResearch", ctx.sender);
     const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
     if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
     removeResearchCompletionSchedules(ctx, ctx.sender);
@@ -8832,7 +8844,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
       speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   },
 );
@@ -8984,7 +8996,7 @@ export const requestDuel = spacetimedb.reducer(
     const challengerMaxHp = maxHealthForProgress(ctx, ctx.sender, challengerProgress);
     const opponentMaxHp = maxHealthForProgress(ctx, opponent, opponentProgress);
     const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;
-    const insertedDuel = ctx.db.duel.insert({
+    const insertedDuel = insertSnapshotRow(ctx, "duel", {
       id: 0n,
       combatVersion: DUEL_COMBAT_VERSION,
       challenger: ctx.sender,
@@ -9047,7 +9059,7 @@ export const requestDuel = spacetimedb.reducer(
       ...stoppedMotionFields(challenger, true),
       lastInputAt: ctx.timestamp,
     };
-    ctx.db.player.identity.update(nextChallenger);
+    updateSnapshotRow(ctx, "player", nextChallenger);
     syncPlayerMotion(ctx, nextChallenger);
     syncPlayerMotionIdentity(ctx, nextChallenger);
     syncPlayerMapMarker(ctx, nextChallenger, true);
@@ -9122,7 +9134,7 @@ function applyMovementState(
   const staticStateChanged =
     current.moving !== moving ||
     !moving;
-  if (staticStateChanged) ctx.db.player.identity.update(nextPlayer);
+  if (staticStateChanged) updateSnapshotRow(ctx, "player", nextPlayer);
 }
 
 export const updateMovementState = spacetimedb.reducer(
@@ -9221,7 +9233,7 @@ function transitionPlayerMap(
     motionEpoch: ((currentMotion?.motionEpoch ?? current.motionEpoch ?? 0) + 1) >>> 0,
     lastInputAt: ctx.timestamp,
   };
-  ctx.db.player.identity.update(nextPlayer);
+  updateSnapshotRow(ctx, "player", nextPlayer);
   syncPlayerMotion(ctx, nextPlayer);
   syncPlayerMotionIdentity(ctx, nextPlayer);
   syncPlayerMapMarker(ctx, nextPlayer, true);
@@ -9307,7 +9319,7 @@ export const setSpeed = spacetimedb.reducer(
       speed,
       lastInputAt: ctx.timestamp,
     };
-    ctx.db.player.identity.update(nextPlayer);
+    updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
   },
 );
@@ -9343,7 +9355,7 @@ export const configureSharding = spacetimedb.reducer(
         const saved = ctx.db.playerLastLocation.identity.find(player.identity);
         const restored = saved?.mapId === player.mapId && !activeDuelFor(ctx, player.identity)
           ? { ...player, x: saved.x, y: saved.y, facing: saved.facing } : player;
-        if (restored !== player) ctx.db.player.identity.update(restored);
+        if (restored !== player) updateSnapshotRow(ctx, "player", restored);
         syncPlayerMotion(ctx, restored); syncPlayerMotionIdentity(ctx, restored);
       }
       ensureRealtimeFrameSchedules(ctx);
@@ -9415,10 +9427,10 @@ function installShardPlayerImpl(ctx: any, args: any) {
         else table.insert(row);
       } else if (table.identity.find(args.identity)) table.identity.delete(args.identity);
     }
-    for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) ctx.db.playerItemUpgrade.key.delete(row.key);
+    for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) deleteSnapshotRow(ctx, "playerItemUpgrade", row.key);
     for (const row of data.playerItemUpgrade ?? []) {
       if (!sameIdentity(row.identity, args.identity)) throw new SenderError("Upgrade identity mismatch");
-      ctx.db.playerItemUpgrade.insert(row);
+      insertSnapshotRow(ctx, "playerItemUpgrade", row);
     }
     markPlayerBalanceCurrent(ctx, args.identity);
     const active = ctx.db.player.identity.find(args.identity);
@@ -9428,8 +9440,8 @@ function installShardPlayerImpl(ctx: any, args: any) {
       ? { ...active, ...powerFieldsForProgress(ctx, data.playerProgress), ...equipmentPresentationForProgress(data.playerProgress),
         speed: data.player.speed, isVisible: data.player.isVisible, controllerTabId: data.player.controllerTabId }
       : { ...data.player, lastInputAt: ctx.timestamp, moving: false, vx: 0, vy: 0 };
-    if (active) ctx.db.player.identity.update(nextPlayer);
-    else ctx.db.player.insert(nextPlayer);
+    if (active) updateSnapshotRow(ctx, "player", nextPlayer);
+    else insertSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
 }
 function enterShardPresence(ctx: any, tabId: string) {
@@ -9460,9 +9472,9 @@ function revokeShardPlayerImpl(ctx: any, args: any) {
     const table = (ctx.db as any)[name];
     if (table.identity.find(args.identity)) table.identity.delete(args.identity);
   }
-  for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) ctx.db.playerItemUpgrade.key.delete(row.key);
+  for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) deleteSnapshotRow(ctx, "playerItemUpgrade", row.key);
   // No global duel resolution in a region: the root owns the duel lifecycle.
-  ctx.db.player.identity.delete(args.identity);
+  deleteSnapshotRow(ctx, "player", args.identity);
   removePlayerRealtimeState(ctx, args.identity);
   if (ctx.db.playerController.identity.find(args.identity)) ctx.db.playerController.identity.delete(args.identity);
 }
@@ -9494,7 +9506,7 @@ export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t
   }
   if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
   const next = { ...player, x, y, moving: false, vx: 0, vy: 0, dx: 0, dy: 0, lastInputAt: ctx.timestamp };
-  ctx.db.player.identity.update(next);
+  updateSnapshotRow(ctx, "player", next);
   syncPlayerMotion(ctx, next);
 });
 
@@ -9599,10 +9611,20 @@ export const synchronizeMapShard = spacetimedb.procedure(
         tx.db.shardRuntime.id.update({ ...runtime, enabled: Boolean(batch.enabled), leaseExpiresAtMicros: 0n });
         if (batch.enabled) renewShardLeaseImpl(tx, { checkpoint });
       }
-      return encodeShardSnapshot({ sequence: tx.db.shardReplicaState.id.find(0)?.sequence,
+      const replica = tx.db.shardReplicaState.id.find(0);
+      const rewards = [];
+      for (const reward of tx.db.shardRewardOutbox.iter()) {
+        rewards.push(reward);
+        if (rewards.length === 100) break;
+      }
+      return encodeShardSnapshot({ sequence: replica?.sequence,
         admitted: [...tx.db.shardAdmission.iter()].filter(row => tx.db.player.identity.find(row.identity)),
-        checkpoints: [...tx.db.shardCheckpoint.iter()],
-        rewards: [...tx.db.shardRewardOutbox.iter()].slice(0, 100),
+        checkpointAt: replica?.checkpointAt ?? 0n,
+        // Older roots omit the cursor and retain the original full reply.
+        // New roots acknowledge only after their checkpoint transaction commits.
+        checkpoints: batch.checkpointAt === undefined || batch.checkpointAt !== replica?.checkpointAt
+          ? [...tx.db.shardCheckpoint.iter()] : [],
+        rewards,
       });
     });
   },

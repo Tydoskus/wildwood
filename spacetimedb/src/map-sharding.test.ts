@@ -201,3 +201,39 @@ describe("separate map database control plane", () => {
   });
 
 });
+
+it("retries checkpoints until acknowledged and skips checkpoint reads between captures", () => {
+  const root = rootFixture(), region = regionFixture();
+  const ctx = { ...region.ctx, withTx: (fn: any) => region.transaction(() => fn(region.ctx)) };
+  let sequence = 0n;
+  const sync = (checkpointAt: bigint) => decodeShardSnapshot((server.synchronizeMapShard as any)(ctx, {
+    payload: encodeShardSnapshot({ sequence: ++sequence, enabled: true,
+      expiresAt: region.ctx.timestamp.microsSinceUnixEpoch + 15_000_000n, checkpointAt,
+      members: [{ identity: identity("1"), generation: 10n, snapshot: sequence === 1n ? snapshot(root) : "" }] }),
+  }));
+  const first = sync(0n);
+  expect(first.checkpoints).toHaveLength(1);
+  expect(sync(0n).checkpoints).toEqual(first.checkpoints);
+  const scan = vi.spyOn(region.db.shardCheckpoint, "iter");
+  expect(sync(first.checkpointAt).checkpoints).toEqual([]);
+  expect(scan).not.toHaveBeenCalled();
+  region.ctx.timestamp = new Timestamp(region.ctx.timestamp.microsSinceUnixEpoch + 15_000_000n);
+  const next = sync(first.checkpointAt);
+  expect(next.checkpointAt).toBeGreaterThan(first.checkpointAt);
+  expect(next.checkpoints).toHaveLength(1);
+  scan.mockRestore();
+});
+
+it("regional maintenance avoids account scans and unrelated bosses", () => {
+  const f = regionFixture();
+  f.db.moduleMigrationState.id.update({ id: 0, version: 25 });
+  const reads = [vi.spyOn(f.db.playerProgress, "iter"), vi.spyOn(f.db.duel, "iter"),
+    vi.spyOn(f.db.playerLifetime, "iter"), vi.spyOn(f.db.startupTelemetryEvent, "iter"),
+    vi.spyOn(f.db.dragonBoss.id, "find"), vi.spyOn(f.db.ironhornBoss.id, "find")];
+  const ownBoss = vi.spyOn(f.db.prismshellBoss.id, "find");
+  f.run(server.runMaintenance);
+  f.run(server.runMaintenanceSweep);
+  expect(ownBoss).toHaveBeenCalled();
+  for (const read of reads) { expect(read).not.toHaveBeenCalled(); read.mockRestore(); }
+  ownBoss.mockRestore();
+});
